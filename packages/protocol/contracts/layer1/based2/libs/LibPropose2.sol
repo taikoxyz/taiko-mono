@@ -107,9 +107,14 @@ library LibPropose2 {
         private
         returns (I.BatchProposeMetadata memory)
     {
+        require(
+            _summary.numBatches <= _summary.lastVerifiedBatchId + _env.conf.maxUnverifiedBatches,
+            TooManyBatches()
+        );
+
         // Validate the params and returns an updated copy
         (I.BatchParams memory params, ParamsValidationOutput memory output) =
-            _validateBatchParams(_env, _summary, _params, _parentProposeMeta);
+            _validateBatchParams(_env, _params, _parentProposeMeta);
 
         output.prover = _validateProver(_env, _summary, params.proverAuth, params);
 
@@ -202,7 +207,6 @@ library LibPropose2 {
 
     function _validateBatchParams(
         Environment memory _env,
-        I.Summary memory _summary,
         I.BatchParams memory _params,
         I.BatchProposeMetadata memory _parentProposeMeta
     )
@@ -211,151 +215,142 @@ library LibPropose2 {
         returns (I.BatchParams memory, ParamsValidationOutput memory)
     {
         ParamsValidationOutput memory output;
-        unchecked {
-            require(
-                _summary.numBatches <= _summary.lastVerifiedBatchId + _env.conf.maxUnverifiedBatches,
-                TooManyBatches()
-            );
 
-            if (_env.inboxWrapper == address(0)) {
-                if (_params.proposer == address(0)) {
-                    _params.proposer = _env.sender;
-                } else {
-                    require(_params.proposer == _env.sender, CustomProposerNotAllowed());
-                }
-
-                // blob hashes are only accepted if the caller is trusted.
-                require(_params.blobParams.blobHashes.length == 0, InvalidBlobParams());
-                require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                require(_params.isForcedInclusion == false, InvalidForcedInclusion());
+        if (_env.inboxWrapper == address(0)) {
+            if (_params.proposer == address(0)) {
+                _params.proposer = _env.sender;
             } else {
-                require(_params.proposer != address(0), CustomProposerMissing());
-                require(_env.sender == _env.inboxWrapper, NotInboxWrapper());
+                require(_params.proposer == _env.sender, CustomProposerNotAllowed());
             }
 
-            // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
-            // preconfer address. This will allow us to implement preconfirmation features in L2
-            // anchor transactions.
-            if (_params.coinbase == address(0)) {
-                _params.coinbase = _params.proposer;
+            // blob hashes are only accepted if the caller is trusted.
+            require(_params.blobParams.blobHashes.length == 0, InvalidBlobParams());
+            require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+            require(_params.isForcedInclusion == false, InvalidForcedInclusion());
+        } else {
+            require(_params.proposer != address(0), CustomProposerMissing());
+            require(_env.sender == _env.inboxWrapper, NotInboxWrapper());
+        }
+
+        // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
+        // preconfer address. This will allow us to implement preconfirmation features in L2
+        // anchor transactions.
+        if (_params.coinbase == address(0)) {
+            _params.coinbase = _params.proposer;
+        }
+
+        if (_params.blobParams.blobHashes.length == 0) {
+            // this is a normal batch, blobs are created and used in the current batches.
+            // firstBlobIndex can be non-zero.
+            require(_params.blobParams.numBlobs != 0, BlobNotSpecified());
+            require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+            _params.blobParams.createdIn = _env.blockNumber;
+        } else {
+            // this is a forced-inclusion batch, blobs were created in early blocks and are used
+            // in the current batches
+            require(_params.blobParams.createdIn != 0, InvalidBlobCreatedIn());
+            require(_params.blobParams.numBlobs == 0, InvalidBlobParams());
+            require(_params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+        }
+        uint256 nBlocks = _params.encodedBlocks.length;
+
+        require(nBlocks != 0, BlockNotFound());
+        require(nBlocks <= _env.conf.maxBlocksPerBatch, TooManyBlocks());
+
+        output.blocks = new I.BlockParams[](nBlocks);
+
+        for (uint256 i; i < nBlocks; ++i) {
+            output.blocks[i].numTransactions = uint16(uint256(_params.encodedBlocks[i]));
+            output.blocks[i].timeShift = uint8(uint256(_params.encodedBlocks[i]) >> 16);
+            output.blocks[i].anchorBlockId = uint48(uint256(_params.encodedBlocks[i]) >> 24);
+            output.blocks[i].numSignals = uint8(uint256(_params.encodedBlocks[i]) >> 32 & 0xFF);
+        }
+
+        if (_params.lastBlockTimestamp == 0) {
+            _params.lastBlockTimestamp = _env.blockTimestamp;
+        } else {
+            require(_params.lastBlockTimestamp <= _env.blockTimestamp, TimestampTooLarge());
+        }
+
+        require(output.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
+
+        uint64 totalShift;
+        uint256 signalSlotsIdx;
+
+        for (uint256 i; i < nBlocks; ++i) {
+            totalShift += output.blocks[i].timeShift;
+
+            if (output.blocks[i].numSignals == 0) continue;
+
+            require(output.blocks[i].numSignals <= _env.conf.maxSignalsToReceive, TooManySignals());
+
+            for (uint256 j; j < output.blocks[i].numSignals; ++j) {
+                require(_env.isSignalSent(_params.signalSlots[signalSlotsIdx]), SignalNotSent());
+                signalSlotsIdx++;
             }
+        }
 
-            if (_params.blobParams.blobHashes.length == 0) {
-                // this is a normal batch, blobs are created and used in the current batches.
-                // firstBlobIndex can be non-zero.
-                require(_params.blobParams.numBlobs != 0, BlobNotSpecified());
-                require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                _params.blobParams.createdIn = _env.blockNumber;
-            } else {
-                // this is a forced-inclusion batch, blobs were created in early blocks and are used
-                // in the current batches
-                require(_params.blobParams.createdIn != 0, InvalidBlobCreatedIn());
-                require(_params.blobParams.numBlobs == 0, InvalidBlobParams());
-                require(_params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
-            }
-            uint256 nBlocks = _params.encodedBlocks.length;
+        require(_params.lastBlockTimestamp >= totalShift, TimestampTooSmall());
 
-            require(nBlocks != 0, BlockNotFound());
-            require(nBlocks <= _env.conf.maxBlocksPerBatch, TooManyBlocks());
+        uint256 firstBlockTimestamp = _params.lastBlockTimestamp - totalShift;
 
-            output.blocks = new I.BlockParams[](nBlocks);
+        require(
+            firstBlockTimestamp + _env.conf.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+                >= _env.blockTimestamp,
+            TimestampTooSmall()
+        );
 
-            for (uint256 i; i < nBlocks; ++i) {
-                output.blocks[i].numTransactions = uint16(uint256(_params.encodedBlocks[i]));
-                output.blocks[i].timeShift = uint8(uint256(_params.encodedBlocks[i]) >> 16);
-                output.blocks[i].anchorBlockId = uint48(uint256(_params.encodedBlocks[i]) >> 24);
-                output.blocks[i].numSignals = uint8(uint256(_params.encodedBlocks[i]) >> 32 & 0xFF);
-            }
+        require(
+            firstBlockTimestamp >= _parentProposeMeta.lastBlockTimestamp,
+            TimestampSmallerThanParent()
+        );
 
-            if (_params.lastBlockTimestamp == 0) {
-                _params.lastBlockTimestamp = _env.blockTimestamp;
-            } else {
-                require(_params.lastBlockTimestamp <= _env.blockTimestamp, TimestampTooLarge());
-            }
+        output.anchorBlockHashes = new bytes32[](nBlocks);
+        output.lastAnchorBlockId = _parentProposeMeta.lastAnchorBlockId;
+        uint256 k;
 
-            require(output.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
+        bool foundNoneZeroAnchorBlockId;
+        for (uint256 i; i < nBlocks; ++i) {
+            if (output.blocks[i].hasAnchorBlock) {
+                require(k < _params.anchorBlockIds.length, NotEnoughAnchorIds());
+                uint48 anchorBlockId = _params.anchorBlockIds[k];
 
-            uint64 totalShift;
-            uint256 signalSlotsIdx;
-
-            for (uint256 i; i < nBlocks; ++i) {
-                totalShift += output.blocks[i].timeShift;
-
-                if (output.blocks[i].numSignals == 0) continue;
+                require(anchorBlockId != 0, AnchorIdZero());
 
                 require(
-                    output.blocks[i].numSignals <= _env.conf.maxSignalsToReceive, TooManySignals()
+                    foundNoneZeroAnchorBlockId
+                        || anchorBlockId + _env.conf.maxAnchorHeightOffset >= _env.blockNumber,
+                    AnchorIdTooSmall()
                 );
 
-                for (uint256 j; j < output.blocks[i].numSignals; ++j) {
-                    require(_env.isSignalSent(_params.signalSlots[signalSlotsIdx]), SignalNotSent());
-                    signalSlotsIdx++;
-                }
+                require(anchorBlockId > output.lastAnchorBlockId, AnchorIdSmallerThanParent());
+                output.anchorBlockHashes[k] = _env.getBlobHash(anchorBlockId);
+                require(output.anchorBlockHashes[k] != 0, ZeroAnchorBlockHash());
+
+                foundNoneZeroAnchorBlockId = true;
+                output.lastAnchorBlockId = anchorBlockId;
+                k++;
             }
-
-            require(_params.lastBlockTimestamp >= totalShift, TimestampTooSmall());
-
-            uint256 firstBlockTimestamp = _params.lastBlockTimestamp - totalShift;
-
-            require(
-                firstBlockTimestamp
-                    + _env.conf.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                    >= _env.blockTimestamp,
-                TimestampTooSmall()
-            );
-
-            require(
-                firstBlockTimestamp >= _parentProposeMeta.lastBlockTimestamp,
-                TimestampSmallerThanParent()
-            );
-
-            output.anchorBlockHashes = new bytes32[](nBlocks);
-            output.lastAnchorBlockId = _parentProposeMeta.lastAnchorBlockId;
-            uint256 k;
-
-            bool foundNoneZeroAnchorBlockId;
-            for (uint256 i; i < nBlocks; ++i) {
-                if (output.blocks[i].hasAnchorBlock) {
-                    require(k < _params.anchorBlockIds.length, NotEnoughAnchorIds());
-                    uint48 anchorBlockId = _params.anchorBlockIds[k];
-
-                    require(anchorBlockId != 0, AnchorIdZero());
-
-                    require(
-                        foundNoneZeroAnchorBlockId
-                            || anchorBlockId + _env.conf.maxAnchorHeightOffset >= _env.blockNumber,
-                        AnchorIdTooSmall()
-                    );
-
-                    require(anchorBlockId > output.lastAnchorBlockId, AnchorIdSmallerThanParent());
-                    output.anchorBlockHashes[k] = _env.getBlobHash(anchorBlockId);
-                    require(output.anchorBlockHashes[k] != 0, ZeroAnchorBlockHash());
-
-                    foundNoneZeroAnchorBlockId = true;
-                    output.lastAnchorBlockId = anchorBlockId;
-                    k++;
-                }
-            }
-
-            // Ensure that if msg.sender is not the inboxWrapper, at least one block must
-            // have a non-zero anchor block id. Otherwise, delegate this validation to the
-            // inboxWrapper contract.
-            require(
-                _env.sender == _env.inboxWrapper || foundNoneZeroAnchorBlockId,
-                NoAnchorBlockIdWithinThisBatch()
-            );
-
-            (output.txsHash, output.blobHashes) = _calculateTxsHash(_env, _params.blobParams);
-
-            output.firstBlockId = _parentProposeMeta.lastBlockId + 1;
-            output.lastBlockId = uint48(output.firstBlockId + nBlocks);
-
-            require(
-                LibFork2.isBlocksInCurrentFork(_env.conf, output.firstBlockId, output.lastBlockId),
-                BlocksNotInCurrentFork()
-            );
-            return (_params, output);
         }
+
+        // Ensure that if msg.sender is not the inboxWrapper, at least one block must
+        // have a non-zero anchor block id. Otherwise, delegate this validation to the
+        // inboxWrapper contract.
+        require(
+            _env.sender == _env.inboxWrapper || foundNoneZeroAnchorBlockId,
+            NoAnchorBlockIdWithinThisBatch()
+        );
+
+        (output.txsHash, output.blobHashes) = _calculateTxsHash(_env, _params.blobParams);
+
+        output.firstBlockId = _parentProposeMeta.lastBlockId + 1;
+        output.lastBlockId = uint48(output.firstBlockId + nBlocks);
+
+        require(
+            LibFork2.isBlocksInCurrentFork(_env.conf, output.firstBlockId, output.lastBlockId),
+            BlocksNotInCurrentFork()
+        );
+        return (_params, output);
     }
 
     function _calculateTxsHash(
