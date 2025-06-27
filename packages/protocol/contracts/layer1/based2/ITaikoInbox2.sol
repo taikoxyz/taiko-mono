@@ -255,8 +255,8 @@ interface ITaikoInbox2 {
 
     /// @notice Emitted when a batch is proposed.
     /// @param batchId The ID of the proposed batch.
-    /// @param meta The metadata of the proposed batch.
-    event BatchProposed(uint256 batchId, BatchMetadata meta);
+    /// @param metaEncoded The encoded metadata of the proposed batch.
+    event BatchProposed(uint256 batchId, bytes metaEncoded);
 
     /// @notice Emitted when multiple transitions are proved.
     /// @param verifier The address of the verifier.

@@ -44,6 +44,7 @@ library LibPropose2 {
         uint48 blockTimestamp;
         uint48 blockNumber;
         bytes32 parentBatchMetaHash;
+        function(I.BatchMetadata memory) pure returns (bytes memory) encodeBatchMetadata;
         function(bytes32) view returns (bool) isSignalSent;
         function(I.Config memory, bytes32, uint256) view returns (bytes32) loadTransitionMetaHash;
         function(uint64, uint64, bytes32,  bytes memory) view returns (address, address, uint96)
@@ -84,7 +85,6 @@ library LibPropose2 {
 
             for (uint256 i; i < _params.length; ++i) {
                 parentProposeMeta = _proposeBatch(_env, _summary, _params[i], parentProposeMeta);
-                
                 _summary.numBatches += 1;
                 _summary.lastProposedIn = _env.blockNumber;
             }
@@ -107,11 +107,13 @@ library LibPropose2 {
             _validateBatchParams(_env, _summary, _params, _parentProposeMeta);
 
         output.prover = _validateProver(_env, _summary, params.proverAuth, params);
+
         I.BatchMetadata memory meta = _populateBatchMetadata(_env, params, output);
 
-        _env.saveBatchMetaHash(_env.conf, _summary.numBatches, hashBatch(_summary.numBatches, meta));
+        bytes32 batchMetaHash = hashBatch(_summary.numBatches, meta);
+        _env.saveBatchMetaHash(_env.conf, _summary.numBatches, batchMetaHash);
 
-        emit I.BatchProposed(_summary.numBatches, meta);
+        emit I.BatchProposed(_summary.numBatches, _env.encodeBatchMetadata(meta));
 
         return meta.proposeMeta;
     }

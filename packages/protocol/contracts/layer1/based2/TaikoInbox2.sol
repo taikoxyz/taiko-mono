@@ -94,6 +94,7 @@ abstract contract TaikoInbox2 is
             sender: msg.sender,
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
+            encodeBatchMetadata: LibData2.encodeBatchMetadata,
             parentBatchMetaHash: state.batches[(_summary.numBatches - 1) % conf.batchRingBufferSize],
             isSignalSent: _isSignalSent,
             loadTransitionMetaHash: _loadTransitionMetaHash,
