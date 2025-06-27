@@ -44,7 +44,7 @@ library LibVerify2 {
             for (; batchId < stopBatchId; ++batchId) {
                 bytes32 tranMetaHash =
                     _env.loadTransitionMetaHash(_env.conf, _summary.lastVerifiedBlockHash, batchId);
-                    
+
                 if (tranMetaHash == 0) break;
 
                 require(i < nTransitions, TransitionNotProvided());

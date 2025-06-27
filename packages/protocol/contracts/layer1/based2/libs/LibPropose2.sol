@@ -70,34 +70,32 @@ library LibPropose2 {
 
     function proposeBatch(
         Environment memory _env,
-        I.Summary calldata _summary,
+        I.Summary memory _summary,
         I.BatchProposeMetadataEvidence calldata _evidence,
         I.BatchParams calldata _params,
         bytes calldata _txList,
         bytes calldata /*_additionalData*/
     )
         internal
-        returns (I.BatchMetadata memory meta_, I.Summary memory summary_)
+        returns (I.BatchMetadata memory, I.Summary memory)
     {
-        summary_ = _summary; // make a copy for update
+        // Validate parentProposeMeta against its meta hash
+        _validateBatchProposeMeta(_evidence, _env.parentBatchMetaHash);
+
+        // Validate the params and returns an updated copy
+        (I.BatchParams memory params, ValidationOutput memory output) =
+            _validateBatchParams(_env, _summary, _evidence.proposeMeta, _params, _txList);
+
+        output.prover = _validateProver(_env, _summary, _params.proverAuth, params, output);
+        I.BatchMetadata memory meta = _populateBatchMetadata(_env, params, output);
+
+        _env.saveBatchMetaHash(_env.conf, _summary.numBatches, hashBatch(_summary.numBatches, meta));
+
         unchecked {
-            // Validate parentProposeMeta against its meta hash
-            _validateBatchProposeMeta(_evidence, _env.parentBatchMetaHash);
-
-            // Validate the params and returns an updated copy
-            (I.BatchParams memory params, ValidationOutput memory output) =
-                _validateBatchParams(_env, summary_, _evidence.proposeMeta, _params, _txList);
-
-            output.prover = _validateProver(_env, summary_, _params.proverAuth, params, output);
-            meta_ = _populateBatchMetadata(_env, params, output);
-
-            _env.saveBatchMetaHash(
-                _env.conf, summary_.numBatches, hashBatch(summary_.numBatches, meta_)
-            );
-
-            summary_.numBatches += 1;
-            summary_.lastProposedIn = uint48(block.number);
+            _summary.numBatches += 1;
+            _summary.lastProposedIn = _env.blockNumber;
         }
+        return (meta, _summary);
     }
 
     function hashBatch(
@@ -162,11 +160,9 @@ library LibPropose2 {
                 // if not then add the diff to the bond balance
                 int256 bondDelta = int96(fee) - int96(_env.conf.livenessBond);
 
-                if (bondDelta < 0) {
-                    _env.debitBond(_env.conf.bondToken, prover_, uint256(-bondDelta));
-                } else {
-                    _env.creditBond(prover_, uint256(bondDelta));
-                }
+                bondDelta < 0
+                    ? _env.debitBond(_env.conf.bondToken, prover_, uint256(-bondDelta))
+                    : _env.creditBond(prover_, uint256(bondDelta));
             } else if (_params.proposer == prover_) {
                 _env.debitBond(
                     _env.conf.bondToken,
@@ -339,51 +335,6 @@ library LibPropose2 {
         }
     }
 
-    function _populateBatchMetadata(
-        Environment memory _env,
-        I.BatchParams memory _params,
-        ValidationOutput memory _output
-    )
-        private
-        view
-        returns (I.BatchMetadata memory meta_)
-    {
-        unchecked {
-            meta_.buildMeta = I.BatchBuildMetadata({
-                txsHash: _output.txsHash,
-                blobHashes: _output.blobHashes,
-                extraData: bytes32(uint256(_encodeExtraDataLower128Bits(_env.conf, _params))),
-                coinbase: _params.coinbase,
-                proposedIn: uint48(block.number),
-                blobCreatedIn: _params.blobParams.createdIn,
-                blobByteOffset: _params.blobParams.byteOffset,
-                blobByteSize: _params.blobParams.byteSize,
-                gasLimit: _env.conf.blockMaxGasLimit,
-                lastBlockId: _output.lastBlockId,
-                lastBlockTimestamp: _params.lastBlockTimestamp,
-                anchorBlocks: _output.anchorBlocks,
-                blocks: _params.blocks,
-                baseFeeConfig: _env.conf.baseFeeConfig
-            });
-
-            meta_.proposeMeta = I.BatchProposeMetadata({
-                lastBlockTimestamp: _params.lastBlockTimestamp,
-                lastBlockId: meta_.buildMeta.lastBlockId,
-                lastAnchorBlockId: _output.lastAnchorBlockId
-            });
-
-            meta_.proveMeta = I.BatchProveMetadata({
-                proposer: _params.proposer,
-                prover: _output.prover,
-                proposedAt: uint48(block.timestamp),
-                firstBlockId: _output.firstBlockId,
-                lastBlockId: meta_.buildMeta.lastBlockId,
-                livenessBond: _env.conf.livenessBond,
-                provabilityBond: _env.conf.provabilityBond
-            });
-        }
-    }
-
     function _calculateTxsHash(
         Environment memory _env,
         bytes32 _txListHash,
@@ -410,21 +361,6 @@ library LibPropose2 {
         }
     }
 
-    /// @dev The function __encodeExtraDataLower128Bits encodes certain information into a uint128
-    /// - bits 0-7: used to store _config.baseFeeConfig.sharingPctg.
-    /// - bit 8: used to store _batchParams.isForcedInclusion.
-    function _encodeExtraDataLower128Bits(
-        I.Config memory _config,
-        I.BatchParams memory _params
-    )
-        private
-        pure
-        returns (uint128 encoded_)
-    {
-        encoded_ |= _config.baseFeeConfig.sharingPctg; // bits 0-7
-        encoded_ |= _params.isForcedInclusion ? 1 << 8 : 0; // bit 8
-    }
-
     function _validateBatchProposeMeta(
         I.BatchProposeMetadataEvidence calldata _evidence,
         bytes32 _batchMetaHash
@@ -436,5 +372,64 @@ library LibPropose2 {
         bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, _evidence.proveMetaHash));
         bytes32 metaHash = keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
         require(_batchMetaHash == metaHash, MetaHashNotMatch());
+    }
+
+    function _populateBatchMetadata(
+        Environment memory _env,
+        I.BatchParams memory _params,
+        ValidationOutput memory _output
+    )
+        private
+        pure
+        returns (I.BatchMetadata memory meta_)
+    {
+        meta_.buildMeta = I.BatchBuildMetadata({
+            txsHash: _output.txsHash,
+            blobHashes: _output.blobHashes,
+            extraData: _encodeExtraDataLower128Bits(_env.conf, _params),
+            coinbase: _params.coinbase,
+            proposedIn: _env.blockNumber,
+            blobCreatedIn: _params.blobParams.createdIn,
+            blobByteOffset: _params.blobParams.byteOffset,
+            blobByteSize: _params.blobParams.byteSize,
+            gasLimit: _env.conf.blockMaxGasLimit,
+            lastBlockId: _output.lastBlockId,
+            lastBlockTimestamp: _params.lastBlockTimestamp,
+            anchorBlocks: _output.anchorBlocks,
+            blocks: _params.blocks,
+            baseFeeConfig: _env.conf.baseFeeConfig
+        });
+
+        meta_.proposeMeta = I.BatchProposeMetadata({
+            lastBlockTimestamp: _params.lastBlockTimestamp,
+            lastBlockId: meta_.buildMeta.lastBlockId,
+            lastAnchorBlockId: _output.lastAnchorBlockId
+        });
+
+        meta_.proveMeta = I.BatchProveMetadata({
+            proposer: _params.proposer,
+            prover: _output.prover,
+            proposedAt: _env.blockTimestamp,
+            firstBlockId: _output.firstBlockId,
+            lastBlockId: meta_.buildMeta.lastBlockId,
+            livenessBond: _env.conf.livenessBond,
+            provabilityBond: _env.conf.provabilityBond
+        });
+    }
+
+    /// @dev The function __encodeExtraDataLower128Bits encodes certain information into a uint128
+    /// - bits 0-7: used to store _config.baseFeeConfig.sharingPctg.
+    /// - bit 8: used to store _batchParams.isForcedInclusion.
+    function _encodeExtraDataLower128Bits(
+        I.Config memory _config,
+        I.BatchParams memory _params
+    )
+        private
+        pure
+        returns (bytes32)
+    {
+        uint128 v = _config.baseFeeConfig.sharingPctg; // bits 0-7
+        v |= _params.isForcedInclusion ? 1 << 8 : 0; // bit 8
+        return bytes32(uint256(v));
     }
 }

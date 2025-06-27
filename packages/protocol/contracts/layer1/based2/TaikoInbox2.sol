@@ -73,7 +73,7 @@ abstract contract TaikoInbox2 is
     }
 
     function v4ProposeBatch(
-        I.Summary calldata _summary,
+        I.Summary memory _summary,
         I.BatchProposeMetadataEvidence calldata _parentProposeMetaEvidence,
         I.BatchParams calldata _params,
         bytes calldata _txList,
@@ -83,7 +83,7 @@ abstract contract TaikoInbox2 is
         public
         // override(ITaikoInbox2, IProposeBatch2)
         nonReentrant
-        returns (I.BatchMetadata memory meta_, I.Summary memory summary_)
+        returns (I.BatchMetadata memory meta_)
     {
         bool _paused = state.validateSummary(_summary);
         require(!_paused, ContractPaused());
@@ -109,25 +109,28 @@ abstract contract TaikoInbox2 is
             validateProverAuth: LibAuth2.validateProverAuth
         });
 
-        (meta_, summary_) = LibPropose2.proposeBatch(
+        (meta_, _summary) = LibPropose2.proposeBatch(
             env, _summary, _parentProposeMetaEvidence, _params, _txList, _additionalData
         );
 
-        emit I.BatchProposed(summary_.numBatches, meta_);
+        emit I.BatchProposed(_summary.numBatches, meta_);
 
-        summary_ = LibVerify2.verifyBatches(env, summary_, _trans);
+        _summary = LibVerify2.verifyBatches(env, _summary, _trans);
 
-        state.updateSummary(summary_, _paused);
+        state.updateSummary(_summary, _paused);
     }
 
     function v4ProveBatches(
-        I.Summary calldata _summary,
+        I.Summary memory _summary,
         I.BatchProveInput[] calldata _inputs,
         bytes calldata _proof
     )
         external
         nonReentrant
     {
+        bool _paused = state.validateSummary(_summary);
+        require(!_paused, ContractPaused());
+
         LibProve2.Environment memory env = LibProve2.Environment({
             // reads
             conf: _getConfig(),
@@ -141,7 +144,11 @@ abstract contract TaikoInbox2 is
             saveTransition: _saveTransition
         });
 
-        bytes32 aggregatedBatchHash = state.proveBatches(env, _summary, _inputs);
+        bytes32 aggregatedBatchHash;
+        (_summary, aggregatedBatchHash) = state.proveBatches(env, _summary, _inputs);
+
+        state.updateSummary(_summary, _paused);
+
         IVerifier2(verifier).verifyProof(aggregatedBatchHash, _proof);
     }
 

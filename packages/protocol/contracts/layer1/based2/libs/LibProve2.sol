@@ -37,12 +37,11 @@ library LibProve2 {
     function proveBatches(
         I.State storage $,
         Environment memory _env,
-        I.Summary calldata _summary, //TODO: change this memory will avoid multiple time access to
-            // calldata?
+        I.Summary memory _summary,
         I.BatchProveInput[] calldata _evidences
     )
         internal
-        returns (bytes32 aggregatedBatchHash_)
+        returns (I.Summary memory, bytes32)
     {
         bool paused = LibData2.validateSummary($, _summary);
         require(!paused, ContractPaused());
@@ -57,17 +56,17 @@ library LibProve2 {
         for (uint256 i; i < nBatches; ++i) {
             (metas[i], ctxHashes[i]) = _proveBatch($, _env, _summary, _evidences[i]);
         }
-        aggregatedBatchHash_ =
+        bytes32 aggregatedBatchHash =
             keccak256(abi.encode(_env.conf.chainId, msg.sender, _env.verifier, ctxHashes));
 
         emit I.BatchesProved(_env.verifier, metas);
+        return (_summary, aggregatedBatchHash);
     }
 
     function _proveBatch(
         I.State storage $,
         Environment memory _env,
-        I.Summary calldata _summary, //TODO: change this memory will avoid multiple time access to
-            // calldata?
+        I.Summary memory _summary,
         I.BatchProveInput calldata _input
     )
         private
