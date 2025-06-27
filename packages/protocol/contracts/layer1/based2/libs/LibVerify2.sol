@@ -19,7 +19,6 @@ library LibVerify2 {
     error TransitionMetaMismatch();
 
     function verifyBatches(
-        I.State storage $,
         LibPropose2.Environment memory _env,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans
@@ -43,23 +42,8 @@ library LibVerify2 {
             bytes32 lastSyncedStateRoot;
 
             for (; batchId < stopBatchId; ++batchId) {
-                uint256 slot = batchId % _env.conf.batchRingBufferSize;
-
-                (uint48 embededBatchId, bytes32 partialParentHash) =
-                    LibData2.loadBatchIdAndPartialParentHash($, slot); // 1 SLOAD
-
-                if (embededBatchId != batchId) {
-                    // this batch is not proved with at least one transition
-                    break;
-                }
-
-                bytes32 tranMetaHash;
-                if (partialParentHash == _summary.lastVerifiedBlockHash >> 48) {
-                    tranMetaHash = $.transitions[slot][1].metaHash;
-                } else {
-                    tranMetaHash = $.transitionMetaHashes[batchId][_summary.lastVerifiedBlockHash];
-                    if (tranMetaHash == 0) break;
-                }
+                bytes32 tranMetaHash = _env.loadTransitionMetaHash(_env.conf, _summary, batchId);
+                if (tranMetaHash == 0) break;
 
                 require(i < nTransitions, TransitionNotProvided());
                 require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionMetaMismatch());

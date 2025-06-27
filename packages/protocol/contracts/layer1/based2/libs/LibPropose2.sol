@@ -23,16 +23,18 @@ library LibPropose2 {
         uint48 blockNumber;
         // reads
         bytes32 parentBatchMetaHash;
+        function(bytes32) view returns (bool) isSignalSent;
+        function(I.Config memory, I.Summary memory, uint256) view returns (bytes32)
+            loadTransitionMetaHash;
+        function(uint64, uint64, bytes32, bytes32, bytes calldata) view returns (address, address, uint96)
+            validateProverAuth;
+        function(uint256) view returns (bytes32) getBlobHash;
         // writes
         function(I.Config memory, uint256, bytes32) saveBatchMetaHash;
-        function(uint256) view returns (bytes32) getBlobHash;
-        function(bytes32) view returns (bool) isSignalSent;
         function(address, address, uint256) debitBond;
         function(address, uint256) creditBond;
         function(address, address, address, uint256) transferFee;
         function(I.Config memory, uint64, bytes32) syncChainData;
-        function(uint64, uint64, bytes32, bytes32, bytes calldata) view returns (address, address, uint96)
-            validateProverAuth;
     }
 
     struct ValidationOutput {
@@ -59,7 +61,7 @@ library LibPropose2 {
     {
         summary_ = _summary; // make a copy for update
         unchecked {
-            // Validate parentProposeMeta against its meta hash 
+            // Validate parentProposeMeta against its meta hash
             _validateBatchProposeMeta(_evidence, _env.parentBatchMetaHash);
 
             // Validate the params and returns an updated copy

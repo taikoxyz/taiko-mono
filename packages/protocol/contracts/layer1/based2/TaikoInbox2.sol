@@ -89,15 +89,16 @@ abstract contract TaikoInbox2 is
             // immutables
             conf: conf,
             inboxWrapper: inboxWrapper,
-            // reads
             sender: msg.sender,
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
+            // reads
             parentBatchMetaHash: state.batches[(_summary.numBatches - 1) % conf.batchRingBufferSize],
+            isSignalSent: _isSignalSent,
+            loadTransitionMetaHash: _loadTransitionMetaHash,
+            getBlobHash: _getBlobHash,
             // writes
             saveBatchMetaHash: _saveBatchMetaHash,
-            getBlobHash: _getBlobHash,
-            isSignalSent: _isSignalSent,
             debitBond: _debitBond,
             creditBond: _creditBond,
             transferFee: _transferFee,
@@ -111,7 +112,7 @@ abstract contract TaikoInbox2 is
 
         emit I.BatchProposed(summary_.numBatches, meta_);
 
-        summary_ = state.verifyBatches(env, summary_, _trans);
+        summary_ = LibVerify2.verifyBatches(env, summary_, _trans);
 
         state.updateSummary(summary_, _paused);
     }
@@ -193,6 +194,29 @@ abstract contract TaikoInbox2 is
         private
     {
         state.batches[_batchId % _config.batchRingBufferSize] = _metaHash;
+    }
+
+    function _loadTransitionMetaHash(
+        I.Config memory _conf,
+        I.Summary memory _summary,
+        uint256 _batchId
+    )
+        private
+        view
+        returns (bytes32)
+    {
+        uint256 slot = _batchId % _conf.batchRingBufferSize;
+
+        (uint48 embededBatchId, bytes32 partialParentHash) =
+            LibData2.loadBatchIdAndPartialParentHash(state, slot); // 1 SLOAD
+
+        if (embededBatchId != _batchId) return 0;
+
+        if (partialParentHash == _summary.lastVerifiedBlockHash >> 48) {
+            return state.transitions[slot][1].metaHash;
+        } else {
+            return state.transitionMetaHashes[_batchId][_summary.lastVerifiedBlockHash];
+        }
     }
 
     function _getBlobHash(uint256 _blockNumber) private view returns (bytes32) {
