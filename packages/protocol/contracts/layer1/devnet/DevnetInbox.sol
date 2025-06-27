@@ -30,7 +30,7 @@ contract DevnetInbox is TaikoInbox {
             chainId: chainId,
             maxUnverifiedBatches: 324_000,
             batchRingBufferSize: 360_000,
-            maxBatchesToVerify: 16,
+            maxBatchesToVerify: 8,
             blockMaxGasLimit: 240_000_000,
             livenessBondBase: 125e18, // 125 Taiko token per batch
             livenessBondPerBlock: 0, // deprecated
