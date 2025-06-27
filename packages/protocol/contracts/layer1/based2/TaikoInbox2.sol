@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
+import "src/layer1/verifiers/IVerifier.sol";
 import "./libs/LibBonds2.sol";
 // import "./libs/LibInit2.sol";
 import "./libs/LibPropose2.sol";
@@ -89,13 +90,12 @@ abstract contract TaikoInbox2 is
 
         I.Config memory conf = _getConfig();
         LibPropose2.Environment memory env = LibPropose2.Environment({
-            // immutables
+            // reads
             conf: conf,
             inboxWrapper: inboxWrapper,
             sender: msg.sender,
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
-            // reads
             parentBatchMetaHash: state.batches[(_summary.numBatches - 1) % conf.batchRingBufferSize],
             isSignalSent: _isSignalSent,
             loadTransitionMetaHash: _loadTransitionMetaHash,
@@ -128,8 +128,21 @@ abstract contract TaikoInbox2 is
         external
         nonReentrant
     {
-        LibData2.Env memory env = _loadEnv();
-        state.proveBatches(env, _summary, _inputs, _proof);
+        LibProve2.Environment memory env = LibProve2.Environment({
+            // reads
+            conf: _getConfig(),
+            sender: msg.sender,
+            blockTimestamp: uint48(block.timestamp),
+            blockNumber: uint48(block.number),
+            verifier: verifier,
+            // writes
+            debitBond: _debitBond,
+            creditBond: _creditBond,
+            saveTransition: _saveTransition
+        });
+
+        bytes32 aggregatedBatchHash = state.proveBatches(env, _summary, _inputs);
+        IVerifier2(verifier).verifyProof(aggregatedBatchHash, _proof);
     }
 
     function v4DepositBond(uint256 _amount) external payable whenNotPaused {
@@ -178,17 +191,6 @@ abstract contract TaikoInbox2 is
 
     function _getConfig() internal view virtual returns (Config memory);
 
-    function _loadEnv() private view returns (LibData2.Env memory) {
-        return LibData2.Env({
-            config: _getConfig(),
-            bondToken: bondToken,
-            verifier: verifier,
-            inboxWrapper: inboxWrapper,
-            signalService: signalService,
-            prevSummaryHash: state.summaryHash
-        });
-    }
-
     function _saveBatchMetaHash(
         I.Config memory _config,
         uint256 _batchId,
@@ -201,7 +203,7 @@ abstract contract TaikoInbox2 is
 
     function _loadTransitionMetaHash(
         I.Config memory _conf,
-        I.Summary memory _summary,
+        bytes32 _lastVerifiedBlockHash,
         uint256 _batchId
     )
         private
@@ -215,10 +217,47 @@ abstract contract TaikoInbox2 is
 
         if (embededBatchId != _batchId) return 0;
 
-        if (partialParentHash == _summary.lastVerifiedBlockHash >> 48) {
+        if (partialParentHash == _lastVerifiedBlockHash >> 48) {
             return state.transitions[slot][1].metaHash;
         } else {
-            return state.transitionMetaHashes[_batchId][_summary.lastVerifiedBlockHash];
+            return state.transitionMetaHashes[_batchId][_lastVerifiedBlockHash];
+        }
+    }
+
+    function _saveTransition(
+        I.Config memory _conf,
+        uint256 _batchId,
+        bytes32 _parentHash,
+        bytes32 _tranMetahash
+    )
+        internal
+        returns (bool isFirstTransition_)
+    {
+        uint256 slot = _batchId % _conf.batchRingBufferSize;
+
+        // In the next code section, we always use `$.transitions[slot][1]` to reuse a previously
+        // declared state variable -- note that the second mapping key is always 1.
+        // Tip: the reuse of the first transition slot can save 3900 gas per batch.
+        (uint48 embededBatchId, bytes32 partialParentHash) =
+            LibData2.loadBatchIdAndPartialParentHash(state, slot);
+
+        isFirstTransition_ = embededBatchId != _batchId;
+
+        if (isFirstTransition_) {
+            // This is the very first transition of the batch, or a transition with the same parent
+            // hash. We can reuse the transition state slot to reduce gas cost.
+            state.transitions[slot][1].batchIdAndPartialParentHash =
+                LibData2.encodeBatchIdAndPartialParentHash(uint48(_batchId), _parentHash); // 1
+                // SSTORE
+            state.transitions[slot][1].metaHash = _tranMetahash; // 1 SSTORE
+        } else if (partialParentHash == _parentHash >> 48) {
+            // Overwrite the first proof
+            state.transitions[slot][1].metaHash = _tranMetahash; // 1 SSTORE
+        } else {
+            // This is not the very first transition of the batch, or a transition with the same
+            // parent hash. Use a mapping to store the meta hash of the transition. The mapping
+            // slots are not reusable.
+            state.transitionMetaHashes[_batchId][_parentHash] = _tranMetahash; // 1 SSTORE
         }
     }
 

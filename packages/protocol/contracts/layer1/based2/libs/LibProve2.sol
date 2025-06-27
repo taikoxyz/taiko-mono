@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibMath.sol";
-import "src/layer1/verifiers/IVerifier.sol";
 import "./LibData2.sol";
 import "./LibBonds2.sol";
 import "./LibFork2.sol";
@@ -22,15 +21,28 @@ library LibProve2 {
     error NoBlocksToProve();
     error TooManyBatchesToProve();
 
+    struct Environment {
+        // reads
+        I.Config conf;
+        address sender;
+        uint48 blockTimestamp;
+        uint48 blockNumber;
+        address verifier;
+        // writes
+        function(address, address, uint256) debitBond;
+        function(address, uint256) creditBond;
+        function(I.Config memory, uint256, bytes32, bytes32) returns (bool) saveTransition;
+    }
+
     function proveBatches(
         I.State storage $,
-        LibData2.Env memory _env,
+        Environment memory _env,
         I.Summary calldata _summary, //TODO: change this memory will avoid multiple time access to
             // calldata?
-        I.BatchProveInput[] calldata _evidences,
-        bytes calldata _proof
+        I.BatchProveInput[] calldata _evidences
     )
         internal
+        returns (bytes32 aggregatedBatchHash_)
     {
         bool paused = LibData2.validateSummary($, _summary);
         require(!paused, ContractPaused());
@@ -45,17 +57,15 @@ library LibProve2 {
         for (uint256 i; i < nBatches; ++i) {
             (metas[i], ctxHashes[i]) = _proveBatch($, _env, _summary, _evidences[i]);
         }
+        aggregatedBatchHash_ =
+            keccak256(abi.encode(_env.conf.chainId, msg.sender, _env.verifier, ctxHashes));
 
         emit I.BatchesProved(_env.verifier, metas);
-
-        bytes32 aggregatedBatchHash =
-            keccak256(abi.encode(_env.config.chainId, msg.sender, _env.verifier, ctxHashes));
-        IVerifier2(_env.verifier).verifyProof(aggregatedBatchHash, _proof);
     }
 
     function _proveBatch(
         I.State storage $,
-        LibData2.Env memory _env,
+        Environment memory _env,
         I.Summary calldata _summary, //TODO: change this memory will avoid multiple time access to
             // calldata?
         I.BatchProveInput calldata _input
@@ -72,13 +82,13 @@ library LibProve2 {
         // check.
         require(
             LibFork2.isBlocksInCurrentFork(
-                _env.config, _input.proveMeta.firstBlockId, _input.proveMeta.firstBlockId
+                _env.conf, _input.proveMeta.firstBlockId, _input.proveMeta.firstBlockId
             ),
             BlocksNotInCurrentFork()
         );
 
         // Verify the batch's metadata.
-        uint256 slot = _input.transition.batchId % _env.config.batchRingBufferSize;
+        uint256 slot = _input.transition.batchId % _env.conf.batchRingBufferSize;
         bytes32 batchMetaHash = $.batches[slot]; // 1 SLOAD
 
         _validateBatchProveMeta(batchMetaHash, _input);
@@ -88,7 +98,7 @@ library LibProve2 {
         tranMeta_ = I.TransitionMeta({
             parentHash: _input.transition.parentHash,
             blockHash: _input.transition.blockHash,
-            stateRoot: _input.transition.batchId % _env.config.stateRootSyncInternal == 0
+            stateRoot: _input.transition.batchId % _env.conf.stateRootSyncInternal == 0
                 ? _input.transition.stateRoot
                 : bytes32(0),
             proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // to be updated below
@@ -101,56 +111,30 @@ library LibProve2 {
         });
 
         (tranMeta_.proofTiming, tranMeta_.prover) = _determineProofTiming(
-            uint256(_input.proveMeta.proposedAt).max(_summary.lastProposedIn),
-            _env.config,
-            _input.proveMeta.prover
+            _env.conf,
+            _input.proveMeta.prover,
+            uint256(_input.proveMeta.proposedAt).max(_summary.lastProposedIn)
         );
 
         bytes32 tranMetaHash = keccak256(abi.encode(tranMeta_));
 
-        // In the next code section, we always use `$.transitions[slot][1]` to reuse a previously
-        // declared state variable -- note that the second mapping key is always 1.
-        // Tip: the reuse of the first transition slot can save 3900 gas per batch.
-        (uint48 embededBatchId, bytes32 partialParentHash) =
-            LibData2.loadBatchIdAndPartialParentHash($, slot);
-
-        if (embededBatchId != _input.transition.batchId) {
-            // This is the very first transition of the batch, or a transition with the same parent
-            // hash. We can reuse the transition state slot to reduce gas cost.
-            $.transitions[slot][1].batchIdAndPartialParentHash = LibData2
-                .encodeBatchIdAndPartialParentHash(
-                _input.transition.batchId, _input.transition.parentHash
-            ); // 1 SSTORE
-            $.transitions[slot][1].metaHash = tranMetaHash; // 1 SSTORE
-
-            // The prover for the first transition is responsible for placing the provability
-            // if the transition is within extended proving window.
-            if (
-                tranMeta_.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
-                    && msg.sender != _input.proveMeta.proposer
-            ) {
-                // Ensure msg.sender pays the provability bond to prevent malicious forfeiture
-                // of the proposer's bond through an invalid first transition.
-                LibBonds2.debitBond($, _env.bondToken, msg.sender, _input.proveMeta.provabilityBond);
-                LibBonds2.creditBond($, _input.proveMeta.proposer, _input.proveMeta.provabilityBond);
-            }
-        } else if (partialParentHash == _input.transition.parentHash >> 48) {
-            // Overwrite the first proof
-            $.transitions[slot][1].metaHash = tranMetaHash; // 1 SSTORE
-        } else {
-            // This is not the very first transition of the batch, or a transition with the same
-            // parent hash. Use a mapping to store the meta hash of the transition. The mapping
-            // slots are not reusable.
-            $.transitionMetaHashes[_input.transition.batchId][_input.transition.parentHash] =
-                tranMetaHash; // 1 SSTORE
+        bool isFirstTransition = _env.saveTransition(
+            _env.conf, _input.transition.batchId, _input.transition.parentHash, tranMetaHash
+        );
+        if (
+            isFirstTransition && tranMeta_.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
+                && msg.sender != _input.proveMeta.proposer
+        ) {
+            _env.debitBond(_env.conf.bondToken, msg.sender, _input.proveMeta.provabilityBond);
+            _env.creditBond(_input.proveMeta.proposer, _input.proveMeta.provabilityBond);
         }
     }
 
     /// @dev Decides which time window we are in and who should be recorded as the prover.
     function _determineProofTiming(
-        uint256 _proposedAt,
         I.Config memory _config,
-        address _assignedProver
+        address _assignedProver,
+        uint256 _proposedAt
     )
         private
         view

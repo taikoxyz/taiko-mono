@@ -37,24 +37,22 @@ library LibPropose2 {
     error ZeroAnchorBlockHash();
 
     struct Environment {
-        // immutables
+        // reads
         I.Config conf;
         address inboxWrapper;
         address sender;
         uint48 blockTimestamp;
         uint48 blockNumber;
-        // reads
         bytes32 parentBatchMetaHash;
         function(bytes32) view returns (bool) isSignalSent;
-        function(I.Config memory, I.Summary memory, uint256) view returns (bytes32)
-            loadTransitionMetaHash;
+        function(I.Config memory, bytes32, uint256) view returns (bytes32) loadTransitionMetaHash;
         function(uint64, uint64, bytes32, bytes32, bytes calldata) view returns (address, address, uint96)
             validateProverAuth;
         function(uint256) view returns (bytes32) getBlobHash;
         // writes
-        function(I.Config memory, uint256, bytes32) saveBatchMetaHash;
         function(address, address, uint256) debitBond;
         function(address, uint256) creditBond;
+        function(I.Config memory, uint256, bytes32) saveBatchMetaHash;
         function(address, address, address, uint256) transferFee;
         function(I.Config memory, uint64, bytes32) syncChainData;
     }
