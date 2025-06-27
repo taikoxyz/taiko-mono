@@ -8,6 +8,7 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "./LibBonds2.sol";
 import "./LibFork2.sol";
 import "./LibData2.sol";
+import "./LibPropose2.sol";
 
 /// @title LibVerify2
 /// @custom:security-contact security@taiko.xyz
@@ -18,8 +19,7 @@ library LibVerify2 {
     error TransitionMetaMismatch();
 
     function verifyBatches(
-        I.State storage $,
-        LibData2.Env memory _env,
+        LibPropose2.Environment memory _env,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans
     )
@@ -29,11 +29,11 @@ library LibVerify2 {
         unchecked {
             uint48 batchId = _summary.lastVerifiedBatchId + 1;
 
-            if (!LibFork2.isBlocksInCurrentFork(_env.config, batchId, batchId)) {
+            if (!LibFork2.isBlocksInCurrentFork(_env.conf, batchId, batchId)) {
                 return _summary;
             }
             uint256 stopBatchId = uint256(_summary.numBatches).min(
-                _env.config.maxBatchesToVerify + _summary.lastVerifiedBatchId + 1
+                _env.conf.maxBatchesToVerify + _summary.lastVerifiedBatchId + 1
             );
 
             uint256 nTransitions = _trans.length;
@@ -42,30 +42,17 @@ library LibVerify2 {
             bytes32 lastSyncedStateRoot;
 
             for (; batchId < stopBatchId; ++batchId) {
-                uint256 slot = batchId % _env.config.batchRingBufferSize;
+                bytes32 tranMetaHash =
+                    _env.loadTransitionMetaHash(_env.conf, _summary.lastVerifiedBlockHash, batchId);
 
-                (uint48 embededBatchId, bytes32 partialParentHash) =
-                    LibData2.loadBatchIdAndPartialParentHash($, slot); // 1 SLOAD
-
-                if (embededBatchId != batchId) {
-                    // this batch is not proved with at least one transition
-                    break;
-                }
-
-                bytes32 tranMetaHash;
-                if (partialParentHash == _summary.lastVerifiedBlockHash >> 48) {
-                    tranMetaHash = $.transitions[slot][1].metaHash;
-                } else {
-                    tranMetaHash = $.transitionMetaHashes[batchId][_summary.lastVerifiedBlockHash];
-                    if (tranMetaHash == 0) break;
-                }
+                if (tranMetaHash == 0) break;
 
                 require(i < nTransitions, TransitionNotProvided());
                 require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionMetaMismatch());
 
                 _summary.lastVerifiedBlockHash = _trans[i].blockHash;
 
-                if (batchId % _env.config.stateRootSyncInternal == 0) {
+                if (batchId % _env.conf.stateRootSyncInternal == 0) {
                     lastSyncedBlockId = _trans[i].lastBlockId;
                     lastSyncedStateRoot = _trans[i].stateRoot;
                 }
@@ -77,12 +64,7 @@ library LibVerify2 {
                 _summary.lastSyncedBlockId = lastSyncedBlockId;
                 _summary.lastSyncedAt = uint48(block.timestamp);
 
-                ISignalService(_env.signalService).syncChainData(
-                    _env.config.chainId,
-                    LibSignals.STATE_ROOT,
-                    lastSyncedBlockId,
-                    lastSyncedStateRoot
-                );
+                _env.syncChainData(_env.conf, lastSyncedBlockId, lastSyncedStateRoot);
             }
 
             return _summary;

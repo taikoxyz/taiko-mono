@@ -41,7 +41,6 @@ interface ITaikoInbox2 {
         address proposer;
         address coinbase;
         uint48 lastBlockTimestamp;
-        bool revertIfNotFirstProposal;
         bool isForcedInclusion;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
@@ -216,6 +215,8 @@ interface ITaikoInbox2 {
         uint16 maxBlocksPerBatch;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
+        /// @notice The token used for bonding.
+        address bondToken;
     }
 
     /// @notice Struct holding the state variables for the {Taiko} contract.
@@ -266,53 +267,4 @@ interface ITaikoInbox2 {
     /// @param batchId The ID of the verified batch.
     /// @param blockHash The hash of the verified batch.
     event BatchesVerified(uint64 batchId, bytes32 blockHash);
-
-    error AnchorIdSmallerThanParent();
-    error AnchorIdTooSmall();
-    error ArraySizesMismatch();
-    error BatchNotFound();
-    error BatchVerified();
-    error BeyondCurrentFork();
-    error BlobNotFound();
-    error BlobNotSpecified();
-    error BlockNotFound();
-    error ContractPaused();
-    error CustomProposerMissing();
-    error CustomProposerNotAllowed();
-    error EtherAsFeeTokenNotSupportedYet();
-    error EtherNotPaidAsBond();
-    error FirstBlockTimeShiftNotZero();
-    error ForkNotActivated();
-    error InsufficientBond();
-    error InvalidBatchId();
-    error InvalidBlobCreatedIn();
-    error InvalidBlobParams();
-    error InvalidForcedInclusion();
-    error InvalidGenesisBlockHash();
-    error InvalidParams();
-    error InvalidProver();
-    error InvalidSignature();
-    error InvalidTransitionBlockHash();
-    error InvalidTransitionParentHash();
-    error InvalidTransitionStateRoot();
-    error InvalidValidUntil();
-    error MetaHashMismatch();
-    error MsgValueNotZero();
-    error NoAnchorBlockIdWithinThisBatch();
-    error NoBlocksToProve();
-    error NotFirstProposal();
-    error NotInboxWrapper();
-    error ParentMetaHashMismatch();
-    error SameTransition();
-    error SignalNotSent();
-    error SignatureNotEmpty();
-    error TimestampSmallerThanParent();
-    error TimestampTooLarge();
-    error TimestampTooSmall();
-    error TooManyBatches();
-    error TooManyBatchesToProve();
-    error TooManyBlocks();
-    error TooManySignals();
-    error TransitionNotFound();
-    error ZeroAnchorBlockHash();
 }

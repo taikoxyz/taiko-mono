@@ -29,7 +29,7 @@ library LibData2 {
 
     function validateSummary(
         I.State storage $,
-        I.Summary calldata _summary
+        I.Summary memory _summary
     )
         internal
         view

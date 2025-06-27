@@ -10,6 +10,13 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 library LibAuth2 {
     using SignatureChecker for address;
 
+    error EtherAsFeeTokenNotSupportedYet();
+    error InvalidBatchId();
+    error InvalidProver();
+    error InvalidSignature();
+    error InvalidValidUntil();
+    error SignatureNotEmpty();
+
     function validateProverAuth(
         uint64 _chainId,
         uint64 _batchId,
@@ -19,25 +26,27 @@ library LibAuth2 {
     )
         internal
         view
-        returns (I.ProverAuth memory auth_)
+        returns (address prover_, address feeToken_, uint96 fee_)
     {
-        auth_ = abi.decode(_proverAuth, (I.ProverAuth));
+        I.ProverAuth memory auth = abi.decode(_proverAuth, (I.ProverAuth));
 
         // Supporting Ether as fee token will require making ITaikoInbox's proposing function
         // payable. We try to avoid this as much as possible. And since most proposers may simply
         // use USD stablecoins as fee token, we decided not to support Ether as fee token for now.
-        require(auth_.feeToken != address(0), I.EtherAsFeeTokenNotSupportedYet());
+        require(auth.feeToken != address(0), EtherAsFeeTokenNotSupportedYet());
 
-        require(auth_.prover != address(0), I.InvalidProver());
-        require(auth_.validUntil == 0 || auth_.validUntil >= block.timestamp, I.InvalidValidUntil());
-        require(auth_.batchId == 0 || auth_.batchId == _batchId, I.InvalidBatchId());
+        require(auth.prover != address(0), InvalidProver());
+        require(auth.validUntil == 0 || auth.validUntil >= block.timestamp, InvalidValidUntil());
+        require(auth.batchId == 0 || auth.batchId == _batchId, InvalidBatchId());
 
         // Save and use later, before nullifying in computeProverAuthDigest()
-        bytes memory signature = auth_.signature;
-        auth_.signature = "";
-        bytes32 digest = _computeProverAuthDigest(_chainId, _batchParamsHash, _txListHash, auth_);
+        bytes memory signature = auth.signature;
+        auth.signature = "";
+        bytes32 digest = _computeProverAuthDigest(_chainId, _batchParamsHash, _txListHash, auth);
 
-        require(auth_.prover.isValidSignatureNow(digest, signature), I.InvalidSignature());
+        require(auth.prover.isValidSignatureNow(digest, signature), InvalidSignature());
+
+        return (auth.prover, auth.feeToken, auth.fee);
     }
 
     function _computeProverAuthDigest(
@@ -50,7 +59,7 @@ library LibAuth2 {
         pure
         returns (bytes32)
     {
-        require(_auth.signature.length == 0, I.SignatureNotEmpty());
+        require(_auth.signature.length == 0, SignatureNotEmpty());
         return keccak256(
             abi.encode("PROVER_AUTHENTICATION", _chainId, _batchParamsHash, _txListHash, _auth)
         );
