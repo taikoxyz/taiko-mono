@@ -66,27 +66,43 @@ library LibPropose2 {
         address prover;
     }
 
-    function proposeBatch(
+    function proposeBatches(
         Environment memory _env,
         I.Summary memory _summary,
         I.BatchParams memory _params,
         I.BatchProposeMetadataEvidence calldata _evidence
     )
         internal
-        returns (I.BatchMetadata memory, I.Summary memory)
+        returns (I.Summary memory)
     {
         // Validate parentProposeMeta against its meta hash
         _validateBatchProposeMeta(_evidence, _env.parentBatchMetaHash);
 
+        I.BatchMetadata memory meta;
+        (meta, _summary) = _proposeBatch(_env, _summary, _params, _evidence);
+
+        return _summary;
+    }
+
+    function _proposeBatch(
+        Environment memory _env,
+        I.Summary memory _summary,
+        I.BatchParams memory _params,
+        I.BatchProposeMetadataEvidence calldata _evidence
+    )
+        private
+        returns (I.BatchMetadata memory, I.Summary memory)
+    {
         // Validate the params and returns an updated copy
         (I.BatchParams memory params, ParamsValidationOutput memory output) =
-            _validateBatchParams(_env, _summary, _params, _evidence.proposeMeta );
+            _validateBatchParams(_env, _summary, _params, _evidence.proposeMeta);
 
         output.prover = _validateProver(_env, _summary, params.proverAuth, params);
         I.BatchMetadata memory meta = _populateBatchMetadata(_env, params, output);
 
         _env.saveBatchMetaHash(_env.conf, _summary.numBatches, hashBatch(_summary.numBatches, meta));
 
+        emit I.BatchProposed(_summary.numBatches, meta);
         unchecked {
             _summary.numBatches += 1;
             _summary.lastProposedIn = _env.blockNumber;
@@ -138,10 +154,7 @@ library LibPropose2 {
             address feeToken;
             uint96 fee;
             (prover_, feeToken, fee) = _env.validateProverAuth(
-                _env.conf.chainId,
-                _summary.numBatches,
-                keccak256(abi.encode(_params)),
-                _proverAuth
+                _env.conf.chainId, _summary.numBatches, keccak256(abi.encode(_params)), _proverAuth
             );
 
             if (feeToken == _env.conf.bondToken) {
@@ -213,7 +226,7 @@ library LibPropose2 {
                 _params.coinbase = _params.proposer;
             }
 
-             if (_params.blobParams.blobHashes.length == 0) {
+            if (_params.blobParams.blobHashes.length == 0) {
                 // this is a normal batch, blobs are created and used in the current batches.
                 // firstBlobIndex can be non-zero.
                 require(_params.blobParams.numBlobs != 0, BlobNotSpecified());
@@ -304,8 +317,7 @@ library LibPropose2 {
                 NoAnchorBlockIdWithinThisBatch()
             );
 
-            (output.txsHash, output.blobHashes) =
-                _calculateTxsHash(_env, _params.blobParams);
+            (output.txsHash, output.blobHashes) = _calculateTxsHash(_env, _params.blobParams);
 
             output.firstBlockId = _parentProposeMeta.lastBlockId + 1;
             output.lastBlockId = uint48(output.firstBlockId + nBlocks);
@@ -339,7 +351,7 @@ library LibPropose2 {
             for (uint256 i; i < blobHashes_.length; ++i) {
                 require(blobHashes_[i] != 0, BlobNotFound());
             }
-            txsHash_ = keccak256(abi.encode( blobHashes_));
+            txsHash_ = keccak256(abi.encode(blobHashes_));
         }
     }
 

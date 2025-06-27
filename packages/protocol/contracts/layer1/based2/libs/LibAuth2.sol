@@ -58,8 +58,6 @@ library LibAuth2 {
         returns (bytes32)
     {
         require(_auth.signature.length == 0, SignatureNotEmpty());
-        return keccak256(
-            abi.encode("PROVER_AUTHENTICATION", _chainId, _batchParamsHash, _auth)
-        );
+        return keccak256(abi.encode("PROVER_AUTHENTICATION", _chainId, _batchParamsHash, _auth));
     }
 }
