@@ -76,20 +76,20 @@ library LibPropose2 {
     function proposeBatches(
         Environment memory _env,
         I.Summary memory _summary,
-        I.BatchParams[] memory _params, // make call data, and keep changed field in output.
+        I.Batch[] memory _batch, // make call data, and keep changed field in output.
         I.BatchProposeMetadataEvidence calldata _evidence
     )
         internal
         returns (I.Summary memory)
     {
         unchecked {
-            require(_params.length != 0, NoBatchesToPropose());
+            require(_batch.length != 0, NoBatchesToPropose());
             // Validate parentProposeMeta against its meta hash
             _validateBatchProposeMeta(_evidence, _env.parentBatchMetaHash);
             I.BatchProposeMetadata memory parentProposeMeta = _evidence.proposeMeta;
 
-            for (uint256 i; i < _params.length; ++i) {
-                parentProposeMeta = _proposeBatch(_env, _summary, _params[i], parentProposeMeta);
+            for (uint256 i; i < _batch.length; ++i) {
+                parentProposeMeta = _proposeBatch(_env, _summary, _batch[i], parentProposeMeta);
                 _summary.numBatches += 1;
                 _summary.lastProposedIn = _env.blockNumber;
             }
@@ -101,7 +101,7 @@ library LibPropose2 {
     function _proposeBatch(
         Environment memory _env,
         I.Summary memory _summary,
-        I.BatchParams memory _params,
+        I.Batch memory _batch,
         I.BatchProposeMetadata memory _parentProposeMeta
     )
         private
@@ -113,8 +113,8 @@ library LibPropose2 {
         );
 
         // Validate the params and returns an updated copy
-        (I.BatchParams memory params, ParamsValidationOutput memory output) =
-            _validateBatchParams(_env, _params, _parentProposeMeta);
+        (I.Batch memory params, ParamsValidationOutput memory output) =
+            _validateBatch(_env, _batch, _parentProposeMeta);
 
         output.prover = _validateProver(_env, _summary, params.proverAuth, params);
 
@@ -148,37 +148,37 @@ library LibPropose2 {
         Environment memory _env,
         I.Summary memory _summary,
         bytes memory _proverAuth,
-        I.BatchParams memory _params
+        I.Batch memory _batch
     )
         private
         returns (address prover_)
     {
         unchecked {
-            if (_params.proverAuth.length == 0) {
+            if (_batch.proverAuth.length == 0) {
                 _env.debitBond(
                     _env.conf.bondToken,
-                    _params.proposer,
+                    _batch.proposer,
                     _env.conf.livenessBond + _env.conf.provabilityBond
                 );
-                return _params.proposer;
+                return _batch.proposer;
             }
 
-            // Circular dependency so zero it out. (BatchParams has proverAuth but
-            // proverAuth has also batchParamsHash)
-            _params.proverAuth = "";
+            // Circular dependency so zero it out. (Batch has proverAuth but
+            // proverAuth has also batchHash)
+            _batch.proverAuth = "";
 
             // Outsource the prover authentication to the LibAuth library to
             // reduce this contract's code size.
             address feeToken;
             uint96 fee;
             (prover_, feeToken, fee) = _env.validateProverAuth(
-                _env.conf.chainId, _summary.numBatches, keccak256(abi.encode(_params)), _proverAuth
+                _env.conf.chainId, _summary.numBatches, keccak256(abi.encode(_batch)), _proverAuth
             );
 
             if (feeToken == _env.conf.bondToken) {
                 // proposer pay the prover fee with bond tokens
                 _env.debitBond(
-                    _env.conf.bondToken, _params.proposer, fee + _env.conf.provabilityBond
+                    _env.conf.bondToken, _batch.proposer, fee + _env.conf.provabilityBond
                 );
 
                 // if bondDelta is negative (proverFee < livenessBond), deduct the diff
@@ -188,71 +188,71 @@ library LibPropose2 {
                 bondDelta < 0
                     ? _env.debitBond(_env.conf.bondToken, prover_, uint256(-bondDelta))
                     : _env.creditBond(prover_, uint256(bondDelta));
-            } else if (_params.proposer == prover_) {
+            } else if (_batch.proposer == prover_) {
                 _env.debitBond(
                     _env.conf.bondToken,
-                    _params.proposer,
+                    _batch.proposer,
                     _env.conf.livenessBond + _env.conf.provabilityBond
                 );
             } else {
-                _env.debitBond(_env.conf.bondToken, _params.proposer, _env.conf.provabilityBond);
+                _env.debitBond(_env.conf.bondToken, _batch.proposer, _env.conf.provabilityBond);
                 _env.debitBond(_env.conf.bondToken, prover_, _env.conf.livenessBond);
 
                 if (fee != 0) {
-                    _env.transferFee(feeToken, _params.proposer, prover_, fee);
+                    _env.transferFee(feeToken, _batch.proposer, prover_, fee);
                 }
             }
         }
     }
 
-    function _validateBatchParams(
+    function _validateBatch(
         Environment memory _env,
-        I.BatchParams memory _params,
+        I.Batch memory _batch,
         I.BatchProposeMetadata memory _parentProposeMeta
     )
         private
         view
-        returns (I.BatchParams memory, ParamsValidationOutput memory)
+        returns (I.Batch memory, ParamsValidationOutput memory)
     {
         ParamsValidationOutput memory output;
 
         if (_env.inboxWrapper == address(0)) {
-            if (_params.proposer == address(0)) {
-                _params.proposer = _env.sender;
+            if (_batch.proposer == address(0)) {
+                _batch.proposer = _env.sender;
             } else {
-                require(_params.proposer == _env.sender, CustomProposerNotAllowed());
+                require(_batch.proposer == _env.sender, CustomProposerNotAllowed());
             }
 
             // blob hashes are only accepted if the caller is trusted.
-            require(_params.blobParams.blobHashes.length == 0, InvalidBlobParams());
-            require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-            require(_params.isForcedInclusion == false, InvalidForcedInclusion());
+            require(_batch.blobParams.blobHashes.length == 0, InvalidBlobParams());
+            require(_batch.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+            require(_batch.isForcedInclusion == false, InvalidForcedInclusion());
         } else {
-            require(_params.proposer != address(0), CustomProposerMissing());
+            require(_batch.proposer != address(0), CustomProposerMissing());
             require(_env.sender == _env.inboxWrapper, NotInboxWrapper());
         }
 
         // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
         // preconfer address. This will allow us to implement preconfirmation features in L2
         // anchor transactions.
-        if (_params.coinbase == address(0)) {
-            _params.coinbase = _params.proposer;
+        if (_batch.coinbase == address(0)) {
+            _batch.coinbase = _batch.proposer;
         }
 
-        if (_params.blobParams.blobHashes.length == 0) {
+        if (_batch.blobParams.blobHashes.length == 0) {
             // this is a normal batch, blobs are created and used in the current batches.
             // firstBlobIndex can be non-zero.
-            require(_params.blobParams.numBlobs != 0, BlobNotSpecified());
-            require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-            _params.blobParams.createdIn = _env.blockNumber;
+            require(_batch.blobParams.numBlobs != 0, BlobNotSpecified());
+            require(_batch.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+            _batch.blobParams.createdIn = _env.blockNumber;
         } else {
             // this is a forced-inclusion batch, blobs were created in early blocks and are used
             // in the current batches
-            require(_params.blobParams.createdIn != 0, InvalidBlobCreatedIn());
-            require(_params.blobParams.numBlobs == 0, InvalidBlobParams());
-            require(_params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+            require(_batch.blobParams.createdIn != 0, InvalidBlobCreatedIn());
+            require(_batch.blobParams.numBlobs == 0, InvalidBlobParams());
+            require(_batch.blobParams.firstBlobIndex == 0, InvalidBlobParams());
         }
-        uint256 nBlocks = _params.encodedBlocks.length;
+        uint256 nBlocks = _batch.encodedBlocks.length;
 
         require(nBlocks != 0, BlockNotFound());
         require(nBlocks <= _env.conf.maxBlocksPerBatch, TooManyBlocks());
@@ -260,16 +260,16 @@ library LibPropose2 {
         output.blocks = new I.BlockParams[](nBlocks);
 
         for (uint256 i; i < nBlocks; ++i) {
-            output.blocks[i].numTransactions = uint16(uint256(_params.encodedBlocks[i]));
-            output.blocks[i].timeShift = uint8(uint256(_params.encodedBlocks[i]) >> 16);
-            output.blocks[i].anchorBlockId = uint48(uint256(_params.encodedBlocks[i]) >> 24);
-            output.blocks[i].numSignals = uint8(uint256(_params.encodedBlocks[i]) >> 32 & 0xFF);
+            output.blocks[i].numTransactions = uint16(uint256(_batch.encodedBlocks[i]));
+            output.blocks[i].timeShift = uint8(uint256(_batch.encodedBlocks[i]) >> 16);
+            output.blocks[i].anchorBlockId = uint48(uint256(_batch.encodedBlocks[i]) >> 24);
+            output.blocks[i].numSignals = uint8(uint256(_batch.encodedBlocks[i]) >> 32 & 0xFF);
         }
 
-        if (_params.lastBlockTimestamp == 0) {
-            _params.lastBlockTimestamp = _env.blockTimestamp;
+        if (_batch.lastBlockTimestamp == 0) {
+            _batch.lastBlockTimestamp = _env.blockTimestamp;
         } else {
-            require(_params.lastBlockTimestamp <= _env.blockTimestamp, TimestampTooLarge());
+            require(_batch.lastBlockTimestamp <= _env.blockTimestamp, TimestampTooLarge());
         }
 
         require(output.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
@@ -285,14 +285,14 @@ library LibPropose2 {
             require(output.blocks[i].numSignals <= _env.conf.maxSignalsToReceive, TooManySignals());
 
             for (uint256 j; j < output.blocks[i].numSignals; ++j) {
-                require(_env.isSignalSent(_params.signalSlots[signalSlotsIdx]), SignalNotSent());
+                require(_env.isSignalSent(_batch.signalSlots[signalSlotsIdx]), SignalNotSent());
                 signalSlotsIdx++;
             }
         }
 
-        require(_params.lastBlockTimestamp >= totalShift, TimestampTooSmall());
+        require(_batch.lastBlockTimestamp >= totalShift, TimestampTooSmall());
 
-        uint256 firstBlockTimestamp = _params.lastBlockTimestamp - totalShift;
+        uint256 firstBlockTimestamp = _batch.lastBlockTimestamp - totalShift;
 
         require(
             firstBlockTimestamp + _env.conf.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
@@ -312,8 +312,8 @@ library LibPropose2 {
         bool foundNoneZeroAnchorBlockId;
         for (uint256 i; i < nBlocks; ++i) {
             if (output.blocks[i].hasAnchorBlock) {
-                require(k < _params.anchorBlockIds.length, NotEnoughAnchorIds());
-                uint48 anchorBlockId = _params.anchorBlockIds[k];
+                require(k < _batch.anchorBlockIds.length, NotEnoughAnchorIds());
+                uint48 anchorBlockId = _batch.anchorBlockIds[k];
 
                 require(anchorBlockId != 0, AnchorIdZero());
 
@@ -341,7 +341,7 @@ library LibPropose2 {
             NoAnchorBlockIdWithinThisBatch()
         );
 
-        (output.txsHash, output.blobHashes) = _calculateTxsHash(_env, _params.blobParams);
+        (output.txsHash, output.blobHashes) = _calculateTxsHash(_env, _batch.blobParams);
 
         output.firstBlockId = _parentProposeMeta.lastBlockId + 1;
         output.lastBlockId = uint48(output.firstBlockId + nBlocks);
@@ -350,7 +350,7 @@ library LibPropose2 {
             LibFork2.isBlocksInCurrentFork(_env.conf, output.firstBlockId, output.lastBlockId),
             BlocksNotInCurrentFork()
         );
-        return (_params, output);
+        return (_batch, output);
     }
 
     function _calculateTxsHash(
@@ -393,7 +393,7 @@ library LibPropose2 {
 
     function _populateBatchMetadata(
         Environment memory _env,
-        I.BatchParams memory _params,
+        I.Batch memory _batch,
         ParamsValidationOutput memory _output
     )
         private
@@ -403,29 +403,29 @@ library LibPropose2 {
         meta_.buildMeta = I.BatchBuildMetadata({
             txsHash: _output.txsHash,
             blobHashes: _output.blobHashes,
-            extraData: _encodeExtraDataLower128Bits(_env.conf, _params),
-            coinbase: _params.coinbase,
+            extraData: _encodeExtraDataLower128Bits(_env.conf, _batch),
+            coinbase: _batch.coinbase,
             proposedIn: _env.blockNumber,
-            blobCreatedIn: _params.blobParams.createdIn,
-            blobByteOffset: _params.blobParams.byteOffset,
-            blobByteSize: _params.blobParams.byteSize,
+            blobCreatedIn: _batch.blobParams.createdIn,
+            blobByteOffset: _batch.blobParams.byteOffset,
+            blobByteSize: _batch.blobParams.byteSize,
             gasLimit: _env.conf.blockMaxGasLimit,
             lastBlockId: _output.lastBlockId,
-            lastBlockTimestamp: _params.lastBlockTimestamp,
-            anchorBlockIds: _params.anchorBlockIds,
+            lastBlockTimestamp: _batch.lastBlockTimestamp,
+            anchorBlockIds: _batch.anchorBlockIds,
             anchorBlockHashes: _output.anchorBlockHashes,
-            encodedBlocks: _params.encodedBlocks,
+            encodedBlocks: _batch.encodedBlocks,
             baseFeeConfig: _env.conf.baseFeeConfig
         });
 
         meta_.proposeMeta = I.BatchProposeMetadata({
-            lastBlockTimestamp: _params.lastBlockTimestamp,
+            lastBlockTimestamp: _batch.lastBlockTimestamp,
             lastBlockId: meta_.buildMeta.lastBlockId,
             lastAnchorBlockId: _output.lastAnchorBlockId
         });
 
         meta_.proveMeta = I.BatchProveMetadata({
-            proposer: _params.proposer,
+            proposer: _batch.proposer,
             prover: _output.prover,
             proposedAt: _env.blockTimestamp,
             firstBlockId: _output.firstBlockId,
@@ -437,17 +437,17 @@ library LibPropose2 {
 
     /// @dev The function __encodeExtraDataLower128Bits encodes certain information into a uint128
     /// - bits 0-7: used to store _config.baseFeeConfig.sharingPctg.
-    /// - bit 8: used to store _batchParams.isForcedInclusion.
+    /// - bit 8: used to store _batch.isForcedInclusion.
     function _encodeExtraDataLower128Bits(
         I.Config memory _config,
-        I.BatchParams memory _params
+        I.Batch memory _batch
     )
         private
         pure
         returns (bytes32)
     {
         uint128 v = _config.baseFeeConfig.sharingPctg; // bits 0-7
-        v |= _params.isForcedInclusion ? 1 << 8 : 0; // bit 8
+        v |= _batch.isForcedInclusion ? 1 << 8 : 0; // bit 8
         return bytes32(uint256(v));
     }
 }

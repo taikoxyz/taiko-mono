@@ -39,7 +39,7 @@ interface ITaikoInbox2 {
         uint48 createdIn;
     }
 
-    struct BatchParams {
+    struct Batch {
         address proposer;
         address coinbase;
         uint48 lastBlockTimestamp;
