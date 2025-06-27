@@ -65,6 +65,7 @@ library LibPropose2 {
         uint48 firstBlockId;
         uint48 lastBlockId;
         I.AnchorBlock[] anchorBlocks;
+        I.BlockParams[] blocks;
         address proposer; // TODO
         address prover;
         address coinbase; // TODO
@@ -207,6 +208,7 @@ library LibPropose2 {
         view
         returns (I.BatchParams memory, ParamsValidationOutput memory)
     {
+          ParamsValidationOutput memory output;
         unchecked {
             require(
                 _summary.numBatches <= _summary.lastVerifiedBatchId + _env.conf.maxUnverifiedBatches,
@@ -249,10 +251,20 @@ library LibPropose2 {
                 require(_params.blobParams.numBlobs == 0, InvalidBlobParams());
                 require(_params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
             }
-            uint256 nBlocks = _params.blocks.length;
+            uint256 nBlocks = _params.encodedBlocks.length;
 
             require(nBlocks != 0, BlockNotFound());
             require(nBlocks <= _env.conf.maxBlocksPerBatch, TooManyBlocks());
+
+            output.blocks = new I.BlockParams[](nBlocks);
+
+   
+            for (uint256 i; i < nBlocks; ++i) {
+                output.blocks[i].numTransactions = uint16(uint256(_params.encodedBlocks[i]));
+                output.blocks[i].timeShift = uint8(uint256(_params.encodedBlocks[i]) >> 16);
+                output.blocks[i].anchorBlockId = uint48(uint256(_params.encodedBlocks[i]) >> 24);
+                output.blocks[i].numSignals = uint8(uint256(_params.encodedBlocks[i]) >> 32 & 0xFF);
+            }
 
             if (_params.lastBlockTimestamp == 0) {
                 _params.lastBlockTimestamp = _env.blockTimestamp;
@@ -260,21 +272,21 @@ library LibPropose2 {
                 require(_params.lastBlockTimestamp <= _env.blockTimestamp, TimestampTooLarge());
             }
 
-            require(_params.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
+            require(output.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
             uint64 totalShift;
+            uint signalSlotsIdx;
 
             for (uint256 i; i < nBlocks; ++i) {
-                I.BlockParams memory blockParams = _params.blocks[i];
-                totalShift += blockParams.timeShift;
+                totalShift += output.blocks[i].timeShift;
 
-                uint256 numSignals = blockParams.signalSlots.length;
-                if (numSignals == 0) continue;
+                if (output.blocks[i].numSignals == 0) continue;
 
-                require(numSignals <= _env.conf.maxSignalsToReceive, TooManySignals());
+                require(output.blocks[i].numSignals <= _env.conf.maxSignalsToReceive, TooManySignals());
 
-                for (uint256 j; j < numSignals; ++j) {
-                    require(_env.isSignalSent(blockParams.signalSlots[j]), SignalNotSent());
+                for (uint256 j; j < output.blocks[i].numSignals; ++j) {
+                    require(_env.isSignalSent(_params.signalSlots[signalSlotsIdx]), SignalNotSent());
+                    signalSlotsIdx++;
                 }
             }
 
@@ -294,14 +306,14 @@ library LibPropose2 {
                 TimestampSmallerThanParent()
             );
 
-            ParamsValidationOutput memory output;
+          
 
             output.anchorBlocks = new I.AnchorBlock[](nBlocks);
             output.lastAnchorBlockId = _parentProposeMeta.lastAnchorBlockId;
 
             bool foundNoneZeroAnchorBlockId;
             for (uint256 i; i < nBlocks; ++i) {
-                uint48 anchorBlockId = _params.blocks[i].anchorBlockId;
+                uint48 anchorBlockId = output.blocks[i].anchorBlockId;
                 if (anchorBlockId != 0) {
                     require(
                         foundNoneZeroAnchorBlockId
@@ -400,7 +412,7 @@ library LibPropose2 {
             lastBlockId: _output.lastBlockId,
             lastBlockTimestamp: _params.lastBlockTimestamp,
             anchorBlocks: _output.anchorBlocks,
-            blocks: _params.blocks,
+            encodedBlocks: _params.encodedBlocks,
             baseFeeConfig: _env.conf.baseFeeConfig
         });
 

@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "src/shared/based/LibSharedData.sol";
 
 interface ITaikoInbox2 {
+
+ 
     struct BlockParams {
         // the max number of transactions in this block. Note that if there are not enough
         // transactions in calldata or blobs, the block will contain as many transactions as
@@ -13,10 +15,10 @@ interface ITaikoInbox2 {
         // the timestamp of the parent block in the same batch. For the first block in a batch,
         // there is no parent block in the same batch, so the time shift should be 0.
         uint8 timeShift;
-        // Signals sent on L1 and need to sync to this L2 block.
-        bytes32[] signalSlots;
         // Optional anchor block id.
         uint48 anchorBlockId;
+        // The number of signals in this block.
+        uint8 numSignals;
     }
 
     struct BlobParams {
@@ -44,7 +46,8 @@ interface ITaikoInbox2 {
         bool isForcedInclusion;
         // Specifies the number of blocks to be generated from this batch.
         BlobParams blobParams;
-        BlockParams[] blocks;
+       bytes32[] signalSlots;
+        uint256[] encodedBlocks; // encoded BlockParams
         bytes proverAuth;
     }
 
@@ -66,7 +69,7 @@ interface ITaikoInbox2 {
         uint48 lastBlockId;
         uint48 lastBlockTimestamp;
         AnchorBlock[] anchorBlocks;
-        BlockParams[] blocks;
+        uint256[] encodedBlocks;
         LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
