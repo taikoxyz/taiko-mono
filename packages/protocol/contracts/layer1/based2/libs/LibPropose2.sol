@@ -45,7 +45,7 @@ library LibPropose2 {
         bytes32 parentBatchMetaHash;
         function(bytes32) view returns (bool) isSignalSent;
         function(I.Config memory, bytes32, uint256) view returns (bytes32) loadTransitionMetaHash;
-        function(uint64, uint64, bytes32, bytes32, bytes memory) view returns (address, address, uint96)
+        function(uint64, uint64, bytes32,  bytes memory) view returns (address, address, uint96)
             validateProverAuth;
         function(uint256) view returns (bytes32) getBlobHash;
         // writes
@@ -57,7 +57,6 @@ library LibPropose2 {
     }
 
     struct ParamsValidationOutput {
-        bytes32 txListHash;
         bytes32 txsHash;
         bytes32[] blobHashes;
         uint48 lastAnchorBlockId;
@@ -71,9 +70,7 @@ library LibPropose2 {
         Environment memory _env,
         I.Summary memory _summary,
         I.BatchParams memory _params,
-        I.BatchProposeMetadataEvidence calldata _evidence,
-        bytes calldata _txList,
-        bytes calldata /*_additionalData (ignored) */
+        I.BatchProposeMetadataEvidence calldata _evidence
     )
         internal
         returns (I.BatchMetadata memory, I.Summary memory)
@@ -83,9 +80,9 @@ library LibPropose2 {
 
         // Validate the params and returns an updated copy
         (I.BatchParams memory params, ParamsValidationOutput memory output) =
-            _validateBatchParams(_env, _summary, _params, _evidence.proposeMeta, _txList);
+            _validateBatchParams(_env, _summary, _params, _evidence.proposeMeta );
 
-        output.prover = _validateProver(_env, _summary, params.proverAuth, params, output);
+        output.prover = _validateProver(_env, _summary, params.proverAuth, params);
         I.BatchMetadata memory meta = _populateBatchMetadata(_env, params, output);
 
         _env.saveBatchMetaHash(_env.conf, _summary.numBatches, hashBatch(_summary.numBatches, meta));
@@ -117,8 +114,7 @@ library LibPropose2 {
         Environment memory _env,
         I.Summary memory _summary,
         bytes memory _proverAuth,
-        I.BatchParams memory _params,
-        ParamsValidationOutput memory _output
+        I.BatchParams memory _params
     )
         private
         returns (address prover_)
@@ -145,7 +141,6 @@ library LibPropose2 {
                 _env.conf.chainId,
                 _summary.numBatches,
                 keccak256(abi.encode(_params)),
-                _output.txListHash,
                 _proverAuth
             );
 
@@ -183,8 +178,7 @@ library LibPropose2 {
         Environment memory _env,
         I.Summary memory _summary,
         I.BatchParams memory _params,
-        I.BatchProposeMetadata calldata _parentProposeMeta,
-        bytes calldata _txList
+        I.BatchProposeMetadata calldata _parentProposeMeta
     )
         private
         view
@@ -219,13 +213,7 @@ library LibPropose2 {
                 _params.coinbase = _params.proposer;
             }
 
-            if (_txList.length != 0) {
-                // calldata is used for data availability
-                require(_params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
-                require(_params.blobParams.numBlobs == 0, InvalidBlobParams());
-                require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                require(_params.blobParams.blobHashes.length == 0, InvalidBlobParams());
-            } else if (_params.blobParams.blobHashes.length == 0) {
+             if (_params.blobParams.blobHashes.length == 0) {
                 // this is a normal batch, blobs are created and used in the current batches.
                 // firstBlobIndex can be non-zero.
                 require(_params.blobParams.numBlobs != 0, BlobNotSpecified());
@@ -316,9 +304,8 @@ library LibPropose2 {
                 NoAnchorBlockIdWithinThisBatch()
             );
 
-            output.txListHash = keccak256(_txList);
             (output.txsHash, output.blobHashes) =
-                _calculateTxsHash(_env, output.txListHash, _params.blobParams);
+                _calculateTxsHash(_env, _params.blobParams);
 
             output.firstBlockId = _parentProposeMeta.lastBlockId + 1;
             output.lastBlockId = uint48(output.firstBlockId + nBlocks);
@@ -333,7 +320,6 @@ library LibPropose2 {
 
     function _calculateTxsHash(
         Environment memory _env,
-        bytes32 _txListHash,
         I.BlobParams memory _blobParams
     )
         private
@@ -353,7 +339,7 @@ library LibPropose2 {
             for (uint256 i; i < blobHashes_.length; ++i) {
                 require(blobHashes_[i] != 0, BlobNotFound());
             }
-            txsHash_ = keccak256(abi.encode(_txListHash, blobHashes_));
+            txsHash_ = keccak256(abi.encode( blobHashes_));
         }
     }
 

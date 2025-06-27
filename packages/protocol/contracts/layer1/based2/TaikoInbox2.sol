@@ -76,8 +76,6 @@ abstract contract TaikoInbox2 is
         I.Summary memory _summary,
         I.BatchParams memory _params,
         I.BatchProposeMetadataEvidence calldata _parentProposeMetaEvidence,
-        bytes calldata _txList,
-        bytes calldata _additionalData,
         I.TransitionMeta[] calldata _trans
     )
         public
@@ -110,7 +108,7 @@ abstract contract TaikoInbox2 is
         });
 
         (meta_, _summary) = LibPropose2.proposeBatch(
-            env, _summary, _params, _parentProposeMetaEvidence, _txList, _additionalData
+            env, _summary, _params, _parentProposeMetaEvidence 
         );
 
         emit I.BatchProposed(_summary.numBatches, meta_);
