@@ -65,4 +65,12 @@ library LibData2 {
         uint256 v = uint256(partialParentHash_) & ~type(uint48).max | batchId_;
         return bytes32(v);
     }
+
+    function encodeBatchMetadata(I.BatchMetadata memory _meta)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(_meta);
+    }
 }

@@ -21,7 +21,6 @@ library LibAuth2 {
         uint64 _chainId,
         uint64 _batchId,
         bytes32 _batchParamsHash,
-        bytes32 _txListHash,
         bytes memory _proverAuth
     )
         internal
@@ -42,7 +41,7 @@ library LibAuth2 {
         // Save and use later, before nullifying in computeProverAuthDigest()
         bytes memory signature = auth.signature;
         auth.signature = "";
-        bytes32 digest = _computeProverAuthDigest(_chainId, _batchParamsHash, _txListHash, auth);
+        bytes32 digest = _computeProverAuthDigest(_chainId, _batchParamsHash, auth);
 
         require(auth.prover.isValidSignatureNow(digest, signature), InvalidSignature());
 
@@ -52,7 +51,6 @@ library LibAuth2 {
     function _computeProverAuthDigest(
         uint64 _chainId,
         bytes32 _batchParamsHash,
-        bytes32 _txListHash,
         I.ProverAuth memory _auth
     )
         private
@@ -60,8 +58,6 @@ library LibAuth2 {
         returns (bytes32)
     {
         require(_auth.signature.length == 0, SignatureNotEmpty());
-        return keccak256(
-            abi.encode("PROVER_AUTHENTICATION", _chainId, _batchParamsHash, _txListHash, _auth)
-        );
+        return keccak256(abi.encode("PROVER_AUTHENTICATION", _chainId, _batchParamsHash, _auth));
     }
 }

@@ -72,18 +72,16 @@ abstract contract TaikoInbox2 is
         __Taiko_init(_owner, _genesisBlockHash);
     }
 
-    function v4ProposeBatch(
+    function v4ProposeBatches(
         I.Summary memory _summary,
-        I.BatchParams memory _params,
+        I.BatchParams[] memory _params,
         I.BatchProposeMetadataEvidence calldata _parentProposeMetaEvidence,
-        bytes calldata _txList,
-        bytes calldata _additionalData,
         I.TransitionMeta[] calldata _trans
     )
         public
         // override(ITaikoInbox2, IProposeBatch2)
         nonReentrant
-        returns (I.BatchMetadata memory meta_)
+        returns (I.Summary memory)
     {
         bool _paused = state.validateSummary(_summary);
         require(!_paused, ContractPaused());
@@ -96,6 +94,7 @@ abstract contract TaikoInbox2 is
             sender: msg.sender,
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
+            encodeBatchMetadata: LibData2.encodeBatchMetadata,
             parentBatchMetaHash: state.batches[(_summary.numBatches - 1) % conf.batchRingBufferSize],
             isSignalSent: _isSignalSent,
             loadTransitionMetaHash: _loadTransitionMetaHash,
@@ -109,15 +108,11 @@ abstract contract TaikoInbox2 is
             validateProverAuth: LibAuth2.validateProverAuth
         });
 
-        (meta_, _summary) = LibPropose2.proposeBatch(
-            env, _summary, _params, _parentProposeMetaEvidence, _txList, _additionalData
-        );
-
-        emit I.BatchProposed(_summary.numBatches, meta_);
-
+        _summary = LibPropose2.proposeBatches(env, _summary, _params, _parentProposeMetaEvidence);
         _summary = LibVerify2.verifyBatches(env, _summary, _trans);
 
         state.updateSummary(_summary, _paused);
+        return _summary;
     }
 
     function v4ProveBatches(
@@ -127,6 +122,7 @@ abstract contract TaikoInbox2 is
     )
         external
         nonReentrant
+        returns (I.Summary memory)
     {
         bool _paused = state.validateSummary(_summary);
         require(!_paused, ContractPaused());
@@ -150,6 +146,7 @@ abstract contract TaikoInbox2 is
         state.updateSummary(_summary, _paused);
 
         IVerifier2(verifier).verifyProof(aggregatedBatchHash, _proof);
+        return _summary;
     }
 
     function v4DepositBond(uint256 _amount) external payable whenNotPaused {
