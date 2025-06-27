@@ -65,7 +65,9 @@ library LibPropose2 {
         uint48 firstBlockId;
         uint48 lastBlockId;
         I.AnchorBlock[] anchorBlocks;
+        address proposer; // TODO
         address prover;
+        address coinbase; // TODO
     }
 
     function proposeBatches(
