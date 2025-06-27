@@ -75,7 +75,7 @@ abstract contract TaikoInbox2 is
     function v4ProposeBatches(
         I.Summary memory _summary,
         I.Batch[] memory _batch,
-        I.BatchProposeMetadataEvidence calldata _parentProposeMetaEvidence,
+        I.BatchProposeMetadataEvidence calldata _evidence,
         I.TransitionMeta[] calldata _trans
     )
         public
@@ -108,7 +108,7 @@ abstract contract TaikoInbox2 is
             validateProverAuth: LibAuth2.validateProverAuth
         });
 
-        _summary = LibPropose2.proposeBatches(env, _summary, _batch, _parentProposeMetaEvidence);
+        _summary = LibPropose2.proposeBatches(env, _summary, _batch, _evidence);
         _summary = LibVerify2.verifyBatches(env, _summary, _trans);
 
         state.updateSummary(_summary, _paused);
