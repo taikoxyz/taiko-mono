@@ -12,6 +12,7 @@ import "./LibFork2.sol";
 library LibPropose2 {
     error AnchorIdSmallerThanParent();
     error AnchorIdTooSmall();
+    error AnchorIdZero();
     error BlobNotFound();
     error BlobNotSpecified();
     error BlockNotFound();
@@ -25,6 +26,7 @@ library LibPropose2 {
     error InvalidSummary();
     error MetaHashNotMatch();
     error NoAnchorBlockIdWithinThisBatch();
+    error NotEnoughAnchorIds();
     error NoBatchesToPropose();
     error NotInboxWrapper();
     error SignalNotSent();
@@ -64,7 +66,7 @@ library LibPropose2 {
         uint48 lastAnchorBlockId;
         uint48 firstBlockId;
         uint48 lastBlockId;
-        I.AnchorBlock[] anchorBlocks;
+        bytes32[] anchorBlockHashes;
         I.BlockParams[] blocks;
         address proposer; // TODO
         address prover;
@@ -208,7 +210,7 @@ library LibPropose2 {
         view
         returns (I.BatchParams memory, ParamsValidationOutput memory)
     {
-          ParamsValidationOutput memory output;
+        ParamsValidationOutput memory output;
         unchecked {
             require(
                 _summary.numBatches <= _summary.lastVerifiedBatchId + _env.conf.maxUnverifiedBatches,
@@ -258,7 +260,6 @@ library LibPropose2 {
 
             output.blocks = new I.BlockParams[](nBlocks);
 
-   
             for (uint256 i; i < nBlocks; ++i) {
                 output.blocks[i].numTransactions = uint16(uint256(_params.encodedBlocks[i]));
                 output.blocks[i].timeShift = uint8(uint256(_params.encodedBlocks[i]) >> 16);
@@ -275,14 +276,16 @@ library LibPropose2 {
             require(output.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
             uint64 totalShift;
-            uint signalSlotsIdx;
+            uint256 signalSlotsIdx;
 
             for (uint256 i; i < nBlocks; ++i) {
                 totalShift += output.blocks[i].timeShift;
 
                 if (output.blocks[i].numSignals == 0) continue;
 
-                require(output.blocks[i].numSignals <= _env.conf.maxSignalsToReceive, TooManySignals());
+                require(
+                    output.blocks[i].numSignals <= _env.conf.maxSignalsToReceive, TooManySignals()
+                );
 
                 for (uint256 j; j < output.blocks[i].numSignals; ++j) {
                     require(_env.isSignalSent(_params.signalSlots[signalSlotsIdx]), SignalNotSent());
@@ -306,15 +309,18 @@ library LibPropose2 {
                 TimestampSmallerThanParent()
             );
 
-          
-
-            output.anchorBlocks = new I.AnchorBlock[](nBlocks);
+            output.anchorBlockHashes = new bytes32[](nBlocks);
             output.lastAnchorBlockId = _parentProposeMeta.lastAnchorBlockId;
+            uint256 k;
 
             bool foundNoneZeroAnchorBlockId;
             for (uint256 i; i < nBlocks; ++i) {
-                uint48 anchorBlockId = output.blocks[i].anchorBlockId;
-                if (anchorBlockId != 0) {
+                if (output.blocks[i].hasAnchorBlock) {
+                    require(k < _params.anchorBlockIds.length, NotEnoughAnchorIds());
+                    uint48 anchorBlockId = _params.anchorBlockIds[k];
+
+                    require(anchorBlockId != 0, AnchorIdZero());
+
                     require(
                         foundNoneZeroAnchorBlockId
                             || anchorBlockId + _env.conf.maxAnchorHeightOffset >= _env.blockNumber,
@@ -322,12 +328,12 @@ library LibPropose2 {
                     );
 
                     require(anchorBlockId > output.lastAnchorBlockId, AnchorIdSmallerThanParent());
-                    output.anchorBlocks[i] =
-                        I.AnchorBlock(anchorBlockId, _env.getBlobHash(anchorBlockId));
-                    require(output.anchorBlocks[i].blockHash != 0, ZeroAnchorBlockHash());
+                    output.anchorBlockHashes[k] = _env.getBlobHash(anchorBlockId);
+                    require(output.anchorBlockHashes[k] != 0, ZeroAnchorBlockHash());
 
                     foundNoneZeroAnchorBlockId = true;
                     output.lastAnchorBlockId = anchorBlockId;
+                    k++;
                 }
             }
 
@@ -411,7 +417,8 @@ library LibPropose2 {
             gasLimit: _env.conf.blockMaxGasLimit,
             lastBlockId: _output.lastBlockId,
             lastBlockTimestamp: _params.lastBlockTimestamp,
-            anchorBlocks: _output.anchorBlocks,
+            anchorBlockIds: _params.anchorBlockIds,
+            anchorBlockHashes: _output.anchorBlockHashes,
             encodedBlocks: _params.encodedBlocks,
             baseFeeConfig: _env.conf.baseFeeConfig
         });
