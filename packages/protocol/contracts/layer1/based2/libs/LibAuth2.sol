@@ -22,7 +22,7 @@ library LibAuth2 {
         uint64 _batchId,
         bytes32 _batchParamsHash,
         bytes32 _txListHash,
-        bytes calldata _proverAuth
+        bytes memory _proverAuth
     )
         internal
         view

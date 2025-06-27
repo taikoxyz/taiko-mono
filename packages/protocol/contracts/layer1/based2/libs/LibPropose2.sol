@@ -46,7 +46,7 @@ library LibPropose2 {
         bytes32 parentBatchMetaHash;
         function(bytes32) view returns (bool) isSignalSent;
         function(I.Config memory, bytes32, uint256) view returns (bytes32) loadTransitionMetaHash;
-        function(uint64, uint64, bytes32, bytes32, bytes calldata) view returns (address, address, uint96)
+        function(uint64, uint64, bytes32, bytes32, bytes memory) view returns (address, address, uint96)
             validateProverAuth;
         function(uint256) view returns (bytes32) getBlobHash;
         // writes
@@ -57,7 +57,7 @@ library LibPropose2 {
         function(I.Config memory, uint64, bytes32) syncChainData;
     }
 
-    struct ValidationOutput {
+    struct ParamsValidationOutput {
         bytes32 txListHash;
         bytes32 txsHash;
         bytes32[] blobHashes;
@@ -71,10 +71,10 @@ library LibPropose2 {
     function proposeBatch(
         Environment memory _env,
         I.Summary memory _summary,
+        I.BatchParams memory _params,
         I.BatchProposeMetadataEvidence calldata _evidence,
-        I.BatchParams calldata _params,
         bytes calldata _txList,
-        bytes calldata /*_additionalData*/
+        bytes calldata /*_additionalData (ignored) */
     )
         internal
         returns (I.BatchMetadata memory, I.Summary memory)
@@ -83,10 +83,10 @@ library LibPropose2 {
         _validateBatchProposeMeta(_evidence, _env.parentBatchMetaHash);
 
         // Validate the params and returns an updated copy
-        (I.BatchParams memory params, ValidationOutput memory output) =
-            _validateBatchParams(_env, _summary, _evidence.proposeMeta, _params, _txList);
+        (I.BatchParams memory params, ParamsValidationOutput memory output) =
+            _validateBatchParams(_env, _summary, _params, _evidence.proposeMeta, _txList);
 
-        output.prover = _validateProver(_env, _summary, _params.proverAuth, params, output);
+        output.prover = _validateProver(_env, _summary, params.proverAuth, params, output);
         I.BatchMetadata memory meta = _populateBatchMetadata(_env, params, output);
 
         _env.saveBatchMetaHash(_env.conf, _summary.numBatches, hashBatch(_summary.numBatches, meta));
@@ -117,9 +117,9 @@ library LibPropose2 {
     function _validateProver(
         Environment memory _env,
         I.Summary memory _summary,
-        bytes calldata _proverAuth,
+        bytes memory _proverAuth,
         I.BatchParams memory _params,
-        ValidationOutput memory _output
+        ParamsValidationOutput memory _output
     )
         private
         returns (address prover_)
@@ -183,13 +183,13 @@ library LibPropose2 {
     function _validateBatchParams(
         Environment memory _env,
         I.Summary memory _summary,
+        I.BatchParams memory _params,
         I.BatchProposeMetadata calldata _parentProposeMeta,
-        I.BatchParams calldata _params,
         bytes calldata _txList
     )
         private
         view
-        returns (I.BatchParams memory params_, ValidationOutput memory output_)
+        returns (I.BatchParams memory, ParamsValidationOutput memory)
     {
         unchecked {
             require(
@@ -197,71 +197,69 @@ library LibPropose2 {
                 TooManyBatches()
             );
 
-            params_ = _params; // no longer need to use _param below!
-
             if (_env.inboxWrapper == address(0)) {
-                if (params_.proposer == address(0)) {
-                    params_.proposer = _env.sender;
+                if (_params.proposer == address(0)) {
+                    _params.proposer = _env.sender;
                 } else {
-                    require(params_.proposer == _env.sender, CustomProposerNotAllowed());
+                    require(_params.proposer == _env.sender, CustomProposerNotAllowed());
                 }
 
                 // blob hashes are only accepted if the caller is trusted.
-                require(params_.blobParams.blobHashes.length == 0, InvalidBlobParams());
-                require(params_.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                require(params_.isForcedInclusion == false, InvalidForcedInclusion());
+                require(_params.blobParams.blobHashes.length == 0, InvalidBlobParams());
+                require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                require(_params.isForcedInclusion == false, InvalidForcedInclusion());
             } else {
-                require(params_.proposer != address(0), CustomProposerMissing());
+                require(_params.proposer != address(0), CustomProposerMissing());
                 require(_env.sender == _env.inboxWrapper, NotInboxWrapper());
             }
 
             // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
             // preconfer address. This will allow us to implement preconfirmation features in L2
             // anchor transactions.
-            if (params_.coinbase == address(0)) {
-                params_.coinbase = params_.proposer;
+            if (_params.coinbase == address(0)) {
+                _params.coinbase = _params.proposer;
             }
 
-            if (params_.revertIfNotFirstProposal) {
+            if (_params.revertIfNotFirstProposal) {
                 require(_summary.lastProposedIn != _env.blockNumber, NotFirstProposal());
             }
 
             if (_txList.length != 0) {
                 // calldata is used for data availability
-                require(params_.blobParams.firstBlobIndex == 0, InvalidBlobParams());
-                require(params_.blobParams.numBlobs == 0, InvalidBlobParams());
-                require(params_.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                require(params_.blobParams.blobHashes.length == 0, InvalidBlobParams());
-            } else if (params_.blobParams.blobHashes.length == 0) {
+                require(_params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+                require(_params.blobParams.numBlobs == 0, InvalidBlobParams());
+                require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                require(_params.blobParams.blobHashes.length == 0, InvalidBlobParams());
+            } else if (_params.blobParams.blobHashes.length == 0) {
                 // this is a normal batch, blobs are created and used in the current batches.
                 // firstBlobIndex can be non-zero.
-                require(params_.blobParams.numBlobs != 0, BlobNotSpecified());
-                require(params_.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                params_.blobParams.createdIn = _env.blockNumber;
+                require(_params.blobParams.numBlobs != 0, BlobNotSpecified());
+                require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                _params.blobParams.createdIn = _env.blockNumber;
             } else {
                 // this is a forced-inclusion batch, blobs were created in early blocks and are used
                 // in the current batches
-                require(params_.blobParams.createdIn != 0, InvalidBlobCreatedIn());
-                require(params_.blobParams.numBlobs == 0, InvalidBlobParams());
-                require(params_.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+                require(_params.blobParams.createdIn != 0, InvalidBlobCreatedIn());
+                require(_params.blobParams.numBlobs == 0, InvalidBlobParams());
+                require(_params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
             }
-            uint256 nBlocks = params_.blocks.length;
+            uint256 nBlocks = _params.blocks.length;
 
             require(nBlocks != 0, BlockNotFound());
             require(nBlocks <= _env.conf.maxBlocksPerBatch, TooManyBlocks());
 
-            if (params_.lastBlockTimestamp == 0) {
-                params_.lastBlockTimestamp = _env.blockTimestamp;
+            if (_params.lastBlockTimestamp == 0) {
+                _params.lastBlockTimestamp = _env.blockTimestamp;
             } else {
-                require(params_.lastBlockTimestamp <= _env.blockTimestamp, TimestampTooLarge());
+                require(_params.lastBlockTimestamp <= _env.blockTimestamp, TimestampTooLarge());
             }
 
-            require(params_.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
+            require(_params.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
             uint64 totalShift;
 
             for (uint256 i; i < nBlocks; ++i) {
-                I.BlockParams memory blockParams = params_.blocks[i];
+                I.BlockParams memory blockParams = _params.blocks[i];
                 totalShift += blockParams.timeShift;
 
                 uint256 numSignals = blockParams.signalSlots.length;
@@ -274,9 +272,9 @@ library LibPropose2 {
                 }
             }
 
-            require(params_.lastBlockTimestamp >= totalShift, TimestampTooSmall());
+            require(_params.lastBlockTimestamp >= totalShift, TimestampTooSmall());
 
-            uint256 firstBlockTimestamp = params_.lastBlockTimestamp - totalShift;
+            uint256 firstBlockTimestamp = _params.lastBlockTimestamp - totalShift;
 
             require(
                 firstBlockTimestamp
@@ -290,12 +288,14 @@ library LibPropose2 {
                 TimestampSmallerThanParent()
             );
 
-            output_.anchorBlocks = new I.AnchorBlock[](nBlocks);
-            output_.lastAnchorBlockId = _parentProposeMeta.lastAnchorBlockId;
+            ParamsValidationOutput memory output;
+
+            output.anchorBlocks = new I.AnchorBlock[](nBlocks);
+            output.lastAnchorBlockId = _parentProposeMeta.lastAnchorBlockId;
 
             bool foundNoneZeroAnchorBlockId;
             for (uint256 i; i < nBlocks; ++i) {
-                uint48 anchorBlockId = params_.blocks[i].anchorBlockId;
+                uint48 anchorBlockId = _params.blocks[i].anchorBlockId;
                 if (anchorBlockId != 0) {
                     require(
                         foundNoneZeroAnchorBlockId
@@ -303,13 +303,13 @@ library LibPropose2 {
                         AnchorIdTooSmall()
                     );
 
-                    require(anchorBlockId > output_.lastAnchorBlockId, AnchorIdSmallerThanParent());
-                    output_.anchorBlocks[i] =
+                    require(anchorBlockId > output.lastAnchorBlockId, AnchorIdSmallerThanParent());
+                    output.anchorBlocks[i] =
                         I.AnchorBlock(anchorBlockId, _env.getBlobHash(anchorBlockId));
-                    require(output_.anchorBlocks[i].blockHash != 0, ZeroAnchorBlockHash());
+                    require(output.anchorBlocks[i].blockHash != 0, ZeroAnchorBlockHash());
 
                     foundNoneZeroAnchorBlockId = true;
-                    output_.lastAnchorBlockId = anchorBlockId;
+                    output.lastAnchorBlockId = anchorBlockId;
                 }
             }
 
@@ -321,17 +321,18 @@ library LibPropose2 {
                 NoAnchorBlockIdWithinThisBatch()
             );
 
-            output_.txListHash = keccak256(_txList);
-            (output_.txsHash, output_.blobHashes) =
-                _calculateTxsHash(_env, output_.txListHash, params_.blobParams);
+            output.txListHash = keccak256(_txList);
+            (output.txsHash, output.blobHashes) =
+                _calculateTxsHash(_env, output.txListHash, _params.blobParams);
 
-            output_.firstBlockId = _parentProposeMeta.lastBlockId + 1;
-            output_.lastBlockId = uint48(output_.firstBlockId + nBlocks);
+            output.firstBlockId = _parentProposeMeta.lastBlockId + 1;
+            output.lastBlockId = uint48(output.firstBlockId + nBlocks);
 
             require(
-                LibFork2.isBlocksInCurrentFork(_env.conf, output_.firstBlockId, output_.lastBlockId),
+                LibFork2.isBlocksInCurrentFork(_env.conf, output.firstBlockId, output.lastBlockId),
                 BlocksNotInCurrentFork()
             );
+            return (_params, output);
         }
     }
 
@@ -377,7 +378,7 @@ library LibPropose2 {
     function _populateBatchMetadata(
         Environment memory _env,
         I.BatchParams memory _params,
-        ValidationOutput memory _output
+        ParamsValidationOutput memory _output
     )
         private
         pure
