@@ -48,6 +48,9 @@ abstract contract TaikoInbox2 is
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
 
+    // Define errors locally
+    error ContractPaused();
+
     // External functions ------------------------------------------------------------------------
 
     constructor(
@@ -82,7 +85,7 @@ abstract contract TaikoInbox2 is
         returns (I.BatchMetadata memory meta_, I.Summary memory summary_)
     {
         bool _paused = state.validateSummary(_summary);
-        require(!_paused, I.ContractPaused());
+        require(!_paused, ContractPaused());
 
         I.Config memory conf = _getConfig();
         LibPropose2.Environment memory env = LibPropose2.Environment({

@@ -12,6 +12,10 @@ library LibBonds2 {
     using LibAddress for address;
     using SafeERC20 for IERC20;
 
+    error EtherNotPaidAsBond();
+    error InsufficientBond();
+    error MsgValueNotZero();
+
     function withdrawBond(
         I.State storage $,
         address _bondToken,
@@ -20,7 +24,7 @@ library LibBonds2 {
         public // reduce code size
     {
         uint256 balance = $.bondBalance[msg.sender];
-        require(balance >= _amount, I.InsufficientBond());
+        require(balance >= _amount, InsufficientBond());
 
         emit IBondManager2.BondWithdrawn(msg.sender, _amount);
 
@@ -42,13 +46,13 @@ library LibBonds2 {
         returns (uint256 amountDeposited_)
     {
         if (_bondToken != address(0)) {
-            require(msg.value == 0, I.MsgValueNotZero());
+            require(msg.value == 0, MsgValueNotZero());
 
             uint256 balance = IERC20(_bondToken).balanceOf(address(this));
             IERC20(_bondToken).safeTransferFrom(_user, address(this), _amount);
             amountDeposited_ = IERC20(_bondToken).balanceOf(address(this)) - balance;
         } else {
-            require(msg.value == _amount, I.EtherNotPaidAsBond());
+            require(msg.value == _amount, EtherNotPaidAsBond());
             amountDeposited_ = _amount;
         }
         emit IBondManager2.BondDeposited(_user, amountDeposited_);
@@ -71,10 +75,10 @@ library LibBonds2 {
             }
         } else if (_bondToken != address(0)) {
             uint256 amountDeposited = depositBond(_bondToken, _user, _amount);
-            require(amountDeposited == _amount, I.InsufficientBond());
+            require(amountDeposited == _amount, InsufficientBond());
         } else {
             // Ether as bond must be deposited before proposing a batch
-            revert I.InsufficientBond();
+            revert InsufficientBond();
         }
         emit IBondManager2.BondDebited(_user, _amount);
     }

@@ -13,9 +13,14 @@ import "./LibFork2.sol";
 library LibProve2 {
     using LibMath for uint256;
 
+    error BatchNotFound();
     error BlocksNotInCurrentFork();
+    error ContractPaused();
     error InvalidSummary();
+    error InvalidTransitionParentHash();
     error MetaHashNotMatch();
+    error NoBlocksToProve();
+    error TooManyBatchesToProve();
 
     function proveBatches(
         I.State storage $,
@@ -28,11 +33,11 @@ library LibProve2 {
         internal
     {
         bool paused = LibData2.validateSummary($, _summary);
-        require(!paused, I.ContractPaused());
+        require(!paused, ContractPaused());
 
         uint256 nBatches = _evidences.length;
-        require(nBatches != 0, I.NoBlocksToProve());
-        require(nBatches <= type(uint8).max, I.TooManyBatchesToProve());
+        require(nBatches != 0, NoBlocksToProve());
+        require(nBatches <= type(uint8).max, TooManyBatchesToProve());
 
         I.TransitionMeta[] memory metas = new I.TransitionMeta[](nBatches);
         bytes32[] memory ctxHashes = new bytes32[](nBatches);
@@ -58,9 +63,9 @@ library LibProve2 {
         private
         returns (I.TransitionMeta memory tranMeta_, bytes32 ctxHash_)
     {
-        require(_input.transition.batchId > _summary.lastVerifiedBatchId, I.BatchNotFound());
-        require(_input.transition.batchId < _summary.numBatches, I.BatchNotFound());
-        require(_input.transition.parentHash != 0, I.InvalidTransitionParentHash());
+        require(_input.transition.batchId > _summary.lastVerifiedBatchId, BatchNotFound());
+        require(_input.transition.batchId < _summary.numBatches, BatchNotFound());
+        require(_input.transition.parentHash != 0, InvalidTransitionParentHash());
 
         // During batch proposal, we've ensured that its blocks won't cross fork boundaries.
         // Hence, we only need to verify        the firstBlockId of the block in the following

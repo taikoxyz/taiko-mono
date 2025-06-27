@@ -4,30 +4,30 @@ pragma solidity ^0.8.24;
 import "./CompareGasTest.sol";
 
 abstract contract Base {
-    uint internal x;
+    uint256 internal x;
 
-    event SetX(uint x);
+    event SetX(uint256 x);
 
-    function setX(uint _x) external virtual { }
+    function setX(uint256 _x) external virtual { }
 }
 
 contract Foo is Base {
-    function setX(uint _x) external override {
+    function setX(uint256 _x) external override {
         x = _x;
         emit SetX(_x);
     }
 }
 
 contract Bar is Base {
-    function setX(uint _x) external override {
+    function setX(uint256 _x) external override {
         a(_x, _setX);
     }
 
-    function a(uint _x, function(uint) _setFunc) internal {
+    function a(uint256 _x, function(uint) _setFunc) internal {
         _setFunc(_x);
     }
 
-    function _setX(uint _x) private {
+    function _setX(uint256 _x) private {
         x = _x;
         emit SetX(_x);
     }
