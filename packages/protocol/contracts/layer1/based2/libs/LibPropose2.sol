@@ -10,9 +10,31 @@ import "./LibFork2.sol";
 /// @title LibPropose2
 /// @custom:security-contact security@taiko.xyz
 library LibPropose2 {
+    error AnchorIdSmallerThanParent();
+    error AnchorIdTooSmall();
+    error BlobNotFound();
+    error BlobNotSpecified();
+    error BlockNotFound();
     error BlocksNotInCurrentFork();
+    error CustomProposerMissing();
+    error CustomProposerNotAllowed();
+    error FirstBlockTimeShiftNotZero();
+    error InvalidBlobCreatedIn();
+    error InvalidBlobParams();
+    error InvalidForcedInclusion();
     error InvalidSummary();
     error MetaHashNotMatch();
+    error NoAnchorBlockIdWithinThisBatch();
+    error NotFirstProposal();
+    error NotInboxWrapper();
+    error SignalNotSent();
+    error TimestampSmallerThanParent();
+    error TimestampTooLarge();
+    error TimestampTooSmall();
+    error TooManyBatches();
+    error TooManyBlocks();
+    error TooManySignals();
+    error ZeroAnchorBlockHash();
 
     struct Environment {
         // immutables
@@ -178,7 +200,7 @@ library LibPropose2 {
         unchecked {
             require(
                 _summary.numBatches <= _summary.lastVerifiedBatchId + _env.conf.maxUnverifiedBatches,
-                I.TooManyBatches()
+                TooManyBatches()
             );
 
             params_ = _params; // no longer need to use _param below!
@@ -187,16 +209,16 @@ library LibPropose2 {
                 if (params_.proposer == address(0)) {
                     params_.proposer = _env.sender;
                 } else {
-                    require(params_.proposer == _env.sender, I.CustomProposerNotAllowed());
+                    require(params_.proposer == _env.sender, CustomProposerNotAllowed());
                 }
 
                 // blob hashes are only accepted if the caller is trusted.
-                require(params_.blobParams.blobHashes.length == 0, I.InvalidBlobParams());
-                require(params_.blobParams.createdIn == 0, I.InvalidBlobCreatedIn());
-                require(params_.isForcedInclusion == false, I.InvalidForcedInclusion());
+                require(params_.blobParams.blobHashes.length == 0, InvalidBlobParams());
+                require(params_.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                require(params_.isForcedInclusion == false, InvalidForcedInclusion());
             } else {
-                require(params_.proposer != address(0), I.CustomProposerMissing());
-                require(_env.sender == _env.inboxWrapper, I.NotInboxWrapper());
+                require(params_.proposer != address(0), CustomProposerMissing());
+                require(_env.sender == _env.inboxWrapper, NotInboxWrapper());
             }
 
             // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
@@ -207,40 +229,40 @@ library LibPropose2 {
             }
 
             if (params_.revertIfNotFirstProposal) {
-                require(_summary.lastProposedIn != _env.blockNumber, I.NotFirstProposal());
+                require(_summary.lastProposedIn != _env.blockNumber, NotFirstProposal());
             }
 
             if (_txList.length != 0) {
                 // calldata is used for data availability
-                require(params_.blobParams.firstBlobIndex == 0, I.InvalidBlobParams());
-                require(params_.blobParams.numBlobs == 0, I.InvalidBlobParams());
-                require(params_.blobParams.createdIn == 0, I.InvalidBlobCreatedIn());
-                require(params_.blobParams.blobHashes.length == 0, I.InvalidBlobParams());
+                require(params_.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+                require(params_.blobParams.numBlobs == 0, InvalidBlobParams());
+                require(params_.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                require(params_.blobParams.blobHashes.length == 0, InvalidBlobParams());
             } else if (params_.blobParams.blobHashes.length == 0) {
                 // this is a normal batch, blobs are created and used in the current batches.
                 // firstBlobIndex can be non-zero.
-                require(params_.blobParams.numBlobs != 0, I.BlobNotSpecified());
-                require(params_.blobParams.createdIn == 0, I.InvalidBlobCreatedIn());
+                require(params_.blobParams.numBlobs != 0, BlobNotSpecified());
+                require(params_.blobParams.createdIn == 0, InvalidBlobCreatedIn());
                 params_.blobParams.createdIn = _env.blockNumber;
             } else {
                 // this is a forced-inclusion batch, blobs were created in early blocks and are used
                 // in the current batches
-                require(params_.blobParams.createdIn != 0, I.InvalidBlobCreatedIn());
-                require(params_.blobParams.numBlobs == 0, I.InvalidBlobParams());
-                require(params_.blobParams.firstBlobIndex == 0, I.InvalidBlobParams());
+                require(params_.blobParams.createdIn != 0, InvalidBlobCreatedIn());
+                require(params_.blobParams.numBlobs == 0, InvalidBlobParams());
+                require(params_.blobParams.firstBlobIndex == 0, InvalidBlobParams());
             }
             uint256 nBlocks = params_.blocks.length;
 
-            require(nBlocks != 0, I.BlockNotFound());
-            require(nBlocks <= _env.conf.maxBlocksPerBatch, I.TooManyBlocks());
+            require(nBlocks != 0, BlockNotFound());
+            require(nBlocks <= _env.conf.maxBlocksPerBatch, TooManyBlocks());
 
             if (params_.lastBlockTimestamp == 0) {
                 params_.lastBlockTimestamp = _env.blockTimestamp;
             } else {
-                require(params_.lastBlockTimestamp <= _env.blockTimestamp, I.TimestampTooLarge());
+                require(params_.lastBlockTimestamp <= _env.blockTimestamp, TimestampTooLarge());
             }
 
-            require(params_.blocks[0].timeShift == 0, I.FirstBlockTimeShiftNotZero());
+            require(params_.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
             uint64 totalShift;
 
@@ -251,14 +273,14 @@ library LibPropose2 {
                 uint256 numSignals = blockParams.signalSlots.length;
                 if (numSignals == 0) continue;
 
-                require(numSignals <= _env.conf.maxSignalsToReceive, I.TooManySignals());
+                require(numSignals <= _env.conf.maxSignalsToReceive, TooManySignals());
 
                 for (uint256 j; j < numSignals; ++j) {
-                    require(_env.isSignalSent(blockParams.signalSlots[j]), I.SignalNotSent());
+                    require(_env.isSignalSent(blockParams.signalSlots[j]), SignalNotSent());
                 }
             }
 
-            require(params_.lastBlockTimestamp >= totalShift, I.TimestampTooSmall());
+            require(params_.lastBlockTimestamp >= totalShift, TimestampTooSmall());
 
             uint256 firstBlockTimestamp = params_.lastBlockTimestamp - totalShift;
 
@@ -266,12 +288,12 @@ library LibPropose2 {
                 firstBlockTimestamp
                     + _env.conf.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
                     >= _env.blockTimestamp,
-                I.TimestampTooSmall()
+                TimestampTooSmall()
             );
 
             require(
                 firstBlockTimestamp >= _parentProposeMeta.lastBlockTimestamp,
-                I.TimestampSmallerThanParent()
+                TimestampSmallerThanParent()
             );
 
             output_.anchorBlocks = new I.AnchorBlock[](nBlocks);
@@ -284,15 +306,15 @@ library LibPropose2 {
                     require(
                         foundNoneZeroAnchorBlockId
                             || anchorBlockId + _env.conf.maxAnchorHeightOffset >= _env.blockNumber,
-                        I.AnchorIdTooSmall()
+                        AnchorIdTooSmall()
                     );
 
                     require(
-                        anchorBlockId > output_.lastAnchorBlockId, I.AnchorIdSmallerThanParent()
+                        anchorBlockId > output_.lastAnchorBlockId, AnchorIdSmallerThanParent()
                     );
                     output_.anchorBlocks[i] =
                         I.AnchorBlock(anchorBlockId, _env.getBlobHash(anchorBlockId));
-                    require(output_.anchorBlocks[i].blockHash != 0, I.ZeroAnchorBlockHash());
+                    require(output_.anchorBlocks[i].blockHash != 0, ZeroAnchorBlockHash());
 
                     foundNoneZeroAnchorBlockId = true;
                     output_.lastAnchorBlockId = anchorBlockId;
@@ -304,7 +326,7 @@ library LibPropose2 {
             // inboxWrapper contract.
             require(
                 _env.sender == _env.inboxWrapper || foundNoneZeroAnchorBlockId,
-                I.NoAnchorBlockIdWithinThisBatch()
+                NoAnchorBlockIdWithinThisBatch()
             );
 
             output_.txListHash = keccak256(_txList);
@@ -386,7 +408,7 @@ library LibPropose2 {
             }
 
             for (uint256 i; i < blobHashes_.length; ++i) {
-                require(blobHashes_[i] != 0, I.BlobNotFound());
+                require(blobHashes_[i] != 0, BlobNotFound());
             }
             txsHash_ = keccak256(abi.encode(_txListHash, blobHashes_));
         }
