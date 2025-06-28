@@ -118,7 +118,7 @@ library LibProve2 {
             _rw.creditBond(_input.proveMeta.proposer, _input.proveMeta.provabilityBond);
         }
 
-        emit I.BatchProved(_input.tran.batchId, tranMeta);
+        emit I.BatchProved(_input.tran.batchId, isFirstTransition, tranMeta);
 
         return keccak256(abi.encode(batchMetaHash, _input.tran));
     }

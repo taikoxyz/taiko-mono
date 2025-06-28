@@ -242,8 +242,10 @@ interface ITaikoInbox2 {
     event BatchProposed(uint256 batchId, bytes batchMetaEncoded);
 
     /// @notice Emitted when a batch is proved.
+    /// @param batchId The ID of the proved batch.
+    /// @param isFirstTransition Whether this is the first transition in the batch.
     /// @param tranMetaEncoded The encoded transition metadata.
-    event BatchProved(uint256 batchId, TransitionMeta tranMetaEncoded);
+    event BatchProved(uint256 batchId, bool isFirstTransition, TransitionMeta tranMetaEncoded);
 
     /// @notice Emitted when a batch is verified.
     /// @param batchId The ID of the verified batch.
