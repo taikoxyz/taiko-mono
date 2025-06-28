@@ -33,6 +33,36 @@ library LibParams {
         address proposer; // TODO
         address prover;
         address coinbase; // TODO
+        uint48 blobsCreatedIn;
+    }
+
+    function _validateBlobs(
+        I.Config memory _conf,
+        I.Batch memory _batch
+    )
+        private
+        view
+        returns (uint48 blobsCreatedIn_)
+    {
+        if (_conf.inboxWrapper == address(0)) {
+            // blob hashes are only accepted if the caller is trusted.
+            require(_batch.blobs.hashes.length == 0, InvalidBlobParams());
+            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
+            require(_batch.isForcedInclusion == false, InvalidForcedInclusion());
+        }
+        if (_batch.blobs.hashes.length == 0) {
+            // this is a normal batch, blobs are created and used in the current batches.
+            // firstBlobIndex can be non-zero.
+            require(_batch.blobs.numBlobs != 0, BlobNotSpecified());
+            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
+            blobsCreatedIn_ = uint48(block.number);
+        } else {
+            // this is a forced-inclusion batch, blobs were created in early blocks and are used
+            // in the current batches
+            require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
+            require(_batch.blobs.numBlobs == 0, InvalidBlobParams());
+            require(_batch.blobs.firstBlobIndex == 0, InvalidBlobParams());
+        }
     }
 
     function validateProposerCoinbase(
@@ -66,26 +96,7 @@ library LibParams {
     {
         ValidationOutput memory output;
         (output.proposer, output.coinbase) = validateProposerCoinbase(_conf, _batch);
-
-        if (_conf.inboxWrapper == address(0)) {
-            // blob hashes are only accepted if the caller is trusted.
-            require(_batch.blobs.hashes.length == 0, InvalidBlobParams());
-            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
-            require(_batch.isForcedInclusion == false, InvalidForcedInclusion());
-        }
-        if (_batch.blobs.hashes.length == 0) {
-            // this is a normal batch, blobs are created and used in the current batches.
-            // firstBlobIndex can be non-zero.
-            require(_batch.blobs.numBlobs != 0, BlobNotSpecified());
-            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
-            _batch.blobs.createdIn = uint48(block.number);
-        } else {
-            // this is a forced-inclusion batch, blobs were created in early blocks and are used
-            // in the current batches
-            require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
-            require(_batch.blobs.numBlobs == 0, InvalidBlobParams());
-            require(_batch.blobs.firstBlobIndex == 0, InvalidBlobParams());
-        }
+        output.blobsCreatedIn = _validateBlobs(_conf, _batch);
 
         uint256 nBlocks = _batch.encodedBlocks.length;
 
