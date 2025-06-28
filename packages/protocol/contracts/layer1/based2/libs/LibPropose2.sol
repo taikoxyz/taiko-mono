@@ -12,19 +12,6 @@ import "./LibInit2.sol";
 /// @title LibPropose2
 /// @custom:security-contact security@taiko.xyz
 library LibPropose2 {
-    struct ParamsValidationOutput {
-        bytes32 txsHash;
-        bytes32[] blobHashes;
-        uint48 lastAnchorBlockId;
-        uint48 firstBlockId;
-        uint48 lastBlockId;
-        bytes32[] anchorBlockHashes;
-        I.Block[] blocks;
-        address proposer; // TODO
-        address prover;
-        address coinbase; // TODO
-    }
-
     function proposeBatches(
         I.Config memory _conf,
         LibParams.ReadWrite memory _rw,

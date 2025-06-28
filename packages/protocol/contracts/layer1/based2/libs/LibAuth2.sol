@@ -26,7 +26,6 @@ library LibAuth2 {
         // payable. We try to avoid this as much as possible. And since most proposers may simply
         // use USD stablecoins as fee token, we decided not to support Ether as fee token for now.
         require(auth.feeToken != address(0), EtherAsFeeTokenNotSupportedYet());
-
         require(auth.prover != address(0), InvalidProver());
         require(auth.validUntil == 0 || auth.validUntil >= block.timestamp, InvalidValidUntil());
         require(auth.batchId == 0 || auth.batchId == _batchId, InvalidBatchId());
