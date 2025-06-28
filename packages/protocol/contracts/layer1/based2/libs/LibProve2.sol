@@ -137,7 +137,7 @@ library LibProve2 {
         uint256 _proposedAt
     )
         private
-        pure
+        view
         returns (I.ProofTiming timing_, address prover_)
     {
         unchecked {
