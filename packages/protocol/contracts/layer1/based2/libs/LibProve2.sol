@@ -19,7 +19,7 @@ library LibProve2 {
         function(address, uint256) creditBond;
         function(I.Config memory, address, uint256) debitBond;
         function(I.Config memory, uint48, bytes32, bytes32) returns (bool) saveTransition;
-        function(I.Config memory, uint) returns (bytes32) getBatchMetaHash;
+        function(I.Config memory, uint256) returns (bytes32) getBatchMetaHash;
     }
 
     function proveBatches(
