@@ -12,22 +12,6 @@ import "./LibInit2.sol";
 /// @title LibPropose2
 /// @custom:security-contact security@taiko.xyz
 library LibPropose2 {
-    error AnchorIdSmallerThanParent();
-    error AnchorIdTooSmall();
-    error AnchorIdZero();
-    error BlobNotFound();
-    error BlocksNotInCurrentFork();
-    error FirstBlockTimeShiftNotZero();
-    error MetaHashNotMatch();
-    error NoAnchorBlockIdWithinThisBatch();
-    error NoBatchesToPropose();
-    error SignalNotSent();
-    error TimestampSmallerThanParent();
-    error TimestampTooLarge();
-    error TimestampTooSmall();
-    error TooManyBatches();
-    error ZeroAnchorBlockHash();
-
     struct ParamsValidationOutput {
         bytes32 txsHash;
         bytes32[] blobHashes;
@@ -223,4 +207,21 @@ library LibPropose2 {
         v |= _batch.isForcedInclusion ? 1 << 8 : 0; // bit 8
         return bytes32(uint256(v));
     }
+    // --- ERRORs --------------------------------------------------------------------------------
+
+    error AnchorIdSmallerThanParent();
+    error AnchorIdTooSmall();
+    error AnchorIdZero();
+    error BlobNotFound();
+    error BlocksNotInCurrentFork();
+    error FirstBlockTimeShiftNotZero();
+    error MetaHashNotMatch();
+    error NoAnchorBlockIdWithinThisBatch();
+    error NoBatchesToPropose();
+    error SignalNotSent();
+    error TimestampSmallerThanParent();
+    error TimestampTooLarge();
+    error TimestampTooSmall();
+    error TooManyBatches();
+    error ZeroAnchorBlockHash();
 }

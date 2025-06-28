@@ -5,8 +5,6 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "./LibSummary.sol";
 
 library LibInit2 {
-    error InvalidGenesisBlockHash();
-
     function init(I.State storage $, bytes32 _genesisBlockHash) internal {
         require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
 
@@ -38,4 +36,7 @@ library LibInit2 {
         bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, proveMetaHash));
         return keccak256(abi.encode(leftHash, rightHash));
     }
+
+    // --- ERRORs --------------------------------------------------------------------------------
+    error InvalidGenesisBlockHash();
 }

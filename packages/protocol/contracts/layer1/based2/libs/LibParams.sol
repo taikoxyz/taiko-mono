@@ -6,30 +6,6 @@ import "src/shared/libs/LibNetwork.sol";
 import "./LibFork2.sol";
 
 library LibParams {
-    error AnchorIdSmallerThanParent();
-    error AnchorIdTooSmall();
-    error AnchorIdZero();
-    error BlobNotFound();
-    error BlobNotSpecified();
-    error BlockNotFound();
-    error BlocksNotInCurrentFork();
-    error CustomProposerMissing();
-    error CustomProposerNotAllowed();
-    error FirstBlockTimeShiftNotZero();
-    error InvalidBlobCreatedIn();
-    error InvalidBlobParams();
-    error InvalidForcedInclusion();
-    error NotEnoughAnchorIds();
-    error NotInboxWrapper();
-    error SignalNotSent();
-    error TimestampSmallerThanParent();
-    error TimestampTooLarge();
-    error TimestampTooSmall();
-    error TooManyBlocks();
-    error TooManySignals();
-    error ZeroAnchorBlockHash();
-    error NoAnchorBlockIdWithinThisBatch();
-
     struct ReadWrite {
         // reads
         uint48 blockTimestamp;
@@ -238,4 +214,29 @@ library LibParams {
             txsHash_ = keccak256(abi.encode(blobHashes_));
         }
     }
+    // --- ERRORs --------------------------------------------------------------------------------
+
+    error AnchorIdSmallerThanParent();
+    error AnchorIdTooSmall();
+    error AnchorIdZero();
+    error BlobNotFound();
+    error BlobNotSpecified();
+    error BlockNotFound();
+    error BlocksNotInCurrentFork();
+    error CustomProposerMissing();
+    error CustomProposerNotAllowed();
+    error FirstBlockTimeShiftNotZero();
+    error InvalidBlobCreatedIn();
+    error InvalidBlobParams();
+    error InvalidForcedInclusion();
+    error NotEnoughAnchorIds();
+    error NotInboxWrapper();
+    error SignalNotSent();
+    error TimestampSmallerThanParent();
+    error TimestampTooLarge();
+    error TimestampTooSmall();
+    error TooManyBlocks();
+    error TooManySignals();
+    error ZeroAnchorBlockHash();
+    error NoAnchorBlockIdWithinThisBatch();
 }

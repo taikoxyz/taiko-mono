@@ -12,15 +12,6 @@ import "./LibFork2.sol";
 library LibProve2 {
     using LibMath for uint256;
 
-    error BatchNotFound();
-    error BlocksNotInCurrentFork();
-    error ContractPaused();
-    error InvalidSummary();
-    error InvalidtranParentHash();
-    error MetaHashNotMatch();
-    error NoBlocksToProve();
-    error TooManyBatchesToProve();
-
     struct ReadWrite {
         // reads
         uint48 blockTimestamp;
@@ -158,4 +149,12 @@ library LibProve2 {
 
         require(_batchMetaHash == metaHash, MetaHashNotMatch());
     }
+
+    // --- ERRORs --------------------------------------------------------------------------------
+    error BatchNotFound();
+    error BlocksNotInCurrentFork();
+    error InvalidtranParentHash();
+    error MetaHashNotMatch();
+    error NoBlocksToProve();
+    error TooManyBatchesToProve();
 }

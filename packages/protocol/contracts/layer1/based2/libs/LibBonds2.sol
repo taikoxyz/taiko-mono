@@ -11,10 +11,6 @@ import "../IBondManager2.sol";
 library LibBonds2 {
     using SafeERC20 for IERC20;
 
-    error EtherNotPaidAsBond();
-    error InsufficientBond();
-    error MsgValueNotZero();
-
     function withdrawBond(
         I.State storage $,
         address _bondToken,
@@ -89,4 +85,9 @@ library LibBonds2 {
         }
         emit IBondManager2.BondCredited(_user, _amount);
     }
+
+    // --- ERRORs --------------------------------------------------------------------------------
+    error EtherNotPaidAsBond();
+    error InsufficientBond();
+    error MsgValueNotZero();
 }

@@ -6,8 +6,6 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 /// @title LibSummary
 /// @custom:security-contact security@taiko.xyz
 library LibSummary {
-    error SummaryMismatch();
-
     function updateSummary(I.State storage $, I.Summary memory _summary, bool _paused) internal {
         uint256 newHash = uint256(keccak256(abi.encode(_summary)));
         newHash &= ~uint256(1);
@@ -37,4 +35,7 @@ library LibSummary {
     {
         return abi.encode(_meta);
     }
+
+    // --- ERRORs --------------------------------------------------------------------------------
+    error SummaryMismatch();
 }

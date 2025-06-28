@@ -12,9 +12,6 @@ import "./LibPropose2.sol";
 library LibVerify2 {
     using LibMath for uint256;
 
-    error TransitionNotProvided();
-    error TransitionMetaMismatch();
-
     function verifyBatches(
         I.Config memory _conf,
         LibParams.ReadWrite memory _rw,
@@ -103,4 +100,8 @@ library LibVerify2 {
             }
         }
     }
+
+    // --- ERRORs --------------------------------------------------------------------------------
+    error TransitionNotProvided();
+    error TransitionMetaMismatch();
 }
