@@ -36,33 +36,35 @@ library LibParams {
         uint48 blobsCreatedIn;
     }
 
-    function _validateBlobs(
+    function validateBatch(
         I.Config memory _conf,
-        I.Batch memory _batch
+        ReadWrite memory _rw,
+        I.Batch memory _batch,
+        I.BatchProposeMetadata memory _parentProposeMeta
     )
-        private
+        internal
         view
-        returns (uint48 blobsCreatedIn_)
+        returns (I.Batch memory, ValidationOutput memory)
     {
-        if (_conf.inboxWrapper == address(0)) {
-            // blob hashes are only accepted if the caller is trusted.
-            require(_batch.blobs.hashes.length == 0, InvalidBlobParams());
-            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
-            require(_batch.isForcedInclusion == false, InvalidForcedInclusion());
-        }
-        if (_batch.blobs.hashes.length == 0) {
-            // this is a normal batch, blobs are created and used in the current batches.
-            // firstBlobIndex can be non-zero.
-            require(_batch.blobs.numBlobs != 0, BlobNotSpecified());
-            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
-            blobsCreatedIn_ = uint48(block.number);
-        } else {
-            // this is a forced-inclusion batch, blobs were created in early blocks and are used
-            // in the current batches
-            require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
-            require(_batch.blobs.numBlobs == 0, InvalidBlobParams());
-            require(_batch.blobs.firstBlobIndex == 0, InvalidBlobParams());
-        }
+        ValidationOutput memory output;
+        (output.proposer, output.coinbase) = validateProposerCoinbase(_conf, _batch);
+
+        output.blocks = _validateBlocks(_conf, _batch);
+
+        _validateTimestamps(_conf, _batch, output.blocks, _parentProposeMeta.lastBlockTimestamp);
+        _validateSignals(_conf, _rw, output.blocks, _batch.signalSlots);
+
+        (output.anchorBlockHashes, output.lastAnchorBlockId) = _validateAnchors(
+            _conf, _rw, _batch, output.blocks, _parentProposeMeta.lastAnchorBlockId
+        );
+
+        output.blobsCreatedIn = _validateBlobs(_conf, _batch);
+        (output.txsHash, output.blobHashes) = _calculateTxsHash(_rw, _batch.blobs);
+
+        (output.firstBlockId, output.lastBlockId) =
+            _validateBlockRange(_conf, _batch, _parentProposeMeta.lastBlockId);
+
+        return (_batch, output);
     }
 
     function validateProposerCoinbase(
@@ -84,99 +86,118 @@ library LibParams {
         coinbase_ = _batch.coinbase == address(0) ? proposer_ : _batch.coinbase;
     }
 
-    function validateBatch(
+    function _validateBlocks(
         I.Config memory _conf,
-        ReadWrite memory _rw,
+        I.Batch memory _batch
+    )
+        internal
+        pure
+        returns (I.Block[] memory blocks_)
+    {
+        uint256 nBlocks_ = _batch.encodedBlocks.length;
+
+        require(nBlocks_ != 0, BlockNotFound());
+        require(nBlocks_ <= _conf.maxBlocksPerBatch, TooManyBlocks());
+
+        blocks_ = new I.Block[](nBlocks_);
+
+        for (uint256 i; i < nBlocks_; ++i) {
+            blocks_[i].numTransactions = uint16(uint256(_batch.encodedBlocks[i]));
+            blocks_[i].timeShift = uint8(uint256(_batch.encodedBlocks[i]) >> 16);
+            blocks_[i].anchorBlockId = uint48(uint256(_batch.encodedBlocks[i]) >> 24);
+            blocks_[i].numSignals = uint8(uint256(_batch.encodedBlocks[i]) >> 32 & 0xFF);
+        }
+    }
+
+    function _validateTimestamps(
+        I.Config memory _conf,
         I.Batch memory _batch,
-        I.BatchProposeMetadata memory _parentProposeMeta
+        I.Block[] memory _blocks,
+        uint48 _parentLastBlockTimestamp
     )
         internal
         view
-        returns (I.Batch memory, ValidationOutput memory)
     {
-        ValidationOutput memory output;
-        (output.proposer, output.coinbase) = validateProposerCoinbase(_conf, _batch);
-        output.blobsCreatedIn = _validateBlobs(_conf, _batch);
+        require(_batch.lastBlockTimestamp != 0, LastBlockTimestampNotSet());
+        require(_batch.lastBlockTimestamp <= block.timestamp, TimestampTooLarge());
 
-        uint256 nBlocks = _batch.encodedBlocks.length;
-
-        require(nBlocks != 0, BlockNotFound());
-        require(nBlocks <= _conf.maxBlocksPerBatch, TooManyBlocks());
-
-        output.blocks = new I.Block[](nBlocks);
-
-        for (uint256 i; i < nBlocks; ++i) {
-            output.blocks[i].numTransactions = uint16(uint256(_batch.encodedBlocks[i]));
-            output.blocks[i].timeShift = uint8(uint256(_batch.encodedBlocks[i]) >> 16);
-            output.blocks[i].anchorBlockId = uint48(uint256(_batch.encodedBlocks[i]) >> 24);
-            output.blocks[i].numSignals = uint8(uint256(_batch.encodedBlocks[i]) >> 32 & 0xFF);
-        }
-
-        if (_batch.lastBlockTimestamp == 0) {
-            _batch.lastBlockTimestamp = uint48(block.timestamp);
-        } else {
-            require(_batch.lastBlockTimestamp <= block.timestamp, TimestampTooLarge());
-        }
-
-        require(output.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
+        require(_blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
         uint64 totalShift;
-        uint256 signalSlotsIdx;
 
-        for (uint256 i; i < nBlocks; ++i) {
-            totalShift += output.blocks[i].timeShift;
-
-            if (output.blocks[i].numSignals == 0) continue;
-
-            require(output.blocks[i].numSignals <= _conf.maxSignalsToReceive, TooManySignals());
-
-            for (uint256 j; j < output.blocks[i].numSignals; ++j) {
-                require(
-                    _rw.isSignalSent(_conf, _batch.signalSlots[signalSlotsIdx]), SignalNotSent()
-                );
-                signalSlotsIdx++;
-            }
+        for (uint256 i; i < _blocks.length; ++i) {
+            totalShift += _blocks[i].timeShift;
         }
 
         require(_batch.lastBlockTimestamp >= totalShift, TimestampTooSmall());
-
-        uint256 firstBlockTimestamp = _batch.lastBlockTimestamp - totalShift;
+        uint256 firstBlockTimestamp_ = _batch.lastBlockTimestamp - totalShift;
 
         require(
-            firstBlockTimestamp + _conf.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+            firstBlockTimestamp_ + _conf.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
                 >= block.timestamp,
             TimestampTooSmall()
         );
 
-        require(
-            firstBlockTimestamp >= _parentProposeMeta.lastBlockTimestamp,
-            TimestampSmallerThanParent()
-        );
+        require(firstBlockTimestamp_ >= _parentLastBlockTimestamp, TimestampSmallerThanParent());
+    }
 
-        output.anchorBlockHashes = new bytes32[](nBlocks);
-        output.lastAnchorBlockId = _parentProposeMeta.lastAnchorBlockId;
+    function _validateSignals(
+        I.Config memory _conf,
+        ReadWrite memory _rw,
+        I.Block[] memory _blocks,
+        bytes32[] memory _signalSlots
+    )
+        internal
+        view
+    {
+        uint256 k;
+        for (uint256 i; i < _blocks.length; ++i) {
+            if (_blocks[i].numSignals == 0) continue;
+
+            require(_blocks[i].numSignals <= _conf.maxSignalsToReceive, TooManySignals());
+
+            for (uint256 j; j < _blocks[i].numSignals; ++j) {
+                require(_rw.isSignalSent(_conf, _signalSlots[k++]), SignalNotSent());
+            }
+        }
+    }
+
+    function _validateAnchors(
+        I.Config memory _conf,
+        ReadWrite memory _rw,
+        I.Batch memory _batch,
+        I.Block[] memory _blocks,
+        uint48 _parentLastAnchorBlockId
+    )
+        internal
+        view
+        returns (bytes32[] memory anchorBlockHashes_, uint48 lastAnchorBlockId_)
+    {
+        anchorBlockHashes_ = new bytes32[](_blocks.length);
+        lastAnchorBlockId_ = _parentLastAnchorBlockId;
         uint256 k;
 
-        bool foundNoneZeroAnchorBlockId;
-        for (uint256 i; i < nBlocks; ++i) {
-            if (output.blocks[i].hasAnchorBlock) {
+        bool anchorFound;
+        for (uint256 i; i < _blocks.length; ++i) {
+            if (_blocks[i].hasAnchor) {
                 require(k < _batch.anchorBlockIds.length, NotEnoughAnchorIds());
-                uint48 anchorBlockId = _batch.anchorBlockIds[k];
 
+                uint48 anchorBlockId = _batch.anchorBlockIds[k];
                 require(anchorBlockId != 0, AnchorIdZero());
 
                 require(
-                    foundNoneZeroAnchorBlockId
+                    anchorFound
                         || anchorBlockId + _conf.maxAnchorHeightOffset >= uint48(block.number),
                     AnchorIdTooSmall()
                 );
 
-                require(anchorBlockId > output.lastAnchorBlockId, AnchorIdSmallerThanParent());
-                output.anchorBlockHashes[k] = _rw.getBlobHash(anchorBlockId);
-                require(output.anchorBlockHashes[k] != 0, ZeroAnchorBlockHash());
+                require(anchorBlockId > lastAnchorBlockId_, AnchorIdSmallerThanParent());
 
-                foundNoneZeroAnchorBlockId = true;
-                output.lastAnchorBlockId = anchorBlockId;
+                anchorBlockHashes_[k] = _rw.getBlobHash(anchorBlockId);
+                require(anchorBlockHashes_[k] != 0, ZeroAnchorBlockHash());
+
+                anchorFound = true;
+                lastAnchorBlockId_ = anchorBlockId;
                 k++;
             }
         }
@@ -184,21 +205,58 @@ library LibParams {
         // Ensure that if msg.sender is not the inboxWrapper, at least one block must
         // have a non-zero anchor block id. Otherwise, delegate this validation to the
         // inboxWrapper contract.
+        if (_conf.inboxWrapper != address(0)) {
+            require(anchorFound, NoAnchorBlockIdWithinThisBatch());
+        }
+    }
+
+    function _validateBlockRange(
+        I.Config memory _conf,
+        I.Batch memory _batch,
+        uint48 _parentLastBlockId
+    )
+        internal
+        pure
+        returns (uint48 firstBlockId_, uint48 lastBlockId_)
+    {
+        firstBlockId_ = _parentLastBlockId + 1;
+        lastBlockId_ = uint48(firstBlockId_ + _batch.encodedBlocks.length);
+
         require(
-            msg.sender == _conf.inboxWrapper || foundNoneZeroAnchorBlockId,
-            NoAnchorBlockIdWithinThisBatch()
-        );
-
-        (output.txsHash, output.blobHashes) = _calculateTxsHash(_rw, _batch.blobs);
-
-        output.firstBlockId = _parentProposeMeta.lastBlockId + 1;
-        output.lastBlockId = uint48(output.firstBlockId + nBlocks);
-
-        require(
-            LibFork2.isBlocksInCurrentFork(_conf, output.firstBlockId, output.lastBlockId),
+            LibFork2.isBlocksInCurrentFork(_conf, firstBlockId_, lastBlockId_),
             BlocksNotInCurrentFork()
         );
-        return (_batch, output);
+    }
+
+    // TODO: redefine blobs related parameters
+    function _validateBlobs(
+        I.Config memory _conf,
+        I.Batch memory _batch
+    )
+        private
+        view
+        returns (uint48 blobsCreatedIn_)
+    {
+        if (_conf.inboxWrapper == address(0)) {
+            // blob hashes are only accepted if the caller is trusted.
+            require(_batch.blobs.hashes.length == 0, InvalidBlobParams());
+            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
+            require(_batch.isForcedInclusion == false, InvalidForcedInclusion());
+            return uint48(block.number);
+        } else if (_batch.blobs.hashes.length == 0) {
+            // this is a normal batch, blobs are created and used in the current batches.
+            // firstBlobIndex can be non-zero.
+            require(_batch.blobs.numBlobs != 0, BlobNotSpecified());
+            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
+            return uint48(block.number);
+        } else {
+            // this is a forced-inclusion batch, blobs were created in early blocks and are used
+            // in the current batches
+            require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
+            require(_batch.blobs.numBlobs == 0, InvalidBlobParams());
+            require(_batch.blobs.firstBlobIndex == 0, InvalidBlobParams());
+            return _batch.blobs.createdIn;
+        }
     }
 
     function _calculateTxsHash(
@@ -240,6 +298,7 @@ library LibParams {
     error InvalidBlobCreatedIn();
     error InvalidBlobParams();
     error InvalidForcedInclusion();
+    error LastBlockTimestampNotSet();
     error NotEnoughAnchorIds();
     error NotInboxWrapper();
     error SignalNotSent();

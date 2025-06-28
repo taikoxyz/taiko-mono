@@ -18,7 +18,7 @@ interface ITaikoInbox2 {
         // The number of signals in this block.
         uint8 numSignals;
         // Whether this block has an anchor block.
-        bool hasAnchorBlock;
+        bool hasAnchor;
     }
 
     struct Blobs {
