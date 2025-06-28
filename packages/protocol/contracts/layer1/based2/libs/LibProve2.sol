@@ -11,13 +11,12 @@ import "./LibFork2.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProve2 {
     using LibMath for uint256;
-    using LibSummary for I.State;
 
     error BatchNotFound();
     error BlocksNotInCurrentFork();
     error ContractPaused();
     error InvalidSummary();
-    error InvalidTransitionParentHash();
+    error InvalidtranParentHash();
     error MetaHashNotMatch();
     error NoBlocksToProve();
     error TooManyBatchesToProve();
@@ -46,16 +45,14 @@ library LibProve2 {
         require(nBatches != 0, NoBlocksToProve());
         require(nBatches <= type(uint8).max, TooManyBatchesToProve());
 
-        I.TransitionMeta[] memory metas = new I.TransitionMeta[](nBatches);
         bytes32[] memory ctxHashes = new bytes32[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            (metas[i], ctxHashes[i]) = _proveBatch(_conf, _rw, _summary, _evidences[i]);
+            ctxHashes[i] = _proveBatch(_conf, _rw, _summary, _evidences[i]);
         }
         bytes32 aggregatedBatchHash =
             keccak256(abi.encode(_conf.chainId, msg.sender, _conf.verifier, ctxHashes));
 
-        emit I.BatchesProved(_conf.verifier, metas);
         return (_summary, aggregatedBatchHash);
     }
 
@@ -66,11 +63,11 @@ library LibProve2 {
         I.BatchProveInput calldata _input
     )
         private
-        returns (I.TransitionMeta memory tranMeta_, bytes32 ctxHash_)
+        returns (bytes32)
     {
-        require(_input.transition.batchId > _summary.lastVerifiedBatchId, BatchNotFound());
-        require(_input.transition.batchId < _summary.numBatches, BatchNotFound());
-        require(_input.transition.parentHash != 0, InvalidTransitionParentHash());
+        require(_input.tran.batchId > _summary.lastVerifiedBatchId, BatchNotFound());
+        require(_input.tran.batchId < _summary.numBatches, BatchNotFound());
+        require(_input.tran.parentHash != 0, InvalidtranParentHash());
 
         // During batch proposal, we've ensured that its blocks won't cross fork boundaries.
         // Hence, we only need to verify        the firstBlockId of the block in the following
@@ -83,17 +80,15 @@ library LibProve2 {
         );
 
         // Verify the batch's metadata.
-        bytes32 batchMetaHash = _rw.getBatchMetaHash(_conf, _input.transition.batchId);
+        bytes32 batchMetaHash = _rw.getBatchMetaHash(_conf, _input.tran.batchId);
 
         _validateBatchProveMeta(batchMetaHash, _input);
 
-        ctxHash_ = keccak256(abi.encode(batchMetaHash, _input.transition));
-
-        tranMeta_ = I.TransitionMeta({
-            parentHash: _input.transition.parentHash,
-            blockHash: _input.transition.blockHash,
-            stateRoot: _input.transition.batchId % _conf.stateRootSyncInternal == 0
-                ? _input.transition.stateRoot
+        I.TransitionMeta memory tranMeta = I.TransitionMeta({
+            parentHash: _input.tran.parentHash,
+            blockHash: _input.tran.blockHash,
+            stateRoot: _input.tran.batchId % _conf.stateRootSyncInternal == 0
+                ? _input.tran.stateRoot
                 : bytes32(0),
             proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // to be updated below
             prover: address(0), // to be updated below
@@ -104,25 +99,28 @@ library LibProve2 {
             livenessBond: _input.proveMeta.livenessBond
         });
 
-        (tranMeta_.proofTiming, tranMeta_.prover) = _determineProofTiming(
+        (tranMeta.proofTiming, tranMeta.prover) = _determineProofTiming(
             _conf,
             _rw,
             _input.proveMeta.prover,
             uint256(_input.proveMeta.proposedAt).max(_summary.lastUnpausedAt)
         );
 
-        bytes32 tranMetaHash = keccak256(abi.encode(tranMeta_));
+        bytes32 tranMetaHash = keccak256(abi.encode(tranMeta));
 
-        bool isFirstTransition = _rw.saveTransition(
-            _conf, _input.transition.batchId, _input.transition.parentHash, tranMetaHash
-        );
+        bool isFirstTransition =
+            _rw.saveTransition(_conf, _input.tran.batchId, _input.tran.parentHash, tranMetaHash);
         if (
-            isFirstTransition && tranMeta_.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
+            isFirstTransition && tranMeta.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
                 && msg.sender != _input.proveMeta.proposer
         ) {
             _rw.debitBond(_conf, msg.sender, _input.proveMeta.provabilityBond);
             _rw.creditBond(_input.proveMeta.proposer, _input.proveMeta.provabilityBond);
         }
+
+        emit I.BatchProved(_input.tran.batchId, tranMeta);
+
+        return keccak256(abi.encode(batchMetaHash, _input.tran));
     }
 
     /// @dev Decides which time window we are in and who should be recorded as the prover.

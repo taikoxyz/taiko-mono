@@ -112,7 +112,7 @@ interface ITaikoInbox2 {
         bytes32 idAndBuildHash; // aka leftHash
         bytes32 proposeMetaHash;
         BatchProveMetadata proveMeta;
-        Transition transition;
+        Transition tran;
     }
 
     /// @notice Struct representing transition to be proven.
@@ -238,16 +238,15 @@ interface ITaikoInbox2 {
 
     /// @notice Emitted when a batch is proposed.
     /// @param batchId The ID of the proposed batch.
-    /// @param metaEncoded The encoded metadata of the proposed batch.
-    event BatchProposed(uint256 batchId, bytes metaEncoded);
+    /// @param batchMetaEncoded The encoded metadata of the proposed batch.
+    event BatchProposed(uint256 batchId, bytes batchMetaEncoded);
 
-    /// @notice Emitted when multiple transitions are proved.
-    /// @param verifier The address of the verifier.
-    /// @param tranMetas The transition metadata.
-    event BatchesProved(address verifier, TransitionMeta[] tranMetas);
+    /// @notice Emitted when a batch is proved.
+    /// @param tranMetaEncoded The encoded transition metadata.
+    event BatchProved(uint256 batchId, TransitionMeta tranMetaEncoded);
 
     /// @notice Emitted when a batch is verified.
     /// @param batchId The ID of the verified batch.
     /// @param blockHash The hash of the verified batch.
-    event BatchesVerified(uint64 batchId, bytes32 blockHash);
+    event BatchesVerified(uint256 batchId, bytes32 blockHash);
 }

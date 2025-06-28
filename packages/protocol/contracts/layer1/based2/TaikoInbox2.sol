@@ -50,13 +50,7 @@ abstract contract TaikoInbox2 is
 
     constructor() EssentialContract() { }
 
-    function v4Init(
-        address _owner,
-        bytes32 _genesisBlockHash
-    )
-        external
-        initializer
-    {
+    function v4Init(address _owner, bytes32 _genesisBlockHash) external initializer {
         __Taiko_init(_owner, _genesisBlockHash);
     }
 
