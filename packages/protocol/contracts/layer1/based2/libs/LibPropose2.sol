@@ -71,6 +71,7 @@ library LibPropose2 {
         emit I.BatchProposed(_summary.numBatches, LibData2.encodeBatchMetadata(meta_));
     }
 
+// TODO: move this to LibParams.sol
     function _validateProver(
         I.Config memory _conf,
         LibParams.ReadWrite memory _rw,
