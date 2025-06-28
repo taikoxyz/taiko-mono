@@ -15,7 +15,7 @@ import "./libs/LibProve2.sol";
 import "./libs/LibVerify2.sol";
 import "./ITaikoInbox2.sol";
 import "./IProposeBatch2.sol";
-import "./libs/LibState.sol";
+import "./libs/LibTransition.sol";
 
 /// @title TaikoInbox2
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -39,6 +39,7 @@ abstract contract TaikoInbox2 is
 {
     using SafeERC20 for IERC20;
     using LibBonds2 for ITaikoInbox2.State;
+    using LibTransition for ITaikoInbox2.State;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
@@ -166,7 +167,7 @@ abstract contract TaikoInbox2 is
     )
         private
     {
-        LibState.saveBatchMetaHash(state, _conf, _batchId, _metaHash);
+        state.batches[_batchId % _conf.batchRingBufferSize] = _metaHash;
     }
 
     function _getBatchMetaHash(
@@ -177,7 +178,7 @@ abstract contract TaikoInbox2 is
         view
         returns (bytes32)
     {
-        return LibState.getBatchMetaHash(state, _conf, _batchId);
+        return state.batches[_batchId % _conf.batchRingBufferSize];
     }
 
     function _loadTransitionMetaHash(
@@ -189,7 +190,7 @@ abstract contract TaikoInbox2 is
         view
         returns (bytes32 metaHash_, bool isFirstTransition_)
     {
-        return LibState.loadTransitionMetaHash(state, _conf, _lastVerifiedBlockHash, _batchId);
+        return state.loadTransitionMetaHash(_conf, _lastVerifiedBlockHash, _batchId);
     }
 
     function _saveTransition(
@@ -201,7 +202,7 @@ abstract contract TaikoInbox2 is
         internal
         returns (bool isFirstTransition_)
     {
-        return LibState.saveTransition(state, _conf, _batchId, _parentHash, _tranMetahash);
+        return state.saveTransition(_conf, _batchId, _parentHash, _tranMetahash);
     }
 
     function _isSignalSent(
