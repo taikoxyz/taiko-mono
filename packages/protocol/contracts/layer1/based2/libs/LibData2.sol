@@ -29,4 +29,12 @@ library LibData2 {
         bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, _evidence.proveMetaHash));
         return keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
     }
+
+    function encodeBatchMetadata(I.BatchMetadata memory _meta)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(_meta);
+    }
 }

@@ -9,7 +9,6 @@ library LibParams {
     struct ReadWrite {
         // reads
         bytes32 parentBatchMetaHash;
-        function(I.BatchMetadata memory) pure returns (bytes memory) encodeBatchMetadata;
         function(I.Config memory, bytes32) view returns (bool) isSignalSent;
         function(I.Config memory, bytes32, uint256) view returns (bytes32, bool)
             loadTransitionMetaHash;

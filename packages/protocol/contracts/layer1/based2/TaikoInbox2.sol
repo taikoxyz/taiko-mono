@@ -38,13 +38,9 @@ abstract contract TaikoInbox2 is
 {
     using SafeERC20 for IERC20;
     using LibBonds2 for ITaikoInbox2.State;
-    using LibSummary for ITaikoInbox2.State;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
-
-    // Define errors locally
-    error ContractPaused();
 
     // External functions ------------------------------------------------------------------------
 
@@ -65,13 +61,10 @@ abstract contract TaikoInbox2 is
         nonReentrant
         returns (I.Summary memory)
     {
-        bool _paused = state.validateSummary(_summary);
-        require(!_paused, ContractPaused());
-
+        require(state.summaryHash == keccak256(abi.encode(_summary)), SummaryMismatch());
         I.Config memory conf = _getConfig();
         LibParams.ReadWrite memory rw = LibParams.ReadWrite({
             // reads
-            encodeBatchMetadata: LibSummary.encodeBatchMetadata,
             parentBatchMetaHash: state.batches[(_summary.numBatches - 1) % conf.batchRingBufferSize],
             isSignalSent: _isSignalSent,
             loadTransitionMetaHash: _loadTransitionMetaHash,
@@ -88,7 +81,7 @@ abstract contract TaikoInbox2 is
         _summary = LibPropose2.proposeBatches(conf, rw, _summary, _batch, _evidence);
         _summary = LibVerify2.verifyBatches(conf, rw, _summary, _trans);
 
-        state.updateSummary(_summary, _paused);
+        state.summaryHash = keccak256(abi.encode(_summary));
         return _summary;
     }
 
@@ -101,8 +94,7 @@ abstract contract TaikoInbox2 is
         nonReentrant
         returns (I.Summary memory)
     {
-        bool _paused = state.validateSummary(_summary);
-        require(!_paused, ContractPaused());
+        require(state.summaryHash == keccak256(abi.encode(_summary)), SummaryMismatch());
 
         I.Config memory conf = _getConfig();
         LibProve2.ReadWrite memory rw = LibProve2.ReadWrite({
@@ -119,18 +111,18 @@ abstract contract TaikoInbox2 is
         bytes32 aggregatedBatchHash;
         (_summary, aggregatedBatchHash) = LibProve2.proveBatches(conf, rw, _summary, _inputs);
 
-        state.updateSummary(_summary, _paused);
-
         IVerifier2(conf.verifier).verifyProof(aggregatedBatchHash, _proof);
+
+        state.summaryHash = keccak256(abi.encode(_summary));
         return _summary;
     }
 
-    function v4DepositBond(uint256 _amount) external payable whenNotPaused {
+    function v4DepositBond(uint256 _amount) external payable {
         I.Config memory conf = _getConfig();
         state.bondBalance[msg.sender] += LibBonds2.depositBond(conf.bondToken, msg.sender, _amount);
     }
 
-    function v4WithdrawBond(uint256 _amount) external whenNotPaused {
+    function v4WithdrawBond(uint256 _amount) external {
         I.Config memory conf = _getConfig();
         state.withdrawBond(conf.bondToken, _amount);
     }
@@ -295,4 +287,7 @@ abstract contract TaikoInbox2 is
         embededBatchId_ = uint48(value);
         partialParentHash_ = bytes32(value >> 48);
     }
+
+    // --- ERRORs --------------------------------------------------------------------------------
+    error SummaryMismatch();
 }

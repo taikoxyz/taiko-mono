@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibMath.sol";
-import "./LibSummary.sol";
 import "./LibBonds2.sol";
 import "./LibFork2.sol";
 

@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibNetwork.sol";
-import "./LibSummary.sol";
 import "./LibAuth2.sol";
 import "./LibFork2.sol";
 import "./LibParams.sol";
@@ -64,7 +63,7 @@ library LibPropose2 {
         bytes32 batchMetaHash = LibData2.hashBatch(_summary.numBatches, meta);
         _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
 
-        emit I.BatchProposed(_summary.numBatches, _rw.encodeBatchMetadata(meta));
+        emit I.BatchProposed(_summary.numBatches, LibData2.encodeBatchMetadata(meta));
 
         return meta.proposeMeta;
     }
