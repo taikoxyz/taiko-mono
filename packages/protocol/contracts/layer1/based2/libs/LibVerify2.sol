@@ -19,6 +19,7 @@ library LibVerify2 {
     error TransitionMetaMismatch();
 
     function verifyBatches(
+        I.Config memory _conf,
         LibPropose2.Environment memory _env,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans
@@ -29,11 +30,11 @@ library LibVerify2 {
         unchecked {
             uint48 batchId = _summary.lastVerifiedBatchId + 1;
 
-            if (!LibFork2.isBlocksInCurrentFork(_env.conf, batchId, batchId)) {
+            if (!LibFork2.isBlocksInCurrentFork(_conf, batchId, batchId)) {
                 return _summary;
             }
             uint256 stopBatchId = uint256(_summary.numBatches).min(
-                _env.conf.maxBatchesToVerify + _summary.lastVerifiedBatchId + 1
+                _conf.maxBatchesToVerify + _summary.lastVerifiedBatchId + 1
             );
 
             uint256 nTransitions = _trans.length;
@@ -43,7 +44,7 @@ library LibVerify2 {
 
             for (; batchId < stopBatchId; ++batchId) {
                 bytes32 tranMetaHash =
-                    _env.loadTransitionMetaHash(_env.conf, _summary.lastVerifiedBlockHash, batchId);
+                    _env.loadTransitionMetaHash(_conf, _summary.lastVerifiedBlockHash, batchId);
 
                 if (tranMetaHash == 0) break;
 
@@ -52,7 +53,7 @@ library LibVerify2 {
 
                 _summary.lastVerifiedBlockHash = _trans[i].blockHash;
 
-                if (batchId % _env.conf.stateRootSyncInternal == 0) {
+                if (batchId % _conf.stateRootSyncInternal == 0) {
                     lastSyncedBlockId = _trans[i].lastBlockId;
                     lastSyncedStateRoot = _trans[i].stateRoot;
                 }
@@ -62,9 +63,10 @@ library LibVerify2 {
 
             if (lastSyncedBlockId != 0) {
                 _summary.lastSyncedBlockId = lastSyncedBlockId;
+
                 _summary.lastSyncedAt = uint48(block.timestamp);
 
-                _env.syncChainData(_env.conf, lastSyncedBlockId, lastSyncedStateRoot);
+                _env.syncChainData(_conf, lastSyncedBlockId, lastSyncedStateRoot);
             }
 
             return _summary;

@@ -41,11 +41,6 @@ abstract contract TaikoInbox2 is
     using LibProve2 for ITaikoInbox2.State;
     using LibVerify2 for ITaikoInbox2.State;
 
-    address public immutable inboxWrapper;
-    address public immutable verifier;
-    address internal immutable bondToken;
-    address public immutable signalService;
-
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
 
@@ -54,19 +49,7 @@ abstract contract TaikoInbox2 is
 
     // External functions ------------------------------------------------------------------------
 
-    constructor(
-        address _inboxWrapper,
-        address _verifier,
-        address _signalService
-    )
-        nonZeroAddr(_verifier)
-        nonZeroAddr(_signalService)
-        EssentialContract()
-    {
-        inboxWrapper = _inboxWrapper;
-        verifier = _verifier;
-        signalService = _signalService;
-    }
+    constructor() EssentialContract() { }
 
     function v4Init(address _owner, bytes32 _genesisBlockHash) external initializer {
         __Taiko_init(_owner, _genesisBlockHash);
@@ -89,8 +72,6 @@ abstract contract TaikoInbox2 is
         I.Config memory conf = _getConfig();
         LibPropose2.Environment memory env = LibPropose2.Environment({
             // reads
-            conf: conf,
-            inboxWrapper: inboxWrapper,
             sender: msg.sender,
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
@@ -108,8 +89,9 @@ abstract contract TaikoInbox2 is
             validateProverAuth: LibAuth2.validateProverAuth
         });
 
-        _summary = LibPropose2.proposeBatches(env, _summary, _batch, _parentProposeMetaEvidence);
-        _summary = LibVerify2.verifyBatches(env, _summary, _trans);
+        _summary =
+            LibPropose2.proposeBatches(conf, env, _summary, _batch, _parentProposeMetaEvidence);
+        _summary = LibVerify2.verifyBatches(conf, env, _summary, _trans);
 
         state.updateSummary(_summary, _paused);
         return _summary;
@@ -127,13 +109,12 @@ abstract contract TaikoInbox2 is
         bool _paused = state.validateSummary(_summary);
         require(!_paused, ContractPaused());
 
+        I.Config memory conf = _getConfig();
         LibProve2.Environment memory env = LibProve2.Environment({
             // reads
-            conf: _getConfig(),
             sender: msg.sender,
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
-            verifier: verifier,
             // writes
             debitBond: _debitBond,
             creditBond: _creditBond,
@@ -141,20 +122,22 @@ abstract contract TaikoInbox2 is
         });
 
         bytes32 aggregatedBatchHash;
-        (_summary, aggregatedBatchHash) = state.proveBatches(env, _summary, _inputs);
+        (_summary, aggregatedBatchHash) = state.proveBatches(conf, env, _summary, _inputs);
 
         state.updateSummary(_summary, _paused);
 
-        IVerifier2(verifier).verifyProof(aggregatedBatchHash, _proof);
+        IVerifier2(conf.verifier).verifyProof(aggregatedBatchHash, _proof);
         return _summary;
     }
 
     function v4DepositBond(uint256 _amount) external payable whenNotPaused {
-        state.bondBalance[msg.sender] += LibBonds2.depositBond(bondToken, msg.sender, _amount);
+        I.Config memory conf = _getConfig();
+        state.bondBalance[msg.sender] += LibBonds2.depositBond(conf.bondToken, msg.sender, _amount);
     }
 
     function v4WithdrawBond(uint256 _amount) external whenNotPaused {
-        state.withdrawBond(bondToken, _amount);
+        I.Config memory conf = _getConfig();
+        state.withdrawBond(conf.bondToken, _amount);
     }
 
     function v4BondBalanceOf(address _user) external view returns (uint256) {
@@ -269,12 +252,19 @@ abstract contract TaikoInbox2 is
         return blockhash(_blockNumber);
     }
 
-    function _isSignalSent(bytes32 _signalSlot) private view returns (bool) {
-        return ISignalService(signalService).isSignalSent(_signalSlot);
+    function _isSignalSent(
+        I.Config memory _conf,
+        bytes32 _signalSlot
+    )
+        private
+        view
+        returns (bool)
+    {
+        return ISignalService(_conf.signalService).isSignalSent(_signalSlot);
     }
 
-    function _debitBond(address _bondToken, address _user, uint256 _amount) private {
-        LibBonds2.debitBond(state, _bondToken, _user, _amount);
+    function _debitBond(I.Config memory _conf, address _user, uint256 _amount) private {
+        LibBonds2.debitBond(state, _conf.bondToken, _user, _amount);
     }
 
     function _creditBond(address _user, uint256 _amount) private {
@@ -285,9 +275,9 @@ abstract contract TaikoInbox2 is
         IERC20(_feeToken).safeTransferFrom(_from, _to, _amount);
     }
 
-    function _syncChainData(I.Config memory _config, uint64 _blockId, bytes32 _stateRoot) private {
-        ISignalService(signalService).syncChainData(
-            _config.chainId, LibSignals.STATE_ROOT, _blockId, _stateRoot
+    function _syncChainData(I.Config memory _conf, uint64 _blockId, bytes32 _stateRoot) private {
+        ISignalService(_conf.signalService).syncChainData(
+            _conf.chainId, LibSignals.STATE_ROOT, _blockId, _stateRoot
         );
     }
 }
