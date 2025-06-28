@@ -137,7 +137,7 @@ library LibPropose2 {
             txsHash: _output.txsHash,
             blobHashes: _output.blobHashes,
             extraData: _encodeExtraDataLower128Bits(_conf, _batch),
-            coinbase: _batch.coinbase,
+            coinbase: _output.coinbase,
             proposedIn: uint48(block.number),
             blobCreatedIn: _batch.blobs.createdIn,
             blobByteOffset: _batch.blobs.byteOffset,
@@ -158,7 +158,7 @@ library LibPropose2 {
         });
 
         meta_.proveMeta = I.BatchProveMetadata({
-            proposer: _batch.proposer,
+            proposer: _output.proposer,
             prover: _output.prover,
             proposedAt: uint48(block.timestamp),
             firstBlockId: _output.firstBlockId,
