@@ -55,16 +55,16 @@ library LibVerify2 {
                     break;
                 }
 
-                _returnBondToProver(_conf, _env, _trans[i], isFirstTransition);
-
-                _summary.lastVerifiedBlockHash = _trans[i].blockHash;
+                _env.creditBond(
+                    _trans[i].prover, _calcBondToProver(_conf, _trans[i], isFirstTransition)
+                );
 
                 if (batchId % _conf.stateRootSyncInternal == 0) {
                     lastSyncedBlockId = _trans[i].lastBlockId;
                     lastSyncedStateRoot = _trans[i].stateRoot;
                 }
 
-                i++;
+                _summary.lastVerifiedBlockHash = _trans[i++].blockHash;
             }
 
             if (lastSyncedBlockId != 0) {
@@ -77,33 +77,32 @@ library LibVerify2 {
         }
     }
 
-    function _returnBondToProver(
+    function _calcBondToProver(
         I.Config memory _conf,
-        LibPropose2.Environment memory _env,
         I.TransitionMeta memory _tran,
         bool _isFirstTransition
     )
         private
+        pure
+        returns (uint96 bondToReturn_)
     {
-        uint96 bondToReturn;
-        if (_tran.proofTiming == I.ProofTiming.InProvingWindow) {
-            // all liveness bond is returned to the prover, this is not a reward.
-            bondToReturn = _tran.livenessBond;
-            if (_isFirstTransition) bondToReturn += _tran.provabilityBond;
-        } else if (_tran.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
-            // prover is rewarded with bondRewardPtcg% of the liveness bond.
-            bondToReturn = _tran.livenessBond * _conf.bondRewardPtcg / 100;
-            if (_isFirstTransition) bondToReturn += _tran.provabilityBond;
-        } else if (_tran.byAssignedProver) {
-            // The assigned prover gets back his liveness bond, and 100% provability
-            // bond.
-            // This allows him to user a higher gas price to submit his proof first.
-            bondToReturn = _tran.provabilityBond;
-        } else {
-            // Other prover get bondRewardPtcg% of the provability bond.
-            bondToReturn = _tran.provabilityBond * _conf.bondRewardPtcg / 100;
+        unchecked {
+            if (_tran.proofTiming == I.ProofTiming.InProvingWindow) {
+                // all liveness bond is returned to the prover, this is not a reward.
+                bondToReturn_ = _tran.livenessBond;
+                if (_isFirstTransition) bondToReturn_ += _tran.provabilityBond;
+            } else if (_tran.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
+                // prover is rewarded with bondRewardPtcg% of the liveness bond.
+                bondToReturn_ = _tran.livenessBond * _conf.bondRewardPtcg / 100;
+                if (_isFirstTransition) bondToReturn_ += _tran.provabilityBond;
+            } else if (_tran.byAssignedProver) {
+                // The assigned prover gets back his liveness bond, and 100% provability
+                // bond. This allows him to user a higher gas price to submit his proof first.
+                bondToReturn_ = _tran.provabilityBond;
+            } else {
+                // Other prover get bondRewardPtcg% of the provability bond.
+                bondToReturn_ = _tran.provabilityBond * _conf.bondRewardPtcg / 100;
+            }
         }
-
-        _env.creditBond(_tran.prover, bondToReturn);
     }
 }
