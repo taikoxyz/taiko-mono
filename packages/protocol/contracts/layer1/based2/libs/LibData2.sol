@@ -19,4 +19,14 @@ library LibData2 {
         bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, proveMetaHash));
         return keccak256(abi.encode(leftHash, rightHash));
     }
+
+    function hashBatch(I.BatchProposeMetadataEvidence memory _evidence)
+        public
+        pure
+        returns (bytes32)
+    {
+        bytes32 proposeMetaHash = keccak256(abi.encode(_evidence.proposeMeta));
+        bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, _evidence.proveMetaHash));
+        return keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
+    }
 }

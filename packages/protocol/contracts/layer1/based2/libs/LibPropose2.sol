@@ -24,10 +24,12 @@ library LibPropose2 {
     {
         unchecked {
             require(_batch.length != 0, NoBatchesToPropose());
-            // Validate parentProposeMeta against its meta hash
-            _validateBatchProposeMeta(_evidence, _rw.parentBatchMetaHash);
-            I.BatchProposeMetadata memory parentProposeMeta = _evidence.proposeMeta;
+            require(
+                _rw.parentBatchMetaHash == LibData2.hashBatch(_evidence),
+                MetaHashNotMatch()
+            );
 
+            I.BatchProposeMetadata memory parentProposeMeta = _evidence.proposeMeta;
             for (uint256 i; i < _batch.length; ++i) {
                 parentProposeMeta =
                     _proposeBatch(_conf, _rw, _summary, _batch[i], parentProposeMeta);
@@ -119,19 +121,6 @@ library LibPropose2 {
                 }
             }
         }
-    }
-
-    function _validateBatchProposeMeta(
-        I.BatchProposeMetadataEvidence memory _evidence,
-        bytes32 _batchMetaHash
-    )
-        private
-        pure
-    {
-        bytes32 proposeMetaHash = keccak256(abi.encode(_evidence.proposeMeta));
-        bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, _evidence.proveMetaHash));
-        bytes32 metaHash = keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
-        require(_batchMetaHash == metaHash, MetaHashNotMatch());
     }
 
     function _populateBatchMetadata(
