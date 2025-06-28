@@ -28,7 +28,7 @@ library LibProve2 {
         // writes
         function(address, uint256) creditBond;
         function(I.Config memory, address, uint256) debitBond;
-        function(I.Config memory, uint256, bytes32, bytes32) returns (bool) saveTransition;
+        function(I.Config memory, uint48, bytes32, bytes32) returns (bool) saveTransition;
     }
 
     function proveBatches(

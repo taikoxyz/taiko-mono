@@ -146,7 +146,7 @@ interface ITaikoInbox2 {
     //  @notice Struct representing transition storage
     /// @notice 2 slots used for each transition.
     struct TransitionState {
-        bytes32 batchIdAndPartialParentHash;
+        uint256 batchIdAndPartialParentHash;
         bytes32 metaHash;
     }
 

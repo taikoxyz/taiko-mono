@@ -197,9 +197,8 @@ abstract contract TaikoInbox2 is
         returns (bytes32 metaHash_, bool isFirstTransition_)
     {
         uint256 slot = _batchId % _conf.batchRingBufferSize;
-
-        (uint48 embededBatchId, bytes32 partialParentHash) =
-            LibData2.loadBatchIdAndPartialParentHash(state, slot); // 1 SLOAD
+        // 1 SLOAD
+        (uint48 embededBatchId, bytes32 partialParentHash) = _loadBatchIdAndPartialParentHash(slot);
 
         if (embededBatchId != _batchId) return (0, false);
 
@@ -212,7 +211,7 @@ abstract contract TaikoInbox2 is
 
     function _saveTransition(
         I.Config memory _conf,
-        uint256 _batchId,
+        uint48 _batchId,
         bytes32 _parentHash,
         bytes32 _tranMetahash
     )
@@ -224,8 +223,7 @@ abstract contract TaikoInbox2 is
         // In the next code section, we always use `$.transitions[slot][1]` to reuse a previously
         // declared state variable -- note that the second mapping key is always 1.
         // Tip: the reuse of the first transition slot can save 3900 gas per batch.
-        (uint48 embededBatchId, bytes32 partialParentHash) =
-            LibData2.loadBatchIdAndPartialParentHash(state, slot);
+        (uint48 embededBatchId, bytes32 partialParentHash) = _loadBatchIdAndPartialParentHash(slot);
 
         isFirstTransition_ = embededBatchId != _batchId;
 
@@ -233,8 +231,9 @@ abstract contract TaikoInbox2 is
             // This is the very first transition of the batch, or a transition with the same parent
             // hash. We can reuse the transition state slot to reduce gas cost.
             state.transitions[slot][1].batchIdAndPartialParentHash =
-                LibData2.encodeBatchIdAndPartialParentHash(uint48(_batchId), _parentHash); // 1
-                // SSTORE
+                uint256(partialParentHash) & ~type(uint48).max | _batchId;
+
+            // SSTORE
             state.transitions[slot][1].metaHash = _tranMetahash; // 1 SSTORE
         } else if (partialParentHash == _parentHash >> 48) {
             // Overwrite the first proof
@@ -278,5 +277,15 @@ abstract contract TaikoInbox2 is
         ISignalService(_conf.signalService).syncChainData(
             _conf.chainId, LibSignals.STATE_ROOT, _blockId, _stateRoot
         );
+    }
+
+    function _loadBatchIdAndPartialParentHash(uint256 _slot)
+        internal
+        view
+        returns (uint48 embededBatchId_, bytes32 partialParentHash_)
+    {
+        uint256 value = state.transitions[_slot][1].batchIdAndPartialParentHash; // 1 SLOAD
+        embededBatchId_ = uint48(value);
+        partialParentHash_ = bytes32(value >> 48);
     }
 }
