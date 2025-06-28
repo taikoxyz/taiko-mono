@@ -72,7 +72,7 @@ abstract contract TaikoInbox2 is
         require(!_paused, ContractPaused());
 
         I.Config memory conf = _getConfig();
-        LibPropose2.ReadWrite memory env = LibPropose2.ReadWrite({
+        LibPropose2.ReadWrite memory rw = LibPropose2.ReadWrite({
             // reads
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
@@ -90,8 +90,8 @@ abstract contract TaikoInbox2 is
             validateProverAuth: LibAuth2.validateProverAuth
         });
 
-        _summary = LibPropose2.proposeBatches(conf, env, _summary, _batch, _evidence);
-        _summary = LibVerify2.verifyBatches(conf, env, _summary, _trans);
+        _summary = LibPropose2.proposeBatches(conf, rw, _summary, _batch, _evidence);
+        _summary = LibVerify2.verifyBatches(conf, rw, _summary, _trans);
 
         state.updateSummary(_summary, _paused);
         return _summary;
@@ -110,7 +110,7 @@ abstract contract TaikoInbox2 is
         require(!_paused, ContractPaused());
 
         I.Config memory conf = _getConfig();
-        LibProve2.ReadWrite memory env = LibProve2.ReadWrite({
+        LibProve2.ReadWrite memory rw = LibProve2.ReadWrite({
             // reads
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
@@ -121,7 +121,7 @@ abstract contract TaikoInbox2 is
         });
 
         bytes32 aggregatedBatchHash;
-        (_summary, aggregatedBatchHash) = state.proveBatches(conf, env, _summary, _inputs);
+        (_summary, aggregatedBatchHash) = state.proveBatches(conf, rw, _summary, _inputs);
 
         state.updateSummary(_summary, _paused);
 
