@@ -71,8 +71,6 @@ abstract contract TaikoInbox2 is
         I.Config memory conf = _getConfig();
         LibParams.ReadWrite memory rw = LibParams.ReadWrite({
             // reads
-            blockTimestamp: uint48(block.timestamp),
-            blockNumber: uint48(block.number),
             encodeBatchMetadata: LibSummary.encodeBatchMetadata,
             parentBatchMetaHash: state.batches[(_summary.numBatches - 1) % conf.batchRingBufferSize],
             isSignalSent: _isSignalSent,

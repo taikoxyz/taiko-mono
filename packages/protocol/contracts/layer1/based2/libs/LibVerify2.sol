@@ -46,7 +46,7 @@ library LibVerify2 {
                 require(i < nTransitions, TransitionNotProvided());
                 require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionMetaMismatch());
 
-                if (_trans[i].createdAt + _conf.cooldownWindow > _rw.blockTimestamp) {
+                if (_trans[i].createdAt + _conf.cooldownWindow > block.timestamp) {
                     break;
                 }
 
@@ -65,7 +65,7 @@ library LibVerify2 {
 
             if (lastSyncedBlockId != 0) {
                 _summary.lastSyncedBlockId = lastSyncedBlockId;
-                _summary.lastSyncedAt = _rw.blockTimestamp;
+                _summary.lastSyncedAt = uint48(block.timestamp);
                 _rw.syncChainData(_conf, lastSyncedBlockId, lastSyncedStateRoot);
             }
         }

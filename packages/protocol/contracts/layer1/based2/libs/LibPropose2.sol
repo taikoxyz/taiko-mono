@@ -24,10 +24,7 @@ library LibPropose2 {
     {
         unchecked {
             require(_batch.length != 0, NoBatchesToPropose());
-            require(
-                _rw.parentBatchMetaHash == LibData2.hashBatch(_evidence),
-                MetaHashNotMatch()
-            );
+            require(_rw.parentBatchMetaHash == LibData2.hashBatch(_evidence), MetaHashNotMatch());
 
             I.BatchProposeMetadata memory parentProposeMeta = _evidence.proposeMeta;
             for (uint256 i; i < _batch.length; ++i) {
@@ -61,7 +58,7 @@ library LibPropose2 {
 
         output.prover = _validateProver(_conf, _rw, _summary, params.proverAuth, params);
 
-        I.BatchMetadata memory meta = _populateBatchMetadata(_conf, _rw, params, output);
+        I.BatchMetadata memory meta = _populateBatchMetadata(_conf, params, output);
 
         bytes32 batchMetaHash = LibData2.hashBatch(_summary.numBatches, meta);
         _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
@@ -125,12 +122,11 @@ library LibPropose2 {
 
     function _populateBatchMetadata(
         I.Config memory _conf,
-        LibParams.ReadWrite memory _rw,
         I.Batch memory _batch,
         LibParams.ValidationOutput memory _output
     )
         private
-        pure
+        view
         returns (I.BatchMetadata memory meta_)
     {
         meta_.buildMeta = I.BatchBuildMetadata({
@@ -138,7 +134,7 @@ library LibPropose2 {
             blobHashes: _output.blobHashes,
             extraData: _encodeExtraDataLower128Bits(_conf, _batch),
             coinbase: _batch.coinbase,
-            proposedIn: _rw.blockNumber,
+            proposedIn: uint48(block.number),
             blobCreatedIn: _batch.blobs.createdIn,
             blobByteOffset: _batch.blobs.byteOffset,
             blobByteSize: _batch.blobs.byteSize,
@@ -160,7 +156,7 @@ library LibPropose2 {
         meta_.proveMeta = I.BatchProveMetadata({
             proposer: _batch.proposer,
             prover: _output.prover,
-            proposedAt: _rw.blockTimestamp,
+            proposedAt: uint48(block.timestamp),
             firstBlockId: _output.firstBlockId,
             lastBlockId: meta_.buildMeta.lastBlockId,
             livenessBond: _conf.livenessBond,

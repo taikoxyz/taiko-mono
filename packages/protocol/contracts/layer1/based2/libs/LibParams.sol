@@ -8,8 +8,6 @@ import "./LibFork2.sol";
 library LibParams {
     struct ReadWrite {
         // reads
-        uint48 blockTimestamp;
-        uint48 blockNumber;
         bytes32 parentBatchMetaHash;
         function(I.BatchMetadata memory) pure returns (bytes memory) encodeBatchMetadata;
         function(I.Config memory, bytes32) view returns (bool) isSignalSent;
@@ -79,7 +77,7 @@ library LibParams {
             // firstBlobIndex can be non-zero.
             require(_batch.blobs.numBlobs != 0, BlobNotSpecified());
             require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
-            _batch.blobs.createdIn = _rw.blockNumber;
+            _batch.blobs.createdIn = uint48(block.number);
         } else {
             // this is a forced-inclusion batch, blobs were created in early blocks and are used
             // in the current batches
@@ -102,9 +100,9 @@ library LibParams {
         }
 
         if (_batch.lastBlockTimestamp == 0) {
-            _batch.lastBlockTimestamp = _rw.blockTimestamp;
+            _batch.lastBlockTimestamp = uint48(block.timestamp);
         } else {
-            require(_batch.lastBlockTimestamp <= _rw.blockTimestamp, TimestampTooLarge());
+            require(_batch.lastBlockTimestamp <= block.timestamp, TimestampTooLarge());
         }
 
         require(output.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
@@ -133,7 +131,7 @@ library LibParams {
 
         require(
             firstBlockTimestamp + _conf.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                >= _rw.blockTimestamp,
+                >= block.timestamp,
             TimestampTooSmall()
         );
 
@@ -156,7 +154,7 @@ library LibParams {
 
                 require(
                     foundNoneZeroAnchorBlockId
-                        || anchorBlockId + _conf.maxAnchorHeightOffset >= _rw.blockNumber,
+                        || anchorBlockId + _conf.maxAnchorHeightOffset >= uint48(block.number),
                     AnchorIdTooSmall()
                 );
 
