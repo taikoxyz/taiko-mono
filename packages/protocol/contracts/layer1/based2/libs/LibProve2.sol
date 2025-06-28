@@ -23,12 +23,11 @@ library LibProve2 {
 
     struct Environment {
         // reads
-        address sender;
         uint48 blockTimestamp;
         uint48 blockNumber;
         // writes
-        function(I.Config memory, address, uint256) debitBond;
         function(address, uint256) creditBond;
+        function(I.Config memory, address, uint256) debitBond;
         function(I.Config memory, uint256, bytes32, bytes32) returns (bool) saveTransition;
     }
 
@@ -56,7 +55,7 @@ library LibProve2 {
             (metas[i], ctxHashes[i]) = _proveBatch($, _conf, _env, _summary, _evidences[i]);
         }
         bytes32 aggregatedBatchHash =
-            keccak256(abi.encode(_conf.chainId, _env.sender, _conf.verifier, ctxHashes));
+            keccak256(abi.encode(_conf.chainId, msg.sender, _conf.verifier, ctxHashes));
 
         emit I.BatchesProved(_conf.verifier, metas);
         return (_summary, aggregatedBatchHash);
@@ -103,7 +102,7 @@ library LibProve2 {
             proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // to be updated below
             prover: address(0), // to be updated below
             createdAt: _env.blockTimestamp,
-            byAssignedProver: _env.sender == _input.proveMeta.prover,
+            byAssignedProver: msg.sender == _input.proveMeta.prover,
             lastBlockId: _input.proveMeta.lastBlockId,
             provabilityBond: _input.proveMeta.provabilityBond,
             livenessBond: _input.proveMeta.livenessBond
@@ -123,9 +122,9 @@ library LibProve2 {
         );
         if (
             isFirstTransition && tranMeta_.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
-                && _env.sender != _input.proveMeta.proposer
+                && msg.sender != _input.proveMeta.proposer
         ) {
-            _env.debitBond(_conf, _env.sender, _input.proveMeta.provabilityBond);
+            _env.debitBond(_conf, msg.sender, _input.proveMeta.provabilityBond);
             _env.creditBond(_input.proveMeta.proposer, _input.proveMeta.provabilityBond);
         }
     }
@@ -145,9 +144,9 @@ library LibProve2 {
             if (_env.blockTimestamp <= _proposedAt + _conf.provingWindow) {
                 return (I.ProofTiming.InProvingWindow, _assignedProver);
             } else if (_env.blockTimestamp <= _proposedAt + _conf.extendedProvingWindow) {
-                return (I.ProofTiming.InExtendedProvingWindow, _env.sender);
+                return (I.ProofTiming.InExtendedProvingWindow, msg.sender);
             } else {
-                return (I.ProofTiming.OutOfExtendedProvingWindow, _env.sender);
+                return (I.ProofTiming.OutOfExtendedProvingWindow, msg.sender);
             }
         }
     }

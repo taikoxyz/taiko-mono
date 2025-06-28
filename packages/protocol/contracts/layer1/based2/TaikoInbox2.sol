@@ -74,7 +74,6 @@ abstract contract TaikoInbox2 is
         I.Config memory conf = _getConfig();
         LibPropose2.Environment memory env = LibPropose2.Environment({
             // reads
-            sender: msg.sender,
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
             encodeBatchMetadata: LibData2.encodeBatchMetadata,
@@ -114,12 +113,11 @@ abstract contract TaikoInbox2 is
         I.Config memory conf = _getConfig();
         LibProve2.Environment memory env = LibProve2.Environment({
             // reads
-            sender: msg.sender,
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
             // writes
-            debitBond: _debitBond,
             creditBond: _creditBond,
+            debitBond: _debitBond,
             saveTransition: _saveTransition
         });
 

@@ -40,7 +40,6 @@ library LibPropose2 {
 
     struct Environment {
         // reads
-        address sender;
         uint48 blockTimestamp;
         uint48 blockNumber;
         bytes32 parentBatchMetaHash;
@@ -52,9 +51,9 @@ library LibPropose2 {
             validateProverAuth;
         function(uint256) view returns (bytes32) getBlobHash;
         // writes
-        function(I.Config memory, address, uint256) debitBond;
-        function(address, uint256) creditBond;
         function(address, address, address, uint256) transferFee;
+        function(address, uint256) creditBond;
+        function(I.Config memory, address, uint256) debitBond;
         function(I.Config memory, uint256, bytes32) saveBatchMetaHash;
         function(I.Config memory, uint64, bytes32) syncChainData;
     }
@@ -76,7 +75,7 @@ library LibPropose2 {
         I.Config memory _conf,
         Environment memory _env,
         I.Summary memory _summary,
-        I.Batch[] memory _batch, // make call data, and keep changed field in output.
+        I.Batch[] memory _batch,
         I.BatchProposeMetadataEvidence calldata _evidence
     )
         internal
@@ -212,9 +211,9 @@ library LibPropose2 {
 
         if (_conf.inboxWrapper == address(0)) {
             if (_batch.proposer == address(0)) {
-                _batch.proposer = _env.sender;
+                _batch.proposer = msg.sender;
             } else {
-                require(_batch.proposer == _env.sender, CustomProposerNotAllowed());
+                require(_batch.proposer == msg.sender, CustomProposerNotAllowed());
             }
 
             // blob hashes are only accepted if the caller is trusted.
@@ -223,7 +222,7 @@ library LibPropose2 {
             require(_batch.isForcedInclusion == false, InvalidForcedInclusion());
         } else {
             require(_batch.proposer != address(0), CustomProposerMissing());
-            require(_env.sender == _conf.inboxWrapper, NotInboxWrapper());
+            require(msg.sender == _conf.inboxWrapper, NotInboxWrapper());
         }
 
         // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
@@ -333,7 +332,7 @@ library LibPropose2 {
         // have a non-zero anchor block id. Otherwise, delegate this validation to the
         // inboxWrapper contract.
         require(
-            _env.sender == _conf.inboxWrapper || foundNoneZeroAnchorBlockId,
+            msg.sender == _conf.inboxWrapper || foundNoneZeroAnchorBlockId,
             NoAnchorBlockIdWithinThisBatch()
         );
 
