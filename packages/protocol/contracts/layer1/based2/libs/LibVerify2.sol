@@ -43,13 +43,19 @@ library LibVerify2 {
             bytes32 lastSyncedStateRoot;
 
             for (; batchId < stopBatchId; ++batchId) {
-                bytes32 tranMetaHash =
+                (bytes32 tranMetaHash, bool isFirstTransition) =
                     _env.loadTransitionMetaHash(_conf, _summary.lastVerifiedBlockHash, batchId);
 
                 if (tranMetaHash == 0) break;
 
                 require(i < nTransitions, TransitionNotProvided());
                 require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionMetaMismatch());
+
+                if (_trans[i].createdAt + _conf.cooldownWindow > _env.blockTimestamp) {
+                    break;
+                }
+
+                _returnBondToProver(_conf, _env, _trans[i], isFirstTransition);
 
                 _summary.lastVerifiedBlockHash = _trans[i].blockHash;
 
@@ -63,13 +69,41 @@ library LibVerify2 {
 
             if (lastSyncedBlockId != 0) {
                 _summary.lastSyncedBlockId = lastSyncedBlockId;
-
                 _summary.lastSyncedAt = uint48(block.timestamp);
-
                 _env.syncChainData(_conf, lastSyncedBlockId, lastSyncedStateRoot);
             }
 
             return _summary;
         }
+    }
+
+    function _returnBondToProver(
+        I.Config memory _conf,
+        LibPropose2.Environment memory _env,
+        I.TransitionMeta memory _tran,
+        bool _isFirstTransition
+    )
+        private
+    {
+        uint96 bondToReturn;
+        if (_tran.proofTiming == I.ProofTiming.InProvingWindow) {
+            // all liveness bond is returned to the prover, this is not a reward.
+            bondToReturn = _tran.livenessBond;
+            if (_isFirstTransition) bondToReturn += _tran.provabilityBond;
+        } else if (_tran.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
+            // prover is rewarded with bondRewardPtcg% of the liveness bond.
+            bondToReturn = _tran.livenessBond * _conf.bondRewardPtcg / 100;
+            if (_isFirstTransition) bondToReturn += _tran.provabilityBond;
+        } else if (_tran.byAssignedProver) {
+            // The assigned prover gets back his liveness bond, and 100% provability
+            // bond.
+            // This allows him to user a higher gas price to submit his proof first.
+            bondToReturn = _tran.provabilityBond;
+        } else {
+            // Other prover get bondRewardPtcg% of the provability bond.
+            bondToReturn = _tran.provabilityBond * _conf.bondRewardPtcg / 100;
+        }
+
+        _env.creditBond(_tran.prover, bondToReturn);
     }
 }

@@ -195,19 +195,19 @@ abstract contract TaikoInbox2 is
     )
         private
         view
-        returns (bytes32)
+        returns (bytes32 metaHash_, bool isFirstTransition_)
     {
         uint256 slot = _batchId % _conf.batchRingBufferSize;
 
         (uint48 embededBatchId, bytes32 partialParentHash) =
             LibData2.loadBatchIdAndPartialParentHash(state, slot); // 1 SLOAD
 
-        if (embededBatchId != _batchId) return 0;
+        if (embededBatchId != _batchId) return (0, false);
 
         if (partialParentHash == _lastVerifiedBlockHash >> 48) {
-            return state.transitions[slot][1].metaHash;
+            return (state.transitions[slot][1].metaHash, true);
         } else {
-            return state.transitionMetaHashes[_batchId][_lastVerifiedBlockHash];
+            return (state.transitionMetaHashes[_batchId][_lastVerifiedBlockHash], false);
         }
     }
 
