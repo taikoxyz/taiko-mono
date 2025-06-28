@@ -35,6 +35,25 @@ library LibParams {
         address coinbase; // TODO
     }
 
+    function validateProposerCoinbase(
+        I.Config memory _conf,
+        I.Batch memory _batch
+    )
+        internal
+        view
+        returns (address proposer_, address coinbase_)
+    {
+        if (_conf.inboxWrapper == address(0)) {
+            proposer_ = msg.sender;
+        } else {
+            require(msg.sender == _conf.inboxWrapper, NotInboxWrapper());
+            require(_batch.proposer != address(0), CustomProposerMissing());
+            proposer_ = _batch.proposer;
+        }
+
+        coinbase_ = _batch.coinbase == address(0) ? proposer_ : _batch.coinbase;
+    }
+
     function validateBatch(
         I.Config memory _conf,
         ReadWrite memory _rw,
@@ -46,30 +65,14 @@ library LibParams {
         returns (I.Batch memory, ValidationOutput memory)
     {
         ValidationOutput memory output;
+        (output.proposer, output.coinbase) = validateProposerCoinbase(_conf, _batch);
 
         if (_conf.inboxWrapper == address(0)) {
-            if (_batch.proposer == address(0)) {
-                _batch.proposer = msg.sender;
-            } else {
-                require(_batch.proposer == msg.sender, CustomProposerNotAllowed());
-            }
-
             // blob hashes are only accepted if the caller is trusted.
             require(_batch.blobs.hashes.length == 0, InvalidBlobParams());
             require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
             require(_batch.isForcedInclusion == false, InvalidForcedInclusion());
-        } else {
-            require(_batch.proposer != address(0), CustomProposerMissing());
-            require(msg.sender == _conf.inboxWrapper, NotInboxWrapper());
         }
-
-        // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
-        // preconfer address. This will allow us to implement preconfirmation features in L2
-        // anchor transactions.
-        if (_batch.coinbase == address(0)) {
-            _batch.coinbase = _batch.proposer;
-        }
-
         if (_batch.blobs.hashes.length == 0) {
             // this is a normal batch, blobs are created and used in the current batches.
             // firstBlobIndex can be non-zero.
@@ -83,6 +86,7 @@ library LibParams {
             require(_batch.blobs.numBlobs == 0, InvalidBlobParams());
             require(_batch.blobs.firstBlobIndex == 0, InvalidBlobParams());
         }
+
         uint256 nBlocks = _batch.encodedBlocks.length;
 
         require(nBlocks != 0, BlockNotFound());
