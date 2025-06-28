@@ -74,7 +74,7 @@ library LibPropose2 {
 
         I.BatchMetadata memory meta = _populateBatchMetadata(_conf, _rw, params, output);
 
-        bytes32 batchMetaHash = LibInit2.hashBatch(_summary.numBatches, meta);
+        bytes32 batchMetaHash = LibData2.hashBatch(_summary.numBatches, meta);
         _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
 
         emit I.BatchProposed(_summary.numBatches, _rw.encodeBatchMetadata(meta));

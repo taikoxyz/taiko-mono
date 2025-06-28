@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "./LibSummary.sol";
+import "./LibData2.sol";
 
 library LibInit2 {
     function init(I.State storage $, bytes32 _genesisBlockHash) internal {
@@ -12,29 +13,13 @@ library LibInit2 {
         meta.buildMeta.proposedIn = uint48(block.number);
         meta.proveMeta.proposedAt = uint48(block.timestamp);
 
-        $.batches[0] = hashBatch(0, meta);
+        $.batches[0] = LibData2.hashBatch(0, meta);
 
         I.Summary memory summary;
         summary.numBatches = 1;
 
         LibSummary.updateSummary($, summary, false);
         emit I.BatchesVerified(0, _genesisBlockHash);
-    }
-
-    function hashBatch(
-        uint256 batchId,
-        I.BatchMetadata memory meta
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        bytes32 buildMetaHash = keccak256(abi.encode(meta.buildMeta));
-        bytes32 proposeMetaHash = keccak256(abi.encode(meta.proposeMeta));
-        bytes32 proveMetaHash = keccak256(abi.encode(meta.proveMeta));
-        bytes32 leftHash = keccak256(abi.encode(batchId, buildMetaHash));
-        bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, proveMetaHash));
-        return keccak256(abi.encode(leftHash, rightHash));
     }
 
     // --- ERRORs --------------------------------------------------------------------------------
