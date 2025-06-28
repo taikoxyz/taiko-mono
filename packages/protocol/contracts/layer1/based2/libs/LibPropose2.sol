@@ -24,6 +24,12 @@ library LibPropose2 {
     {
         unchecked {
             require(_batch.length != 0, NoBatchesToPropose());
+            require(
+                _summary.numBatches + _batch.length
+                    <= _summary.lastVerifiedBatchId + _conf.maxUnverifiedBatches + 1,
+                TooManyBatches()
+            );
+
             require(_rw.parentBatchMetaHash == LibData2.hashBatch(_evidence), MetaHashNotMatch());
 
             I.BatchProposeMetadata memory parentProposeMeta = _evidence.proposeMeta;
@@ -47,11 +53,6 @@ library LibPropose2 {
         private
         returns (I.BatchProposeMetadata memory)
     {
-        require(
-            _summary.numBatches <= _summary.lastVerifiedBatchId + _conf.maxUnverifiedBatches,
-            TooManyBatches()
-        );
-
         // Validate the params and returns an updated copy
         (I.Batch memory params, LibParams.ValidationOutput memory output) =
             LibParams.validateBatch(_conf, _rw, _batch, _parentProposeMeta);
@@ -179,6 +180,7 @@ library LibPropose2 {
         v |= _batch.isForcedInclusion ? 1 << 8 : 0; // bit 8
         return bytes32(uint256(v));
     }
+
     // --- ERRORs --------------------------------------------------------------------------------
 
     error AnchorIdSmallerThanParent();
