@@ -29,7 +29,11 @@ library LibPropose2 {
                 TooManyBatches()
             );
 
-            require(_rw.parentBatchMetaHash == LibData2.hashBatch(_evidence), MetaHashNotMatch());
+            require(
+                _rw.getBatchMetaHash(_conf, _summary.numBatches - 1)
+                    == LibData2.hashBatch(_evidence),
+                MetaHashNotMatch()
+            );
 
             I.BatchProposeMetadata memory parentProposeMeta = _evidence.proposeMeta;
             for (uint256 i; i < _batch.length; ++i) {
