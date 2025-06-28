@@ -38,7 +38,7 @@ library LibPropose2 {
     error TooManySignals();
     error ZeroAnchorBlockHash();
 
-    struct Environment {
+    struct ReadWrite {
         // reads
         uint48 blockTimestamp;
         uint48 blockNumber;
@@ -73,7 +73,7 @@ library LibPropose2 {
 
     function proposeBatches(
         I.Config memory _conf,
-        Environment memory _env,
+        ReadWrite memory _rw,
         I.Summary memory _summary,
         I.Batch[] memory _batch,
         I.BatchProposeMetadataEvidence calldata _evidence
@@ -84,14 +84,14 @@ library LibPropose2 {
         unchecked {
             require(_batch.length != 0, NoBatchesToPropose());
             // Validate parentProposeMeta against its meta hash
-            _validateBatchProposeMeta(_evidence, _env.parentBatchMetaHash);
+            _validateBatchProposeMeta(_evidence, _rw.parentBatchMetaHash);
             I.BatchProposeMetadata memory parentProposeMeta = _evidence.proposeMeta;
 
             for (uint256 i; i < _batch.length; ++i) {
                 parentProposeMeta =
-                    _proposeBatch(_conf, _env, _summary, _batch[i], parentProposeMeta);
+                    _proposeBatch(_conf, _rw, _summary, _batch[i], parentProposeMeta);
                 _summary.numBatches += 1;
-                _summary.lastProposedIn = _env.blockNumber;
+                _summary.lastProposedIn = _rw.blockNumber;
             }
 
             return _summary;
@@ -100,7 +100,7 @@ library LibPropose2 {
 
     function _proposeBatch(
         I.Config memory _conf,
-        Environment memory _env,
+        ReadWrite memory _rw,
         I.Summary memory _summary,
         I.Batch memory _batch,
         I.BatchProposeMetadata memory _parentProposeMeta
@@ -115,16 +115,16 @@ library LibPropose2 {
 
         // Validate the params and returns an updated copy
         (I.Batch memory params, ParamsValidationOutput memory output) =
-            _validateBatch(_conf, _env, _batch, _parentProposeMeta);
+            _validateBatch(_conf, _rw, _batch, _parentProposeMeta);
 
-        output.prover = _validateProver(_conf, _env, _summary, params.proverAuth, params);
+        output.prover = _validateProver(_conf, _rw, _summary, params.proverAuth, params);
 
-        I.BatchMetadata memory meta = _populateBatchMetadata(_conf, _env, params, output);
+        I.BatchMetadata memory meta = _populateBatchMetadata(_conf, _rw, params, output);
 
         bytes32 batchMetaHash = hashBatch(_summary.numBatches, meta);
-        _env.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
+        _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
 
-        emit I.BatchProposed(_summary.numBatches, _env.encodeBatchMetadata(meta));
+        emit I.BatchProposed(_summary.numBatches, _rw.encodeBatchMetadata(meta));
 
         return meta.proposeMeta;
     }
@@ -147,7 +147,7 @@ library LibPropose2 {
 
     function _validateProver(
         I.Config memory _conf,
-        Environment memory _env,
+        ReadWrite memory _rw,
         I.Summary memory _summary,
         bytes memory _proverAuth,
         I.Batch memory _batch
@@ -157,7 +157,7 @@ library LibPropose2 {
     {
         unchecked {
             if (_batch.proverAuth.length == 0) {
-                _env.debitBond(_conf, _batch.proposer, _conf.livenessBond + _conf.provabilityBond);
+                _rw.debitBond(_conf, _batch.proposer, _conf.livenessBond + _conf.provabilityBond);
                 return _batch.proposer;
             }
 
@@ -169,29 +169,29 @@ library LibPropose2 {
             // reduce this contract's code size.
             address feeToken;
             uint96 fee;
-            (prover_, feeToken, fee) = _env.validateProverAuth(
+            (prover_, feeToken, fee) = _rw.validateProverAuth(
                 _conf.chainId, _summary.numBatches, keccak256(abi.encode(_batch)), _proverAuth
             );
 
             if (feeToken == _conf.bondToken) {
                 // proposer pay the prover fee with bond tokens
-                _env.debitBond(_conf, _batch.proposer, fee + _conf.provabilityBond);
+                _rw.debitBond(_conf, _batch.proposer, fee + _conf.provabilityBond);
 
                 // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                 // if not then add the diff to the bond balance
                 int256 bondDelta = int96(fee) - int96(_conf.livenessBond);
 
                 bondDelta < 0
-                    ? _env.debitBond(_conf, prover_, uint256(-bondDelta))
-                    : _env.creditBond(prover_, uint256(bondDelta));
+                    ? _rw.debitBond(_conf, prover_, uint256(-bondDelta))
+                    : _rw.creditBond(prover_, uint256(bondDelta));
             } else if (_batch.proposer == prover_) {
-                _env.debitBond(_conf, _batch.proposer, _conf.livenessBond + _conf.provabilityBond);
+                _rw.debitBond(_conf, _batch.proposer, _conf.livenessBond + _conf.provabilityBond);
             } else {
-                _env.debitBond(_conf, _batch.proposer, _conf.provabilityBond);
-                _env.debitBond(_conf, prover_, _conf.livenessBond);
+                _rw.debitBond(_conf, _batch.proposer, _conf.provabilityBond);
+                _rw.debitBond(_conf, prover_, _conf.livenessBond);
 
                 if (fee != 0) {
-                    _env.transferFee(feeToken, _batch.proposer, prover_, fee);
+                    _rw.transferFee(feeToken, _batch.proposer, prover_, fee);
                 }
             }
         }
@@ -199,7 +199,7 @@ library LibPropose2 {
 
     function _validateBatch(
         I.Config memory _conf,
-        Environment memory _env,
+        ReadWrite memory _rw,
         I.Batch memory _batch,
         I.BatchProposeMetadata memory _parentProposeMeta
     )
@@ -237,7 +237,7 @@ library LibPropose2 {
             // firstBlobIndex can be non-zero.
             require(_batch.blobs.numBlobs != 0, BlobNotSpecified());
             require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
-            _batch.blobs.createdIn = _env.blockNumber;
+            _batch.blobs.createdIn = _rw.blockNumber;
         } else {
             // this is a forced-inclusion batch, blobs were created in early blocks and are used
             // in the current batches
@@ -260,9 +260,9 @@ library LibPropose2 {
         }
 
         if (_batch.lastBlockTimestamp == 0) {
-            _batch.lastBlockTimestamp = _env.blockTimestamp;
+            _batch.lastBlockTimestamp = _rw.blockTimestamp;
         } else {
-            require(_batch.lastBlockTimestamp <= _env.blockTimestamp, TimestampTooLarge());
+            require(_batch.lastBlockTimestamp <= _rw.blockTimestamp, TimestampTooLarge());
         }
 
         require(output.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
@@ -279,7 +279,7 @@ library LibPropose2 {
 
             for (uint256 j; j < output.blocks[i].numSignals; ++j) {
                 require(
-                    _env.isSignalSent(_conf, _batch.signalSlots[signalSlotsIdx]), SignalNotSent()
+                    _rw.isSignalSent(_conf, _batch.signalSlots[signalSlotsIdx]), SignalNotSent()
                 );
                 signalSlotsIdx++;
             }
@@ -291,7 +291,7 @@ library LibPropose2 {
 
         require(
             firstBlockTimestamp + _conf.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                >= _env.blockTimestamp,
+                >= _rw.blockTimestamp,
             TimestampTooSmall()
         );
 
@@ -314,12 +314,12 @@ library LibPropose2 {
 
                 require(
                     foundNoneZeroAnchorBlockId
-                        || anchorBlockId + _conf.maxAnchorHeightOffset >= _env.blockNumber,
+                        || anchorBlockId + _conf.maxAnchorHeightOffset >= _rw.blockNumber,
                     AnchorIdTooSmall()
                 );
 
                 require(anchorBlockId > output.lastAnchorBlockId, AnchorIdSmallerThanParent());
-                output.anchorBlockHashes[k] = _env.getBlobHash(anchorBlockId);
+                output.anchorBlockHashes[k] = _rw.getBlobHash(anchorBlockId);
                 require(output.anchorBlockHashes[k] != 0, ZeroAnchorBlockHash());
 
                 foundNoneZeroAnchorBlockId = true;
@@ -336,7 +336,7 @@ library LibPropose2 {
             NoAnchorBlockIdWithinThisBatch()
         );
 
-        (output.txsHash, output.blobHashes) = _calculateTxsHash(_env, _batch.blobs);
+        (output.txsHash, output.blobHashes) = _calculateTxsHash(_rw, _batch.blobs);
 
         output.firstBlockId = _parentProposeMeta.lastBlockId + 1;
         output.lastBlockId = uint48(output.firstBlockId + nBlocks);
@@ -349,7 +349,7 @@ library LibPropose2 {
     }
 
     function _calculateTxsHash(
-        Environment memory _env,
+        ReadWrite memory _rw,
         I.Blobs memory _blobs
     )
         private
@@ -362,7 +362,7 @@ library LibPropose2 {
             } else {
                 blobHashes_ = new bytes32[](_blobs.numBlobs);
                 for (uint256 i; i < _blobs.numBlobs; ++i) {
-                    blobHashes_[i] = _env.getBlobHash(_blobs.firstBlobIndex + i);
+                    blobHashes_[i] = _rw.getBlobHash(_blobs.firstBlobIndex + i);
                 }
             }
 
@@ -388,7 +388,7 @@ library LibPropose2 {
 
     function _populateBatchMetadata(
         I.Config memory _conf,
-        Environment memory _env,
+        ReadWrite memory _rw,
         I.Batch memory _batch,
         ParamsValidationOutput memory _output
     )
@@ -401,7 +401,7 @@ library LibPropose2 {
             blobHashes: _output.blobHashes,
             extraData: _encodeExtraDataLower128Bits(_conf, _batch),
             coinbase: _batch.coinbase,
-            proposedIn: _env.blockNumber,
+            proposedIn: _rw.blockNumber,
             blobCreatedIn: _batch.blobs.createdIn,
             blobByteOffset: _batch.blobs.byteOffset,
             blobByteSize: _batch.blobs.byteSize,
@@ -423,7 +423,7 @@ library LibPropose2 {
         meta_.proveMeta = I.BatchProveMetadata({
             proposer: _batch.proposer,
             prover: _output.prover,
-            proposedAt: _env.blockTimestamp,
+            proposedAt: _rw.blockTimestamp,
             firstBlockId: _output.firstBlockId,
             lastBlockId: meta_.buildMeta.lastBlockId,
             livenessBond: _conf.livenessBond,

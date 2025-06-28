@@ -227,8 +227,8 @@ interface ITaikoInbox2 {
                 => mapping(uint256 thisValueIsAlways1 => TransitionState ts)
         ) transitions;
         bytes32 summaryHash; // slot 4
-        bytes32 _deprecated_stats1; // slot 5
-        bytes32 _deprecated_stats2; // slot 6
+        bytes32 __deprecatedStats1; // slot 5
+        bytes32 __deprecatedStats2; // slot 6
         mapping(address account => uint256 bond) bondBalance;
         uint256[43] __gap;
     }

@@ -18,7 +18,7 @@ library LibVerify2 {
 
     function verifyBatches(
         I.Config memory _conf,
-        LibPropose2.Environment memory _env,
+        LibPropose2.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans
     )
@@ -43,18 +43,18 @@ library LibVerify2 {
 
             for (; batchId < stopBatchId; ++batchId) {
                 (bytes32 tranMetaHash, bool isFirstTransition) =
-                    _env.loadTransitionMetaHash(_conf, _summary.lastVerifiedBlockHash, batchId);
+                    _rw.loadTransitionMetaHash(_conf, _summary.lastVerifiedBlockHash, batchId);
 
                 if (tranMetaHash == 0) break;
 
                 require(i < nTransitions, TransitionNotProvided());
                 require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionMetaMismatch());
 
-                if (_trans[i].createdAt + _conf.cooldownWindow > _env.blockTimestamp) {
+                if (_trans[i].createdAt + _conf.cooldownWindow > _rw.blockTimestamp) {
                     break;
                 }
 
-                _env.creditBond(
+                _rw.creditBond(
                     _trans[i].prover, _calcBondToProver(_conf, _trans[i], isFirstTransition)
                 );
 
@@ -69,8 +69,8 @@ library LibVerify2 {
 
             if (lastSyncedBlockId != 0) {
                 _summary.lastSyncedBlockId = lastSyncedBlockId;
-                _summary.lastSyncedAt = _env.blockTimestamp;
-                _env.syncChainData(_conf, lastSyncedBlockId, lastSyncedStateRoot);
+                _summary.lastSyncedAt = _rw.blockTimestamp;
+                _rw.syncChainData(_conf, lastSyncedBlockId, lastSyncedStateRoot);
             }
         }
         return _summary;

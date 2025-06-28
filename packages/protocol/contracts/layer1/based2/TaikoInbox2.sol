@@ -72,7 +72,7 @@ abstract contract TaikoInbox2 is
         require(!_paused, ContractPaused());
 
         I.Config memory conf = _getConfig();
-        LibPropose2.Environment memory env = LibPropose2.Environment({
+        LibPropose2.ReadWrite memory env = LibPropose2.ReadWrite({
             // reads
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
@@ -110,7 +110,7 @@ abstract contract TaikoInbox2 is
         require(!_paused, ContractPaused());
 
         I.Config memory conf = _getConfig();
-        LibProve2.Environment memory env = LibProve2.Environment({
+        LibProve2.ReadWrite memory env = LibProve2.ReadWrite({
             // reads
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
