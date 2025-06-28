@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibMath.sol";
-import "./LibData2.sol";
+import "./LibSummary.sol";
 import "./LibBonds2.sol";
 import "./LibFork2.sol";
 
@@ -11,6 +11,7 @@ import "./LibFork2.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProve2 {
     using LibMath for uint256;
+    using LibSummary for I.State;
 
     error BatchNotFound();
     error BlocksNotInCurrentFork();
@@ -29,10 +30,10 @@ library LibProve2 {
         function(address, uint256) creditBond;
         function(I.Config memory, address, uint256) debitBond;
         function(I.Config memory, uint48, bytes32, bytes32) returns (bool) saveTransition;
+        function(I.Config memory, uint) returns (bytes32) getBatchMetaHash;
     }
 
     function proveBatches(
-        I.State storage $,
         I.Config memory _conf,
         ReadWrite memory _rw,
         I.Summary memory _summary,
@@ -41,9 +42,6 @@ library LibProve2 {
         internal
         returns (I.Summary memory, bytes32)
     {
-        bool paused = LibData2.validateSummary($, _summary);
-        require(!paused, ContractPaused());
-
         uint256 nBatches = _evidences.length;
         require(nBatches != 0, NoBlocksToProve());
         require(nBatches <= type(uint8).max, TooManyBatchesToProve());
@@ -52,7 +50,7 @@ library LibProve2 {
         bytes32[] memory ctxHashes = new bytes32[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            (metas[i], ctxHashes[i]) = _proveBatch($, _conf, _rw, _summary, _evidences[i]);
+            (metas[i], ctxHashes[i]) = _proveBatch(_conf, _rw, _summary, _evidences[i]);
         }
         bytes32 aggregatedBatchHash =
             keccak256(abi.encode(_conf.chainId, msg.sender, _conf.verifier, ctxHashes));
@@ -62,7 +60,6 @@ library LibProve2 {
     }
 
     function _proveBatch(
-        I.State storage $,
         I.Config memory _conf,
         ReadWrite memory _rw,
         I.Summary memory _summary,
@@ -86,8 +83,7 @@ library LibProve2 {
         );
 
         // Verify the batch's metadata.
-        uint256 slot = _input.transition.batchId % _conf.batchRingBufferSize;
-        bytes32 batchMetaHash = $.batches[slot]; // 1 SLOAD
+        bytes32 batchMetaHash = _rw.getBatchMetaHash(_conf, _input.transition.batchId);
 
         _validateBatchProveMeta(batchMetaHash, _input);
 

@@ -38,10 +38,7 @@ abstract contract TaikoInbox2 is
 {
     using SafeERC20 for IERC20;
     using LibBonds2 for ITaikoInbox2.State;
-    using LibData2 for ITaikoInbox2.State;
-    using LibPropose2 for ITaikoInbox2.State;
-    using LibProve2 for ITaikoInbox2.State;
-    using LibVerify2 for ITaikoInbox2.State;
+    using LibSummary for ITaikoInbox2.State;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
@@ -76,7 +73,7 @@ abstract contract TaikoInbox2 is
             // reads
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
-            encodeBatchMetadata: LibData2.encodeBatchMetadata,
+            encodeBatchMetadata: LibSummary.encodeBatchMetadata,
             parentBatchMetaHash: state.batches[(_summary.numBatches - 1) % conf.batchRingBufferSize],
             isSignalSent: _isSignalSent,
             loadTransitionMetaHash: _loadTransitionMetaHash,
@@ -114,6 +111,7 @@ abstract contract TaikoInbox2 is
             // reads
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
+            getBatchMetaHash: _getBatchMetaHash,
             // writes
             creditBond: _creditBond,
             debitBond: _debitBond,
@@ -121,7 +119,7 @@ abstract contract TaikoInbox2 is
         });
 
         bytes32 aggregatedBatchHash;
-        (_summary, aggregatedBatchHash) = state.proveBatches(conf, rw, _summary, _inputs);
+        (_summary, aggregatedBatchHash) = LibProve2.proveBatches(conf, rw, _summary, _inputs);
 
         state.updateSummary(_summary, _paused);
 
@@ -185,6 +183,17 @@ abstract contract TaikoInbox2 is
         private
     {
         state.batches[_batchId % _conf.batchRingBufferSize] = _metaHash;
+    }
+
+    function _getBatchMetaHash(
+        I.Config memory _conf,
+        uint256 _batchId
+    )
+        private
+        view
+        returns (bytes32)
+    {
+        return state.batches[_batchId % _conf.batchRingBufferSize];
     }
 
     function _loadTransitionMetaHash(

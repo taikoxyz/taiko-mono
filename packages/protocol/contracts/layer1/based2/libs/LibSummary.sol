@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
-/// @title LibData2
+/// @title LibSummary
 /// @custom:security-contact security@taiko.xyz
-library LibData2 {
+library LibSummary {
     error SummaryMismatch();
 
     function updateSummary(I.State storage $, I.Summary memory _summary, bool _paused) internal {

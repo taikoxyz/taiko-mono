@@ -5,7 +5,6 @@ import "src/shared/libs/LibMath.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "./LibBonds2.sol";
 import "./LibFork2.sol";
-import "./LibData2.sol";
 import "./LibPropose2.sol";
 
 /// @title LibVerify2
