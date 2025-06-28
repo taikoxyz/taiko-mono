@@ -70,7 +70,7 @@ library LibVerify2 {
 
             if (lastSyncedBlockId != 0) {
                 _summary.lastSyncedBlockId = lastSyncedBlockId;
-                _summary.lastSyncedAt = uint48(block.timestamp);
+                _summary.lastSyncedAt = _env.blockTimestamp;
                 _env.syncChainData(_conf, lastSyncedBlockId, lastSyncedStateRoot);
             }
         }

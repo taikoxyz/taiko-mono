@@ -56,7 +56,7 @@ library LibProve2 {
             (metas[i], ctxHashes[i]) = _proveBatch($, _conf, _env, _summary, _evidences[i]);
         }
         bytes32 aggregatedBatchHash =
-            keccak256(abi.encode(_conf.chainId, msg.sender, _conf.verifier, ctxHashes));
+            keccak256(abi.encode(_conf.chainId, _env.sender, _conf.verifier, ctxHashes));
 
         emit I.BatchesProved(_conf.verifier, metas);
         return (_summary, aggregatedBatchHash);
@@ -102,8 +102,8 @@ library LibProve2 {
                 : bytes32(0),
             proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // to be updated below
             prover: address(0), // to be updated below
-            createdAt: uint48(block.timestamp),
-            byAssignedProver: msg.sender == _input.proveMeta.prover,
+            createdAt: _env.blockTimestamp,
+            byAssignedProver: _env.sender == _input.proveMeta.prover,
             lastBlockId: _input.proveMeta.lastBlockId,
             provabilityBond: _input.proveMeta.provabilityBond,
             livenessBond: _input.proveMeta.livenessBond
@@ -111,6 +111,7 @@ library LibProve2 {
 
         (tranMeta_.proofTiming, tranMeta_.prover) = _determineProofTiming(
             _conf,
+            _env,
             _input.proveMeta.prover,
             uint256(_input.proveMeta.proposedAt).max(_summary.lastProposedIn)
         );
@@ -122,9 +123,9 @@ library LibProve2 {
         );
         if (
             isFirstTransition && tranMeta_.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
-                && msg.sender != _input.proveMeta.proposer
+                && _env.sender != _input.proveMeta.proposer
         ) {
-            _env.debitBond(_conf, msg.sender, _input.proveMeta.provabilityBond);
+            _env.debitBond(_conf, _env.sender, _input.proveMeta.provabilityBond);
             _env.creditBond(_input.proveMeta.proposer, _input.proveMeta.provabilityBond);
         }
     }
@@ -132,6 +133,7 @@ library LibProve2 {
     /// @dev Decides which time window we are in and who should be recorded as the prover.
     function _determineProofTiming(
         I.Config memory _conf,
+        Environment memory _env,
         address _assignedProver,
         uint256 _proposedAt
     )
@@ -140,12 +142,12 @@ library LibProve2 {
         returns (I.ProofTiming timing_, address prover_)
     {
         unchecked {
-            if (block.timestamp <= _proposedAt + _conf.provingWindow) {
+            if (_env.blockTimestamp <= _proposedAt + _conf.provingWindow) {
                 return (I.ProofTiming.InProvingWindow, _assignedProver);
-            } else if (block.timestamp <= _proposedAt + _conf.extendedProvingWindow) {
-                return (I.ProofTiming.InExtendedProvingWindow, msg.sender);
+            } else if (_env.blockTimestamp <= _proposedAt + _conf.extendedProvingWindow) {
+                return (I.ProofTiming.InExtendedProvingWindow, _env.sender);
             } else {
-                return (I.ProofTiming.OutOfExtendedProvingWindow, msg.sender);
+                return (I.ProofTiming.OutOfExtendedProvingWindow, _env.sender);
             }
         }
     }
