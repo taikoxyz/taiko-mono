@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "src/shared/libs/LibAddress.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
 /// @title LibData2
@@ -10,21 +8,12 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 library LibData2 {
     error SummaryMismatch();
 
-    struct Env {
-        I.Config config;
-        address bondToken;
-        address verifier;
-        address inboxWrapper;
-        address signalService;
-        bytes32 prevSummaryHash;
-    }
-
     function updateSummary(I.State storage $, I.Summary memory _summary, bool _paused) internal {
         uint256 newHash = uint256(keccak256(abi.encode(_summary)));
         newHash &= ~uint256(1);
         newHash |= (_paused ? 1 : 0);
         $.summaryHash = bytes32(newHash);
-        // emit I.SummaryUpdated(_summary, _paused);
+        emit I.SummaryUpdated(_summary);
     }
 
     function validateSummary(

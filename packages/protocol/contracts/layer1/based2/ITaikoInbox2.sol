@@ -52,9 +52,13 @@ interface ITaikoInbox2 {
         bytes proverAuth;
     }
 
-    struct AnchorBlock {
-        uint64 blockId;
-        bytes32 blockHash;
+    struct ProverAuth {
+        address prover;
+        address feeToken;
+        uint96 fee;
+        uint64 validUntil; // optional
+        uint64 batchId; // optional
+        bytes signature;
     }
 
     struct BatchBuildMetadata {
@@ -146,23 +150,6 @@ interface ITaikoInbox2 {
         bytes32 metaHash;
     }
 
-    /// @notice Forge is only able to run coverage in case the contracts by default capable of
-    /// compiling without any optimization (neither optimizer runs, no compiling --via-ir flag).
-    struct Stats1 {
-        uint64 genesisHeight;
-        uint64 __reserved2;
-        uint64 lastSyncedBatchId;
-        uint64 lastSyncedAt;
-    }
-
-    struct Stats2 {
-        uint64 numBatches;
-        uint64 lastVerifiedBatchId;
-        bool paused;
-        uint56 lastProposedIn;
-        uint64 lastUnpausedAt;
-    }
-
     struct Summary {
         uint48 numBatches;
         uint48 lastProposedIn;
@@ -239,27 +226,16 @@ interface ITaikoInbox2 {
             uint256 batchId_mod_batchRingBufferSize
                 => mapping(uint256 thisValueIsAlways1 => TransitionState ts)
         ) transitions;
-        bytes32 __reserve1; // slot 4 - was used as a ring buffer for Ether deposits
-        Stats1 stats1; // slot 5
-        Summary summary; // slot 6
+        bytes32 summaryHash; // slot 4
+        bytes32 _deprecated_stats1; // slot 5
+        bytes32 _deprecated_stats2; // slot 6
         mapping(address account => uint256 bond) bondBalance;
         uint256[43] __gap;
-        bytes32 summaryHash;
-    }
-
-    struct ProverAuth {
-        address prover;
-        address feeToken;
-        uint96 fee;
-        uint64 validUntil; // optional
-        uint64 batchId; // optional
-        bytes signature;
     }
 
     /// @notice Emitted when a batch is synced.
     /// @param summary The Summary data structure.
-    /// @param summaryHash The hash of the summary.
-    event SummaryUpdated(Summary summary, bytes32 summaryHash);
+    event SummaryUpdated(Summary summary);
 
     /// @notice Emitted when a batch is proposed.
     /// @param batchId The ID of the proposed batch.

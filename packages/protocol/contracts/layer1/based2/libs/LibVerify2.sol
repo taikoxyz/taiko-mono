@@ -63,6 +63,7 @@ library LibVerify2 {
                     lastSyncedStateRoot = _trans[i].stateRoot;
                 }
 
+                emit I.BatchesVerified(batchId, _trans[i].blockHash);
                 _summary.lastVerifiedBlockHash = _trans[i++].blockHash;
             }
 

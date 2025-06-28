@@ -9,7 +9,6 @@ import "../IBondManager2.sol";
 /// @title LibBonds2
 /// @custom:security-contact security@taiko.xyz
 library LibBonds2 {
-    using LibAddress for address;
     using SafeERC20 for IERC20;
 
     error EtherNotPaidAsBond();
