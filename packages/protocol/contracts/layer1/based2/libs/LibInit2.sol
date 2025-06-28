@@ -7,19 +7,11 @@ import "./LibSummary.sol";
 library LibInit2 {
     error InvalidGenesisBlockHash();
 
-    function init(
-        I.State storage $,
-        uint48 _genesisBlockTimestamp,
-        bytes32 _genesisBlockHash
-    )
-        internal
-    {
+    function init(I.State storage $, bytes32 _genesisBlockHash) internal {
         require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
 
         I.BatchMetadata memory meta;
-        meta.buildMeta.lastBlockTimestamp = _genesisBlockTimestamp;
         meta.buildMeta.proposedIn = uint48(block.number);
-        meta.proposeMeta.lastBlockTimestamp = _genesisBlockTimestamp;
         meta.proveMeta.proposedAt = uint48(block.timestamp);
 
         $.batches[0] = hashBatch(0, meta);

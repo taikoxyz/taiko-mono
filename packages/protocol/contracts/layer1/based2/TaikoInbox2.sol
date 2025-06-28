@@ -52,13 +52,12 @@ abstract contract TaikoInbox2 is
 
     function v4Init(
         address _owner,
-        uint48 _genesisBlockTimestamp,
         bytes32 _genesisBlockHash
     )
         external
         initializer
     {
-        __Taiko_init(_owner, _genesisBlockTimestamp, _genesisBlockHash);
+        __Taiko_init(_owner, _genesisBlockHash);
     }
 
     function v4ProposeBatches(
@@ -164,16 +163,9 @@ abstract contract TaikoInbox2 is
 
     // Internal functions ----------------------------------------------------------------------
 
-    function __Taiko_init(
-        address _owner,
-        uint48 _genesisBlockTimestamp,
-        bytes32 _genesisBlockHash
-    )
-        internal
-        onlyInitializing
-    {
+    function __Taiko_init(address _owner, bytes32 _genesisBlockHash) internal onlyInitializing {
         __Essential_init(_owner);
-        LibInit2.init(state, _genesisBlockTimestamp, _genesisBlockHash);
+        LibInit2.init(state, _genesisBlockHash);
     }
 
     function _unpause() internal override {
