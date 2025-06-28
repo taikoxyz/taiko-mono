@@ -432,7 +432,7 @@ library LibPropose2 {
     }
 
     /// @dev The function __encodeExtraDataLower128Bits encodes certain information into a uint128
-    /// - bits 0-7: used to store _config.baseFeeConfig.sharingPctg.
+    /// - bits 0-7: used to store _conf.baseFeeConfig.sharingPctg.
     /// - bit 8: used to store _batch.isForcedInclusion.
     function _encodeExtraDataLower128Bits(
         I.Config memory _conf,

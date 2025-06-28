@@ -178,13 +178,13 @@ abstract contract TaikoInbox2 is
     function _getConfig() internal view virtual returns (Config memory);
 
     function _saveBatchMetaHash(
-        I.Config memory _config,
+        I.Config memory _conf,
         uint256 _batchId,
         bytes32 _metaHash
     )
         private
     {
-        state.batches[_batchId % _config.batchRingBufferSize] = _metaHash;
+        state.batches[_batchId % _conf.batchRingBufferSize] = _metaHash;
     }
 
     function _loadTransitionMetaHash(
