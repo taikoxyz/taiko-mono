@@ -65,11 +65,11 @@ abstract contract TaikoInbox2 is
         nonReentrant
         returns (I.Summary memory)
     {
-        bool _paused = state.validateSummary(_summary);
+        bool _paused = state.validateSummary( _summary);
         require(!_paused, ContractPaused());
 
         I.Config memory conf = _getConfig();
-        LibPropose2.ReadWrite memory rw = LibPropose2.ReadWrite({
+        LibParams.ReadWrite memory rw = LibParams.ReadWrite({
             // reads
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
@@ -185,14 +185,7 @@ abstract contract TaikoInbox2 is
         state.batches[_batchId % _conf.batchRingBufferSize] = _metaHash;
     }
 
-    function _getBatchMetaHash(
-        I.Config memory _conf,
-        uint256 _batchId
-    )
-        private
-        view
-        returns (bytes32)
-    {
+    function _getBatchMetaHash(I.Config memory _conf, uint256 _batchId) private view returns (bytes32) {
         return state.batches[_batchId % _conf.batchRingBufferSize];
     }
 

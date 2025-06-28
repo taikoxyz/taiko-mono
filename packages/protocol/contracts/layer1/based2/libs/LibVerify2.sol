@@ -17,7 +17,7 @@ library LibVerify2 {
 
     function verifyBatches(
         I.Config memory _conf,
-        LibPropose2.ReadWrite memory _rw,
+        LibParams.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans
     )
