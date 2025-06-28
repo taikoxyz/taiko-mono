@@ -15,6 +15,7 @@ import "./libs/LibProve2.sol";
 import "./libs/LibVerify2.sol";
 import "./ITaikoInbox2.sol";
 import "./IProposeBatch2.sol";
+import "./libs/LibState.sol";
 
 /// @title TaikoInbox2
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -137,10 +138,6 @@ abstract contract TaikoInbox2 is
 
     // Public functions -------------------------------------------------------------------------
 
-    function paused() public view override returns (bool) {
-        return state.summaryHash & bytes32(uint256(1)) != 0;
-    }
-
     function v4GetConfig() external view virtual returns (Config memory) {
         return _getConfig();
     }
@@ -152,18 +149,13 @@ abstract contract TaikoInbox2 is
         LibInit2.init(state, _genesisBlockHash);
     }
 
-    function _unpause() internal override {
-        // TODO
-        // state.stats2.lastUnpausedAt = uint64(block.timestamp);
-        // state.stats2.paused = false;
-    }
-
-    function _pause() internal override {
-        // TODO
-        // state.stats2.paused = true;
-    }
-
     function _getConfig() internal view virtual returns (Config memory);
+
+    // Internal Binding functions ----------------------------------------------------------------
+
+    function _getBlobHash(uint256 _blockNumber) private view returns (bytes32) {
+        return blockhash(_blockNumber);
+    }
 
     function _saveBatchMetaHash(
         I.Config memory _conf,
@@ -172,7 +164,7 @@ abstract contract TaikoInbox2 is
     )
         private
     {
-        state.batches[_batchId % _conf.batchRingBufferSize] = _metaHash;
+        LibState.saveBatchMetaHash(state, _conf, _batchId, _metaHash);
     }
 
     function _getBatchMetaHash(
@@ -183,7 +175,7 @@ abstract contract TaikoInbox2 is
         view
         returns (bytes32)
     {
-        return state.batches[_batchId % _conf.batchRingBufferSize];
+        return LibState.getBatchMetaHash(state, _conf, _batchId);
     }
 
     function _loadTransitionMetaHash(
@@ -195,17 +187,7 @@ abstract contract TaikoInbox2 is
         view
         returns (bytes32 metaHash_, bool isFirstTransition_)
     {
-        uint256 slot = _batchId % _conf.batchRingBufferSize;
-        // 1 SLOAD
-        (uint48 embededBatchId, bytes32 partialParentHash) = _loadBatchIdAndPartialParentHash(slot);
-
-        if (embededBatchId != _batchId) return (0, false);
-
-        if (partialParentHash == _lastVerifiedBlockHash >> 48) {
-            return (state.transitions[slot][1].metaHash, true);
-        } else {
-            return (state.transitionMetaHashes[_batchId][_lastVerifiedBlockHash], false);
-        }
+        return LibState.loadTransitionMetaHash(state, _conf, _lastVerifiedBlockHash, _batchId);
     }
 
     function _saveTransition(
@@ -217,36 +199,7 @@ abstract contract TaikoInbox2 is
         internal
         returns (bool isFirstTransition_)
     {
-        uint256 slot = _batchId % _conf.batchRingBufferSize;
-
-        // In the next code section, we always use `$.transitions[slot][1]` to reuse a previously
-        // declared state variable -- note that the second mapping key is always 1.
-        // Tip: the reuse of the first transition slot can save 3900 gas per batch.
-        (uint48 embededBatchId, bytes32 partialParentHash) = _loadBatchIdAndPartialParentHash(slot);
-
-        isFirstTransition_ = embededBatchId != _batchId;
-
-        if (isFirstTransition_) {
-            // This is the very first transition of the batch, or a transition with the same parent
-            // hash. We can reuse the transition state slot to reduce gas cost.
-            state.transitions[slot][1].batchIdAndPartialParentHash =
-                uint256(partialParentHash) & ~type(uint48).max | _batchId;
-
-            // SSTORE
-            state.transitions[slot][1].metaHash = _tranMetahash; // 1 SSTORE
-        } else if (partialParentHash == _parentHash >> 48) {
-            // Overwrite the first proof
-            state.transitions[slot][1].metaHash = _tranMetahash; // 1 SSTORE
-        } else {
-            // This is not the very first transition of the batch, or a transition with the same
-            // parent hash. Use a mapping to store the meta hash of the transition. The mapping
-            // slots are not reusable.
-            state.transitionMetaHashes[_batchId][_parentHash] = _tranMetahash; // 1 SSTORE
-        }
-    }
-
-    function _getBlobHash(uint256 _blockNumber) private view returns (bytes32) {
-        return blockhash(_blockNumber);
+        return LibState.saveTransition(state, _conf, _batchId, _parentHash, _tranMetahash);
     }
 
     function _isSignalSent(
@@ -260,6 +213,12 @@ abstract contract TaikoInbox2 is
         return ISignalService(_conf.signalService).isSignalSent(_signalSlot);
     }
 
+    function _syncChainData(I.Config memory _conf, uint64 _blockId, bytes32 _stateRoot) private {
+        ISignalService(_conf.signalService).syncChainData(
+            _conf.chainId, LibSignals.STATE_ROOT, _blockId, _stateRoot
+        );
+    }
+
     function _debitBond(I.Config memory _conf, address _user, uint256 _amount) private {
         LibBonds2.debitBond(state, _conf.bondToken, _user, _amount);
     }
@@ -270,22 +229,6 @@ abstract contract TaikoInbox2 is
 
     function _transferFee(address _feeToken, address _from, address _to, uint256 _amount) private {
         IERC20(_feeToken).safeTransferFrom(_from, _to, _amount);
-    }
-
-    function _syncChainData(I.Config memory _conf, uint64 _blockId, bytes32 _stateRoot) private {
-        ISignalService(_conf.signalService).syncChainData(
-            _conf.chainId, LibSignals.STATE_ROOT, _blockId, _stateRoot
-        );
-    }
-
-    function _loadBatchIdAndPartialParentHash(uint256 _slot)
-        internal
-        view
-        returns (uint48 embededBatchId_, bytes32 partialParentHash_)
-    {
-        uint256 value = state.transitions[_slot][1].batchIdAndPartialParentHash; // 1 SLOAD
-        embededBatchId_ = uint48(value);
-        partialParentHash_ = bytes32(value >> 48);
     }
 
     // --- ERRORs --------------------------------------------------------------------------------
