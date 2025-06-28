@@ -222,6 +222,9 @@ interface ITaikoInbox2 {
         ForkHeights forkHeights;
         /// @notice The token used for bonding.
         address bondToken;
+        address inboxWrapper;
+        address verifier;
+        address signalService;
     }
 
     /// @notice Struct holding the state variables for the {Taiko} contract.
