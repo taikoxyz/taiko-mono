@@ -44,30 +44,28 @@ library LibParams {
     )
         internal
         view
-        returns (I.Batch memory, ValidationOutput memory)
+        returns (ValidationOutput memory output_)
     {
-        ValidationOutput memory output;
-        (output.proposer, output.coinbase) = validateProposerCoinbase(_conf, _batch);
+        (output_.proposer, output_.coinbase) = _validateProposerCoinbase(_conf, _batch);
+        I.Block[] memory blocks = _validateBlocks(_conf, _batch);
 
-        output.blocks = _validateBlocks(_conf, _batch);
+        _validateTimestamps(_conf, _batch, blocks, _parentProposeMeta.lastBlockTimestamp);
+        _validateSignals(_conf, _rw, blocks, _batch.signalSlots);
 
-        _validateTimestamps(_conf, _batch, output.blocks, _parentProposeMeta.lastBlockTimestamp);
-        _validateSignals(_conf, _rw, output.blocks, _batch.signalSlots);
+        (output_.anchorBlockHashes, output_.lastAnchorBlockId) =
+            _validateAnchors(_conf, _rw, _batch, blocks, _parentProposeMeta.lastAnchorBlockId);
 
-        (output.anchorBlockHashes, output.lastAnchorBlockId) = _validateAnchors(
-            _conf, _rw, _batch, output.blocks, _parentProposeMeta.lastAnchorBlockId
-        );
+        (output_.firstBlockId, output_.lastBlockId) =
+            _validateBlockRange(_conf, blocks.length, _parentProposeMeta.lastBlockId);
 
-        output.blobsCreatedIn = _validateBlobs(_conf, _batch);
-        (output.txsHash, output.blobHashes) = _calculateTxsHash(_rw, _batch.blobs);
+        output_.blobsCreatedIn = _validateBlobs(_conf, _batch);
 
-        (output.firstBlockId, output.lastBlockId) =
-            _validateBlockRange(_conf, _batch, _parentProposeMeta.lastBlockId);
+        (output_.txsHash, output_.blobHashes) = _calculateTxsHash(_rw, _batch.blobs);
 
-        return (_batch, output);
+        output_.blocks = blocks;
     }
 
-    function validateProposerCoinbase(
+    function _validateProposerCoinbase(
         I.Config memory _conf,
         I.Batch memory _batch
     )
@@ -118,27 +116,29 @@ library LibParams {
         internal
         view
     {
-        require(_batch.lastBlockTimestamp != 0, LastBlockTimestampNotSet());
-        require(_batch.lastBlockTimestamp <= block.timestamp, TimestampTooLarge());
+        unchecked {
+            require(_batch.lastBlockTimestamp != 0, LastBlockTimestampNotSet());
+            require(_batch.lastBlockTimestamp <= block.timestamp, TimestampTooLarge());
 
-        require(_blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
+            require(_blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
-        uint64 totalShift;
+            uint64 totalShift;
 
-        for (uint256 i; i < _blocks.length; ++i) {
-            totalShift += _blocks[i].timeShift;
+            for (uint256 i; i < _blocks.length; ++i) {
+                totalShift += _blocks[i].timeShift;
+            }
+
+            require(_batch.lastBlockTimestamp >= totalShift, TimestampTooSmall());
+            uint256 firstBlockTimestamp_ = _batch.lastBlockTimestamp - totalShift;
+
+            require(
+                firstBlockTimestamp_ + _conf.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
+                    >= block.timestamp,
+                TimestampTooSmall()
+            );
+
+            require(firstBlockTimestamp_ >= _parentLastBlockTimestamp, TimestampSmallerThanParent());
         }
-
-        require(_batch.lastBlockTimestamp >= totalShift, TimestampTooSmall());
-        uint256 firstBlockTimestamp_ = _batch.lastBlockTimestamp - totalShift;
-
-        require(
-            firstBlockTimestamp_ + _conf.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME
-                >= block.timestamp,
-            TimestampTooSmall()
-        );
-
-        require(firstBlockTimestamp_ >= _parentLastBlockTimestamp, TimestampSmallerThanParent());
     }
 
     function _validateSignals(
@@ -150,14 +150,16 @@ library LibParams {
         internal
         view
     {
-        uint256 k;
-        for (uint256 i; i < _blocks.length; ++i) {
-            if (_blocks[i].numSignals == 0) continue;
+        unchecked {
+            uint256 k;
+            for (uint256 i; i < _blocks.length; ++i) {
+                if (_blocks[i].numSignals == 0) continue;
 
-            require(_blocks[i].numSignals <= _conf.maxSignalsToReceive, TooManySignals());
+                require(_blocks[i].numSignals <= _conf.maxSignalsToReceive, TooManySignals());
 
-            for (uint256 j; j < _blocks[i].numSignals; ++j) {
-                require(_rw.isSignalSent(_conf, _signalSlots[k++]), SignalNotSent());
+                for (uint256 j; j < _blocks[i].numSignals; ++j) {
+                    require(_rw.isSignalSent(_conf, _signalSlots[k++]), SignalNotSent());
+                }
             }
         }
     }
@@ -179,27 +181,28 @@ library LibParams {
 
         bool anchorFound;
         for (uint256 i; i < _blocks.length; ++i) {
-            if (_blocks[i].hasAnchor) {
-                require(k < _batch.anchorBlockIds.length, NotEnoughAnchorIds());
+            if (!_blocks[i].hasAnchor) continue;
 
-                uint48 anchorBlockId = _batch.anchorBlockIds[k];
-                require(anchorBlockId != 0, AnchorIdZero());
+            require(k < _batch.anchorBlockIds.length, NotEnoughAnchorIds());
 
+            uint48 anchorBlockId = _batch.anchorBlockIds[k];
+            require(anchorBlockId != 0, AnchorIdZero());
+
+            if (!anchorFound) {
                 require(
-                    anchorFound
-                        || anchorBlockId + _conf.maxAnchorHeightOffset >= uint48(block.number),
+                    anchorBlockId + _conf.maxAnchorHeightOffset >= uint48(block.number),
                     AnchorIdTooSmall()
                 );
-
-                require(anchorBlockId > lastAnchorBlockId_, AnchorIdSmallerThanParent());
-
-                anchorBlockHashes_[k] = _rw.getBlobHash(anchorBlockId);
-                require(anchorBlockHashes_[k] != 0, ZeroAnchorBlockHash());
-
-                anchorFound = true;
-                lastAnchorBlockId_ = anchorBlockId;
-                k++;
             }
+
+            require(anchorBlockId > lastAnchorBlockId_, AnchorIdSmallerThanParent());
+
+            anchorBlockHashes_[k] = _rw.getBlobHash(anchorBlockId);
+            require(anchorBlockHashes_[k] != 0, ZeroAnchorBlockHash());
+
+            anchorFound = true;
+            lastAnchorBlockId_ = anchorBlockId;
+            k++;
         }
 
         // Ensure that if msg.sender is not the inboxWrapper, at least one block must
@@ -212,7 +215,7 @@ library LibParams {
 
     function _validateBlockRange(
         I.Config memory _conf,
-        I.Batch memory _batch,
+        uint256 _numBlocks,
         uint48 _parentLastBlockId
     )
         internal
@@ -220,7 +223,7 @@ library LibParams {
         returns (uint48 firstBlockId_, uint48 lastBlockId_)
     {
         firstBlockId_ = _parentLastBlockId + 1;
-        lastBlockId_ = uint48(firstBlockId_ + _batch.encodedBlocks.length);
+        lastBlockId_ = uint48(firstBlockId_ + _numBlocks);
 
         require(
             LibFork2.isBlocksInCurrentFork(_conf, firstBlockId_, lastBlockId_),

@@ -35,10 +35,11 @@ library LibPropose2 {
                 MetaHashNotMatch()
             );
 
-            I.BatchProposeMetadata memory parentProposeMeta = _evidence.proposeMeta;
+            I.BatchProposeMetadata memory parent = _evidence.proposeMeta;
             for (uint256 i; i < _batch.length; ++i) {
-                parentProposeMeta =
-                    _proposeBatch(_conf, _rw, _summary, _batch[i], parentProposeMeta);
+                I.BatchMetadata memory meta = _proposeBatch(_conf, _rw, _summary, _batch[i], parent);
+                parent = meta.proposeMeta;
+
                 _summary.numBatches += 1;
             }
 
@@ -51,25 +52,23 @@ library LibPropose2 {
         LibParams.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.Batch memory _batch,
-        I.BatchProposeMetadata memory _parentProposeMeta
+        I.BatchProposeMetadata memory _parent
     )
         private
-        returns (I.BatchProposeMetadata memory)
+        returns (I.BatchMetadata memory meta_)
     {
         // Validate the params and returns an updated copy
-        (I.Batch memory params, LibParams.ValidationOutput memory output) =
-            LibParams.validateBatch(_conf, _rw, _batch, _parentProposeMeta);
+        LibParams.ValidationOutput memory output =
+            LibParams.validateBatch(_conf, _rw, _batch, _parent);
 
-        output.prover = _validateProver(_conf, _rw, _summary, params.proverAuth, params);
+        output.prover = _validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
 
-        I.BatchMetadata memory meta = _populateBatchMetadata(_conf, params, output);
+        meta_ = _populateBatchMetadata(_conf, _batch, output);
 
-        bytes32 batchMetaHash = LibData2.hashBatch(_summary.numBatches, meta);
+        bytes32 batchMetaHash = LibData2.hashBatch(_summary.numBatches, meta_);
         _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
 
-        emit I.BatchProposed(_summary.numBatches, LibData2.encodeBatchMetadata(meta));
-
-        return meta.proposeMeta;
+        emit I.BatchProposed(_summary.numBatches, LibData2.encodeBatchMetadata(meta_));
     }
 
     function _validateProver(
