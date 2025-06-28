@@ -7,6 +7,7 @@ import "./LibSummary.sol";
 import "./LibAuth2.sol";
 import "./LibFork2.sol";
 import "./LibParams.sol";
+import "./LibInit2.sol";
 
 /// @title LibPropose2
 /// @custom:security-contact security@taiko.xyz
@@ -45,7 +46,7 @@ library LibPropose2 {
         LibParams.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.Batch[] memory _batch,
-        I.BatchProposeMetadataEvidence calldata _evidence
+        I.BatchProposeMetadataEvidence memory _evidence
     )
         internal
         returns (I.Summary memory)
@@ -60,7 +61,6 @@ library LibPropose2 {
                 parentProposeMeta =
                     _proposeBatch(_conf, _rw, _summary, _batch[i], parentProposeMeta);
                 _summary.numBatches += 1;
-                _summary.lastProposedIn = _rw.blockNumber;
             }
 
             return _summary;
@@ -90,28 +90,12 @@ library LibPropose2 {
 
         I.BatchMetadata memory meta = _populateBatchMetadata(_conf, _rw, params, output);
 
-        bytes32 batchMetaHash = hashBatch(_summary.numBatches, meta);
+        bytes32 batchMetaHash = LibInit2.hashBatch(_summary.numBatches, meta);
         _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
 
         emit I.BatchProposed(_summary.numBatches, _rw.encodeBatchMetadata(meta));
 
         return meta.proposeMeta;
-    }
-
-    function hashBatch(
-        uint256 batchId,
-        I.BatchMetadata memory meta
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        bytes32 buildMetaHash = keccak256(abi.encode(meta.buildMeta));
-        bytes32 proposeMetaHash = keccak256(abi.encode(meta.proposeMeta));
-        bytes32 proveMetaHash = keccak256(abi.encode(meta.proveMeta));
-        bytes32 leftHash = keccak256(abi.encode(batchId, buildMetaHash));
-        bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, proveMetaHash));
-        return keccak256(abi.encode(leftHash, rightHash));
     }
 
     function _validateProver(
@@ -167,7 +151,7 @@ library LibPropose2 {
     }
 
     function _validateBatchProposeMeta(
-        I.BatchProposeMetadataEvidence calldata _evidence,
+        I.BatchProposeMetadataEvidence memory _evidence,
         bytes32 _batchMetaHash
     )
         private

@@ -50,14 +50,21 @@ abstract contract TaikoInbox2 is
 
     constructor() EssentialContract() { }
 
-    function v4Init(address _owner, bytes32 _genesisBlockHash) external initializer {
-        __Taiko_init(_owner, _genesisBlockHash);
+    function v4Init(
+        address _owner,
+        uint48 _genesisBlockTimestamp,
+        bytes32 _genesisBlockHash
+    )
+        external
+        initializer
+    {
+        __Taiko_init(_owner, _genesisBlockTimestamp, _genesisBlockHash);
     }
 
     function v4ProposeBatches(
         I.Summary memory _summary,
         I.Batch[] memory _batch,
-        I.BatchProposeMetadataEvidence calldata _evidence,
+        I.BatchProposeMetadataEvidence memory _evidence,
         I.TransitionMeta[] calldata _trans
     )
         public
@@ -65,7 +72,7 @@ abstract contract TaikoInbox2 is
         nonReentrant
         returns (I.Summary memory)
     {
-        bool _paused = state.validateSummary( _summary);
+        bool _paused = state.validateSummary(_summary);
         require(!_paused, ContractPaused());
 
         I.Config memory conf = _getConfig();
@@ -157,9 +164,16 @@ abstract contract TaikoInbox2 is
 
     // Internal functions ----------------------------------------------------------------------
 
-    function __Taiko_init(address _owner, bytes32 _genesisBlockHash) internal onlyInitializing {
+    function __Taiko_init(
+        address _owner,
+        uint48 _genesisBlockTimestamp,
+        bytes32 _genesisBlockHash
+    )
+        internal
+        onlyInitializing
+    {
         __Essential_init(_owner);
-        // state.init(_genesisBlockHash); // TODO
+        LibInit2.init(state, _genesisBlockTimestamp, _genesisBlockHash);
     }
 
     function _unpause() internal override {
@@ -185,7 +199,14 @@ abstract contract TaikoInbox2 is
         state.batches[_batchId % _conf.batchRingBufferSize] = _metaHash;
     }
 
-    function _getBatchMetaHash(I.Config memory _conf, uint256 _batchId) private view returns (bytes32) {
+    function _getBatchMetaHash(
+        I.Config memory _conf,
+        uint256 _batchId
+    )
+        private
+        view
+        returns (bytes32)
+    {
         return state.batches[_batchId % _conf.batchRingBufferSize];
     }
 

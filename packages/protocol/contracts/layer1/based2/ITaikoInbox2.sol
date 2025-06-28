@@ -152,7 +152,6 @@ interface ITaikoInbox2 {
 
     struct Summary {
         uint48 numBatches;
-        uint48 lastProposedIn;
         uint48 lastUnpausedAt;
         uint48 lastSyncedBlockId;
         uint48 lastSyncedAt;

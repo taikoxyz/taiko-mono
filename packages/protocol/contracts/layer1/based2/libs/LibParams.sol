@@ -49,7 +49,7 @@ library LibParams {
         function(I.Config memory, uint256, bytes32) saveBatchMetaHash;
         function(I.Config memory, uint64, bytes32) syncChainData;
     }
-    
+
     struct ValidationOutput {
         bytes32 txsHash;
         bytes32[] blobHashes;

@@ -108,7 +108,7 @@ library LibProve2 {
             _conf,
             _rw,
             _input.proveMeta.prover,
-            uint256(_input.proveMeta.proposedAt).max(_summary.lastProposedIn)
+            uint256(_input.proveMeta.proposedAt).max(_summary.lastUnpausedAt)
         );
 
         bytes32 tranMetaHash = keccak256(abi.encode(tranMeta_));
