@@ -20,7 +20,6 @@ library LibParams {
         function(address, uint256) creditBond;
         function(I.Config memory, address, uint256) debitBond;
         function(I.Config memory, uint256, bytes32) saveBatchMetaHash;
-        function(I.Config memory, uint64, bytes32) syncChainData;
     }
 
     struct ValidationOutput {

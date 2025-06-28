@@ -65,25 +65,36 @@ abstract contract TaikoInbox2 is
     {
         require(state.summaryHash == keccak256(abi.encode(_summary)), SummaryMismatch());
         I.Config memory conf = _getConfig();
-        LibParams.ReadWrite memory rw = LibParams.ReadWrite({
-            // reads
-            // parentBatchMetaHash: state.batches[(_summary.numBatches - 1) %
-            // conf.batchRingBufferSize],
-            getBatchMetaHash: _getBatchMetaHash,
-            isSignalSent: _isSignalSent,
-            loadTransitionMetaHash: _loadTransitionMetaHash,
-            getBlobHash: _getBlobHash,
-            // writes
-            saveBatchMetaHash: _saveBatchMetaHash,
-            debitBond: _debitBond,
-            creditBond: _creditBond,
-            transferFee: _transferFee,
-            syncChainData: _syncChainData,
-            validateProverAuth: LibAuth2.validateProverAuth
-        });
+        {
+            LibParams.ReadWrite memory rw = LibParams.ReadWrite({
+                // reads
+                // parentBatchMetaHash: state.batches[(_summary.numBatches - 1) %
+                // conf.batchRingBufferSize],
+                getBatchMetaHash: _getBatchMetaHash,
+                isSignalSent: _isSignalSent,
+                loadTransitionMetaHash: _loadTransitionMetaHash,
+                getBlobHash: _getBlobHash,
+                // writes
+                saveBatchMetaHash: _saveBatchMetaHash,
+                debitBond: _debitBond,
+                creditBond: _creditBond,
+                transferFee: _transferFee,
+                validateProverAuth: LibAuth2.validateProverAuth
+            });
 
-        _summary = LibPropose2.proposeBatches(conf, rw, _summary, _batch, _evidence);
-        _summary = LibVerify2.verifyBatches(conf, rw, _summary, _trans);
+            _summary = LibPropose2.proposeBatches(conf, rw, _summary, _batch, _evidence);
+        }
+        {
+            LibVerify2.ReadWrite memory rw = LibVerify2.ReadWrite({
+                // reads
+                getBatchMetaHash: _getBatchMetaHash,
+                loadTransitionMetaHash: _loadTransitionMetaHash,
+                // writes
+                creditBond: _creditBond,
+                syncChainData: _syncChainData
+            });
+            _summary = LibVerify2.verifyBatches(conf, rw, _summary, _trans);
+        }
 
         state.summaryHash = keccak256(abi.encode(_summary));
         return _summary;

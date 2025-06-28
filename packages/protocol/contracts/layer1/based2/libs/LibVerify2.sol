@@ -12,9 +12,19 @@ import "./LibPropose2.sol";
 library LibVerify2 {
     using LibMath for uint256;
 
+    struct ReadWrite {
+        // reads
+        function(I.Config memory, uint256) returns (bytes32) getBatchMetaHash;
+        function(I.Config memory, bytes32, uint256) view returns (bytes32, bool)
+            loadTransitionMetaHash;
+        // writes
+        function(address, uint256) creditBond;
+        function(I.Config memory, uint64, bytes32) syncChainData;
+    }
+
     function verifyBatches(
         I.Config memory _conf,
-        LibParams.ReadWrite memory _rw,
+        ReadWrite memory _rw,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans
     )
