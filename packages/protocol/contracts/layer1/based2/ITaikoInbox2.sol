@@ -18,7 +18,7 @@ interface ITaikoInbox2 {
         // The number of signals in this block.
         uint8 numSignals;
         // Whether this block has an anchor block.
-        bool hasAnchorBlock;
+        bool hasAnchor;
     }
 
     struct Blobs {
@@ -52,9 +52,13 @@ interface ITaikoInbox2 {
         bytes proverAuth;
     }
 
-    struct AnchorBlock {
-        uint64 blockId;
-        bytes32 blockHash;
+    struct ProverAuth {
+        address prover;
+        address feeToken;
+        uint96 fee;
+        uint64 validUntil; // optional
+        uint64 batchId; // optional
+        bytes signature;
     }
 
     struct BatchBuildMetadata {
@@ -108,7 +112,7 @@ interface ITaikoInbox2 {
         bytes32 idAndBuildHash; // aka leftHash
         bytes32 proposeMetaHash;
         BatchProveMetadata proveMeta;
-        Transition transition;
+        Transition tran;
     }
 
     /// @notice Struct representing transition to be proven.
@@ -142,30 +146,12 @@ interface ITaikoInbox2 {
     //  @notice Struct representing transition storage
     /// @notice 2 slots used for each transition.
     struct TransitionState {
-        bytes32 batchIdAndPartialParentHash;
+        uint256 batchIdAndPartialParentHash;
         bytes32 metaHash;
-    }
-
-    /// @notice Forge is only able to run coverage in case the contracts by default capable of
-    /// compiling without any optimization (neither optimizer runs, no compiling --via-ir flag).
-    struct Stats1 {
-        uint64 genesisHeight;
-        uint64 __reserved2;
-        uint64 lastSyncedBatchId;
-        uint64 lastSyncedAt;
-    }
-
-    struct Stats2 {
-        uint64 numBatches;
-        uint64 lastVerifiedBatchId;
-        bool paused;
-        uint56 lastProposedIn;
-        uint64 lastUnpausedAt;
     }
 
     struct Summary {
         uint48 numBatches;
-        uint48 lastProposedIn;
         uint48 lastUnpausedAt;
         uint48 lastSyncedBlockId;
         uint48 lastSyncedAt;
@@ -239,40 +225,30 @@ interface ITaikoInbox2 {
             uint256 batchId_mod_batchRingBufferSize
                 => mapping(uint256 thisValueIsAlways1 => TransitionState ts)
         ) transitions;
-        bytes32 __reserve1; // slot 4 - was used as a ring buffer for Ether deposits
-        Stats1 stats1; // slot 5
-        Summary summary; // slot 6
+        bytes32 summaryHash; // slot 4
+        bytes32 __deprecatedStats1; // slot 5
+        bytes32 __deprecatedStats2; // slot 6
         mapping(address account => uint256 bond) bondBalance;
         uint256[43] __gap;
-        bytes32 summaryHash;
-    }
-
-    struct ProverAuth {
-        address prover;
-        address feeToken;
-        uint96 fee;
-        uint64 validUntil; // optional
-        uint64 batchId; // optional
-        bytes signature;
     }
 
     /// @notice Emitted when a batch is synced.
     /// @param summary The Summary data structure.
-    /// @param summaryHash The hash of the summary.
-    event SummaryUpdated(Summary summary, bytes32 summaryHash);
+    event SummaryUpdated(Summary summary);
 
     /// @notice Emitted when a batch is proposed.
     /// @param batchId The ID of the proposed batch.
-    /// @param metaEncoded The encoded metadata of the proposed batch.
-    event BatchProposed(uint256 batchId, bytes metaEncoded);
+    /// @param batchMetaEncoded The encoded metadata of the proposed batch.
+    event BatchProposed(uint256 batchId, bytes batchMetaEncoded);
 
-    /// @notice Emitted when multiple transitions are proved.
-    /// @param verifier The address of the verifier.
-    /// @param tranMetas The transition metadata.
-    event BatchesProved(address verifier, TransitionMeta[] tranMetas);
+    /// @notice Emitted when a batch is proved.
+    /// @param batchId The ID of the proved batch.
+    /// @param isFirstTransition Whether this is the first transition in the batch.
+    /// @param tranMetaEncoded The encoded transition metadata.
+    event BatchProved(uint256 batchId, bool isFirstTransition, TransitionMeta tranMetaEncoded);
 
     /// @notice Emitted when a batch is verified.
     /// @param batchId The ID of the verified batch.
     /// @param blockHash The hash of the verified batch.
-    event BatchesVerified(uint64 batchId, bytes32 blockHash);
+    event BatchesVerified(uint256 batchId, bytes32 blockHash);
 }

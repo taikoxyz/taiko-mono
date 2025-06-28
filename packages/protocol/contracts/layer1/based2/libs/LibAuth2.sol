@@ -10,13 +10,6 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 library LibAuth2 {
     using SignatureChecker for address;
 
-    error EtherAsFeeTokenNotSupportedYet();
-    error InvalidBatchId();
-    error InvalidProver();
-    error InvalidSignature();
-    error InvalidValidUntil();
-    error SignatureNotEmpty();
-
     function validateProverAuth(
         uint64 _chainId,
         uint64 _batchId,
@@ -33,7 +26,6 @@ library LibAuth2 {
         // payable. We try to avoid this as much as possible. And since most proposers may simply
         // use USD stablecoins as fee token, we decided not to support Ether as fee token for now.
         require(auth.feeToken != address(0), EtherAsFeeTokenNotSupportedYet());
-
         require(auth.prover != address(0), InvalidProver());
         require(auth.validUntil == 0 || auth.validUntil >= block.timestamp, InvalidValidUntil());
         require(auth.batchId == 0 || auth.batchId == _batchId, InvalidBatchId());
@@ -60,4 +52,12 @@ library LibAuth2 {
         require(_auth.signature.length == 0, SignatureNotEmpty());
         return keccak256(abi.encode("PROVER_AUTHENTICATION", _chainId, _batchParamsHash, _auth));
     }
+
+    // --- ERRORs --------------------------------------------------------------------------------
+    error EtherAsFeeTokenNotSupportedYet();
+    error InvalidBatchId();
+    error InvalidProver();
+    error InvalidSignature();
+    error InvalidValidUntil();
+    error SignatureNotEmpty();
 }

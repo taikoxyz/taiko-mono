@@ -5,7 +5,6 @@ import "src/shared/libs/LibMath.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "./LibBonds2.sol";
 import "./LibFork2.sol";
-import "./LibData2.sol";
 import "./LibPropose2.sol";
 
 /// @title LibVerify2
@@ -13,12 +12,19 @@ import "./LibPropose2.sol";
 library LibVerify2 {
     using LibMath for uint256;
 
-    error TransitionNotProvided();
-    error TransitionMetaMismatch();
+    struct ReadWrite {
+        // reads
+        function(I.Config memory, uint256) returns (bytes32) getBatchMetaHash;
+        function(I.Config memory, bytes32, uint256) view returns (bytes32, bool)
+            loadTransitionMetaHash;
+        // writes
+        function(address, uint256) creditBond;
+        function(I.Config memory, uint64, bytes32) syncChainData;
+    }
 
     function verifyBatches(
         I.Config memory _conf,
-        LibPropose2.Environment memory _env,
+        ReadWrite memory _rw,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans
     )
@@ -43,18 +49,18 @@ library LibVerify2 {
 
             for (; batchId < stopBatchId; ++batchId) {
                 (bytes32 tranMetaHash, bool isFirstTransition) =
-                    _env.loadTransitionMetaHash(_conf, _summary.lastVerifiedBlockHash, batchId);
+                    _rw.loadTransitionMetaHash(_conf, _summary.lastVerifiedBlockHash, batchId);
 
                 if (tranMetaHash == 0) break;
 
                 require(i < nTransitions, TransitionNotProvided());
                 require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionMetaMismatch());
 
-                if (_trans[i].createdAt + _conf.cooldownWindow > _env.blockTimestamp) {
+                if (_trans[i].createdAt + _conf.cooldownWindow > block.timestamp) {
                     break;
                 }
 
-                _env.creditBond(
+                _rw.creditBond(
                     _trans[i].prover, _calcBondToProver(_conf, _trans[i], isFirstTransition)
                 );
 
@@ -63,13 +69,14 @@ library LibVerify2 {
                     lastSyncedStateRoot = _trans[i].stateRoot;
                 }
 
+                emit I.BatchesVerified(batchId, _trans[i].blockHash);
                 _summary.lastVerifiedBlockHash = _trans[i++].blockHash;
             }
 
             if (lastSyncedBlockId != 0) {
                 _summary.lastSyncedBlockId = lastSyncedBlockId;
-                _summary.lastSyncedAt = _env.blockTimestamp;
-                _env.syncChainData(_conf, lastSyncedBlockId, lastSyncedStateRoot);
+                _summary.lastSyncedAt = uint48(block.timestamp);
+                _rw.syncChainData(_conf, lastSyncedBlockId, lastSyncedStateRoot);
             }
         }
         return _summary;
@@ -82,25 +89,34 @@ library LibVerify2 {
     )
         private
         pure
-        returns (uint96 bondToReturn_)
+        returns (uint96)
     {
         unchecked {
             if (_tran.proofTiming == I.ProofTiming.InProvingWindow) {
                 // all liveness bond is returned to the prover, this is not a reward.
-                bondToReturn_ = _tran.livenessBond;
-                if (_isFirstTransition) bondToReturn_ += _tran.provabilityBond;
-            } else if (_tran.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
+                return _isFirstTransition
+                    ? _tran.livenessBond + _tran.provabilityBond
+                    : _tran.livenessBond;
+            }
+
+            if (_tran.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
                 // prover is rewarded with bondRewardPtcg% of the liveness bond.
-                bondToReturn_ = _tran.livenessBond * _conf.bondRewardPtcg / 100;
-                if (_isFirstTransition) bondToReturn_ += _tran.provabilityBond;
-            } else if (_tran.byAssignedProver) {
+                uint96 amount = _tran.livenessBond * _conf.bondRewardPtcg / 100;
+                return _isFirstTransition ? amount + _tran.provabilityBond : amount;
+            }
+
+            if (_tran.byAssignedProver) {
                 // The assigned prover gets back his liveness bond, and 100% provability
                 // bond. This allows him to user a higher gas price to submit his proof first.
-                bondToReturn_ = _tran.provabilityBond;
-            } else {
-                // Other prover get bondRewardPtcg% of the provability bond.
-                bondToReturn_ = _tran.provabilityBond * _conf.bondRewardPtcg / 100;
+                return _tran.provabilityBond;
             }
+
+            // Other prover get bondRewardPtcg% of the provability bond.
+            return _tran.provabilityBond * _conf.bondRewardPtcg / 100;
         }
     }
+
+    // --- ERRORs --------------------------------------------------------------------------------
+    error TransitionNotProvided();
+    error TransitionMetaMismatch();
 }
