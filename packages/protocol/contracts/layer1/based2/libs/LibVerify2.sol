@@ -33,14 +33,15 @@ library LibVerify2 {
             if (!LibFork2.isBlocksInCurrentFork(_conf, batchId, batchId)) {
                 return _summary;
             }
+
             uint256 stopBatchId = uint256(_summary.numBatches).min(
                 _conf.maxBatchesToVerify + _summary.lastVerifiedBatchId + 1
             );
 
-            uint256 nTransitions = _trans.length;
             uint256 i;
             uint48 lastSyncedBlockId;
             bytes32 lastSyncedStateRoot;
+            uint256 nTransitions = _trans.length;
 
             for (; batchId < stopBatchId; ++batchId) {
                 (bytes32 tranMetaHash, bool isFirstTransition) =
@@ -72,9 +73,8 @@ library LibVerify2 {
                 _summary.lastSyncedAt = uint48(block.timestamp);
                 _env.syncChainData(_conf, lastSyncedBlockId, lastSyncedStateRoot);
             }
-
-            return _summary;
         }
+        return _summary;
     }
 
     function _calcBondToProver(
