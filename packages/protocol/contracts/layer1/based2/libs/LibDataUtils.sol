@@ -30,6 +30,22 @@ library LibDataUtils {
         return keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
     }
 
+    /// @dev The function __encodeExtraDataLower128Bits encodes certain information into a uint128
+    /// - bits 0-7: used to store _conf.baseFeeConfig.sharingPctg.
+    /// - bit 8: used to store _batch.isForcedInclusion.
+    function encodeExtraDataLower128Bits(
+        I.Config memory _conf,
+        I.Batch memory _batch
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        uint128 v = _conf.baseFeeConfig.sharingPctg; // bits 0-7
+        v |= _batch.isForcedInclusion ? 1 << 8 : 0; // bit 8
+        return bytes32(uint256(v));
+    }
+
     function packBatchMetadata(I.BatchMetadata memory _meta) internal pure returns (bytes memory) {
         return abi.encode(_meta);
     }

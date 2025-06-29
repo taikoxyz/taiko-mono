@@ -40,6 +40,7 @@ library LibBatchProving {
         for (uint256 i; i < nBatches; ++i) {
             ctxHashes[i] = _proveBatch(_conf, _rw, _summary, _evidences[i]);
         }
+
         bytes32 aggregatedBatchHash =
             keccak256(abi.encode(_conf.chainId, msg.sender, _conf.verifier, ctxHashes));
 

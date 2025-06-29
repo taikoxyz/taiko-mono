@@ -84,7 +84,7 @@ library LibBatchProposal {
         meta_.buildMeta = I.BatchBuildMetadata({
             txsHash: _output.txsHash,
             blobHashes: _output.blobHashes,
-            extraData: _encodeExtraDataLower128Bits(_conf, _batch),
+            extraData: LibDataUtils.encodeExtraDataLower128Bits(_conf, _batch),
             coinbase: _output.coinbase,
             proposedIn: uint48(block.number),
             blobCreatedIn: _batch.blobs.createdIn,
@@ -114,22 +114,6 @@ library LibBatchProposal {
             livenessBond: _conf.livenessBond,
             provabilityBond: _conf.provabilityBond
         });
-    }
-
-    /// @dev The function __encodeExtraDataLower128Bits encodes certain information into a uint128
-    /// - bits 0-7: used to store _conf.baseFeeConfig.sharingPctg.
-    /// - bit 8: used to store _batch.isForcedInclusion.
-    function _encodeExtraDataLower128Bits(
-        I.Config memory _conf,
-        I.Batch memory _batch
-    )
-        private
-        pure
-        returns (bytes32)
-    {
-        uint128 v = _conf.baseFeeConfig.sharingPctg; // bits 0-7
-        v |= _batch.isForcedInclusion ? 1 << 8 : 0; // bit 8
-        return bytes32(uint256(v));
     }
 
     // --- ERRORs --------------------------------------------------------------------------------
