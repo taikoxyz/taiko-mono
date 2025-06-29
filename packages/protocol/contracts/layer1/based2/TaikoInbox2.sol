@@ -7,15 +7,14 @@ import "src/shared/based/ITaiko.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-import "./libs/LibBonds2.sol";
-// import "./libs/LibInit2.sol";
-import "./libs/LibPropose2.sol";
-import "./libs/LibProve2.sol";
-// import "./libs/LibRead2.sol";
-import "./libs/LibVerify2.sol";
+import "./libs/LibBondManagement.sol";
+import "./libs/LibInitialization.sol";
+import "./libs/LibBatchProposal.sol";
+import "./libs/LibBatchProving.sol";
+import "./libs/LibBatchVerification.sol";
 import "./ITaikoInbox2.sol";
 import "./IProposeBatch2.sol";
-import "./libs/LibTransition.sol";
+import "./libs/LibTransitionStorage.sol";
 
 /// @title TaikoInbox2
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -38,8 +37,9 @@ abstract contract TaikoInbox2 is
     ITaiko
 {
     using SafeERC20 for IERC20;
-    using LibBonds2 for ITaikoInbox2.State;
-    using LibTransition for ITaikoInbox2.State;
+    using LibBondManagement for ITaikoInbox2.State;
+    using LibTransitionStorage for ITaikoInbox2.State;
+    using LibInitialization for ITaikoInbox2.State;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
@@ -66,7 +66,7 @@ abstract contract TaikoInbox2 is
         require(state.summaryHash == keccak256(abi.encode(_summary)), SummaryMismatch());
         I.Config memory conf = _getConfig();
 
-        LibParams.ReadWrite memory rw1 = LibParams.ReadWrite({
+        LibBatchValidation.ReadWrite memory rw1 = LibBatchValidation.ReadWrite({
             // reads
             getBatchMetaHash: _getBatchMetaHash,
             isSignalSent: _isSignalSent,
@@ -76,12 +76,11 @@ abstract contract TaikoInbox2 is
             saveBatchMetaHash: _saveBatchMetaHash,
             debitBond: _debitBond,
             creditBond: _creditBond,
-            transferFee: _transferFee,
-            validateProverAuth: LibAuth2.validateProverAuth
+            transferFee: _transferFee
         });
-        _summary = LibPropose2.proposeBatches(conf, rw1, _summary, _batch, _evidence);
+        _summary = LibBatchProposal.proposeBatches(conf, rw1, _summary, _batch, _evidence);
 
-        LibVerify2.ReadWrite memory rw2 = LibVerify2.ReadWrite({
+        LibBatchVerification.ReadWrite memory rw2 = LibBatchVerification.ReadWrite({
             // reads
             getBatchMetaHash: _getBatchMetaHash,
             loadTransitionMetaHash: _loadTransitionMetaHash,
@@ -89,7 +88,7 @@ abstract contract TaikoInbox2 is
             creditBond: _creditBond,
             syncChainData: _syncChainData
         });
-        _summary = LibVerify2.verifyBatches(conf, rw2, _summary, _trans);
+        _summary = LibBatchVerification.verifyBatches(conf, rw2, _summary, _trans);
 
         state.summaryHash = keccak256(abi.encode(_summary));
         return _summary;
@@ -107,7 +106,7 @@ abstract contract TaikoInbox2 is
         require(state.summaryHash == keccak256(abi.encode(_summary)), SummaryMismatch());
 
         I.Config memory conf = _getConfig();
-        LibProve2.ReadWrite memory rw = LibProve2.ReadWrite({
+        LibBatchProving.ReadWrite memory rw = LibBatchProving.ReadWrite({
             // reads
             blockTimestamp: uint48(block.timestamp),
             blockNumber: uint48(block.number),
@@ -119,7 +118,7 @@ abstract contract TaikoInbox2 is
         });
 
         bytes32 aggregatedBatchHash;
-        (_summary, aggregatedBatchHash) = LibProve2.proveBatches(conf, rw, _summary, _inputs);
+        (_summary, aggregatedBatchHash) = LibBatchProving.proveBatches(conf, rw, _summary, _inputs);
 
         IVerifier2(conf.verifier).verifyProof(aggregatedBatchHash, _proof);
 
@@ -129,7 +128,8 @@ abstract contract TaikoInbox2 is
 
     function v4DepositBond(uint256 _amount) external payable {
         I.Config memory conf = _getConfig();
-        state.bondBalance[msg.sender] += LibBonds2.depositBond(conf.bondToken, msg.sender, _amount);
+        state.bondBalance[msg.sender] +=
+            LibBondManagement.depositBond(conf.bondToken, msg.sender, _amount);
     }
 
     function v4WithdrawBond(uint256 _amount) external {
@@ -155,7 +155,7 @@ abstract contract TaikoInbox2 is
 
     function __Taiko_init(address _owner, bytes32 _genesisBlockHash) internal onlyInitializing {
         __Essential_init(_owner);
-        LibInit2.init(state, _genesisBlockHash);
+        state.init(_genesisBlockHash);
     }
 
     function _getConfig() internal view virtual returns (Config memory);
@@ -229,11 +229,11 @@ abstract contract TaikoInbox2 is
     }
 
     function _debitBond(I.Config memory _conf, address _user, uint256 _amount) private {
-        LibBonds2.debitBond(state, _conf.bondToken, _user, _amount);
+        LibBondManagement.debitBond(state, _conf.bondToken, _user, _amount);
     }
 
     function _creditBond(address _user, uint256 _amount) private {
-        LibBonds2.creditBond(state, _user, _amount);
+        LibBondManagement.creditBond(state, _user, _amount);
     }
 
     function _transferFee(address _feeToken, address _from, address _to, uint256 _amount) private {

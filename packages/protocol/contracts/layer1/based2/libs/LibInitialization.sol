@@ -2,16 +2,16 @@
 pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
-import "./LibData2.sol";
+import "./LibDataUtils.sol";
 
-library LibInit2 {
-    function init(I.State storage $, bytes32 _genesisBlockHash) internal {
+library LibInitialization {
+    function init(I.State storage $, bytes32 _genesisBlockHash) public {
         require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
 
         I.BatchMetadata memory meta;
         meta.buildMeta.proposedIn = uint48(block.number);
         meta.proveMeta.proposedAt = uint48(block.timestamp);
-        $.batches[0] = LibData2.hashBatch(0, meta);
+        $.batches[0] = LibDataUtils.hashBatch(0, meta);
 
         I.Summary memory summary;
         summary.numBatches = 1;

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
-library LibTransition {
+library LibTransitionStorage {
     function loadTransitionMetaHash(
         I.State storage $,
         I.Config memory _conf,

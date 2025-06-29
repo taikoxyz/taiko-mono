@@ -3,12 +3,12 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibMath.sol";
-import "./LibBonds2.sol";
-import "./LibFork2.sol";
+import "./LibBondManagement.sol";
+import "./LibForks.sol";
 
-/// @title LibProve2
+/// @title LibBatchProving
 /// @custom:security-contact security@taiko.xyz
-library LibProve2 {
+library LibBatchProving {
     using LibMath for uint256;
 
     struct ReadWrite {
@@ -63,7 +63,7 @@ library LibProve2 {
         // Hence, we only need to verify        the firstBlockId of the block in the following
         // check.
         require(
-            LibFork2.isBlocksInCurrentFork(
+            LibForks.isBlocksInCurrentFork(
                 _conf, _input.proveMeta.firstBlockId, _input.proveMeta.firstBlockId
             ),
             BlocksNotInCurrentFork()

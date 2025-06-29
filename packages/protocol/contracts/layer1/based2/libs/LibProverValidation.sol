@@ -3,14 +3,67 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
+import "./LibBatchValidation.sol";
 
-/// @title LibAuth2
+/// @title LibProverValidation
 /// @notice This library is used to validate the prover authentication.
 /// @custom:security-contact security@taiko.xyz
-library LibAuth2 {
+library LibProverValidation {
     using SignatureChecker for address;
 
-    function validateProverAuth(
+    function validateProver(
+        I.Config memory _conf,
+        LibBatchValidation.ReadWrite memory _rw,
+        I.Summary memory _summary,
+        bytes memory _proverAuth,
+        I.Batch memory _batch
+    )
+        internal
+        returns (address prover_)
+    {
+        unchecked {
+            if (_batch.proverAuth.length == 0) {
+                _rw.debitBond(_conf, _batch.proposer, _conf.livenessBond + _conf.provabilityBond);
+                return _batch.proposer;
+            }
+
+            // Circular dependency so zero it out. (Batch has proverAuth but
+            // proverAuth has also batchHash)
+            _batch.proverAuth = "";
+
+            // Outsource the prover authentication to the LibAuth library to
+            // reduce this contract's code size.
+            address feeToken;
+            uint96 fee;
+            (prover_, feeToken, fee) = _validateProverAuth(
+                _conf.chainId, _summary.numBatches, keccak256(abi.encode(_batch)), _proverAuth
+            );
+
+            if (feeToken == _conf.bondToken) {
+                // proposer pay the prover fee with bond tokens
+                _rw.debitBond(_conf, _batch.proposer, fee + _conf.provabilityBond);
+
+                // if bondDelta is negative (proverFee < livenessBond), deduct the diff
+                // if not then add the diff to the bond balance
+                int256 bondDelta = int96(fee) - int96(_conf.livenessBond);
+
+                bondDelta < 0
+                    ? _rw.debitBond(_conf, prover_, uint256(-bondDelta))
+                    : _rw.creditBond(prover_, uint256(bondDelta));
+            } else if (_batch.proposer == prover_) {
+                _rw.debitBond(_conf, _batch.proposer, _conf.livenessBond + _conf.provabilityBond);
+            } else {
+                _rw.debitBond(_conf, _batch.proposer, _conf.provabilityBond);
+                _rw.debitBond(_conf, prover_, _conf.livenessBond);
+
+                if (fee != 0) {
+                    _rw.transferFee(feeToken, _batch.proposer, prover_, fee);
+                }
+            }
+        }
+    }
+
+    function _validateProverAuth(
         uint64 _chainId,
         uint64 _batchId,
         bytes32 _batchParamsHash,

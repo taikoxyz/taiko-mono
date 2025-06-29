@@ -6,9 +6,9 @@ import "src/shared/libs/LibAddress.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "../IBondManager2.sol";
 
-/// @title LibBonds2
+/// @title LibBondManagement
 /// @custom:security-contact security@taiko.xyz
-library LibBonds2 {
+library LibBondManagement {
     using SafeERC20 for IERC20;
 
     function withdrawBond(

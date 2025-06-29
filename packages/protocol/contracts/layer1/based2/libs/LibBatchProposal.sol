@@ -3,17 +3,17 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibNetwork.sol";
-import "./LibAuth2.sol";
-import "./LibFork2.sol";
-import "./LibParams.sol";
-import "./LibInit2.sol";
+import "./LibBatchValidation.sol";
+import "./LibForks.sol";
+import "./LibDataUtils.sol";
+import "./LibProverValidation.sol";
 
-/// @title LibPropose2
+/// @title LibBatchProposal
 /// @custom:security-contact security@taiko.xyz
-library LibPropose2 {
+library LibBatchProposal {
     function proposeBatches(
         I.Config memory _conf,
-        LibParams.ReadWrite memory _rw,
+        LibBatchValidation.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.Batch[] memory _batch,
         I.BatchProposeMetadataEvidence memory _evidence
@@ -31,7 +31,7 @@ library LibPropose2 {
 
             require(
                 _rw.getBatchMetaHash(_conf, _summary.numBatches - 1)
-                    == LibData2.hashBatch(_evidence),
+                    == LibDataUtils.hashBatch(_evidence),
                 MetaHashNotMatch()
             );
 
@@ -49,7 +49,7 @@ library LibPropose2 {
 
     function _proposeBatch(
         I.Config memory _conf,
-        LibParams.ReadWrite memory _rw,
+        LibBatchValidation.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.Batch memory _batch,
         I.BatchProposeMetadata memory _parent
@@ -58,76 +58,24 @@ library LibPropose2 {
         returns (I.BatchMetadata memory meta_)
     {
         // Validate the params and returns an updated copy
-        LibParams.ValidationOutput memory output =
-            LibParams.validateBatch(_conf, _rw, _batch, _parent);
+        LibBatchValidation.ValidationOutput memory output =
+            LibBatchValidation.validateBatch(_conf, _rw, _batch, _parent);
 
-        output.prover = _validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
+        output.prover =
+            LibProverValidation.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
 
         meta_ = _populateBatchMetadata(_conf, _batch, output);
 
-        bytes32 batchMetaHash = LibData2.hashBatch(_summary.numBatches, meta_);
+        bytes32 batchMetaHash = LibDataUtils.hashBatch(_summary.numBatches, meta_);
         _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
 
-        emit I.BatchProposed(_summary.numBatches, LibData2.encodeBatchMetadata(meta_));
-    }
-
-// TODO: move this to LibParams.sol
-    function _validateProver(
-        I.Config memory _conf,
-        LibParams.ReadWrite memory _rw,
-        I.Summary memory _summary,
-        bytes memory _proverAuth,
-        I.Batch memory _batch
-    )
-        private
-        returns (address prover_)
-    {
-        unchecked {
-            if (_batch.proverAuth.length == 0) {
-                _rw.debitBond(_conf, _batch.proposer, _conf.livenessBond + _conf.provabilityBond);
-                return _batch.proposer;
-            }
-
-            // Circular dependency so zero it out. (Batch has proverAuth but
-            // proverAuth has also batchHash)
-            _batch.proverAuth = "";
-
-            // Outsource the prover authentication to the LibAuth library to
-            // reduce this contract's code size.
-            address feeToken;
-            uint96 fee;
-            (prover_, feeToken, fee) = _rw.validateProverAuth(
-                _conf.chainId, _summary.numBatches, keccak256(abi.encode(_batch)), _proverAuth
-            );
-
-            if (feeToken == _conf.bondToken) {
-                // proposer pay the prover fee with bond tokens
-                _rw.debitBond(_conf, _batch.proposer, fee + _conf.provabilityBond);
-
-                // if bondDelta is negative (proverFee < livenessBond), deduct the diff
-                // if not then add the diff to the bond balance
-                int256 bondDelta = int96(fee) - int96(_conf.livenessBond);
-
-                bondDelta < 0
-                    ? _rw.debitBond(_conf, prover_, uint256(-bondDelta))
-                    : _rw.creditBond(prover_, uint256(bondDelta));
-            } else if (_batch.proposer == prover_) {
-                _rw.debitBond(_conf, _batch.proposer, _conf.livenessBond + _conf.provabilityBond);
-            } else {
-                _rw.debitBond(_conf, _batch.proposer, _conf.provabilityBond);
-                _rw.debitBond(_conf, prover_, _conf.livenessBond);
-
-                if (fee != 0) {
-                    _rw.transferFee(feeToken, _batch.proposer, prover_, fee);
-                }
-            }
-        }
+        emit I.BatchProposed(_summary.numBatches, LibDataUtils.packBatchMetadata(meta_));
     }
 
     function _populateBatchMetadata(
         I.Config memory _conf,
         I.Batch memory _batch,
-        LibParams.ValidationOutput memory _output
+        LibBatchValidation.ValidationOutput memory _output
     )
         private
         view

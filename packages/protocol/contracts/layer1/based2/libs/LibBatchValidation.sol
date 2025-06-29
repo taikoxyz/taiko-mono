@@ -3,17 +3,15 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibNetwork.sol";
-import "./LibFork2.sol";
+import "./LibForks.sol";
 
-library LibParams {
+library LibBatchValidation {
     struct ReadWrite {
         // reads
         function(I.Config memory, uint256) returns (bytes32) getBatchMetaHash;
         function(I.Config memory, bytes32) view returns (bool) isSignalSent;
         function(I.Config memory, bytes32, uint256) view returns (bytes32, bool)
             loadTransitionMetaHash;
-        function(uint64, uint64, bytes32,  bytes memory) view returns (address, address, uint96)
-            validateProverAuth;
         function(uint256) view returns (bytes32) getBlobHash;
         // writes
         function(address, address, address, uint256) transferFee;
@@ -226,7 +224,7 @@ library LibParams {
         lastBlockId_ = uint48(firstBlockId_ + _numBlocks);
 
         require(
-            LibFork2.isBlocksInCurrentFork(_conf, firstBlockId_, lastBlockId_),
+            LibForks.isBlocksInCurrentFork(_conf, firstBlockId_, lastBlockId_),
             BlocksNotInCurrentFork()
         );
     }

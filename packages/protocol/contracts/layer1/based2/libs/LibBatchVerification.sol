@@ -3,13 +3,13 @@ pragma solidity ^0.8.24;
 
 import "src/shared/libs/LibMath.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
-import "./LibBonds2.sol";
-import "./LibFork2.sol";
-import "./LibPropose2.sol";
+import "./LibBondManagement.sol";
+import "./LibForks.sol";
+import "./LibBatchProposal.sol";
 
-/// @title LibVerify2
+/// @title LibBatchVerification
 /// @custom:security-contact security@taiko.xyz
-library LibVerify2 {
+library LibBatchVerification {
     using LibMath for uint256;
 
     struct ReadWrite {
@@ -34,7 +34,7 @@ library LibVerify2 {
         unchecked {
             uint48 batchId = _summary.lastVerifiedBatchId + 1;
 
-            if (!LibFork2.isBlocksInCurrentFork(_conf, batchId, batchId)) {
+            if (!LibForks.isBlocksInCurrentFork(_conf, batchId, batchId)) {
                 return _summary;
             }
 

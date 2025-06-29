@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
-library LibData2 {
+library LibDataUtils {
     function hashBatch(
         uint256 _batchId,
         I.BatchMetadata memory _meta
@@ -30,11 +30,7 @@ library LibData2 {
         return keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
     }
 
-    function encodeBatchMetadata(I.BatchMetadata memory _meta)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function packBatchMetadata(I.BatchMetadata memory _meta) internal pure returns (bytes memory) {
         return abi.encode(_meta);
     }
 }
