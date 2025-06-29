@@ -127,14 +127,12 @@ abstract contract TaikoInbox2 is
     }
 
     function v4DepositBond(uint256 _amount) external payable {
-        I.Config memory conf = _getConfig();
         state.bondBalance[msg.sender] +=
-            LibBondManagement.depositBond(conf.bondToken, msg.sender, _amount);
+            LibBondManagement.depositBond(_getConfig().bondToken, msg.sender, _amount);
     }
 
     function v4WithdrawBond(uint256 _amount) external {
-        I.Config memory conf = _getConfig();
-        state.withdrawBond(conf.bondToken, _amount);
+        state.withdrawBond(_getConfig().bondToken, _amount);
     }
 
     function v4BondBalanceOf(address _user) external view returns (uint256) {
@@ -241,5 +239,6 @@ abstract contract TaikoInbox2 is
     }
 
     // --- ERRORs --------------------------------------------------------------------------------
+    
     error SummaryMismatch();
 }
