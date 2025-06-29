@@ -60,9 +60,8 @@ library LibBatchVerification {
                     break;
                 }
 
-                _rw.creditBond(
-                    _trans[i].prover, _calcBondToProver(_conf, _trans[i], isFirstTransition)
-                );
+                uint96 bondToProver = _calcBondToProver(_conf, _trans[i], isFirstTransition);
+                _rw.creditBond(_trans[i].prover, bondToProver);
 
                 if (batchId % _conf.stateRootSyncInternal == 0) {
                     lastSyncedBlockId = _trans[i].lastBlockId;
