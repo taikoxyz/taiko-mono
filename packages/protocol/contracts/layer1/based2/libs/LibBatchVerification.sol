@@ -11,8 +11,10 @@ import "./LibBatchProposal.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibBatchVerification {
     using LibMath for uint256;
+    using LibStorage for I.State;
 
     function verifyBatches(
+        I.State storage $,
         I.Config memory _conf,
         LibReadWrite.RW memory _rw,
         I.Summary memory _summary,
@@ -39,7 +41,7 @@ library LibBatchVerification {
 
             for (; batchId < stopBatchId; ++batchId) {
                 (bytes32 tranMetaHash, bool isFirstTransition) =
-                    _rw.loadTransitionMetaHash(_conf, _summary.lastVerifiedBlockHash, batchId);
+                    $.loadTransitionMetaHash(_conf, _summary.lastVerifiedBlockHash, batchId);
 
                 if (tranMetaHash == 0) break;
 

@@ -6,7 +6,6 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 library LibReadWrite {
     struct RW {
         // reads
-        function(I.Config memory, uint256) returns (bytes32) loadBatchMetaHash;
         function(I.Config memory, bytes32) view returns (bool) isSignalSent;
         function(I.Config memory, bytes32, uint256) view returns (bytes32, bool)
             loadTransitionMetaHash;

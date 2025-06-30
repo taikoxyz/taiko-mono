@@ -14,7 +14,7 @@ import "./libs/LibBatchProving.sol";
 import "./libs/LibBatchVerification.sol";
 import "./ITaikoInbox2.sol";
 import "./IProposeBatch2.sol";
-import "./libs/LibTransitionStorage.sol";
+import "./libs/LibStorage.sol";
 
 /// @title TaikoInbox2
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -38,8 +38,11 @@ abstract contract TaikoInbox2 is
 {
     using SafeERC20 for IERC20;
     using LibBondManagement for ITaikoInbox2.State;
-    using LibTransitionStorage for ITaikoInbox2.State;
+    using LibStorage for ITaikoInbox2.State;
     using LibInitialization for ITaikoInbox2.State;
+    using LibBatchProposal for ITaikoInbox2.State;
+    using LibBatchProving for ITaikoInbox2.State;
+    using LibBatchVerification for ITaikoInbox2.State;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
@@ -67,8 +70,8 @@ abstract contract TaikoInbox2 is
         I.Config memory conf = _getConfig();
 
         LibReadWrite.RW memory rw = _getReadWrite();
-        _summary = LibBatchProposal.proposeBatches(conf, rw, _summary, _batch, _evidence);
-        _summary = LibBatchVerification.verifyBatches(conf, rw, _summary, _trans);
+        _summary = state.proposeBatches(conf, rw, _summary, _batch, _evidence);
+        _summary = state.verifyBatches(conf, rw, _summary, _trans);
 
         state.summaryHash = keccak256(abi.encode(_summary));
         return _summary;
@@ -88,7 +91,7 @@ abstract contract TaikoInbox2 is
         I.Config memory conf = _getConfig();
         LibReadWrite.RW memory rw = _getReadWrite();
         bytes32 aggregatedBatchHash;
-        (_summary, aggregatedBatchHash) = LibBatchProving.proveBatches(conf, rw, _summary, _inputs);
+        (_summary, aggregatedBatchHash) = state.proveBatches(conf, rw, _summary, _inputs);
 
         IVerifier2(conf.verifier).verifyProof(aggregatedBatchHash, _proof);
 
@@ -133,7 +136,6 @@ abstract contract TaikoInbox2 is
     function _getReadWrite() internal pure virtual returns (LibReadWrite.RW memory) {
         return LibReadWrite.RW({
             // reads
-            loadBatchMetaHash: _loadBatchMetaHash,
             isSignalSent: _isSignalSent,
             loadTransitionMetaHash: _loadTransitionMetaHash,
             getBlobHash: _getBlobHash,
@@ -159,17 +161,6 @@ abstract contract TaikoInbox2 is
         private
     {
         state.batches[_batchId % _conf.batchRingBufferSize] = _metaHash;
-    }
-
-    function _loadBatchMetaHash(
-        I.Config memory _conf,
-        uint256 _batchId
-    )
-        private
-        view
-        returns (bytes32)
-    {
-        return state.batches[_batchId % _conf.batchRingBufferSize];
     }
 
     function _loadTransitionMetaHash(

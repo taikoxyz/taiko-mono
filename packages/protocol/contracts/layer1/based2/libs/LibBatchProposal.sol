@@ -7,11 +7,15 @@ import "./LibBatchValidation.sol";
 import "./LibForks.sol";
 import "./LibDataUtils.sol";
 import "./LibProverValidation.sol";
+import "./LibStorage.sol";
 
 /// @title LibBatchProposal
 /// @custom:security-contact security@taiko.xyz
 library LibBatchProposal {
+    using LibStorage for I.State;
+
     function proposeBatches(
+        I.State storage $,
         I.Config memory _conf,
         LibReadWrite.RW memory _rw,
         I.Summary memory _summary,
@@ -30,7 +34,7 @@ library LibBatchProposal {
             );
 
             require(
-                _rw.loadBatchMetaHash(_conf, _summary.numBatches - 1)
+                $.loadBatchMetaHash(_conf, _summary.numBatches - 1)
                     == LibDataUtils.hashBatch(_evidence),
                 MetaHashNotMatch()
             );

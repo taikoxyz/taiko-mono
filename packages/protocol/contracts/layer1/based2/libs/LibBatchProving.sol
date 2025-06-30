@@ -6,13 +6,16 @@ import "src/shared/libs/LibMath.sol";
 import "./LibBondManagement.sol";
 import "./LibForks.sol";
 import "./LibReadWrite.sol";
+import "./LibStorage.sol";
 
 /// @title LibBatchProving
 /// @custom:security-contact security@taiko.xyz
 library LibBatchProving {
     using LibMath for uint256;
+    using LibStorage for I.State;
 
     function proveBatches(
+        I.State storage $,
         I.Config memory _conf,
         LibReadWrite.RW memory _rw,
         I.Summary memory _summary,
@@ -28,7 +31,7 @@ library LibBatchProving {
         bytes32[] memory ctxHashes = new bytes32[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            ctxHashes[i] = _proveBatch(_conf, _rw, _summary, _evidences[i]);
+            ctxHashes[i] = _proveBatch($, _conf, _rw, _summary, _evidences[i]);
         }
 
         bytes32 aggregatedBatchHash =
@@ -38,6 +41,7 @@ library LibBatchProving {
     }
 
     function _proveBatch(
+        I.State storage $,
         I.Config memory _conf,
         LibReadWrite.RW memory _rw,
         I.Summary memory _summary,
@@ -61,7 +65,7 @@ library LibBatchProving {
         );
 
         // Verify the batch's metadata.
-        bytes32 batchMetaHash = _rw.loadBatchMetaHash(_conf, _input.tran.batchId);
+        bytes32 batchMetaHash = $.loadBatchMetaHash(_conf, _input.tran.batchId);
 
         _validateBatchProveMeta(batchMetaHash, _input);
 
