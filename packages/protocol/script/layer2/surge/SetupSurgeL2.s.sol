@@ -6,6 +6,7 @@ import "forge-std/src/Script.sol";
 import "forge-std/src/console2.sol";
 
 // OpenZeppelin
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/governance/TimelockController.sol";
 
 // Shared contracts
@@ -93,15 +94,15 @@ contract SetupSurgeL2 is Script {
             }),
             bridgedErc20: L2Contract({
                 key: bytes32("bridged_erc20"),
-                addr: getConstantAddress(vm.toString(block.chainid), "10096")
+                addr: getConstantAddress(string.concat("0", vm.toString(block.chainid)), "10096")
             }),
             bridgedErc721: L2Contract({
                 key: bytes32("bridged_erc721"),
-                addr: getConstantAddress(vm.toString(block.chainid), "10097")
+                addr: getConstantAddress(string.concat("0", vm.toString(block.chainid)), "10097")
             }),
             bridgedErc1155: L2Contract({
                 key: bytes32("bridged_erc1155"),
-                addr: getConstantAddress(vm.toString(block.chainid), "10098")
+                addr: getConstantAddress(string.concat("0", vm.toString(block.chainid)), "10098")
             }),
             sharedResolver: L2Contract({
                 key: bytes32("shared_resolver"),
@@ -194,7 +195,8 @@ contract SetupSurgeL2 is Script {
     function setupDelegateOwnerAndTransferOwnership(L2ContractRegistry memory l2ContractRegistry)
         internal
     {
-        address delegateOwner = address(new DelegateOwner(l2ContractRegistry.bridge.addr));
+        address delegateOwnerImpl = address(new DelegateOwner(l2ContractRegistry.bridge.addr));
+        address delegateOwner = address(new ERC1967Proxy(delegateOwnerImpl, ""));
         DelegateOwner(delegateOwner).init(l1TimelockController, uint64(l1ChainId), address(0));
 
         console2.log("** Delegate owner (L2 owner):", delegateOwner);
