@@ -14,7 +14,7 @@ import "./libs/LibBatchProving.sol";
 import "./libs/LibBatchVerification.sol";
 import "./ITaikoInbox2.sol";
 import "./IProposeBatch2.sol";
-import "./libs/LibTransitionStorage.sol";
+import "./libs/LibStorage.sol";
 
 /// @title TaikoInbox2
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -38,8 +38,11 @@ abstract contract TaikoInbox2 is
 {
     using SafeERC20 for IERC20;
     using LibBondManagement for ITaikoInbox2.State;
-    using LibTransitionStorage for ITaikoInbox2.State;
+    using LibStorage for ITaikoInbox2.State;
     using LibInitialization for ITaikoInbox2.State;
+    using LibBatchProposal for ITaikoInbox2.State;
+    using LibBatchProving for ITaikoInbox2.State;
+    using LibBatchVerification for ITaikoInbox2.State;
 
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
@@ -66,29 +69,9 @@ abstract contract TaikoInbox2 is
         require(state.summaryHash == keccak256(abi.encode(_summary)), SummaryMismatch());
         I.Config memory conf = _getConfig();
 
-        LibBatchValidation.ReadWrite memory rw1 = LibBatchValidation.ReadWrite({
-            // reads
-            getBatchMetaHash: _getBatchMetaHash,
-            isSignalSent: _isSignalSent,
-            loadTransitionMetaHash: _loadTransitionMetaHash,
-            getBlobHash: _getBlobHash,
-            // writes
-            saveBatchMetaHash: _saveBatchMetaHash,
-            debitBond: _debitBond,
-            creditBond: _creditBond,
-            transferFee: _transferFee
-        });
-        _summary = LibBatchProposal.proposeBatches(conf, rw1, _summary, _batch, _evidence);
-
-        LibBatchVerification.ReadWrite memory rw2 = LibBatchVerification.ReadWrite({
-            // reads
-            getBatchMetaHash: _getBatchMetaHash,
-            loadTransitionMetaHash: _loadTransitionMetaHash,
-            // writes
-            creditBond: _creditBond,
-            syncChainData: _syncChainData
-        });
-        _summary = LibBatchVerification.verifyBatches(conf, rw2, _summary, _trans);
+        LibReadWrite.RW memory rw = _getReadWrite();
+        _summary = state.proposeBatches(conf, rw, _summary, _batch, _evidence);
+        _summary = state.verifyBatches(conf, rw, _summary, _trans);
 
         state.summaryHash = keccak256(abi.encode(_summary));
         return _summary;
@@ -106,19 +89,9 @@ abstract contract TaikoInbox2 is
         require(state.summaryHash == keccak256(abi.encode(_summary)), SummaryMismatch());
 
         I.Config memory conf = _getConfig();
-        LibBatchProving.ReadWrite memory rw = LibBatchProving.ReadWrite({
-            // reads
-            blockTimestamp: uint48(block.timestamp),
-            blockNumber: uint48(block.number),
-            getBatchMetaHash: _getBatchMetaHash,
-            // writes
-            creditBond: _creditBond,
-            debitBond: _debitBond,
-            saveTransition: _saveTransition
-        });
-
+        LibReadWrite.RW memory rw = _getReadWrite();
         bytes32 aggregatedBatchHash;
-        (_summary, aggregatedBatchHash) = LibBatchProving.proveBatches(conf, rw, _summary, _inputs);
+        (_summary, aggregatedBatchHash) = state.proveBatches(conf, rw, _summary, _inputs);
 
         IVerifier2(conf.verifier).verifyProof(aggregatedBatchHash, _proof);
 
@@ -160,85 +133,69 @@ abstract contract TaikoInbox2 is
 
     // Internal Binding functions ----------------------------------------------------------------
 
-    function _getBlobHash(uint256 _blockNumber) private view returns (bytes32) {
+    function _getBlobHash(uint256 _blockNumber) internal view virtual returns (bytes32) {
         return blockhash(_blockNumber);
-    }
-
-    function _saveBatchMetaHash(
-        I.Config memory _conf,
-        uint256 _batchId,
-        bytes32 _metaHash
-    )
-        private
-    {
-        state.batches[_batchId % _conf.batchRingBufferSize] = _metaHash;
-    }
-
-    function _getBatchMetaHash(
-        I.Config memory _conf,
-        uint256 _batchId
-    )
-        private
-        view
-        returns (bytes32)
-    {
-        return state.batches[_batchId % _conf.batchRingBufferSize];
-    }
-
-    function _loadTransitionMetaHash(
-        I.Config memory _conf,
-        bytes32 _lastVerifiedBlockHash,
-        uint256 _batchId
-    )
-        private
-        view
-        returns (bytes32 metaHash_, bool isFirstTransition_)
-    {
-        return state.loadTransitionMetaHash(_conf, _lastVerifiedBlockHash, _batchId);
-    }
-
-    function _saveTransition(
-        I.Config memory _conf,
-        uint48 _batchId,
-        bytes32 _parentHash,
-        bytes32 _tranMetahash
-    )
-        internal
-        returns (bool isFirstTransition_)
-    {
-        return state.saveTransition(_conf, _batchId, _parentHash, _tranMetahash);
     }
 
     function _isSignalSent(
         I.Config memory _conf,
         bytes32 _signalSlot
     )
-        private
+        internal
         view
+        virtual
         returns (bool)
     {
         return ISignalService(_conf.signalService).isSignalSent(_signalSlot);
     }
 
-    function _syncChainData(I.Config memory _conf, uint64 _blockId, bytes32 _stateRoot) private {
+    function _syncChainData(
+        I.Config memory _conf,
+        uint64 _blockId,
+        bytes32 _stateRoot
+    )
+        internal
+        virtual
+    {
         ISignalService(_conf.signalService).syncChainData(
             _conf.chainId, LibSignals.STATE_ROOT, _blockId, _stateRoot
         );
     }
 
-    function _debitBond(I.Config memory _conf, address _user, uint256 _amount) private {
+    function _debitBond(I.Config memory _conf, address _user, uint256 _amount) internal virtual {
         LibBondManagement.debitBond(state, _conf.bondToken, _user, _amount);
     }
 
-    function _creditBond(address _user, uint256 _amount) private {
+    function _creditBond(address _user, uint256 _amount) internal virtual {
         LibBondManagement.creditBond(state, _user, _amount);
     }
 
-    function _transferFee(address _feeToken, address _from, address _to, uint256 _amount) private {
+    function _transferFee(
+        address _feeToken,
+        address _from,
+        address _to,
+        uint256 _amount
+    )
+        internal
+        virtual
+    {
         IERC20(_feeToken).safeTransferFrom(_from, _to, _amount);
     }
 
+    function _getReadWrite() private pure returns (LibReadWrite.RW memory) {
+        return LibReadWrite.RW({
+            // reads
+            isSignalSent: _isSignalSent,
+            getBlobHash: _getBlobHash,
+            // writes
+            debitBond: _debitBond,
+            creditBond: _creditBond,
+            transferFee: _transferFee,
+            syncChainData: _syncChainData
+        });
+    }
+
     // --- ERRORs --------------------------------------------------------------------------------
-    
+
     error SummaryMismatch();
 }

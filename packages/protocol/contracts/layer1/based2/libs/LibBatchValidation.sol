@@ -4,22 +4,9 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./LibForks.sol";
+import "./LibReadWrite.sol";
 
 library LibBatchValidation {
-    struct ReadWrite {
-        // reads
-        function(I.Config memory, uint256) returns (bytes32) getBatchMetaHash;
-        function(I.Config memory, bytes32) view returns (bool) isSignalSent;
-        function(I.Config memory, bytes32, uint256) view returns (bytes32, bool)
-            loadTransitionMetaHash;
-        function(uint256) view returns (bytes32) getBlobHash;
-        // writes
-        function(address, address, address, uint256) transferFee;
-        function(address, uint256) creditBond;
-        function(I.Config memory, address, uint256) debitBond;
-        function(I.Config memory, uint256, bytes32) saveBatchMetaHash;
-    }
-
     struct ValidationOutput {
         bytes32 txsHash;
         bytes32[] blobHashes;
@@ -36,7 +23,7 @@ library LibBatchValidation {
 
     function validateBatch(
         I.Config memory _conf,
-        ReadWrite memory _rw,
+        LibReadWrite.RW memory _rw,
         I.Batch memory _batch,
         I.BatchProposeMetadata memory _parentProposeMeta
     )
@@ -141,7 +128,7 @@ library LibBatchValidation {
 
     function _validateSignals(
         I.Config memory _conf,
-        ReadWrite memory _rw,
+        LibReadWrite.RW memory _rw,
         I.Block[] memory _blocks,
         bytes32[] memory _signalSlots
     )
@@ -164,7 +151,7 @@ library LibBatchValidation {
 
     function _validateAnchors(
         I.Config memory _conf,
-        ReadWrite memory _rw,
+        LibReadWrite.RW memory _rw,
         I.Batch memory _batch,
         I.Block[] memory _blocks,
         uint48 _parentLastAnchorBlockId
@@ -261,7 +248,7 @@ library LibBatchValidation {
     }
 
     function _calculateTxsHash(
-        ReadWrite memory _rw,
+        LibReadWrite.RW memory _rw,
         I.Blobs memory _blobs
     )
         private

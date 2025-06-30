@@ -7,13 +7,17 @@ import "./LibBatchValidation.sol";
 import "./LibForks.sol";
 import "./LibDataUtils.sol";
 import "./LibProverValidation.sol";
+import "./LibStorage.sol";
 
 /// @title LibBatchProposal
 /// @custom:security-contact security@taiko.xyz
 library LibBatchProposal {
+    using LibStorage for I.State;
+
     function proposeBatches(
+        I.State storage $,
         I.Config memory _conf,
-        LibBatchValidation.ReadWrite memory _rw,
+        LibReadWrite.RW memory _rw,
         I.Summary memory _summary,
         I.Batch[] memory _batch,
         I.BatchProposeMetadataEvidence memory _evidence
@@ -30,14 +34,15 @@ library LibBatchProposal {
             );
 
             require(
-                _rw.getBatchMetaHash(_conf, _summary.numBatches - 1)
+                $.loadBatchMetaHash(_conf, _summary.numBatches - 1)
                     == LibDataUtils.hashBatch(_evidence),
                 MetaHashNotMatch()
             );
 
             I.BatchProposeMetadata memory parent = _evidence.proposeMeta;
             for (uint256 i; i < _batch.length; ++i) {
-                I.BatchMetadata memory meta = _proposeBatch(_conf, _rw, _summary, _batch[i], parent);
+                I.BatchMetadata memory meta =
+                    _proposeBatch($, _conf, _rw, _summary, _batch[i], parent);
                 parent = meta.proposeMeta;
 
                 _summary.numBatches += 1;
@@ -48,8 +53,9 @@ library LibBatchProposal {
     }
 
     function _proposeBatch(
+        I.State storage $,
         I.Config memory _conf,
-        LibBatchValidation.ReadWrite memory _rw,
+        LibReadWrite.RW memory _rw,
         I.Summary memory _summary,
         I.Batch memory _batch,
         I.BatchProposeMetadata memory _parent
@@ -67,7 +73,7 @@ library LibBatchProposal {
         meta_ = _populateBatchMetadata(_conf, _batch, output);
 
         bytes32 batchMetaHash = LibDataUtils.hashBatch(_summary.numBatches, meta_);
-        _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
+        $.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
 
         emit I.BatchProposed(_summary.numBatches, LibDataUtils.packBatchMetadata(meta_));
     }

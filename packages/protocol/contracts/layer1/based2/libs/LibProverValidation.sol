@@ -13,7 +13,7 @@ library LibProverValidation {
 
     function validateProver(
         I.Config memory _conf,
-        LibBatchValidation.ReadWrite memory _rw,
+        LibReadWrite.RW memory _rw,
         I.Summary memory _summary,
         bytes memory _proverAuth,
         I.Batch memory _batch
