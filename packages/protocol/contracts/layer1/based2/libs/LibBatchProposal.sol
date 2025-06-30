@@ -13,7 +13,7 @@ import "./LibProverValidation.sol";
 library LibBatchProposal {
     function proposeBatches(
         I.Config memory _conf,
-        LibBatchValidation.ReadWrite memory _rw,
+        LibReadWrite.RW memory _rw,
         I.Summary memory _summary,
         I.Batch[] memory _batch,
         I.BatchProposeMetadataEvidence memory _evidence
@@ -30,7 +30,7 @@ library LibBatchProposal {
             );
 
             require(
-                _rw.getBatchMetaHash(_conf, _summary.numBatches - 1)
+                _rw.loadBatchMetaHash(_conf, _summary.numBatches - 1)
                     == LibDataUtils.hashBatch(_evidence),
                 MetaHashNotMatch()
             );
@@ -49,7 +49,7 @@ library LibBatchProposal {
 
     function _proposeBatch(
         I.Config memory _conf,
-        LibBatchValidation.ReadWrite memory _rw,
+        LibReadWrite.RW memory _rw,
         I.Summary memory _summary,
         I.Batch memory _batch,
         I.BatchProposeMetadata memory _parent

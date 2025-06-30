@@ -5,26 +5,16 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibMath.sol";
 import "./LibBondManagement.sol";
 import "./LibForks.sol";
+import "./LibReadWrite.sol";
 
 /// @title LibBatchProving
 /// @custom:security-contact security@taiko.xyz
 library LibBatchProving {
     using LibMath for uint256;
 
-    struct ReadWrite {
-        // reads
-        uint48 blockTimestamp;
-        uint48 blockNumber;
-        // writes
-        function(address, uint256) creditBond;
-        function(I.Config memory, address, uint256) debitBond;
-        function(I.Config memory, uint48, bytes32, bytes32) returns (bool) saveTransition;
-        function(I.Config memory, uint256) returns (bytes32) getBatchMetaHash;
-    }
-
     function proveBatches(
         I.Config memory _conf,
-        ReadWrite memory _rw,
+        LibReadWrite.RW memory _rw,
         I.Summary memory _summary,
         I.BatchProveInput[] calldata _evidences
     )
@@ -49,7 +39,7 @@ library LibBatchProving {
 
     function _proveBatch(
         I.Config memory _conf,
-        ReadWrite memory _rw,
+        LibReadWrite.RW memory _rw,
         I.Summary memory _summary,
         I.BatchProveInput calldata _input
     )
@@ -71,7 +61,7 @@ library LibBatchProving {
         );
 
         // Verify the batch's metadata.
-        bytes32 batchMetaHash = _rw.getBatchMetaHash(_conf, _input.tran.batchId);
+        bytes32 batchMetaHash = _rw.loadBatchMetaHash(_conf, _input.tran.batchId);
 
         _validateBatchProveMeta(batchMetaHash, _input);
 
@@ -83,7 +73,7 @@ library LibBatchProving {
                 : bytes32(0),
             proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // to be updated below
             prover: address(0), // to be updated below
-            createdAt: _rw.blockTimestamp,
+            createdAt: uint48(block.timestamp),
             byAssignedProver: msg.sender == _input.proveMeta.prover,
             lastBlockId: _input.proveMeta.lastBlockId,
             provabilityBond: _input.proveMeta.provabilityBond,
@@ -92,7 +82,6 @@ library LibBatchProving {
 
         (tranMeta.proofTiming, tranMeta.prover) = _determineProofTiming(
             _conf,
-            _rw,
             _input.proveMeta.prover,
             uint256(_input.proveMeta.proposedAt).max(_summary.lastUnpausedAt)
         );
@@ -117,7 +106,6 @@ library LibBatchProving {
     /// @dev Decides which time window we are in and who should be recorded as the prover.
     function _determineProofTiming(
         I.Config memory _conf,
-        ReadWrite memory _rw,
         address _assignedProver,
         uint256 _proposedAt
     )
@@ -126,9 +114,9 @@ library LibBatchProving {
         returns (I.ProofTiming timing_, address prover_)
     {
         unchecked {
-            if (_rw.blockTimestamp <= _proposedAt + _conf.provingWindow) {
+            if (block.timestamp <= _proposedAt + _conf.provingWindow) {
                 return (I.ProofTiming.InProvingWindow, _assignedProver);
-            } else if (_rw.blockTimestamp <= _proposedAt + _conf.extendedProvingWindow) {
+            } else if (block.timestamp <= _proposedAt + _conf.extendedProvingWindow) {
                 return (I.ProofTiming.InExtendedProvingWindow, msg.sender);
             } else {
                 return (I.ProofTiming.OutOfExtendedProvingWindow, msg.sender);

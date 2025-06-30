@@ -12,19 +12,9 @@ import "./LibBatchProposal.sol";
 library LibBatchVerification {
     using LibMath for uint256;
 
-    struct ReadWrite {
-        // reads
-        function(I.Config memory, uint256) returns (bytes32) getBatchMetaHash;
-        function(I.Config memory, bytes32, uint256) view returns (bytes32, bool)
-            loadTransitionMetaHash;
-        // writes
-        function(address, uint256) creditBond;
-        function(I.Config memory, uint64, bytes32) syncChainData;
-    }
-
     function verifyBatches(
         I.Config memory _conf,
-        ReadWrite memory _rw,
+        LibReadWrite.RW memory _rw,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans
     )

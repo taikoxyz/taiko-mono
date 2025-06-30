@@ -66,29 +66,9 @@ abstract contract TaikoInbox2 is
         require(state.summaryHash == keccak256(abi.encode(_summary)), SummaryMismatch());
         I.Config memory conf = _getConfig();
 
-        LibBatchValidation.ReadWrite memory rw1 = LibBatchValidation.ReadWrite({
-            // reads
-            getBatchMetaHash: _getBatchMetaHash,
-            isSignalSent: _isSignalSent,
-            loadTransitionMetaHash: _loadTransitionMetaHash,
-            getBlobHash: _getBlobHash,
-            // writes
-            saveBatchMetaHash: _saveBatchMetaHash,
-            debitBond: _debitBond,
-            creditBond: _creditBond,
-            transferFee: _transferFee
-        });
-        _summary = LibBatchProposal.proposeBatches(conf, rw1, _summary, _batch, _evidence);
-
-        LibBatchVerification.ReadWrite memory rw2 = LibBatchVerification.ReadWrite({
-            // reads
-            getBatchMetaHash: _getBatchMetaHash,
-            loadTransitionMetaHash: _loadTransitionMetaHash,
-            // writes
-            creditBond: _creditBond,
-            syncChainData: _syncChainData
-        });
-        _summary = LibBatchVerification.verifyBatches(conf, rw2, _summary, _trans);
+        LibReadWrite.RW memory rw = _getReadWrite();
+        _summary = LibBatchProposal.proposeBatches(conf, rw, _summary, _batch, _evidence);
+        _summary = LibBatchVerification.verifyBatches(conf, rw, _summary, _trans);
 
         state.summaryHash = keccak256(abi.encode(_summary));
         return _summary;
@@ -106,17 +86,7 @@ abstract contract TaikoInbox2 is
         require(state.summaryHash == keccak256(abi.encode(_summary)), SummaryMismatch());
 
         I.Config memory conf = _getConfig();
-        LibBatchProving.ReadWrite memory rw = LibBatchProving.ReadWrite({
-            // reads
-            blockTimestamp: uint48(block.timestamp),
-            blockNumber: uint48(block.number),
-            getBatchMetaHash: _getBatchMetaHash,
-            // writes
-            creditBond: _creditBond,
-            debitBond: _debitBond,
-            saveTransition: _saveTransition
-        });
-
+        LibReadWrite.RW memory rw = _getReadWrite();
         bytes32 aggregatedBatchHash;
         (_summary, aggregatedBatchHash) = LibBatchProving.proveBatches(conf, rw, _summary, _inputs);
 
@@ -160,6 +130,23 @@ abstract contract TaikoInbox2 is
 
     // Internal Binding functions ----------------------------------------------------------------
 
+    function _getReadWrite() internal pure virtual returns (LibReadWrite.RW memory) {
+        return LibReadWrite.RW({
+            // reads
+            loadBatchMetaHash: _loadBatchMetaHash,
+            isSignalSent: _isSignalSent,
+            loadTransitionMetaHash: _loadTransitionMetaHash,
+            getBlobHash: _getBlobHash,
+            // writes
+            saveBatchMetaHash: _saveBatchMetaHash,
+            debitBond: _debitBond,
+            creditBond: _creditBond,
+            transferFee: _transferFee,
+            saveTransition: _saveTransition,
+            syncChainData: _syncChainData
+        });
+    }
+
     function _getBlobHash(uint256 _blockNumber) private view returns (bytes32) {
         return blockhash(_blockNumber);
     }
@@ -174,7 +161,7 @@ abstract contract TaikoInbox2 is
         state.batches[_batchId % _conf.batchRingBufferSize] = _metaHash;
     }
 
-    function _getBatchMetaHash(
+    function _loadBatchMetaHash(
         I.Config memory _conf,
         uint256 _batchId
     )
@@ -239,6 +226,6 @@ abstract contract TaikoInbox2 is
     }
 
     // --- ERRORs --------------------------------------------------------------------------------
-    
+
     error SummaryMismatch();
 }
