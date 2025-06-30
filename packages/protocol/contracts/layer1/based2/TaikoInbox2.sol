@@ -137,54 +137,17 @@ abstract contract TaikoInbox2 is
         return LibReadWrite.RW({
             // reads
             isSignalSent: _isSignalSent,
-            loadTransitionMetaHash: _loadTransitionMetaHash,
             getBlobHash: _getBlobHash,
             // writes
-            saveBatchMetaHash: _saveBatchMetaHash,
             debitBond: _debitBond,
             creditBond: _creditBond,
             transferFee: _transferFee,
-            saveTransition: _saveTransition,
             syncChainData: _syncChainData
         });
     }
 
     function _getBlobHash(uint256 _blockNumber) private view returns (bytes32) {
         return blockhash(_blockNumber);
-    }
-
-    function _saveBatchMetaHash(
-        I.Config memory _conf,
-        uint256 _batchId,
-        bytes32 _metaHash
-    )
-        private
-    {
-        state.batches[_batchId % _conf.batchRingBufferSize] = _metaHash;
-    }
-
-    function _loadTransitionMetaHash(
-        I.Config memory _conf,
-        bytes32 _lastVerifiedBlockHash,
-        uint256 _batchId
-    )
-        private
-        view
-        returns (bytes32 metaHash_, bool isFirstTransition_)
-    {
-        return state.loadTransitionMetaHash(_conf, _lastVerifiedBlockHash, _batchId);
-    }
-
-    function _saveTransition(
-        I.Config memory _conf,
-        uint48 _batchId,
-        bytes32 _parentHash,
-        bytes32 _tranMetahash
-    )
-        internal
-        returns (bool isFirstTransition_)
-    {
-        return state.saveTransition(_conf, _batchId, _parentHash, _tranMetahash);
     }
 
     function _isSignalSent(

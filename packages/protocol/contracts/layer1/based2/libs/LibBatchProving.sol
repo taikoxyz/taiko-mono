@@ -93,7 +93,7 @@ library LibBatchProving {
         bytes32 tranMetaHash = keccak256(abi.encode(tranMeta));
 
         bool isFirstTransition =
-            _rw.saveTransition(_conf, _input.tran.batchId, _input.tran.parentHash, tranMetaHash);
+            $.saveTransition(_conf, _input.tran.batchId, _input.tran.parentHash, tranMetaHash);
         if (
             isFirstTransition && tranMeta.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
                 && msg.sender != _input.proveMeta.proposer

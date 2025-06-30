@@ -4,6 +4,17 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
 library LibStorage {
+    function saveBatchMetaHash(
+        I.State storage $,
+        I.Config memory _conf,
+        uint256 _batchId,
+        bytes32 _metaHash
+    )
+        internal
+    {
+        $.batches[_batchId % _conf.batchRingBufferSize] = _metaHash;
+    }
+
     function loadBatchMetaHash(
         I.State storage $,
         I.Config memory _conf,
