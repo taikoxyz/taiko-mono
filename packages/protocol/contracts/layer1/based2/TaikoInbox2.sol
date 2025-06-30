@@ -133,7 +133,56 @@ abstract contract TaikoInbox2 is
 
     // Internal Binding functions ----------------------------------------------------------------
 
-    function _getReadWrite() internal pure virtual returns (LibReadWrite.RW memory) {
+    function _getBlobHash(uint256 _blockNumber) internal view virtual returns (bytes32) {
+        return blockhash(_blockNumber);
+    }
+
+    function _isSignalSent(
+        I.Config memory _conf,
+        bytes32 _signalSlot
+    )
+        internal
+        view
+        virtual
+        returns (bool)
+    {
+        return ISignalService(_conf.signalService).isSignalSent(_signalSlot);
+    }
+
+    function _syncChainData(
+        I.Config memory _conf,
+        uint64 _blockId,
+        bytes32 _stateRoot
+    )
+        internal
+        virtual
+    {
+        ISignalService(_conf.signalService).syncChainData(
+            _conf.chainId, LibSignals.STATE_ROOT, _blockId, _stateRoot
+        );
+    }
+
+    function _debitBond(I.Config memory _conf, address _user, uint256 _amount) internal virtual {
+        LibBondManagement.debitBond(state, _conf.bondToken, _user, _amount);
+    }
+
+    function _creditBond(address _user, uint256 _amount) internal virtual {
+        LibBondManagement.creditBond(state, _user, _amount);
+    }
+
+    function _transferFee(
+        address _feeToken,
+        address _from,
+        address _to,
+        uint256 _amount
+    )
+        internal
+        virtual
+    {
+        IERC20(_feeToken).safeTransferFrom(_from, _to, _amount);
+    }
+
+    function _getReadWrite() private pure returns (LibReadWrite.RW memory) {
         return LibReadWrite.RW({
             // reads
             isSignalSent: _isSignalSent,
@@ -144,39 +193,6 @@ abstract contract TaikoInbox2 is
             transferFee: _transferFee,
             syncChainData: _syncChainData
         });
-    }
-
-    function _getBlobHash(uint256 _blockNumber) private view returns (bytes32) {
-        return blockhash(_blockNumber);
-    }
-
-    function _isSignalSent(
-        I.Config memory _conf,
-        bytes32 _signalSlot
-    )
-        private
-        view
-        returns (bool)
-    {
-        return ISignalService(_conf.signalService).isSignalSent(_signalSlot);
-    }
-
-    function _syncChainData(I.Config memory _conf, uint64 _blockId, bytes32 _stateRoot) private {
-        ISignalService(_conf.signalService).syncChainData(
-            _conf.chainId, LibSignals.STATE_ROOT, _blockId, _stateRoot
-        );
-    }
-
-    function _debitBond(I.Config memory _conf, address _user, uint256 _amount) private {
-        LibBondManagement.debitBond(state, _conf.bondToken, _user, _amount);
-    }
-
-    function _creditBond(address _user, uint256 _amount) private {
-        LibBondManagement.creditBond(state, _user, _amount);
-    }
-
-    function _transferFee(address _feeToken, address _from, address _to, uint256 _amount) private {
-        IERC20(_feeToken).safeTransferFrom(_from, _to, _amount);
     }
 
     // --- ERRORs --------------------------------------------------------------------------------
