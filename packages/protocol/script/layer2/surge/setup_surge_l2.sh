@@ -40,7 +40,7 @@ export LOG_LEVEL=${LOG_LEVEL:-"-vvvv"}
 # Parameterize block gas limit
 export BLOCK_GAS_LIMIT=${BLOCK_GAS_LIMIT:-200000000}
 
-forge script ./script/layer1/surge/SetupSurgeL2.s.sol:SetupSurgeL2 \
+forge script ./script/layer2/surge/SetupSurgeL2.s.sol:SetupSurgeL2 \
     --fork-url $FORK_URL \
     $BROADCAST_ARG \
     --ffi \
