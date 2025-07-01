@@ -883,11 +883,20 @@ func (s *PreconfBlockAPIServer) recordLatestSeenProposal(proposal *encoding.Last
 
 	// If the latest seen proposal is reorged, reset the highest unsafe L2 payload block ID.
 	if s.latestSeenProposal.PreconfChainReorged {
-		s.highestUnsafeL2PayloadBlockID = proposal.Pacaya().GetLastBlockID()
+		head, err := s.rpc.L2.HeaderByNumber(context.Background(), nil)
+		if err != nil && !errors.Is(err, ethereum.NotFound) {
+			log.Warn("Failed to fetch head header", "error", err)
+			return
+		}
+
+		// set highestUnsafeL2PayloadBlock to the head, not the proposal.Pacaya.GetLastBlockID(),
+		// to ensure geth actually updated the head state.
+		s.highestUnsafeL2PayloadBlockID = head.Number.Uint64()
 		log.Info(
 			"Latest block ID seen in event is reorged, reset the highest unsafe L2 payload block ID",
 			"batchID", proposal.Pacaya().GetBatchID(),
 			"lastBlockID", s.highestUnsafeL2PayloadBlockID,
+			"chainhead", head.Number.Uint64(),
 			"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 		)
 		metrics.DriverReorgsByProposalCounter.Inc()
