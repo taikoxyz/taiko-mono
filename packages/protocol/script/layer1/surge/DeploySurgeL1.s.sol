@@ -183,6 +183,8 @@ contract DeploySurgeL1 is DeployCapability {
             l1Owner = deployTimelockController();
         }
 
+        console2.log("** L1 owner: ", l1Owner);
+
         // Deploy shared contracts
         // ---------------------------------------------------------------
         SharedContracts memory sharedContracts = deploySharedContracts(l1Owner);
@@ -466,6 +468,7 @@ contract DeploySurgeL1 is DeployCapability {
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier verifier =
             new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+        console2.log("** Deployed Risc0 groth16 verifier: ", address(verifier));
 
         risc0Verifier = deployProxy({
             name: "risc0_reth_verifier",
@@ -477,6 +480,7 @@ contract DeploySurgeL1 is DeployCapability {
 
         // Deploy sp1 plonk verifier
         SuccinctVerifier succinctVerifier = new SuccinctVerifier();
+        console2.log("** Deployed SP1 remote verifier: ", address(succinctVerifier));
 
         sp1Verifier = deployProxy({
             name: "sp1_reth_verifier",
