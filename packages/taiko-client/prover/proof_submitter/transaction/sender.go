@@ -55,6 +55,17 @@ func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchPro
 	// Send the transaction.
 	txMgr, isPrivate := s.txmgrSelector.Select()
 	var receipt *types.Receipt
+
+	log.Debug("About to send TxCandidate",
+		"to", txCandidate.To.Hex(),
+		"gasLimit", txCandidate.GasLimit,
+		"value", txCandidate.Value,
+		"dataLength", len(txCandidate.TxData),
+		"from", txMgr.From().Hex(),
+		"isPrivate", isPrivate,
+		"proofType", batchProof.ProofType,
+	)
+
 	if err = backoff.Retry(
 		func() error {
 			var err error
@@ -66,6 +77,13 @@ func (s *Sender) SendBatchProof(ctx context.Context, buildTx TxBuilder, batchPro
 			ctx,
 		),
 	); err != nil {
+		log.Error("txMgr.Send failed",
+			"to", txCandidate.To.Hex(),
+			"gasLimit", txCandidate.GasLimit,
+			"dataLength", len(txCandidate.TxData),
+			"error", err,
+			"proofType", batchProof.ProofType,
+		)
 		if isPrivate {
 			s.txmgrSelector.RecordPrivateTxMgrFailed()
 		}

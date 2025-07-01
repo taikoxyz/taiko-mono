@@ -56,9 +56,8 @@ func (s *ComposeProofProducer) RequestProof(
 	}
 
 	log.Info(
-		"Request proof from raiko-host service",
+		"Request SGX + ZK proofs from raiko-host service",
 		"batchID", batchID,
-		"proofType", s.ProofType,
 		"coinbase", meta.Pacaya().GetCoinbase(),
 		"time", time.Since(requestAt),
 	)
@@ -284,6 +283,17 @@ func (s *ComposeProofProducer) requestBatchProof(
 		endpoint = s.RaikoSGXHostEndpoint
 	}
 
+	log.Debug(
+		"Making HTTP request to raiko",
+		"endpoint", endpoint+"/v3/proof/batch",
+		"request", RaikoRequestProofBodyV3Pacaya{
+			Type:      proofType,
+			Batches:   batches,
+			Prover:    proverAddress.Hex()[2:],
+			Aggregate: isAggregation,
+		},
+	)
+
 	output, err := requestHTTPProof[RaikoRequestProofBodyV3Pacaya, RaikoRequestProofBodyResponseV2](
 		ctx,
 		endpoint+"/v3/proof/batch",
@@ -296,6 +306,17 @@ func (s *ComposeProofProducer) requestBatchProof(
 		},
 	)
 	if err != nil {
+		log.Debug(
+			"Error making HTTP request to raiko",
+			"endpoint", endpoint+"/v3/proof/batch",
+			"request", RaikoRequestProofBodyV3Pacaya{
+				Type:      proofType,
+				Batches:   batches,
+				Prover:    proverAddress.Hex()[2:],
+				Aggregate: isAggregation,
+			},
+			"error", err,
+		)
 		return nil, err
 	}
 

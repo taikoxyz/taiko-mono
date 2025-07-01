@@ -176,7 +176,8 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 					// If zk proof is not drawn
 					log.Debug("ZK proof was not chosen for some reason, check raiko host", "batchID", opts.BatchID)
 				}
-				return fmt.Errorf("failed to request zk proof, error: %w", err)
+				log.Debug("Failed to request SGX + ZK proofs, retrying", "batchID", opts.BatchID, "error", err)
+				return fmt.Errorf("failed to request sgx + zk proofs, error: %w", err)
 			}
 
 			// Try to add the proof to the buffer.

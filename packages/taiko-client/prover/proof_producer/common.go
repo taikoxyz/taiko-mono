@@ -82,7 +82,11 @@ func requestHTTPProof[T, U any](ctx context.Context, url string, jwt string, req
 		return nil, err
 	}
 
-	log.Debug("Proof generation output", "url", url, "output", string(resBytes))
+	outputStr := string(resBytes)
+	if len(outputStr) > 1000 {
+		outputStr = outputStr[:1000] + "... (truncated)"
+	}
+	log.Debug("Proof generation output", "url", url, "output", outputStr)
 	var output U
 	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err

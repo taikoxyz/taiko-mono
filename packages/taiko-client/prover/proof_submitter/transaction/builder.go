@@ -69,6 +69,7 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 				"endBlockID", proof.Opts.PacayaOptions().Headers[len(proof.Opts.PacayaOptions().Headers)-1].Number,
 				"gasLimit", txOpts.GasLimit,
 				"verifier", batchProof.Verifier,
+				"sgxVerifier", batchProof.SgxProofVerifier,
 			)
 		}
 		if bytes.Compare(batchProof.Verifier.Bytes(), batchProof.SgxProofVerifier.Bytes()) < 0 {
@@ -91,7 +92,15 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 			}
 		}
 
-		input, err := encoding.EncodeProveBatchesInput(metas, transitions)
+		combinedProofType := subProofs[0].ProofType + subProofs[1].ProofType
+		log.Debug(
+			"Combined proof type details",
+			"subProof0Type", subProofs[0].ProofType,
+			"subProof1Type", subProofs[1].ProofType,
+			"combinedProofType", combinedProofType,
+		)
+
+		input, err := encoding.EncodeProveBatchesInput(combinedProofType, metas, transitions)
 		if err != nil {
 			return nil, err
 		}
@@ -111,6 +120,23 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 			}
 			to = a.taikoInboxAddress
 		}
+
+		log.Debug("Transaction data being sent",
+			"to", to.Hex(),
+			"dataLength", len(data),
+			"dataHex", common.Bytes2Hex(data),
+			"gasLimit", txOpts.GasLimit,
+			"value", txOpts.Value,
+			"subProof0Type", subProofs[0].ProofType,
+			"subProof0Length", len(subProofs[0].Proof),
+			"subProof0Hex", common.Bytes2Hex(subProofs[0].Proof),
+			"subProof1Type", subProofs[1].ProofType,
+			"subProof1Length", len(subProofs[1].Proof),
+			"subProof1Hex", common.Bytes2Hex(subProofs[1].Proof),
+			"zkProofType", batchProof.ProofType,
+			"zkBatchProofLength", len(batchProof.BatchProof),
+			"sgxBatchProofLength", len(batchProof.SgxBatchProof),
+		)
 
 		return &txmgr.TxCandidate{
 			TxData:   data,

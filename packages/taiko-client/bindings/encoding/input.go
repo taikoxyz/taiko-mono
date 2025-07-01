@@ -73,7 +73,9 @@ var (
 	SubProofsComponentsArrayArgs          = abi.Arguments{
 		{Name: "SurgeVerifier.SubProof[]", Type: SubProofsComponentsArrayType},
 	}
+	uint16Type, _         = abi.NewType("uint16", "", nil)
 	ProveBatchesInputArgs = abi.Arguments{
+		{Name: "LibProofType.ProofType", Type: uint16Type},
 		{Name: "ITaikoInbox.BlockMetadata[]", Type: BatchMetaDataComponentsArrayType},
 		{Name: "TaikoData.Transition[]", Type: BatchTransitionComponentsArrayType},
 	}
@@ -248,6 +250,7 @@ func EncodeBatchesSubProofs(subProofs []SubProof) ([]byte, error) {
 
 // EncodeProveBatchesInput performs the solidity `abi.encode` for the given TaikoInbox.proveBatches input.
 func EncodeProveBatchesInput(
+	proofType uint16,
 	metas []metadata.TaikoProposalMetaData,
 	transitions []pacayaBindings.ITaikoInboxTransition,
 ) ([]byte, error) {
@@ -263,7 +266,7 @@ func EncodeProveBatchesInput(
 			ProposedAt: metas[i].Pacaya().GetProposedAt(),
 		})
 	}
-	input, err := ProveBatchesInputArgs.Pack(pacayaMetas, transitions)
+	input, err := ProveBatchesInputArgs.Pack(proofType, pacayaMetas, transitions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode TaikoInbox.proveBatches input item after pacaya fork, %w", err)
 	}
