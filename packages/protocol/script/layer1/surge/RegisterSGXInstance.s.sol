@@ -21,9 +21,9 @@ contract RegisterSGXInstance is Script {
 
     // SGX configuration
     // ---------------------------------------------------------------------------------------------
-    address public automataProxy = vm.envAddress("AUTOMATA_PROXY");
+    address public automataDcapAttestation = vm.envAddress("AUTOMATA_DCAP_ATTESTATION");
     address public sgxRethVerifier = vm.envAddress("SGX_RETH_VERIFIER");
-    address public pemCertChainLibAddr = vm.envAddress("PEM_CERT_CHAIN_LIB_ADDR");
+    address public pemCertChainLib = vm.envAddress("PEM_CERT_CHAIN_LIB");
     bytes32 public mrEnclave = vm.envBytes32("MR_ENCLAVE");
     bytes32 public mrSigner = vm.envBytes32("MR_SIGNER");
 
@@ -35,7 +35,7 @@ contract RegisterSGXInstance is Script {
     }
 
     function run() external broadcast {
-        AutomataDcapV3Attestation automataAttestation = AutomataDcapV3Attestation(automataProxy);
+        AutomataDcapV3Attestation automataAttestation = AutomataDcapV3Attestation(automataDcapAttestation);
 
         // Set MR Enclave if provided
         if (mrEnclave != bytes32(0)) {
@@ -76,7 +76,7 @@ contract RegisterSGXInstance is Script {
         bytes memory v3QuoteBytes = vm.envBytes("V3_QUOTE_BYTES");
         if (v3QuoteBytes.length > 0) {
             V3Struct.ParsedV3QuoteStruct memory v3quote =
-                AttestationLib.parseV3QuoteBytes(pemCertChainLibAddr, v3QuoteBytes);
+                AttestationLib.parseV3QuoteBytes(pemCertChainLib, v3QuoteBytes);
             SgxVerifier(sgxRethVerifier).registerInstance(v3quote);
             console2.log("** SGX instance registered with quote");
         }
