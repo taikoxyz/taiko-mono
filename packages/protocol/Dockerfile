@@ -14,8 +14,7 @@ RUN git init && \
     forge install && \
     pnpm install
 
-RUN chmod +x /app/script/layer1/surge/deploy_surge_l1.sh && \
-    chmod +x /app/script/layer2/surge/setup_surge_l2.sh
+RUN find /app/script -type f -name "*.sh" -exec chmod +x {} \;
 
 ENV PATH="/root/.foundry/bin:$PATH"
 
