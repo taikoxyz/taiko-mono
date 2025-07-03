@@ -30,24 +30,24 @@ contract DeployHeklaPreconf is DeployCapability {
         address signalService = 0x6Fc2fe9D9dd0251ec5E0727e826Afbb0Db2CBe0D;
         address oldFork = 0x6e15d2049480C7E339C6B398774166e1ddbCd43e;
 
-        address whitelist = deployProxy({
-            name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (address(0), 2, 2)),
-            registerTo: rollupResolver
-        });
-
-        address router = deployProxy({
-            name: "preconf_router",
-            impl: address(new PreconfRouter(taikoWrapper, whitelist, fallbackPreconfProposer)),
-            data: abi.encodeCall(PreconfRouter.init, (address(0))),
-            registerTo: rollupResolver
-        });
-        address wrapper = address(new TaikoWrapper(taikoInbox, store, router));
-        console2.log("taikoWrapper: ", wrapper);
+//        address whitelist = deployProxy({
+//            name: "preconf_whitelist",
+//            impl: address(new PreconfWhitelist()),
+//            data: abi.encodeCall(PreconfWhitelist.init, (address(0), 2, 2)),
+//            registerTo: rollupResolver
+//        });
+//
+//        address router = deployProxy({
+//            name: "preconf_router",
+//            impl: address(new PreconfRouter(taikoWrapper, whitelist, fallbackPreconfProposer)),
+//            data: abi.encodeCall(PreconfRouter.init, (address(0))),
+//            registerTo: rollupResolver
+//        });
+//        address wrapper = address(new TaikoWrapper(taikoInbox, store, router));
+//        console2.log("taikoWrapper: ", wrapper);
         address newFork =
             address(new HeklaInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
         address newRouter = address(new PacayaForkRouter(oldFork, newFork));
-        console2.log("newRouterImpl: ", newRouter);
+        UUPSUpgradeable(taikoInbox).upgradeTo(newRouter);
     }
 }
