@@ -4,16 +4,28 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "./LibBatchValidation.sol";
+import "./LibDataUtils.sol";
 
 /// @title LibProverValidation
-/// @notice This library is used to validate the prover authentication.
+/// @notice Library for validating prover authentication
 /// @custom:security-contact security@taiko.xyz
 library LibProverValidation {
     using SignatureChecker for address;
 
+    // -------------------------------------------------------------------------
+    // Internal Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Validates the prover and handles bond management
+    /// @param _conf The configuration
+    /// @param _rw Read/write access functions
+    /// @param _summary The current summary
+    /// @param _proverAuth The prover authentication data
+    /// @param _batch The batch being proved
+    /// @return prover_ The validated prover address
     function validateProver(
         I.Config memory _conf,
-        LibReadWrite.RW memory _rw,
+        LibDataUtils.ReadWrite memory _rw,
         I.Summary memory _summary,
         bytes memory _proverAuth,
         I.Batch memory _batch
@@ -63,13 +75,25 @@ library LibProverValidation {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Validates the prover authentication signature
+    /// @param _chainId The chain ID
+    /// @param _batchId The batch ID
+    /// @param _batchParamsHash The hash of batch parameters
+    /// @param _proverAuth The prover authentication data
+    /// @return prover_ The prover address
+    /// @return feeToken_ The fee token address
+    /// @return fee_ The fee amount
     function _validateProverAuth(
         uint64 _chainId,
         uint64 _batchId,
         bytes32 _batchParamsHash,
         bytes memory _proverAuth
     )
-        internal
+        private
         view
         returns (address prover_, address feeToken_, uint96 fee_)
     {
@@ -93,6 +117,11 @@ library LibProverValidation {
         return (auth.prover, auth.feeToken, auth.fee);
     }
 
+    /// @notice Computes the digest for prover authentication
+    /// @param _chainId The chain ID
+    /// @param _batchParamsHash The hash of batch parameters
+    /// @param _auth The prover authentication data
+    /// @return The computed digest
     function _computeProverAuthDigest(
         uint64 _chainId,
         bytes32 _batchParamsHash,
@@ -106,11 +135,25 @@ library LibProverValidation {
         return keccak256(abi.encode("PROVER_AUTHENTICATION", _chainId, _batchParamsHash, _auth));
     }
 
-    // --- ERRORs --------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Errors
+    // -------------------------------------------------------------------------
+
+    /// @notice Thrown when Ether is used as fee token (not supported yet)
     error EtherAsFeeTokenNotSupportedYet();
+
+    /// @notice Thrown when the batch ID in the auth doesn't match
     error InvalidBatchId();
+
+    /// @notice Thrown when the prover address is invalid (zero)
     error InvalidProver();
+
+    /// @notice Thrown when the signature is invalid
     error InvalidSignature();
+
+    /// @notice Thrown when the validity period has expired
     error InvalidValidUntil();
+
+    /// @notice Thrown when signature field is not empty when it should be
     error SignatureNotEmpty();
 }

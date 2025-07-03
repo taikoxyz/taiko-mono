@@ -7,10 +7,19 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "../IBondManager2.sol";
 
 /// @title LibBondManagement
+/// @notice Library for managing bonds in the Taiko protocol
 /// @custom:security-contact security@taiko.xyz
 library LibBondManagement {
     using SafeERC20 for IERC20;
 
+    // -------------------------------------------------------------------------
+    // Public Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Withdraws bond from the user's balance
+    /// @param $ The state storage
+    /// @param _bondToken The bond token address (0 for ETH)
+    /// @param _amount The amount to withdraw
     function withdrawBond(
         I.State storage $,
         address _bondToken,
@@ -32,6 +41,15 @@ library LibBondManagement {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Internal Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Deposits bond from a user
+    /// @param _bondToken The bond token address (0 for ETH)
+    /// @param _user The user depositing the bond
+    /// @param _amount The amount to deposit
+    /// @return amountDeposited_ The actual amount deposited
     function depositBond(
         address _bondToken,
         address _user,
@@ -53,6 +71,11 @@ library LibBondManagement {
         emit IBondManager2.BondDeposited(_user, amountDeposited_);
     }
 
+    /// @notice Debits bond from a user's balance
+    /// @param $ The state storage
+    /// @param _bondToken The bond token address (0 for ETH)
+    /// @param _user The user whose bond is being debited
+    /// @param _amount The amount to debit
     function debitBond(
         I.State storage $,
         address _bondToken,
@@ -78,6 +101,10 @@ library LibBondManagement {
         emit IBondManager2.BondDebited(_user, _amount);
     }
 
+    /// @notice Credits bond to a user's balance
+    /// @param $ The state storage
+    /// @param _user The user receiving the credit
+    /// @param _amount The amount to credit
     function creditBond(I.State storage $, address _user, uint256 _amount) internal {
         if (_amount == 0) return;
         unchecked {
@@ -86,8 +113,16 @@ library LibBondManagement {
         emit IBondManager2.BondCredited(_user, _amount);
     }
 
-    // --- ERRORs --------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Errors
+    // -------------------------------------------------------------------------
+
+    /// @notice Thrown when Ether is not paid as bond when required
     error EtherNotPaidAsBond();
+
+    /// @notice Thrown when the user has insufficient bond balance
     error InsufficientBond();
+
+    /// @notice Thrown when msg.value is not zero for ERC20 bond operations
     error MsgValueNotZero();
 }

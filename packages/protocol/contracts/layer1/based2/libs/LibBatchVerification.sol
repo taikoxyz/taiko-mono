@@ -6,17 +6,31 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "./LibBondManagement.sol";
 import "./LibForks.sol";
 import "./LibBatchProposal.sol";
+import "./LibDataUtils.sol";
+import "./LibStorage.sol";
 
 /// @title LibBatchVerification
+/// @notice Library for batch verification functionality
 /// @custom:security-contact security@taiko.xyz
 library LibBatchVerification {
     using LibMath for uint256;
     using LibStorage for I.State;
 
+    // -------------------------------------------------------------------------
+    // Internal Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Verifies multiple batches and updates the summary
+    /// @param $ The state storage
+    /// @param _conf The configuration
+    /// @param _rw Read/write access functions
+    /// @param _summary The current summary
+    /// @param _trans The transition metadata array
+    /// @return The updated summary
     function verifyBatches(
         I.State storage $,
         I.Config memory _conf,
-        LibReadWrite.RW memory _rw,
+        LibDataUtils.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans
     )
@@ -73,6 +87,15 @@ library LibBatchVerification {
         return _summary;
     }
 
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Calculates the bond amount to return to the prover
+    /// @param _conf The configuration
+    /// @param _tran The transition metadata
+    /// @param _isFirstTransition Whether this is the first transition
+    /// @return The bond amount to credit to the prover
     function _calcBondToProver(
         I.Config memory _conf,
         I.TransitionMeta memory _tran,
@@ -84,30 +107,36 @@ library LibBatchVerification {
     {
         unchecked {
             if (_tran.proofTiming == I.ProofTiming.InProvingWindow) {
-                // all liveness bond is returned to the prover, this is not a reward.
+                // All liveness bond is returned to the prover, this is not a reward
                 return _isFirstTransition
                     ? _tran.livenessBond + _tran.provabilityBond
                     : _tran.livenessBond;
             }
 
             if (_tran.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
-                // prover is rewarded with bondRewardPtcg% of the liveness bond.
-                uint96 amount = _tran.livenessBond * _conf.bondRewardPtcg / 100;
+                // Prover is rewarded with bondRewardPtcg% of the liveness bond
+                uint96 amount = (_tran.livenessBond * _conf.bondRewardPtcg) / 100;
                 return _isFirstTransition ? amount + _tran.provabilityBond : amount;
             }
 
             if (_tran.byAssignedProver) {
                 // The assigned prover gets back his liveness bond, and 100% provability
-                // bond. This allows him to user a higher gas price to submit his proof first.
+                // bond. This allows him to use a higher gas price to submit his proof first
                 return _tran.provabilityBond;
             }
 
-            // Other prover get bondRewardPtcg% of the provability bond.
-            return _tran.provabilityBond * _conf.bondRewardPtcg / 100;
+            // Other provers get bondRewardPtcg% of the provability bond
+            return (_tran.provabilityBond * _conf.bondRewardPtcg) / 100;
         }
     }
 
-    // --- ERRORs --------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Errors
+    // -------------------------------------------------------------------------
+
+    /// @notice Thrown when a transition is not provided
     error TransitionNotProvided();
+
+    /// @notice Thrown when the transition metadata doesn't match
     error TransitionMetaMismatch();
 }

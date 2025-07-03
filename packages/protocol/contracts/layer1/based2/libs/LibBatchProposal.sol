@@ -14,10 +14,14 @@ import "./LibStorage.sol";
 library LibBatchProposal {
     using LibStorage for I.State;
 
+    // -------------------------------------------------------------------------
+    // Internal Functions
+    // -------------------------------------------------------------------------
+
     function proposeBatches(
         I.State storage $,
         I.Config memory _conf,
-        LibReadWrite.RW memory _rw,
+        LibDataUtils.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.Batch[] memory _batch,
         I.BatchProposeMetadataEvidence memory _evidence
@@ -40,11 +44,12 @@ library LibBatchProposal {
             );
 
             I.BatchProposeMetadata memory parent = _evidence.proposeMeta;
+
             for (uint256 i; i < _batch.length; ++i) {
                 I.BatchMetadata memory meta =
                     _proposeBatch($, _conf, _rw, _summary, _batch[i], parent);
-                parent = meta.proposeMeta;
 
+                parent = meta.proposeMeta;
                 _summary.numBatches += 1;
             }
 
@@ -52,10 +57,14 @@ library LibBatchProposal {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
+
     function _proposeBatch(
         I.State storage $,
         I.Config memory _conf,
-        LibReadWrite.RW memory _rw,
+        LibDataUtils.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.Batch memory _batch,
         I.BatchProposeMetadata memory _parent
@@ -87,6 +96,7 @@ library LibBatchProposal {
         view
         returns (I.BatchMetadata memory meta_)
     {
+        // Build metadata
         meta_.buildMeta = I.BatchBuildMetadata({
             txsHash: _output.txsHash,
             blobHashes: _output.blobHashes,
@@ -105,12 +115,14 @@ library LibBatchProposal {
             baseFeeConfig: _conf.baseFeeConfig
         });
 
+        // Propose metadata
         meta_.proposeMeta = I.BatchProposeMetadata({
             lastBlockTimestamp: _batch.lastBlockTimestamp,
             lastBlockId: meta_.buildMeta.lastBlockId,
             lastAnchorBlockId: _output.lastAnchorBlockId
         });
 
+        // Prove metadata
         meta_.proveMeta = I.BatchProveMetadata({
             proposer: _output.proposer,
             prover: _output.prover,
@@ -122,21 +134,30 @@ library LibBatchProposal {
         });
     }
 
-    // --- ERRORs --------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Errors
+    // -------------------------------------------------------------------------
 
+    // Batch validation errors
+    error NoBatchesToPropose();
+    error TooManyBatches();
+    error MetaHashNotMatch();
+
+    // Anchor block errors
     error AnchorIdSmallerThanParent();
     error AnchorIdTooSmall();
     error AnchorIdZero();
-    error BlobNotFound();
-    error BlocksNotInCurrentFork();
-    error FirstBlockTimeShiftNotZero();
-    error MetaHashNotMatch();
     error NoAnchorBlockIdWithinThisBatch();
-    error NoBatchesToPropose();
-    error SignalNotSent();
+    error ZeroAnchorBlockHash();
+
+    // Timestamp errors
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
     error TimestampTooSmall();
-    error TooManyBatches();
-    error ZeroAnchorBlockHash();
+    error FirstBlockTimeShiftNotZero();
+
+    // Other errors
+    error BlobNotFound();
+    error BlocksNotInCurrentFork();
+    error SignalNotSent();
 }

@@ -5,19 +5,31 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibMath.sol";
 import "./LibBondManagement.sol";
 import "./LibForks.sol";
-import "./LibReadWrite.sol";
+import "./LibDataUtils.sol";
 import "./LibStorage.sol";
 
 /// @title LibBatchProving
+/// @notice Library for batch proving functionality
 /// @custom:security-contact security@taiko.xyz
 library LibBatchProving {
     using LibMath for uint256;
     using LibStorage for I.State;
 
+    // -------------------------------------------------------------------------
+    // Internal Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Proves multiple batches
+    /// @param $ The state storage
+    /// @param _conf The configuration
+    /// @param _rw Read/write access functions
+    /// @param _summary The current summary
+    /// @param _evidences The batch prove inputs
+    /// @return The updated summary and aggregated batch hash
     function proveBatches(
         I.State storage $,
         I.Config memory _conf,
-        LibReadWrite.RW memory _rw,
+        LibDataUtils.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.BatchProveInput[] calldata _evidences
     )
@@ -40,10 +52,21 @@ library LibBatchProving {
         return (_summary, aggregatedBatchHash);
     }
 
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Proves a single batch
+    /// @param $ The state storage
+    /// @param _conf The configuration
+    /// @param _rw Read/write access functions
+    /// @param _summary The current summary
+    /// @param _input The batch prove input
+    /// @return The context hash for this batch
     function _proveBatch(
         I.State storage $,
         I.Config memory _conf,
-        LibReadWrite.RW memory _rw,
+        LibDataUtils.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.BatchProveInput calldata _input
     )
@@ -55,8 +78,7 @@ library LibBatchProving {
         require(_input.tran.parentHash != 0, InvalidtranParentHash());
 
         // During batch proposal, we've ensured that its blocks won't cross fork boundaries.
-        // Hence, we only need to verify        the firstBlockId of the block in the following
-        // check.
+        // Hence, we only need to verify the firstBlockId of the block in the following check.
         require(
             LibForks.isBlocksInCurrentFork(
                 _conf, _input.proveMeta.firstBlockId, _input.proveMeta.firstBlockId
@@ -107,7 +129,12 @@ library LibBatchProving {
         return keccak256(abi.encode(batchMetaHash, _input.tran));
     }
 
-    /// @dev Decides which time window we are in and who should be recorded as the prover.
+    /// @notice Determines the proof timing and prover based on the current timestamp
+    /// @param _conf The configuration
+    /// @param _assignedProver The originally assigned prover
+    /// @param _proposedAt The timestamp when the batch was proposed
+    /// @return timing_ The proof timing category
+    /// @return prover_ The address to be recorded as the prover
     function _determineProofTiming(
         I.Config memory _conf,
         address _assignedProver,
@@ -128,6 +155,9 @@ library LibBatchProving {
         }
     }
 
+    /// @notice Validates the batch prove metadata against the stored hash
+    /// @param _batchMetaHash The stored batch metadata hash
+    /// @param _input The batch prove input containing metadata to validate
     function _validateBatchProveMeta(
         bytes32 _batchMetaHash,
         I.BatchProveInput calldata _input
@@ -142,11 +172,25 @@ library LibBatchProving {
         require(_batchMetaHash == metaHash, MetaHashNotMatch());
     }
 
-    // --- ERRORs --------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // Errors
+    // -------------------------------------------------------------------------
+
+    /// @notice Thrown when the batch is not found
     error BatchNotFound();
+
+    /// @notice Thrown when blocks are not in the current fork
     error BlocksNotInCurrentFork();
+
+    /// @notice Thrown when the transition parent hash is invalid
     error InvalidtranParentHash();
+
+    /// @notice Thrown when the metadata hash doesn't match
     error MetaHashNotMatch();
+
+    /// @notice Thrown when there are no blocks to prove
     error NoBlocksToProve();
+
+    /// @notice Thrown when too many batches are being proved at once
     error TooManyBatchesToProve();
 }

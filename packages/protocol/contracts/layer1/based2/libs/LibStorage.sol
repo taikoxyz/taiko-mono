@@ -3,7 +3,18 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
+/// @title LibStorage
+/// @notice Library for managing storage operations for batches and transitions
+/// @custom:security-contact security@taiko.xyz
 library LibStorage {
+    // -------------------------------------------------------------------------
+    // Internal Functions
+    // -------------------------------------------------------------------------
+    /// @notice Saves a batch metadata hash to storage
+    /// @param $ The state storage
+    /// @param _conf The configuration
+    /// @param _batchId The batch ID
+    /// @param _metaHash The metadata hash to save
     function saveBatchMetaHash(
         I.State storage $,
         I.Config memory _conf,
@@ -15,6 +26,11 @@ library LibStorage {
         $.batches[_batchId % _conf.batchRingBufferSize] = _metaHash;
     }
 
+    /// @notice Loads a batch metadata hash from storage
+    /// @param $ The state storage
+    /// @param _conf The configuration
+    /// @param _batchId The batch ID
+    /// @return The batch metadata hash
     function loadBatchMetaHash(
         I.State storage $,
         I.Config memory _conf,
@@ -27,6 +43,13 @@ library LibStorage {
         return $.batches[_batchId % _conf.batchRingBufferSize];
     }
 
+    /// @notice Loads a transition metadata hash from storage
+    /// @param $ The state storage
+    /// @param _conf The configuration
+    /// @param _lastVerifiedBlockHash The last verified block hash
+    /// @param _batchId The batch ID
+    /// @return metaHash_ The transition metadata hash
+    /// @return isFirstTransition_ Whether this is the first transition
     function loadTransitionMetaHash(
         I.State storage $,
         I.Config memory _conf,
@@ -51,6 +74,13 @@ library LibStorage {
         }
     }
 
+    /// @notice Saves a transition to storage
+    /// @param $ The state storage
+    /// @param _conf The configuration
+    /// @param _batchId The batch ID
+    /// @param _parentHash The parent hash
+    /// @param _tranMetahash The transition metadata hash
+    /// @return isFirstTransition_ Whether this is the first transition
     function saveTransition(
         I.State storage $,
         I.Config memory _conf,
@@ -75,7 +105,7 @@ library LibStorage {
             // This is the very first transition of the batch, or a transition with the same parent
             // hash. We can reuse the transition $ slot to reduce gas cost.
             $.transitions[slot][1].batchIdAndPartialParentHash =
-                uint256(partialParentHash) & ~type(uint48).max | _batchId;
+                (uint256(partialParentHash) & ~type(uint48).max) | _batchId;
 
             // SSTORE
             $.transitions[slot][1].metaHash = _tranMetahash; // 1 SSTORE
@@ -90,6 +120,15 @@ library LibStorage {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Loads batch ID and partial parent hash from storage
+    /// @param $ The state storage
+    /// @param _slot The storage slot
+    /// @return embededBatchId_ The embedded batch ID
+    /// @return partialParentHash_ The partial parent hash
     function _loadBatchIdAndPartialParentHash(
         I.State storage $,
         uint256 _slot

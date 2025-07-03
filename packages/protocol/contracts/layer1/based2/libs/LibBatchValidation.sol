@@ -4,9 +4,13 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./LibForks.sol";
-import "./LibReadWrite.sol";
+import "./LibDataUtils.sol";
 
 library LibBatchValidation {
+    // -------------------------------------------------------------------------
+    // Structs
+    // -------------------------------------------------------------------------
+
     struct ValidationOutput {
         bytes32 txsHash;
         bytes32[] blobHashes;
@@ -21,9 +25,13 @@ library LibBatchValidation {
         uint48 blobsCreatedIn;
     }
 
+    // -------------------------------------------------------------------------
+    // Internal Functions
+    // -------------------------------------------------------------------------
+
     function validateBatch(
         I.Config memory _conf,
-        LibReadWrite.RW memory _rw,
+        LibDataUtils.ReadWrite memory _rw,
         I.Batch memory _batch,
         I.BatchProposeMetadata memory _parentProposeMeta
     )
@@ -31,24 +39,38 @@ library LibBatchValidation {
         view
         returns (ValidationOutput memory output_)
     {
+        // Validate proposer and coinbase
         (output_.proposer, output_.coinbase) = _validateProposerCoinbase(_conf, _batch);
+
+        // Validate and decode blocks
         I.Block[] memory blocks = _validateBlocks(_conf, _batch);
 
+        // Validate timestamps
         _validateTimestamps(_conf, _batch, blocks, _parentProposeMeta.lastBlockTimestamp);
+
+        // Validate signals
         _validateSignals(_conf, _rw, blocks, _batch.signalSlots);
 
+        // Validate anchors
         (output_.anchorBlockHashes, output_.lastAnchorBlockId) =
             _validateAnchors(_conf, _rw, _batch, blocks, _parentProposeMeta.lastAnchorBlockId);
 
+        // Validate block range
         (output_.firstBlockId, output_.lastBlockId) =
             _validateBlockRange(_conf, blocks.length, _parentProposeMeta.lastBlockId);
 
+        // Validate blobs
         output_.blobsCreatedIn = _validateBlobs(_conf, _batch);
 
+        // Calculate transaction hash
         (output_.txsHash, output_.blobHashes) = _calculateTxsHash(_rw, _batch.blobs);
 
         output_.blocks = blocks;
     }
+
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
 
     function _validateProposerCoinbase(
         I.Config memory _conf,
@@ -85,10 +107,12 @@ library LibBatchValidation {
         blocks_ = new I.Block[](nBlocks_);
 
         for (uint256 i; i < nBlocks_; ++i) {
-            blocks_[i].numTransactions = uint16(uint256(_batch.encodedBlocks[i]));
-            blocks_[i].timeShift = uint8(uint256(_batch.encodedBlocks[i]) >> 16);
-            blocks_[i].anchorBlockId = uint48(uint256(_batch.encodedBlocks[i]) >> 24);
-            blocks_[i].numSignals = uint8(uint256(_batch.encodedBlocks[i]) >> 32 & 0xFF);
+            uint256 encoded = uint256(_batch.encodedBlocks[i]);
+
+            blocks_[i].numTransactions = uint16(encoded);
+            blocks_[i].timeShift = uint8(encoded >> 16);
+            blocks_[i].anchorBlockId = uint48(encoded >> 24);
+            blocks_[i].numSignals = uint8(encoded >> 32 & 0xFF);
         }
     }
 
@@ -128,7 +152,7 @@ library LibBatchValidation {
 
     function _validateSignals(
         I.Config memory _conf,
-        LibReadWrite.RW memory _rw,
+        LibDataUtils.ReadWrite memory _rw,
         I.Block[] memory _blocks,
         bytes32[] memory _signalSlots
     )
@@ -137,6 +161,7 @@ library LibBatchValidation {
     {
         unchecked {
             uint256 k;
+
             for (uint256 i; i < _blocks.length; ++i) {
                 if (_blocks[i].numSignals == 0) continue;
 
@@ -151,7 +176,7 @@ library LibBatchValidation {
 
     function _validateAnchors(
         I.Config memory _conf,
-        LibReadWrite.RW memory _rw,
+        LibDataUtils.ReadWrite memory _rw,
         I.Batch memory _batch,
         I.Block[] memory _blocks,
         uint48 _parentLastAnchorBlockId
@@ -162,9 +187,10 @@ library LibBatchValidation {
     {
         anchorBlockHashes_ = new bytes32[](_blocks.length);
         lastAnchorBlockId_ = _parentLastAnchorBlockId;
-        uint256 k;
 
+        uint256 k;
         bool anchorFound;
+
         for (uint256 i; i < _blocks.length; ++i) {
             if (!_blocks[i].hasAnchor) continue;
 
@@ -216,7 +242,6 @@ library LibBatchValidation {
         );
     }
 
-    // TODO: redefine blobs related parameters
     function _validateBlobs(
         I.Config memory _conf,
         I.Batch memory _batch
@@ -248,7 +273,7 @@ library LibBatchValidation {
     }
 
     function _calculateTxsHash(
-        LibReadWrite.RW memory _rw,
+        LibDataUtils.ReadWrite memory _rw,
         I.Blobs memory _blobs
     )
         private
@@ -268,33 +293,48 @@ library LibBatchValidation {
             for (uint256 i; i < blobHashes_.length; ++i) {
                 require(blobHashes_[i] != 0, BlobNotFound());
             }
+
             txsHash_ = keccak256(abi.encode(blobHashes_));
         }
     }
-    // --- ERRORs --------------------------------------------------------------------------------
 
-    error AnchorIdSmallerThanParent();
-    error AnchorIdTooSmall();
-    error AnchorIdZero();
-    error BlobNotFound();
-    error BlobNotSpecified();
-    error BlockNotFound();
-    error BlocksNotInCurrentFork();
+    // -------------------------------------------------------------------------
+    // Errors
+    // -------------------------------------------------------------------------
+
+    // Proposer and wrapper errors
+    error NotInboxWrapper();
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
+
+    // Block validation errors
+    error BlockNotFound();
+    error TooManyBlocks();
+    error BlocksNotInCurrentFork();
     error FirstBlockTimeShiftNotZero();
-    error InvalidBlobCreatedIn();
-    error InvalidBlobParams();
-    error InvalidForcedInclusion();
+
+    // Timestamp errors
     error LastBlockTimestampNotSet();
-    error NotEnoughAnchorIds();
-    error NotInboxWrapper();
-    error SignalNotSent();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
     error TimestampTooSmall();
-    error TooManyBlocks();
-    error TooManySignals();
-    error ZeroAnchorBlockHash();
+
+    // Anchor block errors
+    error AnchorIdSmallerThanParent();
+    error AnchorIdTooSmall();
+    error AnchorIdZero();
+    error NotEnoughAnchorIds();
     error NoAnchorBlockIdWithinThisBatch();
+    error ZeroAnchorBlockHash();
+
+    // Blob errors
+    error BlobNotFound();
+    error BlobNotSpecified();
+    error InvalidBlobCreatedIn();
+    error InvalidBlobParams();
+    error InvalidForcedInclusion();
+
+    // Signal errors
+    error SignalNotSent();
+    error TooManySignals();
 }
