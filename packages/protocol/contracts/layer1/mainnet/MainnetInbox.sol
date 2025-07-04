@@ -32,7 +32,7 @@ contract MainnetInbox is TaikoInbox {
             batchRingBufferSize: 360_000, // DO NOT CHANGE!!!
             maxBatchesToVerify: 16,
             blockMaxGasLimit: 240_000_000,
-            livenessBondBase: 50e18, // 50 Taiko token per batch
+            livenessBondBase: 125e18, // 125 Taiko token per batch
             livenessBondPerBlock: 0, // deprecated
             stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 96,
@@ -49,7 +49,7 @@ contract MainnetInbox is TaikoInbox {
             maxBlocksPerBatch: 768,
             forkHeights: ITaikoInbox.ForkHeights({
                 ontake: 538_304,
-                pacaya: 538_304 * 10, // TODO
+                pacaya: 1_166_000,
                 shasta: 0,
                 unzen: 0
             })
