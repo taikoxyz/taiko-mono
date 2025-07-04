@@ -558,12 +558,16 @@ func (p *Proposer) ProposeTxListPacaya(
 
 	// Check profitability if enabled
 	if p.checkProfitability {
-		profitable, err := p.isProfitable(ctx, txBatch, l2BaseFee, txCandidate)
+		profitable, err := p.isProfitable(ctx, txBatch, l2BaseFee, txCandidate, txs)
 		if err != nil {
 			return err
 		}
 		if !profitable {
-			log.Info("Proposing transaction is not profitable")
+			log.Warn("Proposing transaction is not profitable",
+				"numBatches", len(txBatch),
+				"numTransactions", txs,
+				"l2BaseFee", utils.WeiToEther(l2BaseFee),
+			)
 			return nil
 		}
 	}
@@ -593,6 +597,7 @@ func (p *Proposer) isProfitable(
 	txBatch []types.Transactions,
 	l2BaseFee *big.Int,
 	candidate *txmgr.TxCandidate,
+	txs uint64,
 ) (bool, error) {
 	estimatedCost, err := p.estimateL2Cost(ctx, candidate)
 	if err != nil {
@@ -608,7 +613,8 @@ func (p *Proposer) isProfitable(
 		"collectedFees", utils.WeiToEther(collectedFees),
 		"isProfitable", isProfitable,
 		"l2BaseFee", utils.WeiToEther(l2BaseFee),
-		"txCount", len(txBatch),
+		"numBatches", len(txBatch),
+		"numTransactions", txs,
 	)
 
 	return isProfitable, nil
