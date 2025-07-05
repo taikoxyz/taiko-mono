@@ -265,8 +265,8 @@ interface ITaikoInbox2 {
 
     /// @notice Emitted when a batch is proposed.
     /// @param batchId The ID of the proposed batch.
-    /// @param metadata The encoded metadata of the proposed batch.
-    event Proposed(uint256 batchId, BatchMetadata metadata);
+    /// @param context The batch context data
+    event Proposed(uint256 batchId, BatchContext context);
 
     /// @notice Emitted when a batch is proved.
     /// @param batchId The ID of the proved batch.

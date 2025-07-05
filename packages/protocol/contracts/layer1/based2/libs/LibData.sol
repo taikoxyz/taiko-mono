@@ -16,11 +16,11 @@ library LibData {
     // Internal Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Populates batch metadata from validation output
+    /// @notice Populates batch metadata from batch and batch context data
     /// @param _blockNumber The block number in which the batch is proposed
     /// @param _blockTimestamp The timestamp of the block in which the batch is proposed
     /// @param _batch The batch being proposed
-    /// @param _context The validation output containing computed values
+    /// @param _context The batch context data containing computed values
     /// @return meta_ The populated batch metadata
     function buildBatchMetadata(
         uint48 _blockNumber,

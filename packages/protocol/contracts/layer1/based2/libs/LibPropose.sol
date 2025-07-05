@@ -86,7 +86,7 @@ library LibPropose {
         private
         returns (I.BatchMetadata memory meta_)
     {
-        // Validate the batch parameters and return validation output
+        // Validate the batch parameters and return batch and batch context data
         I.BatchContext memory context = LibValidate.validate(_conf, _rw, _batch, _parent);
 
         LibProvers.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
@@ -98,7 +98,7 @@ library LibPropose {
         bytes32 batchMetaHash = LibData.hashBatch(_summary.numBatches, meta_);
         _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
 
-        emit I.Proposed(_summary.numBatches, meta_);
+        emit I.Proposed(_summary.numBatches, context);
     }
 
     // -------------------------------------------------------------------------

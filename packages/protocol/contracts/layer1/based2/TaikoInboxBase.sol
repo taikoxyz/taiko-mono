@@ -105,6 +105,25 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         return _summary;
     }
 
+    /// @notice Builds batch metadata from batch and batch context data
+    /// @param _blockNumber The block number in which the batch is proposed
+    /// @param _blockTimestamp The timestamp of the block in which the batch is proposed
+    /// @param _batch The batch being proposed
+    /// @param _context The batch context data containing computed values
+    /// @return meta_ The populated batch metadata
+    function buildBatchMetadata(
+        uint48 _blockNumber,
+        uint48 _blockTimestamp,
+        I.Batch calldata _batch,
+        I.BatchContext calldata _context
+    )
+        external
+        pure
+        returns (I.BatchMetadata memory meta_)
+    {
+        return LibData.buildBatchMetadata(_blockNumber, _blockTimestamp, _batch, _context);
+    }
+
     /// @notice Checks if this contract is an inbox
     /// @return Always returns true
     function isInbox4() external pure returns (bool) {
