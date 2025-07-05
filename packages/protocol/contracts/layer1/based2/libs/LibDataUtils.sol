@@ -22,10 +22,8 @@ library LibDataUtils {
         function(I.Config memory, bytes32) view returns (bool) isSignalSent;
         /// @notice Gets the blob hash for a given index
         function(uint256) view returns (bytes32) getBlobHash;
-        function (
-        I.Config memory , bytes32, uint256 )
-        view
-        returns (bytes32 , bool ) loadTransitionMetaHash;
+        function (I.Config memory, bytes32, uint256) view returns (bytes32 , bool)
+            loadTransitionMetaHash;
         // Write functions
         /// @notice Saves a transition
         function(I.Config memory, uint48, bytes32, bytes32) returns (bool) saveTransition;
