@@ -7,7 +7,12 @@ import "./LibBatchValidation.sol";
 import "./LibDataUtils.sol";
 
 /// @title LibProverValidation
-/// @notice Library for validating prover authentication
+/// @notice Library for validating prover authentication and managing prover bonds
+/// @dev This library handles prover validation and bond management:
+///      - Validates prover authentication signatures
+///      - Manages bond debiting and crediting
+///      - Handles fee transfers between proposers and provers
+///      - Supports different authentication scenarios (direct, outsourced)
 /// @custom:security-contact security@taiko.xyz
 library LibProverValidation {
     using SignatureChecker for address;
@@ -16,13 +21,18 @@ library LibProverValidation {
     // Internal Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Validates the prover and handles bond management
-    /// @param _conf The configuration
-    /// @param _rw Read/write access functions
-    /// @param _summary The current summary
-    /// @param _proverAuth The prover authentication data
+    /// @notice Validates the prover and handles comprehensive bond management
+    /// @dev Processes different prover authentication scenarios:
+    ///      - Self-proving: Proposer proves their own batch
+    ///      - External prover with bond token fees
+    ///      - External prover with other token fees
+    ///      Handles bond debiting/crediting and fee transfers accordingly
+    /// @param _conf Protocol configuration parameters
+    /// @param _rw Read/write access functions for bond and fee operations
+    /// @param _summary Current protocol summary state
+    /// @param _proverAuth Prover authentication data (signature + metadata)
     /// @param _batch The batch being proved
-    /// @return prover_ The validated prover address
+    /// @return prover_ The validated and authenticated prover address
     function validateProver(
         I.Config memory _conf,
         LibDataUtils.ReadWrite memory _rw,
@@ -76,17 +86,23 @@ library LibProverValidation {
     }
 
     // -------------------------------------------------------------------------
-    // Private Functions
+    // Private Functions - Authentication Validation
     // -------------------------------------------------------------------------
 
-    /// @notice Validates the prover authentication signature
-    /// @param _chainId The chain ID
-    /// @param _batchId The batch ID
-    /// @param _batchParamsHash The hash of batch parameters
-    /// @param _proverAuth The prover authentication data
-    /// @return prover_ The prover address
-    /// @return feeToken_ The fee token address
-    /// @return fee_ The fee amount
+    /// @notice Validates the prover authentication signature and parameters
+    /// @dev Decodes authentication data, validates signature, and checks constraints:
+    ///      - Prover address must be non-zero
+    ///      - Fee token must be non-zero (Ether not supported)
+    ///      - Validity period must not be expired
+    ///      - Batch ID must match (if specified)
+    ///      - Signature must be valid for the computed digest
+    /// @param _chainId Chain ID for signature domain separation
+    /// @param _batchId Batch ID being proved
+    /// @param _batchParamsHash Hash of batch parameters for signature verification
+    /// @param _proverAuth Encoded prover authentication data
+    /// @return prover_ Validated prover address
+    /// @return feeToken_ Fee token address for payment
+    /// @return fee_ Fee amount to be paid
     function _validateProverAuth(
         uint64 _chainId,
         uint64 _batchId,
@@ -117,11 +133,17 @@ library LibProverValidation {
         return (auth.prover, auth.feeToken, auth.fee);
     }
 
-    /// @notice Computes the digest for prover authentication
-    /// @param _chainId The chain ID
-    /// @param _batchParamsHash The hash of batch parameters
-    /// @param _auth The prover authentication data
-    /// @return The computed digest
+    // -------------------------------------------------------------------------
+    // Private Functions - Digest Computation
+    // -------------------------------------------------------------------------
+
+    /// @notice Computes the digest for prover authentication signature verification
+    /// @dev Creates a deterministic hash from chain ID, batch parameters, and auth data.
+    ///      The signature field must be empty when computing the digest.
+    /// @param _chainId Chain ID for domain separation
+    /// @param _batchParamsHash Hash of the batch parameters being proved
+    /// @param _auth Prover authentication data (must have empty signature field)
+    /// @return Computed digest for signature verification
     function _computeProverAuthDigest(
         uint64 _chainId,
         bytes32 _batchParamsHash,
@@ -136,24 +158,24 @@ library LibProverValidation {
     }
 
     // -------------------------------------------------------------------------
-    // Errors
+    // Custom Errors
     // -------------------------------------------------------------------------
 
-    /// @notice Thrown when Ether is used as fee token (not supported yet)
+    /// @notice Thrown when Ether is used as fee token (not supported in current version)
     error EtherAsFeeTokenNotSupportedYet();
 
-    /// @notice Thrown when the batch ID in the auth doesn't match
+    /// @notice Thrown when the batch ID in authentication doesn't match the current batch
     error InvalidBatchId();
 
-    /// @notice Thrown when the prover address is invalid (zero)
+    /// @notice Thrown when the prover address is invalid (zero address)
     error InvalidProver();
 
-    /// @notice Thrown when the signature is invalid
+    /// @notice Thrown when the prover signature is invalid or verification fails
     error InvalidSignature();
 
-    /// @notice Thrown when the validity period has expired
+    /// @notice Thrown when the authentication validity period has expired
     error InvalidValidUntil();
 
-    /// @notice Thrown when signature field is not empty when it should be
+    /// @notice Thrown when signature field is not empty during digest computation
     error SignatureNotEmpty();
 }

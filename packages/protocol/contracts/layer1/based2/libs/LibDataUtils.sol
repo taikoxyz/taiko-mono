@@ -4,7 +4,12 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
 /// @title LibDataUtils
-/// @notice Library for data encoding and hashing utilities
+/// @notice Library for data encoding, hashing, and utility functions in Taiko's Layer 1 protocol
+/// @dev This library provides core data manipulation functions:
+///      - Batch metadata hashing and encoding
+///      - Function pointer abstractions for read/write operations
+///      - Configuration and batch data encoding utilities
+///      - Metadata packing and unpacking functions
 /// @custom:security-contact security@taiko.xyz
 library LibDataUtils {
     // -------------------------------------------------------------------------
@@ -40,13 +45,17 @@ library LibDataUtils {
     }
 
     // -------------------------------------------------------------------------
-    // Internal Functions
+    // Internal Functions - Batch Hashing
     // -------------------------------------------------------------------------
 
-    /// @notice Hashes a batch with its metadata
-    /// @param _batchId The batch ID
-    /// @param _meta The batch metadata
-    /// @return The hash of the batch
+    /// @notice Computes a deterministic hash for a batch and its metadata
+    /// @dev Creates a hierarchical hash structure:
+    ///      - Left hash: batchId + buildMeta hash
+    ///      - Right hash: proposeMeta hash + proveMeta hash
+    ///      - Final hash: keccak256(leftHash, rightHash)
+    /// @param _batchId Unique identifier for the batch
+    /// @param _meta Complete batch metadata containing build, propose, and prove data
+    /// @return Deterministic hash representing the batch and its metadata
     function hashBatch(
         uint256 _batchId,
         I.BatchMetadata memory _meta
@@ -65,9 +74,13 @@ library LibDataUtils {
         return keccak256(abi.encode(leftHash, rightHash));
     }
 
-    /// @notice Hashes a batch using evidence structure
-    /// @param _evidence The batch proposal metadata evidence
-    /// @return The hash of the batch
+    /// @notice Computes a batch hash using evidence structure (optimized version)
+    /// @dev Alternative hashing method using pre-computed evidence data:
+    ///      - Uses pre-computed idAndBuildHash instead of separate batchId and buildMeta
+    ///      - Combines with proposeMeta and proveMetaHash
+    ///      - More efficient when evidence is already available
+    /// @param _evidence Pre-computed batch proposal metadata evidence
+    /// @return Deterministic hash representing the batch
     function hashBatch(I.BatchProposeMetadataEvidence memory _evidence)
         public
         pure
@@ -79,13 +92,18 @@ library LibDataUtils {
         return keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
     }
 
-    /// @notice Encodes configuration and batch information into lower 128 bits
-    /// @dev The encoding format:
-    ///      - bits 0-7: used to store _conf.baseFeeConfig.sharingPctg
-    ///      - bit 8: used to store _batch.isForcedInclusion
-    /// @param _conf The configuration
-    /// @param _batch The batch information
-    /// @return The encoded data as bytes32
+    // -------------------------------------------------------------------------
+    // Internal Functions - Data Encoding
+    // -------------------------------------------------------------------------
+
+    /// @notice Encodes configuration and batch information into the lower 128 bits
+    /// @dev Bit-level encoding for efficient storage:
+    ///      - Bits 0-7: Base fee sharing percentage (0-100)
+    ///      - Bit 8: Forced inclusion flag (0 or 1)
+    ///      - Bits 9-127: Reserved for future use
+    /// @param _conf Protocol configuration containing base fee parameters
+    /// @param _batch Batch information containing forced inclusion flag
+    /// @return Encoded data as bytes32 with information packed in lower 128 bits
     function encodeExtraDataLower128Bits(
         I.Config memory _conf,
         I.Batch memory _batch
@@ -100,9 +118,14 @@ library LibDataUtils {
         return bytes32(uint256(v));
     }
 
-    /// @notice Packs batch metadata into bytes
-    /// @param _meta The batch metadata to pack
-    /// @return The packed metadata as bytes
+    // -------------------------------------------------------------------------
+    // Internal Functions - Metadata Packing
+    // -------------------------------------------------------------------------
+
+    /// @notice Packs batch metadata into a byte array for efficient storage or transmission
+    /// @dev Uses ABI encoding to serialize the complete metadata structure
+    /// @param _meta Complete batch metadata containing build, propose, and prove information
+    /// @return Packed metadata as bytes array suitable for storage or hashing
     function packBatchMetadata(I.BatchMetadata memory _meta) internal pure returns (bytes memory) {
         return abi.encode(_meta);
     }

@@ -8,7 +8,12 @@ import "./LibBatchProposal.sol";
 import "./LibDataUtils.sol";
 
 /// @title LibBatchVerification
-/// @notice Library for batch verification functionality
+/// @notice Library for verifying batches and managing bond distributions in Taiko's Layer 1 protocol
+/// @dev This library handles the verification of proposed batches, including:
+///      - Transition metadata validation
+///      - Cooldown period enforcement
+///      - Bond distribution to provers
+///      - State root synchronization
 /// @custom:security-contact security@taiko.xyz
 library LibBatchVerification {
     using LibMath for uint256;
@@ -17,12 +22,15 @@ library LibBatchVerification {
     // Internal Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Verifies multiple batches and updates the summary
-    /// @param _conf The configuration
-    /// @param _rw Read/write access functions
-    /// @param _summary The current summary
-    /// @param _trans The transition metadata array
-    /// @return The updated summary
+    /// @notice Verifies multiple batches and updates the protocol summary
+    /// @dev Processes batches sequentially, validating transition metadata,
+    ///      enforcing cooldown periods, and distributing bonds to provers.
+    ///      Also handles periodic state root synchronization.
+    /// @param _conf Protocol configuration parameters
+    /// @param _rw Read/write access functions for blockchain state
+    /// @param _summary Current protocol summary state
+    /// @param _trans Array of transition metadata for verification
+    /// @return Updated summary with verification results
     function verifyBatches(
         I.Config memory _conf,
         LibDataUtils.ReadWrite memory _rw,
@@ -83,14 +91,19 @@ library LibBatchVerification {
     }
 
     // -------------------------------------------------------------------------
-    // Private Functions
+    // Private Functions - Bond Calculation
     // -------------------------------------------------------------------------
 
-    /// @notice Calculates the bond amount to return to the prover
-    /// @param _conf The configuration
-    /// @param _tran The transition metadata
-    /// @param _isFirstTransition Whether this is the first transition
-    /// @return The bond amount to credit to the prover
+    /// @notice Calculates the bond amount to return to the prover based on timing and conditions
+    /// @dev Bond distribution logic:
+    ///      - InProvingWindow: Full bonds returned (liveness + provability for first transition)
+    ///      - InExtendedProvingWindow: Partial reward based on bondRewardPtcg
+    ///      - Assigned prover: Gets back provability bond
+    ///      - Other provers: Get percentage of provability bond
+    /// @param _conf Protocol configuration containing bond parameters
+    /// @param _tran Transition metadata containing bond and timing information
+    /// @param _isFirstTransition Whether this is the first transition for the batch
+    /// @return Bond amount to credit to the prover
     function _calcBondToProver(
         I.Config memory _conf,
         I.TransitionMeta memory _tran,
@@ -126,12 +139,12 @@ library LibBatchVerification {
     }
 
     // -------------------------------------------------------------------------
-    // Errors
+    // Custom Errors
     // -------------------------------------------------------------------------
 
-    /// @notice Thrown when a transition is not provided
+    /// @notice Thrown when a transition is not provided for verification
     error TransitionNotProvided();
 
-    /// @notice Thrown when the transition metadata doesn't match
+    /// @notice Thrown when the transition metadata hash doesn't match expected value
     error TransitionMetaMismatch();
 }
