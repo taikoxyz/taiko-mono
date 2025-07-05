@@ -63,7 +63,7 @@ library LibData {
             proposer: _batch.proposer,
             prover: _batch.prover,
             proposedAt: _blockTimestamp,
-            firstBlockId: _context.firstBlockId,
+            firstBlockId: _context.lastBlockId + 1 - uint48(_batch.encodedBlocks.length),
             lastBlockId: meta_.buildMeta.lastBlockId,
             livenessBond: _context.livenessBond,
             provabilityBond: _context.provabilityBond

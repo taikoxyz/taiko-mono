@@ -57,13 +57,11 @@ interface ITaikoInbox2 {
     /// @dev This struct aggregates all validation results for efficient batch processing
     struct BatchContext {
         /// @notice Hash of all transactions in the batch
-        bytes32 txsHash;
+        bytes32 txsHash; // TODO: remove this?
         /// @notice Array of blob hashes associated with the batch
         bytes32[] blobHashes;
         /// @notice ID of the last anchor block in the batch
         uint48 lastAnchorBlockId;
-        /// @notice ID of the first block in the batch
-        uint48 firstBlockId;
         /// @notice ID of the last block in the batch
         uint48 lastBlockId;
         /// @notice Array of anchor block hashes for validation
@@ -151,10 +149,9 @@ interface ITaikoInbox2 {
     }
 
     enum ProofTiming {
-        OutOfExtendedProvingWindow, // 0
-        InProvingWindow, // 1
-        InExtendedProvingWindow // 2
-
+        OutOfExtendedProvingWindow,
+        InProvingWindow,
+        InExtendedProvingWindow
     }
 
     struct TransitionMeta {

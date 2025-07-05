@@ -56,7 +56,7 @@ library LibValidate {
             _validateAnchors(_conf, _rw, _batch, blocks, _parentProposeMeta.lastAnchorBlockId);
 
         // Validate block range
-        (context_.firstBlockId, context_.lastBlockId) =
+        context_.lastBlockId =
             _validateBlockRange(_conf, blocks.length, _parentProposeMeta.lastBlockId);
 
         // Validate blobs
@@ -262,8 +262,7 @@ library LibValidate {
     /// @param _conf Protocol configuration
     /// @param _numBlocks Number of blocks in the batch
     /// @param _parentLastBlockId Last block ID from the parent batch
-    /// @return firstBlockId_ ID of the first block in this batch
-    /// @return lastBlockId_ ID of the last block in this batch
+    /// @return  ID of the last block in this batch
     function _validateBlockRange(
         I.Config memory _conf,
         uint256 _numBlocks,
@@ -271,15 +270,15 @@ library LibValidate {
     )
         internal
         pure
-        returns (uint48 firstBlockId_, uint48 lastBlockId_)
+        returns (uint48)
     {
-        firstBlockId_ = _parentLastBlockId + 1;
-        lastBlockId_ = uint48(firstBlockId_ + _numBlocks);
-
+        uint256 firstBlockId = _parentLastBlockId + 1;
+        uint256 lastBlockId = uint48(firstBlockId + _numBlocks);
         require(
-            LibForks.isBlocksInCurrentFork(_conf, firstBlockId_, lastBlockId_),
+            LibForks.isBlocksInCurrentFork(_conf, firstBlockId, lastBlockId),
             BlocksNotInCurrentFork()
         );
+        return uint48(lastBlockId);
     }
 
     /// @notice Validates blob data and forced inclusion parameters
