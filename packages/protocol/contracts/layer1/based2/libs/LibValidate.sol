@@ -18,37 +18,6 @@ import "./LibState.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibValidate {
     // -------------------------------------------------------------------------
-    // Structs
-    // -------------------------------------------------------------------------
-
-    /// @notice Output structure containing validated batch information
-    /// @dev This struct aggregates all validation results for efficient batch processing
-    struct ValidationOutput {
-        /// @notice Hash of all transactions in the batch
-        bytes32 txsHash;
-        /// @notice Array of blob hashes associated with the batch
-        bytes32[] blobHashes;
-        /// @notice ID of the last anchor block in the batch
-        uint48 lastAnchorBlockId;
-        /// @notice ID of the first block in the batch
-        uint48 firstBlockId;
-        /// @notice ID of the last block in the batch
-        uint48 lastBlockId;
-        /// @notice Array of anchor block hashes for validation
-        bytes32[] anchorBlockHashes;
-        /// @notice Array of validated blocks in the batch
-        I.Block[] blocks;
-        /// @notice Address of the batch proposer
-        address proposer;
-        /// @notice Address of the batch prover
-        address prover;
-        /// @notice Address of the coinbase for block rewards
-        address coinbase;
-        /// @notice Block number where blobs were created
-        uint48 blobsCreatedIn;
-    }
-
-    // -------------------------------------------------------------------------
     // Internal Functions
     // -------------------------------------------------------------------------
 
@@ -68,7 +37,7 @@ library LibValidate {
     )
         internal
         view
-        returns (ValidationOutput memory output_)
+        returns (I.BatchContext memory output_)
     {
         // Validate proposer and coinbase
         (output_.proposer, output_.coinbase) = _validateProposerCoinbase(_conf, _batch);

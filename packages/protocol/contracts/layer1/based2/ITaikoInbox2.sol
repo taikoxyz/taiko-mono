@@ -52,6 +52,33 @@ interface ITaikoInbox2 {
         bytes proverAuth;
     }
 
+    /// @notice Output structure containing validated batch information
+    /// @dev This struct aggregates all validation results for efficient batch processing
+    struct BatchContext {
+        /// @notice Hash of all transactions in the batch
+        bytes32 txsHash;
+        /// @notice Array of blob hashes associated with the batch
+        bytes32[] blobHashes;
+        /// @notice ID of the last anchor block in the batch
+        uint48 lastAnchorBlockId;
+        /// @notice ID of the first block in the batch
+        uint48 firstBlockId;
+        /// @notice ID of the last block in the batch
+        uint48 lastBlockId;
+        /// @notice Array of anchor block hashes for validation
+        bytes32[] anchorBlockHashes;
+        /// @notice Array of validated blocks in the batch
+        Block[] blocks;
+        /// @notice Address of the batch proposer
+        address proposer;
+        /// @notice Address of the batch prover
+        address prover;
+        /// @notice Address of the coinbase for block rewards
+        address coinbase;
+        /// @notice Block number where blobs were created
+        uint48 blobsCreatedIn;
+    }
+
     struct ProverAuth {
         address prover;
         address feeToken;
