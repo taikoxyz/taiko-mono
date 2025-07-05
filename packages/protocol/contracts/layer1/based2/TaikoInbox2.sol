@@ -81,7 +81,7 @@ abstract contract TaikoInbox2 is
         nonReentrant
         returns (I.Summary memory)
     {
-        require(state.summaryHash == keccak256(abi.encode(_summary)), SummaryMismatch());
+        require(state.loadSummaryHash() == keccak256(abi.encode(_summary)), SummaryMismatch());
 
         I.Config memory conf = _getConfig();
         LibDataUtils.ReadWrite memory rw = _getReadWrite();
@@ -92,7 +92,7 @@ abstract contract TaikoInbox2 is
         // Verify batches
         _summary = state.verifyBatches(conf, rw, _summary, _trans);
 
-        state.summaryHash = keccak256(abi.encode(_summary));
+        state.saveSummaryHash(keccak256(abi.encode(_summary)));
         return _summary;
     }
 
@@ -110,7 +110,7 @@ abstract contract TaikoInbox2 is
         nonReentrant
         returns (I.Summary memory)
     {
-        require(state.summaryHash == keccak256(abi.encode(_summary)), SummaryMismatch());
+        require(state.loadSummaryHash() == keccak256(abi.encode(_summary)), SummaryMismatch());
 
         I.Config memory conf = _getConfig();
         LibDataUtils.ReadWrite memory rw = _getReadWrite();
@@ -122,7 +122,7 @@ abstract contract TaikoInbox2 is
         // Verify the proof
         IVerifier2(conf.verifier).verifyProof(aggregatedBatchHash, _proof);
 
-        state.summaryHash = keccak256(abi.encode(_summary));
+        state.saveSummaryHash(keccak256(abi.encode(_summary)));
         return _summary;
     }
 
@@ -254,6 +254,13 @@ abstract contract TaikoInbox2 is
         IERC20(_feeToken).safeTransferFrom(_from, _to, _amount);
     }
 
+    function _loadSummaryHash() internal view returns (bytes32) {
+        return LibStorage.loadSummaryHash(state);
+    }
+
+    function _saveSummaryHash(bytes32 _summaryHash) internal {
+        LibStorage.saveSummaryHash(state, _summaryHash);
+    }
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------

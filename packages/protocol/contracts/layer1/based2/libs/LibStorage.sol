@@ -120,6 +120,13 @@ library LibStorage {
         }
     }
 
+    function loadSummaryHash(I.State storage _state) internal view returns (bytes32) {
+        return _state.summaryHash;
+    }
+
+    function saveSummaryHash(I.State storage _state, bytes32 _summaryHash) internal {
+        _state.summaryHash = _summaryHash; // 1 SSTORE
+    }
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
