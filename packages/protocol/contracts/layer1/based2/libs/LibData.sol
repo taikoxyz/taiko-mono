@@ -17,13 +17,15 @@ library LibData {
     // -------------------------------------------------------------------------
 
     /// @notice Populates batch metadata from validation output
+    /// @param _blockNumber The block number in which the batch is proposed
+    /// @param _blockTimestamp The timestamp of the block in which the batch is proposed
     /// @param _conf The protocol configuration
     /// @param _batch The batch being proposed
     /// @param _context The validation output containing computed values
     /// @return meta_ The populated batch metadata
     function buildBatchMetadata(
-        uint48 blockNumber,
-        uint48 blockTimestamp,
+        uint48 _blockNumber,
+        uint48 _blockTimestamp,
         I.Config memory _conf,
         I.Batch calldata _batch,
         I.BatchContext memory _context
@@ -36,9 +38,9 @@ library LibData {
         meta_.buildMeta = I.BatchBuildMetadata({
             txsHash: _context.txsHash,
             blobHashes: _context.blobHashes,
-            extraData: LibData.encodeExtraDataLower128Bits(_conf, _batch),
+            extraData: _encodeExtraDataLower128Bits(_conf.baseFeeConfig.sharingPctg, _batch),
             coinbase: _context.coinbase,
-            proposedIn: blockNumber,
+            proposedIn: _blockNumber,
             blobCreatedIn: _batch.blobs.createdIn,
             blobByteOffset: _batch.blobs.byteOffset,
             blobByteSize: _batch.blobs.byteSize,
@@ -62,7 +64,7 @@ library LibData {
         meta_.proveMeta = I.BatchProveMetadata({
             proposer: _context.proposer,
             prover: _context.prover,
-            proposedAt: blockTimestamp,
+            proposedAt: _blockTimestamp,
             firstBlockId: _context.firstBlockId,
             lastBlockId: meta_.buildMeta.lastBlockId,
             livenessBond: _conf.livenessBond,
@@ -114,23 +116,27 @@ library LibData {
         return keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
     }
 
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
+
     /// @notice Encodes configuration and batch information into the lower 128 bits
     /// @dev Bit-level encoding for efficient storage:
     ///      - Bits 0-7: Base fee sharing percentage (0-100)
     ///      - Bit 8: Forced inclusion flag (0 or 1)
     ///      - Bits 9-127: Reserved for future use
-    /// @param _conf Protocol configuration containing base fee parameters
+    /// @param _baseFeeSharingPctg Base fee sharing percentage (0-100)
     /// @param _batch Batch information containing forced inclusion flag
     /// @return Encoded data as bytes32 with information packed in lower 128 bits
-    function encodeExtraDataLower128Bits(
-        I.Config memory _conf,
+    function _encodeExtraDataLower128Bits(
+        uint8 _baseFeeSharingPctg,
         I.Batch memory _batch
     )
-        internal
+        private
         pure
         returns (bytes32)
     {
-        uint128 v = _conf.baseFeeConfig.sharingPctg; // bits 0-7
+        uint128 v = _baseFeeSharingPctg; // bits 0-7
         v |= _batch.isForcedInclusion ? 1 << 8 : 0; // bit 8
 
         return bytes32(uint256(v));
