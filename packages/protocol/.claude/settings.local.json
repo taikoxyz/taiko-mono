@@ -9,7 +9,8 @@
       "Bash(pnpm solhint:*)",
       "Bash(ls:*)",
       "Bash(mv:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

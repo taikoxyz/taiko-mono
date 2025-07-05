@@ -2,9 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
-import "src/shared/libs/LibNetwork.sol";
 import "./LibValidate.sol";
-import "./LibForks.sol";
 import "./LibData.sol";
 import "./LibProvers.sol";
 
@@ -26,7 +24,7 @@ library LibPropose {
     /// @return The updated protocol summary
     function propose(
         I.Config memory _conf,
-        LibData.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.Batch[] memory _batch,
         I.BatchProposeMetadataEvidence memory _evidence
@@ -74,7 +72,7 @@ library LibPropose {
     /// @return meta_ The metadata of the proposed batch
     function _proposeBatch(
         I.Config memory _conf,
-        LibData.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.Batch memory _batch,
         I.BatchProposeMetadata memory _parent

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibMath.sol";
 import "./LibForks.sol";
-import "./LibData.sol";
+import "./LibState.sol";
 
 /// @title LibProve
 /// @notice Library for handling batch proving operations in the Taiko protocol
@@ -25,7 +25,7 @@ library LibProve {
     /// @return The updated protocol summary and aggregated batch hash for proof verification
     function prove(
         I.Config memory _conf,
-        LibData.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.BatchProveInput[] calldata _evidences
     )
@@ -60,7 +60,7 @@ library LibProve {
     /// @return The context hash for this batch used in aggregation
     function _proveBatch(
         I.Config memory _conf,
-        LibData.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.BatchProveInput calldata _input
     )

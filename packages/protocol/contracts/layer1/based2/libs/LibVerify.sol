@@ -4,8 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/libs/LibMath.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "./LibForks.sol";
-import "./LibPropose.sol";
-import "./LibData.sol";
+import "./LibState.sol";
 
 /// @title LibVerify
 /// @notice Library for verifying batches and managing bond distributions in Taiko's Layer 1
@@ -34,7 +33,7 @@ library LibVerify {
     /// @return Updated summary with verification results
     function verify(
         I.Config memory _conf,
-        LibData.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans
     )

@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./LibForks.sol";
-import "./LibData.sol";
+import "./LibState.sol";
 
 /// @title LibValidate
 /// @notice Library for comprehensive batch validation in Taiko's Layer 1 protocol
@@ -62,7 +62,7 @@ library LibValidate {
     /// @return output_ Validated batch information and computed hashes
     function validate(
         I.Config memory _conf,
-        LibData.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Batch memory _batch,
         I.BatchProposeMetadata memory _parentProposeMeta
     )
@@ -206,7 +206,7 @@ library LibValidate {
     /// @param _signalSlots Array of signal slot identifiers to validate
     function _validateSignals(
         I.Config memory _conf,
-        LibData.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Block[] memory _blocks,
         bytes32[] memory _signalSlots
     )
@@ -239,7 +239,7 @@ library LibValidate {
     /// @return lastAnchorBlockId_ ID of the last anchor block in this batch
     function _validateAnchors(
         I.Config memory _conf,
-        LibData.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Batch memory _batch,
         I.Block[] memory _blocks,
         uint48 _parentLastAnchorBlockId
@@ -354,7 +354,7 @@ library LibValidate {
     /// @return txsHash_ Hash of all transactions in the batch
     /// @return blobHashes_ Array of individual blob hashes
     function _calculateTxsHash(
-        LibData.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Blobs memory _blobs
     )
         private

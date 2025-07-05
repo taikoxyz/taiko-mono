@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
 import "src/shared/signal/ISignalService.sol";
@@ -64,7 +63,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         require(_loadSummaryHash() == keccak256(abi.encode(_summary)), SummaryMismatch());
 
         I.Config memory conf = _getConfig();
-        LibData.ReadWrite memory rw = _getReadWrite();
+        LibState.ReadWrite memory rw = _getReadWrite();
 
         // Propose batches
         _summary = LibPropose.propose(conf, rw, _summary, _batch, _evidence);
@@ -93,7 +92,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         require(_loadSummaryHash() == keccak256(abi.encode(_summary)), SummaryMismatch());
 
         I.Config memory conf = _getConfig();
-        LibData.ReadWrite memory rw = _getReadWrite();
+        LibState.ReadWrite memory rw = _getReadWrite();
 
         // Prove batches and get aggregated hash
         bytes32 aggregatedBatchHash;
@@ -250,8 +249,8 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
 
     /// @notice Creates a ReadWrite struct with function pointers
     /// @return The ReadWrite struct with all required function pointers
-    function _getReadWrite() private pure returns (LibData.ReadWrite memory) {
-        return LibData.ReadWrite({
+    function _getReadWrite() private pure returns (LibState.ReadWrite memory) {
+        return LibState.ReadWrite({
             // Read functions
             loadBatchMetaHash: _loadBatchMetaHash,
             isSignalSent: _isSignalSent,
