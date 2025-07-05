@@ -7,13 +7,13 @@ import "./LibForks.sol";
 import "./LibState.sol";
 
 /// @title LibVerify
-/// @notice Library for verifying batches and managing bond distributions in Taiko's Layer 1
-/// protocol
-/// @dev This library handles the verification of proposed batches, including:
-///      - Transition metadata validation
-///      - Cooldown period enforcement
-///      - Bond distribution to provers
-///      - State root synchronization
+/// @notice Library for batch verification and bond distribution in Taiko's Layer 1 protocol
+/// @dev Handles the final verification stage of batch processing including:
+///      - Sequential batch verification with transition metadata validation
+///      - Cooldown period enforcement before verification
+///      - Bond distribution to provers based on timing and conditions
+///      - Periodic state root synchronization with L2
+///      - Fork boundary checks for verification eligibility
 /// @custom:security-contact security@taiko.xyz
 library LibVerify {
     using LibMath for uint256;

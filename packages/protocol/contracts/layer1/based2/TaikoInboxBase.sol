@@ -46,13 +46,13 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
 
     /// @notice Proposes and verifies batches
     /// @param _summary The current summary
-    /// @param _batch The batches to propose
+    /// @param _batches The batches to propose
     /// @param _evidence The batch proposal evidence
     /// @param _trans The transition metadata for verification
     /// @return The updated summary
     function propose4(
         I.Summary memory _summary,
-        I.Batch[] memory _batch,
+        I.Batch[] calldata _batches,
         I.BatchProposeMetadataEvidence memory _evidence,
         I.TransitionMeta[] calldata _trans
     )
@@ -66,7 +66,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         LibState.ReadWrite memory rw = _getReadWrite();
 
         // Propose batches
-        _summary = LibPropose.propose(conf, rw, _summary, _batch, _evidence);
+        _summary = LibPropose.propose(conf, rw, _summary, _batches, _evidence);
 
         // Verify batches
         _summary = LibVerify.verify(conf, rw, _summary, _trans);
@@ -165,6 +165,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
     /// @param _user The user address
     /// @param _amount The amount to credit
     function _creditBond(address _user, uint256 _amount) internal virtual;
+
     /// @notice Transfers fee tokens between addresses
     /// @param _feeToken The fee token address
     /// @param _from The sender address

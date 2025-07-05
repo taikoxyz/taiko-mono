@@ -4,11 +4,12 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
 /// @title LibForks
-/// @notice Library for managing protocol fork transitions and block range validation
-/// @dev This library handles fork-related logic for Taiko's protocol upgrades:
-///      - Validates block ranges against fork heights
-///      - Ensures blocks are within the current active fork
-///      - Manages transitions between protocol versions (Shasta, Unzen, etc.)
+/// @notice Library for validating block ranges against protocol fork boundaries
+/// @dev Handles fork transition validation for Taiko's protocol upgrades:
+///      - Validates block ranges are within valid bounds
+///      - Ensures blocks are after Shasta fork activation
+///      - Prevents blocks from crossing into future Unzen fork
+///      - Manages protocol version boundaries for batch processing
 /// @custom:security-contact security@taiko.xyz
 library LibForks {
     // -------------------------------------------------------------------------

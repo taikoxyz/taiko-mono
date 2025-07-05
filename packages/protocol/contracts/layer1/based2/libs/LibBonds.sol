@@ -7,7 +7,14 @@ import "../IBondManager2.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
 /// @title LibBonds
-/// @notice Library for managing bonds in the Taiko protocol
+/// @notice Library for managing bond deposits, withdrawals, and balance accounting in Taiko
+/// protocol
+/// @dev Handles bond management operations including:
+///      - Bond deposits from users (ETH or ERC20 tokens)
+///      - Bond withdrawals with balance validation
+///      - Bond debiting with automatic deposits for insufficient balances
+///      - Bond crediting for balance increases
+///      - Support for both native ETH and ERC20 token bonds
 /// @custom:security-contact security@taiko.xyz
 library LibBonds {
     using SafeERC20 for IERC20;

@@ -63,7 +63,7 @@ library LibValidate {
     function validate(
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
-        I.Batch memory _batch,
+        I.Batch calldata _batch,
         I.BatchProposeMetadata memory _parentProposeMeta
     )
         internal
@@ -111,7 +111,7 @@ library LibValidate {
     /// @return coinbase_ The validated coinbase address
     function _validateProposerCoinbase(
         I.Config memory _conf,
-        I.Batch memory _batch
+        I.Batch calldata _batch
     )
         internal
         view
@@ -135,7 +135,7 @@ library LibValidate {
     /// @return blocks_ Array of decoded and validated blocks
     function _validateBlocks(
         I.Config memory _conf,
-        I.Batch memory _batch
+        I.Batch calldata _batch
     )
         internal
         pure
@@ -166,7 +166,7 @@ library LibValidate {
     /// @param _parentLastBlockTimestamp Timestamp of the last block in the parent batch
     function _validateTimestamps(
         I.Config memory _conf,
-        I.Batch memory _batch,
+        I.Batch calldata _batch,
         I.Block[] memory _blocks,
         uint48 _parentLastBlockTimestamp
     )
@@ -240,7 +240,7 @@ library LibValidate {
     function _validateAnchors(
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
-        I.Batch memory _batch,
+        I.Batch calldata _batch,
         I.Block[] memory _blocks,
         uint48 _parentLastAnchorBlockId
     )
@@ -319,7 +319,7 @@ library LibValidate {
     /// @return blobsCreatedIn_ Block number where blobs were created
     function _validateBlobs(
         I.Config memory _conf,
-        I.Batch memory _batch
+        I.Batch calldata _batch
     )
         private
         view

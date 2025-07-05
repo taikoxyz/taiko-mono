@@ -7,8 +7,13 @@ import "./LibData.sol";
 import "./LibProvers.sol";
 
 /// @title LibPropose
-/// @notice Library for handling batch proposals in the Taiko protocol
-/// @dev This library manages the creation and validation of batch proposals
+/// @notice Library for processing batch proposals and metadata generation in Taiko protocol
+/// @dev Handles the complete batch proposal workflow including:
+///      - Multi-batch proposal validation and processing
+///      - Batch metadata population with build, propose, and prove sections
+///      - Parent metadata hash verification against evidence
+///      - Prover validation and authentication
+///      - Batch limit enforcement and sequential processing
 /// @custom:security-contact security@taiko.xyz
 library LibPropose {
     // -------------------------------------------------------------------------
@@ -19,23 +24,23 @@ library LibPropose {
     /// @param _conf The protocol configuration
     /// @param _rw Read/write function pointers for storage access
     /// @param _summary The current protocol summary
-    /// @param _batch Array of batches to propose
+    /// @param _batches Array of batches to propose
     /// @param _evidence Evidence containing parent batch metadata
     /// @return The updated protocol summary
     function propose(
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
-        I.Batch[] memory _batch,
+        I.Batch[] calldata _batches,
         I.BatchProposeMetadataEvidence memory _evidence
     )
         internal
         returns (I.Summary memory)
     {
         unchecked {
-            require(_batch.length != 0, NoBatchesToPropose());
+            require(_batches.length != 0, NoBatchesToPropose());
             require(
-                _summary.numBatches + _batch.length
+                _summary.numBatches + _batches.length
                     <= _summary.lastVerifiedBatchId + _conf.maxUnverifiedBatches + 1,
                 TooManyBatches()
             );
@@ -48,8 +53,9 @@ library LibPropose {
 
             I.BatchProposeMetadata memory parent = _evidence.proposeMeta;
 
-            for (uint256 i; i < _batch.length; ++i) {
-                I.BatchMetadata memory meta = _proposeBatch(_conf, _rw, _summary, _batch[i], parent);
+            for (uint256 i; i < _batches.length; ++i) {
+                I.BatchMetadata memory meta =
+                    _proposeBatch(_conf, _rw, _summary, _batches[i], parent);
 
                 parent = meta.proposeMeta;
                 _summary.numBatches += 1;
@@ -74,7 +80,7 @@ library LibPropose {
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
-        I.Batch memory _batch,
+        I.Batch calldata _batch,
         I.BatchProposeMetadata memory _parent
     )
         private
@@ -101,7 +107,7 @@ library LibPropose {
     /// @return meta_ The populated batch metadata
     function _populateBatchMetadata(
         I.Config memory _conf,
-        I.Batch memory _batch,
+        I.Batch calldata _batch,
         LibValidate.ValidationOutput memory _output
     )
         private

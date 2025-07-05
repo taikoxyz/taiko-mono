@@ -7,8 +7,14 @@ import "./LibForks.sol";
 import "./LibState.sol";
 
 /// @title LibProve
-/// @notice Library for handling batch proving operations in the Taiko protocol
-/// @dev This library manages the proof submission and validation process for batches
+/// @notice Library for batch proving operations and transition metadata management in Taiko
+/// protocol
+/// @dev Handles the complete batch proving workflow including:
+///      - Multi-batch proof processing with metadata validation
+///      - Proof timing determination (proving window, extended window, expired)
+///      - Transition metadata creation and storage
+///      - Bond management for first transitions and assigned provers
+///      - Aggregated hash generation for batch verification
 /// @custom:security-contact security@taiko.xyz
 library LibProve {
     using LibMath for uint256;

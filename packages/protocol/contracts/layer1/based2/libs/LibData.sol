@@ -4,7 +4,12 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
 /// @title LibData
-/// @notice Library for data encoding, hashing, and utility functions in Taiko's Layer 1 protocol
+/// @notice Library for batch metadata hashing and data encoding in Taiko's Layer 1 protocol
+/// @dev Provides core data processing functions including:
+///      - Hierarchical batch metadata hashing with deterministic structure
+///      - Alternative batch hashing using pre-computed evidence
+///      - Configuration and batch data encoding for efficient storage
+///      - Bit-level encoding for base fee sharing and forced inclusion flags
 /// @custom:security-contact security@taiko.xyz
 library LibData {
     // -------------------------------------------------------------------------

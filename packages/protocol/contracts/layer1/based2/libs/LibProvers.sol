@@ -6,12 +6,13 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "./LibState.sol";
 
 /// @title LibProvers
-/// @notice Library for validating prover authentication and managing prover bonds
-/// @dev This library handles prover validation and bond management:
-///      - Validates prover authentication signatures
-///      - Manages bond debiting and crediting
-///      - Handles fee transfers between proposers and provers
-///      - Supports different authentication scenarios (direct, outsourced)
+/// @notice Library for prover authentication and comprehensive bond management in Taiko protocol
+/// @dev Handles prover validation and complex bond/fee scenarios including:
+///      - Prover authentication signature validation with digest verification
+///      - Multiple prover scenarios (self-proving, external prover, bond token fees)
+///      - Dynamic bond debiting/crediting based on fee arrangements
+///      - Fee token transfers between proposers and provers
+///      - Authentication parameter validation (addresses, timing, batch constraints)
 /// @custom:security-contact security@taiko.xyz
 library LibProvers {
     using SignatureChecker for address;
