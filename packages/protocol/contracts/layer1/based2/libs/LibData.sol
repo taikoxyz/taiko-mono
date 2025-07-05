@@ -16,6 +16,60 @@ library LibData {
     // Internal Functions
     // -------------------------------------------------------------------------
 
+    /// @notice Populates batch metadata from batch and batch context data
+    /// @param _blockNumber The block number in which the batch is proposed
+    /// @param _blockTimestamp The timestamp of the block in which the batch is proposed
+    /// @param _batch The batch being proposed
+    /// @param _context The batch context data containing computed values
+    /// @return meta_ The populated batch metadata
+    function buildBatchMetadata(
+        uint48 _blockNumber,
+        uint48 _blockTimestamp,
+        I.Batch calldata _batch,
+        I.BatchContext memory _context
+    )
+        internal
+        pure
+        returns (I.BatchMetadata memory meta_)
+    {
+        // Build metadata section
+        meta_.buildMeta = I.BatchBuildMetadata({
+            txsHash: _context.txsHash,
+            blobHashes: _context.blobHashes,
+            extraData: _encodeExtraDataLower128Bits(_context.baseFeeConfig.sharingPctg, _batch),
+            coinbase: _batch.coinbase,
+            proposedIn: _blockNumber,
+            blobCreatedIn: _batch.blobs.createdIn,
+            blobByteOffset: _batch.blobs.byteOffset,
+            blobByteSize: _batch.blobs.byteSize,
+            gasLimit: _context.blockMaxGasLimit,
+            lastBlockId: _context.lastBlockId,
+            lastBlockTimestamp: _batch.lastBlockTimestamp,
+            anchorBlockIds: _batch.anchorBlockIds,
+            anchorBlockHashes: _context.anchorBlockHashes,
+            encodedBlocks: _batch.encodedBlocks,
+            baseFeeConfig: _context.baseFeeConfig
+        });
+
+        // Propose metadata section
+        meta_.proposeMeta = I.BatchProposeMetadata({
+            lastBlockTimestamp: _batch.lastBlockTimestamp,
+            lastBlockId: meta_.buildMeta.lastBlockId,
+            lastAnchorBlockId: _context.lastAnchorBlockId
+        });
+
+        // Prove metadata section
+        meta_.proveMeta = I.BatchProveMetadata({
+            proposer: _batch.proposer,
+            prover: _batch.prover,
+            proposedAt: _blockTimestamp,
+            firstBlockId: _context.lastBlockId + 1 - uint48(_batch.encodedBlocks.length),
+            lastBlockId: meta_.buildMeta.lastBlockId,
+            livenessBond: _context.livenessBond,
+            provabilityBond: _context.provabilityBond
+        });
+    }
+
     /// @notice Computes a deterministic hash for a batch and its metadata
     /// @dev Creates a hierarchical hash structure:
     ///      - Left hash: batchId + buildMeta hash
@@ -60,23 +114,27 @@ library LibData {
         return keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
     }
 
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
+
     /// @notice Encodes configuration and batch information into the lower 128 bits
     /// @dev Bit-level encoding for efficient storage:
     ///      - Bits 0-7: Base fee sharing percentage (0-100)
     ///      - Bit 8: Forced inclusion flag (0 or 1)
     ///      - Bits 9-127: Reserved for future use
-    /// @param _conf Protocol configuration containing base fee parameters
+    /// @param _baseFeeSharingPctg Base fee sharing percentage (0-100)
     /// @param _batch Batch information containing forced inclusion flag
     /// @return Encoded data as bytes32 with information packed in lower 128 bits
-    function encodeExtraDataLower128Bits(
-        I.Config memory _conf,
+    function _encodeExtraDataLower128Bits(
+        uint8 _baseFeeSharingPctg,
         I.Batch memory _batch
     )
-        internal
+        private
         pure
         returns (bytes32)
     {
-        uint128 v = _conf.baseFeeConfig.sharingPctg; // bits 0-7
+        uint128 v = _baseFeeSharingPctg; // bits 0-7
         v |= _batch.isForcedInclusion ? 1 << 8 : 0; // bit 8
 
         return bytes32(uint256(v));

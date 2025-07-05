@@ -32,7 +32,6 @@ library LibProvers {
     /// @param _summary Current protocol summary state
     /// @param _proverAuth Prover authentication data (signature + metadata)
     /// @param _batch The batch being proved
-    /// @return prover_ The validated and authenticated prover address
     function validateProver(
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
@@ -41,45 +40,45 @@ library LibProvers {
         I.Batch memory _batch
     )
         internal
-        returns (address prover_)
     {
         unchecked {
             if (_batch.proverAuth.length == 0) {
-                _rw.debitBond(_conf, _batch.proposer, _conf.livenessBond + _conf.provabilityBond);
-                return _batch.proposer;
-            }
-
-            // Circular dependency so zero it out. (Batch has proverAuth but
-            // proverAuth has also batchHash)
-            _batch.proverAuth = "";
-
-            // Outsource the prover authentication to the LibAuth library to
-            // reduce this contract's code size.
-            address feeToken;
-            uint96 fee;
-            (prover_, feeToken, fee) = _validateProverAuth(
-                _conf.chainId, _summary.numBatches, keccak256(abi.encode(_batch)), _proverAuth
-            );
-
-            if (feeToken == _conf.bondToken) {
-                // proposer pay the prover fee with bond tokens
-                _rw.debitBond(_conf, _batch.proposer, fee + _conf.provabilityBond);
-
-                // if bondDelta is negative (proverFee < livenessBond), deduct the diff
-                // if not then add the diff to the bond balance
-                int256 bondDelta = int96(fee) - int96(_conf.livenessBond);
-
-                bondDelta < 0
-                    ? _rw.debitBond(_conf, prover_, uint256(-bondDelta))
-                    : _rw.creditBond(prover_, uint256(bondDelta));
-            } else if (_batch.proposer == prover_) {
-                _rw.debitBond(_conf, _batch.proposer, _conf.livenessBond + _conf.provabilityBond);
+                require(_batch.prover == _batch.proposer, InvalidProver());
+                _rw.debitBond(_conf, _batch.prover, _conf.livenessBond + _conf.provabilityBond);
             } else {
-                _rw.debitBond(_conf, _batch.proposer, _conf.provabilityBond);
-                _rw.debitBond(_conf, prover_, _conf.livenessBond);
+                // Circular dependency so zero it out. (Batch has proverAuth but
+                // proverAuth has also batchHash)
+                _batch.proverAuth = "";
 
-                if (fee != 0) {
-                    _rw.transferFee(feeToken, _batch.proposer, prover_, fee);
+                // Outsource the prover authentication to the LibAuth library to
+                // reduce this contract's code size.
+                (address prover, address feeToken, uint96 fee) = _validateProverAuth(
+                    _conf.chainId, _summary.numBatches, keccak256(abi.encode(_batch)), _proverAuth
+                );
+                require(prover != _batch.prover, InvalidProver());
+
+                if (feeToken == _conf.bondToken) {
+                    // proposer pay the prover fee with bond tokens
+                    _rw.debitBond(_conf, _batch.proposer, fee + _conf.provabilityBond);
+
+                    // if bondDelta is negative (proverFee < livenessBond), deduct the diff
+                    // if not then add the diff to the bond balance
+                    int256 bondDelta = int96(fee) - int96(_conf.livenessBond);
+
+                    bondDelta < 0
+                        ? _rw.debitBond(_conf, prover, uint256(-bondDelta))
+                        : _rw.creditBond(prover, uint256(bondDelta));
+                } else if (prover == _batch.proposer) {
+                    _rw.debitBond(
+                        _conf, _batch.proposer, _conf.livenessBond + _conf.provabilityBond
+                    );
+                } else {
+                    _rw.debitBond(_conf, _batch.proposer, _conf.provabilityBond);
+                    _rw.debitBond(_conf, prover, _conf.livenessBond);
+
+                    if (fee != 0) {
+                        _rw.transferFee(feeToken, _batch.proposer, prover, fee);
+                    }
                 }
             }
         }
@@ -100,7 +99,7 @@ library LibProvers {
     /// @param _batchId Batch ID being proved
     /// @param _batchParamsHash Hash of batch parameters for signature verification
     /// @param _proverAuth Encoded prover authentication data
-    /// @return prover_ Validated prover address
+    /// @return prover Validated prover address
     /// @return feeToken_ Fee token address for payment
     /// @return fee_ Fee amount to be paid
     function _validateProverAuth(
@@ -111,7 +110,7 @@ library LibProvers {
     )
         private
         view
-        returns (address prover_, address feeToken_, uint96 fee_)
+        returns (address prover, address feeToken_, uint96 fee_)
     {
         I.ProverAuth memory auth = abi.decode(_proverAuth, (I.ProverAuth));
 

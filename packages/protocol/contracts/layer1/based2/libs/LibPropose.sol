@@ -86,70 +86,19 @@ library LibPropose {
         private
         returns (I.BatchMetadata memory meta_)
     {
-        // Validate the batch parameters and return validation output
-        LibValidate.ValidationOutput memory output =
-            LibValidate.validate(_conf, _rw, _batch, _parent);
+        // Validate the batch parameters and return batch and batch context data
+        I.BatchContext memory context = LibValidate.validate(_conf, _rw, _batch, _parent);
 
-        output.prover = LibProvers.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
+        LibProvers.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
 
-        meta_ = _populateBatchMetadata(_conf, _batch, output);
+        meta_ = LibData.buildBatchMetadata(
+            uint48(block.number), uint48(block.timestamp), _batch, context
+        );
 
         bytes32 batchMetaHash = LibData.hashBatch(_summary.numBatches, meta_);
         _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
 
-        emit I.Proposed(_summary.numBatches, meta_);
-    }
-
-    /// @notice Populates batch metadata from validation output
-    /// @param _conf The protocol configuration
-    /// @param _batch The batch being proposed
-    /// @param _output The validation output containing computed values
-    /// @return meta_ The populated batch metadata
-    function _populateBatchMetadata(
-        I.Config memory _conf,
-        I.Batch calldata _batch,
-        LibValidate.ValidationOutput memory _output
-    )
-        private
-        view
-        returns (I.BatchMetadata memory meta_)
-    {
-        // Build metadata section
-        meta_.buildMeta = I.BatchBuildMetadata({
-            txsHash: _output.txsHash,
-            blobHashes: _output.blobHashes,
-            extraData: LibData.encodeExtraDataLower128Bits(_conf, _batch),
-            coinbase: _output.coinbase,
-            proposedIn: uint48(block.number),
-            blobCreatedIn: _batch.blobs.createdIn,
-            blobByteOffset: _batch.blobs.byteOffset,
-            blobByteSize: _batch.blobs.byteSize,
-            gasLimit: _conf.blockMaxGasLimit,
-            lastBlockId: _output.lastBlockId,
-            lastBlockTimestamp: _batch.lastBlockTimestamp,
-            anchorBlockIds: _batch.anchorBlockIds,
-            anchorBlockHashes: _output.anchorBlockHashes,
-            encodedBlocks: _batch.encodedBlocks,
-            baseFeeConfig: _conf.baseFeeConfig
-        });
-
-        // Propose metadata section
-        meta_.proposeMeta = I.BatchProposeMetadata({
-            lastBlockTimestamp: _batch.lastBlockTimestamp,
-            lastBlockId: meta_.buildMeta.lastBlockId,
-            lastAnchorBlockId: _output.lastAnchorBlockId
-        });
-
-        // Prove metadata section
-        meta_.proveMeta = I.BatchProveMetadata({
-            proposer: _output.proposer,
-            prover: _output.prover,
-            proposedAt: uint48(block.timestamp),
-            firstBlockId: _output.firstBlockId,
-            lastBlockId: meta_.buildMeta.lastBlockId,
-            livenessBond: _conf.livenessBond,
-            provabilityBond: _conf.provabilityBond
-        });
+        emit I.Proposed(_summary.numBatches, context);
     }
 
     // -------------------------------------------------------------------------

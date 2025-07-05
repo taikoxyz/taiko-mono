@@ -18,37 +18,6 @@ import "./LibState.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibValidate {
     // -------------------------------------------------------------------------
-    // Structs
-    // -------------------------------------------------------------------------
-
-    /// @notice Output structure containing validated batch information
-    /// @dev This struct aggregates all validation results for efficient batch processing
-    struct ValidationOutput {
-        /// @notice Hash of all transactions in the batch
-        bytes32 txsHash;
-        /// @notice Array of blob hashes associated with the batch
-        bytes32[] blobHashes;
-        /// @notice ID of the last anchor block in the batch
-        uint48 lastAnchorBlockId;
-        /// @notice ID of the first block in the batch
-        uint48 firstBlockId;
-        /// @notice ID of the last block in the batch
-        uint48 lastBlockId;
-        /// @notice Array of anchor block hashes for validation
-        bytes32[] anchorBlockHashes;
-        /// @notice Array of validated blocks in the batch
-        I.Block[] blocks;
-        /// @notice Address of the batch proposer
-        address proposer;
-        /// @notice Address of the batch prover
-        address prover;
-        /// @notice Address of the coinbase for block rewards
-        address coinbase;
-        /// @notice Block number where blobs were created
-        uint48 blobsCreatedIn;
-    }
-
-    // -------------------------------------------------------------------------
     // Internal Functions
     // -------------------------------------------------------------------------
 
@@ -59,7 +28,7 @@ library LibValidate {
     /// @param _rw Read/write access functions for blockchain state
     /// @param _batch The batch to validate
     /// @param _parentProposeMeta Metadata from the parent batch proposal
-    /// @return output_ Validated batch information and computed hashes
+    /// @return context_ Validated batch information and computed hashes
     function validate(
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
@@ -68,10 +37,10 @@ library LibValidate {
     )
         internal
         view
-        returns (ValidationOutput memory output_)
+        returns (I.BatchContext memory context_)
     {
         // Validate proposer and coinbase
-        (output_.proposer, output_.coinbase) = _validateProposerCoinbase(_conf, _batch);
+        _validateProposerCoinbase(_conf, _batch);
 
         // Validate and decode blocks
         I.Block[] memory blocks = _validateBlocks(_conf, _batch);
@@ -83,20 +52,25 @@ library LibValidate {
         _validateSignals(_conf, _rw, blocks, _batch.signalSlots);
 
         // Validate anchors
-        (output_.anchorBlockHashes, output_.lastAnchorBlockId) =
+        (context_.anchorBlockHashes, context_.lastAnchorBlockId) =
             _validateAnchors(_conf, _rw, _batch, blocks, _parentProposeMeta.lastAnchorBlockId);
 
         // Validate block range
-        (output_.firstBlockId, output_.lastBlockId) =
+        context_.lastBlockId =
             _validateBlockRange(_conf, blocks.length, _parentProposeMeta.lastBlockId);
 
         // Validate blobs
-        output_.blobsCreatedIn = _validateBlobs(_conf, _batch);
+        context_.blobsCreatedIn = _validateBlobs(_conf, _batch);
 
         // Calculate transaction hash
-        (output_.txsHash, output_.blobHashes) = _calculateTxsHash(_rw, _batch.blobs);
+        (context_.txsHash, context_.blobHashes) = _calculateTxsHash(_rw, _batch.blobs);
 
-        output_.blocks = blocks;
+        context_.blocks = blocks;
+
+        context_.blockMaxGasLimit = _conf.blockMaxGasLimit;
+        context_.baseFeeConfig = _conf.baseFeeConfig;
+        context_.livenessBond = _conf.livenessBond;
+        context_.provabilityBond = _conf.provabilityBond;
     }
 
     // -------------------------------------------------------------------------
@@ -107,25 +81,21 @@ library LibValidate {
     /// @dev Handles both direct proposing and inbox wrapper scenarios
     /// @param _conf Protocol configuration
     /// @param _batch The batch being validated
-    /// @return proposer_ The validated proposer address
-    /// @return coinbase_ The validated coinbase address
     function _validateProposerCoinbase(
         I.Config memory _conf,
         I.Batch calldata _batch
     )
         internal
         view
-        returns (address proposer_, address coinbase_)
     {
         if (_conf.inboxWrapper == address(0)) {
-            proposer_ = msg.sender;
+            require(_batch.proposer == msg.sender, ProposerNotMsgSender());
         } else {
             require(msg.sender == _conf.inboxWrapper, NotInboxWrapper());
             require(_batch.proposer != address(0), CustomProposerMissing());
-            proposer_ = _batch.proposer;
         }
 
-        coinbase_ = _batch.coinbase == address(0) ? proposer_ : _batch.coinbase;
+        require(_batch.coinbase != address(0), InvalidCoinbase());
     }
 
     /// @notice Validates and decodes block data from the batch
@@ -292,8 +262,7 @@ library LibValidate {
     /// @param _conf Protocol configuration
     /// @param _numBlocks Number of blocks in the batch
     /// @param _parentLastBlockId Last block ID from the parent batch
-    /// @return firstBlockId_ ID of the first block in this batch
-    /// @return lastBlockId_ ID of the last block in this batch
+    /// @return  ID of the last block in this batch
     function _validateBlockRange(
         I.Config memory _conf,
         uint256 _numBlocks,
@@ -301,15 +270,15 @@ library LibValidate {
     )
         internal
         pure
-        returns (uint48 firstBlockId_, uint48 lastBlockId_)
+        returns (uint48)
     {
-        firstBlockId_ = _parentLastBlockId + 1;
-        lastBlockId_ = uint48(firstBlockId_ + _numBlocks);
-
+        uint256 firstBlockId = _parentLastBlockId + 1;
+        uint256 lastBlockId = uint48(firstBlockId + _numBlocks);
         require(
-            LibForks.isBlocksInCurrentFork(_conf, firstBlockId_, lastBlockId_),
+            LibForks.isBlocksInCurrentFork(_conf, firstBlockId, lastBlockId),
             BlocksNotInCurrentFork()
         );
+        return uint48(lastBlockId);
     }
 
     /// @notice Validates blob data and forced inclusion parameters
@@ -395,8 +364,10 @@ library LibValidate {
     error FirstBlockTimeShiftNotZero();
     error InvalidBlobCreatedIn();
     error InvalidBlobParams();
+    error InvalidCoinbase();
     error InvalidForcedInclusion();
     error LastBlockTimestampNotSet();
+    error ProposerNotMsgSender();
     error NoAnchorBlockIdWithinThisBatch();
     error NotEnoughAnchorIds();
     error NotInboxWrapper();

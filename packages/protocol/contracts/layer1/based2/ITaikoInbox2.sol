@@ -42,6 +42,7 @@ interface ITaikoInbox2 {
     struct Batch {
         address proposer;
         address coinbase;
+        address prover;
         uint48 lastBlockTimestamp;
         bool isForcedInclusion;
         // Specifies the number of blocks to be generated from this batch.
@@ -50,6 +51,30 @@ interface ITaikoInbox2 {
         uint48[] anchorBlockIds;
         uint256[] encodedBlocks; // encoded Block
         bytes proverAuth;
+    }
+
+    /// @notice Output structure containing validated batch information
+    /// @dev This struct aggregates all validation results for efficient batch processing
+    struct BatchContext {
+        /// @notice Hash of all transactions in the batch
+        bytes32 txsHash; // TODO: remove this?
+        /// @notice Array of blob hashes associated with the batch
+        bytes32[] blobHashes;
+        /// @notice ID of the last anchor block in the batch
+        uint48 lastAnchorBlockId;
+        /// @notice ID of the last block in the batch
+        uint48 lastBlockId;
+        /// @notice Array of anchor block hashes for validation
+        bytes32[] anchorBlockHashes; // TODO?
+        /// @notice Array of validated blocks in the batch
+        Block[] blocks;
+        /// @notice Block number where blobs were created
+        uint48 blobsCreatedIn;
+        /// @notice The maximum gas limit allowed for a block.
+        uint32 blockMaxGasLimit;
+        LibSharedData.BaseFeeConfig baseFeeConfig;
+        uint96 livenessBond;
+        uint96 provabilityBond;
     }
 
     struct ProverAuth {
@@ -124,10 +149,9 @@ interface ITaikoInbox2 {
     }
 
     enum ProofTiming {
-        OutOfExtendedProvingWindow, // 0
-        InProvingWindow, // 1
-        InExtendedProvingWindow // 2
-
+        OutOfExtendedProvingWindow,
+        InProvingWindow,
+        InExtendedProvingWindow
     }
 
     struct TransitionMeta {
@@ -238,8 +262,8 @@ interface ITaikoInbox2 {
 
     /// @notice Emitted when a batch is proposed.
     /// @param batchId The ID of the proposed batch.
-    /// @param metadata The encoded metadata of the proposed batch.
-    event Proposed(uint256 batchId, BatchMetadata metadata);
+    /// @param context The batch context data
+    event Proposed(uint256 batchId, BatchContext context);
 
     /// @notice Emitted when a batch is proved.
     /// @param batchId The ID of the proved batch.
