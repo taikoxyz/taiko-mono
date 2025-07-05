@@ -60,7 +60,7 @@ library LibValidate {
     /// @param _batch The batch to validate
     /// @param _parentProposeMeta Metadata from the parent batch proposal
     /// @return output_ Validated batch information and computed hashes
-    function validateBatch(
+    function validate(
         I.Config memory _conf,
         LibData.ReadWrite memory _rw,
         I.Batch memory _batch,

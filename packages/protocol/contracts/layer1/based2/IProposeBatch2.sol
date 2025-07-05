@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./ITaikoInbox2.sol";
+import { ITaikoInbox2 as I } from "./ITaikoInbox2.sol";
 
 /// @title IProposeBatch2
 /// @notice Interface for proposing batches in the Taiko protocol.
@@ -14,9 +14,11 @@ interface IProposeBatch2 {
     /// @param _batch Array of batches to be proposed.
     /// @param _evidence Evidence proving the validity of the batch metadata.
     function propose4(
-        ITaikoInbox2.Summary memory _summary,
-        ITaikoInbox2.Batch[] memory _batch,
-        ITaikoInbox2.BatchProposeMetadataEvidence memory _evidence
+        I.Summary memory _summary,
+        I.Batch[] memory _batch,
+        I.BatchProposeMetadataEvidence memory _evidence,
+        I.TransitionMeta[] calldata _trans
     )
-        external;
+        external
+        returns (I.Summary memory);
 }

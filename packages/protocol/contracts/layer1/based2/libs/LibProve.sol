@@ -83,7 +83,7 @@ library LibProve {
         // Load and verify the batch metadata
         bytes32 batchMetaHash = _rw.loadBatchMetaHash(_conf, _input.tran.batchId);
 
-        _validateBatchProveMeta(batchMetaHash, _input);
+        _validateProveMeta(batchMetaHash, _input);
 
         I.TransitionMeta memory tranMeta = I.TransitionMeta({
             parentHash: _input.tran.parentHash,
@@ -152,7 +152,7 @@ library LibProve {
     /// @notice Validates the batch prove metadata against the stored hash
     /// @param _batchMetaHash The stored batch metadata hash
     /// @param _input The batch prove input containing metadata to validate
-    function _validateBatchProveMeta(
+    function _validateProveMeta(
         bytes32 _batchMetaHash,
         I.BatchProveInput calldata _input
     )

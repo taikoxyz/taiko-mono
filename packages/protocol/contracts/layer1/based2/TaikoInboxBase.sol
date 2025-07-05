@@ -63,7 +63,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         _summary = LibPropose.propose(conf, rw, _summary, _batch, _evidence);
 
         // Verify batches
-        _summary = LibVerify.verifyBatches(conf, rw, _summary, _trans);
+        _summary = LibVerify.verify(conf, rw, _summary, _trans);
 
         _saveSummaryHash(keccak256(abi.encode(_summary)));
         return _summary;
@@ -140,7 +140,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
 
     /// @notice Gets the configuration (must be implemented by derived contracts)
     /// @return The configuration struct
-    function _getConfig() internal view virtual returns (Config memory);
+    function _getConfig() internal view virtual returns (Config memory) { }
 
     /// @notice Gets the blob hash for a block number
     /// @param _blockNumber The block number

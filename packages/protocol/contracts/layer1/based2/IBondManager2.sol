@@ -55,5 +55,5 @@ interface IBondManager2 {
     /// @notice Retrieves the bond token address.
     /// @dev Returns address(0) if Ether is used as the bond token.
     /// @return The bond token address.
-    function token4() external view returns (address);
+    function bondToken4() external view returns (address);
 }

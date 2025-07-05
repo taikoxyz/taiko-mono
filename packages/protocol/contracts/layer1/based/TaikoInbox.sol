@@ -541,7 +541,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     /// @inheritdoc ITaiko
-    function v4IsInbox() external pure override returns (bool) {
+    function isInbox4() external pure override returns (bool) {
         return true;
     }
 

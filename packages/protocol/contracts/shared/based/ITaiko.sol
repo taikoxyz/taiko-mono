@@ -9,5 +9,5 @@ interface ITaiko {
     /// @notice Checks if the contract is a TaikoInbox contract or a TaikoAnchor contract.
     /// @return True if the contract is a TaikoInbox contract, false if it is a TaikoAnchor
     /// contract.
-    function v4IsInbox() external pure returns (bool);
+    function isInbox4() external pure returns (bool);
 }

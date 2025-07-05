@@ -84,7 +84,7 @@ library LibPropose {
     {
         // Validate the batch parameters and return validation output
         LibValidate.ValidationOutput memory output =
-            LibValidate.validateBatch(_conf, _rw, _batch, _parent);
+            LibValidate.validate(_conf, _rw, _batch, _parent);
 
         output.prover = LibProvers.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
 

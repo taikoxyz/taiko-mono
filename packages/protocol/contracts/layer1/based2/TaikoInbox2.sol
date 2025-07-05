@@ -19,7 +19,7 @@ import "./IBondManager2.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox2 is TaikoInboxBase, IBondManager2 {
+contract TaikoInbox2 is TaikoInboxBase, IBondManager2 {
     using LibBonds for I.State;
     using SafeERC20 for IERC20;
 
@@ -54,6 +54,10 @@ abstract contract TaikoInbox2 is TaikoInboxBase, IBondManager2 {
     /// @param _amount The amount to withdraw
     function withdraw4(uint256 _amount) external {
         state.withdrawBond(_getConfig().bondToken, _amount);
+    }
+
+    function bondToken4() external view returns (address) {
+        return _getConfig().bondToken;
     }
 
     // -------------------------------------------------------------------------

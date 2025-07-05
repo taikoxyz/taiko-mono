@@ -32,7 +32,7 @@ library LibVerify {
     /// @param _summary Current protocol summary state
     /// @param _trans Array of transition metadata for verification
     /// @return Updated summary with verification results
-    function verifyBatches(
+    function verify(
         I.Config memory _conf,
         LibData.ReadWrite memory _rw,
         I.Summary memory _summary,
