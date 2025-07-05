@@ -89,7 +89,7 @@ library LibPropose {
         // Validate the batch parameters and return validation output
         I.BatchContext memory context = LibValidate.validate(_conf, _rw, _batch, _parent);
 
-        context.prover = LibProvers.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
+        LibProvers.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
 
         meta_ = LibData.buildBatchMetadata(
             uint48(block.number), uint48(block.timestamp), _conf, _batch, context

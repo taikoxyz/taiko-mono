@@ -63,7 +63,7 @@ library LibData {
         // Prove metadata section
         meta_.proveMeta = I.BatchProveMetadata({
             proposer: _batch.proposer,
-            prover: _context.prover,
+            prover: _batch.prover,
             proposedAt: _blockTimestamp,
             firstBlockId: _context.firstBlockId,
             lastBlockId: meta_.buildMeta.lastBlockId,

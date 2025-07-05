@@ -42,6 +42,7 @@ interface ITaikoInbox2 {
     struct Batch {
         address proposer;
         address coinbase;
+        address prover;
         uint48 lastBlockTimestamp;
         bool isForcedInclusion;
         // Specifies the number of blocks to be generated from this batch.
@@ -69,8 +70,6 @@ interface ITaikoInbox2 {
         bytes32[] anchorBlockHashes;
         /// @notice Array of validated blocks in the batch
         Block[] blocks;
-        /// @notice Address of the batch prover
-        address prover;
         /// @notice Block number where blobs were created
         uint48 blobsCreatedIn;
     }

@@ -40,7 +40,7 @@ library LibValidate {
         returns (I.BatchContext memory context_)
     {
         // Validate proposer and coinbase
-         _validateProposerCoinbase(_conf, _batch);
+        _validateProposerCoinbase(_conf, _batch);
 
         // Validate and decode blocks
         I.Block[] memory blocks = _validateBlocks(_conf, _batch);
