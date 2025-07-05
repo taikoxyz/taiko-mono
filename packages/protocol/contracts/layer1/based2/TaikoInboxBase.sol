@@ -8,9 +8,9 @@ import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 
-import "./libs/LibBatchProposal.sol";
-import "./libs/LibBatchProving.sol";
-import "./libs/LibBatchVerification.sol";
+import "./libs/LibPropose.sol";
+import "./libs/LibProve.sol";
+import "./libs/LibVerify.sol";
 import "./ITaikoInbox2.sol";
 import "./IProposeBatch2.sol";
 
@@ -33,7 +33,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
     /// @notice Initializes the contract with owner and genesis block hash
     /// @param _owner The owner address
     /// @param _genesisBlockHash The genesis block hash
-    function v4Init(address _owner, bytes32 _genesisBlockHash) external initializer {
+    function init4(address _owner, bytes32 _genesisBlockHash) external initializer {
         __Taiko_init(_owner, _genesisBlockHash);
     }
 
@@ -43,7 +43,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
     /// @param _evidence The batch proposal evidence
     /// @param _trans The transition metadata for verification
     /// @return The updated summary
-    function v4ProposeBatches(
+    function propose4(
         I.Summary memory _summary,
         I.Batch[] memory _batch,
         I.BatchProposeMetadataEvidence memory _evidence,
@@ -57,13 +57,13 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         require(_loadSummaryHash() == keccak256(abi.encode(_summary)), SummaryMismatch());
 
         I.Config memory conf = _getConfig();
-        LibDataUtils.ReadWrite memory rw = _getReadWrite();
+        LibData.ReadWrite memory rw = _getReadWrite();
 
         // Propose batches
-        _summary = LibBatchProposal.proposeBatches(conf, rw, _summary, _batch, _evidence);
+        _summary = LibPropose.propose(conf, rw, _summary, _batch, _evidence);
 
         // Verify batches
-        _summary = LibBatchVerification.verifyBatches(conf, rw, _summary, _trans);
+        _summary = LibVerify.verifyBatches(conf, rw, _summary, _trans);
 
         _saveSummaryHash(keccak256(abi.encode(_summary)));
         return _summary;
@@ -74,7 +74,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
     /// @param _inputs The batch prove inputs
     /// @param _proof The cryptographic proof
     /// @return The updated summary
-    function v4ProveBatches(
+    function prove4(
         I.Summary memory _summary,
         I.BatchProveInput[] calldata _inputs,
         bytes calldata _proof
@@ -86,11 +86,11 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         require(_loadSummaryHash() == keccak256(abi.encode(_summary)), SummaryMismatch());
 
         I.Config memory conf = _getConfig();
-        LibDataUtils.ReadWrite memory rw = _getReadWrite();
+        LibData.ReadWrite memory rw = _getReadWrite();
 
         // Prove batches and get aggregated hash
         bytes32 aggregatedBatchHash;
-        (_summary, aggregatedBatchHash) = LibBatchProving.proveBatches(conf, rw, _summary, _inputs);
+        (_summary, aggregatedBatchHash) = LibProve.prove(conf, rw, _summary, _inputs);
 
         // Verify the proof
         IVerifier2(conf.verifier).verifyProof(aggregatedBatchHash, _proof);
@@ -101,13 +101,13 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
 
     /// @notice Checks if this contract is an inbox
     /// @return Always returns true
-    function v4IsInbox() external pure override returns (bool) {
+    function isInbox4() external pure returns (bool) {
         return true;
     }
 
     /// @notice Gets the current configuration
     /// @return The configuration struct
-    function v4GetConfig() external view virtual returns (Config memory) {
+    function config4() external view virtual returns (Config memory) {
         return _getConfig();
     }
 
@@ -128,7 +128,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         I.BatchMetadata memory meta;
         meta.buildMeta.proposedIn = uint48(block.number);
         meta.proveMeta.proposedAt = uint48(block.timestamp);
-        _saveBatchMetaHash(conf, 0, LibDataUtils.hashBatch(0, meta));
+        _saveBatchMetaHash(conf, 0, LibData.hashBatch(0, meta));
 
         // Initialize the summary
         I.Summary memory summary;
@@ -243,8 +243,8 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
 
     /// @notice Creates a ReadWrite struct with function pointers
     /// @return The ReadWrite struct with all required function pointers
-    function _getReadWrite() private pure returns (LibDataUtils.ReadWrite memory) {
-        return LibDataUtils.ReadWrite({
+    function _getReadWrite() private pure returns (LibData.ReadWrite memory) {
+        return LibData.ReadWrite({
             // Read functions
             loadBatchMetaHash: _loadBatchMetaHash,
             isSignalSent: _isSignalSent,

@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
-import "./LibBatchValidation.sol";
-import "./LibDataUtils.sol";
+import "./LibValidate.sol";
+import "./LibData.sol";
 
-/// @title LibProverValidation
+/// @title LibProvers
 /// @notice Library for validating prover authentication and managing prover bonds
 /// @dev This library handles prover validation and bond management:
 ///      - Validates prover authentication signatures
@@ -14,7 +14,7 @@ import "./LibDataUtils.sol";
 ///      - Handles fee transfers between proposers and provers
 ///      - Supports different authentication scenarios (direct, outsourced)
 /// @custom:security-contact security@taiko.xyz
-library LibProverValidation {
+library LibProvers {
     using SignatureChecker for address;
 
     // -------------------------------------------------------------------------
@@ -35,7 +35,7 @@ library LibProverValidation {
     /// @return prover_ The validated and authenticated prover address
     function validateProver(
         I.Config memory _conf,
-        LibDataUtils.ReadWrite memory _rw,
+        LibData.ReadWrite memory _rw,
         I.Summary memory _summary,
         bytes memory _proverAuth,
         I.Batch memory _batch

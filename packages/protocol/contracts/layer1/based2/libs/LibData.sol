@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
-/// @title LibDataUtils
+/// @title LibData
 /// @notice Library for data encoding, hashing, and utility functions in Taiko's Layer 1 protocol
 /// @dev This library provides core data manipulation functions:
 ///      - Batch metadata hashing and encoding
@@ -11,7 +11,7 @@ import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 ///      - Configuration and batch data encoding utilities
 ///      - Metadata packing and unpacking functions
 /// @custom:security-contact security@taiko.xyz
-library LibDataUtils {
+library LibData {
     // -------------------------------------------------------------------------
     // Structs
     // -------------------------------------------------------------------------
@@ -41,7 +41,7 @@ library LibDataUtils {
         /// @notice Syncs chain data
         function(I.Config memory, uint64, bytes32) syncChainData;
         /// @notice Saves a batch metadata hash
-        function(I.Config memory, uint, bytes32) saveBatchMetaHash;
+        function(I.Config memory, uint256, bytes32) saveBatchMetaHash;
     }
 
     // -------------------------------------------------------------------------

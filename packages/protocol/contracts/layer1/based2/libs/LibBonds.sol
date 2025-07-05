@@ -6,10 +6,10 @@ import "src/shared/libs/LibAddress.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "../IBondManager2.sol";
 
-/// @title LibBondManagement
+/// @title LibBonds
 /// @notice Library for managing bonds in the Taiko protocol
 /// @custom:security-contact security@taiko.xyz
-library LibBondManagement {
+library LibBonds {
     using SafeERC20 for IERC20;
 
     // -------------------------------------------------------------------------

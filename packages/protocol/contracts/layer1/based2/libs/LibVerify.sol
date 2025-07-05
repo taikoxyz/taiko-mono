@@ -4,18 +4,19 @@ pragma solidity ^0.8.24;
 import "src/shared/libs/LibMath.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "./LibForks.sol";
-import "./LibBatchProposal.sol";
-import "./LibDataUtils.sol";
+import "./LibPropose.sol";
+import "./LibData.sol";
 
-/// @title LibBatchVerification
-/// @notice Library for verifying batches and managing bond distributions in Taiko's Layer 1 protocol
+/// @title LibVerify
+/// @notice Library for verifying batches and managing bond distributions in Taiko's Layer 1
+/// protocol
 /// @dev This library handles the verification of proposed batches, including:
 ///      - Transition metadata validation
 ///      - Cooldown period enforcement
 ///      - Bond distribution to provers
 ///      - State root synchronization
 /// @custom:security-contact security@taiko.xyz
-library LibBatchVerification {
+library LibVerify {
     using LibMath for uint256;
 
     // -------------------------------------------------------------------------
@@ -33,7 +34,7 @@ library LibBatchVerification {
     /// @return Updated summary with verification results
     function verifyBatches(
         I.Config memory _conf,
-        LibDataUtils.ReadWrite memory _rw,
+        LibData.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans
     )

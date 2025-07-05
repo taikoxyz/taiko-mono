@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./LibForks.sol";
-import "./LibDataUtils.sol";
+import "./LibData.sol";
 
-/// @title LibBatchValidation
+/// @title LibValidate
 /// @notice Library for comprehensive batch validation in Taiko's Layer 1 protocol
 /// @dev This library provides validation functions for batch proposals, including:
 ///      - Proposer and coinbase validation
@@ -16,7 +16,7 @@ import "./LibDataUtils.sol";
 ///      - Blob data validation
 ///      - Signal validation
 /// @custom:security-contact security@taiko.xyz
-library LibBatchValidation {
+library LibValidate {
     // -------------------------------------------------------------------------
     // Structs
     // -------------------------------------------------------------------------
@@ -62,7 +62,7 @@ library LibBatchValidation {
     /// @return output_ Validated batch information and computed hashes
     function validateBatch(
         I.Config memory _conf,
-        LibDataUtils.ReadWrite memory _rw,
+        LibData.ReadWrite memory _rw,
         I.Batch memory _batch,
         I.BatchProposeMetadata memory _parentProposeMeta
     )
@@ -218,7 +218,7 @@ library LibBatchValidation {
     /// @param _signalSlots Array of signal slot identifiers to validate
     function _validateSignals(
         I.Config memory _conf,
-        LibDataUtils.ReadWrite memory _rw,
+        LibData.ReadWrite memory _rw,
         I.Block[] memory _blocks,
         bytes32[] memory _signalSlots
     )
@@ -255,7 +255,7 @@ library LibBatchValidation {
     /// @return lastAnchorBlockId_ ID of the last anchor block in this batch
     function _validateAnchors(
         I.Config memory _conf,
-        LibDataUtils.ReadWrite memory _rw,
+        LibData.ReadWrite memory _rw,
         I.Batch memory _batch,
         I.Block[] memory _blocks,
         uint48 _parentLastAnchorBlockId
@@ -382,7 +382,7 @@ library LibBatchValidation {
     /// @return txsHash_ Hash of all transactions in the batch
     /// @return blobHashes_ Array of individual blob hashes
     function _calculateTxsHash(
-        LibDataUtils.ReadWrite memory _rw,
+        LibData.ReadWrite memory _rw,
         I.Blobs memory _blobs
     )
         private
