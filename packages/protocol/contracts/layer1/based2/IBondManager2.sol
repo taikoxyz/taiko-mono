@@ -2,8 +2,14 @@
 pragma solidity ^0.8.24;
 
 /// @title IBondManager2
+/// @notice Interface for managing bonds in the Taiko protocol.
+/// @dev This interface defines functions for depositing, withdrawing, and querying bond balances.
 /// @custom:security-contact security@taiko.xyz
 interface IBondManager2 {
+    // -------------------------------------------------------------------------
+    // Events
+    // -------------------------------------------------------------------------
+
     /// @notice Emitted when tokens are deposited into a user's bond balance.
     /// @param user The address of the user who deposited the tokens.
     /// @param amount The amount of tokens deposited.
@@ -14,31 +20,40 @@ interface IBondManager2 {
     /// @param amount The amount of tokens withdrawn.
     event BondWithdrawn(address indexed user, uint256 amount);
 
-    /// @notice Emitted when a token is credited back to a user's bond balance.
+    /// @notice Emitted when tokens are credited back to a user's bond balance.
     /// @param user The address of the user whose bond balance is credited.
     /// @param amount The amount of tokens credited.
     event BondCredited(address indexed user, uint256 amount);
 
-    /// @notice Emitted when a token is debited from a user's bond balance.
+    /// @notice Emitted when tokens are debited from a user's bond balance.
     /// @param user The address of the user whose bond balance is debited.
     /// @param amount The amount of tokens debited.
     event BondDebited(address indexed user, uint256 amount);
 
-    /// @notice Deposits TAIKO tokens into the contract to be used as liveness bond.
-    /// @param _amount The amount of TAIKO tokens to deposit.
-    function v4DepositBond(uint256 _amount) external payable;
+    // -------------------------------------------------------------------------
+    // Bond Operations
+    // -------------------------------------------------------------------------
 
-    /// @notice Withdraws a specified amount of TAIKO tokens from the contract.
-    /// @param _amount The amount of TAIKO tokens to withdraw.
-    function v4WithdrawBond(uint256 _amount) external;
+    /// @notice Deposits tokens into the contract to be used as bond.
+    /// @dev If the bond token is Ether, msg.value must be equal to _amount.
+    /// @param _amount The amount of tokens to deposit.
+    function deposit4(uint256 _amount) external payable;
 
-    /// @notice Returns the TAIKO token balance of a specific user.
+    /// @notice Withdraws a specified amount of tokens from the user's bond balance.
+    /// @param _amount The amount of tokens to withdraw.
+    function withdraw4(uint256 _amount) external;
+
+    // -------------------------------------------------------------------------
+    // Getters
+    // -------------------------------------------------------------------------
+
+    /// @notice Returns the bond balance of a specific user.
     /// @param _user The address of the user.
-    /// @return The TAIKO token balance of the user.
-    function v4BondBalanceOf(address _user) external view returns (uint256);
+    /// @return The bond balance of the user.
+    function balanceOf4(address _user) external view returns (uint256);
 
-    /// @notice Retrieves the Bond token address. If Ether is used as bond, this function returns
-    /// address(0).
-    /// @return The Bond token address.
-    function v4BondToken() external view returns (address);
+    /// @notice Retrieves the bond token address.
+    /// @dev Returns address(0) if Ether is used as the bond token.
+    /// @return The bond token address.
+    function bondToken4() external view returns (address);
 }

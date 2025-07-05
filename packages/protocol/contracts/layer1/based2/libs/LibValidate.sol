@@ -4,24 +4,47 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./LibForks.sol";
-import "./LibDataUtils.sol";
+import "./LibState.sol";
 
-library LibBatchValidation {
+/// @title LibValidate
+/// @notice Library for comprehensive batch validation in Taiko's Layer 1 protocol
+/// @dev This library provides validation functions for batch proposals, including:
+///      - Proposer and coinbase validation
+///      - Block structure and metadata validation
+///      - Timestamp consistency checks
+///      - Anchor block validation
+///      - Blob data validation
+///      - Signal validation
+/// @custom:security-contact security@taiko.xyz
+library LibValidate {
     // -------------------------------------------------------------------------
     // Structs
     // -------------------------------------------------------------------------
 
+    /// @notice Output structure containing validated batch information
+    /// @dev This struct aggregates all validation results for efficient batch processing
     struct ValidationOutput {
+        /// @notice Hash of all transactions in the batch
         bytes32 txsHash;
+        /// @notice Array of blob hashes associated with the batch
         bytes32[] blobHashes;
+        /// @notice ID of the last anchor block in the batch
         uint48 lastAnchorBlockId;
+        /// @notice ID of the first block in the batch
         uint48 firstBlockId;
+        /// @notice ID of the last block in the batch
         uint48 lastBlockId;
+        /// @notice Array of anchor block hashes for validation
         bytes32[] anchorBlockHashes;
+        /// @notice Array of validated blocks in the batch
         I.Block[] blocks;
-        address proposer; // TODO
+        /// @notice Address of the batch proposer
+        address proposer;
+        /// @notice Address of the batch prover
         address prover;
-        address coinbase; // TODO
+        /// @notice Address of the coinbase for block rewards
+        address coinbase;
+        /// @notice Block number where blobs were created
         uint48 blobsCreatedIn;
     }
 
@@ -29,10 +52,18 @@ library LibBatchValidation {
     // Internal Functions
     // -------------------------------------------------------------------------
 
-    function validateBatch(
+    /// @notice Validates a complete batch proposal
+    /// @dev Performs comprehensive validation including proposer, blocks, timestamps,
+    ///      signals, anchors, and blobs. This is the main entry point for batch validation.
+    /// @param _conf Protocol configuration parameters
+    /// @param _rw Read/write access functions for blockchain state
+    /// @param _batch The batch to validate
+    /// @param _parentProposeMeta Metadata from the parent batch proposal
+    /// @return output_ Validated batch information and computed hashes
+    function validate(
         I.Config memory _conf,
-        LibDataUtils.ReadWrite memory _rw,
-        I.Batch memory _batch,
+        LibState.ReadWrite memory _rw,
+        I.Batch calldata _batch,
         I.BatchProposeMetadata memory _parentProposeMeta
     )
         internal
@@ -72,9 +103,15 @@ library LibBatchValidation {
     // Private Functions
     // -------------------------------------------------------------------------
 
+    /// @notice Validates the proposer and coinbase addresses
+    /// @dev Handles both direct proposing and inbox wrapper scenarios
+    /// @param _conf Protocol configuration
+    /// @param _batch The batch being validated
+    /// @return proposer_ The validated proposer address
+    /// @return coinbase_ The validated coinbase address
     function _validateProposerCoinbase(
         I.Config memory _conf,
-        I.Batch memory _batch
+        I.Batch calldata _batch
     )
         internal
         view
@@ -91,9 +128,14 @@ library LibBatchValidation {
         coinbase_ = _batch.coinbase == address(0) ? proposer_ : _batch.coinbase;
     }
 
+    /// @notice Validates and decodes block data from the batch
+    /// @dev Decodes packed block information and validates block count limits
+    /// @param _conf Protocol configuration
+    /// @param _batch The batch containing encoded blocks
+    /// @return blocks_ Array of decoded and validated blocks
     function _validateBlocks(
         I.Config memory _conf,
-        I.Batch memory _batch
+        I.Batch calldata _batch
     )
         internal
         pure
@@ -116,9 +158,15 @@ library LibBatchValidation {
         }
     }
 
+    /// @notice Validates timestamp consistency across the batch
+    /// @dev Ensures timestamps are sequential, within bounds, and respect anchor constraints
+    /// @param _conf Protocol configuration
+    /// @param _batch The batch being validated
+    /// @param _blocks Array of blocks in the batch
+    /// @param _parentLastBlockTimestamp Timestamp of the last block in the parent batch
     function _validateTimestamps(
         I.Config memory _conf,
-        I.Batch memory _batch,
+        I.Batch calldata _batch,
         I.Block[] memory _blocks,
         uint48 _parentLastBlockTimestamp
     )
@@ -150,9 +198,15 @@ library LibBatchValidation {
         }
     }
 
+    /// @notice Validates cross-chain signals in the batch
+    /// @dev Verifies that all referenced signals have been properly sent
+    /// @param _conf Protocol configuration
+    /// @param _rw Read/write access functions
+    /// @param _blocks Array of blocks containing signal references
+    /// @param _signalSlots Array of signal slot identifiers to validate
     function _validateSignals(
         I.Config memory _conf,
-        LibDataUtils.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Block[] memory _blocks,
         bytes32[] memory _signalSlots
     )
@@ -174,10 +228,19 @@ library LibBatchValidation {
         }
     }
 
+    /// @notice Validates anchor blocks used for L1-L2 synchronization
+    /// @dev Ensures anchor blocks are properly ordered, within height limits, and have valid hashes
+    /// @param _conf Protocol configuration
+    /// @param _rw Read/write access functions
+    /// @param _batch The batch being validated
+    /// @param _blocks Array of blocks in the batch
+    /// @param _parentLastAnchorBlockId Last anchor block ID from parent batch
+    /// @return anchorBlockHashes_ Array of validated anchor block hashes
+    /// @return lastAnchorBlockId_ ID of the last anchor block in this batch
     function _validateAnchors(
         I.Config memory _conf,
-        LibDataUtils.ReadWrite memory _rw,
-        I.Batch memory _batch,
+        LibState.ReadWrite memory _rw,
+        I.Batch calldata _batch,
         I.Block[] memory _blocks,
         uint48 _parentLastAnchorBlockId
     )
@@ -224,6 +287,13 @@ library LibBatchValidation {
         }
     }
 
+    /// @notice Validates the block ID range for the batch
+    /// @dev Ensures blocks are sequential and within the current fork
+    /// @param _conf Protocol configuration
+    /// @param _numBlocks Number of blocks in the batch
+    /// @param _parentLastBlockId Last block ID from the parent batch
+    /// @return firstBlockId_ ID of the first block in this batch
+    /// @return lastBlockId_ ID of the last block in this batch
     function _validateBlockRange(
         I.Config memory _conf,
         uint256 _numBlocks,
@@ -242,9 +312,14 @@ library LibBatchValidation {
         );
     }
 
+    /// @notice Validates blob data and forced inclusion parameters
+    /// @dev Handles different blob scenarios: direct, normal batches, and forced inclusion
+    /// @param _conf Protocol configuration
+    /// @param _batch The batch containing blob information
+    /// @return blobsCreatedIn_ Block number where blobs were created
     function _validateBlobs(
         I.Config memory _conf,
-        I.Batch memory _batch
+        I.Batch calldata _batch
     )
         private
         view
@@ -272,8 +347,14 @@ library LibBatchValidation {
         }
     }
 
+    /// @notice Calculates the transaction hash from blob data
+    /// @dev Retrieves blob hashes and computes the aggregate transaction hash
+    /// @param _rw Read/write access functions
+    /// @param _blobs Blob information containing hashes or indices
+    /// @return txsHash_ Hash of all transactions in the batch
+    /// @return blobHashes_ Array of individual blob hashes
     function _calculateTxsHash(
-        LibDataUtils.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Blobs memory _blobs
     )
         private
@@ -299,42 +380,31 @@ library LibBatchValidation {
     }
 
     // -------------------------------------------------------------------------
-    // Errors
+    // Custom Errors
     // -------------------------------------------------------------------------
 
-    // Proposer and wrapper errors
-    error NotInboxWrapper();
-    error CustomProposerMissing();
-    error CustomProposerNotAllowed();
-
-    // Block validation errors
-    error BlockNotFound();
-    error TooManyBlocks();
-    error BlocksNotInCurrentFork();
-    error FirstBlockTimeShiftNotZero();
-
-    // Timestamp errors
-    error LastBlockTimestampNotSet();
-    error TimestampSmallerThanParent();
-    error TimestampTooLarge();
-    error TimestampTooSmall();
-
-    // Anchor block errors
     error AnchorIdSmallerThanParent();
     error AnchorIdTooSmall();
     error AnchorIdZero();
-    error NotEnoughAnchorIds();
-    error NoAnchorBlockIdWithinThisBatch();
-    error ZeroAnchorBlockHash();
-
-    // Blob errors
     error BlobNotFound();
     error BlobNotSpecified();
+    error BlockNotFound();
+    error BlocksNotInCurrentFork();
+    error CustomProposerMissing();
+    error CustomProposerNotAllowed();
+    error FirstBlockTimeShiftNotZero();
     error InvalidBlobCreatedIn();
     error InvalidBlobParams();
     error InvalidForcedInclusion();
-
-    // Signal errors
+    error LastBlockTimestampNotSet();
+    error NoAnchorBlockIdWithinThisBatch();
+    error NotEnoughAnchorIds();
+    error NotInboxWrapper();
     error SignalNotSent();
+    error TimestampSmallerThanParent();
+    error TimestampTooLarge();
+    error TimestampTooSmall();
+    error TooManyBlocks();
     error TooManySignals();
+    error ZeroAnchorBlockHash();
 }

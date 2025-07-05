@@ -3,34 +3,37 @@ pragma solidity ^0.8.24;
 
 import "src/shared/libs/LibMath.sol";
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
-import "./LibBondManagement.sol";
 import "./LibForks.sol";
-import "./LibBatchProposal.sol";
-import "./LibDataUtils.sol";
-import "./LibStorage.sol";
+import "./LibState.sol";
 
-/// @title LibBatchVerification
-/// @notice Library for batch verification functionality
+/// @title LibVerify
+/// @notice Library for batch verification and bond distribution in Taiko's Layer 1 protocol
+/// @dev Handles the final verification stage of batch processing including:
+///      - Sequential batch verification with transition metadata validation
+///      - Cooldown period enforcement before verification
+///      - Bond distribution to provers based on timing and conditions
+///      - Periodic state root synchronization with L2
+///      - Fork boundary checks for verification eligibility
 /// @custom:security-contact security@taiko.xyz
-library LibBatchVerification {
+library LibVerify {
     using LibMath for uint256;
-    using LibStorage for I.State;
 
     // -------------------------------------------------------------------------
     // Internal Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Verifies multiple batches and updates the summary
-    /// @param $ The state storage
-    /// @param _conf The configuration
-    /// @param _rw Read/write access functions
-    /// @param _summary The current summary
-    /// @param _trans The transition metadata array
-    /// @return The updated summary
-    function verifyBatches(
-        I.State storage $,
+    /// @notice Verifies multiple batches and updates the protocol summary
+    /// @dev Processes batches sequentially, validating transition metadata,
+    ///      enforcing cooldown periods, and distributing bonds to provers.
+    ///      Also handles periodic state root synchronization.
+    /// @param _conf Protocol configuration parameters
+    /// @param _rw Read/write access functions for blockchain state
+    /// @param _summary Current protocol summary state
+    /// @param _trans Array of transition metadata for verification
+    /// @return Updated summary with verification results
+    function verify(
         I.Config memory _conf,
-        LibDataUtils.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.TransitionMeta[] calldata _trans
     )
@@ -49,13 +52,12 @@ library LibBatchVerification {
             );
 
             uint256 i;
-            uint48 lastSyncedBlockId;
-            bytes32 lastSyncedStateRoot;
+            uint256 lastSyncedBatchId;
             uint256 nTransitions = _trans.length;
 
             for (; batchId < stopBatchId; ++batchId) {
                 (bytes32 tranMetaHash, bool isFirstTransition) =
-                    $.loadTransitionMetaHash(_conf, _summary.lastVerifiedBlockHash, batchId);
+                    _rw.loadTransitionMetaHash(_conf, _summary.lastVerifiedBlockHash, batchId);
 
                 if (tranMetaHash == 0) break;
 
@@ -70,32 +72,38 @@ library LibBatchVerification {
                 _rw.creditBond(_trans[i].prover, bondToProver);
 
                 if (batchId % _conf.stateRootSyncInternal == 0) {
-                    lastSyncedBlockId = _trans[i].lastBlockId;
-                    lastSyncedStateRoot = _trans[i].stateRoot;
+                    lastSyncedBatchId = batchId;
                 }
 
-                emit I.BatchesVerified(batchId, _trans[i].blockHash);
+                emit I.Verified(batchId, _trans[i].blockHash);
                 _summary.lastVerifiedBlockHash = _trans[i++].blockHash;
             }
 
-            if (lastSyncedBlockId != 0) {
-                _summary.lastSyncedBlockId = lastSyncedBlockId;
+            if (lastSyncedBatchId != 0) {
                 _summary.lastSyncedAt = uint48(block.timestamp);
-                _rw.syncChainData(_conf, lastSyncedBlockId, lastSyncedStateRoot);
+                _summary.lastSyncedBlockId = _trans[lastSyncedBatchId].lastBlockId;
+                _rw.syncChainData(
+                    _conf, _summary.lastSyncedBlockId, _trans[lastSyncedBatchId].stateRoot
+                );
             }
         }
         return _summary;
     }
 
     // -------------------------------------------------------------------------
-    // Private Functions
+    // Private Functions - Bond Calculation
     // -------------------------------------------------------------------------
 
-    /// @notice Calculates the bond amount to return to the prover
-    /// @param _conf The configuration
-    /// @param _tran The transition metadata
-    /// @param _isFirstTransition Whether this is the first transition
-    /// @return The bond amount to credit to the prover
+    /// @notice Calculates the bond amount to return to the prover based on timing and conditions
+    /// @dev Bond distribution logic:
+    ///      - InProvingWindow: Full bonds returned (liveness + provability for first transition)
+    ///      - InExtendedProvingWindow: Partial reward based on bondRewardPtcg
+    ///      - Assigned prover: Gets back provability bond
+    ///      - Other provers: Get percentage of provability bond
+    /// @param _conf Protocol configuration containing bond parameters
+    /// @param _tran Transition metadata containing bond and timing information
+    /// @param _isFirstTransition Whether this is the first transition for the batch
+    /// @return Bond amount to credit to the prover
     function _calcBondToProver(
         I.Config memory _conf,
         I.TransitionMeta memory _tran,
@@ -131,12 +139,9 @@ library LibBatchVerification {
     }
 
     // -------------------------------------------------------------------------
-    // Errors
+    // Custom Errors
     // -------------------------------------------------------------------------
 
-    /// @notice Thrown when a transition is not provided
-    error TransitionNotProvided();
-
-    /// @notice Thrown when the transition metadata doesn't match
     error TransitionMetaMismatch();
+    error TransitionNotProvided();
 }

@@ -3,13 +3,20 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/libs/LibAddress.sol";
-import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "../IBondManager2.sol";
+import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
-/// @title LibBondManagement
-/// @notice Library for managing bonds in the Taiko protocol
+/// @title LibBonds
+/// @notice Library for managing bond deposits, withdrawals, and balance accounting in Taiko
+/// protocol
+/// @dev Handles bond management operations including:
+///      - Bond deposits from users (ETH or ERC20 tokens)
+///      - Bond withdrawals with balance validation
+///      - Bond debiting with automatic deposits for insufficient balances
+///      - Bond crediting for balance increases
+///      - Support for both native ETH and ERC20 token bonds
 /// @custom:security-contact security@taiko.xyz
-library LibBondManagement {
+library LibBonds {
     using SafeERC20 for IERC20;
 
     // -------------------------------------------------------------------------
@@ -117,12 +124,7 @@ library LibBondManagement {
     // Errors
     // -------------------------------------------------------------------------
 
-    /// @notice Thrown when Ether is not paid as bond when required
     error EtherNotPaidAsBond();
-
-    /// @notice Thrown when the user has insufficient bond balance
     error InsufficientBond();
-
-    /// @notice Thrown when msg.value is not zero for ERC20 bond operations
     error MsgValueNotZero();
 }

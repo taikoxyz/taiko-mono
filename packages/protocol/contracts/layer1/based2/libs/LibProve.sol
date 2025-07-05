@@ -3,33 +3,35 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibMath.sol";
-import "./LibBondManagement.sol";
 import "./LibForks.sol";
-import "./LibDataUtils.sol";
-import "./LibStorage.sol";
+import "./LibState.sol";
 
-/// @title LibBatchProving
-/// @notice Library for batch proving functionality
+/// @title LibProve
+/// @notice Library for batch proving operations and transition metadata management in Taiko
+/// protocol
+/// @dev Handles the complete batch proving workflow including:
+///      - Multi-batch proof processing with metadata validation
+///      - Proof timing determination (proving window, extended window, expired)
+///      - Transition metadata creation and storage
+///      - Bond management for first transitions and assigned provers
+///      - Aggregated hash generation for batch verification
 /// @custom:security-contact security@taiko.xyz
-library LibBatchProving {
+library LibProve {
     using LibMath for uint256;
-    using LibStorage for I.State;
 
     // -------------------------------------------------------------------------
     // Internal Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Proves multiple batches
-    /// @param $ The state storage
-    /// @param _conf The configuration
-    /// @param _rw Read/write access functions
-    /// @param _summary The current summary
-    /// @param _evidences The batch prove inputs
-    /// @return The updated summary and aggregated batch hash
-    function proveBatches(
-        I.State storage $,
+    /// @notice Proves multiple batches and returns an aggregated hash for verification
+    /// @param _conf The protocol configuration
+    /// @param _rw Read/write function pointers for storage access
+    /// @param _summary The current protocol summary
+    /// @param _evidences Array of batch prove inputs containing transition data
+    /// @return The updated protocol summary and aggregated batch hash for proof verification
+    function prove(
         I.Config memory _conf,
-        LibDataUtils.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.BatchProveInput[] calldata _evidences
     )
@@ -43,7 +45,7 @@ library LibBatchProving {
         bytes32[] memory ctxHashes = new bytes32[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            ctxHashes[i] = _proveBatch($, _conf, _rw, _summary, _evidences[i]);
+            ctxHashes[i] = _proveBatch(_conf, _rw, _summary, _evidences[i]);
         }
 
         bytes32 aggregatedBatchHash =
@@ -56,17 +58,15 @@ library LibBatchProving {
     // Private Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Proves a single batch
-    /// @param $ The state storage
-    /// @param _conf The configuration
-    /// @param _rw Read/write access functions
-    /// @param _summary The current summary
-    /// @param _input The batch prove input
-    /// @return The context hash for this batch
+    /// @notice Proves a single batch by validating metadata and saving the transition
+    /// @param _conf The protocol configuration
+    /// @param _rw Read/write function pointers for storage access
+    /// @param _summary The current protocol summary
+    /// @param _input The batch prove input containing transition and metadata
+    /// @return The context hash for this batch used in aggregation
     function _proveBatch(
-        I.State storage $,
         I.Config memory _conf,
-        LibDataUtils.ReadWrite memory _rw,
+        LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
         I.BatchProveInput calldata _input
     )
@@ -75,10 +75,10 @@ library LibBatchProving {
     {
         require(_input.tran.batchId > _summary.lastVerifiedBatchId, BatchNotFound());
         require(_input.tran.batchId < _summary.numBatches, BatchNotFound());
-        require(_input.tran.parentHash != 0, InvalidtranParentHash());
+        require(_input.tran.parentHash != 0, InvalidTransitionParentHash());
 
-        // During batch proposal, we've ensured that its blocks won't cross fork boundaries.
-        // Hence, we only need to verify the firstBlockId of the block in the following check.
+        // During batch proposal, we ensured that blocks won't cross fork boundaries.
+        // Therefore, we only need to verify the firstBlockId in the following check.
         require(
             LibForks.isBlocksInCurrentFork(
                 _conf, _input.proveMeta.firstBlockId, _input.proveMeta.firstBlockId
@@ -86,10 +86,10 @@ library LibBatchProving {
             BlocksNotInCurrentFork()
         );
 
-        // Verify the batch's metadata.
-        bytes32 batchMetaHash = $.loadBatchMetaHash(_conf, _input.tran.batchId);
+        // Load and verify the batch metadata
+        bytes32 batchMetaHash = _rw.loadBatchMetaHash(_conf, _input.tran.batchId);
 
-        _validateBatchProveMeta(batchMetaHash, _input);
+        _validateProveMeta(batchMetaHash, _input);
 
         I.TransitionMeta memory tranMeta = I.TransitionMeta({
             parentHash: _input.tran.parentHash,
@@ -97,8 +97,8 @@ library LibBatchProving {
             stateRoot: _input.tran.batchId % _conf.stateRootSyncInternal == 0
                 ? _input.tran.stateRoot
                 : bytes32(0),
-            proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // to be updated below
-            prover: address(0), // to be updated below
+            proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // Updated below based on timing
+            prover: address(0), // Updated below based on timing
             createdAt: uint48(block.timestamp),
             byAssignedProver: msg.sender == _input.proveMeta.prover,
             lastBlockId: _input.proveMeta.lastBlockId,
@@ -115,7 +115,7 @@ library LibBatchProving {
         bytes32 tranMetaHash = keccak256(abi.encode(tranMeta));
 
         bool isFirstTransition =
-            $.saveTransition(_conf, _input.tran.batchId, _input.tran.parentHash, tranMetaHash);
+            _rw.saveTransition(_conf, _input.tran.batchId, _input.tran.parentHash, tranMetaHash);
         if (
             isFirstTransition && tranMeta.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
                 && msg.sender != _input.proveMeta.proposer
@@ -124,7 +124,7 @@ library LibBatchProving {
             _rw.creditBond(_input.proveMeta.proposer, _input.proveMeta.provabilityBond);
         }
 
-        emit I.BatchProved(_input.tran.batchId, isFirstTransition, tranMeta);
+        emit I.Proved(_input.tran.batchId, isFirstTransition, tranMeta);
 
         return keccak256(abi.encode(batchMetaHash, _input.tran));
     }
@@ -158,7 +158,7 @@ library LibBatchProving {
     /// @notice Validates the batch prove metadata against the stored hash
     /// @param _batchMetaHash The stored batch metadata hash
     /// @param _input The batch prove input containing metadata to validate
-    function _validateBatchProveMeta(
+    function _validateProveMeta(
         bytes32 _batchMetaHash,
         I.BatchProveInput calldata _input
     )
@@ -176,21 +176,10 @@ library LibBatchProving {
     // Errors
     // -------------------------------------------------------------------------
 
-    /// @notice Thrown when the batch is not found
     error BatchNotFound();
-
-    /// @notice Thrown when blocks are not in the current fork
     error BlocksNotInCurrentFork();
-
-    /// @notice Thrown when the transition parent hash is invalid
-    error InvalidtranParentHash();
-
-    /// @notice Thrown when the metadata hash doesn't match
+    error InvalidTransitionParentHash();
     error MetaHashNotMatch();
-
-    /// @notice Thrown when there are no blocks to prove
     error NoBlocksToProve();
-
-    /// @notice Thrown when too many batches are being proved at once
     error TooManyBatchesToProve();
 }
