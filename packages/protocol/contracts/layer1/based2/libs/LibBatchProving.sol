@@ -20,14 +20,12 @@ library LibBatchProving {
     // -------------------------------------------------------------------------
 
     /// @notice Proves multiple batches
-    /// @param $ The state storage
     /// @param _conf The configuration
     /// @param _rw Read/write access functions
     /// @param _summary The current summary
     /// @param _evidences The batch prove inputs
     /// @return The updated summary and aggregated batch hash
     function proveBatches(
-        I.State storage $,
         I.Config memory _conf,
         LibDataUtils.ReadWrite memory _rw,
         I.Summary memory _summary,
@@ -43,7 +41,7 @@ library LibBatchProving {
         bytes32[] memory ctxHashes = new bytes32[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            ctxHashes[i] = _proveBatch($, _conf, _rw, _summary, _evidences[i]);
+            ctxHashes[i] = _proveBatch(_conf, _rw, _summary, _evidences[i]);
         }
 
         bytes32 aggregatedBatchHash =
@@ -57,14 +55,12 @@ library LibBatchProving {
     // -------------------------------------------------------------------------
 
     /// @notice Proves a single batch
-    /// @param $ The state storage
     /// @param _conf The configuration
     /// @param _rw Read/write access functions
     /// @param _summary The current summary
     /// @param _input The batch prove input
     /// @return The context hash for this batch
     function _proveBatch(
-        I.State storage $,
         I.Config memory _conf,
         LibDataUtils.ReadWrite memory _rw,
         I.Summary memory _summary,
@@ -87,7 +83,7 @@ library LibBatchProving {
         );
 
         // Verify the batch's metadata.
-        bytes32 batchMetaHash = $.loadBatchMetaHash(_conf, _input.tran.batchId);
+        bytes32 batchMetaHash = _rw.loadBatchMetaHash(_conf, _input.tran.batchId);
 
         _validateBatchProveMeta(batchMetaHash, _input);
 
@@ -115,7 +111,7 @@ library LibBatchProving {
         bytes32 tranMetaHash = keccak256(abi.encode(tranMeta));
 
         bool isFirstTransition =
-            $.saveTransition(_conf, _input.tran.batchId, _input.tran.parentHash, tranMetaHash);
+            _rw.saveTransition(_conf, _input.tran.batchId, _input.tran.parentHash, tranMetaHash);
         if (
             isFirstTransition && tranMeta.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
                 && msg.sender != _input.proveMeta.proposer

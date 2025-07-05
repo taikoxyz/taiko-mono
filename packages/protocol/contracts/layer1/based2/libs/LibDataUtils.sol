@@ -16,11 +16,16 @@ library LibDataUtils {
     ///      without direct dependencies
     struct ReadWrite {
         // Read functions
+        /// @notice Loads a batch metadata hash
+        function (I.Config memory, uint256) view returns (bytes32) loadBatchMetaHash;
         /// @notice Checks if a signal has been sent
         function(I.Config memory, bytes32) view returns (bool) isSignalSent;
         /// @notice Gets the blob hash for a given index
         function(uint256) view returns (bytes32) getBlobHash;
         // Write functions
+
+        /// @notice Saves a transition
+        function(I.Config memory, uint48, bytes32, bytes32) returns (bool) saveTransition;
         /// @notice Transfers fees between addresses
         function(address, address, address, uint256) transferFee;
         /// @notice Credits bond to a user
