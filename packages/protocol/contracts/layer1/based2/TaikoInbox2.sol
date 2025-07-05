@@ -21,12 +21,11 @@ import "./libs/LibBondManagement.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox2 is TaikoInboxbase, IBondManager2 {
     using LibBondManagement for ITaikoInbox2.State;
-    using LibInitialization for ITaikoInbox2.State;
     using LibStorage for ITaikoInbox2.State;
     using SafeERC20 for IERC20;
 
-    // State public state; // storage layout much match Ontake fork
-    // uint256[50] private __gap;
+    State public state; // storage layout much match Ontake fork
+    uint256[50] private __gap;
 
     // -------------------------------------------------------------------------
     // Constructor

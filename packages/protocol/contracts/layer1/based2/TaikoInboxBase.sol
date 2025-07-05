@@ -8,7 +8,6 @@ import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 
-import "./libs/LibInitialization.sol";
 import "./libs/LibBatchProposal.sol";
 import "./libs/LibBatchProving.sol";
 import "./libs/LibBatchVerification.sol";
@@ -33,12 +32,8 @@ abstract contract TaikoInboxbase is EssentialContract, ITaikoInbox2, IProposeBat
     using LibBatchProving for ITaikoInbox2.State;
     using LibBatchVerification for ITaikoInbox2.State;
     using LibBondManagement for ITaikoInbox2.State;
-    using LibInitialization for ITaikoInbox2.State;
     using LibStorage for ITaikoInbox2.State;
     using SafeERC20 for IERC20;
-
-    State public state; // storage layout much match Ontake fork
-    uint256[50] private __gap;
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -144,7 +139,22 @@ abstract contract TaikoInboxbase is EssentialContract, ITaikoInbox2, IProposeBat
     /// @param _genesisBlockHash The genesis block hash
     function __Taiko_init(address _owner, bytes32 _genesisBlockHash) internal onlyInitializing {
         __Essential_init(_owner);
-        state.init(_genesisBlockHash);
+        require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
+
+        I.Config memory conf = _getConfig();
+
+        // Initialize the genesis batch metadata
+        I.BatchMetadata memory meta;
+        meta.buildMeta.proposedIn = uint48(block.number);
+        meta.proveMeta.proposedAt = uint48(block.timestamp);
+        _saveBatchMetaHash(conf, 0, LibDataUtils.hashBatch(0, meta));
+
+        // Initialize the summary
+        I.Summary memory summary;
+        summary.numBatches = 1;
+        _saveSummaryHash(keccak256(abi.encode(summary)));
+
+        emit I.BatchesVerified(0, _genesisBlockHash);
     }
 
     /// @notice Gets the configuration (must be implemented by derived contracts)
@@ -279,4 +289,5 @@ abstract contract TaikoInboxbase is EssentialContract, ITaikoInbox2, IProposeBat
 
     /// @notice Thrown when the provided summary doesn't match the stored summary hash
     error SummaryMismatch();
+    error InvalidGenesisBlockHash();
 }

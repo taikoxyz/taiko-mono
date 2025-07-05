@@ -23,10 +23,7 @@ library LibDataUtils {
         /// @notice Gets the blob hash for a given index
         function(uint256) view returns (bytes32) getBlobHash;
         function (
-        I.Config memory ,
-        bytes32 ,
-        uint256 
-        )
+        I.Config memory , bytes32, uint256 )
         view
         returns (bytes32 , bool ) loadTransitionMetaHash;
         // Write functions
