@@ -39,7 +39,7 @@ library LibData {
             txsHash: _context.txsHash,
             blobHashes: _context.blobHashes,
             extraData: _encodeExtraDataLower128Bits(_conf.baseFeeConfig.sharingPctg, _batch),
-            coinbase: _context.coinbase,
+            coinbase: _batch.coinbase,
             proposedIn: _blockNumber,
             blobCreatedIn: _batch.blobs.createdIn,
             blobByteOffset: _batch.blobs.byteOffset,
@@ -62,7 +62,7 @@ library LibData {
 
         // Prove metadata section
         meta_.proveMeta = I.BatchProveMetadata({
-            proposer: _context.proposer,
+            proposer: _batch.proposer,
             prover: _context.prover,
             proposedAt: _blockTimestamp,
             firstBlockId: _context.firstBlockId,

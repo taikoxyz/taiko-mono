@@ -69,12 +69,8 @@ interface ITaikoInbox2 {
         bytes32[] anchorBlockHashes;
         /// @notice Array of validated blocks in the batch
         Block[] blocks;
-        /// @notice Address of the batch proposer
-        address proposer;
         /// @notice Address of the batch prover
         address prover;
-        /// @notice Address of the coinbase for block rewards
-        address coinbase;
         /// @notice Block number where blobs were created
         uint48 blobsCreatedIn;
     }

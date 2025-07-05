@@ -28,7 +28,7 @@ library LibValidate {
     /// @param _rw Read/write access functions for blockchain state
     /// @param _batch The batch to validate
     /// @param _parentProposeMeta Metadata from the parent batch proposal
-    /// @return output_ Validated batch information and computed hashes
+    /// @return context_ Validated batch information and computed hashes
     function validate(
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
@@ -37,10 +37,10 @@ library LibValidate {
     )
         internal
         view
-        returns (I.BatchContext memory output_)
+        returns (I.BatchContext memory context_)
     {
         // Validate proposer and coinbase
-        (output_.proposer, output_.coinbase) = _validateProposerCoinbase(_conf, _batch);
+         _validateProposerCoinbase(_conf, _batch);
 
         // Validate and decode blocks
         I.Block[] memory blocks = _validateBlocks(_conf, _batch);
@@ -52,20 +52,20 @@ library LibValidate {
         _validateSignals(_conf, _rw, blocks, _batch.signalSlots);
 
         // Validate anchors
-        (output_.anchorBlockHashes, output_.lastAnchorBlockId) =
+        (context_.anchorBlockHashes, context_.lastAnchorBlockId) =
             _validateAnchors(_conf, _rw, _batch, blocks, _parentProposeMeta.lastAnchorBlockId);
 
         // Validate block range
-        (output_.firstBlockId, output_.lastBlockId) =
+        (context_.firstBlockId, context_.lastBlockId) =
             _validateBlockRange(_conf, blocks.length, _parentProposeMeta.lastBlockId);
 
         // Validate blobs
-        output_.blobsCreatedIn = _validateBlobs(_conf, _batch);
+        context_.blobsCreatedIn = _validateBlobs(_conf, _batch);
 
         // Calculate transaction hash
-        (output_.txsHash, output_.blobHashes) = _calculateTxsHash(_rw, _batch.blobs);
+        (context_.txsHash, context_.blobHashes) = _calculateTxsHash(_rw, _batch.blobs);
 
-        output_.blocks = blocks;
+        context_.blocks = blocks;
     }
 
     // -------------------------------------------------------------------------
@@ -76,25 +76,21 @@ library LibValidate {
     /// @dev Handles both direct proposing and inbox wrapper scenarios
     /// @param _conf Protocol configuration
     /// @param _batch The batch being validated
-    /// @return proposer_ The validated proposer address
-    /// @return coinbase_ The validated coinbase address
     function _validateProposerCoinbase(
         I.Config memory _conf,
         I.Batch calldata _batch
     )
         internal
         view
-        returns (address proposer_, address coinbase_)
     {
         if (_conf.inboxWrapper == address(0)) {
-            proposer_ = msg.sender;
+            require(_batch.proposer == msg.sender, ProposerNotMsgSender());
         } else {
             require(msg.sender == _conf.inboxWrapper, NotInboxWrapper());
             require(_batch.proposer != address(0), CustomProposerMissing());
-            proposer_ = _batch.proposer;
         }
 
-        coinbase_ = _batch.coinbase == address(0) ? proposer_ : _batch.coinbase;
+        require(_batch.coinbase != address(0), InvalidCoinbase());
     }
 
     /// @notice Validates and decodes block data from the batch
@@ -364,8 +360,10 @@ library LibValidate {
     error FirstBlockTimeShiftNotZero();
     error InvalidBlobCreatedIn();
     error InvalidBlobParams();
+    error InvalidCoinbase();
     error InvalidForcedInclusion();
     error LastBlockTimestampNotSet();
+    error ProposerNotMsgSender();
     error NoAnchorBlockIdWithinThisBatch();
     error NotEnoughAnchorIds();
     error NotInboxWrapper();
