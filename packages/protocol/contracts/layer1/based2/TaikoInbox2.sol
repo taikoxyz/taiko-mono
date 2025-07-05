@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./TaikoInboxbase.sol";
 import "./libs/LibStorage.sol";
+import "./libs/LibBondManagement.sol";
 
 /// @title TaikoInbox2
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -18,7 +19,10 @@ import "./libs/LibStorage.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox2 is TaikoInboxbase {
+abstract contract TaikoInbox2 is TaikoInboxbase, IBondManager2 {
+    using LibBondManagement for ITaikoInbox2.State;
+    using LibInitialization for ITaikoInbox2.State;
+    using LibStorage for ITaikoInbox2.State;
     using SafeERC20 for IERC20;
 
     // State public state; // storage layout much match Ontake fork
@@ -29,6 +33,26 @@ abstract contract TaikoInbox2 is TaikoInboxbase {
     // -------------------------------------------------------------------------
 
     constructor() TaikoInboxbase() { }
+    /// @notice Gets the bond balance for a user
+    /// @param _user The user address
+    /// @return The bond balance
+
+    function v4BondBalanceOf(address _user) external view returns (uint256) {
+        return state.bondBalance[_user];
+    }
+
+    /// @notice Deposits bond for the sender
+    /// @param _amount The amount to deposit
+    function v4DepositBond(uint256 _amount) external payable {
+        state.bondBalance[msg.sender] +=
+            LibBondManagement.depositBond(_getConfig().bondToken, msg.sender, _amount);
+    }
+
+    /// @notice Withdraws bond for the sender
+    /// @param _amount The amount to withdraw
+    function v4WithdrawBond(uint256 _amount) external {
+        state.withdrawBond(_getConfig().bondToken, _amount);
+    }
 
     // -------------------------------------------------------------------------
     // Internal Binding Functions

@@ -7,14 +7,13 @@ import "src/shared/based/ITaiko.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-import "./libs/LibBondManagement.sol";
+
 import "./libs/LibInitialization.sol";
 import "./libs/LibBatchProposal.sol";
 import "./libs/LibBatchProving.sol";
 import "./libs/LibBatchVerification.sol";
 import "./ITaikoInbox2.sol";
 import "./IProposeBatch2.sol";
-import "./libs/LibStorage.sol";
 
 /// @title TaikoInboxBase
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -29,13 +28,7 @@ import "./libs/LibStorage.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInboxbase is
-    EssentialContract,
-    ITaikoInbox2,
-    IProposeBatch2,
-    IBondManager2,
-    ITaiko
-{
+abstract contract TaikoInboxbase is EssentialContract, ITaikoInbox2, IProposeBatch2, ITaiko {
     using LibBatchProposal for ITaikoInbox2.State;
     using LibBatchProving for ITaikoInbox2.State;
     using LibBatchVerification for ITaikoInbox2.State;
@@ -90,7 +83,7 @@ abstract contract TaikoInboxbase is
         _summary = LibBatchProposal.proposeBatches(conf, rw, _summary, _batch, _evidence);
 
         // Verify batches
-        _summary = state.verifyBatches(conf, rw, _summary, _trans);
+        _summary = LibBatchVerification.verifyBatches(conf, rw, _summary, _trans);
 
         _saveSummaryHash(keccak256(abi.encode(_summary)));
         return _summary;
@@ -124,26 +117,6 @@ abstract contract TaikoInboxbase is
 
         _saveSummaryHash(keccak256(abi.encode(_summary)));
         return _summary;
-    }
-
-    /// @notice Deposits bond for the sender
-    /// @param _amount The amount to deposit
-    function v4DepositBond(uint256 _amount) external payable {
-        state.bondBalance[msg.sender] +=
-            LibBondManagement.depositBond(_getConfig().bondToken, msg.sender, _amount);
-    }
-
-    /// @notice Withdraws bond for the sender
-    /// @param _amount The amount to withdraw
-    function v4WithdrawBond(uint256 _amount) external {
-        state.withdrawBond(_getConfig().bondToken, _amount);
-    }
-
-    /// @notice Gets the bond balance for a user
-    /// @param _user The user address
-    /// @return The bond balance
-    function v4BondBalanceOf(address _user) external view returns (uint256) {
-        return state.bondBalance[_user];
     }
 
     /// @notice Checks if this contract is an inbox
@@ -267,6 +240,16 @@ abstract contract TaikoInboxbase is
         internal
         virtual;
 
+    function _loadTransitionMetaHash(
+        I.Config memory _conf,
+        bytes32 _lastVerifiedBlockHash,
+        uint256 _batchId
+    )
+        internal
+        view
+        virtual
+        returns (bytes32 metaHash_, bool isFirstTransition_);
+
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
@@ -279,6 +262,7 @@ abstract contract TaikoInboxbase is
             loadBatchMetaHash: _loadBatchMetaHash,
             isSignalSent: _isSignalSent,
             getBlobHash: _getBlobHash,
+            loadTransitionMetaHash: _loadTransitionMetaHash,
             // Write functions
             saveTransition: _saveTransition,
             debitBond: _debitBond,

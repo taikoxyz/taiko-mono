@@ -21,14 +21,12 @@ library LibBatchVerification {
     // -------------------------------------------------------------------------
 
     /// @notice Verifies multiple batches and updates the summary
-    /// @param $ The state storage
     /// @param _conf The configuration
     /// @param _rw Read/write access functions
     /// @param _summary The current summary
     /// @param _trans The transition metadata array
     /// @return The updated summary
     function verifyBatches(
-        I.State storage $,
         I.Config memory _conf,
         LibDataUtils.ReadWrite memory _rw,
         I.Summary memory _summary,
@@ -55,7 +53,7 @@ library LibBatchVerification {
 
             for (; batchId < stopBatchId; ++batchId) {
                 (bytes32 tranMetaHash, bool isFirstTransition) =
-                    $.loadTransitionMetaHash(_conf, _summary.lastVerifiedBlockHash, batchId);
+                    _rw.loadTransitionMetaHash(_conf, _summary.lastVerifiedBlockHash, batchId);
 
                 if (tranMetaHash == 0) break;
 
