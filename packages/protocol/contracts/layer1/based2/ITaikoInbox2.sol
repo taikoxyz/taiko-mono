@@ -65,7 +65,7 @@ interface ITaikoInbox2 {
         /// @notice ID of the last block in the batch
         uint48 lastBlockId;
         /// @notice Array of anchor block hashes for validation
-        bytes32[] anchorBlockHashes;
+        bytes32[] anchorBlockHashes; // TODO?
         /// @notice Array of validated blocks in the batch
         Block[] blocks;
         /// @notice Block number where blobs were created
