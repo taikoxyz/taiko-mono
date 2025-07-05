@@ -26,7 +26,7 @@ library LibData {
     function buildBatchMetadata(
         uint48 _blockNumber,
         uint48 _blockTimestamp,
-        I.Config memory _conf,
+        I.Config memory _conf, // TODO: remove this.
         I.Batch calldata _batch,
         I.BatchContext memory _context
     )
