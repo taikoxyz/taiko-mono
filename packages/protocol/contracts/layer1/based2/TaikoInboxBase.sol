@@ -87,7 +87,7 @@ abstract contract TaikoInboxbase is
         LibDataUtils.ReadWrite memory rw = _getReadWrite();
 
         // Propose batches
-        _summary = state.proposeBatches(conf, rw, _summary, _batch, _evidence);
+        _summary = LibBatchProposal.proposeBatches(conf, rw, _summary, _batch, _evidence);
 
         // Verify batches
         _summary = state.verifyBatches(conf, rw, _summary, _trans);
@@ -259,6 +259,14 @@ abstract contract TaikoInboxbase is
         virtual
         returns (bool isFirstTransition_);
 
+    function _saveBatchMetaHash(
+        I.Config memory _conf,
+        uint256 _batchId,
+        bytes32 _metaHash
+    )
+        internal
+        virtual;
+
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
@@ -276,7 +284,8 @@ abstract contract TaikoInboxbase is
             debitBond: _debitBond,
             creditBond: _creditBond,
             transferFee: _transferFee,
-            syncChainData: _syncChainData
+            syncChainData: _syncChainData,
+            saveBatchMetaHash: _saveBatchMetaHash
         });
     }
 

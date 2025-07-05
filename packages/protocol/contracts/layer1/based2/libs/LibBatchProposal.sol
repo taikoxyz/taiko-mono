@@ -19,7 +19,6 @@ library LibBatchProposal {
     // -------------------------------------------------------------------------
 
     function proposeBatches(
-        I.State storage $,
         I.Config memory _conf,
         LibDataUtils.ReadWrite memory _rw,
         I.Summary memory _summary,
@@ -38,7 +37,7 @@ library LibBatchProposal {
             );
 
             require(
-                $.loadBatchMetaHash(_conf, _summary.numBatches - 1)
+                _rw.loadBatchMetaHash(_conf, _summary.numBatches - 1)
                     == LibDataUtils.hashBatch(_evidence),
                 MetaHashNotMatch()
             );
@@ -46,8 +45,7 @@ library LibBatchProposal {
             I.BatchProposeMetadata memory parent = _evidence.proposeMeta;
 
             for (uint256 i; i < _batch.length; ++i) {
-                I.BatchMetadata memory meta =
-                    _proposeBatch($, _conf, _rw, _summary, _batch[i], parent);
+                I.BatchMetadata memory meta = _proposeBatch(_conf, _rw, _summary, _batch[i], parent);
 
                 parent = meta.proposeMeta;
                 _summary.numBatches += 1;
@@ -62,7 +60,6 @@ library LibBatchProposal {
     // -------------------------------------------------------------------------
 
     function _proposeBatch(
-        I.State storage $,
         I.Config memory _conf,
         LibDataUtils.ReadWrite memory _rw,
         I.Summary memory _summary,
@@ -82,7 +79,7 @@ library LibBatchProposal {
         meta_ = _populateBatchMetadata(_conf, _batch, output);
 
         bytes32 batchMetaHash = LibDataUtils.hashBatch(_summary.numBatches, meta_);
-        $.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
+        _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
 
         emit I.BatchProposed(_summary.numBatches, LibDataUtils.packBatchMetadata(meta_));
     }

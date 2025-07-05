@@ -34,6 +34,8 @@ library LibDataUtils {
         function(I.Config memory, address, uint256) debitBond;
         /// @notice Syncs chain data
         function(I.Config memory, uint64, bytes32) syncChainData;
+        /// @notice Saves a batch metadata hash
+        function(I.Config memory, uint, bytes32) saveBatchMetaHash;
     }
 
     // -------------------------------------------------------------------------
