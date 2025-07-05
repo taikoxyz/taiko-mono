@@ -27,16 +27,8 @@ import "./IProposeBatch2.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInboxbase is EssentialContract, ITaikoInbox2, IProposeBatch2, ITaiko {
-    // -------------------------------------------------------------------------
-    // Constructor
-    // -------------------------------------------------------------------------
-
+abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBatch2, ITaiko {
     constructor() EssentialContract() { }
-
-    // -------------------------------------------------------------------------
-    // External Functions
-    // -------------------------------------------------------------------------
 
     /// @notice Initializes the contract with owner and genesis block hash
     /// @param _owner The owner address
@@ -113,10 +105,6 @@ abstract contract TaikoInboxbase is EssentialContract, ITaikoInbox2, IProposeBat
         return true;
     }
 
-    // -------------------------------------------------------------------------
-    // Public Functions
-    // -------------------------------------------------------------------------
-
     /// @notice Gets the current configuration
     /// @return The configuration struct
     function v4GetConfig() external view virtual returns (Config memory) {
@@ -153,10 +141,6 @@ abstract contract TaikoInboxbase is EssentialContract, ITaikoInbox2, IProposeBat
     /// @notice Gets the configuration (must be implemented by derived contracts)
     /// @return The configuration struct
     function _getConfig() internal view virtual returns (Config memory);
-
-    // -------------------------------------------------------------------------
-    // Internal Binding Functions
-    // -------------------------------------------------------------------------
 
     /// @notice Gets the blob hash for a block number
     /// @param _blockNumber The block number

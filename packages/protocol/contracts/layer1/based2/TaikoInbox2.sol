@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./TaikoInboxbase.sol";
+import "./TaikoInboxBase.sol";
 import "./libs/LibBondManagement.sol";
 import "./IBondManager2.sol";
 
@@ -19,7 +19,7 @@ import "./IBondManager2.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox2 is TaikoInboxbase, IBondManager2 {
+abstract contract TaikoInbox2 is TaikoInboxBase, IBondManager2 {
     using LibBondManagement for I.State;
     using SafeERC20 for IERC20;
 
@@ -30,7 +30,7 @@ abstract contract TaikoInbox2 is TaikoInboxbase, IBondManager2 {
     // Constructor
     // -------------------------------------------------------------------------
 
-    constructor() TaikoInboxbase() { }
+    constructor() TaikoInboxBase() { }
 
     // -------------------------------------------------------------------------
     // Bond Management Functions
@@ -57,13 +57,13 @@ abstract contract TaikoInbox2 is TaikoInboxbase, IBondManager2 {
     }
 
     // -------------------------------------------------------------------------
-    // Internal Abstract Functions
+    // Internal  Functions
     // -------------------------------------------------------------------------
 
     /// @notice Gets the blob hash for a block number
     /// @param _blockNumber The block number
     /// @return The blob hash
-    function _getBlobHash(uint256 _blockNumber) internal view virtual override returns (bytes32) {
+    function _getBlobHash(uint256 _blockNumber) internal view override returns (bytes32) {
         return blockhash(_blockNumber);
     }
 
@@ -77,7 +77,6 @@ abstract contract TaikoInbox2 is TaikoInboxbase, IBondManager2 {
     )
         internal
         view
-        virtual
         override
         returns (bool)
     {
@@ -94,7 +93,6 @@ abstract contract TaikoInbox2 is TaikoInboxbase, IBondManager2 {
         bytes32 _stateRoot
     )
         internal
-        virtual
         override
     {
         ISignalService(_conf.signalService).syncChainData(
@@ -106,28 +104,16 @@ abstract contract TaikoInbox2 is TaikoInboxbase, IBondManager2 {
     /// @param _conf The configuration
     /// @param _user The user address
     /// @param _amount The amount to debit
-    function _debitBond(
-        I.Config memory _conf,
-        address _user,
-        uint256 _amount
-    )
-        internal
-        virtual
-        override
-    {
+    function _debitBond(I.Config memory _conf, address _user, uint256 _amount) internal override {
         LibBondManagement.debitBond(state, _conf.bondToken, _user, _amount);
     }
 
     /// @notice Credits bond to a user
     /// @param _user The user address
     /// @param _amount The amount to credit
-    function _creditBond(address _user, uint256 _amount) internal virtual override {
+    function _creditBond(address _user, uint256 _amount) internal override {
         LibBondManagement.creditBond(state, _user, _amount);
     }
-
-    // -------------------------------------------------------------------------
-    // Internal Summary Functions
-    // -------------------------------------------------------------------------
 
     function _loadSummaryHash() internal view override returns (bytes32) {
         return state.summaryHash;
@@ -149,15 +135,10 @@ abstract contract TaikoInbox2 is TaikoInboxbase, IBondManager2 {
         uint256 _amount
     )
         internal
-        virtual
         override
     {
         IERC20(_feeToken).safeTransferFrom(_from, _to, _amount);
     }
-
-    // -------------------------------------------------------------------------
-    // Internal Storage Functions
-    // -------------------------------------------------------------------------
 
     /// @notice Saves a transition to storage
     /// @param _conf The configuration
@@ -172,7 +153,6 @@ abstract contract TaikoInbox2 is TaikoInboxbase, IBondManager2 {
         bytes32 _tranMetahash
     )
         internal
-        virtual
         override
         returns (bool isFirstTransition_)
     {
