@@ -91,64 +91,14 @@ library LibPropose {
 
         context.prover = LibProvers.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
 
-        meta_ = _populateBatchMetadata(_conf, _batch, context);
+        meta_ = LibData.buildBatchMetadata(
+            uint48(block.number), uint48(block.timestamp), _conf, _batch, context
+        );
 
         bytes32 batchMetaHash = LibData.hashBatch(_summary.numBatches, meta_);
         _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
 
         emit I.Proposed(_summary.numBatches, meta_);
-    }
-
-    /// @notice Populates batch metadata from validation output
-    /// @param _conf The protocol configuration
-    /// @param _batch The batch being proposed
-    /// @param _context The validation output containing computed values
-    /// @return meta_ The populated batch metadata
-    function _populateBatchMetadata(
-        I.Config memory _conf,
-        I.Batch calldata _batch,
-        I.BatchContext memory _context
-    )
-        private
-        view
-        returns (I.BatchMetadata memory meta_)
-    {
-        // Build metadata section
-        meta_.buildMeta = I.BatchBuildMetadata({
-            txsHash: _context.txsHash,
-            blobHashes: _context.blobHashes,
-            extraData: LibData.encodeExtraDataLower128Bits(_conf, _batch),
-            coinbase: _context.coinbase,
-            proposedIn: uint48(block.number),
-            blobCreatedIn: _batch.blobs.createdIn,
-            blobByteOffset: _batch.blobs.byteOffset,
-            blobByteSize: _batch.blobs.byteSize,
-            gasLimit: _conf.blockMaxGasLimit,
-            lastBlockId: _context.lastBlockId,
-            lastBlockTimestamp: _batch.lastBlockTimestamp,
-            anchorBlockIds: _batch.anchorBlockIds,
-            anchorBlockHashes: _context.anchorBlockHashes,
-            encodedBlocks: _batch.encodedBlocks,
-            baseFeeConfig: _conf.baseFeeConfig
-        });
-
-        // Propose metadata section
-        meta_.proposeMeta = I.BatchProposeMetadata({
-            lastBlockTimestamp: _batch.lastBlockTimestamp,
-            lastBlockId: meta_.buildMeta.lastBlockId,
-            lastAnchorBlockId: _context.lastAnchorBlockId
-        });
-
-        // Prove metadata section
-        meta_.proveMeta = I.BatchProveMetadata({
-            proposer: _context.proposer,
-            prover: _context.prover,
-            proposedAt: uint48(block.timestamp),
-            firstBlockId: _context.firstBlockId,
-            lastBlockId: meta_.buildMeta.lastBlockId,
-            livenessBond: _conf.livenessBond,
-            provabilityBond: _conf.provabilityBond
-        });
     }
 
     // -------------------------------------------------------------------------
