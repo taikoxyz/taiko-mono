@@ -170,21 +170,10 @@ library LibProve {
     // Errors
     // -------------------------------------------------------------------------
 
-    /// @notice Thrown when the batch is not found
     error BatchNotFound();
-
-    /// @notice Thrown when blocks are not in the current fork
     error BlocksNotInCurrentFork();
-
-    /// @notice Thrown when the transition parent hash is invalid (zero)
     error InvalidTransitionParentHash();
-
-    /// @notice Thrown when the metadata hash doesn't match
     error MetaHashNotMatch();
-
-    /// @notice Thrown when there are no blocks to prove
     error NoBlocksToProve();
-
-    /// @notice Thrown when too many batches are being proved at once
     error TooManyBatchesToProve();
 }

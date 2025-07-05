@@ -160,22 +160,10 @@ library LibProvers {
     // -------------------------------------------------------------------------
     // Custom Errors
     // -------------------------------------------------------------------------
-
-    /// @notice Thrown when Ether is used as fee token (not supported in current version)
     error EtherAsFeeTokenNotSupportedYet();
-
-    /// @notice Thrown when the batch ID in authentication doesn't match the current batch
     error InvalidBatchId();
-
-    /// @notice Thrown when the prover address is invalid (zero address)
     error InvalidProver();
-
-    /// @notice Thrown when the prover signature is invalid or verification fails
     error InvalidSignature();
-
-    /// @notice Thrown when the authentication validity period has expired
     error InvalidValidUntil();
-
-    /// @notice Thrown when signature field is not empty during digest computation
     error SignatureNotEmpty();
 }

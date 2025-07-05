@@ -45,7 +45,7 @@ library LibData {
     }
 
     // -------------------------------------------------------------------------
-    // Internal Functions - Batch Hashing
+    // Internal Functions
     // -------------------------------------------------------------------------
 
     /// @notice Computes a deterministic hash for a batch and its metadata
@@ -92,10 +92,6 @@ library LibData {
         return keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
     }
 
-    // -------------------------------------------------------------------------
-    // Internal Functions - Data Encoding
-    // -------------------------------------------------------------------------
-
     /// @notice Encodes configuration and batch information into the lower 128 bits
     /// @dev Bit-level encoding for efficient storage:
     ///      - Bits 0-7: Base fee sharing percentage (0-100)
@@ -116,17 +112,5 @@ library LibData {
         v |= _batch.isForcedInclusion ? 1 << 8 : 0; // bit 8
 
         return bytes32(uint256(v));
-    }
-
-    // -------------------------------------------------------------------------
-    // Internal Functions - Metadata Packing
-    // -------------------------------------------------------------------------
-
-    /// @notice Packs batch metadata into a byte array for efficient storage or transmission
-    /// @dev Uses ABI encoding to serialize the complete metadata structure
-    /// @param _meta Complete batch metadata containing build, propose, and prove information
-    /// @return Packed metadata as bytes array suitable for storage or hashing
-    function packBatchMetadata(I.BatchMetadata memory _meta) internal pure returns (bytes memory) {
-        return abi.encode(_meta);
     }
 }

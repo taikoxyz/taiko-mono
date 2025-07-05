@@ -143,9 +143,6 @@ library LibVerify {
     // Custom Errors
     // -------------------------------------------------------------------------
 
-    /// @notice Thrown when a transition is not provided for verification
-    error TransitionNotProvided();
-
-    /// @notice Thrown when the transition metadata hash doesn't match expected value
     error TransitionMetaMismatch();
+    error TransitionNotProvided();
 }

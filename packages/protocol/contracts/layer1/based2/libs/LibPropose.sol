@@ -93,7 +93,7 @@ library LibPropose {
         bytes32 batchMetaHash = LibData.hashBatch(_summary.numBatches, meta_);
         _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
 
-        emit I.Proposed(_summary.numBatches, LibData.packBatchMetadata(meta_));
+        emit I.Proposed(_summary.numBatches, meta_);
     }
 
     /// @notice Populates batch metadata from validation output
@@ -151,42 +151,19 @@ library LibPropose {
     // -------------------------------------------------------------------------
     // Custom Errors
     // -------------------------------------------------------------------------
-
-    // Batch validation errors
-    /// @notice Thrown when no batches are provided for proposal
-    error NoBatchesToPropose();
-    /// @notice Thrown when too many unverified batches would exist
-    error TooManyBatches();
-    /// @notice Thrown when parent batch metadata hash doesn't match
-    error MetaHashNotMatch();
-
-    // Anchor block errors
-    /// @notice Thrown when anchor ID is smaller than parent's anchor ID
     error AnchorIdSmallerThanParent();
-    /// @notice Thrown when anchor ID is too small relative to last verified
     error AnchorIdTooSmall();
-    /// @notice Thrown when anchor ID is zero
     error AnchorIdZero();
-    /// @notice Thrown when no anchor block ID is within the batch
-    error NoAnchorBlockIdWithinThisBatch();
-    /// @notice Thrown when anchor block hash is zero
-    error ZeroAnchorBlockHash();
-
-    // Timestamp errors
-    /// @notice Thrown when timestamp is smaller than parent's timestamp
-    error TimestampSmallerThanParent();
-    /// @notice Thrown when timestamp is too far in the future
-    error TimestampTooLarge();
-    /// @notice Thrown when timestamp is too old
-    error TimestampTooSmall();
-    /// @notice Thrown when first block's time shift is not zero
-    error FirstBlockTimeShiftNotZero();
-
-    // Other errors
-    /// @notice Thrown when blob is not found at expected block
     error BlobNotFound();
-    /// @notice Thrown when blocks are not in the current fork
     error BlocksNotInCurrentFork();
-    /// @notice Thrown when required signal was not sent
+    error FirstBlockTimeShiftNotZero();
+    error MetaHashNotMatch();
+    error NoAnchorBlockIdWithinThisBatch();
+    error NoBatchesToPropose();
     error SignalNotSent();
+    error TimestampSmallerThanParent();
+    error TimestampTooLarge();
+    error TimestampTooSmall();
+    error TooManyBatches();
+    error ZeroAnchorBlockHash();
 }

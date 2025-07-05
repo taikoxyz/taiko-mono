@@ -100,7 +100,7 @@ library LibValidate {
     }
 
     // -------------------------------------------------------------------------
-    // Private Functions - Proposer & Coinbase Validation
+    // Private Functions
     // -------------------------------------------------------------------------
 
     /// @notice Validates the proposer and coinbase addresses
@@ -127,10 +127,6 @@ library LibValidate {
 
         coinbase_ = _batch.coinbase == address(0) ? proposer_ : _batch.coinbase;
     }
-
-    // -------------------------------------------------------------------------
-    // Private Functions - Block Validation
-    // -------------------------------------------------------------------------
 
     /// @notice Validates and decodes block data from the batch
     /// @dev Decodes packed block information and validates block count limits
@@ -161,10 +157,6 @@ library LibValidate {
             blocks_[i].numSignals = uint8(encoded >> 32 & 0xFF);
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Private Functions - Timestamp Validation
-    // -------------------------------------------------------------------------
 
     /// @notice Validates timestamp consistency across the batch
     /// @dev Ensures timestamps are sequential, within bounds, and respect anchor constraints
@@ -206,10 +198,6 @@ library LibValidate {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Private Functions - Signal Validation
-    // -------------------------------------------------------------------------
-
     /// @notice Validates cross-chain signals in the batch
     /// @dev Verifies that all referenced signals have been properly sent
     /// @param _conf Protocol configuration
@@ -239,10 +227,6 @@ library LibValidate {
             }
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Private Functions - Anchor Block Validation
-    // -------------------------------------------------------------------------
 
     /// @notice Validates anchor blocks used for L1-L2 synchronization
     /// @dev Ensures anchor blocks are properly ordered, within height limits, and have valid hashes
@@ -303,10 +287,6 @@ library LibValidate {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Private Functions - Block Range Validation
-    // -------------------------------------------------------------------------
-
     /// @notice Validates the block ID range for the batch
     /// @dev Ensures blocks are sequential and within the current fork
     /// @param _conf Protocol configuration
@@ -331,10 +311,6 @@ library LibValidate {
             BlocksNotInCurrentFork()
         );
     }
-
-    // -------------------------------------------------------------------------
-    // Private Functions - Blob Validation
-    // -------------------------------------------------------------------------
 
     /// @notice Validates blob data and forced inclusion parameters
     /// @dev Handles different blob scenarios: direct, normal batches, and forced inclusion
@@ -370,10 +346,6 @@ library LibValidate {
             return _batch.blobs.createdIn;
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Private Functions - Hash Calculation
-    // -------------------------------------------------------------------------
 
     /// @notice Calculates the transaction hash from blob data
     /// @dev Retrieves blob hashes and computes the aggregate transaction hash
@@ -411,63 +383,28 @@ library LibValidate {
     // Custom Errors
     // -------------------------------------------------------------------------
 
-    // Proposer and wrapper errors
-    /// @notice Thrown when caller is not the configured inbox wrapper
-    error NotInboxWrapper();
-    /// @notice Thrown when custom proposer is required but not provided
-    error CustomProposerMissing();
-    /// @notice Thrown when custom proposer is not allowed in current configuration
-    error CustomProposerNotAllowed();
-
-    // Block validation errors
-    /// @notice Thrown when no blocks are found in the batch
-    error BlockNotFound();
-    /// @notice Thrown when batch contains more blocks than allowed
-    error TooManyBlocks();
-    /// @notice Thrown when blocks are not within the current fork range
-    error BlocksNotInCurrentFork();
-    /// @notice Thrown when first block has non-zero time shift
-    error FirstBlockTimeShiftNotZero();
-
-    // Timestamp errors
-    /// @notice Thrown when last block timestamp is not set
-    error LastBlockTimestampNotSet();
-    /// @notice Thrown when timestamp is smaller than parent batch
-    error TimestampSmallerThanParent();
-    /// @notice Thrown when timestamp is larger than current block timestamp
-    error TimestampTooLarge();
-    /// @notice Thrown when timestamp is too small relative to anchor constraints
-    error TimestampTooSmall();
-
-    // Anchor block errors
-    /// @notice Thrown when anchor block ID is smaller than parent anchor
     error AnchorIdSmallerThanParent();
-    /// @notice Thrown when anchor block ID is too small relative to current block
     error AnchorIdTooSmall();
-    /// @notice Thrown when anchor block ID is zero
     error AnchorIdZero();
-    /// @notice Thrown when not enough anchor IDs are provided
-    error NotEnoughAnchorIds();
-    /// @notice Thrown when no anchor block ID is found within the batch
-    error NoAnchorBlockIdWithinThisBatch();
-    /// @notice Thrown when anchor block hash is zero
-    error ZeroAnchorBlockHash();
-
-    // Blob errors
-    /// @notice Thrown when blob is not found
     error BlobNotFound();
-    /// @notice Thrown when blob is not specified but required
     error BlobNotSpecified();
-    /// @notice Thrown when blob creation block is invalid
+    error BlockNotFound();
+    error BlocksNotInCurrentFork();
+    error CustomProposerMissing();
+    error CustomProposerNotAllowed();
+    error FirstBlockTimeShiftNotZero();
     error InvalidBlobCreatedIn();
-    /// @notice Thrown when blob parameters are invalid
     error InvalidBlobParams();
-    /// @notice Thrown when forced inclusion parameters are invalid
     error InvalidForcedInclusion();
-
-    // Signal errors
-    /// @notice Thrown when a required signal has not been sent
+    error LastBlockTimestampNotSet();
+    error NoAnchorBlockIdWithinThisBatch();
+    error NotEnoughAnchorIds();
+    error NotInboxWrapper();
     error SignalNotSent();
-    /// @notice Thrown when too many signals are referenced in a block
+    error TimestampSmallerThanParent();
+    error TimestampTooLarge();
+    error TimestampTooSmall();
+    error TooManyBlocks();
     error TooManySignals();
+    error ZeroAnchorBlockHash();
 }

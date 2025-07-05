@@ -48,6 +48,5 @@ library LibForks {
     // Custom Errors
     // -------------------------------------------------------------------------
 
-    /// @notice Thrown when the block range is invalid (lastBlockId < firstBlockId)
     error InvalidBlockRange();
 }

@@ -19,7 +19,7 @@ import "./IBondManager2.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-contract TaikoInbox2 is TaikoInboxBase, IBondManager2 {
+abstract contract TaikoInbox2 is TaikoInboxBase, IBondManager2 {
     using LibBonds for I.State;
     using SafeERC20 for IERC20;
 
@@ -61,7 +61,7 @@ contract TaikoInbox2 is TaikoInboxBase, IBondManager2 {
     }
 
     // -------------------------------------------------------------------------
-    // Internal  Functions
+    // Internal Functions
     // -------------------------------------------------------------------------
 
     /// @notice Gets the blob hash for a block number

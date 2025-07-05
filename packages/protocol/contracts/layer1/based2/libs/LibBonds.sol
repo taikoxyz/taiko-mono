@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/libs/LibAddress.sol";
-import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "../IBondManager2.sol";
+import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
 /// @title LibBonds
 /// @notice Library for managing bonds in the Taiko protocol
@@ -117,12 +117,7 @@ library LibBonds {
     // Errors
     // -------------------------------------------------------------------------
 
-    /// @notice Thrown when Ether is not paid as bond when required
     error EtherNotPaidAsBond();
-
-    /// @notice Thrown when the user has insufficient bond balance
     error InsufficientBond();
-
-    /// @notice Thrown when msg.value is not zero for ERC20 bond operations
     error MsgValueNotZero();
 }
