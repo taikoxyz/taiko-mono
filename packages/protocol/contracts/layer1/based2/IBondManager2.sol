@@ -6,9 +6,9 @@ pragma solidity ^0.8.24;
 /// @dev This interface defines functions for depositing, withdrawing, and querying bond balances.
 /// @custom:security-contact security@taiko.xyz
 interface IBondManager2 {
-    /*//////////////////////////////////////////////////////////////
-                                 EVENTS
-    //////////////////////////////////////////////////////////////*/
+    // -------------------------------------------------------------------------
+    // Events
+    // -------------------------------------------------------------------------
 
     /// @notice Emitted when tokens are deposited into a user's bond balance.
     /// @param user The address of the user who deposited the tokens.
@@ -30,9 +30,9 @@ interface IBondManager2 {
     /// @param amount The amount of tokens debited.
     event BondDebited(address indexed user, uint256 amount);
 
-    /*//////////////////////////////////////////////////////////////
-                             BOND OPERATIONS
-    //////////////////////////////////////////////////////////////*/
+    // -------------------------------------------------------------------------
+    // Bond Operations
+    // -------------------------------------------------------------------------
 
     /// @notice Deposits tokens into the contract to be used as bond.
     /// @dev If the bond token is Ether, msg.value must be equal to _amount.
@@ -43,9 +43,9 @@ interface IBondManager2 {
     /// @param _amount The amount of tokens to withdraw.
     function withdraw4(uint256 _amount) external;
 
-    /*//////////////////////////////////////////////////////////////
-                                 GETTERS
-    //////////////////////////////////////////////////////////////*/
+    // -------------------------------------------------------------------------
+    // Getters
+    // -------------------------------------------------------------------------
 
     /// @notice Returns the bond balance of a specific user.
     /// @param _user The address of the user.
