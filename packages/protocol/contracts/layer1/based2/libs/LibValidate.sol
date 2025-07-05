@@ -66,6 +66,11 @@ library LibValidate {
         (context_.txsHash, context_.blobHashes) = _calculateTxsHash(_rw, _batch.blobs);
 
         context_.blocks = blocks;
+
+        context_.blockMaxGasLimit = _conf.blockMaxGasLimit;
+        context_.baseFeeConfig = _conf.baseFeeConfig;
+        context_.livenessBond = _conf.livenessBond;
+        context_.provabilityBond = _conf.provabilityBond;
     }
 
     // -------------------------------------------------------------------------

@@ -92,7 +92,7 @@ library LibPropose {
         LibProvers.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
 
         meta_ = LibData.buildBatchMetadata(
-            uint48(block.number), uint48(block.timestamp), _conf, _batch, context
+            uint48(block.number), uint48(block.timestamp), _batch, context
         );
 
         bytes32 batchMetaHash = LibData.hashBatch(_summary.numBatches, meta_);

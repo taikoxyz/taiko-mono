@@ -72,6 +72,11 @@ interface ITaikoInbox2 {
         Block[] blocks;
         /// @notice Block number where blobs were created
         uint48 blobsCreatedIn;
+        /// @notice The maximum gas limit allowed for a block.
+        uint32 blockMaxGasLimit;
+        LibSharedData.BaseFeeConfig baseFeeConfig;
+        uint96 livenessBond;
+        uint96 provabilityBond;
     }
 
     struct ProverAuth {

@@ -19,14 +19,12 @@ library LibData {
     /// @notice Populates batch metadata from validation output
     /// @param _blockNumber The block number in which the batch is proposed
     /// @param _blockTimestamp The timestamp of the block in which the batch is proposed
-    /// @param _conf The protocol configuration
     /// @param _batch The batch being proposed
     /// @param _context The validation output containing computed values
     /// @return meta_ The populated batch metadata
     function buildBatchMetadata(
         uint48 _blockNumber,
         uint48 _blockTimestamp,
-        I.Config memory _conf, // TODO: remove this.
         I.Batch calldata _batch,
         I.BatchContext memory _context
     )
@@ -38,19 +36,19 @@ library LibData {
         meta_.buildMeta = I.BatchBuildMetadata({
             txsHash: _context.txsHash,
             blobHashes: _context.blobHashes,
-            extraData: _encodeExtraDataLower128Bits(_conf.baseFeeConfig.sharingPctg, _batch),
+            extraData: _encodeExtraDataLower128Bits(_context.baseFeeConfig.sharingPctg, _batch),
             coinbase: _batch.coinbase,
             proposedIn: _blockNumber,
             blobCreatedIn: _batch.blobs.createdIn,
             blobByteOffset: _batch.blobs.byteOffset,
             blobByteSize: _batch.blobs.byteSize,
-            gasLimit: _conf.blockMaxGasLimit,
+            gasLimit: _context.blockMaxGasLimit,
             lastBlockId: _context.lastBlockId,
             lastBlockTimestamp: _batch.lastBlockTimestamp,
             anchorBlockIds: _batch.anchorBlockIds,
             anchorBlockHashes: _context.anchorBlockHashes,
             encodedBlocks: _batch.encodedBlocks,
-            baseFeeConfig: _conf.baseFeeConfig
+            baseFeeConfig: _context.baseFeeConfig
         });
 
         // Propose metadata section
@@ -67,8 +65,8 @@ library LibData {
             proposedAt: _blockTimestamp,
             firstBlockId: _context.firstBlockId,
             lastBlockId: meta_.buildMeta.lastBlockId,
-            livenessBond: _conf.livenessBond,
-            provabilityBond: _conf.provabilityBond
+            livenessBond: _context.livenessBond,
+            provabilityBond: _context.provabilityBond
         });
     }
 
