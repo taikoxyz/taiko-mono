@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./TaikoInboxbase.sol";
-import "./libs/LibStorage.sol";
 import "./libs/LibBondManagement.sol";
+import "./IBondManager2.sol";
 
 /// @title TaikoInbox2
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -20,8 +20,7 @@ import "./libs/LibBondManagement.sol";
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox2 is TaikoInboxbase, IBondManager2 {
-    using LibBondManagement for ITaikoInbox2.State;
-    using LibStorage for ITaikoInbox2.State;
+    using LibBondManagement for I.State;
     using SafeERC20 for IERC20;
 
     State public state; // storage layout much match Ontake fork
@@ -141,10 +140,136 @@ abstract contract TaikoInbox2 is TaikoInboxbase, IBondManager2 {
     }
 
     function _loadSummaryHash() internal view override returns (bytes32) {
-        return LibStorage.loadSummaryHash(state);
+        return state.summaryHash;
     }
 
     function _saveSummaryHash(bytes32 _summaryHash) internal override {
-        LibStorage.saveSummaryHash(state, _summaryHash);
+        state.summaryHash = _summaryHash; // 1 SSTORE
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Saves a transition to storage
+    /// @param _conf The configuration
+    /// @param _batchId The batch ID
+    /// @param _parentHash The parent hash
+    /// @param _tranMetahash The transition metadata hash
+    /// @return isFirstTransition_ Whether this is the first transition
+    function saveTransition(
+        I.Config memory _conf,
+        uint48 _batchId,
+        bytes32 _parentHash,
+        bytes32 _tranMetahash
+    )
+        internal
+        returns (bool isFirstTransition_)
+    {
+        uint256 slot = _batchId % _conf.batchRingBufferSize;
+
+        // In the next code section, we always use `state.transitions[slot][1]` to reuse a
+        // previously
+        // declared $ variable -- note that the second mapping key is always 1.
+        // Tip: the reuse of the first transition slot can save 3900 gas per batch.
+        (uint48 embededBatchId, bytes32 partialParentHash) = _loadBatchIdAndPartialParentHash(slot);
+
+        isFirstTransition_ = embededBatchId != _batchId;
+
+        if (isFirstTransition_) {
+            // This is the very first transition of the batch, or a transition with the same parent
+            // hash. We can reuse the transition $ slot to reduce gas cost.
+            state.transitions[slot][1].batchIdAndPartialParentHash =
+                (uint256(partialParentHash) & ~type(uint48).max) | _batchId;
+
+            // SSTORE
+            state.transitions[slot][1].metaHash = _tranMetahash; // 1 SSTORE
+        } else if (partialParentHash == _parentHash >> 48) {
+            // Overwrite the first proof
+            state.transitions[slot][1].metaHash = _tranMetahash; // 1 SSTORE
+        } else {
+            // This is not the very first transition of the batch, or a transition with the same
+            // parent hash. Use a mapping to store the meta hash of the transition. The mapping
+            // slots are not reusable.
+            state.transitionMetaHashes[_batchId][_parentHash] = _tranMetahash; // 1 SSTORE
+        }
+    }
+
+    /// @notice Saves a batch metadata hash to storage
+    /// @param _conf The configuration
+    /// @param _batchId The batch ID
+    /// @param _metaHash The metadata hash to save
+    function _saveBatchMetaHash(
+        I.Config memory _conf,
+        uint256 _batchId,
+        bytes32 _metaHash
+    )
+        internal
+        override
+    {
+        state.batches[_batchId % _conf.batchRingBufferSize] = _metaHash;
+    }
+
+    /// @notice Loads a batch metadata hash from storage
+    /// @param _conf The configuration
+    /// @param _batchId The batch ID
+    /// @return The batch metadata hash
+    function _loadBatchMetaHash(
+        I.Config memory _conf,
+        uint256 _batchId
+    )
+        internal
+        view
+        override
+        returns (bytes32)
+    {
+        return state.batches[_batchId % _conf.batchRingBufferSize];
+    }
+
+    /// @notice Loads a transition metadata hash from storage
+    /// @param _conf The configuration
+    /// @param _lastVerifiedBlockHash The last verified block hash
+    /// @param _batchId The batch ID
+    /// @return metaHash_ The transition metadata hash
+    /// @return isFirstTransition_ Whether this is the first transition
+    function _loadTransitionMetaHash(
+        I.Config memory _conf,
+        bytes32 _lastVerifiedBlockHash,
+        uint256 _batchId
+    )
+        internal
+        view
+        override
+        returns (bytes32 metaHash_, bool isFirstTransition_)
+    {
+        uint256 slot = _batchId % _conf.batchRingBufferSize;
+        // 1 SLOAD
+        (uint48 embededBatchId, bytes32 partialParentHash) = _loadBatchIdAndPartialParentHash(slot);
+
+        if (embededBatchId != _batchId) return (0, false);
+
+        if (partialParentHash == _lastVerifiedBlockHash >> 48) {
+            return (state.transitions[slot][1].metaHash, true);
+        } else {
+            return (state.transitionMetaHashes[_batchId][_lastVerifiedBlockHash], false);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Loads batch ID and partial parent hash from storage
+    /// @param _slot The storage slot
+    /// @return embededBatchId_ The embedded batch ID
+    /// @return partialParentHash_ The partial parent hash
+    function _loadBatchIdAndPartialParentHash(uint256 _slot)
+        private
+        view
+        returns (uint48 embededBatchId_, bytes32 partialParentHash_)
+    {
+        uint256 value = state.transitions[_slot][1].batchIdAndPartialParentHash; // 1 SLOAD
+        embededBatchId_ = uint48(value);
+        partialParentHash_ = bytes32(value >> 48);
     }
 }

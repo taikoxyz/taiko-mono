@@ -3,17 +3,14 @@ pragma solidity ^0.8.24;
 
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 import "src/shared/libs/LibMath.sol";
-import "./LibBondManagement.sol";
 import "./LibForks.sol";
 import "./LibDataUtils.sol";
-import "./LibStorage.sol";
 
 /// @title LibBatchProving
 /// @notice Library for batch proving functionality
 /// @custom:security-contact security@taiko.xyz
 library LibBatchProving {
     using LibMath for uint256;
-    using LibStorage for I.State;
 
     // -------------------------------------------------------------------------
     // Internal Functions

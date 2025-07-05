@@ -7,13 +7,10 @@ import "./LibBatchValidation.sol";
 import "./LibForks.sol";
 import "./LibDataUtils.sol";
 import "./LibProverValidation.sol";
-import "./LibStorage.sol";
 
 /// @title LibBatchProposal
 /// @custom:security-contact security@taiko.xyz
 library LibBatchProposal {
-    using LibStorage for I.State;
-
     // -------------------------------------------------------------------------
     // Internal Functions
     // -------------------------------------------------------------------------

@@ -28,13 +28,6 @@ import "./IProposeBatch2.sol";
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInboxbase is EssentialContract, ITaikoInbox2, IProposeBatch2, ITaiko {
-    using LibBatchProposal for ITaikoInbox2.State;
-    using LibBatchProving for ITaikoInbox2.State;
-    using LibBatchVerification for ITaikoInbox2.State;
-    using LibBondManagement for ITaikoInbox2.State;
-    using LibStorage for ITaikoInbox2.State;
-    using SafeERC20 for IERC20;
-
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
