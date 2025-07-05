@@ -53,8 +53,7 @@ library LibVerify {
             );
 
             uint256 i;
-            uint48 lastSyncedBlockId;
-            bytes32 lastSyncedStateRoot;
+            uint256 lastSyncedBatchId;
             uint256 nTransitions = _trans.length;
 
             for (; batchId < stopBatchId; ++batchId) {
@@ -74,18 +73,19 @@ library LibVerify {
                 _rw.creditBond(_trans[i].prover, bondToProver);
 
                 if (batchId % _conf.stateRootSyncInternal == 0) {
-                    lastSyncedBlockId = _trans[i].lastBlockId;
-                    lastSyncedStateRoot = _trans[i].stateRoot;
+                    lastSyncedBatchId = batchId;
                 }
 
-                emit I.BatchesVerified(batchId, _trans[i].blockHash);
+                emit I.Verified(batchId, _trans[i].blockHash);
                 _summary.lastVerifiedBlockHash = _trans[i++].blockHash;
             }
 
-            if (lastSyncedBlockId != 0) {
-                _summary.lastSyncedBlockId = lastSyncedBlockId;
+            if (lastSyncedBatchId != 0) {
                 _summary.lastSyncedAt = uint48(block.timestamp);
-                _rw.syncChainData(_conf, lastSyncedBlockId, lastSyncedStateRoot);
+                _summary.lastSyncedBlockId = _trans[lastSyncedBatchId].lastBlockId;
+                _rw.syncChainData(
+                    _conf, _summary.lastSyncedBlockId, _trans[lastSyncedBatchId].stateRoot
+                );
             }
         }
         return _summary;

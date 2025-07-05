@@ -135,7 +135,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         summary.numBatches = 1;
         _saveSummaryHash(keccak256(abi.encode(summary)));
 
-        emit I.BatchesVerified(0, _genesisBlockHash);
+        emit I.Verified(0, _genesisBlockHash);
     }
 
     /// @notice Gets the configuration (must be implemented by derived contracts)

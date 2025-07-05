@@ -93,7 +93,7 @@ library LibPropose {
         bytes32 batchMetaHash = LibData.hashBatch(_summary.numBatches, meta_);
         _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
 
-        emit I.BatchProposed(_summary.numBatches, LibData.packBatchMetadata(meta_));
+        emit I.Proposed(_summary.numBatches, LibData.packBatchMetadata(meta_));
     }
 
     /// @notice Populates batch metadata from validation output
