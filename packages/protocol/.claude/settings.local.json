@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(rg:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(pnpm compile:*)",
+      "Bash(pnpm solhint:*)",
+      "Bash(ls:*)",
+      "Bash(mv:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(grep:*)"
+    ],
+    "deny": []
+  }
+}
