@@ -19,9 +19,6 @@ updates:
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
-    reviewers:
-      - "YoGhurt111"
-      - "RogerLamTd"
     open-pull-requests-limit: 1
     groups:
       go-updates:
@@ -35,9 +32,6 @@ updates:
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
-    reviewers:
-      - "YoGhurt111"
-      - "RogerLamTd"
     open-pull-requests-limit: 1
     groups:
       github-actions-updates:
@@ -51,9 +45,6 @@ updates:
       day: "saturday"
       time: "04:20"
       timezone: "America/New_York"
-    reviewers:
-      - "KorbinianK"
-      - "bearni95"
     open-pull-requests-limit: 1
     groups:
       npm-updates:

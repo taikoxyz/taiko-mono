@@ -1,0 +1,7 @@
+go.mod                      @YoGhurt111 @RogerLamTd
+go.sum                      @YoGhurt111 @RogerLamTd
+.github/workflows/*         @YoGhurt111 @RogerLamTd
+/packages/*/package.json    @KorbinianK @bearni95
+/packages/docs-site/**      @RogerLamTd
+/packages/taiko-client/**   @cyberhorsey @YoGhurt111
+
