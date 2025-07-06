@@ -41,7 +41,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
     /// @param _owner The owner address
     /// @param _genesisBlockHash The genesis block hash
     function init4(address _owner, bytes32 _genesisBlockHash) external initializer {
-        __Taiko_init(_owner, _genesisBlockHash);
+        _init(_owner, _genesisBlockHash);
     }
 
     /// @notice Proposes and verifies batches
@@ -247,7 +247,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
     /// @notice Initializes the Taiko contract
     /// @param _owner The owner address
     /// @param _genesisBlockHash The genesis block hash
-    function __Taiko_init(address _owner, bytes32 _genesisBlockHash) private onlyInitializing {
+    function _init(address _owner, bytes32 _genesisBlockHash) private onlyInitializing {
         __Essential_init(_owner);
         require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
 
@@ -257,11 +257,13 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         I.BatchMetadata memory meta;
         meta.buildMeta.proposedIn = uint48(block.number);
         meta.proveMeta.proposedAt = uint48(block.timestamp);
-        _saveBatchMetaHash(conf, 0, LibData.hashBatch(0, meta));
 
         // Initialize the summary
         I.Summary memory summary;
+        summary.lastBatchMetaHash = LibData.hashBatch(0, meta);
         summary.numBatches = 1;
+
+        _saveBatchMetaHash(conf, 0, summary.lastBatchMetaHash);
         _saveSummaryHash(keccak256(abi.encode(summary)));
 
         emit I.Verified(0, _genesisBlockHash);

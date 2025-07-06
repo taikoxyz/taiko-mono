@@ -181,6 +181,7 @@ interface ITaikoInbox2 {
         uint48 lastSyncedAt;
         uint48 lastVerifiedBatchId;
         bytes32 lastVerifiedBlockHash;
+        bytes32 lastBatchMetaHash;
     }
 
     /// @notice Struct holding the fork heights.

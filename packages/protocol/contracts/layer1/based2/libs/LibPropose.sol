@@ -45,20 +45,17 @@ library LibPropose {
                 TooManyBatches()
             );
 
-            require(
-                _rw.loadBatchMetaHash(_conf, _summary.numBatches - 1)
-                    == LibData.hashBatch(_evidence),
-                MetaHashNotMatch()
-            );
+            require(_summary.lastBatchMetaHash == LibData.hashBatch(_evidence), MetaHashNotMatch());
 
             I.BatchProposeMetadata memory parent = _evidence.proposeMeta;
 
+            I.BatchMetadata memory meta;
             for (uint256 i; i < _batches.length; ++i) {
-                I.BatchMetadata memory meta =
+                (meta, _summary.lastBatchMetaHash) =
                     _proposeBatch(_conf, _rw, _summary, _batches[i], parent);
 
-                parent = meta.proposeMeta;
                 _summary.numBatches += 1;
+                parent = meta.proposeMeta;
             }
 
             return _summary;
@@ -76,6 +73,7 @@ library LibPropose {
     /// @param _batch The batch to propose
     /// @param _parent The parent batch metadata
     /// @return meta_ The metadata of the proposed batch
+    /// @return batchMetaHash_ The hash of the proposed batch metadata
     function _proposeBatch(
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
@@ -84,7 +82,7 @@ library LibPropose {
         I.BatchProposeMetadata memory _parent
     )
         private
-        returns (I.BatchMetadata memory meta_)
+        returns (I.BatchMetadata memory meta_, bytes32 batchMetaHash_)
     {
         // Validate the batch parameters and return batch and batch context data
         I.BatchContext memory context = LibValidate.validate(_conf, _rw, _batch, _parent);
@@ -95,8 +93,8 @@ library LibPropose {
             uint48(block.number), uint48(block.timestamp), _batch, context
         );
 
-        bytes32 batchMetaHash = LibData.hashBatch(_summary.numBatches, meta_);
-        _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash);
+        batchMetaHash_ = LibData.hashBatch(_summary.numBatches, meta_);
+        _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash_);
 
         emit I.Proposed(_summary.numBatches, context);
     }
