@@ -40,7 +40,7 @@ contract SetupSurgeL2 is Script {
 
     // L1 Timelock configuration
     // --------------------------------------------------------------------------
-    address internal immutable l1TimelockController = vm.envAddress("L1_TIMELOCK_CONTROLLER");
+    address internal immutable l1Owner = vm.envAddress("L1_OWNER");
 
     struct L2Contract {
         bytes32 key;
@@ -197,7 +197,7 @@ contract SetupSurgeL2 is Script {
     {
         address delegateOwnerImpl = address(new DelegateOwner(l2ContractRegistry.bridge.addr));
         address delegateOwner = address(new ERC1967Proxy(delegateOwnerImpl, ""));
-        DelegateOwner(delegateOwner).init(l1TimelockController, uint64(l1ChainId), address(0));
+        DelegateOwner(delegateOwner).init(l1Owner, uint64(l1ChainId), address(0));
 
         console2.log("** Delegate owner (L2 owner):", delegateOwner);
 
