@@ -25,7 +25,6 @@ library LibState {
         function(uint256) view returns (bytes32) getBlobHash;
         function (I.Config memory, bytes32, uint256) view returns (bytes32 , bool)
             loadTransitionMetaHash;
-            
         // Write functions -----------------------------------------------------
 
         /// @notice Saves a transition

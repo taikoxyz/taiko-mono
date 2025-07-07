@@ -3,15 +3,13 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
-import "src/shared/signal/ISignalService.sol";
-import "src/shared/signal/LibSignals.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-
 import "./libs/LibPropose.sol";
 import "./libs/LibProve.sol";
 import "./libs/LibVerify.sol";
 import "./ITaikoInbox2.sol";
-import "./IProposeBatch2.sol";
+import "./IPropose.sol";
+import "./IProve.sol";
 
 /// @title TaikoInboxBase
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -26,7 +24,7 @@ import "./IProposeBatch2.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBatch2, ITaiko {
+abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IPropose, IProve, ITaiko {
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
@@ -57,6 +55,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         I.TransitionMeta[] calldata _trans
     )
         external
+        override(I, IPropose)
         nonReentrant
         returns (I.Summary memory)
     {
@@ -86,6 +85,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         bytes calldata _proof
     )
         external
+        override(I, IProve)
         nonReentrant
         returns (I.Summary memory)
     {
@@ -266,7 +266,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         _saveBatchMetaHash(conf, 0, summary.lastBatchMetaHash);
         _saveSummaryHash(keccak256(abi.encode(summary)));
 
-        emit I.Verified(0, _genesisBlockHash);
+        emit I.Verified(0, 0, _genesisBlockHash);
     }
 
     /// @notice Creates a ReadWrite struct with function pointers

@@ -274,6 +274,34 @@ interface ITaikoInbox2 {
 
     /// @notice Emitted when a batch is verified.
     /// @param batchId The ID of the verified batch.
+    /// @param blockId The ID of the last block in this batch.
     /// @param blockHash The hash of the verified batch.
-    event Verified(uint256 batchId, bytes32 blockHash);
+    event Verified(uint256 batchId, uint48 blockId, bytes32 blockHash);
+
+    /// @notice Proposes multiple batches to be proven and verified.
+    /// @dev This function allows proposers to submit batches of blocks for processing.
+    /// @param _summary The current state summary of the protocol.
+    /// @param _batch Array of batches to be proposed.
+    /// @param _evidence Evidence proving the validity of the batch metadata.
+    function propose4(
+        Summary memory _summary,
+        Batch[] memory _batch,
+        BatchProposeMetadataEvidence memory _evidence,
+        TransitionMeta[] calldata _trans
+    )
+        external
+        returns (Summary memory);
+
+    /// @notice Proves batches with cryptographic proof
+    /// @param _summary The current summary
+    /// @param _inputs The batch prove inputs
+    /// @param _proof The cryptographic proof
+    /// @return The updated summary
+    function prove4(
+        Summary memory _summary,
+        BatchProveInput[] calldata _inputs,
+        bytes calldata _proof
+    )
+        external
+        returns (Summary memory);
 }
