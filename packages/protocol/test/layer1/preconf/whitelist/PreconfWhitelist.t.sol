@@ -55,7 +55,8 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(0), Bob);
         assertEq(whitelist.havingPerfectOperators(), false);
 
-        (uint64 activeSince, uint64 inactiveSince, uint8 index, string memory peerIp) = whitelist.operators(Bob);
+        (uint64 activeSince, uint64 inactiveSince, uint8 index, string memory peerIp) =
+            whitelist.operators(Bob);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
@@ -132,7 +133,8 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(1), Bob);
         assertEq(whitelist.havingPerfectOperators(), false);
 
-        (uint64 activeSince, uint64 inactiveSince, uint8 index, string memory peerIp) = whitelist.operators(Alice);
+        (uint64 activeSince, uint64 inactiveSince, uint8 index, string memory peerIp) =
+            whitelist.operators(Alice);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
@@ -277,7 +279,8 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelistNoDelay.operatorMapping(0), Bob);
         assertEq(whitelistNoDelay.havingPerfectOperators(), true);
 
-        (uint64 activeSince, uint64 inactiveSince, uint8 index, string memory peerIp) = whitelistNoDelay.operators(Bob);
+        (uint64 activeSince, uint64 inactiveSince, uint8 index, string memory peerIp) =
+            whitelistNoDelay.operators(Bob);
         assertEq(activeSince, whitelistNoDelay.epochStartTimestamp(0));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
@@ -372,7 +375,8 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(1), address(0));
 
         // make sure she is correctly set to active now
-        (uint64 activeSince, uint64 inactiveSince, uint8 index, string memory peerIp) = whitelist.operators(Carol);
+        (uint64 activeSince, uint64 inactiveSince, uint8 index, string memory peerIp) =
+            whitelist.operators(Carol);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
