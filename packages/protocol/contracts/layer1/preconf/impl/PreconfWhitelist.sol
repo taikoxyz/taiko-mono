@@ -32,6 +32,10 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     uint256[46] private __gap;
 
+    modifier onlyOwnerOrOperator(address _operator) {
+        require(msg.sender == owner() || msg.sender == _operator);
+        _;
+    }
     constructor() EssentialContract() { }
 
     function init(
@@ -64,12 +68,14 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         string calldata peerIp
     )
         external
-        onlyOwner
+        onlyOwnerOrOperator(_operator)
     {
         require(_operator != address(0), InvalidOperatorAddress());
         OperatorInfo storage info = operators[_operator];
         require(info.activeSince != 0, InvalidOperatorAddress());
         info.peerIp = peerIp;
+
+        emit OperatorChangedPeerIp(_operator, peerIp);
     }
 
     /// @inheritdoc IPreconfWhitelist

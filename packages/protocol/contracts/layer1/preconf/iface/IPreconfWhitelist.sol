@@ -14,6 +14,11 @@ interface IPreconfWhitelist {
     /// @param inactiveSince The timestamp when the operator became inactive.
     event OperatorRemoved(address indexed operator, uint256 inactiveSince);
 
+    /// @notice Emitted when an operator updates their peer IP address.
+    /// @param operator The address of the operator that was removed.
+    /// @param peerIp The new peer ip.
+    event OperatorChangedPeerIp(address indexed operator, string peerIp);
+
     error InvalidOperatorIndex();
     error InvalidOperatorCount();
     error InvalidOperatorAddress();
