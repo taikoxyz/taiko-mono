@@ -35,6 +35,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         require(msg.sender == owner() || msg.sender == _operator);
         _;
     }
+
     constructor() EssentialContract() { }
 
     function init(

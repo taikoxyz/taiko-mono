@@ -382,7 +382,6 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(index, 0);
     }
 
-
     /// Owner should be able to update an existing operator’s peerIp.
     function test_changePeerIpByOwnerCanUpdatePeerIp() external {
         // add Bob as operator with initial IP
@@ -393,7 +392,7 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelist.changePeerIpForOperator(Bob, "10.0.0.2:4002");
 
         // inspect storage
-        (, , , string memory peerIp) = whitelist.operators(Bob);
+        (,,, string memory peerIp) = whitelist.operators(Bob);
         assertEq(peerIp, "10.0.0.2:4002");
     }
 
@@ -406,7 +405,7 @@ contract TestPreconfWhitelist is Layer1Test {
         vm.prank(Bob);
         whitelist.changePeerIpForOperator(Bob, "selfUpdatedIp");
 
-        (, , , string memory peerIp) = whitelist.operators(Bob);
+        (,,, string memory peerIp) = whitelist.operators(Bob);
         assertEq(peerIp, "selfUpdatedIp");
     }
 
@@ -417,7 +416,7 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelist.addOperator(Bob, "ip1");
         // Carol (neither owner nor Bob) tries to update Bob’s IP
         vm.prank(Carol);
-        vm.expectRevert();   // generic revert from onlyOwnerOrOperator
+        vm.expectRevert(); // generic revert from onlyOwnerOrOperator
         whitelist.changePeerIpForOperator(Bob, "hackerIp");
     }
 
