@@ -17,7 +17,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         string peerIp; // peer ip to connect to for the taiko driver
     }
 
-
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
     event OperatorChangeDelaySet(uint8 delay);
 
@@ -192,11 +191,17 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         );
     }
 
-    function _addOperator(address _operator, string calldata peerIp, uint8 _operatorChangeDelay) internal {
+    function _addOperator(
+        address _operator,
+        string calldata peerIp,
+        uint8 _operatorChangeDelay
+    )
+        internal
+    {
         require(_operator != address(0), InvalidOperatorAddress());
 
         OperatorInfo storage info = operators[_operator];
-    
+
         // if they're already active, just revert
         if (info.activeSince != 0) {
             revert OperatorAlreadyExists();

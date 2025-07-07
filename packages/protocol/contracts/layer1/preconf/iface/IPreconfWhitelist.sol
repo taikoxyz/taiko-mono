@@ -67,8 +67,5 @@ interface IPreconfWhitelist {
     function getOperatorForNextEpoch() external view returns (address);
 
     /// @notice Updates the peer IP address for a specific operator.
-    function changePeerIpForOperator(
-        address _operator,
-        string calldata peerIp
-    ) external;
+    function changePeerIpForOperator(address _operator, string calldata peerIp) external;
 }
