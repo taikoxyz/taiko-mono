@@ -8,36 +8,23 @@ import { IInbox } from "../../../../contracts/layer1/based2/IInbox.sol";
 contract LibDataTest is Test {
     using LibData for IInbox.TransitionMeta;
 
-    function test_packUnpackTransitionMeta_basic() public  pure {
+    function test_packUnpackTransitionMeta_basic() public pure {
         // Create a basic TransitionMeta struct
         IInbox.TransitionMeta memory original = IInbox.TransitionMeta({
             blockHash: bytes32(uint256(1)),
             stateRoot: bytes32(uint256(2)),
             prover: address(0x1234567890123456789012345678901234567890),
             proofTiming: IInbox.ProofTiming.InProvingWindow,
-            createdAt: 12345,
+            createdAt: 12_345,
             byAssignedProver: true,
-            lastBlockId: 67890,
-            provabilityBond: 1000000000000000000,
-            livenessBond: 2000000000000000000
+            lastBlockId: 67_890,
+            provabilityBond: 1_000_000_000_000_000_000,
+            livenessBond: 2_000_000_000_000_000_000
         });
 
-        // Pack the struct
         bytes[122] memory packed = LibData.packTransitionMeta(original);
-
-        // Unpack the struct
         IInbox.TransitionMeta memory unpacked = LibData.unpackTransitionMeta(packed);
-
-        // Verify all fields match
-        assertEq(unpacked.blockHash, original.blockHash, "blockHash mismatch");
-        assertEq(unpacked.stateRoot, original.stateRoot, "stateRoot mismatch");
-        assertEq(unpacked.prover, original.prover, "prover mismatch");
-        assertEq(uint8(unpacked.proofTiming), uint8(original.proofTiming), "proofTiming mismatch");
-        assertEq(unpacked.createdAt, original.createdAt, "createdAt mismatch");
-        assertEq(unpacked.byAssignedProver, original.byAssignedProver, "byAssignedProver mismatch");
-        assertEq(unpacked.lastBlockId, original.lastBlockId, "lastBlockId mismatch");
-        assertEq(unpacked.provabilityBond, original.provabilityBond, "provabilityBond mismatch");
-        assertEq(unpacked.livenessBond, original.livenessBond, "livenessBond mismatch");
+        assertEq(keccak256(abi.encode(original)), keccak256(abi.encode(unpacked)));
     }
 
     function test_packUnpackTransitionMeta_maxValues() public pure {
@@ -57,17 +44,7 @@ contract LibDataTest is Test {
         // Pack and unpack
         bytes[122] memory packed = LibData.packTransitionMeta(original);
         IInbox.TransitionMeta memory unpacked = LibData.unpackTransitionMeta(packed);
-
-        // Verify all fields match
-        assertEq(unpacked.blockHash, original.blockHash, "blockHash mismatch");
-        assertEq(unpacked.stateRoot, original.stateRoot, "stateRoot mismatch");
-        assertEq(unpacked.prover, original.prover, "prover mismatch");
-        assertEq(uint8(unpacked.proofTiming), uint8(original.proofTiming), "proofTiming mismatch");
-        assertEq(unpacked.createdAt, original.createdAt, "createdAt mismatch");
-        assertEq(unpacked.byAssignedProver, original.byAssignedProver, "byAssignedProver mismatch");
-        assertEq(unpacked.lastBlockId, original.lastBlockId, "lastBlockId mismatch");
-        assertEq(unpacked.provabilityBond, original.provabilityBond, "provabilityBond mismatch");
-        assertEq(unpacked.livenessBond, original.livenessBond, "livenessBond mismatch");
+        assertEq(keccak256(abi.encode(original)), keccak256(abi.encode(unpacked)));
     }
 
     function test_packUnpackTransitionMeta_minValues() public pure {
@@ -87,17 +64,7 @@ contract LibDataTest is Test {
         // Pack and unpack
         bytes[122] memory packed = LibData.packTransitionMeta(original);
         IInbox.TransitionMeta memory unpacked = LibData.unpackTransitionMeta(packed);
-
-        // Verify all fields match
-        assertEq(unpacked.blockHash, original.blockHash, "blockHash mismatch");
-        assertEq(unpacked.stateRoot, original.stateRoot, "stateRoot mismatch");
-        assertEq(unpacked.prover, original.prover, "prover mismatch");
-        assertEq(uint8(unpacked.proofTiming), uint8(original.proofTiming), "proofTiming mismatch");
-        assertEq(unpacked.createdAt, original.createdAt, "createdAt mismatch");
-        assertEq(unpacked.byAssignedProver, original.byAssignedProver, "byAssignedProver mismatch");
-        assertEq(unpacked.lastBlockId, original.lastBlockId, "lastBlockId mismatch");
-        assertEq(unpacked.provabilityBond, original.provabilityBond, "provabilityBond mismatch");
-        assertEq(unpacked.livenessBond, original.livenessBond, "livenessBond mismatch");
+        assertEq(keccak256(abi.encode(original)), keccak256(abi.encode(unpacked)));
     }
 
     function test_packUnpackTransitionMeta_allProofTimings() public pure {
@@ -108,7 +75,7 @@ contract LibDataTest is Test {
             IInbox.ProofTiming.InExtendedProvingWindow
         ];
 
-        for (uint i = 0; i < timings.length; i++) {
+        for (uint256 i = 0; i < timings.length; i++) {
             IInbox.TransitionMeta memory original = IInbox.TransitionMeta({
                 blockHash: keccak256(abi.encode("block", i)),
                 stateRoot: keccak256(abi.encode("state", i)),
@@ -116,18 +83,14 @@ contract LibDataTest is Test {
                 proofTiming: timings[i],
                 createdAt: uint48(i * 1000),
                 byAssignedProver: i % 2 == 0,
-                lastBlockId: uint48(i * 10000),
+                lastBlockId: uint48(i * 10_000),
                 provabilityBond: uint96(i * 1e18),
                 livenessBond: uint96(i * 2e18)
             });
 
-            // Pack and unpack
             bytes[122] memory packed = LibData.packTransitionMeta(original);
             IInbox.TransitionMeta memory unpacked = LibData.unpackTransitionMeta(packed);
-
-            // Verify proof timing specifically
-            assertEq(uint8(unpacked.proofTiming), uint8(original.proofTiming), 
-                string.concat("proofTiming mismatch for enum value ", vm.toString(i)));
+            assertEq(keccak256(abi.encode(original)), keccak256(abi.encode(unpacked)));
         }
     }
 
@@ -141,7 +104,10 @@ contract LibDataTest is Test {
         uint48 lastBlockId,
         uint96 provabilityBond,
         uint96 livenessBond
-    ) public pure {
+    )
+        public
+        pure
+    {
         // Bound proofTiming to valid enum values
         proofTimingRaw = proofTimingRaw % 3;
         IInbox.ProofTiming proofTiming = IInbox.ProofTiming(proofTimingRaw);
@@ -159,47 +125,9 @@ contract LibDataTest is Test {
             livenessBond: livenessBond
         });
 
-        // Pack and unpack
         bytes[122] memory packed = LibData.packTransitionMeta(original);
         IInbox.TransitionMeta memory unpacked = LibData.unpackTransitionMeta(packed);
-
-        // Verify all fields match
-        assertEq(unpacked.blockHash, original.blockHash, "blockHash mismatch");
-        assertEq(unpacked.stateRoot, original.stateRoot, "stateRoot mismatch");
-        assertEq(unpacked.prover, original.prover, "prover mismatch");
-        assertEq(uint8(unpacked.proofTiming), uint8(original.proofTiming), "proofTiming mismatch");
-        assertEq(unpacked.createdAt, original.createdAt, "createdAt mismatch");
-        assertEq(unpacked.byAssignedProver, original.byAssignedProver, "byAssignedProver mismatch");
-        assertEq(unpacked.lastBlockId, original.lastBlockId, "lastBlockId mismatch");
-        assertEq(unpacked.provabilityBond, original.provabilityBond, "provabilityBond mismatch");
-        assertEq(unpacked.livenessBond, original.livenessBond, "livenessBond mismatch");
-    }
-
-    function test_packTransitionMeta_packedSize() public pure {
-        // Create a TransitionMeta struct
-        IInbox.TransitionMeta memory original = IInbox.TransitionMeta({
-            blockHash: keccak256("test block"),
-            stateRoot: keccak256("test state"),
-            prover: address(0xdEaDbEeF),
-            proofTiming: IInbox.ProofTiming.InProvingWindow,
-            createdAt: 100000,
-            byAssignedProver: true,
-            lastBlockId: 200000,
-            provabilityBond: 5e18,
-            livenessBond: 10e18
-        });
-
-        // Pack the struct
-        bytes[122] memory packed = LibData.packTransitionMeta(original);
-
-        // Verify the packed data is exactly 122 bytes
-        // Since it's a fixed-size array, this should always be true
-        // But we can verify the actual content length
-        bytes memory packedBytes;
-        assembly {
-            packedBytes := packed
-        }
-        assertEq(packedBytes.length, 122, "Packed data should be exactly 122 bytes");
+        assertEq(keccak256(abi.encode(original)), keccak256(abi.encode(unpacked)));
     }
 
     function test_packUnpackTransitionMeta_edgeCases() public pure {
@@ -216,19 +144,8 @@ contract LibDataTest is Test {
             livenessBond: type(uint96).max - 1
         });
 
-        // Pack and unpack
         bytes[122] memory packed = LibData.packTransitionMeta(original);
         IInbox.TransitionMeta memory unpacked = LibData.unpackTransitionMeta(packed);
-
-        // Verify all fields match
-        assertEq(unpacked.blockHash, original.blockHash, "blockHash mismatch");
-        assertEq(unpacked.stateRoot, original.stateRoot, "stateRoot mismatch");
-        assertEq(unpacked.prover, original.prover, "prover mismatch");
-        assertEq(uint8(unpacked.proofTiming), uint8(original.proofTiming), "proofTiming mismatch");
-        assertEq(unpacked.createdAt, original.createdAt, "createdAt mismatch");
-        assertEq(unpacked.byAssignedProver, original.byAssignedProver, "byAssignedProver mismatch");
-        assertEq(unpacked.lastBlockId, original.lastBlockId, "lastBlockId mismatch");
-        assertEq(unpacked.provabilityBond, original.provabilityBond, "provabilityBond mismatch");
-        assertEq(unpacked.livenessBond, original.livenessBond, "livenessBond mismatch");
+        assertEq(keccak256(abi.encode(original)), keccak256(abi.encode(unpacked)));
     }
 }

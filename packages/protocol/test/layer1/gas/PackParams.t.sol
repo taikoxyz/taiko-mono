@@ -6,7 +6,7 @@ import { IInbox as I } from "src/layer1/based2/IInbox.sol";
 import "src/layer1/based2/libs/LibData.sol";
 
 contract Target {
-    event Evt(uint a);
+    event Evt(uint256 a);
 
     function foo(I.TransitionMeta[] calldata trans) external {
         emit Evt(trans.length);
@@ -27,10 +27,10 @@ contract PackParamsGas is CompareGasTest {
 
     function test_PackParamsGas() external {
         I.TransitionMeta[] memory trans = _generateInput();
-        
+
         // Test basic functionality
         target.foo(trans);
-        
+
         // Test packing and unpacking
         bytes[122][] memory packedTrans = new bytes[122][](1);
         packedTrans[0] = LibData.packTransitionMeta(trans[0]);

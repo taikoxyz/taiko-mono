@@ -133,7 +133,7 @@ library LibData {
             _tranMeta.provabilityBond,
             _tranMeta.livenessBond
         );
-        
+
         assembly {
             encoded_ := packed
         }
@@ -151,35 +151,35 @@ library LibData {
         assembly {
             data := _encoded
         }
-        
+
         assembly {
             tranMeta_ := mload(0x40)
             mstore(0x40, add(tranMeta_, 0x120))
-            
+
             // blockHash (32 bytes at offset 0)
             mstore(tranMeta_, mload(add(data, 0x20)))
-            
+
             // stateRoot (32 bytes at offset 32)
             mstore(add(tranMeta_, 0x20), mload(add(data, 0x40)))
-            
+
             // prover (20 bytes at offset 64)
             mstore(add(tranMeta_, 0x40), mload(add(data, 0x54)))
-            
+
             // proofTiming (1 byte at offset 84)
             mstore(add(tranMeta_, 0x60), byte(0, mload(add(data, 0x74))))
-            
+
             // createdAt (6 bytes at offset 85)
             mstore(add(tranMeta_, 0x80), shr(208, mload(add(data, 0x75))))
-            
+
             // byAssignedProver (1 byte at offset 91)
             mstore(add(tranMeta_, 0xa0), iszero(iszero(byte(0, mload(add(data, 0x7b))))))
-            
+
             // lastBlockId (6 bytes at offset 92)
             mstore(add(tranMeta_, 0xc0), shr(208, mload(add(data, 0x7c))))
-            
+
             // provabilityBond (12 bytes at offset 98)
             mstore(add(tranMeta_, 0xe0), shr(160, mload(add(data, 0x82))))
-            
+
             // livenessBond (12 bytes at offset 110)
             mstore(add(tranMeta_, 0x100), shr(160, mload(add(data, 0x8e))))
         }
