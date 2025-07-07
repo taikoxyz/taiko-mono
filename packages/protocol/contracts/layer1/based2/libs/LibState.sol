@@ -15,7 +15,10 @@ library LibState {
     /// @dev This pattern allows libraries to interact with external contracts
     ///      without direct dependencies
     struct ReadWrite {
+        // -------------------------------------------------------------------------
         // Read functions
+        // -------------------------------------------------------------------------
+
         /// @notice Loads a batch metadata hash
         function(I.Config memory, uint256) view returns (bytes32) loadBatchMetaHash;
         /// @notice Checks if a signal has been sent
@@ -24,7 +27,10 @@ library LibState {
         function(uint256) view returns (bytes32) getBlobHash;
         function (I.Config memory, bytes32, uint256) view returns (bytes32 , bool)
             loadTransitionMetaHash;
+        // -------------------------------------------------------------------------
         // Write functions
+        // -------------------------------------------------------------------------
+
         /// @notice Saves a transition
         function(I.Config memory, uint48, bytes32, bytes32) returns (bool) saveTransition;
         /// @notice Transfers fees between addresses
