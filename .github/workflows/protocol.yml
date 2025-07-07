@@ -45,6 +45,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.4.0
@@ -85,6 +88,8 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
           commit_message: "forge fmt & update contract layout tables"
+          branch: ${{ github.head_ref }}
+          push_options: '--force-with-lease'
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol
