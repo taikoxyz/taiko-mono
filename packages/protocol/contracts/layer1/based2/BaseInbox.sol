@@ -11,7 +11,7 @@ import "./IInbox.sol";
 import "./IPropose.sol";
 import "./IProve.sol";
 
-/// @title TaikoInboxBase
+/// @title BaseInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
 /// original Taiko-Based Contestable Rollup (BCR) but with the tier-based proof system and
 /// contestation mechanisms removed.
@@ -24,7 +24,7 @@ import "./IProve.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInboxBase is EssentialContract, IInbox, IPropose, IProve, ITaiko {
+abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITaiko {
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------

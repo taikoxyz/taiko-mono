@@ -8,7 +8,7 @@ import "./BaseInbox.sol";
 import "./libs/LibBonds.sol";
 import "./IBondManager2.sol";
 
-/// @title TaikoInbox2
+/// @title Inbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
 /// original Taiko-Based Contestable Rollup (BCR) but with the tier-based proof system and
 /// contestation mechanisms removed.
@@ -21,7 +21,7 @@ import "./IBondManager2.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox2 is TaikoInboxBase, IBondManager2 {
+abstract contract Inbox is BaseInbox, IBondManager2 {
     using LibBonds for I.State;
     using LibState for I.State;
     using SafeERC20 for IERC20;
@@ -33,7 +33,7 @@ abstract contract TaikoInbox2 is TaikoInboxBase, IBondManager2 {
     // Constructor
     // -------------------------------------------------------------------------
 
-    constructor() TaikoInboxBase() { }
+    constructor() BaseInbox() { }
 
     // -------------------------------------------------------------------------
     // Bond Management Functions
