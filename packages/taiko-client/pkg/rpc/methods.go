@@ -1067,7 +1067,7 @@ func (c *Client) GetPreconfWhitelistPeerIps(opts *bind.CallOpts) ([]core.Multiad
 	for i := uint8(0); i < count; i++ {
 		address, err := c.PacayaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
 		if err != nil {
-			return nil, fmt.Errorf("failed to get operator %d peer IP: %w", i, err)
+			return nil, fmt.Errorf("failed to get operator %d: %w", i, err)
 		}
 		if address == (common.Address{}) {
 			continue // Skip if the address is empty.
