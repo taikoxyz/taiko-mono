@@ -266,7 +266,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IPropose, I
         _saveBatchMetaHash(conf, 0, summary.lastBatchMetaHash);
         _saveSummaryHash(keccak256(abi.encode(summary)));
 
-        emit I.Verified(0, 0, _genesisBlockHash);
+        emit I.Verified(0, _genesisBlockHash);
     }
 
     /// @notice Creates a ReadWrite struct with function pointers
