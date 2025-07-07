@@ -108,19 +108,25 @@ func New(
 		return nil, err
 	}
 
+	head, err := cli.L2.BlockByNumber(context.Background(), nil)
+	if err != nil {
+		return nil, err
+	}
+
 	server := &PreconfBlockAPIServer{
-		echo:                         echo.New(),
-		anchorValidator:              anchorValidator,
-		chainSyncer:                  chainSyncer,
-		ws:                           &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
-		rpc:                          cli,
-		payloadsCache:                newPayloadQueue(),
-		preconfOperatorAddress:       preconfOperatorAddress,
-		lookahead:                    &Lookahead{},
-		mutex:                        sync.Mutex{},
-		blockRequestsCache:           blockRequestsCache,
-		sequencingEndedForEpochCache: endOfSequencingCache,
-		latestSeenProposalCh:         latestSeenProposalCh,
+		echo:                          echo.New(),
+		anchorValidator:               anchorValidator,
+		chainSyncer:                   chainSyncer,
+		ws:                            &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
+		rpc:                           cli,
+		payloadsCache:                 newPayloadQueue(),
+		preconfOperatorAddress:        preconfOperatorAddress,
+		lookahead:                     &Lookahead{},
+		mutex:                         sync.Mutex{},
+		blockRequestsCache:            blockRequestsCache,
+		sequencingEndedForEpochCache:  endOfSequencingCache,
+		latestSeenProposalCh:          latestSeenProposalCh,
+		highestUnsafeL2PayloadBlockID: head.NumberU64(),
 	}
 
 	server.echo.HideBanner = true
