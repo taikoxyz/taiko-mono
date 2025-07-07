@@ -59,11 +59,15 @@ library LibData {
         });
 
         // Prove metadata section
+        uint48 firstBlockId;
+        unchecked {
+            firstBlockId = _context.lastBlockId + 1 - uint48(_batch.encodedBlocks.length);
+        }
         meta_.proveMeta = I.BatchProveMetadata({
             proposer: _batch.proposer,
             prover: _batch.prover,
             proposedAt: _blockTimestamp,
-            firstBlockId: _context.lastBlockId + 1 - uint48(_batch.encodedBlocks.length),
+            firstBlockId: firstBlockId,
             lastBlockId: meta_.buildMeta.lastBlockId,
             livenessBond: _context.livenessBond,
             provabilityBond: _context.provabilityBond
@@ -121,23 +125,7 @@ library LibData {
         internal
         pure
         returns (bytes[122] memory encoded_)
-    {
-        bytes memory packed = abi.encodePacked(
-            _tranMeta.blockHash,
-            _tranMeta.stateRoot,
-            _tranMeta.prover,
-            uint8(_tranMeta.proofTiming),
-            _tranMeta.createdAt,
-            _tranMeta.byAssignedProver,
-            _tranMeta.lastBlockId,
-            _tranMeta.provabilityBond,
-            _tranMeta.livenessBond
-        );
-
-        assembly {
-            encoded_ := packed
-        }
-    }
+    { }
 
     /// @notice Unpacks a fixed-size byte array into a TransitionMeta struct
     /// @param _encoded The packed byte array representation of the TransitionMeta
@@ -146,35 +134,7 @@ library LibData {
         internal
         pure
         returns (I.TransitionMeta memory tranMeta_)
-    {
-        bytes memory data;
-        assembly {
-            data := _encoded
-        }
-
-        assembly {
-            tranMeta_ := mload(0x40)
-            mstore(0x40, add(tranMeta_, 0x120))
-            // blockHash (32 bytes at offset 0)
-            mstore(tranMeta_, mload(add(data, 0x20)))
-            // stateRoot (32 bytes at offset 32)
-            mstore(add(tranMeta_, 0x20), mload(add(data, 0x40)))
-            // prover (20 bytes at offset 64)
-            mstore(add(tranMeta_, 0x40), mload(add(data, 0x54)))
-            // proofTiming (1 byte at offset 84)
-            mstore(add(tranMeta_, 0x60), byte(0, mload(add(data, 0x74))))
-            // createdAt (6 bytes at offset 85)
-            mstore(add(tranMeta_, 0x80), shr(208, mload(add(data, 0x75))))
-            // byAssignedProver (1 byte at offset 91)
-            mstore(add(tranMeta_, 0xa0), iszero(iszero(byte(0, mload(add(data, 0x7b))))))
-            // lastBlockId (6 bytes at offset 92)
-            mstore(add(tranMeta_, 0xc0), shr(208, mload(add(data, 0x7c))))
-            // provabilityBond (12 bytes at offset 98)
-            mstore(add(tranMeta_, 0xe0), shr(160, mload(add(data, 0x82))))
-            // livenessBond (12 bytes at offset 110)
-            mstore(add(tranMeta_, 0x100), shr(160, mload(add(data, 0x8e))))
-        }
-    }
+    { }
 
     // -------------------------------------------------------------------------
     // Private Functions
