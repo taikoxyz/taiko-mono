@@ -129,15 +129,13 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			return err
 		}
 
-		// fetch and append the peerIps frm the contracts, add them as staticIps
+		// fetch and append the peerIps frm the contracts, add them as staticIps.
+		// allow this call to fail.
 		peerIps, err := d.rpc.GetPreconfWhitelistPeerIps(nil)
-		if err != nil {
-			return err
+		if err == nil {
+			cfg.P2PConfigs.StaticPeers = append(cfg.P2PConfigs.StaticPeers, peerIps...)
+			cfg.P2PConfigs.StaticPeers = dedupePeers(cfg.P2PConfigs.StaticPeers)
 		}
-
-		staticPeers := make([]core.Multiaddr, 0, len(peerIps))
-		// convert string to multiaddr
-		cfg.P2PConfigs.StaticPeers = append(cfg.P2PConfigs.StaticPeers, staticPeers...)
 
 		// Enable P2P network for preconfirmation block propagation.
 		if cfg.P2PConfigs != nil && !cfg.P2PConfigs.DisableP2P {
@@ -596,4 +594,17 @@ func (d *Driver) cacheLookaheadLoop() {
 // Name returns the application name.
 func (d *Driver) Name() string {
 	return "driver"
+}
+
+func dedupePeers(peers []core.Multiaddr) []core.Multiaddr {
+	seen := make(map[core.Multiaddr]struct{}, len(peers))
+	uniq := make([]core.Multiaddr, 0, len(peers))
+	for _, p := range peers {
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		uniq = append(uniq, p)
+	}
+	return uniq
 }
