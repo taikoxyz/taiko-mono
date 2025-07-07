@@ -122,58 +122,18 @@ library LibData {
         pure
         returns (bytes[122] memory encoded_)
     {
-        // Manual packing without assembly for clarity and correctness
-        bytes memory packed = new bytes(122);
+        bytes memory packed = abi.encodePacked(
+            _tranMeta.blockHash,
+            _tranMeta.stateRoot,
+            _tranMeta.prover,
+            uint8(_tranMeta.proofTiming),
+            _tranMeta.createdAt,
+            _tranMeta.byAssignedProver,
+            _tranMeta.lastBlockId,
+            _tranMeta.provabilityBond,
+            _tranMeta.livenessBond
+        );
         
-        // Pack blockHash (32 bytes, offset 0)
-        bytes32 blockHash = _tranMeta.blockHash;
-        for (uint i = 0; i < 32; i++) {
-            packed[i] = blockHash[i];
-        }
-        
-        // Pack stateRoot (32 bytes, offset 32)
-        bytes32 stateRoot = _tranMeta.stateRoot;
-        for (uint i = 0; i < 32; i++) {
-            packed[32 + i] = stateRoot[i];
-        }
-        
-        // Pack prover (20 bytes, offset 64)
-        bytes20 prover = bytes20(_tranMeta.prover);
-        for (uint i = 0; i < 20; i++) {
-            packed[64 + i] = prover[i];
-        }
-        
-        // Pack proofTiming (1 byte, offset 84)
-        packed[84] = bytes1(uint8(_tranMeta.proofTiming));
-        
-        // Pack createdAt (6 bytes, offset 85)
-        bytes6 createdAt = bytes6(_tranMeta.createdAt);
-        for (uint i = 0; i < 6; i++) {
-            packed[85 + i] = createdAt[i];
-        }
-        
-        // Pack byAssignedProver (1 byte, offset 91)
-        packed[91] = _tranMeta.byAssignedProver ? bytes1(0x01) : bytes1(0x00);
-        
-        // Pack lastBlockId (6 bytes, offset 92)
-        bytes6 lastBlockId = bytes6(_tranMeta.lastBlockId);
-        for (uint i = 0; i < 6; i++) {
-            packed[92 + i] = lastBlockId[i];
-        }
-        
-        // Pack provabilityBond (12 bytes, offset 98)
-        bytes12 provabilityBond = bytes12(_tranMeta.provabilityBond);
-        for (uint i = 0; i < 12; i++) {
-            packed[98 + i] = provabilityBond[i];
-        }
-        
-        // Pack livenessBond (12 bytes, offset 110)
-        bytes12 livenessBond = bytes12(_tranMeta.livenessBond);
-        for (uint i = 0; i < 12; i++) {
-            packed[110 + i] = livenessBond[i];
-        }
-        
-        // Convert to fixed-size array
         assembly {
             encoded_ := packed
         }
@@ -187,67 +147,42 @@ library LibData {
         pure
         returns (I.TransitionMeta memory tranMeta_)
     {
-        // Convert fixed-size array to dynamic bytes for easier manipulation
         bytes memory data;
         assembly {
             data := _encoded
         }
         
-        // Unpack blockHash (32 bytes, offset 0)
-        bytes32 blockHash;
         assembly {
-            blockHash := mload(add(data, 0x20))
+            tranMeta_ := mload(0x40)
+            mstore(0x40, add(tranMeta_, 0x120))
+            
+            // blockHash (32 bytes at offset 0)
+            mstore(tranMeta_, mload(add(data, 0x20)))
+            
+            // stateRoot (32 bytes at offset 32)
+            mstore(add(tranMeta_, 0x20), mload(add(data, 0x40)))
+            
+            // prover (20 bytes at offset 64)
+            mstore(add(tranMeta_, 0x40), mload(add(data, 0x54)))
+            
+            // proofTiming (1 byte at offset 84)
+            mstore(add(tranMeta_, 0x60), byte(0, mload(add(data, 0x74))))
+            
+            // createdAt (6 bytes at offset 85)
+            mstore(add(tranMeta_, 0x80), shr(208, mload(add(data, 0x75))))
+            
+            // byAssignedProver (1 byte at offset 91)
+            mstore(add(tranMeta_, 0xa0), iszero(iszero(byte(0, mload(add(data, 0x7b))))))
+            
+            // lastBlockId (6 bytes at offset 92)
+            mstore(add(tranMeta_, 0xc0), shr(208, mload(add(data, 0x7c))))
+            
+            // provabilityBond (12 bytes at offset 98)
+            mstore(add(tranMeta_, 0xe0), shr(160, mload(add(data, 0x82))))
+            
+            // livenessBond (12 bytes at offset 110)
+            mstore(add(tranMeta_, 0x100), shr(160, mload(add(data, 0x8e))))
         }
-        tranMeta_.blockHash = blockHash;
-        
-        // Unpack stateRoot (32 bytes, offset 32)
-        bytes32 stateRoot;
-        assembly {
-            stateRoot := mload(add(data, 0x40))
-        }
-        tranMeta_.stateRoot = stateRoot;
-        
-        // Unpack prover (20 bytes, offset 64)
-        address prover;
-        assembly {
-            prover := mload(add(data, 0x54))
-        }
-        tranMeta_.prover = prover;
-        
-        // Unpack proofTiming (1 byte, offset 84)
-        uint8 proofTiming = uint8(data[84]);
-        tranMeta_.proofTiming = I.ProofTiming(proofTiming);
-        
-        // Unpack createdAt (6 bytes, offset 85)
-        uint48 createdAt;
-        assembly {
-            createdAt := shr(208, mload(add(data, 0x75)))
-        }
-        tranMeta_.createdAt = createdAt;
-        
-        // Unpack byAssignedProver (1 byte, offset 91)
-        tranMeta_.byAssignedProver = data[91] != 0x00;
-        
-        // Unpack lastBlockId (6 bytes, offset 92)
-        uint48 lastBlockId;
-        assembly {
-            lastBlockId := shr(208, mload(add(data, 0x7c)))
-        }
-        tranMeta_.lastBlockId = lastBlockId;
-        
-        // Unpack provabilityBond (12 bytes, offset 98)
-        uint96 provabilityBond;
-        assembly {
-            provabilityBond := shr(160, mload(add(data, 0x82)))
-        }
-        tranMeta_.provabilityBond = provabilityBond;
-        
-        // Unpack livenessBond (12 bytes, offset 110)
-        uint96 livenessBond;
-        assembly {
-            livenessBond := shr(160, mload(add(data, 0x8e)))
-        }
-        tranMeta_.livenessBond = livenessBond;
     }
 
     // -------------------------------------------------------------------------
