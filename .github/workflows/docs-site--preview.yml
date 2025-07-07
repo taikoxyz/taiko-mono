@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   deploy-docs-site-preview:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.event.pull_request.head.repo.fork == false && github.actor != 'dependabot[bot]' }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.event.pull_request.head.repo.fork == false && !startsWith(github.head_ref, 'dependabot') }}
     runs-on: [arc-runner-set]
     steps:
       - name: Install Git
