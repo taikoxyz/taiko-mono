@@ -7,7 +7,7 @@ import "./LibForks.sol";
 import "./LibState.sol";
 
 /// @title LibVerify
-/// @notice Library for batch verification and bond distribution in Taiko's Layer 1 protocol
+/// @notice Library for batch verification and bond distribution in Taiko protocol
 /// @dev Handles the final verification stage of batch processing including:
 ///      - Sequential batch verification with transition metadata validation
 ///      - Cooldown period enforcement before verification

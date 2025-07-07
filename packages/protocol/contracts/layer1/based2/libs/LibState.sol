@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
 
 /// @title LibState
-/// @notice Library for read/write state data.addmod
+/// @notice Library for read/write state data.
 /// @custom:security-contact security@taiko.xyz
 library LibState {
     // -------------------------------------------------------------------------
@@ -17,7 +17,7 @@ library LibState {
     struct ReadWrite {
         // Read functions
         /// @notice Loads a batch metadata hash
-        function (I.Config memory, uint256) view returns (bytes32) loadBatchMetaHash;
+        function(I.Config memory, uint256) view returns (bytes32) loadBatchMetaHash;
         /// @notice Checks if a signal has been sent
         function(I.Config memory, bytes32) view returns (bool) isSignalSent;
         /// @notice Gets the blob hash for a given index

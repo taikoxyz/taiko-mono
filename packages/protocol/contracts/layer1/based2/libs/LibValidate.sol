@@ -7,7 +7,7 @@ import "./LibForks.sol";
 import "./LibState.sol";
 
 /// @title LibValidate
-/// @notice Library for comprehensive batch validation in Taiko's Layer 1 protocol
+/// @notice Library for comprehensive batch validation in Taiko protocol
 /// @dev This library provides validation functions for batch proposals, including:
 ///      - Proposer and coinbase validation
 ///      - Block structure and metadata validation
