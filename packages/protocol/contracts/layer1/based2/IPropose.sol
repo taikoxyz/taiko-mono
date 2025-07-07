@@ -8,16 +8,17 @@ import { IInbox as I } from "./IInbox.sol";
 /// @dev This interface defines the propose4 function for batch proposals.
 /// @custom:security-contact security@taiko.xyz
 interface IPropose {
-    /// @notice Proposes multiple batches to be proven and verified.
-    /// @dev This function allows proposers to submit batches of blocks for processing.
-    /// @param _summary The current state summary of the protocol.
-    /// @param _batch Array of batches to be proposed.
-    /// @param _evidence Evidence proving the validity of the batch metadata.
+    /// @notice Proposes and verifies batches
+    /// @param _summary The current summary
+    /// @param _batches The batches to propose
+    /// @param _evidence The batch proposal evidence
+    /// @param _packedTrans The packed transition metadata for verification
+    /// @return The updated summary
     function propose4(
         I.Summary memory _summary,
-        I.Batch[] memory _batch,
+        I.Batch[] calldata _batches,
         I.BatchProposeMetadataEvidence memory _evidence,
-        I.TransitionMeta[] calldata _trans
+        bytes[122][] calldata _packedTrans
     )
         external
         returns (I.Summary memory);

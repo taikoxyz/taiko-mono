@@ -114,8 +114,10 @@ library LibData {
         return keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
     }
 
-
-      function packTransitionMeta(I.TransitionMeta memory _tranMeta)
+    /// @notice Packs a TransitionMeta struct into a fixed-size byte array
+    /// @param _tranMeta The TransitionMeta struct to be packed
+    /// @return encoded_ The packed byte array representation of the TransitionMeta
+    function packTransitionMeta(I.TransitionMeta memory _tranMeta)
         internal
         pure
         returns (bytes[122] memory encoded_)
@@ -139,6 +141,36 @@ library LibData {
             mstore(add(encoded_, 0x82), shr(0x80, mload(add(_tranMeta, 0x8E))))
             // Store livenessBond (12 bytes)
             mstore(add(encoded_, 0x8E), shr(0x80, mload(add(_tranMeta, 0x9A))))
+        }
+    }
+
+    /// @notice Unpacks a fixed-size byte array into a TransitionMeta struct
+    /// @param _encoded The packed byte array representation of the TransitionMeta
+    /// @return tranMeta_ The unpacked TransitionMeta struct
+    function unpackTransitionMeta(bytes[122] memory _encoded)
+        internal
+        pure
+        returns (I.TransitionMeta memory tranMeta_)
+    {
+        assembly {
+            // Load blockHash (32 bytes)
+            mstore(add(tranMeta_, 0x20), mload(add(_encoded, 0x20)))
+            // Load stateRoot (32 bytes)
+            mstore(add(tranMeta_, 0x40), mload(add(_encoded, 0x40)))
+            // Load prover (20 bytes)
+            mstore(add(tranMeta_, 0x60), mload(add(_encoded, 0x60)))
+            // Load proofTiming (1 byte)
+            mstore(add(tranMeta_, 0x80), mload(add(_encoded, 0x74)))
+            // Load createdAt (6 bytes)
+            mstore(add(tranMeta_, 0x81), shl(0xA0, mload(add(_encoded, 0x75))))
+            // Load byAssignedProver (1 byte)
+            mstore(add(tranMeta_, 0x87), mload(add(_encoded, 0x7B)))
+            // Load lastBlockId (6 bytes)
+            mstore(add(tranMeta_, 0x88), shl(0xA0, mload(add(_encoded, 0x7C))))
+            // Load provabilityBond (12 bytes)
+            mstore(add(tranMeta_, 0x8E), shl(0x80, mload(add(_encoded, 0x82))))
+            // Load livenessBond (12 bytes)
+            mstore(add(tranMeta_, 0x9A), shl(0x80, mload(add(_encoded, 0x8E))))
         }
     }
 

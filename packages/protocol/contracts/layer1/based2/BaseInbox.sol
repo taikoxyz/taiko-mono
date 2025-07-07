@@ -46,13 +46,13 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
     /// @param _summary The current summary
     /// @param _batches The batches to propose
     /// @param _evidence The batch proposal evidence
-    /// @param _trans The transition metadata for verification
+    /// @param _packedTrans The packed transition metadata for verification
     /// @return The updated summary
     function propose4(
         I.Summary memory _summary,
         I.Batch[] calldata _batches,
         I.BatchProposeMetadataEvidence memory _evidence,
-        I.TransitionMeta[] calldata _trans
+        bytes[122][] calldata _packedTrans
     )
         external
         override(I, IPropose)
@@ -68,7 +68,12 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         _summary = LibPropose.propose(conf, rw, _summary, _batches, _evidence);
 
         // Verify batches
-        _summary = LibVerify.verify(conf, rw, _summary, _trans);
+        uint256 nTrans = _packedTrans.length;
+        I.TransitionMeta[] memory trans = new I.TransitionMeta[](nTrans);
+        for (uint256 i; i < nTrans; ++i) {
+            trans[i] = LibData.unpackTransitionMeta(_packedTrans[i]);
+        }
+        _summary = LibVerify.verify(conf, rw, _summary, trans);
 
         _saveSummaryHash(keccak256(abi.encode(_summary)));
         return _summary;

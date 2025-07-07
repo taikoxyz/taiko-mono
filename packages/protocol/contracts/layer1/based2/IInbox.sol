@@ -280,13 +280,14 @@ interface IInbox {
     /// @notice Proposes multiple batches to be proven and verified.
     /// @dev This function allows proposers to submit batches of blocks for processing.
     /// @param _summary The current state summary of the protocol.
-    /// @param _batch Array of batches to be proposed.
-    /// @param _evidence Evidence proving the validity of the batch metadata.
+    /// @param _batches Array of batches to be proposed.
+    /// @param _packedTrans The packed transition metadata for verification
+    /// @return The updated summary
     function propose4(
         Summary memory _summary,
-        Batch[] memory _batch,
+        Batch[] calldata _batches,
         BatchProposeMetadataEvidence memory _evidence,
-        TransitionMeta[] calldata _trans
+        bytes[122][] calldata _packedTrans
     )
         external
         returns (Summary memory);
