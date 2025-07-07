@@ -10,7 +10,10 @@
       "Bash(ls:*)",
       "Bash(mv:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(forge test:*)",
+      "Bash(forge build:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
