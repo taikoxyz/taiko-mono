@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ITaikoInbox2 as I } from "./ITaikoInbox2.sol";
+import { IInbox as I } from "./IInbox.sol";
 
 /// @title IPropose
 /// @notice Interface for proposing batches in the Taiko protocol.

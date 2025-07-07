@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
 
-interface ITaikoInbox2 {
+interface IInbox {
     struct Block {
         // the max number of transactions in this block. Note that if there are not enough
         // transactions in calldata or blobs, the block will contain as many transactions as

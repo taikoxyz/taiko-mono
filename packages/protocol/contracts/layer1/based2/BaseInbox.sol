@@ -7,7 +7,7 @@ import "src/layer1/verifiers/IVerifier.sol";
 import "./libs/LibPropose.sol";
 import "./libs/LibProve.sol";
 import "./libs/LibVerify.sol";
-import "./ITaikoInbox2.sol";
+import "./IInbox.sol";
 import "./IPropose.sol";
 import "./IProve.sol";
 
@@ -24,7 +24,7 @@ import "./IProve.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IPropose, IProve, ITaiko {
+abstract contract TaikoInboxBase is EssentialContract, IInbox, IPropose, IProve, ITaiko {
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
