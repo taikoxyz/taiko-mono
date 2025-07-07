@@ -12,10 +12,13 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/gorilla/websocket"
 	"github.com/holiman/uint256"
@@ -917,6 +920,38 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return false, fmt.Errorf("failed to fetch parent header by hash: %w", err)
 	}
+
+	if parentInFork != nil && parentInFork.Hash() != msg.ExecutionPayload.ParentHash {
+		decompressedTxs, err := utils.Decompress(msg.ExecutionPayload.Transactions[0])
+		if err != nil {
+			return false, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
+		}
+		var (
+			txListHash = crypto.Keccak256Hash(decompressedTxs)
+			args       = &miner.BuildPayloadArgs{
+				Parent:       msg.ExecutionPayload.ParentHash,
+				Timestamp:    uint64(msg.ExecutionPayload.Timestamp),
+				FeeRecipient: msg.ExecutionPayload.FeeRecipient,
+				Random:       common.Hash(msg.ExecutionPayload.PrevRandao),
+				Withdrawals:  make([]*types.Withdrawal, 0),
+				Version:      engine.PayloadV2,
+				TxListHash:   &txListHash,
+			}
+		)
+
+		payloadID := args.Id()
+		// update L1 Origin if the parent block is in the fork chain, we are building
+		// on an orphaned block.
+		_, err = s.rpc.L2Engine.UpdateL1Origin(ctx, &rawdb.L1Origin{
+			BuildPayloadArgsID: payloadID,
+			BlockID:            parentInFork.Number,
+			L2BlockHash:        msg.ExecutionPayload.ParentHash,
+		})
+		if err != nil {
+			return false, fmt.Errorf("failed to update L1 origin: %w", err)
+		}
+	}
+
 	if parentInFork == nil && (parentInCanonical == nil || parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash) {
 		log.Info(
 			"Parent block not in L2 canonical / fork chain",
