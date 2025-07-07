@@ -154,17 +154,17 @@ interface IInbox {
         InExtendedProvingWindow
     }
 
+    // This struct takes 122 bytes if packed
     struct TransitionMeta {
-        bytes32 parentHash;
-        bytes32 blockHash;
-        bytes32 stateRoot;
-        address prover;
-        ProofTiming proofTiming;
-        uint48 createdAt;
-        bool byAssignedProver;
-        uint48 lastBlockId;
-        uint96 provabilityBond;
-        uint96 livenessBond;
+        bytes32 blockHash; // 32 bytes
+        bytes32 stateRoot; // 32 bytes
+        address prover; // 20 bytes
+        ProofTiming proofTiming; // 1 byte
+        uint48 createdAt; // 6 bytes
+        bool byAssignedProver; // 1 byte
+        uint48 lastBlockId; // 6 bytes
+        uint96 provabilityBond; // 12 bytes
+        uint96 livenessBond; // 12 bytes
     }
 
     //  @notice Struct representing transition storage
@@ -268,9 +268,8 @@ interface IInbox {
 
     /// @notice Emitted when a batch is proved.
     /// @param batchId The ID of the proved batch.
-    /// @param isFirstTransition Whether this is the first transition in the batch.
-    /// @param tranMetaEncoded The encoded transition metadata.
-    event Proved(uint48 batchId, bool isFirstTransition, TransitionMeta tranMetaEncoded);
+    /// @param packedTranMeta The encoded transition metadata.
+    event Proved(uint256 indexed batchId, bytes[122] packedTranMeta);
 
     /// @notice Emitted when a batch is verified.
     /// @param uint48_batchId__uint48_blockId The ID of the verified batch and The ID of the last
