@@ -35,7 +35,7 @@ library LibVerify {
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
-        I.TransitionMeta[] calldata _trans
+        I.TransitionMeta[] memory _trans
     )
         internal
         returns (I.Summary memory)

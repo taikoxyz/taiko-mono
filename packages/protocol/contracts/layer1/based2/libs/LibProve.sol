@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInbox as I } from "../IInbox.sol";
 import "src/shared/libs/LibMath.sol";
+import "./LibData.sol";
 import "./LibForks.sol";
 import "./LibState.sol";
 
@@ -126,7 +127,7 @@ library LibProve {
             _rw.creditBond(_input.proveMeta.proposer, _input.proveMeta.provabilityBond);
         }
 
-        emit I.Proved(_input.tran.batchId, _packTransitionMeta(tranMeta));
+        emit I.Proved(_input.tran.batchId, LibData.packTransitionMeta(tranMeta));
 
         return keccak256(abi.encode(batchMetaHash, _input.tran));
     }
@@ -174,32 +175,7 @@ library LibProve {
         require(_batchMetaHash == metaHash, MetaHashNotMatch());
     }
 
-    function _packTransitionMeta(I.TransitionMeta memory _tranMeta)
-        private
-        pure
-        returns (bytes[122] memory encoded_)
-    {
-        assembly {
-            // Store blockHash (32 bytes)
-            mstore(add(encoded_, 0x20), mload(add(_tranMeta, 0x20)))
-            // Store stateRoot (32 bytes)
-            mstore(add(encoded_, 0x40), mload(add(_tranMeta, 0x40)))
-            // Store prover (20 bytes)
-            mstore(add(encoded_, 0x60), mload(add(_tranMeta, 0x60)))
-            // Store proofTiming (1 byte)
-            mstore8(add(encoded_, 0x74), mload(add(_tranMeta, 0x80)))
-            // Store createdAt (6 bytes)
-            mstore(add(encoded_, 0x75), shr(0xA0, mload(add(_tranMeta, 0x81))))
-            // Store byAssignedProver (1 byte)
-            mstore8(add(encoded_, 0x7B), mload(add(_tranMeta, 0x87)))
-            // Store lastBlockId (6 bytes)
-            mstore(add(encoded_, 0x7C), shr(0xA0, mload(add(_tranMeta, 0x88))))
-            // Store provabilityBond (12 bytes)
-            mstore(add(encoded_, 0x82), shr(0x80, mload(add(_tranMeta, 0x8E))))
-            // Store livenessBond (12 bytes)
-            mstore(add(encoded_, 0x8E), shr(0x80, mload(add(_tranMeta, 0x9A))))
-        }
-    }
+  
 
     // -------------------------------------------------------------------------
     // Errors
