@@ -14,7 +14,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         uint64 activeSince; // Epoch when the operator becomes active.
         uint64 inactiveSince; // Epoch when the operator is no longer active.
         uint8 index; // Index in operatorMapping.
+        string peerIp; // peer ip to connect to for the taiko driver
     }
+
 
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
     event OperatorChangeDelaySet(uint8 delay);
@@ -52,8 +54,22 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     }
 
     /// @inheritdoc IPreconfWhitelist
-    function addOperator(address _operator) external onlyOwner {
-        _addOperator(_operator, operatorChangeDelay);
+    function addOperator(address _operator, string calldata peerIp) external onlyOwner {
+        _addOperator(_operator, peerIp, operatorChangeDelay);
+    }
+
+    /// @inheritdoc IPreconfWhitelist
+    function changePeerIpForOperator(
+        address _operator,
+        string calldata peerIp
+    )
+        external
+        onlyOwner
+    {
+        require(_operator != address(0), InvalidOperatorAddress());
+        OperatorInfo storage info = operators[_operator];
+        require(info.activeSince != 0, InvalidOperatorAddress());
+        info.peerIp = peerIp;
     }
 
     /// @inheritdoc IPreconfWhitelist
@@ -170,11 +186,11 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         );
     }
 
-    function _addOperator(address _operator, uint8 _operatorChangeDelay) internal {
+    function _addOperator(address _operator, string calldata peerIp, uint8 _operatorChangeDelay) internal {
         require(_operator != address(0), InvalidOperatorAddress());
 
         OperatorInfo storage info = operators[_operator];
-
+    
         // if they're already active, just revert
         if (info.activeSince != 0) {
             revert OperatorAlreadyExists();
@@ -201,7 +217,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
             havingPerfectOperators = false;
         }
 
-        emit OperatorAdded(_operator, activeSince);
+        info.peerIp = peerIp;
+
+        emit OperatorAdded(_operator, peerIp, activeSince);
     }
 
     function _removeOperator(address _operator, uint8 _operatorChangeDelay) internal {

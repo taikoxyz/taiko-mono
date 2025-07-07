@@ -7,7 +7,7 @@ interface IPreconfWhitelist {
     /// @notice Emitted when a new operator is added to the whitelist.
     /// @param operator The address of the operator that was added.
     /// @param activeSince The timestamp when the operator became active.
-    event OperatorAdded(address indexed operator, uint256 activeSince);
+    event OperatorAdded(address indexed operator, string peerIp, uint256 activeSince);
 
     /// @notice Emitted when an operator is removed from the whitelist.
     /// @param operator The address of the operator that was removed.
@@ -41,7 +41,7 @@ interface IPreconfWhitelist {
     /// @notice Adds a new operator to the whitelist.
     /// @param _operatorAddress The address of the operator to be added.
     /// @dev Only callable by the owner or an authorized address.
-    function addOperator(address _operatorAddress) external;
+    function addOperator(address _operatorAddress, string calldata peerIp) external;
 
     /// @notice Removes an operator from the whitelist.
     /// @param _operatorId The ID of the operator to be removed.
@@ -60,4 +60,10 @@ interface IPreconfWhitelist {
     ///      of randomness.
     /// @return The address of the operator.
     function getOperatorForNextEpoch() external view returns (address);
+
+    /// @notice Updates the peer IP address for a specific operator.
+    function changePeerIpForOperator(
+        address _operator,
+        string calldata peerIp
+    ) external;
 }

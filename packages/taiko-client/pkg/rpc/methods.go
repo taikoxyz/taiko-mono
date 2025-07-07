@@ -17,6 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/libp2p/go-libp2p/core"
+	"github.com/multiformats/go-multiaddr"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -1042,6 +1044,47 @@ func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, er
 	}
 
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.TaikoWrapper.PreconfRouter)
+}
+
+func (c *Client) GetPreconfWhitelistPeerIps(opts *bind.CallOpts) ([]core.Multiaddr, error) {
+	if c.PacayaClients.PreconfWhitelist == nil {
+		return nil, errors.New("preconfirmation whitelist contract is not set")
+	}
+
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	count, err := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get operator count: %w", err)
+	}
+
+	peerIps := make([]core.Multiaddr, 0, count)
+	for i := uint8(0); i < count; i++ {
+		address, err := c.PacayaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get operator %d peer IP: %w", i, err)
+		}
+		if address == (common.Address{}) {
+			continue // Skip if the address is empty.
+		}
+		operator, err := c.PacayaClients.PreconfWhitelist.Operators(opts, address)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get operator %s: %w", address.Hex(), err)
+		}
+		multiaddr, err := multiaddr.NewMultiaddr(operator.PeerIp)
+		if err != nil {
+			continue
+		}
+
+		peerIps = append(peerIps, multiaddr)
+	}
+
+	return peerIps, nil
 }
 
 // getImmutableAddressPacaya resolves the Pacaya contract address.

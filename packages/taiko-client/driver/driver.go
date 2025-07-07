@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/libp2p/go-libp2p/core"
 	"github.com/modern-go/reflect2"
 	"github.com/urfave/cli/v2"
 
@@ -127,6 +128,16 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		); err != nil {
 			return err
 		}
+
+		// fetch and append the peerIps frm the contracts, add them as staticIps
+		peerIps, err := d.rpc.GetPreconfWhitelistPeerIps(nil)
+		if err != nil {
+			return err
+		}
+
+		staticPeers := make([]core.Multiaddr, 0, len(peerIps))
+		// convert string to multiaddr
+		cfg.P2PConfigs.StaticPeers = append(cfg.P2PConfigs.StaticPeers, staticPeers...)
 
 		// Enable P2P network for preconfirmation block propagation.
 		if cfg.P2PConfigs != nil && !cfg.P2PConfigs.DisableP2P {

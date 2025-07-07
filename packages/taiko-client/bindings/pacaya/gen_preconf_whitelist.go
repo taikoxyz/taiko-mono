@@ -31,7 +31,7 @@ var (
 
 // PreconfWhitelistMetaData contains all meta data concerning the PreconfWhitelist contract.
 var PreconfWhitelistMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addOperator\",\"inputs\":[{\"name\":\"_operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"consolidate\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"epochStartTimestamp\",\"inputs\":[{\"name\":\"_offset\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorCandidatesForCurrentEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorCandidatesForNextEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorForCurrentEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorForNextEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"havingPerfectOperators\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_operatorChangeDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isOperatorActive\",\"inputs\":[{\"name\":\"_operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_epochTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorChangeDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorMapping\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operators\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"activeSince\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"inactiveSince\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"index\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_effectiveImmediately\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_operatorIndex\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSelf\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setOperatorChangeDelay\",\"inputs\":[{\"name\":\"_operatorChangeDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Consolidated\",\"inputs\":[{\"name\":\"previousCount\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"newCount\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"havingPerfectOperators\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorAdded\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"activeSince\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorChangeDelaySet\",\"inputs\":[{\"name\":\"delay\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRemoved\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"inactiveSince\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorCount\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorIndex\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorAlreadyExists\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorAlreadyRemoved\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorNotAvailableYet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addOperator\",\"inputs\":[{\"name\":\"_operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"peerIp\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"changePeerIpForOperator\",\"inputs\":[{\"name\":\"_operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"peerIp\",\"type\":\"string\",\"internalType\":\"string\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"consolidate\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"epochStartTimestamp\",\"inputs\":[{\"name\":\"_offset\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorCandidatesForCurrentEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorCandidatesForNextEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorForCurrentEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorForNextEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"havingPerfectOperators\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_operatorChangeDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"_randomnessDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isOperatorActive\",\"inputs\":[{\"name\":\"_operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_epochTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorChangeDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorMapping\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operators\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"activeSince\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"inactiveSince\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"index\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"peerIp\",\"type\":\"string\",\"internalType\":\"string\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"randomnessDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_effectiveImmediately\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_operatorIndex\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSelf\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setOperatorChangeDelay\",\"inputs\":[{\"name\":\"_operatorChangeDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Consolidated\",\"inputs\":[{\"name\":\"previousCount\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"newCount\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"havingPerfectOperators\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorAdded\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"peerIp\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"activeSince\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorChangeDelaySet\",\"inputs\":[{\"name\":\"delay\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRemoved\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"inactiveSince\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorCount\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorIndex\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorAlreadyExists\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorAlreadyRemoved\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorNotAvailableYet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // PreconfWhitelistABI is the input ABI used to generate the binding from.
@@ -554,11 +554,12 @@ func (_PreconfWhitelist *PreconfWhitelistCallerSession) OperatorMapping(index *b
 
 // Operators is a free data retrieval call binding the contract method 0x13e7c9d8.
 //
-// Solidity: function operators(address operator) view returns(uint64 activeSince, uint64 inactiveSince, uint8 index)
+// Solidity: function operators(address operator) view returns(uint64 activeSince, uint64 inactiveSince, uint8 index, string peerIp)
 func (_PreconfWhitelist *PreconfWhitelistCaller) Operators(opts *bind.CallOpts, operator common.Address) (struct {
 	ActiveSince   uint64
 	InactiveSince uint64
 	Index         uint8
+	PeerIp        string
 }, error) {
 	var out []interface{}
 	err := _PreconfWhitelist.contract.Call(opts, &out, "operators", operator)
@@ -567,6 +568,7 @@ func (_PreconfWhitelist *PreconfWhitelistCaller) Operators(opts *bind.CallOpts, 
 		ActiveSince   uint64
 		InactiveSince uint64
 		Index         uint8
+		PeerIp        string
 	})
 	if err != nil {
 		return *outstruct, err
@@ -575,6 +577,7 @@ func (_PreconfWhitelist *PreconfWhitelistCaller) Operators(opts *bind.CallOpts, 
 	outstruct.ActiveSince = *abi.ConvertType(out[0], new(uint64)).(*uint64)
 	outstruct.InactiveSince = *abi.ConvertType(out[1], new(uint64)).(*uint64)
 	outstruct.Index = *abi.ConvertType(out[2], new(uint8)).(*uint8)
+	outstruct.PeerIp = *abi.ConvertType(out[3], new(string)).(*string)
 
 	return *outstruct, err
 
@@ -582,22 +585,24 @@ func (_PreconfWhitelist *PreconfWhitelistCaller) Operators(opts *bind.CallOpts, 
 
 // Operators is a free data retrieval call binding the contract method 0x13e7c9d8.
 //
-// Solidity: function operators(address operator) view returns(uint64 activeSince, uint64 inactiveSince, uint8 index)
+// Solidity: function operators(address operator) view returns(uint64 activeSince, uint64 inactiveSince, uint8 index, string peerIp)
 func (_PreconfWhitelist *PreconfWhitelistSession) Operators(operator common.Address) (struct {
 	ActiveSince   uint64
 	InactiveSince uint64
 	Index         uint8
+	PeerIp        string
 }, error) {
 	return _PreconfWhitelist.Contract.Operators(&_PreconfWhitelist.CallOpts, operator)
 }
 
 // Operators is a free data retrieval call binding the contract method 0x13e7c9d8.
 //
-// Solidity: function operators(address operator) view returns(uint64 activeSince, uint64 inactiveSince, uint8 index)
+// Solidity: function operators(address operator) view returns(uint64 activeSince, uint64 inactiveSince, uint8 index, string peerIp)
 func (_PreconfWhitelist *PreconfWhitelistCallerSession) Operators(operator common.Address) (struct {
 	ActiveSince   uint64
 	InactiveSince uint64
 	Index         uint8
+	PeerIp        string
 }, error) {
 	return _PreconfWhitelist.Contract.Operators(&_PreconfWhitelist.CallOpts, operator)
 }
@@ -726,6 +731,37 @@ func (_PreconfWhitelist *PreconfWhitelistCallerSession) ProxiableUUID() ([32]byt
 	return _PreconfWhitelist.Contract.ProxiableUUID(&_PreconfWhitelist.CallOpts)
 }
 
+// RandomnessDelay is a free data retrieval call binding the contract method 0x2db9006b.
+//
+// Solidity: function randomnessDelay() view returns(uint8)
+func (_PreconfWhitelist *PreconfWhitelistCaller) RandomnessDelay(opts *bind.CallOpts) (uint8, error) {
+	var out []interface{}
+	err := _PreconfWhitelist.contract.Call(opts, &out, "randomnessDelay")
+
+	if err != nil {
+		return *new(uint8), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
+
+	return out0, err
+
+}
+
+// RandomnessDelay is a free data retrieval call binding the contract method 0x2db9006b.
+//
+// Solidity: function randomnessDelay() view returns(uint8)
+func (_PreconfWhitelist *PreconfWhitelistSession) RandomnessDelay() (uint8, error) {
+	return _PreconfWhitelist.Contract.RandomnessDelay(&_PreconfWhitelist.CallOpts)
+}
+
+// RandomnessDelay is a free data retrieval call binding the contract method 0x2db9006b.
+//
+// Solidity: function randomnessDelay() view returns(uint8)
+func (_PreconfWhitelist *PreconfWhitelistCallerSession) RandomnessDelay() (uint8, error) {
+	return _PreconfWhitelist.Contract.RandomnessDelay(&_PreconfWhitelist.CallOpts)
+}
+
 // Resolver is a free data retrieval call binding the contract method 0x04f3bcec.
 //
 // Solidity: function resolver() view returns(address)
@@ -778,25 +814,46 @@ func (_PreconfWhitelist *PreconfWhitelistTransactorSession) AcceptOwnership() (*
 	return _PreconfWhitelist.Contract.AcceptOwnership(&_PreconfWhitelist.TransactOpts)
 }
 
-// AddOperator is a paid mutator transaction binding the contract method 0x9870d7fe.
+// AddOperator is a paid mutator transaction binding the contract method 0x2430df89.
 //
-// Solidity: function addOperator(address _operator) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactor) AddOperator(opts *bind.TransactOpts, _operator common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.contract.Transact(opts, "addOperator", _operator)
+// Solidity: function addOperator(address _operator, string peerIp) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactor) AddOperator(opts *bind.TransactOpts, _operator common.Address, peerIp string) (*types.Transaction, error) {
+	return _PreconfWhitelist.contract.Transact(opts, "addOperator", _operator, peerIp)
 }
 
-// AddOperator is a paid mutator transaction binding the contract method 0x9870d7fe.
+// AddOperator is a paid mutator transaction binding the contract method 0x2430df89.
 //
-// Solidity: function addOperator(address _operator) returns()
-func (_PreconfWhitelist *PreconfWhitelistSession) AddOperator(_operator common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.AddOperator(&_PreconfWhitelist.TransactOpts, _operator)
+// Solidity: function addOperator(address _operator, string peerIp) returns()
+func (_PreconfWhitelist *PreconfWhitelistSession) AddOperator(_operator common.Address, peerIp string) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.AddOperator(&_PreconfWhitelist.TransactOpts, _operator, peerIp)
 }
 
-// AddOperator is a paid mutator transaction binding the contract method 0x9870d7fe.
+// AddOperator is a paid mutator transaction binding the contract method 0x2430df89.
 //
-// Solidity: function addOperator(address _operator) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactorSession) AddOperator(_operator common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.AddOperator(&_PreconfWhitelist.TransactOpts, _operator)
+// Solidity: function addOperator(address _operator, string peerIp) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactorSession) AddOperator(_operator common.Address, peerIp string) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.AddOperator(&_PreconfWhitelist.TransactOpts, _operator, peerIp)
+}
+
+// ChangePeerIpForOperator is a paid mutator transaction binding the contract method 0x0d83b952.
+//
+// Solidity: function changePeerIpForOperator(address _operator, string peerIp) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactor) ChangePeerIpForOperator(opts *bind.TransactOpts, _operator common.Address, peerIp string) (*types.Transaction, error) {
+	return _PreconfWhitelist.contract.Transact(opts, "changePeerIpForOperator", _operator, peerIp)
+}
+
+// ChangePeerIpForOperator is a paid mutator transaction binding the contract method 0x0d83b952.
+//
+// Solidity: function changePeerIpForOperator(address _operator, string peerIp) returns()
+func (_PreconfWhitelist *PreconfWhitelistSession) ChangePeerIpForOperator(_operator common.Address, peerIp string) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.ChangePeerIpForOperator(&_PreconfWhitelist.TransactOpts, _operator, peerIp)
+}
+
+// ChangePeerIpForOperator is a paid mutator transaction binding the contract method 0x0d83b952.
+//
+// Solidity: function changePeerIpForOperator(address _operator, string peerIp) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactorSession) ChangePeerIpForOperator(_operator common.Address, peerIp string) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.ChangePeerIpForOperator(&_PreconfWhitelist.TransactOpts, _operator, peerIp)
 }
 
 // Consolidate is a paid mutator transaction binding the contract method 0x724f024b.
@@ -820,25 +877,25 @@ func (_PreconfWhitelist *PreconfWhitelistTransactorSession) Consolidate() (*type
 	return _PreconfWhitelist.Contract.Consolidate(&_PreconfWhitelist.TransactOpts)
 }
 
-// Init is a paid mutator transaction binding the contract method 0x4d9431ea.
+// Init is a paid mutator transaction binding the contract method 0x5ecba33c.
 //
-// Solidity: function init(address _owner, uint8 _operatorChangeDelay) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactor) Init(opts *bind.TransactOpts, _owner common.Address, _operatorChangeDelay uint8) (*types.Transaction, error) {
-	return _PreconfWhitelist.contract.Transact(opts, "init", _owner, _operatorChangeDelay)
+// Solidity: function init(address _owner, uint8 _operatorChangeDelay, uint8 _randomnessDelay) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactor) Init(opts *bind.TransactOpts, _owner common.Address, _operatorChangeDelay uint8, _randomnessDelay uint8) (*types.Transaction, error) {
+	return _PreconfWhitelist.contract.Transact(opts, "init", _owner, _operatorChangeDelay, _randomnessDelay)
 }
 
-// Init is a paid mutator transaction binding the contract method 0x4d9431ea.
+// Init is a paid mutator transaction binding the contract method 0x5ecba33c.
 //
-// Solidity: function init(address _owner, uint8 _operatorChangeDelay) returns()
-func (_PreconfWhitelist *PreconfWhitelistSession) Init(_owner common.Address, _operatorChangeDelay uint8) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.Init(&_PreconfWhitelist.TransactOpts, _owner, _operatorChangeDelay)
+// Solidity: function init(address _owner, uint8 _operatorChangeDelay, uint8 _randomnessDelay) returns()
+func (_PreconfWhitelist *PreconfWhitelistSession) Init(_owner common.Address, _operatorChangeDelay uint8, _randomnessDelay uint8) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.Init(&_PreconfWhitelist.TransactOpts, _owner, _operatorChangeDelay, _randomnessDelay)
 }
 
-// Init is a paid mutator transaction binding the contract method 0x4d9431ea.
+// Init is a paid mutator transaction binding the contract method 0x5ecba33c.
 //
-// Solidity: function init(address _owner, uint8 _operatorChangeDelay) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactorSession) Init(_owner common.Address, _operatorChangeDelay uint8) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.Init(&_PreconfWhitelist.TransactOpts, _owner, _operatorChangeDelay)
+// Solidity: function init(address _owner, uint8 _operatorChangeDelay, uint8 _randomnessDelay) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactorSession) Init(_owner common.Address, _operatorChangeDelay uint8, _randomnessDelay uint8) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.Init(&_PreconfWhitelist.TransactOpts, _owner, _operatorChangeDelay, _randomnessDelay)
 }
 
 // Pause is a paid mutator transaction binding the contract method 0x8456cb59.
@@ -1691,13 +1748,14 @@ func (it *PreconfWhitelistOperatorAddedIterator) Close() error {
 // PreconfWhitelistOperatorAdded represents a OperatorAdded event raised by the PreconfWhitelist contract.
 type PreconfWhitelistOperatorAdded struct {
 	Operator    common.Address
+	PeerIp      string
 	ActiveSince *big.Int
 	Raw         types.Log // Blockchain specific contextual infos
 }
 
-// FilterOperatorAdded is a free log retrieval operation binding the contract event 0xcbcb793495a5fd793da61a1d62ab99b58925f94b0a61beeec3ea7d7d6c4f2594.
+// FilterOperatorAdded is a free log retrieval operation binding the contract event 0x3676cb3d921641621de99d9d66ebf6e7b80b5fb98d8ae38f5b172a6115912439.
 //
-// Solidity: event OperatorAdded(address indexed operator, uint256 activeSince)
+// Solidity: event OperatorAdded(address indexed operator, string peerIp, uint256 activeSince)
 func (_PreconfWhitelist *PreconfWhitelistFilterer) FilterOperatorAdded(opts *bind.FilterOpts, operator []common.Address) (*PreconfWhitelistOperatorAddedIterator, error) {
 
 	var operatorRule []interface{}
@@ -1712,9 +1770,9 @@ func (_PreconfWhitelist *PreconfWhitelistFilterer) FilterOperatorAdded(opts *bin
 	return &PreconfWhitelistOperatorAddedIterator{contract: _PreconfWhitelist.contract, event: "OperatorAdded", logs: logs, sub: sub}, nil
 }
 
-// WatchOperatorAdded is a free log subscription operation binding the contract event 0xcbcb793495a5fd793da61a1d62ab99b58925f94b0a61beeec3ea7d7d6c4f2594.
+// WatchOperatorAdded is a free log subscription operation binding the contract event 0x3676cb3d921641621de99d9d66ebf6e7b80b5fb98d8ae38f5b172a6115912439.
 //
-// Solidity: event OperatorAdded(address indexed operator, uint256 activeSince)
+// Solidity: event OperatorAdded(address indexed operator, string peerIp, uint256 activeSince)
 func (_PreconfWhitelist *PreconfWhitelistFilterer) WatchOperatorAdded(opts *bind.WatchOpts, sink chan<- *PreconfWhitelistOperatorAdded, operator []common.Address) (event.Subscription, error) {
 
 	var operatorRule []interface{}
@@ -1754,9 +1812,9 @@ func (_PreconfWhitelist *PreconfWhitelistFilterer) WatchOperatorAdded(opts *bind
 	}), nil
 }
 
-// ParseOperatorAdded is a log parse operation binding the contract event 0xcbcb793495a5fd793da61a1d62ab99b58925f94b0a61beeec3ea7d7d6c4f2594.
+// ParseOperatorAdded is a log parse operation binding the contract event 0x3676cb3d921641621de99d9d66ebf6e7b80b5fb98d8ae38f5b172a6115912439.
 //
-// Solidity: event OperatorAdded(address indexed operator, uint256 activeSince)
+// Solidity: event OperatorAdded(address indexed operator, string peerIp, uint256 activeSince)
 func (_PreconfWhitelist *PreconfWhitelistFilterer) ParseOperatorAdded(log types.Log) (*PreconfWhitelistOperatorAdded, error) {
 	event := new(PreconfWhitelistOperatorAdded)
 	if err := _PreconfWhitelist.contract.UnpackLog(event, "OperatorAdded", log); err != nil {

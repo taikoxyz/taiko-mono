@@ -48,7 +48,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
     function addOperators(address[] memory operators) internal {
         for (uint256 i = 0; i < operators.length; i++) {
             vm.prank(whitelistOwner);
-            whitelist.addOperator(operators[i]);
+            whitelist.addOperator(operators[i], "peerIp");
         }
     }
 }
