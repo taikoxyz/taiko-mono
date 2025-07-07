@@ -382,6 +382,58 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(index, 0);
     }
 
+
+    /// Owner should be able to update an existing operator’s peerIp.
+    function test_changePeerIpByOwnerCanUpdatePeerIp() external {
+        // add Bob as operator with initial IP
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Bob, "10.0.0.1:4001");
+        // owner updates Bob’s peerIp
+        vm.prank(whitelistOwner);
+        whitelist.changePeerIpForOperator(Bob, "10.0.0.2:4002");
+
+        // inspect storage
+        (, , , string memory peerIp) = whitelist.operators(Bob);
+        assertEq(peerIp, "10.0.0.2:4002");
+    }
+
+    //  An operator should be able to update their own peerIp.
+    function test_changePeerIpByOperatorSelf() external {
+        // add Bob as operator
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Bob, "oldIp");
+        // Bob updates his own peerIp
+        vm.prank(Bob);
+        whitelist.changePeerIpForOperator(Bob, "selfUpdatedIp");
+
+        (, , , string memory peerIp) = whitelist.operators(Bob);
+        assertEq(peerIp, "selfUpdatedIp");
+    }
+
+    // @dev Any caller besides owner or that operator must revert.
+    function test_changePeerIpByUnauthorizedReverts() external {
+        // add Bob as operator
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Bob, "ip1");
+        // Carol (neither owner nor Bob) tries to update Bob’s IP
+        vm.prank(Carol);
+        vm.expectRevert();   // generic revert from onlyOwnerOrOperator
+        whitelist.changePeerIpForOperator(Bob, "hackerIp");
+    }
+
+    // Passing address(0) or a non‐existent operator should revert with InvalidOperatorAddress.
+    function test_changePeerIpInvalidOperatorReverts() external {
+        // zero address
+        vm.prank(whitelistOwner);
+        vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
+        whitelist.changePeerIpForOperator(address(0), "nope");
+
+        // non‐existent (never added)
+        vm.prank(whitelistOwner);
+        vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
+        whitelist.changePeerIpForOperator(Carol, "stillNope");
+    }
+
     function _setBeaconBlockRoot(bytes32 _root) internal {
         vm.etch(
             LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,
