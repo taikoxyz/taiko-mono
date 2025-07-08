@@ -67,6 +67,6 @@ interface IPreconfWhitelist {
     /// @return The address of the operator.
     function getOperatorForNextEpoch() external view returns (address);
 
-    /// @notice Updates the peer IP address for a specific operator.
+    /// @notice Updates the multiaddr for a specific operator.
     function changeMultiAddrForOperator(address _operator, string calldata multiAddr) external;
 }
