@@ -82,6 +82,42 @@ func SubscribeBatchesProvedPacaya(
 	})
 }
 
+// SubscribeOperatorAdded subscribes the PreconfWhitelist's OperatorAdded events.
+func SubscribeOperatorAdded(
+	preconfWhitelist *pacayaBindings.PreconfWhitelist,
+	ch chan *pacayaBindings.PreconfWhitelistOperatorAdded,
+) event.Subscription {
+	return SubscribeEvent("OperatorAdded", func(ctx context.Context) (event.Subscription, error) {
+		sub, err := preconfWhitelist.WatchOperatorAdded(nil, ch, nil)
+		if err != nil {
+			log.Error("Create PreconfWhitelist.OperatorAdded subscription error", "error", err)
+			return nil, err
+		}
+
+		defer sub.Unsubscribe()
+
+		return waitSubErr(ctx, sub)
+	})
+}
+
+// SubscribeOperatorChangedMultiAddr subscribes the PreconfWhitelist's OperatorChangedMultiAddr events.
+func SubscribeOperatorChangedMultiAddr(
+	preconfWhitelist *pacayaBindings.PreconfWhitelist,
+	ch chan *pacayaBindings.PreconfWhitelistOperatorChangedMultiAddr,
+) event.Subscription {
+	return SubscribeEvent("OperatorChangedMultiAddr", func(ctx context.Context) (event.Subscription, error) {
+		sub, err := preconfWhitelist.WatchOperatorChangedMultiAddr(nil, ch, nil)
+		if err != nil {
+			log.Error("Create PreconfWhitelist.OperatorChangedMultiAddr subscription error", "error", err)
+			return nil, err
+		}
+
+		defer sub.Unsubscribe()
+
+		return waitSubErr(ctx, sub)
+	})
+}
+
 // SubscribeChainHead subscribes the new chain heads.
 func SubscribeChainHead(
 	client *EthClient,

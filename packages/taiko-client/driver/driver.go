@@ -15,11 +15,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/libp2p/go-libp2p/core"
 	"github.com/modern-go/reflect2"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	chainSyncer "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer"
 	preconfBlocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -31,6 +31,7 @@ import (
 const (
 	protocolStatusReportInterval     = 30 * time.Second
 	exchangeTransitionConfigInterval = 1 * time.Minute
+	maxOperatorSize                  = 100
 )
 
 // Driver keeps the L2 execution engine's local block chain in sync with the TaikoInbox
@@ -52,8 +53,9 @@ type Driver struct {
 	p2pSigner p2p.Signer
 	p2pSetup  p2p.SetupP2P
 
-	ctx context.Context
-	wg  sync.WaitGroup
+	ctx              context.Context
+	wg               sync.WaitGroup
+	peerConnectionWG sync.WaitGroup
 }
 
 // InitFromCli initializes the given driver instance based on the command line flags.
@@ -128,15 +130,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		); err != nil {
 			return err
 		}
-
-		// fetch and append the multiAddrs frm the contracts, add them as staticIps.
-		// allow this call to fail.
-		multiAddrs, err := d.rpc.GetPreconfWhitelistMultiAddrs(nil)
-		if err == nil {
-			cfg.P2PConfigs.StaticPeers = append(cfg.P2PConfigs.StaticPeers, multiAddrs...)
-			cfg.P2PConfigs.StaticPeers = dedupePeers(cfg.P2PConfigs.StaticPeers)
-		}
-
 		// Enable P2P network for preconfirmation block propagation.
 		if cfg.P2PConfigs != nil && !cfg.P2PConfigs.DisableP2P {
 			log.Info("Enabling P2P network", "configs", cfg.P2PConfigs)
@@ -158,6 +151,25 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 			log.Info("P2P node information", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
 
+			// fetch and append the multiAddrs frm the contracts, trying to connect them.
+			// allow this call to fail.
+			multiAddrs, err := d.rpc.GetPreconfWhitelistMultiAddrs(nil)
+			if err != nil {
+				return err
+			}
+			api := p2p.NewP2PAPIBackend(d.p2pNode, log.Root(), metrics.P2PNodeMetrics)
+			for _, multiAddr := range multiAddrs {
+				d.peerConnectionWG.Add(1)
+				go func(peerAddr string) {
+					defer d.peerConnectionWG.Done()
+					if err := backoff.Retry(func() error {
+						return api.ConnectPeer(d.ctx, peerAddr)
+					}, backoff.WithContext(backoff.NewConstantBackOff(d.RetryInterval), d.ctx)); err != nil {
+						log.Error("Attempt to connect to peer failed", "error", err)
+					}
+				}(multiAddr.String())
+			}
+			d.peerConnectionWG.Wait()
 			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
 				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
 					return err
@@ -251,6 +263,20 @@ func (d *Driver) eventLoop() {
 	// Call doSync() right away to catch up with the latest known L1 head.
 	doSyncWithBackoff()
 
+	// Channels
+	operatorAddedCh := make(chan *pacayaBindings.PreconfWhitelistOperatorAdded, maxOperatorSize)
+	operatorChangedMultiAddrCh := make(chan *pacayaBindings.PreconfWhitelistOperatorChangedMultiAddr, maxOperatorSize)
+	// Subscriptions
+	operatorAddedSub := rpc.SubscribeOperatorAdded(d.rpc.PacayaClients.PreconfWhitelist, operatorAddedCh)
+	operatorChangedMultiAddrSub := rpc.SubscribeOperatorChangedMultiAddr(
+		d.rpc.PacayaClients.PreconfWhitelist,
+		operatorChangedMultiAddrCh,
+	)
+	defer func() {
+		operatorAddedSub.Unsubscribe()
+		operatorChangedMultiAddrSub.Unsubscribe()
+	}()
+
 	for {
 		select {
 		case <-d.ctx.Done():
@@ -259,6 +285,25 @@ func (d *Driver) eventLoop() {
 			doSyncWithBackoff()
 		case <-d.l1HeadCh:
 			reqSync()
+		case e := <-operatorAddedCh:
+			log.Info(
+				"New OperatorAdded event",
+				"operator", e.Operator,
+				"activeSince", e.ActiveSince,
+				"multiAddr", e.MultiAddr,
+			)
+			if err := d.connectPeer(e.MultiAddr); err != nil {
+				log.Error("Failed to handle new OperatorAdded event", "error", err)
+			}
+		case e := <-operatorChangedMultiAddrCh:
+			log.Info(
+				"New OperatorChangedMultiAddr event",
+				"operator", e.Operator,
+				"multiAddr", e.MultiAddr,
+			)
+			if err := d.connectPeer(e.MultiAddr); err != nil {
+				log.Error("Failed to handle new OperatorChangedMultiAddr event", "error", err)
+			}
 		}
 	}
 }
@@ -591,20 +636,15 @@ func (d *Driver) cacheLookaheadLoop() {
 	}
 }
 
+func (d *Driver) connectPeer(peerAddr string) error {
+	log.Info("Trying to add new peer", "peer", peerAddr)
+	api := p2p.NewP2PAPIBackend(d.p2pNode, log.Root(), metrics.P2PNodeMetrics)
+	return backoff.Retry(func() error {
+		return api.ConnectPeer(d.ctx, peerAddr)
+	}, backoff.WithContext(backoff.NewConstantBackOff(d.RetryInterval), d.ctx))
+}
+
 // Name returns the application name.
 func (d *Driver) Name() string {
 	return "driver"
-}
-
-func dedupePeers(peers []core.Multiaddr) []core.Multiaddr {
-	seen := make(map[core.Multiaddr]struct{}, len(peers))
-	uniq := make([]core.Multiaddr, 0, len(peers))
-	for _, p := range peers {
-		if _, ok := seen[p]; ok {
-			continue
-		}
-		seen[p] = struct{}{}
-		uniq = append(uniq, p)
-	}
-	return uniq
 }
