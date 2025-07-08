@@ -6,15 +6,15 @@ import { IInbox as I } from "src/layer1/based2/IInbox.sol";
 import "src/layer1/based2/libs/LibCodec.sol";
 
 contract Target {
-    event Evt(I.TransitionMeta a);
+    event Evt(I.TransitionMeta[] a);
 
-    function foo(I.TransitionMeta memory tran) external {
-        emit Evt(tran);
+    function foo(I.TransitionMeta[] memory trans) external {
+        emit Evt(trans);
     }
 
-    function bar(bytes calldata tran) external {
-        I.TransitionMeta[] memory t = LibCodec.unpackTransitionMetas(tran);
-        emit Evt(t[0]);
+    function bar(bytes calldata trans) external {
+        I.TransitionMeta[] memory t = LibCodec.unpackTransitionMetas(trans);
+        emit Evt(t);
     }
 }
 
@@ -26,7 +26,7 @@ contract PackParamsGas is CompareGasTest {
 
         // Measure gas for case 1
         vm.startSnapshotGas("no packing");
-        target.foo(trans[0]);
+        target.foo(trans);
         uint256 gasUsed1 = vm.stopSnapshotGas();
 
         // Test packing and unpacking
@@ -43,7 +43,7 @@ contract PackParamsGas is CompareGasTest {
     }
 
     function _generateInput() private view returns (I.TransitionMeta[] memory transitions) {
-        transitions = new I.TransitionMeta[](1);
+        transitions = new I.TransitionMeta[](3);
 
         transitions[0] = I.TransitionMeta({
             blockHash: 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,
@@ -55,6 +55,30 @@ contract PackParamsGas is CompareGasTest {
             lastBlockId: 1001,
             provabilityBond: 1_000_000_000_000_000_000,
             livenessBond: 500_000_000_000_000_000
+        });
+
+        transitions[1] = I.TransitionMeta({
+            blockHash: keccak256(abi.encodePacked("blockHash2")),   
+            stateRoot: 0x1234561234561234561234561234561234561234561234561234561234561234,
+            prover: address(123),
+            proofTiming: I.ProofTiming.OutOfExtendedProvingWindow,
+            createdAt: uint48(block.timestamp),
+            byAssignedProver: false,
+            lastBlockId: 1002,
+            provabilityBond: 2_000_000_000_000_000_000,
+            livenessBond: 1_000_000_000_000_000_000
+        });
+
+        transitions[2] = I.TransitionMeta({
+            blockHash: 0x1111111111111111111111111111111111111111111111111111111111111111,
+            stateRoot: 0x2222222222222222222222222222222222222222222222222222222222222222,
+            prover: 0x1111111111111111111111111111111111111111,
+            proofTiming: I.ProofTiming.InProvingWindow,
+            createdAt: uint48(block.timestamp),
+            byAssignedProver: true,
+            lastBlockId: 1003,
+            provabilityBond: 3_000_000_000_000_000_000,
+            livenessBond: 1_500_000_000_000_000_000
         });
     }
 }
