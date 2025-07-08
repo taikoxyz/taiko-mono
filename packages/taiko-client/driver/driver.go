@@ -154,22 +154,21 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			// fetch and append the multiAddrs frm the contracts, trying to connect them.
 			// allow this call to fail.
 			multiAddrs, err := d.rpc.GetPreconfWhitelistMultiAddrs(nil)
-			if err != nil {
-				return err
+			if err == nil {
+				api := p2p.NewP2PAPIBackend(d.p2pNode, log.Root(), metrics.P2PNodeMetrics)
+				for _, multiAddr := range multiAddrs {
+					d.peerConnectionWG.Add(1)
+					go func(peerAddr string) {
+						defer d.peerConnectionWG.Done()
+						if err := backoff.Retry(func() error {
+							return api.ConnectPeer(d.ctx, peerAddr)
+						}, backoff.WithContext(backoff.NewConstantBackOff(d.RetryInterval), d.ctx)); err != nil {
+							log.Error("Attempt to connect to peer failed", "error", err)
+						}
+					}(multiAddr.String())
+				}
+				d.peerConnectionWG.Wait()
 			}
-			api := p2p.NewP2PAPIBackend(d.p2pNode, log.Root(), metrics.P2PNodeMetrics)
-			for _, multiAddr := range multiAddrs {
-				d.peerConnectionWG.Add(1)
-				go func(peerAddr string) {
-					defer d.peerConnectionWG.Done()
-					if err := backoff.Retry(func() error {
-						return api.ConnectPeer(d.ctx, peerAddr)
-					}, backoff.WithContext(backoff.NewConstantBackOff(d.RetryInterval), d.ctx)); err != nil {
-						log.Error("Attempt to connect to peer failed", "error", err)
-					}
-				}(multiAddr.String())
-			}
-			d.peerConnectionWG.Wait()
 			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
 				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
 					return err
