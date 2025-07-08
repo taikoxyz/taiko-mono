@@ -272,10 +272,11 @@ interface IInbox {
     event Proved(uint256 indexed batchId, bytes packedTranMeta);
 
     /// @notice Emitted when a batch is verified.
-    /// @param uint48_batchId__uint48_blockId The ID of the verified batch and The ID of the last
+    /// @param uint48_batchId_uint48_blockId The ID of the verified batch and The ID of the last
     /// block in this batch.
     /// @param blockHash The hash of the verified batch.
-    event Verified(uint256 uint48_batchId__uint48_blockId, bytes32 blockHash);
+    // solhint-disable var-name-mixedcase
+    event Verified(uint256 uint48_batchId_uint48_blockId, bytes32 blockHash);
 
     /// @notice Proposes multiple batches to be proven and verified.
     /// @dev This function allows proposers to submit batches of blocks for processing.

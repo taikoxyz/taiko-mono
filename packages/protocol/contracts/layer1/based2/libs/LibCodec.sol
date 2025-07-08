@@ -17,17 +17,17 @@ library LibCodec {
     // -------------------------------------------------------------------------
 
     /// @notice Packs an array of TransitionMeta structs into a tightly packed byte array.
-    /// @dev The packed format uses exactly 122 bytes per TransitionMeta:
+    /// @dev The packed format uses exactly 121 bytes per TransitionMeta:
     /// - blockHash: 32 bytes
     /// - stateRoot: 32 bytes
     /// - prover: 20 bytes (address)
-    /// - proofTiming: 1 byte (uint8 enum)
+    /// - proofTiming + byAssignedProver: 1 byte (2 bits for proofTiming, 1 bit for
+    /// byAssignedProver)
     /// - createdAt: 6 bytes (uint48)
-    /// - byAssignedProver: 1 byte (bool)
     /// - lastBlockId: 6 bytes (uint48)
     /// - provabilityBond: 12 bytes (uint96)
     /// - livenessBond: 12 bytes (uint96)
-    /// Total: 122 bytes per TransitionMeta
+    /// Total: 121 bytes per TransitionMeta
     /// @param _tranMetas Array of TransitionMeta structs to pack
     /// @return encoded_ The packed byte array
     function packTransitionMetas(I.TransitionMeta[] memory _tranMetas)
@@ -37,8 +37,8 @@ library LibCodec {
     {
         uint256 length = _tranMetas.length;
 
-        // Each TransitionMeta takes 122 bytes when packed
-        encoded_ = new bytes(length * 122);
+        // Each TransitionMeta takes 121 bytes when packed
+        encoded_ = new bytes(length * 121);
 
         uint256 offset;
         for (uint256 i; i < length; ++i) {
@@ -60,18 +60,17 @@ library LibCodec {
                 mstore(ptr, shl(96, mload(add(meta, 0x40))))
                 ptr := add(ptr, 20)
 
-                // proofTiming (1 byte)
-                mstore8(ptr, mload(add(meta, 0x60)))
+                // proofTiming (2 bits) + byAssignedProver (1 bit) in 1 byte
+                let proofTiming := mload(add(meta, 0x60))
+                let byAssignedProver := mload(add(meta, 0xa0))
+                let combinedByte := or(proofTiming, shl(2, byAssignedProver))
+                mstore8(ptr, combinedByte)
                 ptr := add(ptr, 1)
 
                 // createdAt (6 bytes) - store in lower 6 bytes
                 let createdAt := mload(add(meta, 0x80))
                 mstore(ptr, shl(208, createdAt))
                 ptr := add(ptr, 6)
-
-                // byAssignedProver (1 byte)
-                mstore8(ptr, mload(add(meta, 0xa0)))
-                ptr := add(ptr, 1)
 
                 // lastBlockId (6 bytes) - store in lower 6 bytes
                 let lastBlockId := mload(add(meta, 0xc0))
@@ -88,13 +87,13 @@ library LibCodec {
                 mstore(ptr, shl(160, livenessBond))
             }
 
-            offset += 122;
+            offset += 121;
         }
     }
 
     /// @notice Unpacks a byte array back into an array of TransitionMeta structs.
     /// @dev Reverses the packing performed by packTransitionMetas. The input must be
-    /// a multiple of 122 bytes, with each 122-byte segment representing one TransitionMeta.
+    /// a multiple of 121 bytes, with each 121-byte segment representing one TransitionMeta.
     /// @param _encoded The packed byte array to unpack
     /// @return tranMetas_ Array of unpacked TransitionMeta structs
     function unpackTransitionMetas(bytes memory _encoded)
@@ -102,10 +101,10 @@ library LibCodec {
         pure
         returns (I.TransitionMeta[] memory tranMetas_)
     {
-        require(_encoded.length % 122 == 0, InvalidDataLength());
+        require(_encoded.length % 121 == 0, InvalidDataLength());
 
         // Calculate length from encoded data size
-        uint256 length = _encoded.length / 122;
+        uint256 length = _encoded.length / 121;
 
         tranMetas_ = new I.TransitionMeta[](length);
 
@@ -127,28 +126,27 @@ library LibCodec {
                 let proverData := mload(add(dataOffset, 64))
                 mstore(add(meta, 0x40), shr(96, proverData))
 
-                // proofTiming (1 byte) - stored as uint8 enum
-                let proofTiming := byte(0, mload(add(dataOffset, 84)))
+                // proofTiming (2 bits) + byAssignedProver (1 bit) from 1 byte
+                let combinedByte := byte(0, mload(add(dataOffset, 84)))
+                let proofTiming := and(combinedByte, 0x03) // Extract lower 2 bits
+                let byAssignedProver := and(shr(2, combinedByte), 0x01) // Extract bit 2
                 mstore(add(meta, 0x60), proofTiming)
+                mstore(add(meta, 0xa0), byAssignedProver)
 
                 // createdAt (6 bytes) - stored as uint48
                 let createdAtData := mload(add(dataOffset, 85))
                 mstore(add(meta, 0x80), shr(208, createdAtData))
 
-                // byAssignedProver (1 byte) - stored as bool
-                let byAssignedProver := byte(0, mload(add(dataOffset, 91)))
-                mstore(add(meta, 0xa0), byAssignedProver)
-
                 // lastBlockId (6 bytes) - stored as uint48
-                let lastBlockIdData := mload(add(dataOffset, 92))
+                let lastBlockIdData := mload(add(dataOffset, 91))
                 mstore(add(meta, 0xc0), shr(208, lastBlockIdData))
 
                 // provabilityBond (12 bytes) - stored as uint96
-                let provabilityBondData := mload(add(dataOffset, 98))
+                let provabilityBondData := mload(add(dataOffset, 97))
                 mstore(add(meta, 0xe0), shr(160, provabilityBondData))
 
                 // livenessBond (12 bytes) - stored as uint96
-                let livenessBondData := mload(add(dataOffset, 110))
+                let livenessBondData := mload(add(dataOffset, 109))
                 mstore(add(meta, 0x100), shr(160, livenessBondData))
 
                 // Update free memory pointer
@@ -156,7 +154,7 @@ library LibCodec {
             }
 
             tranMetas_[i] = meta;
-            offset += 122;
+            offset += 121;
         }
     }
 

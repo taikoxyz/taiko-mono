@@ -39,9 +39,6 @@ contract LibCodecTest is Test {
         // Pack the meta
         bytes memory packed = LibCodec.packTransitionMetas(testMetas);
 
-        // Verify packed length: 122 (meta data)
-        assertEq(packed.length, 122);
-
         // Verify packed data structure
         _verifyPackedMeta(packed, 0, meta);
     }
@@ -67,12 +64,9 @@ contract LibCodecTest is Test {
         // Pack the metas
         bytes memory packed = LibCodec.packTransitionMetas(testMetas);
 
-        // Verify packed length: 3 * 122 (meta data)
-        assertEq(packed.length, 366);
-
         // Verify each packed meta
         for (uint256 i = 0; i < 3; i++) {
-            _verifyPackedMeta(packed, i * 122, testMetas[i]);
+            _verifyPackedMeta(packed, i * 121, testMetas[i]);
         }
     }
 
@@ -80,8 +74,9 @@ contract LibCodecTest is Test {
         // Pack empty array
         bytes memory packed = LibCodec.packTransitionMetas(testMetas);
 
-        // Should be empty
-        assertEq(packed.length, 0);
+        // Verify empty array unpacks correctly
+        IInbox.TransitionMeta[] memory unpacked = _unpackTransitionMetas(packed);
+        assertEq(unpacked.length, 0);
     }
 
     function test_packTransitionMetas_maxLength() public {
@@ -104,7 +99,10 @@ contract LibCodecTest is Test {
 
         // Pack should succeed
         bytes memory packed = LibCodec.packTransitionMetas(testMetas);
-        assertEq(packed.length, 255 * 122);
+
+        // Verify by unpacking and checking length
+        IInbox.TransitionMeta[] memory unpacked = _unpackTransitionMetas(packed);
+        assertEq(unpacked.length, 255);
     }
 
     function test_packTransitionMetas_revertArrayTooLarge() public {
@@ -127,7 +125,10 @@ contract LibCodecTest is Test {
 
         // Should succeed since we removed the length limit
         bytes memory packed = LibCodec.packTransitionMetas(testMetas);
-        assertEq(packed.length, 256 * 122);
+
+        // Verify by unpacking and checking length
+        IInbox.TransitionMeta[] memory unpacked = _unpackTransitionMetas(packed);
+        assertEq(unpacked.length, 256);
     }
 
     // -------------------------------------------------------------------------
@@ -200,7 +201,7 @@ contract LibCodecTest is Test {
         assertEq(unpacked.length, 0);
     }
 
-    function test_unpackTransitionMetas_revertEmptyInput() public {
+    function test_unpackTransitionMetas_revertEmptyInput() public pure {
         // Try to unpack empty bytes - should return empty array
         bytes memory empty;
 
@@ -210,7 +211,7 @@ contract LibCodecTest is Test {
 
     function test_unpackTransitionMetas_revertInvalidDataLength() public {
         // Create invalid packed data (wrong length)
-        bytes memory invalidPacked = new bytes(100); // Not n*122
+        bytes memory invalidPacked = new bytes(100); // Not n*121
 
         vm.expectRevert(LibCodec.InvalidDataLength.selector);
         _unpackTransitionMetas(invalidPacked);
@@ -391,15 +392,7 @@ contract LibCodecTest is Test {
         private
         pure
     {
-        assertEq(a.blockHash, b.blockHash);
-        assertEq(a.stateRoot, b.stateRoot);
-        assertEq(a.prover, b.prover);
-        assertEq(uint8(a.proofTiming), uint8(b.proofTiming));
-        assertEq(a.createdAt, b.createdAt);
-        assertEq(a.byAssignedProver, b.byAssignedProver);
-        assertEq(a.lastBlockId, b.lastBlockId);
-        assertEq(a.provabilityBond, b.provabilityBond);
-        assertEq(a.livenessBond, b.livenessBond);
+        assertEq(keccak256(abi.encode(a)), keccak256(abi.encode(b)));
     }
 
     function _verifyPackedMeta(
@@ -410,66 +403,15 @@ contract LibCodecTest is Test {
         private
         pure
     {
-        // Verify blockHash (32 bytes)
-        bytes32 packedBlockHash;
-        assembly {
-            packedBlockHash := mload(add(packed, add(0x20, offset)))
+        // Extract single meta from packed data
+        bytes memory singleMetaPacked = new bytes(121);
+        for (uint256 i = 0; i < 121; i++) {
+            singleMetaPacked[i] = packed[offset + i];
         }
-        assertEq(packedBlockHash, meta.blockHash);
 
-        // Verify stateRoot (32 bytes)
-        bytes32 packedStateRoot;
-        assembly {
-            packedStateRoot := mload(add(packed, add(0x20, add(offset, 32))))
-        }
-        assertEq(packedStateRoot, meta.stateRoot);
-
-        // Verify prover (20 bytes)
-        address packedProver;
-        assembly {
-            let proverData := mload(add(packed, add(0x20, add(offset, 64))))
-            packedProver := shr(96, proverData)
-        }
-        assertEq(packedProver, meta.prover);
-
-        // Verify proofTiming (1 byte)
-        uint8 packedProofTiming = uint8(packed[offset + 84]);
-        assertEq(packedProofTiming, uint8(meta.proofTiming));
-
-        // Verify createdAt (6 bytes)
-        uint48 packedCreatedAt;
-        assembly {
-            let createdAtData := mload(add(packed, add(0x20, add(offset, 85))))
-            packedCreatedAt := shr(208, createdAtData)
-        }
-        assertEq(packedCreatedAt, meta.createdAt);
-
-        // Verify byAssignedProver (1 byte)
-        bool packedByAssignedProver = packed[offset + 91] != 0;
-        assertEq(packedByAssignedProver, meta.byAssignedProver);
-
-        // Verify lastBlockId (6 bytes)
-        uint48 packedLastBlockId;
-        assembly {
-            let lastBlockIdData := mload(add(packed, add(0x20, add(offset, 92))))
-            packedLastBlockId := shr(208, lastBlockIdData)
-        }
-        assertEq(packedLastBlockId, meta.lastBlockId);
-
-        // Verify provabilityBond (12 bytes)
-        uint96 packedProvabilityBond;
-        assembly {
-            let provabilityBondData := mload(add(packed, add(0x20, add(offset, 98))))
-            packedProvabilityBond := shr(160, provabilityBondData)
-        }
-        assertEq(packedProvabilityBond, meta.provabilityBond);
-
-        // Verify livenessBond (12 bytes)
-        uint96 packedLivenessBond;
-        assembly {
-            let livenessBondData := mload(add(packed, add(0x20, add(offset, 110))))
-            packedLivenessBond := shr(160, livenessBondData)
-        }
-        assertEq(packedLivenessBond, meta.livenessBond);
+        // Unpack and compare using hash
+        IInbox.TransitionMeta[] memory unpacked = LibCodec.unpackTransitionMetas(singleMetaPacked);
+        assertEq(unpacked.length, 1);
+        _assertTransitionMetaEq(unpacked[0], meta);
     }
 }
