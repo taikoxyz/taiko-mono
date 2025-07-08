@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
+import { IInbox as I } from "../IInbox.sol";
 
 /// @title LibData
-/// @notice Library for batch metadata hashing and data encoding in Taiko's Layer 1 protocol
+/// @notice Library for batch metadata hashing and data encoding in Taiko protocol
 /// @dev Provides core data processing functions including:
 ///      - Hierarchical batch metadata hashing with deterministic structure
 ///      - Alternative batch hashing using pre-computed evidence
@@ -59,11 +59,15 @@ library LibData {
         });
 
         // Prove metadata section
+        uint48 firstBlockId;
+        unchecked {
+            firstBlockId = _context.lastBlockId + 1 - uint48(_batch.encodedBlocks.length);
+        }
         meta_.proveMeta = I.BatchProveMetadata({
             proposer: _batch.proposer,
             prover: _batch.prover,
             proposedAt: _blockTimestamp,
-            firstBlockId: _context.lastBlockId + 1 - uint48(_batch.encodedBlocks.length),
+            firstBlockId: firstBlockId,
             lastBlockId: meta_.buildMeta.lastBlockId,
             livenessBond: _context.livenessBond,
             provabilityBond: _context.provabilityBond

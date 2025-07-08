@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/libs/LibAddress.sol";
 import "../IBondManager2.sol";
-import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
+import { IInbox as I } from "../IInbox.sol";
 
 /// @title LibBonds
 /// @notice Library for managing bond deposits, withdrawals, and balance accounting in Taiko

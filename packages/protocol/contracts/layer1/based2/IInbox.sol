@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
 
-interface ITaikoInbox2 {
+interface IInbox {
     struct Block {
         // the max number of transactions in this block. Note that if there are not enough
         // transactions in calldata or blobs, the block will contain as many transactions as
@@ -154,17 +154,17 @@ interface ITaikoInbox2 {
         InExtendedProvingWindow
     }
 
+    // This struct takes 122 bytes if packed
     struct TransitionMeta {
-        bytes32 parentHash;
-        bytes32 blockHash;
-        bytes32 stateRoot;
-        address prover;
-        ProofTiming proofTiming;
-        uint48 createdAt;
-        bool byAssignedProver;
-        uint48 lastBlockId;
-        uint96 provabilityBond;
-        uint96 livenessBond;
+        bytes32 blockHash; // 32 bytes
+        bytes32 stateRoot; // 32 bytes
+        address prover; // 20 bytes
+        ProofTiming proofTiming; // 1 byte
+        uint48 createdAt; // 6 bytes
+        bool byAssignedProver; // 1 byte
+        uint48 lastBlockId; // 6 bytes
+        uint96 provabilityBond; // 12 bytes
+        uint96 livenessBond; // 12 bytes
     }
 
     //  @notice Struct representing transition storage
@@ -264,16 +264,45 @@ interface ITaikoInbox2 {
     /// @notice Emitted when a batch is proposed.
     /// @param batchId The ID of the proposed batch.
     /// @param context The batch context data
-    event Proposed(uint256 batchId, BatchContext context);
+    event Proposed(uint48 batchId, BatchContext context);
 
     /// @notice Emitted when a batch is proved.
     /// @param batchId The ID of the proved batch.
-    /// @param isFirstTransition Whether this is the first transition in the batch.
-    /// @param tranMetaEncoded The encoded transition metadata.
-    event Proved(uint256 batchId, bool isFirstTransition, TransitionMeta tranMetaEncoded);
+    /// @param packedTranMeta The encoded transition metadata.
+    event Proved(uint256 indexed batchId, bytes packedTranMeta);
 
     /// @notice Emitted when a batch is verified.
-    /// @param batchId The ID of the verified batch.
+    /// @param uint48_batchId_uint48_blockId The ID of the verified batch and The ID of the last
+    /// block in this batch.
     /// @param blockHash The hash of the verified batch.
-    event Verified(uint256 batchId, bytes32 blockHash);
+    // solhint-disable var-name-mixedcase
+    event Verified(uint256 uint48_batchId_uint48_blockId, bytes32 blockHash);
+
+    /// @notice Proposes multiple batches to be proven and verified.
+    /// @dev This function allows proposers to submit batches of blocks for processing.
+    /// @param _summary The current state summary of the protocol.
+    /// @param _batches Array of batches to be proposed.
+    /// @param _packedTrans The packed transition metadata for verification
+    /// @return The updated summary
+    function propose4(
+        Summary memory _summary,
+        Batch[] calldata _batches,
+        BatchProposeMetadataEvidence memory _evidence,
+        bytes calldata _packedTrans
+    )
+        external
+        returns (Summary memory);
+
+    /// @notice Proves batches with cryptographic proof
+    /// @param _summary The current summary
+    /// @param _inputs The batch prove inputs
+    /// @param _proof The cryptographic proof
+    /// @return The updated summary
+    function prove4(
+        Summary memory _summary,
+        BatchProveInput[] calldata _inputs,
+        bytes calldata _proof
+    )
+        external
+        returns (Summary memory);
 }

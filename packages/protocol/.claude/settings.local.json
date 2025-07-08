@@ -10,7 +10,12 @@
       "Bash(ls:*)",
       "Bash(mv:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(forge test:*)",
+      "Bash(forge build:*)",
+      "Bash(rm:*)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --mt test_PackParamsGas -vvv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --mc LibCodec)"
     ],
     "deny": []
   }

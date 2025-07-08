@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
+import { IInbox as I } from "../IInbox.sol";
 import "./LibState.sol";
 
 /// @title LibProvers
@@ -114,7 +114,7 @@ library LibProvers {
     {
         I.ProverAuth memory auth = abi.decode(_proverAuth, (I.ProverAuth));
 
-        // Supporting Ether as fee token will require making ITaikoInbox's proposing function
+        // Supporting Ether as fee token will require making IInbox's proposing function
         // payable. We try to avoid this as much as possible. And since most proposers may simply
         // use USD stablecoins as fee token, we decided not to support Ether as fee token for now.
         require(auth.feeToken != address(0), EtherAsFeeTokenNotSupportedYet());

@@ -209,7 +209,7 @@ abstract contract PacayaAnchor is OntakeAnchor, ITaiko {
     }
 
     /// @inheritdoc ITaiko
-    function v4IsInbox() external pure returns (bool) {
+    function isInbox4() external pure returns (bool) {
         return false;
     }
 

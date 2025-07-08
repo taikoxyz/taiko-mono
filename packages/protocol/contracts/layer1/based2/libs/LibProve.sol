@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
+import { IInbox as I } from "../IInbox.sol";
 import "src/shared/libs/LibMath.sol";
+import "./LibCodec.sol";
+import "./LibData.sol";
 import "./LibForks.sol";
 import "./LibState.sol";
 
@@ -91,14 +93,22 @@ library LibProve {
 
         _validateProveMeta(batchMetaHash, _input);
 
+        bytes32 stateRoot = _input.tran.batchId % _conf.stateRootSyncInternal == 0
+            ? _input.tran.stateRoot
+            : bytes32(0);
+
+        (I.ProofTiming proofTiming, address prover) = _determineProofTiming(
+            _conf,
+            _input.proveMeta.prover,
+            uint256(_input.proveMeta.proposedAt).max(_summary.lastUnpausedAt)
+        );
+
+        // Create the transition metadata
         I.TransitionMeta memory tranMeta = I.TransitionMeta({
-            parentHash: _input.tran.parentHash,
             blockHash: _input.tran.blockHash,
-            stateRoot: _input.tran.batchId % _conf.stateRootSyncInternal == 0
-                ? _input.tran.stateRoot
-                : bytes32(0),
-            proofTiming: I.ProofTiming.OutOfExtendedProvingWindow, // Updated below based on timing
-            prover: address(0), // Updated below based on timing
+            stateRoot: stateRoot,
+            proofTiming: proofTiming,
+            prover: prover,
             createdAt: uint48(block.timestamp),
             byAssignedProver: msg.sender == _input.proveMeta.prover,
             lastBlockId: _input.proveMeta.lastBlockId,
@@ -106,16 +116,10 @@ library LibProve {
             livenessBond: _input.proveMeta.livenessBond
         });
 
-        (tranMeta.proofTiming, tranMeta.prover) = _determineProofTiming(
-            _conf,
-            _input.proveMeta.prover,
-            uint256(_input.proveMeta.proposedAt).max(_summary.lastUnpausedAt)
+        bool isFirstTransition = _rw.saveTransition(
+            _conf, _input.tran.batchId, _input.tran.parentHash, keccak256(abi.encode(tranMeta))
         );
 
-        bytes32 tranMetaHash = keccak256(abi.encode(tranMeta));
-
-        bool isFirstTransition =
-            _rw.saveTransition(_conf, _input.tran.batchId, _input.tran.parentHash, tranMetaHash);
         if (
             isFirstTransition && tranMeta.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
                 && msg.sender != _input.proveMeta.proposer
@@ -124,7 +128,9 @@ library LibProve {
             _rw.creditBond(_input.proveMeta.proposer, _input.proveMeta.provabilityBond);
         }
 
-        emit I.Proved(_input.tran.batchId, isFirstTransition, tranMeta);
+        I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](1);
+        tranMetas[0] = tranMeta;
+        emit I.Proved(_input.tran.batchId, LibCodec.packTransitionMetas(tranMetas));
 
         return keccak256(abi.encode(batchMetaHash, _input.tran));
     }

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
+import { IInbox as I } from "../IInbox.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./LibForks.sol";
 import "./LibState.sol";
 
 /// @title LibValidate
-/// @notice Library for comprehensive batch validation in Taiko's Layer 1 protocol
+/// @notice Library for comprehensive batch validation in Taiko protocol
 /// @dev This library provides validation functions for batch proposals, including:
 ///      - Proposer and coinbase validation
 ///      - Block structure and metadata validation

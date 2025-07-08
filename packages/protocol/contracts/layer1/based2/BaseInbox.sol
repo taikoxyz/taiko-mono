@@ -3,17 +3,16 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
-import "src/shared/signal/ISignalService.sol";
-import "src/shared/signal/LibSignals.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-
+import "./libs/LibCodec.sol";
 import "./libs/LibPropose.sol";
 import "./libs/LibProve.sol";
 import "./libs/LibVerify.sol";
-import "./ITaikoInbox2.sol";
-import "./IProposeBatch2.sol";
+import "./IInbox.sol";
+import "./IPropose.sol";
+import "./IProve.sol";
 
-/// @title TaikoInboxBase
+/// @title BaseInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
 /// original Taiko-Based Contestable Rollup (BCR) but with the tier-based proof system and
 /// contestation mechanisms removed.
@@ -26,7 +25,7 @@ import "./IProposeBatch2.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBatch2, ITaiko {
+abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITaiko {
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
@@ -48,15 +47,16 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
     /// @param _summary The current summary
     /// @param _batches The batches to propose
     /// @param _evidence The batch proposal evidence
-    /// @param _trans The transition metadata for verification
+    /// @param _packedTrans The packed transition metadata for verification
     /// @return The updated summary
     function propose4(
         I.Summary memory _summary,
         I.Batch[] calldata _batches,
         I.BatchProposeMetadataEvidence memory _evidence,
-        I.TransitionMeta[] calldata _trans
+        bytes calldata _packedTrans
     )
         external
+        override(I, IPropose)
         nonReentrant
         returns (I.Summary memory)
     {
@@ -69,7 +69,8 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         _summary = LibPropose.propose(conf, rw, _summary, _batches, _evidence);
 
         // Verify batches
-        _summary = LibVerify.verify(conf, rw, _summary, _trans);
+        I.TransitionMeta[] memory trans = LibCodec.unpackTransitionMetas(_packedTrans);
+        _summary = LibVerify.verify(conf, rw, _summary, trans);
 
         _saveSummaryHash(keccak256(abi.encode(_summary)));
         return _summary;
@@ -86,6 +87,7 @@ abstract contract TaikoInboxBase is EssentialContract, ITaikoInbox2, IProposeBat
         bytes calldata _proof
     )
         external
+        override(I, IProve)
         nonReentrant
         returns (I.Summary memory)
     {

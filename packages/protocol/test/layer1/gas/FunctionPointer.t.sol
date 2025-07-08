@@ -33,7 +33,7 @@ contract Bar is Base {
     }
 }
 
-contract FunctionPointerGassTest is CompareGasTest {
+contract FunctionPointerGasTest is CompareGasTest {
     Foo foo = new Foo();
     Bar bar = new Bar();
 

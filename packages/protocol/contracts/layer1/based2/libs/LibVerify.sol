@@ -2,12 +2,12 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/libs/LibMath.sol";
-import { ITaikoInbox2 as I } from "../ITaikoInbox2.sol";
+import { IInbox as I } from "../IInbox.sol";
 import "./LibForks.sol";
 import "./LibState.sol";
 
 /// @title LibVerify
-/// @notice Library for batch verification and bond distribution in Taiko's Layer 1 protocol
+/// @notice Library for batch verification and bond distribution in Taiko protocol
 /// @dev Handles the final verification stage of batch processing including:
 ///      - Sequential batch verification with transition metadata validation
 ///      - Cooldown period enforcement before verification
@@ -35,7 +35,7 @@ library LibVerify {
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
-        I.TransitionMeta[] calldata _trans
+        I.TransitionMeta[] memory _trans
     )
         internal
         returns (I.Summary memory)
@@ -75,7 +75,7 @@ library LibVerify {
                     lastSyncedBatchId = batchId;
                 }
 
-                emit I.Verified(batchId, _trans[i].blockHash);
+                emit I.Verified(batchId << 48 | _trans[i].lastBlockId, _trans[i].blockHash);
                 _summary.lastVerifiedBlockHash = _trans[i++].blockHash;
             }
 
