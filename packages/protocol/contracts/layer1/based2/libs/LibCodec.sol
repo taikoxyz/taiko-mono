@@ -97,7 +97,7 @@ library LibCodec {
     /// a multiple of 122 bytes, with each 122-byte segment representing one TransitionMeta.
     /// @param _encoded The packed byte array to unpack
     /// @return tranMetas_ Array of unpacked TransitionMeta structs
-    function unpackTransitionMetas(bytes calldata _encoded)
+    function unpackTransitionMetas(bytes memory _encoded)
         internal
         pure
         returns (I.TransitionMeta[] memory tranMetas_)
@@ -114,41 +114,41 @@ library LibCodec {
             I.TransitionMeta memory meta;
 
             assembly {
-                let dataOffset := add(_encoded.offset, offset)
+                let dataOffset := add(add(_encoded, 0x20), offset)
 
                 // blockHash (32 bytes)
                 meta := mload(0x40) // allocate memory
-                mstore(meta, calldataload(dataOffset))
+                mstore(meta, mload(dataOffset))
 
                 // stateRoot (32 bytes)
-                mstore(add(meta, 0x20), calldataload(add(dataOffset, 32)))
+                mstore(add(meta, 0x20), mload(add(dataOffset, 32)))
 
                 // prover (20 bytes) - right-aligned in 32-byte slot
-                let proverData := calldataload(add(dataOffset, 64))
+                let proverData := mload(add(dataOffset, 64))
                 mstore(add(meta, 0x40), shr(96, proverData))
 
                 // proofTiming (1 byte) - stored as uint8 enum
-                let proofTiming := byte(0, calldataload(add(dataOffset, 84)))
+                let proofTiming := byte(0, mload(add(dataOffset, 84)))
                 mstore(add(meta, 0x60), proofTiming)
 
                 // createdAt (6 bytes) - stored as uint48
-                let createdAtData := calldataload(add(dataOffset, 85))
+                let createdAtData := mload(add(dataOffset, 85))
                 mstore(add(meta, 0x80), shr(208, createdAtData))
 
                 // byAssignedProver (1 byte) - stored as bool
-                let byAssignedProver := byte(0, calldataload(add(dataOffset, 91)))
+                let byAssignedProver := byte(0, mload(add(dataOffset, 91)))
                 mstore(add(meta, 0xa0), byAssignedProver)
 
                 // lastBlockId (6 bytes) - stored as uint48
-                let lastBlockIdData := calldataload(add(dataOffset, 92))
+                let lastBlockIdData := mload(add(dataOffset, 92))
                 mstore(add(meta, 0xc0), shr(208, lastBlockIdData))
 
                 // provabilityBond (12 bytes) - stored as uint96
-                let provabilityBondData := calldataload(add(dataOffset, 98))
+                let provabilityBondData := mload(add(dataOffset, 98))
                 mstore(add(meta, 0xe0), shr(160, provabilityBondData))
 
                 // livenessBond (12 bytes) - stored as uint96
-                let livenessBondData := calldataload(add(dataOffset, 110))
+                let livenessBondData := mload(add(dataOffset, 110))
                 mstore(add(meta, 0x100), shr(160, livenessBondData))
 
                 // Update free memory pointer

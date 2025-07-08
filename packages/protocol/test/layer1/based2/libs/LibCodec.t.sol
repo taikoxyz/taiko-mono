@@ -350,15 +350,6 @@ contract LibCodecTest is Test {
 
     function _unpackTransitionMetas(bytes memory packed)
         private
-        view
-        returns (IInbox.TransitionMeta[] memory)
-    {
-        // Helper to test unpacking - uses this to convert memory to calldata
-        return this.unpackTransitionMetasExternal(packed);
-    }
-
-    function unpackTransitionMetasExternal(bytes calldata packed)
-        external
         pure
         returns (IInbox.TransitionMeta[] memory)
     {
