@@ -382,7 +382,6 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(index, 0);
     }
 
-
     /// Owner should be able to update an existing operator’s multiAddr.
     function test_changeMultiaddrByOwnerCanUpdateMultiAddr() external {
         // add Bob as operator with initial IP
@@ -393,7 +392,7 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelist.changeMultiAddrForOperator(Bob, "/ipv4/10.0.0.1/tcp/4001/12345");
 
         // inspect storage
-        (, , , string memory multiAddr) = whitelist.operators(Bob);
+        (,,, string memory multiAddr) = whitelist.operators(Bob);
         assertEq(multiAddr, "/ipv4/10.0.0.1/tcp/4001/12345");
     }
 
@@ -406,7 +405,7 @@ contract TestPreconfWhitelist is Layer1Test {
         vm.prank(Bob);
         whitelist.changeMultiAddrForOperator(Bob, "selfUpdatedIp");
 
-        (, , , string memory multiAddr) = whitelist.operators(Bob);
+        (,,, string memory multiAddr) = whitelist.operators(Bob);
         assertEq(multiAddr, "selfUpdatedIp");
     }
 
@@ -417,7 +416,7 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelist.addOperator(Bob, "ip1");
         // Carol (neither owner nor Bob) tries to update Bob’s IP
         vm.prank(Carol);
-        vm.expectRevert();   // generic revert from onlyOwnerOrOperator
+        vm.expectRevert(); // generic revert from onlyOwnerOrOperator
         whitelist.changeMultiAddrForOperator(Bob, "hackerIp");
     }
 
