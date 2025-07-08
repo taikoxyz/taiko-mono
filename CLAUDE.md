@@ -81,7 +81,13 @@ pnpm fmt:sol            # Format Solidity code
 4. Format code: `pnpm fmt:sol`
 5. Check gas impact: `pnpm snapshot:l1`
 
-### Taiko Client (packages/taiko-client)
+### Gas considerations
+- Any contract that lives on the L1 needs to be optimized, and gas consumption is very important
+- When working or reviewing gas optimizations always run:
+   - `pnpm snapshot:l1` and review the diffs in gas consumption per function. You can find them in `packages/protocol/gas-reports/layer1-contracts.txt` file. This shows the gas used by each test.
+   - You can also review the diffs in gas from the other folders inside `packages/protocol/gas-reports/`. These are written using Foundry's new `snapshotGas` cheatcodes and are inserted in strategic sections of the tests where we want to capture gas usage. These are updated automatically when running the tests.
+
+## Taiko Client (packages/taiko-client)
 ```bash
 # Build
 make build
@@ -96,7 +102,7 @@ make lint              # Run linters
 make gen_bindings      # Generate Go bindings
 ```
 
-### Bridge UI (packages/bridge-ui)
+## Bridge UI (packages/bridge-ui)
 ```bash
 # Development
 pnpm dev               # Dev server
@@ -174,34 +180,10 @@ go run ./cmd/main.go
 - Account/Balance tables: Token holdings
 - Migrations in each service's migrations/ directory
 
-## Development Tips
-
-### Working with Contracts
-- Contracts use OpenZeppelin upgradeable patterns
-- Storage gaps for upgrade safety
-- NatSpec documentation required
-- Fork-specific implementations in subdirectories
-
-### Working with Go Services
-- Use slog for structured logging
-- Implement metrics collection
-- Handle retries with exponential backoff
-- Connection pooling for databases
-
-### Working with Frontend
-- Svelte components in src/components
-- Wagmi for Web3 interactions
-- i18n support via JSON files
-- Theme variables in CSS files
-
-### Gas Optimization
-- Batch operations where possible
-- Use calldata for proposals when appropriate
-- Monitor gas consumption in tests
 
 ## Important Files and Directories
 
-- `packages/protocol/contracts/layer1/inbox/TaikoInbox.sol` - Main protocol contract
+- `packages/protocol/contracts/layer1/inbox/TaikoInbox.sol` - Main protocol contract. It is the entrypoint for proposing and proving
 - `packages/protocol/contracts/shared/signal/SignalService.sol` - Messaging service
 - `packages/protocol/contracts/shared/bridge/Bridge.sol` - Bridge implementation
 - `packages/taiko-client/driver/driver.go` - L2 sync logic
@@ -209,9 +191,7 @@ go run ./cmd/main.go
 - `packages/relayer/processor/process_message.go` - Message processing
 - `packages/eventindexer/indexer/indexer.go` - Event indexing logic
 
-## Gas considerations
-- Any contract that lives on the L1 needs to be optimized, and gas consumption is very important
 
 ## GitHub Interactions
 
-- When interacting with gh use the github cli instead of doing direct api requests or curl requests. You can find the docs here: https://cli.github.com/manual/
+- When interacting with gh use the github cli(`gh`) instead of doing direct api requests or curl requests. You can find the docs here: https://cli.github.com/manual/
