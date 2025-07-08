@@ -15,7 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/libp2p/go-libp2p/core"
 	"github.com/modern-go/reflect2"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -31,6 +33,7 @@ import (
 const (
 	protocolStatusReportInterval     = 30 * time.Second
 	exchangeTransitionConfigInterval = 1 * time.Minute
+	monitorSequencerPeeringsInterval = 1 * time.Minute
 	maxOperatorSize                  = 100
 )
 
@@ -49,9 +52,10 @@ type Driver struct {
 	l1HeadSub event.Subscription
 
 	// P2P network for preconfirmation block propagation
-	p2pNode   *p2p.NodeP2P
-	p2pSigner p2p.Signer
-	p2pSetup  p2p.SetupP2P
+	p2pNode             *p2p.NodeP2P
+	p2pSigner           p2p.Signer
+	p2pSetup            p2p.SetupP2P
+	sequencerMultiAddrs []core.Multiaddr
 
 	ctx              context.Context
 	wg               sync.WaitGroup
@@ -151,23 +155,14 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 			log.Info("P2P node information", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
 
-			// fetch and append the multiAddrs frm the contracts, trying to connect them.
+			// fetch and append the multiAddrs frm the contracts, add them into sequencerMultiAddrs.
 			// allow this call to fail.
+			d.sequencerMultiAddrs = make([]core.Multiaddr, 3)
 			multiAddrs, err := d.rpc.GetPreconfWhitelistMultiAddrs(nil)
-			if err == nil {
-				api := p2p.NewP2PAPIBackend(d.p2pNode, log.Root(), metrics.P2PNodeMetrics)
-				for _, multiAddr := range multiAddrs {
-					d.peerConnectionWG.Add(1)
-					go func(peerAddr string) {
-						defer d.peerConnectionWG.Done()
-						if err := backoff.Retry(func() error {
-							return api.ConnectPeer(d.ctx, peerAddr)
-						}, backoff.WithContext(backoff.NewConstantBackOff(d.RetryInterval), d.ctx)); err != nil {
-							log.Error("Attempt to connect to peer failed", "error", err)
-						}
-					}(multiAddr.String())
-				}
-				d.peerConnectionWG.Wait()
+			if err == nil && len(multiAddrs) > 0 {
+				d.sequencerMultiAddrs = append(d.sequencerMultiAddrs, multiAddrs...)
+				// Call keepConnection() to connect to the latest multiaddr.
+				d.keepConnection()
 			}
 			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
 				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
@@ -191,6 +186,7 @@ func (d *Driver) Start() error {
 	go d.eventLoop()
 	go d.reportProtocolStatus()
 	go d.exchangeTransitionConfigLoop()
+	go d.monitorSequencerPeerings()
 
 	// Start the preconfirmation block server if it is enabled.
 	if d.preconfBlockServer != nil {
@@ -291,8 +287,17 @@ func (d *Driver) eventLoop() {
 				"activeSince", e.ActiveSince,
 				"multiAddr", e.MultiAddr,
 			)
-			if err := d.connectPeer(e.MultiAddr); err != nil {
-				log.Error("Failed to handle new OperatorAdded event", "error", err)
+			multiaddr, err := multiaddr.NewMultiaddr(e.MultiAddr)
+			if err != nil {
+				log.Warn("Failed to create multiaddr from new OperatorAdded event",
+					"operator", e.Operator,
+					"multiaddr", e.MultiAddr,
+					"err", err,
+				)
+			} else {
+				d.sequencerMultiAddrs = dedupePeers(append(d.sequencerMultiAddrs, multiaddr))
+				// Call keepConnection() to connect to the latest multiaddr.
+				d.keepConnection()
 			}
 		case e := <-operatorChangedMultiAddrCh:
 			log.Info(
@@ -300,8 +305,17 @@ func (d *Driver) eventLoop() {
 				"operator", e.Operator,
 				"multiAddr", e.MultiAddr,
 			)
-			if err := d.connectPeer(e.MultiAddr); err != nil {
-				log.Error("Failed to handle new OperatorChangedMultiAddr event", "error", err)
+			multiaddr, err := multiaddr.NewMultiaddr(e.MultiAddr)
+			if err != nil {
+				log.Warn("Failed to create multiaddr from new OperatorChangedMultiAddr event",
+					"operator", e.Operator,
+					"multiaddr", e.MultiAddr,
+					"err", err,
+				)
+			} else {
+				d.sequencerMultiAddrs = dedupePeers(append(d.sequencerMultiAddrs, multiaddr))
+				// Call keepConnection() to connect to the latest multiaddr.
+				d.keepConnection()
 			}
 		}
 	}
@@ -350,6 +364,28 @@ func (d *Driver) reportProtocolStatus() {
 			return
 		case <-ticker.C:
 			d.reportProtocolStatusPacaya(maxNumProposals)
+		}
+	}
+}
+
+// monitorSequencerPeerings monitors and maintains connections with sequencers at regular intervals.
+func (d *Driver) monitorSequencerPeerings() {
+	var (
+		ticker = time.NewTicker(monitorSequencerPeeringsInterval)
+	)
+	d.wg.Add(1)
+
+	defer func() {
+		ticker.Stop()
+		d.wg.Done()
+	}()
+
+	for {
+		select {
+		case <-d.ctx.Done():
+			return
+		case <-ticker.C:
+			d.keepConnection()
 		}
 	}
 }
@@ -635,7 +671,21 @@ func (d *Driver) cacheLookaheadLoop() {
 	}
 }
 
-// connectPeer keep retrying to connect to the peerAddr.
+// keepConnection attempts to establish and maintain connections with all sequencer peers.
+func (d *Driver) keepConnection() {
+	for _, multiAddr := range d.sequencerMultiAddrs {
+		d.peerConnectionWG.Add(1)
+		go func() {
+			defer d.peerConnectionWG.Done()
+			if err := d.connectPeer(multiAddr.String()); err != nil {
+				log.Error("Attempt to connect to peer failed", "error", err)
+			}
+		}()
+	}
+	d.peerConnectionWG.Wait()
+}
+
+// connectPeer attempts to establish a connection with a peer, retrying if necessary.
 func (d *Driver) connectPeer(peerAddr string) error {
 	if d.PreconfBlockServerPort > 0 {
 		log.Info("Trying to add new peer", "peer", peerAddr)
@@ -645,6 +695,20 @@ func (d *Driver) connectPeer(peerAddr string) error {
 		}, backoff.WithContext(backoff.NewConstantBackOff(d.RetryInterval), d.ctx))
 	}
 	return nil
+}
+
+// dedupePeers removes duplicate Multiaddr entries from a slice, preserving the order of first occurrence.
+func dedupePeers(peers []core.Multiaddr) []core.Multiaddr {
+	seen := make(map[core.Multiaddr]struct{}, len(peers))
+	uniq := make([]core.Multiaddr, 0, len(peers))
+	for _, p := range peers {
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		uniq = append(uniq, p)
+	}
+	return uniq
 }
 
 // Name returns the application name.
