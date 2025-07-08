@@ -636,6 +636,7 @@ func (d *Driver) cacheLookaheadLoop() {
 	}
 }
 
+// connectPeer keep retrying to connect to the peerAddr.
 func (d *Driver) connectPeer(peerAddr string) error {
 	log.Info("Trying to add new peer", "peer", peerAddr)
 	api := p2p.NewP2PAPIBackend(d.p2pNode, log.Root(), metrics.P2PNodeMetrics)
