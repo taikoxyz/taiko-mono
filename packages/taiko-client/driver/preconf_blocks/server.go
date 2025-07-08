@@ -311,7 +311,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	// Ignore the message if it is in the cache already.
 	if s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 		log.Debug(
-			"Ignore already cahced preconfirmation block response",
+			"Ignore already cached preconfirmation block response",
 			"peer", from,
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -945,12 +945,8 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 			return false, fmt.Errorf("failed to encode transactions to bytes: %w", err)
 		}
 
-		decompressedTxs, err := utils.Decompress(rawTxsBytes)
-		if err != nil {
-			return false, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
-		}
 		var (
-			txListHash = crypto.Keccak256Hash(decompressedTxs)
+			txListHash = crypto.Keccak256Hash(rawTxsBytes)
 			args       = &miner.BuildPayloadArgs{
 				Parent:       parentInFork.ParentHash(),
 				Timestamp:    parentInFork.NumberU64(),
