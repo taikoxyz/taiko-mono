@@ -638,11 +638,14 @@ func (d *Driver) cacheLookaheadLoop() {
 
 // connectPeer keep retrying to connect to the peerAddr.
 func (d *Driver) connectPeer(peerAddr string) error {
-	log.Info("Trying to add new peer", "peer", peerAddr)
-	api := p2p.NewP2PAPIBackend(d.p2pNode, log.Root(), metrics.P2PNodeMetrics)
-	return backoff.Retry(func() error {
-		return api.ConnectPeer(d.ctx, peerAddr)
-	}, backoff.WithContext(backoff.NewConstantBackOff(d.RetryInterval), d.ctx))
+	if d.PreconfBlockServerPort > 0 {
+		log.Info("Trying to add new peer", "peer", peerAddr)
+		api := p2p.NewP2PAPIBackend(d.p2pNode, log.Root(), metrics.P2PNodeMetrics)
+		return backoff.Retry(func() error {
+			return api.ConnectPeer(d.ctx, peerAddr)
+		}, backoff.WithContext(backoff.NewConstantBackOff(d.RetryInterval), d.ctx))
+	}
+	return nil
 }
 
 // Name returns the application name.
