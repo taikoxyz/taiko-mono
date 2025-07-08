@@ -28,27 +28,20 @@ library LibCodec {
     /// - provabilityBond: 12 bytes (uint96)
     /// - livenessBond: 12 bytes (uint96)
     /// Total: 122 bytes per TransitionMeta
-    /// The first byte stores the array length (max 255 elements).
     /// @param _tranMetas Array of TransitionMeta structs to pack
-    /// @return encoded_ The packed byte array with length prefix
+    /// @return encoded_ The packed byte array
     function packTransitionMetas(I.TransitionMeta[] memory _tranMetas)
         internal
         pure
         returns (bytes memory encoded_)
     {
         uint256 length = _tranMetas.length;
-        require(length <= type(uint8).max, ArrayTooLarge());
 
         // Each TransitionMeta takes 122 bytes when packed
-        encoded_ = new bytes(length * 122 + 1); // +1 for length prefix (1 byte)
+        encoded_ = new bytes(length * 122);
 
-        // Store length as first byte
-        assembly {
-            mstore8(add(encoded_, 0x20), length)
-        }
-
-        uint256 offset = 1;
-        for (uint256 i = 0; i < length; ++i) {
+        uint256 offset;
+        for (uint256 i; i < length; ++i) {
             I.TransitionMeta memory meta = _tranMetas[i];
 
             // Pack data in the order of the struct fields
@@ -100,9 +93,8 @@ library LibCodec {
     }
 
     /// @notice Unpacks a byte array back into an array of TransitionMeta structs.
-    /// @dev Reverses the packing performed by packTransitionMetas. The input must follow
-    /// the exact format: first byte contains array length, followed by 122 bytes per
-    /// TransitionMeta.
+    /// @dev Reverses the packing performed by packTransitionMetas. The input must be
+    /// a multiple of 122 bytes, with each 122-byte segment representing one TransitionMeta.
     /// @param _encoded The packed byte array to unpack
     /// @return tranMetas_ Array of unpacked TransitionMeta structs
     function unpackTransitionMetas(bytes calldata _encoded)
@@ -110,17 +102,15 @@ library LibCodec {
         pure
         returns (I.TransitionMeta[] memory tranMetas_)
     {
-        require(_encoded.length >= 1, EmptyInput());
+        require(_encoded.length % 122 == 0, InvalidDataLength());
 
-        // Read length from first byte
-        uint256 length = uint8(_encoded[0]);
-
-        require(_encoded.length == length * 122 + 1, InvalidDataLength());
+        // Calculate length from encoded data size
+        uint256 length = _encoded.length / 122;
 
         tranMetas_ = new I.TransitionMeta[](length);
 
-        uint256 offset = 1;
-        for (uint256 i = 0; i < length; i++) {
+        uint256 offset;
+        for (uint256 i; i < length; ++i) {
             I.TransitionMeta memory meta;
 
             assembly {

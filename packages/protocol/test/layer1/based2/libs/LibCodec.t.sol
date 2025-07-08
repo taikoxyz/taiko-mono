@@ -39,14 +39,11 @@ contract LibCodecTest is Test {
         // Pack the meta
         bytes memory packed = LibCodec.packTransitionMetas(testMetas);
 
-        // Verify packed length: 1 (length byte) + 122 (meta data)
-        assertEq(packed.length, 123);
-
-        // Verify length byte
-        assertEq(uint8(packed[0]), 1);
+        // Verify packed length: 122 (meta data)
+        assertEq(packed.length, 122);
 
         // Verify packed data structure
-        _verifyPackedMeta(packed, 1, meta);
+        _verifyPackedMeta(packed, 0, meta);
     }
 
     function test_packTransitionMetas_multipleElements() public {
@@ -70,15 +67,12 @@ contract LibCodecTest is Test {
         // Pack the metas
         bytes memory packed = LibCodec.packTransitionMetas(testMetas);
 
-        // Verify packed length: 1 (length byte) + 3 * 122 (meta data)
-        assertEq(packed.length, 367);
-
-        // Verify length byte
-        assertEq(uint8(packed[0]), 3);
+        // Verify packed length: 3 * 122 (meta data)
+        assertEq(packed.length, 366);
 
         // Verify each packed meta
         for (uint256 i = 0; i < 3; i++) {
-            _verifyPackedMeta(packed, 1 + i * 122, testMetas[i]);
+            _verifyPackedMeta(packed, i * 122, testMetas[i]);
         }
     }
 
@@ -86,9 +80,8 @@ contract LibCodecTest is Test {
         // Pack empty array
         bytes memory packed = LibCodec.packTransitionMetas(testMetas);
 
-        // Should only contain length byte
-        assertEq(packed.length, 1);
-        assertEq(uint8(packed[0]), 0);
+        // Should be empty
+        assertEq(packed.length, 0);
     }
 
     function test_packTransitionMetas_maxLength() public {
@@ -111,8 +104,7 @@ contract LibCodecTest is Test {
 
         // Pack should succeed
         bytes memory packed = LibCodec.packTransitionMetas(testMetas);
-        assertEq(packed.length, 1 + 255 * 122);
-        assertEq(uint8(packed[0]), 255);
+        assertEq(packed.length, 255 * 122);
     }
 
     function test_packTransitionMetas_revertArrayTooLarge() public {
@@ -133,9 +125,9 @@ contract LibCodecTest is Test {
             );
         }
 
-        // Should revert with ArrayTooLarge error
-        vm.expectRevert(LibCodec.ArrayTooLarge.selector);
-        LibCodec.packTransitionMetas(testMetas);
+        // Should succeed since we removed the length limit
+        bytes memory packed = LibCodec.packTransitionMetas(testMetas);
+        assertEq(packed.length, 256 * 122);
     }
 
     // -------------------------------------------------------------------------
@@ -209,17 +201,16 @@ contract LibCodecTest is Test {
     }
 
     function test_unpackTransitionMetas_revertEmptyInput() public {
-        // Try to unpack empty bytes
+        // Try to unpack empty bytes - should return empty array
         bytes memory empty;
 
-        vm.expectRevert(LibCodec.EmptyInput.selector);
-        _unpackTransitionMetas(empty);
+        IInbox.TransitionMeta[] memory result = _unpackTransitionMetas(empty);
+        assertEq(result.length, 0);
     }
 
     function test_unpackTransitionMetas_revertInvalidDataLength() public {
         // Create invalid packed data (wrong length)
-        bytes memory invalidPacked = new bytes(100); // Not 1 + n*122
-        invalidPacked[0] = bytes1(uint8(1)); // Claims 1 element but wrong data length
+        bytes memory invalidPacked = new bytes(100); // Not n*122
 
         vm.expectRevert(LibCodec.InvalidDataLength.selector);
         _unpackTransitionMetas(invalidPacked);
