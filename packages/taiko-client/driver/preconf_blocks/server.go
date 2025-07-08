@@ -921,7 +921,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		return false, fmt.Errorf("failed to fetch parent header by hash: %w", err)
 	}
 
-	if parentInFork != nil && parentInFork.Hash() != msg.ExecutionPayload.ParentHash {
+	if parentInFork != nil && parentInFork.Hash() != parentInCanonical.Hash() {
 		decompressedTxs, err := utils.Decompress(msg.ExecutionPayload.Transactions[0])
 		if err != nil {
 			return false, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
