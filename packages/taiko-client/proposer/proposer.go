@@ -624,10 +624,16 @@ func (p *Proposer) estimateL2Cost(
 	ctx context.Context,
 	candidate *txmgr.TxCandidate,
 ) (*big.Int, error) {
-	l1BaseFee, err := p.rpc.L1.SuggestGasPrice(ctx)
+	// Fetch the latest L1 base fee
+	feeHistory, err := p.rpc.L1.FeeHistory(ctx, 1, nil, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L1 base fee: %w", err)
 	}
+
+	if len(feeHistory.BaseFee) == 0 {
+		return nil, fmt.Errorf("no base fee data available")
+	}
+	l1BaseFee := feeHistory.BaseFee[len(feeHistory.BaseFee)-1]
 
 	blobBaseFee := new(big.Int)
 	costWithBlobs := new(big.Int)
