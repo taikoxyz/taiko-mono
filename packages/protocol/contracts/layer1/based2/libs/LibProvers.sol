@@ -46,7 +46,13 @@ library LibProvers {
         unchecked {
             if (_batch.proverAuth.length == 0) {
                 require(_batch.prover == _batch.proposer, InvalidProver());
-                _rw.debitBond(_conf, _batch.prover, (_conf.livenessBond + _conf.provabilityBond).bondToWei(_conf.bondDecimals));
+                _rw.debitBond(
+                    _conf,
+                    _batch.prover,
+                    (_conf.bondConfig.livenessBond + _conf.bondConfig.provabilityBond).bondToWei(
+                        _conf.bondConfig.bondDecimals
+                    )
+                );
             } else {
                 // Circular dependency so zero it out. (Batch has proverAuth but
                 // proverAuth has also batchHash)
@@ -54,29 +60,47 @@ library LibProvers {
 
                 // Outsource the prover authentication to the LibAuth library to
                 // reduce this contract's code size.
-                (address prover, address feeToken, uint fee) = _validateProverAuth(
+                (address prover, address feeToken, uint256 fee) = _validateProverAuth(
                     _conf.chainId, _summary.numBatches, keccak256(abi.encode(_batch)), _proverAuth
                 );
                 require(prover != _batch.prover, InvalidProver());
 
                 if (feeToken == _conf.bondToken) {
                     // proposer pay the prover fee with bond tokens
-                    _rw.debitBond(_conf, _batch.proposer, fee + _conf.provabilityBond.bondToWei(_conf.bondDecimals));
+                    _rw.debitBond(
+                        _conf,
+                        _batch.proposer,
+                        fee
+                            + _conf.bondConfig.provabilityBond.bondToWei(_conf.bondConfig.bondDecimals)
+                    );
 
                     // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                     // if not then add the diff to the bond balance
-                    int256 bondDelta = int256(fee) - int256(_conf.livenessBond.bondToWei(_conf.bondDecimals));
+                    int256 bondDelta = int256(fee)
+                        - int256(_conf.bondConfig.livenessBond.bondToWei(_conf.bondConfig.bondDecimals));
 
                     bondDelta < 0
                         ? _rw.debitBond(_conf, prover, uint256(-bondDelta))
                         : _rw.creditBond(prover, uint256(bondDelta));
                 } else if (prover == _batch.proposer) {
                     _rw.debitBond(
-                        _conf, _batch.proposer, (_conf.livenessBond + _conf.provabilityBond).bondToWei(_conf.bondDecimals)
+                        _conf,
+                        _batch.proposer,
+                        (_conf.bondConfig.livenessBond + _conf.bondConfig.provabilityBond).bondToWei(
+                            _conf.bondConfig.bondDecimals
+                        )
                     );
                 } else {
-                    _rw.debitBond(_conf, _batch.proposer, _conf.provabilityBond.bondToWei(_conf.bondDecimals));
-                    _rw.debitBond(_conf, prover, _conf.livenessBond.bondToWei(_conf.bondDecimals));
+                    _rw.debitBond(
+                        _conf,
+                        _batch.proposer,
+                        _conf.bondConfig.provabilityBond.bondToWei(_conf.bondConfig.bondDecimals)
+                    );
+                    _rw.debitBond(
+                        _conf,
+                        prover,
+                        _conf.bondConfig.livenessBond.bondToWei(_conf.bondConfig.bondDecimals)
+                    );
 
                     if (fee != 0) {
                         _rw.transferFee(feeToken, _batch.proposer, prover, fee);
@@ -112,7 +136,7 @@ library LibProvers {
     )
         private
         view
-        returns (address prover, address feeToken_, uint fee_)
+        returns (address prover, address feeToken_, uint256 fee_)
     {
         I.ProverAuth memory auth = abi.decode(_proverAuth, (I.ProverAuth));
 

@@ -53,6 +53,15 @@ interface IInbox {
         bytes proverAuth;
     }
 
+    struct BondConfig {
+        /// @notice The amount of Taiko token as a liveness bond per batch.
+        uint16 livenessBond;
+        /// @notice The amount of Taiko token as a provability bond per batch.
+        uint16 provabilityBond;
+        /// @notice The number of decimals for the Taiko token used for bonding.
+        uint8 bondDecimals;
+    }
+
     /// @notice Output structure containing validated batch information
     /// @dev This struct aggregates all validation results for efficient batch processing
     struct BatchContext {
@@ -73,9 +82,7 @@ interface IInbox {
         /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         LibSharedData.BaseFeeConfig baseFeeConfig;
-        uint16 livenessBond;
-        uint16 provabilityBond;
-        uint8 bondDecimals;
+        BondConfig bondConfig;
     }
 
     struct ProverAuth {
@@ -117,9 +124,7 @@ interface IInbox {
         uint48 proposedAt;
         uint48 firstBlockId;
         uint48 lastBlockId;
-        uint16 livenessBond;
-        uint16 provabilityBond;
-        uint8 bondDecimals;
+        BondConfig bondConfig;
     }
 
     struct BatchMetadata {
@@ -156,18 +161,15 @@ interface IInbox {
         InExtendedProvingWindow
     }
 
-    // This struct takes 122 bytes if packed
     struct TransitionMeta {
         bytes32 blockHash; // 32 bytes
         bytes32 stateRoot; // 32 bytes
         address prover; // 20 bytes
         ProofTiming proofTiming; // 1 byte
         uint48 createdAt; // 6 bytes
-        bool byAssignedProver; // 1 byte
+        bool byAssignedProver; // 0 byte (sharing the same byte with proofTiming)
         uint48 lastBlockId; // 6 bytes
-        uint16 provabilityBond; // 12 bytes
-        uint16 livenessBond; // 12 bytes
-        uint8 bondDecimals; // 1 byte
+        BondConfig bondConfig; // 5 bytes
     }
 
     //  @notice Struct representing transition storage
@@ -210,12 +212,6 @@ interface IInbox {
         uint64 maxBatchesToVerify;
         /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
-        /// @notice The amount of Taiko token as a prover liveness bond per batch.
-        uint16 livenessBond;
-        /// @notice The amount of Taiko token as a proposer's provability bond per batch.
-        uint16 provabilityBond;
-        /// @notice The number of decimals for the Taiko token used for bonding.
-        uint8 bondDecimals;
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.
@@ -236,6 +232,7 @@ interface IInbox {
         uint16 maxBlocksPerBatch;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
+        BondConfig bondConfig;
         /// @notice The token used for bonding.
         address bondToken;
         address inboxWrapper;

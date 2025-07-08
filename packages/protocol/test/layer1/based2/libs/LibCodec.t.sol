@@ -150,7 +150,7 @@ contract LibCodecTest is Test {
             true,
             uint48(999),
             uint16(5000),
-            uint16(10000),
+            uint16(10_000),
             uint8(18) // bondDecimals
         );
 
@@ -350,7 +350,10 @@ contract LibCodecTest is Test {
             uint256 gasUsed = gasBefore - gasleft();
 
             emit log_named_uint(
-                string(abi.encodePacked("Gas used for packing ", vm.toString(sizes[i]), " elements")), gasUsed
+                string(
+                    abi.encodePacked("Gas used for packing ", vm.toString(sizes[i]), " elements")
+                ),
+                gasUsed
             );
         }
     }
@@ -391,9 +394,11 @@ contract LibCodecTest is Test {
             createdAt: createdAt,
             byAssignedProver: byAssignedProver,
             lastBlockId: lastBlockId,
-            provabilityBond: provabilityBond,
-            livenessBond: livenessBond,
-            bondDecimals: bondDecimals
+            bondConfig: IInbox.BondConfig({
+                provabilityBond: provabilityBond,
+                livenessBond: livenessBond,
+                bondDecimals: bondDecimals
+            })
         });
     }
 

@@ -71,7 +71,9 @@ library LibVerify {
                 }
 
                 uint16 bondToProver = _calcBondToProver(_conf, _trans[i], isFirstTransition);
-                _rw.creditBond(_trans[i].prover, bondToProver.bondToWei(_conf.bondDecimals));
+                _rw.creditBond(
+                    _trans[i].prover, bondToProver.bondToWei(_conf.bondConfig.bondDecimals)
+                );
 
                 if (batchId % _conf.stateRootSyncInternal == 0) {
                     lastSyncedBatchId = batchId;
@@ -119,24 +121,24 @@ library LibVerify {
             if (_tran.proofTiming == I.ProofTiming.InProvingWindow) {
                 // All liveness bond is returned to the prover, this is not a reward
                 return _isFirstTransition
-                    ? _tran.livenessBond + _tran.provabilityBond
-                    : _tran.livenessBond;
+                    ? _tran.bondConfig.livenessBond + _tran.bondConfig.provabilityBond
+                    : _tran.bondConfig.livenessBond;
             }
 
             if (_tran.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
                 // Prover is rewarded with bondRewardPtcg% of the liveness bond
-                uint16 amount = (_tran.livenessBond * _conf.bondRewardPtcg) / 100;
-                return _isFirstTransition ? amount + _tran.provabilityBond : amount;
+                uint16 amount = (_tran.bondConfig.livenessBond * _conf.bondRewardPtcg) / 100;
+                return _isFirstTransition ? amount + _tran.bondConfig.provabilityBond : amount;
             }
 
             if (_tran.byAssignedProver) {
                 // The assigned prover gets back his liveness bond, and 100% provability
                 // bond. This allows him to use a higher gas price to submit his proof first
-                return _tran.provabilityBond;
+                return _tran.bondConfig.provabilityBond;
             }
 
             // Other provers get bondRewardPtcg% of the provability bond
-            return (_tran.provabilityBond * _conf.bondRewardPtcg) / 100;
+            return (_tran.bondConfig.provabilityBond * _conf.bondRewardPtcg) / 100;
         }
     }
 

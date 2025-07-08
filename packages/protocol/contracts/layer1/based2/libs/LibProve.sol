@@ -20,6 +20,7 @@ import "./LibState.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProve {
     using LibMath for uint256;
+    using LibData for uint16;
 
     // -------------------------------------------------------------------------
     // Internal Functions
@@ -112,9 +113,7 @@ library LibProve {
             createdAt: uint48(block.timestamp),
             byAssignedProver: msg.sender == _input.proveMeta.prover,
             lastBlockId: _input.proveMeta.lastBlockId,
-            provabilityBond: _input.proveMeta.provabilityBond,
-            livenessBond: _input.proveMeta.livenessBond,
-            bondDecimals: _input.proveMeta.bondDecimals
+            bondConfig: _input.proveMeta.bondConfig
         });
 
         bool isFirstTransition = _rw.saveTransition(
@@ -125,8 +124,19 @@ library LibProve {
             isFirstTransition && tranMeta.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
                 && msg.sender != _input.proveMeta.proposer
         ) {
-            _rw.debitBond(_conf, msg.sender, _input.proveMeta.provabilityBond);
-            _rw.creditBond(_input.proveMeta.proposer, _input.proveMeta.provabilityBond);
+            _rw.debitBond(
+                _conf,
+                msg.sender,
+                _input.proveMeta.bondConfig.provabilityBond.bondToWei(
+                    _input.proveMeta.bondConfig.bondDecimals
+                )
+            );
+            _rw.creditBond(
+                _input.proveMeta.proposer,
+                _input.proveMeta.bondConfig.provabilityBond.bondToWei(
+                    _input.proveMeta.bondConfig.bondDecimals
+                )
+            );
         }
 
         I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](1);
