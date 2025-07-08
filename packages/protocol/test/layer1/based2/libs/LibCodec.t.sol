@@ -30,8 +30,9 @@ contract LibCodecTest is Test {
             uint48(1000), // createdAt
             true, // byAssignedProver
             uint48(100), // lastBlockId
-            uint96(1 ether), // provabilityBond
-            uint96(2 ether) // livenessBond
+            uint16(123), // provabilityBond
+            uint16(456), // livenessBond
+            uint8(18) // bondDecimals
         );
 
         testMetas.push(meta);
@@ -55,8 +56,9 @@ contract LibCodecTest is Test {
                     uint48(i * 100), // createdAt
                     i % 2 == 0, // byAssignedProver
                     uint48(i * 10), // lastBlockId
-                    uint96(i * 0.1 ether), // provabilityBond
-                    uint96(i * 0.2 ether) // livenessBond
+                    uint16(i * 10), // provabilityBond
+                    uint16(i * 20), // livenessBond
+                    uint8(18) // bondDecimals
                 )
             );
         }
@@ -91,8 +93,9 @@ contract LibCodecTest is Test {
                     uint48(i),
                     false,
                     uint48(i),
-                    uint96(i),
-                    uint96(i)
+                    uint16(i),
+                    uint16(i),
+                    uint8(18) // bondDecimals
                 )
             );
         }
@@ -117,8 +120,9 @@ contract LibCodecTest is Test {
                     uint48(i),
                     false,
                     uint48(i),
-                    uint96(i),
-                    uint96(i)
+                    uint16(i),
+                    uint16(i),
+                    uint8(18) // bondDecimals
                 )
             );
         }
@@ -145,8 +149,9 @@ contract LibCodecTest is Test {
             uint48(123_456),
             true,
             uint48(999),
-            uint96(5 ether),
-            uint96(10 ether)
+            uint16(5000),
+            uint16(10000),
+            uint8(18) // bondDecimals
         );
 
         testMetas.push(originalMeta);
@@ -172,8 +177,9 @@ contract LibCodecTest is Test {
                     uint48(i * 1000),
                     i % 2 == 1,
                     uint48(i * 100),
-                    uint96(i * 1 ether),
-                    uint96(i * 2 ether)
+                    uint16(i * 1000),
+                    uint16(i * 2000),
+                    uint8(18) // bondDecimals
                 )
             );
         }
@@ -232,8 +238,9 @@ contract LibCodecTest is Test {
                 type(uint48).max,
                 true,
                 type(uint48).max,
-                type(uint96).max,
-                type(uint96).max
+                uint16(type(uint96).max),
+                uint16(type(uint96).max),
+                uint8(18) // bondDecimals
             )
         );
 
@@ -247,7 +254,8 @@ contract LibCodecTest is Test {
                 false,
                 0,
                 0,
-                0
+                0,
+                uint8(18) // bondDecimals
             )
         );
 
@@ -270,8 +278,8 @@ contract LibCodecTest is Test {
         uint48 createdAt,
         bool byAssignedProver,
         uint48 lastBlockId,
-        uint96 provabilityBond,
-        uint96 livenessBond
+        uint16 provabilityBond,
+        uint16 livenessBond
     )
         public
     {
@@ -288,7 +296,8 @@ contract LibCodecTest is Test {
             byAssignedProver,
             lastBlockId,
             provabilityBond,
-            livenessBond
+            livenessBond,
+            uint8(18) // bondDecimals
         );
 
         testMetas.push(meta);
@@ -328,8 +337,9 @@ contract LibCodecTest is Test {
                         uint48(j),
                         false,
                         uint48(j),
-                        uint96(j),
-                        uint96(j)
+                        uint16(j),
+                        uint16(j),
+                        uint8(18) // bondDecimals
                     )
                 );
             }
@@ -340,7 +350,7 @@ contract LibCodecTest is Test {
             uint256 gasUsed = gasBefore - gasleft();
 
             emit log_named_uint(
-                string.concat("Gas used for packing ", vm.toString(sizes[i]), " elements"), gasUsed
+                string(abi.encodePacked("Gas used for packing ", vm.toString(sizes[i]), " elements")), gasUsed
             );
         }
     }
