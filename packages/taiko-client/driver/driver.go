@@ -165,7 +165,10 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 				d.sequencerMultiAddrs = append(d.sequencerMultiAddrs, multiAddrs...)
 				// Call keepConnection() to connect to the latest multiaddr.
 				d.keepConnection()
+			} else {
+				log.Warn("Failed to fetch sequencer multiaddrs from preconfirmation whitelist", "error", err)
 			}
+
 			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
 				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
 					return err
