@@ -1078,6 +1078,11 @@ func (c *Client) GetPreconfWhitelistMultiAddrs(opts *bind.CallOpts) ([]core.Mult
 		}
 		multiaddr, err := multiaddr.NewMultiaddr(operator.MultiAddr)
 		if err != nil {
+			log.Warn("Failed to create multiaddr",
+				"operator", address.Hex(),
+				"address", operator.MultiAddr,
+				"err", err,
+			)
 			continue
 		}
 
