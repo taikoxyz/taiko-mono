@@ -269,7 +269,7 @@ interface IInbox {
     /// @notice Emitted when a batch is proved.
     /// @param batchId The ID of the proved batch.
     /// @param packedTranMeta The encoded transition metadata.
-    event Proved(uint256 indexed batchId, bytes[122] packedTranMeta);
+    event Proved(uint256 indexed batchId, bytes packedTranMeta);
 
     /// @notice Emitted when a batch is verified.
     /// @param uint48_batchId__uint48_blockId The ID of the verified batch and The ID of the last
@@ -287,7 +287,7 @@ interface IInbox {
         Summary memory _summary,
         Batch[] calldata _batches,
         BatchProposeMetadataEvidence memory _evidence,
-        bytes[122][] calldata _packedTrans
+        bytes calldata _packedTrans
     )
         external
         returns (Summary memory);

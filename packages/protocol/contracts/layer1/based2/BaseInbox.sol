@@ -52,7 +52,7 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         I.Summary memory _summary,
         I.Batch[] calldata _batches,
         I.BatchProposeMetadataEvidence memory _evidence,
-        bytes[122][] calldata _packedTrans
+        bytes calldata _packedTrans
     )
         external
         override(I, IPropose)
@@ -68,11 +68,7 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         _summary = LibPropose.propose(conf, rw, _summary, _batches, _evidence);
 
         // Verify batches
-        uint256 nTrans = _packedTrans.length;
-        I.TransitionMeta[] memory trans = new I.TransitionMeta[](nTrans);
-        for (uint256 i; i < nTrans; ++i) {
-            trans[i] = LibData.unpackTransitionMeta(_packedTrans[i]);
-        }
+        I.TransitionMeta[] memory trans = LibData.unpackTransitionMeta(_packedTrans);
         _summary = LibVerify.verify(conf, rw, _summary, trans);
 
         _saveSummaryHash(keccak256(abi.encode(_summary)));

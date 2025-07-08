@@ -127,7 +127,9 @@ library LibProve {
             _rw.creditBond(_input.proveMeta.proposer, _input.proveMeta.provabilityBond);
         }
 
-        emit I.Proved(_input.tran.batchId, LibData.packTransitionMeta(tranMeta));
+        I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](1);
+        tranMetas[0] = tranMeta;
+        emit I.Proved(_input.tran.batchId, LibData.packTransitionMeta(tranMetas));
 
         return keccak256(abi.encode(batchMetaHash, _input.tran));
     }

@@ -18,7 +18,7 @@ interface IPropose {
         I.Summary memory _summary,
         I.Batch[] calldata _batches,
         I.BatchProposeMetadataEvidence memory _evidence,
-        bytes[122][] calldata _packedTrans
+        bytes calldata _packedTrans
     )
         external
         returns (I.Summary memory);

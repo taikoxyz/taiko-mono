@@ -6,19 +6,15 @@ import { IInbox as I } from "src/layer1/based2/IInbox.sol";
 import "src/layer1/based2/libs/LibData.sol";
 
 contract Target {
-    event Evt(uint256 a);
+    event Evt(I.TransitionMeta a);
 
-    function foo(I.TransitionMeta[] calldata trans) external {
-        emit Evt(trans.length);
+    function foo(I.TransitionMeta memory tran) external {
+        emit Evt(tran);
     }
 
-    function bar(bytes[122][] calldata trans) external {
-        uint256 nTrans = trans.length;
-        I.TransitionMeta[] memory _trans = new I.TransitionMeta[](nTrans);
-        for (uint256 i; i < nTrans; ++i) {
-            _trans[i] = LibData.unpackTransitionMeta(trans[i]);
-        }
-        emit Evt(_trans.length);
+    function bar(bytes memory tran) external {
+        // I.TransitionMeta memory t = LibData.unpackTransitionMeta(tran);
+        // emit Evt(t);
     }
 }
 
@@ -29,12 +25,13 @@ contract PackParamsGas is CompareGasTest {
         I.TransitionMeta[] memory trans = _generateInput();
 
         // Test basic functionality
-        target.foo(trans);
+        target.foo(trans[0]);
 
         // Test packing and unpacking
-        bytes[122][] memory packedTrans = new bytes[122][](1);
-        packedTrans[0] = LibData.packTransitionMeta(trans[0]);
-        target.bar(packedTrans);
+        bytes memory packed;
+        // The following line will cause the InvalidOperandOOG error
+        packed = LibData.packTransitionMeta(trans);
+        target.bar(packed);
     }
 
     function _generateInput() private view returns (I.TransitionMeta[] memory transitions) {

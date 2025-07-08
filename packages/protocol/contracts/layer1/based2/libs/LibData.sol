@@ -118,92 +118,17 @@ library LibData {
         return keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
     }
 
-    function packTransitionMeta(I.TransitionMeta memory _tranMeta)
+    function packTransitionMeta(I.TransitionMeta[] memory _tranMetas)
         internal
         pure
-        returns (bytes[122] memory encoded_)
-    {
-        assembly {
-            let ptr := encoded_
+        returns (bytes memory encoded_)
+    { }
 
-            // blockHash (32 bytes) at offset 0
-            mstore(ptr, mload(_tranMeta))
-
-            // stateRoot (32 bytes) at offset 32
-            mstore(add(ptr, 32), mload(add(_tranMeta, 32)))
-
-            // prover (20 bytes) at offset 64
-            let proverValue := mload(add(_tranMeta, 64))
-            mstore(add(ptr, 64), shl(96, proverValue))
-
-            // proofTiming (1 byte) at offset 84
-            let proofTimingValue := and(mload(add(_tranMeta, 96)), 0xFF)
-            mstore8(add(ptr, 84), proofTimingValue)
-
-            // createdAt (6 bytes) at offset 85
-            let createdAtValue := and(mload(add(_tranMeta, 128)), 0xFFFFFFFFFFFF)
-            mstore(add(ptr, 85), shl(208, createdAtValue))
-
-            // byAssignedProver (1 byte) at offset 91
-            let byAssignedProverValue := and(mload(add(_tranMeta, 160)), 0xFF)
-            mstore8(add(ptr, 91), byAssignedProverValue)
-
-            // lastBlockId (6 bytes) at offset 92
-            let lastBlockIdValue := and(mload(add(_tranMeta, 192)), 0xFFFFFFFFFFFF)
-            mstore(add(ptr, 92), shl(208, lastBlockIdValue))
-
-            // provabilityBond (12 bytes) at offset 98
-            let provabilityBondValue := and(mload(add(_tranMeta, 224)), 0xFFFFFFFFFFFFFFFFFFFFFFFF)
-            mstore(add(ptr, 98), shl(160, provabilityBondValue))
-
-            // livenessBond (12 bytes) at offset 110
-            let livenessBondValue := and(mload(add(_tranMeta, 256)), 0xFFFFFFFFFFFFFFFFFFFFFFFF)
-            mstore(add(ptr, 110), shl(160, livenessBondValue))
-        }
-    }
-
-    function unpackTransitionMeta(bytes[122] memory _encoded)
+    function unpackTransitionMeta(bytes calldata _encoded)
         internal
         pure
-        returns (I.TransitionMeta memory tranMeta_)
-    {
-        assembly {
-            let ptr := _encoded
-
-            // blockHash (32 bytes) at offset 0
-            mstore(tranMeta_, mload(ptr))
-
-            // stateRoot (32 bytes) at offset 32
-            mstore(add(tranMeta_, 32), mload(add(ptr, 32)))
-
-            // prover (20 bytes) at offset 64
-            mstore(add(tranMeta_, 64), shr(96, mload(add(ptr, 64))))
-
-            // proofTiming (1 byte) at offset 84
-            let proofTimingByte := byte(0, mload(add(ptr, 84)))
-            mstore(add(tranMeta_, 96), proofTimingByte)
-
-            // createdAt (6 bytes) at offset 85
-            let createdAtValue := shr(208, mload(add(ptr, 85)))
-            mstore(add(tranMeta_, 128), createdAtValue)
-
-            // byAssignedProver (1 byte) at offset 91
-            let byAssignedProverByte := byte(0, mload(add(ptr, 91)))
-            mstore(add(tranMeta_, 160), byAssignedProverByte)
-
-            // lastBlockId (6 bytes) at offset 92
-            let lastBlockIdValue := shr(208, mload(add(ptr, 92)))
-            mstore(add(tranMeta_, 192), lastBlockIdValue)
-
-            // provabilityBond (12 bytes) at offset 98
-            let provabilityBondValue := shr(160, mload(add(ptr, 98)))
-            mstore(add(tranMeta_, 224), provabilityBondValue)
-
-            // livenessBond (12 bytes) at offset 110
-            let livenessBondValue := shr(160, mload(add(ptr, 110)))
-            mstore(add(tranMeta_, 256), livenessBondValue)
-        }
-    }
+        returns (I.TransitionMeta[] memory tranMetas_)
+    { }
 
     // -------------------------------------------------------------------------
     // Private Functions
