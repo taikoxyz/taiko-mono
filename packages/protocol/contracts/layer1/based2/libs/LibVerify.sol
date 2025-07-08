@@ -18,6 +18,8 @@ import "./LibState.sol";
 library LibVerify {
     using LibMath for uint256;
 
+    uint256 private constant ONE_GWEI = 1 gwei;
+
     // -------------------------------------------------------------------------
     // Internal Functions
     // -------------------------------------------------------------------------
@@ -68,7 +70,8 @@ library LibVerify {
                     break;
                 }
 
-                uint96 bondToProver = _calcBondToProver(_conf, _trans[i], isFirstTransition);
+                uint96 bondToProver =
+                    _calcBondToProver(_conf, _trans[i], isFirstTransition) * ONE_GWEI;
                 _rw.creditBond(_trans[i].prover, bondToProver);
 
                 if (batchId % _conf.stateRootSyncInternal == 0) {
@@ -111,7 +114,7 @@ library LibVerify {
     )
         private
         pure
-        returns (uint96)
+        returns (uint48)
     {
         unchecked {
             if (_tran.proofTiming == I.ProofTiming.InProvingWindow) {
@@ -123,7 +126,7 @@ library LibVerify {
 
             if (_tran.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
                 // Prover is rewarded with bondRewardPtcg% of the liveness bond
-                uint96 amount = (_tran.livenessBond * _conf.bondRewardPtcg) / 100;
+                uint48 amount = (_tran.livenessBond * _conf.bondRewardPtcg) / 100;
                 return _isFirstTransition ? amount + _tran.provabilityBond : amount;
             }
 

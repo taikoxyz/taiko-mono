@@ -17,6 +17,8 @@ import "./LibState.sol";
 library LibProvers {
     using SignatureChecker for address;
 
+    uint256 private constant ONE_GWEI = 1 gwei;
+
     // -------------------------------------------------------------------------
     // Internal Functions
     // -------------------------------------------------------------------------
@@ -44,7 +46,9 @@ library LibProvers {
         unchecked {
             if (_batch.proverAuth.length == 0) {
                 require(_batch.prover == _batch.proposer, InvalidProver());
-                _rw.debitBond(_conf, _batch.prover, _conf.livenessBond + _conf.provabilityBond);
+                _rw.debitBond(
+                    _conf, _batch.prover, (_conf.livenessBond + _conf.provabilityBond) * ONE_GWEI
+                );
             } else {
                 // Circular dependency so zero it out. (Batch has proverAuth but
                 // proverAuth has also batchHash)
@@ -52,29 +56,31 @@ library LibProvers {
 
                 // Outsource the prover authentication to the LibAuth library to
                 // reduce this contract's code size.
-                (address prover, address feeToken, uint96 fee) = _validateProverAuth(
+                (address prover, address feeToken, uint256 fee) = _validateProverAuth(
                     _conf.chainId, _summary.numBatches, keccak256(abi.encode(_batch)), _proverAuth
                 );
                 require(prover != _batch.prover, InvalidProver());
 
                 if (feeToken == _conf.bondToken) {
                     // proposer pay the prover fee with bond tokens
-                    _rw.debitBond(_conf, _batch.proposer, fee + _conf.provabilityBond);
+                    _rw.debitBond(_conf, _batch.proposer, fee + _conf.provabilityBond * ONE_GWEI);
 
                     // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                     // if not then add the diff to the bond balance
-                    int256 bondDelta = int96(fee) - int96(_conf.livenessBond);
+                    int256 bondDelta = int256(fee) - int256(ONE_GWEI * _conf.livenessBond);
 
                     bondDelta < 0
                         ? _rw.debitBond(_conf, prover, uint256(-bondDelta))
                         : _rw.creditBond(prover, uint256(bondDelta));
                 } else if (prover == _batch.proposer) {
                     _rw.debitBond(
-                        _conf, _batch.proposer, _conf.livenessBond + _conf.provabilityBond
+                        _conf,
+                        _batch.proposer,
+                        (_conf.livenessBond + _conf.provabilityBond) * ONE_GWEI
                     );
                 } else {
-                    _rw.debitBond(_conf, _batch.proposer, _conf.provabilityBond);
-                    _rw.debitBond(_conf, prover, _conf.livenessBond);
+                    _rw.debitBond(_conf, _batch.proposer, _conf.provabilityBond * ONE_GWEI);
+                    _rw.debitBond(_conf, prover, _conf.livenessBond * ONE_GWEI);
 
                     if (fee != 0) {
                         _rw.transferFee(feeToken, _batch.proposer, prover, fee);
@@ -110,7 +116,7 @@ library LibProvers {
     )
         private
         view
-        returns (address prover, address feeToken_, uint96 fee_)
+        returns (address prover, address feeToken_, uint256 fee_)
     {
         I.ProverAuth memory auth = abi.decode(_proverAuth, (I.ProverAuth));
 

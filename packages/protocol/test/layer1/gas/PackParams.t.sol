@@ -53,20 +53,20 @@ contract PackParamsGas is CompareGasTest {
             createdAt: uint48(block.timestamp),
             byAssignedProver: true,
             lastBlockId: 1001,
-            provabilityBond: 1_000_000_000_000_000_000,
-            livenessBond: 500_000_000_000_000_000
+            provabilityBond: 1000,
+            livenessBond: 50_000
         });
 
         transitions[1] = I.TransitionMeta({
-            blockHash: keccak256(abi.encodePacked("blockHash2")),   
+            blockHash: keccak256(abi.encodePacked("blockHash2")),
             stateRoot: 0x1234561234561234561234561234561234561234561234561234561234561234,
             prover: address(123),
             proofTiming: I.ProofTiming.OutOfExtendedProvingWindow,
             createdAt: uint48(block.timestamp),
             byAssignedProver: false,
             lastBlockId: 1002,
-            provabilityBond: 2_000_000_000_000_000_000,
-            livenessBond: 1_000_000_000_000_000_000
+            provabilityBond: 200,
+            livenessBond: 10_000
         });
 
         transitions[2] = I.TransitionMeta({
@@ -77,8 +77,8 @@ contract PackParamsGas is CompareGasTest {
             createdAt: uint48(block.timestamp),
             byAssignedProver: true,
             lastBlockId: 1003,
-            provabilityBond: 3_000_000_000_000_000_000,
-            livenessBond: 1_500_000_000_000_000_000
+            provabilityBond: 3000,
+            livenessBond: 150_000
         });
     }
 }

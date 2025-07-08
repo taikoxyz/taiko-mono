@@ -73,8 +73,8 @@ interface IInbox {
         /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         LibSharedData.BaseFeeConfig baseFeeConfig;
-        uint96 livenessBond;
-        uint96 provabilityBond;
+        uint48 livenessBond;
+        uint48 provabilityBond;
     }
 
     struct ProverAuth {
@@ -116,8 +116,8 @@ interface IInbox {
         uint48 proposedAt;
         uint48 firstBlockId;
         uint48 lastBlockId;
-        uint96 livenessBond;
-        uint96 provabilityBond;
+        uint48 livenessBond;
+        uint48 provabilityBond;
     }
 
     struct BatchMetadata {
@@ -163,8 +163,8 @@ interface IInbox {
         uint48 createdAt; // 6 bytes
         bool byAssignedProver; // 1 byte
         uint48 lastBlockId; // 6 bytes
-        uint96 provabilityBond; // 12 bytes
-        uint96 livenessBond; // 12 bytes
+        uint48 provabilityBond; // 12 bytes
+        uint48 livenessBond; // 12 bytes
     }
 
     //  @notice Struct representing transition storage
@@ -208,9 +208,9 @@ interface IInbox {
         /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         /// @notice The amount of Taiko token as a prover liveness bond per batch.
-        uint96 livenessBond;
+        uint48 livenessBond;
         /// @notice The amount of Taiko token as a proposer's provability bond per batch.
-        uint96 provabilityBond;
+        uint48 provabilityBond;
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.
