@@ -18,8 +18,6 @@ import "./LibState.sol";
 library LibVerify {
     using LibMath for uint256;
 
-    uint256 private constant ONE_GWEI = 1 gwei;
-
     // -------------------------------------------------------------------------
     // Internal Functions
     // -------------------------------------------------------------------------
@@ -70,9 +68,8 @@ library LibVerify {
                     break;
                 }
 
-                uint256 bondToProver =
-                    _calcBondToProver(_conf, _trans[i], isFirstTransition) * ONE_GWEI;
-                _rw.creditBond(_trans[i].prover, bondToProver);
+                uint256 bondToProver = _calcBondToProver(_conf, _trans[i], isFirstTransition);
+                _rw.creditBond(_trans[i].prover, bondToProver * 1 gwei);
 
                 if (batchId % _conf.stateRootSyncInternal == 0) {
                     lastSyncedBatchId = batchId;

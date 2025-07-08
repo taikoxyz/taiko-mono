@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import { IInbox as I } from "../IInbox.sol";
 import "./LibState.sol";
 
-/// @title LibProvers
+/// @title LibProver
 /// @notice Library for prover authentication and comprehensive bond management in Taiko protocol
 /// @dev Handles prover validation and complex bond/fee scenarios including:
 ///      - Prover authentication signature validation with digest verification
@@ -14,10 +14,8 @@ import "./LibState.sol";
 ///      - Fee token transfers between proposers and provers
 ///      - Authentication parameter validation (addresses, timing, batch constraints)
 /// @custom:security-contact security@taiko.xyz
-library LibProvers {
+library LibProver {
     using SignatureChecker for address;
-
-    uint256 private constant ONE_GWEI = 1 gwei;
 
     // -------------------------------------------------------------------------
     // Internal Functions
@@ -43,12 +41,13 @@ library LibProvers {
     )
         internal
     {
+        uint256 livenessBond = uint256(_conf.livenessBond) * 1 gwei;
+        uint256 provabilityBond = uint256(_conf.provabilityBond) * 1 gwei;
+
         unchecked {
             if (_batch.proverAuth.length == 0) {
                 require(_batch.prover == _batch.proposer, InvalidProver());
-                _rw.debitBond(
-                    _conf, _batch.prover, (_conf.livenessBond + _conf.provabilityBond) * ONE_GWEI
-                );
+                _rw.debitBond(_conf, _batch.prover, livenessBond + provabilityBond);
             } else {
                 // Circular dependency so zero it out. (Batch has proverAuth but
                 // proverAuth has also batchHash)
@@ -63,24 +62,20 @@ library LibProvers {
 
                 if (feeToken == _conf.bondToken) {
                     // proposer pay the prover fee with bond tokens
-                    _rw.debitBond(_conf, _batch.proposer, fee + _conf.provabilityBond * ONE_GWEI);
+                    _rw.debitBond(_conf, _batch.proposer, fee + provabilityBond);
 
                     // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                     // if not then add the diff to the bond balance
-                    int256 bondDelta = int256(fee) - int256(ONE_GWEI * _conf.livenessBond);
+                    int256 bondDelta = int256(fee) - int256(livenessBond);
 
                     bondDelta < 0
                         ? _rw.debitBond(_conf, prover, uint256(-bondDelta))
                         : _rw.creditBond(prover, uint256(bondDelta));
                 } else if (prover == _batch.proposer) {
-                    _rw.debitBond(
-                        _conf,
-                        _batch.proposer,
-                        (_conf.livenessBond + _conf.provabilityBond) * ONE_GWEI
-                    );
+                    _rw.debitBond(_conf, _batch.proposer, livenessBond + provabilityBond);
                 } else {
-                    _rw.debitBond(_conf, _batch.proposer, _conf.provabilityBond * ONE_GWEI);
-                    _rw.debitBond(_conf, prover, _conf.livenessBond * ONE_GWEI);
+                    _rw.debitBond(_conf, _batch.proposer, provabilityBond);
+                    _rw.debitBond(_conf, prover, livenessBond);
 
                     if (fee != 0) {
                         _rw.transferFee(feeToken, _batch.proposer, prover, fee);

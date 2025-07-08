@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { IInbox as I } from "../IInbox.sol";
 import "./LibValidate.sol";
 import "./LibData.sol";
-import "./LibProvers.sol";
+import "./LibProver.sol";
 
 /// @title LibPropose
 /// @notice Library for processing batch proposals and metadata generation in Taiko protocol
@@ -87,7 +87,7 @@ library LibPropose {
         // Validate the batch parameters and return batch and batch context data
         I.BatchContext memory context = LibValidate.validate(_conf, _rw, _batch, _parent);
 
-        LibProvers.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
+        LibProver.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
 
         meta_ = LibData.buildBatchMetadata(
             uint48(block.number), uint48(block.timestamp), _batch, context
