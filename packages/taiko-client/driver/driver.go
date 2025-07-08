@@ -160,6 +160,8 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.sequencerMultiAddrs = make([]core.Multiaddr, 0)
 			multiAddrs, err := d.rpc.GetPreconfWhitelistMultiAddrs(nil)
 			if err == nil && len(multiAddrs) > 0 {
+				log.Info("Fetched sequencer multiaddrs from preconfirmation whitelist", "multiAddrs", multiAddrs)
+
 				d.sequencerMultiAddrs = append(d.sequencerMultiAddrs, multiAddrs...)
 				// Call keepConnection() to connect to the latest multiaddr.
 				d.keepConnection()
