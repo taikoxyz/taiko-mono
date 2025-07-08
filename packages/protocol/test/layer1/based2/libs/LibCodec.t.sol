@@ -30,8 +30,8 @@ contract LibCodecTest is Test {
             uint48(1000), // createdAt
             true, // byAssignedProver
             uint48(100), // lastBlockId
-            uint96(1 ether), // provabilityBond
-            uint96(2 ether) // livenessBond
+            uint48(19_291), // provabilityBond
+            uint48(99_818) // livenessBond
         );
 
         testMetas.push(meta);
@@ -55,8 +55,8 @@ contract LibCodecTest is Test {
                     uint48(i * 100), // createdAt
                     i % 2 == 0, // byAssignedProver
                     uint48(i * 10), // lastBlockId
-                    uint96(i * 0.1 ether), // provabilityBond
-                    uint96(i * 0.2 ether) // livenessBond
+                    uint48(i * 0.1 ether), // provabilityBond
+                    uint48(i * 0.2 ether) // livenessBond
                 )
             );
         }
@@ -66,7 +66,7 @@ contract LibCodecTest is Test {
 
         // Verify each packed meta
         for (uint256 i = 0; i < 3; i++) {
-            _verifyPackedMeta(packed, i * 121, testMetas[i]);
+            _verifyPackedMeta(packed, i * 109, testMetas[i]);
         }
     }
 
@@ -91,8 +91,8 @@ contract LibCodecTest is Test {
                     uint48(i),
                     false,
                     uint48(i),
-                    uint96(i),
-                    uint96(i)
+                    uint48(i),
+                    uint48(i)
                 )
             );
         }
@@ -117,8 +117,8 @@ contract LibCodecTest is Test {
                     uint48(i),
                     false,
                     uint48(i),
-                    uint96(i),
-                    uint96(i)
+                    uint48(i),
+                    uint48(i)
                 )
             );
         }
@@ -145,8 +145,8 @@ contract LibCodecTest is Test {
             uint48(123_456),
             true,
             uint48(999),
-            uint96(5 ether),
-            uint96(10 ether)
+            uint48(2222),
+            uint48(5555)
         );
 
         testMetas.push(originalMeta);
@@ -172,8 +172,8 @@ contract LibCodecTest is Test {
                     uint48(i * 1000),
                     i % 2 == 1,
                     uint48(i * 100),
-                    uint96(i * 1 ether),
-                    uint96(i * 2 ether)
+                    uint48(i * 1 ether),
+                    uint48(i * 2 ether)
                 )
             );
         }
@@ -211,7 +211,7 @@ contract LibCodecTest is Test {
 
     function test_unpackTransitionMetas_revertInvalidDataLength() public {
         // Create invalid packed data (wrong length)
-        bytes memory invalidPacked = new bytes(100); // Not n*121
+        bytes memory invalidPacked = new bytes(100); // Not n*109
 
         vm.expectRevert(LibCodec.InvalidDataLength.selector);
         _unpackTransitionMetas(invalidPacked);
@@ -232,8 +232,8 @@ contract LibCodecTest is Test {
                 type(uint48).max,
                 true,
                 type(uint48).max,
-                type(uint96).max,
-                type(uint96).max
+                type(uint48).max,
+                type(uint48).max
             )
         );
 
@@ -270,8 +270,8 @@ contract LibCodecTest is Test {
         uint48 createdAt,
         bool byAssignedProver,
         uint48 lastBlockId,
-        uint96 provabilityBond,
-        uint96 livenessBond
+        uint48 provabilityBond,
+        uint48 livenessBond
     )
         public
     {
@@ -328,8 +328,8 @@ contract LibCodecTest is Test {
                         uint48(j),
                         false,
                         uint48(j),
-                        uint96(j),
-                        uint96(j)
+                        uint48(j),
+                        uint48(j)
                     )
                 );
             }
@@ -365,8 +365,8 @@ contract LibCodecTest is Test {
         uint48 createdAt,
         bool byAssignedProver,
         uint48 lastBlockId,
-        uint96 provabilityBond,
-        uint96 livenessBond
+        uint48 provabilityBond,
+        uint48 livenessBond
     )
         private
         pure
@@ -404,8 +404,8 @@ contract LibCodecTest is Test {
         pure
     {
         // Extract single meta from packed data
-        bytes memory singleMetaPacked = new bytes(121);
-        for (uint256 i = 0; i < 121; i++) {
+        bytes memory singleMetaPacked = new bytes(109);
+        for (uint256 i = 0; i < 109; i++) {
             singleMetaPacked[i] = packed[offset + i];
         }
 

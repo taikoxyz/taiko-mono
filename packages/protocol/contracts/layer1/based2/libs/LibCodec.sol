@@ -9,7 +9,7 @@ import { IInbox as I } from "../IInbox.sol";
 /// costs.
 /// @dev This library provides functions to pack and unpack arrays of TransitionMeta structs
 /// into/from
-/// tightly packed byte arrays. Each TransitionMeta is packed into exactly 122 bytes to minimize
+/// tightly packed byte arrays. Each TransitionMeta is packed into exactly 109 bytes to minimize
 /// storage costs while maintaining data integrity.
 library LibCodec {
     // -------------------------------------------------------------------------
@@ -17,7 +17,7 @@ library LibCodec {
     // -------------------------------------------------------------------------
 
     /// @notice Packs an array of TransitionMeta structs into a tightly packed byte array.
-    /// @dev The packed format uses exactly 121 bytes per TransitionMeta:
+    /// @dev The packed format uses exactly 109 bytes per TransitionMeta:
     /// - blockHash: 32 bytes
     /// - stateRoot: 32 bytes
     /// - prover: 20 bytes (address)
@@ -25,9 +25,9 @@ library LibCodec {
     /// byAssignedProver)
     /// - createdAt: 6 bytes (uint48)
     /// - lastBlockId: 6 bytes (uint48)
-    /// - provabilityBond: 12 bytes (uint96)
-    /// - livenessBond: 12 bytes (uint96)
-    /// Total: 121 bytes per TransitionMeta
+    /// - provabilityBond: 6 bytes (uint48)
+    /// - livenessBond: 6 bytes (uint48)
+    /// Total: 109 bytes per TransitionMeta
     /// @param _tranMetas Array of TransitionMeta structs to pack
     /// @return encoded_ The packed byte array
     function packTransitionMetas(I.TransitionMeta[] memory _tranMetas)
@@ -37,8 +37,8 @@ library LibCodec {
     {
         uint256 length = _tranMetas.length;
 
-        // Each TransitionMeta takes 121 bytes when packed
-        encoded_ = new bytes(length * 121);
+        // Each TransitionMeta takes 109 bytes when packed
+        encoded_ = new bytes(length * 109);
 
         uint256 offset;
         for (uint256 i; i < length; ++i) {
@@ -77,23 +77,23 @@ library LibCodec {
                 mstore(ptr, shl(208, lastBlockId))
                 ptr := add(ptr, 6)
 
-                // provabilityBond (12 bytes) - store in lower 12 bytes
+                // provabilityBond (6 bytes) - store in lower 6 bytes
                 let provabilityBond := mload(add(meta, 0xe0))
-                mstore(ptr, shl(160, provabilityBond))
-                ptr := add(ptr, 12)
+                mstore(ptr, shl(208, provabilityBond))
+                ptr := add(ptr, 6)
 
-                // livenessBond (12 bytes) - store in lower 12 bytes
+                // livenessBond (6 bytes) - store in lower 6 bytes
                 let livenessBond := mload(add(meta, 0x100))
-                mstore(ptr, shl(160, livenessBond))
+                mstore(ptr, shl(208, livenessBond))
             }
 
-            offset += 121;
+            offset += 109;
         }
     }
 
     /// @notice Unpacks a byte array back into an array of TransitionMeta structs.
     /// @dev Reverses the packing performed by packTransitionMetas. The input must be
-    /// a multiple of 121 bytes, with each 121-byte segment representing one TransitionMeta.
+    /// a multiple of 109 bytes, with each 109-byte segment representing one TransitionMeta.
     /// @param _encoded The packed byte array to unpack
     /// @return tranMetas_ Array of unpacked TransitionMeta structs
     function unpackTransitionMetas(bytes memory _encoded)
@@ -101,10 +101,10 @@ library LibCodec {
         pure
         returns (I.TransitionMeta[] memory tranMetas_)
     {
-        require(_encoded.length % 121 == 0, InvalidDataLength());
+        require(_encoded.length % 109 == 0, InvalidDataLength());
 
         // Calculate length from encoded data size
-        uint256 length = _encoded.length / 121;
+        uint256 length = _encoded.length / 109;
 
         tranMetas_ = new I.TransitionMeta[](length);
 
@@ -141,20 +141,20 @@ library LibCodec {
                 let lastBlockIdData := mload(add(dataOffset, 91))
                 mstore(add(meta, 0xc0), shr(208, lastBlockIdData))
 
-                // provabilityBond (12 bytes) - stored as uint96
+                // provabilityBond (6 bytes) - stored as uint48
                 let provabilityBondData := mload(add(dataOffset, 97))
-                mstore(add(meta, 0xe0), shr(160, provabilityBondData))
+                mstore(add(meta, 0xe0), shr(208, provabilityBondData))
 
-                // livenessBond (12 bytes) - stored as uint96
-                let livenessBondData := mload(add(dataOffset, 109))
-                mstore(add(meta, 0x100), shr(160, livenessBondData))
+                // livenessBond (6 bytes) - stored as uint48
+                let livenessBondData := mload(add(dataOffset, 103))
+                mstore(add(meta, 0x100), shr(208, livenessBondData))
 
                 // Update free memory pointer
                 mstore(0x40, add(meta, 0x120))
             }
 
             tranMetas_[i] = meta;
-            offset += 121;
+            offset += 109;
         }
     }
 

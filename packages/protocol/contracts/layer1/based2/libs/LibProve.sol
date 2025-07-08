@@ -21,6 +21,8 @@ import "./LibState.sol";
 library LibProve {
     using LibMath for uint256;
 
+    uint256 private constant ONE_GWEI = 1 gwei;
+
     // -------------------------------------------------------------------------
     // Internal Functions
     // -------------------------------------------------------------------------
@@ -124,8 +126,8 @@ library LibProve {
             isFirstTransition && tranMeta.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
                 && msg.sender != _input.proveMeta.proposer
         ) {
-            _rw.debitBond(_conf, msg.sender, _input.proveMeta.provabilityBond);
-            _rw.creditBond(_input.proveMeta.proposer, _input.proveMeta.provabilityBond);
+            _rw.debitBond(_conf, msg.sender, _input.proveMeta.provabilityBond * ONE_GWEI);
+            _rw.creditBond(_input.proveMeta.proposer, _input.proveMeta.provabilityBond * ONE_GWEI);
         }
 
         I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](1);
