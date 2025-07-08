@@ -66,7 +66,7 @@ contract LibCodecTest is Test {
 
         // Verify each packed meta
         for (uint256 i = 0; i < 3; i++) {
-            _verifyPackedMeta(packed, i * 121, testMetas[i]);
+            _verifyPackedMeta(packed, i * 109, testMetas[i]);
         }
     }
 
@@ -211,7 +211,7 @@ contract LibCodecTest is Test {
 
     function test_unpackTransitionMetas_revertInvalidDataLength() public {
         // Create invalid packed data (wrong length)
-        bytes memory invalidPacked = new bytes(100); // Not n*121
+        bytes memory invalidPacked = new bytes(100); // Not n*109
 
         vm.expectRevert(LibCodec.InvalidDataLength.selector);
         _unpackTransitionMetas(invalidPacked);
@@ -404,8 +404,8 @@ contract LibCodecTest is Test {
         pure
     {
         // Extract single meta from packed data
-        bytes memory singleMetaPacked = new bytes(121);
-        for (uint256 i = 0; i < 121; i++) {
+        bytes memory singleMetaPacked = new bytes(109);
+        for (uint256 i = 0; i < 109; i++) {
             singleMetaPacked[i] = packed[offset + i];
         }
 

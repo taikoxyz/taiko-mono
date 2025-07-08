@@ -70,7 +70,7 @@ library LibVerify {
                     break;
                 }
 
-                uint96 bondToProver =
+                uint256 bondToProver =
                     _calcBondToProver(_conf, _trans[i], isFirstTransition) * ONE_GWEI;
                 _rw.creditBond(_trans[i].prover, bondToProver);
 

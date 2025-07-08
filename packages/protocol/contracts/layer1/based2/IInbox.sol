@@ -154,7 +154,7 @@ interface IInbox {
         InExtendedProvingWindow
     }
 
-    // This struct takes 122 bytes if packed
+    // This struct takes 109 bytes if packed
     struct TransitionMeta {
         bytes32 blockHash; // 32 bytes
         bytes32 stateRoot; // 32 bytes
