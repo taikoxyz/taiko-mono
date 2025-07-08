@@ -157,7 +157,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 			// fetch and append the multiAddrs frm the contracts, add them into sequencerMultiAddrs.
 			// allow this call to fail.
-			d.sequencerMultiAddrs = make([]core.Multiaddr, 3)
+			d.sequencerMultiAddrs = make([]core.Multiaddr, 0)
 			multiAddrs, err := d.rpc.GetPreconfWhitelistMultiAddrs(nil)
 			if err == nil && len(multiAddrs) > 0 {
 				d.sequencerMultiAddrs = append(d.sequencerMultiAddrs, multiAddrs...)
