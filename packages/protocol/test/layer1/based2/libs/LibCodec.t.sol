@@ -365,8 +365,9 @@ contract LibCodecTest is Test {
         uint48 createdAt,
         bool byAssignedProver,
         uint48 lastBlockId,
-        uint96 provabilityBond,
-        uint96 livenessBond
+        uint16 provabilityBond,
+        uint16 livenessBond,
+        uint8 bondDecimals
     )
         private
         pure
@@ -381,7 +382,8 @@ contract LibCodecTest is Test {
             byAssignedProver: byAssignedProver,
             lastBlockId: lastBlockId,
             provabilityBond: provabilityBond,
-            livenessBond: livenessBond
+            livenessBond: livenessBond,
+            bondDecimals: bondDecimals
         });
     }
 

@@ -71,6 +71,7 @@ library LibValidate {
         context_.baseFeeConfig = _conf.baseFeeConfig;
         context_.livenessBond = _conf.livenessBond;
         context_.provabilityBond = _conf.provabilityBond;
+        context_.bondDecimals = _conf.bondDecimals;
     }
 
     // -------------------------------------------------------------------------

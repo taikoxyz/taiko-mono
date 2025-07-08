@@ -113,7 +113,8 @@ library LibProve {
             byAssignedProver: msg.sender == _input.proveMeta.prover,
             lastBlockId: _input.proveMeta.lastBlockId,
             provabilityBond: _input.proveMeta.provabilityBond,
-            livenessBond: _input.proveMeta.livenessBond
+            livenessBond: _input.proveMeta.livenessBond,
+            bondDecimals: _input.proveMeta.bondDecimals
         });
 
         bool isFirstTransition = _rw.saveTransition(

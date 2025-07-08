@@ -53,8 +53,9 @@ contract PackParamsGas is CompareGasTest {
             createdAt: uint48(block.timestamp),
             byAssignedProver: true,
             lastBlockId: 1001,
-            provabilityBond: 1_000_000_000_000_000_000,
-            livenessBond: 500_000_000_000_000_000
+            provabilityBond: 1_000,
+            livenessBond: 500,
+            bondDecimals: 18
         });
 
         transitions[1] = I.TransitionMeta({
@@ -65,8 +66,9 @@ contract PackParamsGas is CompareGasTest {
             createdAt: uint48(block.timestamp),
             byAssignedProver: false,
             lastBlockId: 1002,
-            provabilityBond: 2_000_000_000_000_000_000,
-            livenessBond: 1_000_000_000_000_000_000
+            provabilityBond: 2_000,
+            livenessBond: 1_000,
+            bondDecimals: 18
         });
 
         transitions[2] = I.TransitionMeta({
@@ -77,8 +79,9 @@ contract PackParamsGas is CompareGasTest {
             createdAt: uint48(block.timestamp),
             byAssignedProver: true,
             lastBlockId: 1003,
-            provabilityBond: 3_000_000_000_000_000_000,
-            livenessBond: 1_500_000_000_000_000_000
+            provabilityBond: 3_0000,
+            livenessBond: 1_500,
+            bondDecimals: 18
         });
     }
 }

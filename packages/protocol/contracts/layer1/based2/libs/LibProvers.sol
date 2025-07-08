@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import { IInbox as I } from "../IInbox.sol";
 import "./LibState.sol";
+import "./LibData.sol";
 
 /// @title LibProvers
 /// @notice Library for prover authentication and comprehensive bond management in Taiko protocol
@@ -16,6 +17,7 @@ import "./LibState.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibProvers {
     using SignatureChecker for address;
+    using LibData for uint16;
 
     // -------------------------------------------------------------------------
     // Internal Functions
@@ -44,7 +46,7 @@ library LibProvers {
         unchecked {
             if (_batch.proverAuth.length == 0) {
                 require(_batch.prover == _batch.proposer, InvalidProver());
-                _rw.debitBond(_conf, _batch.prover, _conf.livenessBond + _conf.provabilityBond);
+                _rw.debitBond(_conf, _batch.prover, (_conf.livenessBond + _conf.provabilityBond).bondToWei(_conf.bondDecimals));
             } else {
                 // Circular dependency so zero it out. (Batch has proverAuth but
                 // proverAuth has also batchHash)
@@ -52,29 +54,29 @@ library LibProvers {
 
                 // Outsource the prover authentication to the LibAuth library to
                 // reduce this contract's code size.
-                (address prover, address feeToken, uint96 fee) = _validateProverAuth(
+                (address prover, address feeToken, uint fee) = _validateProverAuth(
                     _conf.chainId, _summary.numBatches, keccak256(abi.encode(_batch)), _proverAuth
                 );
                 require(prover != _batch.prover, InvalidProver());
 
                 if (feeToken == _conf.bondToken) {
                     // proposer pay the prover fee with bond tokens
-                    _rw.debitBond(_conf, _batch.proposer, fee + _conf.provabilityBond);
+                    _rw.debitBond(_conf, _batch.proposer, fee + _conf.provabilityBond.bondToWei(_conf.bondDecimals));
 
                     // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                     // if not then add the diff to the bond balance
-                    int256 bondDelta = int96(fee) - int96(_conf.livenessBond);
+                    int256 bondDelta = int256(fee) - int256(_conf.livenessBond.bondToWei(_conf.bondDecimals));
 
                     bondDelta < 0
                         ? _rw.debitBond(_conf, prover, uint256(-bondDelta))
                         : _rw.creditBond(prover, uint256(bondDelta));
                 } else if (prover == _batch.proposer) {
                     _rw.debitBond(
-                        _conf, _batch.proposer, _conf.livenessBond + _conf.provabilityBond
+                        _conf, _batch.proposer, (_conf.livenessBond + _conf.provabilityBond).bondToWei(_conf.bondDecimals)
                     );
                 } else {
-                    _rw.debitBond(_conf, _batch.proposer, _conf.provabilityBond);
-                    _rw.debitBond(_conf, prover, _conf.livenessBond);
+                    _rw.debitBond(_conf, _batch.proposer, _conf.provabilityBond.bondToWei(_conf.bondDecimals));
+                    _rw.debitBond(_conf, prover, _conf.livenessBond.bondToWei(_conf.bondDecimals));
 
                     if (fee != 0) {
                         _rw.transferFee(feeToken, _batch.proposer, prover, fee);
@@ -110,7 +112,7 @@ library LibProvers {
     )
         private
         view
-        returns (address prover, address feeToken_, uint96 fee_)
+        returns (address prover, address feeToken_, uint fee_)
     {
         I.ProverAuth memory auth = abi.decode(_proverAuth, (I.ProverAuth));
 

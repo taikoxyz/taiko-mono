@@ -5,6 +5,7 @@ import "src/shared/libs/LibMath.sol";
 import { IInbox as I } from "../IInbox.sol";
 import "./LibForks.sol";
 import "./LibState.sol";
+import "./LibData.sol";
 
 /// @title LibVerify
 /// @notice Library for batch verification and bond distribution in Taiko protocol
@@ -17,6 +18,7 @@ import "./LibState.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibVerify {
     using LibMath for uint256;
+    using LibData for uint16;
 
     // -------------------------------------------------------------------------
     // Internal Functions
@@ -68,8 +70,8 @@ library LibVerify {
                     break;
                 }
 
-                uint96 bondToProver = _calcBondToProver(_conf, _trans[i], isFirstTransition);
-                _rw.creditBond(_trans[i].prover, bondToProver);
+                uint16 bondToProver = _calcBondToProver(_conf, _trans[i], isFirstTransition);
+                _rw.creditBond(_trans[i].prover, bondToProver.bondToWei(_conf.bondDecimals));
 
                 if (batchId % _conf.stateRootSyncInternal == 0) {
                     lastSyncedBatchId = batchId;
@@ -111,7 +113,7 @@ library LibVerify {
     )
         private
         pure
-        returns (uint96)
+        returns (uint16)
     {
         unchecked {
             if (_tran.proofTiming == I.ProofTiming.InProvingWindow) {
@@ -123,7 +125,7 @@ library LibVerify {
 
             if (_tran.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
                 // Prover is rewarded with bondRewardPtcg% of the liveness bond
-                uint96 amount = (_tran.livenessBond * _conf.bondRewardPtcg) / 100;
+                uint16 amount = (_tran.livenessBond * _conf.bondRewardPtcg) / 100;
                 return _isFirstTransition ? amount + _tran.provabilityBond : amount;
             }
 

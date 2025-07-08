@@ -70,7 +70,8 @@ library LibData {
             firstBlockId: firstBlockId,
             lastBlockId: meta_.buildMeta.lastBlockId,
             livenessBond: _context.livenessBond,
-            provabilityBond: _context.provabilityBond
+            provabilityBond: _context.provabilityBond,
+            bondDecimals: _context.bondDecimals
         });
     }
 
@@ -116,6 +117,16 @@ library LibData {
         bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, _evidence.proveMetaHash));
 
         return keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
+    }
+
+
+    function bondToWei(uint16 _bondAmount, uint8 _bondDecimals)
+        internal
+        pure
+        returns (uint256)
+    {
+        // Convert bond amount to full units based on decimals
+        return uint256(_bondAmount) * (10 ** uint256(_bondDecimals));
     }
 
     // -------------------------------------------------------------------------
