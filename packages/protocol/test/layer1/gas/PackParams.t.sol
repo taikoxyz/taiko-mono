@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./CompareGasTest.sol";
 import { IInbox as I } from "src/layer1/based2/IInbox.sol";
-import "src/layer1/based2/libs/LibData.sol";
+import "src/layer1/based2/libs/LibCodec.sol";
 
 contract Target {
     event Evt(I.TransitionMeta a);
@@ -12,9 +12,9 @@ contract Target {
         emit Evt(tran);
     }
 
-    function bar(bytes memory tran) external {
-        // I.TransitionMeta memory t = LibData.unpackTransitionMeta(tran);
-        // emit Evt(t);
+    function bar(bytes calldata tran) external {
+        I.TransitionMeta[] memory t = LibCodec.unpackTransitionMetas(tran);
+        emit Evt(t[0]);
     }
 }
 
@@ -24,14 +24,22 @@ contract PackParamsGas is CompareGasTest {
     function test_PackParamsGas() external {
         I.TransitionMeta[] memory trans = _generateInput();
 
-        // Test basic functionality
+        // Measure gas for case 1
+        vm.startSnapshotGas("no packing");
         target.foo(trans[0]);
+        uint256 gasUsed1 = vm.stopSnapshotGas();
 
         // Test packing and unpacking
-        bytes memory packed;
-        // The following line will cause the InvalidOperandOOG error
-        packed = LibData.packTransitionMeta(trans);
+        bytes memory packed = LibCodec.packTransitionMetas(trans);
+
+        // Measure gas for case 2
+        vm.startSnapshotGas("packing");
         target.bar(packed);
+        uint256 gasUsed2 = vm.stopSnapshotGas();
+
+        // Log the gas used for comparison
+        emit log_named_uint("Gas used for case 1 (no packing):", gasUsed1);
+        emit log_named_uint("Gas used for case 2 (packing):", gasUsed2);
     }
 
     function _generateInput() private view returns (I.TransitionMeta[] memory transitions) {

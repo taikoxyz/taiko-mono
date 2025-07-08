@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInbox as I } from "../IInbox.sol";
 import "src/shared/libs/LibMath.sol";
+import "./LibCodec.sol";
 import "./LibData.sol";
 import "./LibForks.sol";
 import "./LibState.sol";
@@ -129,7 +130,7 @@ library LibProve {
 
         I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](1);
         tranMetas[0] = tranMeta;
-        emit I.Proved(_input.tran.batchId, LibData.packTransitionMeta(tranMetas));
+        emit I.Proved(_input.tran.batchId, LibCodec.packTransitionMetas(tranMetas));
 
         return keccak256(abi.encode(batchMetaHash, _input.tran));
     }

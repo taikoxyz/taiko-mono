@@ -118,18 +118,6 @@ library LibData {
         return keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
     }
 
-    function packTransitionMeta(I.TransitionMeta[] memory _tranMetas)
-        internal
-        pure
-        returns (bytes memory encoded_)
-    { }
-
-    function unpackTransitionMeta(bytes calldata _encoded)
-        internal
-        pure
-        returns (I.TransitionMeta[] memory tranMetas_)
-    { }
-
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------

@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
 import "src/layer1/verifiers/IVerifier.sol";
+import "./libs/LibCodec.sol";
 import "./libs/LibPropose.sol";
 import "./libs/LibProve.sol";
 import "./libs/LibVerify.sol";
@@ -68,7 +69,7 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         _summary = LibPropose.propose(conf, rw, _summary, _batches, _evidence);
 
         // Verify batches
-        I.TransitionMeta[] memory trans = LibData.unpackTransitionMeta(_packedTrans);
+        I.TransitionMeta[] memory trans = LibCodec.unpackTransitionMetas(_packedTrans);
         _summary = LibVerify.verify(conf, rw, _summary, trans);
 
         _saveSummaryHash(keccak256(abi.encode(_summary)));
