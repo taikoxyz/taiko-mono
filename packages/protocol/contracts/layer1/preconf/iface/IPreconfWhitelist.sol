@@ -6,8 +6,9 @@ pragma solidity ^0.8.24;
 interface IPreconfWhitelist {
     /// @notice Emitted when a new operator is added to the whitelist.
     /// @param operator The address of the operator that was added.
+    /// @param multiAddr The multiaddr of the operator driver p2p node.
     /// @param activeSince The timestamp when the operator became active.
-    event OperatorAdded(address indexed operator, string peerIp, uint256 activeSince);
+    event OperatorAdded(address indexed operator, string multiAddr, uint256 activeSince);
 
     /// @notice Emitted when an operator is removed from the whitelist.
     /// @param operator The address of the operator that was removed.
@@ -16,8 +17,8 @@ interface IPreconfWhitelist {
 
     /// @notice Emitted when an operator updates their peer IP address.
     /// @param operator The address of the operator that was removed.
-    /// @param peerIp The new peer ip.
-    event OperatorChangedPeerIp(address indexed operator, string peerIp);
+    /// @param multiAddr The new multiaddr.
+    event OperatorChangedMultiAddr(address indexed operator, string multiAddr);
 
     error InvalidOperatorIndex();
     error InvalidOperatorCount();
@@ -46,7 +47,7 @@ interface IPreconfWhitelist {
     /// @notice Adds a new operator to the whitelist.
     /// @param _operatorAddress The address of the operator to be added.
     /// @dev Only callable by the owner or an authorized address.
-    function addOperator(address _operatorAddress, string calldata peerIp) external;
+    function addOperator(address _operatorAddress, string calldata multiAddr) external;
 
     /// @notice Removes an operator from the whitelist.
     /// @param _operatorId The ID of the operator to be removed.
@@ -67,5 +68,5 @@ interface IPreconfWhitelist {
     function getOperatorForNextEpoch() external view returns (address);
 
     /// @notice Updates the peer IP address for a specific operator.
-    function changePeerIpForOperator(address _operator, string calldata peerIp) external;
+    function changeMultiAddrForOperator(address _operator, string calldata multiAddr) external;
 }

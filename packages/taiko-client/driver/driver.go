@@ -129,11 +129,11 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			return err
 		}
 
-		// fetch and append the peerIps frm the contracts, add them as staticIps.
+		// fetch and append the multiAddrs frm the contracts, add them as staticIps.
 		// allow this call to fail.
-		peerIps, err := d.rpc.GetPreconfWhitelistPeerIps(nil)
+		multiAddrs, err := d.rpc.GetPreconfWhitelistMultiAddrs(nil)
 		if err == nil {
-			cfg.P2PConfigs.StaticPeers = append(cfg.P2PConfigs.StaticPeers, peerIps...)
+			cfg.P2PConfigs.StaticPeers = append(cfg.P2PConfigs.StaticPeers, multiAddrs...)
 			cfg.P2PConfigs.StaticPeers = dedupePeers(cfg.P2PConfigs.StaticPeers)
 		}
 

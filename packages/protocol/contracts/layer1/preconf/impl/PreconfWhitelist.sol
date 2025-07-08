@@ -14,7 +14,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         uint64 activeSince; // Epoch when the operator becomes active.
         uint64 inactiveSince; // Epoch when the operator is no longer active.
         uint8 index; // Index in operatorMapping.
-        string peerIp; // peer ip to connect to for the taiko driver
+        string multiAddr; // multiAddr to connect to for the taiko driver
     }
 
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
@@ -57,14 +57,14 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     }
 
     /// @inheritdoc IPreconfWhitelist
-    function addOperator(address _operator, string calldata peerIp) external onlyOwner {
-        _addOperator(_operator, peerIp, operatorChangeDelay);
+    function addOperator(address _operator, string calldata multiAddr) external onlyOwner {
+        _addOperator(_operator, multiAddr, operatorChangeDelay);
     }
 
     /// @inheritdoc IPreconfWhitelist
-    function changePeerIpForOperator(
+    function changeMultiAddrForOperator(
         address _operator,
-        string calldata peerIp
+        string calldata multiAddr
     )
         external
         onlyOwnerOrOperator(_operator)
@@ -72,9 +72,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         require(_operator != address(0), InvalidOperatorAddress());
         OperatorInfo storage info = operators[_operator];
         require(info.activeSince != 0, InvalidOperatorAddress());
-        info.peerIp = peerIp;
+        info.multiAddr = multiAddr;
 
-        emit OperatorChangedPeerIp(_operator, peerIp);
+        emit OperatorChangedMultiAddr(_operator, multiAddr);
     }
 
     /// @inheritdoc IPreconfWhitelist
@@ -193,7 +193,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     function _addOperator(
         address _operator,
-        string calldata peerIp,
+        string calldata multiAddr,
         uint8 _operatorChangeDelay
     )
         internal
@@ -228,9 +228,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
             havingPerfectOperators = false;
         }
 
-        info.peerIp = peerIp;
+        info.multiAddr = multiAddr;
 
-        emit OperatorAdded(_operator, peerIp, activeSince);
+        emit OperatorAdded(_operator, multiAddr, activeSince);
     }
 
     function _removeOperator(address _operator, uint8 _operatorChangeDelay) internal {

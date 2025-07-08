@@ -1046,7 +1046,7 @@ func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, er
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.TaikoWrapper.PreconfRouter)
 }
 
-func (c *Client) GetPreconfWhitelistPeerIps(opts *bind.CallOpts) ([]core.Multiaddr, error) {
+func (c *Client) GetPreconfWhitelistMultiAddrs(opts *bind.CallOpts) ([]core.Multiaddr, error) {
 	if c.PacayaClients.PreconfWhitelist == nil {
 		return nil, errors.New("preconfirmation whitelist contract is not set")
 	}
@@ -1076,7 +1076,7 @@ func (c *Client) GetPreconfWhitelistPeerIps(opts *bind.CallOpts) ([]core.Multiad
 		if err != nil {
 			return nil, fmt.Errorf("failed to get operator %s: %w", address.Hex(), err)
 		}
-		multiaddr, err := multiaddr.NewMultiaddr(operator.PeerIp)
+		multiaddr, err := multiaddr.NewMultiaddr(operator.MultiAddr)
 		if err != nil {
 			continue
 		}
