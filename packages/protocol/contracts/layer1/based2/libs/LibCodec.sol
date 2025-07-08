@@ -158,6 +158,22 @@ library LibCodec {
         }
     }
 
+    function packBatchContext(I.BatchContext memory _context)
+        internal
+        pure
+        returns (bytes memory packed_)
+    {
+        return abi.encode(_context);
+    }
+
+    function unpackBatchContext(bytes memory _packed)
+        internal
+        pure
+        returns (I.BatchContext memory context_)
+    {
+        return abi.decode(_packed, (I.BatchContext));
+    }
+
     // -------------------------------------------------------------------------
     // Custom Errors
     // -------------------------------------------------------------------------

@@ -263,12 +263,12 @@ interface IInbox {
 
     /// @notice Emitted when a batch is proposed.
     /// @param batchId The ID of the proposed batch.
-    /// @param context The batch context data
-    event Proposed(uint48 batchId, BatchContext context);
+    /// @param packedContext The batch context data packed into bytes.
+    event Proposed(uint48 batchId, bytes packedContext);
 
     /// @notice Emitted when a batch is proved.
     /// @param batchId The ID of the proved batch.
-    /// @param packedTranMeta The encoded transition metadata.
+    /// @param packedTranMeta The transition metadata packed into bytes.
     event Proved(uint256 indexed batchId, bytes packedTranMeta);
 
     /// @notice Emitted when a batch is verified.

@@ -5,6 +5,7 @@ import { IInbox as I } from "../IInbox.sol";
 import "./LibValidate.sol";
 import "./LibData.sol";
 import "./LibProver.sol";
+import "./LibCodec.sol";
 
 /// @title LibPropose
 /// @notice Library for processing batch proposals and metadata generation in Taiko protocol
@@ -96,7 +97,7 @@ library LibPropose {
         batchMetaHash_ = LibData.hashBatch(_summary.numBatches, meta_);
         _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash_);
 
-        emit I.Proposed(_summary.numBatches, context);
+        emit I.Proposed(_summary.numBatches, LibCodec.packBatchContext(context));
     }
 
     // -------------------------------------------------------------------------
