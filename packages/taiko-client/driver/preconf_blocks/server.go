@@ -916,23 +916,46 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return false, fmt.Errorf("failed to fetch parent header by number: %w", err)
 	}
-	parentInFork, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.ParentHash)
+	parentInFork, err := s.rpc.L2.BlockByHash(ctx, msg.ExecutionPayload.ParentHash)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return false, fmt.Errorf("failed to fetch parent header by hash: %w", err)
 	}
 
-	if parentInFork != nil && parentInFork.Hash() != parentInCanonical.Hash() {
-		decompressedTxs, err := utils.Decompress(msg.ExecutionPayload.Transactions[0])
+	isOrphan := parentInFork != nil &&
+		parentInCanonical != nil &&
+		parentInFork.Hash() != parentInCanonical.Hash()
+
+	if isOrphan {
+		log.Info("Block is building on an orphaned block",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+			"parentInCanonicalHash", parentInCanonical.Hash().Hex(),
+			"parentInForkHash", parentInFork.Hash().Hex(),
+		)
+
+		// we are building on an orphaned block. the parentInFork
+		// is not the same as the parentInCanonical. we are re-orging out the parent block here.
+		// this means we need to update the L1 Origin of the parent block, as the most recent one received
+		// will be cached, and it will fail a "isPreconfirmed" check later on.
+
+		rawTxsBytes, err := rlp.EncodeToBytes(parentInFork.Transactions())
+		if err != nil {
+			return false, fmt.Errorf("failed to encode transactions to bytes: %w", err)
+		}
+
+		decompressedTxs, err := utils.Decompress(rawTxsBytes)
 		if err != nil {
 			return false, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 		}
 		var (
 			txListHash = crypto.Keccak256Hash(decompressedTxs)
 			args       = &miner.BuildPayloadArgs{
-				Parent:       msg.ExecutionPayload.ParentHash,
-				Timestamp:    uint64(msg.ExecutionPayload.Timestamp),
-				FeeRecipient: msg.ExecutionPayload.FeeRecipient,
-				Random:       common.Hash(msg.ExecutionPayload.PrevRandao),
+				Parent:       parentInFork.ParentHash(),
+				Timestamp:    parentInFork.NumberU64(),
+				FeeRecipient: parentInFork.Coinbase(),
+				Random:       parentInFork.MixDigest(),
 				Withdrawals:  make([]*types.Withdrawal, 0),
 				Version:      engine.PayloadV2,
 				TxListHash:   &txListHash,
@@ -944,12 +967,18 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		// on an orphaned block.
 		_, err = s.rpc.L2Engine.UpdateL1Origin(ctx, &rawdb.L1Origin{
 			BuildPayloadArgsID: payloadID,
-			BlockID:            parentInFork.Number,
+			BlockID:            parentInFork.Number(),
 			L2BlockHash:        msg.ExecutionPayload.ParentHash,
 		})
 		if err != nil {
 			return false, fmt.Errorf("failed to update L1 origin: %w", err)
 		}
+
+		log.Info("Updated L1 Origin for the parent block in the fork chain",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+		)
 	}
 
 	if parentInFork == nil && (parentInCanonical == nil || parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash) {
