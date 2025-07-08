@@ -5,11 +5,32 @@ import { IInbox as I } from "../IInbox.sol";
 
 /// @title LibCodec
 /// @custom:security-contact security@taiko.xyz
+/// @notice A library for encoding and decoding TransitionMeta structs to optimize storage and gas
+/// costs.
+/// @dev This library provides functions to pack and unpack arrays of TransitionMeta structs
+/// into/from
+/// tightly packed byte arrays. Each TransitionMeta is packed into exactly 122 bytes to minimize
+/// storage costs while maintaining data integrity.
 library LibCodec {
     // -------------------------------------------------------------------------
     // Internal Functions
     // -------------------------------------------------------------------------
 
+    /// @notice Packs an array of TransitionMeta structs into a tightly packed byte array.
+    /// @dev The packed format uses exactly 122 bytes per TransitionMeta:
+    /// - blockHash: 32 bytes
+    /// - stateRoot: 32 bytes
+    /// - prover: 20 bytes (address)
+    /// - proofTiming: 1 byte (uint8 enum)
+    /// - createdAt: 6 bytes (uint48)
+    /// - byAssignedProver: 1 byte (bool)
+    /// - lastBlockId: 6 bytes (uint48)
+    /// - provabilityBond: 12 bytes (uint96)
+    /// - livenessBond: 12 bytes (uint96)
+    /// Total: 122 bytes per TransitionMeta
+    /// The first byte stores the array length (max 255 elements).
+    /// @param _tranMetas Array of TransitionMeta structs to pack
+    /// @return encoded_ The packed byte array with length prefix
     function packTransitionMetas(I.TransitionMeta[] memory _tranMetas)
         internal
         pure
@@ -78,6 +99,12 @@ library LibCodec {
         }
     }
 
+    /// @notice Unpacks a byte array back into an array of TransitionMeta structs.
+    /// @dev Reverses the packing performed by packTransitionMetas. The input must follow
+    /// the exact format: first byte contains array length, followed by 122 bytes per
+    /// TransitionMeta.
+    /// @param _encoded The packed byte array to unpack
+    /// @return tranMetas_ Array of unpacked TransitionMeta structs
     function unpackTransitionMetas(bytes calldata _encoded)
         internal
         pure

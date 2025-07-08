@@ -2,9 +2,492 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibCodec } from "../../../../contracts/layer1/based2/libs/LibCodec.sol";
-import { IInbox } from "../../../../contracts/layer1/based2/IInbox.sol";
+import { LibCodec } from "contracts/layer1/based2/libs/LibCodec.sol";
+import { IInbox } from "contracts/layer1/based2/IInbox.sol";
 
 contract LibCodecTest is Test {
     using LibCodec for IInbox.TransitionMeta;
+
+    // Test data
+    IInbox.TransitionMeta[] private testMetas;
+
+    function setUp() public {
+        // Initialize test data
+        delete testMetas;
+    }
+
+    // -------------------------------------------------------------------------
+    // Tests for packTransitionMetas
+    // -------------------------------------------------------------------------
+
+    function test_packTransitionMetas_singleElement() public {
+        // Create a single TransitionMeta
+        IInbox.TransitionMeta memory meta = _createTransitionMeta(
+            bytes32(uint256(1)), // blockHash
+            bytes32(uint256(2)), // stateRoot
+            address(0x1234567890123456789012345678901234567890), // prover
+            IInbox.ProofTiming.InProvingWindow, // proofTiming
+            uint48(1000), // createdAt
+            true, // byAssignedProver
+            uint48(100), // lastBlockId
+            uint96(1 ether), // provabilityBond
+            uint96(2 ether) // livenessBond
+        );
+
+        testMetas.push(meta);
+
+        // Pack the meta
+        bytes memory packed = LibCodec.packTransitionMetas(testMetas);
+
+        // Verify packed length: 1 (length byte) + 122 (meta data)
+        assertEq(packed.length, 123);
+
+        // Verify length byte
+        assertEq(uint8(packed[0]), 1);
+
+        // Verify packed data structure
+        _verifyPackedMeta(packed, 1, meta);
+    }
+
+    function test_packTransitionMetas_multipleElements() public {
+        // Create multiple TransitionMetas
+        for (uint256 i = 1; i <= 3; i++) {
+            testMetas.push(
+                _createTransitionMeta(
+                    bytes32(uint256(i)), // blockHash
+                    bytes32(uint256(i * 2)), // stateRoot
+                    address(uint160(i * 1000)), // prover
+                    IInbox.ProofTiming(i % 3), // proofTiming
+                    uint48(i * 100), // createdAt
+                    i % 2 == 0, // byAssignedProver
+                    uint48(i * 10), // lastBlockId
+                    uint96(i * 0.1 ether), // provabilityBond
+                    uint96(i * 0.2 ether) // livenessBond
+                )
+            );
+        }
+
+        // Pack the metas
+        bytes memory packed = LibCodec.packTransitionMetas(testMetas);
+
+        // Verify packed length: 1 (length byte) + 3 * 122 (meta data)
+        assertEq(packed.length, 367);
+
+        // Verify length byte
+        assertEq(uint8(packed[0]), 3);
+
+        // Verify each packed meta
+        for (uint256 i = 0; i < 3; i++) {
+            _verifyPackedMeta(packed, 1 + i * 122, testMetas[i]);
+        }
+    }
+
+    function test_packTransitionMetas_emptyArray() public view {
+        // Pack empty array
+        bytes memory packed = LibCodec.packTransitionMetas(testMetas);
+
+        // Should only contain length byte
+        assertEq(packed.length, 1);
+        assertEq(uint8(packed[0]), 0);
+    }
+
+    function test_packTransitionMetas_maxLength() public {
+        // Create max allowed elements (255)
+        for (uint256 i = 0; i < 255; i++) {
+            testMetas.push(
+                _createTransitionMeta(
+                    bytes32(uint256(i)),
+                    bytes32(uint256(i)),
+                    address(uint160(i)),
+                    IInbox.ProofTiming.InProvingWindow,
+                    uint48(i),
+                    false,
+                    uint48(i),
+                    uint96(i),
+                    uint96(i)
+                )
+            );
+        }
+
+        // Pack should succeed
+        bytes memory packed = LibCodec.packTransitionMetas(testMetas);
+        assertEq(packed.length, 1 + 255 * 122);
+        assertEq(uint8(packed[0]), 255);
+    }
+
+    function test_packTransitionMetas_revertArrayTooLarge() public {
+        // Create 256 elements (one more than max)
+        for (uint256 i = 0; i < 256; i++) {
+            testMetas.push(
+                _createTransitionMeta(
+                    bytes32(uint256(i)),
+                    bytes32(uint256(i)),
+                    address(uint160(i)),
+                    IInbox.ProofTiming.InProvingWindow,
+                    uint48(i),
+                    false,
+                    uint48(i),
+                    uint96(i),
+                    uint96(i)
+                )
+            );
+        }
+
+        // Should revert with ArrayTooLarge error
+        vm.expectRevert(LibCodec.ArrayTooLarge.selector);
+        LibCodec.packTransitionMetas(testMetas);
+    }
+
+    // -------------------------------------------------------------------------
+    // Tests for unpackTransitionMetas
+    // -------------------------------------------------------------------------
+
+    function test_unpackTransitionMetas_singleElement() public {
+        // Create and pack a single meta
+        IInbox.TransitionMeta memory originalMeta = _createTransitionMeta(
+            bytes32(uint256(0x1234567890abcdef)),
+            bytes32(uint256(0xfedcba0987654321)),
+            address(0xdEADBEeF00000000000000000000000000000000),
+            IInbox.ProofTiming.OutOfExtendedProvingWindow,
+            uint48(123_456),
+            true,
+            uint48(999),
+            uint96(5 ether),
+            uint96(10 ether)
+        );
+
+        testMetas.push(originalMeta);
+        bytes memory packed = LibCodec.packTransitionMetas(testMetas);
+
+        // Unpack
+        IInbox.TransitionMeta[] memory unpacked = _unpackTransitionMetas(packed);
+
+        // Verify
+        assertEq(unpacked.length, 1);
+        _assertTransitionMetaEq(unpacked[0], originalMeta);
+    }
+
+    function test_unpackTransitionMetas_multipleElements() public {
+        // Create and pack multiple metas
+        for (uint256 i = 1; i <= 5; i++) {
+            testMetas.push(
+                _createTransitionMeta(
+                    bytes32(uint256(i * 0x1111111111111111)),
+                    bytes32(uint256(i * 0x2222222222222222)),
+                    address(uint160(i * 0x3333333333333333)),
+                    IInbox.ProofTiming(i % 3),
+                    uint48(i * 1000),
+                    i % 2 == 1,
+                    uint48(i * 100),
+                    uint96(i * 1 ether),
+                    uint96(i * 2 ether)
+                )
+            );
+        }
+
+        bytes memory packed = LibCodec.packTransitionMetas(testMetas);
+
+        // Unpack
+        IInbox.TransitionMeta[] memory unpacked = _unpackTransitionMetas(packed);
+
+        // Verify
+        assertEq(unpacked.length, 5);
+        for (uint256 i = 0; i < 5; i++) {
+            _assertTransitionMetaEq(unpacked[i], testMetas[i]);
+        }
+    }
+
+    function test_unpackTransitionMetas_emptyArray() public view {
+        // Pack empty array
+        bytes memory packed = LibCodec.packTransitionMetas(testMetas);
+
+        // Unpack
+        IInbox.TransitionMeta[] memory unpacked = _unpackTransitionMetas(packed);
+
+        // Verify
+        assertEq(unpacked.length, 0);
+    }
+
+    function test_unpackTransitionMetas_revertEmptyInput() public {
+        // Try to unpack empty bytes
+        bytes memory empty;
+
+        vm.expectRevert(LibCodec.EmptyInput.selector);
+        _unpackTransitionMetas(empty);
+    }
+
+    function test_unpackTransitionMetas_revertInvalidDataLength() public {
+        // Create invalid packed data (wrong length)
+        bytes memory invalidPacked = new bytes(100); // Not 1 + n*122
+        invalidPacked[0] = bytes1(uint8(1)); // Claims 1 element but wrong data length
+
+        vm.expectRevert(LibCodec.InvalidDataLength.selector);
+        _unpackTransitionMetas(invalidPacked);
+    }
+
+    // -------------------------------------------------------------------------
+    // Round-trip tests
+    // -------------------------------------------------------------------------
+
+    function test_packUnpack_roundTrip() public {
+        // Create diverse test data
+        testMetas.push(
+            _createTransitionMeta(
+                bytes32(type(uint256).max),
+                bytes32(type(uint256).max),
+                address(type(uint160).max),
+                IInbox.ProofTiming.InProvingWindow,
+                type(uint48).max,
+                true,
+                type(uint48).max,
+                type(uint96).max,
+                type(uint96).max
+            )
+        );
+
+        testMetas.push(
+            _createTransitionMeta(
+                bytes32(0),
+                bytes32(0),
+                address(0),
+                IInbox.ProofTiming.OutOfExtendedProvingWindow,
+                0,
+                false,
+                0,
+                0,
+                0
+            )
+        );
+
+        // Pack and unpack
+        bytes memory packed = LibCodec.packTransitionMetas(testMetas);
+        IInbox.TransitionMeta[] memory unpacked = _unpackTransitionMetas(packed);
+
+        // Verify round trip
+        assertEq(unpacked.length, testMetas.length);
+        for (uint256 i = 0; i < testMetas.length; i++) {
+            _assertTransitionMetaEq(unpacked[i], testMetas[i]);
+        }
+    }
+
+    function testFuzz_packUnpack_roundTrip(
+        bytes32 blockHash,
+        bytes32 stateRoot,
+        address prover,
+        uint8 proofTimingRaw,
+        uint48 createdAt,
+        bool byAssignedProver,
+        uint48 lastBlockId,
+        uint96 provabilityBond,
+        uint96 livenessBond
+    )
+        public
+    {
+        // Bound proofTiming to valid enum values
+        IInbox.ProofTiming proofTiming = IInbox.ProofTiming(proofTimingRaw % 3);
+
+        // Create meta
+        IInbox.TransitionMeta memory meta = _createTransitionMeta(
+            blockHash,
+            stateRoot,
+            prover,
+            proofTiming,
+            createdAt,
+            byAssignedProver,
+            lastBlockId,
+            provabilityBond,
+            livenessBond
+        );
+
+        testMetas.push(meta);
+
+        // Pack and unpack
+        bytes memory packed = LibCodec.packTransitionMetas(testMetas);
+        IInbox.TransitionMeta[] memory unpacked = _unpackTransitionMetas(packed);
+
+        // Verify
+        assertEq(unpacked.length, 1);
+        _assertTransitionMetaEq(unpacked[0], meta);
+    }
+
+    // -------------------------------------------------------------------------
+    // Gas optimization tests
+    // -------------------------------------------------------------------------
+
+    function test_gasOptimization_packing() public {
+        // Create test data of various sizes
+        uint256[] memory sizes = new uint256[](4);
+        sizes[0] = 1;
+        sizes[1] = 10;
+        sizes[2] = 50;
+        sizes[3] = 100;
+
+        for (uint256 i = 0; i < sizes.length; i++) {
+            delete testMetas;
+
+            // Create test metas
+            for (uint256 j = 0; j < sizes[i]; j++) {
+                testMetas.push(
+                    _createTransitionMeta(
+                        bytes32(uint256(j)),
+                        bytes32(uint256(j)),
+                        address(uint160(j)),
+                        IInbox.ProofTiming.InProvingWindow,
+                        uint48(j),
+                        false,
+                        uint48(j),
+                        uint96(j),
+                        uint96(j)
+                    )
+                );
+            }
+
+            // Measure gas for packing
+            uint256 gasBefore = gasleft();
+            LibCodec.packTransitionMetas(testMetas);
+            uint256 gasUsed = gasBefore - gasleft();
+
+            emit log_named_uint(
+                string.concat("Gas used for packing ", vm.toString(sizes[i]), " elements"), gasUsed
+            );
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Helper functions
+    // -------------------------------------------------------------------------
+
+    function _unpackTransitionMetas(bytes memory packed)
+        private
+        view
+        returns (IInbox.TransitionMeta[] memory)
+    {
+        // Helper to test unpacking - uses this to convert memory to calldata
+        return this.unpackTransitionMetasExternal(packed);
+    }
+
+    function unpackTransitionMetasExternal(bytes calldata packed)
+        external
+        pure
+        returns (IInbox.TransitionMeta[] memory)
+    {
+        return LibCodec.unpackTransitionMetas(packed);
+    }
+
+    function _createTransitionMeta(
+        bytes32 blockHash,
+        bytes32 stateRoot,
+        address prover,
+        IInbox.ProofTiming proofTiming,
+        uint48 createdAt,
+        bool byAssignedProver,
+        uint48 lastBlockId,
+        uint96 provabilityBond,
+        uint96 livenessBond
+    )
+        private
+        pure
+        returns (IInbox.TransitionMeta memory)
+    {
+        return IInbox.TransitionMeta({
+            blockHash: blockHash,
+            stateRoot: stateRoot,
+            prover: prover,
+            proofTiming: proofTiming,
+            createdAt: createdAt,
+            byAssignedProver: byAssignedProver,
+            lastBlockId: lastBlockId,
+            provabilityBond: provabilityBond,
+            livenessBond: livenessBond
+        });
+    }
+
+    function _assertTransitionMetaEq(
+        IInbox.TransitionMeta memory a,
+        IInbox.TransitionMeta memory b
+    )
+        private
+        pure
+    {
+        assertEq(a.blockHash, b.blockHash);
+        assertEq(a.stateRoot, b.stateRoot);
+        assertEq(a.prover, b.prover);
+        assertEq(uint8(a.proofTiming), uint8(b.proofTiming));
+        assertEq(a.createdAt, b.createdAt);
+        assertEq(a.byAssignedProver, b.byAssignedProver);
+        assertEq(a.lastBlockId, b.lastBlockId);
+        assertEq(a.provabilityBond, b.provabilityBond);
+        assertEq(a.livenessBond, b.livenessBond);
+    }
+
+    function _verifyPackedMeta(
+        bytes memory packed,
+        uint256 offset,
+        IInbox.TransitionMeta memory meta
+    )
+        private
+        pure
+    {
+        // Verify blockHash (32 bytes)
+        bytes32 packedBlockHash;
+        assembly {
+            packedBlockHash := mload(add(packed, add(0x20, offset)))
+        }
+        assertEq(packedBlockHash, meta.blockHash);
+
+        // Verify stateRoot (32 bytes)
+        bytes32 packedStateRoot;
+        assembly {
+            packedStateRoot := mload(add(packed, add(0x20, add(offset, 32))))
+        }
+        assertEq(packedStateRoot, meta.stateRoot);
+
+        // Verify prover (20 bytes)
+        address packedProver;
+        assembly {
+            let proverData := mload(add(packed, add(0x20, add(offset, 64))))
+            packedProver := shr(96, proverData)
+        }
+        assertEq(packedProver, meta.prover);
+
+        // Verify proofTiming (1 byte)
+        uint8 packedProofTiming = uint8(packed[offset + 84]);
+        assertEq(packedProofTiming, uint8(meta.proofTiming));
+
+        // Verify createdAt (6 bytes)
+        uint48 packedCreatedAt;
+        assembly {
+            let createdAtData := mload(add(packed, add(0x20, add(offset, 85))))
+            packedCreatedAt := shr(208, createdAtData)
+        }
+        assertEq(packedCreatedAt, meta.createdAt);
+
+        // Verify byAssignedProver (1 byte)
+        bool packedByAssignedProver = packed[offset + 91] != 0;
+        assertEq(packedByAssignedProver, meta.byAssignedProver);
+
+        // Verify lastBlockId (6 bytes)
+        uint48 packedLastBlockId;
+        assembly {
+            let lastBlockIdData := mload(add(packed, add(0x20, add(offset, 92))))
+            packedLastBlockId := shr(208, lastBlockIdData)
+        }
+        assertEq(packedLastBlockId, meta.lastBlockId);
+
+        // Verify provabilityBond (12 bytes)
+        uint96 packedProvabilityBond;
+        assembly {
+            let provabilityBondData := mload(add(packed, add(0x20, add(offset, 98))))
+            packedProvabilityBond := shr(160, provabilityBondData)
+        }
+        assertEq(packedProvabilityBond, meta.provabilityBond);
+
+        // Verify livenessBond (12 bytes)
+        uint96 packedLivenessBond;
+        assembly {
+            let livenessBondData := mload(add(packed, add(0x20, add(offset, 110))))
+            packedLivenessBond := shr(160, livenessBondData)
+        }
+        assertEq(packedLivenessBond, meta.livenessBond);
+    }
 }
