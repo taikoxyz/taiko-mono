@@ -156,6 +156,8 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 			log.Info("P2P node information", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
 
+			d.p2pApi = p2p.NewP2PAPIBackend(d.p2pNode, log.Root(), metrics.P2PNodeMetrics)
+
 			// fetch and append the multiAddrs frm the contracts, add them into sequencerMultiAddrs.
 			// allow this call to fail.
 			d.sequencerMultiAddrs = make([]core.Multiaddr, 0)
@@ -169,8 +171,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			} else {
 				log.Warn("Failed to fetch sequencer multiaddrs from preconfirmation whitelist", "error", err)
 			}
-
-			d.p2pApi = p2p.NewP2PAPIBackend(d.p2pNode, log.Root(), metrics.P2PNodeMetrics)
 
 			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
 				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
