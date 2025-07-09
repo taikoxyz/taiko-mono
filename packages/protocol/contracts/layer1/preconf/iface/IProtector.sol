@@ -6,8 +6,6 @@ import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 /// @title IProtector
 /// @custom:security-contact security@taiko.xyz
 interface IProtector is ISlasher {
-    event AddedSigner(address indexed signer);
-    event RemovedSigner(address indexed signer);
     event SignerAdded(address indexed signer);
     event SignerRemoved(address indexed signer);
     event SigningThresholdUpdated(uint128 newSigningThreshold);
