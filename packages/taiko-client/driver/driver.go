@@ -55,6 +55,7 @@ type Driver struct {
 	p2pNode             *p2p.NodeP2P
 	p2pSigner           p2p.Signer
 	p2pSetup            p2p.SetupP2P
+	p2pApi              *p2p.APIBackend
 	sequencerMultiAddrs []core.Multiaddr
 
 	ctx              context.Context
@@ -168,6 +169,8 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			} else {
 				log.Warn("Failed to fetch sequencer multiaddrs from preconfirmation whitelist", "error", err)
 			}
+
+			d.p2pApi = p2p.NewP2PAPIBackend(d.p2pNode, log.Root(), metrics.P2PNodeMetrics)
 
 			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
 				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
@@ -694,9 +697,8 @@ func (d *Driver) keepConnection() {
 func (d *Driver) connectPeer(peerAddr string) error {
 	if d.PreconfBlockServerPort > 0 {
 		log.Info("Trying to add new peer", "peer", peerAddr)
-		api := p2p.NewP2PAPIBackend(d.p2pNode, log.Root(), metrics.P2PNodeMetrics)
 		return backoff.Retry(func() error {
-			return api.ConnectPeer(d.ctx, peerAddr)
+			return d.p2pApi.ConnectPeer(d.ctx, peerAddr)
 		}, backoff.WithContext(backoff.NewConstantBackOff(d.RetryInterval), d.ctx))
 	}
 	return nil
