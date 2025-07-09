@@ -21,7 +21,7 @@ contract Protector is IProtector, EssentialContract {
         urc = _urc;
     }
 
-    function init(uint128 _signingThreshold, address[] memory _signers) external initializer {
+    function init(uint64 _signingThreshold, address[] memory _signers) external initializer {
         __Essential_init(address(0));
         __Protector_init(_signingThreshold, _signers);
     }
@@ -40,10 +40,14 @@ contract Protector is IProtector, EssentialContract {
     {
         // `_evidence` is expected to be a list of signatures advocating for the slashing of the
         // committer
-        bytes32 digest = keccak256(
-            abi.encode(LibPreconfConstants.PROTECTOR_SLASH_DOMAIN_SEPARATOR, nonce, _committer)
-        );
-        _verifySignatures(digest, abi.decode(_evidence, (bytes[])));
+        unchecked {
+            bytes32 digest = keccak256(
+                abi.encode(
+                    LibPreconfConstants.PROTECTOR_SLASH_DOMAIN_SEPARATOR, nonce++, _committer
+                )
+            );
+            _verifySignatures(digest, abi.decode(_evidence, (bytes[])));
+        }
 
         // TODO: Make this confiugurable
         return 1 ether;
@@ -56,15 +60,16 @@ contract Protector is IProtector, EssentialContract {
     function addSigner(address _signer, bytes[] memory _signatures) external {
         require(!signers[_signer], SignerAlreadyExists());
 
-        bytes32 digest = keccak256(
-            abi.encode(LibPreconfConstants.ADD_PROTECTOR_SIGNER_DOMAIN_SEPARATOR, nonce, _signer)
-        );
-        _verifySignatures(digest, _signatures);
-
-        signers[_signer] = true;
         unchecked {
+            bytes32 digest = keccak256(
+                abi.encode(
+                    LibPreconfConstants.ADD_PROTECTOR_SIGNER_DOMAIN_SEPARATOR, nonce++, _signer
+                )
+            );
+            _verifySignatures(digest, _signatures);
+
+            signers[_signer] = true;
             ++numSigners;
-            ++nonce;
         }
 
         emit SignerAdded(_signer);
@@ -75,15 +80,16 @@ contract Protector is IProtector, EssentialContract {
         require(signers[_signer], SignerDoesNotExist());
         require(numSigners > signingThreshold, CannotRemoveSignerWhenThresholdIsReached());
 
-        bytes32 digest = keccak256(
-            abi.encode(LibPreconfConstants.REMOVE_PROTECTOR_SIGNER_DOMAIN_SEPARATOR, nonce, _signer)
-        );
-        _verifySignatures(digest, _signatures);
-
-        delete signers[_signer];
         unchecked {
+            bytes32 digest = keccak256(
+                abi.encode(
+                    LibPreconfConstants.REMOVE_PROTECTOR_SIGNER_DOMAIN_SEPARATOR, nonce++, _signer
+                )
+            );
+            _verifySignatures(digest, _signatures);
+
+            delete signers[_signer];
             --numSigners;
-            ++nonce;
         }
 
         emit SignerRemoved(_signer);
@@ -91,26 +97,25 @@ contract Protector is IProtector, EssentialContract {
 
     /// @inheritdoc IProtector
     function updateSigningThreshold(
-        uint128 _signingThreshold,
+        uint64 _signingThreshold,
         bytes[] memory _signatures
     )
         external
     {
         require(_signingThreshold <= numSigners, InvalidSigningThreshold());
 
-        bytes32 digest = keccak256(
-            abi.encode(
-                LibPreconfConstants.UPDATE_PROTECTOR_SIGNING_THRESHOLD_DOMAIN_SEPARATOR,
-                nonce,
-                _signingThreshold
-            )
-        );
-        _verifySignatures(digest, _signatures);
+        unchecked {
+            bytes32 digest = keccak256(
+                abi.encode(
+                    LibPreconfConstants.UPDATE_PROTECTOR_SIGNING_THRESHOLD_DOMAIN_SEPARATOR,
+                    nonce++,
+                    _signingThreshold
+                )
+            );
+            _verifySignatures(digest, _signatures);
+        }
 
         signingThreshold = _signingThreshold;
-        unchecked {
-            ++nonce;
-        }
 
         emit SigningThresholdUpdated(_signingThreshold);
     }
@@ -118,14 +123,14 @@ contract Protector is IProtector, EssentialContract {
     // Internal functions
     // -----------------------------------------------------------------------------------
 
-    function __Protector_init(uint128 _signingThreshold, address[] memory _signers) internal {
+    function __Protector_init(uint64 _signingThreshold, address[] memory _signers) internal {
         require(_signingThreshold <= _signers.length, InvalidSigningThreshold());
 
         for (uint256 i; i < _signers.length; ++i) {
             signers[_signers[i]] = true;
         }
 
-        numSigners = uint128(_signers.length);
+        numSigners = uint64(_signers.length);
         signingThreshold = _signingThreshold;
     }
 
