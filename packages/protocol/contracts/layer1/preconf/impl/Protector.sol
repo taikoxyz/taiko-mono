@@ -51,6 +51,8 @@ contract Protector is IProtector, EssentialContract {
             _verifySignatures(digest, abi.decode(_evidence, (bytes[])));
         }
 
+        emit Slashed(_committer, 1 ether);
+
         // TODO: Make this confiugurable
         return 1 ether;
     }
@@ -136,13 +138,15 @@ contract Protector is IProtector, EssentialContract {
         signingThreshold = _signingThreshold;
     }
 
-    function _verifySignatures(bytes32 digest, bytes[] memory _signatures) internal view {
+    function _verifySignatures(bytes32 _digest, bytes[] memory _signatures) internal view {
+        require(_signatures.length >= signingThreshold, InsufficientSignatures());
+
         address lastSigner;
         address currentSigner;
 
         for (uint256 i; i < _signatures.length; ++i) {
             // Recover the signer from the signature
-            currentSigner = ECDSA.recover(digest, _signatures[i]);
+            currentSigner = ECDSA.recover(_digest, _signatures[i]);
             require(signers[currentSigner], NotAnExistingSigner());
 
             // To prevent replay of signatures
