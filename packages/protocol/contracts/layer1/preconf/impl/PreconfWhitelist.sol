@@ -176,7 +176,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         returns (bool)
     {
         if (_operator == address(0)) return false;
-        OperatorInfo memory info = operators[_operator];
+        OperatorInfo storage info = operators[_operator];
         if (_epochTimestamp < info.activeSince) {
             return false;
         } else if (info.inactiveSince != 0 && _epochTimestamp >= info.inactiveSince) {
