@@ -11,8 +11,9 @@ import "src/shared/common/EssentialContract.sol";
 contract Protector is IProtector, EssentialContract {
     address public immutable urc;
 
-    uint128 public signingThreshold;
-    uint128 public numSigners;
+    uint64 public signingThreshold;
+    uint64 public numSigners;
+    uint64 public nonce;
 
     mapping(address signerAddress => bool isSigner) public signers;
 
@@ -39,8 +40,9 @@ contract Protector is IProtector, EssentialContract {
     {
         // `_evidence` is expected to be a list of signatures advocating for the slashing of the
         // committer
-        bytes32 digest =
-            keccak256(abi.encode(LibPreconfConstants.PROTECTOR_SLASH_DOMAIN_SEPARATOR, _committer));
+        bytes32 digest = keccak256(
+            abi.encode(LibPreconfConstants.PROTECTOR_SLASH_DOMAIN_SEPARATOR, nonce, _committer)
+        );
         _verifySignatures(digest, abi.decode(_evidence, (bytes[])));
 
         // TODO: Make this confiugurable
@@ -55,13 +57,14 @@ contract Protector is IProtector, EssentialContract {
         require(!signers[_signer], SignerAlreadyExists());
 
         bytes32 digest = keccak256(
-            abi.encode(LibPreconfConstants.ADD_PROTECTOR_SIGNER_DOMAIN_SEPARATOR, _signer)
+            abi.encode(LibPreconfConstants.ADD_PROTECTOR_SIGNER_DOMAIN_SEPARATOR, nonce, _signer)
         );
         _verifySignatures(digest, _signatures);
 
         signers[_signer] = true;
         unchecked {
             ++numSigners;
+            ++nonce;
         }
 
         emit SignerAdded(_signer);
@@ -73,13 +76,14 @@ contract Protector is IProtector, EssentialContract {
         require(numSigners > signingThreshold, CannotRemoveSignerWhenThresholdIsReached());
 
         bytes32 digest = keccak256(
-            abi.encode(LibPreconfConstants.REMOVE_PROTECTOR_SIGNER_DOMAIN_SEPARATOR, _signer)
+            abi.encode(LibPreconfConstants.REMOVE_PROTECTOR_SIGNER_DOMAIN_SEPARATOR, nonce, _signer)
         );
         _verifySignatures(digest, _signatures);
 
         delete signers[_signer];
         unchecked {
             --numSigners;
+            ++nonce;
         }
 
         emit SignerRemoved(_signer);
@@ -97,12 +101,16 @@ contract Protector is IProtector, EssentialContract {
         bytes32 digest = keccak256(
             abi.encode(
                 LibPreconfConstants.UPDATE_PROTECTOR_SIGNING_THRESHOLD_DOMAIN_SEPARATOR,
+                nonce,
                 _signingThreshold
             )
         );
         _verifySignatures(digest, _signatures);
 
         signingThreshold = _signingThreshold;
+        unchecked {
+            ++nonce;
+        }
 
         emit SigningThresholdUpdated(_signingThreshold);
     }
