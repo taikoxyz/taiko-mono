@@ -167,7 +167,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 				d.sequencerMultiAddrs = append(d.sequencerMultiAddrs, multiAddrs...)
 				// Call keepConnection() to connect to the latest multiaddr.
-				d.keepConnection()
+				go d.keepConnection()
 			} else {
 				log.Warn("Failed to fetch sequencer multiaddrs from preconfirmation whitelist", "error", err)
 			}
@@ -681,6 +681,8 @@ func (d *Driver) cacheLookaheadLoop() {
 
 // keepConnection attempts to establish and maintain connections with all sequencer peers.
 func (d *Driver) keepConnection() {
+	log.Debug("keepConnection wg started", "numPeers", len(d.sequencerMultiAddrs))
+
 	for _, multiAddr := range d.sequencerMultiAddrs {
 		d.peerConnectionWG.Add(1)
 		go func() {
@@ -691,12 +693,14 @@ func (d *Driver) keepConnection() {
 		}()
 	}
 	d.peerConnectionWG.Wait()
+
+	log.Debug("keepConnection wg finished", "numPeers", len(d.sequencerMultiAddrs))
 }
 
 // connectPeer attempts to establish a connection with a peer, retrying if necessary.
 func (d *Driver) connectPeer(peerAddr string) error {
 	if d.PreconfBlockServerPort > 0 {
-		log.Info("Trying to add new peer", "peer", peerAddr)
+		log.Debug("Trying to add new peer", "peer", peerAddr)
 		return backoff.Retry(func() error {
 			return d.p2pApi.ConnectPeer(d.ctx, peerAddr)
 		}, backoff.WithContext(backoff.NewConstantBackOff(d.RetryInterval), d.ctx))
