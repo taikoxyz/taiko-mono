@@ -15,10 +15,10 @@ interface IPreconfWhitelist {
     /// @param inactiveSince The timestamp when the operator became inactive.
     event OperatorRemoved(address indexed operator, uint256 inactiveSince);
 
-    /// @notice Emitted when an operator updates their multiaddr.
-    /// @param operator The address of the operator that was removed.
+    /// @notice Emitted when an operator is updated.
+    /// @param operator The address of the operator.
     /// @param multiAddr The new multiaddr.
-    event OperatorChangedMultiAddr(address indexed operator, string multiAddr);
+    event OperatorUpdated(address indexed operator, string multiAddr);
 
     error InvalidOperatorIndex();
     error InvalidOperatorCount();
