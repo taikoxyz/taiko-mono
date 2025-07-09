@@ -151,22 +151,16 @@ contract PIDBaseFeeController is EssentialContract {
         pure
         returns (uint32)
     {
-        if (_option == GasTargetOption.NoChange) {
-            return _currentTarget;
-        }
+        if (_option == GasTargetOption.NoChange) return _currentTarget;
 
         uint256 adjustedTarget = _option == GasTargetOption.Increase
             ? uint256(_currentTarget) * 101 / 100
             : uint256(_currentTarget) * 100 / 101;
 
-        // Ensure gas target stays within uint32 bounds and doesn't go to zero
-        if (adjustedTarget > type(uint32).max) {
-            return type(uint32).max;
-        } else if (adjustedTarget == 0) {
-            return 1; // Minimum gas target
-        } else {
-            return uint32(adjustedTarget);
-        }
+        if (adjustedTarget > type(uint32).max) return type(uint32).max;
+        if (adjustedTarget == 0) return 1;
+
+        return uint32(adjustedTarget);
     }
 
     /// @notice Calculates new base fee using PID control algorithm
@@ -184,32 +178,28 @@ contract PIDBaseFeeController is EssentialContract {
         private
         returns (uint64)
     {
-        // Calculate error (can be positive or negative)
-        int256 newError = int256(uint256(_parentGasUsed)) - int256(uint256(_gasTarget));
+        int256 newError = int256(uint(_parentGasUsed)) - int256(uint(_gasTarget));
 
-        // Update integral (accumulated error)
-        int256 newIntegral = integral + newError;
+        // Apply anti-windup: skip integral update if base fee is saturated
+        int256 newIntegral = integral;
+        if (!((_currentBaseFee == 0 && newError < 0) || (_currentBaseFee == type(uint64).max && newError > 0))) {
+            newIntegral += newError;
+        }
 
-        // Calculate derivative (rate of change of error)
+        // Optionally decay integral to prevent long-term buildup
+        newIntegral = (newIntegral * 999) / 1000;
+
         int256 derivative = newError - previousError;
-
-        // Calculate PID adjustment
         int256 adjustment = (kP * newError + kI * newIntegral + kD * derivative) / 1000;
 
-        // Update previous error and integral or next iteration
         previousError = newError;
         integral = newIntegral;
 
-        // Apply adjustment to base fee
         int256 newBaseFee = int256(uint256(_currentBaseFee)) + adjustment;
 
-        // Clamp to valid range [0, uint64.max]
-        if (newBaseFee <= 0) {
-            return 0;
-        } else if (newBaseFee > int256(uint256(type(uint64).max))) {
-            return type(uint64).max;
-        } else {
-            return uint64(uint256(newBaseFee));
-        }
+        if (newBaseFee <= 0) return 0;
+        if (newBaseFee > int256(uint256(type(uint64).max))) return type(uint64).max;
+
+        return uint64(uint256(newBaseFee));
     }
 }
