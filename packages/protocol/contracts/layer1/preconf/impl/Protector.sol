@@ -17,6 +17,8 @@ contract Protector is IProtector, EssentialContract {
 
     mapping(address signerAddress => bool isSigner) public signers;
 
+    uint256[48] private __gap;
+
     constructor(address _urc) {
         urc = _urc;
     }
