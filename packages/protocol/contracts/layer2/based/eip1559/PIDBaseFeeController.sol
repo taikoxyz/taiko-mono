@@ -70,7 +70,6 @@ contract PIDBaseFeeController is EssentialContract {
 
     /// @notice Initializes the PID controller with specified parameters
     /// @param _anchor Address authorized to update controller parameters
-
     /// @param _kP Proportional coefficient (scaled by 1000)
     /// @param _kI Integral coefficient (scaled by 1000)
     /// @param _kD Derivative coefficient (scaled by 1000)
@@ -189,16 +188,17 @@ contract PIDBaseFeeController is EssentialContract {
         int256 newError = int256(uint256(_parentGasUsed)) - int256(uint256(_gasTarget));
 
         // Update integral (accumulated error)
-        integral += newError;
+        int256 newIntegral = integral + newError;
 
         // Calculate derivative (rate of change of error)
         int256 derivative = newError - previousError;
 
         // Calculate PID adjustment
-        int256 adjustment = (kP * newError + kI * integral + kD * derivative) / 1000;
+        int256 adjustment = (kP * newError + kI * newIntegral + kD * derivative) / 1000;
 
-        // Update previous error for next iteration
+        // Update previous error and integral or next iteration
         previousError = newError;
+        integral = newIntegral;
 
         // Apply adjustment to base fee
         int256 newBaseFee = int256(uint256(_currentBaseFee)) + adjustment;
