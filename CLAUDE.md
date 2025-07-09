@@ -20,6 +20,18 @@ packages/
 
 ## Smart Contract Development (packages/protocol)
 
+### Coding Style
+- Use newer solidity syntax
+- Private state variables and private or internal functions should be prefixed with an underscore
+- Event names should be in the past tense
+- Use named imports
+    - YES: `import {Contract} from "./contract.sol"`
+    - NO: `import "./contract.sol"`
+- Prefer custom errors over require strings
+- Use `///` comments for natspec. Only external and public functions should have a `@notice`, while internal or private only have `@dev`
+- Use named parameters on mapping definitions
+
+
 ### Commands
 ```bash
 # Compilation
