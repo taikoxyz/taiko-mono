@@ -1,0 +1,7002 @@
+[
+  {
+    "number": 22882812,
+    "timestamp": 1752078407,
+    "gasLimit": 35964845,
+    "gasUsed": 17135438,
+    "baseFeePerGas": 3349813274
+  },
+  {
+    "number": 22882813,
+    "timestamp": 1752078419,
+    "gasLimit": 35929725,
+    "gasUsed": 6523306,
+    "baseFeePerGas": 3330090971
+  },
+  {
+    "number": 22882814,
+    "timestamp": 1752078431,
+    "gasLimit": 35964811,
+    "gasUsed": 25289385,
+    "baseFeePerGas": 3064980235
+  },
+  {
+    "number": 22882815,
+    "timestamp": 1752078443,
+    "gasLimit": 35999931,
+    "gasUsed": 18058628,
+    "baseFeePerGas": 3220658447
+  },
+  {
+    "number": 22882816,
+    "timestamp": 1752078455,
+    "gasLimit": 35964776,
+    "gasUsed": 15148024,
+    "baseFeePerGas": 3221970487
+  },
+  {
+    "number": 22882817,
+    "timestamp": 1752078467,
+    "gasLimit": 35999896,
+    "gasUsed": 17316832,
+    "baseFeePerGas": 3158490062
+  },
+  {
+    "number": 22882818,
+    "timestamp": 1752078479,
+    "gasLimit": 36000000,
+    "gasUsed": 25278558,
+    "baseFeePerGas": 3143506581
+  },
+  {
+    "number": 22882819,
+    "timestamp": 1752078491,
+    "gasLimit": 35964845,
+    "gasUsed": 35106758,
+    "baseFeePerGas": 3302396823
+  },
+  {
+    "number": 22882820,
+    "timestamp": 1752078503,
+    "gasLimit": 35999965,
+    "gasUsed": 15543305,
+    "baseFeePerGas": 3695498436
+  },
+  {
+    "number": 22882821,
+    "timestamp": 1752078515,
+    "gasLimit": 36035120,
+    "gasUsed": 20237443,
+    "baseFeePerGas": 3632452221
+  },
+  {
+    "number": 22882822,
+    "timestamp": 1752078527,
+    "gasLimit": 36000000,
+    "gasUsed": 13073464,
+    "baseFeePerGas": 3688394999
+  },
+  {
+    "number": 22882823,
+    "timestamp": 1752078539,
+    "gasLimit": 36035155,
+    "gasUsed": 20849062,
+    "baseFeePerGas": 3562207425
+  },
+  {
+    "number": 22882824,
+    "timestamp": 1752078551,
+    "gasLimit": 36000000,
+    "gasUsed": 18076213,
+    "baseFeePerGas": 3632183099
+  },
+  {
+    "number": 22882825,
+    "timestamp": 1752078563,
+    "gasLimit": 35964845,
+    "gasUsed": 23318350,
+    "baseFeePerGas": 3634105457
+  },
+  {
+    "number": 22882826,
+    "timestamp": 1752078575,
+    "gasLimit": 35999965,
+    "gasUsed": 11786841,
+    "baseFeePerGas": 3768899070
+  },
+  {
+    "number": 22882827,
+    "timestamp": 1752078587,
+    "gasLimit": 36035120,
+    "gasUsed": 22374196,
+    "baseFeePerGas": 3606282926
+  },
+  {
+    "number": 22882828,
+    "timestamp": 1752078599,
+    "gasLimit": 35999931,
+    "gasUsed": 15825718,
+    "baseFeePerGas": 3715282577
+  },
+  {
+    "number": 22882829,
+    "timestamp": 1752078611,
+    "gasLimit": 36035086,
+    "gasUsed": 21641942,
+    "baseFeePerGas": 3659185649
+  },
+  {
+    "number": 22882830,
+    "timestamp": 1752078623,
+    "gasLimit": 36000000,
+    "gasUsed": 13911678,
+    "baseFeePerGas": 3751195619
+  },
+  {
+    "number": 22882831,
+    "timestamp": 1752078635,
+    "gasLimit": 35964845,
+    "gasUsed": 11747668,
+    "baseFeePerGas": 3644694956
+  },
+  {
+    "number": 22882832,
+    "timestamp": 1752078647,
+    "gasLimit": 35999965,
+    "gasUsed": 31143939,
+    "baseFeePerGas": 3486736698
+  },
+  {
+    "number": 22882833,
+    "timestamp": 1752078659,
+    "gasLimit": 36000000,
+    "gasUsed": 19706801,
+    "baseFeePerGas": 3804997552
+  },
+  {
+    "number": 22882834,
+    "timestamp": 1752078671,
+    "gasLimit": 36000000,
+    "gasUsed": 16748953,
+    "baseFeePerGas": 3850097368
+  },
+  {
+    "number": 22882835,
+    "timestamp": 1752078683,
+    "gasLimit": 36035155,
+    "gasUsed": 19402947,
+    "baseFeePerGas": 3816648391
+  },
+  {
+    "number": 22882836,
+    "timestamp": 1752078695,
+    "gasLimit": 36000000,
+    "gasUsed": 11870873,
+    "baseFeePerGas": 3853331113
+  },
+  {
+    "number": 22882837,
+    "timestamp": 1752078707,
+    "gasLimit": 36000000,
+    "gasUsed": 8040502,
+    "baseFeePerGas": 3689320310
+  },
+  {
+    "number": 22882838,
+    "timestamp": 1752078719,
+    "gasLimit": 36000000,
+    "gasUsed": 26022007,
+    "baseFeePerGas": 3434155184
+  },
+  {
+    "number": 22882839,
+    "timestamp": 1752078731,
+    "gasLimit": 35964845,
+    "gasUsed": 21643176,
+    "baseFeePerGas": 3625466412
+  },
+  {
+    "number": 22882840,
+    "timestamp": 1752078743,
+    "gasLimit": 35929725,
+    "gasUsed": 15346655,
+    "baseFeePerGas": 3717722760
+  },
+  {
+    "number": 22882841,
+    "timestamp": 1752078755,
+    "gasLimit": 35964811,
+    "gasUsed": 12373356,
+    "baseFeePerGas": 3649994939
+  },
+  {
+    "number": 22882842,
+    "timestamp": 1752078767,
+    "gasLimit": 35999931,
+    "gasUsed": 18553879,
+    "baseFeePerGas": 3507682214
+  },
+  {
+    "number": 22882843,
+    "timestamp": 1752078779,
+    "gasLimit": 36000000,
+    "gasUsed": 14335883,
+    "baseFeePerGas": 3521174978
+  },
+  {
+    "number": 22882844,
+    "timestamp": 1752078791,
+    "gasLimit": 36000000,
+    "gasUsed": 15999968,
+    "baseFeePerGas": 3431577776
+  },
+  {
+    "number": 22882845,
+    "timestamp": 1752078803,
+    "gasLimit": 36000000,
+    "gasUsed": 23441243,
+    "baseFeePerGas": 3383916211
+  },
+  {
+    "number": 22882846,
+    "timestamp": 1752078815,
+    "gasLimit": 36035155,
+    "gasUsed": 20902378,
+    "baseFeePerGas": 3511782255
+  },
+  {
+    "number": 22882847,
+    "timestamp": 1752078827,
+    "gasLimit": 36070344,
+    "gasUsed": 15813033,
+    "baseFeePerGas": 3582066351
+  },
+  {
+    "number": 22882848,
+    "timestamp": 1752078839,
+    "gasLimit": 36035121,
+    "gasUsed": 13488169,
+    "baseFeePerGas": 3526897420
+  },
+  {
+    "number": 22882849,
+    "timestamp": 1752078851,
+    "gasLimit": 36000000,
+    "gasUsed": 20849974,
+    "baseFeePerGas": 3416070140
+  },
+  {
+    "number": 22882850,
+    "timestamp": 1752078863,
+    "gasLimit": 36000000,
+    "gasUsed": 14815337,
+    "baseFeePerGas": 3483679244
+  },
+  {
+    "number": 22882851,
+    "timestamp": 1752078875,
+    "gasLimit": 35964845,
+    "gasUsed": 22624548,
+    "baseFeePerGas": 3406635186
+  },
+  {
+    "number": 22882852,
+    "timestamp": 1752078887,
+    "gasLimit": 35999965,
+    "gasUsed": 13517053,
+    "baseFeePerGas": 3516562187
+  },
+  {
+    "number": 22882853,
+    "timestamp": 1752078899,
+    "gasLimit": 36035120,
+    "gasUsed": 13453789,
+    "baseFeePerGas": 3407086393
+  },
+  {
+    "number": 22882854,
+    "timestamp": 1752078911,
+    "gasLimit": 35999931,
+    "gasUsed": 16157981,
+    "baseFeePerGas": 3299211339
+  },
+  {
+    "number": 22882855,
+    "timestamp": 1752078923,
+    "gasLimit": 36000000,
+    "gasUsed": 19115994,
+    "baseFeePerGas": 3257009212
+  },
+  {
+    "number": 22882856,
+    "timestamp": 1752078935,
+    "gasLimit": 36035155,
+    "gasUsed": 14311104,
+    "baseFeePerGas": 3282250897
+  },
+  {
+    "number": 22882857,
+    "timestamp": 1752078947,
+    "gasLimit": 36070344,
+    "gasUsed": 17025085,
+    "baseFeePerGas": 3197850160
+  },
+  {
+    "number": 22882858,
+    "timestamp": 1752078959,
+    "gasLimit": 36105567,
+    "gasUsed": 14230362,
+    "baseFeePerGas": 3175462608
+  },
+  {
+    "number": 22882859,
+    "timestamp": 1752078971,
+    "gasLimit": 36140825,
+    "gasUsed": 18398167,
+    "baseFeePerGas": 3091417707
+  },
+  {
+    "number": 22882860,
+    "timestamp": 1752078983,
+    "gasLimit": 36105533,
+    "gasUsed": 17062011,
+    "baseFeePerGas": 3098426592
+  },
+  {
+    "number": 22882861,
+    "timestamp": 1752078995,
+    "gasLimit": 36140791,
+    "gasUsed": 20138723,
+    "baseFeePerGas": 3077170974
+  },
+  {
+    "number": 22882862,
+    "timestamp": 1752079007,
+    "gasLimit": 36105499,
+    "gasUsed": 12340645,
+    "baseFeePerGas": 3121197397
+  },
+  {
+    "number": 22882863,
+    "timestamp": 1752079019,
+    "gasLimit": 36070241,
+    "gasUsed": 17402100,
+    "baseFeePerGas": 2997749411
+  },
+  {
+    "number": 22882864,
+    "timestamp": 1752079031,
+    "gasLimit": 36035018,
+    "gasUsed": 17580930,
+    "baseFeePerGas": 2984597050
+  },
+  {
+    "number": 22882865,
+    "timestamp": 1752079043,
+    "gasLimit": 36070207,
+    "gasUsed": 14868718,
+    "baseFeePerGas": 2975557147
+  },
+  {
+    "number": 22882866,
+    "timestamp": 1752079055,
+    "gasLimit": 36034984,
+    "gasUsed": 16690774,
+    "baseFeePerGas": 2910255611
+  },
+  {
+    "number": 22882867,
+    "timestamp": 1752079067,
+    "gasLimit": 36000000,
+    "gasUsed": 7384908,
+    "baseFeePerGas": 2883468528
+  },
+  {
+    "number": 22882868,
+    "timestamp": 1752079079,
+    "gasLimit": 36000000,
+    "gasUsed": 29277284,
+    "baseFeePerGas": 2670911003
+  },
+  {
+    "number": 22882869,
+    "timestamp": 1752079091,
+    "gasLimit": 36035155,
+    "gasUsed": 20421434,
+    "baseFeePerGas": 2880081988
+  },
+  {
+    "number": 22882870,
+    "timestamp": 1752079103,
+    "gasLimit": 35999966,
+    "gasUsed": 17956970,
+    "baseFeePerGas": 2928113593
+  },
+  {
+    "number": 22882871,
+    "timestamp": 1752079115,
+    "gasLimit": 35964811,
+    "gasUsed": 13925744,
+    "baseFeePerGas": 2927238961
+  },
+  {
+    "number": 22882872,
+    "timestamp": 1752079127,
+    "gasLimit": 35999931,
+    "gasUsed": 17704022,
+    "baseFeePerGas": 2844694273
+  },
+  {
+    "number": 22882873,
+    "timestamp": 1752079139,
+    "gasLimit": 36035086,
+    "gasUsed": 22916628,
+    "baseFeePerGas": 2838847961
+  },
+  {
+    "number": 22882874,
+    "timestamp": 1752079151,
+    "gasLimit": 36000000,
+    "gasUsed": 17797998,
+    "baseFeePerGas": 2935335572
+  },
+  {
+    "number": 22882875,
+    "timestamp": 1752079163,
+    "gasLimit": 35964845,
+    "gasUsed": 22683599,
+    "baseFeePerGas": 2931217908
+  },
+  {
+    "number": 22882876,
+    "timestamp": 1752079175,
+    "gasLimit": 35999965,
+    "gasUsed": 21533043,
+    "baseFeePerGas": 3027007105
+  },
+  {
+    "number": 22882877,
+    "timestamp": 1752079187,
+    "gasLimit": 35964810,
+    "gasUsed": 20955039,
+    "baseFeePerGas": 3101275240
+  },
+  {
+    "number": 22882878,
+    "timestamp": 1752079199,
+    "gasLimit": 35999930,
+    "gasUsed": 16335505,
+    "baseFeePerGas": 3165358410
+  },
+  {
+    "number": 22882879,
+    "timestamp": 1752079211,
+    "gasLimit": 36035085,
+    "gasUsed": 25376864,
+    "baseFeePerGas": 3128770753
+  },
+  {
+    "number": 22882880,
+    "timestamp": 1752079223,
+    "gasLimit": 35999896,
+    "gasUsed": 21689903,
+    "baseFeePerGas": 3288515291
+  },
+  {
+    "number": 22882881,
+    "timestamp": 1752079235,
+    "gasLimit": 36000000,
+    "gasUsed": 16486559,
+    "baseFeePerGas": 3372782711
+  },
+  {
+    "number": 22882882,
+    "timestamp": 1752079247,
+    "gasLimit": 36000000,
+    "gasUsed": 19679212,
+    "baseFeePerGas": 3337334742
+  },
+  {
+    "number": 22882883,
+    "timestamp": 1752079259,
+    "gasLimit": 36000000,
+    "gasUsed": 18700840,
+    "baseFeePerGas": 3376252051
+  },
+  {
+    "number": 22882884,
+    "timestamp": 1752079271,
+    "gasLimit": 36035155,
+    "gasUsed": 17264686,
+    "baseFeePerGas": 3392684082
+  },
+  {
+    "number": 22882885,
+    "timestamp": 1752079283,
+    "gasLimit": 35999966,
+    "gasUsed": 25309553,
+    "baseFeePerGas": 3374963045
+  },
+  {
+    "number": 22882886,
+    "timestamp": 1752079295,
+    "gasLimit": 36000000,
+    "gasUsed": 23640933,
+    "baseFeePerGas": 3546279377
+  },
+  {
+    "number": 22882887,
+    "timestamp": 1752079307,
+    "gasLimit": 36000000,
+    "gasUsed": 0,
+    "baseFeePerGas": 3685198296
+  },
+  {
+    "number": 22882888,
+    "timestamp": 1752079319,
+    "gasLimit": 35964845,
+    "gasUsed": 34649344,
+    "baseFeePerGas": 3224548509
+  },
+  {
+    "number": 22882889,
+    "timestamp": 1752079331,
+    "gasLimit": 35999965,
+    "gasUsed": 13567098,
+    "baseFeePerGas": 3598130683
+  },
+  {
+    "number": 22882890,
+    "timestamp": 1752079343,
+    "gasLimit": 36000000,
+    "gasUsed": 15599187,
+    "baseFeePerGas": 3487366018
+  },
+  {
+    "number": 22882891,
+    "timestamp": 1752079355,
+    "gasLimit": 36000000,
+    "gasUsed": 24469088,
+    "baseFeePerGas": 3429223562
+  },
+  {
+    "number": 22882892,
+    "timestamp": 1752079367,
+    "gasLimit": 36000000,
+    "gasUsed": 19930384,
+    "baseFeePerGas": 3583278763
+  },
+  {
+    "number": 22882893,
+    "timestamp": 1752079379,
+    "gasLimit": 36000000,
+    "gasUsed": 25867645,
+    "baseFeePerGas": 3631314207
+  },
+  {
+    "number": 22882894,
+    "timestamp": 1752079391,
+    "gasLimit": 36035155,
+    "gasUsed": 15759742,
+    "baseFeePerGas": 3829716228
+  },
+  {
+    "number": 22882895,
+    "timestamp": 1752079403,
+    "gasLimit": 36000000,
+    "gasUsed": 17166432,
+    "baseFeePerGas": 3769727118
+  },
+  {
+    "number": 22882896,
+    "timestamp": 1752079415,
+    "gasLimit": 36000000,
+    "gasUsed": 21572576,
+    "baseFeePerGas": 3747905425
+  },
+  {
+    "number": 22882897,
+    "timestamp": 1752079427,
+    "gasLimit": 36000000,
+    "gasUsed": 18623901,
+    "baseFeePerGas": 3840889292
+  },
+  {
+    "number": 22882898,
+    "timestamp": 1752079439,
+    "gasLimit": 36035155,
+    "gasUsed": 5680947,
+    "baseFeePerGas": 3857530504
+  },
+  {
+    "number": 22882899,
+    "timestamp": 1752079451,
+    "gasLimit": 35999966,
+    "gasUsed": 31866515,
+    "baseFeePerGas": 3527374246
+  },
+  {
+    "number": 22882900,
+    "timestamp": 1752079463,
+    "gasLimit": 36000000,
+    "gasUsed": 13610004,
+    "baseFeePerGas": 3867044343
+  },
+  {
+    "number": 22882901,
+    "timestamp": 1752079475,
+    "gasLimit": 36035155,
+    "gasUsed": 14855869,
+    "baseFeePerGas": 3749153307
+  },
+  {
+    "number": 22882902,
+    "timestamp": 1752079487,
+    "gasLimit": 36070344,
+    "gasUsed": 15429348,
+    "baseFeePerGas": 3666916057
+  },
+  {
+    "number": 22882903,
+    "timestamp": 1752079499,
+    "gasLimit": 36035121,
+    "gasUsed": 15764341,
+    "baseFeePerGas": 3600688952
+  },
+  {
+    "number": 22882904,
+    "timestamp": 1752079511,
+    "gasLimit": 36070310,
+    "gasUsed": 17577817,
+    "baseFeePerGas": 3544402608
+  },
+  {
+    "number": 22882905,
+    "timestamp": 1752079523,
+    "gasLimit": 36035087,
+    "gasUsed": 15039344,
+    "baseFeePerGas": 3533167676
+  },
+  {
+    "number": 22882906,
+    "timestamp": 1752079535,
+    "gasLimit": 36070276,
+    "gasUsed": 18051393,
+    "baseFeePerGas": 3460166072
+  },
+  {
+    "number": 22882907,
+    "timestamp": 1752079547,
+    "gasLimit": 36035053,
+    "gasUsed": 14905257,
+    "baseFeePerGas": 3460555901
+  },
+  {
+    "number": 22882908,
+    "timestamp": 1752079559,
+    "gasLimit": 36000000,
+    "gasUsed": 16140804,
+    "baseFeePerGas": 3385835731
+  },
+  {
+    "number": 22882909,
+    "timestamp": 1752079571,
+    "gasLimit": 36035155,
+    "gasUsed": 15279679,
+    "baseFeePerGas": 3342120924
+  },
+  {
+    "number": 22882910,
+    "timestamp": 1752079583,
+    "gasLimit": 36070344,
+    "gasUsed": 17407006,
+    "baseFeePerGas": 3278638566
+  },
+  {
+    "number": 22882911,
+    "timestamp": 1752079595,
+    "gasLimit": 36035121,
+    "gasUsed": 10054776,
+    "baseFeePerGas": 3264364172
+  },
+  {
+    "number": 22882912,
+    "timestamp": 1752079607,
+    "gasLimit": 36070310,
+    "gasUsed": 25379057,
+    "baseFeePerGas": 3084030190
+  },
+  {
+    "number": 22882913,
+    "timestamp": 1752079619,
+    "gasLimit": 36035087,
+    "gasUsed": 17152847,
+    "baseFeePerGas": 3241007046
+  },
+  {
+    "number": 22882914,
+    "timestamp": 1752079631,
+    "gasLimit": 36000000,
+    "gasUsed": 16761386,
+    "baseFeePerGas": 3221564288
+  },
+  {
+    "number": 22882915,
+    "timestamp": 1752079643,
+    "gasLimit": 36035155,
+    "gasUsed": 32978191,
+    "baseFeePerGas": 3193854048
+  },
+  {
+    "number": 22882916,
+    "timestamp": 1752079655,
+    "gasLimit": 35999966,
+    "gasUsed": 17582967,
+    "baseFeePerGas": 3525349908
+  },
+  {
+    "number": 22882917,
+    "timestamp": 1752079667,
+    "gasLimit": 35964811,
+    "gasUsed": 8426748,
+    "baseFeePerGas": 3515140681
+  },
+  {
+    "number": 22882918,
+    "timestamp": 1752079679,
+    "gasLimit": 35929691,
+    "gasUsed": 25161268,
+    "baseFeePerGas": 3281652178
+  },
+  {
+    "number": 22882919,
+    "timestamp": 1752079691,
+    "gasLimit": 35964777,
+    "gasUsed": 15723951,
+    "baseFeePerGas": 3445974199
+  },
+  {
+    "number": 22882920,
+    "timestamp": 1752079703,
+    "gasLimit": 35999897,
+    "gasUsed": 21857174,
+    "baseFeePerGas": 3391876020
+  },
+  {
+    "number": 22882921,
+    "timestamp": 1752079715,
+    "gasLimit": 35964742,
+    "gasUsed": 19109208,
+    "baseFeePerGas": 3482732062
+  },
+  {
+    "number": 22882922,
+    "timestamp": 1752079727,
+    "gasLimit": 35999862,
+    "gasUsed": 16110299,
+    "baseFeePerGas": 3510012052
+  },
+  {
+    "number": 22882923,
+    "timestamp": 1752079739,
+    "gasLimit": 36000000,
+    "gasUsed": 8393765,
+    "baseFeePerGas": 3463951938
+  },
+  {
+    "number": 22882924,
+    "timestamp": 1752079751,
+    "gasLimit": 36000000,
+    "gasUsed": 23779446,
+    "baseFeePerGas": 3232871825
+  },
+  {
+    "number": 22882925,
+    "timestamp": 1752079763,
+    "gasLimit": 35964845,
+    "gasUsed": 8896999,
+    "baseFeePerGas": 3362623270
+  },
+  {
+    "number": 22882926,
+    "timestamp": 1752079775,
+    "gasLimit": 35999965,
+    "gasUsed": 22655011,
+    "baseFeePerGas": 3150257169
+  },
+  {
+    "number": 22882927,
+    "timestamp": 1752079787,
+    "gasLimit": 36000000,
+    "gasUsed": 13150470,
+    "baseFeePerGas": 3252094343
+  },
+  {
+    "number": 22882928,
+    "timestamp": 1752079799,
+    "gasLimit": 36000000,
+    "gasUsed": 20260949,
+    "baseFeePerGas": 3142572614
+  },
+  {
+    "number": 22882929,
+    "timestamp": 1752079811,
+    "gasLimit": 36000000,
+    "gasUsed": 20891748,
+    "baseFeePerGas": 3191914255
+  },
+  {
+    "number": 22882930,
+    "timestamp": 1752079823,
+    "gasLimit": 36000000,
+    "gasUsed": 13275688,
+    "baseFeePerGas": 3256012947
+  },
+  {
+    "number": 22882931,
+    "timestamp": 1752079835,
+    "gasLimit": 35964845,
+    "gasUsed": 31430301,
+    "baseFeePerGas": 3149190579
+  },
+  {
+    "number": 22882932,
+    "timestamp": 1752079847,
+    "gasLimit": 35999965,
+    "gasUsed": 14644796,
+    "baseFeePerGas": 3443574824
+  },
+  {
+    "number": 22882933,
+    "timestamp": 1752079859,
+    "gasLimit": 36035120,
+    "gasUsed": 20244484,
+    "baseFeePerGas": 3363339786
+  },
+  {
+    "number": 22882934,
+    "timestamp": 1752079871,
+    "gasLimit": 35999931,
+    "gasUsed": 14354205,
+    "baseFeePerGas": 3415302302
+  },
+  {
+    "number": 22882935,
+    "timestamp": 1752079883,
+    "gasLimit": 36000000,
+    "gasUsed": 27336350,
+    "baseFeePerGas": 3328834270
+  },
+  {
+    "number": 22882936,
+    "timestamp": 1752079895,
+    "gasLimit": 35964845,
+    "gasUsed": 18138253,
+    "baseFeePerGas": 3544661782
+  },
+  {
+    "number": 22882937,
+    "timestamp": 1752079907,
+    "gasLimit": 35999965,
+    "gasUsed": 16235318,
+    "baseFeePerGas": 3548501421
+  },
+  {
+    "number": 22882938,
+    "timestamp": 1752079919,
+    "gasLimit": 36035120,
+    "gasUsed": 5228310,
+    "baseFeePerGas": 3505015873
+  },
+  {
+    "number": 22882939,
+    "timestamp": 1752079931,
+    "gasLimit": 36000000,
+    "gasUsed": 19760910,
+    "baseFeePerGas": 3194023956
+  },
+  {
+    "number": 22882940,
+    "timestamp": 1752079943,
+    "gasLimit": 36000000,
+    "gasUsed": 27787554,
+    "baseFeePerGas": 3233082211
+  },
+  {
+    "number": 22882941,
+    "timestamp": 1752079955,
+    "gasLimit": 36000000,
+    "gasUsed": 16554555,
+    "baseFeePerGas": 3452831979
+  },
+  {
+    "number": 22882942,
+    "timestamp": 1752079967,
+    "gasLimit": 36000000,
+    "gasUsed": 19768334,
+    "baseFeePerGas": 3418173100
+  },
+  {
+    "number": 22882943,
+    "timestamp": 1752079979,
+    "gasLimit": 36000000,
+    "gasUsed": 20756081,
+    "baseFeePerGas": 3460148597
+  },
+  {
+    "number": 22882944,
+    "timestamp": 1752079991,
+    "gasLimit": 36000000,
+    "gasUsed": 22073275,
+    "baseFeePerGas": 3526373942
+  },
+  {
+    "number": 22882945,
+    "timestamp": 1752080003,
+    "gasLimit": 35964845,
+    "gasUsed": 13588434,
+    "baseFeePerGas": 3626123183
+  },
+  {
+    "number": 22882946,
+    "timestamp": 1752080015,
+    "gasLimit": 35999965,
+    "gasUsed": 19080056,
+    "baseFeePerGas": 3515368207
+  },
+  {
+    "number": 22882947,
+    "timestamp": 1752080027,
+    "gasLimit": 36000000,
+    "gasUsed": 16110813,
+    "baseFeePerGas": 3541735301
+  },
+  {
+    "number": 22882948,
+    "timestamp": 1752080039,
+    "gasLimit": 36035155,
+    "gasUsed": 13421219,
+    "baseFeePerGas": 3495270022
+  },
+  {
+    "number": 22882949,
+    "timestamp": 1752080051,
+    "gasLimit": 35999966,
+    "gasUsed": 19817625,
+    "baseFeePerGas": 3383812803
+  },
+  {
+    "number": 22882950,
+    "timestamp": 1752080063,
+    "gasLimit": 36000000,
+    "gasUsed": 19417912,
+    "baseFeePerGas": 3426525067
+  },
+  {
+    "number": 22882951,
+    "timestamp": 1752080075,
+    "gasLimit": 36035155,
+    "gasUsed": 18814781,
+    "baseFeePerGas": 3460264726
+  },
+  {
+    "number": 22882952,
+    "timestamp": 1752080087,
+    "gasLimit": 36000000,
+    "gasUsed": 12957287,
+    "baseFeePerGas": 3479402544
+  },
+  {
+    "number": 22882953,
+    "timestamp": 1752080099,
+    "gasLimit": 36000000,
+    "gasUsed": 23218767,
+    "baseFeePerGas": 3357557903
+  },
+  {
+    "number": 22882954,
+    "timestamp": 1752080111,
+    "gasLimit": 36000000,
+    "gasUsed": 17673286,
+    "baseFeePerGas": 3479240627
+  },
+  {
+    "number": 22882955,
+    "timestamp": 1752080123,
+    "gasLimit": 35964845,
+    "gasUsed": 13821092,
+    "baseFeePerGas": 3471346762
+  },
+  {
+    "number": 22882956,
+    "timestamp": 1752080135,
+    "gasLimit": 35999965,
+    "gasUsed": 18792970,
+    "baseFeePerGas": 3370933291
+  },
+  {
+    "number": 22882957,
+    "timestamp": 1752080147,
+    "gasLimit": 36000000,
+    "gasUsed": 13266762,
+    "baseFeePerGas": 3389496571
+  },
+  {
+    "number": 22882958,
+    "timestamp": 1752080159,
+    "gasLimit": 36000000,
+    "gasUsed": 14477810,
+    "baseFeePerGas": 3278084808
+  },
+  {
+    "number": 22882959,
+    "timestamp": 1752080171,
+    "gasLimit": 35964845,
+    "gasUsed": 20764827,
+    "baseFeePerGas": 3197903992
+  },
+  {
+    "number": 22882960,
+    "timestamp": 1752080183,
+    "gasLimit": 35929725,
+    "gasUsed": 17144913,
+    "baseFeePerGas": 3259755115
+  },
+  {
+    "number": 22882961,
+    "timestamp": 1752080195,
+    "gasLimit": 35964811,
+    "gasUsed": 17071294,
+    "baseFeePerGas": 3241157471
+  },
+  {
+    "number": 22882962,
+    "timestamp": 1752080207,
+    "gasLimit": 35999931,
+    "gasUsed": 15312314,
+    "baseFeePerGas": 3220630085
+  },
+  {
+    "number": 22882963,
+    "timestamp": 1752080219,
+    "gasLimit": 36000000,
+    "gasUsed": 18604738,
+    "baseFeePerGas": 3160519346
+  },
+  {
+    "number": 22882964,
+    "timestamp": 1752080231,
+    "gasLimit": 35964845,
+    "gasUsed": 14581702,
+    "baseFeePerGas": 3173792166
+  },
+  {
+    "number": 22882965,
+    "timestamp": 1752080243,
+    "gasLimit": 35999965,
+    "gasUsed": 16559825,
+    "baseFeePerGas": 3098766271
+  },
+  {
+    "number": 22882966,
+    "timestamp": 1752080255,
+    "gasLimit": 36000000,
+    "gasUsed": 17788790,
+    "baseFeePerGas": 3067775199
+  },
+  {
+    "number": 22882967,
+    "timestamp": 1752080267,
+    "gasLimit": 36000000,
+    "gasUsed": 9770515,
+    "baseFeePerGas": 3063275583
+  },
+  {
+    "number": 22882968,
+    "timestamp": 1752080279,
+    "gasLimit": 36000000,
+    "gasUsed": 19436851,
+    "baseFeePerGas": 2888211830
+  },
+  {
+    "number": 22882969,
+    "timestamp": 1752080291,
+    "gasLimit": 36035155,
+    "gasUsed": 24712770,
+    "baseFeePerGas": 2917030788
+  },
+  {
+    "number": 22882970,
+    "timestamp": 1752080303,
+    "gasLimit": 36070344,
+    "gasUsed": 20114737,
+    "baseFeePerGas": 3052524062
+  },
+  {
+    "number": 22882971,
+    "timestamp": 1752080315,
+    "gasLimit": 36105567,
+    "gasUsed": 17883313,
+    "baseFeePerGas": 3096520885
+  },
+  {
+    "number": 22882972,
+    "timestamp": 1752080327,
+    "gasLimit": 36070309,
+    "gasUsed": 18530611,
+    "baseFeePerGas": 3092887323
+  },
+  {
+    "number": 22882973,
+    "timestamp": 1752080339,
+    "gasLimit": 36035086,
+    "gasUsed": 11344268,
+    "baseFeePerGas": 3103508196
+  },
+  {
+    "number": 22882974,
+    "timestamp": 1752080351,
+    "gasLimit": 36070275,
+    "gasUsed": 36065407,
+    "baseFeePerGas": 2959824873
+  },
+  {
+    "number": 22882975,
+    "timestamp": 1752080363,
+    "gasLimit": 36035052,
+    "gasUsed": 29409968,
+    "baseFeePerGas": 3329703139
+  },
+  {
+    "number": 22882976,
+    "timestamp": 1752080375,
+    "gasLimit": 35999863,
+    "gasUsed": 15280246,
+    "baseFeePerGas": 3592873633
+  },
+  {
+    "number": 22882977,
+    "timestamp": 1752080387,
+    "gasLimit": 36000000,
+    "gasUsed": 13751916,
+    "baseFeePerGas": 3525015842
+  },
+  {
+    "number": 22882978,
+    "timestamp": 1752080399,
+    "gasLimit": 36000000,
+    "gasUsed": 12044701,
+    "baseFeePerGas": 3421025819
+  },
+  {
+    "number": 22882979,
+    "timestamp": 1752080411,
+    "gasLimit": 35964845,
+    "gasUsed": 31049898,
+    "baseFeePerGas": 3279545044
+  },
+  {
+    "number": 22882980,
+    "timestamp": 1752080423,
+    "gasLimit": 35999965,
+    "gasUsed": 26088372,
+    "baseFeePerGas": 3577442736
+  },
+  {
+    "number": 22882981,
+    "timestamp": 1752080435,
+    "gasLimit": 36000000,
+    "gasUsed": 22003176,
+    "baseFeePerGas": 3778385659
+  },
+  {
+    "number": 22882982,
+    "timestamp": 1752080447,
+    "gasLimit": 36035155,
+    "gasUsed": 17936302,
+    "baseFeePerGas": 3883424150
+  },
+  {
+    "number": 22882983,
+    "timestamp": 1752080459,
+    "gasLimit": 35999966,
+    "gasUsed": 18180725,
+    "baseFeePerGas": 3881234446
+  },
+  {
+    "number": 22882984,
+    "timestamp": 1752080471,
+    "gasLimit": 35964811,
+    "gasUsed": 13437416,
+    "baseFeePerGas": 3886105992
+  },
+  {
+    "number": 22882985,
+    "timestamp": 1752080483,
+    "gasLimit": 35999931,
+    "gasUsed": 19494989,
+    "baseFeePerGas": 3763331056
+  },
+  {
+    "number": 22882986,
+    "timestamp": 1752080495,
+    "gasLimit": 35964776,
+    "gasUsed": 18565575,
+    "baseFeePerGas": 3802402453
+  },
+  {
+    "number": 22882987,
+    "timestamp": 1752080507,
+    "gasLimit": 35999896,
+    "gasUsed": 10529057,
+    "baseFeePerGas": 3817816921
+  },
+  {
+    "number": 22882988,
+    "timestamp": 1752080519,
+    "gasLimit": 36000000,
+    "gasUsed": 24836620,
+    "baseFeePerGas": 3619743474
+  },
+  {
+    "number": 22882989,
+    "timestamp": 1752080531,
+    "gasLimit": 36000000,
+    "gasUsed": 24898992,
+    "baseFeePerGas": 3791596325
+  },
+  {
+    "number": 22882990,
+    "timestamp": 1752080543,
+    "gasLimit": 35964845,
+    "gasUsed": 26145196,
+    "baseFeePerGas": 3973250441
+  },
+  {
+    "number": 22882991,
+    "timestamp": 1752080555,
+    "gasLimit": 35999965,
+    "gasUsed": 20579902,
+    "baseFeePerGas": 4198698001
+  },
+  {
+    "number": 22882992,
+    "timestamp": 1752080567,
+    "gasLimit": 36035120,
+    "gasUsed": 16296394,
+    "baseFeePerGas": 4273922416
+  },
+  {
+    "number": 22882993,
+    "timestamp": 1752080579,
+    "gasLimit": 35999931,
+    "gasUsed": 34792839,
+    "baseFeePerGas": 4222887968
+  },
+  {
+    "number": 22882994,
+    "timestamp": 1752080591,
+    "gasLimit": 36000000,
+    "gasUsed": 17868193,
+    "baseFeePerGas": 4715350214
+  },
+  {
+    "number": 22882995,
+    "timestamp": 1752080603,
+    "gasLimit": 36000000,
+    "gasUsed": 15694256,
+    "baseFeePerGas": 4711034130
+  },
+  {
+    "number": 22882996,
+    "timestamp": 1752080615,
+    "gasLimit": 35964845,
+    "gasUsed": 14697913,
+    "baseFeePerGas": 4635600529
+  },
+  {
+    "number": 22882997,
+    "timestamp": 1752080627,
+    "gasLimit": 35999965,
+    "gasUsed": 14447152,
+    "baseFeePerGas": 4529763343
+  },
+  {
+    "number": 22882998,
+    "timestamp": 1752080639,
+    "gasLimit": 35964810,
+    "gasUsed": 15383445,
+    "baseFeePerGas": 4418002960
+  },
+  {
+    "number": 22882999,
+    "timestamp": 1752080651,
+    "gasLimit": 35999930,
+    "gasUsed": 20886924,
+    "baseFeePerGas": 4338187351
+  },
+  {
+    "number": 22883000,
+    "timestamp": 1752080663,
+    "gasLimit": 36000000,
+    "gasUsed": 16286614,
+    "baseFeePerGas": 4425160916
+  },
+  {
+    "number": 22883001,
+    "timestamp": 1752080675,
+    "gasLimit": 35964845,
+    "gasUsed": 15312676,
+    "baseFeePerGas": 4372508078
+  },
+  {
+    "number": 22883002,
+    "timestamp": 1752080687,
+    "gasLimit": 35999965,
+    "gasUsed": 23117157,
+    "baseFeePerGas": 4291362961
+  },
+  {
+    "number": 22883003,
+    "timestamp": 1752080699,
+    "gasLimit": 36000000,
+    "gasUsed": 16317156,
+    "baseFeePerGas": 4443860719
+  },
+  {
+    "number": 22883004,
+    "timestamp": 1752080711,
+    "gasLimit": 36035155,
+    "gasUsed": 14115809,
+    "baseFeePerGas": 4391927912
+  },
+  {
+    "number": 22883005,
+    "timestamp": 1752080723,
+    "gasLimit": 36000000,
+    "gasUsed": 24309167,
+    "baseFeePerGas": 4273042034
+  },
+  {
+    "number": 22883006,
+    "timestamp": 1752080735,
+    "gasLimit": 36035155,
+    "gasUsed": 6237294,
+    "baseFeePerGas": 4460259643
+  },
+  {
+    "number": 22883007,
+    "timestamp": 1752080747,
+    "gasLimit": 35999966,
+    "gasUsed": 35541060,
+    "baseFeePerGas": 4095732820
+  },
+  {
+    "number": 22883008,
+    "timestamp": 1752080759,
+    "gasLimit": 36000000,
+    "gasUsed": 18396140,
+    "baseFeePerGas": 4594646935
+  },
+  {
+    "number": 22883009,
+    "timestamp": 1752080771,
+    "gasLimit": 36000000,
+    "gasUsed": 17187476,
+    "baseFeePerGas": 4607286681
+  },
+  {
+    "number": 22883010,
+    "timestamp": 1752080783,
+    "gasLimit": 36000000,
+    "gasUsed": 10318177,
+    "baseFeePerGas": 4581289938
+  },
+  {
+    "number": 22883011,
+    "timestamp": 1752080795,
+    "gasLimit": 35964845,
+    "gasUsed": 5198160,
+    "baseFeePerGas": 4336896477
+  },
+  {
+    "number": 22883012,
+    "timestamp": 1752080807,
+    "gasLimit": 35999965,
+    "gasUsed": 35987873,
+    "baseFeePerGas": 3951492186
+  },
+  {
+    "number": 22883013,
+    "timestamp": 1752080819,
+    "gasLimit": 35964810,
+    "gasUsed": 16919748,
+    "baseFeePerGas": 4445096920
+  },
+  {
+    "number": 22883014,
+    "timestamp": 1752080831,
+    "gasLimit": 35929690,
+    "gasUsed": 10926185,
+    "baseFeePerGas": 4412261954
+  },
+  {
+    "number": 22883015,
+    "timestamp": 1752080843,
+    "gasLimit": 35964776,
+    "gasUsed": 18116146,
+    "baseFeePerGas": 4196170390
+  },
+  {
+    "number": 22883016,
+    "timestamp": 1752080855,
+    "gasLimit": 35929656,
+    "gasUsed": 19553343,
+    "baseFeePerGas": 4200071925
+  },
+  {
+    "number": 22883017,
+    "timestamp": 1752080867,
+    "gasLimit": 35964742,
+    "gasUsed": 21651461,
+    "baseFeePerGas": 4246495116
+  },
+  {
+    "number": 22883018,
+    "timestamp": 1752080879,
+    "gasLimit": 35999862,
+    "gasUsed": 11771331,
+    "baseFeePerGas": 4354801000
+  },
+  {
+    "number": 22883019,
+    "timestamp": 1752080891,
+    "gasLimit": 36000000,
+    "gasUsed": 28492536,
+    "baseFeePerGas": 4166436990
+  },
+  {
+    "number": 22883020,
+    "timestamp": 1752080915,
+    "gasLimit": 36000000,
+    "gasUsed": 22063204,
+    "baseFeePerGas": 4470023726
+  },
+  {
+    "number": 22883021,
+    "timestamp": 1752080927,
+    "gasLimit": 36035155,
+    "gasUsed": 28460848,
+    "baseFeePerGas": 4596153019
+  },
+  {
+    "number": 22883022,
+    "timestamp": 1752080939,
+    "gasLimit": 36000000,
+    "gasUsed": 23154872,
+    "baseFeePerGas": 4929153340
+  },
+  {
+    "number": 22883023,
+    "timestamp": 1752080951,
+    "gasLimit": 36035155,
+    "gasUsed": 20493107,
+    "baseFeePerGas": 5105605802
+  },
+  {
+    "number": 22883024,
+    "timestamp": 1752080963,
+    "gasLimit": 36070344,
+    "gasUsed": 11508728,
+    "baseFeePerGas": 5193291568
+  },
+  {
+    "number": 22883025,
+    "timestamp": 1752080975,
+    "gasLimit": 36105567,
+    "gasUsed": 9099764,
+    "baseFeePerGas": 4958377489
+  },
+  {
+    "number": 22883026,
+    "timestamp": 1752080987,
+    "gasLimit": 36140825,
+    "gasUsed": 26866372,
+    "baseFeePerGas": 4650997958
+  },
+  {
+    "number": 22883027,
+    "timestamp": 1752080999,
+    "gasLimit": 36105533,
+    "gasUsed": 21976694,
+    "baseFeePerGas": 4933988129
+  },
+  {
+    "number": 22883028,
+    "timestamp": 1752081011,
+    "gasLimit": 36070275,
+    "gasUsed": 25044557,
+    "baseFeePerGas": 5068043861
+  },
+  {
+    "number": 22883029,
+    "timestamp": 1752081023,
+    "gasLimit": 36035052,
+    "gasUsed": 10622791,
+    "baseFeePerGas": 5314258015
+  },
+  {
+    "number": 22883030,
+    "timestamp": 1752081035,
+    "gasLimit": 36000000,
+    "gasUsed": 19799520,
+    "baseFeePerGas": 5041623958
+  },
+  {
+    "number": 22883031,
+    "timestamp": 1752081047,
+    "gasLimit": 36000000,
+    "gasUsed": 21211035,
+    "baseFeePerGas": 5104627452
+  },
+  {
+    "number": 22883032,
+    "timestamp": 1752081059,
+    "gasLimit": 36035155,
+    "gasUsed": 19215134,
+    "baseFeePerGas": 5218454795
+  },
+  {
+    "number": 22883033,
+    "timestamp": 1752081071,
+    "gasLimit": 36000000,
+    "gasUsed": 14277311,
+    "baseFeePerGas": 5261811048
+  },
+  {
+    "number": 22883034,
+    "timestamp": 1752081083,
+    "gasLimit": 36000000,
+    "gasUsed": 19021629,
+    "baseFeePerGas": 5125782673
+  },
+  {
+    "number": 22883035,
+    "timestamp": 1752081095,
+    "gasLimit": 36035155,
+    "gasUsed": 18147249,
+    "baseFeePerGas": 5162148285
+  },
+  {
+    "number": 22883036,
+    "timestamp": 1752081107,
+    "gasLimit": 36070344,
+    "gasUsed": 14993511,
+    "baseFeePerGas": 5166792264
+  },
+  {
+    "number": 22883037,
+    "timestamp": 1752081119,
+    "gasLimit": 36035121,
+    "gasUsed": 5055381,
+    "baseFeePerGas": 5057868778
+  },
+  {
+    "number": 22883038,
+    "timestamp": 1752081131,
+    "gasLimit": 35999932,
+    "gasUsed": 31550676,
+    "baseFeePerGas": 4603027776
+  },
+  {
+    "number": 22883039,
+    "timestamp": 1752081143,
+    "gasLimit": 36035087,
+    "gasUsed": 20411601,
+    "baseFeePerGas": 5036183417
+  },
+  {
+    "number": 22883040,
+    "timestamp": 1752081155,
+    "gasLimit": 36070276,
+    "gasUsed": 20592389,
+    "baseFeePerGas": 5119830471
+  },
+  {
+    "number": 22883041,
+    "timestamp": 1752081167,
+    "gasLimit": 36035053,
+    "gasUsed": 21391851,
+    "baseFeePerGas": 5210574797
+  },
+  {
+    "number": 22883042,
+    "timestamp": 1752081179,
+    "gasLimit": 35999864,
+    "gasUsed": 25796798,
+    "baseFeePerGas": 5332554451
+  },
+  {
+    "number": 22883043,
+    "timestamp": 1752081191,
+    "gasLimit": 35964709,
+    "gasUsed": 17669619,
+    "baseFeePerGas": 5621286184
+  },
+  {
+    "number": 22883044,
+    "timestamp": 1752081203,
+    "gasLimit": 35999829,
+    "gasUsed": 16406435,
+    "baseFeePerGas": 5609066059
+  },
+  {
+    "number": 22883045,
+    "timestamp": 1752081215,
+    "gasLimit": 36034984,
+    "gasUsed": 14730418,
+    "baseFeePerGas": 5546996812
+  },
+  {
+    "number": 22883046,
+    "timestamp": 1752081227,
+    "gasLimit": 36070173,
+    "gasUsed": 19002178,
+    "baseFeePerGas": 5420498983
+  },
+  {
+    "number": 22883047,
+    "timestamp": 1752081239,
+    "gasLimit": 36105396,
+    "gasUsed": 12339841,
+    "baseFeePerGas": 5456831781
+  },
+  {
+    "number": 22883048,
+    "timestamp": 1752081251,
+    "gasLimit": 36070138,
+    "gasUsed": 16914261,
+    "baseFeePerGas": 5240976930
+  },
+  {
+    "number": 22883049,
+    "timestamp": 1752081263,
+    "gasLimit": 36034915,
+    "gasUsed": 20792375,
+    "baseFeePerGas": 5200263690
+  },
+  {
+    "number": 22883050,
+    "timestamp": 1752081275,
+    "gasLimit": 36000000,
+    "gasUsed": 26518207,
+    "baseFeePerGas": 5300377050
+  },
+  {
+    "number": 22883051,
+    "timestamp": 1752081287,
+    "gasLimit": 36000000,
+    "gasUsed": 22381144,
+    "baseFeePerGas": 5613916695
+  },
+  {
+    "number": 22883052,
+    "timestamp": 1752081299,
+    "gasLimit": 35964845,
+    "gasUsed": 15650533,
+    "baseFeePerGas": 5784717927
+  },
+  {
+    "number": 22883053,
+    "timestamp": 1752081311,
+    "gasLimit": 35999965,
+    "gasUsed": 19990370,
+    "baseFeePerGas": 5690950524
+  },
+  {
+    "number": 22883054,
+    "timestamp": 1752081323,
+    "gasLimit": 36000000,
+    "gasUsed": 8769252,
+    "baseFeePerGas": 5769611711
+  },
+  {
+    "number": 22883055,
+    "timestamp": 1752081335,
+    "gasLimit": 36000000,
+    "gasUsed": 21941399,
+    "baseFeePerGas": 5399765658
+  },
+  {
+    "number": 22883056,
+    "timestamp": 1752081347,
+    "gasLimit": 36035155,
+    "gasUsed": 17149601,
+    "baseFeePerGas": 5547561706
+  },
+  {
+    "number": 22883057,
+    "timestamp": 1752081359,
+    "gasLimit": 36000000,
+    "gasUsed": 16176309,
+    "baseFeePerGas": 5514155783
+  },
+  {
+    "number": 22883058,
+    "timestamp": 1752081371,
+    "gasLimit": 35964845,
+    "gasUsed": 20705657,
+    "baseFeePerGas": 5444321643
+  },
+  {
+    "number": 22883059,
+    "timestamp": 1752081383,
+    "gasLimit": 35999965,
+    "gasUsed": 18550104,
+    "baseFeePerGas": 5547381781
+  },
+  {
+    "number": 22883060,
+    "timestamp": 1752081395,
+    "gasLimit": 36000000,
+    "gasUsed": 19689802,
+    "baseFeePerGas": 5568574418
+  },
+  {
+    "number": 22883061,
+    "timestamp": 1752081407,
+    "gasLimit": 35964845,
+    "gasUsed": 14127090,
+    "baseFeePerGas": 5633920169
+  },
+  {
+    "number": 22883062,
+    "timestamp": 1752081419,
+    "gasLimit": 35999965,
+    "gasUsed": 9647452,
+    "baseFeePerGas": 5482934997
+  },
+  {
+    "number": 22883063,
+    "timestamp": 1752081431,
+    "gasLimit": 35964810,
+    "gasUsed": 19243392,
+    "baseFeePerGas": 5164904269
+  },
+  {
+    "number": 22883064,
+    "timestamp": 1752081443,
+    "gasLimit": 35929690,
+    "gasUsed": 17738086,
+    "baseFeePerGas": 5210176836
+  },
+  {
+    "number": 22883065,
+    "timestamp": 1752081455,
+    "gasLimit": 35964776,
+    "gasUsed": 17172046,
+    "baseFeePerGas": 5201956236
+  },
+  {
+    "number": 22883066,
+    "timestamp": 1752081467,
+    "gasLimit": 35999896,
+    "gasUsed": 16732054,
+    "baseFeePerGas": 5172654208
+  },
+  {
+    "number": 22883067,
+    "timestamp": 1752081479,
+    "gasLimit": 36000000,
+    "gasUsed": 11483190,
+    "baseFeePerGas": 5127109791
+  },
+  {
+    "number": 22883068,
+    "timestamp": 1752081491,
+    "gasLimit": 36000000,
+    "gasUsed": 20630405,
+    "baseFeePerGas": 4895079233
+  },
+  {
+    "number": 22883069,
+    "timestamp": 1752081503,
+    "gasLimit": 36000000,
+    "gasUsed": 14742610,
+    "baseFeePerGas": 4984496183
+  },
+  {
+    "number": 22883070,
+    "timestamp": 1752081515,
+    "gasLimit": 35964845,
+    "gasUsed": 16905912,
+    "baseFeePerGas": 4871743072
+  },
+  {
+    "number": 22883071,
+    "timestamp": 1752081527,
+    "gasLimit": 35999965,
+    "gasUsed": 19608445,
+    "baseFeePerGas": 4835287471
+  },
+  {
+    "number": 22883072,
+    "timestamp": 1752081539,
+    "gasLimit": 35964810,
+    "gasUsed": 16948311,
+    "baseFeePerGas": 4889297115
+  },
+  {
+    "number": 22883073,
+    "timestamp": 1752081551,
+    "gasLimit": 35999930,
+    "gasUsed": 14153674,
+    "baseFeePerGas": 4854151700
+  },
+  {
+    "number": 22883074,
+    "timestamp": 1752081563,
+    "gasLimit": 35964775,
+    "gasUsed": 14887297,
+    "baseFeePerGas": 4724495337
+  },
+  {
+    "number": 22883075,
+    "timestamp": 1752081575,
+    "gasLimit": 35999895,
+    "gasUsed": 29019541,
+    "baseFeePerGas": 4622849083
+  },
+  {
+    "number": 22883076,
+    "timestamp": 1752081587,
+    "gasLimit": 36000000,
+    "gasUsed": 14938493,
+    "baseFeePerGas": 4976613458
+  },
+  {
+    "number": 22883077,
+    "timestamp": 1752081599,
+    "gasLimit": 36000000,
+    "gasUsed": 13973173,
+    "baseFeePerGas": 4870808341
+  },
+  {
+    "number": 22883078,
+    "timestamp": 1752081611,
+    "gasLimit": 36000000,
+    "gasUsed": 18620494,
+    "baseFeePerGas": 4734600685
+  },
+  {
+    "number": 22883079,
+    "timestamp": 1752081623,
+    "gasLimit": 36000000,
+    "gasUsed": 7464677,
+    "baseFeePerGas": 4755002013
+  },
+  {
+    "number": 22883080,
+    "timestamp": 1752081635,
+    "gasLimit": 36000000,
+    "gasUsed": 26646797,
+    "baseFeePerGas": 4407116721
+  },
+  {
+    "number": 22883081,
+    "timestamp": 1752081647,
+    "gasLimit": 35964845,
+    "gasUsed": 17630397,
+    "baseFeePerGas": 4671751746
+  },
+  {
+    "number": 22883082,
+    "timestamp": 1752081659,
+    "gasLimit": 35999965,
+    "gasUsed": 6507674,
+    "baseFeePerGas": 4660319934
+  },
+  {
+    "number": 22883083,
+    "timestamp": 1752081671,
+    "gasLimit": 36035120,
+    "gasUsed": 30676010,
+    "baseFeePerGas": 4288390173
+  },
+  {
+    "number": 22883084,
+    "timestamp": 1752081683,
+    "gasLimit": 35999931,
+    "gasUsed": 20257583,
+    "baseFeePerGas": 4664997581
+  },
+  {
+    "number": 22883085,
+    "timestamp": 1752081695,
+    "gasLimit": 36035086,
+    "gasUsed": 13781261,
+    "baseFeePerGas": 4738135101
+  },
+  {
+    "number": 22883086,
+    "timestamp": 1752081707,
+    "gasLimit": 35999897,
+    "gasUsed": 16139196,
+    "baseFeePerGas": 4598881400
+  },
+  {
+    "number": 22883087,
+    "timestamp": 1752081719,
+    "gasLimit": 36000000,
+    "gasUsed": 19414377,
+    "baseFeePerGas": 4539454994
+  },
+  {
+    "number": 22883088,
+    "timestamp": 1752081731,
+    "gasLimit": 36035155,
+    "gasUsed": 17402844,
+    "baseFeePerGas": 4584041804
+  },
+  {
+    "number": 22883089,
+    "timestamp": 1752081743,
+    "gasLimit": 36000000,
+    "gasUsed": 8470111,
+    "baseFeePerGas": 4564491716
+  },
+  {
+    "number": 22883090,
+    "timestamp": 1752081755,
+    "gasLimit": 36000000,
+    "gasUsed": 25329938,
+    "baseFeePerGas": 4262414637
+  },
+  {
+    "number": 22883091,
+    "timestamp": 1752081767,
+    "gasLimit": 36035155,
+    "gasUsed": 15255938,
+    "baseFeePerGas": 4479381546
+  },
+  {
+    "number": 22883092,
+    "timestamp": 1752081779,
+    "gasLimit": 36070344,
+    "gasUsed": 17461338,
+    "baseFeePerGas": 4393559555
+  },
+  {
+    "number": 22883093,
+    "timestamp": 1752081791,
+    "gasLimit": 36035121,
+    "gasUsed": 16842227,
+    "baseFeePerGas": 4376085548
+  },
+  {
+    "number": 22883094,
+    "timestamp": 1752081803,
+    "gasLimit": 36070310,
+    "gasUsed": 15876608,
+    "baseFeePerGas": 4340402597
+  },
+  {
+    "number": 22883095,
+    "timestamp": 1752081815,
+    "gasLimit": 36035087,
+    "gasUsed": 18636207,
+    "baseFeePerGas": 4275467177
+  },
+  {
+    "number": 22883096,
+    "timestamp": 1752081827,
+    "gasLimit": 36070276,
+    "gasUsed": 11704199,
+    "baseFeePerGas": 4293817886
+  },
+  {
+    "number": 22883097,
+    "timestamp": 1752081839,
+    "gasLimit": 36105499,
+    "gasUsed": 20051884,
+    "baseFeePerGas": 4105408605
+  },
+  {
+    "number": 22883098,
+    "timestamp": 1752081851,
+    "gasLimit": 36070241,
+    "gasUsed": 22786456,
+    "baseFeePerGas": 4162236972
+  },
+  {
+    "number": 22883099,
+    "timestamp": 1752081863,
+    "gasLimit": 36035018,
+    "gasUsed": 15431909,
+    "baseFeePerGas": 4299304166
+  },
+  {
+    "number": 22883100,
+    "timestamp": 1752081875,
+    "gasLimit": 36070207,
+    "gasUsed": 13465694,
+    "baseFeePerGas": 4222182789
+  },
+  {
+    "number": 22883101,
+    "timestamp": 1752081887,
+    "gasLimit": 36034984,
+    "gasUsed": 19499446,
+    "baseFeePerGas": 4088465227
+  },
+  {
+    "number": 22883102,
+    "timestamp": 1752081899,
+    "gasLimit": 35999795,
+    "gasUsed": 12996807,
+    "baseFeePerGas": 4130500193
+  },
+  {
+    "number": 22883103,
+    "timestamp": 1752081911,
+    "gasLimit": 36000000,
+    "gasUsed": 15087772,
+    "baseFeePerGas": 3986990593
+  },
+  {
+    "number": 22883104,
+    "timestamp": 1752081923,
+    "gasLimit": 36035155,
+    "gasUsed": 19372598,
+    "baseFeePerGas": 3906358471
+  },
+  {
+    "number": 22883105,
+    "timestamp": 1752081935,
+    "gasLimit": 36000000,
+    "gasUsed": 15731870,
+    "baseFeePerGas": 3943080929
+  },
+  {
+    "number": 22883106,
+    "timestamp": 1752081947,
+    "gasLimit": 35964845,
+    "gasUsed": 20135182,
+    "baseFeePerGas": 3880973845
+  },
+  {
+    "number": 22883107,
+    "timestamp": 1752081959,
+    "gasLimit": 35929725,
+    "gasUsed": 14138539,
+    "baseFeePerGas": 3939050040
+  },
+  {
+    "number": 22883108,
+    "timestamp": 1752081971,
+    "gasLimit": 35964811,
+    "gasUsed": 20069312,
+    "baseFeePerGas": 3834178112
+  },
+  {
+    "number": 22883109,
+    "timestamp": 1752081983,
+    "gasLimit": 35999931,
+    "gasUsed": 16212556,
+    "baseFeePerGas": 3889798961
+  },
+  {
+    "number": 22883110,
+    "timestamp": 1752081995,
+    "gasLimit": 36000000,
+    "gasUsed": 11498812,
+    "baseFeePerGas": 3841516495
+  },
+  {
+    "number": 22883111,
+    "timestamp": 1752082007,
+    "gasLimit": 36035155,
+    "gasUsed": 23542762,
+    "baseFeePerGas": 3668083017
+  },
+  {
+    "number": 22883112,
+    "timestamp": 1752082019,
+    "gasLimit": 35999966,
+    "gasUsed": 15031706,
+    "baseFeePerGas": 3808687642
+  },
+  {
+    "number": 22883113,
+    "timestamp": 1752082031,
+    "gasLimit": 36035121,
+    "gasUsed": 17109890,
+    "baseFeePerGas": 3730178958
+  },
+  {
+    "number": 22883114,
+    "timestamp": 1752082043,
+    "gasLimit": 35999932,
+    "gasUsed": 8898839,
+    "baseFeePerGas": 3706689571
+  },
+  {
+    "number": 22883115,
+    "timestamp": 1752082055,
+    "gasLimit": 36000000,
+    "gasUsed": 20967399,
+    "baseFeePerGas": 3472417931
+  },
+  {
+    "number": 22883116,
+    "timestamp": 1752082067,
+    "gasLimit": 35964845,
+    "gasUsed": 16941086,
+    "baseFeePerGas": 3543973830
+  },
+  {
+    "number": 22883117,
+    "timestamp": 1752082079,
+    "gasLimit": 35999965,
+    "gasUsed": 14959644,
+    "baseFeePerGas": 3518320532
+  },
+  {
+    "number": 22883118,
+    "timestamp": 1752082091,
+    "gasLimit": 36035120,
+    "gasUsed": 18485982,
+    "baseFeePerGas": 3444036544
+  },
+  {
+    "number": 22883119,
+    "timestamp": 1752082103,
+    "gasLimit": 35999931,
+    "gasUsed": 16459023,
+    "baseFeePerGas": 3455228837
+  },
+  {
+    "number": 22883120,
+    "timestamp": 1752082115,
+    "gasLimit": 36035086,
+    "gasUsed": 20187577,
+    "baseFeePerGas": 3418254410
+  },
+  {
+    "number": 22883121,
+    "timestamp": 1752082127,
+    "gasLimit": 36070275,
+    "gasUsed": 13524141,
+    "baseFeePerGas": 3469716256
+  },
+  {
+    "number": 22883122,
+    "timestamp": 1752082139,
+    "gasLimit": 36035052,
+    "gasUsed": 16630721,
+    "baseFeePerGas": 3361234435
+  },
+  {
+    "number": 22883123,
+    "timestamp": 1752082151,
+    "gasLimit": 36000000,
+    "gasUsed": 27372408,
+    "baseFeePerGas": 3328895251
+  },
+  {
+    "number": 22883124,
+    "timestamp": 1752082163,
+    "gasLimit": 36035155,
+    "gasUsed": 23141884,
+    "baseFeePerGas": 3545560282
+  },
+  {
+    "number": 22883125,
+    "timestamp": 1752082175,
+    "gasLimit": 36000000,
+    "gasUsed": 16273340,
+    "baseFeePerGas": 3671607609
+  },
+  {
+    "number": 22883126,
+    "timestamp": 1752082187,
+    "gasLimit": 36000000,
+    "gasUsed": 16472254,
+    "baseFeePerGas": 3627582485
+  },
+  {
+    "number": 22883127,
+    "timestamp": 1752082199,
+    "gasLimit": 36035155,
+    "gasUsed": 16528146,
+    "baseFeePerGas": 3589096203
+  },
+  {
+    "number": 22883128,
+    "timestamp": 1752082211,
+    "gasLimit": 35999966,
+    "gasUsed": 32086752,
+    "baseFeePerGas": 3552009425
+  },
+  {
+    "number": 22883129,
+    "timestamp": 1752082223,
+    "gasLimit": 36000000,
+    "gasUsed": 21608369,
+    "baseFeePerGas": 3899484310
+  },
+  {
+    "number": 22883130,
+    "timestamp": 1752082235,
+    "gasLimit": 36035155,
+    "gasUsed": 18796524,
+    "baseFeePerGas": 3997198048
+  },
+  {
+    "number": 22883131,
+    "timestamp": 1752082247,
+    "gasLimit": 36070344,
+    "gasUsed": 13642454,
+    "baseFeePerGas": 4018799214
+  },
+  {
+    "number": 22883132,
+    "timestamp": 1752082259,
+    "gasLimit": 36035121,
+    "gasUsed": 17759050,
+    "baseFeePerGas": 3896444881
+  },
+  {
+    "number": 22883133,
+    "timestamp": 1752082271,
+    "gasLimit": 36000000,
+    "gasUsed": 22780908,
+    "baseFeePerGas": 3889456768
+  },
+  {
+    "number": 22883134,
+    "timestamp": 1752082283,
+    "gasLimit": 36035155,
+    "gasUsed": 12966631,
+    "baseFeePerGas": 4018589649
+  },
+  {
+    "number": 22883135,
+    "timestamp": 1752082295,
+    "gasLimit": 36000000,
+    "gasUsed": 9355532,
+    "baseFeePerGas": 3877771053
+  },
+  {
+    "number": 22883136,
+    "timestamp": 1752082307,
+    "gasLimit": 35964845,
+    "gasUsed": 20716097,
+    "baseFeePerGas": 3644984472
+  },
+  {
+    "number": 22883137,
+    "timestamp": 1752082319,
+    "gasLimit": 35999965,
+    "gasUsed": 17101720,
+    "baseFeePerGas": 3714247965
+  },
+  {
+    "number": 22883138,
+    "timestamp": 1752082331,
+    "gasLimit": 36000000,
+    "gasUsed": 18918357,
+    "baseFeePerGas": 3691078721
+  },
+  {
+    "number": 22883139,
+    "timestamp": 1752082343,
+    "gasLimit": 36000000,
+    "gasUsed": 8560551,
+    "baseFeePerGas": 3714618498
+  },
+  {
+    "number": 22883140,
+    "timestamp": 1752082355,
+    "gasLimit": 36035155,
+    "gasUsed": 30551773,
+    "baseFeePerGas": 3471118833
+  },
+  {
+    "number": 22883141,
+    "timestamp": 1752082367,
+    "gasLimit": 35999966,
+    "gasUsed": 19595008,
+    "baseFeePerGas": 3772960777
+  },
+  {
+    "number": 22883142,
+    "timestamp": 1752082379,
+    "gasLimit": 36035121,
+    "gasUsed": 11873298,
+    "baseFeePerGas": 3814752252
+  },
+  {
+    "number": 22883143,
+    "timestamp": 1752082391,
+    "gasLimit": 36000000,
+    "gasUsed": 23053129,
+    "baseFeePerGas": 3652141185
+  },
+  {
+    "number": 22883144,
+    "timestamp": 1752082403,
+    "gasLimit": 36035155,
+    "gasUsed": 14703842,
+    "baseFeePerGas": 3780299105
+  },
+  {
+    "number": 22883145,
+    "timestamp": 1752082415,
+    "gasLimit": 35999966,
+    "gasUsed": 16519582,
+    "baseFeePerGas": 3693391544
+  },
+  {
+    "number": 22883146,
+    "timestamp": 1752082427,
+    "gasLimit": 36000000,
+    "gasUsed": 18374545,
+    "baseFeePerGas": 3655421366
+  },
+  {
+    "number": 22883147,
+    "timestamp": 1752082439,
+    "gasLimit": 36000000,
+    "gasUsed": 19764723,
+    "baseFeePerGas": 3664929142
+  },
+  {
+    "number": 22883148,
+    "timestamp": 1752082451,
+    "gasLimit": 36000000,
+    "gasUsed": 22285835,
+    "baseFeePerGas": 3709842924
+  },
+  {
+    "number": 22883149,
+    "timestamp": 1752082463,
+    "gasLimit": 36035155,
+    "gasUsed": 13989118,
+    "baseFeePerGas": 3820258025
+  },
+  {
+    "number": 22883150,
+    "timestamp": 1752082475,
+    "gasLimit": 36000000,
+    "gasUsed": 16578416,
+    "baseFeePerGas": 3713489002
+  },
+  {
+    "number": 22883151,
+    "timestamp": 1752082487,
+    "gasLimit": 36000000,
+    "gasUsed": 17688425,
+    "baseFeePerGas": 3676829026
+  },
+  {
+    "number": 22883152,
+    "timestamp": 1752082499,
+    "gasLimit": 35964845,
+    "gasUsed": 13031969,
+    "baseFeePerGas": 3668873415
+  },
+  {
+    "number": 22883153,
+    "timestamp": 1752082511,
+    "gasLimit": 35999965,
+    "gasUsed": 16755288,
+    "baseFeePerGas": 3542621058
+  },
+  {
+    "number": 22883154,
+    "timestamp": 1752082523,
+    "gasLimit": 36000000,
+    "gasUsed": 16220785,
+    "baseFeePerGas": 3511999645
+  },
+  {
+    "number": 22883155,
+    "timestamp": 1752082535,
+    "gasLimit": 35964845,
+    "gasUsed": 16225133,
+    "baseFeePerGas": 3468606573
+  },
+  {
+    "number": 22883156,
+    "timestamp": 1752082547,
+    "gasLimit": 35929725,
+    "gasUsed": 13856630,
+    "baseFeePerGas": 3426236418
+  },
+  {
+    "number": 22883157,
+    "timestamp": 1752082559,
+    "gasLimit": 35894639,
+    "gasUsed": 18824873,
+    "baseFeePerGas": 3328296798
+  },
+  {
+    "number": 22883158,
+    "timestamp": 1752082571,
+    "gasLimit": 35929691,
+    "gasUsed": 16667032,
+    "baseFeePerGas": 3348639391
+  },
+  {
+    "number": 22883159,
+    "timestamp": 1752082583,
+    "gasLimit": 35964777,
+    "gasUsed": 29682232,
+    "baseFeePerGas": 3318400418
+  },
+  {
+    "number": 22883160,
+    "timestamp": 1752082595,
+    "gasLimit": 35999897,
+    "gasUsed": 26088044,
+    "baseFeePerGas": 3588280920
+  },
+  {
+    "number": 22883161,
+    "timestamp": 1752082607,
+    "gasLimit": 36000000,
+    "gasUsed": 16201018,
+    "baseFeePerGas": 3789825672
+  },
+  {
+    "number": 22883162,
+    "timestamp": 1752082619,
+    "gasLimit": 36000000,
+    "gasUsed": 18119276,
+    "baseFeePerGas": 3742479644
+  },
+  {
+    "number": 22883163,
+    "timestamp": 1752082631,
+    "gasLimit": 36000000,
+    "gasUsed": 16058006,
+    "baseFeePerGas": 3745579560
+  },
+  {
+    "number": 22883164,
+    "timestamp": 1752082643,
+    "gasLimit": 36000000,
+    "gasUsed": 4312885,
+    "baseFeePerGas": 3695066414
+  },
+  {
+    "number": 22883165,
+    "timestamp": 1752082655,
+    "gasLimit": 36035155,
+    "gasUsed": 27868483,
+    "baseFeePerGas": 3343852533
+  },
+  {
+    "number": 22883166,
+    "timestamp": 1752082667,
+    "gasLimit": 36000000,
+    "gasUsed": 21038572,
+    "baseFeePerGas": 3572379216
+  },
+  {
+    "number": 22883167,
+    "timestamp": 1752082679,
+    "gasLimit": 36035155,
+    "gasUsed": 18708220,
+    "baseFeePerGas": 3647760684
+  },
+  {
+    "number": 22883168,
+    "timestamp": 1752082691,
+    "gasLimit": 36000000,
+    "gasUsed": 24262163,
+    "baseFeePerGas": 3665238758
+  },
+  {
+    "number": 22883169,
+    "timestamp": 1752082703,
+    "gasLimit": 36000000,
+    "gasUsed": 10693899,
+    "baseFeePerGas": 3824629886
+  },
+  {
+    "number": 22883170,
+    "timestamp": 1752082715,
+    "gasLimit": 36000000,
+    "gasUsed": 18610387,
+    "baseFeePerGas": 3630580357
+  },
+  {
+    "number": 22883171,
+    "timestamp": 1752082727,
+    "gasLimit": 36035155,
+    "gasUsed": 8082464,
+    "baseFeePerGas": 3645969655
+  },
+  {
+    "number": 22883172,
+    "timestamp": 1752082739,
+    "gasLimit": 35999966,
+    "gasUsed": 17019408,
+    "baseFeePerGas": 3394665606
+  },
+  {
+    "number": 22883173,
+    "timestamp": 1752082751,
+    "gasLimit": 36000000,
+    "gasUsed": 19865159,
+    "baseFeePerGas": 3371549444
+  },
+  {
+    "number": 22883174,
+    "timestamp": 1752082763,
+    "gasLimit": 35964845,
+    "gasUsed": 15697754,
+    "baseFeePerGas": 3415219414
+  },
+  {
+    "number": 22883175,
+    "timestamp": 1752082775,
+    "gasLimit": 35999965,
+    "gasUsed": 13809420,
+    "baseFeePerGas": 3360981431
+  },
+  {
+    "number": 22883176,
+    "timestamp": 1752082787,
+    "gasLimit": 35964810,
+    "gasUsed": 14147093,
+    "baseFeePerGas": 3263172993
+  },
+  {
+    "number": 22883177,
+    "timestamp": 1752082799,
+    "gasLimit": 35999930,
+    "gasUsed": 21470353,
+    "baseFeePerGas": 3176176242
+  },
+  {
+    "number": 22883178,
+    "timestamp": 1752082811,
+    "gasLimit": 36035085,
+    "gasUsed": 18714217,
+    "baseFeePerGas": 3252721973
+  },
+  {
+    "number": 22883179,
+    "timestamp": 1752082823,
+    "gasLimit": 36000000,
+    "gasUsed": 15112252,
+    "baseFeePerGas": 3268443388
+  },
+  {
+    "number": 22883180,
+    "timestamp": 1752082835,
+    "gasLimit": 36035155,
+    "gasUsed": 20544827,
+    "baseFeePerGas": 3202898660
+  },
+  {
+    "number": 22883181,
+    "timestamp": 1752082847,
+    "gasLimit": 36070344,
+    "gasUsed": 12820424,
+    "baseFeePerGas": 3259055806
+  },
+  {
+    "number": 22883182,
+    "timestamp": 1752082859,
+    "gasLimit": 36035121,
+    "gasUsed": 19517042,
+    "baseFeePerGas": 3141264064
+  },
+  {
+    "number": 22883183,
+    "timestamp": 1752082871,
+    "gasLimit": 35999932,
+    "gasUsed": 18310426,
+    "baseFeePerGas": 3173942385
+  },
+  {
+    "number": 22883184,
+    "timestamp": 1752082883,
+    "gasLimit": 35964777,
+    "gasUsed": 15815253,
+    "baseFeePerGas": 3180785329
+  },
+  {
+    "number": 22883185,
+    "timestamp": 1752082895,
+    "gasLimit": 35999897,
+    "gasUsed": 13352899,
+    "baseFeePerGas": 3132869063
+  },
+  {
+    "number": 22883186,
+    "timestamp": 1752082907,
+    "gasLimit": 35964742,
+    "gasUsed": 16320595,
+    "baseFeePerGas": 3031767410
+  },
+  {
+    "number": 22883187,
+    "timestamp": 1752082919,
+    "gasLimit": 35999862,
+    "gasUsed": 21685676,
+    "baseFeePerGas": 2996746178
+  },
+  {
+    "number": 22883188,
+    "timestamp": 1752082931,
+    "gasLimit": 35964707,
+    "gasUsed": 20292202,
+    "baseFeePerGas": 3073449543
+  },
+  {
+    "number": 22883189,
+    "timestamp": 1752082943,
+    "gasLimit": 35929587,
+    "gasUsed": 15205302,
+    "baseFeePerGas": 3122797953
+  },
+  {
+    "number": 22883190,
+    "timestamp": 1752082955,
+    "gasLimit": 35964673,
+    "gasUsed": 7225302,
+    "baseFeePerGas": 3062838086
+  },
+  {
+    "number": 22883191,
+    "timestamp": 1752082967,
+    "gasLimit": 35999793,
+    "gasUsed": 35745631,
+    "baseFeePerGas": 2833814356
+  },
+  {
+    "number": 22883192,
+    "timestamp": 1752082979,
+    "gasLimit": 36034948,
+    "gasUsed": 17798078,
+    "baseFeePerGas": 3183039419
+  },
+  {
+    "number": 22883193,
+    "timestamp": 1752082991,
+    "gasLimit": 36000000,
+    "gasUsed": 19545447,
+    "baseFeePerGas": 3178194497
+  },
+  {
+    "number": 22883194,
+    "timestamp": 1752083003,
+    "gasLimit": 36000000,
+    "gasUsed": 16805312,
+    "baseFeePerGas": 3212303741
+  },
+  {
+    "number": 22883195,
+    "timestamp": 1752083015,
+    "gasLimit": 36000000,
+    "gasUsed": 24462160,
+    "baseFeePerGas": 3185653042
+  },
+  {
+    "number": 22883196,
+    "timestamp": 1752083027,
+    "gasLimit": 36000000,
+    "gasUsed": 15269903,
+    "baseFeePerGas": 3328612761
+  },
+  {
+    "number": 22883197,
+    "timestamp": 1752083039,
+    "gasLimit": 36000000,
+    "gasUsed": 13345414,
+    "baseFeePerGas": 3265505569
+  },
+  {
+    "number": 22883198,
+    "timestamp": 1752083051,
+    "gasLimit": 35964845,
+    "gasUsed": 14629518,
+    "baseFeePerGas": 3159952955
+  },
+  {
+    "number": 22883199,
+    "timestamp": 1752083063,
+    "gasLimit": 35999965,
+    "gasUsed": 17517713,
+    "baseFeePerGas": 3086304514
+  },
+  {
+    "number": 22883200,
+    "timestamp": 1752083075,
+    "gasLimit": 36000000,
+    "gasUsed": 17536014,
+    "baseFeePerGas": 3075968192
+  },
+  {
+    "number": 22883201,
+    "timestamp": 1752083087,
+    "gasLimit": 36035155,
+    "gasUsed": 15676483,
+    "baseFeePerGas": 3066057038
+  },
+  {
+    "number": 22883202,
+    "timestamp": 1752083099,
+    "gasLimit": 35999966,
+    "gasUsed": 15706516,
+    "baseFeePerGas": 3016258946
+  },
+  {
+    "number": 22883203,
+    "timestamp": 1752083111,
+    "gasLimit": 35964811,
+    "gasUsed": 19991375,
+    "baseFeePerGas": 2968219385
+  },
+  {
+    "number": 22883204,
+    "timestamp": 1752083123,
+    "gasLimit": 35929691,
+    "gasUsed": 15920230,
+    "baseFeePerGas": 3009670067
+  },
+  {
+    "number": 22883205,
+    "timestamp": 1752083135,
+    "gasLimit": 35964777,
+    "gasUsed": 19175566,
+    "baseFeePerGas": 2966852995
+  },
+  {
+    "number": 22883206,
+    "timestamp": 1752083147,
+    "gasLimit": 35999897,
+    "gasUsed": 12634160,
+    "baseFeePerGas": 2991460292
+  },
+  {
+    "number": 22883207,
+    "timestamp": 1752083159,
+    "gasLimit": 36000000,
+    "gasUsed": 5289091,
+    "baseFeePerGas": 2879990931
+  },
+  {
+    "number": 22883208,
+    "timestamp": 1752083171,
+    "gasLimit": 36035155,
+    "gasUsed": 23817914,
+    "baseFeePerGas": 2625773552
+  },
+  {
+    "number": 22883209,
+    "timestamp": 1752083183,
+    "gasLimit": 36000000,
+    "gasUsed": 14938428,
+    "baseFeePerGas": 2731436840
+  },
+  {
+    "number": 22883210,
+    "timestamp": 1752083195,
+    "gasLimit": 35964845,
+    "gasUsed": 24487062,
+    "baseFeePerGas": 2673363989
+  },
+  {
+    "number": 22883211,
+    "timestamp": 1752083207,
+    "gasLimit": 35999965,
+    "gasUsed": 18009981,
+    "baseFeePerGas": 2794240853
+  },
+  {
+    "number": 22883212,
+    "timestamp": 1752083219,
+    "gasLimit": 36035120,
+    "gasUsed": 15752675,
+    "baseFeePerGas": 2794434878
+  },
+  {
+    "number": 22883213,
+    "timestamp": 1752083231,
+    "gasLimit": 36000000,
+    "gasUsed": 17450143,
+    "baseFeePerGas": 2750525814
+  },
+  {
+    "number": 22883214,
+    "timestamp": 1752083243,
+    "gasLimit": 36000000,
+    "gasUsed": 8955773,
+    "baseFeePerGas": 2740023065
+  },
+  {
+    "number": 22883215,
+    "timestamp": 1752083255,
+    "gasLimit": 36000000,
+    "gasUsed": 5691986,
+    "baseFeePerGas": 2567930075
+  },
+  {
+    "number": 22883216,
+    "timestamp": 1752083267,
+    "gasLimit": 36035155,
+    "gasUsed": 33928712,
+    "baseFeePerGas": 2348443136
+  },
+  {
+    "number": 22883217,
+    "timestamp": 1752083279,
+    "gasLimit": 35999966,
+    "gasUsed": 9088347,
+    "baseFeePerGas": 2607678851
+  },
+  {
+    "number": 22883218,
+    "timestamp": 1752083291,
+    "gasLimit": 36035121,
+    "gasUsed": 20554025,
+    "baseFeePerGas": 2446298944
+  },
+  {
+    "number": 22883219,
+    "timestamp": 1752083303,
+    "gasLimit": 36000000,
+    "gasUsed": 19843107,
+    "baseFeePerGas": 2489346890
+  },
+  {
+    "number": 22883220,
+    "timestamp": 1752083315,
+    "gasLimit": 35964845,
+    "gasUsed": 15134334,
+    "baseFeePerGas": 2521208922
+  },
+  {
+    "number": 22883221,
+    "timestamp": 1752083327,
+    "gasLimit": 35999965,
+    "gasUsed": 14769069,
+    "baseFeePerGas": 2471294728
+  },
+  {
+    "number": 22883222,
+    "timestamp": 1752083339,
+    "gasLimit": 36035120,
+    "gasUsed": 25471196,
+    "baseFeePerGas": 2415846491
+  },
+  {
+    "number": 22883223,
+    "timestamp": 1752083351,
+    "gasLimit": 36000000,
+    "gasUsed": 16947979,
+    "baseFeePerGas": 2540772121
+  },
+  {
+    "number": 22883224,
+    "timestamp": 1752083363,
+    "gasLimit": 36035155,
+    "gasUsed": 20217267,
+    "baseFeePerGas": 2522209999
+  },
+  {
+    "number": 22883225,
+    "timestamp": 1752083375,
+    "gasLimit": 36000000,
+    "gasUsed": 21900607,
+    "baseFeePerGas": 2560700746
+  },
+  {
+    "number": 22883226,
+    "timestamp": 1752083387,
+    "gasLimit": 36000000,
+    "gasUsed": 14544675,
+    "baseFeePerGas": 2630063851
+  },
+  {
+    "number": 22883227,
+    "timestamp": 1752083399,
+    "gasLimit": 36000000,
+    "gasUsed": 12002571,
+    "baseFeePerGas": 2566954648
+  },
+  {
+    "number": 22883228,
+    "timestamp": 1752083411,
+    "gasLimit": 36000000,
+    "gasUsed": 27275335,
+    "baseFeePerGas": 2460044036
+  },
+  {
+    "number": 22883229,
+    "timestamp": 1752083423,
+    "gasLimit": 35964845,
+    "gasUsed": 17480275,
+    "baseFeePerGas": 2618500512
+  },
+  {
+    "number": 22883230,
+    "timestamp": 1752083435,
+    "gasLimit": 35929725,
+    "gasUsed": 17820507,
+    "baseFeePerGas": 2609360530
+  },
+  {
+    "number": 22883231,
+    "timestamp": 1752083447,
+    "gasLimit": 35964811,
+    "gasUsed": 12607972,
+    "baseFeePerGas": 2606739621
+  },
+  {
+    "number": 22883232,
+    "timestamp": 1752083459,
+    "gasLimit": 35999931,
+    "gasUsed": 6460209,
+    "baseFeePerGas": 2509354515
+  },
+  {
+    "number": 22883233,
+    "timestamp": 1752083471,
+    "gasLimit": 36000000,
+    "gasUsed": 27739916,
+    "baseFeePerGas": 2308261494
+  },
+  {
+    "number": 22883234,
+    "timestamp": 1752083483,
+    "gasLimit": 36000000,
+    "gasUsed": 28179390,
+    "baseFeePerGas": 2464388390
+  },
+  {
+    "number": 22883235,
+    "timestamp": 1752083495,
+    "gasLimit": 35964845,
+    "gasUsed": 13803171,
+    "baseFeePerGas": 2638596518
+  },
+  {
+    "number": 22883236,
+    "timestamp": 1752083507,
+    "gasLimit": 35999965,
+    "gasUsed": 11889314,
+    "baseFeePerGas": 2561942793
+  },
+  {
+    "number": 22883237,
+    "timestamp": 1752083519,
+    "gasLimit": 36035120,
+    "gasUsed": 26120967,
+    "baseFeePerGas": 2453226144
+  },
+  {
+    "number": 22883238,
+    "timestamp": 1752083531,
+    "gasLimit": 35999931,
+    "gasUsed": 10889155,
+    "baseFeePerGas": 2591143611
+  },
+  {
+    "number": 22883239,
+    "timestamp": 1752083543,
+    "gasLimit": 36000000,
+    "gasUsed": 26556368,
+    "baseFeePerGas": 2463191072
+  },
+  {
+    "number": 22883240,
+    "timestamp": 1752083555,
+    "gasLimit": 36000000,
+    "gasUsed": 4204617,
+    "baseFeePerGas": 2609551969
+  },
+  {
+    "number": 22883241,
+    "timestamp": 1752083567,
+    "gasLimit": 35964845,
+    "gasUsed": 27035891,
+    "baseFeePerGas": 2359553575
+  },
+  {
+    "number": 22883242,
+    "timestamp": 1752083579,
+    "gasLimit": 35999965,
+    "gasUsed": 10894527,
+    "baseFeePerGas": 2508046817
+  },
+  {
+    "number": 22883243,
+    "timestamp": 1752083591,
+    "gasLimit": 36035120,
+    "gasUsed": 9061134,
+    "baseFeePerGas": 2384291042
+  },
+  {
+    "number": 22883244,
+    "timestamp": 1752083603,
+    "gasLimit": 36070309,
+    "gasUsed": 30382325,
+    "baseFeePerGas": 2236138863
+  },
+  {
+    "number": 22883245,
+    "timestamp": 1752083615,
+    "gasLimit": 36035086,
+    "gasUsed": 13225398,
+    "baseFeePerGas": 2427501166
+  },
+  {
+    "number": 22883246,
+    "timestamp": 1752083627,
+    "gasLimit": 35999897,
+    "gasUsed": 23186987,
+    "baseFeePerGas": 2346795534
+  },
+  {
+    "number": 22883247,
+    "timestamp": 1752083639,
+    "gasLimit": 35964742,
+    "gasUsed": 15347115,
+    "baseFeePerGas": 2431329944
+  },
+  {
+    "number": 22883248,
+    "timestamp": 1752083651,
+    "gasLimit": 35929622,
+    "gasUsed": 21693073,
+    "baseFeePerGas": 2386792041
+  },
+  {
+    "number": 22883249,
+    "timestamp": 1752083663,
+    "gasLimit": 35964708,
+    "gasUsed": 13099577,
+    "baseFeePerGas": 2448708821
+  },
+  {
+    "number": 22883250,
+    "timestamp": 1752083675,
+    "gasLimit": 35999828,
+    "gasUsed": 5508130,
+    "baseFeePerGas": 2365596100
+  },
+  {
+    "number": 22883251,
+    "timestamp": 1752083687,
+    "gasLimit": 36000000,
+    "gasUsed": 31211611,
+    "baseFeePerGas": 2160383207
+  },
+  {
+    "number": 22883252,
+    "timestamp": 1752083699,
+    "gasLimit": 36035155,
+    "gasUsed": 14252225,
+    "baseFeePerGas": 2358592530
+  },
+  {
+    "number": 22883253,
+    "timestamp": 1752083711,
+    "gasLimit": 36000000,
+    "gasUsed": 18091212,
+    "baseFeePerGas": 2296979563
+  },
+  {
+    "number": 22883254,
+    "timestamp": 1752083723,
+    "gasLimit": 36000000,
+    "gasUsed": 13247460,
+    "baseFeePerGas": 2298434508
+  },
+  {
+    "number": 22883255,
+    "timestamp": 1752083735,
+    "gasLimit": 35964845,
+    "gasUsed": 16126889,
+    "baseFeePerGas": 2222577551
+  },
+  {
+    "number": 22883256,
+    "timestamp": 1752083747,
+    "gasLimit": 35929725,
+    "gasUsed": 23385613,
+    "baseFeePerGas": 2193910209
+  },
+  {
+    "number": 22883257,
+    "timestamp": 1752083759,
+    "gasLimit": 35964811,
+    "gasUsed": 16384198,
+    "baseFeePerGas": 2276659529
+  },
+  {
+    "number": 22883258,
+    "timestamp": 1752083771,
+    "gasLimit": 35999931,
+    "gasUsed": 15211939,
+    "baseFeePerGas": 2251366937
+  },
+  {
+    "number": 22883259,
+    "timestamp": 1752083783,
+    "gasLimit": 35964776,
+    "gasUsed": 25199758,
+    "baseFeePerGas": 2207777481
+  },
+  {
+    "number": 22883260,
+    "timestamp": 1752083795,
+    "gasLimit": 35999896,
+    "gasUsed": 19991112,
+    "baseFeePerGas": 2318541044
+  },
+  {
+    "number": 22883261,
+    "timestamp": 1752083807,
+    "gasLimit": 35964741,
+    "gasUsed": 20818558,
+    "baseFeePerGas": 2350600827
+  },
+  {
+    "number": 22883262,
+    "timestamp": 1752083819,
+    "gasLimit": 35999861,
+    "gasUsed": 13013746,
+    "baseFeePerGas": 2396943062
+  },
+  {
+    "number": 22883263,
+    "timestamp": 1752083831,
+    "gasLimit": 36000000,
+    "gasUsed": 21599041,
+    "baseFeePerGas": 2313945523
+  },
+  {
+    "number": 22883264,
+    "timestamp": 1752083843,
+    "gasLimit": 36000000,
+    "gasUsed": 19673423,
+    "baseFeePerGas": 2371778750
+  },
+  {
+    "number": 22883265,
+    "timestamp": 1752083855,
+    "gasLimit": 35964845,
+    "gasUsed": 15040653,
+    "baseFeePerGas": 2399341174
+  },
+  {
+    "number": 22883266,
+    "timestamp": 1752083867,
+    "gasLimit": 35999965,
+    "gasUsed": 19807904,
+    "baseFeePerGas": 2350277237
+  },
+  {
+    "number": 22883267,
+    "timestamp": 1752083879,
+    "gasLimit": 36035120,
+    "gasUsed": 35968159,
+    "baseFeePerGas": 2379785029
+  },
+  {
+    "number": 22883268,
+    "timestamp": 1752083891,
+    "gasLimit": 36070309,
+    "gasUsed": 29897874,
+    "baseFeePerGas": 2676152619
+  },
+  {
+    "number": 22883269,
+    "timestamp": 1752083903,
+    "gasLimit": 36035086,
+    "gasUsed": 15476384,
+    "baseFeePerGas": 2896184349
+  },
+  {
+    "number": 22883270,
+    "timestamp": 1752083915,
+    "gasLimit": 36000000,
+    "gasUsed": 10545436,
+    "baseFeePerGas": 2845125328
+  },
+  {
+    "number": 22883271,
+    "timestamp": 1752083927,
+    "gasLimit": 35964845,
+    "gasUsed": 22916589,
+    "baseFeePerGas": 2697839434
+  },
+  {
+    "number": 22883272,
+    "timestamp": 1752083939,
+    "gasLimit": 35999965,
+    "gasUsed": 16693587,
+    "baseFeePerGas": 2790371395
+  },
+  {
+    "number": 22883273,
+    "timestamp": 1752083951,
+    "gasLimit": 36000000,
+    "gasUsed": 22272785,
+    "baseFeePerGas": 2765056598
+  },
+  {
+    "number": 22883274,
+    "timestamp": 1752083963,
+    "gasLimit": 36000000,
+    "gasUsed": 35996329,
+    "baseFeePerGas": 2847101683
+  },
+  {
+    "number": 22883275,
+    "timestamp": 1752083975,
+    "gasLimit": 36035155,
+    "gasUsed": 21239256,
+    "baseFeePerGas": 3202916812
+  },
+  {
+    "number": 22883276,
+    "timestamp": 1752083987,
+    "gasLimit": 35999966,
+    "gasUsed": 18475515,
+    "baseFeePerGas": 3274505029
+  },
+  {
+    "number": 22883277,
+    "timestamp": 1752083999,
+    "gasLimit": 36000000,
+    "gasUsed": 18934660,
+    "baseFeePerGas": 3285318455
+  },
+  {
+    "number": 22883278,
+    "timestamp": 1752084011,
+    "gasLimit": 35964845,
+    "gasUsed": 21417311,
+    "baseFeePerGas": 3306642453
+  },
+  {
+    "number": 22883279,
+    "timestamp": 1752084023,
+    "gasLimit": 35929725,
+    "gasUsed": 21609725,
+    "baseFeePerGas": 3385594205
+  },
+  {
+    "number": 22883280,
+    "timestamp": 1752084035,
+    "gasLimit": 35894639,
+    "gasUsed": 21933656,
+    "baseFeePerGas": 3471456449
+  },
+  {
+    "number": 22883281,
+    "timestamp": 1752084047,
+    "gasLimit": 35859587,
+    "gasUsed": 21945916,
+    "baseFeePerGas": 3567838499
+  },
+  {
+    "number": 22883282,
+    "timestamp": 1752084059,
+    "gasLimit": 35894605,
+    "gasUsed": 16676271,
+    "baseFeePerGas": 3667734230
+  },
+  {
+    "number": 22883283,
+    "timestamp": 1752084071,
+    "gasLimit": 35929657,
+    "gasUsed": 20100557,
+    "baseFeePerGas": 3635265535
+  },
+  {
+    "number": 22883284,
+    "timestamp": 1752084083,
+    "gasLimit": 35894571,
+    "gasUsed": 21108761,
+    "baseFeePerGas": 3689287357
+  },
+  {
+    "number": 22883285,
+    "timestamp": 1752084095,
+    "gasLimit": 35929623,
+    "gasUsed": 17283269,
+    "baseFeePerGas": 3770522439
+  },
+  {
+    "number": 22883286,
+    "timestamp": 1752084107,
+    "gasLimit": 35964709,
+    "gasUsed": 20213409,
+    "baseFeePerGas": 3752641863
+  },
+  {
+    "number": 22883287,
+    "timestamp": 1752084119,
+    "gasLimit": 35929589,
+    "gasUsed": 17294567,
+    "baseFeePerGas": 3810840238
+  },
+  {
+    "number": 22883288,
+    "timestamp": 1752084131,
+    "gasLimit": 35964675,
+    "gasUsed": 19569062,
+    "baseFeePerGas": 3793068479
+  },
+  {
+    "number": 22883289,
+    "timestamp": 1752084143,
+    "gasLimit": 35999795,
+    "gasUsed": 17923914,
+    "baseFeePerGas": 3834905064
+  },
+  {
+    "number": 22883290,
+    "timestamp": 1752084155,
+    "gasLimit": 35964640,
+    "gasUsed": 18254580,
+    "baseFeePerGas": 3832881528
+  },
+  {
+    "number": 22883291,
+    "timestamp": 1752084167,
+    "gasLimit": 35999760,
+    "gasUsed": 11925010,
+    "baseFeePerGas": 3840135460
+  },
+  {
+    "number": 22883292,
+    "timestamp": 1752084179,
+    "gasLimit": 35964605,
+    "gasUsed": 35935739,
+    "baseFeePerGas": 3678132133
+  },
+  {
+    "number": 22883293,
+    "timestamp": 1752084191,
+    "gasLimit": 35929485,
+    "gasUsed": 18292761,
+    "baseFeePerGas": 4137160637
+  },
+  {
+    "number": 22883294,
+    "timestamp": 1752084203,
+    "gasLimit": 35964571,
+    "gasUsed": 13949053,
+    "baseFeePerGas": 4146603211
+  },
+  {
+    "number": 22883295,
+    "timestamp": 1752084215,
+    "gasLimit": 35999691,
+    "gasUsed": 21386979,
+    "baseFeePerGas": 4030348431
+  },
+  {
+    "number": 22883296,
+    "timestamp": 1752084227,
+    "gasLimit": 35964537,
+    "gasUsed": 15329235,
+    "baseFeePerGas": 4125150151
+  },
+  {
+    "number": 22883297,
+    "timestamp": 1752084239,
+    "gasLimit": 35999657,
+    "gasUsed": 15111231,
+    "baseFeePerGas": 4049074101
+  },
+  {
+    "number": 22883298,
+    "timestamp": 1752084251,
+    "gasLimit": 36034811,
+    "gasUsed": 19625169,
+    "baseFeePerGas": 3967850108
+  },
+  {
+    "number": 22883299,
+    "timestamp": 1752084263,
+    "gasLimit": 36070000,
+    "gasUsed": 17907119,
+    "baseFeePerGas": 4012108469
+  },
+  {
+    "number": 22883300,
+    "timestamp": 1752084275,
+    "gasLimit": 36034777,
+    "gasUsed": 18981649,
+    "baseFeePerGas": 4008552381
+  },
+  {
+    "number": 22883301,
+    "timestamp": 1752084287,
+    "gasLimit": 36000000,
+    "gasUsed": 20970658,
+    "baseFeePerGas": 4035368773
+  },
+  {
+    "number": 22883302,
+    "timestamp": 1752084299,
+    "gasLimit": 35964845,
+    "gasUsed": 18308713,
+    "baseFeePerGas": 4118616693
+  },
+  {
+    "number": 22883303,
+    "timestamp": 1752084311,
+    "gasLimit": 35999965,
+    "gasUsed": 20154489,
+    "baseFeePerGas": 4127958229
+  },
+  {
+    "number": 22883304,
+    "timestamp": 1752084323,
+    "gasLimit": 36000000,
+    "gasUsed": 4836675,
+    "baseFeePerGas": 4189720199
+  },
+  {
+    "number": 22883305,
+    "timestamp": 1752084335,
+    "gasLimit": 36035155,
+    "gasUsed": 31191163,
+    "baseFeePerGas": 3806729584
+  },
+  {
+    "number": 22883306,
+    "timestamp": 1752084347,
+    "gasLimit": 36000000,
+    "gasUsed": 16155486,
+    "baseFeePerGas": 4154641789
+  },
+  {
+    "number": 22883307,
+    "timestamp": 1752084359,
+    "gasLimit": 36000000,
+    "gasUsed": 3928878,
+    "baseFeePerGas": 4101424463
+  },
+  {
+    "number": 22883308,
+    "timestamp": 1752084371,
+    "gasLimit": 35964845,
+    "gasUsed": 24768619,
+    "baseFeePerGas": 3700649158
+  },
+  {
+    "number": 22883309,
+    "timestamp": 1752084383,
+    "gasLimit": 35999965,
+    "gasUsed": 19420089,
+    "baseFeePerGas": 3875217788
+  },
+  {
+    "number": 22883310,
+    "timestamp": 1752084395,
+    "gasLimit": 35964810,
+    "gasUsed": 21095409,
+    "baseFeePerGas": 3913434658
+  },
+  {
+    "number": 22883311,
+    "timestamp": 1752084407,
+    "gasLimit": 35999930,
+    "gasUsed": 12922063,
+    "baseFeePerGas": 3998118392
+  },
+  {
+    "number": 22883312,
+    "timestamp": 1752084419,
+    "gasLimit": 35964775,
+    "gasUsed": 15231347,
+    "baseFeePerGas": 3857131637
+  },
+  {
+    "number": 22883313,
+    "timestamp": 1752084431,
+    "gasLimit": 35929655,
+    "gasUsed": 22605607,
+    "baseFeePerGas": 3783371106
+  },
+  {
+    "number": 22883314,
+    "timestamp": 1752084443,
+    "gasLimit": 35894569,
+    "gasUsed": 24031003,
+    "baseFeePerGas": 3905538946
+  },
+  {
+    "number": 22883315,
+    "timestamp": 1752084455,
+    "gasLimit": 35929621,
+    "gasUsed": 17293960,
+    "baseFeePerGas": 4071024998
+  },
+  {
+    "number": 22883316,
+    "timestamp": 1752084467,
+    "gasLimit": 35964707,
+    "gasUsed": 25619797,
+    "baseFeePerGas": 4052022243
+  },
+  {
+    "number": 22883317,
+    "timestamp": 1752084479,
+    "gasLimit": 35929587,
+    "gasUsed": 16023032,
+    "baseFeePerGas": 4267143513
+  },
+  {
+    "number": 22883318,
+    "timestamp": 1752084491,
+    "gasLimit": 35964673,
+    "gasUsed": 33199588,
+    "baseFeePerGas": 4209490658
+  },
+  {
+    "number": 22883319,
+    "timestamp": 1752084503,
+    "gasLimit": 35999793,
+    "gasUsed": 3983943,
+    "baseFeePerGas": 4654767067
+  },
+  {
+    "number": 22883320,
+    "timestamp": 1752084515,
+    "gasLimit": 35964638,
+    "gasUsed": 23346310,
+    "baseFeePerGas": 4201701975
+  },
+  {
+    "number": 22883321,
+    "timestamp": 1752084527,
+    "gasLimit": 35999758,
+    "gasUsed": 26630633,
+    "baseFeePerGas": 4358369001
+  },
+  {
+    "number": 22883322,
+    "timestamp": 1752084539,
+    "gasLimit": 35964603,
+    "gasUsed": 35777616,
+    "baseFeePerGas": 4619593053
+  },
+  {
+    "number": 22883323,
+    "timestamp": 1752084551,
+    "gasLimit": 35999723,
+    "gasUsed": 12097306,
+    "baseFeePerGas": 5191037674
+  },
+  {
+    "number": 22883324,
+    "timestamp": 1752084563,
+    "gasLimit": 36000000,
+    "gasUsed": 19715613,
+    "baseFeePerGas": 4978255577
+  },
+  {
+    "number": 22883325,
+    "timestamp": 1752084575,
+    "gasLimit": 36000000,
+    "gasUsed": 35984747,
+    "baseFeePerGas": 5037566410
+  },
+  {
+    "number": 22883326,
+    "timestamp": 1752084587,
+    "gasLimit": 35964845,
+    "gasUsed": 5315085,
+    "baseFeePerGas": 5666728614
+  },
+  {
+    "number": 22883327,
+    "timestamp": 1752084599,
+    "gasLimit": 35999965,
+    "gasUsed": 13550393,
+    "baseFeePerGas": 5167752718
+  },
+  {
+    "number": 22883328,
+    "timestamp": 1752084611,
+    "gasLimit": 36000000,
+    "gasUsed": 35630781,
+    "baseFeePerGas": 5008069395
+  },
+  {
+    "number": 22883329,
+    "timestamp": 1752084623,
+    "gasLimit": 36000000,
+    "gasUsed": 32788775,
+    "baseFeePerGas": 5621237275
+  },
+  {
+    "number": 22883330,
+    "timestamp": 1752084635,
+    "gasLimit": 36035155,
+    "gasUsed": 15840944,
+    "baseFeePerGas": 6198537367
+  },
+  {
+    "number": 22883331,
+    "timestamp": 1752084647,
+    "gasLimit": 35999966,
+    "gasUsed": 32873413,
+    "baseFeePerGas": 6104934736
+  },
+  {
+    "number": 22883332,
+    "timestamp": 1752084659,
+    "gasLimit": 36035121,
+    "gasUsed": 34273213,
+    "baseFeePerGas": 6735500049
+  },
+  {
+    "number": 22883333,
+    "timestamp": 1752084671,
+    "gasLimit": 36000000,
+    "gasUsed": 32441741,
+    "baseFeePerGas": 7495105897
+  },
+  {
+    "number": 22883334,
+    "timestamp": 1752084683,
+    "gasLimit": 36000000,
+    "gasUsed": 12843808,
+    "baseFeePerGas": 8246789078
+  },
+  {
+    "number": 22883335,
+    "timestamp": 1752084695,
+    "gasLimit": 36000000,
+    "gasUsed": 35980442,
+    "baseFeePerGas": 7951497218
+  },
+  {
+    "number": 22883336,
+    "timestamp": 1752084707,
+    "gasLimit": 36000000,
+    "gasUsed": 35011226,
+    "baseFeePerGas": 8944354402
+  },
+  {
+    "number": 22883337,
+    "timestamp": 1752084719,
+    "gasLimit": 36035155,
+    "gasUsed": 22482154,
+    "baseFeePerGas": 10000982416
+  },
+  {
+    "number": 22883338,
+    "timestamp": 1752084731,
+    "gasLimit": 36000000,
+    "gasUsed": 15018614,
+    "baseFeePerGas": 10310750455
+  },
+  {
+    "number": 22883339,
+    "timestamp": 1752084743,
+    "gasLimit": 36000000,
+    "gasUsed": 14630266,
+    "baseFeePerGas": 10097275962
+  },
+  {
+    "number": 22883340,
+    "timestamp": 1752084755,
+    "gasLimit": 36000000,
+    "gasUsed": 17555368,
+    "baseFeePerGas": 9860990309
+  },
+  {
+    "number": 22883341,
+    "timestamp": 1752084767,
+    "gasLimit": 36000000,
+    "gasUsed": 10987710,
+    "baseFeePerGas": 9830542311
+  },
+  {
+    "number": 22883342,
+    "timestamp": 1752084779,
+    "gasLimit": 36035155,
+    "gasUsed": 21595786,
+    "baseFeePerGas": 9351829717
+  },
+  {
+    "number": 22883343,
+    "timestamp": 1752084791,
+    "gasLimit": 35999966,
+    "gasUsed": 16363665,
+    "baseFeePerGas": 9583983583
+  },
+  {
+    "number": 22883344,
+    "timestamp": 1752084803,
+    "gasLimit": 36000000,
+    "gasUsed": 7815323,
+    "baseFeePerGas": 9475077614
+  },
+  {
+    "number": 22883345,
+    "timestamp": 1752084815,
+    "gasLimit": 36035155,
+    "gasUsed": 28402152,
+    "baseFeePerGas": 8804934524
+  },
+  {
+    "number": 22883346,
+    "timestamp": 1752084827,
+    "gasLimit": 36070344,
+    "gasUsed": 20213484,
+    "baseFeePerGas": 9439283852
+  },
+  {
+    "number": 22883347,
+    "timestamp": 1752084839,
+    "gasLimit": 36035121,
+    "gasUsed": 12449294,
+    "baseFeePerGas": 9581795005
+  },
+  {
+    "number": 22883348,
+    "timestamp": 1752084851,
+    "gasLimit": 35999932,
+    "gasUsed": 22519064,
+    "baseFeePerGas": 9211642337
+  },
+  {
+    "number": 22883349,
+    "timestamp": 1752084863,
+    "gasLimit": 35964777,
+    "gasUsed": 26071373,
+    "baseFeePerGas": 9500728400
+  },
+  {
+    "number": 22883350,
+    "timestamp": 1752084875,
+    "gasLimit": 35999897,
+    "gasUsed": 11924880,
+    "baseFeePerGas": 10034940329
+  },
+  {
+    "number": 22883351,
+    "timestamp": 1752084887,
+    "gasLimit": 36000000,
+    "gasUsed": 21467796,
+    "baseFeePerGas": 9611585323
+  },
+  {
+    "number": 22883352,
+    "timestamp": 1752084899,
+    "gasLimit": 36000000,
+    "gasUsed": 11838294,
+    "baseFeePerGas": 9843050719
+  },
+  {
+    "number": 22883353,
+    "timestamp": 1752084911,
+    "gasLimit": 35964845,
+    "gasUsed": 1882894,
+    "baseFeePerGas": 9421870270
+  },
+  {
+    "number": 22883354,
+    "timestamp": 1752084923,
+    "gasLimit": 35929725,
+    "gasUsed": 35916355,
+    "baseFeePerGas": 8367454017
+  },
+  {
+    "number": 22883355,
+    "timestamp": 1752084935,
+    "gasLimit": 35964811,
+    "gasUsed": 19688807,
+    "baseFeePerGas": 9412607412
+  },
+  {
+    "number": 22883356,
+    "timestamp": 1752084947,
+    "gasLimit": 35999931,
+    "gasUsed": 13561041,
+    "baseFeePerGas": 9524256077
+  },
+  {
+    "number": 22883357,
+    "timestamp": 1752084959,
+    "gasLimit": 35964776,
+    "gasUsed": 12067981,
+    "baseFeePerGas": 9230662112
+  },
+  {
+    "number": 22883358,
+    "timestamp": 1752084971,
+    "gasLimit": 35999896,
+    "gasUsed": 20291286,
+    "baseFeePerGas": 8851166543
+  },
+  {
+    "number": 22883359,
+    "timestamp": 1752084983,
+    "gasLimit": 36000000,
+    "gasUsed": 12668704,
+    "baseFeePerGas": 8992007326
+  },
+  {
+    "number": 22883360,
+    "timestamp": 1752084995,
+    "gasLimit": 36000000,
+    "gasUsed": 15070987,
+    "baseFeePerGas": 8659097238
+  },
+  {
+    "number": 22883361,
+    "timestamp": 1752085007,
+    "gasLimit": 36000000,
+    "gasUsed": 12895209,
+    "baseFeePerGas": 8482968014
+  },
+  {
+    "number": 22883362,
+    "timestamp": 1752085019,
+    "gasLimit": 36035155,
+    "gasUsed": 17947385,
+    "baseFeePerGas": 8182247329
+  },
+  {
+    "number": 22883363,
+    "timestamp": 1752085031,
+    "gasLimit": 36000000,
+    "gasUsed": 20083386,
+    "baseFeePerGas": 8178262829
+  },
+  {
+    "number": 22883364,
+    "timestamp": 1752085043,
+    "gasLimit": 36000000,
+    "gasUsed": 16901245,
+    "baseFeePerGas": 8296585594
+  },
+  {
+    "number": 22883365,
+    "timestamp": 1752085055,
+    "gasLimit": 36000000,
+    "gasUsed": 19575153,
+    "baseFeePerGas": 8233280630
+  },
+  {
+    "number": 22883366,
+    "timestamp": 1752085067,
+    "gasLimit": 36000000,
+    "gasUsed": 4550609,
+    "baseFeePerGas": 8323340884
+  },
+  {
+    "number": 22883367,
+    "timestamp": 1752085079,
+    "gasLimit": 36000000,
+    "gasUsed": 28018643,
+    "baseFeePerGas": 7545952926
+  },
+  {
+    "number": 22883368,
+    "timestamp": 1752085091,
+    "gasLimit": 36035155,
+    "gasUsed": 12458746,
+    "baseFeePerGas": 8070954373
+  },
+  {
+    "number": 22883369,
+    "timestamp": 1752085103,
+    "gasLimit": 36070344,
+    "gasUsed": 17138758,
+    "baseFeePerGas": 7759695322
+  },
+  {
+    "number": 22883370,
+    "timestamp": 1752085115,
+    "gasLimit": 36035121,
+    "gasUsed": 17741424,
+    "baseFeePerGas": 7711484668
+  },
+  {
+    "number": 22883371,
+    "timestamp": 1752085127,
+    "gasLimit": 35999932,
+    "gasUsed": 15791005,
+    "baseFeePerGas": 7696711452
+  },
+  {
+    "number": 22883372,
+    "timestamp": 1752085139,
+    "gasLimit": 36000000,
+    "gasUsed": 16184771,
+    "baseFeePerGas": 7578643622
+  },
+  {
+    "number": 22883373,
+    "timestamp": 1752085151,
+    "gasLimit": 36035155,
+    "gasUsed": 17682048,
+    "baseFeePerGas": 7483109083
+  },
+  {
+    "number": 22883374,
+    "timestamp": 1752085163,
+    "gasLimit": 36000000,
+    "gasUsed": 14390114,
+    "baseFeePerGas": 7465689981
+  },
+  {
+    "number": 22883375,
+    "timestamp": 1752085175,
+    "gasLimit": 36000000,
+    "gasUsed": 19864242,
+    "baseFeePerGas": 7278535192
+  },
+  {
+    "number": 22883376,
+    "timestamp": 1752085187,
+    "gasLimit": 36000000,
+    "gasUsed": 27016899,
+    "baseFeePerGas": 7372764018
+  },
+  {
+    "number": 22883377,
+    "timestamp": 1752085199,
+    "gasLimit": 35964845,
+    "gasUsed": 13995337,
+    "baseFeePerGas": 7834426993
+  },
+  {
+    "number": 22883378,
+    "timestamp": 1752085211,
+    "gasLimit": 35999965,
+    "gasUsed": 22887402,
+    "baseFeePerGas": 7617294630
+  },
+  {
+    "number": 22883379,
+    "timestamp": 1752085223,
+    "gasLimit": 36000000,
+    "gasUsed": 13242354,
+    "baseFeePerGas": 7875829042
+  },
+  {
+    "number": 22883380,
+    "timestamp": 1752085235,
+    "gasLimit": 36000000,
+    "gasUsed": 19676426,
+    "baseFeePerGas": 7615617886
+  },
+  {
+    "number": 22883381,
+    "timestamp": 1752085247,
+    "gasLimit": 36000000,
+    "gasUsed": 12675425,
+    "baseFeePerGas": 7704277745
+  },
+  {
+    "number": 22883382,
+    "timestamp": 1752085259,
+    "gasLimit": 36000000,
+    "gasUsed": 24824503,
+    "baseFeePerGas": 7419402713
+  },
+  {
+    "number": 22883383,
+    "timestamp": 1752085271,
+    "gasLimit": 35964845,
+    "gasUsed": 11926947,
+    "baseFeePerGas": 7771025880
+  },
+  {
+    "number": 22883384,
+    "timestamp": 1752085283,
+    "gasLimit": 35999965,
+    "gasUsed": 15761954,
+    "baseFeePerGas": 7443919965
+  },
+  {
+    "number": 22883385,
+    "timestamp": 1752085295,
+    "gasLimit": 36000000,
+    "gasUsed": 16272908,
+    "baseFeePerGas": 7328227480
+  },
+  {
+    "number": 22883386,
+    "timestamp": 1752085307,
+    "gasLimit": 35964845,
+    "gasUsed": 15053425,
+    "baseFeePerGas": 7240334959
+  },
+  {
+    "number": 22883387,
+    "timestamp": 1752085319,
+    "gasLimit": 35999965,
+    "gasUsed": 18464091,
+    "baseFeePerGas": 7092920728
+  },
+  {
+    "number": 22883388,
+    "timestamp": 1752085331,
+    "gasLimit": 36000000,
+    "gasUsed": 10828102,
+    "baseFeePerGas": 7115781086
+  },
+  {
+    "number": 22883389,
+    "timestamp": 1752085343,
+    "gasLimit": 36000000,
+    "gasUsed": 24593823,
+    "baseFeePerGas": 6761380697
+  },
+  {
+    "number": 22883390,
+    "timestamp": 1752085355,
+    "gasLimit": 36035155,
+    "gasUsed": 22242104,
+    "baseFeePerGas": 7070987277
+  },
+  {
+    "number": 22883391,
+    "timestamp": 1752085367,
+    "gasLimit": 36000000,
+    "gasUsed": 17568512,
+    "baseFeePerGas": 7278226412
+  },
+  {
+    "number": 22883392,
+    "timestamp": 1752085379,
+    "gasLimit": 36000000,
+    "gasUsed": 15640532,
+    "baseFeePerGas": 7256417611
+  },
+  {
+    "number": 22883393,
+    "timestamp": 1752085391,
+    "gasLimit": 35964845,
+    "gasUsed": 18617974,
+    "baseFeePerGas": 7137519798
+  },
+  {
+    "number": 22883394,
+    "timestamp": 1752085403,
+    "gasLimit": 35999965,
+    "gasUsed": 18563234,
+    "baseFeePerGas": 7169052431
+  },
+  {
+    "number": 22883395,
+    "timestamp": 1752085415,
+    "gasLimit": 36035120,
+    "gasUsed": 15341402,
+    "baseFeePerGas": 7197094008
+  },
+  {
+    "number": 22883396,
+    "timestamp": 1752085427,
+    "gasLimit": 36070309,
+    "gasUsed": 19820831,
+    "baseFeePerGas": 7063470472
+  },
+  {
+    "number": 22883397,
+    "timestamp": 1752085439,
+    "gasLimit": 36035086,
+    "gasUsed": 13856935,
+    "baseFeePerGas": 7150890551
+  },
+  {
+    "number": 22883398,
+    "timestamp": 1752085451,
+    "gasLimit": 36000000,
+    "gasUsed": 9260389,
+    "baseFeePerGas": 6944480246
+  },
+  {
+    "number": 22883399,
+    "timestamp": 1752085463,
+    "gasLimit": 36000000,
+    "gasUsed": 26939379,
+    "baseFeePerGas": 6523007636
+  },
+  {
+    "number": 22883400,
+    "timestamp": 1752085475,
+    "gasLimit": 36000000,
+    "gasUsed": 13216057,
+    "baseFeePerGas": 6927949562
+  },
+  {
+    "number": 22883401,
+    "timestamp": 1752085487,
+    "gasLimit": 35964845,
+    "gasUsed": 21388542,
+    "baseFeePerGas": 6697790425
+  },
+  {
+    "number": 22883402,
+    "timestamp": 1752085499,
+    "gasLimit": 35929725,
+    "gasUsed": 20024391,
+    "baseFeePerGas": 6856372218
+  },
+  {
+    "number": 22883403,
+    "timestamp": 1752085511,
+    "gasLimit": 35964811,
+    "gasUsed": 20911235,
+    "baseFeePerGas": 6954625807
+  },
+  {
+    "number": 22883404,
+    "timestamp": 1752085523,
+    "gasLimit": 35929691,
+    "gasUsed": 16835678,
+    "baseFeePerGas": 7096215020
+  },
+  {
+    "number": 22883405,
+    "timestamp": 1752085535,
+    "gasLimit": 35964777,
+    "gasUsed": 21104064,
+    "baseFeePerGas": 7040461604
+  },
+  {
+    "number": 22883406,
+    "timestamp": 1752085547,
+    "gasLimit": 35929657,
+    "gasUsed": 13093610,
+    "baseFeePerGas": 7193236363
+  },
+  {
+    "number": 22883407,
+    "timestamp": 1752085559,
+    "gasLimit": 35964743,
+    "gasUsed": 17366775,
+    "baseFeePerGas": 6949427861
+  },
+  {
+    "number": 22883408,
+    "timestamp": 1752085571,
+    "gasLimit": 35999863,
+    "gasUsed": 19921981,
+    "baseFeePerGas": 6919690126
+  },
+  {
+    "number": 22883409,
+    "timestamp": 1752085583,
+    "gasLimit": 36000000,
+    "gasUsed": 19034305,
+    "baseFeePerGas": 7012051524
+  },
+  {
+    "number": 22883410,
+    "timestamp": 1752085595,
+    "gasLimit": 36000000,
+    "gasUsed": 16945156,
+    "baseFeePerGas": 7062416801
+  },
+  {
+    "number": 22883411,
+    "timestamp": 1752085607,
+    "gasLimit": 36000000,
+    "gasUsed": 15716979,
+    "baseFeePerGas": 7010682440
+  },
+  {
+    "number": 22883412,
+    "timestamp": 1752085619,
+    "gasLimit": 36000000,
+    "gasUsed": 21327894,
+    "baseFeePerGas": 6899532890
+  },
+  {
+    "number": 22883413,
+    "timestamp": 1752085631,
+    "gasLimit": 36000000,
+    "gasUsed": 14487067,
+    "baseFeePerGas": 7058983682
+  },
+  {
+    "number": 22883414,
+    "timestamp": 1752085643,
+    "gasLimit": 36000000,
+    "gasUsed": 16918946,
+    "baseFeePerGas": 6886777177
+  },
+  {
+    "number": 22883415,
+    "timestamp": 1752085655,
+    "gasLimit": 35964845,
+    "gasUsed": 27316316,
+    "baseFeePerGas": 6835075941
+  },
+  {
+    "number": 22883416,
+    "timestamp": 1752085667,
+    "gasLimit": 35929725,
+    "gasUsed": 10492615,
+    "baseFeePerGas": 7278549811
+  },
+  {
+    "number": 22883417,
+    "timestamp": 1752085679,
+    "gasLimit": 35964811,
+    "gasUsed": 35955775,
+    "baseFeePerGas": 6900122733
+  },
+  {
+    "number": 22883418,
+    "timestamp": 1752085691,
+    "gasLimit": 35999931,
+    "gasUsed": 16322190,
+    "baseFeePerGas": 7762204716
+  },
+  {
+    "number": 22883419,
+    "timestamp": 1752085703,
+    "gasLimit": 36035086,
+    "gasUsed": 15072337,
+    "baseFeePerGas": 7671765422
+  },
+  {
+    "number": 22883420,
+    "timestamp": 1752085715,
+    "gasLimit": 36000000,
+    "gasUsed": 18515143,
+    "baseFeePerGas": 7515008966
+  },
+  {
+    "number": 22883421,
+    "timestamp": 1752085727,
+    "gasLimit": 36000000,
+    "gasUsed": 11443907,
+    "baseFeePerGas": 7541893023
+  },
+  {
+    "number": 22883422,
+    "timestamp": 1752085739,
+    "gasLimit": 36000000,
+    "gasUsed": 14237430,
+    "baseFeePerGas": 7198522523
+  },
+  {
+    "number": 22883423,
+    "timestamp": 1752085751,
+    "gasLimit": 35964845,
+    "gasUsed": 10840336,
+    "baseFeePerGas": 7010432628
+  },
+  {
+    "number": 22883424,
+    "timestamp": 1752085763,
+    "gasLimit": 35999965,
+    "gasUsed": 8197224,
+    "baseFeePerGas": 6662390574
+  },
+  {
+    "number": 22883425,
+    "timestamp": 1752085775,
+    "gasLimit": 36035120,
+    "gasUsed": 7058139,
+    "baseFeePerGas": 6208849826
+  },
+  {
+    "number": 22883426,
+    "timestamp": 1752085787,
+    "gasLimit": 36070309,
+    "gasUsed": 36055172,
+    "baseFeePerGas": 5736772870
+  },
+  {
+    "number": 22883427,
+    "timestamp": 1752085799,
+    "gasLimit": 36035086,
+    "gasUsed": 21796726,
+    "baseFeePerGas": 6453267655
+  },
+  {
+    "number": 22883428,
+    "timestamp": 1752085811,
+    "gasLimit": 36070275,
+    "gasUsed": 19971312,
+    "baseFeePerGas": 6622464416
+  },
+  {
+    "number": 22883429,
+    "timestamp": 1752085823,
+    "gasLimit": 36105498,
+    "gasUsed": 19973185,
+    "baseFeePerGas": 6711334340
+  },
+  {
+    "number": 22883430,
+    "timestamp": 1752085835,
+    "gasLimit": 36140756,
+    "gasUsed": 12965091,
+    "baseFeePerGas": 6800577590
+  },
+  {
+    "number": 22883431,
+    "timestamp": 1752085847,
+    "gasLimit": 36105464,
+    "gasUsed": 21679992,
+    "baseFeePerGas": 6560413132
+  },
+  {
+    "number": 22883432,
+    "timestamp": 1752085859,
+    "gasLimit": 36070206,
+    "gasUsed": 3552814,
+    "baseFeePerGas": 6725182681
+  },
+  {
+    "number": 22883433,
+    "timestamp": 1752085871,
+    "gasLimit": 36034983,
+    "gasUsed": 13980836,
+    "baseFeePerGas": 6050137749
+  },
+  {
+    "number": 22883434,
+    "timestamp": 1752085883,
+    "gasLimit": 35999794,
+    "gasUsed": 27532702,
+    "baseFeePerGas": 5880702957
+  },
+  {
+    "number": 22883435,
+    "timestamp": 1752085895,
+    "gasLimit": 36000000,
+    "gasUsed": 11694877,
+    "baseFeePerGas": 6270007924
+  },
+  {
+    "number": 22883436,
+    "timestamp": 1752085907,
+    "gasLimit": 35964845,
+    "gasUsed": 24109898,
+    "baseFeePerGas": 5995472014
+  },
+  {
+    "number": 22883437,
+    "timestamp": 1752085919,
+    "gasLimit": 35999965,
+    "gasUsed": 5145398,
+    "baseFeePerGas": 6250840220
+  },
+  {
+    "number": 22883438,
+    "timestamp": 1752085931,
+    "gasLimit": 36000000,
+    "gasUsed": 34244714,
+    "baseFeePerGas": 5692840005
+  },
+  {
+    "number": 22883439,
+    "timestamp": 1752085943,
+    "gasLimit": 36035155,
+    "gasUsed": 14179734,
+    "baseFeePerGas": 6335052211
+  },
+  {
+    "number": 22883440,
+    "timestamp": 1752085955,
+    "gasLimit": 35999966,
+    "gasUsed": 15020634,
+    "baseFeePerGas": 6166377091
+  },
+  {
+    "number": 22883441,
+    "timestamp": 1752085967,
+    "gasLimit": 35964811,
+    "gasUsed": 15081864,
+    "baseFeePerGas": 6038795100
+  },
+  {
+    "number": 22883442,
+    "timestamp": 1752085979,
+    "gasLimit": 35929691,
+    "gasUsed": 21406311,
+    "baseFeePerGas": 5917038773
+  },
+  {
+    "number": 22883443,
+    "timestamp": 1752085991,
+    "gasLimit": 35964777,
+    "gasUsed": 17656733,
+    "baseFeePerGas": 6058727218
+  },
+  {
+    "number": 22883444,
+    "timestamp": 1752086003,
+    "gasLimit": 35999897,
+    "gasUsed": 20782355,
+    "baseFeePerGas": 6045012029
+  },
+  {
+    "number": 22883445,
+    "timestamp": 1752086015,
+    "gasLimit": 35964742,
+    "gasUsed": 14028111,
+    "baseFeePerGas": 6161815726
+  },
+  {
+    "number": 22883446,
+    "timestamp": 1752086027,
+    "gasLimit": 35999862,
+    "gasUsed": 13136842,
+    "baseFeePerGas": 5992445532
+  },
+  {
+    "number": 22883447,
+    "timestamp": 1752086039,
+    "gasLimit": 36035017,
+    "gasUsed": 19556537,
+    "baseFeePerGas": 5790071174
+  },
+  {
+    "number": 22883448,
+    "timestamp": 1752086051,
+    "gasLimit": 35999828,
+    "gasUsed": 16213968,
+    "baseFeePerGas": 5851893593
+  },
+  {
+    "number": 22883449,
+    "timestamp": 1752086063,
+    "gasLimit": 36034983,
+    "gasUsed": 10407427,
+    "baseFeePerGas": 5779315705
+  },
+  {
+    "number": 22883450,
+    "timestamp": 1752086075,
+    "gasLimit": 36000000,
+    "gasUsed": 19206260,
+    "baseFeePerGas": 5474188854
+  },
+  {
+    "number": 22883451,
+    "timestamp": 1752086087,
+    "gasLimit": 36035155,
+    "gasUsed": 13011289,
+    "baseFeePerGas": 5520045069
+  },
+  {
+    "number": 22883452,
+    "timestamp": 1752086099,
+    "gasLimit": 35999966,
+    "gasUsed": 15600752,
+    "baseFeePerGas": 5328323013
+  },
+  {
+    "number": 22883453,
+    "timestamp": 1752086111,
+    "gasLimit": 36035121,
+    "gasUsed": 18470213,
+    "baseFeePerGas": 5239546001
+  },
+  {
+    "number": 22883454,
+    "timestamp": 1752086123,
+    "gasLimit": 36000000,
+    "gasUsed": 16226633,
+    "baseFeePerGas": 5256000061
+  },
+  {
+    "number": 22883455,
+    "timestamp": 1752086135,
+    "gasLimit": 36035155,
+    "gasUsed": 18663349,
+    "baseFeePerGas": 5191272165
+  },
+  {
+    "number": 22883456,
+    "timestamp": 1752086147,
+    "gasLimit": 36070344,
+    "gasUsed": 13802935,
+    "baseFeePerGas": 5214529858
+  },
+  {
+    "number": 22883457,
+    "timestamp": 1752086159,
+    "gasLimit": 36035121,
+    "gasUsed": 24007009,
+    "baseFeePerGas": 5061570919
+  },
+  {
+    "number": 22883458,
+    "timestamp": 1752086183,
+    "gasLimit": 35999932,
+    "gasUsed": 18509832,
+    "baseFeePerGas": 5271893660
+  },
+  {
+    "number": 22883459,
+    "timestamp": 1752086195,
+    "gasLimit": 36035087,
+    "gasUsed": 19025795,
+    "baseFeePerGas": 5290560079
+  },
+  {
+    "number": 22883460,
+    "timestamp": 1752086207,
+    "gasLimit": 36000000,
+    "gasUsed": 22265241,
+    "baseFeePerGas": 5327567190
+  },
+  {
+    "number": 22883461,
+    "timestamp": 1752086219,
+    "gasLimit": 36035155,
+    "gasUsed": 18738712,
+    "baseFeePerGas": 5485368287
+  },
+  {
+    "number": 22883462,
+    "timestamp": 1752086231,
+    "gasLimit": 36000000,
+    "gasUsed": 15287704,
+    "baseFeePerGas": 5512811565
+  },
+  {
+    "number": 22883463,
+    "timestamp": 1752086243,
+    "gasLimit": 36000000,
+    "gasUsed": 14494409,
+    "baseFeePerGas": 5408975616
+  },
+  {
+    "number": 22883464,
+    "timestamp": 1752086255,
+    "gasLimit": 36035155,
+    "gasUsed": 14451808,
+    "baseFeePerGas": 5277297448
+  },
+  {
+    "number": 22883465,
+    "timestamp": 1752086267,
+    "gasLimit": 36000000,
+    "gasUsed": 16746403,
+    "baseFeePerGas": 5146746989
+  },
+  {
+    "number": 22883466,
+    "timestamp": 1752086279,
+    "gasLimit": 36000000,
+    "gasUsed": 21966707,
+    "baseFeePerGas": 5101941805
+  },
+  {
+    "number": 22883467,
+    "timestamp": 1752086291,
+    "gasLimit": 36035155,
+    "gasUsed": 26923115,
+    "baseFeePerGas": 5242482834
+  },
+  {
+    "number": 22883468,
+    "timestamp": 1752086303,
+    "gasLimit": 36070344,
+    "gasUsed": 16165895,
+    "baseFeePerGas": 5566382726
+  },
+  {
+    "number": 22883469,
+    "timestamp": 1752086315,
+    "gasLimit": 36035121,
+    "gasUsed": 15809915,
+    "baseFeePerGas": 5494265926
+  },
+  {
+    "number": 22883470,
+    "timestamp": 1752086327,
+    "gasLimit": 36000000,
+    "gasUsed": 20605240,
+    "baseFeePerGas": 5410116153
+  },
+  {
+    "number": 22883471,
+    "timestamp": 1752086339,
+    "gasLimit": 36000000,
+    "gasUsed": 16988113,
+    "baseFeePerGas": 5507995673
+  },
+  {
+    "number": 22883472,
+    "timestamp": 1752086351,
+    "gasLimit": 35964845,
+    "gasUsed": 17928381,
+    "baseFeePerGas": 5469291026
+  },
+  {
+    "number": 22883473,
+    "timestamp": 1752086363,
+    "gasLimit": 35999965,
+    "gasUsed": 13632518,
+    "baseFeePerGas": 5467236479
+  },
+  {
+    "number": 22883474,
+    "timestamp": 1752086375,
+    "gasLimit": 36000000,
+    "gasUsed": 10583911,
+    "baseFeePerGas": 5301417157
+  },
+  {
+    "number": 22883475,
+    "timestamp": 1752086387,
+    "gasLimit": 35964845,
+    "gasUsed": 18674769,
+    "baseFeePerGas": 5028390897
+  },
+  {
+    "number": 22883476,
+    "timestamp": 1752086399,
+    "gasLimit": 35999965,
+    "gasUsed": 14521379,
+    "baseFeePerGas": 5052590858
+  },
+  {
+    "number": 22883477,
+    "timestamp": 1752086411,
+    "gasLimit": 35964810,
+    "gasUsed": 19687561,
+    "baseFeePerGas": 4930535475
+  },
+  {
+    "number": 22883478,
+    "timestamp": 1752086423,
+    "gasLimit": 35929690,
+    "gasUsed": 17763619,
+    "baseFeePerGas": 4988976852
+  },
+  {
+    "number": 22883479,
+    "timestamp": 1752086435,
+    "gasLimit": 35964776,
+    "gasUsed": 10655429,
+    "baseFeePerGas": 4981991600
+  },
+  {
+    "number": 22883480,
+    "timestamp": 1752086447,
+    "gasLimit": 35964776,
+    "gasUsed": 0,
+    "baseFeePerGas": 4728251328
+  },
+  {
+    "number": 22883481,
+    "timestamp": 1752086459,
+    "gasLimit": 35999896,
+    "gasUsed": 35691254,
+    "baseFeePerGas": 4137219912
+  },
+  {
+    "number": 22883482,
+    "timestamp": 1752086471,
+    "gasLimit": 36035051,
+    "gasUsed": 30021175,
+    "baseFeePerGas": 4645504876
+  },
+  {
+    "number": 22883483,
+    "timestamp": 1752086483,
+    "gasLimit": 36070240,
+    "gasUsed": 13406208,
+    "baseFeePerGas": 5032371375
+  },
+  {
+    "number": 22883484,
+    "timestamp": 1752086495,
+    "gasLimit": 36035017,
+    "gasUsed": 20314061,
+    "baseFeePerGas": 4870919690
+  },
+  {
+    "number": 22883485,
+    "timestamp": 1752086507,
+    "gasLimit": 36070206,
+    "gasUsed": 21907114,
+    "baseFeePerGas": 4948527018
+  },
+  {
+    "number": 22883486,
+    "timestamp": 1752086519,
+    "gasLimit": 36105429,
+    "gasUsed": 13671928,
+    "baseFeePerGas": 5081328803
+  },
+  {
+    "number": 22883487,
+    "timestamp": 1752086531,
+    "gasLimit": 36070171,
+    "gasUsed": 21990441,
+    "baseFeePerGas": 4927195372
+  },
+  {
+    "number": 22883488,
+    "timestamp": 1752086543,
+    "gasLimit": 36034948,
+    "gasUsed": 8754405,
+    "baseFeePerGas": 5062271057
+  },
+  {
+    "number": 22883489,
+    "timestamp": 1752086555,
+    "gasLimit": 35999759,
+    "gasUsed": 30726726,
+    "baseFeePerGas": 4736946833
+  },
+  {
+    "number": 22883490,
+    "timestamp": 1752086567,
+    "gasLimit": 35964604,
+    "gasUsed": 10209599,
+    "baseFeePerGas": 5155605186
+  },
+  {
+    "number": 22883491,
+    "timestamp": 1752086579,
+    "gasLimit": 35929484,
+    "gasUsed": 10924070,
+    "baseFeePerGas": 4877046663
+  },
+  {
+    "number": 22883492,
+    "timestamp": 1752086591,
+    "gasLimit": 35964570,
+    "gasUsed": 29021307,
+    "baseFeePerGas": 4638122512
+  },
+  {
+    "number": 22883493,
+    "timestamp": 1752086603,
+    "gasLimit": 35999690,
+    "gasUsed": 14839824,
+    "baseFeePerGas": 4994030676
+  },
+  {
+    "number": 22883494,
+    "timestamp": 1752086615,
+    "gasLimit": 36000000,
+    "gasUsed": 13545007,
+    "baseFeePerGas": 4884437776
+  },
+  {
+    "number": 22883495,
+    "timestamp": 1752086627,
+    "gasLimit": 36000000,
+    "gasUsed": 16524201,
+    "baseFeePerGas": 4733325720
+  },
+  {
+    "number": 22883496,
+    "timestamp": 1752086639,
+    "gasLimit": 35964845,
+    "gasUsed": 10672408,
+    "baseFeePerGas": 4684815739
+  },
+  {
+    "number": 22883497,
+    "timestamp": 1752086651,
+    "gasLimit": 35929725,
+    "gasUsed": 23368948,
+    "baseFeePerGas": 4446763347
+  },
+  {
+    "number": 22883498,
+    "timestamp": 1752086663,
+    "gasLimit": 35964811,
+    "gasUsed": 15973932,
+    "baseFeePerGas": 4613969554
+  },
+  {
+    "number": 22883499,
+    "timestamp": 1752086675,
+    "gasLimit": 35999931,
+    "gasUsed": 15643557,
+    "baseFeePerGas": 4549552189
+  },
+  {
+    "number": 22883500,
+    "timestamp": 1752086687,
+    "gasLimit": 35964776,
+    "gasUsed": 17892918,
+    "baseFeePerGas": 4475103425
+  },
+  {
+    "number": 22883501,
+    "timestamp": 1752086699,
+    "gasLimit": 35999896,
+    "gasUsed": 17718419,
+    "baseFeePerGas": 4472320234
+  },
+  {
+    "number": 22883502,
+    "timestamp": 1752086711,
+    "gasLimit": 36035051,
+    "gasUsed": 20463962,
+    "baseFeePerGas": 4463576544
+  },
+  {
+    "number": 22883503,
+    "timestamp": 1752086723,
+    "gasLimit": 36070240,
+    "gasUsed": 15115070,
+    "baseFeePerGas": 4539335137
+  },
+  {
+    "number": 22883504,
+    "timestamp": 1752086735,
+    "gasLimit": 36035017,
+    "gasUsed": 17729957,
+    "baseFeePerGas": 4447465181
+  },
+  {
+    "number": 22883505,
+    "timestamp": 1752086747,
+    "gasLimit": 36000000,
+    "gasUsed": 20445849,
+    "baseFeePerGas": 4438592749
+  },
+  {
+    "number": 22883506,
+    "timestamp": 1752086759,
+    "gasLimit": 36000000,
+    "gasUsed": 18101111,
+    "baseFeePerGas": 4513982524
+  },
+  {
+    "number": 22883507,
+    "timestamp": 1752086771,
+    "gasLimit": 36000000,
+    "gasUsed": 23072354,
+    "baseFeePerGas": 4517152060
+  },
+  {
+    "number": 22883508,
+    "timestamp": 1752086783,
+    "gasLimit": 36000000,
+    "gasUsed": 11647298,
+    "baseFeePerGas": 4676267298
+  },
+  {
+    "number": 22883509,
+    "timestamp": 1752086795,
+    "gasLimit": 35964845,
+    "gasUsed": 15346158,
+    "baseFeePerGas": 4469969155
+  },
+  {
+    "number": 22883510,
+    "timestamp": 1752086807,
+    "gasLimit": 35929725,
+    "gasUsed": 12738583,
+    "baseFeePerGas": 4388055699
+  },
+  {
+    "number": 22883511,
+    "timestamp": 1752086819,
+    "gasLimit": 35894639,
+    "gasUsed": 28938198,
+    "baseFeePerGas": 4228485845
+  },
+  {
+    "number": 22883512,
+    "timestamp": 1752086831,
+    "gasLimit": 35859587,
+    "gasUsed": 19312813,
+    "baseFeePerGas": 4552174694
+  },
+  {
+    "number": 22883513,
+    "timestamp": 1752086843,
+    "gasLimit": 35894605,
+    "gasUsed": 14489305,
+    "baseFeePerGas": 4596066365
+  },
+  {
+    "number": 22883514,
+    "timestamp": 1752086855,
+    "gasLimit": 35859553,
+    "gasUsed": 15387159,
+    "baseFeePerGas": 4485372961
+  },
+  {
+    "number": 22883515,
+    "timestamp": 1752086867,
+    "gasLimit": 35894571,
+    "gasUsed": 19838337,
+    "baseFeePerGas": 4405864261
+  },
+  {
+    "number": 22883516,
+    "timestamp": 1752086879,
+    "gasLimit": 35859519,
+    "gasUsed": 18975869,
+    "baseFeePerGas": 4463893361
+  },
+  {
+    "number": 22883517,
+    "timestamp": 1752086891,
+    "gasLimit": 35894537,
+    "gasUsed": 19710031,
+    "baseFeePerGas": 4496449037
+  },
+  {
+    "number": 22883518,
+    "timestamp": 1752086903,
+    "gasLimit": 35929589,
+    "gasUsed": 19209507,
+    "baseFeePerGas": 4551653636
+  },
+  {
+    "number": 22883519,
+    "timestamp": 1752086915,
+    "gasLimit": 35964675,
+    "gasUsed": 14141318,
+    "baseFeePerGas": 4591074505
+  },
+  {
+    "number": 22883520,
+    "timestamp": 1752086927,
+    "gasLimit": 35999795,
+    "gasUsed": 11232261,
+    "baseFeePerGas": 4468493077
+  },
+  {
+    "number": 22883521,
+    "timestamp": 1752086939,
+    "gasLimit": 35964640,
+    "gasUsed": 19373539,
+    "baseFeePerGas": 4258483997
+  },
+  {
+    "number": 22883522,
+    "timestamp": 1752086951,
+    "gasLimit": 35999760,
+    "gasUsed": 18839989,
+    "baseFeePerGas": 4299666696
+  },
+  {
+    "number": 22883523,
+    "timestamp": 1752086963,
+    "gasLimit": 35964605,
+    "gasUsed": 17011839,
+    "baseFeePerGas": 4324751506
+  },
+  {
+    "number": 22883524,
+    "timestamp": 1752086975,
+    "gasLimit": 35999725,
+    "gasUsed": 20228251,
+    "baseFeePerGas": 4295576909
+  },
+  {
+    "number": 22883525,
+    "timestamp": 1752086987,
+    "gasLimit": 36000000,
+    "gasUsed": 13473324,
+    "baseFeePerGas": 4362051143
+  },
+  {
+    "number": 22883526,
+    "timestamp": 1752086999,
+    "gasLimit": 35964845,
+    "gasUsed": 20931437,
+    "baseFeePerGas": 4224928975
+  },
+  {
+    "number": 22883527,
+    "timestamp": 1752087011,
+    "gasLimit": 35929725,
+    "gasUsed": 13357138,
+    "baseFeePerGas": 4311537017
+  },
+  {
+    "number": 22883528,
+    "timestamp": 1752087023,
+    "gasLimit": 35894639,
+    "gasUsed": 20062741,
+    "baseFeePerGas": 4173306255
+  },
+  {
+    "number": 22883529,
+    "timestamp": 1752087035,
+    "gasLimit": 35859587,
+    "gasUsed": 8990705,
+    "baseFeePerGas": 4234793877
+  },
+  {
+    "number": 22883530,
+    "timestamp": 1752087047,
+    "gasLimit": 35824569,
+    "gasUsed": 28249660,
+    "baseFeePerGas": 3970881216
+  },
+  {
+    "number": 22883531,
+    "timestamp": 1752087059,
+    "gasLimit": 35859552,
+    "gasUsed": 12914153,
+    "baseFeePerGas": 4257336116
+  },
+  {
+    "number": 22883532,
+    "timestamp": 1752087071,
+    "gasLimit": 35894570,
+    "gasUsed": 19837548,
+    "baseFeePerGas": 4108469275
+  },
+  {
+    "number": 22883533,
+    "timestamp": 1752087083,
+    "gasLimit": 35859518,
+    "gasUsed": 11446713,
+    "baseFeePerGas": 4162558845
+  },
+  {
+    "number": 22883534,
+    "timestamp": 1752087095,
+    "gasLimit": 35894536,
+    "gasUsed": 10331976,
+    "baseFeePerGas": 3974421484
+  },
+  {
+    "number": 22883535,
+    "timestamp": 1752087107,
+    "gasLimit": 35859484,
+    "gasUsed": 34541577,
+    "baseFeePerGas": 3763620737
+  },
+  {
+    "number": 22883536,
+    "timestamp": 1752087119,
+    "gasLimit": 35824466,
+    "gasUsed": 8842808,
+    "baseFeePerGas": 4199493201
+  },
+  {
+    "number": 22883537,
+    "timestamp": 1752087131,
+    "gasLimit": 35789483,
+    "gasUsed": 26174474,
+    "baseFeePerGas": 3933704253
+  },
+  {
+    "number": 22883538,
+    "timestamp": 1752087143,
+    "gasLimit": 35824432,
+    "gasUsed": 18121660,
+    "baseFeePerGas": 4161215375
+  },
+  {
+    "number": 22883539,
+    "timestamp": 1752087155,
+    "gasLimit": 35859415,
+    "gasUsed": 16029769,
+    "baseFeePerGas": 4167297408
+  },
+  {
+    "number": 22883540,
+    "timestamp": 1752087167,
+    "gasLimit": 35894432,
+    "gasUsed": 13863191,
+    "baseFeePerGas": 4112098468
+  },
+  {
+    "number": 22883541,
+    "timestamp": 1752087179,
+    "gasLimit": 35929484,
+    "gasUsed": 25557715,
+    "baseFeePerGas": 3995131073
+  },
+  {
+    "number": 22883542,
+    "timestamp": 1752087191,
+    "gasLimit": 35964570,
+    "gasUsed": 10469174,
+    "baseFeePerGas": 4206203700
+  },
+  {
+    "number": 22883543,
+    "timestamp": 1752087203,
+    "gasLimit": 35999690,
+    "gasUsed": 16276038,
+    "baseFeePerGas": 3986531428
+  },
+  {
+    "number": 22883544,
+    "timestamp": 1752087215,
+    "gasLimit": 36000000,
+    "gasUsed": 16467498,
+    "baseFeePerGas": 3938808720
+  },
+  {
+    "number": 22883545,
+    "timestamp": 1752087227,
+    "gasLimit": 36000000,
+    "gasUsed": 17374539,
+    "baseFeePerGas": 3896890441
+  },
+  {
+    "number": 22883546,
+    "timestamp": 1752087239,
+    "gasLimit": 36000000,
+    "gasUsed": 9130918,
+    "baseFeePerGas": 3879964379
+  },
+  {
+    "number": 22883547,
+    "timestamp": 1752087251,
+    "gasLimit": 36000000,
+    "gasUsed": 23368809,
+    "baseFeePerGas": 3640994086
+  },
+  {
+    "number": 22883548,
+    "timestamp": 1752087263,
+    "gasLimit": 36000000,
+    "gasUsed": 18031811,
+    "baseFeePerGas": 3776742709
+  },
+  {
+    "number": 22883549,
+    "timestamp": 1752087275,
+    "gasLimit": 36000000,
+    "gasUsed": 21540961,
+    "baseFeePerGas": 3777577028
+  },
+  {
+    "number": 22883550,
+    "timestamp": 1752087287,
+    "gasLimit": 36035155,
+    "gasUsed": 16450709,
+    "baseFeePerGas": 3870467673
+  },
+  {
+    "number": 22883551,
+    "timestamp": 1752087299,
+    "gasLimit": 36070344,
+    "gasUsed": 14431456,
+    "baseFeePerGas": 3828394092
+  },
+  {
+    "number": 22883552,
+    "timestamp": 1752087311,
+    "gasLimit": 36035121,
+    "gasUsed": 16935323,
+    "baseFeePerGas": 3732772291
+  },
+  {
+    "number": 22883553,
+    "timestamp": 1752087323,
+    "gasLimit": 36000000,
+    "gasUsed": 18528165,
+    "baseFeePerGas": 3704745853
+  },
+  {
+    "number": 22883554,
+    "timestamp": 1752087335,
+    "gasLimit": 36035155,
+    "gasUsed": 13654048,
+    "baseFeePerGas": 3718334166
+  },
+  {
+    "number": 22883555,
+    "timestamp": 1752087347,
+    "gasLimit": 36070344,
+    "gasUsed": 21752349,
+    "baseFeePerGas": 3605770065
+  },
+  {
+    "number": 22883556,
+    "timestamp": 1752087359,
+    "gasLimit": 36035121,
+    "gasUsed": 6464302,
+    "baseFeePerGas": 3698666916
+  },
+  {
+    "number": 22883557,
+    "timestamp": 1752087371,
+    "gasLimit": 36070310,
+    "gasUsed": 28200431,
+    "baseFeePerGas": 3402208537
+  },
+  {
+    "number": 22883558,
+    "timestamp": 1752087383,
+    "gasLimit": 36035087,
+    "gasUsed": 15265198,
+    "baseFeePerGas": 3641909753
+  },
+  {
+    "number": 22883559,
+    "timestamp": 1752087395,
+    "gasLimit": 36000000,
+    "gasUsed": 7503585,
+    "baseFeePerGas": 3572367862
+  },
+  {
+    "number": 22883560,
+    "timestamp": 1752087407,
+    "gasLimit": 35964845,
+    "gasUsed": 23152258,
+    "baseFeePerGas": 3311971643
+  },
+  {
+    "number": 22883561,
+    "timestamp": 1752087419,
+    "gasLimit": 35999965,
+    "gasUsed": 16551578,
+    "baseFeePerGas": 3430993083
+  },
+  {
+    "number": 22883562,
+    "timestamp": 1752087431,
+    "gasLimit": 36035120,
+    "gasUsed": 20786268,
+    "baseFeePerGas": 3396482882
+  },
+  {
+    "number": 22883563,
+    "timestamp": 1752087443,
+    "gasLimit": 35999931,
+    "gasUsed": 12262969,
+    "baseFeePerGas": 3461723883
+  },
+  {
+    "number": 22883564,
+    "timestamp": 1752087455,
+    "gasLimit": 36000000,
+    "gasUsed": 31271063,
+    "baseFeePerGas": 3323807670
+  },
+  {
+    "number": 22883565,
+    "timestamp": 1752087467,
+    "gasLimit": 36000000,
+    "gasUsed": 18226280,
+    "baseFeePerGas": 3630130315
+  },
+  {
+    "number": 22883566,
+    "timestamp": 1752087479,
+    "gasLimit": 36000000,
+    "gasUsed": 13496682,
+    "baseFeePerGas": 3635834661
+  },
+  {
+    "number": 22883567,
+    "timestamp": 1752087491,
+    "gasLimit": 36035155,
+    "gasUsed": 28732916,
+    "baseFeePerGas": 3522131053
+  },
+  {
+    "number": 22883568,
+    "timestamp": 1752087503,
+    "gasLimit": 36070344,
+    "gasUsed": 15042199,
+    "baseFeePerGas": 3783964457
+  },
+  {
+    "number": 22883569,
+    "timestamp": 1752087515,
+    "gasLimit": 36035121,
+    "gasUsed": 17269773,
+    "baseFeePerGas": 3705469895
+  },
+  {
+    "number": 22883570,
+    "timestamp": 1752087527,
+    "gasLimit": 36070310,
+    "gasUsed": 18542444,
+    "baseFeePerGas": 3686246273
+  },
+  {
+    "number": 22883571,
+    "timestamp": 1752087539,
+    "gasLimit": 36035087,
+    "gasUsed": 18524044,
+    "baseFeePerGas": 3699207016
+  },
+  {
+    "number": 22883572,
+    "timestamp": 1752087551,
+    "gasLimit": 36000000,
+    "gasUsed": 20671603,
+    "baseFeePerGas": 3712205819
+  },
+  {
+    "number": 22883573,
+    "timestamp": 1752087563,
+    "gasLimit": 36000000,
+    "gasUsed": 13998828,
+    "baseFeePerGas": 3781077625
+  },
+  {
+    "number": 22883574,
+    "timestamp": 1752087575,
+    "gasLimit": 36000000,
+    "gasUsed": 17825710,
+    "baseFeePerGas": 3676016918
+  },
+  {
+    "number": 22883575,
+    "timestamp": 1752087587,
+    "gasLimit": 36035155,
+    "gasUsed": 14691894,
+    "baseFeePerGas": 3671567662
+  },
+  {
+    "number": 22883576,
+    "timestamp": 1752087599,
+    "gasLimit": 36000000,
+    "gasUsed": 18115430,
+    "baseFeePerGas": 3586855452
+  },
+  {
+    "number": 22883577,
+    "timestamp": 1752087611,
+    "gasLimit": 36000000,
+    "gasUsed": 20441702,
+    "baseFeePerGas": 3589730665
+  },
+  {
+    "number": 22883578,
+    "timestamp": 1752087623,
+    "gasLimit": 36000000,
+    "gasUsed": 33246032,
+    "baseFeePerGas": 3650599085
+  },
+  {
+    "number": 22883579,
+    "timestamp": 1752087635,
+    "gasLimit": 36035155,
+    "gasUsed": 15972126,
+    "baseFeePerGas": 4037107074
+  },
+  {
+    "number": 22883580,
+    "timestamp": 1752087647,
+    "gasLimit": 36000000,
+    "gasUsed": 19548254,
+    "baseFeePerGas": 3979817846
+  },
+  {
+    "number": 22883581,
+    "timestamp": 1752087659,
+    "gasLimit": 36000000,
+    "gasUsed": 18129896,
+    "baseFeePerGas": 4022607907
+  },
+  {
+    "number": 22883582,
+    "timestamp": 1752087671,
+    "gasLimit": 36035155,
+    "gasUsed": 20415724,
+    "baseFeePerGas": 4026236522
+  },
+  {
+    "number": 22883583,
+    "timestamp": 1752087683,
+    "gasLimit": 36000000,
+    "gasUsed": 13050319,
+    "baseFeePerGas": 4093223241
+  },
+  {
+    "number": 22883584,
+    "timestamp": 1752087695,
+    "gasLimit": 35964845,
+    "gasUsed": 19612260,
+    "baseFeePerGas": 3952527760
+  },
+  {
+    "number": 22883585,
+    "timestamp": 1752087707,
+    "gasLimit": 35999965,
+    "gasUsed": 6480601,
+    "baseFeePerGas": 3997307461
+  },
+  {
+    "number": 22883586,
+    "timestamp": 1752087719,
+    "gasLimit": 36000000,
+    "gasUsed": 22294817,
+    "baseFeePerGas": 3677539728
+  },
+  {
+    "number": 22883587,
+    "timestamp": 1752087731,
+    "gasLimit": 35964845,
+    "gasUsed": 18792012,
+    "baseFeePerGas": 3787222784
+  },
+  {
+    "number": 22883588,
+    "timestamp": 1752087743,
+    "gasLimit": 35999965,
+    "gasUsed": 18374603,
+    "baseFeePerGas": 3808535942
+  },
+  {
+    "number": 22883589,
+    "timestamp": 1752087755,
+    "gasLimit": 36000000,
+    "gasUsed": 21597265,
+    "baseFeePerGas": 3818443990
+  },
+  {
+    "number": 22883590,
+    "timestamp": 1752087767,
+    "gasLimit": 35964845,
+    "gasUsed": 18165412,
+    "baseFeePerGas": 3913832565
+  },
+  {
+    "number": 22883591,
+    "timestamp": 1752087779,
+    "gasLimit": 35999965,
+    "gasUsed": 15806484,
+    "baseFeePerGas": 3918810983
+  },
+  {
+    "number": 22883592,
+    "timestamp": 1752087791,
+    "gasLimit": 36035120,
+    "gasUsed": 14070963,
+    "baseFeePerGas": 3859117146
+  },
+  {
+    "number": 22883593,
+    "timestamp": 1752087803,
+    "gasLimit": 36000000,
+    "gasUsed": 20023076,
+    "baseFeePerGas": 3753453698
+  },
+  {
+    "number": 22883594,
+    "timestamp": 1752087815,
+    "gasLimit": 35964845,
+    "gasUsed": 15017978,
+    "baseFeePerGas": 3806186490
+  },
+  {
+    "number": 22883595,
+    "timestamp": 1752087827,
+    "gasLimit": 35999965,
+    "gasUsed": 5907279,
+    "baseFeePerGas": 3727754156
+  },
+  {
+    "number": 22883596,
+    "timestamp": 1752087839,
+    "gasLimit": 35964810,
+    "gasUsed": 31713978,
+    "baseFeePerGas": 3414707844
+  },
+  {
+    "number": 22883597,
+    "timestamp": 1752087851,
+    "gasLimit": 35999930,
+    "gasUsed": 20583957,
+    "baseFeePerGas": 3740646657
+  },
+  {
+    "number": 22883598,
+    "timestamp": 1752087863,
+    "gasLimit": 36000000,
+    "gasUsed": 14287903,
+    "baseFeePerGas": 3807770405
+  },
+  {
+    "number": 22883599,
+    "timestamp": 1752087875,
+    "gasLimit": 36000000,
+    "gasUsed": 18478718,
+    "baseFeePerGas": 3709611981
+  },
+  {
+    "number": 22883600,
+    "timestamp": 1752087887,
+    "gasLimit": 36035155,
+    "gasUsed": 15347448,
+    "baseFeePerGas": 3721944328
+  },
+  {
+    "number": 22883601,
+    "timestamp": 1752087899,
+    "gasLimit": 36070344,
+    "gasUsed": 20332716,
+    "baseFeePerGas": 3652997270
+  },
+  {
+    "number": 22883602,
+    "timestamp": 1752087911,
+    "gasLimit": 36035121,
+    "gasUsed": 21375186,
+    "baseFeePerGas": 3711167785
+  },
+  {
+    "number": 22883603,
+    "timestamp": 1752087923,
+    "gasLimit": 35999932,
+    "gasUsed": 17290189,
+    "baseFeePerGas": 3797616182
+  },
+  {
+    "number": 22883604,
+    "timestamp": 1752087935,
+    "gasLimit": 36000000,
+    "gasUsed": 20017735,
+    "baseFeePerGas": 3778897671
+  },
+  {
+    "number": 22883605,
+    "timestamp": 1752087947,
+    "gasLimit": 35964845,
+    "gasUsed": 16647511,
+    "baseFeePerGas": 3831847768
+  },
+  {
+    "number": 22883606,
+    "timestamp": 1752087959,
+    "gasLimit": 35999965,
+    "gasUsed": 21163630,
+    "baseFeePerGas": 3796290992
+  },
+  {
+    "number": 22883607,
+    "timestamp": 1752087971,
+    "gasLimit": 35964810,
+    "gasUsed": 16409355,
+    "baseFeePerGas": 3879694744
+  },
+  {
+    "number": 22883608,
+    "timestamp": 1752087983,
+    "gasLimit": 35999930,
+    "gasUsed": 16092491,
+    "baseFeePerGas": 3837271652
+  },
+  {
+    "number": 22883609,
+    "timestamp": 1752087995,
+    "gasLimit": 35964775,
+    "gasUsed": 18379910,
+    "baseFeePerGas": 3786441721
+  },
+  {
+    "number": 22883610,
+    "timestamp": 1752088007,
+    "gasLimit": 35929655,
+    "gasUsed": 20043428,
+    "baseFeePerGas": 3796904720
+  },
+  {
+    "number": 22883611,
+    "timestamp": 1752088019,
+    "gasLimit": 35964741,
+    "gasUsed": 19612953,
+    "baseFeePerGas": 3851819317
+  },
+  {
+    "number": 22883612,
+    "timestamp": 1752088031,
+    "gasLimit": 35999861,
+    "gasUsed": 20115954,
+    "baseFeePerGas": 3895478127
+  },
+  {
+    "number": 22883613,
+    "timestamp": 1752088043,
+    "gasLimit": 36035016,
+    "gasUsed": 20826059,
+    "baseFeePerGas": 3952720885
+  },
+  {
+    "number": 22883614,
+    "timestamp": 1752088055,
+    "gasLimit": 36000000,
+    "gasUsed": 14071225,
+    "baseFeePerGas": 4029739153
+  },
+  {
+    "number": 22883615,
+    "timestamp": 1752088067,
+    "gasLimit": 36000000,
+    "gasUsed": 12600300,
+    "baseFeePerGas": 3919795137
+  },
+  {
+    "number": 22883616,
+    "timestamp": 1752088091,
+    "gasLimit": 36000000,
+    "gasUsed": 15934976,
+    "baseFeePerGas": 3772810986
+  },
+  {
+    "number": 22883617,
+    "timestamp": 1752088103,
+    "gasLimit": 36035155,
+    "gasUsed": 26060796,
+    "baseFeePerGas": 3718707200
+  },
+  {
+    "number": 22883618,
+    "timestamp": 1752088115,
+    "gasLimit": 36070344,
+    "gasUsed": 17739296,
+    "baseFeePerGas": 3926215515
+  },
+  {
+    "number": 22883619,
+    "timestamp": 1752088127,
+    "gasLimit": 36105567,
+    "gasUsed": 477548,
+    "baseFeePerGas": 3918164075
+  },
+  {
+    "number": 22883620,
+    "timestamp": 1752088139,
+    "gasLimit": 36070309,
+    "gasUsed": 36029168,
+    "baseFeePerGas": 3441349404
+  },
+  {
+    "number": 22883621,
+    "timestamp": 1752088151,
+    "gasLimit": 36035086,
+    "gasUsed": 16651094,
+    "baseFeePerGas": 3870536821
+  },
+  {
+    "number": 22883622,
+    "timestamp": 1752088163,
+    "gasLimit": 36000000,
+    "gasUsed": 22861884,
+    "baseFeePerGas": 3833844172
+  },
+  {
+    "number": 22883623,
+    "timestamp": 1752088175,
+    "gasLimit": 36000000,
+    "gasUsed": 5046189,
+    "baseFeePerGas": 3963286572
+  },
+  {
+    "number": 22883624,
+    "timestamp": 1752088187,
+    "gasLimit": 36035155,
+    "gasUsed": 27512690,
+    "baseFeePerGas": 3606761120
+  },
+  {
+    "number": 22883625,
+    "timestamp": 1752088199,
+    "gasLimit": 36000000,
+    "gasUsed": 18468013,
+    "baseFeePerGas": 3844352753
+  },
+  {
+    "number": 22883626,
+    "timestamp": 1752088211,
+    "gasLimit": 36035155,
+    "gasUsed": 19640878,
+    "baseFeePerGas": 3856847246
+  },
+  {
+    "number": 22883627,
+    "timestamp": 1752088223,
+    "gasLimit": 36070344,
+    "gasUsed": 14985047,
+    "baseFeePerGas": 3900282775
+  },
+  {
+    "number": 22883628,
+    "timestamp": 1752088235,
+    "gasLimit": 36035121,
+    "gasUsed": 17854902,
+    "baseFeePerGas": 3817830346
+  },
+  {
+    "number": 22883629,
+    "timestamp": 1752088247,
+    "gasLimit": 36070310,
+    "gasUsed": 12680257,
+    "baseFeePerGas": 3813522045
+  },
+  {
+    "number": 22883630,
+    "timestamp": 1752088259,
+    "gasLimit": 36105533,
+    "gasUsed": 19747429,
+    "baseFeePerGas": 3671985824
+  },
+  {
+    "number": 22883631,
+    "timestamp": 1752088271,
+    "gasLimit": 36140791,
+    "gasUsed": 13663267,
+    "baseFeePerGas": 3715073255
+  },
+  {
+    "number": 22883632,
+    "timestamp": 1752088283,
+    "gasLimit": 36105499,
+    "gasUsed": 18499859,
+    "baseFeePerGas": 3601816162
+  },
+  {
+    "number": 22883633,
+    "timestamp": 1752088295,
+    "gasLimit": 36070241,
+    "gasUsed": 23035094,
+    "baseFeePerGas": 3612966873
+  },
+  {
+    "number": 22883634,
+    "timestamp": 1752088307,
+    "gasLimit": 36035018,
+    "gasUsed": 27470590,
+    "baseFeePerGas": 3738172169
+  },
+  {
+    "number": 22883635,
+    "timestamp": 1752088319,
+    "gasLimit": 35999829,
+    "gasUsed": 24301320,
+    "baseFeePerGas": 3983331227
+  },
+  {
+    "number": 22883636,
+    "timestamp": 1752088331,
+    "gasLimit": 36000000,
+    "gasUsed": 15980514,
+    "baseFeePerGas": 4157641693
+  },
+  {
+    "number": 22883637,
+    "timestamp": 1752088343,
+    "gasLimit": 36035155,
+    "gasUsed": 26736986,
+    "baseFeePerGas": 4099334060
+  },
+  {
+    "number": 22883638,
+    "timestamp": 1752088355,
+    "gasLimit": 36000000,
+    "gasUsed": 20060703,
+    "baseFeePerGas": 4347312536
+  },
+  {
+    "number": 22883639,
+    "timestamp": 1752088367,
+    "gasLimit": 35964845,
+    "gasUsed": 19401743,
+    "baseFeePerGas": 4409524480
+  },
+  {
+    "number": 22883640,
+    "timestamp": 1752088379,
+    "gasLimit": 35929725,
+    "gasUsed": 15247032,
+    "baseFeePerGas": 4453028983
+  },
+  {
+    "number": 22883641,
+    "timestamp": 1752088391,
+    "gasLimit": 35894639,
+    "gasUsed": 16121344,
+    "baseFeePerGas": 4368818931
+  },
+  {
+    "number": 22883642,
+    "timestamp": 1752088403,
+    "gasLimit": 35859587,
+    "gasUsed": 21944944,
+    "baseFeePerGas": 4313258027
+  },
+  {
+    "number": 22883643,
+    "timestamp": 1752088415,
+    "gasLimit": 35894605,
+    "gasUsed": 30070465,
+    "baseFeePerGas": 4433995493
+  },
+  {
+    "number": 22883644,
+    "timestamp": 1752088427,
+    "gasLimit": 35859553,
+    "gasUsed": 18668150,
+    "baseFeePerGas": 4808383591
+  },
+  {
+    "number": 22883645,
+    "timestamp": 1752088439,
+    "gasLimit": 35894571,
+    "gasUsed": 14721564,
+    "baseFeePerGas": 4833135611
+  },
+  {
+    "number": 22883646,
+    "timestamp": 1752088451,
+    "gasLimit": 35929623,
+    "gasUsed": 17134452,
+    "baseFeePerGas": 4724551311
+  },
+  {
+    "number": 22883647,
+    "timestamp": 1752088463,
+    "gasLimit": 35964709,
+    "gasUsed": 14399588,
+    "baseFeePerGas": 4697254380
+  },
+  {
+    "number": 22883648,
+    "timestamp": 1752088475,
+    "gasLimit": 35999829,
+    "gasUsed": 8220371,
+    "baseFeePerGas": 4580270508
+  },
+  {
+    "number": 22883649,
+    "timestamp": 1752088487,
+    "gasLimit": 36000000,
+    "gasUsed": 18826033,
+    "baseFeePerGas": 4269206853
+  },
+  {
+    "number": 22883650,
+    "timestamp": 1752088499,
+    "gasLimit": 36000000,
+    "gasUsed": 8517705,
+    "baseFeePerGas": 4293696476
+  },
+  {
+    "number": 22883651,
+    "timestamp": 1752088511,
+    "gasLimit": 36035155,
+    "gasUsed": 29208576,
+    "baseFeePerGas": 4010959694
+  },
+  {
+    "number": 22883652,
+    "timestamp": 1752088523,
+    "gasLimit": 36000000,
+    "gasUsed": 14094261,
+    "baseFeePerGas": 4322368422
+  },
+  {
+    "number": 22883653,
+    "timestamp": 1752088535,
+    "gasLimit": 36000000,
+    "gasUsed": 18488178,
+    "baseFeePerGas": 4205132013
+  },
+  {
+    "number": 22883654,
+    "timestamp": 1752088547,
+    "gasLimit": 36000000,
+    "gasUsed": 17295240,
+    "baseFeePerGas": 4219387936
+  },
+  {
+    "number": 22883655,
+    "timestamp": 1752088559,
+    "gasLimit": 36000000,
+    "gasUsed": 14264009,
+    "baseFeePerGas": 4198737549
+  },
+  {
+    "number": 22883656,
+    "timestamp": 1752088571,
+    "gasLimit": 36000000,
+    "gasUsed": 25999242,
+    "baseFeePerGas": 4089803899
+  },
+  {
+    "number": 22883657,
+    "timestamp": 1752088583,
+    "gasLimit": 35964845,
+    "gasUsed": 13121291,
+    "baseFeePerGas": 4316993698
+  },
+  {
+    "number": 22883658,
+    "timestamp": 1752088595,
+    "gasLimit": 35929725,
+    "gasUsed": 22891638,
+    "baseFeePerGas": 4171118800
+  },
+  {
+    "number": 22883659,
+    "timestamp": 1752088607,
+    "gasLimit": 35964811,
+    "gasUsed": 16386723,
+    "baseFeePerGas": 4314107429
+  },
+  {
+    "number": 22883660,
+    "timestamp": 1752088619,
+    "gasLimit": 35929691,
+    "gasUsed": 17871160,
+    "baseFeePerGas": 4266255491
+  },
+  {
+    "number": 22883661,
+    "timestamp": 1752088631,
+    "gasLimit": 35964777,
+    "gasUsed": 22906461,
+    "baseFeePerGas": 4263474476
+  },
+  {
+    "number": 22883662,
+    "timestamp": 1752088643,
+    "gasLimit": 35999897,
+    "gasUsed": 18572224,
+    "baseFeePerGas": 4409406564
+  },
+  {
+    "number": 22883663,
+    "timestamp": 1752088655,
+    "gasLimit": 36000000,
+    "gasUsed": 18383217,
+    "baseFeePerGas": 4426930208
+  },
+  {
+    "number": 22883664,
+    "timestamp": 1752088667,
+    "gasLimit": 35964845,
+    "gasUsed": 13217291,
+    "baseFeePerGas": 4438711283
+  },
+  {
+    "number": 22883665,
+    "timestamp": 1752088679,
+    "gasLimit": 35999965,
+    "gasUsed": 18024538,
+    "baseFeePerGas": 4291685477
+  },
+  {
+    "number": 22883666,
+    "timestamp": 1752088691,
+    "gasLimit": 36000000,
+    "gasUsed": 17589848,
+    "baseFeePerGas": 4292417329
+  },
+  {
+    "number": 22883667,
+    "timestamp": 1752088703,
+    "gasLimit": 36000000,
+    "gasUsed": 17471710,
+    "baseFeePerGas": 4280191333
+  },
+  {
+    "number": 22883668,
+    "timestamp": 1752088715,
+    "gasLimit": 36000000,
+    "gasUsed": 19669756,
+    "baseFeePerGas": 4264488679
+  },
+  {
+    "number": 22883669,
+    "timestamp": 1752088727,
+    "gasLimit": 35964845,
+    "gasUsed": 17897319,
+    "baseFeePerGas": 4313937675
+  },
+  {
+    "number": 22883670,
+    "timestamp": 1752088739,
+    "gasLimit": 35929725,
+    "gasUsed": 10956039,
+    "baseFeePerGas": 4311385676
+  },
+  {
+    "number": 22883671,
+    "timestamp": 1752088751,
+    "gasLimit": 35964811,
+    "gasUsed": 35946374,
+    "baseFeePerGas": 4101129823
+  },
+  {
+    "number": 22883672,
+    "timestamp": 1752088763,
+    "gasLimit": 35929691,
+    "gasUsed": 5979981,
+    "baseFeePerGas": 4613245478
+  },
+  {
+    "number": 22883673,
+    "timestamp": 1752088775,
+    "gasLimit": 35964777,
+    "gasUsed": 35953775,
+    "baseFeePerGas": 4228541911
+  },
+  {
+    "number": 22883674,
+    "timestamp": 1752088787,
+    "gasLimit": 35929657,
+    "gasUsed": 26882993,
+    "baseFeePerGas": 4756786290
+  },
+  {
+    "number": 22883675,
+    "timestamp": 1752088799,
+    "gasLimit": 35964743,
+    "gasUsed": 15707434,
+    "baseFeePerGas": 5051958925
+  },
+  {
+    "number": 22883676,
+    "timestamp": 1752088811,
+    "gasLimit": 35999863,
+    "gasUsed": 22948306,
+    "baseFeePerGas": 4972068958
+  },
+  {
+    "number": 22883677,
+    "timestamp": 1752088835,
+    "gasLimit": 36035018,
+    "gasUsed": 27880627,
+    "baseFeePerGas": 5142928374
+  },
+  {
+    "number": 22883678,
+    "timestamp": 1752088847,
+    "gasLimit": 36000000,
+    "gasUsed": 8845801,
+    "baseFeePerGas": 5494845149
+  },
+  {
+    "number": 22883679,
+    "timestamp": 1752088859,
+    "gasLimit": 36000000,
+    "gasUsed": 22834988,
+    "baseFeePerGas": 5145533302
+  },
+  {
+    "number": 22883680,
+    "timestamp": 1752088871,
+    "gasLimit": 36000000,
+    "gasUsed": 24354944,
+    "baseFeePerGas": 5318301300
+  },
+  {
+    "number": 22883681,
+    "timestamp": 1752088883,
+    "gasLimit": 36000000,
+    "gasUsed": 19459169,
+    "baseFeePerGas": 5553006209
+  },
+  {
+    "number": 22883682,
+    "timestamp": 1752088895,
+    "gasLimit": 36000000,
+    "gasUsed": 20649888,
+    "baseFeePerGas": 5609275476
+  },
+  {
+    "number": 22883683,
+    "timestamp": 1752088907,
+    "gasLimit": 35964845,
+    "gasUsed": 15879600,
+    "baseFeePerGas": 5712497363
+  },
+  {
+    "number": 22883684,
+    "timestamp": 1752088919,
+    "gasLimit": 35999965,
+    "gasUsed": 13205016,
+    "baseFeePerGas": 5628996618
+  },
+  {
+    "number": 22883685,
+    "timestamp": 1752088931,
+    "gasLimit": 36000000,
+    "gasUsed": 32239033,
+    "baseFeePerGas": 5441559991
+  },
+  {
+    "number": 22883686,
+    "timestamp": 1752088943,
+    "gasLimit": 36035155,
+    "gasUsed": 17755608,
+    "baseFeePerGas": 5979633270
+  },
+  {
+    "number": 22883687,
+    "timestamp": 1752088955,
+    "gasLimit": 35999966,
+    "gasUsed": 14259584,
+    "baseFeePerGas": 5968765560
+  },
+  {
+    "number": 22883688,
+    "timestamp": 1752088967,
+    "gasLimit": 36035121,
+    "gasUsed": 24344985,
+    "baseFeePerGas": 5813726770
+  },
+  {
+    "number": 22883689,
+    "timestamp": 1752088979,
+    "gasLimit": 36000000,
+    "gasUsed": 12940539,
+    "baseFeePerGas": 6068935578
+  },
+  {
+    "number": 22883690,
+    "timestamp": 1752088991,
+    "gasLimit": 36000000,
+    "gasUsed": 12646542,
+    "baseFeePerGas": 5855702642
+  },
+  {
+    "number": 22883691,
+    "timestamp": 1752089003,
+    "gasLimit": 36000000,
+    "gasUsed": 21529414,
+    "baseFeePerGas": 5638006405
+  },
+  {
+    "number": 22883692,
+    "timestamp": 1752089015,
+    "gasLimit": 36000000,
+    "gasUsed": 20393578,
+    "baseFeePerGas": 5776192924
+  },
+  {
+    "number": 22883693,
+    "timestamp": 1752089027,
+    "gasLimit": 36000000,
+    "gasUsed": 15821409,
+    "baseFeePerGas": 5872205203
+  },
+  {
+    "number": 22883694,
+    "timestamp": 1752089039,
+    "gasLimit": 36000000,
+    "gasUsed": 17078926,
+    "baseFeePerGas": 5783363999
+  },
+  {
+    "number": 22883695,
+    "timestamp": 1752089051,
+    "gasLimit": 36000000,
+    "gasUsed": 24055885,
+    "baseFeePerGas": 5746371595
+  },
+  {
+    "number": 22883696,
+    "timestamp": 1752089063,
+    "gasLimit": 36000000,
+    "gasUsed": 17131805,
+    "baseFeePerGas": 5988033855
+  },
+  {
+    "number": 22883697,
+    "timestamp": 1752089075,
+    "gasLimit": 35964845,
+    "gasUsed": 18615547,
+    "baseFeePerGas": 5951931209
+  },
+  {
+    "number": 22883698,
+    "timestamp": 1752089087,
+    "gasLimit": 35929725,
+    "gasUsed": 25050117,
+    "baseFeePerGas": 5978125653
+  },
+  {
+    "number": 22883699,
+    "timestamp": 1752089099,
+    "gasLimit": 35964811,
+    "gasUsed": 17366761,
+    "baseFeePerGas": 6272843646
+  },
+  {
+    "number": 22883700,
+    "timestamp": 1752089111,
+    "gasLimit": 35999931,
+    "gasUsed": 18116934,
+    "baseFeePerGas": 6245999083
+  },
+  {
+    "number": 22883701,
+    "timestamp": 1752089123,
+    "gasLimit": 36035086,
+    "gasUsed": 12813753,
+    "baseFeePerGas": 6251072622
+  },
+  {
+    "number": 22883702,
+    "timestamp": 1752089135,
+    "gasLimit": 36070275,
+    "gasUsed": 11055754,
+    "baseFeePerGas": 6025394868
+  },
+  {
+    "number": 22883703,
+    "timestamp": 1752089147,
+    "gasLimit": 36035052,
+    "gasUsed": 11211902,
+    "baseFeePerGas": 5733925371
+  },
+  {
+    "number": 22883704,
+    "timestamp": 1752089159,
+    "gasLimit": 35999863,
+    "gasUsed": 29864707,
+    "baseFeePerGas": 5463196332
+  },
+  {
+    "number": 22883705,
+    "timestamp": 1752089171,
+    "gasLimit": 36000000,
+    "gasUsed": 21093720,
+    "baseFeePerGas": 5913334173
+  },
+  {
+    "number": 22883706,
+    "timestamp": 1752089183,
+    "gasLimit": 36000000,
+    "gasUsed": 17238436,
+    "baseFeePerGas": 6040377229
+  },
+  {
+    "number": 22883707,
+    "timestamp": 1752089195,
+    "gasLimit": 36000000,
+    "gasUsed": 17300379,
+    "baseFeePerGas": 6008431856
+  },
+  {
+    "number": 22883708,
+    "timestamp": 1752089207,
+    "gasLimit": 35964845,
+    "gasUsed": 18776207,
+    "baseFeePerGas": 5979240016
+  },
+  {
+    "number": 22883709,
+    "timestamp": 1752089219,
+    "gasLimit": 35999965,
+    "gasUsed": 30307384,
+    "baseFeePerGas": 6012232172
+  },
+  {
+    "number": 22883710,
+    "timestamp": 1752089231,
+    "gasLimit": 36035120,
+    "gasUsed": 13823428,
+    "baseFeePerGas": 6526086562
+  },
+  {
+    "number": 22883711,
+    "timestamp": 1752089243,
+    "gasLimit": 36000000,
+    "gasUsed": 19933053,
+    "baseFeePerGas": 6336193560
+  },
+  {
+    "number": 22883712,
+    "timestamp": 1752089255,
+    "gasLimit": 36035155,
+    "gasUsed": 13462482,
+    "baseFeePerGas": 6421250490
+  },
+  {
+    "number": 22883713,
+    "timestamp": 1752089267,
+    "gasLimit": 36070344,
+    "gasUsed": 14139479,
+    "baseFeePerGas": 6218327770
+  },
+  {
+    "number": 22883714,
+    "timestamp": 1752089279,
+    "gasLimit": 36105567,
+    "gasUsed": 14520125,
+    "baseFeePerGas": 6050428790
+  },
+  {
+    "number": 22883715,
+    "timestamp": 1752089291,
+    "gasLimit": 36070309,
+    "gasUsed": 26453992,
+    "baseFeePerGas": 5902431556
+  },
+  {
+    "number": 22883716,
+    "timestamp": 1752089303,
+    "gasLimit": 36105532,
+    "gasUsed": 15948745,
+    "baseFeePerGas": 6246839587
+  },
+  {
+    "number": 22883717,
+    "timestamp": 1752089315,
+    "gasLimit": 36140790,
+    "gasUsed": 12654452,
+    "baseFeePerGas": 6155832192
+  },
+  {
+    "number": 22883718,
+    "timestamp": 1752089327,
+    "gasLimit": 36105498,
+    "gasUsed": 13805655,
+    "baseFeePerGas": 5925208870
+  },
+  {
+    "number": 22883719,
+    "timestamp": 1752089339,
+    "gasLimit": 36070240,
+    "gasUsed": 20052062,
+    "baseFeePerGas": 5750963115
+  },
+  {
+    "number": 22883720,
+    "timestamp": 1752089351,
+    "gasLimit": 36105463,
+    "gasUsed": 9152294,
+    "baseFeePerGas": 5831357361
+  },
+  {
+    "number": 22883721,
+    "timestamp": 1752089363,
+    "gasLimit": 36140721,
+    "gasUsed": 27886656,
+    "baseFeePerGas": 5471982173
+  },
+  {
+    "number": 22883722,
+    "timestamp": 1752089375,
+    "gasLimit": 36105429,
+    "gasUsed": 20443696,
+    "baseFeePerGas": 5843547797
+  },
+  {
+    "number": 22883723,
+    "timestamp": 1752089387,
+    "gasLimit": 36140687,
+    "gasUsed": 13088233,
+    "baseFeePerGas": 5940290990
+  },
+  {
+    "number": 22883724,
+    "timestamp": 1752089399,
+    "gasLimit": 36105395,
+    "gasUsed": 16846587,
+    "baseFeePerGas": 5735568928
+  },
+  {
+    "number": 22883725,
+    "timestamp": 1752089411,
+    "gasLimit": 36070137,
+    "gasUsed": 32292278,
+    "baseFeePerGas": 5687669389
+  },
+  {
+    "number": 22883726,
+    "timestamp": 1752089423,
+    "gasLimit": 36034914,
+    "gasUsed": 12979168,
+    "baseFeePerGas": 6249701487
+  },
+  {
+    "number": 22883727,
+    "timestamp": 1752089435,
+    "gasLimit": 36000000,
+    "gasUsed": 23293659,
+    "baseFeePerGas": 6031248057
+  },
+  {
+    "number": 22883728,
+    "timestamp": 1752089447,
+    "gasLimit": 36000000,
+    "gasUsed": 18769266,
+    "baseFeePerGas": 6252965908
+  },
+  {
+    "number": 22883729,
+    "timestamp": 1752089459,
+    "gasLimit": 35964845,
+    "gasUsed": 17086090,
+    "baseFeePerGas": 6286370033
+  },
+  {
+    "number": 22883730,
+    "timestamp": 1752089471,
+    "gasLimit": 35929725,
+    "gasUsed": 25984991,
+    "baseFeePerGas": 6247202099
+  },
+  {
+    "number": 22883731,
+    "timestamp": 1752089483,
+    "gasLimit": 35964811,
+    "gasUsed": 14934755,
+    "baseFeePerGas": 6595822691
+  },
+  {
+    "number": 22883732,
+    "timestamp": 1752089495,
+    "gasLimit": 35999931,
+    "gasUsed": 20029814,
+    "baseFeePerGas": 6456090555
+  },
+  {
+    "number": 22883733,
+    "timestamp": 1752089507,
+    "gasLimit": 35964776,
+    "gasUsed": 18468312,
+    "baseFeePerGas": 6547096905
+  },
+  {
+    "number": 22883734,
+    "timestamp": 1752089519,
+    "gasLimit": 35929656,
+    "gasUsed": 16013188,
+    "baseFeePerGas": 6569211539
+  },
+  {
+    "number": 22883735,
+    "timestamp": 1752089531,
+    "gasLimit": 35964742,
+    "gasUsed": 18033987,
+    "baseFeePerGas": 6480004340
+  },
+  {
+    "number": 22883736,
+    "timestamp": 1752089543,
+    "gasLimit": 35999862,
+    "gasUsed": 20167823,
+    "baseFeePerGas": 6482329338
+  },
+  {
+    "number": 22883737,
+    "timestamp": 1752089555,
+    "gasLimit": 36000000,
+    "gasUsed": 5110819,
+    "baseFeePerGas": 6579919919
+  },
+  {
+    "number": 22883738,
+    "timestamp": 1752089567,
+    "gasLimit": 36035155,
+    "gasUsed": 29334282,
+    "baseFeePerGas": 5990963122
+  },
+  {
+    "number": 22883739,
+    "timestamp": 1752089579,
+    "gasLimit": 36070344,
+    "gasUsed": 20687539,
+    "baseFeePerGas": 6461322998
+  },
+  {
+    "number": 22883740,
+    "timestamp": 1752089591,
+    "gasLimit": 36035121,
+    "gasUsed": 11931666,
+    "baseFeePerGas": 6580103400
+  },
+  {
+    "number": 22883741,
+    "timestamp": 1752089603,
+    "gasLimit": 36070310,
+    "gasUsed": 13168817,
+    "baseFeePerGas": 6302278519
+  },
+  {
+    "number": 22883742,
+    "timestamp": 1752089615,
+    "gasLimit": 36035087,
+    "gasUsed": 35187549,
+    "baseFeePerGas": 6089714381
+  },
+  {
+    "number": 22883743,
+    "timestamp": 1752089627,
+    "gasLimit": 36000000,
+    "gasUsed": 17896151,
+    "baseFeePerGas": 6815121505
+  },
+  {
+    "number": 22883744,
+    "timestamp": 1752089639,
+    "gasLimit": 36000000,
+    "gasUsed": 14580401,
+    "baseFeePerGas": 6810206620
+  },
+  {
+    "number": 22883745,
+    "timestamp": 1752089651,
+    "gasLimit": 36035155,
+    "gasUsed": 14849343,
+    "baseFeePerGas": 6648483178
+  },
+  {
+    "number": 22883746,
+    "timestamp": 1752089663,
+    "gasLimit": 36070344,
+    "gasUsed": 15175836,
+    "baseFeePerGas": 6502348445
+  },
+  {
+    "number": 22883747,
+    "timestamp": 1752089675,
+    "gasLimit": 36035121,
+    "gasUsed": 18185584,
+    "baseFeePerGas": 6373486360
+  },
+  {
+    "number": 22883748,
+    "timestamp": 1752089687,
+    "gasLimit": 35999932,
+    "gasUsed": 12474141,
+    "baseFeePerGas": 6380915908
+  },
+  {
+    "number": 22883749,
+    "timestamp": 1752089699,
+    "gasLimit": 35964777,
+    "gasUsed": 16949802,
+    "baseFeePerGas": 6136055553
+  },
+  {
+    "number": 22883750,
+    "timestamp": 1752089711,
+    "gasLimit": 35999897,
+    "gasUsed": 18396651,
+    "baseFeePerGas": 6092012425
+  },
+  {
+    "number": 22883751,
+    "timestamp": 1752089723,
+    "gasLimit": 35964742,
+    "gasUsed": 13061689,
+    "baseFeePerGas": 6108795248
+  },
+  {
+    "number": 22883752,
+    "timestamp": 1752089735,
+    "gasLimit": 35999862,
+    "gasUsed": 19303838,
+    "baseFeePerGas": 5899844502
+  },
+  {
+    "number": 22883753,
+    "timestamp": 1752089747,
+    "gasLimit": 36035017,
+    "gasUsed": 11188504,
+    "baseFeePerGas": 5953267266
+  },
+  {
+    "number": 22883754,
+    "timestamp": 1752089759,
+    "gasLimit": 36070206,
+    "gasUsed": 23358217,
+    "baseFeePerGas": 5671216011
+  },
+  {
+    "number": 22883755,
+    "timestamp": 1752089771,
+    "gasLimit": 36034983,
+    "gasUsed": 14419714,
+    "baseFeePerGas": 5880450533
+  },
+  {
+    "number": 22883756,
+    "timestamp": 1752089783,
+    "gasLimit": 35999794,
+    "gasUsed": 19321913,
+    "baseFeePerGas": 5733672677
+  },
+  {
+    "number": 22883757,
+    "timestamp": 1752089795,
+    "gasLimit": 36000000,
+    "gasUsed": 24577400,
+    "baseFeePerGas": 5786311915
+  },
+  {
+    "number": 22883758,
+    "timestamp": 1752089807,
+    "gasLimit": 35964845,
+    "gasUsed": 14423575,
+    "baseFeePerGas": 6050609748
+  },
+  {
+    "number": 22883759,
+    "timestamp": 1752089819,
+    "gasLimit": 35999965,
+    "gasUsed": 17095485,
+    "baseFeePerGas": 5900927504
+  },
+  {
+    "number": 22883760,
+    "timestamp": 1752089831,
+    "gasLimit": 36035120,
+    "gasUsed": 22121594,
+    "baseFeePerGas": 5863862389
+  },
+  {
+    "number": 22883761,
+    "timestamp": 1752089843,
+    "gasLimit": 36000000,
+    "gasUsed": 4814710,
+    "baseFeePerGas": 6030820974
+  },
+  {
+    "number": 22883762,
+    "timestamp": 1752089855,
+    "gasLimit": 36000000,
+    "gasUsed": 26800904,
+    "baseFeePerGas": 5478611784
+  },
+  {
+    "number": 22883763,
+    "timestamp": 1752089867,
+    "gasLimit": 36035155,
+    "gasUsed": 27408301,
+    "baseFeePerGas": 5813450230
+  },
+  {
+    "number": 22883764,
+    "timestamp": 1752089879,
+    "gasLimit": 36000000,
+    "gasUsed": 17828467,
+    "baseFeePerGas": 6192195014
+  },
+  {
+    "number": 22883765,
+    "timestamp": 1752089891,
+    "gasLimit": 35964845,
+    "gasUsed": 18866089,
+    "baseFeePerGas": 6184818863
+  },
+  {
+    "number": 22883766,
+    "timestamp": 1752089903,
+    "gasLimit": 35999965,
+    "gasUsed": 14496222,
+    "baseFeePerGas": 6222809576
+  },
+  {
+    "number": 22883767,
+    "timestamp": 1752089915,
+    "gasLimit": 36035120,
+    "gasUsed": 9289744,
+    "baseFeePerGas": 6071398097
+  },
+  {
+    "number": 22883768,
+    "timestamp": 1752089927,
+    "gasLimit": 36000000,
+    "gasUsed": 28678305,
+    "baseFeePerGas": 5703770312
+  },
+  {
+    "number": 22883769,
+    "timestamp": 1752089939,
+    "gasLimit": 36000000,
+    "gasUsed": 8562499,
+    "baseFeePerGas": 6126732805
+  },
+  {
+    "number": 22883770,
+    "timestamp": 1752089951,
+    "gasLimit": 36000000,
+    "gasUsed": 25619618,
+    "baseFeePerGas": 5725197757
+  },
+  {
+    "number": 22883771,
+    "timestamp": 1752089963,
+    "gasLimit": 36000000,
+    "gasUsed": 21531708,
+    "baseFeePerGas": 6028140950
+  },
+  {
+    "number": 22883772,
+    "timestamp": 1752089975,
+    "gasLimit": 35964845,
+    "gasUsed": 17171513,
+    "baseFeePerGas": 6175985627
+  },
+  {
+    "number": 22883773,
+    "timestamp": 1752089987,
+    "gasLimit": 35999965,
+    "gasUsed": 15518011,
+    "baseFeePerGas": 6141172726
+  },
+  {
+    "number": 22883774,
+    "timestamp": 1752089999,
+    "gasLimit": 36000000,
+    "gasUsed": 19361388,
+    "baseFeePerGas": 6035323922
+  },
+  {
+    "number": 22883775,
+    "timestamp": 1752090011,
+    "gasLimit": 35964845,
+    "gasUsed": 13337594,
+    "baseFeePerGas": 6092382377
+  },
+  {
+    "number": 22883776,
+    "timestamp": 1752090023,
+    "gasLimit": 35929725,
+    "gasUsed": 25321398,
+    "baseFeePerGas": 5895675920
+  },
+  {
+    "number": 22883777,
+    "timestamp": 1752090035,
+    "gasLimit": 35894639,
+    "gasUsed": 22643168,
+    "baseFeePerGas": 6197457754
+  },
+  {
+    "number": 22883778,
+    "timestamp": 1752090047,
+    "gasLimit": 35859587,
+    "gasUsed": 26244427,
+    "baseFeePerGas": 6400150463
+  },
+  {
+    "number": 22883779,
+    "timestamp": 1752090059,
+    "gasLimit": 35894605,
+    "gasUsed": 16466302,
+    "baseFeePerGas": 6771145464
+  },
+  {
+    "number": 22883780,
+    "timestamp": 1752090071,
+    "gasLimit": 35929657,
+    "gasUsed": 23774506,
+    "baseFeePerGas": 6701301635
+  },
+  {
+    "number": 22883781,
+    "timestamp": 1752090083,
+    "gasLimit": 35894571,
+    "gasUsed": 24006212,
+    "baseFeePerGas": 6972194881
+  },
+  {
+    "number": 22883782,
+    "timestamp": 1752090095,
+    "gasLimit": 35859519,
+    "gasUsed": 26765801,
+    "baseFeePerGas": 7266417794
+  },
+  {
+    "number": 22883783,
+    "timestamp": 1752090107,
+    "gasLimit": 35894537,
+    "gasUsed": 26683033,
+    "baseFeePerGas": 7714042137
+  },
+  {
+    "number": 22883784,
+    "timestamp": 1752090119,
+    "gasLimit": 35929589,
+    "gasUsed": 8641155,
+    "baseFeePerGas": 8183389750
+  },
+  {
+    "number": 22883785,
+    "timestamp": 1752090131,
+    "gasLimit": 35964675,
+    "gasUsed": 29511041,
+    "baseFeePerGas": 7652497413
+  },
+  {
+    "number": 22883786,
+    "timestamp": 1752090143,
+    "gasLimit": 35999795,
+    "gasUsed": 16239177,
+    "baseFeePerGas": 8265761539
+  },
+  {
+    "number": 22883787,
+    "timestamp": 1752090155,
+    "gasLimit": 36000000,
+    "gasUsed": 19021774,
+    "baseFeePerGas": 8164693658
+  },
+  {
+    "number": 22883788,
+    "timestamp": 1752090167,
+    "gasLimit": 35964845,
+    "gasUsed": 18953641,
+    "baseFeePerGas": 8222627489
+  },
+  {
+    "number": 22883789,
+    "timestamp": 1752090179,
+    "gasLimit": 35999965,
+    "gasUsed": 17609718,
+    "baseFeePerGas": 8278139839
+  },
+  {
+    "number": 22883790,
+    "timestamp": 1752090203,
+    "gasLimit": 36000000,
+    "gasUsed": 28130272,
+    "baseFeePerGas": 8255704678
+  },
+  {
+    "number": 22883791,
+    "timestamp": 1752090215,
+    "gasLimit": 36000000,
+    "gasUsed": 19524495,
+    "baseFeePerGas": 8836486163
+  },
+  {
+    "number": 22883792,
+    "timestamp": 1752090227,
+    "gasLimit": 36000000,
+    "gasUsed": 14298844,
+    "baseFeePerGas": 8930036016
+  },
+  {
+    "number": 22883793,
+    "timestamp": 1752090239,
+    "gasLimit": 35964845,
+    "gasUsed": 23212132,
+    "baseFeePerGas": 8700512014
+  },
+  {
+    "number": 22883794,
+    "timestamp": 1752090251,
+    "gasLimit": 35929725,
+    "gasUsed": 21826331,
+    "baseFeePerGas": 9016801128
+  },
+  {
+    "number": 22883795,
+    "timestamp": 1752090263,
+    "gasLimit": 35964811,
+    "gasUsed": 20466898,
+    "baseFeePerGas": 9259066404
+  },
+  {
+    "number": 22883796,
+    "timestamp": 1752090275,
+    "gasLimit": 35999931,
+    "gasUsed": 17053699,
+    "baseFeePerGas": 9418973307
+  },
+  {
+    "number": 22883797,
+    "timestamp": 1752090287,
+    "gasLimit": 36000000,
+    "gasUsed": 24731732,
+    "baseFeePerGas": 9357078366
+  },
+  {
+    "number": 22883798,
+    "timestamp": 1752090299,
+    "gasLimit": 36035155,
+    "gasUsed": 15123707,
+    "baseFeePerGas": 9794504365
+  },
+  {
+    "number": 22883799,
+    "timestamp": 1752090311,
+    "gasLimit": 36000000,
+    "gasUsed": 23627497,
+    "baseFeePerGas": 9597862897
+  },
+  {
+    "number": 22883800,
+    "timestamp": 1752090335,
+    "gasLimit": 35964845,
+    "gasUsed": 22535505,
+    "baseFeePerGas": 9972945846
+  },
+  {
+    "number": 22883801,
+    "timestamp": 1752090347,
+    "gasLimit": 35999965,
+    "gasUsed": 20707506,
+    "baseFeePerGas": 10288584989
+  },
+  {
+    "number": 22883802,
+    "timestamp": 1752090359,
+    "gasLimit": 35964810,
+    "gasUsed": 19952284,
+    "baseFeePerGas": 10482033729
+  },
+  {
+    "number": 22883803,
+    "timestamp": 1752090371,
+    "gasLimit": 35999930,
+    "gasUsed": 24393392,
+    "baseFeePerGas": 10625565268
+  },
+  {
+    "number": 22883804,
+    "timestamp": 1752090383,
+    "gasLimit": 35964775,
+    "gasUsed": 16317597,
+    "baseFeePerGas": 11097328517
+  },
+  {
+    "number": 22883805,
+    "timestamp": 1752090395,
+    "gasLimit": 35999895,
+    "gasUsed": 16574279,
+    "baseFeePerGas": 10968906179
+  },
+  {
+    "number": 22883806,
+    "timestamp": 1752090407,
+    "gasLimit": 36035050,
+    "gasUsed": 19778120,
+    "baseFeePerGas": 10860308509
+  },
+  {
+    "number": 22883807,
+    "timestamp": 1752090419,
+    "gasLimit": 36000000,
+    "gasUsed": 15420176,
+    "baseFeePerGas": 10992961334
+  },
+  {
+    "number": 22883808,
+    "timestamp": 1752090431,
+    "gasLimit": 35964845,
+    "gasUsed": 6942348,
+    "baseFeePerGas": 10796017546
+  },
+  {
+    "number": 22883809,
+    "timestamp": 1752090443,
+    "gasLimit": 35999965,
+    "gasUsed": 23703335,
+    "baseFeePerGas": 9967508235
+  },
+  {
+    "number": 22883810,
+    "timestamp": 1752090455,
+    "gasLimit": 36035120,
+    "gasUsed": 19032870,
+    "baseFeePerGas": 10362287921
+  },
+  {
+    "number": 22883811,
+    "timestamp": 1752090467,
+    "gasLimit": 36070309,
+    "gasUsed": 12139048,
+    "baseFeePerGas": 10435278759
+  }
+]
