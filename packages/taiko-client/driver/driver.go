@@ -702,7 +702,15 @@ func (d *Driver) connectPeer(peerAddr string) error {
 	if d.PreconfBlockServerPort > 0 {
 		log.Debug("Trying to add new peer", "peer", peerAddr)
 		return backoff.Retry(func() error {
-			return d.p2pApi.ConnectPeer(d.ctx, peerAddr)
+			err := d.p2pApi.ConnectPeer(d.ctx, peerAddr)
+			if err != nil {
+				log.Warn("Failed to connect to peer", "peer", peerAddr, "error", err)
+				return err
+			} else {
+				log.Debug("Successfully connected to peer", "peer", peerAddr)
+			}
+
+			return err
 		}, backoff.WithContext(backoff.NewConstantBackOff(d.RetryInterval), d.ctx))
 	}
 	return nil
