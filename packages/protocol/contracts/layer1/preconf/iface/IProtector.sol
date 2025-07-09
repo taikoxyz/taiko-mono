@@ -8,7 +8,7 @@ import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 interface IProtector is ISlasher {
     event SignerAdded(address indexed signer);
     event SignerRemoved(address indexed signer);
-    event SigningThresholdUpdated(uint128 newSigningThreshold);
+    event SigningThresholdUpdated(uint64 newSigningThreshold);
 
     error CannotRemoveSignerWhenThresholdIsReached();
     error InvalidSigningThreshold();
@@ -31,7 +31,7 @@ interface IProtector is ISlasher {
     /// @param _signingThreshold The new threshold value.
     /// @param _signatures Array of signatures from existing signers authorizing the update.
     function updateSigningThreshold(
-        uint128 _signingThreshold,
+        uint64 _signingThreshold,
         bytes[] memory _signatures
     )
         external;
