@@ -6,11 +6,13 @@ import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
 /// @title IProtector
 /// @custom:security-contact security@taiko.xyz
 interface IProtector is ISlasher {
+    event Slashed(address indexed committer, uint256 amount);
     event SignerAdded(address indexed signer);
     event SignerRemoved(address indexed signer);
     event SigningThresholdUpdated(uint64 newSigningThreshold);
 
     error CannotRemoveSignerWhenThresholdIsReached();
+    error InsufficientSignatures();
     error InvalidSigningThreshold();
     error NotAnExistingSigner();
     error SignerAlreadyExists();
