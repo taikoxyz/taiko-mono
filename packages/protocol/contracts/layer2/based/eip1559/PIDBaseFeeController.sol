@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "src/shared/common/EssentialContract.sol";
 
 /// @title PIDBaseFeeController
-/// @author Taiko Labs
 /// @notice Implements a Proportional-Integral-Derivative (PID) controller for dynamic base fee
 /// adjustment
 /// @dev This contract manages base fee adjustments using a PID control algorithm to maintain
@@ -12,6 +11,7 @@ import "src/shared/common/EssentialContract.sol";
 ///      gas usage and the target, making smooth adjustments to incentivize optimal block
 /// utilization.
 ///      Uses int256 for PID coefficients to properly handle both positive and negative adjustments.
+/// @custom:security-contact security@taiko.xyz
 contract PIDBaseFeeController is EssentialContract {
     /// @notice Address authorized to update gas target and base fee
     address public immutable anchor;
@@ -61,12 +61,6 @@ contract PIDBaseFeeController is EssentialContract {
     /// @param oldGasTarget Previous gas target value
     /// @param newGasTarget New gas target value
     event GasTargetUpdated(uint32 oldGasTarget, uint32 newGasTarget);
-
-    /// @notice Thrown when gas target is invalid (zero)
-    error InvalidGasTarget();
-
-    /// @notice Thrown when base fee is invalid (zero)
-    error InvalidBaseFee();
 
     /// @notice Initializes the PID controller with specified parameters
     /// @param _anchor Address authorized to update controller parameters
@@ -178,11 +172,16 @@ contract PIDBaseFeeController is EssentialContract {
         private
         returns (uint64)
     {
-        int256 newError = int256(uint(_parentGasUsed)) - int256(uint(_gasTarget));
+        int256 newError = int256(uint256(_parentGasUsed)) - int256(uint256(_gasTarget));
 
         // Apply anti-windup: skip integral update if base fee is saturated
         int256 newIntegral = integral;
-        if (!((_currentBaseFee == 0 && newError < 0) || (_currentBaseFee == type(uint64).max && newError > 0))) {
+        if (
+            !(
+                (_currentBaseFee == 0 && newError < 0)
+                    || (_currentBaseFee == type(uint64).max && newError > 0)
+            )
+        ) {
             newIntegral += newError;
         }
 
