@@ -50,9 +50,7 @@ pnpm fmt:sol            # Format Solidity code
 
 - Install pnpm packages first before working with Foundry: `pnpm install`
 - Foundry relies on compiled dependencies and packages managed by pnpm
-- Always run `pnpm compile` before Foundry commands to ensure all dependencies are correctly prepared
-- Some Foundry commands like `forge test` will use compiled artifacts from the pnpm workspace
-- When switching between Foundry profiles (L1/L2), ensure packages are installed and compiled
+- Compile contracts and run tests using pnpm commands(that will use forge under the hood with the right profiles)
 
 ### Architecture & Standards
 
@@ -64,9 +62,9 @@ pnpm fmt:sol            # Format Solidity code
 
 **Key Contracts:**
 - `TaikoInbox`: Main L1 entry point for batch proposals/proofs
-- `Bridge`: Cross-chain message passing infrastructure
-- `SignalService`: Cross-chain signal propagation
-- `Anchor`: L2 contracts that sync L1 state
+- `SignalService`: Cross-chain messaging using merkle proofs for verification against the stored state root of the other chain
+- `Bridge`: allows trust-minimized asset transfers between Ethereum and Taiko. It leverages the Signal Service for security
+- `TaikoAnchor`: L2 contract that sync L1 state
 
 **Testing Standards:**
 - Tests mirror contract structure under `test/`
@@ -82,10 +80,10 @@ pnpm fmt:sol            # Format Solidity code
 5. Check gas impact: `pnpm snapshot:l1`
 
 ### Gas considerations
-- Any contract that lives on the L1 needs to be optimized, and gas consumption is very important
+- Any contract that lives on the L1 needs to be optimized, and gas consumption is very important. Minimize storage writes and reads as much as possible.
 - When working or reviewing gas optimizations always run:
-   - `pnpm snapshot:l1` and review the diffs in gas consumption per function. You can find them in `packages/protocol/gas-reports/layer1-contracts.txt` file. This shows the gas used by each test.
-   - You can also review the diffs in gas from the other folders inside `packages/protocol/gas-reports/`. These are written using Foundry's new `snapshotGas` cheatcodes and are inserted in strategic sections of the tests where we want to capture gas usage. These are updated automatically when running the tests.
+   - `pnpm snapshot:l1` and review the diffs in gas consumption per test. You can find them in `packages/protocol/gas-reports/layer1-contracts.txt` file. This shows the gas used by each test.
+   - You can also review the diffs in gas from the other files inside `packages/protocol/gas-reports/`. These are written using Foundry's new `snapshotGas` cheatcodes and are inserted in strategic sections of the tests where we want to capture gas usage. These are updated automatically when running `forge test`.
 
 ## Taiko Client (packages/taiko-client)
 ```bash
@@ -140,7 +138,7 @@ go run ./cmd/main.go
 - **Fork Routers**: Handle protocol upgrades (Pacaya, Shasta)
 
 ### Bridge System
-- **Bridge.sol**: Core cross-chain messaging with gas management
+- **Bridge.sol**: Core bridgge contract for Eth. Token vaults also call this contract
 - **Token Vaults**: Handle ERC20/721/1155 token bridging
 - **SignalService**: Cross-chain signal(message) propagation
 - **Relayer**: Automated message processing service with MySQL storage
@@ -162,12 +160,6 @@ go run ./cmd/main.go
 - Base64 encoding for complex configurations
 - Separate configs per environment (dev/prod)
 
-### Cross-Chain Communication
-1. User initiates message on source chain
-2. Bridge contract emits MessageSent event
-3. Relayer indexes event and waits for confirmations
-4. Relayer generates merkle proof
-5. Relayer processes message on destination chain
 
 ### Testing Strategy
 - Solidity: Foundry tests with pattern matching
@@ -181,17 +173,7 @@ go run ./cmd/main.go
 - Migrations in each service's migrations/ directory
 
 
-## Important Files and Directories
 
-- `packages/protocol/contracts/layer1/inbox/TaikoInbox.sol` - Main protocol contract. It is the entrypoint for proposing and proving
-- `packages/protocol/contracts/shared/signal/SignalService.sol` - Messaging service
-- `packages/protocol/contracts/shared/bridge/Bridge.sol` - Bridge implementation
-- `packages/taiko-client/driver/driver.go` - L2 sync logic
-- `packages/bridge-ui/src/libs/bridge/` - Bridge frontend logic
-- `packages/relayer/processor/process_message.go` - Message processing
-- `packages/eventindexer/indexer/indexer.go` - Event indexing logic
-
-
-## GitHub Interactions
+## Tool usage
 
 - When interacting with gh use the github cli(`gh`) instead of doing direct api requests or curl requests. You can find the docs here: https://cli.github.com/manual/
