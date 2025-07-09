@@ -40,8 +40,9 @@ type ExecutableData struct {
 // preconfirmation blocks creation requests.
 type BuildPreconfBlockRequestBody struct {
 	// @param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.
-	ExecutableData  *ExecutableData `json:"executableData"`
-	EndOfSequencing *bool           `json:"endOfSequencing"`
+	ExecutableData    *ExecutableData `json:"executableData"`
+	EndOfSequencing   *bool           `json:"endOfSequencing"`
+	IsForcedInclusion *bool           `json:"isForcedInclusion"`
 }
 
 // BuildPreconfBlockResponseBody represents a response body when handling preconfirmation
@@ -233,7 +234,8 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 						BlockHash:     header.Hash(),
 						Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
 					},
-					EndOfSequencing: reqBody.EndOfSequencing,
+					EndOfSequencing:   reqBody.EndOfSequencing,
+					IsForcedInclusion: reqBody.IsForcedInclusion,
 				},
 				s.p2pSigner,
 			); err != nil {
