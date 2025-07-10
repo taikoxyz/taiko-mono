@@ -1129,7 +1129,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	if err := s.ImportChildBlocksFromCache(ctx, &preconf.Envelope{
 		Payload:           msg.ExecutionPayload,
 		Signature:         msg.Signature,
-		IsForcedInclusion: *msg.IsForcedInclusion,
+		IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
 	}); err != nil {
 		return false, fmt.Errorf("failed to try importing child blocks from cache: %w", err)
 	}
