@@ -24,6 +24,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     mapping(address operator => OperatorInfo info) public operators;
     mapping(uint256 index => address operator) public operatorMapping;
     /// @dev Reverse mapping from driver to operator(sequencer). This is only used by off-chain actors.
+    /// @dev Note: Entries are never deleted. Off-chain actors should verify the sequencer is still active
+    /// by checking that operators[sequencer].activeSince != 0 before trusting the mapping.
     mapping(address driver => address operator) public driverToSequencer;
     uint8 public operatorCount;
     uint8 public operatorChangeDelay; // epochs to delay for operator changes
@@ -107,7 +109,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
                     operatorMapping[j] = nextOperator;
                 }
                 // Remove the last operator as it has been shifted
-                delete driverToSequencer[info.driverAddress];
                 delete operators[operator];
                 delete operatorMapping[--_operatorCount];
                 // Do not increment i to check the new entry at position i
@@ -178,7 +179,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     function _addOperator(address _operator, address _driver, uint8 _operatorChangeDelay) internal {
         require(_operator != address(0), InvalidOperatorAddress());
         require(_driver != address(0), InvalidOperatorAddress());
-        require(driverToSequencer[_driver] == address(0), OperatorAlreadyExists());
 
         OperatorInfo storage info = operators[_operator];
 
@@ -225,7 +225,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         uint8 _lastOperatorIndex = operatorCount - 1;
         if (_operatorChangeDelay == 0 && operators[_operator].index == _lastOperatorIndex) {
             // If delay is 0 and operator is the last one, remove directly
-            delete driverToSequencer[driver];
             delete operators[_operator];
             delete operatorMapping[_lastOperatorIndex];
             operatorCount = _lastOperatorIndex;
@@ -234,9 +233,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
             uint32 inactiveSince = epochStartTimestamp(_operatorChangeDelay);
             operators[_operator].inactiveSince = inactiveSince;
             operators[_operator].activeSince = 0;
-
-            // Clean up driver mapping immediately even with delay
-            delete driverToSequencer[driver];
 
             havingPerfectOperators = false;
             emit OperatorRemoved(_operator, driver, inactiveSince);
