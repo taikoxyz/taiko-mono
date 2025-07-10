@@ -235,7 +235,7 @@ func (s *ClientTestSuite) TearDownSuite() {
 func (s *ClientTestSuite) SetHead(headNum *big.Int) {
 	// For geth node, we can set the head directly.
 	if os.Getenv("L2_NODE") == "l2_geth" {
-		rpc.SetHead(context.Background(), s.RPCClient.L2, headNum)
+		s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, headNum))
 		return
 	}
 
@@ -263,7 +263,7 @@ func (s *ClientTestSuite) SetHead(headNum *big.Int) {
 			GasLimit:    block.GasLimit(),
 			Timestamp:   block.Time(),
 			TxList:      b,
-			MixHash:     common.Hash(block.MixDigest()),
+			MixHash:     block.MixDigest(),
 			ExtraData:   block.Extra(),
 		},
 		BaseFeePerGas: block.BaseFee(),

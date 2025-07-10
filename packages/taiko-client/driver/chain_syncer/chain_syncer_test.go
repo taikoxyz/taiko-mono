@@ -21,9 +21,8 @@ import (
 
 type ChainSyncerTestSuite struct {
 	testutils.ClientTestSuite
-	s          *L2ChainSyncer
-	snapshotID string
-	p          testutils.Proposer
+	s *L2ChainSyncer
+	p testutils.Proposer
 }
 
 func (s *ChainSyncerTestSuite) SetupTest() {
