@@ -11,8 +11,8 @@ import "src/shared/common/EssentialContract.sol";
 /// @custom:security-contact security@taiko.xyz
 contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     struct OperatorInfo {
-        uint64 activeSince; // Epoch when the operator becomes active.
-        uint64 inactiveSince; // Epoch when the operator is no longer active.
+        uint32 activeSince; // Epoch when the operator becomes active.
+        uint32 inactiveSince; // Epoch when the operator is no longer active.
         uint8 index; // Index in operatorMapping.
         address driverAddress; // Driver address for this operator (for off-chain use).
     }
@@ -32,7 +32,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     // all operators in operatorMapping are active and none of them are to be deactivated.
     bool public havingPerfectOperators;
 
-    uint256[45] private __gap;
+    uint256[46] private __gap;
 
     constructor() EssentialContract() { }
 
@@ -87,7 +87,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     /// @notice Consolidates the operator mapping by removing operators whose removal epoch has
     /// passed, maintaining the order of active operators, and decrementing the operatorCount.
     function consolidate() external {
-        uint64 currentEpoch = epochStartTimestamp(0);
+        uint32 currentEpoch = epochStartTimestamp(0);
         uint8 i;
         uint8 _previousCount = operatorCount;
         uint8 _operatorCount = _previousCount;
@@ -152,7 +152,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     // Returns true if the operator is active in the given epoch.
     function isOperatorActive(
         address _operator,
-        uint64 _epochTimestamp
+        uint32 _epochTimestamp
     )
         public
         view
@@ -169,8 +169,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         }
     }
 
-    function epochStartTimestamp(uint256 _offset) public view returns (uint64) {
-        return uint64(
+    function epochStartTimestamp(uint256 _offset) public view returns (uint32) {
+        return uint32(
             LibPreconfUtils.getEpochTimestamp() + _offset * LibPreconfConstants.SECONDS_IN_EPOCH
         );
     }
@@ -189,7 +189,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
         // re-activating someone who was scheduled for removal,
         // but consolidate was not called.
-        uint64 activeSince = epochStartTimestamp(_operatorChangeDelay);
+        uint32 activeSince = epochStartTimestamp(_operatorChangeDelay);
         if (info.inactiveSince == 0) {
             // new operator
             uint8 idx = operatorCount;
@@ -231,7 +231,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
             operatorCount = _lastOperatorIndex;
             emit OperatorRemoved(_operator, driver, block.timestamp);
         } else {
-            uint64 inactiveSince = epochStartTimestamp(_operatorChangeDelay);
+            uint32 inactiveSince = epochStartTimestamp(_operatorChangeDelay);
             operators[_operator].inactiveSince = inactiveSince;
             operators[_operator].activeSince = 0;
 
@@ -244,7 +244,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     }
 
     /// @dev The cost of this function is primarily linear with respect to operatorCount.
-    function _getOperatorForEpoch(uint64 _epochTimestamp) internal view returns (address) {
+    function _getOperatorForEpoch(uint32 _epochTimestamp) internal view returns (address) {
         if (_epochTimestamp < LibPreconfConstants.SECONDS_IN_EPOCH) {
             return address(0);
         }
@@ -279,7 +279,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         }
     }
 
-    function _getOperatorCandidatesForEpoch(uint64 _epochTimestamp)
+    function _getOperatorCandidatesForEpoch(uint32 _epochTimestamp)
         internal
         view
         returns (address[] memory operators_)

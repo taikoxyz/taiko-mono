@@ -55,7 +55,7 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(0), Bob);
         assertEq(whitelist.havingPerfectOperators(), false);
 
-        (uint64 activeSince, uint64 inactiveSince, uint8 index, address driverAddress) = whitelist.operators(Bob);
+        (uint32 activeSince, uint32 inactiveSince, uint8 index, address driverAddress) = whitelist.operators(Bob);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
@@ -133,7 +133,7 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(1), Bob);
         assertEq(whitelist.havingPerfectOperators(), false);
 
-        (uint64 activeSince, uint64 inactiveSince, uint8 index, address driverAddress) = whitelist.operators(Alice);
+        (uint32 activeSince, uint32 inactiveSince, uint8 index, address driverAddress) = whitelist.operators(Alice);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
@@ -278,7 +278,7 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelistNoDelay.operatorMapping(0), Bob);
         assertEq(whitelistNoDelay.havingPerfectOperators(), true);
 
-        (uint64 activeSince, uint64 inactiveSince, uint8 index, address driverAddress) = whitelistNoDelay.operators(Bob);
+        (uint32 activeSince, uint32 inactiveSince, uint8 index, address driverAddress) = whitelistNoDelay.operators(Bob);
         assertEq(activeSince, whitelistNoDelay.epochStartTimestamp(0));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
@@ -373,7 +373,7 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(1), address(0));
 
         // make sure she is correctly set to active now
-        (uint64 activeSince, uint64 inactiveSince, uint8 index, address driverAddress) = whitelist.operators(Carol);
+        (uint32 activeSince, uint32 inactiveSince, uint8 index, address driverAddress) = whitelist.operators(Carol);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
