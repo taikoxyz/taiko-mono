@@ -454,13 +454,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 
 	sig := l1Origin.Signature
 	if sig == [65]byte{} {
-		// If the signature is empty, we need to sign the block ourselves.
 		log.Warn(
 			"Empty L1 origin signature, unable to propagate block",
 			"peer", from,
 			"blockID", block.NumberU64(),
 			"hash", block.Hash().Hex(),
 			"parentHash", block.ParentHash().Hex(),
+			"l1OriginBlockID", l1Origin.BlockID.Uint64(),
 		)
 
 		return err
