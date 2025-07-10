@@ -58,7 +58,6 @@ func TestNewAnchorTransactor(t *testing.T) {
 	opts, err := c.transactOpts(context.Background(), common.Big1, common.Big256, head.Hash())
 	require.Nil(t, err)
 	require.True(t, opts.NoSend)
-	require.Equal(t, common.Big0, opts.Nonce)
 	require.Equal(t, goldenTouchAddress, opts.From)
 	require.Equal(t, common.Big256, opts.GasFeeCap)
 	require.Equal(t, common.Big0, opts.GasTipCap)

@@ -235,6 +235,12 @@ func (s *ClientTestSuite) TearDownSuite() {
 }
 
 func (s *ClientTestSuite) SetHead(headNum *big.Int) {
+	// For geth node, we can set the head directly.
+	if os.Getenv("L2_NODE") == "l2_geth" {
+		rpc.SetHead(context.Background(), s.RPCClient.L2, headNum)
+		return
+	}
+
 	block, err := s.RPCClient.L2.BlockByNumber(context.Background(), headNum)
 	s.Nil(err)
 
