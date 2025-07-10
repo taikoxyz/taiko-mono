@@ -223,6 +223,11 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return nil
 	}
 
+	var signature [65]byte
+	if msg.Signature != nil {
+		signature = *msg.Signature
+	}
+
 	log.Info(
 		"📢 New preconfirmation block payload from P2P network",
 		"peer", from,
@@ -232,7 +237,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		"timestamp", uint64(msg.ExecutionPayload.Timestamp),
 		"coinbase", msg.ExecutionPayload.FeeRecipient.Hex(),
 		"gasUsed", uint64(msg.ExecutionPayload.GasUsed),
-		"endOfSequencing", msg.EndOfSequencing != nil,
+		"endOfSequencing", msg.EndOfSequencing != nil && *msg.EndOfSequencing,
+		"isForcedInclusion", msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+		"signature", common.Bytes2Hex(signature[:]),
 	)
 	metrics.DriverPreconfEnvelopeCounter.Inc()
 
