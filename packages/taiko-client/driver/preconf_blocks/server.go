@@ -446,6 +446,18 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	}
 
 	sig := l1Origin.Signature
+	if sig == [65]byte{} {
+		// If the signature is empty, we need to sign the block ourselves.
+		log.Warn(
+			"Empty L1 origin signature, unable to propagate block",
+			"peer", from,
+			"blockID", block.NumberU64(),
+			"hash", block.Hash().Hex(),
+			"parentHash", block.ParentHash().Hex(),
+		)
+
+		return err
+	}
 
 	envelope, err := blockToEnvelope(block, nil, &l1Origin.IsForcedInclusion, &sig)
 	if err != nil {
@@ -1031,7 +1043,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		if err := s.ImportMissingAncientsFromCache(ctx, &preconf.Envelope{
 			Payload:           msg.ExecutionPayload,
 			Signature:         msg.Signature,
-			IsForcedInclusion: *msg.IsForcedInclusion,
+			IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
 		}, headL1Origin); err != nil {
 			log.Info(
 				"Unable to find all the missing ancients from the cache, cache the current payload",
