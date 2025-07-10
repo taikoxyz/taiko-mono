@@ -86,9 +86,9 @@ contract PIDBaseFeeController is EssentialContract {
     /// @notice Initializes the PID controller with specified parameters
     /// @param _anchor Address authorized to update controller parameters
 
-    /// @param _kP Proportional coefficient (scaled by 1000)
-    /// @param _kI Integral coefficient (scaled by 1000)
-    /// @param _kD Derivative coefficient (scaled by 1000)
+    /// @param _kP Proportional coefficient (scaled by 1000, e.g., 1000 = gain of 1.0)
+    /// @param _kI Integral coefficient (scaled by 1000, e.g., 1000 = gain of 1.0)
+    /// @param _kD Derivative coefficient (scaled by 1000, e.g., 1000 = gain of 1.0)
     constructor(
         address _anchor,
         int256 _kP,
@@ -100,9 +100,10 @@ contract PIDBaseFeeController is EssentialContract {
     {
         // Validate PID coefficients are within reasonable bounds
         // Allow negative values for inverse control but limit magnitude
-        if (_kP > 10000 || _kP < -10000 || 
-            _kI > 10000 || _kI < -10000 || 
-            _kD > 10000 || _kD < -10000) {
+        // Coefficients are scaled by 1000, so 1000000 allows effective gain up to 1000
+        if (_kP > 1000000 || _kP < -1000000 || 
+            _kI > 1000000 || _kI < -1000000 || 
+            _kD > 1000000 || _kD < -1000000) {
             revert InvalidPIDCoefficients();
         }
         
