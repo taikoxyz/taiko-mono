@@ -8,17 +8,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 )
 
 // maxTrackedPayloads is the maximum number of prepared payloads the execution
 // engine tracks before evicting old ones.
 const maxTrackedPayloads = 768 // equal to `maxBlocksPerBatch`
 
-// payloadQueueItem represents an id->payload tuple to store until it's retrieved
+// payloadQueueItem represents an id->envlope tuple to store until it's retrieved
 // or evicted.
 type payloadQueueItem struct {
-	id      uint64
-	payload *eth.ExecutionPayload
+	id       uint64
+	envelope *preconf.Envelope
 }
 
 // payloadQueue tracks the latest payloads from the P2P gossip messages.
@@ -37,21 +38,21 @@ func newPayloadQueue() *payloadQueue {
 }
 
 // put inserts a new payload into the queue at the given id.
-func (q *payloadQueue) put(id uint64, payload *eth.ExecutionPayload) {
+func (q *payloadQueue) put(id uint64, envelope *preconf.Envelope) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
 	copy(q.payloads[1:], q.payloads)
 	q.payloads[0] = &payloadQueueItem{
-		id:      id,
-		payload: payload,
+		id:       id,
+		envelope: envelope,
 	}
 	q.totalCached++
 	metrics.DriverPreconfEnvelopeCachedCounter.Inc()
 }
 
 // get retrieves a previously stored payload item or nil if it does not exist.
-func (q *payloadQueue) get(id uint64, hash common.Hash) *eth.ExecutionPayload {
+func (q *payloadQueue) get(id uint64, hash common.Hash) *preconf.Envelope {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 
@@ -59,8 +60,8 @@ func (q *payloadQueue) get(id uint64, hash common.Hash) *eth.ExecutionPayload {
 		if item == nil {
 			return nil // no more items
 		}
-		if item.id == id && item.payload.BlockHash == hash {
-			return item.payload
+		if item.id == id && item.envelope.Payload.BlockHash == hash {
+			return item.envelope
 		}
 	}
 	return nil
@@ -68,21 +69,21 @@ func (q *payloadQueue) get(id uint64, hash common.Hash) *eth.ExecutionPayload {
 
 // getChildren retrieves the longest previously stored payload items that are children of the
 // given parent payload.
-func (q *payloadQueue) getChildren(parentID uint64, parentHash common.Hash) []*eth.ExecutionPayload {
+func (q *payloadQueue) getChildren(parentID uint64, parentHash common.Hash) []*preconf.Envelope {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 
-	longestChildren := []*eth.ExecutionPayload{}
+	longestChildren := []*preconf.Envelope{}
 
-	var searchLongestChildren func(currentPayload *eth.ExecutionPayload, chain []*eth.ExecutionPayload)
-	searchLongestChildren = func(currentpayload *eth.ExecutionPayload, chain []*eth.ExecutionPayload) {
-		children := []*eth.ExecutionPayload{}
+	var searchLongestChildren func(currentPayload *preconf.Envelope, chain []*preconf.Envelope)
+	searchLongestChildren = func(currentpayload *preconf.Envelope, chain []*preconf.Envelope) {
+		children := []*preconf.Envelope{}
 		for _, item := range q.payloads {
 			if item == nil {
 				break // no more items
 			}
-			if item.id == uint64(currentpayload.BlockNumber)+1 && item.payload.ParentHash == currentpayload.BlockHash {
-				children = append(children, item.payload)
+			if item.id == uint64(currentpayload.Payload.BlockNumber)+1 && item.envelope.Payload.ParentHash == currentpayload.Payload.BlockHash {
+				children = append(children, item.envelope)
 			}
 		}
 		if len(children) == 0 {
@@ -97,10 +98,12 @@ func (q *payloadQueue) getChildren(parentID uint64, parentHash common.Hash) []*e
 		}
 	}
 
-	searchLongestChildren(&eth.ExecutionPayload{
-		BlockNumber: eth.Uint64Quantity(parentID),
-		BlockHash:   parentHash,
-	}, []*eth.ExecutionPayload{})
+	searchLongestChildren(&preconf.Envelope{
+		Payload: &eth.ExecutionPayload{
+			BlockNumber: eth.Uint64Quantity(parentID),
+			BlockHash:   parentHash,
+		},
+	}, []*preconf.Envelope{})
 
 	return longestChildren
 }
@@ -114,7 +117,7 @@ func (q *payloadQueue) has(id uint64, hash common.Hash) bool {
 		if item == nil {
 			return false
 		}
-		if item.id == id && item.payload.BlockHash == hash {
+		if item.id == id && item.envelope.Payload.BlockHash == hash {
 			return true
 		}
 	}
@@ -122,7 +125,7 @@ func (q *payloadQueue) has(id uint64, hash common.Hash) bool {
 }
 
 // getLatestPayload retrieves the latest payload stored in the queue.
-func (q *payloadQueue) getLatestPayload() *eth.ExecutionPayload {
+func (q *payloadQueue) getLatestPayload() *preconf.Envelope {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 
@@ -130,7 +133,7 @@ func (q *payloadQueue) getLatestPayload() *eth.ExecutionPayload {
 		return nil
 	}
 
-	return q.payloads[0].payload
+	return q.payloads[0].envelope
 }
 
 // getTotalCached retrieves the total number of cached payloads after the initialization of the queue.

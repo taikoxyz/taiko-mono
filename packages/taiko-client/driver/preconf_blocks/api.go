@@ -19,6 +19,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -40,8 +41,9 @@ type ExecutableData struct {
 // preconfirmation blocks creation requests.
 type BuildPreconfBlockRequestBody struct {
 	// @param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.
-	ExecutableData  *ExecutableData `json:"executableData"`
-	EndOfSequencing *bool           `json:"endOfSequencing"`
+	ExecutableData    *ExecutableData `json:"executableData"`
+	EndOfSequencing   *bool           `json:"endOfSequencing"`
+	IsForcedInclusion *bool           `json:"isForcedInclusion"`
 }
 
 // BuildPreconfBlockResponseBody represents a response body when handling preconfirmation
@@ -178,7 +180,13 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	// Insert the preconfirmation block.
 	headers, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
 		ctx,
-		[]*eth.ExecutionPayload{executablePayload},
+		[]*preconf.Envelope{
+			{
+				Payload:           executablePayload,
+				Signature:         nil,
+				IsForcedInclusion: reqBody.IsForcedInclusion != nil && *reqBody.IsForcedInclusion,
+			},
+		},
 		false,
 	)
 	if err != nil {
@@ -233,7 +241,10 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 						BlockHash:     header.Hash(),
 						Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
 					},
-					EndOfSequencing: reqBody.EndOfSequencing,
+					EndOfSequencing:   reqBody.EndOfSequencing,
+					IsForcedInclusion: reqBody.IsForcedInclusion,
+					// signature is not included in the original envelope publishing, it will be added by the
+					// p2p network signer.
 				},
 				s.p2pSigner,
 			); err != nil {
