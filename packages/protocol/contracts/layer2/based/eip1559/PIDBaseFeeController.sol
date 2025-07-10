@@ -213,8 +213,7 @@ contract PIDBaseFeeController is EssentialContract {
         returns (uint64)
     {
         // Calculate error (can be positive or negative)
-        // Normalize to prevent overflow with large gas values
-        int256 newError = (int256(uint256(_parentGasUsed)) - int256(uint256(_gasTarget))) / int256(ERROR_DIVISOR);
+        int256 newError = int256(uint256(_parentGasUsed)) - int256(uint256(_gasTarget));
 
         // Update integral (accumulated error) with anti-windup
         int256 newIntegral = integral + newError;
@@ -232,6 +231,7 @@ contract PIDBaseFeeController is EssentialContract {
         int256 derivative = newError - previousError;
 
         // Calculate PID adjustment
+        // Divide by 1000 as coefficients are scaled by 1000
         int256 adjustment = (kP * newError + kI * integral + kD * derivative) / 1000;
 
         // Update previous error for next iteration

@@ -1,0 +1,18 @@
+{
+  "optimal_parameters": {
+    "kP": 1000,
+    "kI": 100,
+    "kD": 900,
+    "kP_base": 1.0,
+    "kI_base": 0.1,
+    "kD_base": 0.9
+  },
+  "mse_800_blocks": 6.109172347760678e+18,
+  "search_config": {
+    "kP_range": "1-99",
+    "kI_range": "0.1-1.0",
+    "kD_range": "0.1-1.0",
+    "optimization_blocks": 800,
+    "verification_blocks": 1000
+  }
+}

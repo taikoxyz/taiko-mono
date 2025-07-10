@@ -109,7 +109,7 @@ if __name__ == "__main__":
     
     # Save to appropriate filename based on number of blocks
     if num_blocks == 1000:
-        filename = "ethereum_blocks_1000.json"
+        filename = "blocks.json"
     elif num_blocks == 10000:
         filename = "ethereum_blocks_10000.json"
     else:
