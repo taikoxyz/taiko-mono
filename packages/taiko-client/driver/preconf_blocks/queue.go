@@ -82,7 +82,8 @@ func (q *payloadQueue) getChildren(parentID uint64, parentHash common.Hash) []*p
 			if item == nil {
 				break // no more items
 			}
-			if item.id == uint64(currentpayload.Payload.BlockNumber)+1 && item.envelope.Payload.ParentHash == currentpayload.Payload.BlockHash {
+			if item.id == uint64(currentpayload.Payload.BlockNumber)+1 &&
+				item.envelope.Payload.ParentHash == currentpayload.Payload.BlockHash {
 				children = append(children, item.envelope)
 			}
 		}

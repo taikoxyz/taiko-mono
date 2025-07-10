@@ -681,7 +681,10 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 	currentPayload *preconf.Envelope,
 ) error {
 	// Try searching if there is any available child block in the cache.
-	childPayloads := s.payloadsCache.getChildren(uint64(currentPayload.Payload.BlockNumber), currentPayload.Payload.BlockHash)
+	childPayloads := s.payloadsCache.getChildren(
+		uint64(currentPayload.Payload.BlockNumber),
+		currentPayload.Payload.BlockHash,
+	)
 	if len(childPayloads) == 0 {
 		return nil
 	}

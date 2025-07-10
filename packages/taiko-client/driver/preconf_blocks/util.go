@@ -17,7 +17,12 @@ import (
 )
 
 // blockToEnvelope converts a block to an ExecutionPayloadEnvelope.
-func blockToEnvelope(block *types.Block, endOfSequencing *bool, isForcedInclusion *bool, signature *[65]byte) (*eth.ExecutionPayloadEnvelope, error) {
+func blockToEnvelope(
+	block *types.Block,
+	endOfSequencing *bool,
+	isForcedInclusion *bool,
+	signature *[65]byte,
+) (*eth.ExecutionPayloadEnvelope, error) {
 	var u256 uint256.Int
 	if overflow := u256.SetFromBig(block.BaseFee()); overflow {
 		return nil, fmt.Errorf("failed to convert base fee to uint256: %v", overflow)
