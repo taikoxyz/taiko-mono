@@ -335,11 +335,7 @@ func (s *ClientTestSuite) forkTo(attributes *engine.PayloadAttributes, parentHas
 	s.Nil(err)
 	s.Equal(engine.VALID, execStatus.Status)
 
-	fc := &engine.ForkchoiceStateV1{
-		HeadBlockHash:      payload.BlockHash,
-		SafeBlockHash:      payload.BlockHash,
-		FinalizedBlockHash: payload.BlockHash,
-	}
+	fc := &engine.ForkchoiceStateV1{HeadBlockHash: payload.BlockHash}
 
 	fcRes, err = s.RPCClient.L2Engine.ForkchoiceUpdate(context.Background(), fc, nil)
 	s.Nil(err)

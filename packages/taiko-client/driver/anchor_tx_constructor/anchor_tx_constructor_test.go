@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -52,7 +53,7 @@ func TestNewAnchorTransactor(t *testing.T) {
 	require.Nil(t, err)
 
 	head, err := client.L2.HeaderByNumber(context.Background(), nil)
-	require.NotNil(t, err)
+	require.Nil(t, err)
 
 	opts, err := c.transactOpts(context.Background(), common.Big1, common.Big256, head.Hash())
 	require.Nil(t, err)
@@ -113,7 +114,7 @@ func TestSign(t *testing.T) {
 }
 
 func TestSignShortHash(t *testing.T) {
-	rand := common.Hex2Bytes(os.Getenv("TAIKO_INBOX"))
+	rand := crypto.Keccak256Hash([]byte(time.Now().UTC().String()))
 	hash := rand[:len(rand)-2]
 	c, err := New(newTestClient(t))
 	require.Nil(t, err)
