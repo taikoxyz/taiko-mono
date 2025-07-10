@@ -1016,7 +1016,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 			BuildPayloadArgsID: payloadID,
 			BlockID:            parentInFork.Number(),
 			L2BlockHash:        msg.ExecutionPayload.ParentHash,
-			IsForcedInclusion:  *msg.IsForcedInclusion,
+			IsForcedInclusion:  msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
 			Signature:          sig,
 		})
 		if err != nil {
