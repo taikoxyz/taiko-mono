@@ -6,17 +6,25 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -25,6 +33,7 @@ import (
 type ClientTestSuite struct {
 	suite.Suite
 	testnetL1SnapshotID string
+	once                sync.Once
 	RPCClient           *rpc.Client
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
@@ -88,7 +97,11 @@ func (s *ClientTestSuite) SetupTest() {
 		s.depositProverSetTokens(ownerPrivKey)
 	}
 
-	s.testnetL1SnapshotID = s.SetL1Snapshot()
+	s.once.Do(func() {
+		s.testnetL1SnapshotID = s.SetL1Snapshot()
+		s.initBaseBlock(l1ProposerPrivKey)
+	})
+
 	s.BlobServer = NewMemoryBlobServer()
 }
 
@@ -210,10 +223,62 @@ func (s *ClientTestSuite) KeyFromEnv(envName string) *ecdsa.PrivateKey {
 
 func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
-	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big0))
-	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big0)
+	s.testnetL1SnapshotID = s.SetL1Snapshot()
+	s.initBaseBlock(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY"))
+	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big1)
 	s.Nil(err)
 	s.BlobServer.Close()
+}
+
+func (s *ClientTestSuite) TearDownSuite() {
+	s.RevertL1Snapshot(s.testnetL1SnapshotID)
+}
+
+func (s *ClientTestSuite) SetHead(headNum *big.Int) {
+	block, err := s.RPCClient.L2.BlockByNumber(context.Background(), headNum)
+	s.Nil(err)
+
+	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), block.Number())
+	s.Nil(err)
+
+	b, err := rlp.EncodeToBytes(block.Transactions())
+	s.Nil(err)
+
+	originalCoinbase := block.Coinbase()
+	attributes := &engine.PayloadAttributes{
+		Timestamp:             block.Time(),
+		Random:                block.MixDigest(),
+		SuggestedFeeRecipient: originalCoinbase,
+		Withdrawals:           []*types.Withdrawal{},
+		BlockMetadata: &engine.BlockMetadata{
+			Beneficiary: block.Coinbase(),
+			GasLimit:    block.GasLimit(),
+			Timestamp:   block.Time(),
+			TxList:      b,
+			MixHash:     common.Hash(block.MixDigest()),
+			ExtraData:   block.Extra(),
+		},
+		BaseFeePerGas: block.BaseFee(),
+		L1Origin: &rawdb.L1Origin{
+			BlockID:            block.Number(),
+			L1BlockHeight:      l1Origin.L1BlockHeight,
+			L2BlockHash:        common.Hash{},
+			L1BlockHash:        l1Origin.L1BlockHash,
+			BuildPayloadArgsID: [8]byte{},
+		},
+	}
+	attributes.SuggestedFeeRecipient = common.HexToAddress(RandomHash().Hex())
+	attributes.BlockMetadata.Beneficiary = attributes.SuggestedFeeRecipient
+
+	s.forkTo(attributes, block.ParentHash())
+
+	attributes.SuggestedFeeRecipient = originalCoinbase
+	attributes.BlockMetadata.Beneficiary = originalCoinbase
+	s.forkTo(attributes, block.ParentHash())
+
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(block.Hash(), head.Hash())
 }
 
 func (s *ClientTestSuite) SetL1Automine(automine bool) {
@@ -251,4 +316,136 @@ func (s *ClientTestSuite) RevertL1Snapshot(snapshotID string) {
 	var revertRes bool
 	s.Nil(s.RPCClient.L1.CallContext(context.Background(), &revertRes, "evm_revert", snapshotID))
 	s.True(revertRes)
+}
+
+func (s *ClientTestSuite) forkTo(attributes *engine.PayloadAttributes, parentHash common.Hash) {
+	fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(
+		context.Background(),
+		&engine.ForkchoiceStateV1{HeadBlockHash: parentHash},
+		attributes,
+	)
+	s.Nil(err)
+	s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
+	s.NotNil(fcRes.PayloadID)
+
+	payload, err := s.RPCClient.L2Engine.GetPayload(context.Background(), fcRes.PayloadID)
+	s.Nil(err)
+
+	execStatus, err := s.RPCClient.L2Engine.NewPayload(context.Background(), payload)
+	s.Nil(err)
+	s.Equal(engine.VALID, execStatus.Status)
+
+	fc := &engine.ForkchoiceStateV1{
+		HeadBlockHash:      payload.BlockHash,
+		SafeBlockHash:      payload.BlockHash,
+		FinalizedBlockHash: payload.BlockHash,
+	}
+
+	fcRes, err = s.RPCClient.L2Engine.ForkchoiceUpdate(context.Background(), fc, nil)
+	s.Nil(err)
+	s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
+
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Equal(attributes.L1Origin.BlockID.Uint64(), head.Number.Uint64())
+}
+
+func (s *ClientTestSuite) initBaseBlock(key *ecdsa.PrivateKey) {
+	t := s.TxMgr("proposer", key)
+	inbox := common.HexToAddress(os.Getenv("PROVER_SET"))
+	params := &encoding.BatchParams{
+		Proposer:   crypto.PubkeyToAddress(key.PublicKey),
+		Coinbase:   common.HexToAddress(RandomHash().Hex()),
+		BlobParams: encoding.BlobParams{ByteOffset: 0, ByteSize: 0},
+		Blocks: []pacayaBindings.ITaikoInboxBlockParams{{
+			NumTransactions: 0,
+			TimeShift:       0,
+			SignalSlots:     make([][32]byte, 0),
+		}},
+	}
+	encoded, err := encoding.EncodeBatchParamsWithForcedInclusion(nil, params)
+	s.Nil(err)
+
+	emptyTxlistBytes, err := utils.EncodeAndCompressTxList(types.Transactions{})
+	s.Nil(err)
+
+	data, err := encoding.TaikoInboxABI.Pack("proposeBatch", encoded, emptyTxlistBytes)
+	s.Nil(err)
+
+	sink := make(chan *pacayaBindings.TaikoInboxClientBatchProposed, 1)
+	sub, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink)
+	s.Nil(err)
+	defer func() {
+		sub.Unsubscribe()
+		close(sink)
+	}()
+	_, err = t.Send(
+		context.Background(),
+		txmgr.TxCandidate{TxData: data, To: &inbox, Blobs: nil, GasLimit: 1_000_000},
+	)
+	s.Nil(encoding.TryParsingCustomError(err))
+	e := <-sink
+	s.NotNil(e)
+
+	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(e.Info.LastBlockId))
+	s.Nil(err)
+
+	parent, err := s.RPCClient.L2.HeaderByNumber(
+		context.Background(),
+		new(big.Int).Sub(new(big.Int).SetUint64(e.Info.LastBlockId), common.Big1),
+	)
+	s.Nil(err)
+
+	baseFee, err := s.RPCClient.CalculateBaseFee(
+		context.Background(), parent, &e.Info.BaseFeeConfig, e.Info.LastBlockTimestamp,
+	)
+	s.Nil(err)
+
+	anchorBlock, err := s.RPCClient.L1.HeaderByNumber(context.Background(), new(big.Int).SetUint64(e.Info.AnchorBlockId))
+	s.Nil(err)
+
+	anchorTxConstructor, err := anchortxconstructor.New(s.RPCClient)
+	s.Nil(err)
+	anchor, err := anchorTxConstructor.AssembleAnchorV3Tx(
+		context.Background(),
+		anchorBlock.Number,
+		anchorBlock.Root,
+		parent,
+		&e.Info.BaseFeeConfig,
+		[][32]byte{},
+		new(big.Int).SetUint64(e.Info.LastBlockId),
+		baseFee,
+	)
+	s.Nil(err)
+
+	txListBytes, err := rlp.EncodeToBytes(types.Transactions{anchor})
+	s.Nil(err)
+
+	s.forkTo(&engine.PayloadAttributes{
+		Timestamp:             e.Info.LastBlockTimestamp,
+		Random:                common.BytesToHash(difficulty),
+		SuggestedFeeRecipient: e.Info.Coinbase,
+		Withdrawals:           []*types.Withdrawal{},
+		BlockMetadata: &engine.BlockMetadata{
+			Beneficiary: e.Info.Coinbase,
+			GasLimit:    uint64(e.Info.GasLimit) + consensus.AnchorV3GasLimit,
+			Timestamp:   e.Info.LastBlockTimestamp,
+			TxList:      txListBytes,
+			MixHash:     common.Hash(difficulty),
+			ExtraData:   e.Info.ExtraData[:],
+		},
+		BaseFeePerGas: baseFee,
+		L1Origin: &rawdb.L1Origin{
+			BlockID:            new(big.Int).SetUint64(e.Info.LastBlockId),
+			L1BlockHeight:      new(big.Int).SetUint64(e.Raw.BlockNumber),
+			L2BlockHash:        common.Hash{},
+			L1BlockHash:        e.Raw.BlockHash,
+			BuildPayloadArgsID: [8]byte{},
+		},
+	}, parent.Hash())
+
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(common.Big1, head.Number)
 }

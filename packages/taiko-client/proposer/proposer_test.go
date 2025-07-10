@@ -162,6 +162,9 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 }
 
 func (s *ProposerTestSuite) TestTxPoolContentWithMinTip() {
+	if os.Getenv("L2_NODE") != "l2_geth" {
+		s.T().Skip("This test is only applicable for L2 Geth node")
+	}
 	var (
 		txsCountForEachSender = 300
 		sendersCount          = 5

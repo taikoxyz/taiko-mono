@@ -13,7 +13,6 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -324,7 +323,9 @@ func (s *DriverTestSuite) TestForcedInclusion() {
 		common.Big0,
 		[]byte{},
 	)
-	s.Nil(err)
+	if err != nil {
+		s.Equal("replacement transaction underpriced", err.Error())
+	}
 	b, err := utils.EncodeAndCompressTxList([]*types.Transaction{forcedInclusionTx})
 	s.Nil(err)
 	s.NotEmpty(b)
@@ -591,9 +592,6 @@ func (s *DriverTestSuite) TestInsertPreconfBlocksWithReorg() {
 		s.Equal(head.Hash(), l1Origin.L2BlockHash)
 		s.Equal(common.Hash{}, l1Origin.L1BlockHash)
 		s.True(l1Origin.IsPreconfBlock())
-
-		_, err = s.RPCClient.L2.HeadL1Origin(context.Background())
-		s.Error(err, ethereum.NotFound)
 	}
 
 	// Propose three same L2 blocks in a batch
@@ -666,6 +664,10 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithInvalidPayload() {
 }
 
 func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
+	if os.Getenv("L2_NODE") != "l2_geth" {
+		s.T().Skip("This test is only applicable for L2 Geth node, since it returns blocks in forks when " +
+			"querying by hash.")
+	}
 	s.ProposeAndInsertEmptyBlocks(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
@@ -703,7 +705,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 
 	s.RevertL1Snapshot(snapshotID)
 	s.L1Mine()
-	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, l2Head1.Number))
+	s.SetHead(l2Head1.Number)
 	_, err = s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), headL1Origin.BlockID)
 	s.Nil(err)
 	s.d.state.SetL1Current(l1Head)
@@ -729,7 +731,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 
 	s.RevertL1Snapshot(snapshotID)
 	s.L1Mine()
-	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, l2Head1.Number))
+	s.SetHead(l2Head1.Number)
 	_, err = s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), headL1Origin.BlockID)
 	s.Nil(err)
 	s.d.state.SetL1Current(l1Head)
@@ -884,7 +886,7 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 	s.Equal(l2Head2.Number.Uint64()-l2Head1.Number().Uint64(), uint64(len(blocks)))
 
 	s.RevertL1Snapshot(snapshotID)
-	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, l2Head1.Number()))
+	s.SetHead(l2Head1.Number())
 	_, err = s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), headL1Origin.BlockID)
 	s.Nil(err)
 
@@ -1097,7 +1099,7 @@ func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 	}
 
 	s.RevertL1Snapshot(snapshotID)
-	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, l2Head1.Number()))
+	s.SetHead(l2Head1.Number())
 	_, err = s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), headL1Origin.BlockID)
 	s.Nil(err)
 

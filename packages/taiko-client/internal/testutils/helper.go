@@ -10,7 +10,6 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -233,11 +232,6 @@ func RandomPort() int {
 		log.Crit("Failed to get local free random port", "error", err)
 	}
 	return port
-}
-
-// SignatureFromRSV creates the signature bytes from r,s,v.
-func SignatureFromRSV(r, s string, v byte) []byte {
-	return append(append(hexutil.MustDecode(r), hexutil.MustDecode(s)...), v)
 }
 
 // AssembleAndSendTestTx assembles a test transaction, and sends it to the given node.
