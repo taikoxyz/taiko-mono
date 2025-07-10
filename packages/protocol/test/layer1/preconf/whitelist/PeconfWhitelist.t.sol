@@ -44,7 +44,7 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.getOperatorForNextEpoch(), address(0));
 
         vm.prank(whitelistOwner);
-        whitelist.addOperator(Bob);
+        whitelist.addOperator(Bob, _getDriverAddress(Bob));
 
         assertEq(whitelist.operatorCount(), 1);
         assertEq(whitelist.operatorMapping(0), Bob);
@@ -55,10 +55,12 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(0), Bob);
         assertEq(whitelist.havingPerfectOperators(), false);
 
-        (uint64 activeSince, uint64 inactiveSince, uint8 index) = whitelist.operators(Bob);
+        (uint64 activeSince, uint64 inactiveSince, uint8 index, address driverAddress) = whitelist.operators(Bob);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
+        assertEq(driverAddress, _getDriverAddress(Bob));
+        assertEq(whitelist.driverToSequencer(_getDriverAddress(Bob)), Bob);
 
         // Verify operator for current epoch
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
@@ -87,7 +89,7 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(0), Bob);
         assertEq(whitelist.havingPerfectOperators(), false);
 
-        (activeSince, inactiveSince, index) = whitelist.operators(Bob);
+        (activeSince, inactiveSince, index, driverAddress) = whitelist.operators(Bob);
         assertEq(activeSince, 0);
         assertEq(inactiveSince, whitelist.epochStartTimestamp(2));
         assertEq(index, 0);
@@ -116,9 +118,9 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.getOperatorForNextEpoch(), address(0));
 
         vm.prank(whitelistOwner);
-        whitelist.addOperator(Alice);
+        whitelist.addOperator(Alice, _getDriverAddress(Alice));
         vm.prank(whitelistOwner);
-        whitelist.addOperator(Bob);
+        whitelist.addOperator(Bob, _getDriverAddress(Bob));
 
         assertEq(whitelist.operatorCount(), 2);
         assertEq(whitelist.operatorMapping(0), Alice);
@@ -131,12 +133,12 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(1), Bob);
         assertEq(whitelist.havingPerfectOperators(), false);
 
-        (uint64 activeSince, uint64 inactiveSince, uint8 index) = whitelist.operators(Alice);
+        (uint64 activeSince, uint64 inactiveSince, uint8 index, address driverAddress) = whitelist.operators(Alice);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
 
-        (activeSince, inactiveSince, index) = whitelist.operators(Bob);
+        (activeSince, inactiveSince, index, driverAddress) = whitelist.operators(Bob);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 1);
@@ -169,12 +171,12 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(1), Bob);
         assertEq(whitelist.havingPerfectOperators(), false);
 
-        (activeSince, inactiveSince, index) = whitelist.operators(Alice);
+        (activeSince, inactiveSince, index, driverAddress) = whitelist.operators(Alice);
         assertEq(activeSince, 0);
         assertEq(inactiveSince, whitelist.epochStartTimestamp(2));
         assertEq(index, 0);
 
-        (activeSince, inactiveSince, index) = whitelist.operators(Bob);
+        (activeSince, inactiveSince, index, driverAddress) = whitelist.operators(Bob);
         assertEq(activeSince, 0);
         assertEq(inactiveSince, whitelist.epochStartTimestamp(2));
         assertEq(index, 1);
@@ -199,9 +201,9 @@ contract TestPreconfWhitelist is Layer1Test {
 
     function test_whitelist_addOrRemoveTheSameOperatorTwiceWillRevert() external {
         vm.startPrank(whitelistOwner);
-        whitelist.addOperator(Alice);
+        whitelist.addOperator(Alice, _getDriverAddress(Alice));
         vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
-        whitelist.addOperator(Alice);
+        whitelist.addOperator(Alice, _getDriverAddress(Alice));
 
         whitelist.removeOperator(Alice);
         vm.expectRevert(IPreconfWhitelist.OperatorAlreadyRemoved.selector);
@@ -211,18 +213,18 @@ contract TestPreconfWhitelist is Layer1Test {
 
     function test_whitelist_addBackRemovedOperator() external {
         vm.startPrank(whitelistOwner);
-        whitelist.addOperator(Alice);
+        whitelist.addOperator(Alice, _getDriverAddress(Alice));
 
         whitelist.removeOperator(Alice);
 
-        whitelist.addOperator(Alice);
+        whitelist.addOperator(Alice, _getDriverAddress(Alice));
         vm.stopPrank();
     }
 
     function test_whitelist_selfRemoval() external {
         vm.startPrank(whitelistOwner);
-        whitelist.addOperator(Alice);
-        whitelist.addOperator(Bob);
+        whitelist.addOperator(Alice, _getDriverAddress(Alice));
+        whitelist.addOperator(Bob, _getDriverAddress(Bob));
         vm.stopPrank();
 
         vm.prank(Alice);
@@ -270,13 +272,13 @@ contract TestPreconfWhitelist is Layer1Test {
         _setBeaconBlockRoot(bytes32(uint256(7)));
 
         vm.prank(whitelistOwner);
-        whitelistNoDelay.addOperator(Bob);
+        whitelistNoDelay.addOperator(Bob, _getDriverAddress(Bob));
 
         assertEq(whitelistNoDelay.operatorCount(), 1);
         assertEq(whitelistNoDelay.operatorMapping(0), Bob);
         assertEq(whitelistNoDelay.havingPerfectOperators(), true);
 
-        (uint64 activeSince, uint64 inactiveSince, uint8 index) = whitelistNoDelay.operators(Bob);
+        (uint64 activeSince, uint64 inactiveSince, uint8 index, address driverAddress) = whitelistNoDelay.operators(Bob);
         assertEq(activeSince, whitelistNoDelay.epochStartTimestamp(0));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
@@ -302,9 +304,9 @@ contract TestPreconfWhitelist is Layer1Test {
         _setBeaconBlockRoot(bytes32(uint256(7)));
 
         vm.startPrank(whitelistOwner);
-        whitelistNoDelay.addOperator(Alice);
-        whitelistNoDelay.addOperator(Bob);
-        whitelistNoDelay.addOperator(Carol);
+        whitelistNoDelay.addOperator(Alice, _getDriverAddress(Alice));
+        whitelistNoDelay.addOperator(Bob, _getDriverAddress(Bob));
+        whitelistNoDelay.addOperator(Carol, _getDriverAddress(Carol));
 
         address[] memory candidates = whitelistNoDelay.getOperatorCandidatesForCurrentEpoch();
         assertEq(candidates.length, 3);
@@ -330,10 +332,10 @@ contract TestPreconfWhitelist is Layer1Test {
         _setBeaconBlockRoot(bytes32(uint256(5)));
 
         vm.startPrank(whitelistOwner);
-        whitelistNoDelay.addOperator(Alice);
-        whitelistNoDelay.addOperator(Bob);
-        whitelistNoDelay.addOperator(Carol);
-        whitelistNoDelay.addOperator(David);
+        whitelistNoDelay.addOperator(Alice, _getDriverAddress(Alice));
+        whitelistNoDelay.addOperator(Bob, _getDriverAddress(Bob));
+        whitelistNoDelay.addOperator(Carol, _getDriverAddress(Carol));
+        whitelistNoDelay.addOperator(David, _getDriverAddress(David));
         whitelistNoDelay.removeOperator(Alice);
         assertEq(whitelistNoDelay.havingPerfectOperators(), false);
 
@@ -353,7 +355,7 @@ contract TestPreconfWhitelist is Layer1Test {
 
         // first we add carol to WL
         vm.prank(whitelistOwner);
-        whitelist.addOperator(Carol);
+        whitelist.addOperator(Carol, _getDriverAddress(Carol));
         assertEq(whitelist.operatorCount(), 1);
         assertEq(whitelist.operatorMapping(0), Carol);
 
@@ -364,14 +366,14 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(0), Carol);
         // re-add her
         vm.prank(whitelistOwner);
-        whitelist.addOperator(Carol);
+        whitelist.addOperator(Carol, _getDriverAddress(Carol));
         assertEq(whitelist.operatorCount(), 1);
         assertEq(whitelist.operatorMapping(0), Carol);
         // ensure she was not double-added to mapping
         assertEq(whitelist.operatorMapping(1), address(0));
 
         // make sure she is correctly set to active now
-        (uint64 activeSince, uint64 inactiveSince, uint8 index) = whitelist.operators(Carol);
+        (uint64 activeSince, uint64 inactiveSince, uint8 index, address driverAddress) = whitelist.operators(Carol);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
@@ -386,6 +388,11 @@ contract TestPreconfWhitelist is Layer1Test {
 
     function _advanceOneEpoch() internal {
         vm.warp(block.timestamp + LibPreconfConstants.SECONDS_IN_EPOCH);
+    }
+
+    // Helper function that returns a deterministic driver address for testing purposes
+    function _getDriverAddress(address sequencer) internal pure returns (address) {
+        return address(uint160(sequencer) + 1000);
     }
 }
 

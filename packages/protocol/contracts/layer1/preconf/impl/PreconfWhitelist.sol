@@ -14,13 +14,17 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         uint64 activeSince; // Epoch when the operator becomes active.
         uint64 inactiveSince; // Epoch when the operator is no longer active.
         uint8 index; // Index in operatorMapping.
+        address driverAddress; // Driver address for this operator (for off-chain use).
     }
 
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
     event OperatorChangeDelaySet(uint8 delay);
 
+    /// @dev The operator address is the sequencer address.
     mapping(address operator => OperatorInfo info) public operators;
     mapping(uint256 index => address operator) public operatorMapping;
+    /// @dev Reverse mapping from driver to operator(sequencer). This is only used by off-chain actors.
+    mapping(address driver => address operator) public driverToSequencer;
     uint8 public operatorCount;
     uint8 public operatorChangeDelay; // epochs to delay for operator changes
     uint8 public randomnessDelay; // epochs to delay for randomness seed source
@@ -28,7 +32,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     // all operators in operatorMapping are active and none of them are to be deactivated.
     bool public havingPerfectOperators;
 
-    uint256[46] private __gap;
+    uint256[45] private __gap;
 
     constructor() EssentialContract() { }
 
@@ -52,8 +56,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     }
 
     /// @inheritdoc IPreconfWhitelist
-    function addOperator(address _operator) external onlyOwner {
-        _addOperator(_operator, operatorChangeDelay);
+    function addOperator(address _operator, address _driver) external onlyOwner {
+        _addOperator(_operator, _driver, operatorChangeDelay);
     }
 
     /// @inheritdoc IPreconfWhitelist
@@ -103,6 +107,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
                     operatorMapping[j] = nextOperator;
                 }
                 // Remove the last operator as it has been shifted
+                delete driverToSequencer[info.driverAddress];
                 delete operators[operator];
                 delete operatorMapping[--_operatorCount];
                 // Do not increment i to check the new entry at position i
@@ -170,8 +175,10 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         );
     }
 
-    function _addOperator(address _operator, uint8 _operatorChangeDelay) internal {
+    function _addOperator(address _operator, address _driver, uint8 _operatorChangeDelay) internal {
         require(_operator != address(0), InvalidOperatorAddress());
+        require(_driver != address(0), InvalidOperatorAddress());
+        require(driverToSequencer[_driver] == address(0), OperatorAlreadyExists());
 
         OperatorInfo storage info = operators[_operator];
 
@@ -196,12 +203,15 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
         info.activeSince = activeSince;
         info.inactiveSince = 0;
+        info.driverAddress = _driver;
+
+        driverToSequencer[_driver] = _operator;
 
         if (_operatorChangeDelay != 0) {
             havingPerfectOperators = false;
         }
 
-        emit OperatorAdded(_operator, activeSince);
+        emit OperatorAdded(_operator, _driver, activeSince);
     }
 
     function _removeOperator(address _operator, uint8 _operatorChangeDelay) internal {
@@ -210,20 +220,26 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         require(info.inactiveSince == 0, OperatorAlreadyRemoved());
         require(info.activeSince != 0, InvalidOperatorAddress());
 
+        address driver = info.driverAddress;
+
         uint8 _lastOperatorIndex = operatorCount - 1;
         if (_operatorChangeDelay == 0 && operators[_operator].index == _lastOperatorIndex) {
             // If delay is 0 and operator is the last one, remove directly
+            delete driverToSequencer[driver];
             delete operators[_operator];
             delete operatorMapping[_lastOperatorIndex];
             operatorCount = _lastOperatorIndex;
-            emit OperatorRemoved(_operator, block.timestamp);
+            emit OperatorRemoved(_operator, driver, block.timestamp);
         } else {
             uint64 inactiveSince = epochStartTimestamp(_operatorChangeDelay);
             operators[_operator].inactiveSince = inactiveSince;
             operators[_operator].activeSince = 0;
 
+            // Clean up driver mapping immediately even with delay
+            delete driverToSequencer[driver];
+
             havingPerfectOperators = false;
-            emit OperatorRemoved(_operator, inactiveSince);
+            emit OperatorRemoved(_operator, driver, inactiveSince);
         }
     }
 
