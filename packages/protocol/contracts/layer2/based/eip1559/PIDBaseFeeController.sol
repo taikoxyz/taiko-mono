@@ -42,6 +42,18 @@ contract PIDBaseFeeController is EssentialContract {
     /// @notice Current gas usage target
     uint32 public gasTarget;
 
+    /// @notice Maximum allowed integral value to prevent windup
+    /// @dev Prevents integral term from growing too large
+    int256 public constant MAX_INTEGRAL = 1e18;
+
+    /// @notice Minimum base fee to ensure system functionality
+    /// @dev Set to 1 gwei to prevent zero fees
+    uint64 public constant MIN_BASE_FEE = 1 gwei;
+
+    /// @notice Normalization factor for error calculations
+    /// @dev Divides gas values by 1000 to prevent overflow in calculations
+    uint256 public constant ERROR_DIVISOR = 1000;
+
     /// @notice Options for gas target adjustment
     /// @param NoChange Keep the current gas target
     /// @param Increase Increase gas target by 1%
@@ -68,6 +80,9 @@ contract PIDBaseFeeController is EssentialContract {
     /// @notice Thrown when base fee is invalid (zero)
     error InvalidBaseFee();
 
+    /// @notice Thrown when PID coefficients are out of bounds
+    error InvalidPIDCoefficients();
+
     /// @notice Initializes the PID controller with specified parameters
     /// @param _anchor Address authorized to update controller parameters
 
@@ -83,6 +98,14 @@ contract PIDBaseFeeController is EssentialContract {
         nonZeroAddr(_anchor)
         EssentialContract()
     {
+        // Validate PID coefficients are within reasonable bounds
+        // Allow negative values for inverse control but limit magnitude
+        if (_kP > 10000 || _kP < -10000 || 
+            _kI > 10000 || _kI < -10000 || 
+            _kD > 10000 || _kD < -10000) {
+            revert InvalidPIDCoefficients();
+        }
+        
         anchor = _anchor;
         kP = _kP;
         kI = _kI;
@@ -95,6 +118,9 @@ contract PIDBaseFeeController is EssentialContract {
     /// @param _gasTarget Initial gas usage target
     function init(address _owner, uint64 _baseFee, uint32 _gasTarget) external initializer {
         __Essential_init(_owner);
+
+        if (_baseFee == 0) revert InvalidBaseFee();
+        if (_gasTarget == 0) revert InvalidGasTarget();
 
         baseFee = _baseFee;
         gasTarget = _gasTarget;
@@ -186,10 +212,20 @@ contract PIDBaseFeeController is EssentialContract {
         returns (uint64)
     {
         // Calculate error (can be positive or negative)
-        int256 newError = int256(uint256(_parentGasUsed)) - int256(uint256(_gasTarget));
+        // Normalize to prevent overflow with large gas values
+        int256 newError = (int256(uint256(_parentGasUsed)) - int256(uint256(_gasTarget))) / int256(ERROR_DIVISOR);
 
-        // Update integral (accumulated error)
-        integral += newError;
+        // Update integral (accumulated error) with anti-windup
+        int256 newIntegral = integral + newError;
+        
+        // Apply integral windup protection
+        if (newIntegral > MAX_INTEGRAL) {
+            integral = MAX_INTEGRAL;
+        } else if (newIntegral < -MAX_INTEGRAL) {
+            integral = -MAX_INTEGRAL;
+        } else {
+            integral = newIntegral;
+        }
 
         // Calculate derivative (rate of change of error)
         int256 derivative = newError - previousError;
@@ -203,9 +239,9 @@ contract PIDBaseFeeController is EssentialContract {
         // Apply adjustment to base fee
         int256 newBaseFee = int256(uint256(_currentBaseFee)) + adjustment;
 
-        // Clamp to valid range [0, uint64.max]
-        if (newBaseFee <= 0) {
-            return 0;
+        // Clamp to valid range [MIN_BASE_FEE, uint64.max]
+        if (newBaseFee <= int256(uint256(MIN_BASE_FEE))) {
+            return MIN_BASE_FEE;
         } else if (newBaseFee > int256(uint256(type(uint64).max))) {
             return type(uint64).max;
         } else {
