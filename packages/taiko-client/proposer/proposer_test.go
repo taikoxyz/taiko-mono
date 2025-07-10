@@ -440,7 +440,9 @@ func (s *ProposerTestSuite) TestProposeMultiBlobsInOneBatch() {
 				common.Big1,
 				[]byte{1},
 			)
-			s.Nil(err)
+			if err != nil {
+				s.Equal("replacement transaction underpriced", err.Error())
+			}
 			txsBatch[i] = append(txsBatch[i], tx)
 		}
 	}
