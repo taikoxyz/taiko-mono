@@ -1066,7 +1066,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 				s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), &preconf.Envelope{
 					Payload:           msg.ExecutionPayload,
 					Signature:         msg.Signature,
-					IsForcedInclusion: *msg.IsForcedInclusion,
+					IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
 				})
 			}
 			return true, nil
