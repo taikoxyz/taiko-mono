@@ -967,11 +967,17 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		payloadID := args.Id()
 		// update L1 Origin if the parent block is in the fork chain, we are building
 		// on an orphaned block.
-		_, err = s.rpc.L2Engine.UpdateL1Origin(ctx, &rawdb.L1Origin{
+		origin := &rawdb.L1Origin{
 			BuildPayloadArgsID: payloadID,
 			BlockID:            parentInFork.Number(),
 			L2BlockHash:        msg.ExecutionPayload.ParentHash,
-		})
+		}
+
+		if msg.IsForcedInclusion != nil && *msg.IsForcedInclusion {
+			origin.IsForcedInclusion = true
+		}
+
+		_, err = s.rpc.L2Engine.UpdateL1Origin(ctx, origin)
 		if err != nil {
 			return false, fmt.Errorf("failed to update L1 origin: %w", err)
 		}
