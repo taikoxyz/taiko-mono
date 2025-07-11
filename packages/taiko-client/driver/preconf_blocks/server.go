@@ -469,6 +469,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 			"blockID", block.NumberU64(),
 			"hash", block.Hash().Hex(),
 			"parentHash", block.ParentHash().Hex(),
+			"l1OriginBlockID", l1Origin.BlockID.Uint64(),
 		)
 
 		return err
