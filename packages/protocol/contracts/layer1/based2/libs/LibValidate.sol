@@ -24,6 +24,7 @@ library LibValidate {
     /// @notice Validates a complete batch proposal
     /// @dev Performs comprehensive validation including proposer, blocks, timestamps,
     ///      signals, anchors, and blobs. This is the main entry point for batch validation.
+    /// @dev The prover field of the returend context object will not be initialized.
     /// @param _conf Protocol configuration parameters
     /// @param _rw Read/write access functions for blockchain state
     /// @param _batch The batch to validate
@@ -39,8 +40,11 @@ library LibValidate {
         view
         returns (I.BatchContext memory context_)
     {
-        // Validate proposer and coinbase
-        _validateProposerCoinbase(_conf, _batch);
+        // We do not check the coinbase address -- if _batch.coinbase is address(0), the driver
+        // shall use the proposer as the coinbase address.
+
+        // Validate proposer
+        _validateProposer(_conf, _batch);
 
         // Validate and decode blocks
         I.Block[] memory blocks = _validateBlocks(_conf, _batch);
@@ -77,25 +81,17 @@ library LibValidate {
     // Private Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Validates the proposer and coinbase addresses
+    /// @notice Validates the proposer
     /// @dev Handles both direct proposing and inbox wrapper scenarios
     /// @param _conf Protocol configuration
     /// @param _batch The batch being validated
-    function _validateProposerCoinbase(
-        I.Config memory _conf,
-        I.Batch calldata _batch
-    )
-        internal
-        view
-    {
+    function _validateProposer(I.Config memory _conf, I.Batch calldata _batch) internal view {
         if (_conf.inboxWrapper == address(0)) {
             require(_batch.proposer == msg.sender, ProposerNotMsgSender());
         } else {
             require(msg.sender == _conf.inboxWrapper, NotInboxWrapper());
             require(_batch.proposer != address(0), CustomProposerMissing());
         }
-
-        require(_batch.coinbase != address(0), InvalidCoinbase());
     }
 
     /// @notice Validates and decodes block data from the batch
@@ -119,8 +115,10 @@ library LibValidate {
         blocks_ = new I.Block[](nBlocks_);
 
         for (uint256 i; i < nBlocks_; ++i) {
-            uint256 encoded = uint256(_batch.encodedBlocks[i]);
+            uint256 encoded = _batch.encodedBlocks[i];
 
+            // total bits used: 80 bits, remaining 176 bits (256 - 80 = 176) being unused or
+            // reserved for future use.
             blocks_[i].numTransactions = uint16(encoded);
             blocks_[i].timeShift = uint8(encoded >> 16);
             blocks_[i].anchorBlockId = uint48(encoded >> 24);
@@ -146,10 +144,9 @@ library LibValidate {
         unchecked {
             require(_batch.lastBlockTimestamp != 0, LastBlockTimestampNotSet());
             require(_batch.lastBlockTimestamp <= block.timestamp, TimestampTooLarge());
-
             require(_blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
-            uint64 totalShift;
+            uint256 totalShift;
 
             for (uint256 i; i < _blocks.length; ++i) {
                 totalShift += _blocks[i].timeShift;
@@ -364,7 +361,6 @@ library LibValidate {
     error FirstBlockTimeShiftNotZero();
     error InvalidBlobCreatedIn();
     error InvalidBlobParams();
-    error InvalidCoinbase();
     error InvalidForcedInclusion();
     error LastBlockTimestampNotSet();
     error ProposerNotMsgSender();

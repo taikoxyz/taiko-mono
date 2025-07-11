@@ -42,7 +42,6 @@ interface IInbox {
     struct Batch {
         address proposer;
         address coinbase;
-        address prover;
         uint48 lastBlockTimestamp;
         bool isForcedInclusion;
         // Specifies the number of blocks to be generated from this batch.
@@ -56,6 +55,7 @@ interface IInbox {
     /// @notice Output structure containing validated batch information
     /// @dev This struct aggregates all validation results for efficient batch processing
     struct BatchContext {
+        address prover;
         /// @notice Hash of all transactions in the batch
         bytes32 txsHash; // TODO: remove this?
         /// @notice Array of blob hashes associated with the batch
