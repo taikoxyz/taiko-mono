@@ -80,9 +80,9 @@ def grid_search(blocks, num_blocks=100):
         Best kP, kI, kD and corresponding MSE
     """
     # Define search ranges
-    kP_range = range(1, 1000, 2)  # 1 to 99, step 2 (will be scaled by 1000)
-    kI_range = np.arange(0.1, 1, 0.1)  # 0.1 to 1.0, step 0.1
-    kD_range = np.arange(0.1, 1, 0.1)  # 0.1 to 1.0, step 0.1
+    kP_range = range(1, 1000, 1)  # 1 to 99, step 2 (will be scaled by 1000)
+    kI_range = np.arange(1, 10, 0.1)  # 0.1 to 1.0, step 0.1
+    kD_range = np.arange(1, 10, 0.1)  # 0.1 to 1.0, step 0.1
     
     best_mse = float('inf')
     best_params = None
