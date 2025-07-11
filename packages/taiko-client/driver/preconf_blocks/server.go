@@ -452,6 +452,15 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return err
 	}
 
+	log.Info("Fetched L1 Origin",
+		"blockID", l1Origin.BlockID.Uint64(),
+		"l2BlockHash", l1Origin.L2BlockHash.Hex(),
+		"l1BlockHash", l1Origin.L1BlockHash.Hex(),
+		"l1OriginBlockID", l1Origin.BlockID.Uint64(),
+		"l1OriginIsForcedInclusion", l1Origin.IsForcedInclusion,
+		"l1OriginSignature", common.Bytes2Hex(l1Origin.Signature[:]),
+	)
+
 	sig := l1Origin.Signature
 	if sig == [65]byte{} {
 		log.Warn(
@@ -474,7 +483,6 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	log.Info("Publish preconfirmation block response",
 		"blockID", block.NumberU64(),
 		"hash", hash.Hex(),
-		"parentHash", block.ParentHash().Hex(),
 		"signature", common.Bytes2Hex(sig[:]),
 	)
 
