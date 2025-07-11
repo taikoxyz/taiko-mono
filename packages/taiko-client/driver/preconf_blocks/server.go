@@ -471,7 +471,12 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return fmt.Errorf("failed to convert block to envelope: %w", err)
 	}
 
-	log.Info("Publish preconfirmation block response", "blockID", block.NumberU64(), "hash", hash.Hex())
+	log.Info("Publish preconfirmation block response",
+		"blockID", block.NumberU64(),
+		"hash", hash.Hex(),
+		"parentHash", block.ParentHash().Hex(),
+		"signature", common.Bytes2Hex(sig[:]),
+	)
 
 	if err := s.p2pNode.GossipOut().PublishL2RequestResponse(ctx, envelope, s.p2pSigner); err != nil {
 		log.Warn(
