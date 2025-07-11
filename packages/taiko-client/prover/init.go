@@ -276,14 +276,13 @@ func (p *Prover) initL1Current(startingBatchID *big.Int) error {
 
 	log.Info("Init L1Current cursor", "startingBatchID", startingBatchID)
 
-	latestVerifiedHeaderL1Origin, err := p.rpc.L2.L1OriginByID(p.ctx, startingBatchID)
+	batch, err := p.rpc.GetBatchByID(p.ctx, startingBatchID)
+	if err != nil {
+		return fmt.Errorf("failed to get batch by ID: %d", startingBatchID)
+	}
+	latestVerifiedHeaderL1Origin, err := p.rpc.L2.L1OriginByID(p.ctx, new(big.Int).SetUint64(batch.LastBlockId))
 	if err != nil {
 		if err.Error() == ethereum.NotFound.Error() {
-			batch, err := p.rpc.GetBatchByID(p.ctx, startingBatchID)
-			if err != nil {
-				return fmt.Errorf("failed to get batch by ID: %d", startingBatchID)
-			}
-
 			l1Head, err := p.rpc.L1.HeaderByNumber(p.ctx, new(big.Int).SetUint64(batch.AnchorBlockId))
 			if err != nil {
 				return fmt.Errorf("failed to get L1 head for blockID: %d", batch.AnchorBlockId)
