@@ -544,6 +544,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         vm.stopPrank();
     }
 
+    /// forge-config: default.isolate = true
     function test_inbox_measure_gas_used()
         external
         transactBy(Alice)
@@ -554,10 +555,10 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.BatchParams memory batchParams;
         batchParams.blocks = new ITaikoInbox.BlockParams[](10);
 
-        vm.startSnapshotGas("proposeBatch");
+        vm.startSnapshotGas("ProposeAndProve","proposeBatchNoRouter");
         (, ITaikoInbox.BatchMetadata memory meta) =
             inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"), "");
-        uint256 gas1 = vm.stopSnapshotGas("proposeBatch");
+        uint256 gas1 = vm.stopSnapshotGas();
 
         ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
         metas[0] = meta;
@@ -567,9 +568,9 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         transitions[0].blockHash = correctBlockhash(meta.batchId);
         transitions[0].stateRoot = correctStateRoot(meta.batchId);
 
-        vm.startSnapshotGas("proveBatches");
+        vm.startSnapshotGas("ProposeAndProve","proveBatches");
         inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
-        uint256 gas2 = vm.stopSnapshotGas("proveBatches");
+        uint256 gas2 = vm.stopSnapshotGas();
 
         _logAllBatchesAndTransitions();
 
