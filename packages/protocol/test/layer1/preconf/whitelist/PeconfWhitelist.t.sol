@@ -381,6 +381,82 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(index, 0);
     }
 
+    function test_updateOperator_byOwner() external {
+        // Add an operator
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
+
+        // Update sequencer address by owner
+        address newSequencer = address(uint160(Alice) + 2000);
+        vm.prank(whitelistOwner);
+        whitelist.updateOperator(Alice, newSequencer);
+
+        // Verify the update
+        (,, , address sequencerAddress) = whitelist.operators(Alice);
+        assertEq(sequencerAddress, newSequencer);
+        assertEq(whitelist.sequencerToProposer(newSequencer), Alice);
+    }
+
+    function test_updateOperator_bySelf() external {
+        // Add an operator
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+
+        // Update sequencer address by operator themselves
+        address newSequencer = address(uint160(Bob) + 2000);
+        vm.prank(Bob);
+        whitelist.updateOperator(Bob, newSequencer);
+
+        // Verify the update
+        (,, , address sequencerAddress) = whitelist.operators(Bob);
+        assertEq(sequencerAddress, newSequencer);
+        assertEq(whitelist.sequencerToProposer(newSequencer), Bob);
+    }
+
+    function test_updateOperator_unauthorizedWillRevert() external {
+        // Add an operator
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
+
+        // Try to update from unauthorized address
+        address newSequencer = address(uint160(Alice) + 2000);
+        vm.prank(Bob); // Bob is not owner and not Alice
+        vm.expectRevert();
+        whitelist.updateOperator(Alice, newSequencer);
+    }
+
+    function test_updateOperator_nonExistentOperatorWillRevert() external {
+        // Try to update non-existent operator
+        address newSequencer = address(uint160(Alice) + 2000);
+        vm.prank(whitelistOwner);
+        vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
+        whitelist.updateOperator(Alice, newSequencer);
+    }
+
+    function test_updateOperator_zeroAddressWillRevert() external {
+        // Add an operator
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
+
+        // Try to update to zero address
+        vm.prank(whitelistOwner);
+        vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
+        whitelist.updateOperator(Alice, address(0));
+    }
+
+    function test_updateOperator_duplicateSequencerWillRevert() external {
+        // Add two operators
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+
+        // Try to update Alice's sequencer to Bob's sequencer
+        vm.prank(whitelistOwner);
+        vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
+        whitelist.updateOperator(Alice, _getSequencerAddress(Bob));
+    }
+
     function _setBeaconBlockRoot(bytes32 _root) internal {
         vm.etch(
             LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,
