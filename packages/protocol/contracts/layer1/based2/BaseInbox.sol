@@ -52,7 +52,7 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
     function propose4(
         bytes calldata _packedSummary,
         I.Batch[] calldata _batches,
-        I.BatchProposeMetadataEvidence memory _evidence,
+        I.BatchProposeMetadataEvidence calldata _evidence,
         bytes calldata _packedTrans
     )
         external
