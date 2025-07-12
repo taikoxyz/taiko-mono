@@ -33,9 +33,10 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     mapping(address proposer => OperatorInfo info) public operators;
     mapping(uint256 index => address proposer) public operatorMapping;
     /// @dev Reverse mapping from sequencer to proposer. This is only used by off-chain actors.
-    /// @dev Note: Entries are never deleted for gas efficiency. Off-chain actors should verify the
-    /// operator is still active
-    /// by checking that operators[proposer].activeSince != 0 before trusting the mapping.
+    /// @dev Note: Entries are not deleted when removing operators for gas efficiency, but they ARE
+    /// deleted when an operator updates their sequencer address to maintain the 1:1 invariant.
+    /// Off-chain actors should verify the operator is still active by checking that
+    /// operators[proposer].activeSince != 0 before trusting the mapping.
     mapping(address sequencer => address proposer) public sequencerToProposer;
 
     uint8 public operatorCount;
@@ -123,6 +124,11 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         // Update the sequencer address
         info.sequencerAddress = _newSequencer;
         sequencerToProposer[_newSequencer] = _proposer;
+        
+        // Clear old mapping to maintain the 1:1 invariant between proposer and sequencer
+        if (oldSequencer != _newSequencer) {
+            delete sequencerToProposer[oldSequencer];
+        }
 
         emit OperatorUpdated(_proposer, oldSequencer, _newSequencer);
     }

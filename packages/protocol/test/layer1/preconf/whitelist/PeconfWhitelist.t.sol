@@ -395,6 +395,8 @@ contract TestPreconfWhitelist is Layer1Test {
         (,, , address sequencerAddress) = whitelist.operators(Alice);
         assertEq(sequencerAddress, newSequencer);
         assertEq(whitelist.sequencerToProposer(newSequencer), Alice);
+        // Verify old mapping is cleared
+        assertEq(whitelist.sequencerToProposer(_getSequencerAddress(Alice)), address(0));
     }
 
     function test_updateOperator_bySelf() external {
