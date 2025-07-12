@@ -198,6 +198,11 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         require(_proposer != address(0), InvalidOperatorAddress());
         require(_sequencer != address(0), InvalidOperatorAddress());
 
+        address existingProposer = sequencerToProposer[_sequencer];
+        require(
+            existingProposer == address(0) || existingProposer == _proposer, OperatorAlreadyExists()
+        );
+
         OperatorInfo storage info = operators[_proposer];
 
         // if they're already active, just revert
