@@ -14,7 +14,9 @@ interface IPreconfWhitelist {
     /// @param proposer The proposer address of the operator that was removed.
     /// @param sequencer The sequencer address of the operator that was removed.
     /// @param inactiveSince The timestamp when the operator became inactive.
-    event OperatorRemoved(address indexed proposer, address indexed sequencer, uint256 inactiveSince);
+    event OperatorRemoved(
+        address indexed proposer, address indexed sequencer, uint256 inactiveSince
+    );
 
     error InvalidOperatorIndex();
     error InvalidOperatorCount();

@@ -20,14 +20,18 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
     event OperatorChangeDelaySet(uint8 delay);
 
-    /// @dev An operator consists of a proposer address(they key to this mapping) and a sequencer address.
-    ///     The proposer address is their main identifier and isused on-chain to identify the operator and decide if they are allowed to propose.
-    ///     The sequencer address is used off-chain to to identify the address that is emitting preconfirmations.
+    /// @dev An operator consists of a proposer address(they key to this mapping) and a sequencer
+    /// address.
+    ///     The proposer address is their main identifier and isused on-chain to identify the
+    /// operator and decide if they are allowed to propose.
+    ///     The sequencer address is used off-chain to to identify the address that is emitting
+    /// preconfirmations.
     ///     NOTE: These two addresses may be the same, it is up to the operator to decide.
     mapping(address proposer => OperatorInfo info) public operators;
     mapping(uint256 index => address operator) public operatorMapping;
     /// @dev Reverse mapping from sequencer to proposer. This is only used by off-chain actors.
-    /// @dev Note: Entries are never deleted for gas efficiency. Off-chain actors should verify the operator is still active
+    /// @dev Note: Entries are never deleted for gas efficiency. Off-chain actors should verify the
+    /// operator is still active
     /// by checking that operators[proposer].activeSince != 0 before trusting the mapping.
     mapping(address sequencer => address proposer) public sequencerToProposer;
 
@@ -184,7 +188,13 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         );
     }
 
-    function _addOperator(address _proposer, address _sequencer, uint8 _operatorChangeDelay) internal {
+    function _addOperator(
+        address _proposer,
+        address _sequencer,
+        uint8 _operatorChangeDelay
+    )
+        internal
+    {
         require(_proposer != address(0), InvalidOperatorAddress());
         require(_sequencer != address(0), InvalidOperatorAddress());
 

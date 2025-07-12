@@ -55,7 +55,8 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(0), Bob);
         assertEq(whitelist.havingPerfectOperators(), false);
 
-        (uint32 activeSince, uint32 inactiveSince, uint8 index, address sequencerAddress) = whitelist.operators(Bob);
+        (uint32 activeSince, uint32 inactiveSince, uint8 index, address sequencerAddress) =
+            whitelist.operators(Bob);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
@@ -133,7 +134,8 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.operatorMapping(1), Bob);
         assertEq(whitelist.havingPerfectOperators(), false);
 
-        (uint32 activeSince, uint32 inactiveSince, uint8 index, address sequencerAddress) = whitelist.operators(Alice);
+        (uint32 activeSince, uint32 inactiveSince, uint8 index, address sequencerAddress) =
+            whitelist.operators(Alice);
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
