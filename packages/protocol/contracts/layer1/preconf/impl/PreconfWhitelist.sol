@@ -124,7 +124,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         // Update the sequencer address
         info.sequencerAddress = _newSequencer;
         sequencerToProposer[_newSequencer] = _proposer;
-        
+
         // Clear old mapping to maintain the 1:1 invariant between proposer and sequencer
         if (oldSequencer != _newSequencer) {
             delete sequencerToProposer[oldSequencer];

@@ -392,7 +392,7 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelist.updateOperator(Alice, newSequencer);
 
         // Verify the update
-        (,, , address sequencerAddress) = whitelist.operators(Alice);
+        (,,, address sequencerAddress) = whitelist.operators(Alice);
         assertEq(sequencerAddress, newSequencer);
         assertEq(whitelist.sequencerToProposer(newSequencer), Alice);
         // Verify old mapping is cleared
@@ -410,7 +410,7 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelist.updateOperator(Bob, newSequencer);
 
         // Verify the update
-        (,, , address sequencerAddress) = whitelist.operators(Bob);
+        (,,, address sequencerAddress) = whitelist.operators(Bob);
         assertEq(sequencerAddress, newSequencer);
         assertEq(whitelist.sequencerToProposer(newSequencer), Bob);
     }
