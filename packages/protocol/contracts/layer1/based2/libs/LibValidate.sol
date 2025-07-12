@@ -61,25 +61,34 @@ library LibValidate {
         _validateSignals(_conf, _rw, blocks, _batch.signalSlots);
 
         // Validate anchors
-        (context_.anchorBlockHashes, context_.lastAnchorBlockId) =
+        (bytes32[] memory anchorBlockHashes, uint48 lastAnchorBlockId) =
             _validateAnchors(_conf, _rw, _batch, blocks, _parentProposeMeta.lastAnchorBlockId);
 
         // Validate block range
-        context_.lastBlockId =
+        uint48 lastBlockId =
             _validateBlockRange(_conf, blocks.length, _parentProposeMeta.lastBlockId);
 
         // Validate blobs
-        context_.blobsCreatedIn = _validateBlobs(_conf, _batch);
+        uint48 blobsCreatedIn = _validateBlobs(_conf, _batch);
 
         // Calculate transaction hash
-        (context_.txsHash, context_.blobHashes) = _calculateTxsHash(_rw, _batch.blobs);
+        (bytes32 txsHash, bytes32[] memory blobHashes) = _calculateTxsHash(_rw, _batch.blobs);
 
-        context_.blocks = blocks;
-
-        context_.blockMaxGasLimit = _conf.blockMaxGasLimit;
-        context_.baseFeeConfig = _conf.baseFeeConfig;
-        context_.livenessBond = _conf.livenessBond;
-        context_.provabilityBond = _conf.provabilityBond;
+        // Initialize context
+        context_ = I.BatchContext({
+            prover: address(0), // Will be set later in LibProver.validateProver
+            txsHash: txsHash,
+            blobHashes: blobHashes,
+            lastAnchorBlockId: lastAnchorBlockId,
+            lastBlockId: lastBlockId,
+            anchorBlockHashes: anchorBlockHashes,
+            blocks: blocks,
+            blobsCreatedIn: blobsCreatedIn,
+            blockMaxGasLimit: _conf.blockMaxGasLimit,
+            livenessBond: _conf.livenessBond,
+            provabilityBond: _conf.provabilityBond,
+            baseFeeSharingPctg: _conf.baseFeeSharingPctg
+        });
     }
 
     // -------------------------------------------------------------------------
@@ -181,7 +190,7 @@ library LibValidate {
             require(_batch.lastBlockTimestamp <= block.timestamp, TimestampTooLarge());
             require(_blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
-            uint256 totalShift;
+            uint64 totalShift;
 
             for (uint256 i; i < _blocks.length; ++i) {
                 totalShift += _blocks[i].timeShift;
