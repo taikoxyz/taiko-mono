@@ -1,12 +1,14 @@
 package preconfblocks
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
 
+	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -225,27 +227,49 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				"baseFee", header.BaseFee,
 			)
 		} else {
+			envelope := &eth.ExecutionPayloadEnvelope{
+				ExecutionPayload: &eth.ExecutionPayload{
+					BaseFeePerGas: eth.Uint256Quantity(u256),
+					ParentHash:    header.ParentHash,
+					FeeRecipient:  header.Coinbase,
+					ExtraData:     header.Extra,
+					PrevRandao:    eth.Bytes32(header.MixDigest),
+					BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
+					GasLimit:      eth.Uint64Quantity(header.GasLimit),
+					GasUsed:       eth.Uint64Quantity(header.GasUsed),
+					Timestamp:     eth.Uint64Quantity(header.Time),
+					BlockHash:     header.Hash(),
+					Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
+				},
+				EndOfSequencing:   reqBody.EndOfSequencing,
+				IsForcedInclusion: reqBody.IsForcedInclusion,
+			}
+
+			var payloadBuf bytes.Buffer
+			if _, err := envelope.MarshalSSZ(&payloadBuf); err != nil {
+				return fmt.Errorf("failed to marhsal envelope: %w", err)
+			}
+
+			// 2) Sign exactly those bytes
+			sigBytes, err := s.p2pSigner.Sign(
+				ctx,
+				p2p.SigningDomainBlocksV1,
+				s.rpc.L2.ChainID,
+				payloadBuf.Bytes(),
+			)
+			if err != nil {
+				return fmt.Errorf("failed to sign payload: %w", err)
+			}
+
+			_, err = s.rpc.L2Engine.SetL1OriginSignature(ctx, header.Number, *sigBytes)
+
+			if err != nil {
+				return fmt.Errorf("failed to update L1 origin signature: %w", err)
+			}
+
 			if err := s.p2pNode.GossipOut().PublishL2Payload(
 				ctx,
-				&eth.ExecutionPayloadEnvelope{
-					ExecutionPayload: &eth.ExecutionPayload{
-						BaseFeePerGas: eth.Uint256Quantity(u256),
-						ParentHash:    header.ParentHash,
-						FeeRecipient:  header.Coinbase,
-						ExtraData:     header.Extra,
-						PrevRandao:    eth.Bytes32(header.MixDigest),
-						BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
-						GasLimit:      eth.Uint64Quantity(header.GasLimit),
-						GasUsed:       eth.Uint64Quantity(header.GasUsed),
-						Timestamp:     eth.Uint64Quantity(header.Time),
-						BlockHash:     header.Hash(),
-						Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
-					},
-					EndOfSequencing:   reqBody.EndOfSequencing,
-					IsForcedInclusion: reqBody.IsForcedInclusion,
-					// signature is not included in the original envelope publishing, it will be added by the
-					// p2p network signer.
-				},
+				envelope,
 				s.p2pSigner,
 			); err != nil {
 				log.Warn("Failed to propagate the preconfirmation block to the P2P network", "error", err)
