@@ -158,6 +158,7 @@ library LibCodec {
         }
     }
 
+    // TODO: 
     function packBatchContext(I.BatchContext memory _context)
         internal
         pure
@@ -166,6 +167,7 @@ library LibCodec {
         return abi.encode(_context);
     }
 
+    // TODO: 
     function unpackBatchContext(bytes memory _packed)
         internal
         pure
