@@ -5,6 +5,7 @@ import { IInbox as I } from "../IInbox.sol";
 import "./LibValidate.sol";
 import "./LibData.sol";
 import "./LibProver.sol";
+import "./LibCodec.sol";
 
 /// @title LibPropose
 /// @notice Library for processing batch proposals and metadata generation in Taiko protocol
@@ -31,7 +32,7 @@ library LibPropose {
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
-        I.Batch[] calldata _batches,
+        I.Batch[] memory _batches,
         I.BatchProposeMetadataEvidence memory _evidence
     )
         internal
@@ -54,7 +55,13 @@ library LibPropose {
                 (meta, _summary.lastBatchMetaHash) =
                     _proposeBatch(_conf, _rw, _summary, _batches[i], parent);
 
+                if (_summary.gasIssuancePerSecond != _batches[i].gasIssuancePerSecond) {
+                    _summary.gasIssuancePerSecond = _batches[i].gasIssuancePerSecond;
+                    _summary.gasIssuanceUpdatedAt = uint48(block.timestamp);
+                }
+
                 _summary.numBatches += 1;
+
                 parent = meta.proposeMeta;
             }
 
@@ -78,16 +85,16 @@ library LibPropose {
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
-        I.Batch calldata _batch,
+        I.Batch memory _batch,
         I.BatchProposeMetadata memory _parent
     )
         private
         returns (I.BatchMetadata memory meta_, bytes32 batchMetaHash_)
     {
         // Validate the batch parameters and return batch and batch context data
-        I.BatchContext memory context = LibValidate.validate(_conf, _rw, _batch, _parent);
+        I.BatchContext memory context = LibValidate.validate(_conf, _rw, _summary, _batch, _parent);
 
-        LibProver.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
+        context.prover = LibProver.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
 
         meta_ = LibData.buildBatchMetadata(
             uint48(block.number), uint48(block.timestamp), _batch, context
@@ -96,7 +103,7 @@ library LibPropose {
         batchMetaHash_ = LibData.hashBatch(_summary.numBatches, meta_);
         _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash_);
 
-        emit I.Proposed(_summary.numBatches, context);
+        emit I.Proposed(_summary.numBatches, LibCodec.packBatchContext(context));
     }
 
     // -------------------------------------------------------------------------

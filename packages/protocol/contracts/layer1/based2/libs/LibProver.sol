@@ -40,14 +40,15 @@ library LibProver {
         I.Batch memory _batch
     )
         internal
+        returns (address prover_)
     {
         uint256 livenessBond = uint256(_conf.livenessBond) * 1 gwei;
         uint256 provabilityBond = uint256(_conf.provabilityBond) * 1 gwei;
 
         unchecked {
             if (_batch.proverAuth.length == 0) {
-                require(_batch.prover == _batch.proposer, InvalidProver());
-                _rw.debitBond(_conf, _batch.prover, livenessBond + provabilityBond);
+                prover_ = _batch.proposer;
+                _rw.debitBond(_conf, prover_, livenessBond + provabilityBond);
             } else {
                 // Circular dependency so zero it out. (Batch has proverAuth but
                 // proverAuth has also batchHash)
@@ -55,10 +56,11 @@ library LibProver {
 
                 // Outsource the prover authentication to the LibAuth library to
                 // reduce this contract's code size.
-                (address prover, address feeToken, uint256 fee) = _validateProverAuth(
+                address feeToken;
+                uint256 fee;
+                (prover_, feeToken, fee) = _validateProverAuth(
                     _conf.chainId, _summary.numBatches, keccak256(abi.encode(_batch)), _proverAuth
                 );
-                require(prover != _batch.prover, InvalidProver());
 
                 if (feeToken == _conf.bondToken) {
                     // proposer pay the prover fee with bond tokens
@@ -69,16 +71,16 @@ library LibProver {
                     int256 bondDelta = int256(fee) - int256(livenessBond);
 
                     bondDelta < 0
-                        ? _rw.debitBond(_conf, prover, uint256(-bondDelta))
-                        : _rw.creditBond(prover, uint256(bondDelta));
-                } else if (prover == _batch.proposer) {
+                        ? _rw.debitBond(_conf, prover_, uint256(-bondDelta))
+                        : _rw.creditBond(prover_, uint256(bondDelta));
+                } else if (prover_ == _batch.proposer) {
                     _rw.debitBond(_conf, _batch.proposer, livenessBond + provabilityBond);
                 } else {
                     _rw.debitBond(_conf, _batch.proposer, provabilityBond);
-                    _rw.debitBond(_conf, prover, livenessBond);
+                    _rw.debitBond(_conf, prover_, livenessBond);
 
                     if (fee != 0) {
-                        _rw.transferFee(feeToken, _batch.proposer, prover, fee);
+                        _rw.transferFee(feeToken, _batch.proposer, prover_, fee);
                     }
                 }
             }

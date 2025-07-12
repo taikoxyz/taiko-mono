@@ -42,7 +42,6 @@ interface IInbox {
     struct Batch {
         address proposer;
         address coinbase;
-        address prover;
         uint48 lastBlockTimestamp;
         bool isForcedInclusion;
         // Specifies the number of blocks to be generated from this batch.
@@ -50,12 +49,14 @@ interface IInbox {
         bytes32[] signalSlots;
         uint48[] anchorBlockIds;
         uint256[] encodedBlocks; // encoded Block
+        uint32 gasIssuancePerSecond;
         bytes proverAuth;
     }
 
     /// @notice Output structure containing validated batch information
     /// @dev This struct aggregates all validation results for efficient batch processing
     struct BatchContext {
+        address prover;
         /// @notice Hash of all transactions in the batch
         bytes32 txsHash; // TODO: remove this?
         /// @notice Array of blob hashes associated with the batch
@@ -176,12 +177,13 @@ interface IInbox {
 
     struct Summary {
         uint48 numBatches;
-        uint48 lastUnpausedAt;
         uint48 lastSyncedBlockId;
         uint48 lastSyncedAt;
         uint48 lastVerifiedBatchId;
         bytes32 lastVerifiedBlockHash;
         bytes32 lastBatchMetaHash;
+        uint32 gasIssuancePerSecond;
+        uint48 gasIssuanceUpdatedAt;
     }
 
     /// @notice Struct holding the fork heights.
@@ -236,6 +238,7 @@ interface IInbox {
         address inboxWrapper;
         address verifier;
         address signalService;
+        uint16 gasIssuanceUpdateDelay;
     }
 
     /// @notice Struct holding the state variables for the {Taiko} contract.
@@ -263,12 +266,12 @@ interface IInbox {
 
     /// @notice Emitted when a batch is proposed.
     /// @param batchId The ID of the proposed batch.
-    /// @param context The batch context data
-    event Proposed(uint48 batchId, BatchContext context);
+    /// @param packedContext The batch context data packed into bytes.
+    event Proposed(uint48 batchId, bytes packedContext);
 
     /// @notice Emitted when a batch is proved.
     /// @param batchId The ID of the proved batch.
-    /// @param packedTranMeta The encoded transition metadata.
+    /// @param packedTranMeta The transition metadata packed into bytes.
     event Proved(uint256 indexed batchId, bytes packedTranMeta);
 
     /// @notice Emitted when a batch is verified.

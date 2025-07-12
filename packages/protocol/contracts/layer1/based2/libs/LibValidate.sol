@@ -24,23 +24,32 @@ library LibValidate {
     /// @notice Validates a complete batch proposal
     /// @dev Performs comprehensive validation including proposer, blocks, timestamps,
     ///      signals, anchors, and blobs. This is the main entry point for batch validation.
+    /// @dev The prover field of the returend context object will not be initialized.
     /// @param _conf Protocol configuration parameters
     /// @param _rw Read/write access functions for blockchain state
+    /// @param _summary Current protocol summary state
     /// @param _batch The batch to validate
     /// @param _parentProposeMeta Metadata from the parent batch proposal
     /// @return context_ Validated batch information and computed hashes
     function validate(
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
-        I.Batch calldata _batch,
+        I.Summary memory _summary,
+        I.Batch memory _batch,
         I.BatchProposeMetadata memory _parentProposeMeta
     )
         internal
         view
         returns (I.BatchContext memory context_)
     {
-        // Validate proposer and coinbase
-        _validateProposerCoinbase(_conf, _batch);
+        // We do not check the coinbase address -- if _batch.coinbase is address(0), the driver
+        // shall use the proposer as the coinbase address.
+
+        // Validate proposer
+        _validateProposer(_conf, _batch);
+
+        // Validate new gas issuance per second
+        _validateGasIssuance(_conf, _summary, _batch);
 
         // Validate and decode blocks
         I.Block[] memory blocks = _validateBlocks(_conf, _batch);
@@ -77,25 +86,47 @@ library LibValidate {
     // Private Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Validates the proposer and coinbase addresses
+    /// @notice Validates the proposer
     /// @dev Handles both direct proposing and inbox wrapper scenarios
     /// @param _conf Protocol configuration
     /// @param _batch The batch being validated
-    function _validateProposerCoinbase(
-        I.Config memory _conf,
-        I.Batch calldata _batch
-    )
-        internal
-        view
-    {
+    function _validateProposer(I.Config memory _conf, I.Batch memory _batch) internal view {
         if (_conf.inboxWrapper == address(0)) {
             require(_batch.proposer == msg.sender, ProposerNotMsgSender());
         } else {
             require(msg.sender == _conf.inboxWrapper, NotInboxWrapper());
             require(_batch.proposer != address(0), CustomProposerMissing());
         }
+    }
 
-        require(_batch.coinbase != address(0), InvalidCoinbase());
+    /// @notice Validates the gas issuance per second for a batch.
+    /// @dev Ensures that the gas issuance per second is within a 1% range of the last recorded
+    /// value.
+    /// @param _conf The protocol configuration
+    /// @param _summary The current protocol
+    /// @param _batch The batch being validated, which includes the gas issuance per second.
+    function _validateGasIssuance(
+        I.Config memory _conf,
+        I.Summary memory _summary,
+        I.Batch memory _batch
+    )
+        internal
+        view
+    {
+        if (_batch.gasIssuancePerSecond == _summary.gasIssuancePerSecond) return;
+
+        require(
+            _batch.gasIssuancePerSecond <= _summary.gasIssuancePerSecond * 101 / 100,
+            GasIssuanceTooHigh()
+        );
+        require(
+            _batch.gasIssuancePerSecond >= _summary.gasIssuancePerSecond * 100 / 101,
+            GasIssuanceTooLow()
+        );
+        require(
+            block.timestamp >= _summary.gasIssuanceUpdatedAt + _conf.gasIssuanceUpdateDelay,
+            GasIssuanceTooEarlyToChange()
+        );
     }
 
     /// @notice Validates and decodes block data from the batch
@@ -105,7 +136,7 @@ library LibValidate {
     /// @return blocks_ Array of decoded and validated blocks
     function _validateBlocks(
         I.Config memory _conf,
-        I.Batch calldata _batch
+        I.Batch memory _batch
     )
         internal
         pure
@@ -119,8 +150,10 @@ library LibValidate {
         blocks_ = new I.Block[](nBlocks_);
 
         for (uint256 i; i < nBlocks_; ++i) {
-            uint256 encoded = uint256(_batch.encodedBlocks[i]);
+            uint256 encoded = _batch.encodedBlocks[i];
 
+            // total bits used: 80 bits, remaining 176 bits (256 - 80 = 176) being unused or
+            // reserved for future use.
             blocks_[i].numTransactions = uint16(encoded);
             blocks_[i].timeShift = uint8(encoded >> 16);
             blocks_[i].anchorBlockId = uint48(encoded >> 24);
@@ -136,7 +169,7 @@ library LibValidate {
     /// @param _parentLastBlockTimestamp Timestamp of the last block in the parent batch
     function _validateTimestamps(
         I.Config memory _conf,
-        I.Batch calldata _batch,
+        I.Batch memory _batch,
         I.Block[] memory _blocks,
         uint48 _parentLastBlockTimestamp
     )
@@ -146,10 +179,9 @@ library LibValidate {
         unchecked {
             require(_batch.lastBlockTimestamp != 0, LastBlockTimestampNotSet());
             require(_batch.lastBlockTimestamp <= block.timestamp, TimestampTooLarge());
-
             require(_blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
-            uint64 totalShift;
+            uint256 totalShift;
 
             for (uint256 i; i < _blocks.length; ++i) {
                 totalShift += _blocks[i].timeShift;
@@ -210,7 +242,7 @@ library LibValidate {
     function _validateAnchors(
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
-        I.Batch calldata _batch,
+        I.Batch memory _batch,
         I.Block[] memory _blocks,
         uint48 _parentLastAnchorBlockId
     )
@@ -288,7 +320,7 @@ library LibValidate {
     /// @return blobsCreatedIn_ Block number where blobs were created
     function _validateBlobs(
         I.Config memory _conf,
-        I.Batch calldata _batch
+        I.Batch memory _batch
     )
         private
         view
@@ -362,9 +394,11 @@ library LibValidate {
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error FirstBlockTimeShiftNotZero();
+    error GasIssuanceTooEarlyToChange();
+    error GasIssuanceTooHigh();
+    error GasIssuanceTooLow();
     error InvalidBlobCreatedIn();
     error InvalidBlobParams();
-    error InvalidCoinbase();
     error InvalidForcedInclusion();
     error LastBlockTimestampNotSet();
     error ProposerNotMsgSender();
