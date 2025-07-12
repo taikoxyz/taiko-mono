@@ -180,8 +180,8 @@ interface IInbox {
         uint48 lastSyncedBlockId;
         uint48 lastSyncedAt;
         uint48 lastVerifiedBatchId;
-        uint32 gasIssuancePerSecond;
         uint48 gasIssuanceUpdatedAt;
+        uint32 gasIssuancePerSecond;
         bytes32 lastVerifiedBlockHash;
         bytes32 lastBatchMetaHash;
     }
