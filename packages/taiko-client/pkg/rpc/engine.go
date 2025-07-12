@@ -144,6 +144,21 @@ func (c *EngineClient) UpdateL1Origin(ctx context.Context, l1Origin *rawdb.L1Ori
 	return res, nil
 }
 
+// SetL1OriginSignature sets the L2 block's corresponding L1 origin signature of the envelope
+func (c *EngineClient) SetL1OriginSignature(
+	ctx context.Context,
+	blockID *big.Int,
+	signature [65]byte,
+) (*rawdb.L1Origin, error) {
+	var res *rawdb.L1Origin
+
+	if err := c.CallContext(ctx, &res, "taikoAuth_setL1OriginSignature", blockID, signature); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 // SetHeadL1Origin sets the latest L2 block's corresponding L1 origin.
 func (c *EngineClient) SetHeadL1Origin(ctx context.Context, blockID *big.Int) (*big.Int, error) {
 	var res *big.Int
