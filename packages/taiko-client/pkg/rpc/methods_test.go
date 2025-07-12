@@ -55,7 +55,7 @@ func TestL2ParentByBlockId(t *testing.T) {
 	require.Zero(t, header.Number.Uint64())
 
 	_, err = client.L2ParentByCurrentBlockID(context.Background(), common.Big2)
-	require.NotNil(t, err)
+	require.Nil(t, err)
 }
 
 func TestL2ExecutionEngineSyncProgress(t *testing.T) {

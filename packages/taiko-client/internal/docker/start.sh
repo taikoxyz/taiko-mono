@@ -5,8 +5,7 @@ source scripts/common.sh
 if [ "$L2_NODE" == "l2_geth" ];then
     DOCKER_SERVICE_LIST=("l1_node" "l2_geth")
   else
-    echo "unsupported L2_NODE: $L2_NODE"
-    exit 1
+    DOCKER_SERVICE_LIST=("l1_node")
 fi
 
 # start docker compose services

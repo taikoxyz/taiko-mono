@@ -21,9 +21,8 @@ import (
 
 type ChainSyncerTestSuite struct {
 	testutils.ClientTestSuite
-	s          *L2ChainSyncer
-	snapshotID string
-	p          testutils.Proposer
+	s *L2ChainSyncer
+	p testutils.Proposer
 }
 
 func (s *ChainSyncerTestSuite) SetupTest() {
@@ -115,17 +114,6 @@ func (s *ChainSyncerTestSuite) TestSync() {
 
 func TestChainSyncerTestSuite(t *testing.T) {
 	suite.Run(t, new(ChainSyncerTestSuite))
-}
-
-func (s *ChainSyncerTestSuite) TakeSnapshot() {
-	// record snapshot state to revert to before changes
-	s.snapshotID = s.SetL1Snapshot()
-}
-
-func (s *ChainSyncerTestSuite) RevertSnapshot() {
-	// revert to the snapshot state so protocol configs are unaffected
-	s.RevertL1Snapshot(s.snapshotID)
-	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big0))
 }
 
 func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead() {
