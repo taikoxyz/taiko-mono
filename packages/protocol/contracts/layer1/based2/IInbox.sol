@@ -180,10 +180,10 @@ interface IInbox {
         uint48 lastSyncedBlockId;
         uint48 lastSyncedAt;
         uint48 lastVerifiedBatchId;
-        bytes32 lastVerifiedBlockHash;
-        bytes32 lastBatchMetaHash;
         uint32 gasIssuancePerSecond;
         uint48 gasIssuanceUpdatedAt;
+        bytes32 lastVerifiedBlockHash;
+        bytes32 lastBatchMetaHash;
     }
 
     /// @notice Struct holding the fork heights.
@@ -283,12 +283,12 @@ interface IInbox {
 
     /// @notice Proposes multiple batches to be proven and verified.
     /// @dev This function allows proposers to submit batches of blocks for processing.
-    /// @param _summary The current state summary of the protocol.
+    /// @param _packedSummary The current state summary of the protocol packed as bytes.
     /// @param _batches Array of batches to be proposed.
     /// @param _packedTrans The packed transition metadata for verification
     /// @return The updated summary
     function propose4(
-        Summary memory _summary,
+        bytes calldata _packedSummary,
         Batch[] calldata _batches,
         BatchProposeMetadataEvidence memory _evidence,
         bytes calldata _packedTrans
@@ -297,12 +297,12 @@ interface IInbox {
         returns (Summary memory);
 
     /// @notice Proves batches with cryptographic proof
-    /// @param _summary The current summary
+    /// @param _packedSummary The current state summary of the protocol packed as bytes.
     /// @param _inputs The batch prove inputs
     /// @param _proof The cryptographic proof
     /// @return The updated summary
     function prove4(
-        Summary memory _summary,
+        bytes calldata _packedSummary,
         BatchProveInput[] calldata _inputs,
         bytes calldata _proof
     )
