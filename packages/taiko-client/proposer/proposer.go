@@ -283,7 +283,7 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	return p.ProposeTxLists(ctx, txLists, parentMetaHash)
 }
 
-// ProposeTxList proposes the given transactions lists to TaikoInbox smart contract.
+// ProposeTxLists proposes the given transactions lists to TaikoInbox smart contract.
 func (p *Proposer) ProposeTxLists(
 	ctx context.Context,
 	txLists []types.Transactions,
