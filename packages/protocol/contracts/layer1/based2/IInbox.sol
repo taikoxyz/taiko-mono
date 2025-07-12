@@ -177,13 +177,13 @@ interface IInbox {
 
     struct Summary {
         uint48 numBatches;
-        uint48 lastUnpausedAt;
         uint48 lastSyncedBlockId;
         uint48 lastSyncedAt;
         uint48 lastVerifiedBatchId;
         bytes32 lastVerifiedBlockHash;
         bytes32 lastBatchMetaHash;
         uint32 gasIssuancePerSecond;
+        uint48 gasIssuanceUpdatedAt;
     }
 
     /// @notice Struct holding the fork heights.

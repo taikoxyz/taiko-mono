@@ -55,7 +55,11 @@ library LibPropose {
                 (meta, _summary.lastBatchMetaHash) =
                     _proposeBatch(_conf, _rw, _summary, _batches[i], parent);
 
-                _summary.gasIssuancePerSecond = _batches[i].gasIssuancePerSecond;
+                if (_summary.gasIssuancePerSecond != _batches[i].gasIssuancePerSecond) {
+                    _summary.gasIssuancePerSecond = _batches[i].gasIssuancePerSecond;
+                    _summary.gasIssuanceUpdatedAt = uint48(block.timestamp);
+                }
+
                 _summary.numBatches += 1;
 
                 parent = meta.proposeMeta;

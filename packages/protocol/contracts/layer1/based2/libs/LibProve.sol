@@ -97,11 +97,8 @@ library LibProve {
             ? _input.tran.stateRoot
             : bytes32(0);
 
-        (I.ProofTiming proofTiming, address prover) = _determineProofTiming(
-            _conf,
-            _input.proveMeta.prover,
-            uint256(_input.proveMeta.proposedAt).max(_summary.lastUnpausedAt)
-        );
+        (I.ProofTiming proofTiming, address prover) =
+            _determineProofTiming(_conf, _input.proveMeta.prover, _input.proveMeta.proposedAt);
 
         // Create the transition metadata
         I.TransitionMeta memory tranMeta = I.TransitionMeta({
