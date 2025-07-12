@@ -158,7 +158,7 @@ library LibCodec {
         }
     }
 
-    // TODO: 
+    // TODO:
     function packBatchContext(I.BatchContext memory _context)
         internal
         pure
@@ -167,13 +167,69 @@ library LibCodec {
         return abi.encode(_context);
     }
 
-    // TODO: 
+    // TODO:
     function unpackBatchContext(bytes memory _packed)
         internal
         pure
         returns (I.BatchContext memory context_)
     {
         return abi.decode(_packed, (I.BatchContext));
+    }
+
+    function packSummary(I.Summary memory _summary) internal pure returns (bytes memory encoded_) {
+        return abi.encode(_summary);
+    }
+
+    function unpackSummary(bytes memory _encoded)
+        internal
+        pure
+        returns (I.Summary memory summary_)
+    {
+        return abi.decode(_encoded, (I.Summary));
+    }
+
+    function packBatches(I.Batch[] memory _batches) internal pure returns (bytes memory encoded_) {
+        return abi.encode(_batches);
+    }
+
+    function unpackBatches(bytes memory _encoded)
+        internal
+        pure
+        returns (I.Batch[] memory batches_)
+    {
+        return abi.decode(_encoded, (I.Batch[]));
+    }
+
+    function packBatchProveInputs(I.BatchProveInput[] memory _batches)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
+        return abi.encode(_batches);
+    }
+
+    function unpackBatchProveInputs(bytes memory _encoded)
+        internal
+        pure
+        returns (I.BatchProveInput[] memory batches_)
+    {
+        return abi.decode(_encoded, (I.BatchProveInput[]));
+    }
+
+    function packBatchProposeMetadataEvidence(I.BatchProposeMetadataEvidence memory _evidence)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
+        return abi.encode(_evidence);
+    }
+
+    function unpackBatchProposeMetadataEvidence(bytes memory _encoded)
+        internal
+        pure
+        returns (I.BatchProposeMetadataEvidence memory evidence_)
+    {
+        return abi.decode(_encoded, (I.BatchProposeMetadataEvidence));
     }
 
     // -------------------------------------------------------------------------

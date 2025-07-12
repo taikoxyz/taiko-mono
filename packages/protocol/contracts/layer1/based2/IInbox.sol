@@ -180,10 +180,10 @@ interface IInbox {
         uint48 lastSyncedBlockId;
         uint48 lastSyncedAt;
         uint48 lastVerifiedBatchId;
+        uint48 gasIssuanceUpdatedAt;
+        uint32 gasIssuancePerSecond;
         bytes32 lastVerifiedBlockHash;
         bytes32 lastBatchMetaHash;
-        uint32 gasIssuancePerSecond;
-        uint48 gasIssuanceUpdatedAt;
     }
 
     /// @notice Struct holding the fork heights.
@@ -281,29 +281,29 @@ interface IInbox {
     // solhint-disable var-name-mixedcase
     event Verified(uint256 uint48_batchId_uint48_blockId, bytes32 blockHash);
 
-    /// @notice Proposes multiple batches to be proven and verified.
-    /// @dev This function allows proposers to submit batches of blocks for processing.
-    /// @param _summary The current state summary of the protocol.
-    /// @param _batches Array of batches to be proposed.
+    /// @notice Proposes and verifies batches
+    /// @param _packedSummary The current summary, packed into bytes
+    /// @param _packedBatches The batches to propose, packed into bytes
+    /// @param _packedEvidence The batch proposal evidence, packed into bytes
     /// @param _packedTrans The packed transition metadata for verification
     /// @return The updated summary
     function propose4(
-        Summary memory _summary,
-        Batch[] calldata _batches,
-        BatchProposeMetadataEvidence memory _evidence,
+        bytes calldata _packedSummary,
+        bytes calldata _packedBatches,
+        bytes calldata _packedEvidence,
         bytes calldata _packedTrans
     )
         external
         returns (Summary memory);
 
     /// @notice Proves batches with cryptographic proof
-    /// @param _summary The current summary
-    /// @param _inputs The batch prove inputs
+    /// @param _packedSummary The current summary packed as bytes
+    /// @param _packedBatchProveInputs The batch prove inputs
     /// @param _proof The cryptographic proof
     /// @return The updated summary
     function prove4(
-        Summary memory _summary,
-        BatchProveInput[] calldata _inputs,
+        bytes calldata _packedSummary,
+        bytes calldata _packedBatchProveInputs,
         bytes calldata _proof
     )
         external

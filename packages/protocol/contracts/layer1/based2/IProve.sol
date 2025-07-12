@@ -9,13 +9,13 @@ import { IInbox as I } from "./IInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 interface IProve {
     /// @notice Proves batches with cryptographic proof
-    /// @param _summary The current summary
-    /// @param _inputs The batch prove inputs
+    /// @param _packedSummary The current summary packed as bytes
+    /// @param _packedBatchProveInputs The batch prove inputs
     /// @param _proof The cryptographic proof
     /// @return The updated summary
     function prove4(
-        I.Summary memory _summary,
-        I.BatchProveInput[] calldata _inputs,
+        bytes calldata _packedSummary,
+        bytes calldata _packedBatchProveInputs,
         bytes calldata _proof
     )
         external

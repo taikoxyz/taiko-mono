@@ -9,15 +9,15 @@ import { IInbox as I } from "./IInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 interface IPropose {
     /// @notice Proposes and verifies batches
-    /// @param _summary The current summary
-    /// @param _batches The batches to propose
-    /// @param _evidence The batch proposal evidence
+    /// @param _packedSummary The current summary, packed into bytes
+    /// @param _packedBatches The batches to propose, packed into bytes
+    /// @param _packedEvidence The batch proposal evidence, packed into bytes
     /// @param _packedTrans The packed transition metadata for verification
     /// @return The updated summary
     function propose4(
-        I.Summary memory _summary,
-        I.Batch[] calldata _batches,
-        I.BatchProposeMetadataEvidence memory _evidence,
+        bytes calldata _packedSummary,
+        bytes calldata _packedBatches,
+        bytes calldata _packedEvidence,
         bytes calldata _packedTrans
     )
         external

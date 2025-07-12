@@ -39,20 +39,28 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
     /// @notice Initializes the contract with owner and genesis block hash
     /// @param _owner The owner address
     /// @param _genesisBlockHash The genesis block hash
-    function init4(address _owner, bytes32 _genesisBlockHash) external initializer {
-        _init(_owner, _genesisBlockHash);
+    /// @param _gasIssuancePerSecond The initial gas issuance per second
+    function init4(
+        address _owner,
+        bytes32 _genesisBlockHash,
+        uint32 _gasIssuancePerSecond
+    )
+        external
+        initializer
+    {
+        _init(_owner, _genesisBlockHash, _gasIssuancePerSecond);
     }
 
     /// @notice Proposes and verifies batches
-    /// @param _summary The current summary
-    /// @param _batches The batches to propose
-    /// @param _evidence The batch proposal evidence
+    /// @param _packedSummary The current summary, packed into bytes
+    /// @param _packedBatches The batches to propose, packed into bytes
+    /// @param _packedEvidence The batch proposal evidence, packed into bytes
     /// @param _packedTrans The packed transition metadata for verification
     /// @return The updated summary
     function propose4(
-        I.Summary memory _summary,
-        I.Batch[] calldata _batches,
-        I.BatchProposeMetadataEvidence memory _evidence,
+        bytes calldata _packedSummary,
+        bytes calldata _packedBatches,
+        bytes calldata _packedEvidence,
         bytes calldata _packedTrans
     )
         external
@@ -60,30 +68,33 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         nonReentrant
         returns (I.Summary memory)
     {
-        require(_loadSummaryHash() == keccak256(abi.encode(_summary)), SummaryMismatch());
+        I.Summary memory summary = _validateSummary(_packedSummary);
+        I.Batch[] memory batches = LibCodec.unpackBatches(_packedBatches);
+        I.BatchProposeMetadataEvidence memory evidence =
+            LibCodec.unpackBatchProposeMetadataEvidence(_packedEvidence);
+        I.TransitionMeta[] memory trans = LibCodec.unpackTransitionMetas(_packedTrans);
 
         I.Config memory conf = _getConfig();
         LibState.ReadWrite memory rw = _getReadWrite();
 
         // Propose batches
-        _summary = LibPropose.propose(conf, rw, _summary, _batches, _evidence);
+        summary = LibPropose.propose(conf, rw, summary, batches, evidence);
 
         // Verify batches
-        I.TransitionMeta[] memory trans = LibCodec.unpackTransitionMetas(_packedTrans);
-        _summary = LibVerify.verify(conf, rw, _summary, trans);
+        summary = LibVerify.verify(conf, rw, summary, trans);
 
-        _saveSummaryHash(keccak256(abi.encode(_summary)));
-        return _summary;
+        _saveSummaryHash(keccak256(abi.encode(summary)));
+        return summary;
     }
 
     /// @notice Proves batches with cryptographic proof
-    /// @param _summary The current summary
-    /// @param _inputs The batch prove inputs
+    /// @param _packedSummary The current summary packed as bytes
+    /// @param _packedBatchProveInputs The batch prove inputs
     /// @param _proof The cryptographic proof
     /// @return The updated summary
     function prove4(
-        I.Summary memory _summary,
-        I.BatchProveInput[] calldata _inputs,
+        bytes calldata _packedSummary,
+        bytes calldata _packedBatchProveInputs,
         bytes calldata _proof
     )
         external
@@ -91,20 +102,21 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         nonReentrant
         returns (I.Summary memory)
     {
-        require(_loadSummaryHash() == keccak256(abi.encode(_summary)), SummaryMismatch());
+        I.Summary memory summary = _validateSummary(_packedSummary);
+        I.BatchProveInput[] memory inputs = LibCodec.unpackBatchProveInputs(_packedBatchProveInputs);
 
         I.Config memory conf = _getConfig();
         LibState.ReadWrite memory rw = _getReadWrite();
 
         // Prove batches and get aggregated hash
         bytes32 aggregatedBatchHash;
-        (_summary, aggregatedBatchHash) = LibProve.prove(conf, rw, _summary, _inputs);
+        (summary, aggregatedBatchHash) = LibProve.prove(conf, rw, summary, inputs);
 
         // Verify the proof
         IVerifier2(conf.verifier).verifyProof(aggregatedBatchHash, _proof);
 
-        _saveSummaryHash(keccak256(abi.encode(_summary)));
-        return _summary;
+        _saveSummaryHash(keccak256(abi.encode(summary)));
+        return summary;
     }
 
     /// @notice Builds batch metadata from batch and batch context data
@@ -249,7 +261,14 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
     /// @notice Initializes the Taiko contract
     /// @param _owner The owner address
     /// @param _genesisBlockHash The genesis block hash
-    function _init(address _owner, bytes32 _genesisBlockHash) private onlyInitializing {
+    function _init(
+        address _owner,
+        bytes32 _genesisBlockHash,
+        uint32 _gasIssuancePerSecond
+    )
+        private
+        onlyInitializing
+    {
         __Essential_init(_owner);
         require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
 
@@ -263,6 +282,7 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         // Initialize the summary
         I.Summary memory summary;
         summary.lastBatchMetaHash = LibData.hashBatch(0, meta);
+        summary.gasIssuancePerSecond = _gasIssuancePerSecond;
         summary.numBatches = 1;
 
         _saveBatchMetaHash(conf, 0, summary.lastBatchMetaHash);
@@ -288,6 +308,15 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
             syncChainData: _syncChainData,
             saveBatchMetaHash: _saveBatchMetaHash
         });
+    }
+
+    function _validateSummary(bytes calldata _packedSummary)
+        private
+        view
+        returns (I.Summary memory summary_)
+    {
+        summary_ = LibCodec.unpackSummary(_packedSummary);
+        require(_loadSummaryHash() == keccak256(abi.encode(summary_)), SummaryMismatch());
     }
 
     // -------------------------------------------------------------------------
