@@ -35,7 +35,7 @@ library LibProve {
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
-        I.BatchProveInput[] calldata _evidences
+        I.BatchProveInput[] memory _evidences
     )
         internal
         returns (I.Summary memory, bytes32)
@@ -70,7 +70,7 @@ library LibProve {
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
-        I.BatchProveInput calldata _input
+        I.BatchProveInput memory _input
     )
         private
         returns (bytes32)
@@ -164,7 +164,7 @@ library LibProve {
     /// @param _input The batch prove input containing metadata to validate
     function _validateProveMeta(
         bytes32 _batchMetaHash,
-        I.BatchProveInput calldata _input
+        I.BatchProveInput memory _input
     )
         private
         pure

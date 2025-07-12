@@ -188,7 +188,7 @@ library LibCodec {
         return abi.decode(_encoded, (I.Summary));
     }
 
-      function packBatch(I.Batch[] memory _batches) internal pure returns (bytes memory encoded_) {
+    function packBatches(I.Batch[] memory _batches) internal pure returns (bytes memory encoded_) {
         return abi.encode(_batches);
     }
 
@@ -200,6 +200,37 @@ library LibCodec {
         return abi.decode(_encoded, (I.Batch[]));
     }
 
+    function packBatchProveInputs(I.BatchProveInput[] memory _batches)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
+        return abi.encode(_batches);
+    }
+
+    function unpackBatchProveInputs(bytes memory _encoded)
+        internal
+        pure
+        returns (I.BatchProveInput[] memory batches_)
+    {
+        return abi.decode(_encoded, (I.BatchProveInput[]));
+    }
+
+    function packBatchProposeMetadataEvidence(I.BatchProposeMetadataEvidence memory _evidence)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
+        return abi.encode(_evidence);
+    }
+
+    function unpackBatchProposeMetadataEvidence(bytes memory _encoded)
+        internal
+        pure
+        returns (I.BatchProposeMetadataEvidence memory evidence_)
+    {
+        return abi.decode(_encoded, (I.BatchProposeMetadataEvidence));
+    }
 
     // -------------------------------------------------------------------------
     // Custom Errors

@@ -284,26 +284,26 @@ interface IInbox {
     /// @notice Proposes and verifies batches
     /// @param _packedSummary The current summary, packed into bytes
     /// @param _packedBatches The batches to propose, packed into bytes
-    /// @param _evidence The batch proposal evidence
+    /// @param _packedEvidence The batch proposal evidence, packed into bytes
     /// @param _packedTrans The packed transition metadata for verification
     /// @return The updated summary
     function propose4(
         bytes calldata _packedSummary,
         bytes calldata _packedBatches,
-        BatchProposeMetadataEvidence calldata _evidence,
+        bytes calldata _packedEvidence,
         bytes calldata _packedTrans
     )
         external
         returns (Summary memory);
 
     /// @notice Proves batches with cryptographic proof
-    /// @param _packedSummary The current state summary of the protocol packed as bytes.
-    /// @param _inputs The batch prove inputs
+    /// @param _packedSummary The current summary packed as bytes
+    /// @param _packedBatchProveInputs The batch prove inputs
     /// @param _proof The cryptographic proof
     /// @return The updated summary
     function prove4(
         bytes calldata _packedSummary,
-        BatchProveInput[] calldata _inputs,
+        bytes calldata _packedBatchProveInputs,
         bytes calldata _proof
     )
         external
