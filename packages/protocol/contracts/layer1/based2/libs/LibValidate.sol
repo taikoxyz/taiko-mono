@@ -49,7 +49,7 @@ library LibValidate {
         _validateProposer(_conf, _batch);
 
         // Validate new gas issuance per second
-        _validateGasIssuance(_summary, _batch);
+        _validateGasIssuance(_conf, _summary, _batch);
 
         // Validate and decode blocks
         I.Block[] memory blocks = _validateBlocks(_conf, _batch);
@@ -102,9 +102,19 @@ library LibValidate {
     /// @notice Validates the gas issuance per second for a batch.
     /// @dev Ensures that the gas issuance per second is within a 1% range of the last recorded
     /// value.
-    /// @param _summary The current protocol summary containing the last gas issuance per second.
+    /// @param _conf The protocol configuration
+    /// @param _summary The current protocol
     /// @param _batch The batch being validated, which includes the gas issuance per second.
-    function _validateGasIssuance(I.Summary memory _summary, I.Batch memory _batch) internal pure {
+    function _validateGasIssuance(
+        I.Config memory _conf,
+        I.Summary memory _summary,
+        I.Batch memory _batch
+    )
+        internal
+        view
+    {
+        if (_batch.gasIssuancePerSecond == _summary.gasIssuancePerSecond) return;
+
         require(
             _batch.gasIssuancePerSecond <= _summary.gasIssuancePerSecond * 101 / 100,
             GasIssuanceTooHigh()
@@ -112,6 +122,10 @@ library LibValidate {
         require(
             _batch.gasIssuancePerSecond >= _summary.gasIssuancePerSecond * 100 / 101,
             GasIssuanceTooLow()
+        );
+        require(
+            block.timestamp >= _summary.gasIssuanceUpdatedAt + _conf.gasIssuanceUpdateDelay,
+            GasIssuanceTooEarlyToChange()
         );
     }
 
@@ -380,6 +394,7 @@ library LibValidate {
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error FirstBlockTimeShiftNotZero();
+    error GasIssuanceTooEarlyToChange();
     error GasIssuanceTooHigh();
     error GasIssuanceTooLow();
     error InvalidBlobCreatedIn();

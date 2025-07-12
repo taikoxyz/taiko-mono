@@ -238,6 +238,7 @@ interface IInbox {
         address inboxWrapper;
         address verifier;
         address signalService;
+        uint16 gasIssuanceUpdateDelay;
     }
 
     /// @notice Struct holding the state variables for the {Taiko} contract.
