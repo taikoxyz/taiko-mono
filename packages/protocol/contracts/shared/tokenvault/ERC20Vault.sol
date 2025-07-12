@@ -444,7 +444,7 @@ contract ERC20Vault is BaseVault {
         if (_op.l2BatchMetaHash != 0) {
             // Verify that the required L2 batch containing the intent transaction has been proposed
             address taiko = resolve(LibNames.B_TAIKO, false);
-            if (!ITaiko(taiko).v4IsInbox()) revert VAULT_NOT_ON_L1();
+            if (!ITaiko(taiko).isInbox4()) revert VAULT_NOT_ON_L1();
 
             bytes32 l2BatchMetaHash = ITaikoInbox(taiko).v4GetBatch(_op.l2BatchId).metaHash;
             if (l2BatchMetaHash != _op.l2BatchMetaHash) revert VAULT_METAHASH_MISMATCH();
