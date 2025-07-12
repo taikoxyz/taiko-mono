@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.7.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.6.3...taiko-alethia-client-v1.7.0) (2025-07-12)
+
+
+### Features
+
+* **taiko-client:** set highest unsafe l2 payload to latest head on server startup in driver ([#19696](https://github.com/taikoxyz/taiko-mono/issues/19696)) ([16ef25d](https://github.com/taikoxyz/taiko-mono/commit/16ef25d141f27bc4bc991e946c7ac9a63a1fef21))
+
+
+### Bug Fixes
+
+* **taiko-client:** update L1 origin of parent if the block is building on a orphaned parent ([#19701](https://github.com/taikoxyz/taiko-mono/issues/19701)) ([6632b6d](https://github.com/taikoxyz/taiko-mono/commit/6632b6d318e0501ec88f33e3a6f904b0ce02cf65))
+
+
+### Chores
+
+* **taiko-client:** fix some function names in comment ([#19724](https://github.com/taikoxyz/taiko-mono/issues/19724)) ([3c1d2cb](https://github.com/taikoxyz/taiko-mono/commit/3c1d2cbddd137354773e981a9f80929bc0cb9a57))
+
 ## [1.6.3](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.6.2...taiko-alethia-client-v1.6.3) (2025-06-26)
 
 
