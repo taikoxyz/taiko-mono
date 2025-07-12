@@ -44,19 +44,19 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
     }
 
     /// @notice Proposes and verifies batches
-    /// @param _packedSummary The current summary packed into bytes
-    /// @param _batches The batches to propose
+    /// @param _packedSummary The current summary, packed into bytes
+    /// @param _packedBatches The batches to propose, packed into bytes
     /// @param _evidence The batch proposal evidence
     /// @param _packedTrans The packed transition metadata for verification
     /// @return The updated summary
     function propose4(
         bytes calldata _packedSummary,
-        I.Batch[] calldata _batches,
+        bytes calldata _packedBatches,
         I.BatchProposeMetadataEvidence calldata _evidence,
         bytes calldata _packedTrans
     )
         external
-        override(I, IPropose)
+        // override(I, IPropose)
         nonReentrant
         returns (I.Summary memory)
     {
@@ -65,7 +65,8 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         LibState.ReadWrite memory rw = _getReadWrite();
 
         // Propose batches
-        summary = LibPropose.propose(conf, rw, summary, _batches, _evidence);
+        I.Batch[] memory batches = LibCodec.unpackBatches(_packedBatches);
+        summary = LibPropose.propose(conf, rw, summary, batches, _evidence);
 
         // Verify batches
         I.TransitionMeta[] memory trans = LibCodec.unpackTransitionMetas(_packedTrans);
@@ -86,7 +87,7 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         bytes calldata _proof
     )
         external
-        override(I, IProve)
+        // override(I, IProve)
         nonReentrant
         returns (I.Summary memory)
     {

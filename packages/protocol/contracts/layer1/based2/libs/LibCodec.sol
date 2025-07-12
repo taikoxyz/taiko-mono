@@ -188,6 +188,19 @@ library LibCodec {
         return abi.decode(_encoded, (I.Summary));
     }
 
+      function packBatch(I.Batch[] memory _batches) internal pure returns (bytes memory encoded_) {
+        return abi.encode(_batches);
+    }
+
+    function unpackBatches(bytes memory _encoded)
+        internal
+        pure
+        returns (I.Batch[] memory batches_)
+    {
+        return abi.decode(_encoded, (I.Batch[]));
+    }
+
+
     // -------------------------------------------------------------------------
     // Custom Errors
     // -------------------------------------------------------------------------

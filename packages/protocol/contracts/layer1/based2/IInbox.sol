@@ -281,16 +281,16 @@ interface IInbox {
     // solhint-disable var-name-mixedcase
     event Verified(uint256 uint48_batchId_uint48_blockId, bytes32 blockHash);
 
-    /// @notice Proposes multiple batches to be proven and verified.
-    /// @dev This function allows proposers to submit batches of blocks for processing.
-    /// @param _packedSummary The current state summary of the protocol packed as bytes.
-    /// @param _batches Array of batches to be proposed.
+    /// @notice Proposes and verifies batches
+    /// @param _packedSummary The current summary, packed into bytes
+    /// @param _packedBatches The batches to propose, packed into bytes
+    /// @param _evidence The batch proposal evidence
     /// @param _packedTrans The packed transition metadata for verification
     /// @return The updated summary
     function propose4(
         bytes calldata _packedSummary,
-        Batch[] calldata _batches,
-        BatchProposeMetadataEvidence memory _evidence,
+        bytes calldata _packedBatches,
+        BatchProposeMetadataEvidence calldata _evidence,
         bytes calldata _packedTrans
     )
         external
