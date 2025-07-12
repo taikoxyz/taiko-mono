@@ -32,7 +32,7 @@ library LibPropose {
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
-        I.Batch[] calldata _batches,
+        I.Batch[] memory _batches,
         I.BatchProposeMetadataEvidence memory _evidence
     )
         internal
@@ -55,7 +55,9 @@ library LibPropose {
                 (meta, _summary.lastBatchMetaHash) =
                     _proposeBatch(_conf, _rw, _summary, _batches[i], parent);
 
+                _summary.gasIssuancePerSecond = _batches[i].gasIssuancePerSecond;
                 _summary.numBatches += 1;
+
                 parent = meta.proposeMeta;
             }
 
@@ -79,14 +81,14 @@ library LibPropose {
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
         I.Summary memory _summary,
-        I.Batch calldata _batch,
+        I.Batch memory _batch,
         I.BatchProposeMetadata memory _parent
     )
         private
         returns (I.BatchMetadata memory meta_, bytes32 batchMetaHash_)
     {
         // Validate the batch parameters and return batch and batch context data
-        I.BatchContext memory context = LibValidate.validate(_conf, _rw, _batch, _parent);
+        I.BatchContext memory context = LibValidate.validate(_conf, _rw, _summary, _batch, _parent);
 
         context.prover = LibProver.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
 

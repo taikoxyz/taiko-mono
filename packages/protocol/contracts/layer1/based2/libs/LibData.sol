@@ -25,7 +25,7 @@ library LibData {
     function buildBatchMetadata(
         uint48 _blockNumber,
         uint48 _blockTimestamp,
-        I.Batch calldata _batch,
+        I.Batch memory _batch,
         I.BatchContext memory _context
     )
         internal
@@ -36,7 +36,7 @@ library LibData {
         meta_.buildMeta = I.BatchBuildMetadata({
             txsHash: _context.txsHash,
             blobHashes: _context.blobHashes,
-            extraData: _encodeExtraDataLower128Bits(_context.baseFeeConfig.sharingPctg, _batch),
+            extraData: _encodeExtraData(_context.baseFeeConfig.sharingPctg, _batch),
             coinbase: _batch.coinbase,
             proposedIn: _blockNumber,
             blobCreatedIn: _batch.blobs.createdIn,
@@ -126,11 +126,12 @@ library LibData {
     /// @dev Bit-level encoding for efficient storage:
     ///      - Bits 0-7: Base fee sharing percentage (0-100)
     ///      - Bit 8: Forced inclusion flag (0 or 1)
-    ///      - Bits 9-127: Reserved for future use
+    ///      - Bits 9-40: Gas issuance per second (32 bits)
+    ///      - Bits 41-127: Reserved for future use
     /// @param _baseFeeSharingPctg Base fee sharing percentage (0-100)
-    /// @param _batch Batch information containing forced inclusion flag
+    /// @param _batch Batch information containing forced inclusion flag and gas issuance
     /// @return Encoded data as bytes32 with information packed in lower 128 bits
-    function _encodeExtraDataLower128Bits(
+    function _encodeExtraData(
         uint8 _baseFeeSharingPctg,
         I.Batch memory _batch
     )
@@ -138,9 +139,10 @@ library LibData {
         pure
         returns (bytes32)
     {
-        uint128 v = _baseFeeSharingPctg; // bits 0-7
+        uint256 v = _baseFeeSharingPctg; // bits 0-7
         v |= _batch.isForcedInclusion ? 1 << 8 : 0; // bit 8
+        v |= _batch.gasIssuancePerSecond << 9; // bits 9-40
 
-        return bytes32(uint256(v));
+        return bytes32(v);
     }
 }

@@ -27,13 +27,15 @@ library LibValidate {
     /// @dev The prover field of the returend context object will not be initialized.
     /// @param _conf Protocol configuration parameters
     /// @param _rw Read/write access functions for blockchain state
+    /// @param _summary Current protocol summary state
     /// @param _batch The batch to validate
     /// @param _parentProposeMeta Metadata from the parent batch proposal
     /// @return context_ Validated batch information and computed hashes
     function validate(
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
-        I.Batch calldata _batch,
+        I.Summary memory _summary,
+        I.Batch memory _batch,
         I.BatchProposeMetadata memory _parentProposeMeta
     )
         internal
@@ -45,6 +47,9 @@ library LibValidate {
 
         // Validate proposer
         _validateProposer(_conf, _batch);
+
+        // Validate new gas issuance per second
+        _validateGasIssuance(_summary, _batch);
 
         // Validate and decode blocks
         I.Block[] memory blocks = _validateBlocks(_conf, _batch);
@@ -85,13 +90,29 @@ library LibValidate {
     /// @dev Handles both direct proposing and inbox wrapper scenarios
     /// @param _conf Protocol configuration
     /// @param _batch The batch being validated
-    function _validateProposer(I.Config memory _conf, I.Batch calldata _batch) internal view {
+    function _validateProposer(I.Config memory _conf, I.Batch memory _batch) internal view {
         if (_conf.inboxWrapper == address(0)) {
             require(_batch.proposer == msg.sender, ProposerNotMsgSender());
         } else {
             require(msg.sender == _conf.inboxWrapper, NotInboxWrapper());
             require(_batch.proposer != address(0), CustomProposerMissing());
         }
+    }
+
+    /// @notice Validates the gas issuance per second for a batch.
+    /// @dev Ensures that the gas issuance per second is within a 1% range of the last recorded
+    /// value.
+    /// @param _summary The current protocol summary containing the last gas issuance per second.
+    /// @param _batch The batch being validated, which includes the gas issuance per second.
+    function _validateGasIssuance(I.Summary memory _summary, I.Batch memory _batch) internal pure {
+        require(
+            _batch.gasIssuancePerSecond <= _summary.gasIssuancePerSecond * 101 / 100,
+            GasIssuanceTooHigh()
+        );
+        require(
+            _batch.gasIssuancePerSecond >= _summary.gasIssuancePerSecond * 100 / 101,
+            GasIssuanceTooLow()
+        );
     }
 
     /// @notice Validates and decodes block data from the batch
@@ -101,7 +122,7 @@ library LibValidate {
     /// @return blocks_ Array of decoded and validated blocks
     function _validateBlocks(
         I.Config memory _conf,
-        I.Batch calldata _batch
+        I.Batch memory _batch
     )
         internal
         pure
@@ -134,7 +155,7 @@ library LibValidate {
     /// @param _parentLastBlockTimestamp Timestamp of the last block in the parent batch
     function _validateTimestamps(
         I.Config memory _conf,
-        I.Batch calldata _batch,
+        I.Batch memory _batch,
         I.Block[] memory _blocks,
         uint48 _parentLastBlockTimestamp
     )
@@ -207,7 +228,7 @@ library LibValidate {
     function _validateAnchors(
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
-        I.Batch calldata _batch,
+        I.Batch memory _batch,
         I.Block[] memory _blocks,
         uint48 _parentLastAnchorBlockId
     )
@@ -285,7 +306,7 @@ library LibValidate {
     /// @return blobsCreatedIn_ Block number where blobs were created
     function _validateBlobs(
         I.Config memory _conf,
-        I.Batch calldata _batch
+        I.Batch memory _batch
     )
         private
         view
@@ -359,6 +380,8 @@ library LibValidate {
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error FirstBlockTimeShiftNotZero();
+    error GasIssuanceTooHigh();
+    error GasIssuanceTooLow();
     error InvalidBlobCreatedIn();
     error InvalidBlobParams();
     error InvalidForcedInclusion();

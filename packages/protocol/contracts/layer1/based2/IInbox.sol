@@ -49,6 +49,7 @@ interface IInbox {
         bytes32[] signalSlots;
         uint48[] anchorBlockIds;
         uint256[] encodedBlocks; // encoded Block
+        uint32 gasIssuancePerSecond;
         bytes proverAuth;
     }
 
@@ -182,6 +183,7 @@ interface IInbox {
         uint48 lastVerifiedBatchId;
         bytes32 lastVerifiedBlockHash;
         bytes32 lastBatchMetaHash;
+        uint32 gasIssuancePerSecond;
     }
 
     /// @notice Struct holding the fork heights.
