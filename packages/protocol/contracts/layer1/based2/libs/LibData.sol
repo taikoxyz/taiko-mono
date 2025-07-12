@@ -36,7 +36,7 @@ library LibData {
         meta_.buildMeta = I.BatchBuildMetadata({
             txsHash: _context.txsHash,
             blobHashes: _context.blobHashes,
-            extraData: _encodeExtraData(_context.baseFeeConfig.sharingPctg, _batch),
+            extraData: _encodeExtraData(_context.baseFeeSharingPctg, _batch),
             coinbase: _batch.coinbase,
             proposedIn: _blockNumber,
             blobCreatedIn: _batch.blobs.createdIn,
@@ -47,8 +47,7 @@ library LibData {
             lastBlockTimestamp: _batch.lastBlockTimestamp,
             anchorBlockIds: _batch.anchorBlockIds,
             anchorBlockHashes: _context.anchorBlockHashes,
-            encodedBlocks: _batch.encodedBlocks,
-            baseFeeConfig: _context.baseFeeConfig
+            encodedBlocks: _batch.encodedBlocks
         });
 
         // Propose metadata section

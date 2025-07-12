@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/based/LibSharedData.sol";
-
 interface IInbox {
     struct Block {
         // the max number of transactions in this block. Note that if there are not enough
@@ -73,9 +71,9 @@ interface IInbox {
         uint48 blobsCreatedIn;
         /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
-        LibSharedData.BaseFeeConfig baseFeeConfig;
         uint48 livenessBond;
         uint48 provabilityBond;
+        uint8 baseFeeSharingPctg;
     }
 
     struct ProverAuth {
@@ -102,7 +100,6 @@ interface IInbox {
         uint48[] anchorBlockIds;
         bytes32[] anchorBlockHashes;
         uint256[] encodedBlocks;
-        LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
     struct BatchProposeMetadata {
@@ -217,8 +214,6 @@ interface IInbox {
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.
         uint64 maxAnchorHeightOffset;
-        /// @notice Base fee configuration
-        LibSharedData.BaseFeeConfig baseFeeConfig;
         /// @notice The proving window in seconds.
         uint16 provingWindow;
         /// @notice The extended proving window in seconds before provability bond is used as
@@ -239,6 +234,7 @@ interface IInbox {
         address verifier;
         address signalService;
         uint16 gasIssuanceUpdateDelay;
+        uint8 baseFeeSharingPctg;
     }
 
     /// @notice Struct holding the state variables for the {Taiko} contract.
