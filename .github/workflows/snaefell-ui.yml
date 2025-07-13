@@ -5,13 +5,13 @@ on:
 
 jobs:
   build-and-test:
-    if: ${{ github.actor != 'dependabot[bot]' }}
+    if: ${{ !startsWith(github.head_ref, 'dependabot') }}
     uses: ./.github/workflows/snaefell-ui--ci.yml
 
   # Deployment name follow the pattern: deploy_<appname(snaefell-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
   # The following Vercel project is not found, so disable it at least for now.
   deploy_snaefell-ui_mainnet_preview:
-    if: ${{ github.actor != 'dependabot[bot]' }}
+    if: ${{ !startsWith(github.head_ref, 'dependabot') }}
     needs: build-and-test
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
@@ -23,7 +23,7 @@ jobs:
       vercel_token: ${{ secrets.VERCEL_TOKEN }}
 
   deploy_snaefell-ui_mainnet_production:
-    if: ${{ github.actor != 'dependabot[bot]' }}
+    if: ${{ !startsWith(github.head_ref, 'dependabot') }}
     needs: build-and-test
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:

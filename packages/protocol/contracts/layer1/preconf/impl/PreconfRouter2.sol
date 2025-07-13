@@ -22,19 +22,10 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
 
     uint256[50] private __gap;
 
-    error ForcedInclusionNotSupported();
-    error InvalidCurrentLookahead();
-    error InvalidLookaheadProof();
     error InvalidLookaheadTimestamp();
-    error InvalidNextLookahead();
-    error InvalidPreviousLookahead();
+    error InvalidLookahead();
     error InvalidSlotIndex();
-    error NotPreconfer();
-    error NotPreconferOrFallback();
-    error OperatorIsNotOptedIn();
-    error OperatorIsNotRegistered();
-    error OperatorIsSlashed();
-    error OperatorIsUnregistered();
+    error NotWhitelistedOrFallbackPreconfer();
     error ProposerIsNotPreconfer();
 
     constructor(
@@ -100,21 +91,23 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                 if (currLookaheadHash != 0) {
                     _validateLookahead(epochTimestamp, currLookahead, currLookaheadHash);
                 } else {
-                    require(currLookahead.length == 0, InvalidCurrentLookahead());
+                    require(currLookahead.length == 0, InvalidLookahead());
                 }
             }
 
             uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
             bytes26 nextLookaheadHash = lookaheadStore.getLookaheadHash(nextEpochTimestamp);
-            bool nextLookaheadNeedsValidation;
+            bool validateNextLookahead;
+            bool validateWhitelistPreconfer;
 
             // Wrapped inside a scope to avoid stack too deep error
             {
                 if (nextLookaheadHash == 0) {
                     // If the lookahead for the next epoch is not posted, we post it here.
-                    if (currLookahead.length == 0) {
-                        // A whitelist preconfer is expected since the current lookahead is empty.
-                        // A commitment is not required for the whitelist preconfer.
+                    if (commitmentSignature.length == 0) {
+                        // A whitelist preconfer is expected since a signed commitment is not
+                        // provided.
+                        validateWhitelistPreconfer = true;
                         nextLookaheadHash =
                             lookaheadStore.updateLookahead(bytes32(0), abi.encode(nextLookahead));
                     } else {
@@ -127,19 +120,18 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                         );
                     }
                 } else {
-                    require(commitmentSignature.length == 0, InvalidNextLookahead());
-                    nextLookaheadNeedsValidation = true;
+                    validateNextLookahead = true;
                 }
             }
 
+            ILookaheadStore.LookaheadSlot memory _lookaheadSlot;
+
             if (currLookahead.length == 0) {
                 // The current lookahead is empty, so we use a whitelisted preconfer
-                _validateWhitelistPreconfer();
+                validateWhitelistPreconfer = true;
             } else {
                 uint256 preconfSlotTimestamp; // Upper boundary of the preconfing period
                 uint256 prevSlotTimestamp; // Lower boundary of the preconfing period
-
-                ILookaheadStore.LookaheadSlot memory _lookaheadSlot;
 
                 if (slotIndex == type(uint256).max) {
                     // This is the case when the first preconfer from the next epoch is proposing in
@@ -151,7 +143,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                     // - x, y, z and v represent empty slots with no opted in preconfer.
                     // - Pb intends to propose at any slot y
                     //
-                    if (nextLookaheadNeedsValidation) {
+                    if (validateNextLookahead) {
                         _validateLookahead(nextEpochTimestamp, nextLookahead, nextLookaheadHash);
                     }
 
@@ -167,7 +159,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                         preconfSlotTimestamp =
                             nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
 
-                        _validateWhitelistPreconfer();
+                        validateWhitelistPreconfer = true;
                     } else {
                         preconfSlotTimestamp = nextLookahead[0].slotTimestamp;
                         _lookaheadSlot = nextLookahead[0];
@@ -204,10 +196,12 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
                     block.timestamp > prevSlotTimestamp && block.timestamp <= preconfSlotTimestamp,
                     InvalidLookaheadTimestamp()
                 );
+            }
 
-                if (_lookaheadSlot.committer != address(0)) {
-                    _validateProposer(_lookaheadSlot);
-                }
+            if (validateWhitelistPreconfer) {
+                _validateWhitelistPreconfer();
+            } else {
+                _validateProposer(_lookaheadSlot);
             }
         }
 
@@ -224,7 +218,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
         require(
             msg.sender == fallbackPreconfer
                 || msg.sender == preconfWhitelist.getOperatorForCurrentEpoch(),
-            NotPreconferOrFallback()
+            NotWhitelistedOrFallbackPreconfer()
         );
     }
 
@@ -232,18 +226,15 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
     function _validateProposer(ILookaheadStore.LookaheadSlot memory _lookaheadSlot) internal view {
         IRegistry.OperatorData memory operatorData =
             urc.getOperatorData(_lookaheadSlot.registrationRoot);
+        bool isOptedIn = urc.isOptedIntoSlasher(_lookaheadSlot.registrationRoot, preconfSlasher);
 
         // If the operator is slashed or unregistered, we use the fallback or whitelist preconfer
-        if (operatorData.unregisteredAt != 0 || operatorData.slashedAt != 0) {
+        if (operatorData.unregisteredAt != 0 || operatorData.slashedAt != 0 || !isOptedIn) {
             _validateWhitelistPreconfer();
         } else {
             // Sender must be the expected committer (i.e the opted in preconfer) for
             // the current preconfing period
             require(msg.sender == _lookaheadSlot.committer, ProposerIsNotPreconfer());
-            require(
-                urc.isOptedIntoSlasher(_lookaheadSlot.registrationRoot, preconfSlasher),
-                OperatorIsNotOptedIn()
-            );
         }
     }
 
@@ -256,7 +247,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
         pure
     {
         bytes26 actualHash = LibPreconfUtils.calculateLookaheadHash(_epochTimestamp, _lookahead);
-        require(_lookaheadHash == actualHash, InvalidPreviousLookahead());
+        require(_lookaheadHash == actualHash, InvalidLookahead());
     }
 
     function _buildLookaheadCommitment(

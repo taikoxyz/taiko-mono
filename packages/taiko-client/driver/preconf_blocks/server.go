@@ -12,10 +12,13 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/gorilla/websocket"
 	"github.com/holiman/uint256"
@@ -108,19 +111,25 @@ func New(
 		return nil, err
 	}
 
+	head, err := cli.L2.BlockByNumber(context.Background(), nil)
+	if err != nil {
+		return nil, err
+	}
+
 	server := &PreconfBlockAPIServer{
-		echo:                         echo.New(),
-		anchorValidator:              anchorValidator,
-		chainSyncer:                  chainSyncer,
-		ws:                           &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
-		rpc:                          cli,
-		payloadsCache:                newPayloadQueue(),
-		preconfOperatorAddress:       preconfOperatorAddress,
-		lookahead:                    &Lookahead{},
-		mutex:                        sync.Mutex{},
-		blockRequestsCache:           blockRequestsCache,
-		sequencingEndedForEpochCache: endOfSequencingCache,
-		latestSeenProposalCh:         latestSeenProposalCh,
+		echo:                          echo.New(),
+		anchorValidator:               anchorValidator,
+		chainSyncer:                   chainSyncer,
+		ws:                            &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
+		rpc:                           cli,
+		payloadsCache:                 newPayloadQueue(),
+		preconfOperatorAddress:        preconfOperatorAddress,
+		lookahead:                     &Lookahead{},
+		mutex:                         sync.Mutex{},
+		blockRequestsCache:            blockRequestsCache,
+		sequencingEndedForEpochCache:  endOfSequencingCache,
+		latestSeenProposalCh:          latestSeenProposalCh,
+		highestUnsafeL2PayloadBlockID: head.NumberU64(),
 	}
 
 	server.echo.HideBanner = true
@@ -308,7 +317,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	// Ignore the message if it is in the cache already.
 	if s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 		log.Debug(
-			"Ignore already cahced preconfirmation block response",
+			"Ignore already cached preconfirmation block response",
 			"peer", from,
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -913,10 +922,67 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return false, fmt.Errorf("failed to fetch parent header by number: %w", err)
 	}
-	parentInFork, err := s.rpc.L2.HeaderByHash(ctx, msg.ExecutionPayload.ParentHash)
+	parentInFork, err := s.rpc.L2.BlockByHash(ctx, msg.ExecutionPayload.ParentHash)
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return false, fmt.Errorf("failed to fetch parent header by hash: %w", err)
 	}
+
+	isOrphan := parentInFork != nil &&
+		parentInCanonical != nil &&
+		parentInFork.Hash() != parentInCanonical.Hash()
+
+	if isOrphan {
+		log.Info("Block is building on an orphaned block",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+			"parentInCanonicalHash", parentInCanonical.Hash().Hex(),
+			"parentInForkHash", parentInFork.Hash().Hex(),
+		)
+
+		// we are building on an orphaned block. the parentInFork
+		// is not the same as the parentInCanonical. we are re-orging out the parent block here.
+		// this means we need to update the L1 Origin of the parent block, as the most recent one received
+		// will be cached, and it will fail a "isPreconfirmed" check later on.
+
+		rawTxsBytes, err := rlp.EncodeToBytes(parentInFork.Transactions())
+		if err != nil {
+			return false, fmt.Errorf("failed to encode transactions to bytes: %w", err)
+		}
+
+		var (
+			txListHash = crypto.Keccak256Hash(rawTxsBytes)
+			args       = &miner.BuildPayloadArgs{
+				Parent:       parentInFork.ParentHash(),
+				Timestamp:    parentInFork.NumberU64(),
+				FeeRecipient: parentInFork.Coinbase(),
+				Random:       parentInFork.MixDigest(),
+				Withdrawals:  make([]*types.Withdrawal, 0),
+				Version:      engine.PayloadV2,
+				TxListHash:   &txListHash,
+			}
+		)
+
+		payloadID := args.Id()
+		// update L1 Origin if the parent block is in the fork chain, we are building
+		// on an orphaned block.
+		_, err = s.rpc.L2Engine.UpdateL1Origin(ctx, &rawdb.L1Origin{
+			BuildPayloadArgsID: payloadID,
+			BlockID:            parentInFork.Number(),
+			L2BlockHash:        msg.ExecutionPayload.ParentHash,
+		})
+		if err != nil {
+			return false, fmt.Errorf("failed to update L1 origin: %w", err)
+		}
+
+		log.Info("Updated L1 Origin for the parent block in the fork chain",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+		)
+	}
+
 	if parentInFork == nil && (parentInCanonical == nil || parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash) {
 		log.Info(
 			"Parent block not in L2 canonical / fork chain",
