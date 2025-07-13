@@ -41,31 +41,29 @@ interface IInbox {
         address proposer;
         address coinbase;
         uint48 lastBlockTimestamp;
+        uint32 gasIssuancePerSecond;
         bool isForcedInclusion;
-        // Specifies the number of blocks to be generated from this batch.
-        Blobs blobs;
+        bytes proverAuth;
         bytes32[] signalSlots;
         uint48[] anchorBlockIds;
-        uint256[] encodedBlocks; // encoded Block
-        uint32 gasIssuancePerSecond;
-        bytes proverAuth;
+        uint256[] encodedBlocks; 
+        Blobs blobs;
     }
 
     /// @notice Output structure containing validated batch information
     /// @dev This struct aggregates all validation results for efficient batch processing
     struct BatchContext {
         address prover;
-        bytes32 txsHash; // TODO: remove this?
-        bytes32[] blobHashes;
+        bytes32 txsHash;
         uint48 lastAnchorBlockId;
         uint48 lastBlockId;
-        bytes32[] anchorBlockHashes; // TODO?
-        // Block[] blocks;
         uint48 blobsCreatedIn;
         uint32 blockMaxGasLimit;
         uint48 livenessBond;
         uint48 provabilityBond;
         uint8 baseFeeSharingPctg;
+        bytes32[] anchorBlockHashes;
+        bytes32[] blobHashes;
     }
 
     struct ProverAuth {
