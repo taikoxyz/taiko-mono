@@ -70,13 +70,13 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         I.TransitionMeta[] memory transitionMetas = LibCodec.unpackTransitionMetas(_packedTrans);
 
         I.Config memory config = _getConfig();
-        LibState.Access memory stateAccess = _getReadWrite();
+        LibState.Access memory access = _getReadWrite();
 
         // Propose batches
-        summary = LibPropose.propose(config, stateAccess, summary, batches, evidence);
+        summary = LibPropose.propose(config, access, summary, batches, evidence);
 
         // Verify batches
-        summary = LibVerify.verify(config, stateAccess, summary, transitionMetas);
+        summary = LibVerify.verify(config, access, summary, transitionMetas);
 
         _saveSummaryHash(keccak256(abi.encode(summary)));
         return summary;
@@ -97,11 +97,11 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         I.BatchProveInput[] memory inputs = LibCodec.unpackBatchProveInputs(_packedBatchProveInputs);
 
         I.Config memory config = _getConfig();
-        LibState.Access memory stateAccess = _getReadWrite();
+        LibState.Access memory access = _getReadWrite();
 
         // Prove batches and get aggregated hash
         bytes32 aggregatedBatchHash;
-        (summary, aggregatedBatchHash) = LibProve.prove(config, stateAccess, summary, inputs);
+        (summary, aggregatedBatchHash) = LibProve.prove(config, access, summary, inputs);
 
         // Verify the proof
         IVerifier2(config.verifier).verifyProof(aggregatedBatchHash, _proof);
