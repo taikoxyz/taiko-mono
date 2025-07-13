@@ -264,8 +264,7 @@ library LibValidate {
         }
 
         // Ensure that if msg.sender is not the inboxWrapper, at least one block must
-        // have a non-zero anchor block id. Otherwise, delegate this validation to the
-        // inboxWrapper contract.
+        // have a non-zero anchor block id.
         if (_conf.inboxWrapper != address(0)) {
             require(anchorFound, NoAnchorBlockIdWithinThisBatch());
         }

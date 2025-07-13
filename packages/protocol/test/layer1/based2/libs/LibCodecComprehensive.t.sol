@@ -68,7 +68,7 @@ contract LibCodecComprehensiveTest is Test {
         LibCodec.unpackSummary(invalidData);
     }
 
-    function testFuzz_packUnpackSummary (
+    function testFuzz_packUnpackSummary(
         uint48 nextBatchId,
         uint48 lastSyncedBlockId,
         uint48 lastSyncedAt,
@@ -78,7 +78,8 @@ contract LibCodecComprehensiveTest is Test {
         bytes32 lastVerifiedBlockHash,
         bytes32 lastBatchMetaHash
     )
-        public pure
+        public
+        pure
     {
         IInbox.Summary memory summary = IInbox.Summary({
             nextBatchId: nextBatchId,
