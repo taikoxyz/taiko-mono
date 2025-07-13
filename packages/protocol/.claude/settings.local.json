@@ -15,7 +15,12 @@
       "Bash(forge build:*)",
       "Bash(rm:*)",
       "Bash(FOUNDRY_PROFILE=layer1 forge test --mt test_PackParamsGas -vvv)",
-      "Bash(FOUNDRY_PROFILE=layer1 forge test --mc LibCodec)"
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --mc LibCodec)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/based2/LibCodecBatchContext.t.sol -vv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/based2/libs/LibCodec.t.sol -vv)",
+      "Bash(forge fmt:*)",
+      "Bash(pnpm test:*)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/based2/libs/LibCodecBatch.t.sol')"
     ],
     "deny": []
   }

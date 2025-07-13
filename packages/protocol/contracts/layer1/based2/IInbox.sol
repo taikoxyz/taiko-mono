@@ -22,7 +22,7 @@ interface IInbox {
     struct Blobs {
         // The hashes of the blob. Note that if this array is not empty.  `firstBlobIndex` and
         // `numBlobs` must be 0.
-        bytes32[] hashes;
+        bytes32[] hashes; // length <= type(uint8).max
         // The index of the first blob in this batch.
         uint8 firstBlobIndex;
         // The number of blobs in this batch. Blobs are initially concatenated and subsequently
@@ -41,39 +41,29 @@ interface IInbox {
         address proposer;
         address coinbase;
         uint48 lastBlockTimestamp;
-        bool isForcedInclusion;
-        // Specifies the number of blocks to be generated from this batch.
-        Blobs blobs;
-        bytes32[] signalSlots;
-        uint48[] anchorBlockIds;
-        uint256[] encodedBlocks; // encoded Block
         uint32 gasIssuancePerSecond;
+        bool isForcedInclusion;
         bytes proverAuth;
+        bytes32[] signalSlots; // length <= type(uint8).max
+        uint48[] anchorBlockIds; // length <= type(uint8).max
+        Block[] blocks; // length <= type(uint8).max
+        Blobs blobs;
     }
 
     /// @notice Output structure containing validated batch information
     /// @dev This struct aggregates all validation results for efficient batch processing
     struct BatchContext {
         address prover;
-        /// @notice Hash of all transactions in the batch
-        bytes32 txsHash; // TODO: remove this?
-        /// @notice Array of blob hashes associated with the batch
-        bytes32[] blobHashes;
-        /// @notice ID of the last anchor block in the batch
+        bytes32 txsHash;
         uint48 lastAnchorBlockId;
-        /// @notice ID of the last block in the batch
         uint48 lastBlockId;
-        /// @notice Array of anchor block hashes for validation
-        bytes32[] anchorBlockHashes; // TODO?
-        /// @notice Array of validated blocks in the batch
-        Block[] blocks;
-        /// @notice Block number where blobs were created
         uint48 blobsCreatedIn;
-        /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         uint48 livenessBond;
         uint48 provabilityBond;
         uint8 baseFeeSharingPctg;
+        bytes32[] anchorBlockHashes; // length <= type(uint8).max
+        bytes32[] blobHashes; // length <= type(uint8).max
     }
 
     struct ProverAuth {
@@ -87,7 +77,7 @@ interface IInbox {
 
     struct BatchBuildMetadata {
         bytes32 txsHash;
-        bytes32[] blobHashes;
+        bytes32[] blobHashes; // length <= type(uint8).max
         bytes32 extraData;
         address coinbase;
         uint48 proposedIn;
@@ -97,9 +87,9 @@ interface IInbox {
         uint48 gasLimit;
         uint48 lastBlockId;
         uint48 lastBlockTimestamp;
-        uint48[] anchorBlockIds;
-        bytes32[] anchorBlockHashes;
-        uint256[] encodedBlocks;
+        uint48[] anchorBlockIds; // length <= type(uint8).max
+        bytes32[] anchorBlockHashes; // length <= type(uint8).max
+        Block[] blocks; // length <= type(uint8).max
     }
 
     struct BatchProposeMetadata {
@@ -152,17 +142,16 @@ interface IInbox {
         InExtendedProvingWindow
     }
 
-    // This struct takes 109 bytes if packed
     struct TransitionMeta {
-        bytes32 blockHash; // 32 bytes
-        bytes32 stateRoot; // 32 bytes
-        address prover; // 20 bytes
-        ProofTiming proofTiming; // 1 byte
-        uint48 createdAt; // 6 bytes
-        bool byAssignedProver; // 1 byte
-        uint48 lastBlockId; // 6 bytes
-        uint48 provabilityBond; // 12 bytes
-        uint48 livenessBond; // 12 bytes
+        bytes32 blockHash;
+        bytes32 stateRoot;
+        address prover;
+        ProofTiming proofTiming;
+        uint48 createdAt;
+        bool byAssignedProver;
+        uint48 lastBlockId;
+        uint48 provabilityBond;
+        uint48 livenessBond;
     }
 
     //  @notice Struct representing transition storage
@@ -225,7 +214,7 @@ interface IInbox {
         /// @notice The maximum number of signals to be received by TaikoL2.
         uint8 maxSignalsToReceive;
         /// @notice The maximum number of blocks per batch.
-        uint16 maxBlocksPerBatch;
+        uint8 maxBlocksPerBatch;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
         /// @notice The token used for bonding.
