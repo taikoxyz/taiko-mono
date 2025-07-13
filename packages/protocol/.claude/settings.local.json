@@ -20,12 +20,7 @@
       "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/based2/libs/LibCodec.t.sol -vv)",
       "Bash(forge fmt:*)",
       "Bash(pnpm test:*)",
-      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/based2/libs/LibCodecBatch.t.sol')",
-      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/based2/libs/LibCodec.t.sol' --no-run)",
-      "Bash(FOUNDRY_PROFILE=layer1 forge build --match 'LibCodec')",
-      "Bash(FOUNDRY_PROFILE=layer1 forge build)",
-      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/based2/libs/LibCodec*.t.sol')",
-      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/based2/libs/LibCodecTransitionMeta.t.sol')"
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/based2/libs/LibCodecBatch.t.sol')"
     ],
     "deny": []
   }

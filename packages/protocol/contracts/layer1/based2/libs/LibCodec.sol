@@ -17,7 +17,17 @@ library LibCodec {
     // -------------------------------------------------------------------------
 
     /// @notice Packs an array of TransitionMeta structs into a tightly packed byte array.
-    /// @dev The packed format uses exactly 109 bytes per TransitionMeta
+    /// @dev The packed format uses exactly 109 bytes per TransitionMeta:
+    /// - blockHash: 32 bytes
+    /// - stateRoot: 32 bytes
+    /// - prover: 20 bytes (address)
+    /// - proofTiming + byAssignedProver: 1 byte (2 bits for proofTiming, 1 bit for
+    /// byAssignedProver)
+    /// - createdAt: 6 bytes (uint48)
+    /// - lastBlockId: 6 bytes (uint48)
+    /// - provabilityBond: 6 bytes (uint48)
+    /// - livenessBond: 6 bytes (uint48)
+    /// Total: 109 bytes per TransitionMeta
     /// @param _tranMetas Array of TransitionMeta structs to pack
     /// @return encoded_ The packed byte array
     function packTransitionMetas(I.TransitionMeta[] memory _tranMetas)
@@ -27,19 +37,65 @@ library LibCodec {
     {
         unchecked {
             uint256 length = _tranMetas.length;
+
+            // Each TransitionMeta takes 109 bytes when packed
             encoded_ = new bytes(length * 109);
 
+            uint256 offset;
             for (uint256 i; i < length; ++i) {
-                uint256 ptr;
+                I.TransitionMeta memory meta = _tranMetas[i];
+
+                // Pack data in the order of the struct fields
                 assembly {
-                    ptr := add(add(encoded_, 0x20), mul(i, 109))
+                    let ptr := add(encoded_, add(0x20, offset))
+
+                    // blockHash (32 bytes)
+                    mstore(ptr, mload(meta))
+                    ptr := add(ptr, 32)
+
+                    // stateRoot (32 bytes)
+                    mstore(ptr, mload(add(meta, 0x20)))
+                    ptr := add(ptr, 32)
+
+                    // prover (20 bytes) - store in lower 20 bytes
+                    mstore(ptr, shl(96, mload(add(meta, 0x40))))
+                    ptr := add(ptr, 20)
+
+                    // proofTiming (2 bits) + byAssignedProver (1 bit) in 1 byte
+                    let proofTiming := mload(add(meta, 0x60))
+                    let byAssignedProver := mload(add(meta, 0xa0))
+                    let combinedByte := or(proofTiming, shl(2, byAssignedProver))
+                    mstore8(ptr, combinedByte)
+                    ptr := add(ptr, 1)
+
+                    // createdAt (6 bytes) - store in lower 6 bytes
+                    let createdAt := mload(add(meta, 0x80))
+                    mstore(ptr, shl(208, createdAt))
+                    ptr := add(ptr, 6)
+
+                    // lastBlockId (6 bytes) - store in lower 6 bytes
+                    let lastBlockId := mload(add(meta, 0xc0))
+                    mstore(ptr, shl(208, lastBlockId))
+                    ptr := add(ptr, 6)
+
+                    // provabilityBond (6 bytes) - store in lower 6 bytes
+                    let provabilityBond := mload(add(meta, 0xe0))
+                    mstore(ptr, shl(208, provabilityBond))
+                    ptr := add(ptr, 6)
+
+                    // livenessBond (6 bytes) - store in lower 6 bytes
+                    let livenessBond := mload(add(meta, 0x100))
+                    mstore(ptr, shl(208, livenessBond))
                 }
-                _packTransitionMeta(ptr, _tranMetas[i]);
+
+                offset += 109;
             }
         }
     }
 
     /// @notice Unpacks a byte array back into an array of TransitionMeta structs.
+    /// @dev Reverses the packing performed by packTransitionMetas. The input must be
+    /// a multiple of 109 bytes, with each 109-byte segment representing one TransitionMeta.
     /// @param _encoded The packed byte array to unpack
     /// @return tranMetas_ Array of unpacked TransitionMeta structs
     function unpackTransitionMetas(bytes memory _encoded)
@@ -50,15 +106,58 @@ library LibCodec {
         require(_encoded.length % 109 == 0, InvalidDataLength());
 
         unchecked {
+            // Calculate length from encoded data size
             uint256 length = _encoded.length / 109;
+
             tranMetas_ = new I.TransitionMeta[](length);
 
+            uint256 offset;
             for (uint256 i; i < length; ++i) {
-                uint256 ptr;
+                I.TransitionMeta memory meta;
+
                 assembly {
-                    ptr := add(add(_encoded, 0x20), mul(i, 109))
+                    let dataOffset := add(add(_encoded, 0x20), offset)
+
+                    // blockHash (32 bytes)
+                    meta := mload(0x40) // allocate memory
+                    mstore(meta, mload(dataOffset))
+
+                    // stateRoot (32 bytes)
+                    mstore(add(meta, 0x20), mload(add(dataOffset, 32)))
+
+                    // prover (20 bytes) - right-aligned in 32-byte slot
+                    let proverData := mload(add(dataOffset, 64))
+                    mstore(add(meta, 0x40), shr(96, proverData))
+
+                    // proofTiming (2 bits) + byAssignedProver (1 bit) from 1 byte
+                    let combinedByte := byte(0, mload(add(dataOffset, 84)))
+                    let proofTiming := and(combinedByte, 0x03) // Extract lower 2 bits
+                    let byAssignedProver := and(shr(2, combinedByte), 0x01) // Extract bit 2
+                    mstore(add(meta, 0x60), proofTiming)
+                    mstore(add(meta, 0xa0), byAssignedProver)
+
+                    // createdAt (6 bytes) - stored as uint48
+                    let createdAtData := mload(add(dataOffset, 85))
+                    mstore(add(meta, 0x80), shr(208, createdAtData))
+
+                    // lastBlockId (6 bytes) - stored as uint48
+                    let lastBlockIdData := mload(add(dataOffset, 91))
+                    mstore(add(meta, 0xc0), shr(208, lastBlockIdData))
+
+                    // provabilityBond (6 bytes) - stored as uint48
+                    let provabilityBondData := mload(add(dataOffset, 97))
+                    mstore(add(meta, 0xe0), shr(208, provabilityBondData))
+
+                    // livenessBond (6 bytes) - stored as uint48
+                    let livenessBondData := mload(add(dataOffset, 103))
+                    mstore(add(meta, 0x100), shr(208, livenessBondData))
+
+                    // Update free memory pointer
+                    mstore(0x40, add(meta, 0x120))
                 }
-                tranMetas_[i] = _unpackTransitionMeta(ptr);
+
+                tranMetas_[i] = meta;
+                offset += 109;
             }
         }
     }
@@ -283,18 +382,17 @@ library LibCodec {
     }
 
     function packSummary(I.Summary memory _summary) internal pure returns (bytes memory encoded_) {
-        encoded_ = new bytes(98);
-        uint256 ptr;
-        assembly { ptr := add(encoded_, 0x20) }
-        
-        ptr = _packUint48(ptr, _summary.numBatches);
-        ptr = _packUint48(ptr, _summary.lastSyncedBlockId);
-        ptr = _packUint48(ptr, _summary.lastSyncedAt);
-        ptr = _packUint48(ptr, _summary.lastVerifiedBatchId);
-        ptr = _packUint48(ptr, _summary.gasIssuanceUpdatedAt);
-        ptr = _packUint32(ptr, _summary.gasIssuancePerSecond);
-        ptr = _packBytes32(ptr, _summary.lastVerifiedBlockHash);
-        _packBytes32(ptr, _summary.lastBatchMetaHash);
+        // Pack tightly: 6+6+6+6+6+4+32+32 = 98 bytes
+        encoded_ = abi.encodePacked(
+            _summary.numBatches,
+            _summary.lastSyncedBlockId,
+            _summary.lastSyncedAt,
+            _summary.lastVerifiedBatchId,
+            _summary.gasIssuanceUpdatedAt,
+            _summary.gasIssuancePerSecond,
+            _summary.lastVerifiedBlockHash,
+            _summary.lastBatchMetaHash
+        );
     }
 
     function unpackSummary(bytes memory _encoded)
@@ -304,22 +402,56 @@ library LibCodec {
     {
         require(_encoded.length == 98, InvalidDataLength());
 
-        uint256 ptr;
-        assembly { 
-            ptr := add(_encoded, 0x20)
-            summary_ := mload(0x40)
-            mstore(0x40, add(summary_, 0x100))
+        unchecked {
+            assembly {
+                let ptr := add(_encoded, 0x20)
+
+                // numBatches (6 bytes)
+                let numBatches := shr(208, mload(ptr))
+                ptr := add(ptr, 6)
+
+                // lastSyncedBlockId (6 bytes)
+                let lastSyncedBlockId := shr(208, mload(ptr))
+                ptr := add(ptr, 6)
+
+                // lastSyncedAt (6 bytes)
+                let lastSyncedAt := shr(208, mload(ptr))
+                ptr := add(ptr, 6)
+
+                // lastVerifiedBatchId (6 bytes)
+                let lastVerifiedBatchId := shr(208, mload(ptr))
+                ptr := add(ptr, 6)
+
+                // gasIssuanceUpdatedAt (6 bytes)
+                let gasIssuanceUpdatedAt := shr(208, mload(ptr))
+                ptr := add(ptr, 6)
+
+                // gasIssuancePerSecond (4 bytes)
+                let gasIssuancePerSecond := shr(224, mload(ptr))
+                ptr := add(ptr, 4)
+
+                // lastVerifiedBlockHash (32 bytes)
+                let lastVerifiedBlockHash := mload(ptr)
+                ptr := add(ptr, 32)
+
+                // lastBatchMetaHash (32 bytes)
+                let lastBatchMetaHash := mload(ptr)
+
+                // Allocate memory for summary_
+                summary_ := mload(0x40)
+                mstore(0x40, add(summary_, 0x100))
+
+                // Store values in summary_ struct
+                mstore(summary_, numBatches)
+                mstore(add(summary_, 0x20), lastSyncedBlockId)
+                mstore(add(summary_, 0x40), lastSyncedAt)
+                mstore(add(summary_, 0x60), lastVerifiedBatchId)
+                mstore(add(summary_, 0x80), gasIssuanceUpdatedAt)
+                mstore(add(summary_, 0xa0), gasIssuancePerSecond)
+                mstore(add(summary_, 0xc0), lastVerifiedBlockHash)
+                mstore(add(summary_, 0xe0), lastBatchMetaHash)
+            }
         }
-        
-        uint256 value;
-        (value, ptr) = _unpackUint48(ptr); summary_.numBatches = uint48(value);
-        (value, ptr) = _unpackUint48(ptr); summary_.lastSyncedBlockId = uint48(value);
-        (value, ptr) = _unpackUint48(ptr); summary_.lastSyncedAt = uint48(value);
-        (value, ptr) = _unpackUint48(ptr); summary_.lastVerifiedBatchId = uint48(value);
-        (value, ptr) = _unpackUint48(ptr); summary_.gasIssuanceUpdatedAt = uint48(value);
-        (value, ptr) = _unpackUint32(ptr); summary_.gasIssuancePerSecond = uint32(value);
-        (summary_.lastVerifiedBlockHash, ptr) = _unpackBytes32(ptr);
-        (summary_.lastBatchMetaHash,) = _unpackBytes32(ptr);
     }
 
     function packBatches(I.Batch[] memory _batches) internal pure returns (bytes memory encoded_) {
@@ -327,18 +459,177 @@ library LibCodec {
             uint256 length = _batches.length;
             require(length <= type(uint8).max, ArrayTooLarge());
 
-            uint256 totalSize = _calculateBatchesTotalSize(_batches);
+            // Pre-calculate total size to minimize allocations
+            uint256 totalSize = 1; // 1 byte for array length
+
+            for (uint256 i; i < length; ++i) {
+                I.Batch memory batch = _batches[i];
+
+                // Fixed size: 20+20+7+4 = 51 bytes (timestamp + isForcedInclusion packed in 7
+                // bytes)
+                // + proverAuth.length (1 byte + data)
+                // + signalSlots.length (1 byte + 32*count)
+                // + anchorBlockIds.length (1 byte + 6*count)
+                // + blocks.length (1 byte + 10*count)
+                // + blobs (fixed 49 bytes + 1 byte + 32*hashes.length)
+
+                totalSize += 51; // Fixed fields
+                totalSize += 1 + batch.proverAuth.length; // proverAuth
+                totalSize += 1 + (batch.signalSlots.length * 32); // signalSlots
+                totalSize += 1 + (batch.anchorBlockIds.length * 6); // anchorBlockIds
+                totalSize += 1 + (batch.blocks.length * 10); // blocks (packed)
+                totalSize += 51; // blobs fixed part
+                totalSize += (batch.blobs.hashes.length * 32); // blob hashes
+            }
+
             encoded_ = new bytes(totalSize);
 
-            uint256 ptr;
-            assembly { 
-                ptr := add(encoded_, 0x20)
+            assembly {
+                let ptr := add(encoded_, 0x20)
+
+                // Store array length (1 byte)
                 mstore(ptr, shl(248, length))
                 ptr := add(ptr, 1)
-            }
-            
-            for (uint256 i; i < length; ++i) {
-                ptr = _packSingleBatch(ptr, _batches[i]);
+
+                // Pack each batch
+                for { let i := 0 } lt(i, length) { i := add(i, 1) } {
+                    let batch := mload(add(_batches, mul(add(i, 1), 0x20)))
+
+                    // proposer (20 bytes)
+                    mstore(ptr, shl(96, mload(batch)))
+                    ptr := add(ptr, 20)
+
+                    // coinbase (20 bytes)
+                    mstore(ptr, shl(96, mload(add(batch, 0x20))))
+                    ptr := add(ptr, 20)
+
+                    // lastBlockTimestamp (48 bits) + isForcedInclusion (1 bit) in 7 bytes
+                    let blockTimestamp := mload(add(batch, 0x40))
+                    let isForcedInclusion := mload(add(batch, 0x80))
+                    let combined := or(blockTimestamp, shl(48, isForcedInclusion))
+                    mstore(ptr, shl(200, combined))
+                    ptr := add(ptr, 7)
+
+                    // gasIssuancePerSecond (4 bytes)
+                    mstore(ptr, shl(224, mload(add(batch, 0x60))))
+                    ptr := add(ptr, 4)
+
+                    // proverAuth - get bytes array
+                    let proverAuth := mload(add(batch, 0xa0))
+                    let proverAuthLen := mload(proverAuth)
+
+                    // Store proverAuth length (1 byte)
+                    mstore(ptr, shl(248, proverAuthLen))
+                    ptr := add(ptr, 1)
+
+                    // Copy proverAuth data
+                    let proverAuthData := add(proverAuth, 0x20)
+                    let remaining := proverAuthLen
+                    for { } gt(remaining, 0) { } {
+                        let chunk := mload(proverAuthData)
+                        mstore(ptr, chunk)
+                        let copySize := 32
+                        if lt(remaining, 32) { copySize := remaining }
+                        ptr := add(ptr, copySize)
+                        proverAuthData := add(proverAuthData, 32)
+                        remaining := sub(remaining, copySize)
+                    }
+
+                    // signalSlots array
+                    let signalSlots := mload(add(batch, 0xc0))
+                    let signalSlotsLen := mload(signalSlots)
+
+                    // Store signalSlots length (1 byte)
+                    mstore(ptr, shl(248, signalSlotsLen))
+                    ptr := add(ptr, 1)
+
+                    // Copy signalSlots data (32 bytes each)
+                    for { let j := 0 } lt(j, signalSlotsLen) { j := add(j, 1) } {
+                        mstore(ptr, mload(add(signalSlots, mul(add(j, 1), 0x20))))
+                        ptr := add(ptr, 32)
+                    }
+
+                    // anchorBlockIds array
+                    let anchorBlockIds := mload(add(batch, 0xe0))
+                    let anchorBlockIdsLen := mload(anchorBlockIds)
+
+                    // Store anchorBlockIds length (1 byte)
+                    mstore(ptr, shl(248, anchorBlockIdsLen))
+                    ptr := add(ptr, 1)
+
+                    // Copy anchorBlockIds data (6 bytes each)
+                    for { let j := 0 } lt(j, anchorBlockIdsLen) { j := add(j, 1) } {
+                        mstore(ptr, shl(208, mload(add(anchorBlockIds, mul(add(j, 1), 0x20)))))
+                        ptr := add(ptr, 6)
+                    }
+
+                    // blocks array
+                    let blocks := mload(add(batch, 0x100))
+                    let blocksLen := mload(blocks)
+
+                    // Store blocks length (1 byte)
+                    mstore(ptr, shl(248, blocksLen))
+                    ptr := add(ptr, 1)
+
+                    // Pack each block (10 bytes total)
+                    for { let j := 0 } lt(j, blocksLen) { j := add(j, 1) } {
+                        let blockPtr := add(blocks, mul(add(j, 1), 0x20))
+                        let blockData := mload(blockPtr)
+
+                        // Use the existing packBlock function logic
+                        let numTransactions := and(mload(blockData), 0xFFFF)
+                        let timeShift := and(mload(add(blockData, 0x20)), 0xFF)
+                        let anchorBlockId := and(mload(add(blockData, 0x40)), 0xFFFFFFFFFFFF)
+                        let numSignals := and(mload(add(blockData, 0x60)), 0xFF)
+                        let hasAnchor := mload(add(blockData, 0x80))
+
+                        let encoded := or(numTransactions, shl(16, timeShift))
+                        encoded := or(encoded, shl(24, anchorBlockId))
+                        encoded := or(encoded, shl(72, numSignals))
+                        encoded := or(encoded, shl(80, hasAnchor))
+
+                        // Store 10 bytes (80 bits) of the encoded block
+                        mstore(ptr, shl(176, encoded))
+                        ptr := add(ptr, 10)
+                    }
+
+                    // blobs structure (fixed size fields)
+                    let blobs := mload(add(batch, 0x120))
+
+                    // firstBlobIndex (1 byte)
+                    mstore8(ptr, mload(add(blobs, 0x20)))
+                    ptr := add(ptr, 1)
+
+                    // numBlobs (1 byte)
+                    mstore8(ptr, mload(add(blobs, 0x40)))
+                    ptr := add(ptr, 1)
+
+                    // byteOffset (4 bytes)
+                    mstore(ptr, shl(224, mload(add(blobs, 0x60))))
+                    ptr := add(ptr, 4)
+
+                    // byteSize (4 bytes)
+                    mstore(ptr, shl(224, mload(add(blobs, 0x80))))
+                    ptr := add(ptr, 4)
+
+                    // createdIn (6 bytes)
+                    mstore(ptr, shl(208, mload(add(blobs, 0xa0))))
+                    ptr := add(ptr, 6)
+
+                    // hashes array
+                    let hashes := mload(blobs)
+                    let hashesLen := mload(hashes)
+
+                    // Store hashes length (1 byte)
+                    mstore(ptr, shl(248, hashesLen))
+                    ptr := add(ptr, 1)
+
+                    // Copy hashes data (32 bytes each)
+                    for { let j := 0 } lt(j, hashesLen) { j := add(j, 1) } {
+                        mstore(ptr, mload(add(hashes, mul(add(j, 1), 0x20))))
+                        ptr := add(ptr, 32)
+                    }
+                }
             }
         }
     }
@@ -763,292 +1054,6 @@ library LibCodec {
 
                 mstore(add(evidence_, 0x40), proposeMeta)
             }
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Private Helper Functions
-    // -------------------------------------------------------------------------
-
-    /// @dev Packs address into 20 bytes at ptr, returns updated ptr
-    function _packAddress(uint256 ptr, address addr) private pure returns (uint256) {
-        assembly {
-            mstore(ptr, shl(96, addr))
-        }
-        return ptr + 20;
-    }
-
-    /// @dev Unpacks address from ptr, returns (address, updated ptr)
-    function _unpackAddress(uint256 ptr) private pure returns (address addr, uint256 newPtr) {
-        assembly {
-            addr := shr(96, mload(ptr))
-        }
-        return (addr, ptr + 20);
-    }
-
-    /// @dev Packs uint48 into 6 bytes at ptr, returns updated ptr
-    function _packUint48(uint256 ptr, uint256 value) private pure returns (uint256) {
-        assembly {
-            mstore(ptr, shl(208, value))
-        }
-        return ptr + 6;
-    }
-
-    /// @dev Unpacks uint48 from ptr, returns (value, updated ptr)
-    function _unpackUint48(uint256 ptr) private pure returns (uint256 value, uint256 newPtr) {
-        assembly {
-            value := shr(208, mload(ptr))
-        }
-        return (value, ptr + 6);
-    }
-
-    /// @dev Packs uint32 into 4 bytes at ptr, returns updated ptr
-    function _packUint32(uint256 ptr, uint256 value) private pure returns (uint256) {
-        assembly {
-            mstore(ptr, shl(224, value))
-        }
-        return ptr + 4;
-    }
-
-    /// @dev Unpacks uint32 from ptr, returns (value, updated ptr)
-    function _unpackUint32(uint256 ptr) private pure returns (uint256 value, uint256 newPtr) {
-        assembly {
-            value := shr(224, mload(ptr))
-        }
-        return (value, ptr + 4);
-    }
-
-    /// @dev Packs bytes32 at ptr, returns updated ptr
-    function _packBytes32(uint256 ptr, bytes32 value) private pure returns (uint256) {
-        assembly {
-            mstore(ptr, value)
-        }
-        return ptr + 32;
-    }
-
-    /// @dev Unpacks bytes32 from ptr, returns (value, updated ptr)
-    function _unpackBytes32(uint256 ptr) private pure returns (bytes32 value, uint256 newPtr) {
-        assembly {
-            value := mload(ptr)
-        }
-        return (value, ptr + 32);
-    }
-
-    /// @dev Packs uint8 into 1 byte at ptr, returns updated ptr
-    function _packUint8(uint256 ptr, uint256 value) private pure returns (uint256) {
-        assembly {
-            mstore8(ptr, value)
-        }
-        return ptr + 1;
-    }
-
-    /// @dev Unpacks uint8 from ptr, returns (value, updated ptr)
-    function _unpackUint8(uint256 ptr) private pure returns (uint256 value, uint256 newPtr) {
-        assembly {
-            value := byte(0, mload(ptr))
-        }
-        return (value, ptr + 1);
-    }
-
-    /// @dev Allocates memory for struct, returns pointer and updates free memory
-    function _allocateMemory(uint256 size) private pure returns (uint256 ptr) {
-        assembly {
-            ptr := mload(0x40)
-            mstore(0x40, add(ptr, size))
-        }
-    }
-
-    /// @dev Packs bytes array length and data, returns updated ptr
-    function _packBytes(uint256 ptr, bytes memory data) private pure returns (uint256) {
-        uint256 len = data.length;
-        assembly {
-            // Store length (1 byte)
-            mstore(ptr, shl(248, len))
-            ptr := add(ptr, 1)
-            
-            // Copy data
-            let src := add(data, 0x20)
-            let remaining := len
-            for { } gt(remaining, 0) { } {
-                let chunk := mload(src)
-                mstore(ptr, chunk)
-                let copySize := 32
-                if lt(remaining, 32) { copySize := remaining }
-                ptr := add(ptr, copySize)
-                src := add(src, 32)
-                remaining := sub(remaining, copySize)
-            }
-        }
-        return ptr;
-    }
-
-    /// @dev Creates empty array and returns pointer
-    function _createEmptyArray() private pure returns (uint256 arrayPtr) {
-        assembly {
-            arrayPtr := mload(0x40)
-            mstore(arrayPtr, 0) // length = 0
-            mstore(0x40, add(arrayPtr, 0x20))
-        }
-    }
-
-    /// @dev Calculates total size needed for packing batches
-    function _calculateBatchesTotalSize(I.Batch[] memory _batches) private pure returns (uint256 totalSize) {
-        totalSize = 1; // 1 byte for array length
-        for (uint256 i; i < _batches.length; ++i) {
-            I.Batch memory batch = _batches[i];
-            totalSize += 51; // Fixed fields: 20+20+7+4
-            totalSize += 1 + batch.proverAuth.length;
-            totalSize += 1 + (batch.signalSlots.length * 32);
-            totalSize += 1 + (batch.anchorBlockIds.length * 6);
-            totalSize += 1 + (batch.blocks.length * 10);
-            totalSize += 17; // blobs fixed: 1+1+4+4+6+1
-            totalSize += (batch.blobs.hashes.length * 32);
-        }
-    }
-
-    /// @dev Packs a single batch at ptr, returns updated ptr
-    function _packSingleBatch(uint256 ptr, I.Batch memory batch) private pure returns (uint256) {
-        // Pack fixed fields
-        ptr = _packAddress(ptr, batch.proposer);
-        ptr = _packAddress(ptr, batch.coinbase);
-        
-        // Pack timestamp + forced inclusion in 7 bytes
-        assembly {
-            let combined := or(mload(add(batch, 0x40)), shl(48, mload(add(batch, 0x80))))
-            mstore(ptr, shl(200, combined))
-            ptr := add(ptr, 7)
-        }
-        
-        ptr = _packUint32(ptr, batch.gasIssuancePerSecond);
-        ptr = _packBytes(ptr, batch.proverAuth);
-        
-        // Pack arrays
-        ptr = _packBytes32Array(ptr, batch.signalSlots);
-        ptr = _packUint48Array(ptr, batch.anchorBlockIds);
-        ptr = _packBlockArray(ptr, batch.blocks);
-        ptr = _packBlobsStruct(ptr, batch.blobs);
-        
-        return ptr;
-    }
-
-    /// @dev Packs bytes32 array with length prefix
-    function _packBytes32Array(uint256 ptr, bytes32[] memory arr) private pure returns (uint256) {
-        uint256 len = arr.length;
-        assembly {
-            mstore(ptr, shl(248, len))
-            ptr := add(ptr, 1)
-            for { let i := 0 } lt(i, len) { i := add(i, 1) } {
-                mstore(ptr, mload(add(arr, mul(add(i, 1), 0x20))))
-                ptr := add(ptr, 32)
-            }
-        }
-        return ptr;
-    }
-
-    /// @dev Packs uint48 array with length prefix
-    function _packUint48Array(uint256 ptr, uint48[] memory arr) private pure returns (uint256) {
-        uint256 len = arr.length;
-        assembly {
-            mstore(ptr, shl(248, len))
-            ptr := add(ptr, 1)
-            for { let i := 0 } lt(i, len) { i := add(i, 1) } {
-                mstore(ptr, shl(208, mload(add(arr, mul(add(i, 1), 0x20)))))
-                ptr := add(ptr, 6)
-            }
-        }
-        return ptr;
-    }
-
-    /// @dev Packs block array with length prefix
-    function _packBlockArray(uint256 ptr, I.Block[] memory blocks) private pure returns (uint256) {
-        uint256 len = blocks.length;
-        assembly {
-            mstore(ptr, shl(248, len))
-            ptr := add(ptr, 1)
-            for { let i := 0 } lt(i, len) { i := add(i, 1) } {
-                let blockPtr := add(blocks, mul(add(i, 1), 0x20))
-                let blockData := mload(blockPtr)
-                let numTransactions := and(mload(blockData), 0xFFFF)
-                let timeShift := and(mload(add(blockData, 0x20)), 0xFF)
-                let anchorBlockId := and(mload(add(blockData, 0x40)), 0xFFFFFFFFFFFF)
-                let numSignals := and(mload(add(blockData, 0x60)), 0xFF)
-                let hasAnchor := mload(add(blockData, 0x80))
-                let encoded := or(numTransactions, shl(16, timeShift))
-                encoded := or(encoded, shl(24, anchorBlockId))
-                encoded := or(encoded, shl(72, numSignals))
-                encoded := or(encoded, shl(80, hasAnchor))
-                mstore(ptr, shl(176, encoded))
-                ptr := add(ptr, 10)
-            }
-        }
-        return ptr;
-    }
-
-    /// @dev Packs blobs struct
-    function _packBlobsStruct(uint256 ptr, I.Blobs memory blobs) private pure returns (uint256) {
-        ptr = _packUint8(ptr, blobs.firstBlobIndex);
-        ptr = _packUint8(ptr, blobs.numBlobs);
-        ptr = _packUint32(ptr, blobs.byteOffset);
-        ptr = _packUint32(ptr, blobs.byteSize);
-        ptr = _packUint48(ptr, blobs.createdIn);
-        ptr = _packBytes32Array(ptr, blobs.hashes);
-        return ptr;
-    }
-
-    /// @dev Packs a single TransitionMeta struct at ptr
-    function _packTransitionMeta(uint256 ptr, I.TransitionMeta memory meta) private pure returns (uint256) {
-        assembly {
-            // blockHash + stateRoot (64 bytes)
-            mstore(ptr, mload(meta))
-            mstore(add(ptr, 32), mload(add(meta, 0x20)))
-            ptr := add(ptr, 64)
-            
-            // prover (20 bytes)
-            mstore(ptr, shl(96, mload(add(meta, 0x40))))
-            ptr := add(ptr, 20)
-            
-            // proofTiming + byAssignedProver (1 byte)
-            let proofTiming := mload(add(meta, 0x60))
-            let byAssignedProver := mload(add(meta, 0xa0))
-            mstore8(ptr, or(proofTiming, shl(2, byAssignedProver)))
-            ptr := add(ptr, 1)
-            
-            // Pack four uint48 values (24 bytes total)
-            mstore(ptr, shl(208, mload(add(meta, 0x80)))) // createdAt
-            mstore(add(ptr, 6), shl(208, mload(add(meta, 0xc0)))) // lastBlockId  
-            mstore(add(ptr, 12), shl(208, mload(add(meta, 0xe0)))) // provabilityBond
-            mstore(add(ptr, 18), shl(208, mload(add(meta, 0x100)))) // livenessBond
-            ptr := add(ptr, 24)
-        }
-        return ptr;
-    }
-
-    /// @dev Unpacks a single TransitionMeta struct from ptr
-    function _unpackTransitionMeta(uint256 ptr) private pure returns (I.TransitionMeta memory meta) {
-        assembly {
-            meta := mload(0x40)
-            mstore(0x40, add(meta, 0x120))
-            
-            // blockHash + stateRoot (64 bytes)
-            mstore(meta, mload(ptr))
-            mstore(add(meta, 0x20), mload(add(ptr, 32)))
-            ptr := add(ptr, 64)
-            
-            // prover (20 bytes)
-            mstore(add(meta, 0x40), shr(96, mload(ptr)))
-            ptr := add(ptr, 20)
-            
-            // proofTiming + byAssignedProver (1 byte)
-            let combinedByte := byte(0, mload(ptr))
-            mstore(add(meta, 0x60), and(combinedByte, 0x03))
-            mstore(add(meta, 0xa0), and(shr(2, combinedByte), 0x01))
-            ptr := add(ptr, 1)
-            
-            // Unpack four uint48 values (24 bytes total)
-            mstore(add(meta, 0x80), shr(208, mload(ptr))) // createdAt
-            mstore(add(meta, 0xc0), shr(208, mload(add(ptr, 6)))) // lastBlockId
-            mstore(add(meta, 0xe0), shr(208, mload(add(ptr, 12)))) // provabilityBond
-            mstore(add(meta, 0x100), shr(208, mload(add(ptr, 18)))) // livenessBond
         }
     }
 
