@@ -1020,29 +1020,6 @@ library LibCodec {
         }
     }
 
-    /// @notice Encodes a block structure into a single uint256 value
-    /// @dev Packs block properties into a uint256 using bitwise operations
-    /// @param _block The block structure to encode
-    /// @return encoded_ The encoded block as a uint256
-    function packBlock(I.Block memory _block) internal pure returns (uint256 encoded_) {
-        encoded_ = uint256(_block.numTransactions) | (uint256(_block.timeShift) << 16)
-            | (uint256(_block.anchorBlockId) << 24) | (uint256(_block.numSignals) << 72)
-            | (uint256(_block.hasAnchor ? 1 : 0) << 80);
-    }
-
-    /// @notice Decodes a uint256 value into a block structure
-    /// @dev Unpacks block properties from a uint256 using bitwise operations
-    /// @param _encoded The encoded block as a uint256
-    /// @return The decoded block structure
-    function unpackBlock(uint256 _encoded) internal pure returns (I.Block memory) {
-        return I.Block({
-            numTransactions: uint16(_encoded),
-            timeShift: uint8(_encoded >> 16),
-            anchorBlockId: uint48(_encoded >> 24),
-            numSignals: uint8(_encoded >> 72),
-            hasAnchor: (_encoded >> 80 & 0x01) != 0
-        });
-    }
 
     // -------------------------------------------------------------------------
     // Custom Errors
