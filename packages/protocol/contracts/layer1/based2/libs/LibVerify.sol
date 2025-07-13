@@ -92,7 +92,7 @@ library LibVerify {
     }
 
     // -------------------------------------------------------------------------
-    // Private Functions - Bond Calculation
+    // Private Functions
     // -------------------------------------------------------------------------
 
     /// @notice Calculates the bond amount to return to the prover based on timing and conditions
