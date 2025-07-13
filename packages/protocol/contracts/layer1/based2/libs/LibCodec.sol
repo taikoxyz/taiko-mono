@@ -96,67 +96,23 @@ library LibCodec {
             uint256 totalSize = 85 + 1 + 1 + (anchorHashesLen * 32) + (blobHashesLen * 32);
             packed_ = new bytes(totalSize);
 
-            assembly {
-                let ptr := add(packed_, 0x20)
+            uint256 ptr;
+            assembly { ptr := add(packed_, 0x20) }
 
-                // prover (20 bytes) - store in lower 20 bytes
-                mstore(ptr, shl(96, mload(_context)))
-                ptr := add(ptr, 20)
-
-                // txsHash (32 bytes)
-                mstore(ptr, mload(add(_context, 0x20)))
-                ptr := add(ptr, 32)
-
-                // lastAnchorBlockId (6 bytes) - store in lower 6 bytes
-                mstore(ptr, shl(208, mload(add(_context, 0x40))))
-                ptr := add(ptr, 6)
-
-                // lastBlockId (6 bytes) - store in lower 6 bytes
-                mstore(ptr, shl(208, mload(add(_context, 0x60))))
-                ptr := add(ptr, 6)
-
-                // blobsCreatedIn (6 bytes) - store in lower 6 bytes
-                mstore(ptr, shl(208, mload(add(_context, 0x80))))
-                ptr := add(ptr, 6)
-
-                // blockMaxGasLimit (4 bytes) - store in lower 4 bytes
-                mstore(ptr, shl(224, mload(add(_context, 0xa0))))
-                ptr := add(ptr, 4)
-
-                // livenessBond (6 bytes) - store in lower 6 bytes
-                mstore(ptr, shl(208, mload(add(_context, 0xc0))))
-                ptr := add(ptr, 6)
-
-                // provabilityBond (6 bytes) - store in lower 6 bytes
-                mstore(ptr, shl(208, mload(add(_context, 0xe0))))
-                ptr := add(ptr, 6)
-
-                // baseFeeSharingPctg (1 byte)
-                mstore8(ptr, mload(add(_context, 0x100)))
-                ptr := add(ptr, 1)
-
-                // anchorBlockHashes length (1 byte)
-                mstore(ptr, shl(248, anchorHashesLen))
-                ptr := add(ptr, 1)
-
-                // anchorBlockHashes array
-                let anchorArray := mload(add(_context, 0x120))
-                for { let i := 0 } lt(i, anchorHashesLen) { i := add(i, 1) } {
-                    mstore(ptr, mload(add(anchorArray, mul(add(i, 1), 0x20))))
-                    ptr := add(ptr, 32)
-                }
-
-                // blobHashes length (1 byte)
-                mstore(ptr, shl(248, blobHashesLen))
-                ptr := add(ptr, 1)
-
-                // blobHashes array
-                let blobArray := mload(add(_context, 0x140))
-                for { let i := 0 } lt(i, blobHashesLen) { i := add(i, 1) } {
-                    mstore(ptr, mload(add(blobArray, mul(add(i, 1), 0x20))))
-                    ptr := add(ptr, 32)
-                }
-            }
+            // Pack fixed fields using helper functions
+            ptr = _packAddress(ptr, _context.prover);
+            ptr = _packBytes32(ptr, _context.txsHash);
+            ptr = _packUint48(ptr, _context.lastAnchorBlockId);
+            ptr = _packUint48(ptr, _context.lastBlockId);
+            ptr = _packUint48(ptr, _context.blobsCreatedIn);
+            ptr = _packUint32(ptr, _context.blockMaxGasLimit);
+            ptr = _packUint48(ptr, _context.livenessBond);
+            ptr = _packUint48(ptr, _context.provabilityBond);
+            ptr = _packUint8(ptr, _context.baseFeeSharingPctg);
+            
+            // Pack arrays using helper functions
+            ptr = _packBytes32Array(ptr, _context.anchorBlockHashes);
+            _packBytes32Array(ptr, _context.blobHashes);
         }
     }
 
@@ -173,112 +129,28 @@ library LibCodec {
         require(_packed.length >= 87, InvalidDataLength()); // 85 fixed + 2 lengths (1 byte each)
 
         unchecked {
-            uint256 offset;
-
-            // Extract fixed-size fields
-            assembly {
-                let dataPtr := add(_packed, 0x20)
-
-                // prover (20 bytes) - extract from packed data
-                let prover := shr(96, mload(add(dataPtr, offset)))
-                offset := add(offset, 20)
-
-                // txsHash (32 bytes)
-                let txsHash := mload(add(dataPtr, offset))
-                offset := add(offset, 32)
-
-                // lastAnchorBlockId (6 bytes) - stored as uint48
-                let lastAnchorBlockId := shr(208, mload(add(dataPtr, offset)))
-                offset := add(offset, 6)
-
-                // lastBlockId (6 bytes) - stored as uint48
-                let lastBlockId := shr(208, mload(add(dataPtr, offset)))
-                offset := add(offset, 6)
-
-                // blobsCreatedIn (6 bytes) - stored as uint48
-                let blobsCreatedIn := shr(208, mload(add(dataPtr, offset)))
-                offset := add(offset, 6)
-
-                // blockMaxGasLimit (4 bytes) - stored as uint32
-                let blockMaxGasLimit := shr(224, mload(add(dataPtr, offset)))
-                offset := add(offset, 4)
-
-                // livenessBond (6 bytes) - stored as uint48
-                let livenessBond := shr(208, mload(add(dataPtr, offset)))
-                offset := add(offset, 6)
-
-                // provabilityBond (6 bytes) - stored as uint48
-                let provabilityBond := shr(208, mload(add(dataPtr, offset)))
-                offset := add(offset, 6)
-
-                // baseFeeSharingPctg (1 byte) - stored as uint8
-                let baseFeeSharingPctg := byte(0, mload(add(dataPtr, offset)))
-                offset := add(offset, 1)
-
-                // Store fixed fields in context_ struct
+            uint256 ptr;
+            assembly { 
+                ptr := add(_packed, 0x20)
                 context_ := mload(0x40)
-                mstore(0x40, add(context_, 0x160)) // Update free memory pointer
-
-                mstore(context_, prover)
-                mstore(add(context_, 0x20), txsHash)
-                mstore(add(context_, 0x40), lastAnchorBlockId)
-                mstore(add(context_, 0x60), lastBlockId)
-                mstore(add(context_, 0x80), blobsCreatedIn)
-                mstore(add(context_, 0xa0), blockMaxGasLimit)
-                mstore(add(context_, 0xc0), livenessBond)
-                mstore(add(context_, 0xe0), provabilityBond)
-                mstore(add(context_, 0x100), baseFeeSharingPctg)
+                mstore(0x40, add(context_, 0x160))
             }
 
-            // Extract dynamic arrays
-            uint256 anchorHashesLen;
-            uint256 blobHashesLen;
-
-            assembly {
-                let dataPtr := add(_packed, 0x20)
-
-                // anchorBlockHashes length (1 byte)
-                anchorHashesLen := shr(248, mload(add(dataPtr, offset)))
-                offset := add(offset, 1)
-            }
-
-            // Allocate and populate anchorBlockHashes array
-            bytes32[] memory anchorHashes = new bytes32[](anchorHashesLen);
-            assembly {
-                let dataPtr := add(_packed, 0x20)
-                let anchorArrayData := add(anchorHashes, 0x20)
-
-                for { let i := 0 } lt(i, anchorHashesLen) { i := add(i, 1) } {
-                    mstore(add(anchorArrayData, mul(i, 0x20)), mload(add(dataPtr, offset)))
-                    offset := add(offset, 32)
-                }
-            }
-
-            assembly {
-                let dataPtr := add(_packed, 0x20)
-
-                // blobHashes length (1 byte)
-                blobHashesLen := shr(248, mload(add(dataPtr, offset)))
-                offset := add(offset, 1)
-            }
-
-            // Allocate and populate blobHashes array
-            bytes32[] memory blobHashes = new bytes32[](blobHashesLen);
-            assembly {
-                let dataPtr := add(_packed, 0x20)
-                let blobArrayData := add(blobHashes, 0x20)
-
-                for { let i := 0 } lt(i, blobHashesLen) { i := add(i, 1) } {
-                    mstore(add(blobArrayData, mul(i, 0x20)), mload(add(dataPtr, offset)))
-                    offset := add(offset, 32)
-                }
-            }
-
-            // Store array references in context_
-            assembly {
-                mstore(add(context_, 0x120), anchorHashes)
-                mstore(add(context_, 0x140), blobHashes)
-            }
+            // Unpack fixed fields using helper functions
+            uint256 value;
+            (context_.prover, ptr) = _unpackAddress(ptr);
+            (context_.txsHash, ptr) = _unpackBytes32(ptr);
+            (value, ptr) = _unpackUint48(ptr); context_.lastAnchorBlockId = uint48(value);
+            (value, ptr) = _unpackUint48(ptr); context_.lastBlockId = uint48(value);
+            (value, ptr) = _unpackUint48(ptr); context_.blobsCreatedIn = uint48(value);
+            (value, ptr) = _unpackUint32(ptr); context_.blockMaxGasLimit = uint32(value);
+            (value, ptr) = _unpackUint48(ptr); context_.livenessBond = uint48(value);
+            (value, ptr) = _unpackUint48(ptr); context_.provabilityBond = uint48(value);
+            (value, ptr) = _unpackUint8(ptr); context_.baseFeeSharingPctg = uint8(value);
+            
+            // Unpack arrays using helper functions
+            (context_.anchorBlockHashes, ptr) = _unpackBytes32Array(ptr);
+            (context_.blobHashes,) = _unpackBytes32Array(ptr);
         }
     }
 
@@ -506,80 +378,38 @@ library LibCodec {
             // Each BatchProveInput: 32+32+140+150 = 354 bytes fixed
             encoded_ = new bytes(1 + (length * 354));
 
-            assembly {
-                let ptr := add(encoded_, 0x20)
+            uint256 ptr;
+            assembly { ptr := add(encoded_, 0x20) }
+            
+            ptr = _packUint8(ptr, length);
 
-                // Store array length (1 byte)
-                mstore(ptr, shl(248, length))
-                ptr := add(ptr, 1)
-
-                for { let i := 0 } lt(i, length) { i := add(i, 1) } {
-                    let input := mload(add(_batches, mul(add(i, 1), 0x20)))
-
-                    // idAndBuildHash (32 bytes)
-                    mstore(ptr, mload(input))
-                    ptr := add(ptr, 32)
-
-                    // proposeMetaHash (32 bytes)
-                    mstore(ptr, mload(add(input, 0x20)))
-                    ptr := add(ptr, 32)
-
-                    // proveMeta struct (140 bytes)
-                    let proveMeta := mload(add(input, 0x40))
-
-                    // proposer (20 bytes)
-                    mstore(ptr, shl(96, mload(proveMeta)))
-                    ptr := add(ptr, 20)
-
-                    // prover (20 bytes)
-                    mstore(ptr, shl(96, mload(add(proveMeta, 0x20))))
-                    ptr := add(ptr, 20)
-
-                    // proposedAt (6 bytes)
-                    mstore(ptr, shl(208, mload(add(proveMeta, 0x40))))
-                    ptr := add(ptr, 6)
-
-                    // firstBlockId (6 bytes)
-                    mstore(ptr, shl(208, mload(add(proveMeta, 0x60))))
-                    ptr := add(ptr, 6)
-
-                    // lastBlockId (6 bytes)
-                    mstore(ptr, shl(208, mload(add(proveMeta, 0x80))))
-                    ptr := add(ptr, 6)
-
-                    // livenessBond (6 bytes)
-                    mstore(ptr, shl(208, mload(add(proveMeta, 0xa0))))
-                    ptr := add(ptr, 6)
-
-                    // provabilityBond (6 bytes)
-                    mstore(ptr, shl(208, mload(add(proveMeta, 0xc0))))
-                    ptr := add(ptr, 6)
-
-                    // Skip 140-70=70 bytes for padding
-                    ptr := add(ptr, 70)
-
-                    // tran struct (150 bytes)
-                    let tran := mload(add(input, 0x60))
-
-                    // batchId (6 bytes)
-                    mstore(ptr, shl(208, mload(tran)))
-                    ptr := add(ptr, 6)
-
-                    // parentHash (32 bytes)
-                    mstore(ptr, mload(add(tran, 0x20)))
-                    ptr := add(ptr, 32)
-
-                    // blockHash (32 bytes)
-                    mstore(ptr, mload(add(tran, 0x40)))
-                    ptr := add(ptr, 32)
-
-                    // stateRoot (32 bytes)
-                    mstore(ptr, mload(add(tran, 0x60)))
-                    ptr := add(ptr, 32)
-
-                    // Skip remaining 150-102=48 bytes for padding
-                    ptr := add(ptr, 48)
-                }
+            for (uint256 i; i < length; ++i) {
+                I.BatchProveInput memory input = _batches[i];
+                
+                // Pack fixed fields using helper functions
+                ptr = _packBytes32(ptr, input.idAndBuildHash);
+                ptr = _packBytes32(ptr, input.proposeMetaHash);
+                
+                // Pack proveMeta struct fields
+                ptr = _packAddress(ptr, input.proveMeta.proposer);
+                ptr = _packAddress(ptr, input.proveMeta.prover);
+                ptr = _packUint48(ptr, input.proveMeta.proposedAt);
+                ptr = _packUint48(ptr, input.proveMeta.firstBlockId);
+                ptr = _packUint48(ptr, input.proveMeta.lastBlockId);
+                ptr = _packUint48(ptr, input.proveMeta.livenessBond);
+                ptr = _packUint48(ptr, input.proveMeta.provabilityBond);
+                
+                // Skip padding for proveMeta (140-70=70 bytes)
+                assembly { ptr := add(ptr, 70) }
+                
+                // Pack tran struct fields
+                ptr = _packUint48(ptr, input.tran.batchId);
+                ptr = _packBytes32(ptr, input.tran.parentHash);
+                ptr = _packBytes32(ptr, input.tran.blockHash);
+                ptr = _packBytes32(ptr, input.tran.stateRoot);
+                
+                // Skip padding for tran (150-102=48 bytes)
+                assembly { ptr := add(ptr, 48) }
             }
         }
     }
@@ -592,96 +422,45 @@ library LibCodec {
         require(_encoded.length >= 1, InvalidDataLength());
 
         unchecked {
+            uint256 ptr;
+            assembly { ptr := add(_encoded, 0x20) }
+            
             uint256 length;
-            assembly {
-                let dataPtr := add(_encoded, 0x20)
-                length := shr(248, mload(dataPtr))
-            }
+            (length, ptr) = _unpackUint8(ptr);
 
             require(_encoded.length == 1 + (length * 354), InvalidDataLength());
             batches_ = new I.BatchProveInput[](length);
 
-            assembly {
-                let dataPtr := add(_encoded, 0x20)
-                let ptr := add(dataPtr, 1)
-
-                for { let i := 0 } lt(i, length) { i := add(i, 1) } {
-                    // Allocate memory for BatchProveInput
-                    let input := mload(0x40)
-                    mstore(0x40, add(input, 0x80))
-
-                    // idAndBuildHash (32 bytes)
-                    mstore(input, mload(ptr))
-                    ptr := add(ptr, 32)
-
-                    // proposeMetaHash (32 bytes)
-                    mstore(add(input, 0x20), mload(ptr))
-                    ptr := add(ptr, 32)
-
-                    // Allocate and populate proveMeta
-                    let proveMeta := mload(0x40)
-                    mstore(0x40, add(proveMeta, 0xe0))
-
-                    // proposer (20 bytes)
-                    mstore(proveMeta, shr(96, mload(ptr)))
-                    ptr := add(ptr, 20)
-
-                    // prover (20 bytes)
-                    mstore(add(proveMeta, 0x20), shr(96, mload(ptr)))
-                    ptr := add(ptr, 20)
-
-                    // proposedAt (6 bytes)
-                    mstore(add(proveMeta, 0x40), shr(208, mload(ptr)))
-                    ptr := add(ptr, 6)
-
-                    // firstBlockId (6 bytes)
-                    mstore(add(proveMeta, 0x60), shr(208, mload(ptr)))
-                    ptr := add(ptr, 6)
-
-                    // lastBlockId (6 bytes)
-                    mstore(add(proveMeta, 0x80), shr(208, mload(ptr)))
-                    ptr := add(ptr, 6)
-
-                    // livenessBond (6 bytes)
-                    mstore(add(proveMeta, 0xa0), shr(208, mload(ptr)))
-                    ptr := add(ptr, 6)
-
-                    // provabilityBond (6 bytes)
-                    mstore(add(proveMeta, 0xc0), shr(208, mload(ptr)))
-                    ptr := add(ptr, 6)
-
-                    // Skip padding
-                    ptr := add(ptr, 70)
-
-                    mstore(add(input, 0x40), proveMeta)
-
-                    // Allocate and populate tran
-                    let tran := mload(0x40)
-                    mstore(0x40, add(tran, 0x80))
-
-                    // batchId (6 bytes)
-                    mstore(tran, shr(208, mload(ptr)))
-                    ptr := add(ptr, 6)
-
-                    // parentHash (32 bytes)
-                    mstore(add(tran, 0x20), mload(ptr))
-                    ptr := add(ptr, 32)
-
-                    // blockHash (32 bytes)
-                    mstore(add(tran, 0x40), mload(ptr))
-                    ptr := add(ptr, 32)
-
-                    // stateRoot (32 bytes)
-                    mstore(add(tran, 0x60), mload(ptr))
-                    ptr := add(ptr, 32)
-
-                    // Skip padding
-                    ptr := add(ptr, 48)
-
-                    mstore(add(input, 0x60), tran)
-
-                    mstore(add(batches_, mul(add(i, 1), 0x20)), input)
-                }
+            for (uint256 i; i < length; ++i) {
+                I.BatchProveInput memory input;
+                uint256 value;
+                
+                // Unpack fixed fields using helper functions
+                (input.idAndBuildHash, ptr) = _unpackBytes32(ptr);
+                (input.proposeMetaHash, ptr) = _unpackBytes32(ptr);
+                
+                // Unpack proveMeta struct fields
+                (input.proveMeta.proposer, ptr) = _unpackAddress(ptr);
+                (input.proveMeta.prover, ptr) = _unpackAddress(ptr);
+                (value, ptr) = _unpackUint48(ptr); input.proveMeta.proposedAt = uint48(value);
+                (value, ptr) = _unpackUint48(ptr); input.proveMeta.firstBlockId = uint48(value);
+                (value, ptr) = _unpackUint48(ptr); input.proveMeta.lastBlockId = uint48(value);
+                (value, ptr) = _unpackUint48(ptr); input.proveMeta.livenessBond = uint48(value);
+                (value, ptr) = _unpackUint48(ptr); input.proveMeta.provabilityBond = uint48(value);
+                
+                // Skip padding for proveMeta (140-70=70 bytes)
+                assembly { ptr := add(ptr, 70) }
+                
+                // Unpack tran struct fields
+                (value, ptr) = _unpackUint48(ptr); input.tran.batchId = uint48(value);
+                (input.tran.parentHash, ptr) = _unpackBytes32(ptr);
+                (input.tran.blockHash, ptr) = _unpackBytes32(ptr);
+                (input.tran.stateRoot, ptr) = _unpackBytes32(ptr);
+                
+                // Skip padding for tran (150-102=48 bytes)
+                assembly { ptr := add(ptr, 48) }
+                
+                batches_[i] = input;
             }
         }
     }
@@ -695,31 +474,15 @@ library LibCodec {
             // Fixed size: 32+32+18 = 82 bytes
             encoded_ = new bytes(82);
 
-            assembly {
-                let ptr := add(encoded_, 0x20)
+            uint256 ptr;
+            assembly { ptr := add(encoded_, 0x20) }
 
-                // idAndBuildHash (32 bytes)
-                mstore(ptr, mload(_evidence))
-                ptr := add(ptr, 32)
-
-                // proveMetaHash (32 bytes)
-                mstore(ptr, mload(add(_evidence, 0x20)))
-                ptr := add(ptr, 32)
-
-                // proposeMeta struct (18 bytes total)
-                let proposeMeta := mload(add(_evidence, 0x40))
-
-                // lastBlockTimestamp (6 bytes)
-                mstore(ptr, shl(208, mload(proposeMeta)))
-                ptr := add(ptr, 6)
-
-                // lastBlockId (6 bytes)
-                mstore(ptr, shl(208, mload(add(proposeMeta, 0x20))))
-                ptr := add(ptr, 6)
-
-                // lastAnchorBlockId (6 bytes)
-                mstore(ptr, shl(208, mload(add(proposeMeta, 0x40))))
-            }
+            // Pack fields using helper functions
+            ptr = _packBytes32(ptr, _evidence.idAndBuildHash);
+            ptr = _packBytes32(ptr, _evidence.proveMetaHash);
+            ptr = _packUint48(ptr, _evidence.proposeMeta.lastBlockTimestamp);
+            ptr = _packUint48(ptr, _evidence.proposeMeta.lastBlockId);
+            _packUint48(ptr, _evidence.proposeMeta.lastAnchorBlockId);
         }
     }
 
@@ -731,38 +494,25 @@ library LibCodec {
         require(_encoded.length == 82, InvalidDataLength());
 
         unchecked {
-            assembly {
-                let dataPtr := add(_encoded, 0x20)
-
-                // Allocate memory for evidence_
+            uint256 ptr;
+            assembly { 
+                ptr := add(_encoded, 0x20)
                 evidence_ := mload(0x40)
                 mstore(0x40, add(evidence_, 0x60))
-
-                // idAndBuildHash (32 bytes)
-                mstore(evidence_, mload(dataPtr))
-                dataPtr := add(dataPtr, 32)
-
-                // proveMetaHash (32 bytes)
-                mstore(add(evidence_, 0x20), mload(dataPtr))
-                dataPtr := add(dataPtr, 32)
-
-                // Allocate and populate proposeMeta
+                
+                // Allocate memory for proposeMeta struct
                 let proposeMeta := mload(0x40)
                 mstore(0x40, add(proposeMeta, 0x60))
-
-                // lastBlockTimestamp (6 bytes)
-                mstore(proposeMeta, shr(208, mload(dataPtr)))
-                dataPtr := add(dataPtr, 6)
-
-                // lastBlockId (6 bytes)
-                mstore(add(proposeMeta, 0x20), shr(208, mload(dataPtr)))
-                dataPtr := add(dataPtr, 6)
-
-                // lastAnchorBlockId (6 bytes)
-                mstore(add(proposeMeta, 0x40), shr(208, mload(dataPtr)))
-
                 mstore(add(evidence_, 0x40), proposeMeta)
             }
+
+            // Unpack fields using helper functions
+            uint256 value;
+            (evidence_.idAndBuildHash, ptr) = _unpackBytes32(ptr);
+            (evidence_.proveMetaHash, ptr) = _unpackBytes32(ptr);
+            (value, ptr) = _unpackUint48(ptr); evidence_.proposeMeta.lastBlockTimestamp = uint48(value);
+            (value, ptr) = _unpackUint48(ptr); evidence_.proposeMeta.lastBlockId = uint48(value);
+            (value,) = _unpackUint48(ptr); evidence_.proposeMeta.lastAnchorBlockId = uint48(value);
         }
     }
 
@@ -943,6 +693,25 @@ library LibCodec {
             }
         }
         return ptr;
+    }
+
+    /// @dev Unpacks bytes32 array with length prefix
+    function _unpackBytes32Array(uint256 ptr) private pure returns (bytes32[] memory arr, uint256 newPtr) {
+        uint256 len;
+        assembly {
+            len := shr(248, mload(ptr))
+            ptr := add(ptr, 1)
+        }
+        
+        arr = new bytes32[](len);
+        assembly {
+            let arrData := add(arr, 0x20)
+            for { let i := 0 } lt(i, len) { i := add(i, 1) } {
+                mstore(add(arrData, mul(i, 0x20)), mload(ptr))
+                ptr := add(ptr, 32)
+            }
+        }
+        return (arr, ptr);
     }
 
     /// @dev Packs uint48 array with length prefix
