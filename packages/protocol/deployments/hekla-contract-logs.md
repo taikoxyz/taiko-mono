@@ -123,10 +123,10 @@
 ### taikoInbox
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0xbC4584d2FBfaf1de9b0Ae0d52491e7617e4FFdC6`
+- impl: `0xD60841Cf3f56C8A17A3aE7D8ddcAF3b834Eb86c3`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - oldFork: `0x6e15d2049480C7E339C6B398774166e1ddbCd43e` at commit `a634150`
-- newFork: `0xC68946f44fCE58a114C9D9C8D06c49B9F4D5Bd3F` at commit `baeaba9`
+- newFork: `0xF47eB6f8F9934F2838594A733f680Ee8136d1024` at commit `c663e2e`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at [PR #17532](https://github.com/taikoxyz/taiko-mono/pull/17532)
@@ -148,6 +148,7 @@
   - upgraded on Mar 21, 2025 at commit `80baf41`
   - upgraded on Apr 18, 2025 at commit `791c524`
   - upgraded on May 29, 2025 at commit `baeaba9`
+  - upgraded on Jun 28, 2025 at commit `c663e2e`
 
 ### assignmentHook
 
@@ -292,10 +293,11 @@
 ### preconf_whitelist
 
 - proxy : `0x4aA38A15109eAbbf09b7967009A2e00D2D15cb84`
-- impl : `0x51BFcC9dbb1bf32210b39EB149172088eEE228A1`
+- impl : `0xcfc9A0b7a9f123D1Cd78034CC8F06F4646588483`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on May 29, 2025 at commit `baeaba9`
+  - upgraded on Jun 19, 2025 at commit `edf2041`
 
 ### preconf_router
 
@@ -447,7 +449,7 @@
 ### taikoAnchor
 
 - proxy: `0x1670090000000000000000000000000000010001`
-- impl: `0x9BB991379a558bB9C24Da18586275Ad09eD6a883`
+- impl: `0x31EeCdD5c2Bf737BbCf8Bac6F45e4b4b30D53b01`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -456,6 +458,7 @@
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
   - upgraded on Mar 24, 2025 at commit `80baf41`
   - upgraded on Apr 3, 2025 at commit `2879728`
+  - upgraded on Jun 28, 2025 at commit `c663e2e`
 
 ### rollup_address_manager
 

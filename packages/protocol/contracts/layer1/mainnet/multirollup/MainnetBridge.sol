@@ -6,7 +6,7 @@ import "../libs/LibFasterReentryLock.sol";
 
 /// @title MainnetBridge
 /// @dev This contract shall be deployed to replace its parent contract on Ethereum for Taiko
-/// mainnet to reduce gas cost. In theory, the contract can also be deplyed on Taiko L2 but this is
+/// mainnet to reduce gas cost. In theory, the contract can also be deployed on Taiko L2 but this is
 /// not well testee nor necessary.
 /// @notice At genesis, this contract's initial balance is 999,999,600 Ether. Additionally, two
 /// other addresses have non-zero balances:

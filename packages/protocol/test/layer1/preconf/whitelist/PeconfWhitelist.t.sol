@@ -348,6 +348,35 @@ contract TestPreconfWhitelist is Layer1Test {
         vm.stopPrank();
     }
 
+    function test_addRemoveReAddOperatorWithoutConsolidate() external {
+        _setBeaconBlockRoot(bytes32(uint256(9)));
+
+        // first we add carol to WL
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Carol);
+        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorMapping(0), Carol);
+
+        // now remove her
+        vm.prank(whitelistOwner);
+        whitelist.removeOperator(Carol);
+        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorMapping(0), Carol);
+        // re-add her
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Carol);
+        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorMapping(0), Carol);
+        // ensure she was not double-added to mapping
+        assertEq(whitelist.operatorMapping(1), address(0));
+
+        // make sure she is correctly set to active now
+        (uint64 activeSince, uint64 inactiveSince, uint8 index) = whitelist.operators(Carol);
+        assertEq(activeSince, whitelist.epochStartTimestamp(2));
+        assertEq(inactiveSince, 0);
+        assertEq(index, 0);
+    }
+
     function _setBeaconBlockRoot(bytes32 _root) internal {
         vm.etch(
             LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,

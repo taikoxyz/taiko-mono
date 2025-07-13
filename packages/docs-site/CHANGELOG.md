@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.29.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.1...docs-site-v1.29.2) (2025-07-11)
+
+
+### Bug Fixes
+
+* **docs-site:** update ethstaker org name ([#19652](https://github.com/taikoxyz/taiko-mono/issues/19652)) ([aa76bb3](https://github.com/taikoxyz/taiko-mono/commit/aa76bb3b4c1268fae687da48c58f85f832a371ec))
+
+
+### Chores
+
+* **docs-site:** update stat ([#19718](https://github.com/taikoxyz/taiko-mono/issues/19718)) ([d64d18c](https://github.com/taikoxyz/taiko-mono/commit/d64d18cf310af86fc61f04ec11b5381c21b4dc2a))
+
+## [1.29.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.0...docs-site-v1.29.1) (2025-06-18)
+
+
+### Documentation
+
+* **docs-site:** update based-preconfirmation.mdx to avoid legal implications ([#19612](https://github.com/taikoxyz/taiko-mono/issues/19612)) ([a8f600e](https://github.com/taikoxyz/taiko-mono/commit/a8f600e269594ce8b923e4f5ad1da573b96160a5))
+
 ## [1.29.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.28.3...docs-site-v1.29.0) (2025-06-16)
 
 

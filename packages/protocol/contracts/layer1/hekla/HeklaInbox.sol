@@ -53,4 +53,15 @@ contract HeklaInbox is MainnetInbox {
         maxUnverifiedBatches_ = 324_000;
         batchRingBufferSize_ = 324_512;
     }
+
+    function _getForkHeights() internal pure override returns (ITaikoInbox.ForkHeights memory) {
+        return ITaikoInbox.ForkHeights({
+            ontake: 840_512,
+            pacaya: 1_299_888,
+            shasta: 0,
+            unzen: 0,
+            etna: 0,
+            fuji: 0
+        });
+    }
 }

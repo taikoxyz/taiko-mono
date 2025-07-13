@@ -308,7 +308,7 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData) error {
 	return nil
 }
 
-// submitProofsOp performs a batch proof submission operation.
+// submitProofAggregationOp performs a batch proof submission operation.
 func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs) error {
 	submitter := p.proofSubmitterPacaya
 	if utils.IsNil(submitter) {
