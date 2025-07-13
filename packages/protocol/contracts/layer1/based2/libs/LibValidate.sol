@@ -286,13 +286,15 @@ library LibValidate {
         pure
         returns (uint48)
     {
-        uint256 firstBlockId = _parentLastBlockId + 1;
-        uint256 lastBlockId = uint48(firstBlockId + _numBlocks);
-        require(
-            LibForks.isBlocksInCurrentFork(_conf, firstBlockId, lastBlockId),
-            BlocksNotInCurrentFork()
-        );
-        return uint48(lastBlockId);
+        unchecked {
+            uint256 firstBlockId = _parentLastBlockId + 1;
+            uint256 lastBlockId = uint48(firstBlockId + _numBlocks);
+            require(
+                LibForks.isBlocksInCurrentFork(_conf, firstBlockId, lastBlockId),
+                BlocksNotInCurrentFork()
+            );
+            return uint48(lastBlockId);
+        }
     }
 
     /// @notice Validates blob data and forced inclusion parameters

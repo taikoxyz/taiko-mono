@@ -21,7 +21,7 @@ library LibData {
     /// @param _blockTimestamp The timestamp of the block in which the batch is proposed
     /// @param _batch The batch being proposed
     /// @param _context The batch context data containing computed values
-    /// @return meta_ The populated batch metadata
+    /// @return _ The populated batch metadata
     function buildBatchMetadata(
         uint48 _blockNumber,
         uint48 _blockTimestamp,
@@ -30,46 +30,45 @@ library LibData {
     )
         internal
         pure
-        returns (I.BatchMetadata memory meta_)
+        returns (I.BatchMetadata memory)
     {
-        // Build metadata section
-        meta_.buildMeta = I.BatchBuildMetadata({
-            txsHash: _context.txsHash,
-            blobHashes: _context.blobHashes,
-            extraData: _encodeExtraData(_context.baseFeeSharingPctg, _batch),
-            coinbase: _batch.coinbase,
-            proposedIn: _blockNumber,
-            blobCreatedIn: _batch.blobs.createdIn,
-            blobByteOffset: _batch.blobs.byteOffset,
-            blobByteSize: _batch.blobs.byteSize,
-            gasLimit: _context.blockMaxGasLimit,
-            lastBlockId: _context.lastBlockId,
-            lastBlockTimestamp: _batch.lastBlockTimestamp,
-            anchorBlockIds: _batch.anchorBlockIds,
-            anchorBlockHashes: _context.anchorBlockHashes,
-            blocks: _batch.blocks
-        });
-
-        // Propose metadata section
-        meta_.proposeMeta = I.BatchProposeMetadata({
-            lastBlockTimestamp: _batch.lastBlockTimestamp,
-            lastBlockId: meta_.buildMeta.lastBlockId,
-            lastAnchorBlockId: _context.lastAnchorBlockId
-        });
-
         // Prove metadata section
         uint48 firstBlockId;
         unchecked {
             firstBlockId = _context.lastBlockId + 1 - uint48(_batch.blocks.length);
         }
-        meta_.proveMeta = I.BatchProveMetadata({
-            proposer: _batch.proposer,
-            prover: _context.prover,
-            proposedAt: _blockTimestamp,
-            firstBlockId: firstBlockId,
-            lastBlockId: meta_.buildMeta.lastBlockId,
-            livenessBond: _context.livenessBond,
-            provabilityBond: _context.provabilityBond
+
+        return I.BatchMetadata({
+            buildMeta: I.BatchBuildMetadata({
+                txsHash: _context.txsHash,
+                blobHashes: _context.blobHashes,
+                extraData: _encodeExtraData(_context.baseFeeSharingPctg, _batch),
+                coinbase: _batch.coinbase,
+                proposedIn: _blockNumber,
+                blobCreatedIn: _batch.blobs.createdIn,
+                blobByteOffset: _batch.blobs.byteOffset,
+                blobByteSize: _batch.blobs.byteSize,
+                gasLimit: _context.blockMaxGasLimit,
+                lastBlockId: _context.lastBlockId,
+                lastBlockTimestamp: _batch.lastBlockTimestamp,
+                anchorBlockIds: _batch.anchorBlockIds,
+                anchorBlockHashes: _context.anchorBlockHashes,
+                blocks: _batch.blocks
+            }),
+            proposeMeta: I.BatchProposeMetadata({
+                lastBlockTimestamp: _batch.lastBlockTimestamp,
+                lastBlockId: _context.lastBlockId,
+                lastAnchorBlockId: _context.lastAnchorBlockId
+            }),
+            proveMeta: I.BatchProveMetadata({
+                proposer: _batch.proposer,
+                prover: _context.prover,
+                proposedAt: _blockTimestamp,
+                firstBlockId: firstBlockId,
+                lastBlockId: _context.lastBlockId,
+                livenessBond: _context.livenessBond,
+                provabilityBond: _context.provabilityBond
+            })
         });
     }
 
