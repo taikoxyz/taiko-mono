@@ -158,10 +158,17 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
     /// @return The configuration struct
     function _getConfig() internal view virtual returns (Config memory);
 
-    /// @notice Gets the blob hash for a block number
-    /// @param _blockNumber The block number
+    /// @notice Gets the blob hash for a given blob index
+    /// @param _blobIndex The blob index
     /// @return The blob hash
-    function _getBlobHash(uint256 _blockNumber) internal view virtual returns (bytes32);
+    function _getBlobHash(uint256 _blobIndex) internal view virtual returns (bytes32);
+
+
+    /// @notice Gets the block hash for a block number
+    /// @param _blockNumber The block number
+    /// @return The block hash
+    function _getBlockHash(uint256 _blockNumber) internal view virtual returns (bytes32);
+ 
 
     /// @notice Checks if a signal has been sent
     /// @param _conf The configuration
@@ -213,10 +220,18 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         internal
         virtual;
 
+    /// @notice Loads the summary hash from storage
+    /// @return The current summary hash
     function _loadSummaryHash() internal view virtual returns (bytes32);
 
+    /// @notice Saves the summary hash to storage
+    /// @param _summaryHash The summary hash to save
     function _saveSummaryHash(bytes32 _summaryHash) internal virtual;
 
+    /// @notice Loads a batch metadata hash from storage
+    /// @param _conf The configuration
+    /// @param _batchId The batch ID
+    /// @return The batch metadata hash
     function _loadBatchMetaHash(
         I.Config memory _conf,
         uint256 _batchId
@@ -226,6 +241,12 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         virtual
         returns (bytes32);
 
+    /// @notice Saves a transition to storage
+    /// @param _conf The configuration
+    /// @param _batchId The batch ID
+    /// @param _parentHash The parent hash
+    /// @param _tranMetahash The transition metadata hash
+    /// @return isFirstTransition_ Whether this is the first transition for the batch
     function _saveTransition(
         I.Config memory _conf,
         uint48 _batchId,
@@ -236,6 +257,10 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         virtual
         returns (bool isFirstTransition_);
 
+    /// @notice Saves a batch metadata hash to storage
+    /// @param _conf The configuration
+    /// @param _batchId The batch ID
+    /// @param _metaHash The metadata hash to save
     function _saveBatchMetaHash(
         I.Config memory _conf,
         uint256 _batchId,
@@ -244,6 +269,12 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         internal
         virtual;
 
+    /// @notice Loads a transition metadata hash from storage
+    /// @param _conf The configuration
+    /// @param _lastVerifiedBlockHash The last verified block hash
+    /// @param _batchId The batch ID
+    /// @return metaHash_ The transition metadata hash
+    /// @return isFirstTransition_ Whether this is the first transition for the batch
     function _loadTransitionMetaHash(
         I.Config memory _conf,
         bytes32 _lastVerifiedBlockHash,
@@ -261,6 +292,7 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
     /// @notice Initializes the Taiko contract
     /// @param _owner The owner address
     /// @param _genesisBlockHash The genesis block hash
+    /// @param _gasIssuancePerSecond The initial gas issuance per second
     function _init(
         address _owner,
         bytes32 _genesisBlockHash,
@@ -299,6 +331,7 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
             loadBatchMetaHash: _loadBatchMetaHash,
             isSignalSent: _isSignalSent,
             getBlobHash: _getBlobHash,
+            getBlockHash: _getBlockHash,
             loadTransitionMetaHash: _loadTransitionMetaHash,
             // Write functions
             saveTransition: _saveTransition,
@@ -325,5 +358,6 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
 
     /// @notice Thrown when the provided summary doesn't match the stored summary hash
     error SummaryMismatch();
+    /// @notice Thrown when the genesis block hash is invalid (zero)
     error InvalidGenesisBlockHash();
 }

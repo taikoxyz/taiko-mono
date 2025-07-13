@@ -1,52 +1,71 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/// @title IInbox
+/// @notice Interface for the Taiko Alethia protocol inbox
+/// @dev Defines all data structures and function signatures for the simplified
+///      based rollup protocol without tier-based proof system
+/// @custom:security-contact security@taiko.xyz
 interface IInbox {
+    /// @notice Represents a block within a batch
+    /// @dev Contains block-specific parameters and anchor information
     struct Block {
-        // the max number of transactions in this block. Note that if there are not enough
-        // transactions in calldata or blobs, the block will contain as many transactions as
-        // possible.
+        /// @notice Maximum number of transactions in this block
+        /// @dev If insufficient transactions in calldata/blobs, block contains as many as possible
         uint16 numTransactions;
-        // The time difference (in seconds) between the timestamp of this block and
-        // the timestamp of the parent block in the same batch. For the first block in a batch,
-        // there is no parent block in the same batch, so the time shift should be 0.
+        /// @notice Time difference in seconds between this block and its parent within the batch
+        /// @dev For the first block in a batch, this should be 0 (no parent in same batch)
         uint8 timeShift;
-        // Optional anchor block id.
+        /// @notice Optional anchor block ID for L1-L2 synchronization
         uint48 anchorBlockId;
-        // The number of signals in this block.
+        /// @notice Number of cross-chain signals in this block
         uint8 numSignals;
-        // Whether this block has an anchor block.
+        /// @notice Whether this block references an anchor block
         bool hasAnchor;
     }
 
+    /// @notice Contains blob data for a batch
+    /// @dev Supports both direct blob hashes and blob indices for different scenarios
     struct Blobs {
-        // The hashes of the blob. Note that if this array is not empty.  `firstBlobIndex` and
-        // `numBlobs` must be 0.
-        bytes32[] hashes; // length <= type(uint8).max
-        // The index of the first blob in this batch.
+        /// @notice Direct blob hashes (if non-empty, firstBlobIndex and numBlobs must be 0)
+        /// @dev Length limited to uint8 max for gas efficiency
+        bytes32[] hashes;
+        /// @notice Index of the first blob in this batch (for blob index mode)
         uint8 firstBlobIndex;
-        // The number of blobs in this batch. Blobs are initially concatenated and subsequently
-        // decompressed via Zlib.
+        /// @notice Number of blobs in this batch
+        /// @dev Blobs are concatenated and decompressed via Zlib
         uint8 numBlobs;
-        // The byte offset of the blob in the batch.
+        /// @notice Byte offset of the blob data within the batch
         uint32 byteOffset;
-        // The byte size of the blob.
+        /// @notice Size of the blob data in bytes
         uint32 byteSize;
-        // The block number when the blob was created. This value is only non-zero when
-        // `blobHashes` are non-empty.
+        /// @notice Block number when blobs were created (only for forced inclusion)
+        /// @dev Non-zero only when hashes array is used
         uint48 createdIn;
     }
 
+    /// @notice Represents a batch of blocks to be proposed
+    /// @dev Contains all data needed for batch validation and processing
     struct Batch {
+        /// @notice Address that proposed this batch
         address proposer;
+        /// @notice Coinbase address for block rewards (can be zero)
         address coinbase;
+        /// @notice Timestamp of the last block in this batch
         uint48 lastBlockTimestamp;
+        /// @notice Gas issuance rate per second for this batch
         uint32 gasIssuancePerSecond;
+        /// @notice Whether this is a forced inclusion batch
         bool isForcedInclusion;
+        /// @notice Prover authorization data
         bytes proverAuth;
-        bytes32[] signalSlots; // length <= type(uint8).max
-        uint48[] anchorBlockIds; // length <= type(uint8).max
-        Block[] blocks; // length <= type(uint8).max
+        /// @notice Signal slots for cross-chain messages
+        bytes32[] signalSlots;
+        /// @notice Anchor block IDs for L1-L2 synchronization
+        uint48[] anchorBlockIds;
+        /// @notice Array of blocks in this batch
+        Block[] blocks;
+        /// @notice Blob data for this batch
         Blobs blobs;
     }
 
@@ -154,8 +173,8 @@ interface IInbox {
         uint48 livenessBond;
     }
 
-    //  @notice Struct representing transition storage
-    /// @notice 2 slots used for each transition.
+    /// @notice Struct representing transition storage
+    /// @dev Uses 2 storage slots per transition for gas efficiency
     struct TransitionState {
         uint256 batchIdAndPartialParentHash;
         bytes32 metaHash;

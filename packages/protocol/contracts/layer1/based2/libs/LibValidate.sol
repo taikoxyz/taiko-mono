@@ -25,7 +25,7 @@ library LibValidate {
     /// @notice Validates a complete batch proposal
     /// @dev Performs comprehensive validation including proposer, blocks, timestamps,
     ///      signals, anchors, and blobs. This is the main entry point for batch validation.
-    /// @dev The prover field of the returend context object will not be initialized.
+    /// @dev The prover field of the returned context object will not be initialized.
     /// @param _conf Protocol configuration parameters
     /// @param _rw Read/write access functions for blockchain state
     /// @param _summary Current protocol summary state
@@ -108,12 +108,12 @@ library LibValidate {
         }
     }
 
-    /// @notice Validates the gas issuance per second for a batch.
+    /// @notice Validates the gas issuance per second for a batch
     /// @dev Ensures that the gas issuance per second is within a 1% range of the last recorded
-    /// value.
+    ///      value
     /// @param _conf The protocol configuration
-    /// @param _summary The current protocol
-    /// @param _batch The batch being validated, which includes the gas issuance per second.
+    /// @param _summary The current protocol summary
+    /// @param _batch The batch being validated, which includes the gas issuance per second
     function _validateGasIssuance(
         I.Config memory _conf,
         I.Summary memory _summary,
@@ -255,7 +255,7 @@ library LibValidate {
 
             require(anchorBlockId > lastAnchorBlockId_, AnchorIdSmallerThanParent());
 
-            anchorBlockHashes_[k] = _rw.getBlobHash(anchorBlockId);
+            anchorBlockHashes_[k] = _rw.getBlockHash(anchorBlockId);
             require(anchorBlockHashes_[k] != 0, ZeroAnchorBlockHash());
 
             anchorFound = true;
@@ -275,7 +275,7 @@ library LibValidate {
     /// @param _conf Protocol configuration
     /// @param _numBlocks Number of blocks in the batch
     /// @param _parentLastBlockId Last block ID from the parent batch
-    /// @return  ID of the last block in this batch
+    /// @return The ID of the last block in this batch
     function _validateBlockRange(
         I.Config memory _conf,
         uint256 _numBlocks,
@@ -297,7 +297,7 @@ library LibValidate {
     }
 
     /// @notice Validates blob data and forced inclusion parameters
-    /// @dev Handles different blob scenarios: direct, normal batches, and forced inclusion
+    /// @dev Handles different blob scenarios: direct proposing, normal batches, and forced inclusion
     /// @param _conf Protocol configuration
     /// @param _batch The batch containing blob information
     /// @return blobsCreatedIn_ Block number where blobs were created

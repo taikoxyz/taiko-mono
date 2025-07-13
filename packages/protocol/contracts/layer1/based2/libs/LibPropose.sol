@@ -109,19 +109,35 @@ library LibPropose {
     // -------------------------------------------------------------------------
     // Custom Errors
     // -------------------------------------------------------------------------
+    
+    /// @notice Thrown when an anchor ID is smaller than its parent
     error AnchorIdSmallerThanParent();
+    /// @notice Thrown when an anchor ID is too small (outside allowed range)
     error AnchorIdTooSmall();
+    /// @notice Thrown when an anchor ID is zero but should be non-zero
     error AnchorIdZero();
+    /// @notice Thrown when a required blob is not found
     error BlobNotFound();
+    /// @notice Thrown when blocks are not in the current fork
     error BlocksNotInCurrentFork();
+    /// @notice Thrown when the first block has a non-zero time shift
     error FirstBlockTimeShiftNotZero();
+    /// @notice Thrown when the metadata hash does not match
     error MetaHashNotMatch();
+    /// @notice Thrown when no anchor block ID is found within the batch
     error NoAnchorBlockIdWithinThisBatch();
+    /// @notice Thrown when no batches are provided for proposal
     error NoBatchesToPropose();
+    /// @notice Thrown when a signal has not been sent
     error SignalNotSent();
+    /// @notice Thrown when a timestamp is smaller than its parent
     error TimestampSmallerThanParent();
+    /// @notice Thrown when a timestamp is too large
     error TimestampTooLarge();
+    /// @notice Thrown when a timestamp is too small
     error TimestampTooSmall();
+    /// @notice Thrown when too many batches are provided
     error TooManyBatches();
+    /// @notice Thrown when an anchor block hash is zero
     error ZeroAnchorBlockHash();
 }

@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 import { IInbox as I } from "../IInbox.sol";
 
 /// @title LibCodec
+/// @notice Library for encoding and decoding protocol data structures to optimize storage and gas costs
+/// @dev Provides functions to pack and unpack various protocol data structures into tightly packed
+///      byte arrays. The packing is designed to minimize storage costs while maintaining data integrity.
+///      All pack/unpack operations use assembly for gas optimization.
 /// @custom:security-contact security@taiko.xyz
-/// @notice A library for encoding and decoding protocol data structures to optimize storage and gas costs.
-/// @dev This library provides functions to pack and unpack various protocol data structures
-/// into tightly packed byte arrays. The packing is designed to minimize storage costs while
-/// maintaining data integrity. All pack/unpack operations use assembly for gas optimization.
 library LibCodec {
     // -------------------------------------------------------------------------
     // Internal Functions

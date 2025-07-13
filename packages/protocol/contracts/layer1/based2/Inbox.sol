@@ -26,7 +26,10 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
     using LibState for I.State;
     using SafeERC20 for IERC20;
 
-    State public state; // storage layout must match Ontake fork
+    /// @notice Protocol state storage
+    /// @dev Storage layout must match Ontake fork for upgrade compatibility
+    State public state;
+    /// @notice Reserved storage slots for future upgrades
     uint256[50] private __gap;
 
     // -------------------------------------------------------------------------
@@ -59,6 +62,8 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         state.withdrawBond(_getConfig().bondToken, _amount);
     }
 
+    /// @notice Gets the bond token address
+    /// @return The bond token address
     function bondToken4() external view returns (address) {
         return _getConfig().bondToken;
     }
@@ -67,10 +72,17 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
     // Internal Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Gets the blob hash for a block number
-    /// @param _blockNumber The block number
+    /// @notice Gets the blob hash for a given blob index
+    /// @param _blobIdx The blob index
     /// @return The blob hash
-    function _getBlobHash(uint256 _blockNumber) internal view override returns (bytes32) {
+    function _getBlobHash(uint256 _blobIdx) internal view override returns (bytes32) {
+        return blobhash(_blobIdx);
+    }
+
+    /// @notice Gets the block hash for a block number
+    /// @param _blockNumber The block number
+    /// @return The block hash
+    function _getBlockHash(uint256 _blockNumber) internal view override returns (bytes32) {
         return blockhash(_blockNumber);
     }
 
@@ -139,10 +151,14 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         LibBonds.creditBond(state, _user, _amount);
     }
 
+    /// @notice Loads the summary hash from storage
+    /// @return The current summary hash
     function _loadSummaryHash() internal view override returns (bytes32) {
         return state.loadSummaryHash();
     }
 
+    /// @notice Saves the summary hash to storage
+    /// @param _summaryHash The summary hash to save
     function _saveSummaryHash(bytes32 _summaryHash) internal override {
         state.saveSummaryHash(_summaryHash);
     }
