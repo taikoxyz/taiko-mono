@@ -46,8 +46,7 @@ library LibData {
             lastBlockId: _context.lastBlockId,
             lastBlockTimestamp: _batch.lastBlockTimestamp,
             anchorBlockIds: _batch.anchorBlockIds,
-            anchorBlockHashes: _context.anchorBlockHashes,
-            encodedBlocks: _batch.encodedBlocks
+            anchorBlockHashes: _context.anchorBlockHashes
         });
 
         // Propose metadata section
@@ -60,7 +59,7 @@ library LibData {
         // Prove metadata section
         uint48 firstBlockId;
         unchecked {
-            firstBlockId = _context.lastBlockId + 1 - uint48(_batch.encodedBlocks.length);
+            firstBlockId = _context.lastBlockId + 1 - uint48(_batch.blocks.length);
         }
         meta_.proveMeta = I.BatchProveMetadata({
             proposer: _batch.proposer,

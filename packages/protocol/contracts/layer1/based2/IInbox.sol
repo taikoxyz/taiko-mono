@@ -46,7 +46,7 @@ interface IInbox {
         bytes proverAuth;
         bytes32[] signalSlots;
         uint48[] anchorBlockIds;
-        uint256[] encodedBlocks; 
+        Block[] blocks;
         Blobs blobs;
     }
 
@@ -89,7 +89,6 @@ interface IInbox {
         uint48 lastBlockTimestamp;
         uint48[] anchorBlockIds;
         bytes32[] anchorBlockHashes;
-        uint256[] encodedBlocks;
     }
 
     struct BatchProposeMetadata {

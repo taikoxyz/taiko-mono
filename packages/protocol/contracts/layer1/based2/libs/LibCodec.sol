@@ -237,11 +237,9 @@ library LibCodec {
     /// @param _block The block structure to encode
     /// @return encoded_ The encoded block as a uint256
     function packBlock(I.Block memory _block) internal pure returns (uint256 encoded_) {
-        encoded_ = uint256(_block.numTransactions) |
-            (uint256(_block.timeShift) << 16) |
-            (uint256(_block.anchorBlockId) << 24) |
-            (uint256(_block.numSignals) << 72) |
-            (uint256(_block.hasAnchor ? 1 : 0) << 80);
+        encoded_ = uint256(_block.numTransactions) | (uint256(_block.timeShift) << 16)
+            | (uint256(_block.anchorBlockId) << 24) | (uint256(_block.numSignals) << 72)
+            | (uint256(_block.hasAnchor ? 1 : 0) << 80);
     }
 
     /// @notice Decodes a uint256 value into a block structure

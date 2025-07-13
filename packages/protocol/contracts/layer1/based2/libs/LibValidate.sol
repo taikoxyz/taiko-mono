@@ -53,21 +53,21 @@ library LibValidate {
         _validateGasIssuance(_conf, _summary, _batch);
 
         // Validate and decode blocks
-        I.Block[] memory blocks = _validateBlocks(_conf, _batch);
+        _validateBlocks(_conf, _batch);
 
         // Validate timestamps
-        _validateTimestamps(_conf, _batch, blocks, _parentProposeMeta.lastBlockTimestamp);
+        _validateTimestamps(_conf, _batch, _parentProposeMeta.lastBlockTimestamp);
 
         // Validate signals
-        _validateSignals(_conf, _rw, blocks, _batch.signalSlots);
+        _validateSignals(_conf, _rw, _batch);
 
         // Validate anchors
         (bytes32[] memory anchorBlockHashes, uint48 lastAnchorBlockId) =
-            _validateAnchors(_conf, _rw, _batch, blocks, _parentProposeMeta.lastAnchorBlockId);
+            _validateAnchors(_conf, _rw, _batch, _parentProposeMeta.lastAnchorBlockId);
 
         // Validate block range
         uint48 lastBlockId =
-            _validateBlockRange(_conf, blocks.length, _parentProposeMeta.lastBlockId);
+            _validateBlockRange(_conf, _batch.blocks.length, _parentProposeMeta.lastBlockId);
 
         // Validate blobs
         uint48 blobsCreatedIn = _validateBlobs(_conf, _batch);
@@ -142,37 +142,21 @@ library LibValidate {
     /// @dev Decodes packed block information and validates block count limits
     /// @param _conf Protocol configuration
     /// @param _batch The batch containing encoded blocks
-    /// @return blocks_ Array of decoded and validated blocks
-    function _validateBlocks(
-        I.Config memory _conf,
-        I.Batch memory _batch
-    )
-        internal
-        pure
-        returns (I.Block[] memory blocks_)
-    {
-        uint256 nBlocks_ = _batch.encodedBlocks.length;
+    function _validateBlocks(I.Config memory _conf, I.Batch memory _batch) internal pure {
+        uint256 nBlocks_ = _batch.blocks.length;
 
         require(nBlocks_ != 0, BlockNotFound());
         require(nBlocks_ <= _conf.maxBlocksPerBatch, TooManyBlocks());
-
-        blocks_ = new I.Block[](nBlocks_);
-
-        for (uint256 i; i < nBlocks_; ++i) {
-            blocks_[i] = LibCodec.unpackBlock(_batch.encodedBlocks[i]);
-        }
     }
 
     /// @notice Validates timestamp consistency across the batch
     /// @dev Ensures timestamps are sequential, within bounds, and respect anchor constraints
     /// @param _conf Protocol configuration
     /// @param _batch The batch being validated
-    /// @param _blocks Array of blocks in the batch
     /// @param _parentLastBlockTimestamp Timestamp of the last block in the parent batch
     function _validateTimestamps(
         I.Config memory _conf,
         I.Batch memory _batch,
-        I.Block[] memory _blocks,
         uint48 _parentLastBlockTimestamp
     )
         internal
@@ -181,12 +165,12 @@ library LibValidate {
         unchecked {
             require(_batch.lastBlockTimestamp != 0, LastBlockTimestampNotSet());
             require(_batch.lastBlockTimestamp <= block.timestamp, TimestampTooLarge());
-            require(_blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
+            require(_batch.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
             uint64 totalShift;
 
-            for (uint256 i; i < _blocks.length; ++i) {
-                totalShift += _blocks[i].timeShift;
+            for (uint256 i; i < _batch.blocks.length; ++i) {
+                totalShift += _batch.blocks[i].timeShift;
             }
 
             require(_batch.lastBlockTimestamp >= totalShift, TimestampTooSmall());
@@ -206,13 +190,11 @@ library LibValidate {
     /// @dev Verifies that all referenced signals have been properly sent
     /// @param _conf Protocol configuration
     /// @param _rw Read/write access functions
-    /// @param _blocks Array of blocks containing signal references
-    /// @param _signalSlots Array of signal slot identifiers to validate
+    /// @param _batch The batch containing signal references
     function _validateSignals(
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
-        I.Block[] memory _blocks,
-        bytes32[] memory _signalSlots
+        I.Batch memory _batch
     )
         internal
         view
@@ -220,13 +202,13 @@ library LibValidate {
         unchecked {
             uint256 k;
 
-            for (uint256 i; i < _blocks.length; ++i) {
-                if (_blocks[i].numSignals == 0) continue;
+            for (uint256 i; i < _batch.blocks.length; ++i) {
+                if (_batch.blocks[i].numSignals == 0) continue;
 
-                require(_blocks[i].numSignals <= _conf.maxSignalsToReceive, TooManySignals());
+                require(_batch.blocks[i].numSignals <= _conf.maxSignalsToReceive, TooManySignals());
 
-                for (uint256 j; j < _blocks[i].numSignals; ++j) {
-                    require(_rw.isSignalSent(_conf, _signalSlots[k++]), SignalNotSent());
+                for (uint256 j; j < _batch.blocks[i].numSignals; ++j) {
+                    require(_rw.isSignalSent(_conf, _batch.signalSlots[k++]), SignalNotSent());
                 }
             }
         }
@@ -237,7 +219,6 @@ library LibValidate {
     /// @param _conf Protocol configuration
     /// @param _rw Read/write access functions
     /// @param _batch The batch being validated
-    /// @param _blocks Array of blocks in the batch
     /// @param _parentLastAnchorBlockId Last anchor block ID from parent batch
     /// @return anchorBlockHashes_ Array of validated anchor block hashes
     /// @return lastAnchorBlockId_ ID of the last anchor block in this batch
@@ -245,21 +226,20 @@ library LibValidate {
         I.Config memory _conf,
         LibState.ReadWrite memory _rw,
         I.Batch memory _batch,
-        I.Block[] memory _blocks,
         uint48 _parentLastAnchorBlockId
     )
         internal
         view
         returns (bytes32[] memory anchorBlockHashes_, uint48 lastAnchorBlockId_)
     {
-        anchorBlockHashes_ = new bytes32[](_blocks.length);
+        anchorBlockHashes_ = new bytes32[](_batch.blocks.length);
         lastAnchorBlockId_ = _parentLastAnchorBlockId;
 
         uint256 k;
         bool anchorFound;
 
-        for (uint256 i; i < _blocks.length; ++i) {
-            if (!_blocks[i].hasAnchor) continue;
+        for (uint256 i; i < _batch.blocks.length; ++i) {
+            if (!_batch.blocks[i].hasAnchor) continue;
 
             require(k < _batch.anchorBlockIds.length, NotEnoughAnchorIds());
 
