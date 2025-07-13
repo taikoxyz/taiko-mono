@@ -22,7 +22,7 @@ interface IInbox {
     struct Blobs {
         // The hashes of the blob. Note that if this array is not empty.  `firstBlobIndex` and
         // `numBlobs` must be 0.
-        bytes32[] hashes;
+        bytes32[] hashes; // length <= type(uint8).max
         // The index of the first blob in this batch.
         uint8 firstBlobIndex;
         // The number of blobs in this batch. Blobs are initially concatenated and subsequently
@@ -44,9 +44,9 @@ interface IInbox {
         uint32 gasIssuancePerSecond;
         bool isForcedInclusion;
         bytes proverAuth;
-        bytes32[] signalSlots;
-        uint48[] anchorBlockIds;
-        Block[] blocks;
+        bytes32[] signalSlots; // length <= type(uint8).max
+        uint48[] anchorBlockIds; // length <= type(uint8).max
+        Block[] blocks; // length <= type(uint8).max
         Blobs blobs;
     }
 
@@ -62,8 +62,8 @@ interface IInbox {
         uint48 livenessBond;
         uint48 provabilityBond;
         uint8 baseFeeSharingPctg;
-        bytes32[] anchorBlockHashes; // length <= type(uint16).max
-        bytes32[] blobHashes; // length <= type(uint16).max
+        bytes32[] anchorBlockHashes; // length <= type(uint8).max
+        bytes32[] blobHashes; // length <= type(uint8).max
     }
 
     struct ProverAuth {
@@ -77,7 +77,7 @@ interface IInbox {
 
     struct BatchBuildMetadata {
         bytes32 txsHash;
-        bytes32[] blobHashes;
+        bytes32[] blobHashes; // length <= type(uint8).max
         bytes32 extraData;
         address coinbase;
         uint48 proposedIn;
@@ -87,9 +87,9 @@ interface IInbox {
         uint48 gasLimit;
         uint48 lastBlockId;
         uint48 lastBlockTimestamp;
-        uint48[] anchorBlockIds;
-        bytes32[] anchorBlockHashes;
-        Block[] blocks;
+        uint48[] anchorBlockIds; // length <= type(uint8).max
+        bytes32[] anchorBlockHashes; // length <= type(uint8).max
+        Block[] blocks; // length <= type(uint8).max
     }
 
     struct BatchProposeMetadata {
