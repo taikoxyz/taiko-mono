@@ -28,7 +28,7 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
 
     /// @notice Protocol state storage
     /// @dev Storage layout must match Ontake fork for upgrade compatibility
-    State public state;
+    State public $;
     /// @notice Reserved storage slots for future upgrades
     uint256[50] private __gap;
 
@@ -46,20 +46,20 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
     /// @param _user The user address
     /// @return The bond balance
     function balanceOf4(address _user) external view returns (uint256) {
-        return state.bondBalance[_user];
+        return $.bondBalance[_user];
     }
 
     /// @notice Deposits bond for the sender
     /// @param _amount The amount to deposit
     function deposit4(uint256 _amount) external payable {
-        state.bondBalance[msg.sender] +=
+        $.bondBalance[msg.sender] +=
             LibBonds.depositBond(_getConfig().bondToken, msg.sender, _amount);
     }
 
     /// @notice Withdraws bond for the sender
     /// @param _amount The amount to withdraw
     function withdraw4(uint256 _amount) external {
-        state.withdrawBond(_getConfig().bondToken, _amount);
+        $.withdrawBond(_getConfig().bondToken, _amount);
     }
 
     /// @notice Gets the bond token address
@@ -124,22 +124,22 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
 
     /// @inheritdoc AbstractInbox
     function _debitBond(I.Config memory _conf, address _user, uint256 _amount) internal override {
-        LibBonds.debitBond(state, _conf.bondToken, _user, _amount);
+        LibBonds.debitBond($, _conf.bondToken, _user, _amount);
     }
 
     /// @inheritdoc AbstractInbox
     function _creditBond(address _user, uint256 _amount) internal override {
-        LibBonds.creditBond(state, _user, _amount);
+        LibBonds.creditBond($, _user, _amount);
     }
 
     /// @inheritdoc AbstractInbox
     function _loadSummaryHash() internal view override returns (bytes32) {
-        return state.loadSummaryHash();
+        return $.loadSummaryHash();
     }
 
     /// @inheritdoc AbstractInbox
     function _saveSummaryHash(bytes32 _summaryHash) internal override {
-        state.saveSummaryHash(_summaryHash);
+        $.saveSummaryHash(_summaryHash);
     }
 
     /// @inheritdoc AbstractInbox
@@ -153,7 +153,7 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
         override
         returns (bytes32 metaHash_, bool isFirstTransition_)
     {
-        return state.loadTransitionMetaHash(_conf, _lastVerifiedBlockHash, _batchId);
+        return $.loadTransitionMetaHash(_conf, _lastVerifiedBlockHash, _batchId);
     }
 
     /// @inheritdoc AbstractInbox
@@ -167,7 +167,7 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
         override
         returns (bool isFirstTransition_)
     {
-        return state.saveTransition(_conf, _batchId, _parentHash, _tranMetahash);
+        return $.saveTransition(_conf, _batchId, _parentHash, _tranMetahash);
     }
 
     /// @inheritdoc AbstractInbox
@@ -180,7 +180,7 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
         override
         returns (bytes32)
     {
-        return state.loadBatchMetaHash(_conf, _batchId);
+        return $.loadBatchMetaHash(_conf, _batchId);
     }
 
     /// @inheritdoc AbstractInbox
@@ -192,6 +192,6 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
         internal
         override
     {
-        return state.saveBatchMetaHash(_conf, _batchId, _metaHash);
+        return $.saveBatchMetaHash(_conf, _batchId, _metaHash);
     }
 }
