@@ -59,7 +59,7 @@ library LibProver {
                 address feeToken;
                 uint256 fee;
                 (prover_, feeToken, fee) = _validateProverAuth(
-                    _conf.chainId, _summary.numBatches, keccak256(abi.encode(_batch)), _proverAuth
+                    _conf.chainId, _summary.nextBatchId, keccak256(abi.encode(_batch)), _proverAuth
                 );
 
                 if (feeToken == _conf.bondToken) {

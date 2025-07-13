@@ -76,7 +76,7 @@ library LibProve {
         returns (bytes32)
     {
         require(_input.tran.batchId > _summary.lastVerifiedBatchId, BatchNotFound());
-        require(_input.tran.batchId < _summary.numBatches, BatchNotFound());
+        require(_input.tran.batchId < _summary.nextBatchId, BatchNotFound());
         require(_input.tran.parentHash != 0, InvalidTransitionParentHash());
 
         // During batch proposal, we ensured that blocks won't cross fork boundaries.

@@ -162,7 +162,7 @@ interface IInbox {
     }
 
     struct Summary {
-        uint48 numBatches;
+        uint48 nextBatchId;
         uint48 lastSyncedBlockId;
         uint48 lastSyncedAt;
         uint48 lastVerifiedBatchId;

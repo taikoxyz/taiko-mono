@@ -384,7 +384,7 @@ library LibCodec {
     function packSummary(I.Summary memory _summary) internal pure returns (bytes memory encoded_) {
         // Pack tightly: 6+6+6+6+6+4+32+32 = 98 bytes
         encoded_ = abi.encodePacked(
-            _summary.numBatches,
+            _summary.nextBatchId,
             _summary.lastSyncedBlockId,
             _summary.lastSyncedAt,
             _summary.lastVerifiedBatchId,
@@ -406,8 +406,8 @@ library LibCodec {
             assembly {
                 let ptr := add(_encoded, 0x20)
 
-                // numBatches (6 bytes)
-                let numBatches := shr(208, mload(ptr))
+                // nextBatchId (6 bytes)
+                let nextBatchId := shr(208, mload(ptr))
                 ptr := add(ptr, 6)
 
                 // lastSyncedBlockId (6 bytes)
@@ -442,7 +442,7 @@ library LibCodec {
                 mstore(0x40, add(summary_, 0x100))
 
                 // Store values in summary_ struct
-                mstore(summary_, numBatches)
+                mstore(summary_, nextBatchId)
                 mstore(add(summary_, 0x20), lastSyncedBlockId)
                 mstore(add(summary_, 0x40), lastSyncedAt)
                 mstore(add(summary_, 0x60), lastVerifiedBatchId)
@@ -721,62 +721,62 @@ library LibCodec {
                 assembly {
                     let dataPtr := add(_encoded, 0x20)
                     let ptr := add(dataPtr, offset)
-                    
+
                     // Skip signalSlots
                     let signalSlotsLen := shr(248, mload(ptr))
                     ptr := add(ptr, 1)
                     ptr := add(ptr, mul(signalSlotsLen, 32))
-                    
+
                     // Skip anchorBlockIds
                     let anchorBlockIdsLen := shr(248, mload(ptr))
                     ptr := add(ptr, 1)
                     ptr := add(ptr, mul(anchorBlockIdsLen, 6))
-                    
+
                     // Skip blocks
                     let blocksLen := shr(248, mload(ptr))
                     ptr := add(ptr, 1)
                     ptr := add(ptr, mul(blocksLen, 10))
-                    
+
                     // Extract blobs metadata
                     let blobs := mload(0x40)
                     mstore(0x40, add(blobs, 0xc0))
-                    
+
                     // firstBlobIndex (1 byte)
                     mstore(add(blobs, 0x20), byte(0, mload(ptr)))
                     ptr := add(ptr, 1)
-                    
+
                     // numBlobs (1 byte)
                     mstore(add(blobs, 0x40), byte(0, mload(ptr)))
                     ptr := add(ptr, 1)
-                    
+
                     // byteOffset (4 bytes)
                     mstore(add(blobs, 0x60), shr(224, mload(ptr)))
                     ptr := add(ptr, 4)
-                    
+
                     // byteSize (4 bytes)
                     mstore(add(blobs, 0x80), shr(224, mload(ptr)))
                     ptr := add(ptr, 4)
-                    
+
                     // createdIn (6 bytes)
                     mstore(add(blobs, 0xa0), shr(208, mload(ptr)))
                     ptr := add(ptr, 6)
-                    
+
                     // Skip blob hashes
                     let hashesLen := shr(248, mload(ptr))
                     ptr := add(ptr, 1)
                     ptr := add(ptr, mul(hashesLen, 32))
-                    
+
                     // Create empty arrays for all complex fields
                     let emptyArray := mload(0x40)
                     mstore(emptyArray, 0)
                     mstore(0x40, add(emptyArray, 0x20))
-                    
+
                     mstore(blobs, emptyArray) // empty hashes
                     mstore(add(batch, 0xc0), emptyArray) // signalSlots
                     mstore(add(batch, 0xe0), emptyArray) // anchorBlockIds
                     mstore(add(batch, 0x100), emptyArray) // blocks
                     mstore(add(batch, 0x120), blobs)
-                    
+
                     offset := sub(ptr, dataPtr)
                 }
 

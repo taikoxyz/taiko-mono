@@ -12,7 +12,7 @@ contract LibCodecComprehensiveTest is Test {
 
     function test_packUnpackSummary_roundTrip() public {
         IInbox.Summary memory summary = IInbox.Summary({
-            numBatches: 12_345,
+            nextBatchId: 12_345,
             lastSyncedBlockId: 67_890,
             lastSyncedAt: 111_111,
             lastVerifiedBatchId: 222_222,
@@ -27,7 +27,7 @@ contract LibCodecComprehensiveTest is Test {
 
         IInbox.Summary memory unpacked = LibCodec.unpackSummary(packed);
 
-        assertEq(unpacked.numBatches, summary.numBatches);
+        assertEq(unpacked.nextBatchId, summary.nextBatchId);
         assertEq(unpacked.lastSyncedBlockId, summary.lastSyncedBlockId);
         assertEq(unpacked.lastSyncedAt, summary.lastSyncedAt);
         assertEq(unpacked.lastVerifiedBatchId, summary.lastVerifiedBatchId);
@@ -39,7 +39,7 @@ contract LibCodecComprehensiveTest is Test {
 
     function test_packUnpackSummary_maxValues() public {
         IInbox.Summary memory summary = IInbox.Summary({
-            numBatches: type(uint48).max,
+            nextBatchId: type(uint48).max,
             lastSyncedBlockId: type(uint48).max,
             lastSyncedAt: type(uint48).max,
             lastVerifiedBatchId: type(uint48).max,
@@ -52,7 +52,7 @@ contract LibCodecComprehensiveTest is Test {
         bytes memory packed = LibCodec.packSummary(summary);
         IInbox.Summary memory unpacked = LibCodec.unpackSummary(packed);
 
-        assertEq(unpacked.numBatches, summary.numBatches);
+        assertEq(unpacked.nextBatchId, summary.nextBatchId);
         assertEq(unpacked.lastSyncedBlockId, summary.lastSyncedBlockId);
         assertEq(unpacked.lastSyncedAt, summary.lastSyncedAt);
         assertEq(unpacked.lastVerifiedBatchId, summary.lastVerifiedBatchId);
@@ -69,7 +69,7 @@ contract LibCodecComprehensiveTest is Test {
     }
 
     function testFuzz_packUnpackSummary(
-        uint48 numBatches,
+        uint48 nextBatchId,
         uint48 lastSyncedBlockId,
         uint48 lastSyncedAt,
         uint48 lastVerifiedBatchId,
@@ -81,7 +81,7 @@ contract LibCodecComprehensiveTest is Test {
         public
     {
         IInbox.Summary memory summary = IInbox.Summary({
-            numBatches: numBatches,
+            nextBatchId: nextBatchId,
             lastSyncedBlockId: lastSyncedBlockId,
             lastSyncedAt: lastSyncedAt,
             lastVerifiedBatchId: lastVerifiedBatchId,
@@ -94,7 +94,7 @@ contract LibCodecComprehensiveTest is Test {
         bytes memory packed = LibCodec.packSummary(summary);
         IInbox.Summary memory unpacked = LibCodec.unpackSummary(packed);
 
-        assertEq(unpacked.numBatches, summary.numBatches);
+        assertEq(unpacked.nextBatchId, summary.nextBatchId);
         assertEq(unpacked.lastSyncedBlockId, summary.lastSyncedBlockId);
         assertEq(unpacked.lastSyncedAt, summary.lastSyncedAt);
         assertEq(unpacked.lastVerifiedBatchId, summary.lastVerifiedBatchId);
@@ -325,7 +325,7 @@ contract LibCodecComprehensiveTest is Test {
 
     function test_gasOptimization_summary() public {
         IInbox.Summary memory summary = IInbox.Summary({
-            numBatches: 12_345,
+            nextBatchId: 12_345,
             lastSyncedBlockId: 67_890,
             lastSyncedAt: 111_111,
             lastVerifiedBatchId: 222_222,

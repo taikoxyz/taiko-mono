@@ -283,7 +283,7 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         I.Summary memory summary;
         summary.lastBatchMetaHash = LibData.hashBatch(0, meta);
         summary.gasIssuancePerSecond = _gasIssuancePerSecond;
-        summary.numBatches = 1;
+        summary.nextBatchId = 1;
 
         _saveBatchMetaHash(conf, 0, summary.lastBatchMetaHash);
         _saveSummaryHash(keccak256(abi.encode(summary)));

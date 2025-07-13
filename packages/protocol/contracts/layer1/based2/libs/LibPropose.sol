@@ -41,7 +41,7 @@ library LibPropose {
         unchecked {
             require(_batches.length != 0, NoBatchesToPropose());
             require(
-                _summary.numBatches + _batches.length
+                _summary.nextBatchId + _batches.length
                     <= _summary.lastVerifiedBatchId + _conf.maxUnverifiedBatches + 1,
                 TooManyBatches()
             );
@@ -60,7 +60,7 @@ library LibPropose {
                     _summary.gasIssuanceUpdatedAt = uint48(block.timestamp);
                 }
 
-                _summary.numBatches += 1;
+                _summary.nextBatchId += 1;
 
                 parent = meta.proposeMeta;
             }
@@ -100,10 +100,10 @@ library LibPropose {
             uint48(block.number), uint48(block.timestamp), _batch, context
         );
 
-        batchMetaHash_ = LibData.hashBatch(_summary.numBatches, meta_);
-        _rw.saveBatchMetaHash(_conf, _summary.numBatches, batchMetaHash_);
+        batchMetaHash_ = LibData.hashBatch(_summary.nextBatchId, meta_);
+        _rw.saveBatchMetaHash(_conf, _summary.nextBatchId, batchMetaHash_);
 
-        emit I.Proposed(_summary.numBatches, LibCodec.packBatchContext(context));
+        emit I.Proposed(_summary.nextBatchId, LibCodec.packBatchContext(context));
     }
 
     // -------------------------------------------------------------------------

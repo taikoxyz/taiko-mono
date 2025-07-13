@@ -47,7 +47,7 @@ library LibVerify {
                 return _summary;
             }
 
-            uint256 stopBatchId = uint256(_summary.numBatches).min(
+            uint256 stopBatchId = uint256(_summary.nextBatchId).min(
                 _conf.maxBatchesToVerify + _summary.lastVerifiedBatchId + 1
             );
 
