@@ -766,48 +766,59 @@ library LibCodec {
 
     /// @dev Packs a single TransitionMeta struct at ptr
     function _packTransitionMeta(uint256 ptr, I.TransitionMeta memory meta) private pure returns (uint256) {
-        // Pack fields using helper functions
-        ptr = _packBytes32(ptr, meta.blockHash);
-        ptr = _packBytes32(ptr, meta.stateRoot);
-        ptr = _packAddress(ptr, meta.prover);
-        
-        // Pack proofTiming + byAssignedProver in 1 byte
-        uint256 combinedByte = uint256(meta.proofTiming) | (meta.byAssignedProver ? (1 << 2) : 0);
-        ptr = _packUint8(ptr, combinedByte);
-        
-        // Pack four uint48 values
-        ptr = _packUint48(ptr, meta.createdAt);
-        ptr = _packUint48(ptr, meta.lastBlockId);
-        ptr = _packUint48(ptr, meta.provabilityBond);
-        ptr = _packUint48(ptr, meta.livenessBond);
-        
+        assembly {
+            // blockHash + stateRoot (64 bytes)
+            mstore(ptr, mload(meta))
+            mstore(add(ptr, 32), mload(add(meta, 0x20)))
+            ptr := add(ptr, 64)
+            
+            // prover (20 bytes)
+            mstore(ptr, shl(96, mload(add(meta, 0x40))))
+            ptr := add(ptr, 20)
+            
+            // proofTiming + byAssignedProver (1 byte)
+            let proofTiming := mload(add(meta, 0x60))
+            let byAssignedProver := mload(add(meta, 0xa0))
+            mstore8(ptr, or(proofTiming, shl(2, byAssignedProver)))
+            ptr := add(ptr, 1)
+            
+            // Pack four uint48 values (24 bytes total)
+            mstore(ptr, shl(208, mload(add(meta, 0x80)))) // createdAt
+            mstore(add(ptr, 6), shl(208, mload(add(meta, 0xc0)))) // lastBlockId  
+            mstore(add(ptr, 12), shl(208, mload(add(meta, 0xe0)))) // provabilityBond
+            mstore(add(ptr, 18), shl(208, mload(add(meta, 0x100)))) // livenessBond
+            ptr := add(ptr, 24)
+        }
         return ptr;
     }
 
     /// @dev Unpacks a single TransitionMeta struct from ptr
     function _unpackTransitionMeta(uint256 ptr) private pure returns (I.TransitionMeta memory meta) {
-        // Allocate memory for the struct
         assembly {
             meta := mload(0x40)
             mstore(0x40, add(meta, 0x120))
+            
+            // blockHash + stateRoot (64 bytes)
+            mstore(meta, mload(ptr))
+            mstore(add(meta, 0x20), mload(add(ptr, 32)))
+            ptr := add(ptr, 64)
+            
+            // prover (20 bytes)
+            mstore(add(meta, 0x40), shr(96, mload(ptr)))
+            ptr := add(ptr, 20)
+            
+            // proofTiming + byAssignedProver (1 byte)
+            let combinedByte := byte(0, mload(ptr))
+            mstore(add(meta, 0x60), and(combinedByte, 0x03))
+            mstore(add(meta, 0xa0), and(shr(2, combinedByte), 0x01))
+            ptr := add(ptr, 1)
+            
+            // Unpack four uint48 values (24 bytes total)
+            mstore(add(meta, 0x80), shr(208, mload(ptr))) // createdAt
+            mstore(add(meta, 0xc0), shr(208, mload(add(ptr, 6)))) // lastBlockId
+            mstore(add(meta, 0xe0), shr(208, mload(add(ptr, 12)))) // provabilityBond
+            mstore(add(meta, 0x100), shr(208, mload(add(ptr, 18)))) // livenessBond
         }
-        
-        // Unpack fields using helper functions
-        uint256 value;
-        (meta.blockHash, ptr) = _unpackBytes32(ptr);
-        (meta.stateRoot, ptr) = _unpackBytes32(ptr);
-        (meta.prover, ptr) = _unpackAddress(ptr);
-        
-        // Unpack proofTiming + byAssignedProver from 1 byte
-        (value, ptr) = _unpackUint8(ptr);
-        meta.proofTiming = I.ProofTiming(value & 0x03);
-        meta.byAssignedProver = (value >> 2) & 0x01 == 1;
-        
-        // Unpack four uint48 values
-        (value, ptr) = _unpackUint48(ptr); meta.createdAt = uint48(value);
-        (value, ptr) = _unpackUint48(ptr); meta.lastBlockId = uint48(value);
-        (value, ptr) = _unpackUint48(ptr); meta.provabilityBond = uint48(value);
-        (value,) = _unpackUint48(ptr); meta.livenessBond = uint48(value);
     }
 
     // -------------------------------------------------------------------------
