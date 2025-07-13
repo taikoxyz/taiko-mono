@@ -122,7 +122,7 @@ contract LibCodecBatchProveInputTest is Test {
         assertEq(packed.length, 709);
     }
 
-    function test_packBatchProveInputs_revertArrayTooLarge() public {
+    function test_packBatchProveInputs_revertArrayTooLarge() public pure {
         // Test with a reasonable array size within uint8.max limit
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](200);
 

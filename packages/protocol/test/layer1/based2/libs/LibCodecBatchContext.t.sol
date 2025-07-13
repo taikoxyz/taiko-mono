@@ -8,7 +8,7 @@ import { IInbox } from "contracts/layer1/based2/IInbox.sol";
 contract LibCodecBatchContextTest is Test {
     using LibCodec for IInbox.BatchContext;
 
-    function test_packUnpack_emptyArrays() public {
+    function test_packUnpack_emptyArrays() public pure {
         IInbox.BatchContext memory context = IInbox.BatchContext({
             prover: address(0x1234567890123456789012345678901234567890),
             txsHash: bytes32(uint256(0xabcdef)),
@@ -39,7 +39,7 @@ contract LibCodecBatchContextTest is Test {
         assertEq(unpacked.blobHashes.length, 0);
     }
 
-    function test_packUnpack_withArrays() public {
+    function test_packUnpack_withArrays() public pure {
         bytes32[] memory anchorHashes = new bytes32[](3);
         anchorHashes[0] = bytes32(uint256(0x111));
         anchorHashes[1] = bytes32(uint256(0x222));
@@ -86,7 +86,7 @@ contract LibCodecBatchContextTest is Test {
         assertEq(unpacked.blobHashes[1], blobHashes[1]);
     }
 
-    function test_packUnpack_maxValues() public {
+    function test_packUnpack_maxValues() public pure {
         IInbox.BatchContext memory context = IInbox.BatchContext({
             prover: address(type(uint160).max),
             txsHash: bytes32(type(uint256).max),
@@ -115,7 +115,7 @@ contract LibCodecBatchContextTest is Test {
         assertEq(unpacked.baseFeeSharingPctg, context.baseFeeSharingPctg);
     }
 
-    function test_packUnpack_largeArrays() public {
+    function test_packUnpack_largeArrays() public pure {
         // Test with relatively large arrays (but still within reasonable limits)
         uint256 anchorCount = 100;
         uint256 blobCount = 50;
@@ -159,7 +159,7 @@ contract LibCodecBatchContextTest is Test {
         }
     }
 
-    function test_pack_arrayTooLarge() public {
+    function test_pack_arrayTooLarge() public pure {
         // Test array size limit (uint16 max)
         // Since creating a large array in memory might cause issues,
         // we'll test with a smaller size that still triggers the check
@@ -212,6 +212,7 @@ contract LibCodecBatchContextTest is Test {
         uint8 blobHashCount
     )
         public
+        view
     {
         // Limit array sizes for fuzzing
         anchorHashCount = anchorHashCount % 10;
@@ -266,7 +267,7 @@ contract LibCodecBatchContextTest is Test {
         }
     }
 
-    function test_packedSize() public {
+    function test_packedSize() public pure {
         // Test to verify the packed size calculation is correct
         bytes32[] memory anchorHashes = new bytes32[](2);
         bytes32[] memory blobHashes = new bytes32[](3);
@@ -292,7 +293,7 @@ contract LibCodecBatchContextTest is Test {
         assertEq(packed.length, expectedSize);
     }
 
-    function test_gasEfficiency() public {
+    function test_gasEfficiency() public view {
         // Test gas efficiency compared to abi.encode
         bytes32[] memory anchorHashes = new bytes32[](5);
         bytes32[] memory blobHashes = new bytes32[](5);

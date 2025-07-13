@@ -154,7 +154,7 @@ contract LibCodecBatchTest is Test {
         }
     }
 
-    function test_packBatches_revertArrayTooLarge() public {
+    function test_packBatches_revertArrayTooLarge() public pure {
         // Test that the function properly validates array size limits
         // Since creating an actual array of uint8.max + 1 size would be impractical,
         // we test with smaller arrays and verify no reverts occur

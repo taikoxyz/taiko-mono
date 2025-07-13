@@ -10,7 +10,7 @@ contract LibCodecComprehensiveTest is Test {
     // Summary Tests
     // -------------------------------------------------------------------------
 
-    function test_packUnpackSummary_roundTrip() public {
+    function test_packUnpackSummary_roundTrip() public pure {
         IInbox.Summary memory summary = IInbox.Summary({
             nextBatchId: 12_345,
             lastSyncedBlockId: 67_890,
@@ -37,7 +37,7 @@ contract LibCodecComprehensiveTest is Test {
         assertEq(unpacked.lastBatchMetaHash, summary.lastBatchMetaHash);
     }
 
-    function test_packUnpackSummary_maxValues() public {
+    function test_packUnpackSummary_maxValues() public pure {
         IInbox.Summary memory summary = IInbox.Summary({
             nextBatchId: type(uint48).max,
             lastSyncedBlockId: type(uint48).max,
@@ -68,7 +68,7 @@ contract LibCodecComprehensiveTest is Test {
         LibCodec.unpackSummary(invalidData);
     }
 
-    function testFuzz_packUnpackSummary(
+    function testFuzz_packUnpackSummary (
         uint48 nextBatchId,
         uint48 lastSyncedBlockId,
         uint48 lastSyncedAt,
@@ -78,7 +78,7 @@ contract LibCodecComprehensiveTest is Test {
         bytes32 lastVerifiedBlockHash,
         bytes32 lastBatchMetaHash
     )
-        public
+        public pure
     {
         IInbox.Summary memory summary = IInbox.Summary({
             nextBatchId: nextBatchId,
@@ -108,7 +108,7 @@ contract LibCodecComprehensiveTest is Test {
     // BatchContext Tests
     // -------------------------------------------------------------------------
 
-    function test_packUnpackBatchContext_roundTrip() public {
+    function test_packUnpackBatchContext_roundTrip() public pure {
         bytes32[] memory anchorHashes = new bytes32[](2);
         anchorHashes[0] = bytes32(uint256(0x1111));
         anchorHashes[1] = bytes32(uint256(0x2222));
@@ -156,7 +156,7 @@ contract LibCodecComprehensiveTest is Test {
         }
     }
 
-    function test_packUnpackBatchContext_emptyArrays() public {
+    function test_packUnpackBatchContext_emptyArrays() public pure {
         bytes32[] memory emptyHashes = new bytes32[](0);
 
         IInbox.BatchContext memory context = IInbox.BatchContext({
@@ -185,7 +185,7 @@ contract LibCodecComprehensiveTest is Test {
     // BatchProveInput Tests
     // -------------------------------------------------------------------------
 
-    function test_packUnpackBatchProveInputs_singleInput() public {
+    function test_packUnpackBatchProveInputs_singleInput() public pure {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](1);
 
         inputs[0] = IInbox.BatchProveInput({
@@ -222,7 +222,7 @@ contract LibCodecComprehensiveTest is Test {
         assertEq(unpacked[0].tran.stateRoot, inputs[0].tran.stateRoot);
     }
 
-    function test_packUnpackBatchProveInputs_emptyArray() public {
+    function test_packUnpackBatchProveInputs_emptyArray() public pure {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](0);
 
         bytes memory packed = LibCodec.packBatchProveInputs(inputs);
@@ -235,7 +235,7 @@ contract LibCodecComprehensiveTest is Test {
     // BatchProposeMetadataEvidence Tests
     // -------------------------------------------------------------------------
 
-    function test_packUnpackBatchProposeMetadataEvidence_roundTrip() public {
+    function test_packUnpackBatchProposeMetadataEvidence_roundTrip() public pure {
         IInbox.BatchProposeMetadataEvidence memory evidence = IInbox.BatchProposeMetadataEvidence({
             idAndBuildHash: bytes32(uint256(0x1111111111111111)),
             proveMetaHash: bytes32(uint256(0x2222222222222222)),
@@ -269,7 +269,7 @@ contract LibCodecComprehensiveTest is Test {
     // Batch Tests (Simplified due to complexity)
     // -------------------------------------------------------------------------
 
-    function test_packUnpackBatches_emptyArray() public {
+    function test_packUnpackBatches_emptyArray() public pure {
         IInbox.Batch[] memory batches = new IInbox.Batch[](0);
 
         bytes memory packed = LibCodec.packBatches(batches);
@@ -278,7 +278,7 @@ contract LibCodecComprehensiveTest is Test {
         assertEq(unpacked.length, 0);
     }
 
-    function test_packUnpackBatches_singleBatch() public {
+    function test_packUnpackBatches_singleBatch() public pure {
         IInbox.Batch[] memory batches = new IInbox.Batch[](1);
 
         // Create minimal batch for testing
