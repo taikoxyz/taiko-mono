@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
-import "./BaseInbox.sol";
+import "./AbstractInbox.sol";
 import "./libs/LibBonds.sol";
 import "./IBondManager2.sol";
 
-/// @title Inbox
+/// @title TaikoInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
 /// original Taiko-Based Contestable Rollup (BCR) but with the tier-based proof system and
 /// contestation mechanisms removed.
@@ -21,7 +21,7 @@ import "./IBondManager2.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract Inbox is BaseInbox, IBondManager2 {
+abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
     using LibBonds for I.State;
     using LibState for I.State;
     using SafeERC20 for IERC20;
@@ -36,7 +36,7 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
     // Constructor
     // -------------------------------------------------------------------------
 
-    constructor() BaseInbox() { }
+    constructor() AbstractInbox() { }
 
     // -------------------------------------------------------------------------
     // Bond Management Functions
@@ -72,17 +72,17 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
     // Internal Functions
     // -------------------------------------------------------------------------
 
-    /// @inheritdoc BaseInbox
+    /// @inheritdoc AbstractInbox
     function _getBlobHash(uint256 _blobIdx) internal view override returns (bytes32) {
         return blobhash(_blobIdx);
     }
 
-    /// @inheritdoc BaseInbox
+    /// @inheritdoc AbstractInbox
     function _getBlockHash(uint256 _blockNumber) internal view override returns (bytes32) {
         return blockhash(_blockNumber);
     }
 
-    /// @inheritdoc BaseInbox
+    /// @inheritdoc AbstractInbox
     function _isSignalSent(
         I.Config memory _conf,
         bytes32 _signalSlot
@@ -95,7 +95,7 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         return ISignalService(_conf.signalService).isSignalSent(_signalSlot);
     }
 
-    /// @inheritdoc BaseInbox
+    /// @inheritdoc AbstractInbox
     function _syncChainData(
         I.Config memory _conf,
         uint64 _blockId,
@@ -109,7 +109,7 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         );
     }
 
-    /// @inheritdoc BaseInbox
+    /// @inheritdoc AbstractInbox
     function _transferFee(
         address _feeToken,
         address _from,
@@ -122,27 +122,27 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         IERC20(_feeToken).safeTransferFrom(_from, _to, _amount);
     }
 
-    /// @inheritdoc BaseInbox
+    /// @inheritdoc AbstractInbox
     function _debitBond(I.Config memory _conf, address _user, uint256 _amount) internal override {
         LibBonds.debitBond(state, _conf.bondToken, _user, _amount);
     }
 
-    /// @inheritdoc BaseInbox
+    /// @inheritdoc AbstractInbox
     function _creditBond(address _user, uint256 _amount) internal override {
         LibBonds.creditBond(state, _user, _amount);
     }
 
-    /// @inheritdoc BaseInbox
+    /// @inheritdoc AbstractInbox
     function _loadSummaryHash() internal view override returns (bytes32) {
         return state.loadSummaryHash();
     }
 
-    /// @inheritdoc BaseInbox
+    /// @inheritdoc AbstractInbox
     function _saveSummaryHash(bytes32 _summaryHash) internal override {
         state.saveSummaryHash(_summaryHash);
     }
 
-    /// @inheritdoc BaseInbox
+    /// @inheritdoc AbstractInbox
     function _loadTransitionMetaHash(
         I.Config memory _conf,
         bytes32 _lastVerifiedBlockHash,
@@ -156,7 +156,7 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         return state.loadTransitionMetaHash(_conf, _lastVerifiedBlockHash, _batchId);
     }
 
-    /// @inheritdoc BaseInbox
+    /// @inheritdoc AbstractInbox
     function _saveTransition(
         I.Config memory _conf,
         uint48 _batchId,
@@ -170,7 +170,7 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         return state.saveTransition(_conf, _batchId, _parentHash, _tranMetahash);
     }
 
-    /// @inheritdoc BaseInbox
+    /// @inheritdoc AbstractInbox
     function _loadBatchMetaHash(
         I.Config memory _conf,
         uint256 _batchId
@@ -183,7 +183,7 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         return state.loadBatchMetaHash(_conf, _batchId);
     }
 
-    /// @inheritdoc BaseInbox
+    /// @inheritdoc AbstractInbox
     function _saveBatchMetaHash(
         I.Config memory _conf,
         uint256 _batchId,

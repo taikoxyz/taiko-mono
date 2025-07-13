@@ -26,14 +26,14 @@ library LibProve {
     // -------------------------------------------------------------------------
 
     /// @notice Proves multiple batches and returns an aggregated hash for verification
-    /// @param _conf The protocol configuration
-    /// @param _rw Read/write function pointers for storage access
+    /// @param _config The protocol configuration
+    /// @param _stateAccess Read/write function pointers for storage access
     /// @param _summary The current protocol summary
     /// @param _evidences Array of batch prove inputs containing transition data
     /// @return The updated protocol summary and aggregated batch hash for proof verification
     function prove(
-        I.Config memory _conf,
-        LibState.ReadWrite memory _rw,
+        I.Config memory _config,
+        LibState.StateAccess memory _stateAccess,
         I.Summary memory _summary,
         I.BatchProveInput[] memory _evidences
     )
@@ -47,11 +47,11 @@ library LibProve {
         bytes32[] memory ctxHashes = new bytes32[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            ctxHashes[i] = _proveBatch(_conf, _rw, _summary, _evidences[i]);
+            ctxHashes[i] = _proveBatch(_config, _stateAccess, _summary, _evidences[i]);
         }
 
         bytes32 aggregatedBatchHash =
-            keccak256(abi.encode(_conf.chainId, msg.sender, _conf.verifier, ctxHashes));
+            keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
 
         return (_summary, aggregatedBatchHash);
     }
@@ -61,14 +61,14 @@ library LibProve {
     // -------------------------------------------------------------------------
 
     /// @notice Proves a single batch by validating metadata and saving the transition
-    /// @param _conf The protocol configuration
-    /// @param _rw Read/write function pointers for storage access
+    /// @param _config The protocol configuration
+    /// @param _stateAccess Read/write function pointers for storage access
     /// @param _summary The current protocol summary
     /// @param _input The batch prove input containing transition and metadata
     /// @return The context hash for this batch used in aggregation
     function _proveBatch(
-        I.Config memory _conf,
-        LibState.ReadWrite memory _rw,
+        I.Config memory _config,
+        LibState.StateAccess memory _stateAccess,
         I.Summary memory _summary,
         I.BatchProveInput memory _input
     )
@@ -83,22 +83,22 @@ library LibProve {
         // Therefore, we only need to verify the firstBlockId in the following check.
         require(
             LibForks.isBlocksInCurrentFork(
-                _conf, _input.proveMeta.firstBlockId, _input.proveMeta.firstBlockId
+                _config, _input.proveMeta.firstBlockId, _input.proveMeta.firstBlockId
             ),
             BlocksNotInCurrentFork()
         );
 
         // Load and verify the batch metadata
-        bytes32 batchMetaHash = _rw.loadBatchMetaHash(_conf, _input.tran.batchId);
+        bytes32 batchMetaHash = _stateAccess.loadBatchMetaHash(_config, _input.tran.batchId);
 
         _validateProveMeta(batchMetaHash, _input);
 
-        bytes32 stateRoot = _input.tran.batchId % _conf.stateRootSyncInternal == 0
+        bytes32 stateRoot = _input.tran.batchId % _config.stateRootSyncInternal == 0
             ? _input.tran.stateRoot
             : bytes32(0);
 
         (I.ProofTiming proofTiming, address prover) =
-            _determineProofTiming(_conf, _input.proveMeta.prover, _input.proveMeta.proposedAt);
+            _determineProofTiming(_config, _input.proveMeta.prover, _input.proveMeta.proposedAt);
 
         // Create the transition metadata
         I.TransitionMeta memory tranMeta = I.TransitionMeta({
@@ -113,8 +113,8 @@ library LibProve {
             livenessBond: _input.proveMeta.livenessBond
         });
 
-        bool isFirstTransition = _rw.saveTransition(
-            _conf, _input.tran.batchId, _input.tran.parentHash, keccak256(abi.encode(tranMeta))
+        bool isFirstTransition = _stateAccess.saveTransition(
+            _config, _input.tran.batchId, _input.tran.parentHash, keccak256(abi.encode(tranMeta))
         );
 
         if (
@@ -122,8 +122,8 @@ library LibProve {
                 && msg.sender != _input.proveMeta.proposer
         ) {
             uint256 bondAmount = uint256(_input.proveMeta.provabilityBond) * 1 gwei;
-            _rw.debitBond(_conf, msg.sender, bondAmount);
-            _rw.creditBond(_input.proveMeta.proposer, bondAmount);
+            _stateAccess.debitBond(_config, msg.sender, bondAmount);
+            _stateAccess.creditBond(_input.proveMeta.proposer, bondAmount);
         }
 
         I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](1);
@@ -134,13 +134,13 @@ library LibProve {
     }
 
     /// @notice Determines the proof timing and prover based on the current timestamp
-    /// @param _conf The configuration
+    /// @param _config The configuration
     /// @param _assignedProver The originally assigned prover
     /// @param _proposedAt The timestamp when the batch was proposed
     /// @return timing_ The proof timing category
     /// @return prover_ The address to be recorded as the prover
     function _determineProofTiming(
-        I.Config memory _conf,
+        I.Config memory _config,
         address _assignedProver,
         uint256 _proposedAt
     )
@@ -149,9 +149,9 @@ library LibProve {
         returns (I.ProofTiming timing_, address prover_)
     {
         unchecked {
-            if (block.timestamp <= _proposedAt + _conf.provingWindow) {
+            if (block.timestamp <= _proposedAt + _config.provingWindow) {
                 return (I.ProofTiming.InProvingWindow, _assignedProver);
-            } else if (block.timestamp <= _proposedAt + _conf.extendedProvingWindow) {
+            } else if (block.timestamp <= _proposedAt + _config.extendedProvingWindow) {
                 return (I.ProofTiming.InExtendedProvingWindow, msg.sender);
             } else {
                 return (I.ProofTiming.OutOfExtendedProvingWindow, msg.sender);
@@ -177,19 +177,13 @@ library LibProve {
     }
 
     // -------------------------------------------------------------------------
-    // Custom Errors
+    // Errors
     // -------------------------------------------------------------------------
 
-    /// @notice Thrown when the batch ID is invalid or out of range
     error BatchNotFound();
-    /// @notice Thrown when blocks are not in the current fork
     error BlocksNotInCurrentFork();
-    /// @notice Thrown when the transition parent hash is invalid (zero)
     error InvalidTransitionParentHash();
-    /// @notice Thrown when the metadata hash does not match the expected value
     error MetaHashNotMatch();
-    /// @notice Thrown when no blocks are provided for proving
     error NoBlocksToProve();
-    /// @notice Thrown when too many batches are provided for proving in a single call
     error TooManyBatchesToProve();
 }

@@ -28,46 +28,46 @@ library LibCodec {
     /// | lastBlockId         | 6     | 91     | uint48       |
     /// | provabilityBond     | 6     | 97     | uint48       |
     /// | livenessBond        | 6     | 103    | uint48       |
-    /// @param _tranMetas Array of TransitionMeta structs to pack
+    /// @param _transitionMetas Array of TransitionMeta structs to pack
     /// @return encoded_ The packed byte array
-    function packTransitionMetas(I.TransitionMeta[] memory _tranMetas)
+    function packTransitionMetas(I.TransitionMeta[] memory _transitionMetas)
         internal
         pure
         returns (bytes memory encoded_)
     {
         unchecked {
-            uint256 length = _tranMetas.length;
+            uint256 length = _transitionMetas.length;
 
             // Each TransitionMeta takes 109 bytes when packed
             encoded_ = new bytes(length * 109);
 
             uint256 offset;
             for (uint256 i; i < length; ++i) {
-                I.TransitionMeta memory meta = _tranMetas[i];
+                I.TransitionMeta memory metadata = _transitionMetas[i];
 
                 assembly {
                     let ptr := add(add(encoded_, 0x20), offset)
 
                     // Pack first 64 bytes (blockHash + stateRoot) directly
-                    mstore(ptr, mload(meta))
-                    mstore(add(ptr, 32), mload(add(meta, 0x20)))
+                    mstore(ptr, mload(metadata))
+                    mstore(add(ptr, 32), mload(add(metadata, 0x20)))
 
                     // Pack prover (20 bytes) - shift left to align
-                    mstore(add(ptr, 64), shl(96, mload(add(meta, 0x40))))
+                    mstore(add(ptr, 64), shl(96, mload(add(metadata, 0x40))))
 
                     // Pack timing data and remaining fields in one go
-                    let proofTiming := mload(add(meta, 0x60))
-                    let byAssignedProver := mload(add(meta, 0xa0))
+                    let proofTiming := mload(add(metadata, 0x60))
+                    let byAssignedProver := mload(add(metadata, 0xa0))
                     let combinedByte := or(proofTiming, shl(2, byAssignedProver))
 
                     // Store combined byte
                     mstore8(add(ptr, 84), combinedByte)
 
                     // Pack remaining uint48 fields efficiently
-                    mstore(add(ptr, 85), shl(208, mload(add(meta, 0x80))))
-                    mstore(add(ptr, 91), shl(208, mload(add(meta, 0xc0))))
-                    mstore(add(ptr, 97), shl(208, mload(add(meta, 0xe0))))
-                    mstore(add(ptr, 103), shl(208, mload(add(meta, 0x100))))
+                    mstore(add(ptr, 85), shl(208, mload(add(metadata, 0x80))))
+                    mstore(add(ptr, 91), shl(208, mload(add(metadata, 0xc0))))
+                    mstore(add(ptr, 97), shl(208, mload(add(metadata, 0xe0))))
+                    mstore(add(ptr, 103), shl(208, mload(add(metadata, 0x100))))
                 }
 
                 offset += 109;
@@ -79,11 +79,11 @@ library LibCodec {
     /// @dev Reverses the packing performed by packTransitionMetas. Input must be
     /// a multiple of 109 bytes. See packTransitionMetas for data layout.
     /// @param _encoded The packed byte array to unpack
-    /// @return tranMetas_ Array of unpacked TransitionMeta structs
+    /// @return transitionMetas_ Array of unpacked TransitionMeta structs
     function unpackTransitionMetas(bytes memory _encoded)
         internal
         pure
-        returns (I.TransitionMeta[] memory tranMetas_)
+        returns (I.TransitionMeta[] memory transitionMetas_)
     {
         require(_encoded.length % 109 == 0, InvalidDataLength());
 
@@ -91,11 +91,11 @@ library LibCodec {
             // Calculate length from encoded data size
             uint256 length = _encoded.length / 109;
 
-            tranMetas_ = new I.TransitionMeta[](length);
+            transitionMetas_ = new I.TransitionMeta[](length);
 
             assembly {
                 let dataPtr := add(_encoded, 0x20)
-                let arrayPtr := add(tranMetas_, 0x20)
+                let arrayPtr := add(transitionMetas_, 0x20)
 
                 for { let i := 0 } lt(i, length) { i := add(i, 1) } {
                     let dataOffset := add(dataPtr, mul(i, 109))
@@ -1028,15 +1028,10 @@ library LibCodec {
     }
 
     // -------------------------------------------------------------------------
-    // Custom Errors
+    // Errors
     // -------------------------------------------------------------------------
 
-    /// @notice Thrown when an array exceeds the maximum allowed size (255 elements)
     error ArrayTooLarge();
-
-    /// @notice Thrown when the input data length is invalid for the expected format
-    error InvalidDataLength();
-
-    /// @notice Thrown when empty input is provided where data is required
     error EmptyInput();
+    error InvalidDataLength();
 }
