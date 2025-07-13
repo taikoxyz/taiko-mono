@@ -297,7 +297,8 @@ library LibValidate {
     }
 
     /// @notice Validates blob data and forced inclusion parameters
-    /// @dev Handles different blob scenarios: direct proposing, normal batches, and forced inclusion
+    /// @dev Handles different blob scenarios: direct proposing, normal batches, and forced
+    /// inclusion
     /// @param _conf Protocol configuration
     /// @param _batch The batch containing blob information
     /// @return blobsCreatedIn_ Block number where blobs were created

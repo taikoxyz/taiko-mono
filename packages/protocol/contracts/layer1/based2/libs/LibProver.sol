@@ -102,7 +102,7 @@ library LibProver {
     /// @param _batchId Batch ID being proved
     /// @param _batchParamsHash Hash of batch parameters for signature verification
     /// @param _proverAuth Encoded prover authentication data
-    /// @return prover Validated prover address
+    /// @return prover_ Validated prover address
     /// @return feeToken_ Fee token address for payment
     /// @return fee_ Fee amount to be paid
     function _validateProverAuth(
@@ -113,7 +113,7 @@ library LibProver {
     )
         private
         view
-        returns (address prover, address feeToken_, uint256 fee_)
+        returns (address prover_, address feeToken_, uint256 fee_)
     {
         I.ProverAuth memory auth = abi.decode(_proverAuth, (I.ProverAuth));
 

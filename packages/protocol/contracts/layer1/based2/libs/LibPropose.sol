@@ -109,7 +109,7 @@ library LibPropose {
     // -------------------------------------------------------------------------
     // Custom Errors
     // -------------------------------------------------------------------------
-    
+
     /// @notice Thrown when an anchor ID is smaller than its parent
     error AnchorIdSmallerThanParent();
     /// @notice Thrown when an anchor ID is too small (outside allowed range)

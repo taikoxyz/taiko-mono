@@ -51,12 +51,7 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         _init(_owner, _genesisBlockHash, _gasIssuancePerSecond);
     }
 
-    /// @notice Proposes and verifies batches
-    /// @param _packedSummary The current summary, packed into bytes
-    /// @param _packedBatches The batches to propose, packed into bytes
-    /// @param _packedEvidence The batch proposal evidence, packed into bytes
-    /// @param _packedTrans The packed transition metadata for verification
-    /// @return The updated summary
+    /// @inheritdoc IPropose
     function propose4(
         bytes calldata _packedSummary,
         bytes calldata _packedBatches,
@@ -87,11 +82,7 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
         return summary;
     }
 
-    /// @notice Proves batches with cryptographic proof
-    /// @param _packedSummary The current summary packed as bytes
-    /// @param _packedBatchProveInputs The batch prove inputs
-    /// @param _proof The cryptographic proof
-    /// @return The updated summary
+    /// @inheritdoc IProve
     function prove4(
         bytes calldata _packedSummary,
         bytes calldata _packedBatchProveInputs,
@@ -163,12 +154,10 @@ abstract contract BaseInbox is EssentialContract, IInbox, IPropose, IProve, ITai
     /// @return The blob hash
     function _getBlobHash(uint256 _blobIndex) internal view virtual returns (bytes32);
 
-
     /// @notice Gets the block hash for a block number
     /// @param _blockNumber The block number
     /// @return The block hash
     function _getBlockHash(uint256 _blockNumber) internal view virtual returns (bytes32);
- 
 
     /// @notice Checks if a signal has been sent
     /// @param _conf The configuration

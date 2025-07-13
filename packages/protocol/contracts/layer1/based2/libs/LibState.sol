@@ -48,7 +48,6 @@ library LibState {
         function(address, uint256) creditBond;
         /// @notice Debits bond from a user
         function(I.Config memory, address, uint256) debitBond;
-
     }
 
     // -------------------------------------------------------------------------

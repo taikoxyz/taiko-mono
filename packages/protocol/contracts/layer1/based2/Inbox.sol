@@ -72,24 +72,17 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
     // Internal Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Gets the blob hash for a given blob index
-    /// @param _blobIdx The blob index
-    /// @return The blob hash
+    /// @inheritdoc BaseInbox
     function _getBlobHash(uint256 _blobIdx) internal view override returns (bytes32) {
         return blobhash(_blobIdx);
     }
 
-    /// @notice Gets the block hash for a block number
-    /// @param _blockNumber The block number
-    /// @return The block hash
+    /// @inheritdoc BaseInbox
     function _getBlockHash(uint256 _blockNumber) internal view override returns (bytes32) {
         return blockhash(_blockNumber);
     }
 
-    /// @notice Checks if a signal has been sent
-    /// @param _conf The configuration
-    /// @param _signalSlot The signal slot
-    /// @return Whether the signal was sent
+    /// @inheritdoc BaseInbox
     function _isSignalSent(
         I.Config memory _conf,
         bytes32 _signalSlot
@@ -102,10 +95,7 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         return ISignalService(_conf.signalService).isSignalSent(_signalSlot);
     }
 
-    /// @notice Syncs chain data to the signal service
-    /// @param _conf The configuration
-    /// @param _blockId The block ID
-    /// @param _stateRoot The state root
+    /// @inheritdoc BaseInbox
     function _syncChainData(
         I.Config memory _conf,
         uint64 _blockId,
@@ -119,11 +109,7 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         );
     }
 
-    /// @notice Transfers fee tokens between addresses
-    /// @param _feeToken The fee token address
-    /// @param _from The sender address
-    /// @param _to The recipient address
-    /// @param _amount The amount to transfer
+    /// @inheritdoc BaseInbox
     function _transferFee(
         address _feeToken,
         address _from,
@@ -136,39 +122,27 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         IERC20(_feeToken).safeTransferFrom(_from, _to, _amount);
     }
 
-    /// @notice Debits bond from a user
-    /// @param _conf The configuration
-    /// @param _user The user address
-    /// @param _amount The amount to debit
+    /// @inheritdoc BaseInbox
     function _debitBond(I.Config memory _conf, address _user, uint256 _amount) internal override {
         LibBonds.debitBond(state, _conf.bondToken, _user, _amount);
     }
 
-    /// @notice Credits bond to a user
-    /// @param _user The user address
-    /// @param _amount The amount to credit
+    /// @inheritdoc BaseInbox
     function _creditBond(address _user, uint256 _amount) internal override {
         LibBonds.creditBond(state, _user, _amount);
     }
 
-    /// @notice Loads the summary hash from storage
-    /// @return The current summary hash
+    /// @inheritdoc BaseInbox
     function _loadSummaryHash() internal view override returns (bytes32) {
         return state.loadSummaryHash();
     }
 
-    /// @notice Saves the summary hash to storage
-    /// @param _summaryHash The summary hash to save
+    /// @inheritdoc BaseInbox
     function _saveSummaryHash(bytes32 _summaryHash) internal override {
         state.saveSummaryHash(_summaryHash);
     }
 
-    /// @notice Loads a transition metadata hash from storage
-    /// @param _conf The configuration
-    /// @param _lastVerifiedBlockHash The last verified block hash
-    /// @param _batchId The batch ID
-    /// @return metaHash_ The transition metadata hash
-    /// @return isFirstTransition_ Whether this is the first transition
+    /// @inheritdoc BaseInbox
     function _loadTransitionMetaHash(
         I.Config memory _conf,
         bytes32 _lastVerifiedBlockHash,
@@ -182,12 +156,7 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         return state.loadTransitionMetaHash(_conf, _lastVerifiedBlockHash, _batchId);
     }
 
-    /// @notice Saves a transition to storage
-    /// @param _conf The configuration
-    /// @param _batchId The batch ID
-    /// @param _parentHash The parent hash
-    /// @param _tranMetahash The transition metadata hash
-    /// @return isFirstTransition_ Whether this is the first transition
+    /// @inheritdoc BaseInbox
     function _saveTransition(
         I.Config memory _conf,
         uint48 _batchId,
@@ -201,10 +170,7 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         return state.saveTransition(_conf, _batchId, _parentHash, _tranMetahash);
     }
 
-    /// @notice Loads a batch metadata hash from storage
-    /// @param _conf The configuration
-    /// @param _batchId The batch ID
-    /// @return The batch metadata hash
+    /// @inheritdoc BaseInbox
     function _loadBatchMetaHash(
         I.Config memory _conf,
         uint256 _batchId
@@ -217,10 +183,7 @@ abstract contract Inbox is BaseInbox, IBondManager2 {
         return state.loadBatchMetaHash(_conf, _batchId);
     }
 
-    /// @notice Saves a batch metadata hash to storage
-    /// @param _conf The configuration
-    /// @param _batchId The batch ID
-    /// @param _metaHash The metadata hash to save
+    /// @inheritdoc BaseInbox
     function _saveBatchMetaHash(
         I.Config memory _conf,
         uint256 _batchId,
