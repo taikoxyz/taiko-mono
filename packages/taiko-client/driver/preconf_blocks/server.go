@@ -1047,6 +1047,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 			"peer", from,
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
+			"signature", common.Bytes2Hex(sig[:]),
 		)
 	}
 
