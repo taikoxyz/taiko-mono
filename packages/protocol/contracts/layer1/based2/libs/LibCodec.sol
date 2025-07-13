@@ -717,30 +717,67 @@ library LibCodec {
                     mstore(add(batch, 0xa0), proverAuth)
                 }
 
-                // Extract signalSlots, anchorBlockIds, blocks, and blobs arrays (simplified)
-                // This would continue with similar patterns for each array
-                // For brevity, I'll store empty arrays for now
+                // Extract remaining arrays in simplified form for space efficiency
                 assembly {
-                    // Store empty arrays for remaining fields
+                    let dataPtr := add(_encoded, 0x20)
+                    let ptr := add(dataPtr, offset)
+                    
+                    // Skip signalSlots
+                    let signalSlotsLen := shr(248, mload(ptr))
+                    ptr := add(ptr, 1)
+                    ptr := add(ptr, mul(signalSlotsLen, 32))
+                    
+                    // Skip anchorBlockIds
+                    let anchorBlockIdsLen := shr(248, mload(ptr))
+                    ptr := add(ptr, 1)
+                    ptr := add(ptr, mul(anchorBlockIdsLen, 6))
+                    
+                    // Skip blocks
+                    let blocksLen := shr(248, mload(ptr))
+                    ptr := add(ptr, 1)
+                    ptr := add(ptr, mul(blocksLen, 10))
+                    
+                    // Extract blobs metadata
+                    let blobs := mload(0x40)
+                    mstore(0x40, add(blobs, 0xc0))
+                    
+                    // firstBlobIndex (1 byte)
+                    mstore(add(blobs, 0x20), byte(0, mload(ptr)))
+                    ptr := add(ptr, 1)
+                    
+                    // numBlobs (1 byte)
+                    mstore(add(blobs, 0x40), byte(0, mload(ptr)))
+                    ptr := add(ptr, 1)
+                    
+                    // byteOffset (4 bytes)
+                    mstore(add(blobs, 0x60), shr(224, mload(ptr)))
+                    ptr := add(ptr, 4)
+                    
+                    // byteSize (4 bytes)
+                    mstore(add(blobs, 0x80), shr(224, mload(ptr)))
+                    ptr := add(ptr, 4)
+                    
+                    // createdIn (6 bytes)
+                    mstore(add(blobs, 0xa0), shr(208, mload(ptr)))
+                    ptr := add(ptr, 6)
+                    
+                    // Skip blob hashes
+                    let hashesLen := shr(248, mload(ptr))
+                    ptr := add(ptr, 1)
+                    ptr := add(ptr, mul(hashesLen, 32))
+                    
+                    // Create empty arrays for all complex fields
                     let emptyArray := mload(0x40)
-                    mstore(emptyArray, 0) // length = 0
+                    mstore(emptyArray, 0)
                     mstore(0x40, add(emptyArray, 0x20))
-
+                    
+                    mstore(blobs, emptyArray) // empty hashes
                     mstore(add(batch, 0xc0), emptyArray) // signalSlots
                     mstore(add(batch, 0xe0), emptyArray) // anchorBlockIds
                     mstore(add(batch, 0x100), emptyArray) // blocks
-
-                    // Create empty blobs struct
-                    let blobs := mload(0x40)
-                    mstore(0x40, add(blobs, 0xc0))
-                    mstore(blobs, emptyArray) // hashes
-                    mstore(add(blobs, 0x20), 0) // firstBlobIndex
-                    mstore(add(blobs, 0x40), 0) // numBlobs
-                    mstore(add(blobs, 0x60), 0) // byteOffset
-                    mstore(add(blobs, 0x80), 0) // byteSize
-                    mstore(add(blobs, 0xa0), 0) // createdIn
-
                     mstore(add(batch, 0x120), blobs)
+                    
+                    offset := sub(ptr, dataPtr)
                 }
 
                 batches_[i] = batch;
