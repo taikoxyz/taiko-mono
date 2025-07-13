@@ -345,8 +345,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     // Errors
     // -------------------------------------------------------------------------
 
-    /// @notice Thrown when the provided summary doesn't match the stored summary hash
-    error SummaryMismatch();
-    /// @notice Thrown when the genesis block hash is invalid (zero)
     error InvalidGenesisBlockHash();
+    error SummaryMismatch();
 }

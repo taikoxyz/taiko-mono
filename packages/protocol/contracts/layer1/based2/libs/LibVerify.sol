@@ -26,14 +26,14 @@ library LibVerify {
     /// @dev Processes batches sequentially, validating transition metadata,
     ///      enforcing cooldown periods, and distributing bonds to provers.
     ///      Also handles periodic state root synchronization.
-    /// @param _conf Protocol configuration parameters
-    /// @param _rw Read/write access functions for blockchain state
+    /// @param _config Protocol configuration parameters
+    /// @param _stateAccess Read/write access functions for blockchain state
     /// @param _summary Current protocol summary state
     /// @param _trans Array of transition metadata for verification
     /// @return Updated summary with verification results
     function verify(
-        I.Config memory _conf,
-        LibState.ReadWrite memory _rw,
+        I.Config memory _config,
+        LibState.StateAccess memory _stateAccess,
         I.Summary memory _summary,
         I.TransitionMeta[] memory _trans
     )
@@ -43,12 +43,12 @@ library LibVerify {
         unchecked {
             uint48 batchId = _summary.lastVerifiedBatchId + 1;
 
-            if (!LibForks.isBlocksInCurrentFork(_conf, batchId, batchId)) {
+            if (!LibForks.isBlocksInCurrentFork(_config, batchId, batchId)) {
                 return _summary;
             }
 
             uint256 stopBatchId = uint256(_summary.nextBatchId).min(
-                _conf.maxBatchesToVerify + _summary.lastVerifiedBatchId + 1
+                _config.maxBatchesToVerify + _summary.lastVerifiedBatchId + 1
             );
 
             uint256 i;
@@ -56,22 +56,23 @@ library LibVerify {
             uint256 nTransitions = _trans.length;
 
             for (; batchId < stopBatchId; ++batchId) {
-                (bytes32 tranMetaHash, bool isFirstTransition) =
-                    _rw.loadTransitionMetaHash(_conf, _summary.lastVerifiedBlockHash, batchId);
+                (bytes32 tranMetaHash, bool isFirstTransition) = _stateAccess.loadTransitionMetaHash(
+                    _config, _summary.lastVerifiedBlockHash, batchId
+                );
 
                 if (tranMetaHash == 0) break;
 
                 require(i < nTransitions, TransitionNotProvided());
                 require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionMetaMismatch());
 
-                if (_trans[i].createdAt + _conf.cooldownWindow > block.timestamp) {
+                if (_trans[i].createdAt + _config.cooldownWindow > block.timestamp) {
                     break;
                 }
 
-                uint256 bondToProver = _calcBondToProver(_conf, _trans[i], isFirstTransition);
-                _rw.creditBond(_trans[i].prover, bondToProver * 1 gwei);
+                uint256 bondToProver = _calcBondToProver(_config, _trans[i], isFirstTransition);
+                _stateAccess.creditBond(_trans[i].prover, bondToProver * 1 gwei);
 
-                if (batchId % _conf.stateRootSyncInternal == 0) {
+                if (batchId % _config.stateRootSyncInternal == 0) {
                     lastSyncedBatchId = batchId;
                 }
 
@@ -82,8 +83,8 @@ library LibVerify {
             if (lastSyncedBatchId != 0) {
                 _summary.lastSyncedAt = uint48(block.timestamp);
                 _summary.lastSyncedBlockId = _trans[lastSyncedBatchId].lastBlockId;
-                _rw.syncChainData(
-                    _conf, _summary.lastSyncedBlockId, _trans[lastSyncedBatchId].stateRoot
+                _stateAccess.syncChainData(
+                    _config, _summary.lastSyncedBlockId, _trans[lastSyncedBatchId].stateRoot
                 );
             }
         }
@@ -91,7 +92,7 @@ library LibVerify {
     }
 
     // -------------------------------------------------------------------------
-    // Private Functions - Bond Calculation
+    // Private Functions
     // -------------------------------------------------------------------------
 
     /// @notice Calculates the bond amount to return to the prover based on timing and conditions
@@ -100,12 +101,12 @@ library LibVerify {
     ///      - InExtendedProvingWindow: Partial reward based on bondRewardPtcg
     ///      - Assigned prover: Gets back provability bond
     ///      - Other provers: Get percentage of provability bond
-    /// @param _conf Protocol configuration containing bond parameters
+    /// @param _config Protocol configuration containing bond parameters
     /// @param _tran Transition metadata containing bond and timing information
     /// @param _isFirstTransition Whether this is the first transition for the batch
     /// @return Bond amount to credit to the prover
     function _calcBondToProver(
-        I.Config memory _conf,
+        I.Config memory _config,
         I.TransitionMeta memory _tran,
         bool _isFirstTransition
     )
@@ -123,7 +124,7 @@ library LibVerify {
 
             if (_tran.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
                 // Prover is rewarded with bondRewardPtcg% of the liveness bond
-                uint48 amount = (_tran.livenessBond * _conf.bondRewardPtcg) / 100;
+                uint48 amount = (_tran.livenessBond * _config.bondRewardPtcg) / 100;
                 return _isFirstTransition ? amount + _tran.provabilityBond : amount;
             }
 
@@ -134,12 +135,12 @@ library LibVerify {
             }
 
             // Other provers get bondRewardPtcg% of the provability bond
-            return (_tran.provabilityBond * _conf.bondRewardPtcg) / 100;
+            return (_tran.provabilityBond * _config.bondRewardPtcg) / 100;
         }
     }
 
     // -------------------------------------------------------------------------
-    // Custom Errors
+    // Errors
     // -------------------------------------------------------------------------
 
     error TransitionMetaMismatch();

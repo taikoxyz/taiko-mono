@@ -22,15 +22,15 @@ library LibPropose {
     // -------------------------------------------------------------------------
 
     /// @notice Proposes multiple batches in a single transaction
-    /// @param _conf The protocol configuration
-    /// @param _rw Read/write function pointers for storage access
+    /// @param _config The protocol configuration
+    /// @param _stateAccess Read/write function pointers for storage access
     /// @param _summary The current protocol summary
     /// @param _batches Array of batches to propose
     /// @param _evidence Evidence containing parent batch metadata
     /// @return The updated protocol summary
     function propose(
-        I.Config memory _conf,
-        LibState.ReadWrite memory _rw,
+        I.Config memory _config,
+        LibState.StateAccess memory _stateAccess,
         I.Summary memory _summary,
         I.Batch[] memory _batches,
         I.BatchProposeMetadataEvidence memory _evidence
@@ -39,21 +39,23 @@ library LibPropose {
         returns (I.Summary memory)
     {
         unchecked {
-            require(_batches.length != 0, NoBatchesToPropose());
+            require(_batches.length != 0, EmptyBatchArray());
             require(
                 _summary.nextBatchId + _batches.length
-                    <= _summary.lastVerifiedBatchId + _conf.maxUnverifiedBatches + 1,
-                TooManyBatches()
+                    <= _summary.lastVerifiedBatchId + _config.maxUnverifiedBatches + 1,
+                BatchLimitExceeded()
             );
 
-            require(_summary.lastBatchMetaHash == LibData.hashBatch(_evidence), MetaHashNotMatch());
+            require(
+                _summary.lastBatchMetaHash == LibData.hashBatch(_evidence), MetadataHashMismatch()
+            );
 
             I.BatchProposeMetadata memory parent = _evidence.proposeMeta;
 
-            I.BatchMetadata memory meta;
+            I.BatchMetadata memory metadata;
             for (uint256 i; i < _batches.length; ++i) {
-                (meta, _summary.lastBatchMetaHash) =
-                    _proposeBatch(_conf, _rw, _summary, _batches[i], parent);
+                (metadata, _summary.lastBatchMetaHash) =
+                    _proposeBatch(_config, _stateAccess, _summary, _batches[i], parent);
 
                 if (_summary.gasIssuancePerSecond != _batches[i].gasIssuancePerSecond) {
                     _summary.gasIssuancePerSecond = _batches[i].gasIssuancePerSecond;
@@ -62,7 +64,7 @@ library LibPropose {
 
                 _summary.nextBatchId += 1;
 
-                parent = meta.proposeMeta;
+                parent = metadata.proposeMeta;
             }
 
             return _summary;
@@ -74,54 +76,57 @@ library LibPropose {
     // -------------------------------------------------------------------------
 
     /// @notice Proposes a single batch
-    /// @param _conf The protocol configuration
-    /// @param _rw Read/write function pointers for storage access
+    /// @param _config The protocol configuration
+    /// @param _stateAccess Read/write function pointers for storage access
     /// @param _summary The current protocol summary
     /// @param _batch The batch to propose
     /// @param _parent The parent batch metadata
-    /// @return meta_ The metadata of the proposed batch
+    /// @return metadata_ The metadata of the proposed batch
     /// @return batchMetaHash_ The hash of the proposed batch metadata
     function _proposeBatch(
-        I.Config memory _conf,
-        LibState.ReadWrite memory _rw,
+        I.Config memory _config,
+        LibState.StateAccess memory _stateAccess,
         I.Summary memory _summary,
         I.Batch memory _batch,
         I.BatchProposeMetadata memory _parent
     )
         private
-        returns (I.BatchMetadata memory meta_, bytes32 batchMetaHash_)
+        returns (I.BatchMetadata memory metadata_, bytes32 batchMetaHash_)
     {
         // Validate the batch parameters and return batch and batch context data
-        I.BatchContext memory context = LibValidate.validate(_conf, _rw, _summary, _batch, _parent);
+        I.BatchContext memory context =
+            LibValidate.validate(_config, _stateAccess, _summary, _batch, _parent);
 
-        context.prover = LibProver.validateProver(_conf, _rw, _summary, _batch.proverAuth, _batch);
+        context.prover =
+            LibProver.validateProver(_config, _stateAccess, _summary, _batch.proverAuth, _batch);
 
-        meta_ = LibData.buildBatchMetadata(
+        metadata_ = LibData.buildBatchMetadata(
             uint48(block.number), uint48(block.timestamp), _batch, context
         );
 
-        batchMetaHash_ = LibData.hashBatch(_summary.nextBatchId, meta_);
-        _rw.saveBatchMetaHash(_conf, _summary.nextBatchId, batchMetaHash_);
+        batchMetaHash_ = LibData.hashBatch(_summary.nextBatchId, metadata_);
+        _stateAccess.saveBatchMetaHash(_config, _summary.nextBatchId, batchMetaHash_);
 
         emit I.Proposed(_summary.nextBatchId, LibCodec.packBatchContext(context));
     }
 
     // -------------------------------------------------------------------------
-    // Custom Errors
+    // Errors
     // -------------------------------------------------------------------------
+
     error AnchorIdSmallerThanParent();
     error AnchorIdTooSmall();
     error AnchorIdZero();
-    error BlobNotFound();
+    error BatchLimitExceeded();
+    error BlobHashNotFound();
     error BlocksNotInCurrentFork();
+    error EmptyBatchArray();
     error FirstBlockTimeShiftNotZero();
-    error MetaHashNotMatch();
+    error MetadataHashMismatch();
     error NoAnchorBlockIdWithinThisBatch();
-    error NoBatchesToPropose();
-    error SignalNotSent();
+    error RequiredSignalNotSent();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
     error TimestampTooSmall();
-    error TooManyBatches();
     error ZeroAnchorBlockHash();
 }

@@ -4,11 +4,13 @@ pragma solidity ^0.8.24;
 import { IInbox as I } from "../IInbox.sol";
 
 /// @title LibCodec
+/// @notice Library for encoding and decoding protocol data structures to optimize storage and gas
+/// costs
+/// @dev Provides functions to pack and unpack various protocol data structures into tightly packed
+///      byte arrays. The packing is designed to minimize storage costs while maintaining data
+/// integrity.
+///      All pack/unpack operations use assembly for gas optimization.
 /// @custom:security-contact security@taiko.xyz
-/// @notice A library for encoding and decoding protocol data structures to optimize storage and gas costs.
-/// @dev This library provides functions to pack and unpack various protocol data structures
-/// into tightly packed byte arrays. The packing is designed to minimize storage costs while
-/// maintaining data integrity. All pack/unpack operations use assembly for gas optimization.
 library LibCodec {
     // -------------------------------------------------------------------------
     // Internal Functions
@@ -17,7 +19,7 @@ library LibCodec {
     /// @notice Packs an array of TransitionMeta structs into a tightly packed byte array.
     /// @dev Packed format (109 bytes per TransitionMeta):
     /// | Field               | Bytes | Offset | Type         |
-    /// |---------------------|-------|--------|--------------|  
+    /// |---------------------|-------|--------|--------------|
     /// | blockHash           | 32    | 0      | bytes32      |
     /// | stateRoot           | 32    | 32     | bytes32      |
     /// | prover              | 20    | 64     | address      |
@@ -26,48 +28,48 @@ library LibCodec {
     /// | lastBlockId         | 6     | 91     | uint48       |
     /// | provabilityBond     | 6     | 97     | uint48       |
     /// | livenessBond        | 6     | 103    | uint48       |
-    /// @param _tranMetas Array of TransitionMeta structs to pack
+    /// @param _transitionMetas Array of TransitionMeta structs to pack
     /// @return encoded_ The packed byte array
-    function packTransitionMetas(I.TransitionMeta[] memory _tranMetas)
+    function packTransitionMetas(I.TransitionMeta[] memory _transitionMetas)
         internal
         pure
         returns (bytes memory encoded_)
     {
         unchecked {
-            uint256 length = _tranMetas.length;
+            uint256 length = _transitionMetas.length;
 
             // Each TransitionMeta takes 109 bytes when packed
             encoded_ = new bytes(length * 109);
 
             uint256 offset;
             for (uint256 i; i < length; ++i) {
-                I.TransitionMeta memory meta = _tranMetas[i];
+                I.TransitionMeta memory metadata = _transitionMetas[i];
 
                 assembly {
                     let ptr := add(add(encoded_, 0x20), offset)
-                    
+
                     // Pack first 64 bytes (blockHash + stateRoot) directly
-                    mstore(ptr, mload(meta))
-                    mstore(add(ptr, 32), mload(add(meta, 0x20)))
-                    
+                    mstore(ptr, mload(metadata))
+                    mstore(add(ptr, 32), mload(add(metadata, 0x20)))
+
                     // Pack prover (20 bytes) - shift left to align
-                    mstore(add(ptr, 64), shl(96, mload(add(meta, 0x40))))
-                    
+                    mstore(add(ptr, 64), shl(96, mload(add(metadata, 0x40))))
+
                     // Pack timing data and remaining fields in one go
-                    let proofTiming := mload(add(meta, 0x60))
-                    let byAssignedProver := mload(add(meta, 0xa0))
+                    let proofTiming := mload(add(metadata, 0x60))
+                    let byAssignedProver := mload(add(metadata, 0xa0))
                     let combinedByte := or(proofTiming, shl(2, byAssignedProver))
-                    
+
                     // Store combined byte
                     mstore8(add(ptr, 84), combinedByte)
-                    
+
                     // Pack remaining uint48 fields efficiently
-                    mstore(add(ptr, 85), shl(208, mload(add(meta, 0x80))))
-                    mstore(add(ptr, 91), shl(208, mload(add(meta, 0xc0))))
-                    mstore(add(ptr, 97), shl(208, mload(add(meta, 0xe0))))
-                    mstore(add(ptr, 103), shl(208, mload(add(meta, 0x100))))
+                    mstore(add(ptr, 85), shl(208, mload(add(metadata, 0x80))))
+                    mstore(add(ptr, 91), shl(208, mload(add(metadata, 0xc0))))
+                    mstore(add(ptr, 97), shl(208, mload(add(metadata, 0xe0))))
+                    mstore(add(ptr, 103), shl(208, mload(add(metadata, 0x100))))
                 }
-                
+
                 offset += 109;
             }
         }
@@ -77,11 +79,11 @@ library LibCodec {
     /// @dev Reverses the packing performed by packTransitionMetas. Input must be
     /// a multiple of 109 bytes. See packTransitionMetas for data layout.
     /// @param _encoded The packed byte array to unpack
-    /// @return tranMetas_ Array of unpacked TransitionMeta structs
+    /// @return transitionMetas_ Array of unpacked TransitionMeta structs
     function unpackTransitionMetas(bytes memory _encoded)
         internal
         pure
-        returns (I.TransitionMeta[] memory tranMetas_)
+        returns (I.TransitionMeta[] memory transitionMetas_)
     {
         require(_encoded.length % 109 == 0, InvalidDataLength());
 
@@ -89,45 +91,45 @@ library LibCodec {
             // Calculate length from encoded data size
             uint256 length = _encoded.length / 109;
 
-            tranMetas_ = new I.TransitionMeta[](length);
+            transitionMetas_ = new I.TransitionMeta[](length);
 
             assembly {
                 let dataPtr := add(_encoded, 0x20)
-                let arrayPtr := add(tranMetas_, 0x20)
-                
+                let arrayPtr := add(transitionMetas_, 0x20)
+
                 for { let i := 0 } lt(i, length) { i := add(i, 1) } {
                     let dataOffset := add(dataPtr, mul(i, 109))
-                    
+
                     // Allocate memory for meta
                     let meta := mload(0x40)
                     mstore(0x40, add(meta, 0x120))
-                    
+
                     // Read and store blockHash and stateRoot in one operation
                     let data1 := mload(dataOffset)
                     let data2 := mload(add(dataOffset, 32))
                     mstore(meta, data1)
                     mstore(add(meta, 0x20), data2)
-                    
+
                     // Read next 32 bytes containing prover and more
                     let data3 := mload(add(dataOffset, 64))
                     mstore(add(meta, 0x40), shr(96, data3))
-                    
+
                     // Read combined byte at offset 84
                     let combinedByte := byte(0, mload(add(dataOffset, 84)))
                     mstore(add(meta, 0x60), and(combinedByte, 0x03))
                     mstore(add(meta, 0xa0), and(shr(2, combinedByte), 0x01))
-                    
+
                     // Read remaining fields more efficiently
                     let data4 := mload(add(dataOffset, 85))
                     mstore(add(meta, 0x80), shr(208, data4))
-                    
+
                     let data5 := mload(add(dataOffset, 91))
                     mstore(add(meta, 0xc0), shr(208, data5))
-                    
+
                     let data6 := mload(add(dataOffset, 97))
                     mstore(add(meta, 0xe0), shr(208, data6))
                     mstore(add(meta, 0x100), shr(208, mload(add(dataOffset, 103))))
-                    
+
                     // Store meta in array
                     mstore(add(arrayPtr, mul(i, 0x20)), meta)
                 }
@@ -138,7 +140,7 @@ library LibCodec {
     /// @notice Packs a BatchContext struct into a tightly packed byte array.
     /// @dev Packed format (85 bytes fixed + dynamic arrays):
     /// | Field               | Bytes | Offset | Type    |
-    /// |---------------------|-------|--------|---------|  
+    /// |---------------------|-------|--------|---------|
     /// | prover              | 20    | 0      | address |
     /// | txsHash             | 32    | 20     | bytes32 |
     /// | lastAnchorBlockId   | 6     | 52     | uint48  |
@@ -171,33 +173,33 @@ library LibCodec {
 
             assembly {
                 let ptr := add(packed_, 0x20)
-                
+
                 // Pack prover (20 bytes) aligned left
                 mstore(ptr, shl(96, mload(_context)))
-                
+
                 // Pack txsHash (32 bytes) directly
                 mstore(add(ptr, 20), mload(add(_context, 0x20)))
-                
+
                 // Pack multiple uint48 fields efficiently
                 mstore(add(ptr, 52), shl(208, mload(add(_context, 0x40)))) // lastAnchorBlockId
                 mstore(add(ptr, 58), shl(208, mload(add(_context, 0x60)))) // lastBlockId
                 mstore(add(ptr, 64), shl(208, mload(add(_context, 0x80)))) // blobsCreatedIn
-                
+
                 // Pack uint32 and remaining uint48s
                 mstore(add(ptr, 70), shl(224, mload(add(_context, 0xa0)))) // blockMaxGasLimit
                 mstore(add(ptr, 74), shl(208, mload(add(_context, 0xc0)))) // livenessBond
                 mstore(add(ptr, 80), shl(208, mload(add(_context, 0xe0)))) // provabilityBond
-                
+
                 // Pack uint8
                 mstore8(add(ptr, 86), mload(add(_context, 0x100)))
-                
+
                 // Update pointer for dynamic arrays
                 ptr := add(ptr, 87)
-                
+
                 // Pack anchorBlockHashes array
                 mstore8(ptr, anchorHashesLen)
                 ptr := add(ptr, 1)
-                
+
                 let anchorArray := mload(add(_context, 0x120))
                 let anchorDataPtr := add(anchorArray, 0x20)
                 for { let i := 0 } lt(i, anchorHashesLen) { i := add(i, 1) } {
@@ -205,11 +207,11 @@ library LibCodec {
                     ptr := add(ptr, 32)
                     anchorDataPtr := add(anchorDataPtr, 32)
                 }
-                
+
                 // Pack blobHashes array
                 mstore8(ptr, blobHashesLen)
                 ptr := add(ptr, 1)
-                
+
                 let blobArray := mload(add(_context, 0x140))
                 let blobDataPtr := add(blobArray, 0x20)
                 for { let i := 0 } lt(i, blobHashesLen) { i := add(i, 1) } {
@@ -346,7 +348,7 @@ library LibCodec {
     /// @notice Packs a Summary struct into a tightly packed byte array.
     /// @dev Packed format (98 bytes total):
     /// | Field                  | Bytes | Offset | Type    |
-    /// |------------------------|-------|--------|---------|  
+    /// |------------------------|-------|--------|---------|
     /// | nextBatchId            | 6     | 0      | uint48  |
     /// | lastSyncedBlockId      | 6     | 6      | uint48  |
     /// | lastSyncedAt           | 6     | 12     | uint48  |
@@ -386,30 +388,30 @@ library LibCodec {
         unchecked {
             assembly {
                 let dataPtr := add(_encoded, 0x20)
-                
+
                 // Allocate memory for summary_
                 summary_ := mload(0x40)
                 mstore(0x40, add(summary_, 0x100))
-                
+
                 // Read and extract first 6 fields more efficiently
                 let data1 := mload(dataPtr)
                 mstore(summary_, shr(208, data1))
-                
+
                 let data2 := mload(add(dataPtr, 6))
                 mstore(add(summary_, 0x20), shr(208, data2))
-                
+
                 let data3 := mload(add(dataPtr, 12))
                 mstore(add(summary_, 0x40), shr(208, data3))
-                
+
                 let data4 := mload(add(dataPtr, 18))
                 mstore(add(summary_, 0x60), shr(208, data4))
-                
+
                 let data5 := mload(add(dataPtr, 24))
                 mstore(add(summary_, 0x80), shr(208, data5))
-                
+
                 let data6 := mload(add(dataPtr, 30))
                 mstore(add(summary_, 0xa0), shr(224, data6))
-                
+
                 // Read hashes directly
                 mstore(add(summary_, 0xc0), mload(add(dataPtr, 34)))
                 mstore(add(summary_, 0xe0), mload(add(dataPtr, 66)))
@@ -449,8 +451,10 @@ library LibCodec {
                 totalSize += 51; // Fixed fields (20+20+7+4)
                 totalSize += 1 + batch.proverAuth.length; // proverAuth with length prefix
                 totalSize += 1 + (batch.signalSlots.length * 32); // signalSlots with length prefix
-                totalSize += 1 + (batch.anchorBlockIds.length * 6); // anchorBlockIds with length prefix
-                totalSize += 1 + (batch.blocks.length * 10); // blocks with length prefix (each block is 10 bytes packed)
+                totalSize += 1 + (batch.anchorBlockIds.length * 6); // anchorBlockIds with length
+                    // prefix
+                totalSize += 1 + (batch.blocks.length * 10); // blocks with length prefix (each
+                    // block is 10 bytes packed)
                 totalSize += 17; // blobs fixed part (1+1+4+4+6+1 = 17 bytes)
                 totalSize += (batch.blobs.hashes.length * 32); // blob hashes
             }
@@ -473,16 +477,16 @@ library LibCodec {
                     mstore(ptr, shl(96, mload(batch)))
                     // coinbase (20 bytes) - left-aligned
                     mstore(add(ptr, 20), shl(96, mload(add(batch, 0x20))))
-                    
+
                     // Pack timestamp (48 bits) + forced flag (1 bit) in 7 bytes
                     let blockTimestamp := mload(add(batch, 0x40))
                     let isForcedInclusion := mload(add(batch, 0x80))
                     let combined := or(blockTimestamp, shl(48, isForcedInclusion))
                     mstore(add(ptr, 40), shl(200, combined))
-                    
+
                     // gasIssuancePerSecond (4 bytes)
                     mstore(add(ptr, 47), shl(224, mload(add(batch, 0x60))))
-                    
+
                     ptr := add(ptr, 51)
 
                     // proverAuth - get bytes array
@@ -496,7 +500,7 @@ library LibCodec {
                     // Copy proverAuth data efficiently
                     let proverAuthData := add(proverAuth, 0x20)
                     let remaining := proverAuthLen
-                    
+
                     // Copy in 32-byte chunks when possible
                     for { } gt(remaining, 31) { } {
                         mstore(ptr, mload(proverAuthData))
@@ -504,7 +508,7 @@ library LibCodec {
                         proverAuthData := add(proverAuthData, 32)
                         remaining := sub(remaining, 32)
                     }
-                    
+
                     // Handle remaining bytes
                     if gt(remaining, 0) {
                         // Create mask for partial word
@@ -817,31 +821,31 @@ library LibCodec {
 
                     // Pack proveMeta struct efficiently
                     let proveMeta := mload(add(input, 0x40))
-                    
+
                     // Pack addresses (40 bytes)
                     mstore(ptr, shl(96, mload(proveMeta)))
                     mstore(add(ptr, 20), shl(96, mload(add(proveMeta, 0x20))))
-                    
+
                     // Pack uint48 fields (30 bytes total)
                     mstore(add(ptr, 40), shl(208, mload(add(proveMeta, 0x40)))) // proposedAt
                     mstore(add(ptr, 46), shl(208, mload(add(proveMeta, 0x60)))) // firstBlockId
                     mstore(add(ptr, 52), shl(208, mload(add(proveMeta, 0x80)))) // lastBlockId
                     mstore(add(ptr, 58), shl(208, mload(add(proveMeta, 0xa0)))) // livenessBond
                     mstore(add(ptr, 64), shl(208, mload(add(proveMeta, 0xc0)))) // provabilityBond
-                    
+
                     ptr := add(ptr, 140) // 70 bytes data + 70 bytes padding
 
                     // Pack tran struct efficiently
                     let tran := mload(add(input, 0x60))
-                    
+
                     // Pack batchId (6 bytes)
                     mstore(ptr, shl(208, mload(tran)))
-                    
+
                     // Pack hashes directly (96 bytes)
                     mstore(add(ptr, 6), mload(add(tran, 0x20)))
                     mstore(add(ptr, 38), mload(add(tran, 0x40)))
                     mstore(add(ptr, 70), mload(add(tran, 0x60)))
-                    
+
                     ptr := add(ptr, 150) // 102 bytes data + 48 bytes padding
                 }
             }
@@ -932,11 +936,11 @@ library LibCodec {
                     let tranData1 := mload(ptr)
                     mstore(tran, shr(208, tranData1))
                     mstore(add(tran, 0x20), mload(add(ptr, 6)))
-                    
+
                     // Read remaining hashes
                     mstore(add(tran, 0x40), mload(add(ptr, 38)))
                     mstore(add(tran, 0x60), mload(add(ptr, 70)))
-                    
+
                     // Update ptr to skip all data including padding
                     ptr := add(ptr, 150)
 
@@ -951,7 +955,7 @@ library LibCodec {
     /// @notice Packs a BatchProposeMetadataEvidence struct into a tightly packed byte array.
     /// @dev Packed format (82 bytes total):
     /// | Field               | Bytes | Offset | Type    |
-    /// |---------------------|-------|--------|---------|  
+    /// |---------------------|-------|--------|---------|
     /// | idAndBuildHash      | 32    | 0      | bytes32 |
     /// | proveMetaHash       | 32    | 32     | bytes32 |
     /// | lastBlockTimestamp  | 6     | 64     | uint48  |
@@ -1007,14 +1011,14 @@ library LibCodec {
                 // Read hashes
                 mstore(evidence_, mload(dataPtr))
                 mstore(add(evidence_, 0x20), mload(add(dataPtr, 32)))
-                
+
                 // Read all proposeMeta fields in fewer operations
                 let metaData := mload(add(dataPtr, 64))
                 mstore(proposeMeta, shr(208, metaData))
-                
+
                 let metaData2 := mload(add(dataPtr, 70))
                 mstore(add(proposeMeta, 0x20), shr(208, metaData2))
-                
+
                 let metaData3 := mload(add(dataPtr, 76))
                 mstore(add(proposeMeta, 0x40), shr(208, metaData3))
 
@@ -1024,15 +1028,10 @@ library LibCodec {
     }
 
     // -------------------------------------------------------------------------
-    // Custom Errors
+    // Errors
     // -------------------------------------------------------------------------
 
-    /// @notice Thrown when an array exceeds the maximum allowed size (255 elements)
     error ArrayTooLarge();
-    
-    /// @notice Thrown when the input data length is invalid for the expected format
-    error InvalidDataLength();
-    
-    /// @notice Thrown when empty input is provided where data is required
     error EmptyInput();
+    error InvalidDataLength();
 }

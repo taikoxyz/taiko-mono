@@ -14,7 +14,7 @@ library LibState {
     /// @notice Structure containing function pointers for read and write operations
     /// @dev This pattern allows libraries to interact with external contracts
     ///      without direct dependencies
-    struct ReadWrite {
+    struct StateAccess {
         // Read functions ------------------------------------------------------
 
         /// @notice Loads a batch metadata hash
@@ -25,7 +25,9 @@ library LibState {
         function(I.Config memory, bytes32) view returns (bool) isSignalSent;
         /// @notice Gets the blob hash for a given index
         function(uint256) view returns (bytes32) getBlobHash;
-        /// @notice Loads a stransiton metadata hash
+        /// @notice Gets a block's hash
+        function (uint) view returns(bytes32) getBlockHash;
+        /// @notice Loads a transition metadata hash
         /// @dev Assume 1 SLOAD is needed
         function (I.Config memory, bytes32, uint256) view returns (bytes32 , bool)
             loadTransitionMetaHash;
@@ -34,11 +36,11 @@ library LibState {
         /// @notice Saves a transition
         /// @dev Assume 1 SSTORE is needed
         function(I.Config memory, uint48, bytes32, bytes32) returns (bool) saveTransition;
-                /// @notice Syncs chain data
-         /// @dev Assume 1 SSTORE is needed
+        /// @notice Syncs chain data
+        /// @dev Assume 1 SSTORE is needed
         function(I.Config memory, uint64, bytes32) syncChainData;
         /// @notice Saves a batch metadata hash
-         /// @dev Assume 1 SSTORE is needed
+        /// @dev Assume 1 SSTORE is needed
         function(I.Config memory, uint256, bytes32) saveBatchMetaHash;
         /// @notice Transfers fees between addresses
         function(address, address, address, uint256) transferFee;
@@ -46,7 +48,6 @@ library LibState {
         function(address, uint256) creditBond;
         /// @notice Debits bond from a user
         function(I.Config memory, address, uint256) debitBond;
-
     }
 
     // -------------------------------------------------------------------------
