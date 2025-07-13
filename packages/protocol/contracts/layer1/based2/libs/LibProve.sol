@@ -27,13 +27,13 @@ library LibProve {
 
     /// @notice Proves multiple batches and returns an aggregated hash for verification
     /// @param _config The protocol configuration
-    /// @param _stateAccess Read/write function pointers for storage access
+    /// @param _access Read/write function pointers for storage access
     /// @param _summary The current protocol summary
     /// @param _evidences Array of batch prove inputs containing transition data
     /// @return The updated protocol summary and aggregated batch hash for proof verification
     function prove(
         I.Config memory _config,
-        LibState.StateAccess memory _stateAccess,
+        LibState.Access memory _access,
         I.Summary memory _summary,
         I.BatchProveInput[] memory _evidences
     )
@@ -47,7 +47,7 @@ library LibProve {
         bytes32[] memory ctxHashes = new bytes32[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            ctxHashes[i] = _proveBatch(_config, _stateAccess, _summary, _evidences[i]);
+            ctxHashes[i] = _proveBatch(_config, _access, _summary, _evidences[i]);
         }
 
         bytes32 aggregatedBatchHash =
@@ -62,13 +62,13 @@ library LibProve {
 
     /// @notice Proves a single batch by validating metadata and saving the transition
     /// @param _config The protocol configuration
-    /// @param _stateAccess Read/write function pointers for storage access
+    /// @param _access Read/write function pointers for storage access
     /// @param _summary The current protocol summary
     /// @param _input The batch prove input containing transition and metadata
     /// @return The context hash for this batch used in aggregation
     function _proveBatch(
         I.Config memory _config,
-        LibState.StateAccess memory _stateAccess,
+        LibState.Access memory _access,
         I.Summary memory _summary,
         I.BatchProveInput memory _input
     )
@@ -89,7 +89,7 @@ library LibProve {
         );
 
         // Load and verify the batch metadata
-        bytes32 batchMetaHash = _stateAccess.loadBatchMetaHash(_config, _input.tran.batchId);
+        bytes32 batchMetaHash = _access.loadBatchMetaHash(_config, _input.tran.batchId);
 
         _validateProveMeta(batchMetaHash, _input);
 
@@ -113,7 +113,7 @@ library LibProve {
             livenessBond: _input.proveMeta.livenessBond
         });
 
-        bool isFirstTransition = _stateAccess.saveTransition(
+        bool isFirstTransition = _access.saveTransition(
             _config, _input.tran.batchId, _input.tran.parentHash, keccak256(abi.encode(tranMeta))
         );
 
@@ -122,8 +122,8 @@ library LibProve {
                 && msg.sender != _input.proveMeta.proposer
         ) {
             uint256 bondAmount = uint256(_input.proveMeta.provabilityBond) * 1 gwei;
-            _stateAccess.debitBond(_config, msg.sender, bondAmount);
-            _stateAccess.creditBond(_input.proveMeta.proposer, bondAmount);
+            _access.debitBond(_config, msg.sender, bondAmount);
+            _access.creditBond(_input.proveMeta.proposer, bondAmount);
         }
 
         I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](1);

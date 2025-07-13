@@ -14,7 +14,7 @@ library LibState {
     /// @notice Structure containing function pointers for read and write operations
     /// @dev This pattern allows libraries to interact with external contracts
     ///      without direct dependencies
-    struct StateAccess {
+    struct Access {
         // Read functions ------------------------------------------------------
 
         /// @notice Loads a batch metadata hash

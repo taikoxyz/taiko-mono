@@ -70,7 +70,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         I.TransitionMeta[] memory transitionMetas = LibCodec.unpackTransitionMetas(_packedTrans);
 
         I.Config memory config = _getConfig();
-        LibState.StateAccess memory stateAccess = _getReadWrite();
+        LibState.Access memory stateAccess = _getReadWrite();
 
         // Propose batches
         summary = LibPropose.propose(config, stateAccess, summary, batches, evidence);
@@ -97,7 +97,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         I.BatchProveInput[] memory inputs = LibCodec.unpackBatchProveInputs(_packedBatchProveInputs);
 
         I.Config memory config = _getConfig();
-        LibState.StateAccess memory stateAccess = _getReadWrite();
+        LibState.Access memory stateAccess = _getReadWrite();
 
         // Prove batches and get aggregated hash
         bytes32 aggregatedBatchHash;
@@ -312,10 +312,10 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         emit I.Verified(0, _genesisBlockHash);
     }
 
-    /// @notice Creates a StateAccess struct with function pointers
-    /// @return The StateAccess struct with all required function pointers
-    function _getReadWrite() private pure returns (LibState.StateAccess memory) {
-        return LibState.StateAccess({
+    /// @notice Creates a Access struct with function pointers
+    /// @return The Access struct with all required function pointers
+    function _getReadWrite() private pure returns (LibState.Access memory) {
+        return LibState.Access({
             // Read functions
             loadBatchMetaHash: _loadBatchMetaHash,
             isSignalSent: _isSignalSent,

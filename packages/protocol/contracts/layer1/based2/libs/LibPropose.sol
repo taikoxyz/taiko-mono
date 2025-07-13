@@ -23,14 +23,14 @@ library LibPropose {
 
     /// @notice Proposes multiple batches in a single transaction
     /// @param _config The protocol configuration
-    /// @param _stateAccess Read/write function pointers for storage access
+    /// @param _access Read/write function pointers for storage access
     /// @param _summary The current protocol summary
     /// @param _batches Array of batches to propose
     /// @param _evidence Evidence containing parent batch metadata
     /// @return The updated protocol summary
     function propose(
         I.Config memory _config,
-        LibState.StateAccess memory _stateAccess,
+        LibState.Access memory _access,
         I.Summary memory _summary,
         I.Batch[] memory _batches,
         I.BatchProposeMetadataEvidence memory _evidence
@@ -55,7 +55,7 @@ library LibPropose {
             I.BatchMetadata memory metadata;
             for (uint256 i; i < _batches.length; ++i) {
                 (metadata, _summary.lastBatchMetaHash) =
-                    _proposeBatch(_config, _stateAccess, _summary, _batches[i], parent);
+                    _proposeBatch(_config, _access, _summary, _batches[i], parent);
 
                 if (_summary.gasIssuancePerSecond != _batches[i].gasIssuancePerSecond) {
                     _summary.gasIssuancePerSecond = _batches[i].gasIssuancePerSecond;
@@ -77,7 +77,7 @@ library LibPropose {
 
     /// @notice Proposes a single batch
     /// @param _config The protocol configuration
-    /// @param _stateAccess Read/write function pointers for storage access
+    /// @param _access Read/write function pointers for storage access
     /// @param _summary The current protocol summary
     /// @param _batch The batch to propose
     /// @param _parent The parent batch metadata
@@ -85,7 +85,7 @@ library LibPropose {
     /// @return batchMetaHash_ The hash of the proposed batch metadata
     function _proposeBatch(
         I.Config memory _config,
-        LibState.StateAccess memory _stateAccess,
+        LibState.Access memory _access,
         I.Summary memory _summary,
         I.Batch memory _batch,
         I.BatchProposeMetadata memory _parent
@@ -95,17 +95,17 @@ library LibPropose {
     {
         // Validate the batch parameters and return batch and batch context data
         I.BatchContext memory context =
-            LibValidate.validate(_config, _stateAccess, _summary, _batch, _parent);
+            LibValidate.validate(_config, _access, _summary, _batch, _parent);
 
         context.prover =
-            LibProver.validateProver(_config, _stateAccess, _summary, _batch.proverAuth, _batch);
+            LibProver.validateProver(_config, _access, _summary, _batch.proverAuth, _batch);
 
         metadata_ = LibData.buildBatchMetadata(
             uint48(block.number), uint48(block.timestamp), _batch, context
         );
 
         batchMetaHash_ = LibData.hashBatch(_summary.nextBatchId, metadata_);
-        _stateAccess.saveBatchMetaHash(_config, _summary.nextBatchId, batchMetaHash_);
+        _access.saveBatchMetaHash(_config, _summary.nextBatchId, batchMetaHash_);
 
         emit I.Proposed(_summary.nextBatchId, LibCodec.packBatchContext(context));
     }

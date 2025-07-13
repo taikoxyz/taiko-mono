@@ -27,13 +27,13 @@ library LibVerify {
     ///      enforcing cooldown periods, and distributing bonds to provers.
     ///      Also handles periodic state root synchronization.
     /// @param _config Protocol configuration parameters
-    /// @param _stateAccess Read/write access functions for blockchain state
+    /// @param _access Read/write access functions for blockchain state
     /// @param _summary Current protocol summary state
     /// @param _trans Array of transition metadata for verification
     /// @return Updated summary with verification results
     function verify(
         I.Config memory _config,
-        LibState.StateAccess memory _stateAccess,
+        LibState.Access memory _access,
         I.Summary memory _summary,
         I.TransitionMeta[] memory _trans
     )
@@ -56,9 +56,8 @@ library LibVerify {
             uint256 nTransitions = _trans.length;
 
             for (; batchId < stopBatchId; ++batchId) {
-                (bytes32 tranMetaHash, bool isFirstTransition) = _stateAccess.loadTransitionMetaHash(
-                    _config, _summary.lastVerifiedBlockHash, batchId
-                );
+                (bytes32 tranMetaHash, bool isFirstTransition) =
+                    _access.loadTransitionMetaHash(_config, _summary.lastVerifiedBlockHash, batchId);
 
                 if (tranMetaHash == 0) break;
 
@@ -70,7 +69,7 @@ library LibVerify {
                 }
 
                 uint256 bondToProver = _calcBondToProver(_config, _trans[i], isFirstTransition);
-                _stateAccess.creditBond(_trans[i].prover, bondToProver * 1 gwei);
+                _access.creditBond(_trans[i].prover, bondToProver * 1 gwei);
 
                 if (batchId % _config.stateRootSyncInternal == 0) {
                     lastSyncedBatchId = batchId;
@@ -83,7 +82,7 @@ library LibVerify {
             if (lastSyncedBatchId != 0) {
                 _summary.lastSyncedAt = uint48(block.timestamp);
                 _summary.lastSyncedBlockId = _trans[lastSyncedBatchId].lastBlockId;
-                _stateAccess.syncChainData(
+                _access.syncChainData(
                     _config, _summary.lastSyncedBlockId, _trans[lastSyncedBatchId].stateRoot
                 );
             }

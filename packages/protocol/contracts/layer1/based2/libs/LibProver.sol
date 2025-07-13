@@ -28,13 +28,13 @@ library LibProver {
     ///      - External prover with other token fees
     ///      Handles bond debiting/crediting and fee transfers accordingly
     /// @param _config Protocol configuration parameters
-    /// @param _stateAccess Read/write access functions for bond and fee operations
+    /// @param _access Read/write access functions for bond and fee operations
     /// @param _summary Current protocol summary state
     /// @param _proverAuth Prover authentication data (signature + metadata)
     /// @param _batch The batch being proved
     function validateProver(
         I.Config memory _config,
-        LibState.StateAccess memory _stateAccess,
+        LibState.Access memory _access,
         I.Summary memory _summary,
         bytes memory _proverAuth,
         I.Batch memory _batch
@@ -48,7 +48,7 @@ library LibProver {
         unchecked {
             if (_batch.proverAuth.length == 0) {
                 prover_ = _batch.proposer;
-                _stateAccess.debitBond(_config, prover_, livenessBond + provabilityBond);
+                _access.debitBond(_config, prover_, livenessBond + provabilityBond);
             } else {
                 // Circular dependency so zero it out. (Batch has proverAuth but
                 // proverAuth has also batchHash)
@@ -67,23 +67,23 @@ library LibProver {
 
                 if (feeToken == _config.bondToken) {
                     // proposer pay the prover fee with bond tokens
-                    _stateAccess.debitBond(_config, _batch.proposer, fee + provabilityBond);
+                    _access.debitBond(_config, _batch.proposer, fee + provabilityBond);
 
                     // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                     // if not then add the diff to the bond balance
                     int256 bondDelta = int256(fee) - int256(livenessBond);
 
                     bondDelta < 0
-                        ? _stateAccess.debitBond(_config, prover_, uint256(-bondDelta))
-                        : _stateAccess.creditBond(prover_, uint256(bondDelta));
+                        ? _access.debitBond(_config, prover_, uint256(-bondDelta))
+                        : _access.creditBond(prover_, uint256(bondDelta));
                 } else if (prover_ == _batch.proposer) {
-                    _stateAccess.debitBond(_config, _batch.proposer, livenessBond + provabilityBond);
+                    _access.debitBond(_config, _batch.proposer, livenessBond + provabilityBond);
                 } else {
-                    _stateAccess.debitBond(_config, _batch.proposer, provabilityBond);
-                    _stateAccess.debitBond(_config, prover_, livenessBond);
+                    _access.debitBond(_config, _batch.proposer, provabilityBond);
+                    _access.debitBond(_config, prover_, livenessBond);
 
                     if (fee != 0) {
-                        _stateAccess.transferFee(feeToken, _batch.proposer, prover_, fee);
+                        _access.transferFee(feeToken, _batch.proposer, prover_, fee);
                     }
                 }
             }
