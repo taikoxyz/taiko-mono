@@ -104,8 +104,8 @@ contract LibCodecTransitionMetaTest is Test {
     }
 
     function test_packTransitionMetas_largeArray() public {
-        // Create 1000 elements
-        for (uint256 i = 0; i < 1000; i++) {
+        // Create 200 elements (within uint8.max limit)
+        for (uint256 i = 0; i < 200; i++) {
             testMetas.push(
                 _createTransitionMeta(
                     keccak256(abi.encode("blockHash", i)),
@@ -126,10 +126,10 @@ contract LibCodecTransitionMetaTest is Test {
         IInbox.TransitionMeta[] memory unpacked = LibCodec.unpackTransitionMetas(packed);
 
         // Verify length and spot check a few elements
-        assertEq(unpacked.length, 1000);
+        assertEq(unpacked.length, 200);
         _assertTransitionMetaEq(unpacked[0], testMetas[0]);
-        _assertTransitionMetaEq(unpacked[500], testMetas[500]);
-        _assertTransitionMetaEq(unpacked[999], testMetas[999]);
+        _assertTransitionMetaEq(unpacked[100], testMetas[100]);
+        _assertTransitionMetaEq(unpacked[199], testMetas[199]);
     }
 
     // -------------------------------------------------------------------------

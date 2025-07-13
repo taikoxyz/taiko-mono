@@ -12,17 +12,17 @@ contract LibCodecBatchProveInputTest is Test {
 
     function test_packUnpackBatchProveInputs_emptyArray() public pure {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](0);
-        
+
         bytes memory packed = LibCodec.packBatchProveInputs(inputs);
         IInbox.BatchProveInput[] memory unpacked = LibCodec.unpackBatchProveInputs(packed);
-        
+
         assertEq(unpacked.length, 0);
-        assertEq(packed.length, 2); // Just the length field
+        assertEq(packed.length, 1); // Just the length field
     }
 
     function test_packUnpackBatchProveInputs_singleInput() public pure {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](1);
-        
+
         inputs[0] = IInbox.BatchProveInput({
             idAndBuildHash: bytes32(uint256(0x1111)),
             proposeMetaHash: bytes32(uint256(0x2222)),
@@ -64,7 +64,7 @@ contract LibCodecBatchProveInputTest is Test {
 
     function test_packUnpackBatchProveInputs_multipleInputs() public pure {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](3);
-        
+
         for (uint256 i = 0; i < 3; i++) {
             inputs[i] = IInbox.BatchProveInput({
                 idAndBuildHash: keccak256(abi.encode("idAndBuild", i)),
@@ -91,7 +91,7 @@ contract LibCodecBatchProveInputTest is Test {
         IInbox.BatchProveInput[] memory unpacked = LibCodec.unpackBatchProveInputs(packed);
 
         assertEq(unpacked.length, 3);
-        
+
         for (uint256 i = 0; i < 3; i++) {
             assertEq(unpacked[i].idAndBuildHash, inputs[i].idAndBuildHash);
             assertEq(unpacked[i].proposeMetaHash, inputs[i].proposeMetaHash);
@@ -111,41 +111,41 @@ contract LibCodecBatchProveInputTest is Test {
 
     function test_packBatchProveInputs_expectedSize() public pure {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](2);
-        
+
         for (uint256 i = 0; i < 2; i++) {
             inputs[i] = _createBatchProveInput(i);
         }
 
         bytes memory packed = LibCodec.packBatchProveInputs(inputs);
-        
-        // Expected size: 2 + (2 * 354) = 710 bytes
-        assertEq(packed.length, 710);
+
+        // Expected size: 1 + (2 * 354) = 709 bytes
+        assertEq(packed.length, 709);
     }
 
     function test_packBatchProveInputs_revertArrayTooLarge() public {
-        // Test with a large but practical array size
-        IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](1000);
-        
-        for (uint256 i = 0; i < 1000; i++) {
+        // Test with a reasonable array size within uint8.max limit
+        IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](200);
+
+        for (uint256 i = 0; i < 200; i++) {
             inputs[i] = _createBatchProveInput(i);
         }
 
         // Should not revert for reasonable array sizes
         bytes memory packed = LibCodec.packBatchProveInputs(inputs);
         IInbox.BatchProveInput[] memory unpacked = LibCodec.unpackBatchProveInputs(packed);
-        assertEq(unpacked.length, 1000);
+        assertEq(unpacked.length, 200);
     }
 
     function test_unpackBatchProveInputs_revertInvalidDataLength() public {
-        // Test with data that's too short
-        bytes memory tooShort = new bytes(1);
+        // Test with data that's too short (0 bytes is too short, need at least 1 for length)
+        bytes memory tooShort = new bytes(0);
 
         vm.expectRevert(LibCodec.InvalidDataLength.selector);
         LibCodec.unpackBatchProveInputs(tooShort);
     }
 
     function test_unpackBatchProveInputs_revertWrongLength() public {
-        // Test with wrong length (not 2 + n*354)
+        // Test with wrong length (not 1 + n*354)
         bytes memory wrongLength = new bytes(100);
 
         vm.expectRevert(LibCodec.InvalidDataLength.selector);
@@ -158,7 +158,7 @@ contract LibCodecBatchProveInputTest is Test {
 
     function test_dataIntegrity_maxValues() public pure {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](1);
-        
+
         inputs[0] = IInbox.BatchProveInput({
             idAndBuildHash: bytes32(type(uint256).max),
             proposeMetaHash: bytes32(type(uint256).max - 1),
@@ -200,7 +200,7 @@ contract LibCodecBatchProveInputTest is Test {
 
     function test_dataIntegrity_minValues() public pure {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](1);
-        
+
         inputs[0] = IInbox.BatchProveInput({
             idAndBuildHash: bytes32(0),
             proposeMetaHash: bytes32(0),
@@ -242,7 +242,7 @@ contract LibCodecBatchProveInputTest is Test {
 
     function test_multipleRoundTrips() public pure {
         IInbox.BatchProveInput[] memory original = new IInbox.BatchProveInput[](2);
-        
+
         for (uint256 i = 0; i < 2; i++) {
             original[i] = _createBatchProveInput(i + 100);
         }
@@ -271,7 +271,7 @@ contract LibCodecBatchProveInputTest is Test {
 
     function test_gasOptimization_packing() public {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](10);
-        
+
         for (uint256 i = 0; i < 10; i++) {
             inputs[i] = _createBatchProveInput(i);
         }
@@ -291,7 +291,7 @@ contract LibCodecBatchProveInputTest is Test {
 
     function test_gasComparison_abiEncode() public {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](5);
-        
+
         for (uint256 i = 0; i < 5; i++) {
             inputs[i] = _createBatchProveInput(i);
         }
@@ -334,9 +334,12 @@ contract LibCodecBatchProveInputTest is Test {
         address proposer,
         uint48 proposedAt,
         uint48 batchId
-    ) public pure {
+    )
+        public
+        pure
+    {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](1);
-        
+
         inputs[0] = IInbox.BatchProveInput({
             idAndBuildHash: idAndBuildHash,
             proposeMetaHash: keccak256("test"),
@@ -369,9 +372,9 @@ contract LibCodecBatchProveInputTest is Test {
 
     function testFuzz_packUnpack_multipleInputs(uint8 count) public pure {
         count = count % 20 + 1; // 1-20 inputs
-        
+
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](count);
-        
+
         for (uint256 i = 0; i < count; i++) {
             inputs[i] = _createBatchProveInput(i);
         }
@@ -380,7 +383,7 @@ contract LibCodecBatchProveInputTest is Test {
         IInbox.BatchProveInput[] memory unpacked = LibCodec.unpackBatchProveInputs(packed);
 
         assertEq(unpacked.length, count);
-        
+
         for (uint256 i = 0; i < count; i++) {
             assertEq(unpacked[i].idAndBuildHash, inputs[i].idAndBuildHash);
             assertEq(unpacked[i].proposeMetaHash, inputs[i].proposeMetaHash);
@@ -397,7 +400,11 @@ contract LibCodecBatchProveInputTest is Test {
     // Helper functions
     // -------------------------------------------------------------------------
 
-    function _createBatchProveInput(uint256 seed) private pure returns (IInbox.BatchProveInput memory) {
+    function _createBatchProveInput(uint256 seed)
+        private
+        pure
+        returns (IInbox.BatchProveInput memory)
+    {
         return IInbox.BatchProveInput({
             idAndBuildHash: keccak256(abi.encode("idAndBuild", seed)),
             proposeMetaHash: keccak256(abi.encode("proposeMeta", seed)),

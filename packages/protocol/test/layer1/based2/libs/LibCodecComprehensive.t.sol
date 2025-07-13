@@ -390,19 +390,19 @@ contract LibCodecComprehensiveTest is Test {
 
     function test_packBatches_revertArrayTooLarge() public {
         // This would test very large arrays, but we'll skip for gas reasons
-        // In practice, the limit is type(uint16).max = 65535
+        // In practice, the limit is type(uint8).max = 255
         // vm.expectRevert(LibCodec.ArrayTooLarge.selector);
         // ... create array with 65536 elements
     }
 
     function test_packBatchContext_revertArrayTooLarge() public {
         // Skip this test to avoid gas limit issues in CI
-        // In practice, arrays larger than uint16.max would cause ArrayTooLarge error
+        // In practice, arrays larger than uint8.max would cause ArrayTooLarge error
         vm.skip(true);
     }
 
     function test_unpackBatchContext_revertInvalidLength() public {
-        bytes memory invalidData = new bytes(90); // Less than minimum 91 bytes
+        bytes memory invalidData = new bytes(86); // Less than minimum 87 bytes
         vm.expectRevert(LibCodec.InvalidDataLength.selector);
         LibCodec.unpackBatchContext(invalidData);
     }

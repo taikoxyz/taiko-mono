@@ -24,7 +24,7 @@ contract LibCodecBatchProposeMetadataEvidenceTest is Test {
         bytes memory packed = LibCodec.packBatchProposeMetadataEvidence(evidence);
         assertEq(packed.length, 82); // 32+32+18 bytes
 
-        IInbox.BatchProposeMetadataEvidence memory unpacked = 
+        IInbox.BatchProposeMetadataEvidence memory unpacked =
             LibCodec.unpackBatchProposeMetadataEvidence(packed);
 
         assertEq(unpacked.idAndBuildHash, evidence.idAndBuildHash);
@@ -38,8 +38,9 @@ contract LibCodecBatchProposeMetadataEvidenceTest is Test {
         IInbox.BatchProposeMetadataEvidence memory evidence = _createEvidence(1);
 
         bytes memory packed = LibCodec.packBatchProposeMetadataEvidence(evidence);
-        
-        // Expected size: 32 (idAndBuildHash) + 32 (proveMetaHash) + 6 + 6 + 6 (proposeMeta) = 82 bytes
+
+        // Expected size: 32 (idAndBuildHash) + 32 (proveMetaHash) + 6 + 6 + 6 (proposeMeta) = 82
+        // bytes
         assertEq(packed.length, 82);
     }
 
@@ -77,7 +78,7 @@ contract LibCodecBatchProposeMetadataEvidenceTest is Test {
         });
 
         bytes memory packed = LibCodec.packBatchProposeMetadataEvidence(evidence);
-        IInbox.BatchProposeMetadataEvidence memory unpacked = 
+        IInbox.BatchProposeMetadataEvidence memory unpacked =
             LibCodec.unpackBatchProposeMetadataEvidence(packed);
 
         assertEq(unpacked.idAndBuildHash, evidence.idAndBuildHash);
@@ -99,7 +100,7 @@ contract LibCodecBatchProposeMetadataEvidenceTest is Test {
         });
 
         bytes memory packed = LibCodec.packBatchProposeMetadataEvidence(evidence);
-        IInbox.BatchProposeMetadataEvidence memory unpacked = 
+        IInbox.BatchProposeMetadataEvidence memory unpacked =
             LibCodec.unpackBatchProposeMetadataEvidence(packed);
 
         assertEq(unpacked.idAndBuildHash, bytes32(0));
@@ -122,7 +123,7 @@ contract LibCodecBatchProposeMetadataEvidenceTest is Test {
         });
 
         bytes memory packed = LibCodec.packBatchProposeMetadataEvidence(evidence);
-        IInbox.BatchProposeMetadataEvidence memory unpacked = 
+        IInbox.BatchProposeMetadataEvidence memory unpacked =
             LibCodec.unpackBatchProposeMetadataEvidence(packed);
 
         assertEq(unpacked.idAndBuildHash, evidence.idAndBuildHash);
@@ -145,7 +146,7 @@ contract LibCodecBatchProposeMetadataEvidenceTest is Test {
         });
 
         bytes memory packed = LibCodec.packBatchProposeMetadataEvidence(evidence);
-        IInbox.BatchProposeMetadataEvidence memory unpacked = 
+        IInbox.BatchProposeMetadataEvidence memory unpacked =
             LibCodec.unpackBatchProposeMetadataEvidence(packed);
 
         assertEq(unpacked.idAndBuildHash, evidence.idAndBuildHash);
@@ -156,19 +157,19 @@ contract LibCodecBatchProposeMetadataEvidenceTest is Test {
     }
 
     function test_multipleRoundTrips() public pure {
-        IInbox.BatchProposeMetadataEvidence memory original = _createEvidence(12345);
+        IInbox.BatchProposeMetadataEvidence memory original = _createEvidence(12_345);
 
         // Pack and unpack multiple times
         bytes memory packed1 = LibCodec.packBatchProposeMetadataEvidence(original);
-        IInbox.BatchProposeMetadataEvidence memory unpacked1 = 
+        IInbox.BatchProposeMetadataEvidence memory unpacked1 =
             LibCodec.unpackBatchProposeMetadataEvidence(packed1);
 
         bytes memory packed2 = LibCodec.packBatchProposeMetadataEvidence(unpacked1);
-        IInbox.BatchProposeMetadataEvidence memory unpacked2 = 
+        IInbox.BatchProposeMetadataEvidence memory unpacked2 =
             LibCodec.unpackBatchProposeMetadataEvidence(packed2);
 
         bytes memory packed3 = LibCodec.packBatchProposeMetadataEvidence(unpacked2);
-        IInbox.BatchProposeMetadataEvidence memory unpacked3 = 
+        IInbox.BatchProposeMetadataEvidence memory unpacked3 =
             LibCodec.unpackBatchProposeMetadataEvidence(packed3);
 
         // All should be identical
@@ -241,7 +242,10 @@ contract LibCodecBatchProposeMetadataEvidenceTest is Test {
         uint48 lastBlockTimestamp,
         uint48 lastBlockId,
         uint48 lastAnchorBlockId
-    ) public pure {
+    )
+        public
+        pure
+    {
         IInbox.BatchProposeMetadataEvidence memory evidence = IInbox.BatchProposeMetadataEvidence({
             idAndBuildHash: idAndBuildHash,
             proveMetaHash: proveMetaHash,
@@ -253,7 +257,7 @@ contract LibCodecBatchProposeMetadataEvidenceTest is Test {
         });
 
         bytes memory packed = LibCodec.packBatchProposeMetadataEvidence(evidence);
-        IInbox.BatchProposeMetadataEvidence memory unpacked = 
+        IInbox.BatchProposeMetadataEvidence memory unpacked =
             LibCodec.unpackBatchProposeMetadataEvidence(packed);
 
         assertEq(unpacked.idAndBuildHash, evidence.idAndBuildHash);
@@ -268,14 +272,16 @@ contract LibCodecBatchProposeMetadataEvidenceTest is Test {
 
         for (uint256 i = 0; i < count; i++) {
             IInbox.BatchProposeMetadataEvidence memory evidence = _createEvidence(i);
-            
+
             bytes memory packed = LibCodec.packBatchProposeMetadataEvidence(evidence);
-            IInbox.BatchProposeMetadataEvidence memory unpacked = 
+            IInbox.BatchProposeMetadataEvidence memory unpacked =
                 LibCodec.unpackBatchProposeMetadataEvidence(packed);
 
             assertEq(unpacked.idAndBuildHash, evidence.idAndBuildHash);
             assertEq(unpacked.proveMetaHash, evidence.proveMetaHash);
-            assertEq(unpacked.proposeMeta.lastBlockTimestamp, evidence.proposeMeta.lastBlockTimestamp);
+            assertEq(
+                unpacked.proposeMeta.lastBlockTimestamp, evidence.proposeMeta.lastBlockTimestamp
+            );
             assertEq(unpacked.proposeMeta.lastBlockId, evidence.proposeMeta.lastBlockId);
             assertEq(unpacked.proposeMeta.lastAnchorBlockId, evidence.proposeMeta.lastAnchorBlockId);
         }
@@ -288,17 +294,21 @@ contract LibCodecBatchProposeMetadataEvidenceTest is Test {
     function test_edgeCase_sequentialValues() public pure {
         // Test with sequential values to ensure no value mixing
         IInbox.BatchProposeMetadataEvidence memory evidence = IInbox.BatchProposeMetadataEvidence({
-            idAndBuildHash: bytes32(uint256(0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef)),
-            proveMetaHash: bytes32(uint256(0xfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210)),
+            idAndBuildHash: bytes32(
+                uint256(0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef)
+            ),
+            proveMetaHash: bytes32(
+                uint256(0xfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210)
+            ),
             proposeMeta: IInbox.BatchProposeMetadata({
-                lastBlockTimestamp: 111111,
-                lastBlockId: 222222,
-                lastAnchorBlockId: 333333
+                lastBlockTimestamp: 111_111,
+                lastBlockId: 222_222,
+                lastAnchorBlockId: 333_333
             })
         });
 
         bytes memory packed = LibCodec.packBatchProposeMetadataEvidence(evidence);
-        IInbox.BatchProposeMetadataEvidence memory unpacked = 
+        IInbox.BatchProposeMetadataEvidence memory unpacked =
             LibCodec.unpackBatchProposeMetadataEvidence(packed);
 
         assertEq(unpacked.idAndBuildHash, evidence.idAndBuildHash);
@@ -321,7 +331,7 @@ contract LibCodecBatchProposeMetadataEvidenceTest is Test {
         });
 
         bytes memory packed = LibCodec.packBatchProposeMetadataEvidence(evidence);
-        IInbox.BatchProposeMetadataEvidence memory unpacked = 
+        IInbox.BatchProposeMetadataEvidence memory unpacked =
             LibCodec.unpackBatchProposeMetadataEvidence(packed);
 
         assertEq(unpacked.idAndBuildHash, evidence.idAndBuildHash);
@@ -335,7 +345,11 @@ contract LibCodecBatchProposeMetadataEvidenceTest is Test {
     // Helper functions
     // -------------------------------------------------------------------------
 
-    function _createEvidence(uint256 seed) private pure returns (IInbox.BatchProposeMetadataEvidence memory) {
+    function _createEvidence(uint256 seed)
+        private
+        pure
+        returns (IInbox.BatchProposeMetadataEvidence memory)
+    {
         return IInbox.BatchProposeMetadataEvidence({
             idAndBuildHash: keccak256(abi.encode("idAndBuild", seed)),
             proveMetaHash: keccak256(abi.encode("proveMeta", seed)),

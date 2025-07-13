@@ -142,17 +142,16 @@ interface IInbox {
         InExtendedProvingWindow
     }
 
-    // This struct takes 109 bytes if packed
     struct TransitionMeta {
-        bytes32 blockHash; // 32 bytes
-        bytes32 stateRoot; // 32 bytes
-        address prover; // 20 bytes
-        ProofTiming proofTiming; // 1 byte
-        uint48 createdAt; // 6 bytes
-        bool byAssignedProver; // 1 byte
-        uint48 lastBlockId; // 6 bytes
-        uint48 provabilityBond; // 12 bytes
-        uint48 livenessBond; // 12 bytes
+        bytes32 blockHash;
+        bytes32 stateRoot;
+        address prover;
+        ProofTiming proofTiming;
+        uint48 createdAt;
+        bool byAssignedProver;
+        uint48 lastBlockId;
+        uint48 provabilityBond;
+        uint48 livenessBond;
     }
 
     //  @notice Struct representing transition storage
@@ -215,7 +214,7 @@ interface IInbox {
         /// @notice The maximum number of signals to be received by TaikoL2.
         uint8 maxSignalsToReceive;
         /// @notice The maximum number of blocks per batch.
-        uint16 maxBlocksPerBatch;
+        uint8 maxBlocksPerBatch;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
         /// @notice The token used for bonding.

@@ -12,24 +12,24 @@ contract LibCodecBatchTest is Test {
 
     function test_packUnpackBatches_emptyArray() public pure {
         IInbox.Batch[] memory batches = new IInbox.Batch[](0);
-        
+
         bytes memory packed = LibCodec.packBatches(batches);
         IInbox.Batch[] memory unpacked = LibCodec.unpackBatches(packed);
-        
+
         assertEq(unpacked.length, 0);
-        assertEq(packed.length, 2); // Just the length field
+        assertEq(packed.length, 1); // Just the length field
     }
 
     function test_packUnpackBatches_singleBatch() public pure {
         IInbox.Batch[] memory batches = new IInbox.Batch[](1);
-        
+
         // Create minimal batch for testing
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
-        
+
         batches[0] = IInbox.Batch({
             proposer: address(0x1111),
             coinbase: address(0x2222),
@@ -64,14 +64,14 @@ contract LibCodecBatchTest is Test {
 
     function test_packUnpackBatches_singleBatchWithAuth() public pure {
         IInbox.Batch[] memory batches = new IInbox.Batch[](1);
-        
+
         // Create batch with non-empty proverAuth
-        bytes memory proverAuth = abi.encode("test", "auth", "data");
+        bytes memory proverAuth = abi.encodePacked("test", "auth", "data");
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
-        
+
         batches[0] = IInbox.Batch({
             proposer: address(0x1111),
             coinbase: address(0x2222),
@@ -102,7 +102,7 @@ contract LibCodecBatchTest is Test {
         assertEq(unpacked[0].gasIssuancePerSecond, batches[0].gasIssuancePerSecond);
         assertEq(unpacked[0].isForcedInclusion, batches[0].isForcedInclusion);
         assertEq(unpacked[0].proverAuth.length, proverAuth.length);
-        
+
         // Verify proverAuth data integrity
         for (uint256 i = 0; i < proverAuth.length; i++) {
             assertEq(unpacked[0].proverAuth[i], proverAuth[i]);
@@ -111,13 +111,13 @@ contract LibCodecBatchTest is Test {
 
     function test_packUnpackBatches_multipleBatches() public pure {
         IInbox.Batch[] memory batches = new IInbox.Batch[](3);
-        
+
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
-        
+
         for (uint256 i = 0; i < 3; i++) {
             batches[i] = IInbox.Batch({
                 proposer: address(uint160(i + 100)),
@@ -144,7 +144,7 @@ contract LibCodecBatchTest is Test {
         IInbox.Batch[] memory unpacked = LibCodec.unpackBatches(packed);
 
         assertEq(unpacked.length, 3);
-        
+
         for (uint256 i = 0; i < 3; i++) {
             assertEq(unpacked[i].proposer, batches[i].proposer);
             assertEq(unpacked[i].coinbase, batches[i].coinbase);
@@ -156,16 +156,16 @@ contract LibCodecBatchTest is Test {
 
     function test_packBatches_revertArrayTooLarge() public {
         // Test that the function properly validates array size limits
-        // Since creating an actual array of uint16.max + 1 size would be impractical,
+        // Since creating an actual array of uint8.max + 1 size would be impractical,
         // we test with smaller arrays and verify no reverts occur
         IInbox.Batch[] memory batches = new IInbox.Batch[](100);
-        
+
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
-        
+
         for (uint256 i = 0; i < 100; i++) {
             batches[i] = IInbox.Batch({
                 proposer: address(uint160(i)),
@@ -195,17 +195,72 @@ contract LibCodecBatchTest is Test {
     }
 
     function test_unpackBatches_revertInvalidDataLength() public {
-        // Test with data that's too short
-        bytes memory tooShort = new bytes(1);
+        // Test with data that's too short (0 bytes is too short, need at least 1 for length)
+        bytes memory tooShort = new bytes(0);
 
         vm.expectRevert(LibCodec.InvalidDataLength.selector);
         LibCodec.unpackBatches(tooShort);
     }
 
-    function test_unpackBatches_emptyInput() public {
-        bytes memory empty = new bytes(0);
-        vm.expectRevert(LibCodec.InvalidDataLength.selector);
-        LibCodec.unpackBatches(empty);
+    function test_packUnpackBatches_booleanValues() public pure {
+        IInbox.Batch[] memory batches = new IInbox.Batch[](2);
+
+        bytes memory emptyAuth = new bytes(0);
+        bytes32[] memory emptySlots = new bytes32[](0);
+        uint48[] memory emptyBlockIds = new uint48[](0);
+        IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
+        bytes32[] memory emptyHashes = new bytes32[](0);
+
+        // Test with isForcedInclusion = true
+        batches[0] = IInbox.Batch({
+            proposer: address(0x1111),
+            coinbase: address(0x2222),
+            lastBlockTimestamp: 123_456,
+            gasIssuancePerSecond: 789,
+            isForcedInclusion: true,
+            proverAuth: emptyAuth,
+            signalSlots: emptySlots,
+            anchorBlockIds: emptyBlockIds,
+            blocks: emptyBlocks,
+            blobs: IInbox.Blobs({
+                hashes: emptyHashes,
+                firstBlobIndex: 1,
+                numBlobs: 2,
+                byteOffset: 3,
+                byteSize: 4,
+                createdIn: 5
+            })
+        });
+
+        // Test with isForcedInclusion = false
+        batches[1] = IInbox.Batch({
+            proposer: address(0x3333),
+            coinbase: address(0x4444),
+            lastBlockTimestamp: 789_012,
+            gasIssuancePerSecond: 456,
+            isForcedInclusion: false,
+            proverAuth: emptyAuth,
+            signalSlots: emptySlots,
+            anchorBlockIds: emptyBlockIds,
+            blocks: emptyBlocks,
+            blobs: IInbox.Blobs({
+                hashes: emptyHashes,
+                firstBlobIndex: 6,
+                numBlobs: 7,
+                byteOffset: 8,
+                byteSize: 9,
+                createdIn: 10
+            })
+        });
+
+        bytes memory packed = LibCodec.packBatches(batches);
+        IInbox.Batch[] memory unpacked = LibCodec.unpackBatches(packed);
+
+        assertEq(unpacked.length, 2);
+        assertEq(unpacked[0].isForcedInclusion, true);
+        assertEq(unpacked[1].isForcedInclusion, false);
+        assertEq(unpacked[0].gasIssuancePerSecond, 789);
+        assertEq(unpacked[1].gasIssuancePerSecond, 456);
     }
 
     // -------------------------------------------------------------------------
@@ -214,13 +269,13 @@ contract LibCodecBatchTest is Test {
 
     function test_gasOptimization_packing() public {
         IInbox.Batch[] memory batches = new IInbox.Batch[](10);
-        
+
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
-        
+
         for (uint256 i = 0; i < 10; i++) {
             batches[i] = IInbox.Batch({
                 proposer: address(uint160(i)),
@@ -258,13 +313,13 @@ contract LibCodecBatchTest is Test {
 
     function test_gasComparison_abiEncode() public {
         IInbox.Batch[] memory batches = new IInbox.Batch[](5);
-        
+
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
-        
+
         for (uint256 i = 0; i < 5; i++) {
             batches[i] = IInbox.Batch({
                 proposer: address(uint160(i)),
@@ -322,17 +377,17 @@ contract LibCodecBatchTest is Test {
 
     function test_dataIntegrity_maxValues() public pure {
         IInbox.Batch[] memory batches = new IInbox.Batch[](1);
-        
+
         bytes memory maxAuth = new bytes(100); // Some reasonable auth size
         for (uint256 i = 0; i < maxAuth.length; i++) {
             maxAuth[i] = bytes1(uint8(i % 256));
         }
-        
+
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
-        
+
         batches[0] = IInbox.Batch({
             proposer: address(type(uint160).max),
             coinbase: address(type(uint160).max - 1),
@@ -367,13 +422,13 @@ contract LibCodecBatchTest is Test {
 
     function test_dataIntegrity_minValues() public pure {
         IInbox.Batch[] memory batches = new IInbox.Batch[](1);
-        
+
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
-        
+
         batches[0] = IInbox.Batch({
             proposer: address(0),
             coinbase: address(0),
@@ -411,15 +466,18 @@ contract LibCodecBatchTest is Test {
         uint48 lastBlockTimestamp,
         uint32 gasIssuancePerSecond,
         bool isForcedInclusion
-    ) public pure {
+    )
+        public
+        pure
+    {
         IInbox.Batch[] memory batches = new IInbox.Batch[](1);
-        
+
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
-        
+
         batches[0] = IInbox.Batch({
             proposer: proposer,
             coinbase: address(0x1234),

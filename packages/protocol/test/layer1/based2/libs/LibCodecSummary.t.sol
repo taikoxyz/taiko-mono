@@ -100,7 +100,7 @@ contract LibCodecSummaryTest is Test {
         });
 
         bytes memory packed = LibCodec.packSummary(summary);
-        
+
         // Expected size: 6+6+6+6+6+4+32+32 = 98 bytes
         assertEq(packed.length, 98);
     }
@@ -132,7 +132,10 @@ contract LibCodecSummaryTest is Test {
         uint32 gasIssuancePerSecond,
         bytes32 lastVerifiedBlockHash,
         bytes32 lastBatchMetaHash
-    ) public pure {
+    )
+        public
+        pure
+    {
         IInbox.Summary memory summary = IInbox.Summary({
             numBatches: numBatches,
             lastSyncedBlockId: lastSyncedBlockId,
@@ -240,8 +243,12 @@ contract LibCodecSummaryTest is Test {
             lastVerifiedBatchId: 0x555555,
             gasIssuanceUpdatedAt: 0xAAAAAA,
             gasIssuancePerSecond: 0xAAAAAAAA, // 32-bit alternating pattern
-            lastVerifiedBlockHash: bytes32(0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA),
-            lastBatchMetaHash: bytes32(0x5555555555555555555555555555555555555555555555555555555555555555)
+            lastVerifiedBlockHash: bytes32(
+                0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+            ),
+            lastBatchMetaHash: bytes32(
+                0x5555555555555555555555555555555555555555555555555555555555555555
+            )
         });
 
         bytes memory packed = LibCodec.packSummary(summary);

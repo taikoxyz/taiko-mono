@@ -287,8 +287,8 @@ contract LibCodecBatchContextTest is Test {
 
         bytes memory packed = context.packBatchContext();
 
-        // Expected size: 87 (fixed) + 2 (anchor length) + 2 (blob length) + 2*32 + 3*32 = 251
-        uint256 expectedSize = 87 + 2 + 2 + (2 * 32) + (3 * 32);
+        // Expected size: 85 (fixed) + 1 (anchor length) + 1 (blob length) + 2*32 + 3*32 = 249
+        uint256 expectedSize = 85 + 1 + 1 + (2 * 32) + (3 * 32);
         assertEq(packed.length, expectedSize);
     }
 
