@@ -35,59 +35,61 @@ library LibCodec {
         pure
         returns (bytes memory encoded_)
     {
-        uint256 length = _tranMetas.length;
+        unchecked {
+            uint256 length = _tranMetas.length;
 
-        // Each TransitionMeta takes 109 bytes when packed
-        encoded_ = new bytes(length * 109);
+            // Each TransitionMeta takes 109 bytes when packed
+            encoded_ = new bytes(length * 109);
 
-        uint256 offset;
-        for (uint256 i; i < length; ++i) {
-            I.TransitionMeta memory meta = _tranMetas[i];
+            uint256 offset;
+            for (uint256 i; i < length; ++i) {
+                I.TransitionMeta memory meta = _tranMetas[i];
 
-            // Pack data in the order of the struct fields
-            assembly {
-                let ptr := add(encoded_, add(0x20, offset))
+                // Pack data in the order of the struct fields
+                assembly {
+                    let ptr := add(encoded_, add(0x20, offset))
 
-                // blockHash (32 bytes)
-                mstore(ptr, mload(meta))
-                ptr := add(ptr, 32)
+                    // blockHash (32 bytes)
+                    mstore(ptr, mload(meta))
+                    ptr := add(ptr, 32)
 
-                // stateRoot (32 bytes)
-                mstore(ptr, mload(add(meta, 0x20)))
-                ptr := add(ptr, 32)
+                    // stateRoot (32 bytes)
+                    mstore(ptr, mload(add(meta, 0x20)))
+                    ptr := add(ptr, 32)
 
-                // prover (20 bytes) - store in lower 20 bytes
-                mstore(ptr, shl(96, mload(add(meta, 0x40))))
-                ptr := add(ptr, 20)
+                    // prover (20 bytes) - store in lower 20 bytes
+                    mstore(ptr, shl(96, mload(add(meta, 0x40))))
+                    ptr := add(ptr, 20)
 
-                // proofTiming (2 bits) + byAssignedProver (1 bit) in 1 byte
-                let proofTiming := mload(add(meta, 0x60))
-                let byAssignedProver := mload(add(meta, 0xa0))
-                let combinedByte := or(proofTiming, shl(2, byAssignedProver))
-                mstore8(ptr, combinedByte)
-                ptr := add(ptr, 1)
+                    // proofTiming (2 bits) + byAssignedProver (1 bit) in 1 byte
+                    let proofTiming := mload(add(meta, 0x60))
+                    let byAssignedProver := mload(add(meta, 0xa0))
+                    let combinedByte := or(proofTiming, shl(2, byAssignedProver))
+                    mstore8(ptr, combinedByte)
+                    ptr := add(ptr, 1)
 
-                // createdAt (6 bytes) - store in lower 6 bytes
-                let createdAt := mload(add(meta, 0x80))
-                mstore(ptr, shl(208, createdAt))
-                ptr := add(ptr, 6)
+                    // createdAt (6 bytes) - store in lower 6 bytes
+                    let createdAt := mload(add(meta, 0x80))
+                    mstore(ptr, shl(208, createdAt))
+                    ptr := add(ptr, 6)
 
-                // lastBlockId (6 bytes) - store in lower 6 bytes
-                let lastBlockId := mload(add(meta, 0xc0))
-                mstore(ptr, shl(208, lastBlockId))
-                ptr := add(ptr, 6)
+                    // lastBlockId (6 bytes) - store in lower 6 bytes
+                    let lastBlockId := mload(add(meta, 0xc0))
+                    mstore(ptr, shl(208, lastBlockId))
+                    ptr := add(ptr, 6)
 
-                // provabilityBond (6 bytes) - store in lower 6 bytes
-                let provabilityBond := mload(add(meta, 0xe0))
-                mstore(ptr, shl(208, provabilityBond))
-                ptr := add(ptr, 6)
+                    // provabilityBond (6 bytes) - store in lower 6 bytes
+                    let provabilityBond := mload(add(meta, 0xe0))
+                    mstore(ptr, shl(208, provabilityBond))
+                    ptr := add(ptr, 6)
 
-                // livenessBond (6 bytes) - store in lower 6 bytes
-                let livenessBond := mload(add(meta, 0x100))
-                mstore(ptr, shl(208, livenessBond))
+                    // livenessBond (6 bytes) - store in lower 6 bytes
+                    let livenessBond := mload(add(meta, 0x100))
+                    mstore(ptr, shl(208, livenessBond))
+                }
+
+                offset += 109;
             }
-
-            offset += 109;
         }
     }
 
@@ -103,81 +105,283 @@ library LibCodec {
     {
         require(_encoded.length % 109 == 0, InvalidDataLength());
 
-        // Calculate length from encoded data size
-        uint256 length = _encoded.length / 109;
+        unchecked {
+            // Calculate length from encoded data size
+            uint256 length = _encoded.length / 109;
 
-        tranMetas_ = new I.TransitionMeta[](length);
+            tranMetas_ = new I.TransitionMeta[](length);
 
-        uint256 offset;
-        for (uint256 i; i < length; ++i) {
-            I.TransitionMeta memory meta;
+            uint256 offset;
+            for (uint256 i; i < length; ++i) {
+                I.TransitionMeta memory meta;
 
-            assembly {
-                let dataOffset := add(add(_encoded, 0x20), offset)
+                assembly {
+                    let dataOffset := add(add(_encoded, 0x20), offset)
 
-                // blockHash (32 bytes)
-                meta := mload(0x40) // allocate memory
-                mstore(meta, mload(dataOffset))
+                    // blockHash (32 bytes)
+                    meta := mload(0x40) // allocate memory
+                    mstore(meta, mload(dataOffset))
 
-                // stateRoot (32 bytes)
-                mstore(add(meta, 0x20), mload(add(dataOffset, 32)))
+                    // stateRoot (32 bytes)
+                    mstore(add(meta, 0x20), mload(add(dataOffset, 32)))
 
-                // prover (20 bytes) - right-aligned in 32-byte slot
-                let proverData := mload(add(dataOffset, 64))
-                mstore(add(meta, 0x40), shr(96, proverData))
+                    // prover (20 bytes) - right-aligned in 32-byte slot
+                    let proverData := mload(add(dataOffset, 64))
+                    mstore(add(meta, 0x40), shr(96, proverData))
 
-                // proofTiming (2 bits) + byAssignedProver (1 bit) from 1 byte
-                let combinedByte := byte(0, mload(add(dataOffset, 84)))
-                let proofTiming := and(combinedByte, 0x03) // Extract lower 2 bits
-                let byAssignedProver := and(shr(2, combinedByte), 0x01) // Extract bit 2
-                mstore(add(meta, 0x60), proofTiming)
-                mstore(add(meta, 0xa0), byAssignedProver)
+                    // proofTiming (2 bits) + byAssignedProver (1 bit) from 1 byte
+                    let combinedByte := byte(0, mload(add(dataOffset, 84)))
+                    let proofTiming := and(combinedByte, 0x03) // Extract lower 2 bits
+                    let byAssignedProver := and(shr(2, combinedByte), 0x01) // Extract bit 2
+                    mstore(add(meta, 0x60), proofTiming)
+                    mstore(add(meta, 0xa0), byAssignedProver)
 
-                // createdAt (6 bytes) - stored as uint48
-                let createdAtData := mload(add(dataOffset, 85))
-                mstore(add(meta, 0x80), shr(208, createdAtData))
+                    // createdAt (6 bytes) - stored as uint48
+                    let createdAtData := mload(add(dataOffset, 85))
+                    mstore(add(meta, 0x80), shr(208, createdAtData))
 
-                // lastBlockId (6 bytes) - stored as uint48
-                let lastBlockIdData := mload(add(dataOffset, 91))
-                mstore(add(meta, 0xc0), shr(208, lastBlockIdData))
+                    // lastBlockId (6 bytes) - stored as uint48
+                    let lastBlockIdData := mload(add(dataOffset, 91))
+                    mstore(add(meta, 0xc0), shr(208, lastBlockIdData))
 
-                // provabilityBond (6 bytes) - stored as uint48
-                let provabilityBondData := mload(add(dataOffset, 97))
-                mstore(add(meta, 0xe0), shr(208, provabilityBondData))
+                    // provabilityBond (6 bytes) - stored as uint48
+                    let provabilityBondData := mload(add(dataOffset, 97))
+                    mstore(add(meta, 0xe0), shr(208, provabilityBondData))
 
-                // livenessBond (6 bytes) - stored as uint48
-                let livenessBondData := mload(add(dataOffset, 103))
-                mstore(add(meta, 0x100), shr(208, livenessBondData))
+                    // livenessBond (6 bytes) - stored as uint48
+                    let livenessBondData := mload(add(dataOffset, 103))
+                    mstore(add(meta, 0x100), shr(208, livenessBondData))
 
-                // Update free memory pointer
-                mstore(0x40, add(meta, 0x120))
+                    // Update free memory pointer
+                    mstore(0x40, add(meta, 0x120))
+                }
+
+                tranMetas_[i] = meta;
+                offset += 109;
             }
-
-            tranMetas_[i] = meta;
-            offset += 109;
         }
     }
 
-    // TODO:
+    /// @notice Packs a BatchContext struct into a tightly packed byte array.
+    /// @dev The packed format uses:
+    /// - prover: 20 bytes (address)
+    /// - txsHash: 32 bytes
+    /// - lastAnchorBlockId: 6 bytes (uint48)
+    /// - lastBlockId: 6 bytes (uint48)
+    /// - blobsCreatedIn: 6 bytes (uint48)
+    /// - blockMaxGasLimit: 4 bytes (uint32)
+    /// - livenessBond: 6 bytes (uint48)
+    /// - provabilityBond: 6 bytes (uint48)
+    /// - baseFeeSharingPctg: 1 byte (uint8)
+    /// - anchorBlockHashes: dynamic (2 bytes length + 32 bytes per hash)
+    /// - blobHashes: dynamic (2 bytes length + 32 bytes per hash)
+    /// Total fixed size: 87 bytes + dynamic arrays
+    /// @param _context The BatchContext struct to pack
+    /// @return packed_ The packed byte array
     function packBatchContext(I.BatchContext memory _context)
         internal
         pure
         returns (bytes memory packed_)
     {
-        return abi.encode(_context);
+        unchecked {
+            uint256 anchorHashesLen = _context.anchorBlockHashes.length;
+            uint256 blobHashesLen = _context.blobHashes.length;
+
+            require(anchorHashesLen <= type(uint16).max, ArrayTooLarge());
+            require(blobHashesLen <= type(uint16).max, ArrayTooLarge());
+
+            // Calculate total size: 87 fixed bytes + 2 bytes for each array length
+            // + 32 bytes per hash in each array
+            uint256 totalSize = 87 + 2 + 2 + (anchorHashesLen * 32) + (blobHashesLen * 32);
+            packed_ = new bytes(totalSize);
+
+            assembly {
+                let ptr := add(packed_, 0x20)
+
+                // prover (20 bytes) - store in lower 20 bytes
+                mstore(ptr, shl(96, mload(_context)))
+                ptr := add(ptr, 20)
+
+                // txsHash (32 bytes)
+                mstore(ptr, mload(add(_context, 0x20)))
+                ptr := add(ptr, 32)
+
+                // lastAnchorBlockId (6 bytes) - store in lower 6 bytes
+                mstore(ptr, shl(208, mload(add(_context, 0x40))))
+                ptr := add(ptr, 6)
+
+                // lastBlockId (6 bytes) - store in lower 6 bytes
+                mstore(ptr, shl(208, mload(add(_context, 0x60))))
+                ptr := add(ptr, 6)
+
+                // blobsCreatedIn (6 bytes) - store in lower 6 bytes
+                mstore(ptr, shl(208, mload(add(_context, 0x80))))
+                ptr := add(ptr, 6)
+
+                // blockMaxGasLimit (4 bytes) - store in lower 4 bytes
+                mstore(ptr, shl(224, mload(add(_context, 0xa0))))
+                ptr := add(ptr, 4)
+
+                // livenessBond (6 bytes) - store in lower 6 bytes
+                mstore(ptr, shl(208, mload(add(_context, 0xc0))))
+                ptr := add(ptr, 6)
+
+                // provabilityBond (6 bytes) - store in lower 6 bytes
+                mstore(ptr, shl(208, mload(add(_context, 0xe0))))
+                ptr := add(ptr, 6)
+
+                // baseFeeSharingPctg (1 byte)
+                mstore8(ptr, mload(add(_context, 0x100)))
+                ptr := add(ptr, 1)
+
+                // anchorBlockHashes length (2 bytes)
+                mstore(ptr, shl(240, anchorHashesLen))
+                ptr := add(ptr, 2)
+
+                // anchorBlockHashes array
+                let anchorArray := mload(add(_context, 0x120))
+                for { let i := 0 } lt(i, anchorHashesLen) { i := add(i, 1) } {
+                    mstore(ptr, mload(add(anchorArray, mul(add(i, 1), 0x20))))
+                    ptr := add(ptr, 32)
+                }
+
+                // blobHashes length (2 bytes)
+                mstore(ptr, shl(240, blobHashesLen))
+                ptr := add(ptr, 2)
+
+                // blobHashes array
+                let blobArray := mload(add(_context, 0x140))
+                for { let i := 0 } lt(i, blobHashesLen) { i := add(i, 1) } {
+                    mstore(ptr, mload(add(blobArray, mul(add(i, 1), 0x20))))
+                    ptr := add(ptr, 32)
+                }
+            }
+        }
     }
 
-    // TODO:
+    /// @notice Unpacks a byte array back into a BatchContext struct.
+    /// @dev Reverses the packing performed by packBatchContext. The input must have
+    /// the correct format: 87 fixed bytes + dynamic array data.
+    /// @param _packed The packed byte array to unpack
+    /// @return context_ The unpacked BatchContext struct
     function unpackBatchContext(bytes memory _packed)
         internal
         pure
         returns (I.BatchContext memory context_)
     {
-        return abi.decode(_packed, (I.BatchContext));
+        require(_packed.length >= 91, InvalidDataLength()); // 87 fixed + 2 lengths (2 bytes each)
+
+        unchecked {
+            uint256 offset;
+
+            // Extract fixed-size fields
+            assembly {
+                let dataPtr := add(_packed, 0x20)
+
+                // prover (20 bytes) - extract from packed data
+                let prover := shr(96, mload(add(dataPtr, offset)))
+                offset := add(offset, 20)
+
+                // txsHash (32 bytes)
+                let txsHash := mload(add(dataPtr, offset))
+                offset := add(offset, 32)
+
+                // lastAnchorBlockId (6 bytes) - stored as uint48
+                let lastAnchorBlockId := shr(208, mload(add(dataPtr, offset)))
+                offset := add(offset, 6)
+
+                // lastBlockId (6 bytes) - stored as uint48
+                let lastBlockId := shr(208, mload(add(dataPtr, offset)))
+                offset := add(offset, 6)
+
+                // blobsCreatedIn (6 bytes) - stored as uint48
+                let blobsCreatedIn := shr(208, mload(add(dataPtr, offset)))
+                offset := add(offset, 6)
+
+                // blockMaxGasLimit (4 bytes) - stored as uint32
+                let blockMaxGasLimit := shr(224, mload(add(dataPtr, offset)))
+                offset := add(offset, 4)
+
+                // livenessBond (6 bytes) - stored as uint48
+                let livenessBond := shr(208, mload(add(dataPtr, offset)))
+                offset := add(offset, 6)
+
+                // provabilityBond (6 bytes) - stored as uint48
+                let provabilityBond := shr(208, mload(add(dataPtr, offset)))
+                offset := add(offset, 6)
+
+                // baseFeeSharingPctg (1 byte) - stored as uint8
+                let baseFeeSharingPctg := byte(0, mload(add(dataPtr, offset)))
+                offset := add(offset, 1)
+
+                // Store fixed fields in context_ struct
+                context_ := mload(0x40)
+                mstore(0x40, add(context_, 0x160)) // Update free memory pointer
+
+                mstore(context_, prover)
+                mstore(add(context_, 0x20), txsHash)
+                mstore(add(context_, 0x40), lastAnchorBlockId)
+                mstore(add(context_, 0x60), lastBlockId)
+                mstore(add(context_, 0x80), blobsCreatedIn)
+                mstore(add(context_, 0xa0), blockMaxGasLimit)
+                mstore(add(context_, 0xc0), livenessBond)
+                mstore(add(context_, 0xe0), provabilityBond)
+                mstore(add(context_, 0x100), baseFeeSharingPctg)
+            }
+
+            // Extract dynamic arrays
+            uint256 anchorHashesLen;
+            uint256 blobHashesLen;
+
+            assembly {
+                let dataPtr := add(_packed, 0x20)
+
+                // anchorBlockHashes length (2 bytes)
+                anchorHashesLen := shr(240, mload(add(dataPtr, offset)))
+                offset := add(offset, 2)
+            }
+
+            // Allocate and populate anchorBlockHashes array
+            bytes32[] memory anchorHashes = new bytes32[](anchorHashesLen);
+            assembly {
+                let dataPtr := add(_packed, 0x20)
+                let anchorArrayData := add(anchorHashes, 0x20)
+
+                for { let i := 0 } lt(i, anchorHashesLen) { i := add(i, 1) } {
+                    mstore(add(anchorArrayData, mul(i, 0x20)), mload(add(dataPtr, offset)))
+                    offset := add(offset, 32)
+                }
+            }
+
+            assembly {
+                let dataPtr := add(_packed, 0x20)
+
+                // blobHashes length (2 bytes)
+                blobHashesLen := shr(240, mload(add(dataPtr, offset)))
+                offset := add(offset, 2)
+            }
+
+            // Allocate and populate blobHashes array
+            bytes32[] memory blobHashes = new bytes32[](blobHashesLen);
+            assembly {
+                let dataPtr := add(_packed, 0x20)
+                let blobArrayData := add(blobHashes, 0x20)
+
+                for { let i := 0 } lt(i, blobHashesLen) { i := add(i, 1) } {
+                    mstore(add(blobArrayData, mul(i, 0x20)), mload(add(dataPtr, offset)))
+                    offset := add(offset, 32)
+                }
+            }
+
+            // Store array references in context_
+            assembly {
+                mstore(add(context_, 0x120), anchorHashes)
+                mstore(add(context_, 0x140), blobHashes)
+            }
+        }
     }
 
     function packSummary(I.Summary memory _summary) internal pure returns (bytes memory encoded_) {
-        return abi.encode(_summary);
     }
 
     function unpackSummary(bytes memory _encoded)
@@ -185,11 +389,9 @@ library LibCodec {
         pure
         returns (I.Summary memory summary_)
     {
-        return abi.decode(_encoded, (I.Summary));
     }
 
     function packBatches(I.Batch[] memory _batches) internal pure returns (bytes memory encoded_) {
-        return abi.encode(_batches);
     }
 
     function unpackBatches(bytes memory _encoded)
@@ -197,7 +399,6 @@ library LibCodec {
         pure
         returns (I.Batch[] memory batches_)
     {
-        return abi.decode(_encoded, (I.Batch[]));
     }
 
     function packBatchProveInputs(I.BatchProveInput[] memory _batches)
@@ -205,7 +406,6 @@ library LibCodec {
         pure
         returns (bytes memory encoded_)
     {
-        return abi.encode(_batches);
     }
 
     function unpackBatchProveInputs(bytes memory _encoded)
@@ -213,7 +413,6 @@ library LibCodec {
         pure
         returns (I.BatchProveInput[] memory batches_)
     {
-        return abi.decode(_encoded, (I.BatchProveInput[]));
     }
 
     function packBatchProposeMetadataEvidence(I.BatchProposeMetadataEvidence memory _evidence)
@@ -221,7 +420,6 @@ library LibCodec {
         pure
         returns (bytes memory encoded_)
     {
-        return abi.encode(_evidence);
     }
 
     function unpackBatchProposeMetadataEvidence(bytes memory _encoded)
@@ -229,7 +427,6 @@ library LibCodec {
         pure
         returns (I.BatchProposeMetadataEvidence memory evidence_)
     {
-        return abi.decode(_encoded, (I.BatchProposeMetadataEvidence));
     }
 
     /// @notice Encodes a block structure into a single uint256 value

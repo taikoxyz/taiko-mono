@@ -62,8 +62,8 @@ interface IInbox {
         uint48 livenessBond;
         uint48 provabilityBond;
         uint8 baseFeeSharingPctg;
-        bytes32[] anchorBlockHashes;
-        bytes32[] blobHashes;
+        bytes32[] anchorBlockHashes; // length <= type(uint16).max
+        bytes32[] blobHashes; // length <= type(uint16).max
     }
 
     struct ProverAuth {
