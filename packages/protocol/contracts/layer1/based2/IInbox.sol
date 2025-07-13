@@ -89,6 +89,7 @@ interface IInbox {
         uint48 lastBlockTimestamp;
         uint48[] anchorBlockIds;
         bytes32[] anchorBlockHashes;
+        Block[] blocks;
     }
 
     struct BatchProposeMetadata {

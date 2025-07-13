@@ -46,7 +46,8 @@ library LibData {
             lastBlockId: _context.lastBlockId,
             lastBlockTimestamp: _batch.lastBlockTimestamp,
             anchorBlockIds: _batch.anchorBlockIds,
-            anchorBlockHashes: _context.anchorBlockHashes
+            anchorBlockHashes: _context.anchorBlockHashes,
+            blocks: _batch.blocks
         });
 
         // Propose metadata section
