@@ -5,6 +5,7 @@ import { IInbox as I } from "../IInbox.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./LibForks.sol";
 import "./LibState.sol";
+import "./LibCodec.sol";
 
 /// @title LibValidate
 /// @notice Library for comprehensive batch validation in Taiko protocol
@@ -82,7 +83,6 @@ library LibValidate {
             lastAnchorBlockId: lastAnchorBlockId,
             lastBlockId: lastBlockId,
             anchorBlockHashes: anchorBlockHashes,
-            blocks: blocks,
             blobsCreatedIn: blobsCreatedIn,
             blockMaxGasLimit: _conf.blockMaxGasLimit,
             livenessBond: _conf.livenessBond,
@@ -159,14 +159,7 @@ library LibValidate {
         blocks_ = new I.Block[](nBlocks_);
 
         for (uint256 i; i < nBlocks_; ++i) {
-            uint256 encoded = _batch.encodedBlocks[i];
-
-            // total bits used: 80 bits, remaining 176 bits (256 - 80 = 176) being unused or
-            // reserved for future use.
-            blocks_[i].numTransactions = uint16(encoded);
-            blocks_[i].timeShift = uint8(encoded >> 16);
-            blocks_[i].anchorBlockId = uint48(encoded >> 24);
-            blocks_[i].numSignals = uint8(encoded >> 32 & 0xFF);
+            blocks_[i] = LibCodec.unpackBlock(_batch.encodedBlocks[i]);
         }
     }
 

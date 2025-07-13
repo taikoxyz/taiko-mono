@@ -232,6 +232,20 @@ library LibCodec {
         return abi.decode(_encoded, (I.BatchProposeMetadataEvidence));
     }
 
+    function packBlock(I.Block memory _block) internal pure returns (uint256 encoded_) {
+        // TODO;
+    }
+
+    function unpackBlock(uint256 _encoded) internal pure returns (I.Block memory) {
+        return I.Block({
+            numTransactions: uint16(_encoded),
+            timeShift: uint8(_encoded >> 16),
+            anchorBlockId: uint48(_encoded >> 24),
+            numSignals: uint8(_encoded >> 72),
+            hasAnchor: (_encoded >> 80 & 0x01) != 0
+        });
+    }
+
     // -------------------------------------------------------------------------
     // Custom Errors
     // -------------------------------------------------------------------------
