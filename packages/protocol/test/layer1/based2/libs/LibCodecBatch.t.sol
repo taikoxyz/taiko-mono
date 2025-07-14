@@ -202,6 +202,42 @@ contract LibCodecBatchTest is Test {
         LibCodec.unpackBatches(tooShort);
     }
 
+    function test_packBatches_revertProverAuthTooLarge() public {
+        IInbox.Batch[] memory batches = new IInbox.Batch[](1);
+
+        // Create a proverAuth that's too large for uint16 (> 65535 bytes)
+        bytes memory largeProverAuth = new bytes(65536); // One byte too large
+
+        bytes32[] memory emptySlots = new bytes32[](0);
+        uint48[] memory emptyBlockIds = new uint48[](0);
+        IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
+        bytes32[] memory emptyHashes = new bytes32[](0);
+
+        batches[0] = IInbox.Batch({
+            proposer: address(0x1111),
+            coinbase: address(0x2222),
+            lastBlockTimestamp: 123_456,
+            gasIssuancePerSecond: 789,
+            isForcedInclusion: true,
+            proverAuth: largeProverAuth,
+            signalSlots: emptySlots,
+            anchorBlockIds: emptyBlockIds,
+            blocks: emptyBlocks,
+            blobs: IInbox.Blobs({
+                hashes: emptyHashes,
+                firstBlobIndex: 1,
+                numBlobs: 2,
+                byteOffset: 3,
+                byteSize: 4,
+                createdIn: 5
+            })
+        });
+
+        // Should revert with InvalidDataLength error
+        vm.expectRevert(LibCodec.InvalidDataLength.selector);
+        LibCodec.packBatches(batches);
+    }
+
     function test_packUnpackBatches_booleanValues() public pure {
         IInbox.Batch[] memory batches = new IInbox.Batch[](2);
 

@@ -423,7 +423,7 @@ library LibCodec {
     /// | coinbase            | 20    | address | Fixed                     |
     /// | timestamp+forced    | 7     | packed  | 48 bits + 1 bit           |
     /// | gasIssuancePerSec   | 4     | uint32  | Fixed                     |
-    /// | proverAuth          | var   | bytes   | 1 byte len + data         |
+    /// | proverAuth          | var   | bytes   | 2 bytes len + data        |
     /// | signalSlots         | var   | array   | 1 byte len + 32*count     |
     /// | anchorBlockIds      | var   | array   | 1 byte len + 6*count      |
     /// | blocks              | var   | array   | 1 byte len + 10*count     |
@@ -443,7 +443,7 @@ library LibCodec {
 
                 // Calculate size for each batch component
                 totalSize += 51; // Fixed fields (20+20+7+4)
-                totalSize += 1 + batch.proverAuth.length; // proverAuth with length prefix
+                totalSize += 2 + batch.proverAuth.length; // proverAuth with 2-byte length prefix
                 totalSize += 1 + (batch.signalSlots.length * 32); // signalSlots with 1-byte length
                     // prefix
                 totalSize += 2 + (batch.anchorBlockIds.length * 6); // anchorBlockIds with 2-byte
@@ -488,9 +488,15 @@ library LibCodec {
                     let proverAuth := mload(add(batch, 0xa0))
                     let proverAuthLen := mload(proverAuth)
 
-                    // Store proverAuth length (1 byte)
-                    mstore(ptr, shl(248, proverAuthLen))
-                    ptr := add(ptr, 1)
+                    // Validate proverAuth length fits in uint16
+                    if gt(proverAuthLen, 0xFFFF) {
+                        mstore(0x00, 0xdfe93090) // InvalidDataLength()
+                        revert(0x1c, 0x04)
+                    }
+
+                    // Store proverAuth length (2 bytes for uint16)
+                    mstore(ptr, shl(240, proverAuthLen))
+                    ptr := add(ptr, 2)
 
                     // Copy proverAuth data efficiently
                     let proverAuthData := add(proverAuth, 0x20)
@@ -683,8 +689,8 @@ library LibCodec {
                 assembly {
                     let dataPtr := add(_encoded, 0x20)
                     let ptr := add(dataPtr, offset)
-                    proverAuthLen := shr(248, mload(ptr))
-                    offset := add(offset, 1)
+                    proverAuthLen := shr(240, mload(ptr))
+                    offset := add(offset, 2)
                 }
 
                 bytes memory proverAuth = new bytes(proverAuthLen);
@@ -1041,6 +1047,7 @@ library LibCodec {
     {
         unchecked {
             uint256 sigLen = _proverAuth.signature.length;
+            require(sigLen <= 1023, InvalidDataLength()); // uint10 max = 2^10 - 1 = 1023
             uint256 totalSize = 58 + sigLen;
             packed_ = new bytes(totalSize);
 

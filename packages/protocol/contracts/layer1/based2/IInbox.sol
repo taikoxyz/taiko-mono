@@ -28,7 +28,6 @@ interface IInbox {
     /// @dev Supports both direct blob hashes and blob indices for different scenarios
     struct Blobs {
         /// @notice Direct blob hashes (if non-empty, firstBlobIndex and numBlobs must be 0)
-        /// @dev Length limited to uint8 max for gas efficiency
         bytes32[] hashes; // length <= type(uint4).max
         /// @notice Index of the first blob in this batch (for blob index mode)
         uint8 firstBlobIndex;
@@ -84,44 +83,82 @@ interface IInbox {
         bytes32[] blobHashes; // length <= type(uint4).max
     }
 
+    /// @notice Authorization data for proving a batch
+    /// @dev Contains prover credentials, fee information, and validity constraints
     struct ProverAuth {
+        /// @notice Address authorized to prove this batch
         address prover;
+        /// @notice Token used for fee payment (ETH not supported for simplicity)
         address feeToken; // Ether not supported!
+        /// @notice Fee amount in Gwei
         uint48 fee; // Gwei
+        /// @notice Optional expiration timestamp (0 = no expiration)
         uint48 validUntil; // optional
+        /// @notice Optional batch ID restriction (0 = any batch)
         uint48 batchId; // optional
+        /// @notice Cryptographic signature authorizing the prover
+        /// @dev Maximum length is 1023 bytes (type(uint10).max)
         bytes signature; // length <= type(uint10).max
     }
 
+    /// @notice Metadata for building and validating a batch
+    /// @dev Contains all necessary information for batch construction and verification
     struct BatchBuildMetadata {
+        /// @notice Hash of all transactions in the batch
         bytes32 txsHash;
+        /// @notice Array of blob hashes referenced by this batch
         bytes32[] blobHashes; // length <= type(uint4).max
+        /// @notice Additional arbitrary data for the batch
         bytes32 extraData;
+        /// @notice Address to receive block rewards
         address coinbase;
+        /// @notice Block number when this batch was proposed
         uint48 proposedIn;
+        /// @notice Block number when blobs were created
         uint48 blobCreatedIn;
+        /// @notice Byte offset within blob data
         uint48 blobByteOffset;
+        /// @notice Size of blob data in bytes
         uint48 blobByteSize;
+        /// @notice ID of the last block in this batch
         uint48 lastBlockId;
+        /// @notice Timestamp of the last block in this batch
         uint48 lastBlockTimestamp;
+        /// @notice Array of anchor block IDs for L1-L2 synchronization
         uint48[] anchorBlockIds; // length <= type(uint16).max
+        /// @notice Hashes of anchor blocks for verification
         bytes32[] anchorBlockHashes; // length <= type(uint16).max
+        /// @notice Array of blocks contained in this batch
         Block[] blocks; // length <= type(uint16).max
     }
 
+    /// @notice Simplified metadata for batch proposals
+    /// @dev Contains minimal information needed for proposal validation
     struct BatchProposeMetadata {
+        /// @notice Timestamp of the last block in the batch
         uint48 lastBlockTimestamp;
+        /// @notice ID of the last block in the batch
         uint48 lastBlockId;
+        /// @notice ID of the last anchor block referenced
         uint48 lastAnchorBlockId;
     }
 
+    /// @notice Metadata for batch proving operations
+    /// @dev Contains information about proposer, prover, and bond requirements
     struct BatchProveMetadata {
+        /// @notice Address that originally proposed this batch
         address proposer;
+        /// @notice Address authorized to prove this batch
         address prover;
+        /// @notice Timestamp when the batch was proposed
         uint48 proposedAt;
+        /// @notice ID of the first block in the batch
         uint48 firstBlockId;
+        /// @notice ID of the last block in the batch
         uint48 lastBlockId;
+        /// @notice Bond amount for liveness guarantee in Gwei
         uint48 livenessBond; // Gwei
+        /// @notice Bond amount for provability guarantee in Gwei
         uint48 provabilityBond; // Gwei
     }
 

@@ -3,7 +3,9 @@
     "allow": [
       "Bash(forge test:*)",
       "Bash(pnpm compile:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(cast sig:*)",
+      "Bash(python3:*)"
     ],
     "deny": []
   }

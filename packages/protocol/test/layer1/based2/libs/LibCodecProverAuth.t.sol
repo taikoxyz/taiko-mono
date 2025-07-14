@@ -147,6 +147,46 @@ contract LibCodecProverAuthTest is Test {
         LibCodec.unpackProverAuth(packed);
     }
 
+    function test_packProverAuth_revertSignatureTooLong() public {
+        // Create a ProverAuth struct with signature longer than uint10 max (1023)
+        bytes memory longSignature = new bytes(1024); // Too long
+
+        IInbox.ProverAuth memory auth = IInbox.ProverAuth({
+            prover: TEST_PROVER,
+            feeToken: TEST_FEE_TOKEN,
+            fee: TEST_FEE,
+            validUntil: TEST_VALID_UNTIL,
+            batchId: TEST_BATCH_ID,
+            signature: longSignature
+        });
+
+        // Should revert with InvalidDataLength error
+        vm.expectRevert(LibCodec.InvalidDataLength.selector);
+        LibCodec.packProverAuth(auth);
+    }
+
+    function test_packProverAuth_maxSignatureLength() public view {
+        // Create a ProverAuth struct with signature at uint10 max (1023)
+        bytes memory maxSignature = new bytes(1023); // Exactly at the limit
+
+        IInbox.ProverAuth memory auth = IInbox.ProverAuth({
+            prover: TEST_PROVER,
+            feeToken: TEST_FEE_TOKEN,
+            fee: TEST_FEE,
+            validUntil: TEST_VALID_UNTIL,
+            batchId: TEST_BATCH_ID,
+            signature: maxSignature
+        });
+
+        // Should succeed
+        bytes memory packed = LibCodec.packProverAuth(auth);
+        assertEq(packed.length, 58 + 1023, "Invalid packed length for max signature");
+
+        // Verify round-trip
+        IInbox.ProverAuth memory unpacked = LibCodec.unpackProverAuth(packed);
+        assertEq(unpacked.signature.length, 1023, "Signature length mismatch");
+    }
+
     // -------------------------------------------------------------------------
     // Fuzz tests
     // -------------------------------------------------------------------------
@@ -159,8 +199,8 @@ contract LibCodecProverAuthTest is Test {
         uint48 batchId,
         bytes memory signature
     ) public view {
-        // Limit signature length for practical testing
-        vm.assume(signature.length <= 1000);
+        // Limit signature length to uint10 max (1023)
+        vm.assume(signature.length <= 1023);
 
         // Create a ProverAuth struct
         IInbox.ProverAuth memory originalAuth = IInbox.ProverAuth({
