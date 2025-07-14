@@ -316,6 +316,11 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	ctx context.Context,
 	envelope *preconf.Envelope,
 ) (*types.Header, error) {
+	var signature [65]byte
+	if envelope.Signature != nil {
+		signature = *envelope.Signature
+	}
+
 	log.Debug(
 		"Inserting preconfirmation block from execution payload envelope",
 		"blockID", uint64(envelope.Payload.BlockNumber),
@@ -323,7 +328,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 		"parentHash", envelope.Payload.ParentHash,
 		"timestamp", envelope.Payload.Timestamp,
 		"feeRecipient", envelope.Payload.FeeRecipient,
-		"signature", common.Bytes2Hex(envelope.Signature[:]),
+		"signature", common.Bytes2Hex(signature[:],
 	)
 
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
@@ -388,10 +393,6 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 	payloadID := args.Id()
 
 	var u256BaseFee = uint256.Int(envelope.Payload.BaseFeePerGas)
-	var signature [65]byte
-	if envelope.Signature != nil {
-		signature = *envelope.Signature
-	}
 
 	log.Debug(
 		"Payload arguments",
