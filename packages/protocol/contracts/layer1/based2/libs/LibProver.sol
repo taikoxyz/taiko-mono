@@ -27,14 +27,14 @@ library LibProver {
     ///      - External prover with bond token fees
     ///      - External prover with other token fees
     ///      Handles bond debiting/crediting and fee transfers accordingly
-    /// @param _config Protocol configuration parameters
     /// @param _access Read/write access functions for bond and fee operations
+    /// @param _config Protocol configuration parameters
     /// @param _summary Current protocol summary state
     /// @param _proverAuth Prover authentication data (signature + metadata)
     /// @param _batch The batch being proved
     function validateProver(
-        I.Config memory _config,
         LibState.Access memory _access,
+        I.Config memory _config,
         I.Summary memory _summary,
         bytes memory _proverAuth,
         I.Batch memory _batch

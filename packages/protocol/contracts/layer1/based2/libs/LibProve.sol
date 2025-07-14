@@ -26,14 +26,14 @@ library LibProve {
     // -------------------------------------------------------------------------
 
     /// @notice Proves multiple batches and returns an aggregated hash for verification
-    /// @param _config The protocol configuration
     /// @param _access Read/write function pointers for storage access
+    /// @param _config The protocol configuration
     /// @param _summary The current protocol summary
     /// @param _evidences Array of batch prove inputs containing transition data
     /// @return The updated protocol summary and aggregated batch hash for proof verification
     function prove(
-        I.Config memory _config,
         LibState.Access memory _access,
+        I.Config memory _config,
         I.Summary memory _summary,
         I.BatchProveInput[] memory _evidences
     )
@@ -47,7 +47,7 @@ library LibProve {
         bytes32[] memory ctxHashes = new bytes32[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            ctxHashes[i] = _proveBatch(_config, _access, _summary, _evidences[i]);
+            ctxHashes[i] = _proveBatch(_access, _config, _summary, _evidences[i]);
         }
 
         bytes32 aggregatedBatchHash =
@@ -61,14 +61,14 @@ library LibProve {
     // -------------------------------------------------------------------------
 
     /// @notice Proves a single batch by validating metadata and saving the transition
-    /// @param _config The protocol configuration
     /// @param _access Read/write function pointers for storage access
+    /// @param _config The protocol configuration
     /// @param _summary The current protocol summary
     /// @param _input The batch prove input containing transition and metadata
     /// @return The context hash for this batch used in aggregation
     function _proveBatch(
-        I.Config memory _config,
         LibState.Access memory _access,
+        I.Config memory _config,
         I.Summary memory _summary,
         I.BatchProveInput memory _input
     )

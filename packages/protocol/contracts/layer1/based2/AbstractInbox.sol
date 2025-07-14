@@ -73,10 +73,10 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         LibState.Access memory access = _getReadWrite();
 
         // Propose batches
-        summary = LibPropose.propose(config, access, summary, batches, evidence);
+        summary = LibPropose.propose(access, config, summary, batches, evidence);
 
         // Verify batches
-        summary = LibVerify.verify(config, access, summary, transitionMetas);
+        summary = LibVerify.verify(access, config, summary, transitionMetas);
 
         _saveSummaryHash(keccak256(abi.encode(summary)));
         return summary;
@@ -101,7 +101,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
 
         // Prove batches and get aggregated hash
         bytes32 aggregatedBatchHash;
-        (summary, aggregatedBatchHash) = LibProve.prove(config, access, summary, inputs);
+        (summary, aggregatedBatchHash) = LibProve.prove(access, config, summary, inputs);
 
         // Verify the proof
         IVerifier2(config.verifier).verifyProof(aggregatedBatchHash, _proof);
