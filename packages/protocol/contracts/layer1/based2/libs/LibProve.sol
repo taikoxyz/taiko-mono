@@ -154,7 +154,6 @@ library LibProve {
     // Errors
     // -------------------------------------------------------------------------
 
-    error BatchNotFound();
     error BlocksNotInCurrentFork();
     error InvalidTransitionParentHash();
     error MetaHashNotMatch();
