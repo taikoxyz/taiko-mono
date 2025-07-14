@@ -362,6 +362,7 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 		"totalCached", s.payloadsCache.getTotalCached(),
 		"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 		"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
+		"currEpoch", s.rpc.L1Beacon.CurrentEpoch(),
 	)
 
 	return c.JSON(http.StatusOK, Status{
