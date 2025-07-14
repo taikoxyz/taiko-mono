@@ -111,7 +111,7 @@ library LibVerify {
     )
         private
         pure
-        returns (uint48)
+        returns (uint256)
     {
         unchecked {
             if (_tran.proofTiming == I.ProofTiming.InProvingWindow) {
@@ -124,7 +124,7 @@ library LibVerify {
             if (_tran.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
                 // Prover is rewarded with bondRewardPtcg% of the liveness bond
                 // Note: _config.bondRewardPtcg <= 100
-                uint48 amount = uint48((uint256(_tran.livenessBond) * _config.bondRewardPtcg) / 100);
+                uint256 amount = (uint256(_tran.livenessBond) * _config.bondRewardPtcg) / 100;
                 return _isFirstTransition ? amount + _tran.provabilityBond : amount;
             }
 
@@ -135,8 +135,7 @@ library LibVerify {
             }
 
             // Other provers get bondRewardPtcg% of the provability bond
-            // Note: _config.bondRewardPtcg <= 100
-            return uint48((uint256(_tran.provabilityBond) * _config.bondRewardPtcg) / 100);
+            return (uint256(_tran.provabilityBond) * _config.bondRewardPtcg) / 100;
         }
     }
 
