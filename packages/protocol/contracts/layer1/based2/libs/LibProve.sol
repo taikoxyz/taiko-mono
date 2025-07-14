@@ -30,7 +30,7 @@ library LibProve {
     /// @param _config The protocol configuration
     /// @param _summary The current protocol summary
     /// @param _evidences Array of batch prove inputs containing transition data
-    /// @return The updated protocol summary and aggregated batch hash for proof verification
+    /// @return _ The aggregated hash of all proven batches
     function prove(
         LibState.Access memory _access,
         I.Config memory _config,
@@ -38,7 +38,7 @@ library LibProve {
         I.BatchProveInput[] memory _evidences
     )
         internal
-        returns (I.Summary memory, bytes32)
+        returns (bytes32)
     {
         uint256 nBatches = _evidences.length;
         require(nBatches != 0, NoBlocksToProve());
@@ -50,10 +50,7 @@ library LibProve {
             ctxHashes[i] = _proveBatch(_access, _config, _summary, _evidences[i]);
         }
 
-        bytes32 aggregatedBatchHash =
-            keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
-
-        return (_summary, aggregatedBatchHash);
+        return keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
     }
 
     // -------------------------------------------------------------------------

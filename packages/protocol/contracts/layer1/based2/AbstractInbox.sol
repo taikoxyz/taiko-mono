@@ -79,7 +79,10 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         // Verify batches
         summary = LibVerify.verify(access, config, summary, transitionMetas);
 
-        _saveSummaryHashEmitEvent(summary);
+        bytes memory packedSummary = LibCodec.packSummary(summary);
+        _saveSummaryHash(keccak256(packedSummary));
+        emit I.SummaryUpdated(packedSummary);
+
         return summary;
     }
 
@@ -95,7 +98,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         external
         override(I, IProve)
         nonReentrant
-        returns (I.Summary memory)
     {
         I.Summary memory summary = _validateSummary(_packedSummary);
         I.BatchProveInput[] memory inputs = LibCodec.unpackBatchProveInputs(_packedBatchProveInputs);
@@ -104,14 +106,10 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         LibState.Access memory access = _getReadWrite();
 
         // Prove batches and get aggregated hash
-        bytes32 aggregatedBatchHash;
-        (summary, aggregatedBatchHash) = LibProve.prove(access, config, summary, inputs);
+        bytes32 aggregatedBatchHash = LibProve.prove(access, config, summary, inputs);
 
         // Verify the proof
         IVerifier2(config.verifier).verifyProof(aggregatedBatchHash, _proof);
-
-        _saveSummaryHashEmitEvent(summary);
-        return summary;
     }
 
     /// @notice Builds batch metadata from batch and batch context data
@@ -342,12 +340,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     {
         require(_loadSummaryHash() == keccak256(_packedSummary), SummaryMismatch());
         return LibCodec.unpackSummary(_packedSummary);
-    }
-
-    function _saveSummaryHashEmitEvent(I.Summary memory _summary) private {
-        bytes memory packedSummary = LibCodec.packSummary(_summary);
-        _saveSummaryHash(keccak256(packedSummary));
-        emit I.SummaryUpdated(packedSummary);
     }
 
     // -------------------------------------------------------------------------

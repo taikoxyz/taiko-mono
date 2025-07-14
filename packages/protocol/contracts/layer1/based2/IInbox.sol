@@ -407,12 +407,10 @@ interface IInbox {
     /// @param _packedSummary Current protocol summary encoded as bytes
     /// @param _packedBatchProveInputs Batch proving inputs encoded as bytes
     /// @param _proof The cryptographic proof data for validation
-    /// @return summary The updated protocol summary after proof processing
     function prove4(
         bytes calldata _packedSummary,
         bytes calldata _packedBatchProveInputs,
         bytes calldata _proof
     )
-        external
-        returns (Summary memory summary);
+        external;
 }
