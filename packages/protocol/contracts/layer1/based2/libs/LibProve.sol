@@ -26,14 +26,14 @@ library LibProve {
     // -------------------------------------------------------------------------
 
     /// @notice Proves multiple batches and returns an aggregated hash for verification
-    /// @param _config The protocol configuration
     /// @param _access Read/write function pointers for storage access
+    /// @param _config The protocol configuration
     /// @param _summary The current protocol summary
     /// @param _evidences Array of batch prove inputs containing transition data
     /// @return The updated protocol summary and aggregated batch hash for proof verification
     function prove(
-        I.Config memory _config,
         LibState.Access memory _access,
+        I.Config memory _config,
         I.Summary memory _summary,
         I.BatchProveInput[] memory _evidences
     )
@@ -47,7 +47,7 @@ library LibProve {
         bytes32[] memory ctxHashes = new bytes32[](nBatches);
 
         for (uint256 i; i < nBatches; ++i) {
-            ctxHashes[i] = _proveBatch(_config, _access, _summary, _evidences[i]);
+            ctxHashes[i] = _proveBatch(_access, _config, _summary, _evidences[i]);
         }
 
         bytes32 aggregatedBatchHash =
@@ -61,14 +61,14 @@ library LibProve {
     // -------------------------------------------------------------------------
 
     /// @notice Proves a single batch by validating metadata and saving the transition
-    /// @param _config The protocol configuration
     /// @param _access Read/write function pointers for storage access
+    /// @param _config The protocol configuration
     /// @param _summary The current protocol summary
     /// @param _input The batch prove input containing transition and metadata
     /// @return The context hash for this batch used in aggregation
     function _proveBatch(
-        I.Config memory _config,
         LibState.Access memory _access,
+        I.Config memory _config,
         I.Summary memory _summary,
         I.BatchProveInput memory _input
     )
@@ -91,7 +91,7 @@ library LibProve {
         // Load and verify the batch metadata
         bytes32 batchMetaHash = _access.loadBatchMetaHash(_config, _input.tran.batchId);
 
-        _validateProveMeta(batchMetaHash, _input);
+        require(batchMetaHash == LibData.hashBatch(_input), MetaHashNotMatch());
 
         bytes32 stateRoot = _input.tran.batchId % _config.stateRootSyncInternal == 0
             ? _input.tran.stateRoot
@@ -157,23 +157,6 @@ library LibProve {
                 return (I.ProofTiming.OutOfExtendedProvingWindow, msg.sender);
             }
         }
-    }
-
-    /// @notice Validates the batch prove metadata against the stored hash
-    /// @param _batchMetaHash The stored batch metadata hash
-    /// @param _input The batch prove input containing metadata to validate
-    function _validateProveMeta(
-        bytes32 _batchMetaHash,
-        I.BatchProveInput memory _input
-    )
-        private
-        pure
-    {
-        bytes32 proveMetaHash = keccak256(abi.encode(_input.proveMeta));
-        bytes32 rightHash = keccak256(abi.encode(_input.proposeMetaHash, proveMetaHash));
-        bytes32 metaHash = keccak256(abi.encode(_input.idAndBuildHash, rightHash));
-
-        require(_batchMetaHash == metaHash, MetaHashNotMatch());
     }
 
     // -------------------------------------------------------------------------

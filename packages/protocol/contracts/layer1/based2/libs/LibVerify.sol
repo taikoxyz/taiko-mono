@@ -26,14 +26,14 @@ library LibVerify {
     /// @dev Processes batches sequentially, validating transition metadata,
     ///      enforcing cooldown periods, and distributing bonds to provers.
     ///      Also handles periodic state root synchronization.
-    /// @param _config Protocol configuration parameters
     /// @param _access Read/write access functions for blockchain state
+    /// @param _config Protocol configuration parameters
     /// @param _summary Current protocol summary state
     /// @param _trans Array of transition metadata for verification
     /// @return Updated summary with verification results
     function verify(
-        I.Config memory _config,
         LibState.Access memory _access,
+        I.Config memory _config,
         I.Summary memory _summary,
         I.TransitionMeta[] memory _trans
     )

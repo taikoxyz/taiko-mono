@@ -12,13 +12,13 @@ interface IPropose {
     /// @param _packedSummary The current summary, packed into bytes
     /// @param _packedBatches The batches to propose, packed into bytes
     /// @param _packedEvidence The batch proposal evidence, packed into bytes
-    /// @param _packedTrans The packed transition metadata for verification
+    /// @param _packedTransitionMetas The packed transition metadata for verification
     /// @return The updated summary
     function propose4(
         bytes calldata _packedSummary,
         bytes calldata _packedBatches,
         bytes calldata _packedEvidence,
-        bytes calldata _packedTrans
+        bytes calldata _packedTransitionMetas
     )
         external
         returns (I.Summary memory);

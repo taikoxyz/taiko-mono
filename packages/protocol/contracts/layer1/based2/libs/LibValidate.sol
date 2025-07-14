@@ -26,18 +26,18 @@ library LibValidate {
     /// @dev Performs comprehensive validation including proposer, blocks, timestamps,
     ///      signals, anchors, and blobs. This is the main entry point for batch validation.
     /// @dev The prover field of the returned context object will not be initialized.
-    /// @param _config Protocol configuration parameters
     /// @param _access Read/write access functions for blockchain state
+    /// @param _config Protocol configuration parameters
     /// @param _summary Current protocol summary state
     /// @param _batch The batch to validate
-    /// @param _parentProposeMeta Metadata from the parent batch proposal
+    /// @param _parentBatch Metadata from the parent batch proposal
     /// @return context_ Validated batch information and computed hashes
     function validate(
-        I.Config memory _config,
         LibState.Access memory _access,
+        I.Config memory _config,
         I.Summary memory _summary,
         I.Batch memory _batch,
-        I.BatchProposeMetadata memory _parentProposeMeta
+        I.BatchProposeMetadata memory _parentBatch
     )
         internal
         view
@@ -56,18 +56,18 @@ library LibValidate {
         _validateBlocks(_config, _batch);
 
         // Validate timestamps
-        _validateTimestamps(_config, _batch, _parentProposeMeta.lastBlockTimestamp);
+        _validateTimestamps(_config, _batch, _parentBatch.lastBlockTimestamp);
 
         // Validate signals
-        _validateSignals(_config, _access, _batch);
+        _validateSignals(_access, _config, _batch);
 
         // Validate anchors
         (bytes32[] memory anchorBlockHashes, uint48 lastAnchorBlockId) =
-            _validateAnchors(_config, _access, _batch, _parentProposeMeta.lastAnchorBlockId);
+            _validateAnchors(_access, _config, _batch, _parentBatch.lastAnchorBlockId);
 
         // Validate block range
         uint48 lastBlockId =
-            _validateBlockRange(_config, _batch.blocks.length, _parentProposeMeta.lastBlockId);
+            _validateBlockRange(_config, _batch.blocks.length, _parentBatch.lastBlockId);
 
         // Validate blobs
         uint48 blobsCreatedIn = _validateBlobs(_config, _batch);
@@ -188,12 +188,12 @@ library LibValidate {
 
     /// @notice Validates cross-chain signals in the batch
     /// @dev Verifies that all referenced signals have been properly sent
-    /// @param _config Protocol configuration
     /// @param _access Read/write access functions
+    /// @param _config Protocol configuration
     /// @param _batch The batch containing signal references
     function _validateSignals(
-        I.Config memory _config,
         LibState.Access memory _access,
+        I.Config memory _config,
         I.Batch memory _batch
     )
         internal
@@ -222,15 +222,15 @@ library LibValidate {
 
     /// @notice Validates anchor blocks used for L1-L2 synchronization
     /// @dev Ensures anchor blocks are properly ordered, within height limits, and have valid hashes
-    /// @param _config Protocol configuration
     /// @param _access Read/write access functions
+    /// @param _config Protocol configuration
     /// @param _batch The batch being validated
     /// @param _parentLastAnchorBlockId Last anchor block ID from parent batch
     /// @return anchorBlockHashes_ Array of validated anchor block hashes
     /// @return lastAnchorBlockId_ ID of the last anchor block in this batch
     function _validateAnchors(
-        I.Config memory _config,
         LibState.Access memory _access,
+        I.Config memory _config,
         I.Batch memory _batch,
         uint48 _parentLastAnchorBlockId
     )

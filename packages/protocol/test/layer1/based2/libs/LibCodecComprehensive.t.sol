@@ -190,7 +190,7 @@ contract LibCodecComprehensiveTest is Test {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](1);
 
         inputs[0] = IInbox.BatchProveInput({
-            idAndBuildHash: bytes32(uint256(0x1111)),
+            leftHash: bytes32(uint256(0x1111)),
             proposeMetaHash: bytes32(uint256(0x2222)),
             proveMeta: IInbox.BatchProveMetadata({
                 proposer: address(0x3333),
@@ -213,7 +213,7 @@ contract LibCodecComprehensiveTest is Test {
         IInbox.BatchProveInput[] memory unpacked = LibCodec.unpackBatchProveInputs(packed);
 
         assertEq(unpacked.length, 1);
-        assertEq(unpacked[0].idAndBuildHash, inputs[0].idAndBuildHash);
+        assertEq(unpacked[0].leftHash, inputs[0].leftHash);
         assertEq(unpacked[0].proposeMetaHash, inputs[0].proposeMetaHash);
         assertEq(unpacked[0].proveMeta.proposer, inputs[0].proveMeta.proposer);
         assertEq(unpacked[0].proveMeta.prover, inputs[0].proveMeta.prover);
@@ -238,7 +238,7 @@ contract LibCodecComprehensiveTest is Test {
 
     function test_packUnpackBatchProposeMetadataEvidence_roundTrip() public pure {
         IInbox.BatchProposeMetadataEvidence memory evidence = IInbox.BatchProposeMetadataEvidence({
-            idAndBuildHash: bytes32(uint256(0x1111111111111111)),
+            leftHash: bytes32(uint256(0x1111111111111111)),
             proveMetaHash: bytes32(uint256(0x2222222222222222)),
             proposeMeta: IInbox.BatchProposeMetadata({
                 lastBlockTimestamp: 123_456,
@@ -253,7 +253,7 @@ contract LibCodecComprehensiveTest is Test {
         IInbox.BatchProposeMetadataEvidence memory unpacked =
             LibCodec.unpackBatchProposeMetadataEvidence(packed);
 
-        assertEq(unpacked.idAndBuildHash, evidence.idAndBuildHash);
+        assertEq(unpacked.leftHash, evidence.leftHash);
         assertEq(unpacked.proveMetaHash, evidence.proveMetaHash);
         assertEq(unpacked.proposeMeta.lastBlockTimestamp, evidence.proposeMeta.lastBlockTimestamp);
         assertEq(unpacked.proposeMeta.lastBlockId, evidence.proposeMeta.lastBlockId);

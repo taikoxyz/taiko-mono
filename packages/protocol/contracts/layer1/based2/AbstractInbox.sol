@@ -56,7 +56,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         bytes calldata _packedSummary,
         bytes calldata _packedBatches,
         bytes calldata _packedEvidence,
-        bytes calldata _packedTrans
+        bytes calldata _packedTransitionMetas
     )
         external
         override(I, IPropose)
@@ -67,22 +67,26 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         I.Batch[] memory batches = LibCodec.unpackBatches(_packedBatches);
         I.BatchProposeMetadataEvidence memory evidence =
             LibCodec.unpackBatchProposeMetadataEvidence(_packedEvidence);
-        I.TransitionMeta[] memory transitionMetas = LibCodec.unpackTransitionMetas(_packedTrans);
+        I.TransitionMeta[] memory transitionMetas =
+            LibCodec.unpackTransitionMetas(_packedTransitionMetas);
 
         I.Config memory config = _getConfig();
         LibState.Access memory access = _getReadWrite();
 
         // Propose batches
-        summary = LibPropose.propose(config, access, summary, batches, evidence);
+        summary = LibPropose.propose(access, config, summary, batches, evidence);
 
         // Verify batches
-        summary = LibVerify.verify(config, access, summary, transitionMetas);
+        summary = LibVerify.verify(access, config, summary, transitionMetas);
 
         _saveSummaryHash(keccak256(abi.encode(summary)));
         return summary;
     }
 
     /// @inheritdoc IProve
+    /// @dev In prevous versions, proving a block may also trigger block verification, in this
+    /// upgrade, this is no longer the case as we would like to ensure more certainty for provers
+    /// and let proposers to manage the uncertaity of verification cost.
     function prove4(
         bytes calldata _packedSummary,
         bytes calldata _packedBatchProveInputs,
@@ -101,7 +105,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
 
         // Prove batches and get aggregated hash
         bytes32 aggregatedBatchHash;
-        (summary, aggregatedBatchHash) = LibProve.prove(config, access, summary, inputs);
+        (summary, aggregatedBatchHash) = LibProve.prove(access, config, summary, inputs);
 
         // Verify the proof
         IVerifier2(config.verifier).verifyProof(aggregatedBatchHash, _proof);
@@ -111,14 +115,14 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     }
 
     /// @notice Builds batch metadata from batch and batch context data
-    /// @param _blockNumber The block number in which the batch is proposed
-    /// @param _blockTimestamp The timestamp of the block in which the batch is proposed
+    /// @param _proposedIn The block number in which the batch is proposed
+    /// @param _proposedAt The timestamp of the block in which the batch is proposed
     /// @param _batch The batch being proposed
     /// @param _context The batch context data containing computed values
     /// @return meta_ The populated batch metadata
     function buildBatchMetadata(
-        uint48 _blockNumber,
-        uint48 _blockTimestamp,
+        uint48 _proposedIn,
+        uint48 _proposedAt,
         I.Batch calldata _batch,
         I.BatchContext calldata _context
     )
@@ -126,7 +130,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         pure
         returns (I.BatchMetadata memory meta_)
     {
-        return LibData.buildBatchMetadata(_blockNumber, _blockTimestamp, _batch, _context);
+        return LibData.buildBatchMetadata(_proposedIn, _proposedAt, _batch, _context);
     }
 
     /// @notice Checks if this contract is an inbox
@@ -291,7 +295,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         onlyInitializing
     {
         __Essential_init(_owner);
-        require(_genesisBlockHash != 0, InvalidGenesisBlockHash());
 
         I.Config memory config = _getConfig();
 
@@ -345,6 +348,5 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     // Errors
     // -------------------------------------------------------------------------
 
-    error InvalidGenesisBlockHash();
     error SummaryMismatch();
 }

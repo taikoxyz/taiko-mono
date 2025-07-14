@@ -24,7 +24,7 @@ contract LibCodecBatchProveInputTest is Test {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](1);
 
         inputs[0] = IInbox.BatchProveInput({
-            idAndBuildHash: bytes32(uint256(0x1111)),
+            leftHash: bytes32(uint256(0x1111)),
             proposeMetaHash: bytes32(uint256(0x2222)),
             proveMeta: IInbox.BatchProveMetadata({
                 proposer: address(0x3333),
@@ -47,7 +47,7 @@ contract LibCodecBatchProveInputTest is Test {
         IInbox.BatchProveInput[] memory unpacked = LibCodec.unpackBatchProveInputs(packed);
 
         assertEq(unpacked.length, 1);
-        assertEq(unpacked[0].idAndBuildHash, inputs[0].idAndBuildHash);
+        assertEq(unpacked[0].leftHash, inputs[0].leftHash);
         assertEq(unpacked[0].proposeMetaHash, inputs[0].proposeMetaHash);
         assertEq(unpacked[0].proveMeta.proposer, inputs[0].proveMeta.proposer);
         assertEq(unpacked[0].proveMeta.prover, inputs[0].proveMeta.prover);
@@ -67,7 +67,7 @@ contract LibCodecBatchProveInputTest is Test {
 
         for (uint256 i = 0; i < 3; i++) {
             inputs[i] = IInbox.BatchProveInput({
-                idAndBuildHash: keccak256(abi.encode("idAndBuild", i)),
+                leftHash: keccak256(abi.encode("idAndBuild", i)),
                 proposeMetaHash: keccak256(abi.encode("proposeMeta", i)),
                 proveMeta: IInbox.BatchProveMetadata({
                     proposer: address(uint160(i + 100)),
@@ -93,7 +93,7 @@ contract LibCodecBatchProveInputTest is Test {
         assertEq(unpacked.length, 3);
 
         for (uint256 i = 0; i < 3; i++) {
-            assertEq(unpacked[i].idAndBuildHash, inputs[i].idAndBuildHash);
+            assertEq(unpacked[i].leftHash, inputs[i].leftHash);
             assertEq(unpacked[i].proposeMetaHash, inputs[i].proposeMetaHash);
             assertEq(unpacked[i].proveMeta.proposer, inputs[i].proveMeta.proposer);
             assertEq(unpacked[i].proveMeta.prover, inputs[i].proveMeta.prover);
@@ -160,7 +160,7 @@ contract LibCodecBatchProveInputTest is Test {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](1);
 
         inputs[0] = IInbox.BatchProveInput({
-            idAndBuildHash: bytes32(type(uint256).max),
+            leftHash: bytes32(type(uint256).max),
             proposeMetaHash: bytes32(type(uint256).max - 1),
             proveMeta: IInbox.BatchProveMetadata({
                 proposer: address(type(uint160).max),
@@ -183,7 +183,7 @@ contract LibCodecBatchProveInputTest is Test {
         IInbox.BatchProveInput[] memory unpacked = LibCodec.unpackBatchProveInputs(packed);
 
         assertEq(unpacked.length, 1);
-        assertEq(unpacked[0].idAndBuildHash, inputs[0].idAndBuildHash);
+        assertEq(unpacked[0].leftHash, inputs[0].leftHash);
         assertEq(unpacked[0].proposeMetaHash, inputs[0].proposeMetaHash);
         assertEq(unpacked[0].proveMeta.proposer, inputs[0].proveMeta.proposer);
         assertEq(unpacked[0].proveMeta.prover, inputs[0].proveMeta.prover);
@@ -202,7 +202,7 @@ contract LibCodecBatchProveInputTest is Test {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](1);
 
         inputs[0] = IInbox.BatchProveInput({
-            idAndBuildHash: bytes32(0),
+            leftHash: bytes32(0),
             proposeMetaHash: bytes32(0),
             proveMeta: IInbox.BatchProveMetadata({
                 proposer: address(0),
@@ -225,7 +225,7 @@ contract LibCodecBatchProveInputTest is Test {
         IInbox.BatchProveInput[] memory unpacked = LibCodec.unpackBatchProveInputs(packed);
 
         assertEq(unpacked.length, 1);
-        assertEq(unpacked[0].idAndBuildHash, bytes32(0));
+        assertEq(unpacked[0].leftHash, bytes32(0));
         assertEq(unpacked[0].proposeMetaHash, bytes32(0));
         assertEq(unpacked[0].proveMeta.proposer, address(0));
         assertEq(unpacked[0].proveMeta.prover, address(0));
@@ -330,7 +330,7 @@ contract LibCodecBatchProveInputTest is Test {
     // -------------------------------------------------------------------------
 
     function testFuzz_packUnpack_singleInput(
-        bytes32 idAndBuildHash,
+        bytes32 leftHash,
         address proposer,
         uint48 proposedAt,
         uint48 batchId
@@ -341,7 +341,7 @@ contract LibCodecBatchProveInputTest is Test {
         IInbox.BatchProveInput[] memory inputs = new IInbox.BatchProveInput[](1);
 
         inputs[0] = IInbox.BatchProveInput({
-            idAndBuildHash: idAndBuildHash,
+            leftHash: leftHash,
             proposeMetaHash: keccak256("test"),
             proveMeta: IInbox.BatchProveMetadata({
                 proposer: proposer,
@@ -364,7 +364,7 @@ contract LibCodecBatchProveInputTest is Test {
         IInbox.BatchProveInput[] memory unpacked = LibCodec.unpackBatchProveInputs(packed);
 
         assertEq(unpacked.length, 1);
-        assertEq(unpacked[0].idAndBuildHash, idAndBuildHash);
+        assertEq(unpacked[0].leftHash, leftHash);
         assertEq(unpacked[0].proveMeta.proposer, proposer);
         assertEq(unpacked[0].proveMeta.proposedAt, proposedAt);
         assertEq(unpacked[0].tran.batchId, batchId);
@@ -385,7 +385,7 @@ contract LibCodecBatchProveInputTest is Test {
         assertEq(unpacked.length, count);
 
         for (uint256 i = 0; i < count; i++) {
-            assertEq(unpacked[i].idAndBuildHash, inputs[i].idAndBuildHash);
+            assertEq(unpacked[i].leftHash, inputs[i].leftHash);
             assertEq(unpacked[i].proposeMetaHash, inputs[i].proposeMetaHash);
             assertEq(unpacked[i].proveMeta.proposer, inputs[i].proveMeta.proposer);
             assertEq(unpacked[i].proveMeta.prover, inputs[i].proveMeta.prover);
@@ -406,7 +406,7 @@ contract LibCodecBatchProveInputTest is Test {
         returns (IInbox.BatchProveInput memory)
     {
         return IInbox.BatchProveInput({
-            idAndBuildHash: keccak256(abi.encode("idAndBuild", seed)),
+            leftHash: keccak256(abi.encode("idAndBuild", seed)),
             proposeMetaHash: keccak256(abi.encode("proposeMeta", seed)),
             proveMeta: IInbox.BatchProveMetadata({
                 proposer: address(uint160(seed + 100)),

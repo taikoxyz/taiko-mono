@@ -29,7 +29,7 @@ interface IInbox {
     struct Blobs {
         /// @notice Direct blob hashes (if non-empty, firstBlobIndex and numBlobs must be 0)
         /// @dev Length limited to uint8 max for gas efficiency
-        bytes32[] hashes;
+        bytes32[] hashes; // TODO(Claude): remove this field
         /// @notice Index of the first blob in this batch (for blob index mode)
         uint8 firstBlobIndex;
         /// @notice Number of blobs in this batch
@@ -41,14 +41,15 @@ interface IInbox {
         uint32 byteSize;
         /// @notice Block number when blobs were created (only for forced inclusion)
         /// @dev Non-zero only when hashes array is used
-        uint48 createdIn;
+        uint48 createdIn;  // TODO(Claude): remove this field
+         
     }
 
     /// @notice Represents a batch of blocks to be proposed
     /// @dev Contains all data needed for batch validation and processing
     struct Batch {
         /// @notice Address that proposed this batch
-        address proposer;
+        address proposer;  // TODO(Claude): remove this field and use "msg.sender" where this field is used now
         /// @notice Coinbase address for block rewards (can be zero)
         address coinbase;
         /// @notice Timestamp of the last block in this batch
@@ -56,7 +57,7 @@ interface IInbox {
         /// @notice Gas issuance rate per second for this batch
         uint32 gasIssuancePerSecond;
         /// @notice Whether this is a forced inclusion batch
-        bool isForcedInclusion;
+        bool isForcedInclusion;  // TODO(Claude): remove this field
         /// @notice Prover authorization data
         bytes proverAuth;
         /// @notice Signal slots for cross-chain messages
@@ -135,13 +136,13 @@ interface IInbox {
     }
 
     struct BatchProposeMetadataEvidence {
-        bytes32 idAndBuildHash; // aka leftHash
+        bytes32 leftHash;
         bytes32 proveMetaHash;
         BatchProposeMetadata proposeMeta;
     }
 
     struct BatchProveInput {
-        bytes32 idAndBuildHash; // aka leftHash
+        bytes32 leftHash;
         bytes32 proposeMetaHash;
         BatchProveMetadata proveMeta;
         Transition tran;
@@ -206,8 +207,6 @@ interface IInbox {
     struct Config {
         /// @notice The chain ID of the network where Taiko contracts are deployed.
         uint64 chainId;
-        /// @notice The maximum number of unverified batches the protocol supports.
-        uint64 maxUnverifiedBatches;
         /// @notice Size of the batch ring buffer, allowing extra space for proposals.
         uint64 batchRingBufferSize;
         /// @notice The maximum number of verifications allowed when a batch is proposed or proved.
@@ -289,13 +288,13 @@ interface IInbox {
     /// @param _packedSummary The current summary, packed into bytes
     /// @param _packedBatches The batches to propose, packed into bytes
     /// @param _packedEvidence The batch proposal evidence, packed into bytes
-    /// @param _packedTrans The packed transition metadata for verification
+    /// @param _packedTransitionMetas The packed transition metadata for verification
     /// @return The updated summary
     function propose4(
         bytes calldata _packedSummary,
         bytes calldata _packedBatches,
         bytes calldata _packedEvidence,
-        bytes calldata _packedTrans
+        bytes calldata _packedTransitionMetas
     )
         external
         returns (Summary memory);
