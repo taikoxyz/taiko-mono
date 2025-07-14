@@ -199,6 +199,12 @@ contract SetupSurgeL2 is Script {
         address delegateOwner = address(new ERC1967Proxy(delegateOwnerImpl, ""));
         DelegateOwner(delegateOwner).init(l1Owner, uint64(l1ChainId), address(0));
 
+        // Log the delegate owner address to a json file
+        vm.writeJson(
+            vm.serializeAddress("setup", "delegate_owner", delegateOwner),
+            string.concat(vm.projectRoot(), "/deployments/setup_l2.json")
+        );
+
         console2.log("** Delegate owner (L2 owner):", delegateOwner);
 
         Bridge(payable(l2ContractRegistry.bridge.addr)).transferOwnership(delegateOwner);

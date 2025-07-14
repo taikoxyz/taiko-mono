@@ -35,7 +35,8 @@ contract RegisterSGXInstance is Script {
     }
 
     function run() external broadcast {
-        AutomataDcapV3Attestation automataAttestation = AutomataDcapV3Attestation(automataDcapAttestation);
+        AutomataDcapV3Attestation automataAttestation =
+            AutomataDcapV3Attestation(automataDcapAttestation);
 
         // Set MR Enclave if provided
         if (mrEnclave != bytes32(0)) {
@@ -77,6 +78,17 @@ contract RegisterSGXInstance is Script {
         if (v3QuoteBytes.length > 0) {
             V3Struct.ParsedV3QuoteStruct memory v3quote =
                 AttestationLib.parseV3QuoteBytes(pemCertChainLib, v3QuoteBytes);
+
+            // Log the instance id to Json
+            vm.writeJson(
+                vm.serializeUint(
+                    "sgx_instance_ids",
+                    "sgx_instance_id",
+                    SgxVerifier(sgxRethVerifier).nextInstanceId()
+                ),
+                string.concat(vm.projectRoot(), "/deployments/sgx_instances.json")
+            );
+
             SgxVerifier(sgxRethVerifier).registerInstance(v3quote);
             console2.log("** SGX instance registered with quote");
         }

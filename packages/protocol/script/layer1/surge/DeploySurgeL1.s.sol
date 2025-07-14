@@ -648,6 +648,16 @@ contract DeploySurgeL1 is DeployCapability {
             V3Struct.ParsedV3QuoteStruct memory v3quote =
                 AttestationLib.parseV3QuoteBytes(_verifiers.pemCertChainLibAddr, v3QuoteBytes);
 
+            // Log the instance id to Json
+            vm.writeJson(
+                vm.serializeUint(
+                    "sgx_instance_ids",
+                    "sgx_instance_id",
+                    SgxVerifier(_verifiers.sgxRethVerifier).nextInstanceId()
+                ),
+                string.concat(vm.projectRoot(), "/deployments/sgx_instances.json")
+            );
+
             // Format instance address and attempt to register
             SgxVerifier(_verifiers.sgxRethVerifier).registerInstance(v3quote);
             console2.log("** SGX instance registered with quote");
