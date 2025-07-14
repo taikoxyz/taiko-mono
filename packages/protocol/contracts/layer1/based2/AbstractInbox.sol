@@ -233,13 +233,13 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     /// @param _conf The configuration
     /// @param _batchId The batch ID
     /// @param _parentHash The parent hash
-    /// @param _tranMetahash The transition metadata hash
+    /// @param _tranMetaHash The transition metadata hash
     /// @return isFirstTransition_ Whether this is the first transition for the batch
     function _saveTransition(
         I.Config memory _conf,
         uint48 _batchId,
         bytes32 _parentHash,
-        bytes32 _tranMetahash
+        bytes32 _tranMetaHash
     )
         internal
         virtual

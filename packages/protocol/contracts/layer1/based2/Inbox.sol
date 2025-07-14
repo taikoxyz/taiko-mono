@@ -161,13 +161,13 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
         I.Config memory _conf,
         uint48 _batchId,
         bytes32 _parentHash,
-        bytes32 _tranMetahash
+        bytes32 _tranMetaHash
     )
         internal
         override
         returns (bool isFirstTransition_)
     {
-        return $.saveTransition(_conf, _batchId, _parentHash, _tranMetahash);
+        return $.saveTransition(_conf, _batchId, _parentHash, _tranMetaHash);
     }
 
     /// @inheritdoc AbstractInbox

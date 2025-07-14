@@ -102,14 +102,14 @@ library LibState {
     /// @param _conf The configuration
     /// @param _batchId The batch ID
     /// @param _parentHash The parent hash
-    /// @param _tranMetahash The transition metadata hash
+    /// @param _tranMetaHash The transition metadata hash
     /// @return isFirstTransition_ Whether this is the first transition
     function saveTransition(
         I.State storage $,
         I.Config memory _conf,
         uint48 _batchId,
         bytes32 _parentHash,
-        bytes32 _tranMetahash
+        bytes32 _tranMetaHash
     )
         internal
         returns (bool isFirstTransition_)
@@ -128,13 +128,25 @@ library LibState {
             // We can reuse the transition slot to reduce gas cost.
             $.transitions[slot][1].batchIdAndPartialParentHash =
                 (uint256(_parentHash) & ~type(uint48).max) | _batchId;
-            $.transitions[slot][1].metaHash = _tranMetahash;
+            $.transitions[slot][1].metaHash = _tranMetaHash;
         } else if (partialParentHash == _parentHash >> 48) {
             // Same parent hash as stored, overwrite the existing transition
-            $.transitions[slot][1].metaHash = _tranMetahash;
+            bytes32 previousMetaHash = $.transitions[slot][1].metaHash;
+            if (previousMetaHash != _tranMetaHash) {
+                if (previousMetaHash != 0) {
+                    emit I.ProvedDifferently(_batchId, _parentHash, previousMetaHash, _tranMetaHash);
+                }
+                $.transitions[slot][1].metaHash = _tranMetaHash;
+            }
         } else {
             // Different parent hash, use separate mapping storage
-            $.transitionMetaHashes[_batchId][_parentHash] = _tranMetahash;
+            bytes32 previousMetaHash = $.transitionMetaHashes[_batchId][_parentHash];
+            if (previousMetaHash != _tranMetaHash) {
+                if (previousMetaHash != 0) {
+                    emit I.ProvedDifferently(_batchId, _parentHash, previousMetaHash, _tranMetaHash);
+                }
+                $.transitionMetaHashes[_batchId][_parentHash] = _tranMetaHash;
+            }
         }
     }
 

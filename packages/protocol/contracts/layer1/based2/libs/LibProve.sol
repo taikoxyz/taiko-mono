@@ -118,7 +118,9 @@ library LibProve {
 
         I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](1);
         tranMetas[0] = tranMeta;
-        emit I.Proved(_input.tran.batchId, LibCodec.packTransitionMetas(tranMetas));
+        emit I.Proved(
+            _input.tran.batchId, _input.tran.parentHash, LibCodec.packTransitionMetas(tranMetas)
+        );
 
         return keccak256(abi.encode(batchMetaHash, _input.tran));
     }

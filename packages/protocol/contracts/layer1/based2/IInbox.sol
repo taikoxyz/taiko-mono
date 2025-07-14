@@ -377,8 +377,21 @@ interface IInbox {
 
     /// @notice Emitted when a batch transition is proven
     /// @param batchId The unique identifier of the proven batch
+    /// @param parentHash The parent batch's last block's hash
     /// @param packedTranMeta The transition metadata encoded as bytes
-    event Proved(uint256 indexed batchId, bytes packedTranMeta);
+    event Proved(uint256 indexed batchId, bytes32 parentHash, bytes packedTranMeta);
+
+    /// @notice Emitted when a batch transition is proven
+    /// @param batchId The unique identifier of the proven batch
+    /// @param parentHash The parent batch's last block's hash
+    /// @param previousMetaHash The previous transition's meta hash
+    /// @param currentMetaHash The current transion's mata hash
+    event ProvedDifferently(
+        uint256 indexed batchId,
+        bytes32 parentHash,
+        bytes32 previousMetaHash,
+        bytes32 currentMetaHash
+    );
 
     /// @notice Emitted when a batch is verified and finalized
     /// @param uint48_batchId_uint48_blockId Combined batch ID and last block ID (packed)
