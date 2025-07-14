@@ -345,15 +345,21 @@ contract LibCodecBatchTest is Test {
     }
 
     function test_packBatches_revertBlocksArrayTooLarge() public {
+        // Test that the function properly validates array size limits
+        // Create an array larger than uint16.max (65536 > 65535)
+        // Use a smaller test size to avoid memory issues while still triggering the error
+        
+        // Create a test with a size that will trigger the bounds check
+        // We'll use vm.mockCall to simulate the length check
         IInbox.Batch[] memory batches = new IInbox.Batch[](1);
-
-        // Create blocks array that's too large for uint16 (65536 > 65535)
-        IInbox.Block[] memory largeBlocks = new IInbox.Block[](65536);
 
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
+        
+        // Create an empty blocks array first
+        IInbox.Block[] memory blocks = new IInbox.Block[](0);
 
         batches[0] = IInbox.Batch({
             proposer: address(0x1111),
@@ -364,7 +370,7 @@ contract LibCodecBatchTest is Test {
             proverAuth: emptyAuth,
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
-            blocks: largeBlocks,
+            blocks: blocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
                 firstBlobIndex: 1,
@@ -374,6 +380,13 @@ contract LibCodecBatchTest is Test {
                 createdIn: 5
             })
         });
+
+        // Use assembly to modify the array length to exceed uint16.max
+        assembly {
+            let batch := mload(add(batches, 0x20))
+            let blocksArray := mload(add(batch, 0x100)) // offset for blocks field
+            mstore(blocksArray, 65536) // Set length to 65536 (> uint16.max)
+        }
 
         vm.expectRevert(LibCodec.BlocksArrayTooLarge.selector);
         LibCodec.packBatches(batches);
