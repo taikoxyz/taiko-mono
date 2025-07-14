@@ -275,7 +275,7 @@ library LibValidate {
             // Validate and decode blocks
             require(_numBlocks != 0, BlockNotFound());
             uint48 firstBlockId = _parentLastBlockId + 1;
-            uint48 lastBlockId = uint48(firstBlockId + _numBlocks - 1);
+            uint48 lastBlockId = uint48(_parentLastBlockId + _numBlocks);
             require(
                 LibForks.isBlocksInCurrentFork(_conf, firstBlockId, lastBlockId),
                 BlocksNotInCurrentFork()
