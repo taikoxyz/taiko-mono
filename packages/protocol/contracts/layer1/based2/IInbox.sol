@@ -29,7 +29,7 @@ interface IInbox {
     struct Blobs {
         /// @notice Direct blob hashes (if non-empty, firstBlobIndex and numBlobs must be 0)
         /// @dev Length limited to uint8 max for gas efficiency
-        bytes32[] hashes; // TODO(Claude): remove this field
+        bytes32[] hashes; // length <= type(uint4).max
         /// @notice Index of the first blob in this batch (for blob index mode)
         uint8 firstBlobIndex;
         /// @notice Number of blobs in this batch
@@ -41,15 +41,14 @@ interface IInbox {
         uint32 byteSize;
         /// @notice Block number when blobs were created (only for forced inclusion)
         /// @dev Non-zero only when hashes array is used
-        uint48 createdIn; // TODO(Claude): remove this field
+        uint48 createdIn;
     }
 
     /// @notice Represents a batch of blocks to be proposed
     /// @dev Contains all data needed for batch validation and processing
     struct Batch {
         /// @notice Address that proposed this batch
-        address proposer; // TODO(Claude): remove this field and use "msg.sender" where this field
-            // is used now
+        address proposer;
         /// @notice Coinbase address for block rewards (can be zero)
         address coinbase;
         /// @notice Timestamp of the last block in this batch
@@ -57,15 +56,15 @@ interface IInbox {
         /// @notice Gas issuance rate per second for this batch
         uint32 gasIssuancePerSecond;
         /// @notice Whether this is a forced inclusion batch
-        bool isForcedInclusion; // TODO(Claude): remove this field
+        bool isForcedInclusion;
         /// @notice Prover authorization data
         bytes proverAuth;
         /// @notice Signal slots for cross-chain messages
-        bytes32[] signalSlots;
+        bytes32[] signalSlots; // length <= type(uint8).max
         /// @notice Anchor block IDs for L1-L2 synchronization
-        uint48[] anchorBlockIds;
+        uint48[] anchorBlockIds; // length <= type(uint16).max
         /// @notice Array of blocks in this batch
-        Block[] blocks;
+        Block[] blocks; // length <= type(uint16).max
         /// @notice Blob data for this batch
         Blobs blobs;
     }
@@ -78,12 +77,11 @@ interface IInbox {
         uint48 lastAnchorBlockId;
         uint48 lastBlockId;
         uint48 blobsCreatedIn;
-        uint32 blockMaxGasLimit;
         uint48 livenessBond;
         uint48 provabilityBond;
         uint8 baseFeeSharingPctg;
-        bytes32[] anchorBlockHashes; // length <= type(uint8).max
-        bytes32[] blobHashes; // length <= type(uint8).max
+        bytes32[] anchorBlockHashes; // length <= type(uint16).max
+        bytes32[] blobHashes; // length <= type(uint4).max
     }
 
     struct ProverAuth {
@@ -97,19 +95,18 @@ interface IInbox {
 
     struct BatchBuildMetadata {
         bytes32 txsHash;
-        bytes32[] blobHashes; // length <= type(uint8).max
+        bytes32[] blobHashes; // length <= type(uint4).max
         bytes32 extraData;
         address coinbase;
         uint48 proposedIn;
         uint48 blobCreatedIn;
         uint48 blobByteOffset;
         uint48 blobByteSize;
-        uint48 gasLimit;
         uint48 lastBlockId;
         uint48 lastBlockTimestamp;
-        uint48[] anchorBlockIds; // length <= type(uint8).max
-        bytes32[] anchorBlockHashes; // length <= type(uint8).max
-        Block[] blocks; // length <= type(uint8).max
+        uint48[] anchorBlockIds; // length <= type(uint16).max
+        bytes32[] anchorBlockHashes; // length <= type(uint16).max
+        Block[] blocks; // length <= type(uint16).max
     }
 
     struct BatchProposeMetadata {
@@ -212,8 +209,6 @@ interface IInbox {
         /// @notice The maximum number of verifications allowed when a batch is proposed or proved.
         uint64 maxBatchesToVerify;
         /// @notice The maximum gas limit allowed for a block.
-        uint32 blockMaxGasLimit;
-        /// @notice The amount of Taiko token as a prover liveness bond per batch.
         uint48 livenessBond;
         /// @notice The amount of Taiko token as a proposer's provability bond per batch.
         uint48 provabilityBond;

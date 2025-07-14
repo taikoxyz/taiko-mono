@@ -31,7 +31,7 @@ library LibValidate {
     /// @param _summary Current protocol summary state
     /// @param _batch The batch to validate
     /// @param _parentBatch Metadata from the parent batch proposal
-    /// @return context_ Validated batch information and computed hashes
+    /// @return _ Validated batch information and computed hashes
     function validate(
         LibState.Access memory _access,
         I.Config memory _config,
@@ -41,7 +41,7 @@ library LibValidate {
     )
         internal
         view
-        returns (I.BatchContext memory context_)
+        returns (I.BatchContext memory)
     {
         // We do not check the coinbase address -- if _batch.coinbase is address(0), the driver
         // shall use the proposer as the coinbase address.
@@ -76,7 +76,7 @@ library LibValidate {
         (bytes32 txsHash, bytes32[] memory blobHashes) = _calculateTxsHash(_access, _batch.blobs);
 
         // Initialize context
-        context_ = I.BatchContext({
+        return I.BatchContext({
             prover: address(0), // Will be set later in LibProver.validateProver
             txsHash: txsHash,
             blobHashes: blobHashes,
@@ -84,7 +84,6 @@ library LibValidate {
             lastBlockId: lastBlockId,
             anchorBlockHashes: anchorBlockHashes,
             blobsCreatedIn: blobsCreatedIn,
-            blockMaxGasLimit: _config.blockMaxGasLimit,
             livenessBond: _config.livenessBond,
             provabilityBond: _config.provabilityBond,
             baseFeeSharingPctg: _config.baseFeeSharingPctg

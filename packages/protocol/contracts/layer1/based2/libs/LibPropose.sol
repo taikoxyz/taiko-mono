@@ -61,7 +61,7 @@ library LibPropose {
             for (uint256 i; i < _batches.length; ++i) {
                 (parentBatch, _summary.lastBatchMetaHash) =
                     _proposeBatch(_access, _config, _summary, _batches[i], parentBatch);
-                    
+
                 ++_summary.nextBatchId;
 
                 if (_summary.gasIssuancePerSecond != _batches[i].gasIssuancePerSecond) {
