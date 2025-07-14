@@ -77,8 +77,8 @@ interface IInbox {
         uint48 lastAnchorBlockId;
         uint48 lastBlockId;
         uint48 blobsCreatedIn;
-        uint48 livenessBond;
-        uint48 provabilityBond;
+        uint48 livenessBond; // Gwei
+        uint48 provabilityBond; // Gwei
         uint8 baseFeeSharingPctg;
         bytes32[] anchorBlockHashes; // length <= type(uint16).max
         bytes32[] blobHashes; // length <= type(uint4).max
@@ -86,10 +86,10 @@ interface IInbox {
 
     struct ProverAuth {
         address prover;
-        address feeToken;
-        uint96 fee;
-        uint64 validUntil; // optional
-        uint64 batchId; // optional
+        address feeToken; // Ether not supported!
+        uint48 fee; // Gwei
+        uint48 validUntil; // optional
+        uint48 batchId; // optional
         bytes signature;
     }
 
@@ -121,8 +121,8 @@ interface IInbox {
         uint48 proposedAt;
         uint48 firstBlockId;
         uint48 lastBlockId;
-        uint48 livenessBond;
-        uint48 provabilityBond;
+        uint48 livenessBond; // Gwei
+        uint48 provabilityBond; // Gwei
     }
 
     struct BatchMetadata {
@@ -200,33 +200,20 @@ interface IInbox {
         uint64 fuji;
     }
 
-    /// @notice Struct holding Taiko configuration parameters. See {TaikoConfig}.
+    /// @notice Struct holding Taiko configuration parameters
     struct Config {
-        /// @notice The chain ID of the network where Taiko contracts are deployed.
         uint64 chainId;
-        /// @notice Size of the batch ring buffer, allowing extra space for proposals.
         uint24 batchRingBufferSize;
-        /// @notice The maximum number of verifications allowed when a batch is proposed or proved.
         uint8 maxBatchesToVerify;
-        /// @notice The maximum gas limit allowed for a block.
-        uint48 livenessBond;
-        /// @notice The amount of Taiko token as a proposer's provability bond per batch.
-        uint48 provabilityBond;
-        /// @notice The number of batches between two L2-to-L1 state root sync.
+        uint48 livenessBond; // Gwei
+        uint48 provabilityBond; // Gwei
         uint8 stateRootSyncInternal;
-        /// @notice The max differences of the anchor height and the current block number.
         uint16 maxAnchorHeightOffset;
-        /// @notice The proving window in seconds.
         uint24 provingWindow;
-        /// @notice The extended proving window in seconds before provability bond is used as
-        /// reward.
         uint24 extendedProvingWindow;
-        /// @notice The time required for a transition to be used for verifying a batch.
         uint24 cooldownWindow;
         uint8 bondRewardPtcg; // 0-100
-        /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
-        /// @notice The token used for bonding.
         address bondToken;
         address inboxWrapper;
         address verifier;
