@@ -123,7 +123,8 @@ library LibVerify {
 
             if (_tran.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
                 // Prover is rewarded with bondRewardPtcg% of the liveness bond
-                uint48 amount = (_tran.livenessBond * _config.bondRewardPtcg) / 100;
+                // Note: _config.bondRewardPtcg <= 100
+                uint48 amount = uint48((uint256(_tran.livenessBond) * _config.bondRewardPtcg) / 100);
                 return _isFirstTransition ? amount + _tran.provabilityBond : amount;
             }
 
@@ -134,7 +135,8 @@ library LibVerify {
             }
 
             // Other provers get bondRewardPtcg% of the provability bond
-            return (_tran.provabilityBond * _config.bondRewardPtcg) / 100;
+            // Note: _config.bondRewardPtcg <= 100
+            return uint48((uint256(_tran.provabilityBond) * _config.bondRewardPtcg) / 100);
         }
     }
 

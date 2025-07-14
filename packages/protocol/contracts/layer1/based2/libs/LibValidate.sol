@@ -18,7 +18,6 @@ import "./LibCodec.sol";
 ///      - Signal validation
 /// @custom:security-contact security@taiko.xyz
 library LibValidate {
-
     uint32 internal constant MIN_GAS_ISSUANCE_PER_SECOND = 100_000;
     // -------------------------------------------------------------------------
     // Internal Functions
