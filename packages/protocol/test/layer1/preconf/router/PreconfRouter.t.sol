@@ -106,6 +106,14 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         _setupMockBeacon(epochOneStart, new MockBeaconBlockRoot());
 
+        // Setup Bob with bond tokens since he'll be the proposer
+        vm.deal(Bob, 100 ether);
+        bondToken.transfer(Bob, 1000 ether);
+        vm.startPrank(Bob);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(200 ether);
+        vm.stopPrank();
+
         // Setup block params
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
         blockParams[0] = ITaikoInbox.BlockParams({
@@ -132,7 +140,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         
         vm.prank(Carol);
         vm.expectRevert(PreconfRouter.ProposerIsNotPreconfer.selector);
-        router.v4ProposeBatch(wrappedParams, "", "");
+        router.v4ProposeBatch(wrappedParams, abi.encodePacked("txList"), "");
     }
 
     function _setupMockBeacon(uint256 epochOneStart, MockBeaconBlockRoot mockBeacon) internal {

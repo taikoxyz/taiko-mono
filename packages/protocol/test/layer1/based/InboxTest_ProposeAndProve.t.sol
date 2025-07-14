@@ -555,7 +555,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.BatchParams memory batchParams;
         batchParams.blocks = new ITaikoInbox.BlockParams[](10);
 
-        vm.startSnapshotGas("ProposeAndProve","proposeBatchNoRouter");
+        vm.startSnapshotGas("ProposeAndProve", "proposeBatchNoRouter");
         (, ITaikoInbox.BatchMetadata memory meta) =
             inbox.v4ProposeBatch(abi.encode(batchParams), abi.encodePacked("txList"), "");
         uint256 gas1 = vm.stopSnapshotGas();
@@ -568,7 +568,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         transitions[0].blockHash = correctBlockhash(meta.batchId);
         transitions[0].stateRoot = correctStateRoot(meta.batchId);
 
-        vm.startSnapshotGas("ProposeAndProve","proveBatches");
+        vm.startSnapshotGas("ProposeAndProve", "proveBatches");
         inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
         uint256 gas2 = vm.stopSnapshotGas();
 

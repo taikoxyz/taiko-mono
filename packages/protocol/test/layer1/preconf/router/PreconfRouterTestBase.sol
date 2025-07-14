@@ -18,7 +18,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
     ForcedInclusionStore internal forcedInclusionStore;
     DevnetInbox internal inbox;
     TaikoToken internal bondToken;
-    
+
     address internal routerOwner;
     address internal whitelistOwner;
     address internal fallbackPreconfer;
@@ -32,7 +32,8 @@ abstract contract PreconfRouterTestBase is Layer1Test {
 
         // Step 1: Deploy supporting contracts
         bondToken = deployBondToken();
-        SignalService signalService = deploySignalService(address(new SignalService(address(resolver))));
+        SignalService signalService =
+            deploySignalService(address(new SignalService(address(resolver))));
         address verifierAddr = address(new Verifier_ToggleStub());
         resolver.registerAddress(block.chainid, "proof_verifier", verifierAddr);
 
@@ -47,7 +48,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
                 address(signalService)
             )
         );
-        
+
         address inboxProxy = deploy({
             name: "taiko",
             impl: inboxImpl,
@@ -84,12 +85,14 @@ abstract contract PreconfRouterTestBase is Layer1Test {
         // Step 5: Deploy PreconfRouter (pointing to TaikoWrapper which we'll deploy next)
         // We need to know the TaikoWrapper address beforehand for the router
         // So we'll create router after TaikoWrapper
-        
+
         // Step 6: Deploy TaikoWrapper with real ForcedInclusionStore
         taikoWrapper = TaikoWrapper(
             deploy({
                 name: "taiko_wrapper",
-                impl: address(new TaikoWrapper(address(inbox), address(forcedInclusionStore), address(0))),
+                impl: address(
+                    new TaikoWrapper(address(inbox), address(forcedInclusionStore), address(0))
+                ),
                 data: abi.encodeCall(TaikoWrapper.init, (address(0)))
             })
         );
@@ -110,14 +113,18 @@ abstract contract PreconfRouterTestBase is Layer1Test {
         router = PreconfRouter(
             deploy({
                 name: "preconf_router",
-                impl: address(new PreconfRouter(address(taikoWrapper), address(whitelist), fallbackPreconfer)),
+                impl: address(
+                    new PreconfRouter(address(taikoWrapper), address(whitelist), fallbackPreconfer)
+                ),
                 data: abi.encodeCall(PreconfRouter.init, (routerOwner))
             })
         );
 
         // Step 9: Update TaikoWrapper to know about the router
         UUPSUpgradeable(address(taikoWrapper)).upgradeTo(
-            address(new TaikoWrapper(address(inbox), address(forcedInclusionStore), address(router)))
+            address(
+                new TaikoWrapper(address(inbox), address(forcedInclusionStore), address(router))
+            )
         );
 
         // Step 10: Configure inbox to only accept calls from TaikoWrapper
