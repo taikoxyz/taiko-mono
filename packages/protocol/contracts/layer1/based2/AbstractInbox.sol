@@ -56,7 +56,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         bytes calldata _packedSummary,
         bytes calldata _packedBatches,
         bytes calldata _packedEvidence,
-        bytes calldata _packedTrans
+        bytes calldata _packedTransitionMetas
     )
         external
         override(I, IPropose)
@@ -67,7 +67,8 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         I.Batch[] memory batches = LibCodec.unpackBatches(_packedBatches);
         I.BatchProposeMetadataEvidence memory evidence =
             LibCodec.unpackBatchProposeMetadataEvidence(_packedEvidence);
-        I.TransitionMeta[] memory transitionMetas = LibCodec.unpackTransitionMetas(_packedTrans);
+        I.TransitionMeta[] memory transitionMetas =
+            LibCodec.unpackTransitionMetas(_packedTransitionMetas);
 
         I.Config memory config = _getConfig();
         LibState.Access memory access = _getReadWrite();
@@ -83,6 +84,9 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     }
 
     /// @inheritdoc IProve
+    /// @dev In prevous versions, proving a block may also trigger block verification, in this
+    /// upgrade, this is no longer the case as we would like to ensure more certainty for provers
+    /// and let proposers to manage the uncertaity of verification cost.
     function prove4(
         bytes calldata _packedSummary,
         bytes calldata _packedBatchProveInputs,
