@@ -80,7 +80,6 @@ library LibProve {
 
         // Load and verify the batch metadata
         bytes32 batchMetaHash = _access.loadBatchMetaHash(_config, _input.tran.batchId);
-
         require(batchMetaHash == LibData.hashBatch(_input), MetaHashNotMatch());
 
         bytes32 stateRoot = _input.tran.batchId % _config.stateRootSyncInternal == 0
