@@ -62,7 +62,6 @@ library LibProve {
     function _proveBatch(
         LibState.Access memory _access,
         I.Config memory _config,
-        // I.Summary memory _summary,
         I.BatchProveInput memory _input
     )
         private
@@ -81,7 +80,6 @@ library LibProve {
 
         // Load and verify the batch metadata
         bytes32 batchMetaHash = _access.loadBatchMetaHash(_config, _input.tran.batchId);
-
         require(batchMetaHash == LibData.hashBatch(_input), MetaHashNotMatch());
 
         bytes32 stateRoot = _input.tran.batchId % _config.stateRootSyncInternal == 0
@@ -119,7 +117,9 @@ library LibProve {
 
         I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](1);
         tranMetas[0] = tranMeta;
-        emit I.Proved(_input.tran.batchId, LibCodec.packTransitionMetas(tranMetas));
+        emit I.Proved(
+            _input.tran.batchId, _input.tran.parentHash, LibCodec.packTransitionMetas(tranMetas)
+        );
 
         return keccak256(abi.encode(batchMetaHash, _input.tran));
     }
@@ -154,7 +154,6 @@ library LibProve {
     // Errors
     // -------------------------------------------------------------------------
 
-    error BatchNotFound();
     error BlocksNotInCurrentFork();
     error InvalidTransitionParentHash();
     error MetaHashNotMatch();
