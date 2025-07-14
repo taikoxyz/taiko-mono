@@ -6,8 +6,7 @@ import "../mocks/MockBeaconBlockRoot.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 
 contract PreconfRouterTest is PreconfRouterTestBase {
-     
-     /// forge-config: default.isolate = true
+    /// forge-config: default.isolate = true
     function test_preconfRouter_proposeBatch() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
@@ -36,7 +35,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
         blockParams[0] = ITaikoInbox.BlockParams({
             numTransactions: 1,
-            timeShift: 0,  // First block must have timeShift = 0
+            timeShift: 0, // First block must have timeShift = 0
             signalSlots: new bytes32[](0)
         });
 
@@ -54,12 +53,14 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         vm.warp(currentEpoch + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Prank as Carol (selected operator) and propose blocks
-        // TaikoWrapper expects (bytes, bytes) format where first is forced inclusion, second is normal batch
+        // TaikoWrapper expects (bytes, bytes) format where first is forced inclusion, second is
+        // normal batch
         bytes memory wrappedParams = abi.encode(bytes(""), abi.encode(params));
-        
-        vm.startSnapshotGas("ProposeAndProve","proposeBatchWithRouter");
+
+        vm.startSnapshotGas("ProposeAndProve", "proposeBatchWithRouter");
         vm.prank(Carol);
-        (ITaikoInbox.BatchInfo memory info,) = router.v4ProposeBatch(wrappedParams, abi.encodePacked("txList"), "");
+        (ITaikoInbox.BatchInfo memory info,) =
+            router.v4ProposeBatch(wrappedParams, abi.encodePacked("txList"), "");
         vm.stopSnapshotGas();
 
         // Assert the proposer was set correctly in the metadata
@@ -118,7 +119,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
         blockParams[0] = ITaikoInbox.BlockParams({
             numTransactions: 1,
-            timeShift: 0,  // First block must have timeShift = 0
+            timeShift: 0, // First block must have timeShift = 0
             signalSlots: new bytes32[](0)
         });
 
@@ -135,9 +136,10 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         vm.warp(currentEpoch + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Prank as Carol (selected operator) and propose blocks
-        // TaikoWrapper expects (bytes, bytes) format where first is forced inclusion, second is normal batch
+        // TaikoWrapper expects (bytes, bytes) format where first is forced inclusion, second is
+        // normal batch
         bytes memory wrappedParams = abi.encode(bytes(""), abi.encode(params));
-        
+
         vm.prank(Carol);
         vm.expectRevert(PreconfRouter.ProposerIsNotPreconfer.selector);
         router.v4ProposeBatch(wrappedParams, abi.encodePacked("txList"), "");
