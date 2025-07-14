@@ -386,6 +386,12 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 
 	payloadID := args.Id()
 
+	var u256BaseFee = uint256.Int(envelope.Payload.BaseFeePerGas)
+	var signature [65]byte
+	if envelope.Signature != nil {
+		signature = *envelope.Signature
+	}
+
 	log.Debug(
 		"Payload arguments",
 		"blockID", uint64(envelope.Payload.BlockNumber),
@@ -395,13 +401,8 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 		"random", args.Random.Hex(),
 		"txListHash", args.TxListHash.Hex(),
 		"id", payloadID.String(),
+		"signature", common.Bytes2Hex(signature[:]),
 	)
-
-	var u256BaseFee = uint256.Int(envelope.Payload.BaseFeePerGas)
-	var signature [65]byte
-	if envelope.Signature != nil {
-		signature = *envelope.Signature
-	}
 
 	payload, err := createExecutionPayloadsAndSetHead(
 		ctx,
