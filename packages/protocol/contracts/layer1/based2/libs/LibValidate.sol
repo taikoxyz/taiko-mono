@@ -19,6 +19,8 @@ import "./LibCodec.sol";
 /// @custom:security-contact security@taiko.xyz
 library LibValidate {
     uint32 internal constant MIN_GAS_ISSUANCE_PER_SECOND = 100_000;
+    uint32 internal constant MAX_GAS_ISSUANCE_PER_SECOND = 100_000_000;
+
     // -------------------------------------------------------------------------
     // Internal Functions
     // -------------------------------------------------------------------------
@@ -123,7 +125,8 @@ library LibValidate {
             if (_batch.gasIssuancePerSecond == _summary.gasIssuancePerSecond) return;
 
             require(
-                _batch.gasIssuancePerSecond <= _summary.gasIssuancePerSecond * 101 / 100,
+                _batch.gasIssuancePerSecond <= MAX_GAS_ISSUANCE_PER_SECOND
+                    && _batch.gasIssuancePerSecond <= _summary.gasIssuancePerSecond * 101 / 100,
                 GasIssuanceTooHigh()
             );
             require(
