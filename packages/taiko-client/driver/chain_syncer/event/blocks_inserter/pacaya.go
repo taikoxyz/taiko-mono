@@ -323,6 +323,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
 		"parentHash", envelope.Payload.ParentHash,
 		"timestamp", envelope.Payload.Timestamp,
 		"feeRecipient", envelope.Payload.FeeRecipient,
+		"signature", common.Bytes2Hex(envelope.Signature[:]),
 	)
 
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
