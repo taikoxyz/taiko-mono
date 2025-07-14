@@ -458,6 +458,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		"l1BlockHash", l1Origin.L1BlockHash.Hex(),
 		"l1OriginBlockID", l1Origin.BlockID.Uint64(),
 		"l1OriginIsForcedInclusion", l1Origin.IsForcedInclusion,
+		"l1OriginBlockHeight", l1Origin.L1BlockHeight.Uint64(),
 		"l1OriginSignature", common.Bytes2Hex(l1Origin.Signature[:]),
 	)
 
