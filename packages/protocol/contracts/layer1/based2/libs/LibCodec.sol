@@ -496,12 +496,6 @@ library LibCodec {
                     let proverAuth := mload(add(batch, 0xa0))
                     let proverAuthLen := mload(proverAuth)
 
-                    // Validate proverAuth length fits in uint16
-                    if gt(proverAuthLen, 0xFFFF) {
-                        mstore(0x00, 0xdfe93090) // InvalidDataLength()
-                        revert(0x1c, 0x04)
-                    }
-
                     // Store proverAuth length (2 bytes for uint16)
                     mstore(ptr, shl(240, proverAuthLen))
                     ptr := add(ptr, 2)
