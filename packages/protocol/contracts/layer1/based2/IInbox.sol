@@ -367,8 +367,8 @@ interface IInbox {
     }
 
     /// @notice Emitted when the protocol summary is updated
-    /// @param summary The updated protocol summary containing current state
-    event SummaryUpdated(Summary summary);
+    /// @param packedSummary The updated protocol summary encoded as bytes
+    event SummaryUpdated(bytes packedSummary);
 
     /// @notice Emitted when a new batch is proposed
     /// @param batchId The unique identifier of the proposed batch
