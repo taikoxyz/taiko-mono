@@ -46,9 +46,6 @@ library LibValidate {
         // We do not check the coinbase address -- if _batch.coinbase is address(0), the driver
         // shall use the proposer as the coinbase address.
 
-        // Validate proposer
-        _validateProposer(_config, _batch);
-
         // Validate new gas issuance per second
         _validateGasIssuance(_config, _summary, _batch);
 
@@ -70,7 +67,7 @@ library LibValidate {
             _validateBlockRange(_config, _batch.blocks.length, _parentBatch.lastBlockId);
 
         // Validate blobs
-        uint48 blobsCreatedIn = _validateBlobs(_config, _batch);
+        _validateBlobs(_config, _batch);
 
         // Calculate transaction hash
         (bytes32 txsHash, bytes32[] memory blobHashes) = _calculateTxsHash(_access, _batch.blobs);
@@ -83,7 +80,6 @@ library LibValidate {
             lastAnchorBlockId: lastAnchorBlockId,
             lastBlockId: lastBlockId,
             anchorBlockHashes: anchorBlockHashes,
-            blobsCreatedIn: blobsCreatedIn,
             blockMaxGasLimit: _config.blockMaxGasLimit,
             livenessBond: _config.livenessBond,
             provabilityBond: _config.provabilityBond,
@@ -95,18 +91,7 @@ library LibValidate {
     // Private Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Validates the proposer
-    /// @dev Handles both direct proposing and inbox wrapper scenarios
-    /// @param _config Protocol configuration
-    /// @param _batch The batch being validated
-    function _validateProposer(I.Config memory _config, I.Batch memory _batch) internal view {
-        if (_config.inboxWrapper == address(0)) {
-            require(_batch.proposer == msg.sender, ProposerNotMsgSender());
-        } else {
-            require(msg.sender == _config.inboxWrapper, NotInboxWrapper());
-            require(_batch.proposer != address(0), CustomProposerMissing());
-        }
-    }
+   
 
     /// @notice Validates the gas issuance per second for a batch
     /// @dev Ensures that the gas issuance per second is within a 1% range of the last recorded
@@ -269,11 +254,8 @@ library LibValidate {
             anchorIndex++;
         }
 
-        // Ensure that if msg.sender is not the inboxWrapper, at least one block must
-        // have a non-zero anchor block id.
-        if (_config.inboxWrapper != address(0)) {
-            require(hasAnchorBlock, NoAnchorBlockIdWithinThisBatch());
-        }
+        // Ensure  at least one block must have a non-zero anchor block id.
+        require(hasAnchorBlock, NoAnchorBlockIdWithinThisBatch());
     }
 
     /// @notice Validates the block ID range for the batch
@@ -302,40 +284,18 @@ library LibValidate {
         }
     }
 
-    /// @notice Validates blob data and forced inclusion parameters
-    /// @dev Handles different blob scenarios: direct proposing, normal batches, and forced
-    /// inclusion
-    /// @param _conf Protocol configuration
+    /// @notice Validates blob data
+    /// @dev Simplified blob validation - ensures blobs are specified
     /// @param _batch The batch containing blob information
-    /// @return blobsCreatedIn_ Block number where blobs were created
     function _validateBlobs(
-        I.Config memory _conf,
+        I.Config memory,
         I.Batch memory _batch
     )
         private
-        view
-        returns (uint48 blobsCreatedIn_)
+        pure
     {
-        if (_conf.inboxWrapper == address(0)) {
-            // blob hashes are only accepted if the caller is trusted.
-            require(_batch.blobs.hashes.length == 0, InvalidBlobParams());
-            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
-            require(_batch.isForcedInclusion == false, InvalidForcedInclusion());
-            return uint48(block.number);
-        } else if (_batch.blobs.hashes.length == 0) {
-            // this is a normal batch, blobs are created and used in the current batches.
-            // firstBlobIndex can be non-zero.
-            require(_batch.blobs.numBlobs != 0, BlobNotSpecified());
-            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
-            return uint48(block.number);
-        } else {
-            // this is a forced-inclusion batch, blobs were created in early blocks and are used
-            // in the current batches
-            require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
-            require(_batch.blobs.numBlobs == 0, InvalidBlobParams());
-            require(_batch.blobs.firstBlobIndex == 0, InvalidBlobParams());
-            return _batch.blobs.createdIn;
-        }
+        // Blobs must be specified
+        require(_batch.blobs.numBlobs != 0, BlobNotSpecified());
     }
 
     /// @notice Calculates the transaction hash from blob data
@@ -353,13 +313,10 @@ library LibValidate {
         returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
     {
         unchecked {
-            if (_blobs.hashes.length != 0) {
-                blobHashes_ = _blobs.hashes;
-            } else {
-                blobHashes_ = new bytes32[](_blobs.numBlobs);
-                for (uint256 i; i < _blobs.numBlobs; ++i) {
-                    blobHashes_[i] = _access.getBlobHash(_blobs.firstBlobIndex + i);
-                }
+            // Always use blob indices now, direct hashes no longer supported
+            blobHashes_ = new bytes32[](_blobs.numBlobs);
+            for (uint256 i; i < _blobs.numBlobs; ++i) {
+                blobHashes_[i] = _access.getBlobHash(_blobs.firstBlobIndex + i);
             }
 
             for (uint256 i; i < blobHashes_.length; ++i) {

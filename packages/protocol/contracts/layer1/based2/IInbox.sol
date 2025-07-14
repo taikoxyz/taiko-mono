@@ -25,11 +25,8 @@ interface IInbox {
     }
 
     /// @notice Contains blob data for a batch
-    /// @dev Supports both direct blob hashes and blob indices for different scenarios
+    /// @dev Supports blob indices for batch processing
     struct Blobs {
-        /// @notice Direct blob hashes (if non-empty, firstBlobIndex and numBlobs must be 0)
-        /// @dev Length limited to uint8 max for gas efficiency
-        bytes32[] hashes; // TODO(Claude): remove this field
         /// @notice Index of the first blob in this batch (for blob index mode)
         uint8 firstBlobIndex;
         /// @notice Number of blobs in this batch
@@ -39,25 +36,17 @@ interface IInbox {
         uint32 byteOffset;
         /// @notice Size of the blob data in bytes
         uint32 byteSize;
-        /// @notice Block number when blobs were created (only for forced inclusion)
-        /// @dev Non-zero only when hashes array is used
-        uint48 createdIn;  // TODO(Claude): remove this field
-         
     }
 
     /// @notice Represents a batch of blocks to be proposed
     /// @dev Contains all data needed for batch validation and processing
     struct Batch {
-        /// @notice Address that proposed this batch
-        address proposer;  // TODO(Claude): remove this field and use "msg.sender" where this field is used now
         /// @notice Coinbase address for block rewards (can be zero)
         address coinbase;
         /// @notice Timestamp of the last block in this batch
         uint48 lastBlockTimestamp;
         /// @notice Gas issuance rate per second for this batch
         uint32 gasIssuancePerSecond;
-        /// @notice Whether this is a forced inclusion batch
-        bool isForcedInclusion;  // TODO(Claude): remove this field
         /// @notice Prover authorization data
         bytes proverAuth;
         /// @notice Signal slots for cross-chain messages
@@ -73,11 +62,11 @@ interface IInbox {
     /// @notice Output structure containing validated batch information
     /// @dev This struct aggregates all validation results for efficient batch processing
     struct BatchContext {
+        // address proposer;
         address prover;
         bytes32 txsHash;
         uint48 lastAnchorBlockId;
         uint48 lastBlockId;
-        uint48 blobsCreatedIn;
         uint32 blockMaxGasLimit;
         uint48 livenessBond;
         uint48 provabilityBond;
@@ -101,7 +90,6 @@ interface IInbox {
         bytes32 extraData;
         address coinbase;
         uint48 proposedIn;
-        uint48 blobCreatedIn;
         uint48 blobByteOffset;
         uint48 blobByteSize;
         uint48 gasLimit;
@@ -208,9 +196,9 @@ interface IInbox {
         /// @notice The chain ID of the network where Taiko contracts are deployed.
         uint64 chainId;
         /// @notice Size of the batch ring buffer, allowing extra space for proposals.
-        uint64 batchRingBufferSize;
+        uint24 batchRingBufferSize;
         /// @notice The maximum number of verifications allowed when a batch is proposed or proved.
-        uint64 maxBatchesToVerify;
+        uint8 maxBatchesToVerify;
         /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
         /// @notice The amount of Taiko token as a prover liveness bond per batch.
@@ -220,9 +208,9 @@ interface IInbox {
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.
-        uint64 maxAnchorHeightOffset;
+        uint16 maxAnchorHeightOffset;
         /// @notice The proving window in seconds.
-        uint16 provingWindow;
+        uint24 provingWindow;
         /// @notice The extended proving window in seconds before provability bond is used as
         /// reward.
         uint24 extendedProvingWindow;
@@ -237,7 +225,6 @@ interface IInbox {
         ForkHeights forkHeights;
         /// @notice The token used for bonding.
         address bondToken;
-        address inboxWrapper;
         address verifier;
         address signalService;
         uint16 gasIssuanceUpdateDelay;

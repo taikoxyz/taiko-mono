@@ -14,7 +14,6 @@ contract LibCodecBatchContextTest is Test {
             txsHash: bytes32(uint256(0xabcdef)),
             lastAnchorBlockId: 12_345,
             lastBlockId: 67_890,
-            blobsCreatedIn: 11_111,
             blockMaxGasLimit: 30_000_000,
             livenessBond: 100_000,
             provabilityBond: 200_000,
@@ -30,7 +29,7 @@ contract LibCodecBatchContextTest is Test {
         assertEq(unpacked.txsHash, context.txsHash);
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
         assertEq(unpacked.lastBlockId, context.lastBlockId);
-        assertEq(unpacked.blobsCreatedIn, context.blobsCreatedIn);
+        // blobsCreatedIn field removed
         assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
         assertEq(unpacked.livenessBond, context.livenessBond);
         assertEq(unpacked.provabilityBond, context.provabilityBond);
@@ -54,7 +53,6 @@ contract LibCodecBatchContextTest is Test {
             txsHash: keccak256("test"),
             lastAnchorBlockId: 99_999,
             lastBlockId: 123_456,
-            blobsCreatedIn: 22_222,
             blockMaxGasLimit: 50_000_000,
             livenessBond: 150_000,
             provabilityBond: 250_000,
@@ -70,7 +68,7 @@ contract LibCodecBatchContextTest is Test {
         assertEq(unpacked.txsHash, context.txsHash);
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
         assertEq(unpacked.lastBlockId, context.lastBlockId);
-        assertEq(unpacked.blobsCreatedIn, context.blobsCreatedIn);
+        // blobsCreatedIn field removed
         assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
         assertEq(unpacked.livenessBond, context.livenessBond);
         assertEq(unpacked.provabilityBond, context.provabilityBond);
@@ -92,7 +90,6 @@ contract LibCodecBatchContextTest is Test {
             txsHash: bytes32(type(uint256).max),
             lastAnchorBlockId: type(uint48).max,
             lastBlockId: type(uint48).max,
-            blobsCreatedIn: type(uint48).max,
             blockMaxGasLimit: type(uint32).max,
             livenessBond: type(uint48).max,
             provabilityBond: type(uint48).max,
@@ -108,7 +105,7 @@ contract LibCodecBatchContextTest is Test {
         assertEq(unpacked.txsHash, context.txsHash);
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
         assertEq(unpacked.lastBlockId, context.lastBlockId);
-        assertEq(unpacked.blobsCreatedIn, context.blobsCreatedIn);
+        // blobsCreatedIn field removed
         assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
         assertEq(unpacked.livenessBond, context.livenessBond);
         assertEq(unpacked.provabilityBond, context.provabilityBond);
@@ -135,7 +132,6 @@ contract LibCodecBatchContextTest is Test {
             txsHash: keccak256("large arrays test"),
             lastAnchorBlockId: 1000,
             lastBlockId: 2000,
-            blobsCreatedIn: 3000,
             blockMaxGasLimit: 30_000_000,
             livenessBond: 4000,
             provabilityBond: 5000,
@@ -173,7 +169,6 @@ contract LibCodecBatchContextTest is Test {
             txsHash: bytes32(0),
             lastAnchorBlockId: 0,
             lastBlockId: 0,
-            blobsCreatedIn: 0,
             blockMaxGasLimit: 0,
             livenessBond: 0,
             provabilityBond: 0,
@@ -203,7 +198,6 @@ contract LibCodecBatchContextTest is Test {
         bytes32 txsHash,
         uint48 lastAnchorBlockId,
         uint48 lastBlockId,
-        uint48 blobsCreatedIn,
         uint32 blockMaxGasLimit,
         uint48 livenessBond,
         uint48 provabilityBond,
@@ -233,7 +227,6 @@ contract LibCodecBatchContextTest is Test {
             txsHash: txsHash,
             lastAnchorBlockId: lastAnchorBlockId,
             lastBlockId: lastBlockId,
-            blobsCreatedIn: blobsCreatedIn,
             blockMaxGasLimit: blockMaxGasLimit,
             livenessBond: livenessBond,
             provabilityBond: provabilityBond,
@@ -249,7 +242,7 @@ contract LibCodecBatchContextTest is Test {
         assertEq(unpacked.txsHash, context.txsHash);
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
         assertEq(unpacked.lastBlockId, context.lastBlockId);
-        assertEq(unpacked.blobsCreatedIn, context.blobsCreatedIn);
+        // blobsCreatedIn field removed
         assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
         assertEq(unpacked.livenessBond, context.livenessBond);
         assertEq(unpacked.provabilityBond, context.provabilityBond);
@@ -277,7 +270,6 @@ contract LibCodecBatchContextTest is Test {
             txsHash: bytes32(0),
             lastAnchorBlockId: 0,
             lastBlockId: 0,
-            blobsCreatedIn: 0,
             blockMaxGasLimit: 0,
             livenessBond: 0,
             provabilityBond: 0,
@@ -308,7 +300,6 @@ contract LibCodecBatchContextTest is Test {
             txsHash: keccak256("gas test"),
             lastAnchorBlockId: 1000,
             lastBlockId: 2000,
-            blobsCreatedIn: 3000,
             blockMaxGasLimit: 30_000_000,
             livenessBond: 4000,
             provabilityBond: 5000,

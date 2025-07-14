@@ -28,25 +28,20 @@ contract LibCodecBatchTest is Test {
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
-        bytes32[] memory emptyHashes = new bytes32[](0);
 
         batches[0] = IInbox.Batch({
-            proposer: address(0x1111),
             coinbase: address(0x2222),
             lastBlockTimestamp: 123_456,
             gasIssuancePerSecond: 789,
-            isForcedInclusion: true,
             proverAuth: emptyAuth,
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
-                hashes: emptyHashes,
                 firstBlobIndex: 1,
                 numBlobs: 2,
                 byteOffset: 3,
-                byteSize: 4,
-                createdIn: 5
+                byteSize: 4
             })
         });
 
@@ -54,11 +49,11 @@ contract LibCodecBatchTest is Test {
         IInbox.Batch[] memory unpacked = LibCodec.unpackBatches(packed);
 
         assertEq(unpacked.length, 1);
-        assertEq(unpacked[0].proposer, batches[0].proposer);
+        // proposer field removed
         assertEq(unpacked[0].coinbase, batches[0].coinbase);
         assertEq(unpacked[0].lastBlockTimestamp, batches[0].lastBlockTimestamp);
         assertEq(unpacked[0].gasIssuancePerSecond, batches[0].gasIssuancePerSecond);
-        assertEq(unpacked[0].isForcedInclusion, batches[0].isForcedInclusion);
+        // isForcedInclusion field removed
         // Note: The current implementation stores empty arrays for complex fields
     }
 
@@ -70,25 +65,20 @@ contract LibCodecBatchTest is Test {
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
-        bytes32[] memory emptyHashes = new bytes32[](0);
 
         batches[0] = IInbox.Batch({
-            proposer: address(0x1111),
             coinbase: address(0x2222),
             lastBlockTimestamp: 123_456,
             gasIssuancePerSecond: 789,
-            isForcedInclusion: false,
             proverAuth: proverAuth,
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
-                hashes: emptyHashes,
                 firstBlobIndex: 10,
                 numBlobs: 20,
                 byteOffset: 30,
-                byteSize: 40,
-                createdIn: 50
+                byteSize: 40
             })
         });
 
@@ -96,11 +86,11 @@ contract LibCodecBatchTest is Test {
         IInbox.Batch[] memory unpacked = LibCodec.unpackBatches(packed);
 
         assertEq(unpacked.length, 1);
-        assertEq(unpacked[0].proposer, batches[0].proposer);
+        // proposer field removed
         assertEq(unpacked[0].coinbase, batches[0].coinbase);
         assertEq(unpacked[0].lastBlockTimestamp, batches[0].lastBlockTimestamp);
         assertEq(unpacked[0].gasIssuancePerSecond, batches[0].gasIssuancePerSecond);
-        assertEq(unpacked[0].isForcedInclusion, batches[0].isForcedInclusion);
+        // isForcedInclusion field removed
         assertEq(unpacked[0].proverAuth.length, proverAuth.length);
 
         // Verify proverAuth data integrity
@@ -116,26 +106,21 @@ contract LibCodecBatchTest is Test {
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
-        bytes32[] memory emptyHashes = new bytes32[](0);
 
         for (uint256 i = 0; i < 3; i++) {
             batches[i] = IInbox.Batch({
-                proposer: address(uint160(i + 100)),
                 coinbase: address(uint160(i + 200)),
                 lastBlockTimestamp: uint48(i + 1000),
                 gasIssuancePerSecond: uint32(i + 2000),
-                isForcedInclusion: i % 2 == 0,
                 proverAuth: emptyAuth,
                 signalSlots: emptySlots,
                 anchorBlockIds: emptyBlockIds,
                 blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
-                    hashes: emptyHashes,
-                    firstBlobIndex: uint8(i + 1),
+                        firstBlobIndex: uint8(i + 1),
                     numBlobs: uint8(i + 2),
                     byteOffset: uint32(i + 3),
-                    byteSize: uint32(i + 4),
-                    createdIn: uint48(i + 5)
+                    byteSize: uint32(i + 4)
                 })
             });
         }
@@ -146,11 +131,11 @@ contract LibCodecBatchTest is Test {
         assertEq(unpacked.length, 3);
 
         for (uint256 i = 0; i < 3; i++) {
-            assertEq(unpacked[i].proposer, batches[i].proposer);
+            // proposer field removed
             assertEq(unpacked[i].coinbase, batches[i].coinbase);
             assertEq(unpacked[i].lastBlockTimestamp, batches[i].lastBlockTimestamp);
             assertEq(unpacked[i].gasIssuancePerSecond, batches[i].gasIssuancePerSecond);
-            assertEq(unpacked[i].isForcedInclusion, batches[i].isForcedInclusion);
+            // isForcedInclusion field removed
         }
     }
 
@@ -164,27 +149,22 @@ contract LibCodecBatchTest is Test {
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
-        bytes32[] memory emptyHashes = new bytes32[](0);
 
         for (uint256 i = 0; i < 100; i++) {
             batches[i] = IInbox.Batch({
-                proposer: address(uint160(i)),
                 coinbase: address(uint160(i + 1000)),
                 lastBlockTimestamp: uint48(i),
                 gasIssuancePerSecond: uint32(i),
-                isForcedInclusion: false,
-                proverAuth: emptyAuth,
+                    proverAuth: emptyAuth,
                 signalSlots: emptySlots,
                 anchorBlockIds: emptyBlockIds,
                 blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
-                    hashes: emptyHashes,
-                    firstBlobIndex: 0,
+                        firstBlobIndex: 0,
                     numBlobs: 0,
                     byteOffset: 0,
-                    byteSize: 0,
-                    createdIn: 0
-                })
+                    byteSize: 0
+                    })
             });
         }
 
@@ -209,47 +189,38 @@ contract LibCodecBatchTest is Test {
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
-        bytes32[] memory emptyHashes = new bytes32[](0);
 
         // Test with isForcedInclusion = true
         batches[0] = IInbox.Batch({
-            proposer: address(0x1111),
             coinbase: address(0x2222),
             lastBlockTimestamp: 123_456,
             gasIssuancePerSecond: 789,
-            isForcedInclusion: true,
             proverAuth: emptyAuth,
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
-                hashes: emptyHashes,
                 firstBlobIndex: 1,
                 numBlobs: 2,
                 byteOffset: 3,
-                byteSize: 4,
-                createdIn: 5
+                byteSize: 4
             })
         });
 
         // Test with isForcedInclusion = false
         batches[1] = IInbox.Batch({
-            proposer: address(0x3333),
             coinbase: address(0x4444),
             lastBlockTimestamp: 789_012,
             gasIssuancePerSecond: 456,
-            isForcedInclusion: false,
             proverAuth: emptyAuth,
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
-                hashes: emptyHashes,
                 firstBlobIndex: 6,
                 numBlobs: 7,
                 byteOffset: 8,
-                byteSize: 9,
-                createdIn: 10
+                byteSize: 9
             })
         });
 
@@ -257,8 +228,8 @@ contract LibCodecBatchTest is Test {
         IInbox.Batch[] memory unpacked = LibCodec.unpackBatches(packed);
 
         assertEq(unpacked.length, 2);
-        assertEq(unpacked[0].isForcedInclusion, true);
-        assertEq(unpacked[1].isForcedInclusion, false);
+        // isForcedInclusion field removed
+        // isForcedInclusion field removed
         assertEq(unpacked[0].gasIssuancePerSecond, 789);
         assertEq(unpacked[1].gasIssuancePerSecond, 456);
     }
@@ -274,26 +245,21 @@ contract LibCodecBatchTest is Test {
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
-        bytes32[] memory emptyHashes = new bytes32[](0);
 
         for (uint256 i = 0; i < 10; i++) {
             batches[i] = IInbox.Batch({
-                proposer: address(uint160(i)),
                 coinbase: address(uint160(i + 1000)),
                 lastBlockTimestamp: uint48(i),
                 gasIssuancePerSecond: uint32(i),
-                isForcedInclusion: i % 2 == 0,
                 proverAuth: emptyAuth,
                 signalSlots: emptySlots,
                 anchorBlockIds: emptyBlockIds,
                 blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
-                    hashes: emptyHashes,
-                    firstBlobIndex: uint8(i),
+                        firstBlobIndex: uint8(i),
                     numBlobs: uint8(i + 1),
                     byteOffset: uint32(i + 2),
-                    byteSize: uint32(i + 3),
-                    createdIn: uint48(i + 4)
+                    byteSize: uint32(i + 3)
                 })
             });
         }
@@ -318,26 +284,21 @@ contract LibCodecBatchTest is Test {
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
-        bytes32[] memory emptyHashes = new bytes32[](0);
 
         for (uint256 i = 0; i < 5; i++) {
             batches[i] = IInbox.Batch({
-                proposer: address(uint160(i)),
                 coinbase: address(uint160(i + 1000)),
                 lastBlockTimestamp: uint48(i),
                 gasIssuancePerSecond: uint32(i),
-                isForcedInclusion: i % 2 == 0,
                 proverAuth: emptyAuth,
                 signalSlots: emptySlots,
                 anchorBlockIds: emptyBlockIds,
                 blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
-                    hashes: emptyHashes,
-                    firstBlobIndex: uint8(i),
+                        firstBlobIndex: uint8(i),
                     numBlobs: uint8(i + 1),
                     byteOffset: uint32(i + 2),
-                    byteSize: uint32(i + 3),
-                    createdIn: uint48(i + 4)
+                    byteSize: uint32(i + 3)
                 })
             });
         }
@@ -386,25 +347,20 @@ contract LibCodecBatchTest is Test {
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
-        bytes32[] memory emptyHashes = new bytes32[](0);
 
         batches[0] = IInbox.Batch({
-            proposer: address(type(uint160).max),
             coinbase: address(type(uint160).max - 1),
             lastBlockTimestamp: type(uint48).max,
             gasIssuancePerSecond: type(uint32).max,
-            isForcedInclusion: true,
             proverAuth: maxAuth,
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
-                hashes: emptyHashes,
                 firstBlobIndex: type(uint8).max,
                 numBlobs: type(uint8).max,
                 byteOffset: type(uint32).max,
-                byteSize: type(uint32).max,
-                createdIn: type(uint48).max
+                byteSize: type(uint32).max
             })
         });
 
@@ -412,11 +368,11 @@ contract LibCodecBatchTest is Test {
         IInbox.Batch[] memory unpacked = LibCodec.unpackBatches(packed);
 
         assertEq(unpacked.length, 1);
-        assertEq(unpacked[0].proposer, batches[0].proposer);
+        // proposer field removed
         assertEq(unpacked[0].coinbase, batches[0].coinbase);
         assertEq(unpacked[0].lastBlockTimestamp, batches[0].lastBlockTimestamp);
         assertEq(unpacked[0].gasIssuancePerSecond, batches[0].gasIssuancePerSecond);
-        assertEq(unpacked[0].isForcedInclusion, batches[0].isForcedInclusion);
+        // isForcedInclusion field removed
         assertEq(unpacked[0].proverAuth.length, maxAuth.length);
     }
 
@@ -427,25 +383,20 @@ contract LibCodecBatchTest is Test {
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
-        bytes32[] memory emptyHashes = new bytes32[](0);
 
         batches[0] = IInbox.Batch({
-            proposer: address(0),
             coinbase: address(0),
             lastBlockTimestamp: 0,
             gasIssuancePerSecond: 0,
-            isForcedInclusion: false,
             proverAuth: emptyAuth,
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
-                hashes: emptyHashes,
                 firstBlobIndex: 0,
                 numBlobs: 0,
                 byteOffset: 0,
-                byteSize: 0,
-                createdIn: 0
+                byteSize: 0
             })
         });
 
@@ -453,19 +404,17 @@ contract LibCodecBatchTest is Test {
         IInbox.Batch[] memory unpacked = LibCodec.unpackBatches(packed);
 
         assertEq(unpacked.length, 1);
-        assertEq(unpacked[0].proposer, address(0));
+        // proposer field removed
         assertEq(unpacked[0].coinbase, address(0));
         assertEq(unpacked[0].lastBlockTimestamp, 0);
         assertEq(unpacked[0].gasIssuancePerSecond, 0);
-        assertEq(unpacked[0].isForcedInclusion, false);
+        // isForcedInclusion field removed
         assertEq(unpacked[0].proverAuth.length, 0);
     }
 
     function testFuzz_packUnpack_singleBatch(
-        address proposer,
         uint48 lastBlockTimestamp,
-        uint32 gasIssuancePerSecond,
-        bool isForcedInclusion
+        uint32 gasIssuancePerSecond
     )
         public
         pure
@@ -476,25 +425,20 @@ contract LibCodecBatchTest is Test {
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
-        bytes32[] memory emptyHashes = new bytes32[](0);
 
         batches[0] = IInbox.Batch({
-            proposer: proposer,
             coinbase: address(0x1234),
             lastBlockTimestamp: lastBlockTimestamp,
             gasIssuancePerSecond: gasIssuancePerSecond,
-            isForcedInclusion: isForcedInclusion,
             proverAuth: emptyAuth,
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
-                hashes: emptyHashes,
                 firstBlobIndex: 1,
                 numBlobs: 2,
                 byteOffset: 3,
-                byteSize: 4,
-                createdIn: 5
+                byteSize: 4
             })
         });
 
@@ -502,9 +446,9 @@ contract LibCodecBatchTest is Test {
         IInbox.Batch[] memory unpacked = LibCodec.unpackBatches(packed);
 
         assertEq(unpacked.length, 1);
-        assertEq(unpacked[0].proposer, proposer);
+        // proposer field removed
         assertEq(unpacked[0].lastBlockTimestamp, lastBlockTimestamp);
         assertEq(unpacked[0].gasIssuancePerSecond, gasIssuancePerSecond);
-        assertEq(unpacked[0].isForcedInclusion, isForcedInclusion);
+        // isForcedInclusion field removed
     }
 }

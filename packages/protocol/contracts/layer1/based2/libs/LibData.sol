@@ -25,6 +25,7 @@ library LibData {
     function buildBatchMetadata(
         uint48 _proposedIn,
         uint48 _proposedAt,
+        address _proposer,
         I.Batch memory _batch,
         I.BatchContext memory _context
     )
@@ -45,7 +46,6 @@ library LibData {
                 extraData: _encodeExtraData(_context.baseFeeSharingPctg, _batch),
                 coinbase: _batch.coinbase,
                 proposedIn: _proposedIn,
-                blobCreatedIn: _batch.blobs.createdIn,
                 blobByteOffset: _batch.blobs.byteOffset,
                 blobByteSize: _batch.blobs.byteSize,
                 gasLimit: _context.blockMaxGasLimit,
@@ -61,7 +61,7 @@ library LibData {
                 lastAnchorBlockId: _context.lastAnchorBlockId
             }),
             proveMeta: I.BatchProveMetadata({
-                proposer: _batch.proposer,
+                proposer: _proposer,
                 prover: _context.prover,
                 proposedAt: _proposedAt,
                 firstBlockId: firstBlockId,
@@ -130,9 +130,8 @@ library LibData {
     /// @notice Encodes configuration and batch information into the lower 128 bits
     /// @dev Bit-level encoding for efficient storage:
     ///      - Bits 0-7: Base fee sharing percentage (0-100)
-    ///      - Bit 8: Forced inclusion flag (0 or 1)
-    ///      - Bits 9-40: Gas issuance per second (32 bits)
-    ///      - Bits 41-127: Reserved for future use
+    ///      - Bits 8-39: Gas issuance per second (32 bits)
+    ///      - Bits 40-127: Reserved for future use
     /// @param _baseFeeSharingPctg Base fee sharing percentage (0-100)
     /// @param _batch Batch information containing forced inclusion flag and gas issuance
     /// @return Encoded data as bytes32 with information packed in lower 128 bits
@@ -145,9 +144,7 @@ library LibData {
         returns (bytes32)
     {
         uint256 v = _baseFeeSharingPctg; // bits 0-7
-        v |= _batch.isForcedInclusion ? 1 << 8 : 0; // bit 8
-        v |= _batch.gasIssuancePerSecond << 9; // bits 9-40
-
+        v |= _batch.gasIssuancePerSecond << 8; // bits 8-39
         return bytes32(v);
     }
 }
