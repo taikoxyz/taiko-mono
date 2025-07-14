@@ -38,6 +38,7 @@ library LibData {
             firstBlockId = _context.lastBlockId + 1 - uint48(_batch.blocks.length);
         }
 
+        // Block gas limit should be: `gasIssuancePerSecond * blockTime * 2`
         return I.BatchMetadata({
             buildMeta: I.BatchBuildMetadata({
                 txsHash: _context.txsHash,
@@ -48,7 +49,6 @@ library LibData {
                 blobCreatedIn: _batch.blobs.createdIn,
                 blobByteOffset: _batch.blobs.byteOffset,
                 blobByteSize: _batch.blobs.byteSize,
-                gasLimit: _context.blockMaxGasLimit,
                 lastBlockId: _context.lastBlockId,
                 lastBlockTimestamp: _batch.lastBlockTimestamp,
                 anchorBlockIds: _batch.anchorBlockIds,

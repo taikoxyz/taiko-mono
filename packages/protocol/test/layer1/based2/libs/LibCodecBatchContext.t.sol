@@ -15,7 +15,6 @@ contract LibCodecBatchContextTest is Test {
             lastAnchorBlockId: 12_345,
             lastBlockId: 67_890,
             blobsCreatedIn: 11_111,
-            blockMaxGasLimit: 30_000_000,
             livenessBond: 100_000,
             provabilityBond: 200_000,
             baseFeeSharingPctg: 75,
@@ -31,7 +30,6 @@ contract LibCodecBatchContextTest is Test {
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
         assertEq(unpacked.lastBlockId, context.lastBlockId);
         assertEq(unpacked.blobsCreatedIn, context.blobsCreatedIn);
-        assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
         assertEq(unpacked.livenessBond, context.livenessBond);
         assertEq(unpacked.provabilityBond, context.provabilityBond);
         assertEq(unpacked.baseFeeSharingPctg, context.baseFeeSharingPctg);
@@ -55,7 +53,6 @@ contract LibCodecBatchContextTest is Test {
             lastAnchorBlockId: 99_999,
             lastBlockId: 123_456,
             blobsCreatedIn: 22_222,
-            blockMaxGasLimit: 50_000_000,
             livenessBond: 150_000,
             provabilityBond: 250_000,
             baseFeeSharingPctg: 50,
@@ -71,7 +68,6 @@ contract LibCodecBatchContextTest is Test {
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
         assertEq(unpacked.lastBlockId, context.lastBlockId);
         assertEq(unpacked.blobsCreatedIn, context.blobsCreatedIn);
-        assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
         assertEq(unpacked.livenessBond, context.livenessBond);
         assertEq(unpacked.provabilityBond, context.provabilityBond);
         assertEq(unpacked.baseFeeSharingPctg, context.baseFeeSharingPctg);
@@ -93,7 +89,6 @@ contract LibCodecBatchContextTest is Test {
             lastAnchorBlockId: type(uint48).max,
             lastBlockId: type(uint48).max,
             blobsCreatedIn: type(uint48).max,
-            blockMaxGasLimit: type(uint32).max,
             livenessBond: type(uint48).max,
             provabilityBond: type(uint48).max,
             baseFeeSharingPctg: type(uint8).max,
@@ -109,7 +104,6 @@ contract LibCodecBatchContextTest is Test {
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
         assertEq(unpacked.lastBlockId, context.lastBlockId);
         assertEq(unpacked.blobsCreatedIn, context.blobsCreatedIn);
-        assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
         assertEq(unpacked.livenessBond, context.livenessBond);
         assertEq(unpacked.provabilityBond, context.provabilityBond);
         assertEq(unpacked.baseFeeSharingPctg, context.baseFeeSharingPctg);
@@ -118,7 +112,7 @@ contract LibCodecBatchContextTest is Test {
     function test_packUnpack_largeArrays() public pure {
         // Test with relatively large arrays (but still within reasonable limits)
         uint256 anchorCount = 100;
-        uint256 blobCount = 50;
+        uint256 blobCount = 15; // Changed from 50 to match new 4-bit limit
 
         bytes32[] memory anchorHashes = new bytes32[](anchorCount);
         for (uint256 i = 0; i < anchorCount; i++) {
@@ -136,7 +130,6 @@ contract LibCodecBatchContextTest is Test {
             lastAnchorBlockId: 1000,
             lastBlockId: 2000,
             blobsCreatedIn: 3000,
-            blockMaxGasLimit: 30_000_000,
             livenessBond: 4000,
             provabilityBond: 5000,
             baseFeeSharingPctg: 25,
@@ -174,7 +167,6 @@ contract LibCodecBatchContextTest is Test {
             lastAnchorBlockId: 0,
             lastBlockId: 0,
             blobsCreatedIn: 0,
-            blockMaxGasLimit: 0,
             livenessBond: 0,
             provabilityBond: 0,
             baseFeeSharingPctg: 0,
@@ -204,7 +196,6 @@ contract LibCodecBatchContextTest is Test {
         uint48 lastAnchorBlockId,
         uint48 lastBlockId,
         uint48 blobsCreatedIn,
-        uint32 blockMaxGasLimit,
         uint48 livenessBond,
         uint48 provabilityBond,
         uint8 baseFeeSharingPctg,
@@ -234,7 +225,6 @@ contract LibCodecBatchContextTest is Test {
             lastAnchorBlockId: lastAnchorBlockId,
             lastBlockId: lastBlockId,
             blobsCreatedIn: blobsCreatedIn,
-            blockMaxGasLimit: blockMaxGasLimit,
             livenessBond: livenessBond,
             provabilityBond: provabilityBond,
             baseFeeSharingPctg: baseFeeSharingPctg,
@@ -250,7 +240,6 @@ contract LibCodecBatchContextTest is Test {
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
         assertEq(unpacked.lastBlockId, context.lastBlockId);
         assertEq(unpacked.blobsCreatedIn, context.blobsCreatedIn);
-        assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
         assertEq(unpacked.livenessBond, context.livenessBond);
         assertEq(unpacked.provabilityBond, context.provabilityBond);
         assertEq(unpacked.baseFeeSharingPctg, context.baseFeeSharingPctg);
@@ -278,7 +267,6 @@ contract LibCodecBatchContextTest is Test {
             lastAnchorBlockId: 0,
             lastBlockId: 0,
             blobsCreatedIn: 0,
-            blockMaxGasLimit: 0,
             livenessBond: 0,
             provabilityBond: 0,
             baseFeeSharingPctg: 0,
@@ -288,8 +276,8 @@ contract LibCodecBatchContextTest is Test {
 
         bytes memory packed = context.packBatchContext();
 
-        // Expected size: 85 (fixed) + 1 (anchor length) + 1 (blob length) + 2*32 + 3*32 = 249
-        uint256 expectedSize = 85 + 1 + 1 + (2 * 32) + (3 * 32);
+        // Expected size: 83 (fixed) + 2 (anchor length) + 1 (blob length) + 2*32 + 3*32 = 246
+        uint256 expectedSize = 83 + 2 + 1 + (2 * 32) + (3 * 32);
         assertEq(packed.length, expectedSize);
     }
 
@@ -309,7 +297,6 @@ contract LibCodecBatchContextTest is Test {
             lastAnchorBlockId: 1000,
             lastBlockId: 2000,
             blobsCreatedIn: 3000,
-            blockMaxGasLimit: 30_000_000,
             livenessBond: 4000,
             provabilityBond: 5000,
             baseFeeSharingPctg: 25,

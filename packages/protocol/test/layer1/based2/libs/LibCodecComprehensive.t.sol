@@ -125,7 +125,6 @@ contract LibCodecComprehensiveTest is Test {
             lastAnchorBlockId: 123_456,
             lastBlockId: 789_012,
             blobsCreatedIn: 345_678,
-            blockMaxGasLimit: 901_234,
             livenessBond: 567_890,
             provabilityBond: 123_456,
             baseFeeSharingPctg: 50,
@@ -141,7 +140,6 @@ contract LibCodecComprehensiveTest is Test {
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
         assertEq(unpacked.lastBlockId, context.lastBlockId);
         assertEq(unpacked.blobsCreatedIn, context.blobsCreatedIn);
-        assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
         assertEq(unpacked.livenessBond, context.livenessBond);
         assertEq(unpacked.provabilityBond, context.provabilityBond);
         assertEq(unpacked.baseFeeSharingPctg, context.baseFeeSharingPctg);
@@ -166,7 +164,6 @@ contract LibCodecComprehensiveTest is Test {
             lastAnchorBlockId: 1,
             lastBlockId: 2,
             blobsCreatedIn: 3,
-            blockMaxGasLimit: 4,
             livenessBond: 5,
             provabilityBond: 6,
             baseFeeSharingPctg: 7,
@@ -365,7 +362,6 @@ contract LibCodecComprehensiveTest is Test {
             lastAnchorBlockId: 123_456,
             lastBlockId: 789_012,
             blobsCreatedIn: 345_678,
-            blockMaxGasLimit: 901_234,
             livenessBond: 567_890,
             provabilityBond: 123_456,
             baseFeeSharingPctg: 50,
@@ -403,7 +399,7 @@ contract LibCodecComprehensiveTest is Test {
     }
 
     function test_unpackBatchContext_revertInvalidLength() public {
-        bytes memory invalidData = new bytes(86); // Less than minimum 87 bytes
+        bytes memory invalidData = new bytes(85); // Less than minimum 86 bytes
         vm.expectRevert(LibCodec.InvalidDataLength.selector);
         LibCodec.unpackBatchContext(invalidData);
     }
