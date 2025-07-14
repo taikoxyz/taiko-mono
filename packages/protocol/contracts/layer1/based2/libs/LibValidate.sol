@@ -296,14 +296,12 @@ library LibValidate {
     {
         // Blobs must be specified
         require(_blobs.numBlobs != 0, BlobNotSpecified());
+
         unchecked {
             // Always use blob indices now, direct hashes no longer supported
             blobHashes_ = new bytes32[](_blobs.numBlobs);
             for (uint256 i; i < _blobs.numBlobs; ++i) {
                 blobHashes_[i] = _access.getBlobHash(_blobs.firstBlobIndex + i);
-            }
-
-            for (uint256 i; i < blobHashes_.length; ++i) {
                 require(blobHashes_[i] != 0, BlobHashNotFound());
             }
 
