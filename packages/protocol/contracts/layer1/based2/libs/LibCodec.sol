@@ -37,6 +37,7 @@ library LibCodec {
     {
         unchecked {
             uint256 length = _transitionMetas.length;
+            require(length <= type(uint8).max, TransitionMetasArrayTooLarge());
 
             // Each TransitionMeta takes 109 bytes when packed
             encoded_ = new bytes(length * 109);
@@ -162,8 +163,8 @@ library LibCodec {
             uint256 anchorHashesLen = _context.anchorBlockHashes.length;
             uint256 blobHashesLen = _context.blobHashes.length;
 
-            require(anchorHashesLen <= type(uint16).max, ArrayTooLarge());
-            require(blobHashesLen <= 15, ArrayTooLarge()); // 4 bits = 2^4 - 1 = 15
+            require(anchorHashesLen <= type(uint16).max, AnchorBlockHashesArrayTooLarge());
+            require(blobHashesLen <= 15, BlobHashesArrayTooLarge()); // 4 bits = 2^4 - 1 = 15
 
             // Calculate total size: 83 fixed bytes + 2 bytes for anchorBlockHashes length
             // + 1 byte for blobHashes length + 32 bytes per hash in each array
@@ -433,13 +434,20 @@ library LibCodec {
     function packBatches(I.Batch[] memory _batches) internal pure returns (bytes memory encoded_) {
         unchecked {
             uint256 length = _batches.length;
-            require(length <= type(uint8).max, ArrayTooLarge());
+            require(length <= type(uint8).max, BatchesArrayTooLarge());
 
             // Pre-calculate total size to minimize memory allocations
             uint256 totalSize = 1; // Array length byte
 
             for (uint256 i; i < length; ++i) {
                 I.Batch memory batch = _batches[i];
+
+                // Validate array lengths according to IInbox.sol limits
+                require(batch.proverAuth.length <= type(uint16).max, ProverAuthTooLarge());
+                require(batch.signalSlots.length <= type(uint8).max, SignalSlotsArrayTooLarge());
+                require(batch.anchorBlockIds.length <= type(uint16).max, AnchorBlockIdsArrayTooLarge());
+                require(batch.blocks.length <= type(uint16).max, BlocksArrayTooLarge());
+                require(batch.blobs.hashes.length <= 15, BlobHashesArrayTooLarge()); // type(uint4).max
 
                 // Calculate size for each batch component
                 totalSize += 51; // Fixed fields (20+20+7+4)
@@ -801,7 +809,7 @@ library LibCodec {
     {
         unchecked {
             uint256 length = _batches.length;
-            require(length <= type(uint8).max, ArrayTooLarge());
+            require(length <= type(uint8).max, BatchProveInputsArrayTooLarge());
 
             encoded_ = new bytes(1 + (length * 354));
 
@@ -1047,7 +1055,7 @@ library LibCodec {
     {
         unchecked {
             uint256 sigLen = _proverAuth.signature.length;
-            require(sigLen <= 1023, InvalidDataLength()); // uint10 max = 2^10 - 1 = 1023
+            require(sigLen <= 1023, ProverAuthSignatureTooLarge()); // uint10 max = 2^10 - 1 = 1023
             uint256 totalSize = 58 + sigLen;
             packed_ = new bytes(totalSize);
 
@@ -1164,7 +1172,17 @@ library LibCodec {
     // Errors
     // -------------------------------------------------------------------------
 
+    error AnchorBlockHashesArrayTooLarge();
+    error AnchorBlockIdsArrayTooLarge();
     error ArrayTooLarge();
+    error BatchProveInputsArrayTooLarge();
+    error BatchesArrayTooLarge();
+    error BlobHashesArrayTooLarge();
+    error BlocksArrayTooLarge();
     error EmptyInput();
     error InvalidDataLength();
+    error ProverAuthSignatureTooLarge();
+    error ProverAuthTooLarge();
+    error SignalSlotsArrayTooLarge();
+    error TransitionMetasArrayTooLarge();
 }

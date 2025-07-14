@@ -334,4 +334,48 @@ contract LibCodecBatchContextTest is Test {
         assertEq(unpacked.prover, abiUnpacked.prover);
         assertEq(unpacked.txsHash, abiUnpacked.txsHash);
     }
+
+    function test_packBatchContext_revertAnchorBlockHashesArrayTooLarge() public {
+        // Create an array that's too large for uint16 (65536 > 65535)
+        bytes32[] memory largeAnchorHashes = new bytes32[](65536);
+        bytes32[] memory blobHashes = new bytes32[](0);
+
+        IInbox.BatchContext memory context = IInbox.BatchContext({
+            prover: address(0x1111),
+            txsHash: bytes32(uint256(0x2222)),
+            lastAnchorBlockId: 1,
+            lastBlockId: 2,
+            blobsCreatedIn: 3,
+            livenessBond: 4,
+            provabilityBond: 5,
+            baseFeeSharingPctg: 6,
+            anchorBlockHashes: largeAnchorHashes,
+            blobHashes: blobHashes
+        });
+
+        vm.expectRevert(LibCodec.AnchorBlockHashesArrayTooLarge.selector);
+        LibCodec.packBatchContext(context);
+    }
+
+    function test_packBatchContext_revertBlobHashesArrayTooLarge() public {
+        // Create an array that's too large for uint4 (16 > 15)
+        bytes32[] memory largeBlobHashes = new bytes32[](16);
+        bytes32[] memory anchorHashes = new bytes32[](0);
+
+        IInbox.BatchContext memory context = IInbox.BatchContext({
+            prover: address(0x1111),
+            txsHash: bytes32(uint256(0x2222)),
+            lastAnchorBlockId: 1,
+            lastBlockId: 2,
+            blobsCreatedIn: 3,
+            livenessBond: 4,
+            provabilityBond: 5,
+            baseFeeSharingPctg: 6,
+            anchorBlockHashes: anchorHashes,
+            blobHashes: largeBlobHashes
+        });
+
+        vm.expectRevert(LibCodec.BlobHashesArrayTooLarge.selector);
+        LibCodec.packBatchContext(context);
+    }
 }

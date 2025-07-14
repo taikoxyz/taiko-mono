@@ -160,8 +160,8 @@ contract LibCodecProverAuthTest is Test {
             signature: longSignature
         });
 
-        // Should revert with InvalidDataLength error
-        vm.expectRevert(LibCodec.InvalidDataLength.selector);
+        // Should revert with ProverAuthSignatureTooLarge error
+        vm.expectRevert(LibCodec.ProverAuthSignatureTooLarge.selector);
         LibCodec.packProverAuth(auth);
     }
 
