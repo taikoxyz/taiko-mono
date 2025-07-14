@@ -205,7 +205,7 @@ interface IInbox {
         /// @notice The chain ID of the network where Taiko contracts are deployed.
         uint64 chainId;
         /// @notice Size of the batch ring buffer, allowing extra space for proposals.
-        uint32 batchRingBufferSize;
+        uint24 batchRingBufferSize;
         /// @notice The maximum number of verifications allowed when a batch is proposed or proved.
         uint8 maxBatchesToVerify;
         /// @notice The maximum gas limit allowed for a block.
