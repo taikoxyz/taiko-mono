@@ -40,9 +40,15 @@ library LibPropose {
     {
         unchecked {
             require(_batches.length != 0, EmptyBatchArray());
+
+            // Make sure the lask verified batch is not overwritten by a new batch.
+            // Assuming batchRingBufferSize = 100, right after genesis, we can propose up to 99
+            // batches, the following requirement-statement will pass as:
+            //  1 (nextBatchId) + 99 (_batches.length) <=
+            //  0 (lastVerifiedBatchId) + 100 (batchRingBufferSize)
             require(
                 _summary.nextBatchId + _batches.length
-                    <= _summary.lastVerifiedBatchId + _config.maxUnverifiedBatches + 1,
+                    <= _summary.lastVerifiedBatchId + _config.batchRingBufferSize,
                 BatchLimitExceeded()
             );
 
@@ -50,21 +56,20 @@ library LibPropose {
                 _summary.lastBatchMetaHash == LibData.hashBatch(_evidence), MetadataHashMismatch()
             );
 
-            I.BatchProposeMetadata memory parent = _evidence.proposeMeta;
-
+            I.BatchProposeMetadata memory parentBatch = _evidence.proposeMeta;
             I.BatchMetadata memory metadata;
+
             for (uint256 i; i < _batches.length; ++i) {
                 (metadata, _summary.lastBatchMetaHash) =
-                    _proposeBatch(_access, _config, _summary, _batches[i], parent);
+                    _proposeBatch(_access, _config, _summary, _batches[i], parentBatch);
 
                 if (_summary.gasIssuancePerSecond != _batches[i].gasIssuancePerSecond) {
                     _summary.gasIssuancePerSecond = _batches[i].gasIssuancePerSecond;
                     _summary.gasIssuanceUpdatedAt = uint48(block.timestamp);
                 }
 
-                _summary.nextBatchId += 1;
-
-                parent = metadata.proposeMeta;
+                ++_summary.nextBatchId;
+                parentBatch = metadata.proposeMeta;
             }
 
             return _summary;
@@ -80,7 +85,7 @@ library LibPropose {
     /// @param _config The protocol configuration
     /// @param _summary The current protocol summary
     /// @param _batch The batch to propose
-    /// @param _parent The parent batch metadata
+    /// @param _parentBatch The parent batch metadata
     /// @return metadata_ The metadata of the proposed batch
     /// @return batchMetaHash_ The hash of the proposed batch metadata
     function _proposeBatch(
@@ -88,14 +93,14 @@ library LibPropose {
         I.Config memory _config,
         I.Summary memory _summary,
         I.Batch memory _batch,
-        I.BatchProposeMetadata memory _parent
+        I.BatchProposeMetadata memory _parentBatch
     )
         private
         returns (I.BatchMetadata memory metadata_, bytes32 batchMetaHash_)
     {
         // Validate the batch parameters and return batch and batch context data
         I.BatchContext memory context =
-            LibValidate.validate(_access, _config, _summary, _batch, _parent);
+            LibValidate.validate(_access, _config, _summary, _batch, _parentBatch);
 
         context.prover =
             LibProver.validateProver(_access, _config, _summary, _batch.proverAuth, _batch);
@@ -104,10 +109,10 @@ library LibPropose {
             uint48(block.number), uint48(block.timestamp), _batch, context
         );
 
+        emit I.Proposed(_summary.nextBatchId, LibCodec.packBatchContext(context));
+
         batchMetaHash_ = LibData.hashBatch(_summary.nextBatchId, metadata_);
         _access.saveBatchMetaHash(_config, _summary.nextBatchId, batchMetaHash_);
-
-        emit I.Proposed(_summary.nextBatchId, LibCodec.packBatchContext(context));
     }
 
     // -------------------------------------------------------------------------

@@ -17,14 +17,14 @@ library LibData {
     // -------------------------------------------------------------------------
 
     /// @notice Populates batch metadata from batch and batch context data
-    /// @param _blockNumber The block number in which the batch is proposed
-    /// @param _blockTimestamp The timestamp of the block in which the batch is proposed
+    /// @param _proposedIn The block number in which the batch is proposed
+    /// @param _proposedAt The timestamp of the block in which the batch is proposed
     /// @param _batch The batch being proposed
     /// @param _context The batch context data containing computed values
     /// @return _ The populated batch metadata
     function buildBatchMetadata(
-        uint48 _blockNumber,
-        uint48 _blockTimestamp,
+        uint48 _proposedIn,
+        uint48 _proposedAt,
         I.Batch memory _batch,
         I.BatchContext memory _context
     )
@@ -44,7 +44,7 @@ library LibData {
                 blobHashes: _context.blobHashes,
                 extraData: _encodeExtraData(_context.baseFeeSharingPctg, _batch),
                 coinbase: _batch.coinbase,
-                proposedIn: _blockNumber,
+                proposedIn: _proposedIn,
                 blobCreatedIn: _batch.blobs.createdIn,
                 blobByteOffset: _batch.blobs.byteOffset,
                 blobByteSize: _batch.blobs.byteSize,
@@ -63,7 +63,7 @@ library LibData {
             proveMeta: I.BatchProveMetadata({
                 proposer: _batch.proposer,
                 prover: _context.prover,
-                proposedAt: _blockTimestamp,
+                proposedAt: _proposedAt,
                 firstBlockId: firstBlockId,
                 lastBlockId: _context.lastBlockId,
                 livenessBond: _context.livenessBond,
@@ -81,7 +81,7 @@ library LibData {
     /// @param _meta Complete batch metadata containing build, propose, and prove data
     /// @return Deterministic hash representing the batch and its metadata
     function hashBatch(
-        uint256 _batchId,
+        uint64 _batchId,
         I.BatchMetadata memory _meta
     )
         internal
@@ -98,7 +98,7 @@ library LibData {
         return keccak256(abi.encode(leftHash, rightHash));
     }
 
-    /// @notice Computes a batch hash using evidence structure (optimized version)
+    /// @notice Computes a batch hash using BatchProposeMetadataEvidence
     /// @dev Alternative hashing method using pre-computed evidence data:
     ///      - Uses pre-computed idAndBuildHash instead of separate batchId and buildMeta
     ///      - Combines with proposeMeta and proveMetaHash
@@ -113,9 +113,16 @@ library LibData {
         bytes32 proposeMetaHash = keccak256(abi.encode(_evidence.proposeMeta));
         bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, _evidence.proveMetaHash));
 
-        return keccak256(abi.encode(_evidence.idAndBuildHash, rightHash));
+        return keccak256(abi.encode(_evidence.leftHash, rightHash));
     }
 
+    /// @notice  Computes a batch hash using BatchProveInput
+    /// @param _batchProveInput The batch prove input containing metadata to validate
+    function hashBatch(I.BatchProveInput memory _batchProveInput) internal pure returns (bytes32) {
+        bytes32 proveMetaHash = keccak256(abi.encode(_batchProveInput.proveMeta));
+        bytes32 rightHash = keccak256(abi.encode(_batchProveInput.proposeMetaHash, proveMetaHash));
+        return keccak256(abi.encode(_batchProveInput.leftHash, rightHash));
+    }
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------

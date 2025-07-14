@@ -91,7 +91,7 @@ library LibProve {
         // Load and verify the batch metadata
         bytes32 batchMetaHash = _access.loadBatchMetaHash(_config, _input.tran.batchId);
 
-        _validateProveMeta(batchMetaHash, _input);
+        require(batchMetaHash == LibData.hashBatch(_input), MetaHashNotMatch());
 
         bytes32 stateRoot = _input.tran.batchId % _config.stateRootSyncInternal == 0
             ? _input.tran.stateRoot
@@ -157,23 +157,6 @@ library LibProve {
                 return (I.ProofTiming.OutOfExtendedProvingWindow, msg.sender);
             }
         }
-    }
-
-    /// @notice Validates the batch prove metadata against the stored hash
-    /// @param _batchMetaHash The stored batch metadata hash
-    /// @param _input The batch prove input containing metadata to validate
-    function _validateProveMeta(
-        bytes32 _batchMetaHash,
-        I.BatchProveInput memory _input
-    )
-        private
-        pure
-    {
-        bytes32 proveMetaHash = keccak256(abi.encode(_input.proveMeta));
-        bytes32 rightHash = keccak256(abi.encode(_input.proposeMetaHash, proveMetaHash));
-        bytes32 metaHash = keccak256(abi.encode(_input.idAndBuildHash, rightHash));
-
-        require(_batchMetaHash == metaHash, MetaHashNotMatch());
     }
 
     // -------------------------------------------------------------------------

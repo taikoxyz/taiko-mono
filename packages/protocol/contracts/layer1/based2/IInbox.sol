@@ -135,13 +135,13 @@ interface IInbox {
     }
 
     struct BatchProposeMetadataEvidence {
-        bytes32 idAndBuildHash; // aka leftHash
+        bytes32 leftHash;
         bytes32 proveMetaHash;
         BatchProposeMetadata proposeMeta;
     }
 
     struct BatchProveInput {
-        bytes32 idAndBuildHash; // aka leftHash
+        bytes32 leftHash;
         bytes32 proposeMetaHash;
         BatchProveMetadata proveMeta;
         Transition tran;
@@ -206,8 +206,6 @@ interface IInbox {
     struct Config {
         /// @notice The chain ID of the network where Taiko contracts are deployed.
         uint64 chainId;
-        /// @notice The maximum number of unverified batches the protocol supports.
-        uint64 maxUnverifiedBatches;
         /// @notice Size of the batch ring buffer, allowing extra space for proposals.
         uint64 batchRingBufferSize;
         /// @notice The maximum number of verifications allowed when a batch is proposed or proved.
