@@ -58,7 +58,7 @@ interface IInbox {
         /// @notice Whether this is a forced inclusion batch
         bool isForcedInclusion;
         /// @notice Prover authorization data
-        bytes proverAuth;
+        bytes proverAuth; // length <= type(uint16).max
         /// @notice Signal slots for cross-chain messages
         bytes32[] signalSlots; // length <= type(uint8).max
         /// @notice Anchor block IDs for L1-L2 synchronization
@@ -90,7 +90,7 @@ interface IInbox {
         uint48 fee; // Gwei
         uint48 validUntil; // optional
         uint48 batchId; // optional
-        bytes signature;
+        bytes signature; // length <= type(uint10).max
     }
 
     struct BatchBuildMetadata {

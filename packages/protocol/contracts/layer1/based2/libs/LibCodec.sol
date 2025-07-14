@@ -1022,6 +1022,137 @@ library LibCodec {
         }
     }
 
+    /// @notice Packs a ProverAuth struct into a tightly packed byte array.
+    /// @dev Packed format (58 bytes fixed + dynamic signature):
+    /// | Field      | Bytes | Offset | Type    |
+    /// |------------|-------|--------|---------|
+    /// | prover     | 20    | 0      | address |
+    /// | feeToken   | 20    | 20     | address |
+    /// | fee        | 6     | 40     | uint48  |
+    /// | validUntil | 6     | 46     | uint48  |
+    /// | batchId    | 6     | 52     | uint48  |
+    /// | signature  | var   | 58     | bytes   |
+    /// @param _proverAuth The ProverAuth struct to pack
+    /// @return packed_ The packed byte array
+    function packProverAuth(I.ProverAuth memory _proverAuth)
+        internal
+        pure
+        returns (bytes memory packed_)
+    {
+        unchecked {
+            uint256 sigLen = _proverAuth.signature.length;
+            uint256 totalSize = 58 + sigLen;
+            packed_ = new bytes(totalSize);
+
+            assembly {
+                let ptr := add(packed_, 0x20)
+
+                // Pack prover (20 bytes) aligned left
+                mstore(ptr, shl(96, mload(_proverAuth)))
+
+                // Pack feeToken (20 bytes) aligned left
+                mstore(add(ptr, 20), shl(96, mload(add(_proverAuth, 0x20))))
+
+                // Pack fee (6 bytes)
+                mstore(add(ptr, 40), shl(208, mload(add(_proverAuth, 0x40))))
+
+                // Pack validUntil (6 bytes)
+                mstore(add(ptr, 46), shl(208, mload(add(_proverAuth, 0x60))))
+
+                // Pack batchId (6 bytes)
+                mstore(add(ptr, 52), shl(208, mload(add(_proverAuth, 0x80))))
+
+                // Copy signature bytes
+                let sig := mload(add(_proverAuth, 0xa0))
+                let sigData := add(sig, 0x20)
+                let dest := add(ptr, 58)
+
+                // Copy signature data efficiently
+                let remaining := sigLen
+                for { } gt(remaining, 31) { } {
+                    mstore(dest, mload(sigData))
+                    dest := add(dest, 32)
+                    sigData := add(sigData, 32)
+                    remaining := sub(remaining, 32)
+                }
+
+                // Handle remaining bytes
+                if gt(remaining, 0) {
+                    let shift := mul(sub(32, remaining), 8)
+                    let mask := sub(shl(mul(remaining, 8), 1), 1)
+                    let data := and(mload(sigData), shl(shift, mask))
+                    mstore(dest, data)
+                }
+            }
+        }
+    }
+
+    /// @notice Unpacks a byte array back into a ProverAuth struct.
+    /// @dev Reverses the packing performed by packProverAuth. Input must have
+    /// at least 58 bytes. See packProverAuth for data layout.
+    /// @param _packed The packed byte array to unpack
+    /// @return proverAuth_ The unpacked ProverAuth struct
+    function unpackProverAuth(bytes memory _packed)
+        internal
+        pure
+        returns (I.ProverAuth memory proverAuth_)
+    {
+        require(_packed.length >= 58, InvalidDataLength());
+
+        unchecked {
+            uint256 sigLen = _packed.length - 58;
+
+            assembly {
+                let dataPtr := add(_packed, 0x20)
+
+                // Allocate memory for ProverAuth
+                proverAuth_ := mload(0x40)
+                mstore(0x40, add(proverAuth_, 0xc0))
+
+                // Unpack prover (20 bytes)
+                mstore(proverAuth_, shr(96, mload(dataPtr)))
+
+                // Unpack feeToken (20 bytes)
+                mstore(add(proverAuth_, 0x20), shr(96, mload(add(dataPtr, 20))))
+
+                // Unpack fee (6 bytes)
+                mstore(add(proverAuth_, 0x40), shr(208, mload(add(dataPtr, 40))))
+
+                // Unpack validUntil (6 bytes)
+                mstore(add(proverAuth_, 0x60), shr(208, mload(add(dataPtr, 46))))
+
+                // Unpack batchId (6 bytes)
+                mstore(add(proverAuth_, 0x80), shr(208, mload(add(dataPtr, 52))))
+
+                // Allocate and copy signature
+                let sig := mload(0x40)
+                mstore(0x40, add(sig, add(0x20, sigLen)))
+                mstore(sig, sigLen)
+
+                // Copy signature data
+                let src := add(dataPtr, 58)
+                let dest := add(sig, 0x20)
+                let remaining := sigLen
+
+                for { } gt(remaining, 31) { } {
+                    mstore(dest, mload(src))
+                    dest := add(dest, 32)
+                    src := add(src, 32)
+                    remaining := sub(remaining, 32)
+                }
+
+                // Handle remaining bytes
+                if gt(remaining, 0) {
+                    let data := mload(src)
+                    mstore(dest, data)
+                }
+
+                // Store signature reference
+                mstore(add(proverAuth_, 0xa0), sig)
+            }
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------

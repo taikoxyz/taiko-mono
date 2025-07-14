@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import { IInbox as I } from "../IInbox.sol";
 import "./LibState.sol";
+import "./LibCodec.sol";
 
 /// @title LibProver
 /// @notice Library for prover authentication and comprehensive bond management in Taiko protocol
@@ -30,13 +31,11 @@ library LibProver {
     /// @param _access Read/write access functions for bond and fee operations
     /// @param _config Protocol configuration parameters
     /// @param _summary Current protocol summary state
-    /// @param _proverAuth Prover authentication data (signature + metadata)
     /// @param _batch The batch being proved
     function validateProver(
         LibState.Access memory _access,
         I.Config memory _config,
         I.Summary memory _summary,
-        bytes memory _proverAuth,
         I.Batch memory _batch
     )
         internal
@@ -52,6 +51,7 @@ library LibProver {
             } else {
                 // Circular dependency so zero it out. (Batch has proverAuth but
                 // proverAuth has also batchHash)
+                bytes memory proverAuth = _batch.proverAuth;
                 _batch.proverAuth = "";
 
                 // Outsource the prover authentication to the LibAuth library to
@@ -59,10 +59,7 @@ library LibProver {
                 address feeToken;
                 uint256 fee;
                 (prover_, feeToken, fee) = _validateProverAuth(
-                    _config.chainId,
-                    _summary.nextBatchId,
-                    keccak256(abi.encode(_batch)),
-                    _proverAuth
+                    _config.chainId, _summary.nextBatchId, keccak256(abi.encode(_batch)), proverAuth
                 );
 
                 if (feeToken == _config.bondToken) {
@@ -103,7 +100,7 @@ library LibProver {
     ///      - Signature must be valid for the computed digest
     /// @param _chainId Chain ID for signature domain separation
     /// @param _batchId Batch ID being proved
-    /// @param _batchParamsHash Hash of batch parameters for signature verification
+    /// @param _batchHash Hash of batch parameters for signature verification
     /// @param _proverAuth Encoded prover authentication data
     /// @return prover_ Validated prover address
     /// @return feeToken_ Fee token address for payment
@@ -111,14 +108,14 @@ library LibProver {
     function _validateProverAuth(
         uint64 _chainId,
         uint64 _batchId,
-        bytes32 _batchParamsHash,
+        bytes32 _batchHash,
         bytes memory _proverAuth
     )
         private
         view
         returns (address prover_, address feeToken_, uint256 fee_)
     {
-        I.ProverAuth memory auth = abi.decode(_proverAuth, (I.ProverAuth));
+        I.ProverAuth memory auth = LibCodec.unpackProverAuth(_proverAuth);
 
         // Supporting Ether as fee token will require making IInbox's proposing function
         // payable. We try to avoid this as much as possible. And since most proposers may simply
@@ -131,7 +128,7 @@ library LibProver {
         // Save and use later, before nullifying in computeProverAuthDigest()
         bytes memory signature = auth.signature;
         auth.signature = "";
-        bytes32 digest = _computeProverAuthDigest(_chainId, _batchParamsHash, auth);
+        bytes32 digest = _computeProverAuthDigest(_chainId, _batchHash, auth);
 
         require(auth.prover.isValidSignatureNow(digest, signature), InvalidSignature());
 
@@ -146,12 +143,12 @@ library LibProver {
     /// @dev Creates a deterministic hash from chain ID, batch parameters, and auth data.
     ///      The signature field must be empty when computing the digest.
     /// @param _chainId Chain ID for domain separation
-    /// @param _batchParamsHash Hash of the batch parameters being proved
+    /// @param _batchHash Hash of the batch parameters being proved
     /// @param _auth Prover authentication data (must have empty signature field)
     /// @return Computed digest for signature verification
     function _computeProverAuthDigest(
         uint64 _chainId,
-        bytes32 _batchParamsHash,
+        bytes32 _batchHash,
         I.ProverAuth memory _auth
     )
         private
@@ -159,7 +156,7 @@ library LibProver {
         returns (bytes32)
     {
         require(_auth.signature.length == 0, SignatureNotEmpty());
-        return keccak256(abi.encode("PROVER_AUTHENTICATION", _chainId, _batchParamsHash, _auth));
+        return keccak256(abi.encode("PROVER_AUTHENTICATION", _chainId, _batchHash, _auth));
     }
 
     // -------------------------------------------------------------------------
