@@ -30,14 +30,14 @@ library LibValidate {
     /// @param _config Protocol configuration parameters
     /// @param _summary Current protocol summary state
     /// @param _batch The batch to validate
-    /// @param _parentProposeMeta Metadata from the parent batch proposal
+    /// @param _parentBatch Metadata from the parent batch proposal
     /// @return context_ Validated batch information and computed hashes
     function validate(
         LibState.Access memory _access,
         I.Config memory _config,
         I.Summary memory _summary,
         I.Batch memory _batch,
-        I.BatchProposeMetadata memory _parentProposeMeta
+        I.BatchProposeMetadata memory _parentBatch
     )
         internal
         view
@@ -56,18 +56,18 @@ library LibValidate {
         _validateBlocks(_config, _batch);
 
         // Validate timestamps
-        _validateTimestamps(_config, _batch, _parentProposeMeta.lastBlockTimestamp);
+        _validateTimestamps(_config, _batch, _parentBatch.lastBlockTimestamp);
 
         // Validate signals
         _validateSignals(_access, _config, _batch);
 
         // Validate anchors
         (bytes32[] memory anchorBlockHashes, uint48 lastAnchorBlockId) =
-            _validateAnchors(_access, _config, _batch, _parentProposeMeta.lastAnchorBlockId);
+            _validateAnchors(_access, _config, _batch, _parentBatch.lastAnchorBlockId);
 
         // Validate block range
         uint48 lastBlockId =
-            _validateBlockRange(_config, _batch.blocks.length, _parentProposeMeta.lastBlockId);
+            _validateBlockRange(_config, _batch.blocks.length, _parentBatch.lastBlockId);
 
         // Validate blobs
         uint48 blobsCreatedIn = _validateBlobs(_config, _batch);
