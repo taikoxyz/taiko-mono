@@ -106,7 +106,7 @@ library LibPropose {
             LibProver.validateProver(_access, _config, _summary, _batch.proverAuth, _batch);
 
         metadata_ = LibData.buildBatchMetadata(
-            uint48(block.number), uint48(block.timestamp), msg.sender, _batch, context
+            uint48(block.number), uint48(block.timestamp), _batch, context
         );
 
         emit I.Proposed(_summary.nextBatchId, LibCodec.packBatchContext(context));

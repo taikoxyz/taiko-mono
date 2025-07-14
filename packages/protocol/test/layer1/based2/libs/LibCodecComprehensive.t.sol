@@ -120,6 +120,7 @@ contract LibCodecComprehensiveTest is Test {
         blobHashes[2] = bytes32(uint256(0x5555));
 
         IInbox.BatchContext memory context = IInbox.BatchContext({
+            proposer: address(0x1234567890123456789012345678901234567890),
             prover: address(0x1234567890123456789012345678901234567890),
             txsHash: bytes32(uint256(0xabcdef)),
             lastAnchorBlockId: 123_456,
@@ -135,6 +136,7 @@ contract LibCodecComprehensiveTest is Test {
         bytes memory packed = LibCodec.packBatchContext(context);
         IInbox.BatchContext memory unpacked = LibCodec.unpackBatchContext(packed);
 
+        assertEq(unpacked.proposer, context.proposer);
         assertEq(unpacked.prover, context.prover);
         assertEq(unpacked.txsHash, context.txsHash);
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
@@ -160,6 +162,7 @@ contract LibCodecComprehensiveTest is Test {
         bytes32[] memory emptyHashes = new bytes32[](0);
 
         IInbox.BatchContext memory context = IInbox.BatchContext({
+            proposer: address(0x1111),
             prover: address(0x1111),
             txsHash: bytes32(uint256(0x2222)),
             lastAnchorBlockId: 1,
@@ -175,6 +178,7 @@ contract LibCodecComprehensiveTest is Test {
         bytes memory packed = LibCodec.packBatchContext(context);
         IInbox.BatchContext memory unpacked = LibCodec.unpackBatchContext(packed);
 
+        assertEq(unpacked.proposer, context.proposer);
         assertEq(unpacked.prover, context.prover);
         assertEq(unpacked.anchorBlockHashes.length, 0);
         assertEq(unpacked.blobHashes.length, 0);
@@ -294,12 +298,7 @@ contract LibCodecComprehensiveTest is Test {
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
-            blobs: IInbox.Blobs({
-                firstBlobIndex: 1,
-                numBlobs: 2,
-                byteOffset: 3,
-                byteSize: 4
-            })
+            blobs: IInbox.Blobs({ firstBlobIndex: 1, numBlobs: 2, byteOffset: 3, byteSize: 4 })
         });
 
         bytes memory packed = LibCodec.packBatches(batches);
@@ -353,6 +352,7 @@ contract LibCodecComprehensiveTest is Test {
         }
 
         IInbox.BatchContext memory context = IInbox.BatchContext({
+            proposer: address(0x1234567890123456789012345678901234567890),
             prover: address(0x1234567890123456789012345678901234567890),
             txsHash: bytes32(uint256(0xabcdef)),
             lastAnchorBlockId: 123_456,
@@ -395,7 +395,7 @@ contract LibCodecComprehensiveTest is Test {
     }
 
     function test_unpackBatchContext_revertInvalidLength() public {
-        bytes memory invalidData = new bytes(86); // Less than minimum 87 bytes
+        bytes memory invalidData = new bytes(102); // Less than minimum 103 bytes
         vm.expectRevert(LibCodec.InvalidDataLength.selector);
         LibCodec.unpackBatchContext(invalidData);
     }

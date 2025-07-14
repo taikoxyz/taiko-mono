@@ -37,12 +37,7 @@ contract LibCodecBatchTest is Test {
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
-            blobs: IInbox.Blobs({
-                firstBlobIndex: 1,
-                numBlobs: 2,
-                byteOffset: 3,
-                byteSize: 4
-            })
+            blobs: IInbox.Blobs({ firstBlobIndex: 1, numBlobs: 2, byteOffset: 3, byteSize: 4 })
         });
 
         bytes memory packed = LibCodec.packBatches(batches);
@@ -74,12 +69,7 @@ contract LibCodecBatchTest is Test {
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
-            blobs: IInbox.Blobs({
-                firstBlobIndex: 10,
-                numBlobs: 20,
-                byteOffset: 30,
-                byteSize: 40
-            })
+            blobs: IInbox.Blobs({ firstBlobIndex: 10, numBlobs: 20, byteOffset: 30, byteSize: 40 })
         });
 
         bytes memory packed = LibCodec.packBatches(batches);
@@ -117,7 +107,7 @@ contract LibCodecBatchTest is Test {
                 anchorBlockIds: emptyBlockIds,
                 blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
-                        firstBlobIndex: uint8(i + 1),
+                    firstBlobIndex: uint8(i + 1),
                     numBlobs: uint8(i + 2),
                     byteOffset: uint32(i + 3),
                     byteSize: uint32(i + 4)
@@ -155,16 +145,11 @@ contract LibCodecBatchTest is Test {
                 coinbase: address(uint160(i + 1000)),
                 lastBlockTimestamp: uint48(i),
                 gasIssuancePerSecond: uint32(i),
-                    proverAuth: emptyAuth,
+                proverAuth: emptyAuth,
                 signalSlots: emptySlots,
                 anchorBlockIds: emptyBlockIds,
                 blocks: emptyBlocks,
-                blobs: IInbox.Blobs({
-                        firstBlobIndex: 0,
-                    numBlobs: 0,
-                    byteOffset: 0,
-                    byteSize: 0
-                    })
+                blobs: IInbox.Blobs({ firstBlobIndex: 0, numBlobs: 0, byteOffset: 0, byteSize: 0 })
             });
         }
 
@@ -199,12 +184,7 @@ contract LibCodecBatchTest is Test {
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
-            blobs: IInbox.Blobs({
-                firstBlobIndex: 1,
-                numBlobs: 2,
-                byteOffset: 3,
-                byteSize: 4
-            })
+            blobs: IInbox.Blobs({ firstBlobIndex: 1, numBlobs: 2, byteOffset: 3, byteSize: 4 })
         });
 
         // Test with isForcedInclusion = false
@@ -216,12 +196,7 @@ contract LibCodecBatchTest is Test {
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
-            blobs: IInbox.Blobs({
-                firstBlobIndex: 6,
-                numBlobs: 7,
-                byteOffset: 8,
-                byteSize: 9
-            })
+            blobs: IInbox.Blobs({ firstBlobIndex: 6, numBlobs: 7, byteOffset: 8, byteSize: 9 })
         });
 
         bytes memory packed = LibCodec.packBatches(batches);
@@ -256,7 +231,7 @@ contract LibCodecBatchTest is Test {
                 anchorBlockIds: emptyBlockIds,
                 blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
-                        firstBlobIndex: uint8(i),
+                    firstBlobIndex: uint8(i),
                     numBlobs: uint8(i + 1),
                     byteOffset: uint32(i + 2),
                     byteSize: uint32(i + 3)
@@ -295,7 +270,7 @@ contract LibCodecBatchTest is Test {
                 anchorBlockIds: emptyBlockIds,
                 blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
-                        firstBlobIndex: uint8(i),
+                    firstBlobIndex: uint8(i),
                     numBlobs: uint8(i + 1),
                     byteOffset: uint32(i + 2),
                     byteSize: uint32(i + 3)
@@ -392,12 +367,7 @@ contract LibCodecBatchTest is Test {
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
-            blobs: IInbox.Blobs({
-                firstBlobIndex: 0,
-                numBlobs: 0,
-                byteOffset: 0,
-                byteSize: 0
-            })
+            blobs: IInbox.Blobs({ firstBlobIndex: 0, numBlobs: 0, byteOffset: 0, byteSize: 0 })
         });
 
         bytes memory packed = LibCodec.packBatches(batches);
@@ -434,12 +404,7 @@ contract LibCodecBatchTest is Test {
             signalSlots: emptySlots,
             anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
-            blobs: IInbox.Blobs({
-                firstBlobIndex: 1,
-                numBlobs: 2,
-                byteOffset: 3,
-                byteSize: 4
-            })
+            blobs: IInbox.Blobs({ firstBlobIndex: 1, numBlobs: 2, byteOffset: 3, byteSize: 4 })
         });
 
         bytes memory packed = LibCodec.packBatches(batches);

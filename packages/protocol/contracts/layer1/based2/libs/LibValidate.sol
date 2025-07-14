@@ -74,6 +74,7 @@ library LibValidate {
 
         // Initialize context
         context_ = I.BatchContext({
+            proposer: msg.sender,
             prover: address(0), // Will be set later in LibProver.validateProver
             txsHash: txsHash,
             blobHashes: blobHashes,
@@ -90,8 +91,6 @@ library LibValidate {
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
-
-   
 
     /// @notice Validates the gas issuance per second for a batch
     /// @dev Ensures that the gas issuance per second is within a 1% range of the last recorded
@@ -287,13 +286,7 @@ library LibValidate {
     /// @notice Validates blob data
     /// @dev Simplified blob validation - ensures blobs are specified
     /// @param _batch The batch containing blob information
-    function _validateBlobs(
-        I.Config memory,
-        I.Batch memory _batch
-    )
-        private
-        pure
-    {
+    function _validateBlobs(I.Config memory, I.Batch memory _batch) private pure {
         // Blobs must be specified
         require(_batch.blobs.numBlobs != 0, BlobNotSpecified());
     }

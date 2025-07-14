@@ -117,14 +117,12 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     /// @notice Builds batch metadata from batch and batch context data
     /// @param _proposedIn The block number in which the batch is proposed
     /// @param _proposedAt The timestamp of the block in which the batch is proposed
-    /// @param _proposer The address proposing the batch
     /// @param _batch The batch being proposed
     /// @param _context The batch context data containing computed values
     /// @return meta_ The populated batch metadata
     function buildBatchMetadata(
         uint48 _proposedIn,
         uint48 _proposedAt,
-        address _proposer,
         I.Batch calldata _batch,
         I.BatchContext calldata _context
     )
@@ -132,7 +130,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         pure
         returns (I.BatchMetadata memory meta_)
     {
-        return LibData.buildBatchMetadata(_proposedIn, _proposedAt, _proposer, _batch, _context);
+        return LibData.buildBatchMetadata(_proposedIn, _proposedAt, _batch, _context);
     }
 
     /// @notice Checks if this contract is an inbox

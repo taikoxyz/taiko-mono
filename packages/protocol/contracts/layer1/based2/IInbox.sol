@@ -62,7 +62,7 @@ interface IInbox {
     /// @notice Output structure containing validated batch information
     /// @dev This struct aggregates all validation results for efficient batch processing
     struct BatchContext {
-        // address proposer;
+        address proposer;
         address prover;
         bytes32 txsHash;
         uint48 lastAnchorBlockId;

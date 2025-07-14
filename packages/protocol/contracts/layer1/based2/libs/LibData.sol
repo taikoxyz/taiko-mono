@@ -25,7 +25,6 @@ library LibData {
     function buildBatchMetadata(
         uint48 _proposedIn,
         uint48 _proposedAt,
-        address _proposer,
         I.Batch memory _batch,
         I.BatchContext memory _context
     )
@@ -61,7 +60,7 @@ library LibData {
                 lastAnchorBlockId: _context.lastAnchorBlockId
             }),
             proveMeta: I.BatchProveMetadata({
-                proposer: _proposer,
+                proposer: _context.proposer,
                 prover: _context.prover,
                 proposedAt: _proposedAt,
                 firstBlockId: firstBlockId,
