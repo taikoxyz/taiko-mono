@@ -72,7 +72,7 @@ func (s *DriverTestSuite) TestNewConfigFromCliContextJWTError() {
 	s.ErrorContains(app.Run([]string{
 		"TestNewConfigFromCliContext",
 		"--" + flags.JWTSecret.Name, "wrongsecretfile.txt",
-	}), "invalid JWT secret file")
+	}), "invalid ApiKey secret file")
 }
 
 func (s *DriverTestSuite) TestNewConfigFromCliContextEmptyL2CheckPoint() {

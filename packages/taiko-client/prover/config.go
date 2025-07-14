@@ -37,7 +37,7 @@ type Config struct {
 	Allowance                 *big.Int
 	RaikoHostEndpoint         string
 	RaikoZKVMHostEndpoint     string
-	RaikoJWT                  string
+	RaikoApiKey               string
 	RaikoRequestTimeout       time.Duration
 	LocalProposerAddresses    []common.Address
 	BlockConfirmations        uint64
@@ -53,7 +53,7 @@ type Config struct {
 // NewConfigFromCliContext creates a new config instance from command line flags.
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	var (
-		jwtSecret []byte
+		raikoApiKey []byte
 	)
 	l1ProverPrivKey, err := crypto.ToECDSA(common.FromHex(c.String(flags.L1ProverPrivKey.Name)))
 	if err != nil {
@@ -75,10 +75,10 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		allowance = amt
 	}
 
-	if c.IsSet(flags.RaikoJWTPath.Name) {
-		jwtSecret, err = jwt.ParseSecretFromFile(c.String(flags.RaikoJWTPath.Name))
+	if c.IsSet(flags.RaikoApiKeyPath.Name) {
+		raikoApiKey, err = jwt.ParseSecretFromFile(c.String(flags.RaikoApiKeyPath.Name))
 		if err != nil {
-			return nil, fmt.Errorf("invalid JWT secret file: %w", err)
+			return nil, fmt.Errorf("invalid ApiKey secret file: %w", err)
 		}
 	}
 
@@ -105,7 +105,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L1ProverPrivKey:        l1ProverPrivKey,
 		RaikoHostEndpoint:      c.String(flags.RaikoHostEndpoint.Name),
 		RaikoZKVMHostEndpoint:  c.String(flags.RaikoZKVMHostEndpoint.Name),
-		RaikoJWT:               common.Bytes2Hex(jwtSecret),
+		RaikoApiKey:            common.Bytes2Hex(raikoApiKey),
 		RaikoRequestTimeout:    c.Duration(flags.RaikoRequestTimeout.Name),
 		StartingBatchID:        startingBatchID,
 		Dummy:                  c.Bool(flags.Dummy.Name),

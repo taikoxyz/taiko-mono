@@ -63,7 +63,7 @@ var (
 	}
 	JWTSecret = &cli.StringFlag{
 		Name:     "jwtSecret",
-		Usage:    "Path to a JWT secret to use for authenticated RPC endpoints",
+		Usage:    "Path to a ApiKey secret to use for authenticated RPC endpoints",
 		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"JWT_SECRET"},
