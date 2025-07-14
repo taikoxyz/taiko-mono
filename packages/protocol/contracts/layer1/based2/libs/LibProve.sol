@@ -62,7 +62,6 @@ library LibProve {
     function _proveBatch(
         LibState.Access memory _access,
         I.Config memory _config,
-        // I.Summary memory _summary,
         I.BatchProveInput memory _input
     )
         private
