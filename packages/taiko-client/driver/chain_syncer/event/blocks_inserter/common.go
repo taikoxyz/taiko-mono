@@ -150,6 +150,7 @@ func createExecutionPayloads(
 		"extraData", common.Bytes2Hex(attributes.BlockMetadata.ExtraData),
 		"l1OriginHeight", attributes.L1Origin.L1BlockHeight,
 		"l1OriginHash", attributes.L1Origin.L1BlockHash,
+		"signature", common.Bytes2Hex(attributes.L1Origin.Signature[:]),
 	)
 
 	// Step 1, prepare a payload
