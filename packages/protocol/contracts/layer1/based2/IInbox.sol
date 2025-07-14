@@ -217,7 +217,7 @@ interface IInbox {
         /// @notice The max differences of the anchor height and the current block number.
         uint16 maxAnchorHeightOffset;
         /// @notice The proving window in seconds.
-        uint16 provingWindow;
+        uint24 provingWindow;
         /// @notice The extended proving window in seconds before provability bond is used as
         /// reward.
         uint24 extendedProvingWindow;
