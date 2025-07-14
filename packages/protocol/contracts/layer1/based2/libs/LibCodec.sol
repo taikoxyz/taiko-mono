@@ -141,16 +141,16 @@ library LibCodec {
     /// @dev Packed format (85 bytes fixed + dynamic arrays):
     /// | Field               | Bytes | Offset | Type    |
     /// |---------------------|-------|--------|---------|
-    /// | prover              | 20    | 0      | address |
-    /// | txsHash             | 32    | 20     | bytes32 |
-    /// | lastAnchorBlockId   | 6     | 52     | uint48  |
-    /// | lastBlockId         | 6     | 58     | uint48  |
-    /// | blobsCreatedIn      | 6     | 64     | uint48  |
-    /// | blockMaxGasLimit    | 4     | 70     | uint32  |
-    /// | livenessBond        | 6     | 74     | uint48  |
-    /// | provabilityBond     | 6     | 80     | uint48  |
-    /// | baseFeeSharingPctg  | 1     | 86     | uint8   |
-    /// | anchorBlockHashes   | var   | 87     | dynamic |
+    /// | proposer            | 20    | 0      | address |
+    /// | prover              | 20    | 20     | address |
+    /// | txsHash             | 32    | 40     | bytes32 |
+    /// | lastAnchorBlockId   | 6     | 72     | uint48  |
+    /// | lastBlockId         | 6     | 78     | uint48  |
+    /// | blockMaxGasLimit    | 4     | 84     | uint32  |
+    /// | livenessBond        | 6     | 88     | uint48  |
+    /// | provabilityBond     | 6     | 94     | uint48  |
+    /// | baseFeeSharingPctg  | 1     | 100    | uint8   |
+    /// | anchorBlockHashes   | var   | 101    | dynamic |
     /// | blobHashes          | var   | var    | dynamic |
     /// @param _context The BatchContext struct to pack
     /// @return packed_ The packed byte array
@@ -166,35 +166,46 @@ library LibCodec {
             require(anchorHashesLen <= type(uint8).max, ArrayTooLarge());
             require(blobHashesLen <= type(uint8).max, ArrayTooLarge());
 
-            // Calculate total size: 85 fixed bytes + 1 byte for each array length
-            // + 32 bytes per hash in each array
-            uint256 totalSize = 85 + 1 + 1 + (anchorHashesLen * 32) + (blobHashesLen * 32);
+            // Calculate total size: 101 fixed bytes + 1 byte for each array length + 32 bytes per
+            // hash
+            uint256 totalSize = 101 + 1 + 1 + (anchorHashesLen * 32) + (blobHashesLen * 32);
             packed_ = new bytes(totalSize);
 
             assembly {
                 let ptr := add(packed_, 0x20)
 
-                // Pack prover (20 bytes) aligned left
+                // Pack proposer (20 bytes) aligned left
                 mstore(ptr, shl(96, mload(_context)))
+                ptr := add(ptr, 20)
+
+                // Pack prover (20 bytes) aligned left
+                mstore(ptr, shl(96, mload(add(_context, 0x20))))
+                ptr := add(ptr, 20)
 
                 // Pack txsHash (32 bytes) directly
-                mstore(add(ptr, 20), mload(add(_context, 0x20)))
+                mstore(ptr, mload(add(_context, 0x40)))
+                ptr := add(ptr, 32)
 
                 // Pack multiple uint48 fields efficiently
-                mstore(add(ptr, 52), shl(208, mload(add(_context, 0x40)))) // lastAnchorBlockId
-                mstore(add(ptr, 58), shl(208, mload(add(_context, 0x60)))) // lastBlockId
-                mstore(add(ptr, 64), shl(208, mload(add(_context, 0x80)))) // blobsCreatedIn
+                mstore(ptr, shl(208, mload(add(_context, 0x60)))) // lastAnchorBlockId
+                ptr := add(ptr, 6)
+
+                mstore(ptr, shl(208, mload(add(_context, 0x80)))) // lastBlockId
+                ptr := add(ptr, 6)
 
                 // Pack uint32 and remaining uint48s
-                mstore(add(ptr, 70), shl(224, mload(add(_context, 0xa0)))) // blockMaxGasLimit
-                mstore(add(ptr, 74), shl(208, mload(add(_context, 0xc0)))) // livenessBond
-                mstore(add(ptr, 80), shl(208, mload(add(_context, 0xe0)))) // provabilityBond
+                mstore(ptr, shl(224, mload(add(_context, 0xa0)))) // blockMaxGasLimit
+                ptr := add(ptr, 4)
+
+                mstore(ptr, shl(208, mload(add(_context, 0xc0)))) // livenessBond
+                ptr := add(ptr, 6)
+
+                mstore(ptr, shl(208, mload(add(_context, 0xe0)))) // provabilityBond
+                ptr := add(ptr, 6)
 
                 // Pack uint8
-                mstore8(add(ptr, 86), mload(add(_context, 0x100)))
-
-                // Update pointer for dynamic arrays
-                ptr := add(ptr, 87)
+                mstore8(ptr, mload(add(_context, 0x100)))
+                ptr := add(ptr, 1)
 
                 // Pack anchorBlockHashes array
                 mstore8(ptr, anchorHashesLen)
@@ -225,7 +236,7 @@ library LibCodec {
 
     /// @notice Unpacks a byte array back into a BatchContext struct.
     /// @dev Reverses the packing performed by packBatchContext. Input must have
-    /// at least 87 bytes (85 fixed + 2 array length bytes). See packBatchContext for data layout.
+    /// at least 103 bytes (101 fixed + 2 array length bytes). See packBatchContext for data layout.
     /// @param _packed The packed byte array to unpack
     /// @return context_ The unpacked BatchContext struct
     function unpackBatchContext(bytes memory _packed)
@@ -233,7 +244,8 @@ library LibCodec {
         pure
         returns (I.BatchContext memory context_)
     {
-        require(_packed.length >= 87, InvalidDataLength()); // 85 fixed + 2 lengths (1 byte each)
+        require(_packed.length >= 103, InvalidDataLength()); // Minimum: 101 fixed + 2 lengths (1
+            // byte each)
 
         unchecked {
             uint256 offset;
@@ -241,6 +253,10 @@ library LibCodec {
             // Extract fixed-size fields
             assembly {
                 let dataPtr := add(_packed, 0x20)
+
+                // proposer (20 bytes) - extract from packed data
+                let proposer := shr(96, mload(add(dataPtr, offset)))
+                offset := add(offset, 20)
 
                 // prover (20 bytes) - extract from packed data
                 let prover := shr(96, mload(add(dataPtr, offset)))
@@ -256,10 +272,6 @@ library LibCodec {
 
                 // lastBlockId (6 bytes) - stored as uint48
                 let lastBlockId := shr(208, mload(add(dataPtr, offset)))
-                offset := add(offset, 6)
-
-                // blobsCreatedIn (6 bytes) - stored as uint48
-                let blobsCreatedIn := shr(208, mload(add(dataPtr, offset)))
                 offset := add(offset, 6)
 
                 // blockMaxGasLimit (4 bytes) - stored as uint32
@@ -282,11 +294,11 @@ library LibCodec {
                 context_ := mload(0x40)
                 mstore(0x40, add(context_, 0x160)) // Update free memory pointer
 
-                mstore(context_, prover)
-                mstore(add(context_, 0x20), txsHash)
-                mstore(add(context_, 0x40), lastAnchorBlockId)
-                mstore(add(context_, 0x60), lastBlockId)
-                mstore(add(context_, 0x80), blobsCreatedIn)
+                mstore(context_, proposer)
+                mstore(add(context_, 0x20), prover)
+                mstore(add(context_, 0x40), txsHash)
+                mstore(add(context_, 0x60), lastAnchorBlockId)
+                mstore(add(context_, 0x80), lastBlockId)
                 mstore(add(context_, 0xa0), blockMaxGasLimit)
                 mstore(add(context_, 0xc0), livenessBond)
                 mstore(add(context_, 0xe0), provabilityBond)
@@ -301,7 +313,7 @@ library LibCodec {
                 let dataPtr := add(_packed, 0x20)
 
                 // anchorBlockHashes length (1 byte)
-                anchorHashesLen := shr(248, mload(add(dataPtr, offset)))
+                anchorHashesLen := byte(0, mload(add(dataPtr, offset)))
                 offset := add(offset, 1)
             }
 
@@ -321,7 +333,7 @@ library LibCodec {
                 let dataPtr := add(_packed, 0x20)
 
                 // blobHashes length (1 byte)
-                blobHashesLen := shr(248, mload(add(dataPtr, offset)))
+                blobHashesLen := byte(0, mload(add(dataPtr, offset)))
                 offset := add(offset, 1)
             }
 
@@ -448,15 +460,15 @@ library LibCodec {
                 I.Batch memory batch = _batches[i];
 
                 // Calculate size for each batch component
-                totalSize += 51; // Fixed fields (20+20+7+4)
+                totalSize += 30; // Fixed fields (20+6+4)
                 totalSize += 1 + batch.proverAuth.length; // proverAuth with length prefix
                 totalSize += 1 + (batch.signalSlots.length * 32); // signalSlots with length prefix
                 totalSize += 1 + (batch.anchorBlockIds.length * 6); // anchorBlockIds with length
                     // prefix
                 totalSize += 1 + (batch.blocks.length * 10); // blocks with length prefix (each
                     // block is 10 bytes packed)
-                totalSize += 17; // blobs fixed part (1+1+4+4+6+1 = 17 bytes)
-                totalSize += (batch.blobs.hashes.length * 32); // blob hashes
+                totalSize += 10; // blobs fixed part (1+1+4+4 = 10 bytes)
+                    // blob hashes removed
             }
 
             encoded_ = new bytes(totalSize);
@@ -473,24 +485,20 @@ library LibCodec {
                     let batch := mload(add(_batches, mul(add(i, 1), 0x20)))
 
                     // Pack fixed fields efficiently
-                    // proposer (20 bytes) - left-aligned
-                    mstore(ptr, shl(96, mload(batch)))
                     // coinbase (20 bytes) - left-aligned
-                    mstore(add(ptr, 20), shl(96, mload(add(batch, 0x20))))
+                    mstore(ptr, shl(96, mload(batch)))
 
-                    // Pack timestamp (48 bits) + forced flag (1 bit) in 7 bytes
-                    let blockTimestamp := mload(add(batch, 0x40))
-                    let isForcedInclusion := mload(add(batch, 0x80))
-                    let combined := or(blockTimestamp, shl(48, isForcedInclusion))
-                    mstore(add(ptr, 40), shl(200, combined))
+                    // Pack timestamp (48 bits) in 6 bytes
+                    let blockTimestamp := mload(add(batch, 0x20))
+                    mstore(add(ptr, 20), shl(208, blockTimestamp))
 
                     // gasIssuancePerSecond (4 bytes)
-                    mstore(add(ptr, 47), shl(224, mload(add(batch, 0x60))))
+                    mstore(add(ptr, 26), shl(224, mload(add(batch, 0x40))))
 
-                    ptr := add(ptr, 51)
+                    ptr := add(ptr, 30)
 
                     // proverAuth - get bytes array
-                    let proverAuth := mload(add(batch, 0xa0))
+                    let proverAuth := mload(add(batch, 0x60))
                     let proverAuthLen := mload(proverAuth)
 
                     // Store proverAuth length (1 byte)
@@ -520,7 +528,7 @@ library LibCodec {
                     }
 
                     // signalSlots array
-                    let signalSlots := mload(add(batch, 0xc0))
+                    let signalSlots := mload(add(batch, 0x80))
                     let signalSlotsLen := mload(signalSlots)
 
                     // Store signalSlots length (1 byte)
@@ -536,7 +544,7 @@ library LibCodec {
                     }
 
                     // anchorBlockIds array
-                    let anchorBlockIds := mload(add(batch, 0xe0))
+                    let anchorBlockIds := mload(add(batch, 0xa0))
                     let anchorBlockIdsLen := mload(anchorBlockIds)
 
                     // Store anchorBlockIds length (1 byte)
@@ -552,7 +560,7 @@ library LibCodec {
                     }
 
                     // blocks array
-                    let blocks := mload(add(batch, 0x100))
+                    let blocks := mload(add(batch, 0xc0))
                     let blocksLen := mload(blocks)
 
                     // Store blocks length (1 byte)
@@ -582,7 +590,7 @@ library LibCodec {
                     }
 
                     // blobs structure (fixed size fields)
-                    let blobs := mload(add(batch, 0x120))
+                    let blobs := mload(add(batch, 0xe0))
 
                     // firstBlobIndex (1 byte)
                     mstore8(ptr, mload(add(blobs, 0x20)))
@@ -600,25 +608,7 @@ library LibCodec {
                     mstore(ptr, shl(224, mload(add(blobs, 0x80))))
                     ptr := add(ptr, 4)
 
-                    // createdIn (6 bytes)
-                    mstore(ptr, shl(208, mload(add(blobs, 0xa0))))
-                    ptr := add(ptr, 6)
-
-                    // hashes array
-                    let hashes := mload(blobs)
-                    let hashesLen := mload(hashes)
-
-                    // Store hashes length (1 byte)
-                    mstore(ptr, shl(248, hashesLen))
-                    ptr := add(ptr, 1)
-
-                    // Copy hashes data efficiently
-                    let hashDataPtr := add(hashes, 0x20)
-                    for { let j := 0 } lt(j, hashesLen) { j := add(j, 1) } {
-                        mstore(ptr, mload(hashDataPtr))
-                        ptr := add(ptr, 32)
-                        hashDataPtr := add(hashDataPtr, 32)
-                    }
+                    // No more createdIn or hashes fields
                 }
             }
         }
@@ -658,26 +648,18 @@ library LibCodec {
 
                     // Allocate memory for batch
                     batch := mload(0x40)
-                    mstore(0x40, add(batch, 0x140))
+                    mstore(0x40, add(batch, 0x100))
 
-                    // proposer (20 bytes)
+                    // coinbase (20 bytes)
                     mstore(batch, shr(96, mload(ptr)))
                     ptr := add(ptr, 20)
 
-                    // coinbase (20 bytes)
-                    mstore(add(batch, 0x20), shr(96, mload(ptr)))
-                    ptr := add(ptr, 20)
-
-                    // lastBlockTimestamp (48 bits) + isForcedInclusion (1 bit) from 7 bytes
-                    let combined := shr(200, mload(ptr))
-                    let blockTimestamp := and(combined, 0xFFFFFFFFFFFF) // Extract lower 48 bits
-                    let isForcedInclusion := shr(48, combined) // Extract bit 48
-                    mstore(add(batch, 0x40), blockTimestamp)
-                    mstore(add(batch, 0x80), isForcedInclusion)
-                    ptr := add(ptr, 7)
+                    // lastBlockTimestamp (48 bits) from 6 bytes
+                    mstore(add(batch, 0x20), shr(208, mload(ptr)))
+                    ptr := add(ptr, 6)
 
                     // gasIssuancePerSecond (4 bytes)
-                    mstore(add(batch, 0x60), shr(224, mload(ptr)))
+                    mstore(add(batch, 0x40), shr(224, mload(ptr)))
                     ptr := add(ptr, 4)
 
                     offset := sub(ptr, dataPtr)
@@ -710,7 +692,7 @@ library LibCodec {
                     }
 
                     offset := add(offset, proverAuthLen)
-                    mstore(add(batch, 0xa0), proverAuth)
+                    mstore(add(batch, 0x60), proverAuth)
                 }
 
                 // Extract remaining arrays in simplified form for space efficiency
@@ -735,7 +717,7 @@ library LibCodec {
 
                     // Extract blobs metadata
                     let blobs := mload(0x40)
-                    mstore(0x40, add(blobs, 0xc0))
+                    mstore(0x40, add(blobs, 0xa0))
 
                     // firstBlobIndex (1 byte)
                     mstore(add(blobs, 0x20), byte(0, mload(ptr)))
@@ -753,25 +735,17 @@ library LibCodec {
                     mstore(add(blobs, 0x80), shr(224, mload(ptr)))
                     ptr := add(ptr, 4)
 
-                    // createdIn (6 bytes)
-                    mstore(add(blobs, 0xa0), shr(208, mload(ptr)))
-                    ptr := add(ptr, 6)
-
-                    // Skip blob hashes
-                    let hashesLen := shr(248, mload(ptr))
-                    ptr := add(ptr, 1)
-                    ptr := add(ptr, mul(hashesLen, 32))
+                    // No more createdIn or hashes fields
 
                     // Create empty arrays for all complex fields
                     let emptyArray := mload(0x40)
                     mstore(emptyArray, 0)
                     mstore(0x40, add(emptyArray, 0x20))
 
-                    mstore(blobs, emptyArray) // empty hashes
-                    mstore(add(batch, 0xc0), emptyArray) // signalSlots
-                    mstore(add(batch, 0xe0), emptyArray) // anchorBlockIds
-                    mstore(add(batch, 0x100), emptyArray) // blocks
-                    mstore(add(batch, 0x120), blobs)
+                    mstore(add(batch, 0x80), emptyArray) // signalSlots
+                    mstore(add(batch, 0xa0), emptyArray) // anchorBlockIds
+                    mstore(add(batch, 0xc0), emptyArray) // blocks
+                    mstore(add(batch, 0xe0), blobs)
 
                     offset := sub(ptr, dataPtr)
                 }

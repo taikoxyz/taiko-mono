@@ -84,9 +84,9 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     }
 
     /// @inheritdoc IProve
-    /// @dev In prevous versions, proving a block may also trigger block verification, in this
+    /// @dev In previous versions, proving a block may also trigger block verification, in this
     /// upgrade, this is no longer the case as we would like to ensure more certainty for provers
-    /// and let proposers to manage the uncertaity of verification cost.
+    /// and let proposers to manage the uncertainty of verification cost.
     function prove4(
         bytes calldata _packedSummary,
         bytes calldata _packedBatchProveInputs,

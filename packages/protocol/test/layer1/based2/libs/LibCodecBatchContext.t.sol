@@ -10,11 +10,11 @@ contract LibCodecBatchContextTest is Test {
 
     function test_packUnpack_emptyArrays() public pure {
         IInbox.BatchContext memory context = IInbox.BatchContext({
+            proposer: address(0x1234567890123456789012345678901234567890),
             prover: address(0x1234567890123456789012345678901234567890),
             txsHash: bytes32(uint256(0xabcdef)),
             lastAnchorBlockId: 12_345,
             lastBlockId: 67_890,
-            blobsCreatedIn: 11_111,
             blockMaxGasLimit: 30_000_000,
             livenessBond: 100_000,
             provabilityBond: 200_000,
@@ -26,11 +26,12 @@ contract LibCodecBatchContextTest is Test {
         bytes memory packed = context.packBatchContext();
         IInbox.BatchContext memory unpacked = LibCodec.unpackBatchContext(packed);
 
+        assertEq(unpacked.proposer, context.proposer);
         assertEq(unpacked.prover, context.prover);
         assertEq(unpacked.txsHash, context.txsHash);
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
         assertEq(unpacked.lastBlockId, context.lastBlockId);
-        assertEq(unpacked.blobsCreatedIn, context.blobsCreatedIn);
+        // blobsCreatedIn field removed
         assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
         assertEq(unpacked.livenessBond, context.livenessBond);
         assertEq(unpacked.provabilityBond, context.provabilityBond);
@@ -50,11 +51,11 @@ contract LibCodecBatchContextTest is Test {
         blobHashes[1] = bytes32(uint256(0xbbb));
 
         IInbox.BatchContext memory context = IInbox.BatchContext({
-            prover: address(0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF),
+            proposer: address(0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF),
+            prover: address(0xbEefcAFebABEDEaDFeeDFaCecAfEBeEFDEAD1234),
             txsHash: keccak256("test"),
             lastAnchorBlockId: 99_999,
             lastBlockId: 123_456,
-            blobsCreatedIn: 22_222,
             blockMaxGasLimit: 50_000_000,
             livenessBond: 150_000,
             provabilityBond: 250_000,
@@ -66,11 +67,12 @@ contract LibCodecBatchContextTest is Test {
         bytes memory packed = context.packBatchContext();
         IInbox.BatchContext memory unpacked = LibCodec.unpackBatchContext(packed);
 
+        assertEq(unpacked.proposer, context.proposer);
         assertEq(unpacked.prover, context.prover);
         assertEq(unpacked.txsHash, context.txsHash);
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
         assertEq(unpacked.lastBlockId, context.lastBlockId);
-        assertEq(unpacked.blobsCreatedIn, context.blobsCreatedIn);
+        // blobsCreatedIn field removed
         assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
         assertEq(unpacked.livenessBond, context.livenessBond);
         assertEq(unpacked.provabilityBond, context.provabilityBond);
@@ -88,11 +90,11 @@ contract LibCodecBatchContextTest is Test {
 
     function test_packUnpack_maxValues() public pure {
         IInbox.BatchContext memory context = IInbox.BatchContext({
+            proposer: address(type(uint160).max),
             prover: address(type(uint160).max),
             txsHash: bytes32(type(uint256).max),
             lastAnchorBlockId: type(uint48).max,
             lastBlockId: type(uint48).max,
-            blobsCreatedIn: type(uint48).max,
             blockMaxGasLimit: type(uint32).max,
             livenessBond: type(uint48).max,
             provabilityBond: type(uint48).max,
@@ -104,11 +106,12 @@ contract LibCodecBatchContextTest is Test {
         bytes memory packed = context.packBatchContext();
         IInbox.BatchContext memory unpacked = LibCodec.unpackBatchContext(packed);
 
+        assertEq(unpacked.proposer, context.proposer);
         assertEq(unpacked.prover, context.prover);
         assertEq(unpacked.txsHash, context.txsHash);
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
         assertEq(unpacked.lastBlockId, context.lastBlockId);
-        assertEq(unpacked.blobsCreatedIn, context.blobsCreatedIn);
+        // blobsCreatedIn field removed
         assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
         assertEq(unpacked.livenessBond, context.livenessBond);
         assertEq(unpacked.provabilityBond, context.provabilityBond);
@@ -131,11 +134,11 @@ contract LibCodecBatchContextTest is Test {
         }
 
         IInbox.BatchContext memory context = IInbox.BatchContext({
-            prover: address(0x123),
+            proposer: address(0x123),
+            prover: address(0x456),
             txsHash: keccak256("large arrays test"),
             lastAnchorBlockId: 1000,
             lastBlockId: 2000,
-            blobsCreatedIn: 3000,
             blockMaxGasLimit: 30_000_000,
             livenessBond: 4000,
             provabilityBond: 5000,
@@ -169,11 +172,11 @@ contract LibCodecBatchContextTest is Test {
         bytes32[] memory blobHashes = new bytes32[](0);
 
         IInbox.BatchContext memory context = IInbox.BatchContext({
-            prover: address(0x123),
+            proposer: address(0x123),
+            prover: address(0x456),
             txsHash: bytes32(0),
             lastAnchorBlockId: 0,
             lastBlockId: 0,
-            blobsCreatedIn: 0,
             blockMaxGasLimit: 0,
             livenessBond: 0,
             provabilityBond: 0,
@@ -192,18 +195,18 @@ contract LibCodecBatchContextTest is Test {
 
     function test_unpack_invalidDataLength() public {
         // Test with data that's too short
-        bytes memory tooShort = new bytes(50); // Less than 91 bytes minimum
+        bytes memory tooShort = new bytes(50); // Less than 103 bytes minimum
 
         vm.expectRevert(LibCodec.InvalidDataLength.selector);
         LibCodec.unpackBatchContext(tooShort);
     }
 
     function test_packUnpack_fuzz(
+        address proposer,
         address prover,
         bytes32 txsHash,
         uint48 lastAnchorBlockId,
         uint48 lastBlockId,
-        uint48 blobsCreatedIn,
         uint32 blockMaxGasLimit,
         uint48 livenessBond,
         uint48 provabilityBond,
@@ -229,11 +232,11 @@ contract LibCodecBatchContextTest is Test {
         }
 
         IInbox.BatchContext memory context = IInbox.BatchContext({
+            proposer: proposer,
             prover: prover,
             txsHash: txsHash,
             lastAnchorBlockId: lastAnchorBlockId,
             lastBlockId: lastBlockId,
-            blobsCreatedIn: blobsCreatedIn,
             blockMaxGasLimit: blockMaxGasLimit,
             livenessBond: livenessBond,
             provabilityBond: provabilityBond,
@@ -245,11 +248,12 @@ contract LibCodecBatchContextTest is Test {
         bytes memory packed = context.packBatchContext();
         IInbox.BatchContext memory unpacked = LibCodec.unpackBatchContext(packed);
 
+        assertEq(unpacked.proposer, context.proposer);
         assertEq(unpacked.prover, context.prover);
         assertEq(unpacked.txsHash, context.txsHash);
         assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
         assertEq(unpacked.lastBlockId, context.lastBlockId);
-        assertEq(unpacked.blobsCreatedIn, context.blobsCreatedIn);
+        // blobsCreatedIn field removed
         assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
         assertEq(unpacked.livenessBond, context.livenessBond);
         assertEq(unpacked.provabilityBond, context.provabilityBond);
@@ -273,11 +277,11 @@ contract LibCodecBatchContextTest is Test {
         bytes32[] memory blobHashes = new bytes32[](3);
 
         IInbox.BatchContext memory context = IInbox.BatchContext({
-            prover: address(0x123),
+            proposer: address(0x123),
+            prover: address(0x456),
             txsHash: bytes32(0),
             lastAnchorBlockId: 0,
             lastBlockId: 0,
-            blobsCreatedIn: 0,
             blockMaxGasLimit: 0,
             livenessBond: 0,
             provabilityBond: 0,
@@ -288,8 +292,8 @@ contract LibCodecBatchContextTest is Test {
 
         bytes memory packed = context.packBatchContext();
 
-        // Expected size: 85 (fixed) + 1 (anchor length) + 1 (blob length) + 2*32 + 3*32 = 249
-        uint256 expectedSize = 85 + 1 + 1 + (2 * 32) + (3 * 32);
+        // Expected size: 101 (fixed) + 1 (anchor length) + 1 (blob length) + 2*32 + 3*32 = 263
+        uint256 expectedSize = 101 + 1 + 1 + (2 * 32) + (3 * 32);
         assertEq(packed.length, expectedSize);
     }
 
@@ -304,11 +308,11 @@ contract LibCodecBatchContextTest is Test {
         }
 
         IInbox.BatchContext memory context = IInbox.BatchContext({
-            prover: address(0x123),
+            proposer: address(0x123),
+            prover: address(0x456),
             txsHash: keccak256("gas test"),
             lastAnchorBlockId: 1000,
             lastBlockId: 2000,
-            blobsCreatedIn: 3000,
             blockMaxGasLimit: 30_000_000,
             livenessBond: 4000,
             provabilityBond: 5000,
@@ -344,7 +348,76 @@ contract LibCodecBatchContextTest is Test {
         console2.log("ABI packed size:", abiPacked.length);
 
         // Verify data integrity
+        assertEq(unpacked.proposer, abiUnpacked.proposer);
         assertEq(unpacked.prover, abiUnpacked.prover);
         assertEq(unpacked.txsHash, abiUnpacked.txsHash);
+    }
+
+    function test_packUnpack_sameProposerProver() public pure {
+        // Test when proposer and prover are the same
+        address addr = address(0x1234567890123456789012345678901234567890);
+
+        IInbox.BatchContext memory context = IInbox.BatchContext({
+            proposer: addr,
+            prover: addr,
+            txsHash: bytes32(uint256(0xabcdef)),
+            lastAnchorBlockId: 12_345,
+            lastBlockId: 67_890,
+            blockMaxGasLimit: 30_000_000,
+            livenessBond: 100_000,
+            provabilityBond: 200_000,
+            baseFeeSharingPctg: 75,
+            anchorBlockHashes: new bytes32[](0),
+            blobHashes: new bytes32[](0)
+        });
+
+        bytes memory packed = context.packBatchContext();
+        IInbox.BatchContext memory unpacked = LibCodec.unpackBatchContext(packed);
+
+        assertEq(unpacked.proposer, context.proposer);
+        assertEq(unpacked.prover, context.prover);
+        assertEq(unpacked.proposer, unpacked.prover); // Should be same
+        assertEq(unpacked.txsHash, context.txsHash);
+        assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
+        assertEq(unpacked.lastBlockId, context.lastBlockId);
+        assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
+        assertEq(unpacked.livenessBond, context.livenessBond);
+        assertEq(unpacked.provabilityBond, context.provabilityBond);
+        assertEq(unpacked.baseFeeSharingPctg, context.baseFeeSharingPctg);
+        assertEq(unpacked.anchorBlockHashes.length, 0);
+        assertEq(unpacked.blobHashes.length, 0);
+    }
+
+    function test_packUnpack_differentProposerProver() public pure {
+        // Test when proposer and prover are different
+        IInbox.BatchContext memory context = IInbox.BatchContext({
+            proposer: address(0x1111111111111111111111111111111111111111),
+            prover: address(0x2222222222222222222222222222222222222222),
+            txsHash: bytes32(uint256(0xabcdef)),
+            lastAnchorBlockId: 12_345,
+            lastBlockId: 67_890,
+            blockMaxGasLimit: 30_000_000,
+            livenessBond: 100_000,
+            provabilityBond: 200_000,
+            baseFeeSharingPctg: 75,
+            anchorBlockHashes: new bytes32[](0),
+            blobHashes: new bytes32[](0)
+        });
+
+        bytes memory packed = context.packBatchContext();
+        IInbox.BatchContext memory unpacked = LibCodec.unpackBatchContext(packed);
+
+        assertEq(unpacked.proposer, context.proposer);
+        assertEq(unpacked.prover, context.prover);
+        assertTrue(unpacked.proposer != unpacked.prover); // Should be different
+        assertEq(unpacked.txsHash, context.txsHash);
+        assertEq(unpacked.lastAnchorBlockId, context.lastAnchorBlockId);
+        assertEq(unpacked.lastBlockId, context.lastBlockId);
+        assertEq(unpacked.blockMaxGasLimit, context.blockMaxGasLimit);
+        assertEq(unpacked.livenessBond, context.livenessBond);
+        assertEq(unpacked.provabilityBond, context.provabilityBond);
+        assertEq(unpacked.baseFeeSharingPctg, context.baseFeeSharingPctg);
+        assertEq(unpacked.anchorBlockHashes.length, 0);
+        assertEq(unpacked.blobHashes.length, 0);
     }
 }
