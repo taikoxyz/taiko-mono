@@ -218,6 +218,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			"extraData", common.Bytes2Hex(header.Extra),
 			"parentHash", header.ParentHash,
 			"endOfSequencing", endOfSequencing,
+			"isForcedInclusion", reqBody.IsForcedInclusion != nil && *reqBody.IsForcedInclusion,
 		)
 
 		var u256 uint256.Int
