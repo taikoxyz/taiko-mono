@@ -215,7 +215,7 @@ interface IInbox {
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.
-        uint64 maxAnchorHeightOffset;
+        uint16 maxAnchorHeightOffset;
         /// @notice The proving window in seconds.
         uint16 provingWindow;
         /// @notice The extended proving window in seconds before provability bond is used as
@@ -224,10 +224,6 @@ interface IInbox {
         /// @notice The time required for a transition to be used for verifying a batch.
         uint24 cooldownWindow;
         uint8 bondRewardPtcg; // 0-100
-        /// @notice The maximum number of signals to be received by TaikoL2.
-        uint8 maxSignalsToReceive;
-        /// @notice The maximum number of blocks per batch.
-        uint8 maxBlocksPerBatch;
         /// @notice Historical heights of the forks.
         ForkHeights forkHeights;
         /// @notice The token used for bonding.

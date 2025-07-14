@@ -52,9 +52,6 @@ library LibValidate {
         // Validate new gas issuance per second
         _validateGasIssuance(_config, _summary, _batch);
 
-        // Validate and decode blocks
-        _validateBlocks(_config, _batch);
-
         // Validate timestamps
         _validateTimestamps(_config, _batch, _parentBatch.lastBlockTimestamp);
 
@@ -73,7 +70,7 @@ library LibValidate {
         uint48 blobsCreatedIn = _validateBlobs(_config, _batch);
 
         // Calculate transaction hash
-        (bytes32 txsHash, bytes32[] memory blobHashes) = _calculateTxsHash(_access, _batch.blobs);
+        (bytes32[] memory blobHashes, bytes32 txsHash) = _calculateTxsHash(_access, _batch.blobs);
 
         // Initialize context
         return I.BatchContext({
@@ -121,31 +118,23 @@ library LibValidate {
         internal
         view
     {
-        if (_batch.gasIssuancePerSecond == _summary.gasIssuancePerSecond) return;
+        unchecked {
+            if (_batch.gasIssuancePerSecond == _summary.gasIssuancePerSecond) return;
 
-        require(
-            _batch.gasIssuancePerSecond <= _summary.gasIssuancePerSecond * 101 / 100,
-            GasIssuanceTooHigh()
-        );
-        require(
-            _batch.gasIssuancePerSecond >= _summary.gasIssuancePerSecond * 100 / 101,
-            GasIssuanceTooLow()
-        );
-        require(
-            block.timestamp >= _summary.gasIssuanceUpdatedAt + _config.gasIssuanceUpdateDelay,
-            GasIssuanceTooEarlyToChange()
-        );
-    }
-
-    /// @notice Validates and decodes block data from the batch
-    /// @dev Decodes packed block information and validates block count limits
-    /// @param _config Protocol configuration
-    /// @param _batch The batch containing encoded blocks
-    function _validateBlocks(I.Config memory _config, I.Batch memory _batch) internal pure {
-        uint256 blockCount_ = _batch.blocks.length;
-
-        require(blockCount_ != 0, BlockNotFound());
-        require(blockCount_ <= _config.maxBlocksPerBatch, BlockLimitExceeded());
+            require(
+                _batch.gasIssuancePerSecond <= _summary.gasIssuancePerSecond * 101 / 100,
+                GasIssuanceTooHigh()
+            );
+            require(
+                _batch.gasIssuancePerSecond > 0
+                    && _batch.gasIssuancePerSecond >= _summary.gasIssuancePerSecond * 100 / 101,
+                GasIssuanceTooLow()
+            );
+            require(
+                block.timestamp >= _summary.gasIssuanceUpdatedAt + _config.gasIssuanceUpdateDelay,
+                GasIssuanceTooEarlyToChange()
+            );
+        }
     }
 
     /// @notice Validates timestamp consistency across the batch
@@ -167,20 +156,17 @@ library LibValidate {
             require(_batch.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
 
             uint64 totalShift;
-
             for (uint256 i; i < _batch.blocks.length; ++i) {
                 totalShift += _batch.blocks[i].timeShift;
             }
-
             require(_batch.lastBlockTimestamp >= totalShift, TimestampTooSmall());
-            uint256 firstBlockTimestamp_ = _batch.lastBlockTimestamp - totalShift;
 
+            uint256 firstBlockTimestamp_ = _batch.lastBlockTimestamp - totalShift;
             require(
                 firstBlockTimestamp_
                     + _config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME >= block.timestamp,
                 TimestampTooSmall()
             );
-
             require(firstBlockTimestamp_ >= _parentLastBlockTimestamp, TimestampSmallerThanParent());
         }
     }
@@ -204,12 +190,8 @@ library LibValidate {
             for (uint256 i; i < _batch.blocks.length; ++i) {
                 if (_batch.blocks[i].numSignals == 0) continue;
 
-                require(
-                    _batch.blocks[i].numSignals <= _config.maxSignalsToReceive,
-                    SignalLimitExceeded()
-                );
-
                 for (uint256 j; j < _batch.blocks[i].numSignals; ++j) {
+                    require(signalIndex < _batch.signalSlots.length, NotEnoughSignals());
                     require(
                         _access.isSignalSent(_config, _batch.signalSlots[signalIndex++]),
                         RequiredSignalNotSent()
@@ -251,12 +233,11 @@ library LibValidate {
             uint48 anchorBlockId = _batch.anchorBlockIds[anchorIndex];
             require(anchorBlockId != 0, AnchorIdZero());
 
-            if (!hasAnchorBlock) {
-                require(
-                    anchorBlockId + _config.maxAnchorHeightOffset >= uint48(block.number),
-                    AnchorIdTooSmall()
-                );
-            }
+            require(
+                hasAnchorBlock
+                    || anchorBlockId + _config.maxAnchorHeightOffset >= uint48(block.number),
+                AnchorIdTooSmall()
+            );
 
             require(anchorBlockId > lastAnchorBlockId_, AnchorIdSmallerThanParent());
 
@@ -291,13 +272,15 @@ library LibValidate {
         returns (uint48)
     {
         unchecked {
-            uint256 firstBlockId = _parentLastBlockId + 1;
-            uint256 lastBlockId = uint48(firstBlockId + _numBlocks);
+            // Validate and decode blocks
+            require(_numBlocks != 0, BlockNotFound());
+            uint48 firstBlockId = _parentLastBlockId + 1;
+            uint48 lastBlockId = uint48(firstBlockId + _numBlocks - 1);
             require(
                 LibForks.isBlocksInCurrentFork(_conf, firstBlockId, lastBlockId),
                 BlocksNotInCurrentFork()
             );
-            return uint48(lastBlockId);
+            return lastBlockId;
         }
     }
 
@@ -341,15 +324,15 @@ library LibValidate {
     /// @dev Retrieves blob hashes and computes the aggregate transaction hash
     /// @param _access Read/write access functions
     /// @param _blobs Blob information containing hashes or indices
-    /// @return txsHash_ Hash of all transactions in the batch
     /// @return blobHashes_ Array of individual blob hashes
+    /// @return txsHash_ Hash of all transactions in the batch
     function _calculateTxsHash(
         LibState.Access memory _access,
         I.Blobs memory _blobs
     )
         private
         view
-        returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
+        returns (bytes32[] memory blobHashes_, bytes32 txsHash_)
     {
         unchecked {
             if (_blobs.hashes.length != 0) {
@@ -393,10 +376,10 @@ library LibValidate {
     error LastBlockTimestampNotSet();
     error NoAnchorBlockIdWithinThisBatch();
     error NotEnoughAnchorIds();
+    error NotEnoughSignals();
     error NotInboxWrapper();
     error ProposerNotMsgSender();
     error RequiredSignalNotSent();
-    error SignalLimitExceeded();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
     error TimestampTooSmall();
