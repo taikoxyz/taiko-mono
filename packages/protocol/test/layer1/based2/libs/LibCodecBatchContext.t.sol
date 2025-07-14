@@ -337,7 +337,7 @@ contract LibCodecBatchContextTest is Test {
 
     function test_packBatchContext_revertAnchorBlockHashesArrayTooLarge() public {
         // Create an array that's too large for uint16 (65536 > 65535)
-        bytes32[] memory largeAnchorHashes = new bytes32[](65536);
+        bytes32[] memory largeAnchorHashes = new bytes32[](65_536);
         bytes32[] memory blobHashes = new bytes32[](0);
 
         IInbox.BatchContext memory context = IInbox.BatchContext({

@@ -26,7 +26,7 @@ library LibState {
         /// @notice Gets the blob hash for a given index
         function(uint256) view returns (bytes32) getBlobHash;
         /// @notice Gets a block's hash
-        function (uint) view returns(bytes32) getBlockHash;
+        function (uint256) view returns(bytes32) getBlockHash;
         /// @notice Loads a transition metadata hash
         /// @dev Assume 1 SLOAD is needed
         function (I.Config memory, bytes32, uint256) view returns (bytes32 , bool)
@@ -86,10 +86,9 @@ library LibState {
         returns (bytes32 metaHash_, bool isFirstTransition_)
     {
         uint256 slot = _batchId % _conf.batchRingBufferSize;
-        (uint48 embeddedBatchId, bytes32 partialParentHash) =
-            _loadBatchIdAndPartialParentHash($, slot);
+        (bytes32 partialParentHash, uint48 batchId) = _loadPartialParentHashAndBatchId($, slot);
 
-        if (embeddedBatchId != _batchId) return (0, false);
+        if (batchId != _batchId) return (0, false);
 
         if (partialParentHash == _lastVerifiedBlockHash >> 48) {
             return ($.transitions[slot][1].metaHash, true);
@@ -120,10 +119,9 @@ library LibState {
         // In the next code section, we always use `state.transitions[slot][1]` to reuse a
         // previously declared variable -- note that the second mapping key is always 1.
         // Tip: the reuse of the first transition slot can save 3900 gas per batch.
-        (uint48 embeddedBatchId, bytes32 partialParentHash) =
-            _loadBatchIdAndPartialParentHash($, slot);
+        (bytes32 partialParentHash, uint48 batchId) = _loadPartialParentHashAndBatchId($, slot);
 
-        isFirstTransition_ = embeddedBatchId != _batchId;
+        isFirstTransition_ = batchId != _batchId;
 
         if (isFirstTransition_) {
             // This is the very first transition of the batch.
@@ -180,18 +178,18 @@ library LibState {
     /// @notice Loads batch ID and partial parent hash from storage
     /// @param $ The state storage
     /// @param _slot The storage slot
-    /// @return embeddedBatchId_ The embedded batch ID
     /// @return partialParentHash_ The partial parent hash
-    function _loadBatchIdAndPartialParentHash(
+    /// @return batchId_ The embedded batch ID
+    function _loadPartialParentHashAndBatchId(
         I.State storage $,
         uint256 _slot
     )
         private
         view
-        returns (uint48 embeddedBatchId_, bytes32 partialParentHash_)
+        returns (bytes32 partialParentHash_, uint48 batchId_)
     {
         uint256 value = $.transitions[_slot][1].batchIdAndPartialParentHash;
-        embeddedBatchId_ = uint48(value);
         partialParentHash_ = bytes32(value >> 48);
+        batchId_ = uint48(value);
     }
 }

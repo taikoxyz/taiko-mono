@@ -14,13 +14,14 @@ contract LibCodecProverAuthTest is Test {
     uint48 private constant TEST_FEE = 1000; // in Gwei
     uint48 private constant TEST_VALID_UNTIL = 2000;
     uint48 private constant TEST_BATCH_ID = 3000;
-    bytes private constant TEST_SIGNATURE = hex"1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12";
+    bytes private constant TEST_SIGNATURE =
+        hex"1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12";
 
     // -------------------------------------------------------------------------
     // Tests for packProverAuth
     // -------------------------------------------------------------------------
 
-    function test_packProverAuth_basic() public view {
+    function test_packProverAuth_basic() public pure {
         // Create a ProverAuth struct
         IInbox.ProverAuth memory auth = IInbox.ProverAuth({
             prover: TEST_PROVER,
@@ -49,7 +50,7 @@ contract LibCodecProverAuthTest is Test {
         assertEq(keccak256(packedSignature), keccak256(TEST_SIGNATURE), "Invalid signature");
     }
 
-    function test_packProverAuth_emptySignature() public view {
+    function test_packProverAuth_emptySignature() public pure {
         // Create a ProverAuth struct with empty signature
         IInbox.ProverAuth memory auth = IInbox.ProverAuth({
             prover: TEST_PROVER,
@@ -67,7 +68,7 @@ contract LibCodecProverAuthTest is Test {
         assertEq(packed.length, 58, "Invalid packed length");
     }
 
-    function test_packProverAuth_zeroValues() public view {
+    function test_packProverAuth_zeroValues() public pure {
         // Create a ProverAuth struct with zero values
         IInbox.ProverAuth memory auth = IInbox.ProverAuth({
             prover: address(0),
@@ -93,7 +94,7 @@ contract LibCodecProverAuthTest is Test {
     // Tests for unpackProverAuth
     // -------------------------------------------------------------------------
 
-    function test_unpackProverAuth_basic() public view {
+    function test_unpackProverAuth_basic() public pure {
         // Create and pack a ProverAuth struct
         IInbox.ProverAuth memory originalAuth = IInbox.ProverAuth({
             prover: TEST_PROVER,
@@ -115,10 +116,14 @@ contract LibCodecProverAuthTest is Test {
         assertEq(unpackedAuth.fee, originalAuth.fee, "Fee mismatch");
         assertEq(unpackedAuth.validUntil, originalAuth.validUntil, "ValidUntil mismatch");
         assertEq(unpackedAuth.batchId, originalAuth.batchId, "BatchId mismatch");
-        assertEq(keccak256(unpackedAuth.signature), keccak256(originalAuth.signature), "Signature mismatch");
+        assertEq(
+            keccak256(unpackedAuth.signature),
+            keccak256(originalAuth.signature),
+            "Signature mismatch"
+        );
     }
 
-    function test_unpackProverAuth_emptySignature() public view {
+    function test_unpackProverAuth_emptySignature() public pure {
         // Create and pack a ProverAuth struct with empty signature
         IInbox.ProverAuth memory originalAuth = IInbox.ProverAuth({
             prover: TEST_PROVER,
@@ -165,7 +170,7 @@ contract LibCodecProverAuthTest is Test {
         LibCodec.packProverAuth(auth);
     }
 
-    function test_packProverAuth_maxSignatureLength() public view {
+    function test_packProverAuth_maxSignatureLength() public pure {
         // Create a ProverAuth struct with signature at uint10 max (1023)
         bytes memory maxSignature = new bytes(1023); // Exactly at the limit
 
@@ -198,7 +203,10 @@ contract LibCodecProverAuthTest is Test {
         uint48 validUntil,
         uint48 batchId,
         bytes memory signature
-    ) public view {
+    )
+        public
+        pure
+    {
         // Limit signature length to uint10 max (1023)
         vm.assume(signature.length <= 1023);
 
@@ -222,7 +230,11 @@ contract LibCodecProverAuthTest is Test {
         assertEq(unpackedAuth.fee, originalAuth.fee, "Fee mismatch");
         assertEq(unpackedAuth.validUntil, originalAuth.validUntil, "ValidUntil mismatch");
         assertEq(unpackedAuth.batchId, originalAuth.batchId, "BatchId mismatch");
-        assertEq(keccak256(unpackedAuth.signature), keccak256(originalAuth.signature), "Signature mismatch");
+        assertEq(
+            keccak256(unpackedAuth.signature),
+            keccak256(originalAuth.signature),
+            "Signature mismatch"
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -287,7 +299,15 @@ contract LibCodecProverAuthTest is Test {
         return result;
     }
 
-    function _extractBytes(bytes memory data, uint256 offset, uint256 length) private pure returns (bytes memory) {
+    function _extractBytes(
+        bytes memory data,
+        uint256 offset,
+        uint256 length
+    )
+        private
+        pure
+        returns (bytes memory)
+    {
         require(data.length >= offset + length, "Invalid offset/length for bytes");
         bytes memory result = new bytes(length);
         assembly {

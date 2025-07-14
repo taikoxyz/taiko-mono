@@ -445,7 +445,9 @@ library LibCodec {
                 // Validate array lengths according to IInbox.sol limits
                 require(batch.proverAuth.length <= type(uint16).max, ProverAuthTooLarge());
                 require(batch.signalSlots.length <= type(uint8).max, SignalSlotsArrayTooLarge());
-                require(batch.anchorBlockIds.length <= type(uint16).max, AnchorBlockIdsArrayTooLarge());
+                require(
+                    batch.anchorBlockIds.length <= type(uint16).max, AnchorBlockIdsArrayTooLarge()
+                );
                 require(batch.blocks.length <= type(uint16).max, BlocksArrayTooLarge());
                 require(batch.blobs.hashes.length <= 15, BlobHashesArrayTooLarge()); // type(uint4).max
 

@@ -242,7 +242,7 @@ contract LibCodecBatchTest is Test {
         IInbox.Batch[] memory batches = new IInbox.Batch[](1);
 
         // Create a proverAuth that's too large for uint16 (> 65535 bytes)
-        bytes memory largeProverAuth = new bytes(65536); // One byte too large
+        bytes memory largeProverAuth = new bytes(65_536); // One byte too large
 
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
@@ -313,7 +313,7 @@ contract LibCodecBatchTest is Test {
         IInbox.Batch[] memory batches = new IInbox.Batch[](1);
 
         // Create anchorBlockIds array that's too large for uint16 (65536 > 65535)
-        uint48[] memory largeAnchorBlockIds = new uint48[](65536);
+        uint48[] memory largeAnchorBlockIds = new uint48[](65_536);
 
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
@@ -348,7 +348,7 @@ contract LibCodecBatchTest is Test {
         // Test that the function properly validates array size limits
         // Create an array larger than uint16.max (65536 > 65535)
         // Use a smaller test size to avoid memory issues while still triggering the error
-        
+
         // Create a test with a size that will trigger the bounds check
         // We'll use vm.mockCall to simulate the length check
         IInbox.Batch[] memory batches = new IInbox.Batch[](1);
@@ -357,7 +357,7 @@ contract LibCodecBatchTest is Test {
         bytes32[] memory emptySlots = new bytes32[](0);
         uint48[] memory emptyBlockIds = new uint48[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
-        
+
         // Create an empty blocks array first
         IInbox.Block[] memory blocks = new IInbox.Block[](0);
 
