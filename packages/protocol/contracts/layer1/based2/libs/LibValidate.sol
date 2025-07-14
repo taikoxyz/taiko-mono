@@ -66,9 +66,6 @@ library LibValidate {
         uint48 lastBlockId =
             _validateBlockRange(_config, _batch.blocks.length, _parentBatch.lastBlockId);
 
-        // Validate blobs
-        _validateBlobs(_config, _batch);
-
         // Calculate transaction hash
         (bytes32 txsHash, bytes32[] memory blobHashes) = _calculateTxsHash(_access, _batch.blobs);
 
@@ -283,14 +280,6 @@ library LibValidate {
         }
     }
 
-    /// @notice Validates blob data
-    /// @dev Simplified blob validation - ensures blobs are specified
-    /// @param _batch The batch containing blob information
-    function _validateBlobs(I.Config memory, I.Batch memory _batch) private pure {
-        // Blobs must be specified
-        require(_batch.blobs.numBlobs != 0, BlobNotSpecified());
-    }
-
     /// @notice Calculates the transaction hash from blob data
     /// @dev Retrieves blob hashes and computes the aggregate transaction hash
     /// @param _access Read/write access functions
@@ -305,6 +294,8 @@ library LibValidate {
         view
         returns (bytes32 txsHash_, bytes32[] memory blobHashes_)
     {
+        // Blobs must be specified
+        require(_blobs.numBlobs != 0, BlobNotSpecified());
         unchecked {
             // Always use blob indices now, direct hashes no longer supported
             blobHashes_ = new bytes32[](_blobs.numBlobs);
