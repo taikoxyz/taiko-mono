@@ -41,15 +41,15 @@ interface IInbox {
         uint32 byteSize;
         /// @notice Block number when blobs were created (only for forced inclusion)
         /// @dev Non-zero only when hashes array is used
-        uint48 createdIn;  // TODO(Claude): remove this field
-         
+        uint48 createdIn; // TODO(Claude): remove this field
     }
 
     /// @notice Represents a batch of blocks to be proposed
     /// @dev Contains all data needed for batch validation and processing
     struct Batch {
         /// @notice Address that proposed this batch
-        address proposer;  // TODO(Claude): remove this field and use "msg.sender" where this field is used now
+        address proposer; // TODO(Claude): remove this field and use "msg.sender" where this field
+            // is used now
         /// @notice Coinbase address for block rewards (can be zero)
         address coinbase;
         /// @notice Timestamp of the last block in this batch
@@ -57,7 +57,7 @@ interface IInbox {
         /// @notice Gas issuance rate per second for this batch
         uint32 gasIssuancePerSecond;
         /// @notice Whether this is a forced inclusion batch
-        bool isForcedInclusion;  // TODO(Claude): remove this field
+        bool isForcedInclusion; // TODO(Claude): remove this field
         /// @notice Prover authorization data
         bytes proverAuth;
         /// @notice Signal slots for cross-chain messages

@@ -57,19 +57,17 @@ library LibPropose {
             );
 
             I.BatchProposeMetadata memory parentBatch = _evidence.proposeMeta;
-            I.BatchMetadata memory metadata;
 
             for (uint256 i; i < _batches.length; ++i) {
-                (metadata, _summary.lastBatchMetaHash) =
+                (parentBatch, _summary.lastBatchMetaHash) =
                     _proposeBatch(_access, _config, _summary, _batches[i], parentBatch);
+                    
+                ++_summary.nextBatchId;
 
                 if (_summary.gasIssuancePerSecond != _batches[i].gasIssuancePerSecond) {
                     _summary.gasIssuancePerSecond = _batches[i].gasIssuancePerSecond;
                     _summary.gasIssuanceUpdatedAt = uint48(block.timestamp);
                 }
-
-                ++_summary.nextBatchId;
-                parentBatch = metadata.proposeMeta;
             }
 
             return _summary;
@@ -86,8 +84,8 @@ library LibPropose {
     /// @param _summary The current protocol summary
     /// @param _batch The batch to propose
     /// @param _parentBatch The parent batch metadata
-    /// @return metadata_ The metadata of the proposed batch
-    /// @return batchMetaHash_ The hash of the proposed batch metadata
+    /// @return _ The propose metadata of the proposed batch
+    /// @return _ The hash of the proposed batch metadata
     function _proposeBatch(
         LibState.Access memory _access,
         I.Config memory _config,
@@ -96,7 +94,7 @@ library LibPropose {
         I.BatchProposeMetadata memory _parentBatch
     )
         private
-        returns (I.BatchMetadata memory metadata_, bytes32 batchMetaHash_)
+        returns (I.BatchProposeMetadata memory, bytes32)
     {
         // Validate the batch parameters and return batch and batch context data
         I.BatchContext memory context =
@@ -105,14 +103,16 @@ library LibPropose {
         context.prover =
             LibProver.validateProver(_access, _config, _summary, _batch.proverAuth, _batch);
 
-        metadata_ = LibData.buildBatchMetadata(
+        I.BatchMetadata memory metadata = LibData.buildBatchMetadata(
             uint48(block.number), uint48(block.timestamp), _batch, context
         );
 
         emit I.Proposed(_summary.nextBatchId, LibCodec.packBatchContext(context));
 
-        batchMetaHash_ = LibData.hashBatch(_summary.nextBatchId, metadata_);
-        _access.saveBatchMetaHash(_config, _summary.nextBatchId, batchMetaHash_);
+        bytes32 batchMetaHash = LibData.hashBatch(_summary.nextBatchId, metadata);
+        _access.saveBatchMetaHash(_config, _summary.nextBatchId, batchMetaHash);
+
+        return (metadata.proposeMeta, batchMetaHash);
     }
 
     // -------------------------------------------------------------------------
