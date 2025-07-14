@@ -6,6 +6,8 @@ import "../mocks/MockBeaconBlockRoot.sol";
 import "src/layer1/based/ITaikoInbox.sol";
 
 contract PreconfRouterTest is PreconfRouterTestBase {
+     
+     /// forge-config: default.isolate = true
     function test_preconfRouter_proposeBatch() external {
         address[] memory operators = new address[](3);
         operators[0] = Bob;
@@ -22,36 +24,43 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         _setupMockBeacon(epochOneStart, new MockBeaconBlockRoot());
 
+        // Setup Carol with bond tokens and deposit bond
+        vm.deal(Carol, 100 ether);
+        bondToken.transfer(Carol, 1000 ether);
+        vm.startPrank(Carol);
+        bondToken.approve(address(inbox), 1000 ether);
+        inbox.v4DepositBond(200 ether);
+        vm.stopPrank();
+
         // Setup block params
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
         blockParams[0] = ITaikoInbox.BlockParams({
             numTransactions: 1,
-            timeShift: 1,
+            timeShift: 0,  // First block must have timeShift = 0
             signalSlots: new bytes32[](0)
         });
 
         ITaikoInbox.BlobParams memory blobParams;
+        // When using TaikoWrapper, leave blobParams empty - it will handle blob setup
 
         // Create batch params with correct structure
-        ITaikoInbox.BatchParams memory params = ITaikoInbox.BatchParams({
-            proposer: Carol,
-            coinbase: address(0),
-            parentMetaHash: bytes32(0),
-            anchorBlockId: 0,
-            lastBlockTimestamp: uint64(block.timestamp),
-            revertIfNotFirstProposal: false,
-            isForcedInclusion: false,
-            blobParams: blobParams,
-            blocks: blockParams,
-            proverAuth: ""
-        });
+        // Note: Most fields can be left as defaults (0/false/empty)
+        ITaikoInbox.BatchParams memory params;
+        params.proposer = Carol;
+        params.blobParams = blobParams;
+        params.blocks = blockParams;
 
         // Warp to arbitrary slot in current epoch
         vm.warp(currentEpoch + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Prank as Carol (selected operator) and propose blocks
+        // TaikoWrapper expects (bytes, bytes) format where first is forced inclusion, second is normal batch
+        bytes memory wrappedParams = abi.encode(bytes(""), abi.encode(params));
+        
+        vm.startSnapshotGas("ProposeAndProve","proposeBatchWithRouter");
         vm.prank(Carol);
-        (ITaikoInbox.BatchInfo memory info,) = router.v4ProposeBatch(abi.encode(params), "", "");
+        (ITaikoInbox.BatchInfo memory info,) = router.v4ProposeBatch(wrappedParams, abi.encodePacked("txList"), "");
+        vm.stopSnapshotGas();
 
         // Assert the proposer was set correctly in the metadata
         assertEq(info.proposer, Carol);
@@ -101,33 +110,29 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         ITaikoInbox.BlockParams[] memory blockParams = new ITaikoInbox.BlockParams[](1);
         blockParams[0] = ITaikoInbox.BlockParams({
             numTransactions: 1,
-            timeShift: 1,
+            timeShift: 0,  // First block must have timeShift = 0
             signalSlots: new bytes32[](0)
         });
 
         ITaikoInbox.BlobParams memory blobParams;
+        // When using TaikoWrapper, leave blobParams empty - it will handle blob setup
 
         // Create batch params with DIFFERENT proposer than sender
-        ITaikoInbox.BatchParams memory params = ITaikoInbox.BatchParams({
-            proposer: Bob, // Set different proposer than sender (Carol)
-            coinbase: address(0),
-            parentMetaHash: bytes32(0),
-            anchorBlockId: 0,
-            lastBlockTimestamp: uint64(block.timestamp),
-            revertIfNotFirstProposal: false,
-            isForcedInclusion: false,
-            blobParams: blobParams,
-            blocks: blockParams,
-            proverAuth: ""
-        });
+        ITaikoInbox.BatchParams memory params;
+        params.proposer = Bob; // Set different proposer than sender (Carol)
+        params.blobParams = blobParams;
+        params.blocks = blockParams;
 
         // Warp to arbitrary slot in current epoch
         vm.warp(currentEpoch + 2 * LibPreconfConstants.SECONDS_IN_SLOT);
 
         // Prank as Carol (selected operator) and propose blocks
+        // TaikoWrapper expects (bytes, bytes) format where first is forced inclusion, second is normal batch
+        bytes memory wrappedParams = abi.encode(bytes(""), abi.encode(params));
+        
         vm.prank(Carol);
         vm.expectRevert(PreconfRouter.ProposerIsNotPreconfer.selector);
-        router.v4ProposeBatch(abi.encode(params), "", "");
+        router.v4ProposeBatch(wrappedParams, "", "");
     }
 
     function _setupMockBeacon(uint256 epochOneStart, MockBeaconBlockRoot mockBeacon) internal {
