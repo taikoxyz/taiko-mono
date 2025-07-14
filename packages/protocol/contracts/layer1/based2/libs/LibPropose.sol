@@ -100,8 +100,7 @@ library LibPropose {
         I.BatchContext memory context =
             LibValidate.validate(_access, _config, _summary, _batch, _parentBatch);
 
-        context.prover =
-            LibProver.validateProver(_access, _config, _summary, _batch.proverAuth, _batch);
+        context.prover = LibProver.validateProver(_access, _config, _summary, _batch);
 
         I.BatchMetadata memory metadata = LibData.buildBatchMetadata(
             uint48(block.number), uint48(block.timestamp), _batch, context

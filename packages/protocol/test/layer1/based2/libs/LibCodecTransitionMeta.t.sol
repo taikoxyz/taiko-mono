@@ -103,6 +103,29 @@ contract LibCodecTransitionMetaTest is Test {
         assertEq(unpacked.length, 255);
     }
 
+    function test_packTransitionMetas_revertArrayTooLarge() public {
+        // Create one more than max allowed elements (256 > 255)
+        for (uint256 i = 0; i <= 255; i++) {
+            testMetas.push(
+                _createTransitionMeta(
+                    bytes32(uint256(i)),
+                    bytes32(uint256(i)),
+                    address(uint160(i)),
+                    IInbox.ProofTiming.InProvingWindow,
+                    uint48(i),
+                    false,
+                    uint48(i),
+                    uint48(i),
+                    uint48(i)
+                )
+            );
+        }
+
+        // Should revert with TransitionMetasArrayTooLarge error
+        vm.expectRevert(LibCodec.TransitionMetasArrayTooLarge.selector);
+        LibCodec.packTransitionMetas(testMetas);
+    }
+
     function test_packTransitionMetas_largeArray() public {
         // Create 200 elements (within uint8.max limit)
         for (uint256 i = 0; i < 200; i++) {

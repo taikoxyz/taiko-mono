@@ -37,6 +37,7 @@ library LibCodec {
     {
         unchecked {
             uint256 length = _transitionMetas.length;
+            require(length <= type(uint8).max, TransitionMetasArrayTooLarge());
 
             // Each TransitionMeta takes 109 bytes when packed
             encoded_ = new bytes(length * 109);
@@ -162,8 +163,8 @@ library LibCodec {
             uint256 anchorHashesLen = _context.anchorBlockHashes.length;
             uint256 blobHashesLen = _context.blobHashes.length;
 
-            require(anchorHashesLen <= type(uint16).max, ArrayTooLarge());
-            require(blobHashesLen <= 15, ArrayTooLarge()); // 4 bits = 2^4 - 1 = 15
+            require(anchorHashesLen <= type(uint16).max, AnchorBlockHashesArrayTooLarge());
+            require(blobHashesLen <= 15, BlobHashesArrayTooLarge()); // 4 bits = 2^4 - 1 = 15
 
             // Calculate total size: 83 fixed bytes + 2 bytes for anchorBlockHashes length
             // + 1 byte for blobHashes length + 32 bytes per hash in each array
@@ -423,7 +424,7 @@ library LibCodec {
     /// | coinbase            | 20    | address | Fixed                     |
     /// | timestamp+forced    | 7     | packed  | 48 bits + 1 bit           |
     /// | gasIssuancePerSec   | 4     | uint32  | Fixed                     |
-    /// | proverAuth          | var   | bytes   | 1 byte len + data         |
+    /// | proverAuth          | var   | bytes   | 2 bytes len + data        |
     /// | signalSlots         | var   | array   | 1 byte len + 32*count     |
     /// | anchorBlockIds      | var   | array   | 1 byte len + 6*count      |
     /// | blocks              | var   | array   | 1 byte len + 10*count     |
@@ -433,7 +434,7 @@ library LibCodec {
     function packBatches(I.Batch[] memory _batches) internal pure returns (bytes memory encoded_) {
         unchecked {
             uint256 length = _batches.length;
-            require(length <= type(uint8).max, ArrayTooLarge());
+            require(length <= type(uint8).max, BatchesArrayTooLarge());
 
             // Pre-calculate total size to minimize memory allocations
             uint256 totalSize = 1; // Array length byte
@@ -441,9 +442,16 @@ library LibCodec {
             for (uint256 i; i < length; ++i) {
                 I.Batch memory batch = _batches[i];
 
+                // Validate array lengths according to IInbox.sol limits
+                require(batch.proverAuth.length <= type(uint16).max, ProverAuthTooLarge());
+                require(batch.signalSlots.length <= type(uint8).max, SignalSlotsArrayTooLarge());
+                require(batch.anchorBlockIds.length <= type(uint16).max, AnchorBlockIdsArrayTooLarge());
+                require(batch.blocks.length <= type(uint16).max, BlocksArrayTooLarge());
+                require(batch.blobs.hashes.length <= 15, BlobHashesArrayTooLarge()); // type(uint4).max
+
                 // Calculate size for each batch component
                 totalSize += 51; // Fixed fields (20+20+7+4)
-                totalSize += 1 + batch.proverAuth.length; // proverAuth with length prefix
+                totalSize += 2 + batch.proverAuth.length; // proverAuth with 2-byte length prefix
                 totalSize += 1 + (batch.signalSlots.length * 32); // signalSlots with 1-byte length
                     // prefix
                 totalSize += 2 + (batch.anchorBlockIds.length * 6); // anchorBlockIds with 2-byte
@@ -488,9 +496,9 @@ library LibCodec {
                     let proverAuth := mload(add(batch, 0xa0))
                     let proverAuthLen := mload(proverAuth)
 
-                    // Store proverAuth length (1 byte)
-                    mstore(ptr, shl(248, proverAuthLen))
-                    ptr := add(ptr, 1)
+                    // Store proverAuth length (2 bytes for uint16)
+                    mstore(ptr, shl(240, proverAuthLen))
+                    ptr := add(ptr, 2)
 
                     // Copy proverAuth data efficiently
                     let proverAuthData := add(proverAuth, 0x20)
@@ -683,8 +691,8 @@ library LibCodec {
                 assembly {
                     let dataPtr := add(_encoded, 0x20)
                     let ptr := add(dataPtr, offset)
-                    proverAuthLen := shr(248, mload(ptr))
-                    offset := add(offset, 1)
+                    proverAuthLen := shr(240, mload(ptr))
+                    offset := add(offset, 2)
                 }
 
                 bytes memory proverAuth = new bytes(proverAuthLen);
@@ -795,7 +803,7 @@ library LibCodec {
     {
         unchecked {
             uint256 length = _batches.length;
-            require(length <= type(uint8).max, ArrayTooLarge());
+            require(length <= type(uint8).max, BatchProveInputsArrayTooLarge());
 
             encoded_ = new bytes(1 + (length * 354));
 
@@ -1022,11 +1030,153 @@ library LibCodec {
         }
     }
 
+    /// @notice Packs a ProverAuth struct into a tightly packed byte array.
+    /// @dev Packed format (58 bytes fixed + dynamic signature):
+    /// | Field      | Bytes | Offset | Type    |
+    /// |------------|-------|--------|---------|
+    /// | prover     | 20    | 0      | address |
+    /// | feeToken   | 20    | 20     | address |
+    /// | fee        | 6     | 40     | uint48  |
+    /// | validUntil | 6     | 46     | uint48  |
+    /// | batchId    | 6     | 52     | uint48  |
+    /// | signature  | var   | 58     | bytes   |
+    /// @param _proverAuth The ProverAuth struct to pack
+    /// @return packed_ The packed byte array
+    function packProverAuth(I.ProverAuth memory _proverAuth)
+        internal
+        pure
+        returns (bytes memory packed_)
+    {
+        unchecked {
+            uint256 sigLen = _proverAuth.signature.length;
+            require(sigLen <= 1023, ProverAuthSignatureTooLarge()); // uint10 max = 2^10 - 1 = 1023
+            uint256 totalSize = 58 + sigLen;
+            packed_ = new bytes(totalSize);
+
+            assembly {
+                let ptr := add(packed_, 0x20)
+
+                // Pack prover (20 bytes) aligned left
+                mstore(ptr, shl(96, mload(_proverAuth)))
+
+                // Pack feeToken (20 bytes) aligned left
+                mstore(add(ptr, 20), shl(96, mload(add(_proverAuth, 0x20))))
+
+                // Pack fee (6 bytes)
+                mstore(add(ptr, 40), shl(208, mload(add(_proverAuth, 0x40))))
+
+                // Pack validUntil (6 bytes)
+                mstore(add(ptr, 46), shl(208, mload(add(_proverAuth, 0x60))))
+
+                // Pack batchId (6 bytes)
+                mstore(add(ptr, 52), shl(208, mload(add(_proverAuth, 0x80))))
+
+                // Copy signature bytes
+                let sig := mload(add(_proverAuth, 0xa0))
+                let sigData := add(sig, 0x20)
+                let dest := add(ptr, 58)
+
+                // Copy signature data efficiently
+                let remaining := sigLen
+                for { } gt(remaining, 31) { } {
+                    mstore(dest, mload(sigData))
+                    dest := add(dest, 32)
+                    sigData := add(sigData, 32)
+                    remaining := sub(remaining, 32)
+                }
+
+                // Handle remaining bytes
+                if gt(remaining, 0) {
+                    let shift := mul(sub(32, remaining), 8)
+                    let mask := sub(shl(mul(remaining, 8), 1), 1)
+                    let data := and(mload(sigData), shl(shift, mask))
+                    mstore(dest, data)
+                }
+            }
+        }
+    }
+
+    /// @notice Unpacks a byte array back into a ProverAuth struct.
+    /// @dev Reverses the packing performed by packProverAuth. Input must have
+    /// at least 58 bytes. See packProverAuth for data layout.
+    /// @param _packed The packed byte array to unpack
+    /// @return proverAuth_ The unpacked ProverAuth struct
+    function unpackProverAuth(bytes memory _packed)
+        internal
+        pure
+        returns (I.ProverAuth memory proverAuth_)
+    {
+        require(_packed.length >= 58, InvalidDataLength());
+
+        unchecked {
+            uint256 sigLen = _packed.length - 58;
+
+            assembly {
+                let dataPtr := add(_packed, 0x20)
+
+                // Allocate memory for ProverAuth
+                proverAuth_ := mload(0x40)
+                mstore(0x40, add(proverAuth_, 0xc0))
+
+                // Unpack prover (20 bytes)
+                mstore(proverAuth_, shr(96, mload(dataPtr)))
+
+                // Unpack feeToken (20 bytes)
+                mstore(add(proverAuth_, 0x20), shr(96, mload(add(dataPtr, 20))))
+
+                // Unpack fee (6 bytes)
+                mstore(add(proverAuth_, 0x40), shr(208, mload(add(dataPtr, 40))))
+
+                // Unpack validUntil (6 bytes)
+                mstore(add(proverAuth_, 0x60), shr(208, mload(add(dataPtr, 46))))
+
+                // Unpack batchId (6 bytes)
+                mstore(add(proverAuth_, 0x80), shr(208, mload(add(dataPtr, 52))))
+
+                // Allocate and copy signature
+                let sig := mload(0x40)
+                mstore(0x40, add(sig, add(0x20, sigLen)))
+                mstore(sig, sigLen)
+
+                // Copy signature data
+                let src := add(dataPtr, 58)
+                let dest := add(sig, 0x20)
+                let remaining := sigLen
+
+                for { } gt(remaining, 31) { } {
+                    mstore(dest, mload(src))
+                    dest := add(dest, 32)
+                    src := add(src, 32)
+                    remaining := sub(remaining, 32)
+                }
+
+                // Handle remaining bytes
+                if gt(remaining, 0) {
+                    let data := mload(src)
+                    mstore(dest, data)
+                }
+
+                // Store signature reference
+                mstore(add(proverAuth_, 0xa0), sig)
+            }
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
 
+    error AnchorBlockHashesArrayTooLarge();
+    error AnchorBlockIdsArrayTooLarge();
     error ArrayTooLarge();
+    error BatchProveInputsArrayTooLarge();
+    error BatchesArrayTooLarge();
+    error BlobHashesArrayTooLarge();
+    error BlocksArrayTooLarge();
     error EmptyInput();
     error InvalidDataLength();
+    error ProverAuthSignatureTooLarge();
+    error ProverAuthTooLarge();
+    error SignalSlotsArrayTooLarge();
+    error TransitionMetasArrayTooLarge();
 }

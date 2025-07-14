@@ -154,11 +154,10 @@ contract LibCodecBatchTest is Test {
         }
     }
 
-    function test_packBatches_revertArrayTooLarge() public pure {
+    function test_packBatches_revertArrayTooLarge() public {
         // Test that the function properly validates array size limits
-        // Since creating an actual array of uint8.max + 1 size would be impractical,
-        // we test with smaller arrays and verify no reverts occur
-        IInbox.Batch[] memory batches = new IInbox.Batch[](100);
+        // Create an array larger than uint8.max (256 > 255)
+        IInbox.Batch[] memory batches = new IInbox.Batch[](256);
 
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
@@ -166,7 +165,7 @@ contract LibCodecBatchTest is Test {
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
-        for (uint256 i = 0; i < 100; i++) {
+        for (uint256 i = 0; i < 256; i++) {
             batches[i] = IInbox.Batch({
                 proposer: address(uint160(i)),
                 coinbase: address(uint160(i + 1000)),
@@ -188,10 +187,47 @@ contract LibCodecBatchTest is Test {
             });
         }
 
-        // Should not revert for reasonable array sizes
+        // Should revert with BatchesArrayTooLarge error
+        vm.expectRevert(LibCodec.BatchesArrayTooLarge.selector);
+        LibCodec.packBatches(batches);
+    }
+
+    function test_packBatches_maxArraySize() public pure {
+        // Test that the function works with maximum allowed array size (255)
+        IInbox.Batch[] memory batches = new IInbox.Batch[](255);
+
+        bytes memory emptyAuth = new bytes(0);
+        bytes32[] memory emptySlots = new bytes32[](0);
+        uint48[] memory emptyBlockIds = new uint48[](0);
+        IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
+        bytes32[] memory emptyHashes = new bytes32[](0);
+
+        for (uint256 i = 0; i < 255; i++) {
+            batches[i] = IInbox.Batch({
+                proposer: address(uint160(i)),
+                coinbase: address(uint160(i + 1000)),
+                lastBlockTimestamp: uint48(i),
+                gasIssuancePerSecond: uint32(i),
+                isForcedInclusion: false,
+                proverAuth: emptyAuth,
+                signalSlots: emptySlots,
+                anchorBlockIds: emptyBlockIds,
+                blocks: emptyBlocks,
+                blobs: IInbox.Blobs({
+                    hashes: emptyHashes,
+                    firstBlobIndex: 0,
+                    numBlobs: 0,
+                    byteOffset: 0,
+                    byteSize: 0,
+                    createdIn: 0
+                })
+            });
+        }
+
+        // Should not revert for maximum allowed array size
         bytes memory packed = LibCodec.packBatches(batches);
         IInbox.Batch[] memory unpacked = LibCodec.unpackBatches(packed);
-        assertEq(unpacked.length, 100);
+        assertEq(unpacked.length, 255);
     }
 
     function test_unpackBatches_revertInvalidDataLength() public {
@@ -200,6 +236,182 @@ contract LibCodecBatchTest is Test {
 
         vm.expectRevert(LibCodec.InvalidDataLength.selector);
         LibCodec.unpackBatches(tooShort);
+    }
+
+    function test_packBatches_revertProverAuthTooLarge() public {
+        IInbox.Batch[] memory batches = new IInbox.Batch[](1);
+
+        // Create a proverAuth that's too large for uint16 (> 65535 bytes)
+        bytes memory largeProverAuth = new bytes(65536); // One byte too large
+
+        bytes32[] memory emptySlots = new bytes32[](0);
+        uint48[] memory emptyBlockIds = new uint48[](0);
+        IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
+        bytes32[] memory emptyHashes = new bytes32[](0);
+
+        batches[0] = IInbox.Batch({
+            proposer: address(0x1111),
+            coinbase: address(0x2222),
+            lastBlockTimestamp: 123_456,
+            gasIssuancePerSecond: 789,
+            isForcedInclusion: true,
+            proverAuth: largeProverAuth,
+            signalSlots: emptySlots,
+            anchorBlockIds: emptyBlockIds,
+            blocks: emptyBlocks,
+            blobs: IInbox.Blobs({
+                hashes: emptyHashes,
+                firstBlobIndex: 1,
+                numBlobs: 2,
+                byteOffset: 3,
+                byteSize: 4,
+                createdIn: 5
+            })
+        });
+
+        // Should revert with ProverAuthTooLarge error
+        vm.expectRevert(LibCodec.ProverAuthTooLarge.selector);
+        LibCodec.packBatches(batches);
+    }
+
+    function test_packBatches_revertSignalSlotsArrayTooLarge() public {
+        IInbox.Batch[] memory batches = new IInbox.Batch[](1);
+
+        // Create signalSlots array that's too large for uint8 (256 > 255)
+        bytes32[] memory largeSignalSlots = new bytes32[](256);
+
+        bytes memory emptyAuth = new bytes(0);
+        uint48[] memory emptyBlockIds = new uint48[](0);
+        IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
+        bytes32[] memory emptyHashes = new bytes32[](0);
+
+        batches[0] = IInbox.Batch({
+            proposer: address(0x1111),
+            coinbase: address(0x2222),
+            lastBlockTimestamp: 123_456,
+            gasIssuancePerSecond: 789,
+            isForcedInclusion: true,
+            proverAuth: emptyAuth,
+            signalSlots: largeSignalSlots,
+            anchorBlockIds: emptyBlockIds,
+            blocks: emptyBlocks,
+            blobs: IInbox.Blobs({
+                hashes: emptyHashes,
+                firstBlobIndex: 1,
+                numBlobs: 2,
+                byteOffset: 3,
+                byteSize: 4,
+                createdIn: 5
+            })
+        });
+
+        vm.expectRevert(LibCodec.SignalSlotsArrayTooLarge.selector);
+        LibCodec.packBatches(batches);
+    }
+
+    function test_packBatches_revertAnchorBlockIdsArrayTooLarge() public {
+        IInbox.Batch[] memory batches = new IInbox.Batch[](1);
+
+        // Create anchorBlockIds array that's too large for uint16 (65536 > 65535)
+        uint48[] memory largeAnchorBlockIds = new uint48[](65536);
+
+        bytes memory emptyAuth = new bytes(0);
+        bytes32[] memory emptySlots = new bytes32[](0);
+        IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
+        bytes32[] memory emptyHashes = new bytes32[](0);
+
+        batches[0] = IInbox.Batch({
+            proposer: address(0x1111),
+            coinbase: address(0x2222),
+            lastBlockTimestamp: 123_456,
+            gasIssuancePerSecond: 789,
+            isForcedInclusion: true,
+            proverAuth: emptyAuth,
+            signalSlots: emptySlots,
+            anchorBlockIds: largeAnchorBlockIds,
+            blocks: emptyBlocks,
+            blobs: IInbox.Blobs({
+                hashes: emptyHashes,
+                firstBlobIndex: 1,
+                numBlobs: 2,
+                byteOffset: 3,
+                byteSize: 4,
+                createdIn: 5
+            })
+        });
+
+        vm.expectRevert(LibCodec.AnchorBlockIdsArrayTooLarge.selector);
+        LibCodec.packBatches(batches);
+    }
+
+    function test_packBatches_revertBlocksArrayTooLarge() public {
+        IInbox.Batch[] memory batches = new IInbox.Batch[](1);
+
+        // Create blocks array that's too large for uint16 (65536 > 65535)
+        IInbox.Block[] memory largeBlocks = new IInbox.Block[](65536);
+
+        bytes memory emptyAuth = new bytes(0);
+        bytes32[] memory emptySlots = new bytes32[](0);
+        uint48[] memory emptyBlockIds = new uint48[](0);
+        bytes32[] memory emptyHashes = new bytes32[](0);
+
+        batches[0] = IInbox.Batch({
+            proposer: address(0x1111),
+            coinbase: address(0x2222),
+            lastBlockTimestamp: 123_456,
+            gasIssuancePerSecond: 789,
+            isForcedInclusion: true,
+            proverAuth: emptyAuth,
+            signalSlots: emptySlots,
+            anchorBlockIds: emptyBlockIds,
+            blocks: largeBlocks,
+            blobs: IInbox.Blobs({
+                hashes: emptyHashes,
+                firstBlobIndex: 1,
+                numBlobs: 2,
+                byteOffset: 3,
+                byteSize: 4,
+                createdIn: 5
+            })
+        });
+
+        vm.expectRevert(LibCodec.BlocksArrayTooLarge.selector);
+        LibCodec.packBatches(batches);
+    }
+
+    function test_packBatches_revertBlobHashesArrayTooLarge() public {
+        IInbox.Batch[] memory batches = new IInbox.Batch[](1);
+
+        // Create blob hashes array that's too large for uint4 (16 > 15)
+        bytes32[] memory largeBlobHashes = new bytes32[](16);
+
+        bytes memory emptyAuth = new bytes(0);
+        bytes32[] memory emptySlots = new bytes32[](0);
+        uint48[] memory emptyBlockIds = new uint48[](0);
+        IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
+
+        batches[0] = IInbox.Batch({
+            proposer: address(0x1111),
+            coinbase: address(0x2222),
+            lastBlockTimestamp: 123_456,
+            gasIssuancePerSecond: 789,
+            isForcedInclusion: true,
+            proverAuth: emptyAuth,
+            signalSlots: emptySlots,
+            anchorBlockIds: emptyBlockIds,
+            blocks: emptyBlocks,
+            blobs: IInbox.Blobs({
+                hashes: largeBlobHashes,
+                firstBlobIndex: 1,
+                numBlobs: 2,
+                byteOffset: 3,
+                byteSize: 4,
+                createdIn: 5
+            })
+        });
+
+        vm.expectRevert(LibCodec.BlobHashesArrayTooLarge.selector);
+        LibCodec.packBatches(batches);
     }
 
     function test_packUnpackBatches_booleanValues() public pure {
