@@ -101,9 +101,9 @@ library LibProve {
         I.TransitionMeta memory tranMeta = I.TransitionMeta({
             blockHash: _input.tran.blockHash,
             stateRoot: stateRoot,
-            proofTiming: proofTiming,
             prover: prover,
-            createdAt: uint48(block.timestamp),
+            proofTiming: proofTiming,
+            provedAt: uint48(block.timestamp),
             byAssignedProver: msg.sender == _input.proveMeta.prover,
             lastBlockId: _input.proveMeta.lastBlockId,
             provabilityBond: _input.proveMeta.provabilityBond,

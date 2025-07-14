@@ -64,7 +64,7 @@ library LibVerify {
                 require(i < nTransitions, TransitionNotProvided());
                 require(tranMetaHash == keccak256(abi.encode(_trans[i])), TransitionMetaMismatch());
 
-                if (_trans[i].createdAt + _config.cooldownWindow > block.timestamp) {
+                if (_trans[i].provedAt + _config.cooldownWindow > block.timestamp) {
                     break;
                 }
 

@@ -516,7 +516,7 @@ contract LibCodecTransitionMetaTest is Test {
             stateRoot: stateRoot,
             prover: prover,
             proofTiming: proofTiming,
-            createdAt: createdAt,
+            provedAt: createdAt,
             byAssignedProver: byAssignedProver,
             lastBlockId: lastBlockId,
             provabilityBond: provabilityBond,

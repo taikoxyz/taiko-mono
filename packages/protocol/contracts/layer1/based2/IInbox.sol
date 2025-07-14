@@ -241,8 +241,8 @@ interface IInbox {
         address prover;
         /// @notice Timing category of the proof submission
         ProofTiming proofTiming;
-        /// @notice Timestamp when the proof was created
-        uint48 createdAt;
+        /// @notice Timestamp when the transition is proved at
+        uint48 provedAt;
         /// @notice Whether proof was submitted by assigned prover
         bool byAssignedProver;
         /// @notice ID of the last block in the batch
