@@ -91,7 +91,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     /// upgrade, this is no longer the case as we would like to ensure more certainty for provers
     /// and let proposers to manage the uncertaity of verification cost.
     function prove4(
-        bytes calldata _packedSummary,
         bytes calldata _packedBatchProveInputs,
         bytes calldata _proof
     )
@@ -99,14 +98,12 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         override(I, IProve)
         nonReentrant
     {
-        I.Summary memory summary = _validateSummary(_packedSummary);
         I.BatchProveInput[] memory inputs = LibCodec.unpackBatchProveInputs(_packedBatchProveInputs);
-
         I.Config memory config = _getConfig();
         LibState.Access memory access = _getReadWrite();
 
         // Prove batches and get aggregated hash
-        bytes32 aggregatedBatchHash = LibProve.prove(access, config, summary, inputs);
+        bytes32 aggregatedBatchHash = LibProve.prove(access, config, inputs);
 
         // Verify the proof
         IVerifier2(config.verifier).verifyProof(aggregatedBatchHash, _proof);

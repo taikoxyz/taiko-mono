@@ -28,13 +28,11 @@ library LibProve {
     /// @notice Proves multiple batches and returns an aggregated hash for verification
     /// @param _access Read/write function pointers for storage access
     /// @param _config The protocol configuration
-    /// @param _summary The current protocol summary
     /// @param _evidences Array of batch prove inputs containing transition data
     /// @return _ The aggregated hash of all proven batches
     function prove(
         LibState.Access memory _access,
         I.Config memory _config,
-        I.Summary memory _summary,
         I.BatchProveInput[] memory _evidences
     )
         internal
@@ -45,9 +43,8 @@ library LibProve {
         require(nBatches <= type(uint8).max, TooManyBatchesToProve());
 
         bytes32[] memory ctxHashes = new bytes32[](nBatches);
-
         for (uint256 i; i < nBatches; ++i) {
-            ctxHashes[i] = _proveBatch(_access, _config, _summary, _evidences[i]);
+            ctxHashes[i] = _proveBatch(_access, _config, _evidences[i]);
         }
 
         return keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
@@ -60,20 +57,17 @@ library LibProve {
     /// @notice Proves a single batch by validating metadata and saving the transition
     /// @param _access Read/write function pointers for storage access
     /// @param _config The protocol configuration
-    /// @param _summary The current protocol summary
     /// @param _input The batch prove input containing transition and metadata
     /// @return The context hash for this batch used in aggregation
     function _proveBatch(
         LibState.Access memory _access,
         I.Config memory _config,
-        I.Summary memory _summary,
+        // I.Summary memory _summary,
         I.BatchProveInput memory _input
     )
         private
         returns (bytes32)
     {
-        require(_input.tran.batchId > _summary.lastVerifiedBatchId, BatchNotFound());
-        require(_input.tran.batchId < _summary.nextBatchId, BatchNotFound());
         require(_input.tran.parentHash != 0, InvalidTransitionParentHash());
 
         // During batch proposal, we ensured that blocks won't cross fork boundaries.

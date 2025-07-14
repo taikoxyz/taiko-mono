@@ -7,13 +7,7 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 interface IProve {
     /// @notice Proves batches with cryptographic proof
-    /// @param _packedSummary The current summary packed as bytes
     /// @param _packedBatchProveInputs The batch prove inputs
     /// @param _proof The cryptographic proof
-    function prove4(
-        bytes calldata _packedSummary,
-        bytes calldata _packedBatchProveInputs,
-        bytes calldata _proof
-    )
-        external;
+    function prove4(bytes calldata _packedBatchProveInputs, bytes calldata _proof) external;
 }

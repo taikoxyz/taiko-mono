@@ -404,13 +404,7 @@ interface IInbox {
 
     /// @notice Proves batch transitions using cryptographic proofs
     /// @dev Validates and processes cryptographic proofs for batch state transitions
-    /// @param _packedSummary Current protocol summary encoded as bytes
     /// @param _packedBatchProveInputs Batch proving inputs encoded as bytes
     /// @param _proof The cryptographic proof data for validation
-    function prove4(
-        bytes calldata _packedSummary,
-        bytes calldata _packedBatchProveInputs,
-        bytes calldata _proof
-    )
-        external;
+    function prove4(bytes calldata _packedBatchProveInputs, bytes calldata _proof) external;
 }
