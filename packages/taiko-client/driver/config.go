@@ -77,7 +77,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		if preconfBlockServerJWTSecret, err = jwt.ParseSecretFromFile(
 			c.String(flags.PreconfBlockServerJWTSecret.Name),
 		); err != nil {
-			return nil, fmt.Errorf("invalid ApiKey secret file: %w", err)
+			return nil, fmt.Errorf("invalid JWT secret file: %w", err)
 		}
 	}
 
