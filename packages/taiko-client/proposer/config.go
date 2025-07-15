@@ -41,7 +41,7 @@ type Config struct {
 func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	jwtSecret, err := jwt.ParseSecretFromFile(c.String(flags.JWTSecret.Name))
 	if err != nil {
-		return nil, fmt.Errorf("invalid ApiKey secret file: %w", err)
+		return nil, fmt.Errorf("invalid JWT secret file: %w", err)
 	}
 
 	l1ProposerPrivKey, err := crypto.ToECDSA(common.FromHex(c.String(flags.L1ProposerPrivKey.Name)))
