@@ -126,6 +126,11 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		endOfSequencing = true
 	}
 
+	isForcedInclusion := false
+	if reqBody.IsForcedInclusion != nil && *reqBody.IsForcedInclusion {
+		isForcedInclusion = true
+	}
+
 	log.Info(
 		"New preconfirmation block building request",
 		"blockID", reqBody.ExecutableData.Number,
@@ -136,6 +141,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"extraData", common.Bytes2Hex(reqBody.ExecutableData.ExtraData),
 		"parentHash", reqBody.ExecutableData.ParentHash.Hex(),
 		"endOfSequencing", endOfSequencing,
+		"isForcedInclusion", isForcedInclusion,
 	)
 
 	// Check if the fee recipient the current operator or the next operator if its in handover window.
@@ -186,7 +192,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			{
 				Payload:           executablePayload,
 				Signature:         nil,
-				IsForcedInclusion: reqBody.IsForcedInclusion != nil && *reqBody.IsForcedInclusion,
+				IsForcedInclusion: isForcedInclusion,
 			},
 		},
 		false,
@@ -243,7 +249,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 					Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
 				},
 				EndOfSequencing:   reqBody.EndOfSequencing,
-				IsForcedInclusion: reqBody.IsForcedInclusion,
+				IsForcedInclusion: &isForcedInclusion,
 			}
 
 			var payloadBuf bytes.Buffer
