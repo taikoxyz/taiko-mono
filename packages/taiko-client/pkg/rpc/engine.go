@@ -20,7 +20,7 @@ type EngineClient struct {
 	*rpc.Client
 }
 
-// NewJWTEngineClient creates a new EngineClient with ApiKey authentication.
+// NewJWTEngineClient creates a new EngineClient with JWT authentication.
 func NewJWTEngineClient(url, jwtSecret string) (*EngineClient, error) {
 	var jwt = StringToBytes32(jwtSecret)
 	if jwt == (common.Hash{}) || url == "" {
