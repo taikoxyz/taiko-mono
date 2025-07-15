@@ -10,11 +10,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/prysmaticlabs/prysm/v5/io/file"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
 	pkgFlags "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/flags"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -76,7 +76,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	}
 
 	if c.IsSet(flags.RaikoApiKeyPath.Name) {
-		raikoApiKey, err = jwt.ParseSecretFromFile(c.String(flags.RaikoApiKeyPath.Name))
+		raikoApiKey, err = file.ReadFileAsBytes(c.String(flags.RaikoApiKeyPath.Name))
 		if err != nil {
 			return nil, fmt.Errorf("invalid ApiKey secret file: %w", err)
 		}
