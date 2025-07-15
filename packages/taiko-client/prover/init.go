@@ -111,7 +111,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 	sgxGethProducer := &producer.SgxGethProofProducer{
 		Verifier:            sgxGethVerifierAddress,
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-		JWT:                 p.cfg.RaikoApiKey,
+		ApiKey:              p.cfg.RaikoApiKey,
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 		Dummy:               p.cfg.Dummy,
 	}
