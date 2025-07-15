@@ -1,7 +1,6 @@
 package preconfblocks
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -234,35 +233,12 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				"baseFee", header.BaseFee,
 			)
 		} else {
-			envelope := &eth.ExecutionPayloadEnvelope{
-				ExecutionPayload: &eth.ExecutionPayload{
-					BaseFeePerGas: eth.Uint256Quantity(u256),
-					ParentHash:    header.ParentHash,
-					FeeRecipient:  header.Coinbase,
-					ExtraData:     header.Extra,
-					PrevRandao:    eth.Bytes32(header.MixDigest),
-					BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
-					GasLimit:      eth.Uint64Quantity(header.GasLimit),
-					GasUsed:       eth.Uint64Quantity(header.GasUsed),
-					Timestamp:     eth.Uint64Quantity(header.Time),
-					BlockHash:     header.Hash(),
-					Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
-				},
-				EndOfSequencing:   reqBody.EndOfSequencing,
-				IsForcedInclusion: &isForcedInclusion,
-			}
-
-			var payloadBuf bytes.Buffer
-			if _, err := envelope.MarshalSSZ(&payloadBuf); err != nil {
-				return fmt.Errorf("failed to marhsal envelope: %w", err)
-			}
-
 			// 2) Sign exactly those bytes
 			sigBytes, err := s.p2pSigner.Sign(
 				ctx,
 				p2p.SigningDomainBlocksV1,
 				s.rpc.L2.ChainID,
-				payloadBuf.Bytes(),
+				executablePayload.BlockHash.Bytes(),
 			)
 			if err != nil {
 				return fmt.Errorf("failed to sign payload: %w", err)
@@ -276,7 +252,23 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 			if err := s.p2pNode.GossipOut().PublishL2Payload(
 				ctx,
-				envelope,
+				&eth.ExecutionPayloadEnvelope{
+					ExecutionPayload: &eth.ExecutionPayload{
+						BaseFeePerGas: eth.Uint256Quantity(u256),
+						ParentHash:    header.ParentHash,
+						FeeRecipient:  header.Coinbase,
+						ExtraData:     header.Extra,
+						PrevRandao:    eth.Bytes32(header.MixDigest),
+						BlockNumber:   eth.Uint64Quantity(header.Number.Uint64()),
+						GasLimit:      eth.Uint64Quantity(header.GasLimit),
+						GasUsed:       eth.Uint64Quantity(header.GasUsed),
+						Timestamp:     eth.Uint64Quantity(header.Time),
+						BlockHash:     header.Hash(),
+						Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
+					},
+					EndOfSequencing:   reqBody.EndOfSequencing,
+					IsForcedInclusion: &isForcedInclusion,
+				},
 				s.p2pSigner,
 			); err != nil {
 				log.Warn("Failed to propagate the preconfirmation block to the P2P network", "error", err)
