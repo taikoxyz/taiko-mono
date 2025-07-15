@@ -75,7 +75,7 @@ func (s *EventSyncerTestSuite) TestEventSyncRobustness() {
 	s.Nil(err)
 
 	// Reset the L2 chain.
-	s.Nil(rpc.SetHead(ctx, s.RPCClient.L2, common.Big0))
+	s.SetHead(common.Big1)
 
 	difficulty, err := encoding.CalculatePacayaDifficulty(new(big.Int).SetUint64(meta.Pacaya().GetLastBlockID()))
 	s.Nil(err)
