@@ -19,9 +19,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
     event OperatorChangeDelaySet(uint8 delay);
-    event OperatorUpdated(
-        address indexed proposer, address indexed oldSequencer, address indexed newSequencer
-    );
 
     /// @dev An operator consists of a proposer address(the key to this mapping) and a sequencer
     /// address.
@@ -86,28 +83,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     /// @notice Allows the caller to remove themselves as an operator immediately.
     function removeSelf() external {
         _removeOperator(msg.sender, 0);
-    }
-
-    /// @notice Updates an operator's configuration, specifically their sequencer address.
-    /// @param _proposer The proposer address of the operator to update.
-    /// @param _newSequencer The new sequencer address for the operator.
-    /// @dev Can be called by either the contract owner or the operator themselves.
-    // TODO: We may want to add a delay for this operation.
-    function updateOperator(address _proposer, address _newSequencer) external {
-        require(msg.sender == owner() || msg.sender == _proposer);
-
-        OperatorInfo storage info = operators[_proposer];
-
-        // Operator must exist (even if inactive)
-        require(info.sequencerAddress != address(0), InvalidOperatorAddress());
-        require(_newSequencer != address(0), InvalidOperatorAddress());
-
-        address oldSequencer = info.sequencerAddress;
-
-        // Update the sequencer address
-        info.sequencerAddress = _newSequencer;
-
-        emit OperatorUpdated(_proposer, oldSequencer, _newSequencer);
     }
 
     /// @notice Consolidates the operator mapping by removing operators whose removal epoch has
