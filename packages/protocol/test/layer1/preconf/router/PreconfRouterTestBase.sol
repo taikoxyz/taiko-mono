@@ -22,6 +22,10 @@ abstract contract PreconfRouterTestBase is Layer1Test {
     address internal whitelistOwner;
     address internal fallbackPreconfer;
 
+    // Same as in `ForcedInclusionStore.t.sol`
+    uint8 internal constant inclusionDelay = 12;
+    uint64 internal constant feeInGwei = 0.001 ether / 1 gwei;
+
     function setUpOnEthereum() internal virtual override {
         routerOwner = Alice;
         whitelistOwner = Alice;
@@ -54,8 +58,8 @@ abstract contract PreconfRouterTestBase is Layer1Test {
                 name: "forced_inclusion_store",
                 impl: address(
                     new ForcedInclusionStore(
-                        4, // inclusionWindow
-                        1 gwei, // inclusionFeeInGwei
+                        inclusionDelay,
+                        feeInGwei,
                         address(inbox),
                         address(1) // placeholder TaikoWrapper
                     )
@@ -88,8 +92,8 @@ abstract contract PreconfRouterTestBase is Layer1Test {
         UUPSUpgradeable(address(forcedInclusionStore)).upgradeTo(
             address(
                 new ForcedInclusionStore(
-                    4, // inclusionWindow
-                    1 gwei, // inclusionFeeInGwei
+                    inclusionDelay,
+                    feeInGwei,
                     address(inbox),
                     address(taikoWrapper) // real TaikoWrapper
                 )
