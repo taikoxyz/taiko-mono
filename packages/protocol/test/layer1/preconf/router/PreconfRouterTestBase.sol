@@ -16,7 +16,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
     PreconfWhitelist internal whitelist;
     TaikoWrapper internal taikoWrapper;
     ForcedInclusionStore internal forcedInclusionStore;
-    DevnetInbox internal inbox;
+    ITaikoInbox internal inbox;
     TaikoToken internal bondToken;
 
     address internal routerOwner;
@@ -30,34 +30,26 @@ abstract contract PreconfRouterTestBase is Layer1Test {
 
         vm.chainId(1);
 
-        // Step 1: Deploy supporting contracts
+        // Deploy supporting contracts
         bondToken = deployBondToken();
         SignalService signalService =
             deploySignalService(address(new SignalService(address(resolver))));
         address verifierAddr = address(new Verifier_ToggleStub());
         resolver.registerAddress(block.chainid, "proof_verifier", verifierAddr);
 
-        // Step 2: Deploy DevnetInbox with wrapper=address(0) initially
-        address inboxImpl = address(
-            new DevnetInbox(
-                LibNetwork.TAIKO_DEVNET,
-                0, // cooldownWindow
-                address(0), // wrapper - set to 0 initially
-                verifierAddr,
-                address(bondToken),
-                address(signalService)
-            )
+        // Deploy Inbox with wrapper=address(0) initially
+        inbox = deployInbox(
+            correctBlockhash(0),
+            verifierAddr,
+            address(bondToken),
+            address(signalService),
+            address(0),
+            v4GetConfig()
         );
 
-        address inboxProxy = deploy({
-            name: "taiko",
-            impl: inboxImpl,
-            data: abi.encodeCall(TaikoInbox.v4Init, (address(0), bytes32(uint256(1))))
-        });
-        inbox = DevnetInbox(payable(inboxProxy));
         signalService.authorize(address(inbox), true);
 
-        // Step 3: Deploy ForcedInclusionStore with placeholder TaikoWrapper
+        //  Deploy ForcedInclusionStore with placeholder TaikoWrapper
         forcedInclusionStore = ForcedInclusionStore(
             deploy({
                 name: "forced_inclusion_store",
@@ -73,7 +65,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
             })
         );
 
-        // Step 4: Deploy PreconfWhitelist
+        // Deploy PreconfWhitelist
         whitelist = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist",
@@ -82,11 +74,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
             })
         );
 
-        // Step 5: Deploy PreconfRouter (pointing to TaikoWrapper which we'll deploy next)
-        // We need to know the TaikoWrapper address beforehand for the router
-        // So we'll create router after TaikoWrapper
-
-        // Step 6: Deploy TaikoWrapper with real ForcedInclusionStore
+        // Deploy TaikoWrapper with real ForcedInclusionStore
         taikoWrapper = TaikoWrapper(
             deploy({
                 name: "taiko_wrapper",
@@ -97,7 +85,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
             })
         );
 
-        // Step 7: Upgrade ForcedInclusionStore with real TaikoWrapper address
+        // Upgrade ForcedInclusionStore with real TaikoWrapper address
         UUPSUpgradeable(address(forcedInclusionStore)).upgradeTo(
             address(
                 new ForcedInclusionStore(
@@ -109,7 +97,7 @@ abstract contract PreconfRouterTestBase is Layer1Test {
             )
         );
 
-        // Step 8: Deploy PreconfRouter pointing to TaikoWrapper
+        // Deploy PreconfRouter pointing to TaikoWrapper
         router = PreconfRouter(
             deploy({
                 name: "preconf_router",
@@ -120,24 +108,18 @@ abstract contract PreconfRouterTestBase is Layer1Test {
             })
         );
 
-        // Step 9: Update TaikoWrapper to know about the router
+        // Upgrade TaikoWrapper to know about the router
         UUPSUpgradeable(address(taikoWrapper)).upgradeTo(
             address(
                 new TaikoWrapper(address(inbox), address(forcedInclusionStore), address(router))
             )
         );
 
-        // Step 10: Configure inbox to only accept calls from TaikoWrapper
-        // Upgrade inbox to set the wrapper
+        // Upgrade inbox to only accept calls from TaikoWrapper
         UUPSUpgradeable(address(inbox)).upgradeTo(
             address(
-                new DevnetInbox(
-                    LibNetwork.TAIKO_DEVNET,
-                    0, // cooldownWindow
-                    address(taikoWrapper), // wrapper - now set to TaikoWrapper
-                    verifierAddr,
-                    address(bondToken),
-                    address(signalService)
+                new ConfigurableInbox(
+                    address(taikoWrapper), verifierAddr, address(bondToken), address(signalService)
                 )
             )
         );
@@ -148,5 +130,36 @@ abstract contract PreconfRouterTestBase is Layer1Test {
             vm.prank(whitelistOwner);
             whitelist.addOperator(operators[i]);
         }
+    }
+
+    function correctBlockhash(uint256 blockId) internal pure returns (bytes32) {
+        return bytes32(0x1000000 + blockId);
+    }
+
+    function v4GetConfig() internal pure virtual returns (ITaikoInbox.Config memory) {
+        ITaikoInbox.ForkHeights memory forkHeights;
+
+        return ITaikoInbox.Config({
+            chainId: LibNetwork.TAIKO_MAINNET,
+            maxUnverifiedBatches: 10,
+            batchRingBufferSize: 15,
+            maxBatchesToVerify: 5,
+            blockMaxGasLimit: 240_000_000,
+            livenessBond: 125e18, // 125 Taiko token per batch
+            stateRootSyncInternal: 5,
+            maxAnchorHeightOffset: 64,
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
+                adjustmentQuotient: 8,
+                sharingPctg: 75,
+                gasIssuancePerSecond: 5_000_000,
+                minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
+                maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
+             }),
+            provingWindow: 1 hours,
+            cooldownWindow: 0 hours,
+            maxSignalsToReceive: 16,
+            maxBlocksPerBatch: 768,
+            forkHeights: forkHeights
+        });
     }
 }

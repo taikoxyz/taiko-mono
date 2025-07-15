@@ -74,6 +74,7 @@ abstract contract InboxTestBase is Layer1Test {
             verifierAddr,
             address(bondToken),
             address(signalService),
+            address(0),
             v4GetConfig()
         );
 
