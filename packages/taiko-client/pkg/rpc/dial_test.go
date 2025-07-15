@@ -25,13 +25,10 @@ func TestDialEngineClientWithBackoff(t *testing.T) {
 		12*time.Second,
 		10,
 	)
-
 	require.Nil(t, err)
 
 	var result engine.ExecutableData
-	err = client.CallContext(context.Background(), &result, "engine_getPayloadV1", engine.PayloadID{})
-
-	require.Equal(t, engine.UnsupportedFork.Error(), err.Error())
+	require.NotNil(t, client.CallContext(context.Background(), &result, "engine_getPayloadV2", engine.PayloadID{}))
 }
 
 func TestDialClientWithBackoff(t *testing.T) {

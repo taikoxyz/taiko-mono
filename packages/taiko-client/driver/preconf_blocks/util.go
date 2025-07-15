@@ -2,7 +2,6 @@ package preconfblocks
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -60,7 +59,7 @@ func checkMessageBlockNumber(
 	msg *eth.ExecutionPayloadEnvelope,
 ) (*rawdb.L1Origin, error) {
 	headL1Origin, err := rpc.L2.HeadL1Origin(ctx)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return nil, fmt.Errorf("failed to fetch head L1 origin: %w", err)
 	}
 
