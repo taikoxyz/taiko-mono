@@ -268,6 +268,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 					},
 					EndOfSequencing:   reqBody.EndOfSequencing,
 					IsForcedInclusion: &isForcedInclusion,
+					Signature:         sigBytes,
 				},
 				s.p2pSigner,
 			); err != nil {
