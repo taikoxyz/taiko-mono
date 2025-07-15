@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "../Layer1Test.sol";
 import "test/layer1/based/helpers/Verifier_ToggleStub.sol";
+import { InboxTestConfigUtils } from "test/layer1/based/helpers/InboxTestConfigUtils.sol";
 
 abstract contract InboxTestBase is Layer1Test {
     uint256 constant PROVER_PRIVATE_KEY = 0x12345678;
@@ -18,30 +19,7 @@ abstract contract InboxTestBase is Layer1Test {
     uint256 internal __blocksPerBatch;
 
     function v4GetConfig() internal pure virtual returns (ITaikoInbox.Config memory) {
-        ITaikoInbox.ForkHeights memory forkHeights;
-
-        return ITaikoInbox.Config({
-            chainId: LibNetwork.TAIKO_MAINNET,
-            maxUnverifiedBatches: 10,
-            batchRingBufferSize: 15,
-            maxBatchesToVerify: 5,
-            blockMaxGasLimit: 240_000_000,
-            livenessBond: 125e18, // 125 Taiko token per batch
-            stateRootSyncInternal: 5,
-            maxAnchorHeightOffset: 64,
-            baseFeeConfig: LibSharedData.BaseFeeConfig({
-                adjustmentQuotient: 8,
-                sharingPctg: 75,
-                gasIssuancePerSecond: 5_000_000,
-                minGasExcess: 1_340_000_000, // correspond to 0.008847185 gwei basefee
-                maxGasIssuancePerBlock: 600_000_000 // two minutes: 5_000_000 * 120
-             }),
-            provingWindow: 1 hours,
-            cooldownWindow: 0 hours,
-            maxSignalsToReceive: 16,
-            maxBlocksPerBatch: 768,
-            forkHeights: forkHeights
-        });
+        return InboxTestConfigUtils.getV4Config();
     }
 
     modifier transactBy(address transactor) override {
