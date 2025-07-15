@@ -245,7 +245,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 					"Failed to sign the preconfirmation block payload",
 					"blockHash", executablePayload.BlockHash.Hex(),
 					"blockID", header.Number.Uint64(),
-					"parentHash", header.ParentHash.Hex(),
 				)
 
 				return fmt.Errorf("failed to sign payload: %w", err)
