@@ -31,7 +31,7 @@ var (
 
 // PreconfWhitelistMetaData contains all meta data concerning the PreconfWhitelist contract.
 var PreconfWhitelistMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addOperator\",\"inputs\":[{\"name\":\"_operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"consolidate\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"epochStartTimestamp\",\"inputs\":[{\"name\":\"_offset\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorCandidatesForCurrentEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorCandidatesForNextEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorForCurrentEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorForNextEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"havingPerfectOperators\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_operatorChangeDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isOperatorActive\",\"inputs\":[{\"name\":\"_operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_epochTimestamp\",\"type\":\"uint64\",\"internalType\":\"uint64\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorChangeDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorMapping\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operators\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"activeSince\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"inactiveSince\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"index\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_operator\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_effectiveImmediately\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_operator\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_operatorIndex\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSelf\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setOperatorChangeDelay\",\"inputs\":[{\"name\":\"_operatorChangeDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Consolidated\",\"inputs\":[{\"name\":\"previousCount\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"newCount\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"havingPerfectOperators\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorAdded\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"activeSince\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorChangeDelaySet\",\"inputs\":[{\"name\":\"delay\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRemoved\",\"inputs\":[{\"name\":\"operator\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"inactiveSince\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorCount\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorIndex\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorAlreadyExists\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorAlreadyRemoved\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorNotAvailableYet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"RESOLVER_NOT_FOUND\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addOperator\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_sequencer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"consolidate\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"epochStartTimestamp\",\"inputs\":[{\"name\":\"_offset\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorCandidatesForCurrentEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorCandidatesForNextEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorForCurrentEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorForNextEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"havingPerfectOperators\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_operatorChangeDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"_randomnessDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isOperatorActive\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_epochTimestamp\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorChangeDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorMapping\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operators\",\"inputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"activeSince\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"inactiveSince\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"index\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sequencerAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"randomnessDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_effectiveImmediately\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_operatorIndex\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSelf\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"sequencerToProposer\",\"inputs\":[{\"name\":\"sequencer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setOperatorChangeDelay\",\"inputs\":[{\"name\":\"_operatorChangeDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateOperator\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_newSequencer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Consolidated\",\"inputs\":[{\"name\":\"previousCount\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"newCount\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"havingPerfectOperators\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorAdded\",\"inputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sequencer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"activeSince\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorChangeDelaySet\",\"inputs\":[{\"name\":\"delay\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRemoved\",\"inputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sequencer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"inactiveSince\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorUpdated\",\"inputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldSequencer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newSequencer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorCount\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorIndex\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorAlreadyExists\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorAlreadyRemoved\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorNotAvailableYet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // PreconfWhitelistABI is the input ABI used to generate the binding from.
@@ -182,16 +182,16 @@ func (_PreconfWhitelist *PreconfWhitelistTransactorRaw) Transact(opts *bind.Tran
 
 // EpochStartTimestamp is a free data retrieval call binding the contract method 0x42b83b8e.
 //
-// Solidity: function epochStartTimestamp(uint256 _offset) view returns(uint64)
-func (_PreconfWhitelist *PreconfWhitelistCaller) EpochStartTimestamp(opts *bind.CallOpts, _offset *big.Int) (uint64, error) {
+// Solidity: function epochStartTimestamp(uint256 _offset) view returns(uint32)
+func (_PreconfWhitelist *PreconfWhitelistCaller) EpochStartTimestamp(opts *bind.CallOpts, _offset *big.Int) (uint32, error) {
 	var out []interface{}
 	err := _PreconfWhitelist.contract.Call(opts, &out, "epochStartTimestamp", _offset)
 
 	if err != nil {
-		return *new(uint64), err
+		return *new(uint32), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+	out0 := *abi.ConvertType(out[0], new(uint32)).(*uint32)
 
 	return out0, err
 
@@ -199,15 +199,15 @@ func (_PreconfWhitelist *PreconfWhitelistCaller) EpochStartTimestamp(opts *bind.
 
 // EpochStartTimestamp is a free data retrieval call binding the contract method 0x42b83b8e.
 //
-// Solidity: function epochStartTimestamp(uint256 _offset) view returns(uint64)
-func (_PreconfWhitelist *PreconfWhitelistSession) EpochStartTimestamp(_offset *big.Int) (uint64, error) {
+// Solidity: function epochStartTimestamp(uint256 _offset) view returns(uint32)
+func (_PreconfWhitelist *PreconfWhitelistSession) EpochStartTimestamp(_offset *big.Int) (uint32, error) {
 	return _PreconfWhitelist.Contract.EpochStartTimestamp(&_PreconfWhitelist.CallOpts, _offset)
 }
 
 // EpochStartTimestamp is a free data retrieval call binding the contract method 0x42b83b8e.
 //
-// Solidity: function epochStartTimestamp(uint256 _offset) view returns(uint64)
-func (_PreconfWhitelist *PreconfWhitelistCallerSession) EpochStartTimestamp(_offset *big.Int) (uint64, error) {
+// Solidity: function epochStartTimestamp(uint256 _offset) view returns(uint32)
+func (_PreconfWhitelist *PreconfWhitelistCallerSession) EpochStartTimestamp(_offset *big.Int) (uint32, error) {
 	return _PreconfWhitelist.Contract.EpochStartTimestamp(&_PreconfWhitelist.CallOpts, _offset)
 }
 
@@ -428,12 +428,12 @@ func (_PreconfWhitelist *PreconfWhitelistCallerSession) InNonReentrant() (bool, 
 	return _PreconfWhitelist.Contract.InNonReentrant(&_PreconfWhitelist.CallOpts)
 }
 
-// IsOperatorActive is a free data retrieval call binding the contract method 0x40277658.
+// IsOperatorActive is a free data retrieval call binding the contract method 0x316eae6a.
 //
-// Solidity: function isOperatorActive(address _operator, uint64 _epochTimestamp) view returns(bool)
-func (_PreconfWhitelist *PreconfWhitelistCaller) IsOperatorActive(opts *bind.CallOpts, _operator common.Address, _epochTimestamp uint64) (bool, error) {
+// Solidity: function isOperatorActive(address _proposer, uint32 _epochTimestamp) view returns(bool)
+func (_PreconfWhitelist *PreconfWhitelistCaller) IsOperatorActive(opts *bind.CallOpts, _proposer common.Address, _epochTimestamp uint32) (bool, error) {
 	var out []interface{}
-	err := _PreconfWhitelist.contract.Call(opts, &out, "isOperatorActive", _operator, _epochTimestamp)
+	err := _PreconfWhitelist.contract.Call(opts, &out, "isOperatorActive", _proposer, _epochTimestamp)
 
 	if err != nil {
 		return *new(bool), err
@@ -445,18 +445,18 @@ func (_PreconfWhitelist *PreconfWhitelistCaller) IsOperatorActive(opts *bind.Cal
 
 }
 
-// IsOperatorActive is a free data retrieval call binding the contract method 0x40277658.
+// IsOperatorActive is a free data retrieval call binding the contract method 0x316eae6a.
 //
-// Solidity: function isOperatorActive(address _operator, uint64 _epochTimestamp) view returns(bool)
-func (_PreconfWhitelist *PreconfWhitelistSession) IsOperatorActive(_operator common.Address, _epochTimestamp uint64) (bool, error) {
-	return _PreconfWhitelist.Contract.IsOperatorActive(&_PreconfWhitelist.CallOpts, _operator, _epochTimestamp)
+// Solidity: function isOperatorActive(address _proposer, uint32 _epochTimestamp) view returns(bool)
+func (_PreconfWhitelist *PreconfWhitelistSession) IsOperatorActive(_proposer common.Address, _epochTimestamp uint32) (bool, error) {
+	return _PreconfWhitelist.Contract.IsOperatorActive(&_PreconfWhitelist.CallOpts, _proposer, _epochTimestamp)
 }
 
-// IsOperatorActive is a free data retrieval call binding the contract method 0x40277658.
+// IsOperatorActive is a free data retrieval call binding the contract method 0x316eae6a.
 //
-// Solidity: function isOperatorActive(address _operator, uint64 _epochTimestamp) view returns(bool)
-func (_PreconfWhitelist *PreconfWhitelistCallerSession) IsOperatorActive(_operator common.Address, _epochTimestamp uint64) (bool, error) {
-	return _PreconfWhitelist.Contract.IsOperatorActive(&_PreconfWhitelist.CallOpts, _operator, _epochTimestamp)
+// Solidity: function isOperatorActive(address _proposer, uint32 _epochTimestamp) view returns(bool)
+func (_PreconfWhitelist *PreconfWhitelistCallerSession) IsOperatorActive(_proposer common.Address, _epochTimestamp uint32) (bool, error) {
+	return _PreconfWhitelist.Contract.IsOperatorActive(&_PreconfWhitelist.CallOpts, _proposer, _epochTimestamp)
 }
 
 // OperatorChangeDelay is a free data retrieval call binding the contract method 0x0cb11147.
@@ -523,7 +523,7 @@ func (_PreconfWhitelist *PreconfWhitelistCallerSession) OperatorCount() (uint8, 
 
 // OperatorMapping is a free data retrieval call binding the contract method 0xcecad1f7.
 //
-// Solidity: function operatorMapping(uint256 index) view returns(address operator)
+// Solidity: function operatorMapping(uint256 index) view returns(address proposer)
 func (_PreconfWhitelist *PreconfWhitelistCaller) OperatorMapping(opts *bind.CallOpts, index *big.Int) (common.Address, error) {
 	var out []interface{}
 	err := _PreconfWhitelist.contract.Call(opts, &out, "operatorMapping", index)
@@ -540,41 +540,44 @@ func (_PreconfWhitelist *PreconfWhitelistCaller) OperatorMapping(opts *bind.Call
 
 // OperatorMapping is a free data retrieval call binding the contract method 0xcecad1f7.
 //
-// Solidity: function operatorMapping(uint256 index) view returns(address operator)
+// Solidity: function operatorMapping(uint256 index) view returns(address proposer)
 func (_PreconfWhitelist *PreconfWhitelistSession) OperatorMapping(index *big.Int) (common.Address, error) {
 	return _PreconfWhitelist.Contract.OperatorMapping(&_PreconfWhitelist.CallOpts, index)
 }
 
 // OperatorMapping is a free data retrieval call binding the contract method 0xcecad1f7.
 //
-// Solidity: function operatorMapping(uint256 index) view returns(address operator)
+// Solidity: function operatorMapping(uint256 index) view returns(address proposer)
 func (_PreconfWhitelist *PreconfWhitelistCallerSession) OperatorMapping(index *big.Int) (common.Address, error) {
 	return _PreconfWhitelist.Contract.OperatorMapping(&_PreconfWhitelist.CallOpts, index)
 }
 
 // Operators is a free data retrieval call binding the contract method 0x13e7c9d8.
 //
-// Solidity: function operators(address operator) view returns(uint64 activeSince, uint64 inactiveSince, uint8 index)
-func (_PreconfWhitelist *PreconfWhitelistCaller) Operators(opts *bind.CallOpts, operator common.Address) (struct {
-	ActiveSince   uint64
-	InactiveSince uint64
-	Index         uint8
+// Solidity: function operators(address proposer) view returns(uint32 activeSince, uint32 inactiveSince, uint8 index, address sequencerAddress)
+func (_PreconfWhitelist *PreconfWhitelistCaller) Operators(opts *bind.CallOpts, proposer common.Address) (struct {
+	ActiveSince      uint32
+	InactiveSince    uint32
+	Index            uint8
+	SequencerAddress common.Address
 }, error) {
 	var out []interface{}
-	err := _PreconfWhitelist.contract.Call(opts, &out, "operators", operator)
+	err := _PreconfWhitelist.contract.Call(opts, &out, "operators", proposer)
 
 	outstruct := new(struct {
-		ActiveSince   uint64
-		InactiveSince uint64
-		Index         uint8
+		ActiveSince      uint32
+		InactiveSince    uint32
+		Index            uint8
+		SequencerAddress common.Address
 	})
 	if err != nil {
 		return *outstruct, err
 	}
 
-	outstruct.ActiveSince = *abi.ConvertType(out[0], new(uint64)).(*uint64)
-	outstruct.InactiveSince = *abi.ConvertType(out[1], new(uint64)).(*uint64)
+	outstruct.ActiveSince = *abi.ConvertType(out[0], new(uint32)).(*uint32)
+	outstruct.InactiveSince = *abi.ConvertType(out[1], new(uint32)).(*uint32)
 	outstruct.Index = *abi.ConvertType(out[2], new(uint8)).(*uint8)
+	outstruct.SequencerAddress = *abi.ConvertType(out[3], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -582,24 +585,26 @@ func (_PreconfWhitelist *PreconfWhitelistCaller) Operators(opts *bind.CallOpts, 
 
 // Operators is a free data retrieval call binding the contract method 0x13e7c9d8.
 //
-// Solidity: function operators(address operator) view returns(uint64 activeSince, uint64 inactiveSince, uint8 index)
-func (_PreconfWhitelist *PreconfWhitelistSession) Operators(operator common.Address) (struct {
-	ActiveSince   uint64
-	InactiveSince uint64
-	Index         uint8
+// Solidity: function operators(address proposer) view returns(uint32 activeSince, uint32 inactiveSince, uint8 index, address sequencerAddress)
+func (_PreconfWhitelist *PreconfWhitelistSession) Operators(proposer common.Address) (struct {
+	ActiveSince      uint32
+	InactiveSince    uint32
+	Index            uint8
+	SequencerAddress common.Address
 }, error) {
-	return _PreconfWhitelist.Contract.Operators(&_PreconfWhitelist.CallOpts, operator)
+	return _PreconfWhitelist.Contract.Operators(&_PreconfWhitelist.CallOpts, proposer)
 }
 
 // Operators is a free data retrieval call binding the contract method 0x13e7c9d8.
 //
-// Solidity: function operators(address operator) view returns(uint64 activeSince, uint64 inactiveSince, uint8 index)
-func (_PreconfWhitelist *PreconfWhitelistCallerSession) Operators(operator common.Address) (struct {
-	ActiveSince   uint64
-	InactiveSince uint64
-	Index         uint8
+// Solidity: function operators(address proposer) view returns(uint32 activeSince, uint32 inactiveSince, uint8 index, address sequencerAddress)
+func (_PreconfWhitelist *PreconfWhitelistCallerSession) Operators(proposer common.Address) (struct {
+	ActiveSince      uint32
+	InactiveSince    uint32
+	Index            uint8
+	SequencerAddress common.Address
 }, error) {
-	return _PreconfWhitelist.Contract.Operators(&_PreconfWhitelist.CallOpts, operator)
+	return _PreconfWhitelist.Contract.Operators(&_PreconfWhitelist.CallOpts, proposer)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -726,6 +731,37 @@ func (_PreconfWhitelist *PreconfWhitelistCallerSession) ProxiableUUID() ([32]byt
 	return _PreconfWhitelist.Contract.ProxiableUUID(&_PreconfWhitelist.CallOpts)
 }
 
+// RandomnessDelay is a free data retrieval call binding the contract method 0x2db9006b.
+//
+// Solidity: function randomnessDelay() view returns(uint8)
+func (_PreconfWhitelist *PreconfWhitelistCaller) RandomnessDelay(opts *bind.CallOpts) (uint8, error) {
+	var out []interface{}
+	err := _PreconfWhitelist.contract.Call(opts, &out, "randomnessDelay")
+
+	if err != nil {
+		return *new(uint8), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint8)).(*uint8)
+
+	return out0, err
+
+}
+
+// RandomnessDelay is a free data retrieval call binding the contract method 0x2db9006b.
+//
+// Solidity: function randomnessDelay() view returns(uint8)
+func (_PreconfWhitelist *PreconfWhitelistSession) RandomnessDelay() (uint8, error) {
+	return _PreconfWhitelist.Contract.RandomnessDelay(&_PreconfWhitelist.CallOpts)
+}
+
+// RandomnessDelay is a free data retrieval call binding the contract method 0x2db9006b.
+//
+// Solidity: function randomnessDelay() view returns(uint8)
+func (_PreconfWhitelist *PreconfWhitelistCallerSession) RandomnessDelay() (uint8, error) {
+	return _PreconfWhitelist.Contract.RandomnessDelay(&_PreconfWhitelist.CallOpts)
+}
+
 // Resolver is a free data retrieval call binding the contract method 0x04f3bcec.
 //
 // Solidity: function resolver() view returns(address)
@@ -757,6 +793,37 @@ func (_PreconfWhitelist *PreconfWhitelistCallerSession) Resolver() (common.Addre
 	return _PreconfWhitelist.Contract.Resolver(&_PreconfWhitelist.CallOpts)
 }
 
+// SequencerToProposer is a free data retrieval call binding the contract method 0x70389500.
+//
+// Solidity: function sequencerToProposer(address sequencer) view returns(address proposer)
+func (_PreconfWhitelist *PreconfWhitelistCaller) SequencerToProposer(opts *bind.CallOpts, sequencer common.Address) (common.Address, error) {
+	var out []interface{}
+	err := _PreconfWhitelist.contract.Call(opts, &out, "sequencerToProposer", sequencer)
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+// SequencerToProposer is a free data retrieval call binding the contract method 0x70389500.
+//
+// Solidity: function sequencerToProposer(address sequencer) view returns(address proposer)
+func (_PreconfWhitelist *PreconfWhitelistSession) SequencerToProposer(sequencer common.Address) (common.Address, error) {
+	return _PreconfWhitelist.Contract.SequencerToProposer(&_PreconfWhitelist.CallOpts, sequencer)
+}
+
+// SequencerToProposer is a free data retrieval call binding the contract method 0x70389500.
+//
+// Solidity: function sequencerToProposer(address sequencer) view returns(address proposer)
+func (_PreconfWhitelist *PreconfWhitelistCallerSession) SequencerToProposer(sequencer common.Address) (common.Address, error) {
+	return _PreconfWhitelist.Contract.SequencerToProposer(&_PreconfWhitelist.CallOpts, sequencer)
+}
+
 // AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
 //
 // Solidity: function acceptOwnership() returns()
@@ -778,25 +845,25 @@ func (_PreconfWhitelist *PreconfWhitelistTransactorSession) AcceptOwnership() (*
 	return _PreconfWhitelist.Contract.AcceptOwnership(&_PreconfWhitelist.TransactOpts)
 }
 
-// AddOperator is a paid mutator transaction binding the contract method 0x9870d7fe.
+// AddOperator is a paid mutator transaction binding the contract method 0x8a1af4c4.
 //
-// Solidity: function addOperator(address _operator) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactor) AddOperator(opts *bind.TransactOpts, _operator common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.contract.Transact(opts, "addOperator", _operator)
+// Solidity: function addOperator(address _proposer, address _sequencer) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactor) AddOperator(opts *bind.TransactOpts, _proposer common.Address, _sequencer common.Address) (*types.Transaction, error) {
+	return _PreconfWhitelist.contract.Transact(opts, "addOperator", _proposer, _sequencer)
 }
 
-// AddOperator is a paid mutator transaction binding the contract method 0x9870d7fe.
+// AddOperator is a paid mutator transaction binding the contract method 0x8a1af4c4.
 //
-// Solidity: function addOperator(address _operator) returns()
-func (_PreconfWhitelist *PreconfWhitelistSession) AddOperator(_operator common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.AddOperator(&_PreconfWhitelist.TransactOpts, _operator)
+// Solidity: function addOperator(address _proposer, address _sequencer) returns()
+func (_PreconfWhitelist *PreconfWhitelistSession) AddOperator(_proposer common.Address, _sequencer common.Address) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.AddOperator(&_PreconfWhitelist.TransactOpts, _proposer, _sequencer)
 }
 
-// AddOperator is a paid mutator transaction binding the contract method 0x9870d7fe.
+// AddOperator is a paid mutator transaction binding the contract method 0x8a1af4c4.
 //
-// Solidity: function addOperator(address _operator) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactorSession) AddOperator(_operator common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.AddOperator(&_PreconfWhitelist.TransactOpts, _operator)
+// Solidity: function addOperator(address _proposer, address _sequencer) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactorSession) AddOperator(_proposer common.Address, _sequencer common.Address) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.AddOperator(&_PreconfWhitelist.TransactOpts, _proposer, _sequencer)
 }
 
 // Consolidate is a paid mutator transaction binding the contract method 0x724f024b.
@@ -820,25 +887,25 @@ func (_PreconfWhitelist *PreconfWhitelistTransactorSession) Consolidate() (*type
 	return _PreconfWhitelist.Contract.Consolidate(&_PreconfWhitelist.TransactOpts)
 }
 
-// Init is a paid mutator transaction binding the contract method 0x4d9431ea.
+// Init is a paid mutator transaction binding the contract method 0x5ecba33c.
 //
-// Solidity: function init(address _owner, uint8 _operatorChangeDelay) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactor) Init(opts *bind.TransactOpts, _owner common.Address, _operatorChangeDelay uint8) (*types.Transaction, error) {
-	return _PreconfWhitelist.contract.Transact(opts, "init", _owner, _operatorChangeDelay)
+// Solidity: function init(address _owner, uint8 _operatorChangeDelay, uint8 _randomnessDelay) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactor) Init(opts *bind.TransactOpts, _owner common.Address, _operatorChangeDelay uint8, _randomnessDelay uint8) (*types.Transaction, error) {
+	return _PreconfWhitelist.contract.Transact(opts, "init", _owner, _operatorChangeDelay, _randomnessDelay)
 }
 
-// Init is a paid mutator transaction binding the contract method 0x4d9431ea.
+// Init is a paid mutator transaction binding the contract method 0x5ecba33c.
 //
-// Solidity: function init(address _owner, uint8 _operatorChangeDelay) returns()
-func (_PreconfWhitelist *PreconfWhitelistSession) Init(_owner common.Address, _operatorChangeDelay uint8) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.Init(&_PreconfWhitelist.TransactOpts, _owner, _operatorChangeDelay)
+// Solidity: function init(address _owner, uint8 _operatorChangeDelay, uint8 _randomnessDelay) returns()
+func (_PreconfWhitelist *PreconfWhitelistSession) Init(_owner common.Address, _operatorChangeDelay uint8, _randomnessDelay uint8) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.Init(&_PreconfWhitelist.TransactOpts, _owner, _operatorChangeDelay, _randomnessDelay)
 }
 
-// Init is a paid mutator transaction binding the contract method 0x4d9431ea.
+// Init is a paid mutator transaction binding the contract method 0x5ecba33c.
 //
-// Solidity: function init(address _owner, uint8 _operatorChangeDelay) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactorSession) Init(_owner common.Address, _operatorChangeDelay uint8) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.Init(&_PreconfWhitelist.TransactOpts, _owner, _operatorChangeDelay)
+// Solidity: function init(address _owner, uint8 _operatorChangeDelay, uint8 _randomnessDelay) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactorSession) Init(_owner common.Address, _operatorChangeDelay uint8, _randomnessDelay uint8) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.Init(&_PreconfWhitelist.TransactOpts, _owner, _operatorChangeDelay, _randomnessDelay)
 }
 
 // Pause is a paid mutator transaction binding the contract method 0x8456cb59.
@@ -864,44 +931,44 @@ func (_PreconfWhitelist *PreconfWhitelistTransactorSession) Pause() (*types.Tran
 
 // RemoveOperator is a paid mutator transaction binding the contract method 0x17d1cf3d.
 //
-// Solidity: function removeOperator(address _operator, bool _effectiveImmediately) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactor) RemoveOperator(opts *bind.TransactOpts, _operator common.Address, _effectiveImmediately bool) (*types.Transaction, error) {
-	return _PreconfWhitelist.contract.Transact(opts, "removeOperator", _operator, _effectiveImmediately)
+// Solidity: function removeOperator(address _proposer, bool _effectiveImmediately) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactor) RemoveOperator(opts *bind.TransactOpts, _proposer common.Address, _effectiveImmediately bool) (*types.Transaction, error) {
+	return _PreconfWhitelist.contract.Transact(opts, "removeOperator", _proposer, _effectiveImmediately)
 }
 
 // RemoveOperator is a paid mutator transaction binding the contract method 0x17d1cf3d.
 //
-// Solidity: function removeOperator(address _operator, bool _effectiveImmediately) returns()
-func (_PreconfWhitelist *PreconfWhitelistSession) RemoveOperator(_operator common.Address, _effectiveImmediately bool) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.RemoveOperator(&_PreconfWhitelist.TransactOpts, _operator, _effectiveImmediately)
+// Solidity: function removeOperator(address _proposer, bool _effectiveImmediately) returns()
+func (_PreconfWhitelist *PreconfWhitelistSession) RemoveOperator(_proposer common.Address, _effectiveImmediately bool) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.RemoveOperator(&_PreconfWhitelist.TransactOpts, _proposer, _effectiveImmediately)
 }
 
 // RemoveOperator is a paid mutator transaction binding the contract method 0x17d1cf3d.
 //
-// Solidity: function removeOperator(address _operator, bool _effectiveImmediately) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactorSession) RemoveOperator(_operator common.Address, _effectiveImmediately bool) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.RemoveOperator(&_PreconfWhitelist.TransactOpts, _operator, _effectiveImmediately)
+// Solidity: function removeOperator(address _proposer, bool _effectiveImmediately) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactorSession) RemoveOperator(_proposer common.Address, _effectiveImmediately bool) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.RemoveOperator(&_PreconfWhitelist.TransactOpts, _proposer, _effectiveImmediately)
 }
 
 // RemoveOperator0 is a paid mutator transaction binding the contract method 0xac8a584a.
 //
-// Solidity: function removeOperator(address _operator) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactor) RemoveOperator0(opts *bind.TransactOpts, _operator common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.contract.Transact(opts, "removeOperator0", _operator)
+// Solidity: function removeOperator(address _proposer) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactor) RemoveOperator0(opts *bind.TransactOpts, _proposer common.Address) (*types.Transaction, error) {
+	return _PreconfWhitelist.contract.Transact(opts, "removeOperator0", _proposer)
 }
 
 // RemoveOperator0 is a paid mutator transaction binding the contract method 0xac8a584a.
 //
-// Solidity: function removeOperator(address _operator) returns()
-func (_PreconfWhitelist *PreconfWhitelistSession) RemoveOperator0(_operator common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.RemoveOperator0(&_PreconfWhitelist.TransactOpts, _operator)
+// Solidity: function removeOperator(address _proposer) returns()
+func (_PreconfWhitelist *PreconfWhitelistSession) RemoveOperator0(_proposer common.Address) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.RemoveOperator0(&_PreconfWhitelist.TransactOpts, _proposer)
 }
 
 // RemoveOperator0 is a paid mutator transaction binding the contract method 0xac8a584a.
 //
-// Solidity: function removeOperator(address _operator) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactorSession) RemoveOperator0(_operator common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.RemoveOperator0(&_PreconfWhitelist.TransactOpts, _operator)
+// Solidity: function removeOperator(address _proposer) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactorSession) RemoveOperator0(_proposer common.Address) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.RemoveOperator0(&_PreconfWhitelist.TransactOpts, _proposer)
 }
 
 // RemoveOperator1 is a paid mutator transaction binding the contract method 0xf46673f6.
@@ -1028,6 +1095,27 @@ func (_PreconfWhitelist *PreconfWhitelistSession) Unpause() (*types.Transaction,
 // Solidity: function unpause() returns()
 func (_PreconfWhitelist *PreconfWhitelistTransactorSession) Unpause() (*types.Transaction, error) {
 	return _PreconfWhitelist.Contract.Unpause(&_PreconfWhitelist.TransactOpts)
+}
+
+// UpdateOperator is a paid mutator transaction binding the contract method 0x8cd2d73e.
+//
+// Solidity: function updateOperator(address _proposer, address _newSequencer) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactor) UpdateOperator(opts *bind.TransactOpts, _proposer common.Address, _newSequencer common.Address) (*types.Transaction, error) {
+	return _PreconfWhitelist.contract.Transact(opts, "updateOperator", _proposer, _newSequencer)
+}
+
+// UpdateOperator is a paid mutator transaction binding the contract method 0x8cd2d73e.
+//
+// Solidity: function updateOperator(address _proposer, address _newSequencer) returns()
+func (_PreconfWhitelist *PreconfWhitelistSession) UpdateOperator(_proposer common.Address, _newSequencer common.Address) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.UpdateOperator(&_PreconfWhitelist.TransactOpts, _proposer, _newSequencer)
+}
+
+// UpdateOperator is a paid mutator transaction binding the contract method 0x8cd2d73e.
+//
+// Solidity: function updateOperator(address _proposer, address _newSequencer) returns()
+func (_PreconfWhitelist *PreconfWhitelistTransactorSession) UpdateOperator(_proposer common.Address, _newSequencer common.Address) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.UpdateOperator(&_PreconfWhitelist.TransactOpts, _proposer, _newSequencer)
 }
 
 // UpgradeTo is a paid mutator transaction binding the contract method 0x3659cfe6.
@@ -1690,39 +1778,48 @@ func (it *PreconfWhitelistOperatorAddedIterator) Close() error {
 
 // PreconfWhitelistOperatorAdded represents a OperatorAdded event raised by the PreconfWhitelist contract.
 type PreconfWhitelistOperatorAdded struct {
-	Operator    common.Address
+	Proposer    common.Address
+	Sequencer   common.Address
 	ActiveSince *big.Int
 	Raw         types.Log // Blockchain specific contextual infos
 }
 
-// FilterOperatorAdded is a free log retrieval operation binding the contract event 0xcbcb793495a5fd793da61a1d62ab99b58925f94b0a61beeec3ea7d7d6c4f2594.
+// FilterOperatorAdded is a free log retrieval operation binding the contract event 0x20c899c9053446f0d7a408c709f0196e2c26c6a985dcad854dc19ad567c4531f.
 //
-// Solidity: event OperatorAdded(address indexed operator, uint256 activeSince)
-func (_PreconfWhitelist *PreconfWhitelistFilterer) FilterOperatorAdded(opts *bind.FilterOpts, operator []common.Address) (*PreconfWhitelistOperatorAddedIterator, error) {
+// Solidity: event OperatorAdded(address indexed proposer, address indexed sequencer, uint256 activeSince)
+func (_PreconfWhitelist *PreconfWhitelistFilterer) FilterOperatorAdded(opts *bind.FilterOpts, proposer []common.Address, sequencer []common.Address) (*PreconfWhitelistOperatorAddedIterator, error) {
 
-	var operatorRule []interface{}
-	for _, operatorItem := range operator {
-		operatorRule = append(operatorRule, operatorItem)
+	var proposerRule []interface{}
+	for _, proposerItem := range proposer {
+		proposerRule = append(proposerRule, proposerItem)
+	}
+	var sequencerRule []interface{}
+	for _, sequencerItem := range sequencer {
+		sequencerRule = append(sequencerRule, sequencerItem)
 	}
 
-	logs, sub, err := _PreconfWhitelist.contract.FilterLogs(opts, "OperatorAdded", operatorRule)
+	logs, sub, err := _PreconfWhitelist.contract.FilterLogs(opts, "OperatorAdded", proposerRule, sequencerRule)
 	if err != nil {
 		return nil, err
 	}
 	return &PreconfWhitelistOperatorAddedIterator{contract: _PreconfWhitelist.contract, event: "OperatorAdded", logs: logs, sub: sub}, nil
 }
 
-// WatchOperatorAdded is a free log subscription operation binding the contract event 0xcbcb793495a5fd793da61a1d62ab99b58925f94b0a61beeec3ea7d7d6c4f2594.
+// WatchOperatorAdded is a free log subscription operation binding the contract event 0x20c899c9053446f0d7a408c709f0196e2c26c6a985dcad854dc19ad567c4531f.
 //
-// Solidity: event OperatorAdded(address indexed operator, uint256 activeSince)
-func (_PreconfWhitelist *PreconfWhitelistFilterer) WatchOperatorAdded(opts *bind.WatchOpts, sink chan<- *PreconfWhitelistOperatorAdded, operator []common.Address) (event.Subscription, error) {
+// Solidity: event OperatorAdded(address indexed proposer, address indexed sequencer, uint256 activeSince)
+func (_PreconfWhitelist *PreconfWhitelistFilterer) WatchOperatorAdded(opts *bind.WatchOpts, sink chan<- *PreconfWhitelistOperatorAdded, proposer []common.Address, sequencer []common.Address) (event.Subscription, error) {
 
-	var operatorRule []interface{}
-	for _, operatorItem := range operator {
-		operatorRule = append(operatorRule, operatorItem)
+	var proposerRule []interface{}
+	for _, proposerItem := range proposer {
+		proposerRule = append(proposerRule, proposerItem)
+	}
+	var sequencerRule []interface{}
+	for _, sequencerItem := range sequencer {
+		sequencerRule = append(sequencerRule, sequencerItem)
 	}
 
-	logs, sub, err := _PreconfWhitelist.contract.WatchLogs(opts, "OperatorAdded", operatorRule)
+	logs, sub, err := _PreconfWhitelist.contract.WatchLogs(opts, "OperatorAdded", proposerRule, sequencerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1754,9 +1851,9 @@ func (_PreconfWhitelist *PreconfWhitelistFilterer) WatchOperatorAdded(opts *bind
 	}), nil
 }
 
-// ParseOperatorAdded is a log parse operation binding the contract event 0xcbcb793495a5fd793da61a1d62ab99b58925f94b0a61beeec3ea7d7d6c4f2594.
+// ParseOperatorAdded is a log parse operation binding the contract event 0x20c899c9053446f0d7a408c709f0196e2c26c6a985dcad854dc19ad567c4531f.
 //
-// Solidity: event OperatorAdded(address indexed operator, uint256 activeSince)
+// Solidity: event OperatorAdded(address indexed proposer, address indexed sequencer, uint256 activeSince)
 func (_PreconfWhitelist *PreconfWhitelistFilterer) ParseOperatorAdded(log types.Log) (*PreconfWhitelistOperatorAdded, error) {
 	event := new(PreconfWhitelistOperatorAdded)
 	if err := _PreconfWhitelist.contract.UnpackLog(event, "OperatorAdded", log); err != nil {
@@ -1969,39 +2066,48 @@ func (it *PreconfWhitelistOperatorRemovedIterator) Close() error {
 
 // PreconfWhitelistOperatorRemoved represents a OperatorRemoved event raised by the PreconfWhitelist contract.
 type PreconfWhitelistOperatorRemoved struct {
-	Operator      common.Address
+	Proposer      common.Address
+	Sequencer     common.Address
 	InactiveSince *big.Int
 	Raw           types.Log // Blockchain specific contextual infos
 }
 
-// FilterOperatorRemoved is a free log retrieval operation binding the contract event 0x2360404a74478febece1a14f11275f22ada88d19ef96f7d785913010bfff4479.
+// FilterOperatorRemoved is a free log retrieval operation binding the contract event 0xa85b3d3497f1e4522d447f02e1a1d16506431ba902da11611a51d8502400e4ea.
 //
-// Solidity: event OperatorRemoved(address indexed operator, uint256 inactiveSince)
-func (_PreconfWhitelist *PreconfWhitelistFilterer) FilterOperatorRemoved(opts *bind.FilterOpts, operator []common.Address) (*PreconfWhitelistOperatorRemovedIterator, error) {
+// Solidity: event OperatorRemoved(address indexed proposer, address indexed sequencer, uint256 inactiveSince)
+func (_PreconfWhitelist *PreconfWhitelistFilterer) FilterOperatorRemoved(opts *bind.FilterOpts, proposer []common.Address, sequencer []common.Address) (*PreconfWhitelistOperatorRemovedIterator, error) {
 
-	var operatorRule []interface{}
-	for _, operatorItem := range operator {
-		operatorRule = append(operatorRule, operatorItem)
+	var proposerRule []interface{}
+	for _, proposerItem := range proposer {
+		proposerRule = append(proposerRule, proposerItem)
+	}
+	var sequencerRule []interface{}
+	for _, sequencerItem := range sequencer {
+		sequencerRule = append(sequencerRule, sequencerItem)
 	}
 
-	logs, sub, err := _PreconfWhitelist.contract.FilterLogs(opts, "OperatorRemoved", operatorRule)
+	logs, sub, err := _PreconfWhitelist.contract.FilterLogs(opts, "OperatorRemoved", proposerRule, sequencerRule)
 	if err != nil {
 		return nil, err
 	}
 	return &PreconfWhitelistOperatorRemovedIterator{contract: _PreconfWhitelist.contract, event: "OperatorRemoved", logs: logs, sub: sub}, nil
 }
 
-// WatchOperatorRemoved is a free log subscription operation binding the contract event 0x2360404a74478febece1a14f11275f22ada88d19ef96f7d785913010bfff4479.
+// WatchOperatorRemoved is a free log subscription operation binding the contract event 0xa85b3d3497f1e4522d447f02e1a1d16506431ba902da11611a51d8502400e4ea.
 //
-// Solidity: event OperatorRemoved(address indexed operator, uint256 inactiveSince)
-func (_PreconfWhitelist *PreconfWhitelistFilterer) WatchOperatorRemoved(opts *bind.WatchOpts, sink chan<- *PreconfWhitelistOperatorRemoved, operator []common.Address) (event.Subscription, error) {
+// Solidity: event OperatorRemoved(address indexed proposer, address indexed sequencer, uint256 inactiveSince)
+func (_PreconfWhitelist *PreconfWhitelistFilterer) WatchOperatorRemoved(opts *bind.WatchOpts, sink chan<- *PreconfWhitelistOperatorRemoved, proposer []common.Address, sequencer []common.Address) (event.Subscription, error) {
 
-	var operatorRule []interface{}
-	for _, operatorItem := range operator {
-		operatorRule = append(operatorRule, operatorItem)
+	var proposerRule []interface{}
+	for _, proposerItem := range proposer {
+		proposerRule = append(proposerRule, proposerItem)
+	}
+	var sequencerRule []interface{}
+	for _, sequencerItem := range sequencer {
+		sequencerRule = append(sequencerRule, sequencerItem)
 	}
 
-	logs, sub, err := _PreconfWhitelist.contract.WatchLogs(opts, "OperatorRemoved", operatorRule)
+	logs, sub, err := _PreconfWhitelist.contract.WatchLogs(opts, "OperatorRemoved", proposerRule, sequencerRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2033,12 +2139,174 @@ func (_PreconfWhitelist *PreconfWhitelistFilterer) WatchOperatorRemoved(opts *bi
 	}), nil
 }
 
-// ParseOperatorRemoved is a log parse operation binding the contract event 0x2360404a74478febece1a14f11275f22ada88d19ef96f7d785913010bfff4479.
+// ParseOperatorRemoved is a log parse operation binding the contract event 0xa85b3d3497f1e4522d447f02e1a1d16506431ba902da11611a51d8502400e4ea.
 //
-// Solidity: event OperatorRemoved(address indexed operator, uint256 inactiveSince)
+// Solidity: event OperatorRemoved(address indexed proposer, address indexed sequencer, uint256 inactiveSince)
 func (_PreconfWhitelist *PreconfWhitelistFilterer) ParseOperatorRemoved(log types.Log) (*PreconfWhitelistOperatorRemoved, error) {
 	event := new(PreconfWhitelistOperatorRemoved)
 	if err := _PreconfWhitelist.contract.UnpackLog(event, "OperatorRemoved", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// PreconfWhitelistOperatorUpdatedIterator is returned from FilterOperatorUpdated and is used to iterate over the raw logs and unpacked data for OperatorUpdated events raised by the PreconfWhitelist contract.
+type PreconfWhitelistOperatorUpdatedIterator struct {
+	Event *PreconfWhitelistOperatorUpdated // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *PreconfWhitelistOperatorUpdatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(PreconfWhitelistOperatorUpdated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(PreconfWhitelistOperatorUpdated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *PreconfWhitelistOperatorUpdatedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *PreconfWhitelistOperatorUpdatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// PreconfWhitelistOperatorUpdated represents a OperatorUpdated event raised by the PreconfWhitelist contract.
+type PreconfWhitelistOperatorUpdated struct {
+	Proposer     common.Address
+	OldSequencer common.Address
+	NewSequencer common.Address
+	Raw          types.Log // Blockchain specific contextual infos
+}
+
+// FilterOperatorUpdated is a free log retrieval operation binding the contract event 0x758820d0b14a01c1fa60b8d2bbef25ed1b6a5af4802e5dec3f08679255ba8bf3.
+//
+// Solidity: event OperatorUpdated(address indexed proposer, address indexed oldSequencer, address indexed newSequencer)
+func (_PreconfWhitelist *PreconfWhitelistFilterer) FilterOperatorUpdated(opts *bind.FilterOpts, proposer []common.Address, oldSequencer []common.Address, newSequencer []common.Address) (*PreconfWhitelistOperatorUpdatedIterator, error) {
+
+	var proposerRule []interface{}
+	for _, proposerItem := range proposer {
+		proposerRule = append(proposerRule, proposerItem)
+	}
+	var oldSequencerRule []interface{}
+	for _, oldSequencerItem := range oldSequencer {
+		oldSequencerRule = append(oldSequencerRule, oldSequencerItem)
+	}
+	var newSequencerRule []interface{}
+	for _, newSequencerItem := range newSequencer {
+		newSequencerRule = append(newSequencerRule, newSequencerItem)
+	}
+
+	logs, sub, err := _PreconfWhitelist.contract.FilterLogs(opts, "OperatorUpdated", proposerRule, oldSequencerRule, newSequencerRule)
+	if err != nil {
+		return nil, err
+	}
+	return &PreconfWhitelistOperatorUpdatedIterator{contract: _PreconfWhitelist.contract, event: "OperatorUpdated", logs: logs, sub: sub}, nil
+}
+
+// WatchOperatorUpdated is a free log subscription operation binding the contract event 0x758820d0b14a01c1fa60b8d2bbef25ed1b6a5af4802e5dec3f08679255ba8bf3.
+//
+// Solidity: event OperatorUpdated(address indexed proposer, address indexed oldSequencer, address indexed newSequencer)
+func (_PreconfWhitelist *PreconfWhitelistFilterer) WatchOperatorUpdated(opts *bind.WatchOpts, sink chan<- *PreconfWhitelistOperatorUpdated, proposer []common.Address, oldSequencer []common.Address, newSequencer []common.Address) (event.Subscription, error) {
+
+	var proposerRule []interface{}
+	for _, proposerItem := range proposer {
+		proposerRule = append(proposerRule, proposerItem)
+	}
+	var oldSequencerRule []interface{}
+	for _, oldSequencerItem := range oldSequencer {
+		oldSequencerRule = append(oldSequencerRule, oldSequencerItem)
+	}
+	var newSequencerRule []interface{}
+	for _, newSequencerItem := range newSequencer {
+		newSequencerRule = append(newSequencerRule, newSequencerItem)
+	}
+
+	logs, sub, err := _PreconfWhitelist.contract.WatchLogs(opts, "OperatorUpdated", proposerRule, oldSequencerRule, newSequencerRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(PreconfWhitelistOperatorUpdated)
+				if err := _PreconfWhitelist.contract.UnpackLog(event, "OperatorUpdated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseOperatorUpdated is a log parse operation binding the contract event 0x758820d0b14a01c1fa60b8d2bbef25ed1b6a5af4802e5dec3f08679255ba8bf3.
+//
+// Solidity: event OperatorUpdated(address indexed proposer, address indexed oldSequencer, address indexed newSequencer)
+func (_PreconfWhitelist *PreconfWhitelistFilterer) ParseOperatorUpdated(log types.Log) (*PreconfWhitelistOperatorUpdated, error) {
+	event := new(PreconfWhitelistOperatorUpdated)
+	if err := _PreconfWhitelist.contract.UnpackLog(event, "OperatorUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
