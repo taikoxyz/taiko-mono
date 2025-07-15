@@ -78,7 +78,7 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.havingPerfectOperators(), true);
 
         vm.prank(whitelistOwner);
-        whitelist.removeOperator(Bob);
+        whitelist.removeOperator(Bob, false);
 
         assertEq(whitelist.operatorCount(), 1);
         assertEq(whitelist.operatorMapping(0), Bob);
@@ -158,9 +158,9 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelist.havingPerfectOperators(), false);
 
         vm.prank(whitelistOwner);
-        whitelist.removeOperator(Alice);
+        whitelist.removeOperator(Alice, false);
         vm.prank(whitelistOwner);
-        whitelist.removeOperator(Bob);
+        whitelist.removeOperator(Bob, false);
 
         assertEq(whitelist.operatorCount(), 2);
         assertEq(whitelist.operatorMapping(0), Alice);
@@ -206,9 +206,9 @@ contract TestPreconfWhitelist is Layer1Test {
         vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
         whitelist.addOperator(Alice, _getSequencerAddress(Alice));
 
-        whitelist.removeOperator(Alice);
+        whitelist.removeOperator(Alice, false);
         vm.expectRevert(IPreconfWhitelist.OperatorAlreadyRemoved.selector);
-        whitelist.removeOperator(Alice);
+        whitelist.removeOperator(Alice, false);
         vm.stopPrank();
     }
 
@@ -216,7 +216,7 @@ contract TestPreconfWhitelist is Layer1Test {
         vm.startPrank(whitelistOwner);
         whitelist.addOperator(Alice, _getSequencerAddress(Alice));
 
-        whitelist.removeOperator(Alice);
+        whitelist.removeOperator(Alice, false);
 
         whitelist.addOperator(Alice, _getSequencerAddress(Alice));
         vm.stopPrank();
@@ -260,7 +260,7 @@ contract TestPreconfWhitelist is Layer1Test {
     function test_whitelist_removeNonExistingOperatorWillRevert() external {
         vm.startPrank(whitelistOwner);
         vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
-        whitelist.removeOperator(Alice);
+        whitelist.removeOperator(Alice, false);
         vm.stopPrank();
     }
 
@@ -288,7 +288,7 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(whitelistNoDelay.getOperatorForNextEpoch(), Bob);
 
         vm.prank(whitelistOwner);
-        whitelistNoDelay.removeOperator(Bob);
+        whitelistNoDelay.removeOperator(Bob, false);
 
         assertEq(whitelistNoDelay.operatorCount(), 0);
         assertEq(whitelistNoDelay.havingPerfectOperators(), true);
@@ -316,7 +316,7 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(candidates[2], Carol);
         assertEq(whitelistNoDelay.havingPerfectOperators(), true);
 
-        whitelistNoDelay.removeOperator(Alice);
+        whitelistNoDelay.removeOperator(Alice, false);
         assertEq(whitelistNoDelay.havingPerfectOperators(), false);
 
         whitelistNoDelay.consolidate();
@@ -337,7 +337,7 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelistNoDelay.addOperator(Bob, _getSequencerAddress(Bob));
         whitelistNoDelay.addOperator(Carol, _getSequencerAddress(Carol));
         whitelistNoDelay.addOperator(David, _getSequencerAddress(David));
-        whitelistNoDelay.removeOperator(Alice);
+        whitelistNoDelay.removeOperator(Alice, false);
         assertEq(whitelistNoDelay.havingPerfectOperators(), false);
 
         address operatorBeforeConsolidate = whitelistNoDelay.getOperatorForCurrentEpoch();
@@ -362,7 +362,7 @@ contract TestPreconfWhitelist is Layer1Test {
 
         // now remove her
         vm.prank(whitelistOwner);
-        whitelist.removeOperator(Carol);
+        whitelist.removeOperator(Carol, false);
         assertEq(whitelist.operatorCount(), 1);
         assertEq(whitelist.operatorMapping(0), Carol);
         // re-add her

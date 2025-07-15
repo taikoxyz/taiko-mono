@@ -83,12 +83,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         _removeOperator(_proposer, _effectiveImmediately ? 0 : operatorChangeDelay);
     }
 
-    /// @notice Removes an operator by address who will become inactive in two epochs.
-    /// @param _proposer The proposer address of the operator to remove.
-    function removeOperator(address _proposer) external onlyOwner {
-        _removeOperator(_proposer, operatorChangeDelay);
-    }
-
     /// @notice Allows the caller to remove themselves as an operator immediately.
     function removeSelf() external {
         _removeOperator(msg.sender, 0);
