@@ -32,12 +32,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     ///     NOTE: These two addresses may be the same, it is up to the operator to decide.
     mapping(address proposer => OperatorInfo info) public operators;
     mapping(uint256 index => address proposer) public operatorMapping;
-    /// @dev Reverse mapping from sequencer to proposer. This is only used by off-chain actors.
-    /// @dev Note: Entries are not deleted when removing operators for gas efficiency, but they ARE
-    /// deleted when an operator updates their sequencer address to maintain the 1:1 invariant.
-    /// Off-chain actors should verify the operator is still active by checking that
-    /// operators[proposer].activeSince != 0 before trusting the mapping.
-    mapping(address sequencer => address proposer) public sequencerToProposer;
 
     uint8 public operatorCount;
     /// @dev The number of epochs to delay for operator changes.
@@ -113,22 +107,10 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         require(info.sequencerAddress != address(0), InvalidOperatorAddress());
         require(_newSequencer != address(0), InvalidOperatorAddress());
 
-        // Check if new sequencer is already in use by another operator
-        address existingProposer = sequencerToProposer[_newSequencer];
-        require(
-            existingProposer == address(0) || existingProposer == _proposer, OperatorAlreadyExists()
-        );
-
         address oldSequencer = info.sequencerAddress;
 
         // Update the sequencer address
         info.sequencerAddress = _newSequencer;
-        sequencerToProposer[_newSequencer] = _proposer;
-
-        // Clear old mapping to maintain the 1:1 invariant between proposer and sequencer
-        if (oldSequencer != _newSequencer) {
-            delete sequencerToProposer[oldSequencer];
-        }
 
         emit OperatorUpdated(_proposer, oldSequencer, _newSequencer);
     }
@@ -236,11 +218,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         require(_proposer != address(0), InvalidOperatorAddress());
         require(_sequencer != address(0), InvalidOperatorAddress());
 
-        address existingProposer = sequencerToProposer[_sequencer];
-        require(
-            existingProposer == address(0) || existingProposer == _proposer, OperatorAlreadyExists()
-        );
-
         OperatorInfo storage info = operators[_proposer];
 
         // if they're already active, just revert
@@ -265,8 +242,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         info.activeSince = activeSince;
         info.inactiveSince = 0;
         info.sequencerAddress = _sequencer;
-
-        sequencerToProposer[_sequencer] = _proposer;
 
         if (_operatorChangeDelay != 0) {
             havingPerfectOperators = false;

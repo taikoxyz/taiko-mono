@@ -61,7 +61,6 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
         assertEq(sequencerAddress, _getSequencerAddress(Bob));
-        assertEq(whitelist.sequencerToProposer(_getSequencerAddress(Bob)), Bob);
 
         // Verify operator for current epoch
         assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
@@ -394,9 +393,6 @@ contract TestPreconfWhitelist is Layer1Test {
         // Verify the update
         (,,, address sequencerAddress) = whitelist.operators(Alice);
         assertEq(sequencerAddress, newSequencer);
-        assertEq(whitelist.sequencerToProposer(newSequencer), Alice);
-        // Verify old mapping is cleared
-        assertEq(whitelist.sequencerToProposer(_getSequencerAddress(Alice)), address(0));
     }
 
     function test_updateOperator_bySelf() external {
@@ -412,7 +408,6 @@ contract TestPreconfWhitelist is Layer1Test {
         // Verify the update
         (,,, address sequencerAddress) = whitelist.operators(Bob);
         assertEq(sequencerAddress, newSequencer);
-        assertEq(whitelist.sequencerToProposer(newSequencer), Bob);
     }
 
     function test_updateOperator_unauthorizedWillRevert() external {
@@ -444,19 +439,6 @@ contract TestPreconfWhitelist is Layer1Test {
         vm.prank(whitelistOwner);
         vm.expectRevert(IPreconfWhitelist.InvalidOperatorAddress.selector);
         whitelist.updateOperator(Alice, address(0));
-    }
-
-    function test_updateOperator_duplicateSequencerWillRevert() external {
-        // Add two operators
-        vm.prank(whitelistOwner);
-        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
-        vm.prank(whitelistOwner);
-        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
-
-        // Try to update Alice's sequencer to Bob's sequencer
-        vm.prank(whitelistOwner);
-        vm.expectRevert(IPreconfWhitelist.OperatorAlreadyExists.selector);
-        whitelist.updateOperator(Alice, _getSequencerAddress(Bob));
     }
 
     function _setBeaconBlockRoot(bytes32 _root) internal {
