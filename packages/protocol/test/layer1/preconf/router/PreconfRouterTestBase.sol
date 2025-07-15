@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "../../Layer1Test.sol";
 import "src/layer1/preconf/impl/PreconfRouter.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
-import "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/shared/signal/SignalService.sol";
