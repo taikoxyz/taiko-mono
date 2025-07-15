@@ -47,7 +47,7 @@ var (
 	}
 	PreconfBlockServerJWTSecret = &cli.StringFlag{
 		Name:     "preconfirmation.jwtSecret",
-		Usage:    "Path to a ApiKey secret to use for the preconfirmation block server",
+		Usage:    "Path to a JWT secret to use for the preconfirmation block server",
 		Category: driverCategory,
 		EnvVars:  []string{"PRECONFIRMATION_SERVER_JWT_SECRET"},
 	}
