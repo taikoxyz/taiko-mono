@@ -476,7 +476,15 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return err
 	}
 
-	envelope, err := blockToEnvelope(block, nil, &l1Origin.IsForcedInclusion, &sig)
+	endOfSequencing := false
+	for epoch := range s.sequencingEndedForEpochCache.Keys() {
+		if hash, ok := s.sequencingEndedForEpochCache.Get(uint64(epoch)); ok && hash == block.Hash() {
+			endOfSequencing = true
+			break
+		}
+	}
+
+	envelope, err := blockToEnvelope(block, &endOfSequencing, &l1Origin.IsForcedInclusion, &sig)
 	if err != nil {
 		return fmt.Errorf("failed to convert block to envelope: %w", err)
 	}
