@@ -233,7 +233,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				"baseFee", header.BaseFee,
 			)
 		} else {
-			// 2) Sign exactly those bytes
+			// sign the block hash, persist it to L1Origin as the signature
 			sigBytes, err := s.p2pSigner.Sign(
 				ctx,
 				p2p.SigningDomainBlocksV1,
