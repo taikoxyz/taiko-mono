@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -105,7 +106,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L1ProverPrivKey:        l1ProverPrivKey,
 		RaikoHostEndpoint:      c.String(flags.RaikoHostEndpoint.Name),
 		RaikoZKVMHostEndpoint:  c.String(flags.RaikoZKVMHostEndpoint.Name),
-		RaikoApiKey:            common.Bytes2Hex(raikoApiKey),
+		RaikoApiKey:            strings.TrimSpace(string(raikoApiKey)),
 		RaikoRequestTimeout:    c.Duration(flags.RaikoRequestTimeout.Name),
 		StartingBatchID:        startingBatchID,
 		Dummy:                  c.Bool(flags.Dummy.Name),
