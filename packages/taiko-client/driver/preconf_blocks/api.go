@@ -238,7 +238,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				ctx,
 				p2p.SigningDomainBlocksV1,
 				s.rpc.L2.ChainID,
-				executablePayload.BlockHash.Bytes(),
+				header.Hash().Bytes(),
 			)
 			if err != nil {
 				log.Warn(
