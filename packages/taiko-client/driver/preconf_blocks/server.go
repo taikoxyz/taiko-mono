@@ -428,7 +428,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return err
 	}
 
-	if block.NumberU64() <= headL1Origin.BlockID.Uint64() {
+	if headL1Origin != nil && block.NumberU64() <= headL1Origin.BlockID.Uint64() {
 		log.Warn(
 			"Ignore the message for outdated block",
 			"peer", from,
