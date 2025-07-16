@@ -51,8 +51,9 @@ forge test --match-path <path>   # Test by file
 forge test -vvvv                # Debug with max verbosity
 
 # Gas & Storage
-pnpm snapshot:l1        # Generate gas report
-pnpm layout             # Generate storage layouts (critical before upgrades)
+pnpm snapshot:l1        # Generate gas snapshot for L1 contracts
+pnpm layout:l1             # Generate storage layouts for L1 contracts(critical before upgrades)
+pnpm layout:l2 # Generate storage layouts for L2 contracts(critical before upgrades)
 
 # Code Quality
 pnpm fmt:sol            # Format Solidity code
