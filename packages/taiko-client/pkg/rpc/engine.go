@@ -3,10 +3,12 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/node"
@@ -146,10 +148,15 @@ func (c *EngineClient) UpdateL1Origin(ctx context.Context, l1Origin *rawdb.L1Ori
 
 // SetHeadL1Origin sets the latest L2 block's corresponding L1 origin.
 func (c *EngineClient) SetHeadL1Origin(ctx context.Context, blockID *big.Int) (*big.Int, error) {
-	var res *big.Int
+	var response string
 
-	if err := c.CallContext(ctx, &res, "taikoAuth_setHeadL1Origin", blockID); err != nil {
+	if err := c.CallContext(ctx, &response, "taikoAuth_setHeadL1Origin", hexutil.EncodeBig(blockID)); err != nil {
 		return nil, err
+	}
+
+	res, err := hexutil.DecodeBig(response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode taikoAuth_setHeadL1Origin response: %w", err)
 	}
 
 	return res, nil
