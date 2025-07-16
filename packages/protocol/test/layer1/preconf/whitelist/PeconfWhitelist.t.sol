@@ -264,6 +264,66 @@ contract TestPreconfWhitelist is Layer1Test {
         vm.stopPrank();
     }
 
+    function test_whitelist_removeOperatorImmediatelyLastOperator() external {
+        _setBeaconBlockRoot(bytes32(uint256(7)));
+
+        vm.startPrank(whitelistOwner);
+        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+
+        // Wait for operators to become active
+        _advanceOneEpoch();
+        _advanceOneEpoch();
+
+        whitelist.removeOperator(Bob, true);
+
+        assertEq(whitelist.operatorCount(), 1);
+        assertEq(whitelist.operatorMapping(0), Alice);
+        assertEq(whitelist.operatorMapping(1), address(0));
+
+        // Bob's operator info should be deleted
+        (uint32 activeSince, uint32 inactiveSince, uint8 index,) = whitelist.operators(Bob);
+        assertEq(activeSince, 0);
+        assertEq(inactiveSince, 0);
+        assertEq(index, 0);
+
+        // Alice should now be the only candidate
+        assertEq(whitelist.getOperatorForCurrentEpoch(), Alice);
+        assertEq(whitelist.getOperatorForNextEpoch(), Alice);
+    }
+
+    function test_whitelist_removeOperatorImmediatelyNotLastOperator() external {
+        _setBeaconBlockRoot(bytes32(uint256(7)));
+
+        vm.startPrank(whitelistOwner);
+        whitelist.addOperator(Alice, _getSequencerAddress(Alice));
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+        whitelist.addOperator(Carol, _getSequencerAddress(Carol));
+
+        // Wait for operators to become active
+        _advanceOneEpoch();
+        _advanceOneEpoch();
+
+        // Remove Alice immediately (she's NOT the last operator)
+        whitelist.removeOperator(Alice, true);
+
+        // Alice should be marked for removal but still in the mapping
+        assertEq(whitelist.operatorCount(), 3);
+        assertEq(whitelist.operatorMapping(0), Alice);
+
+        // Check Alice's operator info
+        (uint32 activeSince, uint32 inactiveSince, uint8 index,) = whitelist.operators(Alice);
+        assertEq(activeSince, 0);
+        assertEq(inactiveSince, whitelist.epochStartTimestamp(0));
+        assertEq(index, 0);
+
+        assertEq(whitelist.havingPerfectOperators(), false);
+
+        // Alice should not be selected anymore
+        address nextOperator = whitelist.getOperatorForNextEpoch();
+        assertTrue(nextOperator == Bob || nextOperator == Carol);
+    }
+
     function test_whitelist_consolidate_whenEmpty_not_revert() external {
         whitelist.consolidate();
         assertEq(whitelist.havingPerfectOperators(), true);
