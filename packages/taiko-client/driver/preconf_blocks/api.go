@@ -250,16 +250,11 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				return fmt.Errorf("failed to sign payload: %w", err)
 			}
 
-			l1Origin, err := s.rpc.L2Engine.SetL1OriginSignature(ctx, header.Number, *sigBytes)
+			_, err = s.rpc.L2Engine.SetL1OriginSignature(ctx, header.Number, *sigBytes)
 
 			if err != nil {
 				return fmt.Errorf("failed to update L1 origin signature: %w", err)
 			}
-
-			log.Info("L1 origin signature updated",
-				"blockID", header.Number.Uint64(),
-				"signature", common.Bytes2Hex(l1Origin.Signature[:]),
-			)
 
 			if err := s.p2pNode.GossipOut().PublishL2Payload(
 				ctx,
