@@ -50,6 +50,7 @@ jobs:
           # Allow Claude to run specific commands
           allowed_tools: |
             mcp__github__create_pull_request
+            Bash(pnpm install)
             Bash(pnpm test:*)
             Bash(pnpm fmt:sol)
             Bash(pnpm snapshot:*)
