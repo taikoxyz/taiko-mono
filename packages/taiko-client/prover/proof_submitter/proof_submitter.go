@@ -60,7 +60,7 @@ type SenderOptions struct {
 	GasLimit         uint64
 }
 
-// NewProofSubmitter creates a new ProofSubmitter instance.
+// NewProofSubmitterPacaya creates a new ProofSubmitter instance.
 func NewProofSubmitterPacaya(
 	baseLevelProver proofProducer.ProofProducer,
 	zkvmProofProducer proofProducer.ProofProducer,
