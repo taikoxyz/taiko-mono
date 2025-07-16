@@ -92,7 +92,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         // the fee added
         ITaikoInbox.Config memory config = v4GetConfig();
         // For prover, debit the livenessbond, but also credit the auth.fee at the same time
-        uint256 expectedProverBond = 1000 ether - config.livenessBond + auth.fee;
+        uint256 expectedProverBond = 1000 ether - config.livenessBond * 1e9 + auth.fee;
 
         // Alice as proposer should have fee amount deducted
         uint256 expectedAliceBond = 1000 ether - auth.fee;
@@ -354,7 +354,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
 
     function test_proverAuth_feeGreaterThanLivenessBond() external transactBy(Alice) {
         ITaikoInbox.Config memory config = v4GetConfig();
-        uint96 feeLargerThanBond = uint96(config.livenessBond + 10 ether);
+        uint96 feeLargerThanBond = uint96(config.livenessBond * 1e9 + 10 ether);
 
         _distributeBonds();
 
@@ -422,7 +422,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
 
         // Verify bond balances
         // Prover: initial balance - livenessBond + fee
-        uint256 expectedProverBond = proverInitialBond + (feeLargerThanBond - config.livenessBond);
+        uint256 expectedProverBond = proverInitialBond + (feeLargerThanBond - config.livenessBond * 1e9);
         // Alice: initial balance - fee
         uint256 expectedAliceBond = aliceInitialBond - feeLargerThanBond;
 
@@ -432,7 +432,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
 
     function test_proverAuth_feeSmallerThanLivenessBond() external transactBy(Alice) {
         ITaikoInbox.Config memory config = v4GetConfig();
-        uint96 feeSmallerThanBond = uint96(config.livenessBond - 10 ether);
+        uint96 feeSmallerThanBond = uint96(config.livenessBond * 1e9 - 10 ether);
 
         _distributeBonds();
 
@@ -500,7 +500,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
 
         // Verify bond balances
         // Prover needs to pay the difference between livenessBond and fee
-        uint256 expectedProverBond = proverInitialBond - (config.livenessBond - feeSmallerThanBond);
+        uint256 expectedProverBond = proverInitialBond - (config.livenessBond * 1e9 - feeSmallerThanBond);
         // Alice pays the fee
         uint256 expectedAliceBond = aliceInitialBond - feeSmallerThanBond;
 
@@ -594,7 +594,7 @@ contract InboxTest_OffchainProverAuth is InboxTestBase {
         ITaikoInbox.Config memory config = v4GetConfig();
 
         // For this case, prover should just have livenessBond deducted from bond balance
-        uint256 expectedProverBond = proverInitialBond - config.livenessBond;
+        uint256 expectedProverBond = proverInitialBond - config.livenessBond * 1e9;
 
         // Alice bond balance should remain unchanged since fee is in different token
         uint256 expectedAliceBond = aliceInitialBond;

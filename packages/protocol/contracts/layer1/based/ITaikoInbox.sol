@@ -122,7 +122,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes32 metaHash; // slot 1
         uint64 lastBlockId; // slot 2
         uint96 reserved3;
-        uint96 livenessBond;
+        uint64 livenessBond; // stored in gwei
         uint64 batchId; // slot 3
         uint64 lastBlockTimestamp;
         uint64 anchorBlockId;
@@ -173,8 +173,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         uint64 maxBatchesToVerify;
         /// @notice The maximum gas limit allowed for a block.
         uint32 blockMaxGasLimit;
-        /// @notice The amount of Taiko token as a prover liveness bond per batch.
-        uint96 livenessBond;
+        /// @notice The amount of Taiko token as a prover liveness bond per batch (in gwei).
+        uint64 livenessBond;
         /// @notice The number of batches between two L2-to-L1 state root sync.
         uint8 stateRootSyncInternal;
         /// @notice The max differences of the anchor height and the current block number.

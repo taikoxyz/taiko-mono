@@ -22,7 +22,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
-        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond);
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond * 1e9);
 
         vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
@@ -44,7 +44,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
-        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond);
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond * 1e9);
 
         vm.prank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
@@ -65,13 +65,13 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
-        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond);
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond * 1e9);
 
         vm.warp(block.timestamp + config.provingWindow + 1);
         vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
 
-        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond / 2);
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - (config.livenessBond * 1e9) / 2);
     }
 
     function test_inbox_bonds_half_returned_to_non_proposer_out_of_proving_window() external {
@@ -86,14 +86,14 @@ contract InboxTest_BondMechanics is InboxTestBase {
 
         vm.prank(Alice);
         uint64[] memory batchIds = _proposeBatchesWithDefaultParameters(1);
-        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond);
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond * 1e9);
 
         vm.warp(block.timestamp + config.provingWindow + 1);
         vm.prank(Bob);
         _proveBatchesWithCorrectTransitions(batchIds);
 
-        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond);
-        assertEq(inbox.v4BondBalanceOf(Bob), config.livenessBond / 2);
+        assertEq(inbox.v4BondBalanceOf(Alice), bondBalance - config.livenessBond * 1e9);
+        assertEq(inbox.v4BondBalanceOf(Bob), (config.livenessBond * 1e9) / 2);
     }
 
     function test_inbox_bonds_multiple_blocks_per_batch() external transactBy(Alice) {

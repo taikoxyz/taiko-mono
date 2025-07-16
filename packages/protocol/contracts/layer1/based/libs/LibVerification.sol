@@ -78,9 +78,9 @@ library LibVerification {
                         blockHash = _blockHash;
                     }
 
-                    uint96 bondToReturn =
+                    uint64 bondToReturnGwei =
                         ts.inProvingWindow ? batch.livenessBond : batch.livenessBond / 2;
-                    creditBond(_state, ts.prover, bondToReturn);
+                    creditBond(_state, ts.prover, uint256(bondToReturnGwei) * 1e9);
 
                     if (batchId % _config.stateRootSyncInternal == 0) {
                         synced.batchId = batchId;
