@@ -31,7 +31,7 @@ var (
 
 // PreconfWhitelistMetaData contains all meta data concerning the PreconfWhitelist contract.
 var PreconfWhitelistMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addOperator\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_sequencer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"consolidate\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"epochStartTimestamp\",\"inputs\":[{\"name\":\"_offset\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorCandidatesForCurrentEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorCandidatesForNextEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorForCurrentEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorForNextEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"havingPerfectOperators\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_operatorChangeDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"_randomnessDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isOperatorActive\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_epochTimestamp\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorChangeDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorMapping\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operators\",\"inputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"activeSince\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"inactiveSince\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"index\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sequencerAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"randomnessDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_effectiveImmediately\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_operatorIndex\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSelf\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"sequencerToProposer\",\"inputs\":[{\"name\":\"sequencer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setOperatorChangeDelay\",\"inputs\":[{\"name\":\"_operatorChangeDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"updateOperator\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_newSequencer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Consolidated\",\"inputs\":[{\"name\":\"previousCount\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"newCount\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"havingPerfectOperators\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorAdded\",\"inputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sequencer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"activeSince\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorChangeDelaySet\",\"inputs\":[{\"name\":\"delay\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRemoved\",\"inputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sequencer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"inactiveSince\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorUpdated\",\"inputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"oldSequencer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newSequencer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorCount\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorIndex\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorAlreadyExists\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorAlreadyRemoved\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorNotAvailableYet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"addOperator\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_sequencer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"consolidate\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"epochStartTimestamp\",\"inputs\":[{\"name\":\"_offset\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorCandidatesForCurrentEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorCandidatesForNextEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address[]\",\"internalType\":\"address[]\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorForCurrentEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getOperatorForNextEpoch\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"havingPerfectOperators\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_operatorChangeDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"_randomnessDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isOperatorActive\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_epochTimestamp\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorChangeDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operatorMapping\",\"inputs\":[{\"name\":\"index\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"operators\",\"inputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"activeSince\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"inactiveSince\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"index\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"sequencerAddress\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"randomnessDelay\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_effectiveImmediately\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeOperator\",\"inputs\":[{\"name\":\"_operatorIndex\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"removeSelf\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setOperatorChangeDelay\",\"inputs\":[{\"name\":\"_operatorChangeDelay\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Consolidated\",\"inputs\":[{\"name\":\"previousCount\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"newCount\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"havingPerfectOperators\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorAdded\",\"inputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sequencer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"activeSince\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorChangeDelaySet\",\"inputs\":[{\"name\":\"delay\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OperatorRemoved\",\"inputs\":[{\"name\":\"proposer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"sequencer\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"inactiveSince\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorAddress\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorCount\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidOperatorIndex\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorAlreadyExists\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorAlreadyRemoved\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"OperatorNotAvailableYet\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // PreconfWhitelistABI is the input ABI used to generate the binding from.
@@ -793,37 +793,6 @@ func (_PreconfWhitelist *PreconfWhitelistCallerSession) Resolver() (common.Addre
 	return _PreconfWhitelist.Contract.Resolver(&_PreconfWhitelist.CallOpts)
 }
 
-// SequencerToProposer is a free data retrieval call binding the contract method 0x70389500.
-//
-// Solidity: function sequencerToProposer(address sequencer) view returns(address proposer)
-func (_PreconfWhitelist *PreconfWhitelistCaller) SequencerToProposer(opts *bind.CallOpts, sequencer common.Address) (common.Address, error) {
-	var out []interface{}
-	err := _PreconfWhitelist.contract.Call(opts, &out, "sequencerToProposer", sequencer)
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-// SequencerToProposer is a free data retrieval call binding the contract method 0x70389500.
-//
-// Solidity: function sequencerToProposer(address sequencer) view returns(address proposer)
-func (_PreconfWhitelist *PreconfWhitelistSession) SequencerToProposer(sequencer common.Address) (common.Address, error) {
-	return _PreconfWhitelist.Contract.SequencerToProposer(&_PreconfWhitelist.CallOpts, sequencer)
-}
-
-// SequencerToProposer is a free data retrieval call binding the contract method 0x70389500.
-//
-// Solidity: function sequencerToProposer(address sequencer) view returns(address proposer)
-func (_PreconfWhitelist *PreconfWhitelistCallerSession) SequencerToProposer(sequencer common.Address) (common.Address, error) {
-	return _PreconfWhitelist.Contract.SequencerToProposer(&_PreconfWhitelist.CallOpts, sequencer)
-}
-
 // AcceptOwnership is a paid mutator transaction binding the contract method 0x79ba5097.
 //
 // Solidity: function acceptOwnership() returns()
@@ -950,46 +919,25 @@ func (_PreconfWhitelist *PreconfWhitelistTransactorSession) RemoveOperator(_prop
 	return _PreconfWhitelist.Contract.RemoveOperator(&_PreconfWhitelist.TransactOpts, _proposer, _effectiveImmediately)
 }
 
-// RemoveOperator0 is a paid mutator transaction binding the contract method 0xac8a584a.
-//
-// Solidity: function removeOperator(address _proposer) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactor) RemoveOperator0(opts *bind.TransactOpts, _proposer common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.contract.Transact(opts, "removeOperator0", _proposer)
-}
-
-// RemoveOperator0 is a paid mutator transaction binding the contract method 0xac8a584a.
-//
-// Solidity: function removeOperator(address _proposer) returns()
-func (_PreconfWhitelist *PreconfWhitelistSession) RemoveOperator0(_proposer common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.RemoveOperator0(&_PreconfWhitelist.TransactOpts, _proposer)
-}
-
-// RemoveOperator0 is a paid mutator transaction binding the contract method 0xac8a584a.
-//
-// Solidity: function removeOperator(address _proposer) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactorSession) RemoveOperator0(_proposer common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.RemoveOperator0(&_PreconfWhitelist.TransactOpts, _proposer)
-}
-
-// RemoveOperator1 is a paid mutator transaction binding the contract method 0xf46673f6.
+// RemoveOperator0 is a paid mutator transaction binding the contract method 0xf46673f6.
 //
 // Solidity: function removeOperator(uint256 _operatorIndex) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactor) RemoveOperator1(opts *bind.TransactOpts, _operatorIndex *big.Int) (*types.Transaction, error) {
-	return _PreconfWhitelist.contract.Transact(opts, "removeOperator1", _operatorIndex)
+func (_PreconfWhitelist *PreconfWhitelistTransactor) RemoveOperator0(opts *bind.TransactOpts, _operatorIndex *big.Int) (*types.Transaction, error) {
+	return _PreconfWhitelist.contract.Transact(opts, "removeOperator0", _operatorIndex)
 }
 
-// RemoveOperator1 is a paid mutator transaction binding the contract method 0xf46673f6.
+// RemoveOperator0 is a paid mutator transaction binding the contract method 0xf46673f6.
 //
 // Solidity: function removeOperator(uint256 _operatorIndex) returns()
-func (_PreconfWhitelist *PreconfWhitelistSession) RemoveOperator1(_operatorIndex *big.Int) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.RemoveOperator1(&_PreconfWhitelist.TransactOpts, _operatorIndex)
+func (_PreconfWhitelist *PreconfWhitelistSession) RemoveOperator0(_operatorIndex *big.Int) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.RemoveOperator0(&_PreconfWhitelist.TransactOpts, _operatorIndex)
 }
 
-// RemoveOperator1 is a paid mutator transaction binding the contract method 0xf46673f6.
+// RemoveOperator0 is a paid mutator transaction binding the contract method 0xf46673f6.
 //
 // Solidity: function removeOperator(uint256 _operatorIndex) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactorSession) RemoveOperator1(_operatorIndex *big.Int) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.RemoveOperator1(&_PreconfWhitelist.TransactOpts, _operatorIndex)
+func (_PreconfWhitelist *PreconfWhitelistTransactorSession) RemoveOperator0(_operatorIndex *big.Int) (*types.Transaction, error) {
+	return _PreconfWhitelist.Contract.RemoveOperator0(&_PreconfWhitelist.TransactOpts, _operatorIndex)
 }
 
 // RemoveSelf is a paid mutator transaction binding the contract method 0x5e898dac.
@@ -1095,27 +1043,6 @@ func (_PreconfWhitelist *PreconfWhitelistSession) Unpause() (*types.Transaction,
 // Solidity: function unpause() returns()
 func (_PreconfWhitelist *PreconfWhitelistTransactorSession) Unpause() (*types.Transaction, error) {
 	return _PreconfWhitelist.Contract.Unpause(&_PreconfWhitelist.TransactOpts)
-}
-
-// UpdateOperator is a paid mutator transaction binding the contract method 0x8cd2d73e.
-//
-// Solidity: function updateOperator(address _proposer, address _newSequencer) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactor) UpdateOperator(opts *bind.TransactOpts, _proposer common.Address, _newSequencer common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.contract.Transact(opts, "updateOperator", _proposer, _newSequencer)
-}
-
-// UpdateOperator is a paid mutator transaction binding the contract method 0x8cd2d73e.
-//
-// Solidity: function updateOperator(address _proposer, address _newSequencer) returns()
-func (_PreconfWhitelist *PreconfWhitelistSession) UpdateOperator(_proposer common.Address, _newSequencer common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.UpdateOperator(&_PreconfWhitelist.TransactOpts, _proposer, _newSequencer)
-}
-
-// UpdateOperator is a paid mutator transaction binding the contract method 0x8cd2d73e.
-//
-// Solidity: function updateOperator(address _proposer, address _newSequencer) returns()
-func (_PreconfWhitelist *PreconfWhitelistTransactorSession) UpdateOperator(_proposer common.Address, _newSequencer common.Address) (*types.Transaction, error) {
-	return _PreconfWhitelist.Contract.UpdateOperator(&_PreconfWhitelist.TransactOpts, _proposer, _newSequencer)
 }
 
 // UpgradeTo is a paid mutator transaction binding the contract method 0x3659cfe6.
@@ -2145,168 +2072,6 @@ func (_PreconfWhitelist *PreconfWhitelistFilterer) WatchOperatorRemoved(opts *bi
 func (_PreconfWhitelist *PreconfWhitelistFilterer) ParseOperatorRemoved(log types.Log) (*PreconfWhitelistOperatorRemoved, error) {
 	event := new(PreconfWhitelistOperatorRemoved)
 	if err := _PreconfWhitelist.contract.UnpackLog(event, "OperatorRemoved", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
-// PreconfWhitelistOperatorUpdatedIterator is returned from FilterOperatorUpdated and is used to iterate over the raw logs and unpacked data for OperatorUpdated events raised by the PreconfWhitelist contract.
-type PreconfWhitelistOperatorUpdatedIterator struct {
-	Event *PreconfWhitelistOperatorUpdated // Event containing the contract specifics and raw log
-
-	contract *bind.BoundContract // Generic contract to use for unpacking event data
-	event    string              // Event name to use for unpacking event data
-
-	logs chan types.Log        // Log channel receiving the found contract events
-	sub  ethereum.Subscription // Subscription for errors, completion and termination
-	done bool                  // Whether the subscription completed delivering logs
-	fail error                 // Occurred error to stop iteration
-}
-
-// Next advances the iterator to the subsequent event, returning whether there
-// are any more events found. In case of a retrieval or parsing error, false is
-// returned and Error() can be queried for the exact failure.
-func (it *PreconfWhitelistOperatorUpdatedIterator) Next() bool {
-	// If the iterator failed, stop iterating
-	if it.fail != nil {
-		return false
-	}
-	// If the iterator completed, deliver directly whatever's available
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(PreconfWhitelistOperatorUpdated)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-	// Iterator still in progress, wait for either a data or an error event
-	select {
-	case log := <-it.logs:
-		it.Event = new(PreconfWhitelistOperatorUpdated)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-// Error returns any retrieval or parsing error occurred during filtering.
-func (it *PreconfWhitelistOperatorUpdatedIterator) Error() error {
-	return it.fail
-}
-
-// Close terminates the iteration process, releasing any pending underlying
-// resources.
-func (it *PreconfWhitelistOperatorUpdatedIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-// PreconfWhitelistOperatorUpdated represents a OperatorUpdated event raised by the PreconfWhitelist contract.
-type PreconfWhitelistOperatorUpdated struct {
-	Proposer     common.Address
-	OldSequencer common.Address
-	NewSequencer common.Address
-	Raw          types.Log // Blockchain specific contextual infos
-}
-
-// FilterOperatorUpdated is a free log retrieval operation binding the contract event 0x758820d0b14a01c1fa60b8d2bbef25ed1b6a5af4802e5dec3f08679255ba8bf3.
-//
-// Solidity: event OperatorUpdated(address indexed proposer, address indexed oldSequencer, address indexed newSequencer)
-func (_PreconfWhitelist *PreconfWhitelistFilterer) FilterOperatorUpdated(opts *bind.FilterOpts, proposer []common.Address, oldSequencer []common.Address, newSequencer []common.Address) (*PreconfWhitelistOperatorUpdatedIterator, error) {
-
-	var proposerRule []interface{}
-	for _, proposerItem := range proposer {
-		proposerRule = append(proposerRule, proposerItem)
-	}
-	var oldSequencerRule []interface{}
-	for _, oldSequencerItem := range oldSequencer {
-		oldSequencerRule = append(oldSequencerRule, oldSequencerItem)
-	}
-	var newSequencerRule []interface{}
-	for _, newSequencerItem := range newSequencer {
-		newSequencerRule = append(newSequencerRule, newSequencerItem)
-	}
-
-	logs, sub, err := _PreconfWhitelist.contract.FilterLogs(opts, "OperatorUpdated", proposerRule, oldSequencerRule, newSequencerRule)
-	if err != nil {
-		return nil, err
-	}
-	return &PreconfWhitelistOperatorUpdatedIterator{contract: _PreconfWhitelist.contract, event: "OperatorUpdated", logs: logs, sub: sub}, nil
-}
-
-// WatchOperatorUpdated is a free log subscription operation binding the contract event 0x758820d0b14a01c1fa60b8d2bbef25ed1b6a5af4802e5dec3f08679255ba8bf3.
-//
-// Solidity: event OperatorUpdated(address indexed proposer, address indexed oldSequencer, address indexed newSequencer)
-func (_PreconfWhitelist *PreconfWhitelistFilterer) WatchOperatorUpdated(opts *bind.WatchOpts, sink chan<- *PreconfWhitelistOperatorUpdated, proposer []common.Address, oldSequencer []common.Address, newSequencer []common.Address) (event.Subscription, error) {
-
-	var proposerRule []interface{}
-	for _, proposerItem := range proposer {
-		proposerRule = append(proposerRule, proposerItem)
-	}
-	var oldSequencerRule []interface{}
-	for _, oldSequencerItem := range oldSequencer {
-		oldSequencerRule = append(oldSequencerRule, oldSequencerItem)
-	}
-	var newSequencerRule []interface{}
-	for _, newSequencerItem := range newSequencer {
-		newSequencerRule = append(newSequencerRule, newSequencerItem)
-	}
-
-	logs, sub, err := _PreconfWhitelist.contract.WatchLogs(opts, "OperatorUpdated", proposerRule, oldSequencerRule, newSequencerRule)
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-				// New log arrived, parse the event and forward to the user
-				event := new(PreconfWhitelistOperatorUpdated)
-				if err := _PreconfWhitelist.contract.UnpackLog(event, "OperatorUpdated", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-// ParseOperatorUpdated is a log parse operation binding the contract event 0x758820d0b14a01c1fa60b8d2bbef25ed1b6a5af4802e5dec3f08679255ba8bf3.
-//
-// Solidity: event OperatorUpdated(address indexed proposer, address indexed oldSequencer, address indexed newSequencer)
-func (_PreconfWhitelist *PreconfWhitelistFilterer) ParseOperatorUpdated(log types.Log) (*PreconfWhitelistOperatorUpdated, error) {
-	event := new(PreconfWhitelistOperatorUpdated)
-	if err := _PreconfWhitelist.contract.UnpackLog(event, "OperatorUpdated", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
