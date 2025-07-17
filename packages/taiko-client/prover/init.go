@@ -218,7 +218,10 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 	}
 	if risc0VerifierAddress != rpc.ZeroAddress {
 		proofTypes = append(proofTypes, producer.ProofTypeZKR0)
+		proofTypes = append(proofTypes, producer.ProofTypeBoundless)
 		zkVerifiers[producer.ProofTypeZKR0] = risc0VerifierAddress
+		// Note: ProofTypeBoundless will use the same verifier contract as the ProofTypeZKR0
+		zkVerifiers[producer.ProofTypeBoundless] = risc0VerifierAddress
 	}
 	if sp1VerifierAddress, err = p.rpc.GetSP1VerifierPacaya(&bind.CallOpts{Context: p.ctx}); err != nil {
 		return fmt.Errorf("failed to get sp1 verifier: %w", err)
@@ -247,7 +250,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBlockTxBui
 		switch proofType {
 		case producer.ProofTypeOp, producer.ProofTypeSgx:
 			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.SGXProofBufferSize)
-		case producer.ProofTypeZKR0, producer.ProofTypeZKSP1:
+		case producer.ProofTypeZKR0, producer.ProofTypeZKSP1, producer.ProofTypeBoundless:
 			proofBuffers[proofType] = producer.NewProofBuffer(p.cfg.ZKVMProofBufferSize)
 		default:
 			return fmt.Errorf("unexpected proof type: %s", proofType)

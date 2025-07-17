@@ -133,17 +133,20 @@ func updateProvingMetrics(proofType ProofType, requestAt time.Time, isAggregatio
 		// We deliberately handle only known proof types and catch others in default case
 		switch proofType {
 		case ProofTypeSgxGeth:
-			metrics.ProverSgxGethAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSgxGethAggregationGenerationTime.Set(time.Since(requestAt).Seconds())
 			metrics.ProverSgxGethProofAggregationGeneratedCounter.Add(1)
 		case ProofTypeSgx:
-			metrics.ProverSGXAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSGXAggregationGenerationTime.Set(time.Since(requestAt).Seconds())
 			metrics.ProverSgxProofAggregationGeneratedCounter.Add(1)
 		case ProofTypeZKR0:
-			metrics.ProverR0AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverR0AggregationGenerationTime.Set(time.Since(requestAt).Seconds())
 			metrics.ProverR0ProofAggregationGeneratedCounter.Add(1)
 		case ProofTypeZKSP1:
-			metrics.ProverSP1AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSP1AggregationGenerationTime.Set(time.Since(requestAt).Seconds())
 			metrics.ProverSp1ProofAggregationGeneratedCounter.Add(1)
+		case ProofTypeBoundless:
+			metrics.ProverBoundlessAggregationGenerationTime.Set(time.Since(requestAt).Seconds())
+			metrics.ProverBoundlessProofAggregationGeneratedCounter.Add(1)
 		default:
 			log.Error("Unknown proof type", "proofType", proofType)
 		}
@@ -152,17 +155,20 @@ func updateProvingMetrics(proofType ProofType, requestAt time.Time, isAggregatio
 		// We deliberately handle only known proof types and catch others in default case
 		switch proofType {
 		case ProofTypeSgxGeth:
-			metrics.ProverSgxGethProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSgxGethProofGenerationTime.Set(time.Since(requestAt).Seconds())
 			metrics.ProverSgxGethProofGeneratedCounter.Add(1)
 		case ProofTypeSgx:
-			metrics.ProverSgxProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSgxProofGenerationTime.Set(time.Since(requestAt).Seconds())
 			metrics.ProverSgxProofGeneratedCounter.Add(1)
 		case ProofTypeZKR0:
-			metrics.ProverR0ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverR0ProofGenerationTime.Set(time.Since(requestAt).Seconds())
 			metrics.ProverR0ProofGeneratedCounter.Add(1)
 		case ProofTypeZKSP1:
-			metrics.ProverSP1ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSP1ProofGenerationTime.Set(time.Since(requestAt).Seconds())
 			metrics.ProverSp1ProofGeneratedCounter.Add(1)
+		case ProofTypeBoundless:
+			metrics.ProverBoundlessProofGenerationTime.Set(time.Since(requestAt).Seconds())
+			metrics.ProverBoundlessProofGeneratedCounter.Add(1)
 		default:
 			log.Error("Unknown proof type", "proofType", proofType)
 		}
