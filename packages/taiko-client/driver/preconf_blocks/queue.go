@@ -37,7 +37,7 @@ func newPayloadQueue() *payloadQueue {
 	}
 }
 
-// put inserts a new payload into the queue at the given id.
+// put inserts a new payload item into the queue at the given id.
 func (q *payloadQueue) put(id uint64, envelope *preconf.Envelope) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
