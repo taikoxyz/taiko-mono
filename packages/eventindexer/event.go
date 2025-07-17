@@ -30,7 +30,7 @@ var (
 
 // Event represents a stored EVM event. The fields will be serialized
 // into the Data field to be unmarshalled into a concrete struct
-// dependant on the name of the event
+// dependent on the name of the event
 type Event struct {
 	ID              int                 `json:"id"`
 	Name            string              `json:"name"`
