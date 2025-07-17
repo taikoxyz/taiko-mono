@@ -226,10 +226,11 @@
 
 ### risc0_groth16_verifier(Pacaya)
 
-- addr : `0xC93ca45D35021B10B68A87E629BECa8AC3FE9C80`
+- addr : `0x366AF4CE171B7a6c7ADcdf54310Fe9DBBd046199`
 - logs:
   - deployed on Apr 16, 2025 at commit `9bcf8e5`
   - deployed on Jun 11, 2025 at commit `9dfb5b9`
+  - deployed on Jul 17, 2025 at commit `de02364`
 
 ### tier_zkvm_risc0
 
@@ -336,12 +337,13 @@
 ### risc0_reth_verifier(Pacaya)
 
 - proxy : `0xCDdf353C838542834E443C3c9dE3ab3F81F27aF2`
-- impl : `0xC93ca45D35021B10B68A87E629BECa8AC3FE9C80`
+- impl : `0x5230FB1786f66fcA48219Df435344a757E115c55`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
   - upgraded on Apr 16, 2025 at commit `9bcf8e5`
   - upgraded on Jun 11, 2025 at commit `9dfb5b9`
+  - upgraded on Jul 17, 2025 at commit `de02364`
 
 ### sp1_reth_verifier(Pacaya)
 
