@@ -15,7 +15,7 @@ import (
 // engine tracks before evicting old ones.
 const maxTrackedPayloads = 768 // equal to `maxBlocksPerBatch`
 
-// payloadQueueItem represents an id->envlope tuple to store until it's retrieved
+// payloadQueueItem represents an id->envelope tuple to store until it's retrieved
 // or evicted.
 type payloadQueueItem struct {
 	id       uint64
