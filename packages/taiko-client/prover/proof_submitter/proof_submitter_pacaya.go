@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	MaxNumSupportedZkTypes    = 2
+	MaxNumSupportedZkTypes    = 3
 	MaxNumSupportedProofTypes = 4
 )
 

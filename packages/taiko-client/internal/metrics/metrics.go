@@ -106,6 +106,18 @@ var (
 	ProverSp1ProofAggregationGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_sp1_aggregation_generated",
 	})
+	ProverBoundlessAggregationGenerationTime = factory.NewGauge(prometheus.GaugeOpts{
+		Name: "prover_proof_boundless_aggregation_generation_time",
+	})
+	ProverBoundlessProofGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_boundless_generated",
+	})
+	ProverBoundlessProofGenerationTime = factory.NewGauge(prometheus.GaugeOpts{
+		Name: "prover_proof_boundless_generation_time",
+	})
+	ProverBoundlessProofAggregationGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_boundless_aggregation_generated",
+	})
 	ProverSubmissionRevertedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_submission_reverted",
 	})
