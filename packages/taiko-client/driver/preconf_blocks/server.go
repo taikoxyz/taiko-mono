@@ -101,7 +101,7 @@ func New(
 		return nil, err
 	}
 
-	// Initialize cahces.
+	// Initialize caches.
 	blockRequestsCache, err := lru.New[common.Hash, struct{}](maxTrackedPayloads)
 	if err != nil {
 		return nil, err
