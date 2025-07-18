@@ -364,7 +364,7 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 		"nextOperator", s.lookahead.NextOperator.Hex(),
 		"currRanges", s.lookahead.CurrRanges,
 		"nextRanges", s.lookahead.NextRanges,
-		"totalCached", s.envelopsCache.getTotalCached(),
+		"totalCached", s.envelopesCache.getTotalCached(),
 		"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 		"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
 		"currEpoch", s.rpc.L1Beacon.CurrentEpoch(),
