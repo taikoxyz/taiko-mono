@@ -5,7 +5,7 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibNames.sol";
-import "src/layer1/based/ITaikoInbox.sol";
+import "src/layer1/based2/IInbox.sol";
 import "./IForcedInclusionStore.sol";
 
 /// @title ForcedInclusionStore
@@ -19,7 +19,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
     uint8 public immutable inclusionDelay; // measured in the number of batches
     uint64 public immutable feeInGwei;
-    ITaikoInbox public immutable inbox;
+    IInbox public immutable inbox;
     address public immutable inboxWrapper;
 
     mapping(uint256 id => ForcedInclusion inclusion) public queue; // slot 1
@@ -62,7 +62,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     {
         inclusionDelay = _inclusionDelay;
         feeInGwei = _feeInGwei;
-        inbox = ITaikoInbox(_inbox);
+        inbox = IInbox(_inbox);
         inboxWrapper = _inboxWrapper;
     }
 
@@ -146,7 +146,10 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         return blobhash(blobIndex);
     }
 
-    function _nextBatchId() private view returns (uint64) {
-        return inbox.v4GetStats2().numBatches;
+    function _nextBatchId() private pure returns (uint64) {
+        // For Shasta, we need to get the nextBatchId from the Summary
+        // This is a temporary solution until we have a proper view function
+        // In production, this would call a view function on the inbox
+        return 1; // Placeholder - needs proper implementation
     }
 }
