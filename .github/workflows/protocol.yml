@@ -90,6 +90,8 @@ jobs:
           commit_message: "forge fmt & update contract layout tables"
           branch: ${{ github.head_ref }}
           push_options: '--force-with-lease'
+        env:
+          GITHUB_TOKEN: ${{ secrets.TAIKO_KITTY_TOKEN }}
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol
