@@ -18,6 +18,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
@@ -241,6 +242,19 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	}
 
 	// Check if the preconfirmation router is set, if so, skip proposing.
+	if p.rpc.PacayaClients.PreconfRouter == nil {
+		preconfRouterAddr, err := p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return fmt.Errorf("failed to fetch preconfirmation router: %w", err)
+		}
+		if preconfRouterAddr != rpc.ZeroAddress {
+			preconfRouter, err := pacayaBindings.NewPreconfRouter(preconfRouterAddr, p.rpc.L1)
+			if err != nil {
+				return fmt.Errorf("failed to create new instance of PreconfRouter: %w", err)
+			}
+			p.rpc.PacayaClients.PreconfRouter = preconfRouter
+		}
+	}
 	if p.rpc.PacayaClients.PreconfRouter != nil {
 		fallbackPreconferAddress, err := p.rpc.PacayaClients.PreconfRouter.FallbackPreconfer(&bind.CallOpts{Context: ctx})
 		if err != nil {
@@ -253,7 +267,7 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 			)
 			return nil
 		}
-		// As a fallback preconfer, need to enable preconfirmation server
+		// As a fallback proposer, need to enable preconfirmation server
 		latest, err := p.rpc.L2.BlockByNumber(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("failed to get the latest block: %w", err)
