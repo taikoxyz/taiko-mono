@@ -11,39 +11,39 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 )
 
-// maxTrackedPayloads is the maximum number of prepared payloads the execution
+// maxTrackedPayloads is the maximum number of prepared envelopes the execution
 // engine tracks before evicting old ones.
 const maxTrackedPayloads = 768 // equal to `maxBlocksPerBatch`
 
-// payloadQueueItem represents an id->envelope tuple to store until it's retrieved
+// envelopeQueueItem represents an id->envelope tuple to store until it's retrieved
 // or evicted.
-type payloadQueueItem struct {
+type envelopeQueueItem struct {
 	id       uint64
 	envelope *preconf.Envelope
 }
 
-// payloadQueue tracks the latest payloads from the P2P gossip messages.
-type payloadQueue struct {
-	payloads    []*payloadQueueItem
+// envelopeQueue tracks the latest envelopes from the P2P gossip messages.
+type envelopeQueue struct {
+	envelopes   []*envelopeQueueItem
 	totalCached uint64
 	lock        sync.RWMutex
 }
 
-// newPayloadQueue creates a pre-initialized queue with a fixed number of slots
+// newEnvelopeQueue creates a pre-initialized queue with a fixed number of slots
 // all containing empty items.
-func newPayloadQueue() *payloadQueue {
-	return &payloadQueue{
-		payloads: make([]*payloadQueueItem, maxTrackedPayloads),
+func newEnvelopeQueue() *envelopeQueue {
+	return &envelopeQueue{
+		envelopes: make([]*envelopeQueueItem, maxTrackedPayloads),
 	}
 }
 
-// put inserts a new payload item into the queue at the given id.
-func (q *payloadQueue) put(id uint64, envelope *preconf.Envelope) {
+// put inserts a new envelope item into the queue at the given id.
+func (q *envelopeQueue) put(id uint64, envelope *preconf.Envelope) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
-	copy(q.payloads[1:], q.payloads)
-	q.payloads[0] = &payloadQueueItem{
+	copy(q.envelopes[1:], q.envelopes)
+	q.envelopes[0] = &envelopeQueueItem{
 		id:       id,
 		envelope: envelope,
 	}
@@ -52,11 +52,11 @@ func (q *payloadQueue) put(id uint64, envelope *preconf.Envelope) {
 }
 
 // get retrieves a previously stored payload item or nil if it does not exist.
-func (q *payloadQueue) get(id uint64, hash common.Hash) *preconf.Envelope {
+func (q *envelopeQueue) get(id uint64, hash common.Hash) *preconf.Envelope {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 
-	for _, item := range q.payloads {
+	for _, item := range q.envelopes {
 		if item == nil {
 			return nil // no more items
 		}
@@ -69,7 +69,7 @@ func (q *payloadQueue) get(id uint64, hash common.Hash) *preconf.Envelope {
 
 // getChildren retrieves the longest previously stored payload items that are children of the
 // given parent payload.
-func (q *payloadQueue) getChildren(parentID uint64, parentHash common.Hash) []*preconf.Envelope {
+func (q *envelopeQueue) getChildren(parentID uint64, parentHash common.Hash) []*preconf.Envelope {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 
@@ -78,7 +78,7 @@ func (q *payloadQueue) getChildren(parentID uint64, parentHash common.Hash) []*p
 	var searchLongestChildren func(currentPayload *preconf.Envelope, chain []*preconf.Envelope)
 	searchLongestChildren = func(currentpayload *preconf.Envelope, chain []*preconf.Envelope) {
 		children := []*preconf.Envelope{}
-		for _, item := range q.payloads {
+		for _, item := range q.envelopes {
 			if item == nil {
 				break // no more items
 			}
@@ -110,11 +110,11 @@ func (q *payloadQueue) getChildren(parentID uint64, parentHash common.Hash) []*p
 }
 
 // has checks if a particular payload is already tracked.
-func (q *payloadQueue) has(id uint64, hash common.Hash) bool {
+func (q *envelopeQueue) has(id uint64, hash common.Hash) bool {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 
-	for _, item := range q.payloads {
+	for _, item := range q.envelopes {
 		if item == nil {
 			return false
 		}
@@ -126,19 +126,19 @@ func (q *payloadQueue) has(id uint64, hash common.Hash) bool {
 }
 
 // getLatestPayload retrieves the latest payload stored in the queue.
-func (q *payloadQueue) getLatestPayload() *preconf.Envelope {
+func (q *envelopeQueue) getLatestPayload() *preconf.Envelope {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 
-	if q.payloads[0] == nil {
+	if q.envelopes[0] == nil {
 		return nil
 	}
 
-	return q.payloads[0].envelope
+	return q.envelopes[0].envelope
 }
 
-// getTotalCached retrieves the total number of cached payloads after the initialization of the queue.
-func (q *payloadQueue) getTotalCached() uint64 {
+// getTotalCached retrieves the total number of cached envelopes after the initialization of the queue.
+func (q *envelopeQueue) getTotalCached() uint64 {
 	q.lock.RLock()
 	defer q.lock.RUnlock()
 
