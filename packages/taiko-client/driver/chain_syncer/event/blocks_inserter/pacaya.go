@@ -280,7 +280,7 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromEnvelopes(
 	defer i.mutex.Unlock()
 
 	log.Debug(
-		"Insert preconfirmation blocks from envelops",
+		"Insert preconfirmation blocks from envelopes",
 		"numBlocks", len(envelopes),
 		"fromCache", fromCache,
 	)
