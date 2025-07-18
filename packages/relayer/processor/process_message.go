@@ -238,7 +238,7 @@ func (p *Processor) processMessage(
 	return false, msgBody.TimesRetried, nil
 }
 
-// generateEncodedSignalproof takes a MessageSent event and calls a
+// generateEncodedSignalProof takes a MessageSent event and calls a
 // proof generation service to generate a proof for the source call
 // as well as any additional hops required.
 func (p *Processor) generateEncodedSignalProof(ctx context.Context,
