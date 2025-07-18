@@ -10,6 +10,8 @@ definitions:
         - $ref: '#/definitions/preconfblocks.ExecutableData'
         description: '@param ExecutableData engine.ExecutableData the data necessary
           to execute an EL payload.'
+      isForcedInclusion:
+        type: boolean
     type: object
   preconfblocks.BuildPreconfBlockResponseBody:
     properties:

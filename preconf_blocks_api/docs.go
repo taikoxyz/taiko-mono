@@ -112,6 +112,9 @@ const docTemplate = `{
                             "$ref": "#/definitions/preconfblocks.ExecutableData"
                         }
                     ]
+                },
+                "isForcedInclusion": {
+                    "type": "boolean"
                 }
             }
         },
