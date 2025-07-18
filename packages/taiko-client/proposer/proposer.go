@@ -18,6 +18,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
@@ -235,19 +236,51 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 // from L2 execution engine's tx pool, splitting them by proposing constraints,
 // and then proposing them to TaikoInbox contract.
 func (p *Proposer) ProposeOp(ctx context.Context) error {
-	// Check if the preconfirmation router is set, if so, skip proposing.
-	preconfRouter, err := p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to fetch preconfirmation router: %w", err)
-	}
-	if preconfRouter != rpc.ZeroAddress {
-		log.Info("Preconfirmation router is set, skip proposing", "address", preconfRouter, "time", time.Now())
-		return nil
-	}
-
 	// Wait until L2 execution engine is synced at first.
 	if err := p.rpc.WaitTillL2ExecutionEngineSynced(ctx); err != nil {
 		return fmt.Errorf("failed to wait until L2 execution engine synced: %w", err)
+	}
+
+	// Check if the preconfirmation router is set, if so, skip proposing.
+	if p.rpc.PacayaClients.PreconfRouter == nil {
+		preconfRouterAddr, err := p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return fmt.Errorf("failed to fetch preconfirmation router: %w", err)
+		}
+		if preconfRouterAddr != rpc.ZeroAddress {
+			preconfRouter, err := pacayaBindings.NewPreconfRouter(preconfRouterAddr, p.rpc.L1)
+			if err != nil {
+				return fmt.Errorf("failed to create new instance of PreconfRouter: %w", err)
+			}
+			p.rpc.PacayaClients.PreconfRouter = preconfRouter
+		}
+	}
+	if p.rpc.PacayaClients.PreconfRouter != nil {
+		fallbackPreconferAddress, err := p.rpc.PacayaClients.PreconfRouter.FallbackPreconfer(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return fmt.Errorf("failed to get fallback preconfer address: %w", err)
+		}
+		if fallbackPreconferAddress != p.proposerAddress && fallbackPreconferAddress != p.ProverSetAddress {
+			log.Info("Preconfirmation is activated and proposer isn't the fallback preconfer, skip proposing",
+				"time",
+				time.Now(),
+			)
+			return nil
+		}
+		// As a fallback proposer, need to enable preconfirmation server
+		latest, err := p.rpc.L2.BlockByNumber(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("failed to get the latest block: %w", err)
+		}
+		latestBlockTime := time.Unix(int64(latest.Time()), 0)
+		if time.Since(latestBlockTime) < p.FallbackTimeout {
+			log.Info("Fallback timeout not reached, skip proposing",
+				"latestBlockTime", latestBlockTime,
+				"time", time.Now(),
+				"fallbackTimeout", p.FallbackTimeout,
+			)
+			return nil
+		}
 	}
 
 	// Check whether it's time to allow proposing empty pool content, if the `--epoch.minProposingInterval` flag is set.
