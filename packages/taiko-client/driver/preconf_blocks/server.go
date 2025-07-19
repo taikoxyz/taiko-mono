@@ -264,8 +264,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	if progress.IsSyncing() {
-		// If the L2 execution engine is syncing, we try to put the payload into the cache.
-		s.tryPutPayloadIntoCache(msg, from)
+		// If the L2 execution engine is syncing, we try to put the envelope into the cache.
+		s.tryPutEnvelopeIntoCache(msg, from)
 		return nil
 	}
 
@@ -1067,7 +1067,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 			"reason", err,
 		)
 
-		s.tryPutPayloadIntoCache(msg, from)
+		s.tryPutEnvelopeIntoCache(msg, from)
 		return true, nil
 	}
 
@@ -1115,8 +1115,8 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		return false, fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
 
-	// If the block is successfully inserted, we try to put the payload into the cache.
-	s.tryPutPayloadIntoCache(msg, from)
+	// If the block is successfully inserted, we try to put the envelope into the cache.
+	s.tryPutEnvelopeIntoCache(msg, from)
 
 	// If the block number is greater than the highest unsafe L2 payload block ID,
 	// update the highest unsafe L2 payload block ID.
@@ -1168,11 +1168,11 @@ func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
 	metrics.DriverHighestPreconfUnsafePayloadGauge.Set(float64(blockID))
 }
 
-// tryPutPayloadIntoCache tries to put the given payload into the cache, if it is not already cached.
-func (s *PreconfBlockAPIServer) tryPutPayloadIntoCache(msg *eth.ExecutionPayloadEnvelope, from peer.ID) {
+// tryPutEnvelopeIntoCache tries to put the given payload into the cache, if it is not already cached.
+func (s *PreconfBlockAPIServer) tryPutEnvelopeIntoCache(msg *eth.ExecutionPayloadEnvelope, from peer.ID) {
 	if !s.envelopesCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 		log.Info(
-			"Payload is cached",
+			"Envelope is cached",
 			"peer", from,
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
