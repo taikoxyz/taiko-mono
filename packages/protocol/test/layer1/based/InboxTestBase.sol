@@ -26,7 +26,7 @@ abstract contract InboxTestBase is Layer1Test {
             batchRingBufferSize: 15,
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 240_000_000,
-            livenessBond: 125e18, // 125 Taiko token per batch
+            livenessBond: 125e9, // 125 Taiko token per batch (in gwei)
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
             baseFeeConfig: LibSharedData.BaseFeeConfig({

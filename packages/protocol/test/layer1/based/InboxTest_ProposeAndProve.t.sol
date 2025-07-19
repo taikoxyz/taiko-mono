@@ -638,7 +638,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
     //     uint256 bob_bond_after_propose = inbox.v4BondBalanceOf(Bob);
     //     // Since prover fee is smaller than config.liveness, just deduct the diff of the 2.
-    //     assertEq(bob_bond_after_propose, bob_bond_before_propose - (125e18 - fee));
+    //     assertEq(bob_bond_after_propose, bob_bond_before_propose - (125e9 * 1e9 - fee));
 
     //     vm.startSnapshotGas("proveBatches");
     //     inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
@@ -715,7 +715,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
     //     uint256 bob_bond_after_propose = inbox.v4BondBalanceOf(Bob);
     //     // Since prover fee is bigger than config.liveness, just add the diff of the 2.
-    //     assertEq(bob_bond_after_propose, bob_bond_before_propose + (fee - 125e18));
+    //     assertEq(bob_bond_after_propose, bob_bond_before_propose + (fee - 125e9 * 1e9));
 
     //     vm.startSnapshotGas("proveBatches");
     //     inbox.v4ProveBatches(abi.encode(metas, transitions), "proof");
@@ -770,7 +770,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
 
     //     // Check if Alice's bond is correctly deducted - only liveness bond base
     //     uint256 alice_bond_after_propose = inbox.v4BondBalanceOf(Alice);
-    //     assertEq(alice_bond_after_propose, alice_bond_before_propose - 125e18);
+    //     assertEq(alice_bond_after_propose, alice_bond_before_propose - 125e9 * 1e9);
 
     //     ITaikoInbox.BatchMetadata[] memory metas = new ITaikoInbox.BatchMetadata[](1);
     //     metas[0] = meta;

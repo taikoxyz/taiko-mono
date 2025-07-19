@@ -17,7 +17,7 @@ contract MockTaikoInbox is EssentialContract {
             batchRingBufferSize: 100,
             maxBatchesToVerify: 5,
             blockMaxGasLimit: 30_000_000,
-            livenessBond: 1 ether,
+            livenessBond: 1e9, // 1 ether in gwei
             stateRootSyncInternal: 1,
             maxAnchorHeightOffset: 100,
             baseFeeConfig: LibSharedData.BaseFeeConfig({

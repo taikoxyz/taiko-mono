@@ -41,6 +41,43 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     State public state; // storage layout much match Ontake fork
     uint256[50] private __gap;
 
+    // Bond conversion utilities ---------------------------------------------------------------
+
+    /// @notice Converts gwei to wei
+    /// @param _gwei Amount in gwei
+    /// @return Amount in wei
+    function _gweiToWei(uint64 _gwei) private pure returns (uint256) {
+        return uint256(_gwei) * 1e9;
+    }
+
+    /// @notice Converts wei to gwei
+    /// @param _wei Amount in wei
+    /// @return Amount in gwei
+    function _weiToGwei(uint256 _wei) private pure returns (uint64) {
+        return uint64(_wei / 1e9);
+    }
+
+    /// @notice Debits bond in wei units (for compatibility with existing fee structures)
+    /// @param _user Address to debit bond from
+    /// @param _weiAmount Amount in wei to debit
+    function _debitBondWei(address _user, uint256 _weiAmount) private {
+        if (_weiAmount == 0) return;
+
+        uint256 balance = state.bondBalance[_user];
+        if (balance >= _weiAmount) {
+            unchecked {
+                state.bondBalance[_user] = balance - _weiAmount;
+            }
+        } else if (bondToken != address(0)) {
+            uint256 amountDeposited = _handleDeposit(_user, _weiAmount);
+            require(amountDeposited == _weiAmount, InsufficientBond());
+        } else {
+            // Ether as bond must be deposited before proposing a batch
+            revert InsufficientBond();
+        }
+        emit BondDebited(_user, _weiAmount);
+    }
+
     // External functions ------------------------------------------------------------------------
 
     constructor(
@@ -229,14 +266,14 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
                     if (auth.feeToken == bondToken) {
                         // proposer pay the prover fee with bond tokens
-                        _debitBond(info_.proposer, auth.fee);
+                        _debitBondWei(info_.proposer, auth.fee);
 
                         // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                         // if not then add the diff to the bond balance
-                        int256 bondDelta = int96(auth.fee) - int96(config.livenessBond);
+                        int256 bondDelta = int96(auth.fee) - int96(_gweiToWei(config.livenessBond));
 
                         if (bondDelta < 0) {
-                            _debitBond(meta_.prover, uint256(-bondDelta));
+                            _debitBondWei(meta_.prover, uint256(-bondDelta));
                         } else {
                             state.creditBond(meta_.prover, uint256(bondDelta));
                         }
@@ -635,22 +672,23 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     // Private functions -----------------------------------------------------------------------
 
-    function _debitBond(address _user, uint256 _amount) private {
-        if (_amount == 0) return;
+    function _debitBond(address _user, uint64 _gweiAmount) private {
+        if (_gweiAmount == 0) return;
 
+        uint256 weiAmount = _gweiToWei(_gweiAmount);
         uint256 balance = state.bondBalance[_user];
-        if (balance >= _amount) {
+        if (balance >= weiAmount) {
             unchecked {
-                state.bondBalance[_user] = balance - _amount;
+                state.bondBalance[_user] = balance - weiAmount;
             }
         } else if (bondToken != address(0)) {
-            uint256 amountDeposited = _handleDeposit(_user, _amount);
-            require(amountDeposited == _amount, InsufficientBond());
+            uint256 amountDeposited = _handleDeposit(_user, weiAmount);
+            require(amountDeposited == weiAmount, InsufficientBond());
         } else {
             // Ether as bond must be deposited before proposing a batch
             revert InsufficientBond();
         }
-        emit BondDebited(_user, _amount);
+        emit BondDebited(_user, weiAmount);
     }
 
     function _handleDeposit(
