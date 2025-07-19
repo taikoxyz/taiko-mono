@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "../../Layer1Test.sol";
 import "../mocks/MockTaikoInbox.sol";
 import "src/layer1/preconf/impl/PreconfRouter.sol";
-import "src/layer1/preconf/impl/PreconfWhitelist.sol";
+import "src/layer1/preconf/impl/PreconfWhitelist2.sol";
 
 abstract contract PreconfRouterTestBase is Layer1Test {
     PreconfRouter internal router;
@@ -30,8 +30,8 @@ abstract contract PreconfRouterTestBase is Layer1Test {
         whitelist = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist",
-                impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2, 2))
+                impl: address(new PreconfWhitelist2()),
+                data: abi.encodeCall(PreconfWhitelist2.init, (whitelistOwner, 2, 2))
             })
         );
 
