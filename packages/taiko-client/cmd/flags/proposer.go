@@ -105,7 +105,7 @@ var (
 	CheckProfitability = &cli.BoolFlag{
 		Name:     "checkProfitability",
 		Usage:    "Check profitability of transactions before proposing",
-		Value:    true,
+		Value:    false,
 		Category: proposerCategory,
 		EnvVars:  []string{"CHECK_PROFITABILITY"},
 	}
