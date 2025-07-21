@@ -270,8 +270,8 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	return nil
 }
 
-// InsertPreconfBlocksFromExecutionPayloads inserts preconfirmation blocks from the given execution payloads.
-func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
+// InsertPreconfBlocksFromEnvelopes inserts preconfirmation blocks from the given envelopes.
+func (i *BlocksInserterPacaya) InsertPreconfBlocksFromEnvelopes(
 	ctx context.Context,
 	envelopes []*preconf.Envelope,
 	fromCache bool,
@@ -280,14 +280,14 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	defer i.mutex.Unlock()
 
 	log.Debug(
-		"Insert preconfirmation blocks from execution payloads",
+		"Insert preconfirmation blocks from envelopes",
 		"numBlocks", len(envelopes),
 		"fromCache", fromCache,
 	)
 
 	headers := make([]*types.Header, len(envelopes))
 	for j, envelope := range envelopes {
-		header, err := i.insertPreconfBlockFromExecutionPayload(ctx, envelope)
+		header, err := i.insertPreconfBlockFromEnvelope(ctx, envelope)
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert preconfirmation block %d: %w", envelope.Payload.BlockNumber, err)
 		}
@@ -310,9 +310,9 @@ func (i *BlocksInserterPacaya) InsertPreconfBlocksFromExecutionPayloads(
 	return headers, nil
 }
 
-// insertPreconfBlockFromExecutionPayload the inner method to insert a preconfirmation block from
-// the given execution payload.
-func (i *BlocksInserterPacaya) insertPreconfBlockFromExecutionPayload(
+// insertPreconfBlockFromEnvelope the inner method to insert a preconfirmation block from
+// the given envelope.
+func (i *BlocksInserterPacaya) insertPreconfBlockFromEnvelope(
 	ctx context.Context,
 	envelope *preconf.Envelope,
 ) (*types.Header, error) {

@@ -45,7 +45,7 @@ var (
 
 // preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
 type preconfBlockChainSyncer interface {
-	InsertPreconfBlocksFromExecutionPayloads(context.Context, []*preconf.Envelope, bool) ([]*types.Header, error)
+	InsertPreconfBlocksFromEnvelopes(context.Context, []*preconf.Envelope, bool) ([]*types.Header, error)
 }
 
 // @title Taiko Preconfirmation Block Server API
@@ -74,8 +74,8 @@ type PreconfBlockAPIServer struct {
 	lookahead      *Lookahead
 	lookaheadMutex sync.Mutex
 	// Cache
-	payloadsCache                *payloadQueue
-	blockRequestsCache           *lru.Cache[common.Hash, struct{}]
+	envelopesCache     *envelopeQueue
+	blockRequestsCache *lru.Cache[common.Hash, struct{}]
 	sequencingEndedForEpochCache *lru.Cache[uint64, common.Hash]
 	// ConfigureRoutes
 	preconfOperatorAddress common.Address
@@ -123,7 +123,7 @@ func New(
 		chainSyncer:                   chainSyncer,
 		ws:                            &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
 		rpc:                           cli,
-		payloadsCache:                 newPayloadQueue(),
+		envelopesCache:                newEnvelopeQueue(),
 		preconfOperatorAddress:        preconfOperatorAddress,
 		lookahead:                     &Lookahead{},
 		mutex:                         sync.Mutex{},
@@ -264,7 +264,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	if progress.IsSyncing() {
-		if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
+		if !s.envelopesCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 			log.Info(
 				"L2ExecutionEngine syncing: payload is cached",
 				"peer", from,
@@ -273,7 +273,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 			)
 
-			s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), &preconf.Envelope{
+			s.envelopesCache.put(uint64(msg.ExecutionPayload.BlockNumber), &preconf.Envelope{
 				Payload:           msg.ExecutionPayload,
 				Signature:         msg.Signature,
 				IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
@@ -298,7 +298,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 		return nil
 	}
 
-	// If the payload is an end of sequencing message, we need to notify the clients.
+	// If the envelope is an end of sequencing message, we need to notify the clients.
 	if msg.EndOfSequencing != nil && *msg.EndOfSequencing && s.rpc.L1Beacon != nil {
 		s.sequencingEndedForEpochCache.Add(s.rpc.L1Beacon.CurrentEpoch(), msg.ExecutionPayload.BlockHash)
 		s.ws.pushEndOfSequencingNotification(s.rpc.L1Beacon.CurrentEpoch())
@@ -327,7 +327,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	metrics.DriverPreconfOnL2UnsafeResponseCounter.Inc()
 
 	// Ignore the message if it is in the cache already.
-	if s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
+	if s.envelopesCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 		log.Debug(
 			"Ignore already cached preconfirmation block response",
 			"peer", from,
@@ -594,7 +594,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 	return nil
 }
 
-// ImportMissingAncientsFromCache tries to import cached payloads from the cached payload queue, if we can't
+// ImportMissingAncientsFromCache tries to import cached envelopes from the cached payload queue, if we can't
 // find all the missing ancients and import them, an error will be returned.
 func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	ctx context.Context,
@@ -625,7 +625,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 			break
 		}
 
-		parentPayload := s.payloadsCache.get(uint64(currentPayload.Payload.BlockNumber)-1, currentPayload.Payload.ParentHash)
+		parentPayload := s.envelopesCache.get(uint64(currentPayload.Payload.BlockNumber)-1, currentPayload.Payload.ParentHash)
 		if parentPayload == nil {
 			// If the parent payload is not found in the cache and chain is not syncing,
 			// we publish a request to the P2P network.
@@ -679,7 +679,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 
 		if parentHeader == nil || parentHeader.Hash() != parentPayload.Payload.BlockHash {
 			log.Debug(
-				"Parent block not in L2 canonical chain, continue to search cached payloads",
+				"Parent block not in L2 canonical chain, continue to search cached envelopes",
 				"blockID", uint64(parentPayload.Payload.BlockNumber),
 				"hash", parentPayload.Payload.BlockHash.Hex(),
 			)
@@ -698,7 +698,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	}
 
 	log.Info(
-		"Found all missing ancient payloads in the cache, start importing",
+		"Found all missing ancient envelopes in the cache, start importing",
 		"count", len(payloadsToImport),
 		"startBlockID", uint64(payloadsToImport[0].Payload.BlockNumber),
 		"startBlockHash", payloadsToImport[0].Payload.BlockHash.Hex(),
@@ -706,8 +706,8 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		"endBlockHash", payloadsToImport[len(payloadsToImport)-1].Payload.BlockHash.Hex(),
 	)
 
-	// If all ancient payloads are found, try to import them.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, payloadsToImport, true); err != nil {
+	// If all ancient envelopes are found, try to import them.
+	if _, err := s.chainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, payloadsToImport, true); err != nil {
 		return fmt.Errorf("failed to insert ancient preconfirmation blocks from cache: %w", err)
 	}
 
@@ -716,13 +716,13 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 	return nil
 }
 
-// ImportChildBlocksFromCache tries to import the longest cached child payloads from the cached payload queue.
+// ImportChildBlocksFromCache tries to import the longest cached child envelopes from the cached payload queue.
 func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 	ctx context.Context,
 	currentPayload *preconf.Envelope,
 ) error {
 	// Try searching if there is any available child block in the cache.
-	childPayloads := s.payloadsCache.getChildren(
+	childPayloads := s.envelopesCache.getChildren(
 		uint64(currentPayload.Payload.BlockNumber),
 		currentPayload.Payload.BlockHash,
 	)
@@ -732,7 +732,7 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 
 	endBlockID := uint64(childPayloads[len(childPayloads)-1].Payload.BlockNumber)
 	log.Info(
-		"Found available child payloads in the cache, start importing",
+		"Found available child envelopes in the cache, start importing",
 		"count", len(childPayloads),
 		"startBlockID", uint64(childPayloads[0].Payload.BlockNumber),
 		"startBlockHash", childPayloads[0].Payload.BlockHash.Hex(),
@@ -740,8 +740,8 @@ func (s *PreconfBlockAPIServer) ImportChildBlocksFromCache(
 		"endBlockHash", childPayloads[len(childPayloads)-1].Payload.BlockHash.Hex(),
 	)
 
-	// Try to import all available child payloads.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(ctx, childPayloads, true); err != nil {
+	// Try to import all available child envelopes.
+	if _, err := s.chainSyncer.InsertPreconfBlocksFromEnvelopes(ctx, childPayloads, true); err != nil {
 		return fmt.Errorf("failed to insert child preconfirmation blocks from cache: %w", err)
 	}
 
@@ -817,14 +817,14 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 // ImportPendingBlocksFromCache tries to insert pending blocks from the cache,
 // if there is no payload in the cache, it will skip the operation.
 func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context) error {
-	latestPayload := s.payloadsCache.getLatestPayload()
+	latestPayload := s.envelopesCache.getLatestPayload()
 	if latestPayload == nil {
-		log.Info("No payloads in cache, skip importing from cache")
+		log.Info("No envelopes in cache, skip importing from cache")
 		return nil
 	}
 
 	log.Info(
-		"Found pending payloads in the cache, try importing",
+		"Found pending envelopes in the cache, try importing",
 		"latestPayloadNumber", uint64(latestPayload.Payload.BlockNumber),
 		"latestPayloadBlockHash", latestPayload.Payload.BlockHash.Hex(),
 		"latestPayloadParentHash", latestPayload.Payload.ParentHash.Hex(),
@@ -926,7 +926,7 @@ func (s *PreconfBlockAPIServer) CheckLookaheadHandover(feeRecipient common.Addre
 
 // PutPayloadsCache puts the given payload into the payload cache queue, should ONLY be used in testing.
 func (s *PreconfBlockAPIServer) PutPayloadsCache(id uint64, payload *preconf.Envelope) {
-	s.payloadsCache.put(id, payload)
+	s.envelopesCache.put(id, payload)
 }
 
 // GetSequencingEndedForEpoch returns the last block's hash for the given epoch.
@@ -1084,7 +1084,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 				"reason", err,
 			)
 
-			if !s.payloadsCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
+			if !s.envelopesCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
 				log.Info(
 					"Payload is cached",
 					"peer", from,
@@ -1093,7 +1093,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 					"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
 				)
 
-				s.payloadsCache.put(uint64(msg.ExecutionPayload.BlockNumber), &preconf.Envelope{
+				s.envelopesCache.put(uint64(msg.ExecutionPayload.BlockNumber), &preconf.Envelope{
 					Payload:           msg.ExecutionPayload,
 					Signature:         msg.Signature,
 					IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
@@ -1133,7 +1133,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	}
 
 	// Insert the preconfirmation block into the L2 EE chain.
-	if _, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
+	if _, err := s.chainSyncer.InsertPreconfBlocksFromEnvelopes(
 		ctx,
 		[]*preconf.Envelope{
 			{

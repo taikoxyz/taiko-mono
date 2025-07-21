@@ -10,7 +10,7 @@ import (
 )
 
 func (s *PreconfBlockAPIServerTestSuite) TestCacheGet() {
-	cache := newPayloadQueue()
+	cache := newEnvelopeQueue()
 	s.Nil(cache.get(uint64(testutils.RandomPort()), testutils.RandomHash()))
 	s.False(cache.has(uint64(testutils.RandomPort()), testutils.RandomHash()))
 
@@ -27,7 +27,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestCacheGet() {
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestCacheGetLongestChildren() {
-	cache := newPayloadQueue()
+	cache := newEnvelopeQueue()
 	currentPayload := &preconf.Envelope{
 		Payload: &eth.ExecutionPayload{
 			BlockNumber: eth.Uint64Quantity(uint64(testutils.RandomPort())),
