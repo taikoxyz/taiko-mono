@@ -3,7 +3,6 @@ package producer
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -68,10 +67,10 @@ type ProofDataV2 struct {
 	Quote    string `json:"quote"`
 }
 
-// requestHTTPProof sends a POST request to the given URL with the given JWT and request body,
+// requestHTTPProof sends a POST request to the given URL with the given ApiKey and request body,
 // to get a proof of the given type.
-func requestHTTPProof[T, U any](ctx context.Context, url string, jwt string, reqBody T) (*U, error) {
-	res, err := requestHTTPProofResponse(ctx, url, jwt, reqBody)
+func requestHTTPProof[T, U any](ctx context.Context, url string, apiKey string, reqBody T) (*U, error) {
+	res, err := requestHTTPProofResponse(ctx, url, apiKey, reqBody)
 	if err != nil {
 		return nil, err
 	}
@@ -91,9 +90,14 @@ func requestHTTPProof[T, U any](ctx context.Context, url string, jwt string, req
 	return &output, nil
 }
 
-// requestHTTPProofResponse sends a POST request to the given URL with the given JWT and request body,
+// requestHTTPProofResponse sends a POST request to the given URL with the given ApiKey and request body,
 // and returns the raw HTTP response, the caller is responsible for closing the response body.
-func requestHTTPProofResponse[T any](ctx context.Context, url string, jwt string, reqBody T) (*http.Response, error) {
+func requestHTTPProofResponse[T any](
+	ctx context.Context,
+	url string,
+	apiKey string,
+	reqBody T,
+) (*http.Response, error) {
 	client := &http.Client{}
 
 	jsonValue, err := json.Marshal(reqBody)
@@ -106,8 +110,8 @@ func requestHTTPProofResponse[T any](ctx context.Context, url string, jwt string
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if len(jwt) > 0 {
-		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(jwt)))
+	if len(apiKey) > 0 {
+		req.Header.Set("X-API-KEY", apiKey)
 	}
 
 	res, err := client.Do(req)
