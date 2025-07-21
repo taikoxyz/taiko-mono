@@ -48,7 +48,12 @@ abstract contract PreconfRouterTestBase is Layer1Test {
     function addOperators(address[] memory operators) internal {
         for (uint256 i = 0; i < operators.length; i++) {
             vm.prank(whitelistOwner);
-            whitelist.addOperator(operators[i]);
+            whitelist.addOperator(operators[i], _getSequencerAddress(operators[i]));
         }
+    }
+
+    // Helper function that returns a deterministic sequencer address for testing purposes
+    function _getSequencerAddress(address sequencer) internal pure returns (address) {
+        return address(uint160(sequencer) + 1000);
     }
 }
