@@ -1,13 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import { ISlasher } from "@eth-fabric/urc/ISlasher.sol";
-
 /// @title IOverseer
-/// @dev This interface inherits the URC's ISlasher interface containing the definition for
-/// the `slash` function.
 /// @custom:security-contact security@taiko.xyz
-interface IOverseer is ISlasher {
+interface IOverseer {
     struct BlacklistedOperator {
         uint128 blacklistedAt;
         uint128 unBlacklistedAt;
@@ -16,15 +12,11 @@ interface IOverseer is ISlasher {
     struct Config {
         uint256 blacklistDelay;
         uint256 unblacklistDelay;
-        uint256 slashingAmount;
     }
 
     // Blacklist events
     event Blacklisted(bytes32 indexed operatorRegistrationRoot, uint256 timestamp);
     event Unblacklisted(bytes32 indexed operatorRegistrationRoot, uint256 timestamp);
-
-    // Slashing events
-    event Slashed(address indexed committer, uint256 amount);
 
     // Signer events
     event SignerAdded(address indexed signer);
