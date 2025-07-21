@@ -4,13 +4,12 @@ pragma solidity ^0.8.24;
 import "src/shared/common/EssentialContract.sol";
 import "src/layer1/based2/IInbox.sol";
 import "src/layer1/based2/libs/LibCodec.sol";
-import "src/layer1/based2/libs/LibData.sol";
 import "../iface/IPreconfWhitelist.sol";
 import "../../forced-inclusion/IForcedInclusionStore.sol";
 
 /// @title PreconfManager
-/// @notice Unified gateway for Shasta inbox combining preconf access control and forced inclusions
-/// @dev Replaces PreconfRouter and TaikoWrapper with a single optimized contract
+/// @notice Gateway for Shasta inbox with preconf access control and forced inclusion handling
+/// @dev Optimized to minimize gas costs while maintaining simplicity
 /// @custom:security-contact security@taiko.xyz
 contract PreconfManager is EssentialContract {
     /// @notice The Shasta inbox contract
@@ -29,10 +28,7 @@ contract PreconfManager is EssentialContract {
     /// @param inclusion The forced inclusion that was processed
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion inclusion);
 
-
     error NotPreconfer();
-    error ProposerMismatch();
-    error InvalidBatch();
     error InvalidForcedInclusion();
 
     uint256[50] private __gap;
@@ -58,21 +54,24 @@ contract PreconfManager is EssentialContract {
         __Essential_init(_owner);
     }
 
-    /// @notice Proposes a batch to the Shasta inbox
-    /// @dev Handles both normal proposals and forced inclusions atomically
-    /// @param _batch The batch to propose
-    /// @param _txList The transaction list for calldata (empty for blob batches)
-    /// @param _parentMetadata The parent batch metadata for continuity validation
+    /// @notice Proposes batches to the Shasta inbox with preconf validation and forced inclusion handling
+    /// @dev Mirrors propose4 interface exactly to minimize overhead
+    /// @param _packedSummary Current protocol summary encoded as bytes
+    /// @param _packedBatches Array of batches to propose encoded as bytes
+    /// @param _packedEvidence Evidence for batch proposal validation encoded as bytes
+    /// @param _packedTransitionMetas Transition metadata for verification encoded as bytes
     /// @return summary The updated protocol summary after processing
     function propose(
-        IInbox.Batch calldata _batch,
-        bytes calldata _txList,
-        IInbox.BatchProposeMetadata calldata _parentMetadata
+        bytes calldata _packedSummary,
+        bytes calldata _packedBatches,
+        bytes calldata _packedEvidence,
+        bytes calldata _packedTransitionMetas
     )
         external
         nonReentrant
         returns (IInbox.Summary memory summary)
     {
+        // Verify preconf authorization
         address preconfer = whitelist.getOperatorForCurrentEpoch();
         if (preconfer != address(0)) {
             require(msg.sender == preconfer, NotPreconfer());
@@ -80,61 +79,47 @@ contract PreconfManager is EssentialContract {
             require(msg.sender == fallbackPreconfer, NotPreconfer());
         }
 
-        // Verify proposer matches sender
-        require(_batch.proposer == msg.sender, ProposerMismatch());
-
-        //TODO: we should pass this as a parameter
-        IInbox.Summary memory currentSummary = _getCurrentSummary();
-
-        // Check if forced inclusion is due and prepare batches
-        IInbox.Batch[] memory batches;
-        bool processingForcedInclusion = forcedStore.isOldestForcedInclusionDue();
-
-        if (processingForcedInclusion) {
-            // Build array with forced inclusion batch first, then normal batch
-            //TODO: should the forced inclusion batch be the first one?
-            batches = new IInbox.Batch[](2);
-            batches[0] = _buildForcedInclusionBatch(_parentMetadata);
-            batches[1] = _batch;
-        } else {
-            // Single batch proposal
-            batches = new IInbox.Batch[](1);
-            batches[0] = _batch;
+        if (!forcedStore.isOldestForcedInclusionDue()) {
+            // optimize for most common case where there is no forced inclusion
+            return inbox.propose4(
+                _packedSummary,
+                _packedBatches,
+                _packedEvidence,
+                _packedTransitionMetas
+            );
         }
 
-        // Prepare evidence for parent batch validation
-        bytes memory evidence = _buildParentEvidence(currentSummary, _parentMetadata);
-
-        // Pack data using Shasta's format
-        bytes memory packedSummary = LibCodec.packSummary(currentSummary);
-        bytes memory packedBatches = _packBatches(batches, _txList);
-        bytes memory packedTransitionMetas = ""; // Empty for new proposals
-
-        summary = inbox.propose4(packedSummary, packedBatches, evidence, packedTransitionMetas);
-
-
-        return summary;
+        // Forced inclusion case - build and prepend the forced inclusion batch
+        return _proposeWithForcedInclusion(
+            _packedSummary,
+            _packedBatches,
+            _packedEvidence,
+            _packedTransitionMetas
+        );
     }
 
     /// @notice Builds a forced inclusion batch from the oldest pending request
-    /// @param _parentMetadata Parent batch metadata for timestamp calculation
+    /// @param _proposer The address proposing the batch
+    /// @param _parentTimestamp The timestamp of the parent batch
     /// @return batch The forced inclusion batch
-    function _buildForcedInclusionBatch(IInbox.BatchProposeMetadata memory _parentMetadata)
+    function _buildForcedInclusionBatch(
+        address _proposer,
+        uint48 _parentTimestamp
+    )
         internal
         returns (IInbox.Batch memory batch)
     {
         // Consume the oldest forced inclusion
         IForcedInclusionStore.ForcedInclusion memory inclusion =
-            forcedStore.consumeOldestForcedInclusion(msg.sender);
+            forcedStore.consumeOldestForcedInclusion(_proposer);
 
         // Validate forced inclusion
         require(inclusion.blobHash != bytes32(0), InvalidForcedInclusion());
 
-        // Build batch structure optimized for forced inclusions
-        batch.proposer = msg.sender;
+        // Build minimal batch structure for forced inclusion
+        batch.proposer = _proposer;
         batch.coinbase = address(0); // No coinbase for forced inclusions
-        batch.lastBlockTimestamp = _parentMetadata.lastBlockTimestamp + 12; // Fixed 12 second
-            // interval
+        batch.lastBlockTimestamp = _parentTimestamp + 12; // Fixed 12 second interval
         batch.gasIssuancePerSecond = 0; // Use protocol default
         batch.isForcedInclusion = true;
         batch.proverAuth = ""; // Open to any prover
@@ -157,7 +142,7 @@ contract PreconfManager is EssentialContract {
         batch.blobs = IInbox.Blobs({
             hashes: new bytes32[](1),
             firstBlobIndex: 0,
-            numBlobs: 0, // Using direct hash, not index
+            numBlobs: 1, // Single blob
             byteOffset: inclusion.blobByteOffset,
             byteSize: inclusion.blobByteSize,
             createdIn: uint48(inclusion.blobCreatedIn)
@@ -167,68 +152,46 @@ contract PreconfManager is EssentialContract {
         emit ForcedInclusionProcessed(inclusion);
     }
 
-    /// @notice Builds evidence for parent batch validation
-    /// @param _parentMetadata Parent batch metadata
-    /// @return evidence The encoded evidence
-    function _buildParentEvidence(
-        IInbox.Summary memory, // _summary - unused for now
-        IInbox.BatchProposeMetadata memory _parentMetadata
+    /// @notice Internal function to handle proposals with forced inclusions
+    /// @dev Separated to avoid stack too deep errors
+    function _proposeWithForcedInclusion(
+        bytes calldata _packedSummary,
+        bytes calldata _packedBatches,
+        bytes calldata _packedEvidence,
+        bytes calldata _packedTransitionMetas
     )
         internal
-        pure
-        returns (bytes memory evidence)
+        returns (IInbox.Summary memory)
     {
-        // Build evidence using the parent metadata
-        // In a real implementation, leftHash and proveMetaHash would be computed
-        // from the actual parent batch data
-        IInbox.BatchProposeMetadataEvidence memory parentEvidence = IInbox
-            .BatchProposeMetadataEvidence({
-            leftHash: bytes32(0), // Would be computed from parent batch build metadata
-            proveMetaHash: bytes32(0), // Would be computed from parent batch prove metadata
-            proposeMeta: _parentMetadata
-        });
-
-        return LibCodec.packBatchProposeMetadataEvidence(parentEvidence);
-    }
-
-    /// @notice Packs batches and transaction data
-    /// @param _batches Array of batches to pack
-    /// @param _txList Transaction list for the last batch
-    /// @return encoded The packed batch data
-    function _packBatches(
-        IInbox.Batch[] memory _batches,
-        bytes calldata _txList
-    )
-        internal
-        pure
-        returns (bytes memory encoded)
-    {
-        // Pack all batches first
-        bytes memory packedBatches = LibCodec.packBatches(_batches);
-
-        // For Shasta, txList is appended separately after packed batches
-        if (_txList.length > 0) {
-            // Append txList to the packed batches
-            encoded = abi.encodePacked(packedBatches, _txList);
-        } else {
-            encoded = packedBatches;
+        // Extract parent timestamp from evidence for proper timestamp calculation
+        IInbox.BatchProposeMetadataEvidence memory evidence = 
+            LibCodec.unpackBatchProposeMetadataEvidence(_packedEvidence);
+        
+        // Build the forced inclusion batch
+        IInbox.Batch memory forcedBatch = _buildForcedInclusionBatch(
+            msg.sender,
+            evidence.proposeMeta.lastBlockTimestamp
+        );
+        
+        // Unpack original batches
+        IInbox.Batch[] memory originalBatches = LibCodec.unpackBatches(_packedBatches);
+        
+        // Create array with forced inclusion first
+        IInbox.Batch[] memory allBatches = new IInbox.Batch[](originalBatches.length + 1);
+        allBatches[0] = forcedBatch;
+        for (uint256 i = 0; i < originalBatches.length; i++) {
+            allBatches[i + 1] = originalBatches[i];
         }
-    }
-
-    /// @notice Gets the current protocol summary
-    /// @dev Temporary implementation until inbox provides view function
-    function _getCurrentSummary() internal pure returns (IInbox.Summary memory) {
-        // This would ideally call a view function on the inbox
-        // For now, return a minimal summary structure
-        return IInbox.Summary({
-            nextBatchId: 1, // Would come from inbox
-            lastSyncedBlockId: 0,
-            lastSyncedAt: 0,
-            lastVerifiedBatchId: 0,
-            gasIssuanceUpdatedAt: 0,
-            gasIssuancePerSecond: 0,
-            lastVerifiedBlockHash: bytes32(0),
-            lastBatchMetaHash: bytes32(0)
-        });
+        
+        // Pack all batches
+        bytes memory finalPackedBatches = LibCodec.packBatches(allBatches);
+        
+        // Call inbox with forced inclusion included
+        return inbox.propose4(
+            _packedSummary,
+            finalPackedBatches,
+            _packedEvidence,
+            _packedTransitionMetas
+        );
     }
 }
