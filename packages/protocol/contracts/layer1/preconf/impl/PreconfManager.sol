@@ -3,13 +3,12 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 import "src/layer1/based2/IInbox.sol";
-import "src/layer1/based2/libs/LibCodec.sol";
 import "../iface/IPreconfWhitelist.sol";
 import "../../forced-inclusion/IForcedInclusionStore.sol";
 
 /// @title PreconfManager
-/// @notice Gateway for Shasta inbox with preconf access control and forced inclusion handling
-/// @dev Optimized to minimize gas costs while maintaining simplicity
+/// @notice Gateway for Shasta inbox with preconf access control and forced inclusion validation
+/// @dev Optimized for gas efficiency - proposers build forced inclusions off-chain
 /// @custom:security-contact security@taiko.xyz
 contract PreconfManager is EssentialContract {
     /// @notice The Shasta inbox contract
@@ -29,7 +28,9 @@ contract PreconfManager is EssentialContract {
     event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion inclusion);
 
     error NotPreconfer();
+    error ForcedInclusionMissing();
     error InvalidForcedInclusion();
+    error InvalidBatchCount();
 
     uint256[50] private __gap;
 
@@ -54,10 +55,11 @@ contract PreconfManager is EssentialContract {
         __Essential_init(_owner);
     }
 
-    /// @notice Proposes batches to the Shasta inbox with preconf validation and forced inclusion handling
-    /// @dev Mirrors propose4 interface exactly to minimize overhead
+    /// @notice Proposes batches to inbox contract, including forced included batches. Only one forced inclusion can be processed at a time, and it must be due.
+    /// @dev Only the current preconfer can propose.
+    /// @dev Proposers must include forced inclusions when due.
     /// @param _packedSummary Current protocol summary encoded as bytes
-    /// @param _packedBatches Array of batches to propose encoded as bytes
+    /// @param _packedBatches Array of batches to propose encoded as bytes. If forced inclusions are due, the first batch must be the forced inclusion.
     /// @param _packedEvidence Evidence for batch proposal validation encoded as bytes
     /// @param _packedTransitionMetas Transition metadata for verification encoded as bytes
     /// @return summary The updated protocol summary after processing
@@ -71,127 +73,142 @@ contract PreconfManager is EssentialContract {
         nonReentrant
         returns (IInbox.Summary memory summary)
     {
-        // Verify preconf authorization
+        // 1. Verify preconf authorization
         address preconfer = whitelist.getOperatorForCurrentEpoch();
         if (preconfer != address(0)) {
             require(msg.sender == preconfer, NotPreconfer());
         } else if (fallbackPreconfer != address(0)) {
             require(msg.sender == fallbackPreconfer, NotPreconfer());
+        } else {
+            revert NotPreconfer();
         }
 
-        if (!forcedStore.isOldestForcedInclusionDue()) {
-            // optimize for most common case where there is no forced inclusion
-            return inbox.propose4(
-                _packedSummary,
-                _packedBatches,
-                _packedEvidence,
-                _packedTransitionMetas
-            );
+        // 2. Check if forced inclusion is due
+        if (forcedStore.isOldestForcedInclusionDue()) {
+            // Get expected forced inclusion
+            IForcedInclusionStore.ForcedInclusion memory expectedInclusion =
+                forcedStore.getOldestForcedInclusion();
+
+            // Validate the first batch contains the forced inclusion
+            _validateForcedInclusionInFirstBatch(_packedBatches, expectedInclusion);
+
+            // Consume the forced inclusion
+            IForcedInclusionStore.ForcedInclusion memory consumedInclusion =
+                forcedStore.consumeOldestForcedInclusion(msg.sender);
+
+            emit ForcedInclusionProcessed(consumedInclusion);
         }
 
-        // Forced inclusion case - build and prepend the forced inclusion batch
-        return _proposeWithForcedInclusion(
-            _packedSummary,
-            _packedBatches,
-            _packedEvidence,
-            _packedTransitionMetas
-        );
+        // 3. Forward to inbox - no modification needed
+        //TODO: we probably don't need to retun a value since it is emitted as an event on the inbox contract already
+        return
+            inbox.propose4(_packedSummary, _packedBatches, _packedEvidence, _packedTransitionMetas);
     }
 
-    /// @notice Builds a forced inclusion batch from the oldest pending request
-    /// @param _proposer The address proposing the batch
-    /// @param _parentTimestamp The timestamp of the parent batch
-    /// @return batch The forced inclusion batch
-    function _buildForcedInclusionBatch(
-        address _proposer,
-        uint48 _parentTimestamp
-    )
-        internal
-        returns (IInbox.Batch memory batch)
-    {
-        // Consume the oldest forced inclusion
-        IForcedInclusionStore.ForcedInclusion memory inclusion =
-            forcedStore.consumeOldestForcedInclusion(_proposer);
-
-        // Validate forced inclusion
-        require(inclusion.blobHash != bytes32(0), InvalidForcedInclusion());
-
-        // Build minimal batch structure for forced inclusion
-        batch.proposer = _proposer;
-        batch.coinbase = address(0); // No coinbase for forced inclusions
-        batch.lastBlockTimestamp = _parentTimestamp + 12; // Fixed 12 second interval
-        batch.gasIssuancePerSecond = 0; // Use protocol default
-        batch.isForcedInclusion = true;
-        batch.proverAuth = ""; // Open to any prover
-
-        // No signal slots or anchor blocks for forced inclusions
-        batch.signalSlots = new bytes32[](0);
-        batch.anchorBlockIds = new uint48[](0);
-
-        // Single block with maximum transactions allowed
-        batch.blocks = new IInbox.Block[](1);
-        batch.blocks[0] = IInbox.Block({
-            numTransactions: type(uint16).max, // Allow maximum transactions
-            timeShift: 0, // First block in batch has no time shift
-            anchorBlockId: 0, // No anchor for forced inclusions
-            numSignals: 0, // No signals
-            hasAnchor: false
-        });
-
-        // Set blob data from the forced inclusion
-        batch.blobs = IInbox.Blobs({
-            hashes: new bytes32[](1),
-            firstBlobIndex: 0,
-            numBlobs: 1, // Single blob
-            byteOffset: inclusion.blobByteOffset,
-            byteSize: inclusion.blobByteSize,
-            createdIn: uint48(inclusion.blobCreatedIn)
-        });
-        batch.blobs.hashes[0] = inclusion.blobHash;
-
-        emit ForcedInclusionProcessed(inclusion);
-    }
-
-    /// @notice Internal function to handle proposals with forced inclusions
-    /// @dev Separated to avoid stack too deep errors
-    function _proposeWithForcedInclusion(
-        bytes calldata _packedSummary,
+    /// @notice Validates that the first batch contains the expected forced inclusion
+    /// @dev Efficiently extracts only necessary fields from packed data
+    /// @param _packedBatches The packed batches data
+    /// @param _expectedInclusion The expected forced inclusion
+    function _validateForcedInclusionInFirstBatch(
         bytes calldata _packedBatches,
-        bytes calldata _packedEvidence,
-        bytes calldata _packedTransitionMetas
+        IForcedInclusionStore.ForcedInclusion memory _expectedInclusion
     )
         internal
-        returns (IInbox.Summary memory)
+        pure
     {
-        // Extract parent timestamp from evidence for proper timestamp calculation
-        IInbox.BatchProposeMetadataEvidence memory evidence = 
-            LibCodec.unpackBatchProposeMetadataEvidence(_packedEvidence);
-        
-        // Build the forced inclusion batch
-        IInbox.Batch memory forcedBatch = _buildForcedInclusionBatch(
-            msg.sender,
-            evidence.proposeMeta.lastBlockTimestamp
-        );
-        
-        // Unpack original batches
-        IInbox.Batch[] memory originalBatches = LibCodec.unpackBatches(_packedBatches);
-        
-        // Create array with forced inclusion first
-        IInbox.Batch[] memory allBatches = new IInbox.Batch[](originalBatches.length + 1);
-        allBatches[0] = forcedBatch;
-        for (uint256 i = 0; i < originalBatches.length; i++) {
-            allBatches[i + 1] = originalBatches[i];
+        // Ensure we have at least one batch
+        require(_packedBatches.length > 0, InvalidBatchCount());
+        uint8 batchCount = uint8(_packedBatches[0]);
+        require(batchCount > 0, ForcedInclusionMissing());
+
+        // Use assembly to efficiently read specific fields from the first batch
+        // We only need to check: isForcedInclusion flag, first blob hash, offset, and size
+        assembly {
+            let dataPtr := add(_packedBatches.offset, 1) // Skip batch count
+
+            // Skip proposer (20 bytes) + coinbase (20 bytes) + timestamp (6 bytes) + gasIssuance (4
+            // bytes)
+            dataPtr := add(dataPtr, 50)
+
+            // Read isForcedInclusion flag (1 byte)
+            let isForcedInclusion := byte(0, calldataload(dataPtr))
+            if iszero(isForcedInclusion) {
+                // revert with InvalidForcedInclusion()
+                let ptr := mload(0x40)
+                mstore(ptr, 0x5d2e3a7400000000000000000000000000000000000000000000000000000000)
+                revert(ptr, 4)
+            }
+            dataPtr := add(dataPtr, 1)
+
+            // Skip proverAuth - read length (2 bytes) then skip data
+            let proverAuthLen := and(calldataload(dataPtr), 0xffff)
+            dataPtr := add(dataPtr, add(2, proverAuthLen))
+
+            // Skip signal slots - read count (1 byte) then skip data
+            let signalCount := byte(0, calldataload(dataPtr))
+            dataPtr := add(dataPtr, add(1, mul(signalCount, 32)))
+
+            // Skip anchor block IDs - read count (1 byte) then skip data
+            let anchorCount := byte(0, calldataload(dataPtr))
+            dataPtr := add(dataPtr, add(1, mul(anchorCount, 6)))
+
+            // Skip blocks array - read count (1 byte) then skip data
+            let blockCount := byte(0, calldataload(dataPtr))
+            dataPtr := add(dataPtr, add(1, mul(blockCount, 13))) // 13 bytes per block
+
+            // Now at blobs structure
+            // Read blob hash count (1 byte)
+            let blobHashCount := byte(0, calldataload(dataPtr))
+            if iszero(blobHashCount) {
+                // revert with InvalidForcedInclusion() - need at least one blob
+                let ptr := mload(0x40)
+                mstore(ptr, 0x5d2e3a7400000000000000000000000000000000000000000000000000000000)
+                revert(ptr, 4)
+            }
+            dataPtr := add(dataPtr, 1)
+
+            // Read first blob hash (32 bytes)
+            let blobHash := calldataload(dataPtr)
+            dataPtr := add(dataPtr, 32)
+
+            // Validate blob hash matches expected
+            if iszero(eq(blobHash, mload(_expectedInclusion))) {
+                // revert with InvalidForcedInclusion()
+                let ptr := mload(0x40)
+                mstore(ptr, 0x5d2e3a7400000000000000000000000000000000000000000000000000000000)
+                revert(ptr, 4)
+            }
+
+            // Skip remaining blob hashes
+            dataPtr := add(dataPtr, mul(sub(blobHashCount, 1), 32))
+
+            // Skip firstBlobIndex (1) and numBlobs (1)
+            dataPtr := add(dataPtr, 2)
+
+            // Read byteOffset (4 bytes)
+            let byteOffset := and(shr(224, calldataload(dataPtr)), 0xffffffff)
+            dataPtr := add(dataPtr, 4)
+
+            // Read byteSize (4 bytes)
+            let byteSize := and(shr(224, calldataload(dataPtr)), 0xffffffff)
+
+            // Validate offset and size match expected
+            let expectedOffset := mload(add(_expectedInclusion, 0x60)) // offset in struct
+            let expectedSize := mload(add(_expectedInclusion, 0x80)) // size in struct
+
+            if iszero(eq(byteOffset, expectedOffset)) {
+                // revert with InvalidForcedInclusion()
+                let ptr := mload(0x40)
+                mstore(ptr, 0x5d2e3a7400000000000000000000000000000000000000000000000000000000)
+                revert(ptr, 4)
+            }
+
+            if iszero(eq(byteSize, expectedSize)) {
+                // revert with InvalidForcedInclusion()
+                let ptr := mload(0x40)
+                mstore(ptr, 0x5d2e3a7400000000000000000000000000000000000000000000000000000000)
+                revert(ptr, 4)
+            }
         }
-        
-        // Pack all batches
-        bytes memory finalPackedBatches = LibCodec.packBatches(allBatches);
-        
-        // Call inbox with forced inclusion included
-        return inbox.propose4(
-            _packedSummary,
-            finalPackedBatches,
-            _packedEvidence,
-            _packedTransitionMetas
-        );
     }
 }

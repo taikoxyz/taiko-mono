@@ -65,4 +65,8 @@ interface IForcedInclusionStore {
     )
         external
         payable;
+
+    /// @dev Get the oldest forced inclusion without consuming it
+    /// @return The oldest forced inclusion in the queue
+    function getOldestForcedInclusion() external view returns (ForcedInclusion memory);
 }

@@ -141,6 +141,13 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         return deadline != type(uint256).max && _nextBatchId() >= deadline;
     }
 
+    function getOldestForcedInclusion() external view returns (ForcedInclusion memory) {
+        require(head < tail, NoForcedInclusionFound());
+        ForcedInclusion storage inclusion = queue[head];
+        require(inclusion.createdAtBatchId != 0, NoForcedInclusionFound());
+        return inclusion;
+    }
+
     // @dev Override this function for easier testing blobs
     function _blobHash(uint8 blobIndex) internal view virtual returns (bytes32) {
         return blobhash(blobIndex);
