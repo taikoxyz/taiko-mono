@@ -7,16 +7,11 @@ import "openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/common/EssentialContract.sol";
 
 /// @title Overseer
-/// @notice The Overseer is responsible for the following:
-/// - Slashing malicious commitments via the URC when assigned as the slasher
-///   (currently only for lookahead commitments until EIP-7917 is live)
-/// - Blacklisting preconf operators based on subjective faults. For instance, non-adherence to
-///   fair exchange.
-///   (blacklisted operators are not inserted in the lookahead)
+/// @notice The Overseer is responsible for blacklisting preconf operators based on subjective faults.
+/// For instance, non-adherence to fair exchange.
+/// @dev Blacklisted operators are not inserted in the lookahead.
 /// @custom:security-contact security@taiko.xyz
 contract Overseer is IOverseer, EssentialContract {
-    address public immutable urc;
-
     uint64 public signingThreshold;
     uint64 public numSigners;
     uint64 public nonce;
@@ -28,42 +23,9 @@ contract Overseer is IOverseer, EssentialContract {
 
     uint256[47] private __gap;
 
-    constructor(address _urc) {
-        urc = _urc;
-    }
-
     function init(uint64 _signingThreshold, address[] memory _signers) external initializer {
         __Essential_init(address(0));
         __OverseerInit(_signingThreshold, _signers);
-    }
-
-    /// @dev Based on URC's ISlasher interface
-    function slash(
-        Delegation calldata, /*_delegation*/
-        Commitment calldata, /*_commitment*/
-        address _committer,
-        bytes calldata _evidence,
-        address /*_challenger*/
-    )
-        external
-        nonReentrant
-        onlyFrom(urc)
-        returns (uint256)
-    {
-        // `_evidence` is expected to be a list of signatures advocating for the slashing of the
-        // committer
-        unchecked {
-            bytes32 digest = keccak256(
-                abi.encode(LibPreconfConstants.OVERSEER_SLASH_DOMAIN_SEPARATOR, nonce++, _committer)
-            );
-            _verifySignatures(digest, abi.decode(_evidence, (bytes[])));
-        }
-
-        uint256 slashedAmount = getConfig().slashingAmount;
-
-        emit Slashed(_committer, slashedAmount);
-
-        return slashedAmount;
     }
 
     // Blacklist functions
@@ -224,8 +186,8 @@ contract Overseer is IOverseer, EssentialContract {
 
     /// @inheritdoc IOverseer
     function getConfig() public pure returns (Config memory) {
-        return Config({ blacklistDelay: 1 days, unblacklistDelay: 1 days, slashingAmount: 1 ether });
-    }
+        return Config({ blacklistDelay: 1 days, unblacklistDelay: 1 days });
+    }   
 
     // Internal functions
     // -----------------------------------------------------------------------------------
