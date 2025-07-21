@@ -98,6 +98,10 @@ contract LookaheadStoreBase is CommonTest {
             _operators[i].committer = ownerAndCommitter;
             _operators[i].slasher = preconfSlasher;
 
+            if (_operators[i].unregisteredAt == 0) {
+                _operators[i].unregisteredAt = type(uint48).max;
+            }
+
             _validateSetupOperatorData(
                 _operators[i], lookaheadStore.getConfig().minCollateralForPreconfing
             );
@@ -108,7 +112,7 @@ contract LookaheadStoreBase is CommonTest {
 
     function _setupLookaheadPostingOperator(SetupOperator memory _operator) internal {
         _operator.optedOutAt = 0;
-        _operator.unregisteredAt = 0;
+        _operator.unregisteredAt = type(uint48).max;
         _operator.slashedAt = 0;
 
         _operator.registrationRoot = posterRegistrationRoot;
@@ -140,7 +144,7 @@ contract LookaheadStoreBase is CommonTest {
             _operator.optedOutAt = bound(_operator.optedOutAt, EPOCH_START, block.timestamp);
         }
 
-        if (_operator.unregisteredAt != 0) {
+        if (_operator.unregisteredAt != type(uint48).max) {
             _operator.unregisteredAt = bound(_operator.unregisteredAt, EPOCH_START, block.timestamp);
         }
 
