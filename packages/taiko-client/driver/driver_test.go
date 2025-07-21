@@ -34,6 +34,7 @@ import (
 	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer"
@@ -807,10 +808,12 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 
 	ok, err := s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
 		context.Background(),
-		&eth.ExecutionPayload{
-			BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
-			BlockHash:   forkB[len(forkB)-1].Hash(),
-			ParentHash:  forkB[len(forkB)-1].ParentHash(),
+		&preconf.Envelope{
+			Payload: &eth.ExecutionPayload{
+				BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
+				BlockHash:   forkB[len(forkB)-1].Hash(),
+				ParentHash:  forkB[len(forkB)-1].ParentHash(),
+			},
 		},
 		headL1Origin,
 	)
@@ -819,10 +822,12 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 
 	ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
 		context.Background(),
-		&eth.ExecutionPayload{
-			BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
-			BlockHash:   forkA[len(forkA)-1].Hash(),
-			ParentHash:  forkA[len(forkA)-1].ParentHash(),
+		&preconf.Envelope{
+			Payload: &eth.ExecutionPayload{
+				BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
+				BlockHash:   forkA[len(forkA)-1].Hash(),
+				ParentHash:  forkA[len(forkA)-1].ParentHash(),
+			},
 		},
 		headL1Origin,
 	)
@@ -832,10 +837,12 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	if isInForkA {
 		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
 			context.Background(),
-			&eth.ExecutionPayload{
-				BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
-				BlockHash:   forkB[len(forkB)-1].Hash(),
-				ParentHash:  forkB[len(forkB)-1].ParentHash(),
+			&preconf.Envelope{
+				Payload: &eth.ExecutionPayload{
+					BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
+					BlockHash:   forkB[len(forkB)-1].Hash(),
+					ParentHash:  forkB[len(forkB)-1].ParentHash(),
+				},
 			},
 			&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
 		)
@@ -844,10 +851,12 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	} else {
 		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
 			context.Background(),
-			&eth.ExecutionPayload{
-				BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
-				BlockHash:   forkA[len(forkA)-1].Hash(),
-				ParentHash:  forkA[len(forkA)-1].ParentHash(),
+			&preconf.Envelope{
+				Payload: &eth.ExecutionPayload{
+					BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
+					BlockHash:   forkA[len(forkA)-1].Hash(),
+					ParentHash:  forkA[len(forkA)-1].ParentHash(),
+				},
 			},
 			&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
 		)
@@ -905,18 +914,20 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 	s.Nil(err)
 	s.GreaterOrEqual(len(l2Head1.Transactions()), 1)
 
-	s.d.preconfBlockServer.PutPayloadsCache(l2Head1.Number().Uint64(), &eth.ExecutionPayload{
-		BlockHash:     l2Head1.Hash(),
-		ParentHash:    l2Head1.ParentHash(),
-		FeeRecipient:  l2Head1.Coinbase(),
-		PrevRandao:    eth.Bytes32(l2Head1.MixDigest()),
-		BlockNumber:   eth.Uint64Quantity(l2Head1.Number().Uint64()),
-		GasLimit:      eth.Uint64Quantity(l2Head1.GasLimit()),
-		Timestamp:     eth.Uint64Quantity(l2Head1.Time()),
-		ExtraData:     l2Head1.Extra(),
-		BaseFeePerGas: eth.Uint256Quantity(*baseFee),
-		Transactions:  []eth.Data{b},
-		Withdrawals:   &types.Withdrawals{},
+	s.d.preconfBlockServer.PutPayloadsCache(l2Head1.Number().Uint64(), &preconf.Envelope{
+		Payload: &eth.ExecutionPayload{
+			BlockHash:     l2Head1.Hash(),
+			ParentHash:    l2Head1.ParentHash(),
+			FeeRecipient:  l2Head1.Coinbase(),
+			PrevRandao:    eth.Bytes32(l2Head1.MixDigest()),
+			BlockNumber:   eth.Uint64Quantity(l2Head1.Number().Uint64()),
+			GasLimit:      eth.Uint64Quantity(l2Head1.GasLimit()),
+			Timestamp:     eth.Uint64Quantity(l2Head1.Time()),
+			ExtraData:     l2Head1.Extra(),
+			BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+			Transactions:  []eth.Data{b},
+			Withdrawals:   &types.Withdrawals{},
+		},
 	})
 
 	// Randomly gossip preconfirmation messages with missing ancients
@@ -1026,18 +1037,20 @@ func (s *DriverTestSuite) TestOnUnsafeL2PayloadWithMissingAncients() {
 	s.Nil(err)
 	s.GreaterOrEqual(len(block.Transactions()), 1)
 
-	s.d.preconfBlockServer.PutPayloadsCache(block.Number().Uint64(), &eth.ExecutionPayload{
-		BlockHash:     block.Hash(),
-		ParentHash:    block.ParentHash(),
-		FeeRecipient:  block.Coinbase(),
-		PrevRandao:    eth.Bytes32(block.MixDigest()),
-		BlockNumber:   eth.Uint64Quantity(block.Number().Uint64()),
-		GasLimit:      eth.Uint64Quantity(block.GasLimit()),
-		Timestamp:     eth.Uint64Quantity(block.Time()),
-		ExtraData:     block.Extra(),
-		BaseFeePerGas: eth.Uint256Quantity(*baseFee),
-		Transactions:  []eth.Data{b},
-		Withdrawals:   &types.Withdrawals{},
+	s.d.preconfBlockServer.PutPayloadsCache(block.Number().Uint64(), &preconf.Envelope{
+		Payload: &eth.ExecutionPayload{
+			BlockHash:     block.Hash(),
+			ParentHash:    block.ParentHash(),
+			FeeRecipient:  block.Coinbase(),
+			PrevRandao:    eth.Bytes32(block.MixDigest()),
+			BlockNumber:   eth.Uint64Quantity(block.Number().Uint64()),
+			GasLimit:      eth.Uint64Quantity(block.GasLimit()),
+			Timestamp:     eth.Uint64Quantity(block.Time()),
+			ExtraData:     block.Extra(),
+			BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+			Transactions:  []eth.Data{b},
+			Withdrawals:   &types.Withdrawals{},
+		},
 	})
 
 	block = getBlock(l2Head1.Number().Uint64() + 2)
@@ -1083,18 +1096,20 @@ func (s *DriverTestSuite) TestSyncerImportPendingBlocksFromCache() {
 		s.Nil(err)
 		s.GreaterOrEqual(len(block.Transactions()), 1)
 
-		s.d.preconfBlockServer.PutPayloadsCache(block.Number().Uint64(), &eth.ExecutionPayload{
-			BlockHash:     block.Hash(),
-			ParentHash:    block.ParentHash(),
-			FeeRecipient:  block.Coinbase(),
-			PrevRandao:    eth.Bytes32(block.MixDigest()),
-			BlockNumber:   eth.Uint64Quantity(block.Number().Uint64()),
-			GasLimit:      eth.Uint64Quantity(block.GasLimit()),
-			Timestamp:     eth.Uint64Quantity(block.Time()),
-			ExtraData:     block.Extra(),
-			BaseFeePerGas: eth.Uint256Quantity(*baseFee),
-			Transactions:  []eth.Data{b},
-			Withdrawals:   &types.Withdrawals{},
+		s.d.preconfBlockServer.PutPayloadsCache(block.Number().Uint64(), &preconf.Envelope{
+			Payload: &eth.ExecutionPayload{
+				BlockHash:     block.Hash(),
+				ParentHash:    block.ParentHash(),
+				FeeRecipient:  block.Coinbase(),
+				PrevRandao:    eth.Bytes32(block.MixDigest()),
+				BlockNumber:   eth.Uint64Quantity(block.Number().Uint64()),
+				GasLimit:      eth.Uint64Quantity(block.GasLimit()),
+				Timestamp:     eth.Uint64Quantity(block.Time()),
+				ExtraData:     block.Extra(),
+				BaseFeePerGas: eth.Uint256Quantity(*baseFee),
+				Transactions:  []eth.Data{b},
+				Withdrawals:   &types.Withdrawals{},
+			},
 		})
 	}
 
