@@ -111,7 +111,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 	sgxGethProducer := &producer.SgxGethProofProducer{
 		Verifier:            sgxGethVerifierAddress,
 		RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
-		JWT:                 p.cfg.RaikoJWT,
+		ApiKey:              p.cfg.RaikoApiKey,
 		RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 		Dummy:               p.cfg.Dummy,
 	}
@@ -143,7 +143,7 @@ func (p *Prover) initPacayaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 			Verifiers:           zkVerifiers,
 			SgxGethProducer:     sgxGethProducer,
 			RaikoHostEndpoint:   p.cfg.RaikoZKVMHostEndpoint,
-			JWT:                 p.cfg.RaikoJWT,
+			ApiKey:              p.cfg.RaikoApiKey,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			ProofType:           producer.ProofTypeZKAny,
 			Dummy:               p.cfg.Dummy,
@@ -215,7 +215,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(sgxGethProducer *producer.SgxG
 			Verifiers:           map[producer.ProofType]common.Address{producer.ProofTypeSgx: sgxVerifierAddress},
 			RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 			ProofType:           producer.ProofTypeSgx,
-			JWT:                 p.cfg.RaikoJWT,
+			ApiKey:              p.cfg.RaikoApiKey,
 			RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			Dummy:               p.cfg.Dummy,
 		}, nil
@@ -233,7 +233,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(sgxGethProducer *producer.SgxG
 				Verifiers:           map[producer.ProofType]common.Address{producer.ProofTypeOp: opVerifierAddress},
 				RaikoHostEndpoint:   p.cfg.RaikoHostEndpoint,
 				ProofType:           producer.ProofTypeOp,
-				JWT:                 p.cfg.RaikoJWT,
+				ApiKey:              p.cfg.RaikoApiKey,
 				Dummy:               true,
 				RaikoRequestTimeout: p.cfg.RaikoRequestTimeout,
 			}, nil
