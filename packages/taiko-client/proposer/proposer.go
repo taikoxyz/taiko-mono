@@ -504,7 +504,9 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 	if preconfRouterAddr == rpc.ZeroAddress {
 		// No pre‑confirmation router → propose as normal.
 		p.rpc.PacayaClients.PreconfRouter = nil
+		p.preconfRouterAddress = rpc.ZeroAddress
 	} else {
+		p.preconfRouterAddress = preconfRouterAddr
 		// if we havent set the preconfRouter, do so now.
 		if p.rpc.PacayaClients.PreconfRouter == nil {
 			p.rpc.PacayaClients.PreconfRouter, err = pacayaBindings.NewPreconfRouter(preconfRouterAddr, p.rpc.L1)
