@@ -380,8 +380,8 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         emit I.Verified(0, _genesisBlockHash);
     }
 
-    /// @notice Creates a Access struct with function pointers
-    /// @return The Access struct with all required function pointers
+    /// @notice Creates a Bindings struct with function pointers
+    /// @return The Bindings struct with all required function pointers
     function _getBindings() private pure returns (LibBinding.Bindings memory) {
         return LibBinding.Bindings({
             // Read functions
