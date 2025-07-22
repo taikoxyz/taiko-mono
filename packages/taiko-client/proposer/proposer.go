@@ -250,42 +250,11 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		return fmt.Errorf("failed to wait until L2 execution engine synced: %w", err)
 	}
 
-	// Check if the preconfirmation router is set, if so, skip proposing.
-	if p.rpc.PacayaClients.PreconfRouter == nil {
-		preconfRouterAddr, err := p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return fmt.Errorf("failed to fetch preconfirmation router: %w", err)
-		}
-		if preconfRouterAddr != rpc.ZeroAddress {
-			preconfRouter, err := pacayaBindings.NewPreconfRouter(preconfRouterAddr, p.rpc.L1)
-			if err != nil {
-				return fmt.Errorf("failed to create new instance of PreconfRouter: %w", err)
-			}
-			p.rpc.PacayaClients.PreconfRouter = preconfRouter
-		}
-	}
-	if p.rpc.PacayaClients.PreconfRouter != nil {
-		fallbackPreconferAddress, err := p.rpc.PacayaClients.PreconfRouter.FallbackPreconfer(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return fmt.Errorf("failed to get fallback preconfer address: %w", err)
-		}
-		if fallbackPreconferAddress != p.proposerAddress && fallbackPreconferAddress != p.ProverSetAddress {
-			log.Info("Preconfirmation is activated and proposer isn't the fallback preconfer, skip proposing",
-				"time",
-				time.Now(),
-			)
-			return nil
-		}
-		// As a fallback proposer, need to enable preconfirmation server
-
-		if time.Since(p.l2HeadUpdatedAt) < p.FallbackTimeout {
-			log.Info("Fallback timeout not reached, skip proposing",
-				"l2HeadUpdatedAt", p.l2HeadUpdatedAt,
-				"time", time.Now(),
-				"fallbackTimeout", p.FallbackTimeout,
-			)
-			return nil
-		}
+	if ok, err := p.shouldPropose(ctx); err != nil {
+		return fmt.Errorf("failed to check if proposer should propose: %w", err)
+	} else if !ok {
+		log.Info("Proposer is not allowed to propose at this time, skipping")
+		return nil
 	}
 
 	// Check whether it's time to allow proposing empty pool content, if the `--epoch.minProposingInterval` flag is set.
@@ -486,4 +455,44 @@ func (p *Proposer) GetParentMetaHash(ctx context.Context) (common.Hash, error) {
 	}
 
 	return batch.MetaHash, nil
+}
+
+func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
+	preconfRouterAddr, err := p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch preconfirmation router: %w", err)
+	}
+	if preconfRouterAddr == rpc.ZeroAddress {
+		// No pre‑confirmation router → propose as normal.
+		p.rpc.PacayaClients.PreconfRouter = nil
+	} else {
+		// Check if the preconfirmation router is set, if so, skip proposing.
+		if p.rpc.PacayaClients.PreconfRouter == nil {
+			p.rpc.PacayaClients.PreconfRouter, err = pacayaBindings.NewPreconfRouter(preconfRouterAddr, p.rpc.L1)
+		}
+
+		fallbackPreconferAddress, err := p.rpc.PacayaClients.PreconfRouter.FallbackPreconfer(&bind.CallOpts{Context: ctx})
+		if err != nil {
+			return false, fmt.Errorf("failed to get fallback preconfer address: %w", err)
+		}
+		if fallbackPreconferAddress != p.proposerAddress && fallbackPreconferAddress != p.ProverSetAddress {
+			log.Info("Preconfirmation is activated and proposer isn't the fallback preconfer, skip proposing",
+				"time",
+				time.Now(),
+			)
+			return false, nil
+		}
+		// As a fallback proposer, need to enable preconfirmation server
+
+		if time.Since(p.l2HeadUpdatedAt) < p.FallbackTimeout {
+			log.Info("Fallback timeout not reached, skip proposing",
+				"l2HeadUpdatedAt", p.l2HeadUpdatedAt,
+				"time", time.Now(),
+				"fallbackTimeout", p.FallbackTimeout,
+			)
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
