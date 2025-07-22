@@ -27,6 +27,11 @@ import (
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
+type l2HeadUpdateInfo struct {
+	blockID   uint64
+	updatedAt time.Time
+}
+
 // Proposer keep proposing new transactions from L2 execution engine's tx pool at a fixed interval.
 type Proposer struct {
 	// configurations
@@ -52,7 +57,7 @@ type Proposer struct {
 	totalEpochs    uint64
 
 	// Fallback proposer related
-	l2HeadUpdatedAt time.Time
+	l2HeadUpdate l2HeadUpdateInfo
 
 	txmgrSelector *utils.TxMgrSelector
 
@@ -153,6 +158,7 @@ func (p *Proposer) eventLoop() {
 	defer func() {
 		p.proposingTimer.Stop()
 		l2HeadSub.Unsubscribe()
+		close(l2HeadCh)
 		p.wg.Done()
 	}()
 
@@ -172,8 +178,15 @@ func (p *Proposer) eventLoop() {
 				log.Error("Proposing operation error", "error", err)
 				continue
 			}
-		case <-l2HeadCh:
-			p.l2HeadUpdatedAt = time.Now()
+		case h := <-l2HeadCh:
+			// only update if the head is greater than the last updated head.
+			// we dont want to track reorgs, just the highest l2head seen.
+			if h.Number.Uint64() > p.l2HeadUpdate.blockID {
+				p.l2HeadUpdate = l2HeadUpdateInfo{
+					blockID:   h.Number.Uint64(),
+					updatedAt: time.Now().UTC(),
+				}
+			}
 		}
 	}
 }
@@ -466,15 +479,21 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 		// No pre‑confirmation router → propose as normal.
 		p.rpc.PacayaClients.PreconfRouter = nil
 	} else {
-		// Check if the preconfirmation router is set, if so, skip proposing.
+		// if we havent set the preconfRouter, do so now.
 		if p.rpc.PacayaClients.PreconfRouter == nil {
 			p.rpc.PacayaClients.PreconfRouter, err = pacayaBindings.NewPreconfRouter(preconfRouterAddr, p.rpc.L1)
+			if err != nil {
+				return false, fmt.Errorf("failed to create preconfirmation router: %w", err)
+			}
 		}
 
+		// check the fallback address
 		fallbackPreconferAddress, err := p.rpc.PacayaClients.PreconfRouter.FallbackPreconfer(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return false, fmt.Errorf("failed to get fallback preconfer address: %w", err)
 		}
+
+		// it needs to be either us, or the proverSet we propose through
 		if fallbackPreconferAddress != p.proposerAddress && fallbackPreconferAddress != p.ProverSetAddress {
 			log.Info("Preconfirmation is activated and proposer isn't the fallback preconfer, skip proposing",
 				"time",
@@ -482,15 +501,27 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 			)
 			return false, nil
 		}
-		// As a fallback proposer, need to enable preconfirmation server
 
-		if time.Since(p.l2HeadUpdatedAt) < p.FallbackTimeout {
+		// we need to check when the l2Head was last updated.
+		if time.Since(p.l2HeadUpdate.updatedAt.UTC()) < p.FallbackTimeout {
 			log.Info("Fallback timeout not reached, skip proposing",
-				"l2HeadUpdatedAt", p.l2HeadUpdatedAt,
-				"time", time.Now(),
+				"l2HeadUpdate", p.l2HeadUpdate.updatedAt.UTC(),
+				"now", time.Now().UTC(),
 				"fallbackTimeout", p.FallbackTimeout,
 			)
 			return false, nil
+		} else {
+			log.Info("Fallback timeout reached, proposer can propose",
+				"l2HeadUpdate", p.l2HeadUpdate.updatedAt.UTC(),
+				"now", time.Now().UTC(),
+				"fallbackTimeout", p.FallbackTimeout,
+				"blockID", p.l2HeadUpdate.blockID,
+			)
+			// reset the l2HeadUpdate to avoid proposing too often.
+			p.l2HeadUpdate = l2HeadUpdateInfo{
+				blockID:   0,
+				updatedAt: time.Now().UTC(),
+			}
 		}
 	}
 
