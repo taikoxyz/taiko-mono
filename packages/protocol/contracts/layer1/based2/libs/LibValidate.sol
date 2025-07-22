@@ -45,8 +45,8 @@ library LibValidate {
         view
         returns (I.BatchContext memory)
     {
-        // We do not check the coinbase address -- if _batch.coinbase is address(0), the driver
-        // shall use the proposer as the coinbase address.
+        // If a block's coinbase is address(0), _batch.coinbase will be used, if _batch.coinbase
+        // is address(0), the driver shall use the proposer address as the coinbase address.
 
         // Validate proposer
         _validateProposer(_config, _batch);
