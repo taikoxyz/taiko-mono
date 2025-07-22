@@ -10,17 +10,8 @@ import "./codec/LibCodecProveBatchInputs.sol";
 import "./codec/LibCodecProverAuth.sol";
 
 /// @title TaikoInbox
-/// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
-/// original Taiko-Based Contestable Rollup (BCR) but with the tier-based proof system and
-/// contestation mechanisms removed.
-///
-/// Key assumptions of this protocol:
-/// - Block proposals and proofs are asynchronous. Proofs are not available at proposal time,
-///   unlike Taiko Gwyneth, which assumes synchronous composability.
-/// - Proofs are presumed error-free and thoroughly validated, with subproofs/multiproofs management
-/// delegated to IVerifier contracts.
-///
-/// @dev Registered in the address resolver as "taiko".
+/// @dev This contract extends Inbox with specific codec implementations for encoding and decoding
+/// various protocol data structures for gas efficiency.
 /// @custom:security-contact security@taiko.xyz
 abstract contract TaikoInbox is Inbox {
     uint256[50] private __gap;
