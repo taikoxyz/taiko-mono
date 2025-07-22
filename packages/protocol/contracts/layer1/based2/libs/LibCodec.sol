@@ -426,8 +426,7 @@ library LibCodec {
     /// | gasIssuancePerSec   | 4     | uint32  | Fixed                     |
     /// | proverAuth          | var   | bytes   | 2 bytes len + data        |
     /// | signalSlots         | var   | array   | 1 byte len + 32*count     |
-    /// | anchorBlockIds      | var   | array   | 1 byte len + 6*count      |
-    /// | blocks              | var   | array   | 1 byte len + 10*count     |
+    /// | blocks              | var   | array   | 1 byte len + 31*count     |
     /// | blobs               | var   | struct  | Fixed header + hashes     |
     /// @param _batches Array of Batch structs to pack
     /// @return encoded_ The packed byte array
@@ -445,9 +444,6 @@ library LibCodec {
                 // Validate array lengths according to IInbox.sol limits
                 require(batch.proverAuth.length <= type(uint16).max, ProverAuthTooLarge());
                 require(batch.signalSlots.length <= type(uint8).max, SignalSlotsArrayTooLarge());
-                require(
-                    batch.anchorBlockIds.length <= type(uint16).max, AnchorBlockIdsArrayTooLarge()
-                );
                 require(batch.blocks.length <= type(uint16).max, BlocksArrayTooLarge());
                 require(batch.blobs.hashes.length <= 15, BlobHashesArrayTooLarge()); // type(uint4).max
 
@@ -456,10 +452,8 @@ library LibCodec {
                 totalSize += 2 + batch.proverAuth.length; // proverAuth with 2-byte length prefix
                 totalSize += 1 + (batch.signalSlots.length * 32); // signalSlots with 1-byte length
                     // prefix
-                totalSize += 2 + (batch.anchorBlockIds.length * 6); // anchorBlockIds with 2-byte
-                    // length prefix
-                totalSize += 2 + (batch.blocks.length * 10); // blocks with 2-byte length prefix
-                    // (each block is 10 bytes packed)
+                totalSize += 2 + (batch.blocks.length * 31); // blocks with 2-byte length prefix
+                    // (each block is 31 bytes packed: 2+1+1+8+20)
                 totalSize += 17; // blobs fixed part (1+1+4+4+6+1 = 17 bytes)
                 totalSize += (batch.blobs.hashes.length * 32); // blob hashes
             }
@@ -540,54 +534,50 @@ library LibCodec {
                         signalDataPtr := add(signalDataPtr, 32)
                     }
 
-                    // anchorBlockIds array
-                    let anchorBlockIds := mload(add(batch, 0xe0))
-                    let anchorBlockIdsLen := mload(anchorBlockIds)
-
-                    // Store anchorBlockIds length (2 bytes for uint16)
-                    mstore(ptr, shl(240, anchorBlockIdsLen))
-                    ptr := add(ptr, 2)
-
-                    // Copy anchorBlockIds data efficiently (6 bytes each)
-                    let anchorDataPtr := add(anchorBlockIds, 0x20)
-                    for { let j := 0 } lt(j, anchorBlockIdsLen) { j := add(j, 1) } {
-                        mstore(ptr, shl(208, mload(anchorDataPtr)))
-                        ptr := add(ptr, 6)
-                        anchorDataPtr := add(anchorDataPtr, 32)
-                    }
 
                     // blocks array
-                    let blocks := mload(add(batch, 0x100))
+                    let blocks := mload(add(batch, 0xe0))
                     let blocksLen := mload(blocks)
 
                     // Store blocks length (2 bytes for uint16)
                     mstore(ptr, shl(240, blocksLen))
                     ptr := add(ptr, 2)
 
-                    // Pack each block (10 bytes total)
+                    // Pack each block (31 bytes total)
                     for { let j := 0 } lt(j, blocksLen) { j := add(j, 1) } {
                         let blockPtr := add(blocks, mul(add(j, 1), 0x20))
                         let blockData := mload(blockPtr)
 
-                        // Use the existing packBlock function logic
+                        // Extract fields from new Block struct
                         let numTransactions := and(mload(blockData), 0xFFFF)
                         let timeShift := and(mload(add(blockData, 0x20)), 0xFF)
-                        let anchorBlockId := and(mload(add(blockData, 0x40)), 0xFFFFFFFFFFFF)
-                        let numSignals := and(mload(add(blockData, 0x60)), 0xFF)
-                        let hasAnchor := mload(add(blockData, 0x80))
+                        let numSignals := and(mload(add(blockData, 0x40)), 0xFF)
+                        let packedAnchorInfo := mload(add(blockData, 0x60)) // uint64
+                        let coinbaseAddr := mload(add(blockData, 0x80))
 
-                        let encoded := or(numTransactions, shl(16, timeShift))
-                        encoded := or(encoded, shl(24, anchorBlockId))
-                        encoded := or(encoded, shl(72, numSignals))
-                        encoded := or(encoded, shl(80, hasAnchor))
+                        // Store numTransactions (2 bytes)
+                        mstore(ptr, shl(240, numTransactions))
+                        ptr := add(ptr, 2)
 
-                        // Store 10 bytes (80 bits) of the encoded block
-                        mstore(ptr, shl(176, encoded))
-                        ptr := add(ptr, 10)
+                        // Store timeShift (1 byte)
+                        mstore8(ptr, timeShift)
+                        ptr := add(ptr, 1)
+
+                        // Store numSignals (1 byte)
+                        mstore8(ptr, numSignals)
+                        ptr := add(ptr, 1)
+
+                        // Store packedAnchorInfo (8 bytes, uint64)
+                        mstore(ptr, shl(192, packedAnchorInfo))
+                        ptr := add(ptr, 8)
+
+                        // Store coinbase address (20 bytes)
+                        mstore(ptr, shl(96, coinbaseAddr))
+                        ptr := add(ptr, 20)
                     }
 
                     // blobs structure (fixed size fields)
-                    let blobs := mload(add(batch, 0x120))
+                    let blobs := mload(add(batch, 0x100))
 
                     // firstBlobIndex (1 byte)
                     mstore8(ptr, mload(add(blobs, 0x20)))
@@ -728,15 +718,11 @@ library LibCodec {
                     ptr := add(ptr, 1)
                     ptr := add(ptr, mul(signalSlotsLen, 32))
 
-                    // Skip anchorBlockIds (2 bytes length for uint16)
-                    let anchorBlockIdsLen := shr(240, mload(ptr))
-                    ptr := add(ptr, 2)
-                    ptr := add(ptr, mul(anchorBlockIdsLen, 6))
 
                     // Skip blocks (2 bytes length for uint16)
                     let blocksLen := shr(240, mload(ptr))
                     ptr := add(ptr, 2)
-                    ptr := add(ptr, mul(blocksLen, 10))
+                    ptr := add(ptr, mul(blocksLen, 31))
 
                     // Extract blobs metadata
                     let blobs := mload(0x40)
@@ -774,9 +760,8 @@ library LibCodec {
 
                     mstore(blobs, emptyArray) // empty hashes
                     mstore(add(batch, 0xc0), emptyArray) // signalSlots
-                    mstore(add(batch, 0xe0), emptyArray) // anchorBlockIds
-                    mstore(add(batch, 0x100), emptyArray) // blocks
-                    mstore(add(batch, 0x120), blobs)
+                    mstore(add(batch, 0xe0), emptyArray) // blocks
+                    mstore(add(batch, 0x100), blobs)
 
                     offset := sub(ptr, dataPtr)
                 }
@@ -1169,7 +1154,6 @@ library LibCodec {
     // -------------------------------------------------------------------------
 
     error AnchorBlockHashesArrayTooLarge();
-    error AnchorBlockIdsArrayTooLarge();
     error ArrayTooLarge();
     error BatchProveInputsArrayTooLarge();
     error BatchesArrayTooLarge();

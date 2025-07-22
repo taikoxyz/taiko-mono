@@ -207,6 +207,7 @@ library LibValidate {
 
     /// @notice Validates anchor blocks used for L1-L2 synchronization
     /// @dev Ensures anchor blocks are properly ordered, within height limits, and have valid hashes
+    /// @dev Uses packed anchor info: bit 0 = has anchor flag, bits 1-48 = anchor block ID
     /// @param _access Read/write access functions
     /// @param _config Protocol configuration
     /// @param _batch The batch being validated
@@ -230,11 +231,12 @@ library LibValidate {
         bool hasAnchorBlock;
 
         for (uint256 i; i < _batch.blocks.length; ++i) {
-            if (!_batch.blocks[i].hasAnchor) continue;
+            // Extract has anchor flag from bit 0 of packedAnchorInfo
+            bool hasAnchor = (_batch.blocks[i].packedAnchorInfo & 1) != 0;
+            if (!hasAnchor) continue;
 
-            require(anchorIndex < _batch.anchorBlockIds.length, NotEnoughAnchorIds());
-
-            uint48 anchorBlockId = _batch.anchorBlockIds[anchorIndex];
+            // Extract anchor block ID from bits 1-48 of packedAnchorInfo
+            uint48 anchorBlockId = uint48(_batch.blocks[i].packedAnchorInfo >> 1);
             require(anchorBlockId != 0, AnchorIdZero());
 
             require(

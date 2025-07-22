@@ -51,7 +51,6 @@ library LibData {
                 blobByteSize: _batch.blobs.byteSize,
                 lastBlockId: _context.lastBlockId,
                 lastBlockTimestamp: _batch.lastBlockTimestamp,
-                anchorBlockIds: _batch.anchorBlockIds,
                 anchorBlockHashes: _context.anchorBlockHashes,
                 blocks: _batch.blocks
             }),

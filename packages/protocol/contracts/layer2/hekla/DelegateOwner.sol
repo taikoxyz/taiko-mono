@@ -11,7 +11,7 @@ import "src/shared/bridge/IBridge.sol";
 /// @notice This contract will be the owner of all essential contracts deployed on the L2 chain.
 /// @dev Notice that when sending the message on the owner chain, the gas limit of the message must
 /// not be zero, so on this chain, some EOA can help execute this transaction.
-/// @dev This contract is used by Hekla and can be upgraded to DelegateController.
+/// @dev This contract is used by Hekla but not mainnet and has been deprecated.
 /// @custom:security-contact security@taiko.xyz
 contract DelegateOwner is EssentialContract, IMessageInvocable {
     address public immutable l2Bridge;

@@ -26,7 +26,6 @@ contract LibCodecBatchTest is Test {
         // Create minimal batch for testing
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
@@ -38,7 +37,6 @@ contract LibCodecBatchTest is Test {
             isForcedInclusion: true,
             proverAuth: emptyAuth,
             signalSlots: emptySlots,
-            anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -68,7 +66,6 @@ contract LibCodecBatchTest is Test {
         // Create batch with non-empty proverAuth
         bytes memory proverAuth = abi.encodePacked("test", "auth", "data");
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
@@ -80,7 +77,6 @@ contract LibCodecBatchTest is Test {
             isForcedInclusion: false,
             proverAuth: proverAuth,
             signalSlots: emptySlots,
-            anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -114,7 +110,6 @@ contract LibCodecBatchTest is Test {
 
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
@@ -127,8 +122,7 @@ contract LibCodecBatchTest is Test {
                 isForcedInclusion: i % 2 == 0,
                 proverAuth: emptyAuth,
                 signalSlots: emptySlots,
-                anchorBlockIds: emptyBlockIds,
-                blocks: emptyBlocks,
+                    blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
                     hashes: emptyHashes,
                     firstBlobIndex: uint8(i + 1),
@@ -161,7 +155,6 @@ contract LibCodecBatchTest is Test {
 
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
@@ -174,8 +167,7 @@ contract LibCodecBatchTest is Test {
                 isForcedInclusion: false,
                 proverAuth: emptyAuth,
                 signalSlots: emptySlots,
-                anchorBlockIds: emptyBlockIds,
-                blocks: emptyBlocks,
+                    blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
                     hashes: emptyHashes,
                     firstBlobIndex: 0,
@@ -198,7 +190,6 @@ contract LibCodecBatchTest is Test {
 
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
@@ -211,8 +202,7 @@ contract LibCodecBatchTest is Test {
                 isForcedInclusion: false,
                 proverAuth: emptyAuth,
                 signalSlots: emptySlots,
-                anchorBlockIds: emptyBlockIds,
-                blocks: emptyBlocks,
+                    blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
                     hashes: emptyHashes,
                     firstBlobIndex: 0,
@@ -245,7 +235,6 @@ contract LibCodecBatchTest is Test {
         bytes memory largeProverAuth = new bytes(65_536); // One byte too large
 
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
@@ -257,7 +246,6 @@ contract LibCodecBatchTest is Test {
             isForcedInclusion: true,
             proverAuth: largeProverAuth,
             signalSlots: emptySlots,
-            anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -281,7 +269,6 @@ contract LibCodecBatchTest is Test {
         bytes32[] memory largeSignalSlots = new bytes32[](256);
 
         bytes memory emptyAuth = new bytes(0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
@@ -293,7 +280,6 @@ contract LibCodecBatchTest is Test {
             isForcedInclusion: true,
             proverAuth: emptyAuth,
             signalSlots: largeSignalSlots,
-            anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -309,40 +295,6 @@ contract LibCodecBatchTest is Test {
         LibCodec.packBatches(batches);
     }
 
-    function test_packBatches_revertAnchorBlockIdsArrayTooLarge() public {
-        IInbox.Batch[] memory batches = new IInbox.Batch[](1);
-
-        // Create anchorBlockIds array that's too large for uint16 (65536 > 65535)
-        uint48[] memory largeAnchorBlockIds = new uint48[](65_536);
-
-        bytes memory emptyAuth = new bytes(0);
-        bytes32[] memory emptySlots = new bytes32[](0);
-        IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
-        bytes32[] memory emptyHashes = new bytes32[](0);
-
-        batches[0] = IInbox.Batch({
-            proposer: address(0x1111),
-            coinbase: address(0x2222),
-            lastBlockTimestamp: 123_456,
-            gasIssuancePerSecond: 789,
-            isForcedInclusion: true,
-            proverAuth: emptyAuth,
-            signalSlots: emptySlots,
-            anchorBlockIds: largeAnchorBlockIds,
-            blocks: emptyBlocks,
-            blobs: IInbox.Blobs({
-                hashes: emptyHashes,
-                firstBlobIndex: 1,
-                numBlobs: 2,
-                byteOffset: 3,
-                byteSize: 4,
-                createdIn: 5
-            })
-        });
-
-        vm.expectRevert(LibCodec.AnchorBlockIdsArrayTooLarge.selector);
-        LibCodec.packBatches(batches);
-    }
 
     function test_packBatches_revertBlocksArrayTooLarge() public {
         // Test that the function properly validates array size limits
@@ -355,7 +307,6 @@ contract LibCodecBatchTest is Test {
 
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
         // Create an empty blocks array first
@@ -369,7 +320,6 @@ contract LibCodecBatchTest is Test {
             isForcedInclusion: true,
             proverAuth: emptyAuth,
             signalSlots: emptySlots,
-            anchorBlockIds: emptyBlockIds,
             blocks: blocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -400,7 +350,6 @@ contract LibCodecBatchTest is Test {
 
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
 
         batches[0] = IInbox.Batch({
@@ -411,7 +360,6 @@ contract LibCodecBatchTest is Test {
             isForcedInclusion: true,
             proverAuth: emptyAuth,
             signalSlots: emptySlots,
-            anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: largeBlobHashes,
@@ -432,7 +380,6 @@ contract LibCodecBatchTest is Test {
 
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
@@ -445,7 +392,6 @@ contract LibCodecBatchTest is Test {
             isForcedInclusion: true,
             proverAuth: emptyAuth,
             signalSlots: emptySlots,
-            anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -466,7 +412,6 @@ contract LibCodecBatchTest is Test {
             isForcedInclusion: false,
             proverAuth: emptyAuth,
             signalSlots: emptySlots,
-            anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -497,7 +442,6 @@ contract LibCodecBatchTest is Test {
 
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
@@ -510,8 +454,7 @@ contract LibCodecBatchTest is Test {
                 isForcedInclusion: i % 2 == 0,
                 proverAuth: emptyAuth,
                 signalSlots: emptySlots,
-                anchorBlockIds: emptyBlockIds,
-                blocks: emptyBlocks,
+                    blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
                     hashes: emptyHashes,
                     firstBlobIndex: uint8(i),
@@ -541,7 +484,6 @@ contract LibCodecBatchTest is Test {
 
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
@@ -554,8 +496,7 @@ contract LibCodecBatchTest is Test {
                 isForcedInclusion: i % 2 == 0,
                 proverAuth: emptyAuth,
                 signalSlots: emptySlots,
-                anchorBlockIds: emptyBlockIds,
-                blocks: emptyBlocks,
+                    blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
                     hashes: emptyHashes,
                     firstBlobIndex: uint8(i),
@@ -609,7 +550,6 @@ contract LibCodecBatchTest is Test {
         }
 
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
@@ -621,7 +561,6 @@ contract LibCodecBatchTest is Test {
             isForcedInclusion: true,
             proverAuth: maxAuth,
             signalSlots: emptySlots,
-            anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -650,7 +589,6 @@ contract LibCodecBatchTest is Test {
 
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
@@ -662,7 +600,6 @@ contract LibCodecBatchTest is Test {
             isForcedInclusion: false,
             proverAuth: emptyAuth,
             signalSlots: emptySlots,
-            anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -699,7 +636,6 @@ contract LibCodecBatchTest is Test {
 
         bytes memory emptyAuth = new bytes(0);
         bytes32[] memory emptySlots = new bytes32[](0);
-        uint48[] memory emptyBlockIds = new uint48[](0);
         IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
 
@@ -711,7 +647,6 @@ contract LibCodecBatchTest is Test {
             isForcedInclusion: isForcedInclusion,
             proverAuth: emptyAuth,
             signalSlots: emptySlots,
-            anchorBlockIds: emptyBlockIds,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,

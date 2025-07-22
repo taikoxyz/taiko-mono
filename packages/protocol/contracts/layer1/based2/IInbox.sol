@@ -9,6 +9,8 @@ pragma solidity ^0.8.24;
 interface IInbox {
     /// @notice Represents a block within a batch
     /// @dev Contains block-specific parameters and anchor information
+    /// @dev Uses bit packing: coinbase non-zero = use coinbase, otherwise use batch coinbase
+    /// @dev Anchor info packed in single field: bit 0 = has anchor, bits 1-48 = anchor block ID
     struct Block {
         /// @notice Maximum number of transactions in this block
         /// @dev If insufficient transactions in calldata/blobs, block contains as many as possible
@@ -16,12 +18,14 @@ interface IInbox {
         /// @notice Time difference in seconds between this block and its parent within the batch
         /// @dev For the first block in a batch, this should be 0 (no parent in same batch)
         uint8 timeShift;
-        /// @notice Optional anchor block ID for L1-L2 synchronization
-        uint48 anchorBlockId;
         /// @notice Number of cross-chain signals in this block
         uint8 numSignals;
-        /// @notice Whether this block references an anchor block
-        bool hasAnchor;
+        /// @notice Packed anchor info: bit 0 = has anchor flag, bits 1-48 = anchor block ID
+        /// @dev If bit 0 is 0, no anchor block ID. If bit 0 is 1, bits 1-48 contain anchor block ID
+        uint64 packedAnchorInfo;
+        /// @notice Coinbase address for this block
+        /// @dev If zero, use the batch's coinbase address
+        address coinbase;
     }
 
     /// @notice Contains blob data for a batch
@@ -41,6 +45,7 @@ interface IInbox {
         /// @notice Block number when blobs were created (only for forced inclusion)
         /// @dev Non-zero only when hashes array is used
         uint48 createdIn;
+      
     }
 
     /// @notice Represents a batch of blocks to be proposed
@@ -60,8 +65,6 @@ interface IInbox {
         bytes proverAuth; // length <= type(uint16).max
         /// @notice Signal slots for cross-chain messages
         bytes32[] signalSlots; // length <= type(uint8).max
-        /// @notice Anchor block IDs for L1-L2 synchronization
-        uint48[] anchorBlockIds; // length <= type(uint16).max
         /// @notice Array of blocks in this batch
         Block[] blocks; // length <= type(uint16).max
         /// @notice Blob data for this batch
@@ -133,8 +136,6 @@ interface IInbox {
         uint48 lastBlockId;
         /// @notice Timestamp of the last block in this batch
         uint48 lastBlockTimestamp;
-        /// @notice Array of anchor block IDs for L1-L2 synchronization
-        uint48[] anchorBlockIds; // length <= type(uint16).max
         /// @notice Hashes of anchor blocks for verification
         bytes32[] anchorBlockHashes; // length <= type(uint16).max
         /// @notice Array of blocks contained in this batch

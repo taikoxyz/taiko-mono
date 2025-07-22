@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm test:*)",
+      "Bash(pnpm compile:*)",
+      "Bash(forge test:*)"
+    ],
+    "deny": []
+  }
+}
