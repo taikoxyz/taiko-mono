@@ -488,7 +488,11 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 		}
 
 		// check the fallback address
-		fallbackPreconferAddress, err := p.rpc.PacayaClients.PreconfRouter.FallbackPreconfer(&bind.CallOpts{Context: ctx})
+		fallbackPreconferAddress, err := p.rpc.PacayaClients.PreconfRouter.FallbackPreconfer(
+			&bind.CallOpts{
+				Context: ctx,
+			},
+		)
 		if err != nil {
 			return false, fmt.Errorf("failed to get fallback preconfer address: %w", err)
 		}
