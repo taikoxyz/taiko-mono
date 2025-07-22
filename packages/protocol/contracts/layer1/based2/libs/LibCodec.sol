@@ -441,38 +441,57 @@ library LibCodec {
             for (uint256 i; i < length; ++i) {
                 I.Batch memory batch = _batches[i];
 
-                // Validate array lengths according to IInbox.sol limits
+                /// @dev Validate array lengths according to IInbox.sol struct limits
+                /// @dev proverAuth length must not exceed uint16 maximum (65,535 bytes)
                 require(batch.proverAuth.length <= type(uint16).max, ProverAuthTooLarge());
+                /// @dev blocks array length must not exceed uint16 maximum (65,535 blocks)
                 require(batch.blocks.length <= type(uint16).max, BlocksArrayTooLarge());
 
-                // Validate signalSlots for each block
+                /// @dev Validate signalSlots array length for each block
                 for (uint256 j; j < batch.blocks.length; ++j) {
+                    /// @dev Each block's signalSlots length must not exceed uint8 maximum (255
+                    /// slots)
                     require(
                         batch.blocks[j].signalSlots.length <= type(uint8).max,
                         SignalSlotsArrayTooLarge()
                     );
                 }
-                require(batch.blobs.hashes.length <= 15, BlobHashesArrayTooLarge()); // type(uint4).max
+                /// @dev Blob hashes array length must not exceed 15 (4-bit maximum for efficient
+                /// packing)
+                require(batch.blobs.hashes.length <= 15, BlobHashesArrayTooLarge());
 
-                // Calculate size for each batch component
-                totalSize += 51; // Fixed fields (20+20+7+4)
-                totalSize += 2 + batch.proverAuth.length; // proverAuth with 2-byte length prefix
-                totalSize += 2; // blocks length prefix (2 bytes)
+                /// @dev Calculate total encoded size for each batch component
+                /// @dev Fixed fields: proposer(20) + coinbase(20) + timestamp+forced(7) +
+                /// gasIssuance(4) = 51 bytes
+                totalSize += 51;
+                /// @dev ProverAuth: 2-byte length prefix + variable-length auth data
+                totalSize += 2 + batch.proverAuth.length;
+                /// @dev Blocks array: 2-byte length prefix for uint16 block count
+                totalSize += 2;
 
-                // Calculate size for each block (now includes signalSlots)
+                /// @dev Calculate variable size for each block based on optimization flags
                 for (uint256 j; j < batch.blocks.length; ++j) {
-                    totalSize += 24; // fixed block fields (2+1+1+20 = 24 bytes:
-                        // numTransactions+timeShift+anchorFlag+coinbase)
-                    // Add anchorBlockId bytes if non-zero (6 bytes for uint48)
+                    /// @dev Base block fields: numTransactions(2) + timeShift(1) + anchorFlag(1) +
+                    /// coinbaseFlag(1) = 5 bytes
+                    totalSize += 5;
+                    /// @dev Optional anchorBlockId: add 6 bytes for uint48 when non-zero
                     if (batch.blocks[j].anchorBlockId != 0) {
                         totalSize += 6;
                     }
-                    totalSize += 1 + (batch.blocks[j].signalSlots.length * 32); // signalSlots with
-                        // 1-byte length prefix
+                    /// @dev Optimized coinbase encoding: add 20 bytes only when different from
+                    /// batch coinbase
+                    if (batch.blocks[j].coinbase != batch.coinbase) {
+                        totalSize += 20;
+                    }
+                    /// @dev SignalSlots: 1-byte length prefix + 32 bytes per slot
+                    totalSize += 1 + (batch.blocks[j].signalSlots.length * 32);
                 }
 
-                totalSize += 17; // blobs fixed part (1+1+4+4+6+1 = 17 bytes)
-                totalSize += (batch.blobs.hashes.length * 32); // blob hashes
+                /// @dev Blobs fixed metadata: firstBlobIndex(1) + numBlobs(1) + byteOffset(4) +
+                /// byteSize(4) + createdIn(6) + hashesLength(1) = 17 bytes
+                totalSize += 17;
+                /// @dev Blob hashes: 32 bytes per hash
+                totalSize += (batch.blobs.hashes.length * 32);
             }
 
             encoded_ = new bytes(totalSize);
@@ -480,27 +499,28 @@ library LibCodec {
             assembly {
                 let ptr := add(encoded_, 0x20)
 
-                // Store array length (1 byte)
+                /// @dev Store batch array length as single byte (max 255 batches)
                 mstore(ptr, shl(248, length))
                 ptr := add(ptr, 1)
 
-                // Pack each batch
+                /// @dev Iterate through each batch for encoding
                 for { let i := 0 } lt(i, length) { i := add(i, 1) } {
                     let batch := mload(add(_batches, mul(add(i, 1), 0x20)))
 
-                    // Pack fixed fields efficiently
-                    // proposer (20 bytes) - left-aligned
+                    /// @dev Pack batch fixed fields with optimal alignment
+                    /// @dev Proposer address: 20 bytes, left-aligned in 32-byte word
                     mstore(ptr, shl(96, mload(batch)))
-                    // coinbase (20 bytes) - left-aligned
+                    /// @dev Coinbase address: 20 bytes, left-aligned in 32-byte word
                     mstore(add(ptr, 20), shl(96, mload(add(batch, 0x20))))
 
-                    // Pack timestamp (48 bits) + forced flag (1 bit) in 7 bytes
+                    /// @dev Pack timestamp (48 bits) + forced inclusion flag (1 bit) efficiently in
+                    /// 7 bytes
                     let blockTimestamp := mload(add(batch, 0x40))
                     let isForcedInclusion := mload(add(batch, 0x80))
                     let combined := or(blockTimestamp, shl(48, isForcedInclusion))
                     mstore(add(ptr, 40), shl(200, combined))
 
-                    // gasIssuancePerSecond (4 bytes)
+                    /// @dev Gas issuance rate: uint32 packed in 4 bytes
                     mstore(add(ptr, 47), shl(224, mload(add(batch, 0x60))))
 
                     ptr := add(ptr, 51)
@@ -579,9 +599,25 @@ library LibCodec {
                             ptr := add(ptr, 6)
                         }
 
-                        // Store coinbase address (20 bytes)
-                        mstore(ptr, shl(96, coinbaseAddr))
-                        ptr := add(ptr, 20)
+                        /// @dev Implement 1-bit coinbase encoding optimization
+                        /// @dev Load batch coinbase for comparison with block coinbase
+                        let batchCoinbase := mload(add(batch, 0x20))
+
+                        /// @dev Optimize coinbase storage based on equality check
+                        switch eq(coinbaseAddr, batchCoinbase)
+                        case 1 {
+                            /// @dev Flag 0: Block uses batch coinbase (saves 19 bytes per block)
+                            mstore8(ptr, 0)
+                            ptr := add(ptr, 1)
+                        }
+                        case 0 {
+                            /// @dev Flag 1: Block uses custom coinbase, store flag + 20-byte
+                            /// address
+                            mstore8(ptr, 1)
+                            ptr := add(ptr, 1)
+                            mstore(ptr, shl(96, coinbaseAddr))
+                            ptr := add(ptr, 20)
+                        }
 
                         // Store signalSlots array
                         let signalSlotsLen := mload(signalSlots)
@@ -751,7 +787,10 @@ library LibCodec {
                         if gt(anchorFlag, 0) { ptr := add(ptr, 6) } // anchorBlockId (6 bytes for
                             // uint48)
 
-                        ptr := add(ptr, 20) // coinbase address
+                        // Skip coinbase (variable size: 1 byte flag + optional 20 bytes)
+                        let coinbaseFlag := and(mload(ptr), 0xFF)
+                        ptr := add(ptr, 1)
+                        if gt(coinbaseFlag, 0) { ptr := add(ptr, 20) } // custom coinbase address
 
                         // Skip signalSlots
                         let signalSlotsLen := and(mload(ptr), 0xFF)
@@ -796,6 +835,240 @@ library LibCodec {
                     mstore(blobs, emptyArray) // empty hashes
                     // No longer storing batch-level signalSlots (moved to blocks)
                     mstore(add(batch, 0xc0), emptyArray) // blocks
+                    mstore(add(batch, 0xe0), blobs)
+
+                    offset := sub(ptr, dataPtr)
+                }
+
+                batches_[i] = batch;
+            }
+        }
+    }
+
+    /// @notice Unpacks batches with full block details including optimized coinbase decoding
+    /// @dev This function fully decodes all block data including coinbase addresses
+    /// @param _encoded The packed byte array to unpack
+    /// @return batches_ Array of fully decoded Batch structs
+    function unpackBatchesWithBlocks(bytes memory _encoded)
+        internal
+        pure
+        returns (I.Batch[] memory batches_)
+    {
+        require(_encoded.length >= 1, InvalidDataLength());
+
+        unchecked {
+            uint256 offset;
+            uint256 length;
+
+            assembly {
+                let dataPtr := add(_encoded, 0x20)
+                length := shr(248, mload(dataPtr))
+                offset := 1
+            }
+
+            batches_ = new I.Batch[](length);
+
+            for (uint256 i; i < length; ++i) {
+                I.Batch memory batch;
+
+                assembly {
+                    let dataPtr := add(_encoded, 0x20)
+                    let ptr := add(dataPtr, offset)
+
+                    // Allocate memory for batch
+                    batch := mload(0x40)
+                    mstore(0x40, add(batch, 0x140))
+
+                    // proposer (20 bytes)
+                    mstore(batch, shr(96, mload(ptr)))
+                    ptr := add(ptr, 20)
+
+                    // coinbase (20 bytes)
+                    mstore(add(batch, 0x20), shr(96, mload(ptr)))
+                    ptr := add(ptr, 20)
+
+                    // lastBlockTimestamp (48 bits) + isForcedInclusion (1 bit) from 7 bytes
+                    let combined := shr(200, mload(ptr))
+                    let blockTimestamp := and(combined, 0xFFFFFFFFFFFF) // Extract lower 48 bits
+                    let isForcedInclusion := shr(48, combined) // Extract bit 48
+                    mstore(add(batch, 0x40), blockTimestamp)
+                    mstore(add(batch, 0x80), isForcedInclusion)
+                    ptr := add(ptr, 7)
+
+                    // gasIssuancePerSecond (4 bytes)
+                    mstore(add(batch, 0x60), shr(224, mload(ptr)))
+                    ptr := add(ptr, 4)
+
+                    offset := sub(ptr, dataPtr)
+                }
+
+                // Extract proverAuth
+                uint256 proverAuthLen;
+                assembly {
+                    let dataPtr := add(_encoded, 0x20)
+                    let ptr := add(dataPtr, offset)
+                    proverAuthLen := shr(240, mload(ptr))
+                    offset := add(offset, 2)
+                }
+
+                bytes memory proverAuth = new bytes(proverAuthLen);
+                assembly {
+                    let dataPtr := add(_encoded, 0x20)
+                    let src := add(dataPtr, offset)
+                    let dest := add(proverAuth, 0x20)
+
+                    let remaining := proverAuthLen
+                    for { } gt(remaining, 0) { } {
+                        let chunk := mload(src)
+                        mstore(dest, chunk)
+                        let copySize := 32
+                        if lt(remaining, 32) { copySize := remaining }
+                        src := add(src, 32)
+                        dest := add(dest, 32)
+                        remaining := sub(remaining, copySize)
+                    }
+
+                    offset := add(offset, proverAuthLen)
+                    mstore(add(batch, 0xa0), proverAuth)
+                }
+
+                // Extract blocks with full decoding including coinbase optimization
+                uint256 blocksLen;
+                assembly {
+                    let dataPtr := add(_encoded, 0x20)
+                    let ptr := add(dataPtr, offset)
+
+                    // Read blocks length (2 bytes for uint16)
+                    blocksLen := shr(240, mload(ptr))
+                    ptr := add(ptr, 2)
+                    offset := sub(ptr, dataPtr)
+                }
+
+                I.Block[] memory blocks = new I.Block[](blocksLen);
+                address batchCoinbase = batch.coinbase;
+
+                for (uint256 j; j < blocksLen; ++j) {
+                    I.Block memory blockData;
+
+                    assembly {
+                        let dataPtr := add(_encoded, 0x20)
+                        let ptr := add(dataPtr, offset)
+
+                        // Allocate memory for block
+                        blockData := mload(0x40)
+                        mstore(0x40, add(blockData, 0xa0))
+
+                        // numTransactions (2 bytes)
+                        mstore(blockData, shr(240, mload(ptr)))
+                        ptr := add(ptr, 2)
+
+                        // timeShift (1 byte)
+                        mstore(add(blockData, 0x20), byte(0, mload(ptr)))
+                        ptr := add(ptr, 1)
+
+                        // Read anchor flag and conditional anchorBlockId
+                        let anchorFlag := and(mload(ptr), 0xFF)
+                        ptr := add(ptr, 1)
+
+                        if eq(anchorFlag, 0) { mstore(add(blockData, 0x40), 0) } // anchorBlockId =
+                            // 0
+
+                        if gt(anchorFlag, 0) {
+                            mstore(add(blockData, 0x40), shr(208, mload(ptr))) // anchorBlockId (6
+                                // bytes)
+                            ptr := add(ptr, 6)
+                        }
+
+                        /// @dev Decode coinbase using 1-bit optimization flag
+                        let coinbaseFlag := and(mload(ptr), 0xFF)
+                        ptr := add(ptr, 1)
+
+                        /// @dev Apply coinbase decoding based on optimization flag
+                        switch coinbaseFlag
+                        case 0 {
+                            /// @dev Flag 0: Use batch coinbase (space-efficient)
+                            mstore(add(blockData, 0x60), batchCoinbase)
+                        }
+                        default {
+                            /// @dev Flag 1: Read custom 20-byte coinbase address
+                            mstore(add(blockData, 0x60), shr(96, mload(ptr)))
+                            ptr := add(ptr, 20)
+                        }
+
+                        offset := sub(ptr, dataPtr)
+                    }
+
+                    // Extract signalSlots array
+                    uint256 signalSlotsLen;
+                    assembly {
+                        let dataPtr := add(_encoded, 0x20)
+                        let ptr := add(dataPtr, offset)
+
+                        signalSlotsLen := and(mload(ptr), 0xFF)
+                        ptr := add(ptr, 1)
+                        offset := sub(ptr, dataPtr)
+                    }
+
+                    bytes32[] memory signalSlots = new bytes32[](signalSlotsLen);
+                    assembly {
+                        let dataPtr := add(_encoded, 0x20)
+                        let ptr := add(dataPtr, offset)
+                        let signalSlotsPtr := add(signalSlots, 0x20)
+
+                        for { let k := 0 } lt(k, signalSlotsLen) { k := add(k, 1) } {
+                            mstore(add(signalSlotsPtr, mul(k, 32)), mload(ptr))
+                            ptr := add(ptr, 32)
+                        }
+
+                        offset := add(offset, mul(signalSlotsLen, 32))
+                    }
+
+                    blockData.signalSlots = signalSlots;
+                    blocks[j] = blockData;
+                }
+
+                batch.blocks = blocks;
+
+                // Extract remaining blobs data (same as original unpackBatches)
+                assembly {
+                    let dataPtr := add(_encoded, 0x20)
+                    let ptr := add(dataPtr, offset)
+
+                    // Extract blobs metadata
+                    let blobs := mload(0x40)
+                    mstore(0x40, add(blobs, 0xc0))
+
+                    // firstBlobIndex (1 byte)
+                    mstore(add(blobs, 0x20), byte(0, mload(ptr)))
+                    ptr := add(ptr, 1)
+
+                    // numBlobs (1 byte)
+                    mstore(add(blobs, 0x40), byte(0, mload(ptr)))
+                    ptr := add(ptr, 1)
+
+                    // byteOffset (4 bytes)
+                    mstore(add(blobs, 0x60), shr(224, mload(ptr)))
+                    ptr := add(ptr, 4)
+
+                    // byteSize (4 bytes)
+                    mstore(add(blobs, 0x80), shr(224, mload(ptr)))
+                    ptr := add(ptr, 4)
+
+                    // createdIn (6 bytes)
+                    mstore(add(blobs, 0xa0), shr(208, mload(ptr)))
+                    ptr := add(ptr, 6)
+
+                    // Skip blob hashes for now (could be extracted if needed)
+                    let hashesLen := shr(248, mload(ptr))
+                    ptr := add(ptr, 1)
+                    ptr := add(ptr, mul(hashesLen, 32))
+
+                    // Create empty arrays for hashes
+                    let emptyArray := mload(0x40)
+                    mstore(emptyArray, 0)
+                    mstore(0x40, add(emptyArray, 0x20))
+
+                    mstore(blobs, emptyArray) // empty hashes
                     mstore(add(batch, 0xe0), blobs)
 
                     offset := sub(ptr, dataPtr)

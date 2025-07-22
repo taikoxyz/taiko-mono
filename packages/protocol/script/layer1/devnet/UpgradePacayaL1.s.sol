@@ -29,7 +29,7 @@ import "src/layer1/devnet/DevnetInbox.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
-import { Bridge } from "../../../contracts/shared/bridge/Bridge.sol";
+import { Bridge } from "contracts/shared/bridge/Bridge.sol";
 
 contract UpgradePacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
