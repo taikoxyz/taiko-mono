@@ -127,7 +127,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
           const l2Block = await providerL2.getBlock(Number(blockId));
           l2TxCount = l2Block.transactions.length;
-          console.log(`Fetching L2 block ${blockId}, number of transations ${l2Block.transactions.length} for batch ${batchId}...`);
+          console.log(`Fetching L2 block ${blockId}, number of transactions ${l2Block.transactions.length} for batch ${batchId}...`);
 
           const receipts = await providerL2.send("eth_getBlockReceipts", [l2Block.hash]);
           const baseFeePerGas = BigInt(l2Block.baseFeePerGas.toString());

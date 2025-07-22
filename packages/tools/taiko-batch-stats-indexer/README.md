@@ -93,7 +93,7 @@ THe example log of `batches-proposed-index.js`
 ```
 BondDebited - user: 0x68d30f47F19c07bCCEf4Ac7FAE2Dc12FCa3e0dC9, amount: 125000000000000000000
 anchorBlockId: 22710658, batchId: 1207978, lastBlockId: 1207978, number of blocks: 1
-Fetching L2 block 1207978, number of transations 457 for batch 1207978...
+Fetching L2 block 1207978, number of transactions 457 for batch 1207978...
 Tx Block 1207978 cumulative tips so far: 0.0003921037806939977 ETH, base fees: 0.0002230709500000006 ETH, l2TxCount: 457
 ```
 
