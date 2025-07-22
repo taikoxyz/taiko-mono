@@ -24,7 +24,7 @@ const erc20ABI = `[{"constant":true,"inputs":[],"name":"symbol","outputs":[{"nam
 // nolint: lll
 const transferEventABI = `[{"anonymous":false,"inputs":[{"indexed":true,"name":"from","type":"address"},{"indexed":true,"name":"to","type":"address"},{"indexed":false,"name":"value","type":"uint256"}],"name":"Transfer","type":"event"}]`
 
-// indexERc20Transfers indexes from a given starting block to a given end block and parses all event logs
+// indexERC20Transfers indexes from a given starting block to a given end block and parses all event logs
 // to find ERC20 transfer events and update balances
 func (i *Indexer) indexERC20Transfers(
 	ctx context.Context,

@@ -150,6 +150,7 @@ func createExecutionPayloads(
 		"extraData", common.Bytes2Hex(attributes.BlockMetadata.ExtraData),
 		"l1OriginHeight", attributes.L1Origin.L1BlockHeight,
 		"l1OriginHash", attributes.L1Origin.L1BlockHash,
+		"signature", common.Bytes2Hex(attributes.L1Origin.Signature[:]),
 	)
 
 	// Step 1, prepare a payload
@@ -529,9 +530,11 @@ func updateL1OriginForBatch(
 				return fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
 			}
 			// If L1Origin is not found, it means this block is synced from beacon sync,
-			// and we also won't set the `BuildPayloadArgsID` value.
+			// and we also won't set the `BuildPayloadArgsID` value and related fields.
 			if originalL1Origin != nil {
 				l1Origin.BuildPayloadArgsID = originalL1Origin.BuildPayloadArgsID
+				l1Origin.Signature = originalL1Origin.Signature
+				l1Origin.IsForcedInclusion = originalL1Origin.IsForcedInclusion
 			}
 
 			if _, err := rpc.L2Engine.UpdateL1Origin(ctx, l1Origin); err != nil {

@@ -34,7 +34,7 @@ type ComposeProofProducer struct {
 	Verifiers           map[ProofType]common.Address
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
-	JWT                 string // JWT provided by Raiko
+	ApiKey              string // ApiKey provided by Raiko
 	SgxGethProducer     *SgxGethProofProducer
 	ProofType           ProofType
 	Dummy               bool
@@ -225,7 +225,7 @@ func (s *ComposeProofProducer) requestBatchProof(
 	output, err := requestHTTPProof[RaikoRequestProofBodyV3Pacaya, RaikoRequestProofBodyResponseV2](
 		ctx,
 		s.RaikoHostEndpoint+"/v3/proof/batch",
-		s.JWT,
+		s.ApiKey,
 		RaikoRequestProofBodyV3Pacaya{
 			Type:      proofType,
 			Batches:   batches,

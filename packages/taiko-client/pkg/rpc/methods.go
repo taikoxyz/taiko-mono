@@ -915,7 +915,17 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	return c.PacayaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
+	proposer, err := c.PacayaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator: %w", err)
+	}
+
+	opInfo, err := c.PacayaClients.PreconfWhitelist.Operators(opts, proposer)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
+	}
+
+	return opInfo.SequencerAddress, nil
 }
 
 // GetNextPreconfWhiteListOperator resolves the next preconfirmation whitelist operator address.
@@ -931,7 +941,17 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	return c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
+	proposer, err := c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator: %w", err)
+	}
+
+	opInfo, err := c.PacayaClients.PreconfWhitelist.Operators(opts, proposer)
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
+	}
+
+	return opInfo.SequencerAddress, nil
 }
 
 // GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address.

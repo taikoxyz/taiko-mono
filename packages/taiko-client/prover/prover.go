@@ -140,7 +140,6 @@ func InitFromConfig(
 		p.cfg.TaikoInboxAddress,
 		p.cfg.ProverSetAddress,
 	)
-
 	if txMgr != nil {
 		p.txmgr = txMgr
 	} else {
