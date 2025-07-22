@@ -43,6 +43,8 @@ type Proposer struct {
 	// Private keys and account addresses
 	proposerAddress common.Address
 
+	preconfRouterAddress common.Address
+
 	proposingTimer *time.Timer
 
 	// Transaction builder
@@ -148,6 +150,18 @@ func (p *Proposer) InitFromConfig(
 
 // Start starts the proposer's main loop.
 func (p *Proposer) Start() error {
+	// get chain head and set it  to start off in case there is no new L2Heads incoming
+	// for the detection of the fallback preconfer to propose.
+	head, err := p.rpc.L2.HeaderByNumber(p.ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get L2 head: %w", err)
+	}
+
+	p.l2HeadUpdate = l2HeadUpdateInfo{
+		blockID:   head.Number.Uint64(),
+		updatedAt: time.Now().UTC(),
+	}
+
 	p.wg.Add(1)
 	go p.eventLoop()
 	return nil
@@ -266,7 +280,9 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		return fmt.Errorf("failed to wait until L2 execution engine synced: %w", err)
 	}
 
-	if ok, err := p.shouldPropose(ctx); err != nil {
+	ok, err := p.shouldPropose(ctx)
+
+	if err != nil {
 		return fmt.Errorf("failed to check if proposer should propose: %w", err)
 	} else if !ok {
 		log.Info("Proposer is not allowed to propose at this time, skipping")
@@ -385,7 +401,14 @@ func (p *Proposer) ProposeTxListPacaya(
 	}
 
 	// Build the transaction to propose batch.
-	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetaHash)
+	txCandidate, err := p.txBuilder.BuildPacaya(
+		ctx,
+		txBatch,
+		forcedInclusion,
+		minTxsPerForcedInclusion,
+		parentMetaHash,
+		p.preconfRouterAddress,
+	)
 	if err != nil {
 		log.Warn("Failed to build TaikoInbox.proposeBatch transaction", "error", encoding.TryParsingCustomError(err))
 		return err
