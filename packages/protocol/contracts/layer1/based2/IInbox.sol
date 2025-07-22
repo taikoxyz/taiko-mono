@@ -20,6 +20,9 @@ interface IInbox {
         uint48 anchorBlockId;
         /// @notice Signal slots for cross-chain messages
         bytes32[] signalSlots;
+        /// @notice Address that receives block rewards. If this address is address(0), use
+        /// Batch.coinbase.
+        address coinbase;
     }
 
     /// @notice Contains blob data for a batch
