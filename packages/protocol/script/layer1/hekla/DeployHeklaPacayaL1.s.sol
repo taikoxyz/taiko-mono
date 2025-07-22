@@ -31,8 +31,8 @@ import "src/layer1/hekla/HeklaInbox.sol";
 import "src/layer1/automata-attestation/AutomataDcapV3Attestation.sol";
 import "src/layer1/automata-attestation/lib/PEMCertChainLib.sol";
 import "src/layer1/automata-attestation/utils/SigVerifyLib.sol";
-import { HeklaVerifier } from "contracts/layer1/hekla/verifiers/HeklaVerifier.sol";
-import { HeklaInbox } from "contracts/layer1/hekla/HeklaInbox.sol";
+import { HeklaVerifier } from "../../../contracts/layer1/hekla/verifiers/HeklaVerifier.sol";
+import { HeklaInbox } from "../../../contracts/layer1/hekla/HeklaInbox.sol";
 
 contract DeployHeklaPacayaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
