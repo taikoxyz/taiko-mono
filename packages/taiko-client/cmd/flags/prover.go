@@ -32,11 +32,11 @@ var (
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_HOST_ZKVM"},
 	}
-	RaikoJWTPath = &cli.StringFlag{
-		Name:     "raiko.jwtPath",
-		Usage:    "Path to a JWT secret for the Raiko service",
+	RaikoApiKeyPath = &cli.StringFlag{
+		Name:     "raiko.apiKeyPath",
+		Usage:    "Path to a api key for the Raiko service",
 		Category: proverCategory,
-		EnvVars:  []string{"RAIKO_JWT_PATH"},
+		EnvVars:  []string{"RAIKO_API_KEY_PATH"},
 	}
 	RaikoRequestTimeout = &cli.DurationFlag{
 		Name:     "raiko.requestTimeout",
@@ -127,7 +127,7 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L2WSEndpoint,
 	L2HTTPEndpoint,
 	RaikoHostEndpoint,
-	RaikoJWTPath,
+	RaikoApiKeyPath,
 	L1ProverPrivKey,
 	StartingBatchID,
 	Dummy,
