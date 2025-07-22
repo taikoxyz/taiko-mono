@@ -7,15 +7,9 @@ import "src/shared/signal/LibSignals.sol";
 import "./AbstractInbox.sol";
 import "./libs/LibBonds.sol";
 import "./libs/LibState.sol";
-import "./codec/LibCodecBatchContext.sol";
-import "./codec/LibCodecTransitionMeta.sol";
-import "./codec/LibCodecSummary.sol";
-import "./codec/LibCodecProposeBatchesInputs.sol";
-import "./codec/LibCodecProveBatchInputs.sol";
-import "./codec/LibCodecProverAuth.sol";
 import "./IBondManager2.sol";
 
-/// @title TaikoInbox
+/// @title Inbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
 /// original Taiko-Based Contestable Rollup (BCR) but with the tier-based proof system and
 /// contestation mechanisms removed.
@@ -28,7 +22,7 @@ import "./IBondManager2.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
+abstract contract Inbox is AbstractInbox, IBondManager2 {
     using LibBonds for I.State;
     using LibState for I.State;
     using SafeERC20 for IERC20;
@@ -200,75 +194,5 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
         override
     {
         return $.saveBatchMetaHash(_conf, _batchId, _metaHash);
-    }
-
-    /// @inheritdoc AbstractInbox
-    function _encodeBatchContext(I.BatchContext memory _context)
-        internal
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibCodecBatchContext.encode(_context);
-    }
-
-    /// @inheritdoc AbstractInbox
-    function _encodeTransitionMetas(I.TransitionMeta[] memory _transitionMetas)
-        internal
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibCodecTransitionMeta.encode(_transitionMetas);
-    }
-
-    /// @inheritdoc AbstractInbox
-    function _encodeSummary(I.Summary memory _summary)
-        internal
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibCodecSummary.encode(_summary);
-    }
-
-    /// @inheritdoc AbstractInbox
-    function _decodeProposeBatchesInputs(bytes memory _data)
-        internal
-        pure
-        override
-        returns (
-            I.Summary memory,
-            I.Batch[] memory,
-            I.BatchProposeMetadataEvidence memory,
-            I.TransitionMeta[] memory
-        )
-    {
-        return LibCodecProposeBatchesInputs.decode(_data);
-    }
-
-    /// @inheritdoc AbstractInbox
-    function _decodeProverAuth(bytes memory _data)
-        internal
-        pure
-        override
-        returns (I.ProverAuth memory)
-    {
-        return LibCodecProverAuth.decode(_data);
-    }
-
-    /// @inheritdoc AbstractInbox
-    function _decodeSummary(bytes memory _data) internal pure override returns (I.Summary memory) {
-        return LibCodecSummary.decode(_data);
-    }
-
-    /// @inheritdoc AbstractInbox
-    function _decodeProveBatchesInputs(bytes memory _data)
-        internal
-        pure
-        override
-        returns (I.ProveBatchInput[] memory)
-    {
-        return LibCodecProveBatchInputs.decode(_data);
     }
 }
