@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 import "src/layer1/based2/IInbox.sol";
+import "src/layer1/based2/libs/LibCodec.sol";
 import "../iface/IPreconfWhitelist.sol";
 import "../../forced-inclusion/IForcedInclusionStore.sol";
 
@@ -58,7 +59,14 @@ contract PreconfManager is EssentialContract {
     ///
     ///      When a forced inclusion is due (determined by ForcedInclusionStore based on batch count
     /// delay),
-    ///      the proposer MUST include it as the first batch in _packedBatches.
+    ///      the proposer MUST include it as the first batch in _packedBatches. The contract
+    /// validates:
+    ///      - The first batch has isForcedInclusion = true
+    ///      - The batch contains exactly one block with maximum transactions allowed
+    ///      - The blob hash, offset, and size match the expected forced inclusion
+    ///
+    ///      Forced inclusions ensure censorship resistance by guaranteeing that user transactions
+    ///      will be included within a bounded time period after paying the inclusion fee.
     ///
     /// @param _packedSummary Current protocol summary encoded using LibCodec.packSummary
     /// @param _packedBatches Array of batches encoded using LibCodec.packBatches. If a forced
@@ -105,10 +113,7 @@ contract PreconfManager is EssentialContract {
             inbox.propose4(_packedSummary, _packedBatches, _packedEvidence, _packedTransitionMetas);
     }
 
-    /// @dev Validates the first batch contains the expected forced inclusion by checking:
-    ///      1. isForcedInclusion flag is true
-    ///      2. First blob hash matches expected
-    ///      3. Blob offset and size match expected values
+    /// @dev Validates the first batch is a properly formatted forced inclusion batch
     function _validateForcedInclusionInFirstBatch(
         bytes calldata _packedBatches,
         IForcedInclusionStore.ForcedInclusion memory _expectedInclusion
@@ -116,81 +121,60 @@ contract PreconfManager is EssentialContract {
         internal
         pure
     {
-        require(_packedBatches.length > 0, InvalidBatchCount());
-        uint8 batchCount = uint8(_packedBatches[0]);
-        require(batchCount > 0, ForcedInclusionMissing());
+        // Unpack batches to access the first one
+        IInbox.Batch[] memory batches = LibCodec.unpackBatches(_packedBatches);
+        require(batches.length > 0, ForcedInclusionMissing());
 
-        bool isValid;
+        IInbox.Batch memory firstBatch = batches[0];
 
-        // Extract and validate forced inclusion fields using assembly for gas efficiency
-        assembly {
-            isValid := true
-            let dataPtr := add(_packedBatches.offset, 1) // Skip batch count
+        // Validate forced inclusion flag
+        require(firstBatch.isForcedInclusion, InvalidForcedInclusion());
 
-            // Skip fixed fields: proposer(20) + coinbase(20) + timestamp(6) + gasIssuance(4) = 50
-            dataPtr := add(dataPtr, 50)
+        // Validate single block requirement
+        require(firstBatch.blocks.length == 1, InvalidForcedInclusion());
 
-            // Verify isForcedInclusion flag
-            let isForcedInclusion := byte(0, calldataload(dataPtr))
-            if iszero(isForcedInclusion) { isValid := false }
+        // Validate maximum transactions to prevent censorship
+        require(firstBatch.blocks[0].numTransactions == type(uint16).max, InvalidForcedInclusion());
 
-            if isValid {
-                dataPtr := add(dataPtr, 1)
+        // Validate no time shift
+        require(firstBatch.blocks[0].timeShift == 0, InvalidForcedInclusion());
 
-                // Skip proverAuth string
-                let proverAuthLen := and(calldataload(dataPtr), 0xffff)
-                dataPtr := add(dataPtr, add(2, proverAuthLen))
+        // Validate no anchor block (forced inclusions don't need anchoring)
+        require(!firstBatch.blocks[0].hasAnchor, InvalidForcedInclusion());
+        require(firstBatch.blocks[0].anchorBlockId == 0, InvalidForcedInclusion());
 
-                // Skip signal slots array
-                let signalCount := byte(0, calldataload(dataPtr))
-                dataPtr := add(dataPtr, add(1, mul(signalCount, 32)))
+        // Validate no signals
+        require(firstBatch.blocks[0].numSignals == 0, InvalidForcedInclusion());
+        require(firstBatch.signalSlots.length == 0, InvalidForcedInclusion());
 
-                // Skip anchor block IDs array
-                let anchorCount := byte(0, calldataload(dataPtr))
-                dataPtr := add(dataPtr, add(1, mul(anchorCount, 6)))
+        // Validate no anchor blocks in batch
+        require(firstBatch.anchorBlockIds.length == 0, InvalidForcedInclusion());
 
-                // Skip blocks array (13 bytes per block)
-                let blockCount := byte(0, calldataload(dataPtr))
-                dataPtr := add(dataPtr, add(1, mul(blockCount, 13)))
+        // Validate single blob
+        require(firstBatch.blobs.hashes.length == 1, InvalidForcedInclusion());
+        require(firstBatch.blobs.numBlobs == 1, InvalidForcedInclusion());
 
-                // Validate blobs structure
-                let blobHashCount := byte(0, calldataload(dataPtr))
-                if iszero(blobHashCount) { isValid := false }
+        // Validate blob matches expected
+        require(firstBatch.blobs.hashes[0] == _expectedInclusion.blobHash, InvalidForcedInclusion());
+        require(
+            firstBatch.blobs.byteOffset == _expectedInclusion.blobByteOffset,
+            InvalidForcedInclusion()
+        );
+        require(
+            firstBatch.blobs.byteSize == _expectedInclusion.blobByteSize, InvalidForcedInclusion()
+        );
+        require(
+            firstBatch.blobs.createdIn == uint48(_expectedInclusion.blobCreatedIn),
+            InvalidForcedInclusion()
+        );
 
-                if isValid {
-                    dataPtr := add(dataPtr, 1)
+        // Validate open proving (no prover restrictions)
+        require(bytes(firstBatch.proverAuth).length == 0, InvalidForcedInclusion());
 
-                    // Validate first blob hash
-                    let blobHash := calldataload(dataPtr)
-                    if iszero(eq(blobHash, mload(_expectedInclusion))) { isValid := false }
+        // Validate no coinbase (no rewards for forced inclusions)
+        require(firstBatch.coinbase == address(0), InvalidForcedInclusion());
 
-                    if isValid {
-                        dataPtr := add(dataPtr, 32)
-
-                        // Skip remaining blob hashes
-                        dataPtr := add(dataPtr, mul(sub(blobHashCount, 1), 32))
-
-                        // Skip firstBlobIndex and numBlobs
-                        dataPtr := add(dataPtr, 2)
-
-                        // Validate byteOffset (4 bytes, big-endian)
-                        let byteOffset := and(shr(224, calldataload(dataPtr)), 0xffffffff)
-                        let expectedOffset := mload(add(_expectedInclusion, 0x60))
-                        if iszero(eq(byteOffset, expectedOffset)) { isValid := false }
-
-                        if isValid {
-                            dataPtr := add(dataPtr, 4)
-
-                            // Validate byteSize (4 bytes, big-endian)
-                            let byteSize := and(shr(224, calldataload(dataPtr)), 0xffffffff)
-                            let expectedSize := mload(add(_expectedInclusion, 0x80))
-                            if iszero(eq(byteSize, expectedSize)) { isValid := false }
-                        }
-                    }
-                }
-            }
-        }
-
-        require(isValid, InvalidForcedInclusion());
+        // Validate no custom gas issuance
+        require(firstBatch.gasIssuancePerSecond == 0, InvalidForcedInclusion());
     }
 }
