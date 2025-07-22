@@ -59,6 +59,6 @@ library LibBinding {
             I.TransitionMeta[] memory) decodeProposeBatchesInputs;
         function(bytes memory) pure returns (I.ProverAuth memory) decodeProverAuth;
         function(bytes memory) pure returns (I.Summary memory) decodeSummary;
-        function(bytes memory) pure returns (I.BatchProveInput[] memory) decodeProveBatchesInputs;
+        function(bytes memory) pure returns (I.ProveBatchInput[] memory) decodeProveBatchesInputs;
     }
 }

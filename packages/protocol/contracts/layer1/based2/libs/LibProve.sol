@@ -32,7 +32,7 @@ library LibProve {
     function prove(
         LibBinding.Bindings memory _bindings,
         I.Config memory _config,
-        I.BatchProveInput[] memory _evidences
+        I.ProveBatchInput[] memory _evidences
     )
         internal
         returns (bytes32)
@@ -62,7 +62,7 @@ library LibProve {
         LibBinding.Bindings memory _bindings,
         I.Config memory _config,
         // I.Summary memory _summary,
-        I.BatchProveInput memory _input
+        I.ProveBatchInput memory _input
     )
         private
         returns (bytes32)

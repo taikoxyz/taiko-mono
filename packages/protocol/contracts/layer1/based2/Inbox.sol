@@ -11,8 +11,8 @@ import "./codec/LibCodecBatchContext.sol";
 import "./codec/LibCodecTransitionMeta.sol";
 import "./codec/LibCodecSummary.sol";
 import "./codec/LibCodecProposeBatchesInputs.sol";
+import "./codec/LibCodecProveBatchInputs.sol";
 import "./codec/LibCodecProverAuth.sol";
-import "./codec/LibCodecBatchProveInput.sol";
 import "./IBondManager2.sol";
 
 /// @title TaikoInbox
@@ -267,8 +267,8 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
         internal
         pure
         override
-        returns (I.BatchProveInput[] memory)
+        returns (I.ProveBatchInput[] memory)
     {
-        return LibCodecBatchProveInput.decode(_data);
+        return LibCodecProveBatchInputs.decode(_data);
     }
 }

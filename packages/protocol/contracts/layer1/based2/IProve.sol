@@ -8,7 +8,7 @@ pragma solidity ^0.8.24;
 interface IProve {
     /// @notice Proves batch transitions using cryptographic proofs
     /// @dev Validates and processes cryptographic proofs for batch state transitions
-    /// @param _inputs encoded I.BatchProveInput[]
+    /// @param _inputs encoded I.ProveBatchInput[]
     /// @param _proof The cryptographic proof data for validation
     function prove4(bytes calldata _inputs, bytes calldata _proof) external;
 }

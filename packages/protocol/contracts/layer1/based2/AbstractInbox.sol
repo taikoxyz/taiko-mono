@@ -94,7 +94,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         nonReentrant
     {
         LibBinding.Bindings memory bindings = _getBindings();
-        I.BatchProveInput[] memory inputs = bindings.decodeProveBatchesInputs(_inputs);
+        I.ProveBatchInput[] memory inputs = bindings.decodeProveBatchesInputs(_inputs);
         I.Config memory config = _getConfig();
 
         // Prove batches and get aggregated hash
@@ -337,9 +337,9 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         internal
         pure
         virtual
-        returns (I.BatchProveInput[] memory)
+        returns (I.ProveBatchInput[] memory)
     {
-        return abi.decode(_data, (I.BatchProveInput[]));
+        return abi.decode(_data, (I.ProveBatchInput[]));
     }
 
     /// @notice Decodes a batch context

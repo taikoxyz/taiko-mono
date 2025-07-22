@@ -115,12 +115,12 @@ library LibData {
         return keccak256(abi.encode(_evidence.leftHash, rightHash));
     }
 
-    /// @notice  Computes a batch hash using BatchProveInput
-    /// @param _batchProveInput The batch prove input containing metadata to validate
-    function hashBatch(I.BatchProveInput memory _batchProveInput) internal pure returns (bytes32) {
-        bytes32 proveMetaHash = keccak256(abi.encode(_batchProveInput.proveMeta));
-        bytes32 rightHash = keccak256(abi.encode(_batchProveInput.proposeMetaHash, proveMetaHash));
-        return keccak256(abi.encode(_batchProveInput.leftHash, rightHash));
+    /// @notice  Computes a batch hash using ProveBatchInput
+    /// @param _ProveBatchInput The batch prove input containing metadata to validate
+    function hashBatch(I.ProveBatchInput memory _ProveBatchInput) internal pure returns (bytes32) {
+        bytes32 proveMetaHash = keccak256(abi.encode(_ProveBatchInput.proveMeta));
+        bytes32 rightHash = keccak256(abi.encode(_ProveBatchInput.proposeMetaHash, proveMetaHash));
+        return keccak256(abi.encode(_ProveBatchInput.leftHash, rightHash));
     }
     // -------------------------------------------------------------------------
     // Private Functions
