@@ -188,16 +188,12 @@ library LibValidate {
         internal
         view
     {
-        unchecked {
-            for (uint256 i; i < _batch.blocks.length; ++i) {
-                if (_batch.blocks[i].signalSlots.length == 0) continue;
-
-                for (uint256 j; j < _batch.blocks[i].signalSlots.length; ++j) {
-                    require(
-                        _access.isSignalSent(_config, _batch.blocks[i].signalSlots[j]),
-                        RequiredSignalNotSent()
-                    );
-                }
+        for (uint256 i; i < _batch.blocks.length; ++i) {
+            for (uint256 j; j < _batch.blocks[i].signalSlots.length; ++j) {
+                require(
+                    _access.isSignalSent(_config, _batch.blocks[i].signalSlots[j]),
+                    RequiredSignalNotSent()
+                );
             }
         }
     }
