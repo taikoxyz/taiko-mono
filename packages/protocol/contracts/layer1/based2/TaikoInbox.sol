@@ -5,7 +5,7 @@ import "./Inbox.sol";
 import "./codec/LibCodecBatchContext.sol";
 import "./codec/LibCodecTransitionMeta.sol";
 import "./codec/LibCodecSummary.sol";
-import "./codec/LibCodecProposeBatchesInputs.sol";
+import "./codec/LibCodecProposeBatchInputs.sol";
 import "./codec/LibCodecProveBatchInputs.sol";
 import "./codec/LibCodecProverAuth.sol";
 
@@ -68,7 +68,7 @@ abstract contract TaikoInbox is Inbox {
             I.TransitionMeta[] memory
         )
     {
-        return LibCodecProposeBatchesInputs.decode(_data);
+        return LibCodecProposeBatchInputs.decode(_data);
     }
 
     /// @inheritdoc AbstractInbox

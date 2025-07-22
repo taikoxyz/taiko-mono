@@ -3,11 +3,11 @@ pragma solidity ^0.8.24;
 
 import { IInbox as I } from "../IInbox.sol";
 
-/// @title LibCodecProposeBatchesInputs
+/// @title LibCodecProposeBatchInputs
 /// @notice Library for encoding and decoding propose batches inputs
 /// @custom:security-contact security@taiko.xyz
 // TODO(dnaiel): implement this library
-library LibCodecProposeBatchesInputs {
+library LibCodecProposeBatchInputs {
     /// @notice Encodes propose batches inputs into bytes
     /// @param _summary The summary
     /// @param _batches The batches array
