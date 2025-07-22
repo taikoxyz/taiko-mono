@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/ITaiko.sol";
 import "src/layer1/verifiers/IVerifier.sol";
-import "./libs/LibCodec.sol";
+import "./libs/LibBinding.sol";
 import "./libs/LibPropose.sol";
 import "./libs/LibProve.sol";
 import "./libs/LibVerify.sol";
@@ -52,26 +52,21 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     }
 
     /// @inheritdoc IPropose
-    function propose4(
-        bytes calldata _packedSummary,
-        bytes calldata _packedBatches,
-        bytes calldata _packedEvidence,
-        bytes calldata _packedTransitionMetas
-    )
+    function propose4(bytes calldata _inputs)
         external
         override(I, IPropose)
         nonReentrant
         returns (I.Summary memory)
     {
-        I.Summary memory summary = _validateSummary(_packedSummary);
-        I.Batch[] memory batches = LibCodec.unpackBatches(_packedBatches);
-        I.BatchProposeMetadataEvidence memory evidence =
-            LibCodec.unpackBatchProposeMetadataEvidence(_packedEvidence);
-        I.TransitionMeta[] memory transitionMetas =
-            LibCodec.unpackTransitionMetas(_packedTransitionMetas);
+        LibBinding.Bindings memory access = _getBindings();
 
+        (
+            I.Summary memory summary,
+            I.Batch[] memory batches,
+            I.BatchProposeMetadataEvidence memory evidence,
+            I.TransitionMeta[] memory transitionMetas
+        ) = access.decodeProposeBatchesInputs(_inputs);
         I.Config memory config = _getConfig();
-        LibState.Access memory access = _getReadWrite();
 
         // Propose batches
         summary = LibPropose.propose(access, config, summary, batches, evidence);
@@ -79,7 +74,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         // Verify batches
         summary = LibVerify.verify(access, config, summary, transitionMetas);
 
-        bytes memory packedSummary = LibCodec.packSummary(summary);
+        bytes memory packedSummary = access.encodeSummary(summary);
         _saveSummaryHash(keccak256(packedSummary));
         emit I.SummaryUpdated(packedSummary);
 
@@ -98,9 +93,9 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         override(I, IProve)
         nonReentrant
     {
-        I.BatchProveInput[] memory inputs = LibCodec.unpackBatchProveInputs(_packedBatchProveInputs);
+        LibBinding.Bindings memory access = _getBindings();
+        I.BatchProveInput[] memory inputs = access.decodeProveBatchesInputs(_packedBatchProveInputs);
         I.Config memory config = _getConfig();
-        LibState.Access memory access = _getReadWrite();
 
         // Prove batches and get aggregated hash
         bytes32 aggregatedBatchHash = LibProve.prove(access, config, inputs);
@@ -278,6 +273,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     /// @return The encoded batch context
     function _encodeBatchContext(I.BatchContext memory _context)
         internal
+        pure
         virtual
         returns (bytes memory)
     {
@@ -289,10 +285,61 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     /// @return The encoded transition metas
     function _encodeTransitionMetas(I.TransitionMeta[] memory _transitionMetas)
         internal
+        pure
         virtual
         returns (bytes memory)
     {
         return abi.encode(_transitionMetas);
+    }
+
+    function _encodeSummary(I.Summary memory _summary)
+        internal
+        pure
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(_summary);
+    }
+
+    /// @notice Decodes the propose inputs
+    /// @param _data The inputs to decode
+    /// @return The decoded inputs (summary, batches, evidence, transitionMetas)
+    function _decodeProposeBatchesInputs(bytes memory _data)
+        internal
+        pure
+        virtual
+        returns (
+            I.Summary memory,
+            I.Batch[] memory,
+            I.BatchProposeMetadataEvidence memory,
+            I.TransitionMeta[] memory
+        )
+    {
+        return abi.decode(
+            _data, (I.Summary, I.Batch[], I.BatchProposeMetadataEvidence, I.TransitionMeta[])
+        );
+    }
+
+    function _decodeProverAuth(bytes memory _data)
+        internal
+        pure
+        virtual
+        returns (I.ProverAuth memory)
+    {
+        return abi.decode(_data, (I.ProverAuth));
+    }
+
+    function _decodeSummary(bytes memory _data) internal pure virtual returns (I.Summary memory) {
+        return abi.decode(_data, (I.Summary));
+    }
+
+    function _decodeProveBatchesInputs(bytes memory _data)
+        internal
+        pure
+        virtual
+        returns (I.BatchProveInput[] memory)
+    {
+        return abi.decode(_data, (I.BatchProveInput[]));
     }
 
     /// @notice Decodes a batch context
@@ -335,8 +382,8 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
 
     /// @notice Creates a Access struct with function pointers
     /// @return The Access struct with all required function pointers
-    function _getReadWrite() private pure returns (LibState.Access memory) {
-        return LibState.Access({
+    function _getBindings() private pure returns (LibBinding.Bindings memory) {
+        return LibBinding.Bindings({
             // Read functions
             loadBatchMetaHash: _loadBatchMetaHash,
             isSignalSent: _isSignalSent,
@@ -352,19 +399,23 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
             saveBatchMetaHash: _saveBatchMetaHash,
             // Encoding functions
             encodeBatchContext: _encodeBatchContext,
-            encodeTransitionMetas: _encodeTransitionMetas
-        })
-        // Decoding functions
-        ;
+            encodeTransitionMetas: _encodeTransitionMetas,
+            encodeSummary: _encodeSummary,
+            // Decoding functions
+            decodeProposeBatchesInputs: _decodeProposeBatchesInputs,
+            decodeProverAuth: _decodeProverAuth,
+            decodeSummary: _decodeSummary,
+            decodeProveBatchesInputs: _decodeProveBatchesInputs
+        });
     }
 
-    function _validateSummary(bytes calldata _packedSummary)
+    function _validateSummary(bytes memory _packedSummary)
         private
         view
         returns (I.Summary memory)
     {
         require(_loadSummaryHash() == keccak256(_packedSummary), SummaryMismatch());
-        return LibCodec.unpackSummary(_packedSummary);
+        return _decodeSummary(_packedSummary);
     }
 
     // -------------------------------------------------------------------------

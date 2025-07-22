@@ -28,7 +28,7 @@ library LibPropose {
     /// @param _evidence Evidence containing parent batch metadata
     /// @return The updated protocol summary
     function propose(
-        LibState.Access memory _access,
+        LibBinding.Bindings memory _access,
         I.Config memory _config,
         I.Summary memory _summary,
         I.Batch[] memory _batches,
@@ -86,7 +86,7 @@ library LibPropose {
     /// @return _ The propose metadata of the proposed batch
     /// @return _ The hash of the proposed batch metadata
     function _proposeBatch(
-        LibState.Access memory _access,
+        LibBinding.Bindings memory _access,
         I.Config memory _config,
         I.Summary memory _summary,
         I.Batch memory _batch,

@@ -3,8 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import { IInbox as I } from "../IInbox.sol";
-import "./LibState.sol";
-import "./LibCodec.sol";
+import "./LibBinding.sol";
 
 /// @title LibProver
 /// @notice Library for prover authentication and comprehensive bond management in Taiko protocol
@@ -33,7 +32,7 @@ library LibProver {
     /// @param _summary Current protocol summary state
     /// @param _batch The batch being proved
     function validateProver(
-        LibState.Access memory _access,
+        LibBinding.Bindings memory _access,
         I.Config memory _config,
         I.Summary memory _summary,
         I.Batch memory _batch
@@ -59,7 +58,11 @@ library LibProver {
                 address feeToken;
                 uint256 fee;
                 (prover_, feeToken, fee) = _validateProverAuth(
-                    _config.chainId, _summary.nextBatchId, keccak256(abi.encode(_batch)), proverAuth
+                    _access,
+                    _config.chainId,
+                    _summary.nextBatchId,
+                    keccak256(abi.encode(_batch)),
+                    proverAuth
                 );
 
                 if (feeToken == _config.bondToken) {
@@ -106,6 +109,7 @@ library LibProver {
     /// @return feeToken_ Fee token address for payment
     /// @return fee_ Fee amount to be paid
     function _validateProverAuth(
+        LibBinding.Bindings memory _access,
         uint64 _chainId,
         uint64 _batchId,
         bytes32 _batchHash,
@@ -115,7 +119,7 @@ library LibProver {
         view
         returns (address prover_, address feeToken_, uint256 fee_)
     {
-        I.ProverAuth memory auth = LibCodec.unpackProverAuth(_proverAuth);
+        I.ProverAuth memory auth = _access.decodeProverAuth(_proverAuth);
 
         // Supporting Ether as fee token will require making IInbox's proposing function
         // payable. We try to avoid this as much as possible. And since most proposers may simply

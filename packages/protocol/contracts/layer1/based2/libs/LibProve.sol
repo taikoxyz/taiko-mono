@@ -5,7 +5,7 @@ import { IInbox as I } from "../IInbox.sol";
 import "src/shared/libs/LibMath.sol";
 import "./LibData.sol";
 import "./LibForks.sol";
-import "./LibState.sol";
+import "./LibBinding.sol";
 
 /// @title LibProve
 /// @notice Library for batch proving operations and transition metadata management in Taiko
@@ -30,7 +30,7 @@ library LibProve {
     /// @param _evidences Array of batch prove inputs containing transition data
     /// @return _ The aggregated hash of all proven batches
     function prove(
-        LibState.Access memory _access,
+        LibBinding.Bindings memory _access,
         I.Config memory _config,
         I.BatchProveInput[] memory _evidences
     )
@@ -59,7 +59,7 @@ library LibProve {
     /// @param _input The batch prove input containing transition and metadata
     /// @return The context hash for this batch used in aggregation
     function _proveBatch(
-        LibState.Access memory _access,
+        LibBinding.Bindings memory _access,
         I.Config memory _config,
         // I.Summary memory _summary,
         I.BatchProveInput memory _input

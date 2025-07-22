@@ -4,8 +4,7 @@ pragma solidity ^0.8.24;
 import { IInbox as I } from "../IInbox.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./LibForks.sol";
-import "./LibState.sol";
-import "./LibCodec.sol";
+import "./LibBinding.sol";
 
 /// @title LibValidate
 /// @notice Library for comprehensive batch validation in Taiko protocol
@@ -36,7 +35,7 @@ library LibValidate {
     /// @param _parentBatch Metadata from the parent batch proposal
     /// @return _ Validated batch information and computed hashes
     function validate(
-        LibState.Access memory _access,
+        LibBinding.Bindings memory _access,
         I.Config memory _config,
         I.Summary memory _summary,
         I.Batch memory _batch,
@@ -181,7 +180,7 @@ library LibValidate {
     /// @param _config Protocol configuration
     /// @param _batch The batch containing signal references
     function _validateSignals(
-        LibState.Access memory _access,
+        LibBinding.Bindings memory _access,
         I.Config memory _config,
         I.Batch memory _batch
     )
@@ -214,7 +213,7 @@ library LibValidate {
     /// @return anchorBlockHashes_ Array of validated anchor block hashes
     /// @return lastAnchorBlockId_ ID of the last anchor block in this batch
     function _validateAnchors(
-        LibState.Access memory _access,
+        LibBinding.Bindings memory _access,
         I.Config memory _config,
         I.Batch memory _batch,
         uint48 _parentLastAnchorBlockId
@@ -331,7 +330,7 @@ library LibValidate {
     /// @return blobHashes_ Array of individual blob hashes
     /// @return txsHash_ Hash of all transactions in the batch
     function _calculateTxsHash(
-        LibState.Access memory _access,
+        LibBinding.Bindings memory _access,
         I.Blobs memory _blobs
     )
         private

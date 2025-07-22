@@ -6,6 +6,7 @@ import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
 import "./AbstractInbox.sol";
 import "./libs/LibBonds.sol";
+import "./libs/LibState.sol";
 import "./IBondManager2.sol";
 
 /// @title TaikoInbox

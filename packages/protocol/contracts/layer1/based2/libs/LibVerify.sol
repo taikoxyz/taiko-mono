@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/libs/LibMath.sol";
 import { IInbox as I } from "../IInbox.sol";
 import "./LibForks.sol";
-import "./LibState.sol";
+import "./LibBinding.sol";
 
 /// @title LibVerify
 /// @notice Library for batch verification and bond distribution in Taiko protocol
@@ -32,7 +32,7 @@ library LibVerify {
     /// @param _trans Array of transition metadata for verification
     /// @return Updated summary with verification results
     function verify(
-        LibState.Access memory _access,
+        LibBinding.Bindings memory _access,
         I.Config memory _config,
         I.Summary memory _summary,
         I.TransitionMeta[] memory _trans
