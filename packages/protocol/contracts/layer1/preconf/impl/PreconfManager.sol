@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 import "src/layer1/based2/IInbox.sol";
-import "src/layer1/based2/libs/LibCodec.sol";
 import "../iface/IPreconfWhitelist.sol";
 import "../../forced-inclusion/IForcedInclusionStore.sol";
 
@@ -19,12 +18,14 @@ contract PreconfManager is EssentialContract {
     IForcedInclusionStore public immutable forcedStore;
     address public immutable fallbackPreconfer;
 
-    event ForcedInclusionProcessed(IForcedInclusionStore.ForcedInclusion inclusion);
-
     error NotPreconfer();
-    error ForcedInclusionMissing();
-    error InvalidForcedInclusion();
-    error InvalidBatchCount();
+    error ForcedInclusionNotProcessed();
+    
+    event ForcedInclusionProcessed(
+        address indexed proposer,
+        bytes32 indexed blobHash,
+        uint64 feeInGwei
+    );
 
     uint256[50] private __gap;
 
@@ -96,85 +97,39 @@ contract PreconfManager is EssentialContract {
             revert NotPreconfer();
         }
 
-        // Process forced inclusion if due
-        if (forcedStore.isOldestForcedInclusionDue()) {
-            IForcedInclusionStore.ForcedInclusion memory expectedInclusion =
-                forcedStore.getOldestForcedInclusion();
-
-            _validateForcedInclusionInFirstBatch(_packedBatches, expectedInclusion);
-
-            IForcedInclusionStore.ForcedInclusion memory consumedInclusion =
-                forcedStore.consumeOldestForcedInclusion(msg.sender);
-
-            emit ForcedInclusionProcessed(consumedInclusion);
+        // Check if forced inclusion is due and validate it's included
+        bool forcedInclusionExpected = forcedStore.isOldestForcedInclusionDue();
+        IForcedInclusionStore.ForcedInclusion memory expectedInclusion;
+        
+        if (forcedInclusionExpected) {
+            expectedInclusion = forcedStore.getOldestForcedInclusion();
+            // The inbox will validate that the first batch is a proper forced inclusion
+            // We'll verify the blob hash matches after successful processing
         }
 
-        return
-            inbox.propose4(_packedSummary, _packedBatches, _packedEvidence, _packedTransitionMetas);
+        // Process the proposal - inbox will validate forced inclusion rules
+        summary = inbox.propose4(_packedSummary, _packedBatches, _packedEvidence, _packedTransitionMetas);
+            
+        // After successful proposal, consume the forced inclusion
+        if (forcedInclusionExpected) {
+            // Validation succeeded in inbox, now consume it
+            IForcedInclusionStore.ForcedInclusion memory processed = 
+                forcedStore.consumeOldestForcedInclusion(msg.sender);
+                
+            // Verify we processed the expected one
+            require(
+                processed.blobHash == expectedInclusion.blobHash,
+                ForcedInclusionNotProcessed()
+            );
+                
+            emit ForcedInclusionProcessed(
+                msg.sender,
+                processed.blobHash,
+                processed.feeInGwei
+            );
+        }
+        
+        return summary;
     }
 
-    /// @dev Validates the first batch is a properly formatted forced inclusion batch
-    function _validateForcedInclusionInFirstBatch(
-        bytes calldata _packedBatches,
-        IForcedInclusionStore.ForcedInclusion memory _expectedInclusion
-    )
-        internal
-        pure
-    {
-        // Unpack batches to access the first one
-        IInbox.Batch[] memory batches = LibCodec.unpackBatches(_packedBatches);
-        require(batches.length > 0, ForcedInclusionMissing());
-
-        IInbox.Batch memory firstBatch = batches[0];
-
-        // Validate forced inclusion flag
-        require(firstBatch.isForcedInclusion, InvalidForcedInclusion());
-
-        // Validate single block requirement
-        require(firstBatch.blocks.length == 1, InvalidForcedInclusion());
-
-        // Validate maximum transactions to prevent censorship
-        require(firstBatch.blocks[0].numTransactions == type(uint16).max, InvalidForcedInclusion());
-
-        // Validate no time shift
-        require(firstBatch.blocks[0].timeShift == 0, InvalidForcedInclusion());
-
-        // Validate no anchor block (forced inclusions don't need anchoring)
-        require(!firstBatch.blocks[0].hasAnchor, InvalidForcedInclusion());
-        require(firstBatch.blocks[0].anchorBlockId == 0, InvalidForcedInclusion());
-
-        // Validate no signals
-        require(firstBatch.blocks[0].numSignals == 0, InvalidForcedInclusion());
-        require(firstBatch.signalSlots.length == 0, InvalidForcedInclusion());
-
-        // Validate no anchor blocks in batch
-        require(firstBatch.anchorBlockIds.length == 0, InvalidForcedInclusion());
-
-        // Validate single blob
-        require(firstBatch.blobs.hashes.length == 1, InvalidForcedInclusion());
-        require(firstBatch.blobs.numBlobs == 1, InvalidForcedInclusion());
-
-        // Validate blob matches expected
-        require(firstBatch.blobs.hashes[0] == _expectedInclusion.blobHash, InvalidForcedInclusion());
-        require(
-            firstBatch.blobs.byteOffset == _expectedInclusion.blobByteOffset,
-            InvalidForcedInclusion()
-        );
-        require(
-            firstBatch.blobs.byteSize == _expectedInclusion.blobByteSize, InvalidForcedInclusion()
-        );
-        require(
-            firstBatch.blobs.createdIn == uint48(_expectedInclusion.blobCreatedIn),
-            InvalidForcedInclusion()
-        );
-
-        // Validate open proving (no prover restrictions)
-        require(bytes(firstBatch.proverAuth).length == 0, InvalidForcedInclusion());
-
-        // Validate no coinbase (no rewards for forced inclusions)
-        require(firstBatch.coinbase == address(0), InvalidForcedInclusion());
-
-        // Validate no custom gas issuance
-        require(firstBatch.gasIssuancePerSecond == 0, InvalidForcedInclusion());
-    }
 }

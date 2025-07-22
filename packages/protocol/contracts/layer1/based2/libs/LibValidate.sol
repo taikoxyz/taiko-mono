@@ -2,7 +2,9 @@
 pragma solidity ^0.8.24;
 
 import { IInbox as I } from "../IInbox.sol";
+import { IForcedInclusionStore } from "../../forced-inclusion/IForcedInclusionStore.sol";
 import "src/shared/libs/LibNetwork.sol";
+import "src/shared/libs/LibAddress.sol";
 import "./LibForks.sol";
 import "./LibState.sol";
 import "./LibCodec.sol";
@@ -320,8 +322,54 @@ library LibValidate {
             require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
             require(_batch.blobs.numBlobs == 0, InvalidBlobParams());
             require(_batch.blobs.firstBlobIndex == 0, InvalidBlobParams());
+            
+            // Additional forced inclusion validations
+            _validateForcedInclusionBatch(_batch);
+            
             return _batch.blobs.createdIn;
         }
+    }
+
+    /// @notice Validates a forced inclusion batch follows all required rules
+    /// @dev Ensures forced inclusions cannot be manipulated or censored
+    /// @param _batch The batch to validate as forced inclusion
+    function _validateForcedInclusionBatch(I.Batch memory _batch) private pure {
+        // Must be marked as forced inclusion
+        require(_batch.isForcedInclusion, InvalidForcedInclusion());
+        
+        // Single block requirement - forced inclusions are atomic
+        require(_batch.blocks.length == 1, InvalidForcedInclusion());
+        
+        // Maximum transactions to prevent censorship
+        require(_batch.blocks[0].numTransactions == type(uint16).max, InvalidForcedInclusion());
+        
+        // No time manipulation allowed
+        require(_batch.blocks[0].timeShift == 0, InvalidForcedInclusion());
+        
+        // No anchor blocks - forced inclusions don't need L1 anchoring
+        require(!_batch.blocks[0].hasAnchor, InvalidForcedInclusion());
+        require(_batch.blocks[0].anchorBlockId == 0, InvalidForcedInclusion());
+        require(_batch.anchorBlockIds.length == 0, InvalidForcedInclusion());
+        
+        // No signals - forced inclusions are pure transaction execution
+        require(_batch.blocks[0].numSignals == 0, InvalidForcedInclusion());
+        require(_batch.signalSlots.length == 0, InvalidForcedInclusion());
+        
+        // Single blob containing all transactions
+        require(_batch.blobs.hashes.length == 1, InvalidForcedInclusion());
+        
+        // Full blob usage - no partial blobs
+        require(_batch.blobs.byteOffset == 0, InvalidForcedInclusion());
+        require(_batch.blobs.byteSize == 131072, InvalidForcedInclusion()); // Full blob size
+        
+        // Open proving - anyone can prove forced inclusions
+        require(bytes(_batch.proverAuth).length == 0, InvalidForcedInclusion());
+        
+        // No coinbase rewards for forced inclusions
+        require(_batch.coinbase == address(0), InvalidForcedInclusion());
+        
+        // No custom gas issuance changes
+        require(_batch.gasIssuancePerSecond == 0, InvalidForcedInclusion());
     }
 
     /// @notice Calculates the transaction hash from blob data

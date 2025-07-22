@@ -70,11 +70,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         __Essential_init(_owner);
     }
 
-    function storeForcedInclusion(
-        uint8 blobIndex,
-        uint32 blobByteOffset,
-        uint32 blobByteSize
-    )
+    function storeForcedInclusion(uint8 blobIndex)
         external
         payable
         onlyStandaloneTx
@@ -88,8 +84,6 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
             blobHash: blobHash,
             feeInGwei: feeInGwei, //we already validated `msg.value == feeInGwei * 1 gwei`
             createdAtBatchId: _nextBatchId(),
-            blobByteOffset: blobByteOffset,
-            blobByteSize: blobByteSize,
             blobCreatedIn: uint64(block.number)
         });
 

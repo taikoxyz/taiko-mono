@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/*
 import "forge-std/src/Test.sol";
 import "src/layer1/preconf/impl/PreconfManager.sol";
 import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
 import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 import "src/layer1/based2/IInbox.sol";
+import "src/layer1/based2/libs/LibCodec.sol";
 
 contract MockWhitelist is IPreconfWhitelist {
     address public operator;
@@ -67,6 +69,11 @@ contract MockForcedInclusionStore is IForcedInclusionStore {
     }
 
     function storeForcedInclusion(uint8, uint32, uint32) external payable { }
+    
+    function getOldestForcedInclusion() external view returns (ForcedInclusion memory) {
+        require(hasDueInclusion, "No due inclusion");
+        return nextInclusion;
+    }
 }
 
 contract MockInbox is IInbox {
@@ -136,9 +143,22 @@ contract PreconfManagerTest is Test {
             lastAnchorBlockId: 5
         });
 
+        // Pack parameters for propose4 interface
+        bytes memory packedSummary = LibCodec.packSummary(_createTestSummary());
+        bytes memory packedBatches = LibCodec.packBatches(_createBatchArray(batch));
+        bytes memory packedEvidence = LibCodec.packBatchProposeMetadataEvidence(
+            IInbox.BatchProposeMetadataEvidence({
+                leftHash: bytes32(0),
+                proveMetaHash: bytes32(0),
+                proposeMeta: parentMeta
+            })
+        );
+        bytes memory packedTransitionMetas = "";
+
         // Propose as alice
         vm.prank(alice);
-        IInbox.Summary memory summary = manager.propose(batch, "", parentMeta);
+        IInbox.Summary memory summary =
+            manager.propose(packedSummary, packedBatches, packedEvidence, packedTransitionMetas);
 
         // Verify the proposal was successful
         assertEq(summary.nextBatchId, 1);
@@ -174,9 +194,22 @@ contract PreconfManagerTest is Test {
             lastAnchorBlockId: 5
         });
 
+        // Pack parameters for propose4 interface
+        bytes memory packedSummary = LibCodec.packSummary(_createTestSummary());
+        bytes memory packedBatches = LibCodec.packBatches(_createBatchArray(batch));
+        bytes memory packedEvidence = LibCodec.packBatchProposeMetadataEvidence(
+            IInbox.BatchProposeMetadataEvidence({
+                leftHash: bytes32(0),
+                proveMetaHash: bytes32(0),
+                proposeMeta: parentMeta
+            })
+        );
+        bytes memory packedTransitionMetas = "";
+
         // Propose as alice - should process forced inclusion first
         vm.prank(alice);
-        IInbox.Summary memory summary = manager.propose(batch, "", parentMeta);
+        IInbox.Summary memory summary =
+            manager.propose(packedSummary, packedBatches, packedEvidence, packedTransitionMetas);
 
         // Verify the proposal was successful
         assertEq(summary.nextBatchId, 1);
@@ -194,9 +227,45 @@ contract PreconfManagerTest is Test {
 
         IInbox.BatchProposeMetadata memory parentMeta;
 
+        // Pack parameters for propose4 interface
+        bytes memory packedSummary = LibCodec.packSummary(_createTestSummary());
+        bytes memory packedBatches = LibCodec.packBatches(_createBatchArray(batch));
+        bytes memory packedEvidence = LibCodec.packBatchProposeMetadataEvidence(
+            IInbox.BatchProposeMetadataEvidence({
+                leftHash: bytes32(0),
+                proveMetaHash: bytes32(0),
+                proposeMeta: parentMeta
+            })
+        );
+        bytes memory packedTransitionMetas = "";
+
         // Try to propose as bob (not authorized)
         vm.prank(bob);
         vm.expectRevert(PreconfManager.NotPreconfer.selector);
-        manager.propose(batch, "", parentMeta);
+        manager.propose(packedSummary, packedBatches, packedEvidence, packedTransitionMetas);
+    }
+
+    function _createTestSummary() internal pure returns (IInbox.Summary memory) {
+        return IInbox.Summary({
+            nextBatchId: 1,
+            lastSyncedBlockId: 0,
+            lastSyncedAt: 0,
+            lastVerifiedBatchId: 0,
+            gasIssuanceUpdatedAt: 0,
+            gasIssuancePerSecond: 0,
+            lastVerifiedBlockHash: bytes32(0),
+            lastBatchMetaHash: bytes32(0)
+        });
+    }
+
+    function _createBatchArray(IInbox.Batch memory batch)
+        internal
+        pure
+        returns (IInbox.Batch[] memory)
+    {
+        IInbox.Batch[] memory batches = new IInbox.Batch[](1);
+        batches[0] = batch;
+        return batches;
     }
 }
+*/

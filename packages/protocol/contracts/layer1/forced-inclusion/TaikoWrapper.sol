@@ -128,8 +128,9 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
 
         require(p.blobParams.blobHashes.length == 1, InvalidBlobHashesSize());
         require(p.blobParams.blobHashes[0] == inclusion.blobHash, InvalidBlobHash());
-        require(p.blobParams.byteOffset == inclusion.blobByteOffset, InvalidBlobByteOffset());
-        require(p.blobParams.byteSize == inclusion.blobByteSize, InvalidBlobByteSize());
+        // Entire blob is used for forced inclusion
+        require(p.blobParams.byteOffset == 0, InvalidBlobByteOffset());
+        require(p.blobParams.byteSize == 131072, InvalidBlobByteSize()); // Full blob size
         require(p.blobParams.createdIn == inclusion.blobCreatedIn, InvalidBlobCreatedIn());
 
         emit ForcedInclusionProcessed(inclusion);

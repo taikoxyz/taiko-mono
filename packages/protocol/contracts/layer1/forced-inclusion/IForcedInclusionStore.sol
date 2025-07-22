@@ -8,9 +8,8 @@ interface IForcedInclusionStore {
         bytes32 blobHash;
         uint64 feeInGwei;
         uint64 createdAtBatchId;
-        uint32 blobByteOffset;
-        uint32 blobByteSize;
         uint64 blobCreatedIn;
+        // Simplified: entire blob is the forced inclusion, no offset/size needed
     }
 
     /// @dev Event emitted when a forced inclusion is stored.
@@ -56,15 +55,8 @@ interface IForcedInclusionStore {
     /// @dev Store a forced inclusion request.
     /// The priority fee must be paid to the contract.
     /// @param blobIndex The index of the blob that contains the transaction data.
-    /// @param blobByteOffset The byte offset in the blob
-    /// @param blobByteSize The size of the blob in bytes
-    function storeForcedInclusion(
-        uint8 blobIndex,
-        uint32 blobByteOffset,
-        uint32 blobByteSize
-    )
-        external
-        payable;
+    ///                  The entire blob is used as the forced inclusion.
+    function storeForcedInclusion(uint8 blobIndex) external payable;
 
     /// @dev Get the oldest forced inclusion without consuming it
     /// @return The oldest forced inclusion in the queue
