@@ -29,18 +29,21 @@ contract DeployMainnetPreconf is DeployCapability {
         address taikoToken = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
         address signalService = 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C;
         address oldFork = 0x904Da4C5bD76f932fE09fF32Ae5D7E3d2A5D2264;
+        // admin.taiko.eth
+        address contractOwner = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F;
 
         address whitelist = deployProxy({
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (address(0), 2, 2)),
+            // Not sure if the _operatorChangeDelay and _randomnessDelay are what we want
+            data: abi.encodeCall(PreconfWhitelist.init, (contractOwner, 2, 2)),
             registerTo: rollupResolver
         });
 
         address router = deployProxy({
             name: "preconf_router",
             impl: address(new PreconfRouter(taikoWrapper, whitelist, fallbackPreconfProposer)),
-            data: abi.encodeCall(PreconfRouter.init, (address(0))),
+            data: abi.encodeCall(PreconfRouter.init, (contractOwner)),
             registerTo: rollupResolver
         });
         address wrapper = address(new TaikoWrapper(taikoInbox, store, router));
