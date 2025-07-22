@@ -18,17 +18,15 @@ interface IInbox {
         uint8 timeShift;
         /// @notice Optional anchor block ID for L1-L2 synchronization
         uint48 anchorBlockId;
-        /// @notice Number of cross-chain signals in this block
-        uint8 numSignals;
-        /// @notice Whether this block references an anchor block
-        bool hasAnchor;
+        /// @notice Signal slots for cross-chain messages
+        bytes32[] signalSlots;
     }
 
     /// @notice Contains blob data for a batch
     /// @dev Supports both direct blob hashes and blob indices for different scenarios
     struct Blobs {
         /// @notice Direct blob hashes (if non-empty, firstBlobIndex and numBlobs must be 0)
-        bytes32[] hashes; // length <= type(uint4).max
+        bytes32[] hashes;
         /// @notice Index of the first blob in this batch (for blob index mode)
         uint8 firstBlobIndex;
         /// @notice Number of blobs in this batch
@@ -57,13 +55,9 @@ interface IInbox {
         /// @notice Whether this is a forced inclusion batch
         bool isForcedInclusion;
         /// @notice Prover authorization data
-        bytes proverAuth; // length <= type(uint16).max
-        /// @notice Signal slots for cross-chain messages
-        bytes32[] signalSlots; // length <= type(uint8).max
-        /// @notice Anchor block IDs for L1-L2 synchronization
-        uint48[] anchorBlockIds; // length <= type(uint16).max
+        bytes proverAuth;
         /// @notice Array of blocks in this batch
-        Block[] blocks; // length <= type(uint16).max
+        Block[] blocks;
         /// @notice Blob data for this batch
         Blobs blobs;
     }
@@ -133,8 +127,6 @@ interface IInbox {
         uint48 lastBlockId;
         /// @notice Timestamp of the last block in this batch
         uint48 lastBlockTimestamp;
-        /// @notice Array of anchor block IDs for L1-L2 synchronization
-        uint48[] anchorBlockIds; // length <= type(uint16).max
         /// @notice Hashes of anchor blocks for verification
         bytes32[] anchorBlockHashes; // length <= type(uint16).max
         /// @notice Array of blocks contained in this batch
@@ -394,7 +386,7 @@ interface IInbox {
 
     /// @notice Proves batch transitions using cryptographic proofs
     /// @dev Validates and processes cryptographic proofs for batch state transitions
-    /// @param _packedBatchProveInputs Batch proving inputs encoded as bytes
+    /// @param _inputs encoded I.BatchProveInput[]
     /// @param _proof The cryptographic proof data for validation
-    function prove4(bytes calldata _packedBatchProveInputs, bytes calldata _proof) external;
+    function prove4(bytes calldata _inputs, bytes calldata _proof) external;
 }
