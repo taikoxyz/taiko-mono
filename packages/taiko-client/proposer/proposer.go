@@ -82,6 +82,9 @@ func (p *Proposer) InitFromConfig(
 	privateTxMgr *txmgr.SimpleTxManager,
 ) (err error) {
 	p.proposerAddress = crypto.PubkeyToAddress(cfg.L1ProposerPrivKey.PublicKey)
+
+	log.Info("Proposer address", "address", p.proposerAddress.Hex())
+
 	p.ctx = ctx
 	p.Config = cfg
 	p.lastProposedAt = time.Now()
