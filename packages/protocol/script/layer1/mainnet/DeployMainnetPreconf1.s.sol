@@ -9,7 +9,15 @@ import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 
-contract DeployMainnetPreconf is DeployCapability {
+/// @title DeployMainnetPreconf1
+/// @notice First step in enabling preconfirmations on mainnet.
+/// @dev This script deploys the required preconfirmation contracts
+///      (PreconfWhitelist, PreconfRouter) and deploys new implementation contracts for TaikoWrapper, the inbox and the fork router.
+///      IMPORTANT: This script does NOT enable preconfirmations - the PreconfRouter
+///      is not registered on the resolver. Registration must be done in a separate
+///      step after operators are whitelisted.
+///      IMPORTANT: This script does not upgrade any of the existing proxies, this has to be propsoed manually.
+contract DeployMainnetPreconf1 is DeployCapability {
     uint256 public constant TWO_EPOCHS = 2;
 
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -52,6 +60,7 @@ contract DeployMainnetPreconf is DeployCapability {
         address wrapper = address(new TaikoWrapper(taikoInbox, store, router));
         // Need to call `upgradeTo`, to address: 0x9F9D2fC7abe74C79f86F0D1212107692430eef72
         console2.log("taikoWrapper: ", wrapper);
+        
         address newFork =
             address(new MainnetInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
         address newRouter = address(new PacayaForkRouter(oldFork, newFork));
