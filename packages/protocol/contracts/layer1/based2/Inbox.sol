@@ -7,6 +7,7 @@ import "src/shared/signal/LibSignals.sol";
 import "./AbstractInbox.sol";
 import "./libs/LibBonds.sol";
 import "./libs/LibState.sol";
+import "./libs/LibCodec.sol";
 import "./IBondManager2.sol";
 
 /// @title TaikoInbox
@@ -194,5 +195,74 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
         override
     {
         return $.saveBatchMetaHash(_conf, _batchId, _metaHash);
+    }
+
+    /// @inheritdoc AbstractInbox
+    function _encodeBatchContext(I.BatchContext memory _context)
+        internal
+        pure
+        override
+        returns (bytes memory)
+    {
+        return LibCodec.encodeBatchContext(_context);
+    }
+
+    /// @inheritdoc AbstractInbox
+    function _encodeTransitionMetas(I.TransitionMeta[] memory _transitionMetas)
+        internal
+        pure
+        override
+        returns (bytes memory)
+    {
+        return LibCodec.encodeTransitionMetas(_transitionMetas);
+    }
+
+    function _encodeSummary(I.Summary memory _summary)
+        internal
+        pure
+        override
+        returns (bytes memory)
+    {
+        return LibCodec.encodeSummary(_summary);
+    }
+
+    /// @inheritdoc AbstractInbox
+    function _decodeProposeBatchesInputs(bytes memory _data)
+        internal
+        pure
+        override
+        returns (
+            I.Summary memory,
+            I.Batch[] memory,
+            I.BatchProposeMetadataEvidence memory,
+            I.TransitionMeta[] memory
+        )
+    {
+        return LibCodec.decodeProposeBatchesInputs(_data);
+    }
+
+    /// @inheritdoc AbstractInbox
+    function _decodeProverAuth(bytes memory _data)
+        internal
+        pure
+        override
+        returns (I.ProverAuth memory)
+    {
+        return LibCodec.decodeProverAuth(_data);
+    }
+
+    /// @inheritdoc AbstractInbox
+    function _decodeSummary(bytes memory _data) internal pure override returns (I.Summary memory) {
+        return LibCodec.decodeSummary(_data);
+    }
+
+    /// @inheritdoc AbstractInbox
+    function _decodeProveBatchesInputs(bytes memory _data)
+        internal
+        pure
+        override
+        returns (I.BatchProveInput[] memory)
+    {
+        return LibCodec.decodeProveBatchesInputs(_data);
     }
 }
