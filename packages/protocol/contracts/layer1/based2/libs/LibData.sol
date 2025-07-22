@@ -116,12 +116,13 @@ library LibData {
     }
 
     /// @notice  Computes a batch hash using ProveBatchInput
-    /// @param _ProveBatchInput The batch prove input containing metadata to validate
-    function hashBatch(I.ProveBatchInput memory _ProveBatchInput) internal pure returns (bytes32) {
-        bytes32 proveMetaHash = keccak256(abi.encode(_ProveBatchInput.proveMeta));
-        bytes32 rightHash = keccak256(abi.encode(_ProveBatchInput.proposeMetaHash, proveMetaHash));
-        return keccak256(abi.encode(_ProveBatchInput.leftHash, rightHash));
+    /// @param _proveBatchInput The batch prove input containing metadata to validate
+    function hashBatch(I.ProveBatchInput memory _proveBatchInput) internal pure returns (bytes32) {
+        bytes32 proveMetaHash = keccak256(abi.encode(_proveBatchInput.proveMeta));
+        bytes32 rightHash = keccak256(abi.encode(_proveBatchInput.proposeMetaHash, proveMetaHash));
+        return keccak256(abi.encode(_proveBatchInput.leftHash, rightHash));
     }
+
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
