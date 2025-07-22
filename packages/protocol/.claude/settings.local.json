@@ -1,0 +1,6 @@
+{
+  "permissions": {
+    "allow": ["Bash(git stash:*)", "Bash(mkdir:*)", "Bash(pnpm compile:*)"],
+    "deny": []
+  }
+}

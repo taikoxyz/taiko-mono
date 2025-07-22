@@ -7,7 +7,12 @@ import "src/shared/signal/LibSignals.sol";
 import "./AbstractInbox.sol";
 import "./libs/LibBonds.sol";
 import "./libs/LibState.sol";
-import "./libs/LibCodec.sol";
+import "./codec/LibCodecBatchContext.sol";
+import "./codec/LibCodecTransitionMeta.sol";
+import "./codec/LibCodecSummary.sol";
+import "./codec/LibCodecProposeBatchesInputs.sol";
+import "./codec/LibCodecProverAuth.sol";
+import "./codec/LibCodecBatchProveInput.sol";
 import "./IBondManager2.sol";
 
 /// @title TaikoInbox
@@ -204,7 +209,7 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
         override
         returns (bytes memory)
     {
-        return LibCodec.encodeBatchContext(_context);
+        return LibCodecBatchContext.encode(_context);
     }
 
     /// @inheritdoc AbstractInbox
@@ -214,16 +219,17 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
         override
         returns (bytes memory)
     {
-        return LibCodec.encodeTransitionMetas(_transitionMetas);
+        return LibCodecTransitionMeta.encode(_transitionMetas);
     }
 
+    /// @inheritdoc AbstractInbox
     function _encodeSummary(I.Summary memory _summary)
         internal
         pure
         override
         returns (bytes memory)
     {
-        return LibCodec.encodeSummary(_summary);
+        return LibCodecSummary.encode(_summary);
     }
 
     /// @inheritdoc AbstractInbox
@@ -238,7 +244,7 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
             I.TransitionMeta[] memory
         )
     {
-        return LibCodec.decodeProposeBatchesInputs(_data);
+        return LibCodecProposeBatchesInputs.decode(_data);
     }
 
     /// @inheritdoc AbstractInbox
@@ -248,12 +254,12 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
         override
         returns (I.ProverAuth memory)
     {
-        return LibCodec.decodeProverAuth(_data);
+        return LibCodecProverAuth.decode(_data);
     }
 
     /// @inheritdoc AbstractInbox
     function _decodeSummary(bytes memory _data) internal pure override returns (I.Summary memory) {
-        return LibCodec.decodeSummary(_data);
+        return LibCodecSummary.decode(_data);
     }
 
     /// @inheritdoc AbstractInbox
@@ -263,6 +269,6 @@ abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
         override
         returns (I.BatchProveInput[] memory)
     {
-        return LibCodec.decodeProveBatchesInputs(_data);
+        return LibCodecBatchProveInput.decode(_data);
     }
 }
