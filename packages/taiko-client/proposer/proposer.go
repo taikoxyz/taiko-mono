@@ -51,6 +51,9 @@ type Proposer struct {
 	lastProposedAt time.Time
 	totalEpochs    uint64
 
+	// Fallback proposer related
+	l2HeadUpdatedAt time.Time
+
 	txmgrSelector *utils.TxMgrSelector
 
 	ctx context.Context
@@ -144,8 +147,12 @@ func (p *Proposer) Start() error {
 
 // eventLoop starts the main loop of Taiko proposer.
 func (p *Proposer) eventLoop() {
+	l2HeadCh := make(chan *types.Header, 10)
+	l2HeadSub := rpc.SubscribeChainHead(p.rpc.L2, l2HeadCh)
+
 	defer func() {
 		p.proposingTimer.Stop()
+		l2HeadSub.Unsubscribe()
 		p.wg.Done()
 	}()
 
@@ -165,6 +172,8 @@ func (p *Proposer) eventLoop() {
 				log.Error("Proposing operation error", "error", err)
 				continue
 			}
+		case <-l2HeadCh:
+			p.l2HeadUpdatedAt = time.Now()
 		}
 	}
 }
@@ -268,14 +277,10 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 			return nil
 		}
 		// As a fallback proposer, need to enable preconfirmation server
-		latest, err := p.rpc.L2.BlockByNumber(ctx, nil)
-		if err != nil {
-			return fmt.Errorf("failed to get the latest block: %w", err)
-		}
-		latestBlockTime := time.Unix(int64(latest.Time()), 0)
-		if time.Since(latestBlockTime) < p.FallbackTimeout {
+
+		if time.Since(p.l2HeadUpdatedAt) < p.FallbackTimeout {
 			log.Info("Fallback timeout not reached, skip proposing",
-				"latestBlockTime", latestBlockTime,
+				"l2HeadUpdatedAt", p.l2HeadUpdatedAt,
 				"time", time.Now(),
 				"fallbackTimeout", p.FallbackTimeout,
 			)
