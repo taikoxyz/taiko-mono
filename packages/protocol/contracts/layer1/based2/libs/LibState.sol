@@ -48,6 +48,11 @@ library LibState {
         function(address, uint256) creditBond;
         /// @notice Debits bond from a user
         function(I.Config memory, address, uint256) debitBond;
+        // Decoding functions -----------------------------------------------------
+
+        // Encoding functions -----------------------------------------------------
+        function(I.BatchContext memory) returns (bytes memory) encodeBatchContext;
+        function(I.TransitionMeta[] memory) returns (bytes memory) encodeTransitionMetas;
     }
 
     // -------------------------------------------------------------------------

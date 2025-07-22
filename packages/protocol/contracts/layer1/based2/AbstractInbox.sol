@@ -273,6 +273,29 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         virtual
         returns (bytes32 metaHash_, bool isFirstTransition_);
 
+    /// @notice Encodes a batch context
+    /// @param _context The batch context to encode
+    /// @return The encoded batch context
+    function _encodeBatchContext(I.BatchContext memory _context)
+        internal
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(_context);
+    }
+
+    /// @notice Encodes transition metas
+    /// @param _transitionMetas The transition metas to encode
+    /// @return The encoded transition metas
+    function _encodeTransitionMetas(I.TransitionMeta[] memory _transitionMetas)
+        internal
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(_transitionMetas);
+    }
+
+    /// @notice Decodes a batch context
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
@@ -326,8 +349,13 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
             creditBond: _creditBond,
             transferFee: _transferFee,
             syncChainData: _syncChainData,
-            saveBatchMetaHash: _saveBatchMetaHash
-        });
+            saveBatchMetaHash: _saveBatchMetaHash,
+            // Encoding functions
+            encodeBatchContext: _encodeBatchContext,
+            encodeTransitionMetas: _encodeTransitionMetas
+        })
+        // Decoding functions
+        ;
     }
 
     function _validateSummary(bytes calldata _packedSummary)
