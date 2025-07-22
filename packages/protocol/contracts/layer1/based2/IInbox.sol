@@ -362,21 +362,21 @@ interface IInbox {
     }
 
     /// @notice Emitted when the protocol summary is updated
-    /// @param packedSummary The updated protocol summary encoded as bytes
-    event SummaryUpdated(bytes packedSummary);
+    /// @param summary The updated protocol summary encoded as bytes
+    event SummaryUpdated(bytes summary);
 
     /// @notice Emitted when a new batch is proposed
     /// @param batchId The unique identifier of the proposed batch
-    /// @param packedContext The batch context data encoded as bytes
-    event Proposed(uint48 batchId, bytes packedContext);
+    /// @param context The batch context data encoded as bytes
+    event Proposed(uint48 batchId, bytes context);
 
     /// @notice Emitted when a batch transition is proven
     /// @param batchId The unique identifier of the proven batch
-    /// @param packedTranMeta The transition metadata encoded as bytes
-    event Proved(uint256 indexed batchId, bytes packedTranMeta);
+    /// @param tranMetas The transition metadata encoded as bytes
+    event Proved(uint256 indexed batchId, bytes tranMetas);
 
     /// @notice Emitted when a batch is verified and finalized
-    /// @param uint48_batchId_uint48_blockId Combined batch ID and last block ID (packed)
+    /// @param uint48_batchId_uint48_blockId Combined batch ID and last block ID
     /// @param blockHash The hash of the verified batch's last block
     // solhint-disable var-name-mixedcase
     event Verified(uint256 uint48_batchId_uint48_blockId, bytes32 blockHash);

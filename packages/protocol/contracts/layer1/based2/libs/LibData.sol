@@ -134,7 +134,7 @@ library LibData {
     ///      - Bits 41-127: Reserved for future use
     /// @param _baseFeeSharingPctg Base fee sharing percentage (0-100)
     /// @param _batch Batch information containing forced inclusion flag and gas issuance
-    /// @return Encoded data as bytes32 with information packed in lower 128 bits
+    /// @return Encoded data as bytes32 with information context in lower 128 bits
     function _encodeExtraData(
         uint8 _baseFeeSharingPctg,
         I.Batch memory _batch
