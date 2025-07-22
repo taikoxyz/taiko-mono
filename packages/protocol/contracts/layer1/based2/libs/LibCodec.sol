@@ -444,10 +444,13 @@ library LibCodec {
                 // Validate array lengths according to IInbox.sol limits
                 require(batch.proverAuth.length <= type(uint16).max, ProverAuthTooLarge());
                 require(batch.blocks.length <= type(uint16).max, BlocksArrayTooLarge());
-                
+
                 // Validate signalSlots for each block
                 for (uint256 j; j < batch.blocks.length; ++j) {
-                    require(batch.blocks[j].signalSlots.length <= type(uint8).max, SignalSlotsArrayTooLarge());
+                    require(
+                        batch.blocks[j].signalSlots.length <= type(uint8).max,
+                        SignalSlotsArrayTooLarge()
+                    );
                 }
                 require(batch.blobs.hashes.length <= 15, BlobHashesArrayTooLarge()); // type(uint4).max
 
@@ -455,17 +458,19 @@ library LibCodec {
                 totalSize += 51; // Fixed fields (20+20+7+4)
                 totalSize += 2 + batch.proverAuth.length; // proverAuth with 2-byte length prefix
                 totalSize += 2; // blocks length prefix (2 bytes)
-                
+
                 // Calculate size for each block (now includes signalSlots)
                 for (uint256 j; j < batch.blocks.length; ++j) {
-                    totalSize += 24; // fixed block fields (2+1+1+20 = 24 bytes: numTransactions+timeShift+anchorFlag+coinbase)
+                    totalSize += 24; // fixed block fields (2+1+1+20 = 24 bytes:
+                        // numTransactions+timeShift+anchorFlag+coinbase)
                     // Add anchorBlockId bytes if non-zero (6 bytes for uint48)
                     if (batch.blocks[j].anchorBlockId != 0) {
                         totalSize += 6;
                     }
-                    totalSize += 1 + (batch.blocks[j].signalSlots.length * 32); // signalSlots with 1-byte length prefix
+                    totalSize += 1 + (batch.blocks[j].signalSlots.length * 32); // signalSlots with
+                        // 1-byte length prefix
                 }
-                
+
                 totalSize += 17; // blobs fixed part (1+1+4+4+6+1 = 17 bytes)
                 totalSize += (batch.blobs.hashes.length * 32); // blob hashes
             }
@@ -565,7 +570,8 @@ library LibCodec {
                             ptr := add(ptr, 1)
                         }
                         if gt(anchorBlockId, 0) {
-                            // If anchorBlockId is non-zero, store flag byte as 1 (bit 0 = 1) followed by 6-byte anchorBlockId
+                            // If anchorBlockId is non-zero, store flag byte as 1 (bit 0 = 1)
+                            // followed by 6-byte anchorBlockId
                             mstore8(ptr, 1)
                             ptr := add(ptr, 1)
                             // Store anchorBlockId (6 bytes for uint48)
@@ -731,22 +737,22 @@ library LibCodec {
                     // Skip blocks (2 bytes length for uint16)
                     let blocksLen := shr(240, mload(ptr))
                     ptr := add(ptr, 2)
-                    
-                    // Skip each block (variable size with signalSlots and conditional anchorBlockId)
+
+                    // Skip each block (variable size with signalSlots and conditional
+                    // anchorBlockId)
                     for { let j := 0 } lt(j, blocksLen) { j := add(j, 1) } {
                         ptr := add(ptr, 3) // numTransactions (2) + timeShift (1)
-                        
+
                         // Read anchor flag
                         let anchorFlag := and(mload(ptr), 0xFF)
                         ptr := add(ptr, 1)
-                        
+
                         // Skip anchorBlockId if present
-                        if gt(anchorFlag, 0) {
-                            ptr := add(ptr, 6) // anchorBlockId (6 bytes for uint48)
-                        }
-                        
+                        if gt(anchorFlag, 0) { ptr := add(ptr, 6) } // anchorBlockId (6 bytes for
+                            // uint48)
+
                         ptr := add(ptr, 20) // coinbase address
-                        
+
                         // Skip signalSlots
                         let signalSlotsLen := and(mload(ptr), 0xFF)
                         ptr := add(ptr, 1)

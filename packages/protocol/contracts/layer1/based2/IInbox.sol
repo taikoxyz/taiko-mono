@@ -45,7 +45,6 @@ interface IInbox {
         /// @notice Block number when blobs were created (only for forced inclusion)
         /// @dev Non-zero only when hashes array is used
         uint48 createdIn;
-      
     }
 
     /// @notice Represents a batch of blocks to be proposed
