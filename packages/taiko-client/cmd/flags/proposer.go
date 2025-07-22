@@ -111,6 +111,7 @@ var (
 var ProposerFlags = MergeFlags(CommonFlags, []cli.Flag{
 	L2HTTPEndpoint,
 	L2AuthEndpoint,
+	L2WSEndpoint,
 	JWTSecret,
 	TaikoTokenAddress,
 	TaikoWrapperAddress,
