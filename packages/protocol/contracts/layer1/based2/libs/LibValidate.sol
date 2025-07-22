@@ -28,14 +28,14 @@ library LibValidate {
     /// @dev Performs comprehensive validation including proposer, blocks, timestamps,
     ///      signals, anchors, and blobs. This is the main entry point for batch validation.
     /// @dev The prover field of the returned context object will not be initialized.
-    /// @param _access Read/write access functions for blockchain state
+    /// @param _bindings Library function binding
     /// @param _config Protocol configuration parameters
     /// @param _summary Current protocol summary state
     /// @param _batch The batch to validate
     /// @param _parentBatch Metadata from the parent batch proposal
     /// @return _ Validated batch information and computed hashes
     function validate(
-        LibBinding.Bindings memory _access,
+        LibBinding.Bindings memory _bindings,
         I.Config memory _config,
         I.Summary memory _summary,
         I.Batch memory _batch,
@@ -58,11 +58,11 @@ library LibValidate {
         _validateTimestamps(_config, _batch, _parentBatch.lastBlockTimestamp);
 
         // Validate signals
-        _validateSignals(_access, _config, _batch);
+        _validateSignals(_bindings, _config, _batch);
 
         // Validate anchors
         (bytes32[] memory anchorBlockHashes, uint48 lastAnchorBlockId) =
-            _validateAnchors(_access, _config, _batch, _parentBatch.lastAnchorBlockId);
+            _validateAnchors(_bindings, _config, _batch, _parentBatch.lastAnchorBlockId);
 
         // Validate block range
         uint48 lastBlockId =
@@ -72,7 +72,7 @@ library LibValidate {
         uint48 blobsCreatedIn = _validateBlobs(_config, _batch);
 
         // Calculate transaction hash
-        (bytes32[] memory blobHashes, bytes32 txsHash) = _calculateTxsHash(_access, _batch.blobs);
+        (bytes32[] memory blobHashes, bytes32 txsHash) = _calculateTxsHash(_bindings, _batch.blobs);
 
         // Initialize context
         return I.BatchContext({
@@ -176,11 +176,11 @@ library LibValidate {
 
     /// @notice Validates cross-chain signals in the batch
     /// @dev Verifies that all referenced signals have been properly sent
-    /// @param _access Read/write access functions
+    /// @param _bindings Read/write bindings functions
     /// @param _config Protocol configuration
     /// @param _batch The batch containing signal references
     function _validateSignals(
-        LibBinding.Bindings memory _access,
+        LibBinding.Bindings memory _bindings,
         I.Config memory _config,
         I.Batch memory _batch
     )
@@ -190,7 +190,7 @@ library LibValidate {
         for (uint256 i; i < _batch.blocks.length; ++i) {
             for (uint256 j; j < _batch.blocks[i].signalSlots.length; ++j) {
                 require(
-                    _access.isSignalSent(_config, _batch.blocks[i].signalSlots[j]),
+                    _bindings.isSignalSent(_config, _batch.blocks[i].signalSlots[j]),
                     RequiredSignalNotSent()
                 );
             }
@@ -199,14 +199,14 @@ library LibValidate {
 
     /// @notice Validates anchor blocks used for L1-L2 synchronization
     /// @dev Ensures anchor blocks are properly ordered, within height limits, and have valid hashes
-    /// @param _access Read/write access functions
+    /// @param _bindings Read/write bindings functions
     /// @param _config Protocol configuration
     /// @param _batch The batch being validated
     /// @param _parentLastAnchorBlockId Last anchor block ID from parent batch
     /// @return anchorBlockHashes_ Array of validated anchor block hashes
     /// @return lastAnchorBlockId_ ID of the last anchor block in this batch
     function _validateAnchors(
-        LibBinding.Bindings memory _access,
+        LibBinding.Bindings memory _bindings,
         I.Config memory _config,
         I.Batch memory _batch,
         uint48 _parentLastAnchorBlockId
@@ -235,7 +235,7 @@ library LibValidate {
 
             require(anchorBlockId > lastAnchorBlockId_, AnchorIdSmallerThanParent());
 
-            anchorBlockHashes_[anchorIndex] = _access.getBlockHash(anchorBlockId);
+            anchorBlockHashes_[anchorIndex] = _bindings.getBlockHash(anchorBlockId);
             require(anchorBlockHashes_[anchorIndex] != 0, ZeroAnchorBlockHash());
 
             hasAnchorBlock = true;
@@ -316,12 +316,12 @@ library LibValidate {
 
     /// @notice Calculates the transaction hash from blob data
     /// @dev Retrieves blob hashes and computes the aggregate transaction hash
-    /// @param _access Read/write access functions
+    /// @param _bindings Read/write bindings functions
     /// @param _blobs Blob information containing hashes or indices
     /// @return blobHashes_ Array of individual blob hashes
     /// @return txsHash_ Hash of all transactions in the batch
     function _calculateTxsHash(
-        LibBinding.Bindings memory _access,
+        LibBinding.Bindings memory _bindings,
         I.Blobs memory _blobs
     )
         private
@@ -334,7 +334,7 @@ library LibValidate {
             } else {
                 blobHashes_ = new bytes32[](_blobs.numBlobs);
                 for (uint256 i; i < _blobs.numBlobs; ++i) {
-                    blobHashes_[i] = _access.getBlobHash(_blobs.firstBlobIndex + i);
+                    blobHashes_[i] = _bindings.getBlobHash(_blobs.firstBlobIndex + i);
                 }
             }
 

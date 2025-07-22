@@ -27,12 +27,12 @@ library LibProver {
     ///      - External prover with bond token fees
     ///      - External prover with other token fees
     ///      Handles bond debiting/crediting and fee transfers accordingly
-    /// @param _access Read/write access functions for bond and fee operations
+    /// @param _bindings Read/write bindings functions for bond and fee operations
     /// @param _config Protocol configuration parameters
     /// @param _summary Current protocol summary state
     /// @param _batch The batch being proved
     function validateProver(
-        LibBinding.Bindings memory _access,
+        LibBinding.Bindings memory _bindings,
         I.Config memory _config,
         I.Summary memory _summary,
         I.Batch memory _batch
@@ -46,7 +46,7 @@ library LibProver {
         unchecked {
             if (_batch.proverAuth.length == 0) {
                 prover_ = _batch.proposer;
-                _access.debitBond(_config, prover_, livenessBond + provabilityBond);
+                _bindings.debitBond(_config, prover_, livenessBond + provabilityBond);
             } else {
                 // Circular dependency so zero it out. (Batch has proverAuth but
                 // proverAuth has also batchHash)
@@ -58,7 +58,7 @@ library LibProver {
                 address feeToken;
                 uint256 fee;
                 (prover_, feeToken, fee) = _validateProverAuth(
-                    _access,
+                    _bindings,
                     _config.chainId,
                     _summary.nextBatchId,
                     keccak256(abi.encode(_batch)),
@@ -67,23 +67,23 @@ library LibProver {
 
                 if (feeToken == _config.bondToken) {
                     // proposer pay the prover fee with bond tokens
-                    _access.debitBond(_config, _batch.proposer, fee + provabilityBond);
+                    _bindings.debitBond(_config, _batch.proposer, fee + provabilityBond);
 
                     // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                     // if not then add the diff to the bond balance
                     int256 bondDelta = int256(fee) - int256(livenessBond);
 
                     bondDelta < 0
-                        ? _access.debitBond(_config, prover_, uint256(-bondDelta))
-                        : _access.creditBond(prover_, uint256(bondDelta));
+                        ? _bindings.debitBond(_config, prover_, uint256(-bondDelta))
+                        : _bindings.creditBond(prover_, uint256(bondDelta));
                 } else if (prover_ == _batch.proposer) {
-                    _access.debitBond(_config, _batch.proposer, livenessBond + provabilityBond);
+                    _bindings.debitBond(_config, _batch.proposer, livenessBond + provabilityBond);
                 } else {
-                    _access.debitBond(_config, _batch.proposer, provabilityBond);
-                    _access.debitBond(_config, prover_, livenessBond);
+                    _bindings.debitBond(_config, _batch.proposer, provabilityBond);
+                    _bindings.debitBond(_config, prover_, livenessBond);
 
                     if (fee != 0) {
-                        _access.transferFee(feeToken, _batch.proposer, prover_, fee);
+                        _bindings.transferFee(feeToken, _batch.proposer, prover_, fee);
                     }
                 }
             }
@@ -109,7 +109,7 @@ library LibProver {
     /// @return feeToken_ Fee token address for payment
     /// @return fee_ Fee amount to be paid
     function _validateProverAuth(
-        LibBinding.Bindings memory _access,
+        LibBinding.Bindings memory _bindings,
         uint64 _chainId,
         uint64 _batchId,
         bytes32 _batchHash,
@@ -119,7 +119,7 @@ library LibProver {
         view
         returns (address prover_, address feeToken_, uint256 fee_)
     {
-        I.ProverAuth memory auth = _access.decodeProverAuth(_proverAuth);
+        I.ProverAuth memory auth = _bindings.decodeProverAuth(_proverAuth);
 
         // Supporting Ether as fee token will require making IInbox's proposing function
         // payable. We try to avoid this as much as possible. And since most proposers may simply

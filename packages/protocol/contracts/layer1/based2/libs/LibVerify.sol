@@ -26,13 +26,13 @@ library LibVerify {
     /// @dev Processes batches sequentially, validating transition metadata,
     ///      enforcing cooldown periods, and distributing bonds to provers.
     ///      Also handles periodic state root synchronization.
-    /// @param _access Read/write access functions for blockchain state
+    /// @param _bindings Library function binding
     /// @param _config Protocol configuration parameters
     /// @param _summary Current protocol summary state
     /// @param _trans Array of transition metadata for verification
     /// @return Updated summary with verification results
     function verify(
-        LibBinding.Bindings memory _access,
+        LibBinding.Bindings memory _bindings,
         I.Config memory _config,
         I.Summary memory _summary,
         I.TransitionMeta[] memory _trans
@@ -56,8 +56,9 @@ library LibVerify {
             uint256 nTransitions = _trans.length;
 
             for (; batchId < stopBatchId; ++batchId) {
-                (bytes32 tranMetaHash, bool isFirstTransition) =
-                    _access.loadTransitionMetaHash(_config, _summary.lastVerifiedBlockHash, batchId);
+                (bytes32 tranMetaHash, bool isFirstTransition) = _bindings.loadTransitionMetaHash(
+                    _config, _summary.lastVerifiedBlockHash, batchId
+                );
 
                 if (tranMetaHash == 0) break;
 
@@ -69,7 +70,7 @@ library LibVerify {
                 }
 
                 uint256 bondToProver = _calcBondToProver(_config, _trans[i], isFirstTransition);
-                _access.creditBond(_trans[i].prover, bondToProver * 1 gwei);
+                _bindings.creditBond(_trans[i].prover, bondToProver * 1 gwei);
 
                 if (batchId % _config.stateRootSyncInternal == 0) {
                     lastSyncedBatchId = batchId;
@@ -82,7 +83,7 @@ library LibVerify {
             if (lastSyncedBatchId != 0) {
                 _summary.lastSyncedAt = uint48(block.timestamp);
                 _summary.lastSyncedBlockId = _trans[lastSyncedBatchId].lastBlockId;
-                _access.syncChainData(
+                _bindings.syncChainData(
                     _config, _summary.lastSyncedBlockId, _trans[lastSyncedBatchId].stateRoot
                 );
             }

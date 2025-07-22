@@ -58,23 +58,23 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         nonReentrant
         returns (I.Summary memory)
     {
-        LibBinding.Bindings memory access = _getBindings();
+        LibBinding.Bindings memory bindings = _getBindings();
 
         (
             I.Summary memory summary,
             I.Batch[] memory batches,
             I.BatchProposeMetadataEvidence memory evidence,
             I.TransitionMeta[] memory transitionMetas
-        ) = access.decodeProposeBatchesInputs(_inputs);
+        ) = bindings.decodeProposeBatchesInputs(_inputs);
         I.Config memory config = _getConfig();
 
         // Propose batches
-        summary = LibPropose.propose(access, config, summary, batches, evidence);
+        summary = LibPropose.propose(bindings, config, summary, batches, evidence);
 
         // Verify batches
-        summary = LibVerify.verify(access, config, summary, transitionMetas);
+        summary = LibVerify.verify(bindings, config, summary, transitionMetas);
 
-        bytes memory packedSummary = access.encodeSummary(summary);
+        bytes memory packedSummary = bindings.encodeSummary(summary);
         _saveSummaryHash(keccak256(packedSummary));
         emit I.SummaryUpdated(packedSummary);
 
@@ -93,12 +93,12 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         override(I, IProve)
         nonReentrant
     {
-        LibBinding.Bindings memory access = _getBindings();
-        I.BatchProveInput[] memory inputs = access.decodeProveBatchesInputs(_inputs);
+        LibBinding.Bindings memory bindings = _getBindings();
+        I.BatchProveInput[] memory inputs = bindings.decodeProveBatchesInputs(_inputs);
         I.Config memory config = _getConfig();
 
         // Prove batches and get aggregated hash
-        bytes32 aggregatedBatchHash = LibProve.prove(access, config, inputs);
+        bytes32 aggregatedBatchHash = LibProve.prove(bindings, config, inputs);
 
         // Verify the proof
         IVerifier2(config.verifier).verifyProof(aggregatedBatchHash, _proof);
