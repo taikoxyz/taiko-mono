@@ -6,7 +6,6 @@ import (
 
 	echoprom "github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/gommon/log"
 	"github.com/taikoxyz/taiko-mono/packages/balance-monitor/cmd/flags"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/exp/slog"
@@ -24,7 +23,7 @@ func Serve(ctx context.Context, c *cli.Context) (*echo.Echo, func() error) {
 		<-ctx.Done()
 
 		if err := e.Shutdown(ctx); err != nil {
-			log.Error("Failed to close metrics server", "error", err)
+			slog.Error("Failed to close metrics server", "error", err)
 		}
 	}()
 
