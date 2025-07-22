@@ -36,7 +36,6 @@ contract LibCodecBatchTest is Test {
             gasIssuancePerSecond: 789,
             isForcedInclusion: true,
             proverAuth: emptyAuth,
-            signalSlots: emptySlots,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -76,7 +75,6 @@ contract LibCodecBatchTest is Test {
             gasIssuancePerSecond: 789,
             isForcedInclusion: false,
             proverAuth: proverAuth,
-            signalSlots: emptySlots,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -121,8 +119,7 @@ contract LibCodecBatchTest is Test {
                 gasIssuancePerSecond: uint32(i + 2000),
                 isForcedInclusion: i % 2 == 0,
                 proverAuth: emptyAuth,
-                signalSlots: emptySlots,
-                    blocks: emptyBlocks,
+                        blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
                     hashes: emptyHashes,
                     firstBlobIndex: uint8(i + 1),
@@ -166,8 +163,7 @@ contract LibCodecBatchTest is Test {
                 gasIssuancePerSecond: uint32(i),
                 isForcedInclusion: false,
                 proverAuth: emptyAuth,
-                signalSlots: emptySlots,
-                    blocks: emptyBlocks,
+                        blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
                     hashes: emptyHashes,
                     firstBlobIndex: 0,
@@ -201,8 +197,7 @@ contract LibCodecBatchTest is Test {
                 gasIssuancePerSecond: uint32(i),
                 isForcedInclusion: false,
                 proverAuth: emptyAuth,
-                signalSlots: emptySlots,
-                    blocks: emptyBlocks,
+                        blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
                     hashes: emptyHashes,
                     firstBlobIndex: 0,
@@ -245,7 +240,6 @@ contract LibCodecBatchTest is Test {
             gasIssuancePerSecond: 789,
             isForcedInclusion: true,
             proverAuth: largeProverAuth,
-            signalSlots: emptySlots,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -269,8 +263,17 @@ contract LibCodecBatchTest is Test {
         bytes32[] memory largeSignalSlots = new bytes32[](256);
 
         bytes memory emptyAuth = new bytes(0);
-        IInbox.Block[] memory emptyBlocks = new IInbox.Block[](0);
         bytes32[] memory emptyHashes = new bytes32[](0);
+
+        // Create a block with large signalSlots array
+        IInbox.Block[] memory blocks = new IInbox.Block[](1);
+        blocks[0] = IInbox.Block({
+            numTransactions: 1,
+            timeShift: 0,
+            anchorBlockId: 0,
+            coinbase: address(0),
+            signalSlots: largeSignalSlots
+        });
 
         batches[0] = IInbox.Batch({
             proposer: address(0x1111),
@@ -279,8 +282,7 @@ contract LibCodecBatchTest is Test {
             gasIssuancePerSecond: 789,
             isForcedInclusion: true,
             proverAuth: emptyAuth,
-            signalSlots: largeSignalSlots,
-            blocks: emptyBlocks,
+            blocks: blocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
                 firstBlobIndex: 1,
@@ -319,7 +321,6 @@ contract LibCodecBatchTest is Test {
             gasIssuancePerSecond: 789,
             isForcedInclusion: true,
             proverAuth: emptyAuth,
-            signalSlots: emptySlots,
             blocks: blocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -359,7 +360,6 @@ contract LibCodecBatchTest is Test {
             gasIssuancePerSecond: 789,
             isForcedInclusion: true,
             proverAuth: emptyAuth,
-            signalSlots: emptySlots,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: largeBlobHashes,
@@ -391,7 +391,6 @@ contract LibCodecBatchTest is Test {
             gasIssuancePerSecond: 789,
             isForcedInclusion: true,
             proverAuth: emptyAuth,
-            signalSlots: emptySlots,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -411,7 +410,6 @@ contract LibCodecBatchTest is Test {
             gasIssuancePerSecond: 456,
             isForcedInclusion: false,
             proverAuth: emptyAuth,
-            signalSlots: emptySlots,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -453,8 +451,7 @@ contract LibCodecBatchTest is Test {
                 gasIssuancePerSecond: uint32(i),
                 isForcedInclusion: i % 2 == 0,
                 proverAuth: emptyAuth,
-                signalSlots: emptySlots,
-                    blocks: emptyBlocks,
+                        blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
                     hashes: emptyHashes,
                     firstBlobIndex: uint8(i),
@@ -495,8 +492,7 @@ contract LibCodecBatchTest is Test {
                 gasIssuancePerSecond: uint32(i),
                 isForcedInclusion: i % 2 == 0,
                 proverAuth: emptyAuth,
-                signalSlots: emptySlots,
-                    blocks: emptyBlocks,
+                        blocks: emptyBlocks,
                 blobs: IInbox.Blobs({
                     hashes: emptyHashes,
                     firstBlobIndex: uint8(i),
@@ -560,7 +556,6 @@ contract LibCodecBatchTest is Test {
             gasIssuancePerSecond: type(uint32).max,
             isForcedInclusion: true,
             proverAuth: maxAuth,
-            signalSlots: emptySlots,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -599,7 +594,6 @@ contract LibCodecBatchTest is Test {
             gasIssuancePerSecond: 0,
             isForcedInclusion: false,
             proverAuth: emptyAuth,
-            signalSlots: emptySlots,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,
@@ -646,7 +640,6 @@ contract LibCodecBatchTest is Test {
             gasIssuancePerSecond: gasIssuancePerSecond,
             isForcedInclusion: isForcedInclusion,
             proverAuth: emptyAuth,
-            signalSlots: emptySlots,
             blocks: emptyBlocks,
             blobs: IInbox.Blobs({
                 hashes: emptyHashes,

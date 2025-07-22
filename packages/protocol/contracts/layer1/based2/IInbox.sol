@@ -18,14 +18,14 @@ interface IInbox {
         /// @notice Time difference in seconds between this block and its parent within the batch
         /// @dev For the first block in a batch, this should be 0 (no parent in same batch)
         uint8 timeShift;
-        /// @notice Number of cross-chain signals in this block
-        uint8 numSignals;
-        /// @notice Packed anchor info: bit 0 = has anchor flag, bits 1-48 = anchor block ID
-        /// @dev If bit 0 is 0, no anchor block ID. If bit 0 is 1, bits 1-48 contain anchor block ID
-        uint64 packedAnchorInfo;
+        /// @notice Anchor block ID for L1-L2 synchronization
+        /// @dev 0 means no anchor block, otherwise contains the anchor block ID
+        uint48 anchorBlockId;
         /// @notice Coinbase address for this block
         /// @dev If zero, use the batch's coinbase address
         address coinbase;
+        /// @notice Signal slots for cross-chain messages
+        bytes32[] signalSlots; // length <= type(uint8).max
     }
 
     /// @notice Contains blob data for a batch
@@ -63,8 +63,6 @@ interface IInbox {
         bool isForcedInclusion;
         /// @notice Prover authorization data
         bytes proverAuth; // length <= type(uint16).max
-        /// @notice Signal slots for cross-chain messages
-        bytes32[] signalSlots; // length <= type(uint8).max
         /// @notice Array of blocks in this batch
         Block[] blocks; // length <= type(uint16).max
         /// @notice Blob data for this batch

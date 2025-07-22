@@ -189,15 +189,12 @@ library LibValidate {
         view
     {
         unchecked {
-            uint256 signalIndex;
-
             for (uint256 i; i < _batch.blocks.length; ++i) {
-                if (_batch.blocks[i].numSignals == 0) continue;
+                if (_batch.blocks[i].signalSlots.length == 0) continue;
 
-                for (uint256 j; j < _batch.blocks[i].numSignals; ++j) {
-                    require(signalIndex < _batch.signalSlots.length, NotEnoughSignals());
+                for (uint256 j; j < _batch.blocks[i].signalSlots.length; ++j) {
                     require(
-                        _access.isSignalSent(_config, _batch.signalSlots[signalIndex++]),
+                        _access.isSignalSent(_config, _batch.blocks[i].signalSlots[j]),
                         RequiredSignalNotSent()
                     );
                 }
@@ -231,13 +228,9 @@ library LibValidate {
         bool hasAnchorBlock;
 
         for (uint256 i; i < _batch.blocks.length; ++i) {
-            // Extract has anchor flag from bit 0 of packedAnchorInfo
-            bool hasAnchor = (_batch.blocks[i].packedAnchorInfo & 1) != 0;
-            if (!hasAnchor) continue;
-
-            // Extract anchor block ID from bits 1-48 of packedAnchorInfo
-            uint48 anchorBlockId = uint48(_batch.blocks[i].packedAnchorInfo >> 1);
-            require(anchorBlockId != 0, AnchorIdZero());
+            // Get anchor block ID directly
+            uint48 anchorBlockId = _batch.blocks[i].anchorBlockId;
+            if (anchorBlockId == 0) continue;
 
             require(
                 hasAnchorBlock

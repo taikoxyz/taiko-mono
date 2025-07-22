@@ -443,17 +443,29 @@ library LibCodec {
 
                 // Validate array lengths according to IInbox.sol limits
                 require(batch.proverAuth.length <= type(uint16).max, ProverAuthTooLarge());
-                require(batch.signalSlots.length <= type(uint8).max, SignalSlotsArrayTooLarge());
                 require(batch.blocks.length <= type(uint16).max, BlocksArrayTooLarge());
+                
+                // Validate signalSlots for each block
+                for (uint256 j; j < batch.blocks.length; ++j) {
+                    require(batch.blocks[j].signalSlots.length <= type(uint8).max, SignalSlotsArrayTooLarge());
+                }
                 require(batch.blobs.hashes.length <= 15, BlobHashesArrayTooLarge()); // type(uint4).max
 
                 // Calculate size for each batch component
                 totalSize += 51; // Fixed fields (20+20+7+4)
                 totalSize += 2 + batch.proverAuth.length; // proverAuth with 2-byte length prefix
-                totalSize += 1 + (batch.signalSlots.length * 32); // signalSlots with 1-byte length
-                    // prefix
-                totalSize += 2 + (batch.blocks.length * 31); // blocks with 2-byte length prefix
-                    // (each block is 31 bytes packed: 2+1+1+8+20)
+                totalSize += 2; // blocks length prefix (2 bytes)
+                
+                // Calculate size for each block (now includes signalSlots)
+                for (uint256 j; j < batch.blocks.length; ++j) {
+                    totalSize += 24; // fixed block fields (2+1+1+20 = 24 bytes: numTransactions+timeShift+anchorFlag+coinbase)
+                    // Add anchorBlockId bytes if non-zero (6 bytes for uint48)
+                    if (batch.blocks[j].anchorBlockId != 0) {
+                        totalSize += 6;
+                    }
+                    totalSize += 1 + (batch.blocks[j].signalSlots.length * 32); // signalSlots with 1-byte length prefix
+                }
+                
                 totalSize += 17; // blobs fixed part (1+1+4+4+6+1 = 17 bytes)
                 totalSize += (batch.blobs.hashes.length * 32); // blob hashes
             }
@@ -518,32 +530,15 @@ library LibCodec {
                         ptr := add(ptr, remaining)
                     }
 
-                    // signalSlots array
-                    let signalSlots := mload(add(batch, 0xc0))
-                    let signalSlotsLen := mload(signalSlots)
-
-                    // Store signalSlots length (1 byte for uint8)
-                    mstore8(ptr, signalSlotsLen)
-                    ptr := add(ptr, 1)
-
-                    // Copy signalSlots data efficiently
-                    let signalDataPtr := add(signalSlots, 0x20)
-                    for { let j := 0 } lt(j, signalSlotsLen) { j := add(j, 1) } {
-                        mstore(ptr, mload(signalDataPtr))
-                        ptr := add(ptr, 32)
-                        signalDataPtr := add(signalDataPtr, 32)
-                    }
-
-
                     // blocks array
-                    let blocks := mload(add(batch, 0xe0))
+                    let blocks := mload(add(batch, 0xc0))
                     let blocksLen := mload(blocks)
 
                     // Store blocks length (2 bytes for uint16)
                     mstore(ptr, shl(240, blocksLen))
                     ptr := add(ptr, 2)
 
-                    // Pack each block (31 bytes total)
+                    // Pack each block (variable size with signalSlots)
                     for { let j := 0 } lt(j, blocksLen) { j := add(j, 1) } {
                         let blockPtr := add(blocks, mul(add(j, 1), 0x20))
                         let blockData := mload(blockPtr)
@@ -551,9 +546,9 @@ library LibCodec {
                         // Extract fields from new Block struct
                         let numTransactions := and(mload(blockData), 0xFFFF)
                         let timeShift := and(mload(add(blockData, 0x20)), 0xFF)
-                        let numSignals := and(mload(add(blockData, 0x40)), 0xFF)
-                        let packedAnchorInfo := mload(add(blockData, 0x60)) // uint64
-                        let coinbaseAddr := mload(add(blockData, 0x80))
+                        let anchorBlockId := mload(add(blockData, 0x40)) // uint48
+                        let coinbaseAddr := mload(add(blockData, 0x60))
+                        let signalSlots := mload(add(blockData, 0x80))
 
                         // Store numTransactions (2 bytes)
                         mstore(ptr, shl(240, numTransactions))
@@ -563,21 +558,41 @@ library LibCodec {
                         mstore8(ptr, timeShift)
                         ptr := add(ptr, 1)
 
-                        // Store numSignals (1 byte)
-                        mstore8(ptr, numSignals)
-                        ptr := add(ptr, 1)
-
-                        // Store packedAnchorInfo (8 bytes, uint64)
-                        mstore(ptr, shl(192, packedAnchorInfo))
-                        ptr := add(ptr, 8)
+                        // Store anchor info with bit flag
+                        if eq(anchorBlockId, 0) {
+                            // If anchorBlockId is 0, store flag byte as 0 (bit 0 = 0)
+                            mstore8(ptr, 0)
+                            ptr := add(ptr, 1)
+                        }
+                        if gt(anchorBlockId, 0) {
+                            // If anchorBlockId is non-zero, store flag byte as 1 (bit 0 = 1) followed by 6-byte anchorBlockId
+                            mstore8(ptr, 1)
+                            ptr := add(ptr, 1)
+                            // Store anchorBlockId (6 bytes for uint48)
+                            mstore(ptr, shl(208, anchorBlockId))
+                            ptr := add(ptr, 6)
+                        }
 
                         // Store coinbase address (20 bytes)
                         mstore(ptr, shl(96, coinbaseAddr))
                         ptr := add(ptr, 20)
+
+                        // Store signalSlots array
+                        let signalSlotsLen := mload(signalSlots)
+                        mstore8(ptr, signalSlotsLen)
+                        ptr := add(ptr, 1)
+
+                        // Copy signalSlots data
+                        let signalDataPtr := add(signalSlots, 0x20)
+                        for { let k := 0 } lt(k, signalSlotsLen) { k := add(k, 1) } {
+                            mstore(ptr, mload(signalDataPtr))
+                            ptr := add(ptr, 32)
+                            signalDataPtr := add(signalDataPtr, 32)
+                        }
                     }
 
                     // blobs structure (fixed size fields)
-                    let blobs := mload(add(batch, 0x100))
+                    let blobs := mload(add(batch, 0xe0))
 
                     // firstBlobIndex (1 byte)
                     mstore8(ptr, mload(add(blobs, 0x20)))
@@ -713,16 +728,30 @@ library LibCodec {
                     let dataPtr := add(_encoded, 0x20)
                     let ptr := add(dataPtr, offset)
 
-                    // Skip signalSlots (1 byte length for uint8)
-                    let signalSlotsLen := shr(248, mload(ptr))
-                    ptr := add(ptr, 1)
-                    ptr := add(ptr, mul(signalSlotsLen, 32))
-
-
                     // Skip blocks (2 bytes length for uint16)
                     let blocksLen := shr(240, mload(ptr))
                     ptr := add(ptr, 2)
-                    ptr := add(ptr, mul(blocksLen, 31))
+                    
+                    // Skip each block (variable size with signalSlots and conditional anchorBlockId)
+                    for { let j := 0 } lt(j, blocksLen) { j := add(j, 1) } {
+                        ptr := add(ptr, 3) // numTransactions (2) + timeShift (1)
+                        
+                        // Read anchor flag
+                        let anchorFlag := and(mload(ptr), 0xFF)
+                        ptr := add(ptr, 1)
+                        
+                        // Skip anchorBlockId if present
+                        if gt(anchorFlag, 0) {
+                            ptr := add(ptr, 6) // anchorBlockId (6 bytes for uint48)
+                        }
+                        
+                        ptr := add(ptr, 20) // coinbase address
+                        
+                        // Skip signalSlots
+                        let signalSlotsLen := and(mload(ptr), 0xFF)
+                        ptr := add(ptr, 1)
+                        ptr := add(ptr, mul(signalSlotsLen, 32))
+                    }
 
                     // Extract blobs metadata
                     let blobs := mload(0x40)
@@ -759,9 +788,9 @@ library LibCodec {
                     mstore(0x40, add(emptyArray, 0x20))
 
                     mstore(blobs, emptyArray) // empty hashes
-                    mstore(add(batch, 0xc0), emptyArray) // signalSlots
-                    mstore(add(batch, 0xe0), emptyArray) // blocks
-                    mstore(add(batch, 0x100), blobs)
+                    // No longer storing batch-level signalSlots (moved to blocks)
+                    mstore(add(batch, 0xc0), emptyArray) // blocks
+                    mstore(add(batch, 0xe0), blobs)
 
                     offset := sub(ptr, dataPtr)
                 }

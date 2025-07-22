@@ -3,7 +3,18 @@
     "allow": [
       "Bash(pnpm test:*)",
       "Bash(pnpm compile:*)",
-      "Bash(forge test:*)"
+      "Bash(forge test:*)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_packUnpackBatches_singleBatch -vvv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_dataIntegrity_minValues -vvv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_dataIntegrity_minValues -vv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_packUnpackBatches_singleBatch -v)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_packBatches_revertSignalSlotsArrayTooLarge -v)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_packBatches_revertSignalSlotsArrayTooLarge -vvv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_dataIntegrity_minValues -v)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/based2/libs/LibCodecBatch.t.sol' --match-test test_packUnpackBatches -v)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/based2/**/*.t.sol' --no-match-test 'revert' -q)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/based2/**/*.t.sol')",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_packUnpack -v)"
     ],
     "deny": []
   }
