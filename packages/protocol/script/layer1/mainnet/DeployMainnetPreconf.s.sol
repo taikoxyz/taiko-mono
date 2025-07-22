@@ -1,0 +1,44 @@
+contract DeployMainnetPreconf is DeployCapability {
+    uint256 public privateKey = vm.envUint("PRIVATE_KEY");
+
+    modifier broadcast() {
+        require(privateKey != 0, "invalid private key");
+        vm.startBroadcast(privateKey);
+        _;
+        vm.stopBroadcast();
+    }
+
+    function run() external broadcast {
+        address taikoWrapper = 0x9F9D2fC7abe74C79f86F0D1212107692430eef72;
+        address rollupResolver = 0x5A982Fb1818c22744f5d7D36D0C4c9f61937b33a;
+        address taikoInbox = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
+        address store = 0x05d88855361808fA1d7fc28084Ef3fCa191c4e03;
+        address fallbackPreconfProposer = 0x7A853a6480F4D7dB79AE91c16c960dBbB6710d25;
+        address proofVerifier = 0xB16931e78d0cE3c9298bbEEf3b5e2276D34b8da1;
+        address taikoToken = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
+        address signalService = 0x9e0a24964e5397B566c1ed39258e21aB5E35C77C;
+        address oldFork = 0x904Da4C5bD76f932fE09fF32Ae5D7E3d2A5D2264;
+
+        address whitelist = deployProxy({
+            name: "preconf_whitelist",
+            impl: address(new PreconfWhitelist()),
+            data: abi.encodeCall(PreconfWhitelist.init, (address(0), 2, 2)),
+            registerTo: rollupResolver
+        });
+
+        address router = deployProxy({
+            name: "preconf_router",
+            impl: address(new PreconfRouter(taikoWrapper, whitelist, fallbackPreconfProposer)),
+            data: abi.encodeCall(PreconfRouter.init, (address(0))),
+            registerTo: rollupResolver
+        });
+        address wrapper = address(new TaikoWrapper(taikoInbox, store, router));
+        // Need to call `upgradeTo`, to address: 0x9F9D2fC7abe74C79f86F0D1212107692430eef72
+        console2.log("taikoWrapper: ", wrapper);
+        address newFork =
+            address(new MainnetInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
+        address newRouter = address(new PacayaForkRouter(oldFork, newFork));
+        // Need to call `upgradeTo`, to address: 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a
+        console2.log("newRouter", newRouter);
+    }
+}
