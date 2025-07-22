@@ -17,7 +17,7 @@ library LibCodecProposeBatchInputs {
     function encode(
         I.Summary memory _summary,
         I.Batch[] memory _batches,
-        I.BatchProposeMetadataEvidence memory _evidence,
+        I.ProposeBatchEvidence memory _evidence,
         I.TransitionMeta[] memory _transitionMetas
     )
         internal
@@ -39,12 +39,11 @@ library LibCodecProposeBatchInputs {
         returns (
             I.Summary memory _summary,
             I.Batch[] memory _batches,
-            I.BatchProposeMetadataEvidence memory _evidence,
+            I.ProposeBatchEvidence memory _evidence,
             I.TransitionMeta[] memory _transitionMetas
         )
     {
-        (_summary, _batches, _evidence, _transitionMetas) = abi.decode(
-            _data, (I.Summary, I.Batch[], I.BatchProposeMetadataEvidence, I.TransitionMeta[])
-        );
+        (_summary, _batches, _evidence, _transitionMetas) =
+            abi.decode(_data, (I.Summary, I.Batch[], I.ProposeBatchEvidence, I.TransitionMeta[]));
     }
 }

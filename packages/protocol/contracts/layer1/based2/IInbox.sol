@@ -179,7 +179,7 @@ interface IInbox {
 
     /// @notice Evidence structure for batch proposal metadata validation
     /// @dev Contains hashes and metadata needed to verify batch proposals
-    struct BatchProposeMetadataEvidence {
+    struct ProposeBatchEvidence {
         /// @notice Left hash for merkle proof verification
         bytes32 leftHash;
         /// @notice Hash of the prove metadata
@@ -383,7 +383,7 @@ interface IInbox {
 
     /// @notice Proposes and verifies batches
     /// @param _inputs The inputs to propose and verify batches that can be decoded into (I.Summary
-    /// memory, I.Batch[] memory, I.BatchProposeMetadataEvidence memory, I.TransitionMeta[] memory)
+    /// memory, I.Batch[] memory, I.ProposeBatchEvidence memory, I.TransitionMeta[] memory)
     /// @return The updated summary
     function propose4(bytes calldata _inputs) external returns (Summary memory);
 

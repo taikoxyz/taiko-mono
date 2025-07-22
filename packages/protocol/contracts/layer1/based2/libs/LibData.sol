@@ -97,18 +97,14 @@ library LibData {
         return keccak256(abi.encode(leftHash, rightHash));
     }
 
-    /// @notice Computes a batch hash using BatchProposeMetadataEvidence
+    /// @notice Computes a batch hash using ProposeBatchEvidence
     /// @dev Alternative hashing method using pre-computed evidence data:
     ///      - Uses pre-computed idAndBuildHash instead of separate batchId and buildMeta
     ///      - Combines with proposeMeta and proveMetaHash
     ///      - More efficient when evidence is already available
     /// @param _evidence Pre-computed batch proposal metadata evidence
     /// @return Deterministic hash representing the batch
-    function hashBatch(I.BatchProposeMetadataEvidence memory _evidence)
-        public
-        pure
-        returns (bytes32)
-    {
+    function hashBatch(I.ProposeBatchEvidence memory _evidence) public pure returns (bytes32) {
         bytes32 proposeMetaHash = keccak256(abi.encode(_evidence.proposeMeta));
         bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, _evidence.proveMetaHash));
 

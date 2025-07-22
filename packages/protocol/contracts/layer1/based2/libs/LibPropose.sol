@@ -32,7 +32,7 @@ library LibPropose {
         I.Config memory _config,
         I.Summary memory _summary,
         I.Batch[] memory _batches,
-        I.BatchProposeMetadataEvidence memory _evidence
+        I.ProposeBatchEvidence memory _evidence
     )
         internal
         returns (I.Summary memory)

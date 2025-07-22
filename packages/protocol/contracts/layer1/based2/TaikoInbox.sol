@@ -64,7 +64,7 @@ abstract contract TaikoInbox is Inbox {
         returns (
             I.Summary memory,
             I.Batch[] memory,
-            I.BatchProposeMetadataEvidence memory,
+            I.ProposeBatchEvidence memory,
             I.TransitionMeta[] memory
         )
     {

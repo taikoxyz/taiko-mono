@@ -53,7 +53,7 @@ library LibBinding {
         // Decoding functions -----------------------------------------------------
         function(bytes memory) pure returns (
             I.Summary memory, I.Batch[] memory,
-            I.BatchProposeMetadataEvidence memory,
+            I.ProposeBatchEvidence memory,
             I.TransitionMeta[] memory) decodeProposeBatchesInputs;
         function(bytes memory) pure returns (I.ProverAuth memory) decodeProverAuth;
         function(bytes memory) pure returns (I.Summary memory) decodeSummary;
