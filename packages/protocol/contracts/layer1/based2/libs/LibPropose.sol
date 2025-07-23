@@ -86,7 +86,15 @@ library LibPropose {
         }
     }
 
-    function _isOuterMostTransaction() internal view returns (bool) { }
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Checks if the current transaction is the outer most transaction
+    /// @return True if the current transaction is the outer most transaction, false otherwise
+    function _isOuterMostTransaction() private view returns (bool) {
+        return msg.sender == tx.origin;
+    }
 
     // -------------------------------------------------------------------------
     // Errors
