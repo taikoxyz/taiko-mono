@@ -28,9 +28,9 @@ contract UpgradeVerifier is DeployCapability {
 
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier r0Groth16verifier =
-                    new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
         address risc0VerifierImpl =
-                        address(new Risc0Verifier(taikoChainId, address(r0Groth16verifier)));
+            address(new Risc0Verifier(taikoChainId, address(r0Groth16verifier)));
         UUPSUpgradeable(risc0Verifier).upgradeTo(risc0VerifierImpl);
     }
 }
