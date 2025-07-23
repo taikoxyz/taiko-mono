@@ -10,6 +10,8 @@ import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 
 contract DeployMainnetPreconf is DeployCapability {
+    uint256 public constant TWO_EPOCHS = 2;
+
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
 
     modifier broadcast() {
@@ -35,8 +37,7 @@ contract DeployMainnetPreconf is DeployCapability {
         address whitelist = deployProxy({
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
-            // Not sure if the _operatorChangeDelay and _randomnessDelay are what we want
-            data: abi.encodeCall(PreconfWhitelist.init, (contractOwner, 2, 2)),
+            data: abi.encodeCall(PreconfWhitelist.init, (contractOwner, TWO_EPOCHS, TWO_EPOCHS)),
             registerTo: rollupResolver
         });
 
@@ -47,12 +48,14 @@ contract DeployMainnetPreconf is DeployCapability {
             registerTo: rollupResolver
         });
         address wrapper = address(new TaikoWrapper(taikoInbox, store, router));
-        // Need to call `upgradeTo`, to address: 0x9F9D2fC7abe74C79f86F0D1212107692430eef72
+        // Need to call `upgradeTo`, to address: 0x9F9D2fC7abe74C79f86F0D1212107692430eef72(should
+        // be the final step after adding the operators and waiting for at least 2 epochs)
         console2.log("taikoWrapper: ", wrapper);
         address newFork =
             address(new MainnetInbox(taikoWrapper, proofVerifier, taikoToken, signalService));
         address newRouter = address(new PacayaForkRouter(oldFork, newFork));
-        // Need to call `upgradeTo`, to address: 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a
+        // Need to call `upgradeTo`, to address: 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a(should
+        // be the final step after adding the operators and waiting for at least 2 epochs)
         console2.log("newRouter", newRouter);
     }
 }
