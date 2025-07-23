@@ -62,14 +62,14 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
 
         (
             I.Summary memory summary,
-            I.Batch[] memory batches,
+            I.Batch memory batch,
             I.ProposeBatchEvidence memory evidence,
             I.TransitionMeta[] memory transitionMetas
         ) = bindings.decodeProposeBatchesInputs(_inputs);
         I.Config memory config = _getConfig();
 
         // Propose batches
-        summary = LibPropose.propose(bindings, config, summary, batches, evidence);
+        summary = LibPropose.propose(bindings, config, summary, batch, evidence);
 
         // Verify batches
         summary = LibVerify.verify(bindings, config, summary, transitionMetas);
@@ -310,12 +310,12 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         virtual
         returns (
             I.Summary memory,
-            I.Batch[] memory,
+            I.Batch memory,
             I.ProposeBatchEvidence memory,
             I.TransitionMeta[] memory
         )
     {
-        return abi.decode(_data, (I.Summary, I.Batch[], I.ProposeBatchEvidence, I.TransitionMeta[]));
+        return abi.decode(_data, (I.Summary, I.Batch, I.ProposeBatchEvidence, I.TransitionMeta[]));
     }
 
     function _decodeProverAuth(bytes memory _data)

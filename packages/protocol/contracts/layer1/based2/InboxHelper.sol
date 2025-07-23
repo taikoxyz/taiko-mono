@@ -175,13 +175,13 @@ contract InboxHelper {
 
     /// @notice Encodes multiple propose batch inputs
     /// @param _summary The Summary struct
-    /// @param _batches The array of Batch structs
+    /// @param _batch The batch
     /// @param _evidence The ProposeBatchEvidence struct
     /// @param _transitionMetas The array of TransitionMeta structs
     /// @return The encoded bytes
     function encodeProposeBatchInputs(
         I.Summary memory _summary,
-        I.Batch[] memory _batches,
+        I.Batch memory _batch,
         I.ProposeBatchEvidence memory _evidence,
         I.TransitionMeta[] memory _transitionMetas
     )
@@ -189,13 +189,13 @@ contract InboxHelper {
         pure
         returns (bytes memory)
     {
-        return LibCodecProposeBatchInputs.encode(_summary, _batches, _evidence, _transitionMetas);
+        return LibCodecProposeBatchInputs.encode(_summary, _batch, _evidence, _transitionMetas);
     }
 
     /// @notice Decodes bytes into multiple propose batch inputs
     /// @param _data The bytes to decode
     /// @return _summary The decoded Summary struct
-    /// @return _batches The decoded array of Batch structs
+    /// @return _batch The decoded batch
     /// @return _evidence The decoded ProposeBatchEvidence struct
     /// @return _transitionMetas The decoded array of TransitionMeta structs
     function decodeProposeBatchInputs(bytes memory _data)
@@ -203,7 +203,7 @@ contract InboxHelper {
         pure
         returns (
             I.Summary memory _summary,
-            I.Batch[] memory _batches,
+            I.Batch memory _batch,
             I.ProposeBatchEvidence memory _evidence,
             I.TransitionMeta[] memory _transitionMetas
         )

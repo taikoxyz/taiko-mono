@@ -20,33 +20,31 @@ library LibPropose {
     // Internal Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Proposes multiple batches in a single transaction
+    /// @notice Proposes a batch in a single transaction
     /// @param _bindings Library function binding
     /// @param _config The protocol configuration
     /// @param _summary The current protocol summary
-    /// @param _batches Array of batches to propose
+    /// @param _batch The batch to propose
     /// @param _evidence Evidence containing parent batch metadata
     /// @return The updated protocol summary
     function propose(
         LibBinding.Bindings memory _bindings,
         I.Config memory _config,
         I.Summary memory _summary,
-        I.Batch[] memory _batches,
+        I.Batch memory _batch,
         I.ProposeBatchEvidence memory _evidence
     )
         internal
         returns (I.Summary memory)
     {
         unchecked {
-            require(_batches.length != 0, EmptyBatchArray());
-
             // Make sure the lask verified batch is not overwritten by a new batch.
             // Assuming batchRingBufferSize = 100, right after genesis, we can propose up to 99
             // batches, the following requirement-statement will pass as:
             //  1 (nextBatchId) + 99 (_batches.length) <=
             //  0 (lastVerifiedBatchId) + 100 (batchRingBufferSize)
             require(
-                _summary.nextBatchId + _batches.length
+                _summary.nextBatchId + 1
                     <= _summary.lastVerifiedBatchId + _config.batchRingBufferSize,
                 BatchLimitExceeded()
             );
@@ -57,60 +55,29 @@ library LibPropose {
 
             I.BatchProposeMetadata memory parentBatch = _evidence.proposeMeta;
 
-            for (uint256 i; i < _batches.length; ++i) {
-                (parentBatch, _summary.lastBatchMetaHash) =
-                    _proposeBatch(_bindings, _config, _summary, _batches[i], parentBatch);
+            // Validate the batch parameters and return batch and batch context data
+            I.BatchContext memory context =
+                LibValidate.validate(_bindings, _config, _summary, _batch, parentBatch);
 
-                ++_summary.nextBatchId;
+            context.prover = LibProver.validateProver(_bindings, _config, _summary, _batch);
 
-                if (_summary.gasIssuancePerSecond != _batches[i].gasIssuancePerSecond) {
-                    _summary.gasIssuancePerSecond = _batches[i].gasIssuancePerSecond;
-                    _summary.gasIssuanceUpdatedAt = uint48(block.timestamp);
-                }
+            I.BatchMetadata memory metadata = LibData.buildBatchMetadata(
+                uint48(block.number), uint48(block.timestamp), _batch, context
+            );
+
+            _summary.lastBatchMetaHash = LibData.hashBatch(_summary.nextBatchId, metadata);
+            _bindings.saveBatchMetaHash(_config, _summary.nextBatchId, _summary.lastBatchMetaHash);
+
+            emit I.Proposed(_summary.nextBatchId, _bindings.encodeBatchContext(context));
+
+            if (_summary.gasIssuancePerSecond != _batch.gasIssuancePerSecond) {
+                _summary.gasIssuancePerSecond = _batch.gasIssuancePerSecond;
+                _summary.gasIssuanceUpdatedAt = uint48(block.timestamp);
             }
 
+            ++_summary.nextBatchId;
             return _summary;
         }
-    }
-
-    // -------------------------------------------------------------------------
-    // Private Functions
-    // -------------------------------------------------------------------------
-
-    /// @notice Proposes a single batch
-    /// @param _bindings Library function binding
-    /// @param _config The protocol configuration
-    /// @param _summary The current protocol summary
-    /// @param _batch The batch to propose
-    /// @param _parentBatch The parent batch metadata
-    /// @return _ The propose metadata of the proposed batch
-    /// @return _ The hash of the proposed batch metadata
-    function _proposeBatch(
-        LibBinding.Bindings memory _bindings,
-        I.Config memory _config,
-        I.Summary memory _summary,
-        I.Batch memory _batch,
-        I.BatchProposeMetadata memory _parentBatch
-    )
-        private
-        returns (I.BatchProposeMetadata memory, bytes32)
-    {
-        // Validate the batch parameters and return batch and batch context data
-        I.BatchContext memory context =
-            LibValidate.validate(_bindings, _config, _summary, _batch, _parentBatch);
-
-        context.prover = LibProver.validateProver(_bindings, _config, _summary, _batch);
-
-        I.BatchMetadata memory metadata = LibData.buildBatchMetadata(
-            uint48(block.number), uint48(block.timestamp), _batch, context
-        );
-
-        emit I.Proposed(_summary.nextBatchId, _bindings.encodeBatchContext(context));
-
-        bytes32 batchMetaHash = LibData.hashBatch(_summary.nextBatchId, metadata);
-        _bindings.saveBatchMetaHash(_config, _summary.nextBatchId, batchMetaHash);
-
-        return (metadata.proposeMeta, batchMetaHash);
     }
 
     // -------------------------------------------------------------------------
