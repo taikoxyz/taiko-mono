@@ -29,7 +29,7 @@ library LibPropose {
     /// @param _evidence Evidence containing parent batch metadata
     /// @return The updated protocol summary
     function propose(
-        bytes calldata _inputs,
+        bytes memory _inputs,
         LibBinding.Bindings memory _bindings,
         I.Config memory _config,
         I.Summary memory _summary,

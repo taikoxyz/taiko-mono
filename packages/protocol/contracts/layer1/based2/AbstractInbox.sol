@@ -52,7 +52,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     }
 
     /// @inheritdoc IPropose
-    function propose4(bytes calldata _inputs)
+    function propose4(bytes memory _inputs)
         external
         override(I, IPropose)
         nonReentrant
