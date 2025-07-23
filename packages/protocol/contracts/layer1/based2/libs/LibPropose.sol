@@ -41,7 +41,7 @@ library LibPropose {
         unchecked {
             require(_batches.length != 0, EmptyBatchArray());
 
-            // Make sure the lask verified batch is not overwritten by a new batch.
+            // Make sure the last verified batch is not overwritten by a new batch.
             // Assuming batchRingBufferSize = 100, right after genesis, we can propose up to 99
             // batches, the following requirement-statement will pass as:
             //  1 (nextBatchId) + 99 (_batches.length) <=
