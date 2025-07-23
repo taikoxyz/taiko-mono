@@ -2,12 +2,15 @@ package preconfblocks
 
 import (
 	"context"
+	"math/big"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -93,6 +96,34 @@ func (s *PreconfBlockAPIServerTestSuite) TestCheckLookaheadHandover() {
 			s.Equal(tt.wantErr, s.s.CheckLookaheadHandover(tt.feeRecipient, tt.globalSlot))
 		})
 	}
+}
+
+func (s *PreconfBlockAPIServerTestSuite) TestTryPutEnvelopeIntoCache() {
+	totalCached := s.s.envelopesCache.totalCached
+	isForcedInculsion := true
+	peerID := new(peer.ID)
+
+	msg := &eth.ExecutionPayloadEnvelope{
+		ExecutionPayload: &eth.ExecutionPayload{
+			BlockNumber: eth.Uint64Quantity(new(big.Int).SetBytes(testutils.RandomBytes(32)).Uint64()),
+			BlockHash:   common.BytesToHash(testutils.RandomBytes(32)),
+		},
+		Signature:         &[65]byte{},
+		IsForcedInclusion: &isForcedInculsion,
+	}
+
+	s.s.tryPutEnvelopeIntoCache(msg, *peerID)
+	s.Equal(totalCached+1, s.s.envelopesCache.totalCached)
+
+	cached := s.s.envelopesCache.getLatestPayload()
+	s.NotNil(cached)
+	s.Equal(msg.ExecutionPayload.BlockNumber, cached.Payload.BlockNumber)
+	s.Equal(msg.ExecutionPayload.BlockHash, cached.Payload.BlockHash)
+	s.Equal(msg.IsForcedInclusion, cached.IsForcedInclusion)
+	s.Equal(msg.Signature, cached.Signature)
+
+	s.s.tryPutEnvelopeIntoCache(msg, *peerID)
+	s.Equal(totalCached+1, s.s.envelopesCache.totalCached)
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestShutdown() {
