@@ -10,6 +10,7 @@ import { LibCodecProverAuth } from "./LibCodecProverAuth.sol";
 import { LibCodecProveBatchInputs } from "./LibCodecProveBatchInputs.sol";
 import { LibCodecProposeBatchEvidence } from "./LibCodecProposeBatchEvidence.sol";
 import { LibCodecProposeBatchInputs } from "./LibCodecProposeBatchInputs.sol";
+import { LibCodecHeaderExtraInfo } from "./LibCodecHeaderExtraInfo.sol";
 
 /// @title InboxCodec
 /// @notice Contract that provides encoding/decoding functions for Inbox-related structs as public
@@ -191,5 +192,23 @@ contract InboxCodec {
         )
     {
         return LibCodecProposeBatchInputs.decode(_data);
+    }
+
+    /// @notice Encodes a HeaderExtraInfo struct
+    /// @param _headerExtraInfo The HeaderExtraInfo struct to encode
+    /// @return The encoded bytes32
+    function encodeHeaderExtraInfo(I.HeaderExtraInfo memory _headerExtraInfo)
+        public
+        pure
+        returns (bytes32)
+    {
+        return LibCodecHeaderExtraInfo.encode(_headerExtraInfo);
+    }
+
+    /// @notice Decodes bytes32 into a HeaderExtraInfo struct
+    /// @param _data The bytes32 to decode
+    /// @return The decoded HeaderExtraInfo struct
+    function decodeHeaderExtraInfo(bytes32 _data) public pure returns (I.HeaderExtraInfo memory) {
+        return LibCodecHeaderExtraInfo.decode(_data);
     }
 }

@@ -166,6 +166,18 @@ interface IInbox {
         uint48 provabilityBond; // Gwei
     }
 
+    /// @notice Extra data to be embedded into each block header.
+    /// @dev This struct needs to be encoded into the least significant 128 bits of the header's
+    /// extraData field.
+    struct HeaderExtraInfo {
+        /// @notice Percentage of base fee shared with validators (0-100)
+        uint8 sharingPctg;
+        /// @notice Whether this is a forced inclusion batch
+        bool isForcedInclusion;
+        /// @notice Gas issuance per second for this batch
+        uint32 gasIssuancePerSecond;
+    }
+
     /// @notice Complete metadata for a batch combining all phases
     /// @dev Aggregates build, propose, and prove metadata for batch processing
     struct BatchMetadata {

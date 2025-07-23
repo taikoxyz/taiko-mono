@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox as I } from "../IInbox.sol";
+import "../codec/LibCodecHeaderExtraInfo.sol";
 
 /// @title LibData
 /// @notice Library for batch metadata hashing and data encoding in Taiko protocol
@@ -38,12 +39,20 @@ library LibData {
             firstBlockId = _context.lastBlockId + 1 - uint48(_batch.blocks.length);
         }
 
+        bytes32 extraData = LibCodecHeaderExtraInfo.encode(
+            I.HeaderExtraInfo({
+                sharingPctg: _context.baseFeeSharingPctg,
+                isForcedInclusion: _batch.isForcedInclusion,
+                gasIssuancePerSecond: _batch.gasIssuancePerSecond
+            })
+        );
+        
         // Block gas limit should be: `gasIssuancePerSecond * blockTime * 2`
         return I.BatchMetadata({
             buildMeta: I.BatchBuildMetadata({
                 txsHash: _context.txsHash,
                 blobHashes: _context.blobHashes,
-                extraData: _encodeExtraData(_context.baseFeeSharingPctg, _batch),
+                extraData: extraData,
                 coinbase: _batch.coinbase,
                 proposedIn: _proposedIn,
                 blobCreatedIn: _batch.blobs.createdIn,
@@ -117,33 +126,5 @@ library LibData {
         bytes32 proveMetaHash = keccak256(abi.encode(_proveBatchInput.proveMeta));
         bytes32 rightHash = keccak256(abi.encode(_proveBatchInput.proposeMetaHash, proveMetaHash));
         return keccak256(abi.encode(_proveBatchInput.leftHash, rightHash));
-    }
-
-    // -------------------------------------------------------------------------
-    // Private Functions
-    // -------------------------------------------------------------------------
-
-    /// @notice Encodes configuration and batch information into the lower 128 bits
-    /// @dev Bit-level encoding for efficient storage:
-    ///      - Bits 0-7: Base fee sharing percentage (0-100)
-    ///      - Bit 8: Forced inclusion flag (0 or 1)
-    ///      - Bits 9-40: Gas issuance per second (32 bits)
-    ///      - Bits 41-127: Reserved for future use
-    /// @param _baseFeeSharingPctg Base fee sharing percentage (0-100)
-    /// @param _batch Batch information containing forced inclusion flag and gas issuance
-    /// @return Encoded data as bytes32 with information context in lower 128 bits
-    function _encodeExtraData(
-        uint8 _baseFeeSharingPctg,
-        I.Batch memory _batch
-    )
-        private
-        pure
-        returns (bytes32)
-    {
-        uint256 v = _baseFeeSharingPctg; // bits 0-7
-        v |= _batch.isForcedInclusion ? 1 << 8 : 0; // bit 8
-        v |= _batch.gasIssuancePerSecond << 9; // bits 9-40
-
-        return bytes32(v);
     }
 }
