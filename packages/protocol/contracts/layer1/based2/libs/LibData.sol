@@ -46,7 +46,7 @@ library LibData {
                 gasIssuancePerSecond: _batch.gasIssuancePerSecond
             })
         );
-        
+
         // Block gas limit should be: `gasIssuancePerSecond * blockTime * 2`
         return I.BatchMetadata({
             buildMeta: I.BatchBuildMetadata({
