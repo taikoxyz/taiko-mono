@@ -119,7 +119,7 @@ func (s *PreconfBlockAPIServerTestSuite) TestTryPutEnvelopeIntoCache() {
 	s.NotNil(cached)
 	s.Equal(msg.ExecutionPayload.BlockNumber, cached.Payload.BlockNumber)
 	s.Equal(msg.ExecutionPayload.BlockHash, cached.Payload.BlockHash)
-	s.Equal(msg.IsForcedInclusion, cached.IsForcedInclusion)
+	s.Equal(*msg.IsForcedInclusion, cached.IsForcedInclusion)
 	s.Equal(msg.Signature, cached.Signature)
 
 	s.s.tryPutEnvelopeIntoCache(msg, *peerID)
