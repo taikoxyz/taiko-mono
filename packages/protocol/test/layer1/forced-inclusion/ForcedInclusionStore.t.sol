@@ -30,8 +30,8 @@ contract MockInbox {
         numBatches = _numBatches;
     }
 
-    function v4GetStats2() external view returns (ITaikoInbox.Stats2 memory stats2_) {
-        stats2_.numBatches = numBatches;
+    function getSummary() external view returns (IInbox.Summary memory summary_) {
+        summary_.nextBatchId = uint48(numBatches);
     }
 }
 
@@ -66,147 +66,134 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
 
         uint64 _feeInGwei = store.feeInGwei();
 
-        store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
-        });
-
-        (
-            bytes32 blobHash,
-            uint64 feeInGwei,
-            uint64 createdAt,
-            uint32 blobByteOffset,
-            uint32 blobByteSize,
-            uint64 blobCreatedIn
-        ) = store.queue(store.tail() - 1);
-
-        assertEq(blobHash, bytes32(uint256(1))); //  = blobIndex + 1
-        assertEq(createdAt, uint64(block.timestamp));
-        assertEq(feeInGwei, _feeInGwei);
-        assertEq(blobByteOffset, 0);
-        assertEq(blobByteSize, 1024);
-        assertEq(blobCreatedIn, uint64(block.number));
-
-        vm.expectRevert(IForcedInclusionStore.MultipleCallsInOneTx.selector);
-        store.storeForcedInclusion{ value: 0 }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
-        });
-    }
-
-    function test_storeForcedInclusion_incorrectFee() public transactBy(Alice) {
-        vm.deal(Alice, 1 ether);
-
-        uint64 feeInGwei = store.feeInGwei();
-        vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
-        store.storeForcedInclusion{ value: feeInGwei * 1 gwei - 1 }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
-        });
-
-        vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
-        store.storeForcedInclusion{ value: feeInGwei * 1 gwei + 1 }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
-        });
-    }
-
-    function test_storeConsumeForcedInclusion_success() public {
-        vm.deal(Alice, 1 ether);
-        uint64 _feeInGwei = store.feeInGwei();
-
-        mockInbox.setNumBatches(100);
-
-        vm.prank(Alice);
-        store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
-        });
-
-        assertEq(store.head(), 0);
-        assertEq(store.tail(), 1);
+        store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }(0);
 
         IForcedInclusionStore.ForcedInclusion memory inclusion = store.getForcedInclusion(0);
-
-        vm.prank(whitelistedProposer);
-        inclusion = store.consumeOldestForcedInclusion(Bob);
-
+        
         assertEq(inclusion.blobHash, bytes32(uint256(1)));
-        assertEq(inclusion.blobByteOffset, 0);
-        assertEq(inclusion.blobByteSize, 1024);
         assertEq(inclusion.feeInGwei, _feeInGwei);
-        assertEq(inclusion.createdAtBatchId, 100);
-        assertEq(Bob.balance, _feeInGwei * 1 gwei);
+        assertEq(inclusion.createdAtBatchId, 1);
+        assertEq(inclusion.blobCreatedIn, uint64(block.number));
+
+        // Second call in the same transaction should fail
+        vm.expectRevert(IForcedInclusionStore.MultipleCallsInOneTx.selector);
+        store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }(1);
     }
 
-    function test_storeConsumeForcedInclusion_notOperator() public {
+    function test_storeForcedInclusion_blob_not_found() public transactBy(Alice) {
         vm.deal(Alice, 1 ether);
+
+        // Mock returns 0x0 for all indexes in the base test
+        vm.expectRevert(IForcedInclusionStore.BlobNotFound.selector);
+        store.storeForcedInclusion{ value: 0 }(255); // Out of range index
+    }
+
+    function test_storeForcedInclusion_incorrect_fee_zero() public transactBy(Alice) {
+        vm.deal(Alice, 1 ether);
+
+        vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
+        store.storeForcedInclusion{ value: 0 }(0);
+    }
+
+    function test_storeForcedInclusion_incorrect_fee_less() public transactBy(Alice) {
+        vm.deal(Alice, 1 ether);
+
+        vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
+        store.storeForcedInclusion{ value: feeInGwei * 1 gwei - 1 }(0);
+    }
+
+    function test_storeForcedInclusion_incorrect_fee_more() public transactBy(Alice) {
+        vm.deal(Alice, 1 ether);
+
+        vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
+        store.storeForcedInclusion{ value: feeInGwei * 1 gwei + 1 }(0);
+    }
+
+    function test_consume_forced_inclusion() public transactBy(whitelistedProposer) {
+        vm.deal(Alice, 1 ether);
+
+        // Store a forced inclusion
         uint64 _feeInGwei = store.feeInGwei();
-
-        mockInbox.setNumBatches(100);
-
         vm.prank(Alice);
-        store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
-        });
+        store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }(0);
 
-        assertEq(store.head(), 0);
-        assertEq(store.tail(), 1);
+        // Move forward by inclusion delay
+        mockInbox.setNumBatches(uint64(inclusionDelay) + 1);
 
-        vm.warp(block.timestamp + inclusionDelay);
+        uint256 balance = whitelistedProposer.balance;
 
-        vm.prank(Carol);
-        vm.expectRevert(EssentialContract.ACCESS_DENIED.selector);
-        store.consumeOldestForcedInclusion(Bob);
+        // Check if it's due
+        assertTrue(store.isOldestForcedInclusionDue());
+
+        // Get the oldest before consuming
+        IForcedInclusionStore.ForcedInclusion memory oldest = store.getOldestForcedInclusion();
+        assertEq(oldest.blobHash, bytes32(uint256(1)));
+
+        // Consume it
+        IForcedInclusionStore.ForcedInclusion memory consumed = store.consumeOldestForcedInclusion(whitelistedProposer);
+        
+        assertEq(consumed.blobHash, oldest.blobHash);
+        assertEq(consumed.feeInGwei, _feeInGwei);
+        assertEq(whitelistedProposer.balance - balance, _feeInGwei * 1 gwei);
     }
 
-    function test_storeConsumeForcedInclusion_noEligibleInclusion() public {
-        vm.prank(whitelistedProposer);
-        vm.expectRevert(IForcedInclusionStore.NoForcedInclusionFound.selector);
-        store.consumeOldestForcedInclusion(Bob);
-    }
-
-    function test_storeConsumeForcedInclusion_beforeWindowExpires() public {
+    function test_consume_forced_inclusion_not_whitelisted() public transactBy(Bob) {
         vm.deal(Alice, 1 ether);
 
-        mockInbox.setNumBatches(100);
+        // Store a forced inclusion
+        vm.prank(Alice);
+        store.storeForcedInclusion{ value: feeInGwei * 1 gwei }(0);
 
-        vm.prank(whitelistedProposer);
-        store.storeForcedInclusion{ value: store.feeInGwei() * 1 gwei }({
-            blobIndex: 0,
-            blobByteOffset: 0,
-            blobByteSize: 1024
-        });
+        // Move forward by inclusion delay
+        mockInbox.setNumBatches(uint64(inclusionDelay) + 1);
 
-        // Verify the stored request is correct
-        IForcedInclusionStore.ForcedInclusion memory inclusion = store.getForcedInclusion(0);
+        // Try to consume from non-whitelisted address
+        vm.expectRevert();
+        store.consumeOldestForcedInclusion(Bob);
+    }
 
-        assertEq(inclusion.blobHash, bytes32(uint256(1)));
-        assertEq(inclusion.blobByteOffset, 0);
-        assertEq(inclusion.blobByteSize, 1024);
-        assertEq(inclusion.createdAtBatchId, mockInbox.numBatches());
-        assertEq(inclusion.feeInGwei, store.feeInGwei());
-
-        vm.warp(block.timestamp + inclusionDelay - 1);
-        vm.prank(whitelistedProposer);
-
-        // head request should be consumable
-        inclusion = store.consumeOldestForcedInclusion(Bob);
-        assertEq(inclusion.blobHash, bytes32(uint256(1)));
-        assertEq(inclusion.blobByteOffset, 0);
-        assertEq(inclusion.blobByteSize, 1024);
-        assertEq(inclusion.createdAtBatchId, mockInbox.numBatches());
-        assertEq(inclusion.feeInGwei, store.feeInGwei());
-
-        // the head request should have been deleted
+    function test_getForcedInclusion_invalid_index() public {
         vm.expectRevert(IForcedInclusionStore.InvalidIndex.selector);
-        inclusion = store.getForcedInclusion(0);
+        store.getForcedInclusion(100);
+    }
+
+    function test_getOldestForcedInclusion_empty_queue() public {
+        vm.expectRevert(IForcedInclusionStore.NoForcedInclusionFound.selector);
+        store.getOldestForcedInclusion();
+    }
+
+    function test_isOldestForcedInclusionDue() public transactBy(Alice) {
+        vm.deal(Alice, 1 ether);
+
+        // Initially no forced inclusion is due
+        assertFalse(store.isOldestForcedInclusionDue());
+
+        // Store a forced inclusion
+        store.storeForcedInclusion{ value: feeInGwei * 1 gwei }(0);
+
+        // Still not due immediately
+        assertFalse(store.isOldestForcedInclusionDue());
+
+        // Move forward by inclusion delay - 1
+        mockInbox.setNumBatches(uint64(inclusionDelay));
+        assertFalse(store.isOldestForcedInclusionDue());
+
+        // Move forward by inclusion delay
+        mockInbox.setNumBatches(uint64(inclusionDelay) + 1);
+        assertTrue(store.isOldestForcedInclusionDue());
+    }
+
+    function test_getOldestForcedInclusionDeadline() public transactBy(Alice) {
+        vm.deal(Alice, 1 ether);
+
+        // Initially returns max uint256
+        assertEq(store.getOldestForcedInclusionDeadline(), type(uint256).max);
+
+        // Store a forced inclusion
+        store.storeForcedInclusion{ value: feeInGwei * 1 gwei }(0);
+
+        // Check deadline
+        uint256 deadline = store.getOldestForcedInclusionDeadline();
+        assertEq(deadline, 1 + inclusionDelay);
     }
 }

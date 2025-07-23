@@ -7,6 +7,8 @@ import "src/layer1/based/IProposeBatch.sol";
 import "../iface/IPreconfWhitelist.sol";
 
 /// @title PreconfRouter
+/// @dev DEPRECATED: Use PreconfManager with the new Shasta (based2) inbox instead.
+///      This contract is kept for backward compatibility with existing deployments.
 /// @custom:security-contact security@taiko.xyz
 contract PreconfRouter is EssentialContract, IProposeBatch {
     IProposeBatch public immutable iProposeBatch;

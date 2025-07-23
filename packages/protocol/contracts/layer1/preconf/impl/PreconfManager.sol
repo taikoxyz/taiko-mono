@@ -78,7 +78,6 @@ contract PreconfManager is EssentialContract, IPropose {
             revert NotPreconfer();
         }
 
-
         (summary, forcedInclusionBlobHash) = inbox.propose4(
             _packedSummary, 
             _packedBatches, 
@@ -87,8 +86,8 @@ contract PreconfManager is EssentialContract, IPropose {
         );
         
         if (forcedStore.isOldestForcedInclusionDue()) {
-            IForcedInclusionStore.ForcedInclusion memory expectedInclusion;
-            expectedInclusion = forcedStore.getOldestForcedInclusion();
+            IForcedInclusionStore.ForcedInclusion memory expectedInclusion = 
+                forcedStore.getOldestForcedInclusion();
 
             // Verify the inbox processed the forced inclusion
             require(forcedInclusionBlobHash != bytes32(0), ForcedInclusionNotProcessed());

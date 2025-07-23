@@ -6,8 +6,11 @@ import "src/layer1/based/IProposeBatch.sol";
 import "./ForcedInclusionStore.sol";
 
 /// @title TaikoWrapper
-/// @dev This contract is part of a delayed inbox implementation to enforce the inclusion of
-/// transactions.
+/// @dev DEPRECATED: Use PreconfManager with the new Shasta (based2) inbox instead.
+///      This contract is kept for backward compatibility with existing deployments.
+///      
+///      This contract is part of a delayed inbox implementation to enforce the inclusion of
+///      transactions.
 /// The current design is a simplified and can be improved with the following ideas:
 /// 1. Fee-Based Request Prioritization:
 ///    - Proposers can selectively fulfill pending requests based on transaction fees.

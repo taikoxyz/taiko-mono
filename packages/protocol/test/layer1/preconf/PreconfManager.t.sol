@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/*
 import "forge-std/src/Test.sol";
 import "src/layer1/preconf/impl/PreconfManager.sol";
 import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
@@ -29,17 +28,15 @@ contract MockWhitelist is IPreconfWhitelist {
     }
 
     function init(address, uint8, uint8) external { }
-
     function addOperator(address) external { }
-
     function removeOperator(uint256) external { }
-
     function removeOperator(address) external { }
 }
 
 contract MockForcedInclusionStore is IForcedInclusionStore {
     bool public hasDueInclusion;
     ForcedInclusion public nextInclusion;
+    address public lastFeeRecipient;
 
     function setDueInclusion(bool _hasDue) external {
         hasDueInclusion = _hasDue;
@@ -53,43 +50,58 @@ contract MockForcedInclusionStore is IForcedInclusionStore {
         return hasDueInclusion;
     }
 
-    function consumeOldestForcedInclusion(address) external returns (ForcedInclusion memory) {
-        require(hasDueInclusion, "No due inclusion");
-        hasDueInclusion = false;
+    function getOldestForcedInclusion() external view returns (ForcedInclusion memory) {
         return nextInclusion;
     }
 
-    // Implement other required functions
-    function getForcedInclusion(uint256) external pure returns (ForcedInclusion memory) {
-        return ForcedInclusion(bytes32(0), 0, 0, 0, 0, 0);
+    function consumeOldestForcedInclusion(address _feeRecipient)
+        external
+        returns (ForcedInclusion memory)
+    {
+        lastFeeRecipient = _feeRecipient;
+        return nextInclusion;
+    }
+
+    function getForcedInclusion(uint256) external view returns (ForcedInclusion memory) {
+        return nextInclusion;
     }
 
     function getOldestForcedInclusionDeadline() external pure returns (uint256) {
         return 0;
     }
 
-    function storeForcedInclusion(uint8, uint32, uint32) external payable { }
-    
-    function getOldestForcedInclusion() external view returns (ForcedInclusion memory) {
-        require(hasDueInclusion, "No due inclusion");
-        return nextInclusion;
-    }
+    function storeForcedInclusion(uint8) external payable { }
 }
 
 contract MockInbox is IInbox {
-    Summary public lastSummary;
+    IInbox.Summary public nextSummary;
+    bytes32 public nextForcedInclusionBlobHash;
+    
+    bytes public lastPackedSummary;
+    bytes public lastPackedBatches;
+    bytes public lastPackedEvidence;
+    bytes public lastPackedTransitionMetas;
+
+    function setNextReturn(IInbox.Summary memory _summary, bytes32 _blobHash) external {
+        nextSummary = _summary;
+        nextForcedInclusionBlobHash = _blobHash;
+    }
 
     function propose4(
-        bytes calldata,
-        bytes calldata,
-        bytes calldata,
-        bytes calldata
+        bytes calldata _packedSummary,
+        bytes calldata _packedBatches,
+        bytes calldata _packedEvidence,
+        bytes calldata _packedTransitionMetas
     )
         external
-        returns (Summary memory)
+        returns (IInbox.Summary memory, bytes32)
     {
-        lastSummary.nextBatchId++;
-        return lastSummary;
+        lastPackedSummary = _packedSummary;
+        lastPackedBatches = _packedBatches;
+        lastPackedEvidence = _packedEvidence;
+        lastPackedTransitionMetas = _packedTransitionMetas;
+        
+        return (nextSummary, nextForcedInclusionBlobHash);
     }
 
     function prove4(bytes calldata, bytes calldata) external { }
@@ -101,8 +113,11 @@ contract PreconfManagerTest is Test {
     MockForcedInclusionStore public forcedStore;
     MockInbox public inbox;
 
-    address public alice = address(0x1);
-    address public bob = address(0x2);
+    address public alice = makeAddr("alice");
+    address public bob = makeAddr("bob");
+    address public fallbackPreconfer = makeAddr("fallbackPreconfer");
+
+    bytes32 public constant TEST_BLOB_HASH = bytes32(uint256(0x1234));
 
     function setUp() public {
         whitelist = new MockWhitelist();
@@ -113,159 +128,162 @@ contract PreconfManagerTest is Test {
             address(inbox),
             address(whitelist),
             address(forcedStore),
-            alice // fallback preconfer
+            fallbackPreconfer
         );
-
-        manager.init(address(this));
     }
 
-    function testProposeAsPreconfer() public {
-        // Set alice as the current preconfer
+    function test_authorizedPreconferCanPropose() public {
+        whitelist.setOperator(alice);
+        
+        IInbox.Summary memory summary;
+        summary.nextBatchId = 1;
+        inbox.setNextReturn(summary, bytes32(0));
+
+        vm.prank(alice);
+        (IInbox.Summary memory returnedSummary, bytes32 blobHash) = manager.propose4(
+            hex"00",
+            hex"01",
+            hex"02",
+            hex"03"
+        );
+
+        assertEq(returnedSummary.nextBatchId, 1);
+        assertEq(blobHash, bytes32(0));
+    }
+
+    function test_fallbackPreconferCanProposeWhenNoWhitelisted() public {
+        whitelist.setOperator(address(0)); // No whitelisted operator
+        
+        IInbox.Summary memory summary;
+        summary.nextBatchId = 1;
+        inbox.setNextReturn(summary, bytes32(0));
+
+        vm.prank(fallbackPreconfer);
+        (IInbox.Summary memory returnedSummary, bytes32 blobHash) = manager.propose4(
+            hex"00",
+            hex"01",
+            hex"02",
+            hex"03"
+        );
+
+        assertEq(returnedSummary.nextBatchId, 1);
+        assertEq(blobHash, bytes32(0));
+    }
+
+    function test_unauthorizedCannotPropose() public {
         whitelist.setOperator(alice);
 
-        // Create a batch
-        IInbox.Batch memory batch;
-        batch.proposer = alice;
-        batch.lastBlockTimestamp = 1000;
-        batch.blocks = new IInbox.Block[](1);
-        batch.blocks[0] = IInbox.Block({
-            numTransactions: 100,
-            timeShift: 0,
-            anchorBlockId: 0,
-            numSignals: 0,
-            hasAnchor: false
-        });
-
-        // Create parent metadata
-        IInbox.BatchProposeMetadata memory parentMeta = IInbox.BatchProposeMetadata({
-            lastBlockTimestamp: 900,
-            lastBlockId: 10,
-            lastAnchorBlockId: 5
-        });
-
-        // Pack parameters for propose4 interface
-        bytes memory packedSummary = LibCodec.packSummary(_createTestSummary());
-        bytes memory packedBatches = LibCodec.packBatches(_createBatchArray(batch));
-        bytes memory packedEvidence = LibCodec.packBatchProposeMetadataEvidence(
-            IInbox.BatchProposeMetadataEvidence({
-                leftHash: bytes32(0),
-                proveMetaHash: bytes32(0),
-                proposeMeta: parentMeta
-            })
-        );
-        bytes memory packedTransitionMetas = "";
-
-        // Propose as alice
-        vm.prank(alice);
-        IInbox.Summary memory summary =
-            manager.propose(packedSummary, packedBatches, packedEvidence, packedTransitionMetas);
-
-        // Verify the proposal was successful
-        assertEq(summary.nextBatchId, 1);
-    }
-
-    function testProposeWithForcedInclusion() public {
-        // Set alice as the current preconfer
-        whitelist.setOperator(alice);
-
-        // Set up a forced inclusion
-        forcedStore.setDueInclusion(true);
-        IForcedInclusionStore.ForcedInclusion memory inclusion = IForcedInclusionStore
-            .ForcedInclusion({
-            blobHash: bytes32(uint256(1)),
-            feeInGwei: 10,
-            createdAtBatchId: 1,
-            blobByteOffset: 0,
-            blobByteSize: 1000,
-            blobCreatedIn: 100
-        });
-        forcedStore.setNextInclusion(inclusion);
-
-        // Create a normal batch
-        IInbox.Batch memory batch;
-        batch.proposer = alice;
-        batch.lastBlockTimestamp = 1000;
-        batch.blocks = new IInbox.Block[](1);
-
-        // Create parent metadata
-        IInbox.BatchProposeMetadata memory parentMeta = IInbox.BatchProposeMetadata({
-            lastBlockTimestamp: 900,
-            lastBlockId: 10,
-            lastAnchorBlockId: 5
-        });
-
-        // Pack parameters for propose4 interface
-        bytes memory packedSummary = LibCodec.packSummary(_createTestSummary());
-        bytes memory packedBatches = LibCodec.packBatches(_createBatchArray(batch));
-        bytes memory packedEvidence = LibCodec.packBatchProposeMetadataEvidence(
-            IInbox.BatchProposeMetadataEvidence({
-                leftHash: bytes32(0),
-                proveMetaHash: bytes32(0),
-                proposeMeta: parentMeta
-            })
-        );
-        bytes memory packedTransitionMetas = "";
-
-        // Propose as alice - should process forced inclusion first
-        vm.prank(alice);
-        IInbox.Summary memory summary =
-            manager.propose(packedSummary, packedBatches, packedEvidence, packedTransitionMetas);
-
-        // Verify the proposal was successful
-        assertEq(summary.nextBatchId, 1);
-
-        // Verify forced inclusion was consumed
-        assertFalse(forcedStore.hasDueInclusion());
-    }
-
-    function testProposeUnauthorized() public {
-        // Don't set any operator
-
-        // Create a batch
-        IInbox.Batch memory batch;
-        batch.proposer = bob;
-
-        IInbox.BatchProposeMetadata memory parentMeta;
-
-        // Pack parameters for propose4 interface
-        bytes memory packedSummary = LibCodec.packSummary(_createTestSummary());
-        bytes memory packedBatches = LibCodec.packBatches(_createBatchArray(batch));
-        bytes memory packedEvidence = LibCodec.packBatchProposeMetadataEvidence(
-            IInbox.BatchProposeMetadataEvidence({
-                leftHash: bytes32(0),
-                proveMetaHash: bytes32(0),
-                proposeMeta: parentMeta
-            })
-        );
-        bytes memory packedTransitionMetas = "";
-
-        // Try to propose as bob (not authorized)
         vm.prank(bob);
         vm.expectRevert(PreconfManager.NotPreconfer.selector);
-        manager.propose(packedSummary, packedBatches, packedEvidence, packedTransitionMetas);
+        manager.propose4(hex"00", hex"01", hex"02", hex"03");
     }
 
-    function _createTestSummary() internal pure returns (IInbox.Summary memory) {
-        return IInbox.Summary({
-            nextBatchId: 1,
-            lastSyncedBlockId: 0,
-            lastSyncedAt: 0,
-            lastVerifiedBatchId: 0,
-            gasIssuanceUpdatedAt: 0,
-            gasIssuancePerSecond: 0,
-            lastVerifiedBlockHash: bytes32(0),
-            lastBatchMetaHash: bytes32(0)
-        });
+    function test_forcedInclusionMustBeProcessedWhenDue() public {
+        whitelist.setOperator(alice);
+        
+        // Set up forced inclusion
+        IForcedInclusionStore.ForcedInclusion memory forcedInclusion;
+        forcedInclusion.blobHash = TEST_BLOB_HASH;
+        forcedInclusion.feeInGwei = 100;
+        
+        forcedStore.setDueInclusion(true);
+        forcedStore.setNextInclusion(forcedInclusion);
+        
+        // Inbox returns the forced inclusion blob hash
+        IInbox.Summary memory summary;
+        summary.nextBatchId = 1;
+        inbox.setNextReturn(summary, TEST_BLOB_HASH);
+
+        vm.prank(alice);
+        (IInbox.Summary memory returnedSummary, bytes32 blobHash) = manager.propose4(
+            hex"00",
+            hex"01",
+            hex"02",
+            hex"03"
+        );
+
+        assertEq(returnedSummary.nextBatchId, 1);
+        assertEq(blobHash, TEST_BLOB_HASH);
+        assertEq(forcedStore.lastFeeRecipient(), alice);
     }
 
-    function _createBatchArray(IInbox.Batch memory batch)
-        internal
-        pure
-        returns (IInbox.Batch[] memory)
-    {
-        IInbox.Batch[] memory batches = new IInbox.Batch[](1);
-        batches[0] = batch;
-        return batches;
+    function test_forcedInclusionFailsIfNotProcessed() public {
+        whitelist.setOperator(alice);
+        
+        // Set up forced inclusion
+        IForcedInclusionStore.ForcedInclusion memory forcedInclusion;
+        forcedInclusion.blobHash = TEST_BLOB_HASH;
+        
+        forcedStore.setDueInclusion(true);
+        forcedStore.setNextInclusion(forcedInclusion);
+        
+        // Inbox returns zero (no forced inclusion processed)
+        IInbox.Summary memory summary;
+        inbox.setNextReturn(summary, bytes32(0));
+
+        vm.prank(alice);
+        vm.expectRevert(PreconfManager.ForcedInclusionNotProcessed.selector);
+        manager.propose4(hex"00", hex"01", hex"02", hex"03");
+    }
+
+    function test_forcedInclusionFailsIfWrongBlobHash() public {
+        whitelist.setOperator(alice);
+        
+        // Set up forced inclusion
+        IForcedInclusionStore.ForcedInclusion memory forcedInclusion;
+        forcedInclusion.blobHash = TEST_BLOB_HASH;
+        
+        forcedStore.setDueInclusion(true);
+        forcedStore.setNextInclusion(forcedInclusion);
+        
+        // Inbox returns different blob hash
+        IInbox.Summary memory summary;
+        inbox.setNextReturn(summary, bytes32(uint256(0x5678)));
+
+        vm.prank(alice);
+        vm.expectRevert(PreconfManager.ForcedInclusionNotProcessed.selector);
+        manager.propose4(hex"00", hex"01", hex"02", hex"03");
+    }
+
+    function test_noForcedInclusionWhenNotDue() public {
+        whitelist.setOperator(alice);
+        
+        forcedStore.setDueInclusion(false);
+        
+        // Inbox should return zero blob hash
+        IInbox.Summary memory summary;
+        summary.nextBatchId = 1;
+        inbox.setNextReturn(summary, bytes32(0));
+
+        vm.prank(alice);
+        (IInbox.Summary memory returnedSummary, bytes32 blobHash) = manager.propose4(
+            hex"00",
+            hex"01",
+            hex"02",
+            hex"03"
+        );
+
+        assertEq(returnedSummary.nextBatchId, 1);
+        assertEq(blobHash, bytes32(0));
+    }
+
+    function test_eventEmittedOnForcedInclusionProcessed() public {
+        whitelist.setOperator(alice);
+        
+        IForcedInclusionStore.ForcedInclusion memory forcedInclusion;
+        forcedInclusion.blobHash = TEST_BLOB_HASH;
+        forcedInclusion.feeInGwei = 100;
+        
+        forcedStore.setDueInclusion(true);
+        forcedStore.setNextInclusion(forcedInclusion);
+        
+        IInbox.Summary memory summary;
+        inbox.setNextReturn(summary, TEST_BLOB_HASH);
+
+        vm.expectEmit(true, true, false, true);
+        emit PreconfManager.ForcedInclusionProcessed(alice, TEST_BLOB_HASH, 100);
+
+        vm.prank(alice);
+        manager.propose4(hex"00", hex"01", hex"02", hex"03");
     }
 }
-*/
