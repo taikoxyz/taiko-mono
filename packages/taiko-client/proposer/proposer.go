@@ -196,13 +196,9 @@ func (p *Proposer) eventLoop() {
 				continue
 			}
 		case h := <-l2HeadCh:
-			// only update if the head is greater than the last updated head.
-			// we dont want to track reorgs, just the highest l2head seen.
-			if h.Number.Uint64() > p.l2HeadUpdate.blockID {
-				p.l2HeadUpdate = l2HeadUpdateInfo{
-					blockID:   h.Number.Uint64(),
-					updatedAt: time.Now().UTC(),
-				}
+			p.l2HeadUpdate = l2HeadUpdateInfo{
+				blockID:   h.Number.Uint64(),
+				updatedAt: time.Now().UTC(),
 			}
 		}
 	}
@@ -538,6 +534,7 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 		if time.Since(p.l2HeadUpdate.updatedAt.UTC()) < p.FallbackTimeout {
 			log.Info("Fallback timeout not reached, skip proposing",
 				"l2HeadUpdate", p.l2HeadUpdate.updatedAt.UTC(),
+				"l2HeadUpdate", p.l2HeadUpdate.blockID,
 				"now", time.Now().UTC(),
 				"fallbackTimeout", p.FallbackTimeout,
 			)
