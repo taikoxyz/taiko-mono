@@ -5,6 +5,7 @@ import "src/shared/common/EssentialContract.sol";
 import "src/layer1/based2/IInbox.sol";
 import "../iface/IPreconfWhitelist.sol";
 import "../../forced-inclusion/IForcedInclusionStore.sol";
+import "src/layer1/based2/IPropose.sol";
 
 /// @title PreconfManager
 /// @notice Manages batch proposals with preconfirmation access control and forced inclusion
@@ -12,7 +13,7 @@ import "../../forced-inclusion/IForcedInclusionStore.sol";
 /// @dev Acts as a gateway to the Shasta inbox, ensuring only authorized preconfers can propose
 /// batches
 /// @custom:security-contact security@taiko.xyz
-contract PreconfManager is EssentialContract {
+contract PreconfManager is EssentialContract, IPropose {
     IInbox public immutable inbox;
     IPreconfWhitelist public immutable whitelist;
     IForcedInclusionStore public immutable forcedStore;
@@ -50,34 +51,14 @@ contract PreconfManager is EssentialContract {
         __Essential_init(_owner);
     }
 
-    /// @notice Proposes batches to the inbox with preconf authorization and forced inclusion
-    /// validation
-    /// @dev This function serves as the gateway for all batch proposals, enforcing two key
-    /// requirements:
+    /// @inheritdoc IPropose
+    /// @dev Enforces preconfirmation access control and forced inclusion validation:
     ///      1. Only authorized preconfers (from whitelist or fallback) can propose batches
-    ///      2. Forced inclusions must be processed when due, and cannot be processed before their
-    /// deadline
+    ///      2. Forced inclusions MUST be processed when due, and CANNOT be processed before their deadline
     ///
-    ///      When a forced inclusion is due (determined by ForcedInclusionStore based on batch count
-    /// delay),
-    ///      the proposer MUST include it as the first batch in _packedBatches. The contract
-    /// validates:
-    ///      - The first batch has isForcedInclusion = true
-    ///      - The batch contains exactly one block with maximum transactions allowed
-    ///      - The blob hash, offset, and size match the expected forced inclusion
-    ///
-    ///      Forced inclusions ensure censorship resistance by guaranteeing that user transactions
-    ///      will be included within a bounded time period after paying the inclusion fee.
-    ///
-    /// @param _packedSummary Current protocol summary encoded using LibCodec.packSummary
-    /// @param _packedBatches Array of batches encoded using LibCodec.packBatches. If a forced
-    /// inclusion
-    ///                       is due, it MUST be the first batch with isForcedInclusion = true
-    /// @param _packedEvidence Evidence for batch proposal validation, including parent batch
-    /// metadata
-    /// @param _packedTransitionMetas Transition metadata array for state verification
-    /// @return summary Updated protocol summary after successful proposal
-    function propose(
+    ///      When a forced inclusion is due (determined by ForcedInclusionStore), the proposer MUST
+    ///      include it as the first batch in _packedBatches with isForcedInclusion = true
+    function propose4(
         bytes calldata _packedSummary,
         bytes calldata _packedBatches,
         bytes calldata _packedEvidence,
