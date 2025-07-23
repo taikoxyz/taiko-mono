@@ -539,8 +539,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
         return state.bondBalance[_user];
     }
 
-
-
     // Public functions -------------------------------------------------------------------------
 
     /// @inheritdoc EssentialContract
