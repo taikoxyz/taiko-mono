@@ -280,6 +280,8 @@ interface IInbox {
         uint48 lastSyncedAt;
         /// @notice ID of the last batch that was verified
         uint48 lastVerifiedBatchId;
+        /// @notice ID of the last block that was verified
+        uint48 lastVerifiedBlockId;
         /// @notice Timestamp when gas issuance rate was last updated
         uint48 gasIssuanceUpdatedAt;
         /// @notice Current gas issuance rate per second

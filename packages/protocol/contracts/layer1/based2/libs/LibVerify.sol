@@ -41,15 +41,15 @@ library LibVerify {
         returns (I.Summary memory)
     {
         unchecked {
-            uint48 batchId = _summary.lastVerifiedBatchId + 1;
-
-            if (!LibForks.isBlocksInCurrentFork(_config, batchId, batchId)) {
+            uint256 nextBlockId = _summary.lastVerifiedBlockId + 1;
+            if (!LibForks.isBlocksInCurrentFork(_config, nextBlockId, nextBlockId)) {
                 return _summary;
             }
 
-            uint256 stopBatchId = uint256(_summary.nextBatchId).min(
-                _config.maxBatchesToVerify + _summary.lastVerifiedBatchId + 1
-            );
+            uint48 batchId = _summary.lastVerifiedBatchId + 1;
+
+            uint256 stopBatchId =
+                uint256(_summary.nextBatchId).min(_config.maxBatchesToVerify + batchId);
 
             uint256 i;
             uint256 lastSyncedBatchId;
@@ -77,7 +77,11 @@ library LibVerify {
                 }
 
                 emit I.Verified(batchId << 48 | _trans[i].lastBlockId, _trans[i].blockHash);
-                _summary.lastVerifiedBlockHash = _trans[i++].blockHash;
+
+                _summary.lastVerifiedBlockHash = _trans[i].blockHash;
+                _summary.lastVerifiedBlockId = _trans[i].lastBlockId;
+                _summary.lastVerifiedBatchId = batchId;
+                ++i;
             }
 
             if (lastSyncedBatchId != 0) {
