@@ -73,8 +73,8 @@ interface IInbox {
     struct BatchContext {
         /// @notice Address authorized to prove this batch
         address prover;
-        /// @notice Hash of all transactions in the batch
-        bytes32 txsHash;
+        /// @notice Hash of all blob hashes in the batch
+        bytes32 blobsHash;
         /// @notice ID of the last anchor block referenced
         uint48 lastAnchorBlockId;
         /// @notice ID of the last block in this batch
