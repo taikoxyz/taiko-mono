@@ -10,7 +10,7 @@ import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 
 contract DeployMainnetPreconf is DeployCapability {
-    uint256 public constant TWO_EPOCHS = 2;
+    uint8 public constant TWO_EPOCHS = 2;
 
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
 
