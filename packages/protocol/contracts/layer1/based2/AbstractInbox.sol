@@ -52,6 +52,8 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     }
 
     /// @inheritdoc IPropose
+    // TODO(daniel): move forced inclusion support to this contract, then change proposing multiple
+    // batches to one single batch.
     function propose4(
         bytes calldata _packedSummary,
         bytes calldata _packedBatches,
