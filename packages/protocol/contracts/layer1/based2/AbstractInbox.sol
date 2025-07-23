@@ -129,12 +129,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         return LibData.buildBatchMetadata(_proposedIn, _proposedAt, _batch, _context);
     }
 
-    /// @notice Checks if this contract is an inbox
-    /// @return Always returns true
-    function isInbox4() external pure returns (bool) {
-        return true;
-    }
-
     /// @notice Gets the current configuration
     /// @return The configuration struct
     function config4() external view virtual returns (Config memory) {
