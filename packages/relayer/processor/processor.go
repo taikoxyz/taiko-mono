@@ -447,35 +447,45 @@ func (p *Processor) queueName() string {
 
 // eventLoop is the main event loop of a Processor which should read
 // messages from a queue and then process them.
+//
+// Refactored to use a worker pool to avoid unbounded goroutine creation.
+// This prevents resource exhaustion under high load and provides predictable concurrency.
 func (p *Processor) eventLoop(ctx context.Context) {
 	p.wg.Add(1)
 	defer p.wg.Done()
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case msg := <-p.msgCh:
-			go func(m queue.Message) {
-				shouldRequeue, timesRetried, err := p.processMessage(ctx, m)
+	const workerCount = 10 // Limit the number of concurrent workers
+	workerWG := &sync.WaitGroup{}
+
+	// Worker function: processes messages from the channel
+	worker := func() {
+		defer workerWG.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-p.msgCh:
+				if !ok {
+					return
+				}
+				shouldRequeue, timesRetried, err := p.processMessage(ctx, msg)
 
 				if err != nil {
 					switch {
 					case errors.Is(err, errUnprocessable):
-						if err := p.queue.Ack(ctx, m); err != nil {
+						if err := p.queue.Ack(ctx, msg); err != nil {
 							slog.Error("Err acking message", "err", err.Error())
 						}
 					case errors.Is(err, relayer.ErrUnprofitable):
 						slog.Info("publishing to unprofitable queue")
 
 						headers := make(map[string]interface{}, 0)
-
 						headers["retries"] = int64(timesRetried + 1)
 
 						if err := p.queue.Publish(
 							ctx,
 							fmt.Sprintf("%v-unprofitable", p.queueName()),
-							m.Body,
+							msg.Body,
 							headers,
 							p.cfg.UnprofitableMessageQueueExpiration,
 						); err != nil {
@@ -484,7 +494,7 @@ func (p *Processor) eventLoop(ctx context.Context) {
 
 						// after publishing successfully, we can acknowledge this message to remove it
 						// from our main queue.
-						if err := p.queue.Ack(ctx, m); err != nil {
+						if err := p.queue.Ack(ctx, msg); err != nil {
 							slog.Error("Err acking message", "err", err.Error())
 						}
 					case errors.Is(err, context.Canceled) ||
@@ -500,17 +510,17 @@ func (p *Processor) eventLoop(ctx context.Context) {
 
 						// we want to negatively acknowledge the message and requeue it if we
 						// encountered an error, but the message is processable.
-						if err := p.queue.Nack(ctx, m, shouldRequeue); err != nil {
+						if err := p.queue.Nack(ctx, msg, shouldRequeue); err != nil {
 							slog.Error("Err nacking message", "err", err.Error())
 						}
 					}
 
-					return
+					continue
 				}
 
 				if shouldRequeue {
 					// we want to negatively acknowledge the message
-					if err := p.queue.Nack(ctx, m, true); err != nil {
+					if err := p.queue.Nack(ctx, msg, true); err != nil {
 						slog.Error("Err nacking message", "err", err.Error())
 					}
 
@@ -524,11 +534,24 @@ func (p *Processor) eventLoop(ctx context.Context) {
 					}
 				} else {
 					// otherwise if no error, we can acknowledge it successfully.
-					if err := p.queue.Ack(ctx, m); err != nil {
+					if err := p.queue.Ack(ctx, msg); err != nil {
 						slog.Error("Err acking message", "err", err.Error())
 					}
 				}
-			}(msg)
+			}
 		}
 	}
+
+	// Start workerCount workers
+	for i := 0; i < workerCount; i++ {
+		workerWG.Add(1)
+		go worker()
+	}
+
+	// Wait for context cancellation
+	<-ctx.Done()
+
+	// Close the message channel to stop workers gracefully
+	close(p.msgCh)
+	workerWG.Wait()
 }
