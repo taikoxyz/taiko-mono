@@ -82,7 +82,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
         ForcedInclusion memory inclusion = ForcedInclusion({
             blobHash: blobHash,
-            feeInGwei: feeInGwei, //we already validated `msg.value == feeInGwei * 1 gwei`
+            feeInGwei: feeInGwei,
             createdAtBatchId: _nextBatchId(),
             blobCreatedIn: uint64(block.number)
         });
@@ -98,7 +98,6 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         nonReentrant
         returns (ForcedInclusion memory inclusion_)
     {
-        // we only need to check the first one, since it will be the oldest.
         ForcedInclusion storage inclusion = queue[head];
         require(inclusion.createdAtBatchId != 0, NoForcedInclusionFound());
 

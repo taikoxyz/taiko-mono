@@ -97,7 +97,6 @@ contract PreconfManager is EssentialContract {
             revert NotPreconfer();
         }
 
-        // Check if forced inclusion is due and validate it's included
         bool forcedInclusionExpected = forcedStore.isOldestForcedInclusionDue();
         IForcedInclusionStore.ForcedInclusion memory expectedInclusion;
         
@@ -107,16 +106,12 @@ contract PreconfManager is EssentialContract {
             // We'll verify the blob hash matches after successful processing
         }
 
-        // Process the proposal - inbox will validate forced inclusion rules
         summary = inbox.propose4(_packedSummary, _packedBatches, _packedEvidence, _packedTransitionMetas);
             
-        // After successful proposal, consume the forced inclusion
         if (forcedInclusionExpected) {
-            // Validation succeeded in inbox, now consume it
             IForcedInclusionStore.ForcedInclusion memory processed = 
                 forcedStore.consumeOldestForcedInclusion(msg.sender);
                 
-            // Verify we processed the expected one
             require(
                 processed.blobHash == expectedInclusion.blobHash,
                 ForcedInclusionNotProcessed()

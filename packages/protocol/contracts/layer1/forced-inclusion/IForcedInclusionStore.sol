@@ -9,7 +9,6 @@ interface IForcedInclusionStore {
         uint64 feeInGwei;
         uint64 createdAtBatchId;
         uint64 blobCreatedIn;
-        // Simplified: entire blob is the forced inclusion, no offset/size needed
     }
 
     /// @dev Event emitted when a forced inclusion is stored.
