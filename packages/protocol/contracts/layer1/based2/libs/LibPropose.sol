@@ -93,6 +93,7 @@ library LibPropose {
     /// @notice Checks if the current transaction is the outer most transaction
     /// @return True if the current transaction is the outer most transaction, false otherwise
     function _isOuterMostTransaction() private view returns (bool) {
+        // We should avoid using tx.origin, but how ....
         return msg.sender == tx.origin;
     }
 
