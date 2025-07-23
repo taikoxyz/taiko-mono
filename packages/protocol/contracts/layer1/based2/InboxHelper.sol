@@ -1,24 +1,41 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox as I } from "../IInbox.sol";
-import { LibCodecSummary } from "./LibCodecSummary.sol";
-import { LibCodecBatchContext } from "./LibCodecBatchContext.sol";
-import { LibCodecBatch } from "./LibCodecBatch.sol";
-import { LibCodecTransitionMeta } from "./LibCodecTransitionMeta.sol";
-import { LibCodecProverAuth } from "./LibCodecProverAuth.sol";
-import { LibCodecProveBatchInputs } from "./LibCodecProveBatchInputs.sol";
-import { LibCodecProposeBatchEvidence } from "./LibCodecProposeBatchEvidence.sol";
-import { LibCodecProposeBatchInputs } from "./LibCodecProposeBatchInputs.sol";
-import { LibCodecHeaderExtraInfo } from "./LibCodecHeaderExtraInfo.sol";
+import { IInbox as I } from "./IInbox.sol";
+import { LibData } from "./libs/LibData.sol";
+import { LibCodecSummary } from "./codec/LibCodecSummary.sol";
+import { LibCodecBatchContext } from "./codec/LibCodecBatchContext.sol";
+import { LibCodecBatch } from "./codec/LibCodecBatch.sol";
+import { LibCodecTransitionMeta } from "./codec/LibCodecTransitionMeta.sol";
+import { LibCodecProverAuth } from "./codec/LibCodecProverAuth.sol";
+import { LibCodecProveBatchInputs } from "./codec/LibCodecProveBatchInputs.sol";
+import { LibCodecProposeBatchEvidence } from "./codec/LibCodecProposeBatchEvidence.sol";
+import { LibCodecProposeBatchInputs } from "./codec/LibCodecProposeBatchInputs.sol";
+import { LibCodecHeaderExtraInfo } from "./codec/LibCodecHeaderExtraInfo.sol";
 
-/// @title InboxCodec
-/// @notice Contract that provides encoding/decoding functions for Inbox-related structs as public
-/// pure
-/// functions. This contract can be used by clients to encode/decode codec structs and can ease
-/// testing.
-/// @dev This contract provides a unified interface for all Inbox codec operations
-contract InboxCodec {
+/// @title InboxHelper
+/// @notice Contract that provides pure functions for off chain software.
+/// @custom:security-contact security@taiko.xyz
+contract InboxHelper {
+    /// @notice Builds batch metadata from batch and batch context data
+    /// @param _proposedIn The block number in which the batch is proposed
+    /// @param _proposedAt The timestamp of the block in which the batch is proposed
+    /// @param _batch The batch being proposed
+    /// @param _context The batch context data containing computed values
+    /// @return meta_ The populated batch metadata
+    function buildBatchMetadata(
+        uint48 _proposedIn,
+        uint48 _proposedAt,
+        I.Batch calldata _batch,
+        I.BatchContext calldata _context
+    )
+        external
+        pure
+        returns (I.BatchMetadata memory meta_)
+    {
+        return LibData.buildBatchMetadata(_proposedIn, _proposedAt, _batch, _context);
+    }
+
     /// @notice Encodes a Summary struct
     /// @param _summary The Summary struct to encode
     /// @return The encoded bytes
