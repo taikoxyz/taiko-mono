@@ -16,6 +16,7 @@ library LibBinding {
     ///      without direct dependencies
     struct Bindings {
         // Read functions ------------------------------------------------------
+        //
         /// @notice Loads a batch metadata hash
         /// @dev Assume 1 SLOAD is needed
         function(I.Config memory, uint256) view returns (bytes32) loadBatchMetaHash;
@@ -30,7 +31,9 @@ library LibBinding {
         /// @dev Assume 1 SLOAD is needed
         function (I.Config memory, bytes32, uint256) view returns (bytes32 , bool)
             loadTransitionMetaHash;
+        //
         // Write functions -----------------------------------------------------
+        //
         /// @notice Saves a transition
         /// @dev Assume 1 SSTORE is needed
         function(I.Config memory, uint48, bytes32, bytes32) returns (bool) saveTransition;
@@ -46,7 +49,9 @@ library LibBinding {
         function(address, uint256) creditBond;
         /// @notice Debits bond from a user
         function(I.Config memory, address, uint256) debitBond;
+        //
         // Encoding functions -----------------------------------------------------
+        //
         function(I.BatchContext memory) pure returns (bytes memory) encodeBatchContext;
         function(I.TransitionMeta[] memory) pure returns (bytes memory) encodeTransitionMetas;
         function(I.Summary memory) pure returns (bytes memory) encodeSummary;
