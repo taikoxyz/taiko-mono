@@ -76,7 +76,7 @@ contract MockForcedInclusionStore is IForcedInclusionStore {
 contract MockInbox is IInbox {
     IInbox.Summary public nextSummary;
     bytes32 public nextForcedInclusionBlobHash;
-    
+
     bytes public lastPackedSummary;
     bytes public lastPackedBatches;
     bytes public lastPackedEvidence;
@@ -100,7 +100,7 @@ contract MockInbox is IInbox {
         lastPackedBatches = _packedBatches;
         lastPackedEvidence = _packedEvidence;
         lastPackedTransitionMetas = _packedTransitionMetas;
-        
+
         return (nextSummary, nextForcedInclusionBlobHash);
     }
 
@@ -125,27 +125,20 @@ contract PreconfManagerTest is Test {
         inbox = new MockInbox();
 
         manager = new PreconfManager(
-            address(inbox),
-            address(whitelist),
-            address(forcedStore),
-            fallbackPreconfer
+            address(inbox), address(whitelist), address(forcedStore), fallbackPreconfer
         );
     }
 
     function test_authorizedPreconferCanPropose() public {
         whitelist.setOperator(alice);
-        
+
         IInbox.Summary memory summary;
         summary.nextBatchId = 1;
         inbox.setNextReturn(summary, bytes32(0));
 
         vm.prank(alice);
-        (IInbox.Summary memory returnedSummary, bytes32 blobHash) = manager.propose4(
-            hex"00",
-            hex"01",
-            hex"02",
-            hex"03"
-        );
+        (IInbox.Summary memory returnedSummary, bytes32 blobHash) =
+            manager.propose4(hex"00", hex"01", hex"02", hex"03");
 
         assertEq(returnedSummary.nextBatchId, 1);
         assertEq(blobHash, bytes32(0));
@@ -153,18 +146,14 @@ contract PreconfManagerTest is Test {
 
     function test_fallbackPreconferCanProposeWhenNoWhitelisted() public {
         whitelist.setOperator(address(0)); // No whitelisted operator
-        
+
         IInbox.Summary memory summary;
         summary.nextBatchId = 1;
         inbox.setNextReturn(summary, bytes32(0));
 
         vm.prank(fallbackPreconfer);
-        (IInbox.Summary memory returnedSummary, bytes32 blobHash) = manager.propose4(
-            hex"00",
-            hex"01",
-            hex"02",
-            hex"03"
-        );
+        (IInbox.Summary memory returnedSummary, bytes32 blobHash) =
+            manager.propose4(hex"00", hex"01", hex"02", hex"03");
 
         assertEq(returnedSummary.nextBatchId, 1);
         assertEq(blobHash, bytes32(0));
@@ -180,27 +169,23 @@ contract PreconfManagerTest is Test {
 
     function test_forcedInclusionMustBeProcessedWhenDue() public {
         whitelist.setOperator(alice);
-        
+
         // Set up forced inclusion
         IForcedInclusionStore.ForcedInclusion memory forcedInclusion;
         forcedInclusion.blobHash = TEST_BLOB_HASH;
         forcedInclusion.feeInGwei = 100;
-        
+
         forcedStore.setDueInclusion(true);
         forcedStore.setNextInclusion(forcedInclusion);
-        
+
         // Inbox returns the forced inclusion blob hash
         IInbox.Summary memory summary;
         summary.nextBatchId = 1;
         inbox.setNextReturn(summary, TEST_BLOB_HASH);
 
         vm.prank(alice);
-        (IInbox.Summary memory returnedSummary, bytes32 blobHash) = manager.propose4(
-            hex"00",
-            hex"01",
-            hex"02",
-            hex"03"
-        );
+        (IInbox.Summary memory returnedSummary, bytes32 blobHash) =
+            manager.propose4(hex"00", hex"01", hex"02", hex"03");
 
         assertEq(returnedSummary.nextBatchId, 1);
         assertEq(blobHash, TEST_BLOB_HASH);
@@ -209,14 +194,14 @@ contract PreconfManagerTest is Test {
 
     function test_forcedInclusionFailsIfNotProcessed() public {
         whitelist.setOperator(alice);
-        
+
         // Set up forced inclusion
         IForcedInclusionStore.ForcedInclusion memory forcedInclusion;
         forcedInclusion.blobHash = TEST_BLOB_HASH;
-        
+
         forcedStore.setDueInclusion(true);
         forcedStore.setNextInclusion(forcedInclusion);
-        
+
         // Inbox returns zero (no forced inclusion processed)
         IInbox.Summary memory summary;
         inbox.setNextReturn(summary, bytes32(0));
@@ -228,14 +213,14 @@ contract PreconfManagerTest is Test {
 
     function test_forcedInclusionFailsIfWrongBlobHash() public {
         whitelist.setOperator(alice);
-        
+
         // Set up forced inclusion
         IForcedInclusionStore.ForcedInclusion memory forcedInclusion;
         forcedInclusion.blobHash = TEST_BLOB_HASH;
-        
+
         forcedStore.setDueInclusion(true);
         forcedStore.setNextInclusion(forcedInclusion);
-        
+
         // Inbox returns different blob hash
         IInbox.Summary memory summary;
         inbox.setNextReturn(summary, bytes32(uint256(0x5678)));
@@ -247,21 +232,17 @@ contract PreconfManagerTest is Test {
 
     function test_noForcedInclusionWhenNotDue() public {
         whitelist.setOperator(alice);
-        
+
         forcedStore.setDueInclusion(false);
-        
+
         // Inbox should return zero blob hash
         IInbox.Summary memory summary;
         summary.nextBatchId = 1;
         inbox.setNextReturn(summary, bytes32(0));
 
         vm.prank(alice);
-        (IInbox.Summary memory returnedSummary, bytes32 blobHash) = manager.propose4(
-            hex"00",
-            hex"01",
-            hex"02",
-            hex"03"
-        );
+        (IInbox.Summary memory returnedSummary, bytes32 blobHash) =
+            manager.propose4(hex"00", hex"01", hex"02", hex"03");
 
         assertEq(returnedSummary.nextBatchId, 1);
         assertEq(blobHash, bytes32(0));
@@ -269,14 +250,14 @@ contract PreconfManagerTest is Test {
 
     function test_eventEmittedOnForcedInclusionProcessed() public {
         whitelist.setOperator(alice);
-        
+
         IForcedInclusionStore.ForcedInclusion memory forcedInclusion;
         forcedInclusion.blobHash = TEST_BLOB_HASH;
         forcedInclusion.feeInGwei = 100;
-        
+
         forcedStore.setDueInclusion(true);
         forcedStore.setNextInclusion(forcedInclusion);
-        
+
         IInbox.Summary memory summary;
         inbox.setNextReturn(summary, TEST_BLOB_HASH);
 

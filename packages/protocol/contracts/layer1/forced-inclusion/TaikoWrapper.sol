@@ -8,7 +8,7 @@ import "./ForcedInclusionStore.sol";
 /// @title TaikoWrapper
 /// @dev DEPRECATED: Use PreconfManager with the new Shasta (based2) inbox instead.
 ///      This contract is kept for backward compatibility with existing deployments.
-///      
+///
 ///      This contract is part of a delayed inbox implementation to enforce the inclusion of
 ///      transactions.
 /// The current design is a simplified and can be improved with the following ideas:
@@ -132,7 +132,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(p.blobParams.blobHashes.length == 1, InvalidBlobHashesSize());
         require(p.blobParams.blobHashes[0] == inclusion.blobHash, InvalidBlobHash());
         require(p.blobParams.byteOffset == 0, InvalidBlobByteOffset());
-        require(p.blobParams.byteSize == 131072, InvalidBlobByteSize()); // Full blob size
+        require(p.blobParams.byteSize == 131_072, InvalidBlobByteSize()); // Full blob size
         require(p.blobParams.createdIn == inclusion.blobCreatedIn, InvalidBlobCreatedIn());
 
         emit ForcedInclusionProcessed(inclusion);

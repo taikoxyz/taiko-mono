@@ -21,11 +21,9 @@ contract PreconfManager is EssentialContract, IPropose {
 
     error NotPreconfer();
     error ForcedInclusionNotProcessed();
-    
+
     event ForcedInclusionProcessed(
-        address indexed proposer,
-        bytes32 indexed blobHash,
-        uint64 feeInGwei
+        address indexed proposer, bytes32 indexed blobHash, uint64 feeInGwei
     );
 
     uint256[50] private __gap;
@@ -54,7 +52,8 @@ contract PreconfManager is EssentialContract, IPropose {
     /// @inheritdoc IPropose
     /// @dev Enforces preconfirmation access control and forced inclusion validation:
     ///      1. Only authorized preconfers (from whitelist or fallback) can propose batches
-    ///      2. Forced inclusions MUST be processed when due, and CANNOT be processed before their deadline
+    ///      2. Forced inclusions MUST be processed when due, and CANNOT be processed before their
+    /// deadline
     ///
     ///      When a forced inclusion is due (determined by ForcedInclusionStore), the proposer MUST
     ///      include it as the first batch in _packedBatches with isForcedInclusion = true
@@ -78,31 +77,24 @@ contract PreconfManager is EssentialContract, IPropose {
             revert NotPreconfer();
         }
 
-        (summary, forcedInclusionBlobHash) = inbox.propose4(
-            _packedSummary, 
-            _packedBatches, 
-            _packedEvidence, 
-            _packedTransitionMetas
-        );
-        
+        (summary, forcedInclusionBlobHash) =
+            inbox.propose4(_packedSummary, _packedBatches, _packedEvidence, _packedTransitionMetas);
+
         if (forcedStore.isOldestForcedInclusionDue()) {
-            IForcedInclusionStore.ForcedInclusion memory expectedInclusion = 
+            IForcedInclusionStore.ForcedInclusion memory expectedInclusion =
                 forcedStore.getOldestForcedInclusion();
 
             // Verify the inbox processed the forced inclusion
             require(forcedInclusionBlobHash != bytes32(0), ForcedInclusionNotProcessed());
-            require(forcedInclusionBlobHash == expectedInclusion.blobHash, ForcedInclusionNotProcessed());
-            
-            // Safe to consume now that we've verified it was processed
-            IForcedInclusionStore.ForcedInclusion memory processed = 
-                forcedStore.consumeOldestForcedInclusion(msg.sender);
-                
-            emit ForcedInclusionProcessed(
-                msg.sender,
-                processed.blobHash,
-                processed.feeInGwei
+            require(
+                forcedInclusionBlobHash == expectedInclusion.blobHash, ForcedInclusionNotProcessed()
             );
+
+            // Safe to consume now that we've verified it was processed
+            IForcedInclusionStore.ForcedInclusion memory processed =
+                forcedStore.consumeOldestForcedInclusion(msg.sender);
+
+            emit ForcedInclusionProcessed(msg.sender, processed.blobHash, processed.feeInGwei);
         }
     }
-
 }

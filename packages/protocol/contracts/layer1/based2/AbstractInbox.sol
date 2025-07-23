@@ -74,7 +74,9 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         LibState.Access memory access = _getReadWrite();
 
         // Check if first batch is a forced inclusion and capture its blob hash
-        if (batches.length > 0 && batches[0].isForcedInclusion && batches[0].blobs.hashes.length > 0) {
+        if (
+            batches.length > 0 && batches[0].isForcedInclusion && batches[0].blobs.hashes.length > 0
+        ) {
             forcedInclusionBlobHash = batches[0].blobs.hashes[0];
         }
 

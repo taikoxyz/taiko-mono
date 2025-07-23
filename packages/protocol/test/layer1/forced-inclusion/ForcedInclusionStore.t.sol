@@ -69,7 +69,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         store.storeForcedInclusion{ value: _feeInGwei * 1 gwei }(0);
 
         IForcedInclusionStore.ForcedInclusion memory inclusion = store.getForcedInclusion(0);
-        
+
         assertEq(inclusion.blobHash, bytes32(uint256(1)));
         assertEq(inclusion.feeInGwei, _feeInGwei);
         assertEq(inclusion.createdAtBatchId, 1);
@@ -130,8 +130,9 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         assertEq(oldest.blobHash, bytes32(uint256(1)));
 
         // Consume it
-        IForcedInclusionStore.ForcedInclusion memory consumed = store.consumeOldestForcedInclusion(whitelistedProposer);
-        
+        IForcedInclusionStore.ForcedInclusion memory consumed =
+            store.consumeOldestForcedInclusion(whitelistedProposer);
+
         assertEq(consumed.blobHash, oldest.blobHash);
         assertEq(consumed.feeInGwei, _feeInGwei);
         assertEq(whitelistedProposer.balance - balance, _feeInGwei * 1 gwei);

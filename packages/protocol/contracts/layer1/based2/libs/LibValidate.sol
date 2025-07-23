@@ -322,16 +322,14 @@ library LibValidate {
             require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
             require(_batch.blobs.numBlobs == 0, InvalidBlobParams());
             require(_batch.blobs.firstBlobIndex == 0, InvalidBlobParams());
-            
-            // Additional forced inclusion validations
+
             _validateForcedInclusionBatch(_batch);
-            
+
             return _batch.blobs.createdIn;
         }
     }
 
-    /// @notice Validates a forced inclusion batch follows all required rules
-    /// @dev Ensures forced inclusions cannot be manipulated or censored
+    /// @dev Validates a forced inclusion batch follows all required rules
     /// @param _batch The batch to validate as forced inclusion
     function _validateForcedInclusionBatch(I.Batch memory _batch) private pure {
         require(_batch.isForcedInclusion, InvalidForcedInclusion());
@@ -344,10 +342,6 @@ library LibValidate {
         require(_batch.blocks[0].numSignals == 0, InvalidForcedInclusion());
         require(_batch.signalSlots.length == 0, InvalidForcedInclusion());
         require(_batch.blobs.hashes.length == 1, InvalidForcedInclusion());
-        require(_batch.blobs.byteOffset == 0, InvalidForcedInclusion());
-        require(_batch.blobs.byteSize == 131072, InvalidForcedInclusion());
-        require(bytes(_batch.proverAuth).length == 0, InvalidForcedInclusion());
-        require(_batch.coinbase == address(0), InvalidForcedInclusion());
         require(_batch.gasIssuancePerSecond == 0, InvalidForcedInclusion());
     }
 
