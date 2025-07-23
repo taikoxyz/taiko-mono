@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/signal/ISignalService.sol";
@@ -15,7 +14,7 @@ import "./OntakeAnchor.sol";
 /// @title PacayaAnchor
 /// @notice Anchoring functions for the Pacaya fork.
 /// @custom:security-contact security@taiko.xyz
-abstract contract PacayaAnchor is OntakeAnchor, ITaiko {
+abstract contract PacayaAnchor is OntakeAnchor {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
@@ -208,10 +207,7 @@ abstract contract PacayaAnchor is OntakeAnchor, ITaiko {
         return _blockhashes[_blockId];
     }
 
-    /// @inheritdoc ITaiko
-    function isInbox4() external pure returns (bool) {
-        return false;
-    }
+
 
     /// @notice Tells if we need to validate basefee (for simulation).
     /// @return Returns true to skip checking basefee mismatch.

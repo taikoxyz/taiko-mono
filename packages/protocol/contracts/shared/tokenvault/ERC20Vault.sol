@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "../../shared/based/ITaiko.sol";
 import "../../layer1/based/ITaikoInbox.sol";
 import "../libs/LibNames.sol";
 import "../libs/LibAddress.sol";
@@ -24,6 +23,7 @@ contract ERC20Vault is BaseVault {
     using SafeERC20 for IERC20;
 
     uint256 public constant MIN_MIGRATION_DELAY = 90 days;
+    uint256 public constant L1_CHAIN_ID = 1;
 
     /// @dev Represents a canonical ERC20 token.
     struct CanonicalERC20 {
@@ -442,10 +442,9 @@ contract ERC20Vault is BaseVault {
     /// @param _op Parameters for the solve operation
     function solve(SolverOp memory _op) external payable nonReentrant whenNotPaused {
         if (_op.l2BatchMetaHash != 0) {
-            // Verify that the required L2 batch containing the intent transaction has been proposed
-            address taiko = resolve(LibNames.B_TAIKO, false);
-            if (!ITaiko(taiko).isInbox4()) revert VAULT_NOT_ON_L1();
+            if (block.chainid != L1_CHAIN_ID) revert VAULT_NOT_ON_L1();
 
+            address taiko = resolve(LibNames.B_TAIKO, false);
             bytes32 l2BatchMetaHash = ITaikoInbox(taiko).v4GetBatch(_op.l2BatchId).metaHash;
             if (l2BatchMetaHash != _op.l2BatchMetaHash) revert VAULT_METAHASH_MISMATCH();
         }

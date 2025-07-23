@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/based/ITaiko.sol";
 import "src/layer1/verifiers/IVerifier.sol";
 import "./libs/LibCodec.sol";
 import "./libs/LibPropose.sol";
@@ -25,7 +24,7 @@ import "./IProve.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, ITaiko {
+abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
