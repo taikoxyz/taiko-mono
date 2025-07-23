@@ -67,7 +67,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
 	to := &b.taikoInboxAddress
-	if preconfRouterAddress != (common.Address{}) {
+	if preconfRouterAddress != rpc.ZeroAddress {
 		to = &preconfRouterAddress
 	}
 
