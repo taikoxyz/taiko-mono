@@ -66,7 +66,7 @@ contract PreconfManager is EssentialContract, IPropose {
     )
         external
         nonReentrant
-        returns (IInbox.Summary memory summary)
+        returns (IInbox.Summary memory summary, bytes32 forcedInclusionBlobHash)
     {
         // Verify caller is authorized preconfer
         address preconfer = whitelist.getOperatorForCurrentEpoch();
@@ -78,25 +78,25 @@ contract PreconfManager is EssentialContract, IPropose {
             revert NotPreconfer();
         }
 
-        bool forcedInclusionExpected = forcedStore.isOldestForcedInclusionDue();
-        IForcedInclusionStore.ForcedInclusion memory expectedInclusion;
-        
-        if (forcedInclusionExpected) {
-            expectedInclusion = forcedStore.getOldestForcedInclusion();
-            // The inbox will validate that the first batch is a proper forced inclusion
-            // We'll verify the blob hash matches after successful processing
-        }
 
-        summary = inbox.propose4(_packedSummary, _packedBatches, _packedEvidence, _packedTransitionMetas);
+        (summary, forcedInclusionBlobHash) = inbox.propose4(
+            _packedSummary, 
+            _packedBatches, 
+            _packedEvidence, 
+            _packedTransitionMetas
+        );
+        
+        if (forcedStore.isOldestForcedInclusionDue()) {
+            IForcedInclusionStore.ForcedInclusion memory expectedInclusion;
+            expectedInclusion = forcedStore.getOldestForcedInclusion();
+
+            // Verify the inbox processed the forced inclusion
+            require(forcedInclusionBlobHash != bytes32(0), ForcedInclusionNotProcessed());
+            require(forcedInclusionBlobHash == expectedInclusion.blobHash, ForcedInclusionNotProcessed());
             
-        if (forcedInclusionExpected) {
+            // Safe to consume now that we've verified it was processed
             IForcedInclusionStore.ForcedInclusion memory processed = 
                 forcedStore.consumeOldestForcedInclusion(msg.sender);
-                
-            require(
-                processed.blobHash == expectedInclusion.blobHash,
-                ForcedInclusionNotProcessed()
-            );
                 
             emit ForcedInclusionProcessed(
                 msg.sender,
@@ -104,8 +104,6 @@ contract PreconfManager is EssentialContract, IPropose {
                 processed.feeInGwei
             );
         }
-        
-        return summary;
     }
 
 }

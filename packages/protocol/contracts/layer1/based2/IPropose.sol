@@ -13,7 +13,8 @@ interface IPropose {
     /// @param _packedBatches The batches to propose, packed into bytes
     /// @param _packedEvidence The batch proposal evidence, packed into bytes
     /// @param _packedTransitionMetas The packed transition metadata for verification
-    /// @return The updated summary
+    /// @return summary The updated summary
+    /// @return forcedInclusionBlobHash The blob hash of processed forced inclusion (zero if none)
     function propose4(
         bytes calldata _packedSummary,
         bytes calldata _packedBatches,
@@ -21,5 +22,5 @@ interface IPropose {
         bytes calldata _packedTransitionMetas
     )
         external
-        returns (I.Summary memory);
+        returns (I.Summary memory summary, bytes32 forcedInclusionBlobHash);
 }

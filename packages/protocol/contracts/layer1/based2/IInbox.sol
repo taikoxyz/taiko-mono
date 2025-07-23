@@ -393,6 +393,7 @@ interface IInbox {
     /// @param _packedEvidence Evidence for batch proposal validation encoded as bytes
     /// @param _packedTransitionMetas Transition metadata for verification encoded as bytes
     /// @return summary The updated protocol summary after processing
+    /// @return forcedInclusionBlobHash The blob hash of processed forced inclusion (zero if none)
     function propose4(
         bytes calldata _packedSummary,
         bytes calldata _packedBatches,
@@ -400,7 +401,7 @@ interface IInbox {
         bytes calldata _packedTransitionMetas
     )
         external
-        returns (Summary memory summary);
+        returns (Summary memory summary, bytes32 forcedInclusionBlobHash);
 
     /// @notice Proves batch transitions using cryptographic proofs
     /// @dev Validates and processes cryptographic proofs for batch state transitions
