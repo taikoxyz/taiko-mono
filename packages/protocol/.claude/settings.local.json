@@ -1,6 +1,0 @@
-{
-  "permissions": {
-    "allow": ["Bash(ls:*)", "Bash(rm:*)"],
-    "deny": []
-  }
-}
