@@ -391,10 +391,10 @@ interface IInbox {
     event Proved(uint256 indexed batchId, bytes tranMetas);
 
     /// @notice Emitted when a batch is verified and finalized
-    /// @param uint48_batchId_uint48_blockId Combined batch ID and last block ID
-    /// @param blockHash The hash of the verified batch's last block
-    // solhint-disable var-name-mixedcase
-    event Verified(uint256 uint48_batchId_uint48_blockId, bytes32 blockHash);
+    /// @param batchId The unique identifier of the verified batch
+    /// @param lastBlockId The unique identifier of the last block in the batch
+    /// @param lastBlockHash The hash of the last block in the batch
+    event Verified(uint256 batchId, uint256 lastBlockId, bytes32 lastBlockHash);
 
     /// @notice Proposes and verifies batches
     /// @param _inputs The inputs to propose and verify batches that can be decoded into (I.Summary
