@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "test/shared/DeployCapability.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
-import "src/layer1/preconf/impl/PreconfRouter.sol";
-import "src/layer1/forced-inclusion/TaikoWrapper.sol";
-import "src/layer1/mainnet/MainnetInbox.sol";
-import "src/layer1/fork-router/PacayaForkRouter.sol";
 
 /// @title DeployWhitelistWithEjecter
 /// @notice This script deploys the whitelist contract with ejecter functionality
