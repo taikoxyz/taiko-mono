@@ -15,7 +15,7 @@ import (
 
 var (
 	l1Endpoint      = os.Getenv("L1_WS")
-	l2Endpoint      = os.Getenv("L2_HTTP")
+	l2Endpoint      = os.Getenv("L2_WS")
 	taikoInbox      = os.Getenv("TAIKO_INBOX")
 	taikoAnchor     = os.Getenv("TAIKO_ANCHOR")
 	taikoToken      = os.Getenv("TAIKO_TOKEN")
