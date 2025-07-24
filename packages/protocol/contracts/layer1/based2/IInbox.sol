@@ -383,12 +383,18 @@ interface IInbox {
     /// @param batchId The unique identifier of the proposed batch
     /// @param context The batch context data encoded as bytes
     /// TODO(daniel): propose4's `inputs` calldata not emitted in this event.
-    event Proposed(uint48 indexed batchId, bytes context);
+    event Proposed(uint48 batchId, bytes context);
 
     /// @notice Emitted when a batch transition is proven
     /// @param batchId The unique identifier of the proven batch
     /// @param tranMetas The transition metadata encoded as bytes
     event Proved(uint256 indexed batchId, bytes tranMetas);
+
+    /// @notice Emitted when a batch is verified and finalized
+    /// @param uint48_batchId_uint48_blockId Combined batch ID and last block ID
+    /// @param blockHash The hash of the verified batch's last block
+    // solhint-disable var-name-mixedcase
+    event Verified(uint256 uint48_batchId_uint48_blockId, bytes32 blockHash);
 
     /// @notice Proposes and verifies batches
     /// @param _inputs The inputs to propose and verify batches that can be decoded into (I.Summary
