@@ -52,7 +52,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     function init(
         address _owner,
-        address _ejecter,
         uint8 _operatorChangeDelay,
         uint8 _randomnessDelay
     )
@@ -63,7 +62,6 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         operatorChangeDelay = _operatorChangeDelay;
         randomnessDelay = _randomnessDelay;
         havingPerfectOperators = true;
-        ejecter = _ejecter;
     }
 
     function setOperatorChangeDelay(uint8 _operatorChangeDelay) external onlyOwner {

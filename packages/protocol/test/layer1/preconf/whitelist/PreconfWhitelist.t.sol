@@ -19,7 +19,7 @@ contract TestPreconfWhitelist is Layer1Test {
             deploy({
                 name: "preconf_whitelist",
                 impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, ejecter, 2, 2))
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2, 2))
             })
         );
 
@@ -27,7 +27,7 @@ contract TestPreconfWhitelist is Layer1Test {
             deploy({
                 name: "preconf_whitelist_nodelay",
                 impl: address(new PreconfWhitelist()),
-                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, ejecter, 0, 2))
+                data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 0, 2))
             })
         );
 
@@ -479,6 +479,10 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelist.addOperator(Bob, _getSequencerAddress(Bob));
 
         assertEq(whitelist.operatorCount(), 1);
+
+        // Set ejecter
+        vm.prank(whitelistOwner);
+        whitelist.setEjecter(ejecter);
 
         // Ejecter can remove the operator
         vm.prank(ejecter);
