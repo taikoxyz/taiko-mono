@@ -39,7 +39,7 @@ contract DeployMainnetPreconf is DeployCapability {
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
             data: abi.encodeCall(
-                PreconfWhitelist.init, (contractOwner, contractOwner, TWO_EPOCHS, TWO_EPOCHS)
+                PreconfWhitelist.init, (contractOwner, TWO_EPOCHS, TWO_EPOCHS)
             )
         });
 
