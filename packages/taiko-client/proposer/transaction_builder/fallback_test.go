@@ -163,6 +163,7 @@ func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		common.Address{},
+		common.Address{}, // surgeProposerWrapperAddress
 		10_000_000,
 		chainConfig,
 		txmgrSelector,

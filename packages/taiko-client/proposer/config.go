@@ -96,6 +96,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			ProverSetAddress:            common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
 			InboxAddress:                common.HexToAddress(c.String(flags.InboxAddress.Name)),
 			BridgeAddress:               common.HexToAddress(c.String(flags.BridgeAddress.Name)),
+			SurgeProposerWrapperAddress: common.HexToAddress(c.String(flags.SurgeProposerWrapperAddress.Name)),
 		},
 		L1ProposerPrivKey:       l1ProposerPrivKey,
 		L2SuggestedFeeRecipient: common.HexToAddress(l2SuggestedFeeRecipient),

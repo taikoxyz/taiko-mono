@@ -20,34 +20,35 @@ import (
 
 // Config contains the configurations to initialize a Taiko prover.
 type Config struct {
-	L1WsEndpoint              string
-	L2WsEndpoint              string
-	L2HttpEndpoint            string
-	TaikoInboxAddress         common.Address
-	TaikoAnchorAddress        common.Address
-	TaikoTokenAddress         common.Address
-	ProverSetAddress          common.Address
-	L1ProverPrivKey           *ecdsa.PrivateKey
-	StartingBatchID           *big.Int
-	BackOffMaxRetries         uint64
-	BackOffRetryInterval      time.Duration
-	ProveUnassignedBlocks     bool
-	RPCTimeout                time.Duration
-	ProveBatchesGasLimit      uint64
-	Allowance                 *big.Int
-	RaikoSGXHostEndpoint      string
-	RaikoZKVMHostEndpoint     string
-	RaikoJWT                  string
-	RaikoRequestTimeout       time.Duration
-	LocalProposerAddresses    []common.Address
-	BlockConfirmations        uint64
-	TxmgrConfigs              *txmgr.CLIConfig
-	PrivateTxmgrConfigs       *txmgr.CLIConfig
-	SGXProofBufferSize        uint64
-	ZKVMProofBufferSize       uint64
-	ForceBatchProvingInterval time.Duration
-	ProofPollingInterval      time.Duration
-	Dummy                     bool
+	L1WsEndpoint                string
+	L2WsEndpoint                string
+	L2HttpEndpoint              string
+	TaikoInboxAddress           common.Address
+	TaikoAnchorAddress          common.Address
+	TaikoTokenAddress           common.Address
+	ProverSetAddress            common.Address
+	SurgeProposerWrapperAddress common.Address
+	L1ProverPrivKey             *ecdsa.PrivateKey
+	StartingBatchID             *big.Int
+	BackOffMaxRetries           uint64
+	BackOffRetryInterval        time.Duration
+	ProveUnassignedBlocks       bool
+	RPCTimeout                  time.Duration
+	ProveBatchesGasLimit        uint64
+	Allowance                   *big.Int
+	RaikoSGXHostEndpoint        string
+	RaikoZKVMHostEndpoint       string
+	RaikoJWT                    string
+	RaikoRequestTimeout         time.Duration
+	LocalProposerAddresses      []common.Address
+	BlockConfirmations          uint64
+	TxmgrConfigs                *txmgr.CLIConfig
+	PrivateTxmgrConfigs         *txmgr.CLIConfig
+	SGXProofBufferSize          uint64
+	ZKVMProofBufferSize         uint64
+	ForceBatchProvingInterval   time.Duration
+	ProofPollingInterval        time.Duration
+	Dummy                       bool
 }
 
 // NewConfigFromCliContext creates a new config instance from command line flags.
@@ -95,29 +96,30 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	log.Info("Local proposer addresses", "addresses", localProposerAddresses)
 
 	return &Config{
-		L1WsEndpoint:           c.String(flags.L1WSEndpoint.Name),
-		L2WsEndpoint:           c.String(flags.L2WSEndpoint.Name),
-		L2HttpEndpoint:         c.String(flags.L2HTTPEndpoint.Name),
-		TaikoInboxAddress:      common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
-		TaikoAnchorAddress:     common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
-		TaikoTokenAddress:      common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
-		ProverSetAddress:       common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
-		L1ProverPrivKey:        l1ProverPrivKey,
-		RaikoSGXHostEndpoint:   c.String(flags.RaikoSGXHostEndpoint.Name),
-		RaikoZKVMHostEndpoint:  c.String(flags.RaikoZKVMHostEndpoint.Name),
-		RaikoJWT:               common.Bytes2Hex(jwtSecret),
-		RaikoRequestTimeout:    c.Duration(flags.RaikoRequestTimeout.Name),
-		StartingBatchID:        startingBatchID,
-		Dummy:                  c.Bool(flags.Dummy.Name),
-		BackOffMaxRetries:      c.Uint64(flags.BackOffMaxRetries.Name),
-		BackOffRetryInterval:   c.Duration(flags.BackOffRetryInterval.Name),
-		ProveUnassignedBlocks:  c.Bool(flags.ProveUnassignedBlocks.Name),
-		RPCTimeout:             c.Duration(flags.RPCTimeout.Name),
-		ProveBatchesGasLimit:   c.Uint64(flags.TxGasLimit.Name),
-		Allowance:              allowance,
-		LocalProposerAddresses: localProposerAddresses,
-		BlockConfirmations:     c.Uint64(flags.BlockConfirmations.Name),
-		TxmgrConfigs:           pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1WSEndpoint.Name), l1ProverPrivKey, c),
+		L1WsEndpoint:                c.String(flags.L1WSEndpoint.Name),
+		L2WsEndpoint:                c.String(flags.L2WSEndpoint.Name),
+		L2HttpEndpoint:              c.String(flags.L2HTTPEndpoint.Name),
+		TaikoInboxAddress:           common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
+		TaikoAnchorAddress:          common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
+		TaikoTokenAddress:           common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
+		ProverSetAddress:            common.HexToAddress(c.String(flags.ProverSetAddress.Name)),
+		SurgeProposerWrapperAddress: common.HexToAddress(c.String(flags.SurgeProposerWrapperAddress.Name)),
+		L1ProverPrivKey:             l1ProverPrivKey,
+		RaikoSGXHostEndpoint:        c.String(flags.RaikoSGXHostEndpoint.Name),
+		RaikoZKVMHostEndpoint:       c.String(flags.RaikoZKVMHostEndpoint.Name),
+		RaikoJWT:                    common.Bytes2Hex(jwtSecret),
+		RaikoRequestTimeout:         c.Duration(flags.RaikoRequestTimeout.Name),
+		StartingBatchID:             startingBatchID,
+		Dummy:                       c.Bool(flags.Dummy.Name),
+		BackOffMaxRetries:           c.Uint64(flags.BackOffMaxRetries.Name),
+		BackOffRetryInterval:        c.Duration(flags.BackOffRetryInterval.Name),
+		ProveUnassignedBlocks:       c.Bool(flags.ProveUnassignedBlocks.Name),
+		RPCTimeout:                  c.Duration(flags.RPCTimeout.Name),
+		ProveBatchesGasLimit:        c.Uint64(flags.TxGasLimit.Name),
+		Allowance:                   allowance,
+		LocalProposerAddresses:      localProposerAddresses,
+		BlockConfirmations:          c.Uint64(flags.BlockConfirmations.Name),
+		TxmgrConfigs:                pkgFlags.InitTxmgrConfigsFromCli(c.String(flags.L1WSEndpoint.Name), l1ProverPrivKey, c),
 		PrivateTxmgrConfigs: pkgFlags.InitTxmgrConfigsFromCli(
 			c.String(flags.L1PrivateEndpoint.Name),
 			l1ProverPrivKey,

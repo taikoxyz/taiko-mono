@@ -145,6 +145,7 @@ func (p *Proposer) InitFromConfig(
 		cfg.TaikoInboxAddress,
 		cfg.TaikoWrapperAddress,
 		cfg.ProverSetAddress,
+		cfg.SurgeProposerWrapperAddress,
 		cfg.ProposeBatchTxGasLimit,
 		p.chainConfig,
 		p.txmgrSelector,

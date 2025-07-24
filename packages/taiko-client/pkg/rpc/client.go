@@ -29,6 +29,7 @@ type PacayaClients struct {
 	ForkRouter           *pacayaBindings.ForkRouter
 	SurgeVerifier        *pacayaBindings.SurgeVerifier
 	PreconfWhitelist     *pacayaBindings.PreconfWhitelist
+	SurgeProposerWrapper *pacayaBindings.SurgeProposerWrapper
 	ForkHeights          *pacayaBindings.ITaikoInboxForkHeights
 }
 
@@ -61,6 +62,7 @@ type ClientConfig struct {
 	ForcedInclusionStoreAddress common.Address
 	PreconfWhitelistAddress     common.Address
 	ProverSetAddress            common.Address
+	SurgeProposerWrapperAddress common.Address
 	InboxAddress                common.Address
 	BridgeAddress               common.Address
 	L2EngineEndpoint            string
@@ -221,6 +223,14 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		}
 	}
 
+	var surgeProposerWrapper *pacayaBindings.SurgeProposerWrapper
+	if cfg.SurgeProposerWrapperAddress.Hex() != ZeroAddress.Hex() {
+		surgeProposerWrapper, err = pacayaBindings.NewSurgeProposerWrapper(cfg.SurgeProposerWrapperAddress, c.L1)
+		if err != nil {
+			return fmt.Errorf("failed to create new instance of SurgeProposerWrapper: %w", err)
+		}
+	}
+
 	c.PacayaClients = &PacayaClients{
 		TaikoInbox:           taikoInbox,
 		TaikoAnchor:          taikoAnchor,
@@ -231,6 +241,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		ForcedInclusionStore: forcedInclusionStore,
 		SurgeVerifier:        surgeVerifier,
 		PreconfWhitelist:     preconfWhitelist,
+		SurgeProposerWrapper: surgeProposerWrapper,
 	}
 
 	return nil

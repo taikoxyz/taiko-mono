@@ -106,13 +106,14 @@ func InitFromConfig(
 
 	// Clients
 	if p.rpc, err = rpc.NewClient(p.ctx, &rpc.ClientConfig{
-		L1Endpoint:         cfg.L1WsEndpoint,
-		L2Endpoint:         cfg.L2WsEndpoint,
-		TaikoInboxAddress:  cfg.TaikoInboxAddress,
-		TaikoAnchorAddress: cfg.TaikoAnchorAddress,
-		TaikoTokenAddress:  cfg.TaikoTokenAddress,
-		ProverSetAddress:   cfg.ProverSetAddress,
-		Timeout:            cfg.RPCTimeout,
+		L1Endpoint:                  cfg.L1WsEndpoint,
+		L2Endpoint:                  cfg.L2WsEndpoint,
+		TaikoInboxAddress:           cfg.TaikoInboxAddress,
+		TaikoAnchorAddress:          cfg.TaikoAnchorAddress,
+		TaikoTokenAddress:           cfg.TaikoTokenAddress,
+		ProverSetAddress:            cfg.ProverSetAddress,
+		SurgeProposerWrapperAddress: cfg.SurgeProposerWrapperAddress,
+		Timeout:                     cfg.RPCTimeout,
 	}); err != nil {
 		return err
 	}
@@ -139,6 +140,7 @@ func InitFromConfig(
 		p.rpc,
 		p.cfg.TaikoInboxAddress,
 		p.cfg.ProverSetAddress,
+		p.cfg.SurgeProposerWrapperAddress,
 	)
 
 	if txMgr != nil {

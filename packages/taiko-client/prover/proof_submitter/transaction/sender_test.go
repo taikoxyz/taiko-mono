@@ -37,6 +37,7 @@ func (s *TransactionTestSuite) SetupTest() {
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		rpc.ZeroAddress,
+		rpc.ZeroAddress, // surgeProposerWrapperAddress
 	)
 
 	txmgr, err := txmgr.NewSimpleTxManager(

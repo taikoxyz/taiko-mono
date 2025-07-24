@@ -557,6 +557,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 		s.RPCClient,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		common.Address{},
+		common.Address{}, // surgeProposerWrapperAddress
 	)
 	originalRoot := res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root
 	res.Opts.PacayaOptions().Headers[len(res.Opts.PacayaOptions().Headers)-1].Root = testutils.RandomHash()

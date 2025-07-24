@@ -71,6 +71,10 @@ cat ../protocol/out/layer1/PreconfWhitelist.sol/PreconfWhitelist.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type PreconfWhitelist --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_preconf_whitelist.go
 
+cat ../protocol/out/layer1/SurgeProposerWrapper.sol/SurgeProposerWrapper.json |
+	jq .abi |
+	${ABIGEN_BIN} --abi - --type SurgeProposerWrapper --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_surge_proposer_wrapper.go
+
 git -C ../../ log --format="%H" -n 1 >./bindings/${FORK}/.githead
 
 echo "🍻 Go contract bindings generated!"

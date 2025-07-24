@@ -21,15 +21,16 @@ import (
 // BlobTransactionBuilder is responsible for building a TaikoInbox.proposeBatch transaction with txList
 // bytes saved in blob.
 type BlobTransactionBuilder struct {
-	rpc                     *rpc.Client
-	proposerPrivateKey      *ecdsa.PrivateKey
-	taikoInboxAddress       common.Address
-	taikoWrapperAddress     common.Address
-	proverSetAddress        common.Address
-	l2SuggestedFeeRecipient common.Address
-	gasLimit                uint64
-	chainConfig             *config.ChainConfig
-	revertProtectionEnabled bool
+	rpc                         *rpc.Client
+	proposerPrivateKey          *ecdsa.PrivateKey
+	taikoInboxAddress           common.Address
+	taikoWrapperAddress         common.Address
+	proverSetAddress            common.Address
+	surgeProposerWrapperAddress common.Address
+	l2SuggestedFeeRecipient     common.Address
+	gasLimit                    uint64
+	chainConfig                 *config.ChainConfig
+	revertProtectionEnabled     bool
 }
 
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
@@ -39,21 +40,23 @@ func NewBlobTransactionBuilder(
 	taikoInboxAddress common.Address,
 	taikoWrapperAddress common.Address,
 	proverSetAddress common.Address,
+	surgeProposerWrapperAddress common.Address,
 	l2SuggestedFeeRecipient common.Address,
 	gasLimit uint64,
 	chainConfig *config.ChainConfig,
 	revertProtectionEnabled bool,
 ) *BlobTransactionBuilder {
 	return &BlobTransactionBuilder{
-		rpc,
-		proposerPrivateKey,
-		taikoInboxAddress,
-		taikoWrapperAddress,
-		proverSetAddress,
-		l2SuggestedFeeRecipient,
-		gasLimit,
-		chainConfig,
-		revertProtectionEnabled,
+		rpc:                         rpc,
+		proposerPrivateKey:          proposerPrivateKey,
+		taikoInboxAddress:           taikoInboxAddress,
+		taikoWrapperAddress:         taikoWrapperAddress,
+		proverSetAddress:            proverSetAddress,
+		surgeProposerWrapperAddress: surgeProposerWrapperAddress,
+		l2SuggestedFeeRecipient:     l2SuggestedFeeRecipient,
+		gasLimit:                    gasLimit,
+		chainConfig:                 chainConfig,
+		revertProtectionEnabled:     revertProtectionEnabled,
 	}
 }
 
@@ -66,7 +69,7 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	parentMetahash common.Hash,
 	baseFee *big.Int,
 ) (*txmgr.TxCandidate, error) {
-	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
+	// ABI encode the TaikoWrapper.proposeBatch / SurgeProposerWrapper.proposeBatch parameters.
 	var (
 		to                    = &b.taikoWrapperAddress
 		proposer              = crypto.PubkeyToAddress(b.proposerPrivateKey.PublicKey)
@@ -78,9 +81,8 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		allTxs                types.Transactions
 	)
 
-	if b.proverSetAddress != rpc.ZeroAddress {
-		to = &b.proverSetAddress
-		proposer = b.proverSetAddress
+	if b.surgeProposerWrapperAddress != rpc.ZeroAddress {
+		to = &b.surgeProposerWrapperAddress
 	}
 
 	if forcedInclusion != nil {
@@ -140,14 +142,9 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		return nil, err
 	}
 
-	if b.proverSetAddress != rpc.ZeroAddress {
-		if data, err = encoding.ProverSetPacayaABI.Pack("proposeBatch", encodedParams, []byte{}); err != nil {
-			return nil, err
-		}
-	} else {
-		if data, err = encoding.TaikoWrapperABI.Pack("proposeBatch", encodedParams, []byte{}); err != nil {
-			return nil, err
-		}
+	// Use SurgeProposerWrapper ABI (same interface as TaikoWrapper)
+	if data, err = encoding.TaikoWrapperABI.Pack("proposeBatch", encodedParams, []byte{}); err != nil {
+		return nil, encoding.TryParsingCustomError(err)
 	}
 
 	return &txmgr.TxCandidate{

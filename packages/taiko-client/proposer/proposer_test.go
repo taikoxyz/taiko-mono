@@ -137,6 +137,7 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
 		common.HexToAddress(os.Getenv("PROVER_SET")),
+		common.Address{}, // surgeProposerWrapperAddress
 		10_000_000,
 		s.p.chainConfig,
 		s.p.txmgrSelector,

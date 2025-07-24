@@ -25,9 +25,10 @@ type TxBuilder func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error)
 
 // ProveBatchesTxBuilder is responsible for building ProveBatches transactions.
 type ProveBatchesTxBuilder struct {
-	rpc               *rpc.Client
-	taikoInboxAddress common.Address
-	proverSetAddress  common.Address
+	rpc                         *rpc.Client
+	taikoInboxAddress           common.Address
+	proverSetAddress            common.Address
+	surgeProposerWrapperAddress common.Address
 }
 
 // NewProveBatchesTxBuilder creates a new ProveBatchesTxBuilder instance.
@@ -35,8 +36,14 @@ func NewProveBatchesTxBuilder(
 	rpc *rpc.Client,
 	taikoInboxAddress common.Address,
 	proverSetAddress common.Address,
+	surgeProposerWrapperAddress common.Address,
 ) *ProveBatchesTxBuilder {
-	return &ProveBatchesTxBuilder{rpc, taikoInboxAddress, proverSetAddress}
+	return &ProveBatchesTxBuilder{
+		rpc:                         rpc,
+		taikoInboxAddress:           taikoInboxAddress,
+		proverSetAddress:            proverSetAddress,
+		surgeProposerWrapperAddress: surgeProposerWrapperAddress,
+	}
 }
 
 // BuildProveBatchesPacaya creates a new TaikoInbox.ProveBatches transaction.
@@ -109,15 +116,14 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 			return nil, err
 		}
 
-		if a.proverSetAddress != rpc.ZeroAddress {
-			if data, err = encoding.ProverSetPacayaABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
-				return nil, encoding.TryParsingCustomError(err)
-			}
-			to = a.proverSetAddress
+		// Use SurgeProposerWrapper ABI (same interface as TaikoInbox)
+		if data, err = encoding.TaikoInboxABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
+			return nil, encoding.TryParsingCustomError(err)
+		}
+
+		if a.surgeProposerWrapperAddress != rpc.ZeroAddress {
+			to = a.surgeProposerWrapperAddress
 		} else {
-			if data, err = encoding.TaikoInboxABI.Pack("proveBatches", input, encodedSubProofs); err != nil {
-				return nil, encoding.TryParsingCustomError(err)
-			}
 			to = a.taikoInboxAddress
 		}
 
