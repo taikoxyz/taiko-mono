@@ -9,12 +9,12 @@ import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
 
-/// @title UpgradeWhitelistWithEjecter
-/// @notice This script upgrades the whitelist contract with ejecter functionality
+/// @title DeployWhitelistWithEjecter
+/// @notice This script deploys the whitelist contract with ejecter functionality
 /// @dev IMPORTANT: After this script is run, two things need to be done:
 /// 1. Upgrade the whitelist proxy to the new implementation
 /// 2. Set the ejecter address on the whitelist proxy(from the owner address)
-contract UpgradeWhitelistWithEjecter is DeployCapability {
+contract DeployWhitelistWithEjecter is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
 
     modifier broadcast() {
@@ -27,8 +27,6 @@ contract UpgradeWhitelistWithEjecter is DeployCapability {
     function run() external broadcast {
         // https://etherscan.io/address/0xFD019460881e6EeC632258222393d5821029b2ac
         address preconfWhitelist = 0xFD019460881e6EeC632258222393d5821029b2ac;
-        // TODO(jeff): change to the actual ejecter address
-        address ejecter = makeAddr("ejecter");
 
         // deploy new whitelist implementation with ejecter functionality
         address whitelist = address(new PreconfWhitelist());
