@@ -6,22 +6,17 @@ import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
 import "./AbstractInbox.sol";
 import "./libs/LibBonds.sol";
+import "./libs/LibState.sol";
 import "./IBondManager2.sol";
 
-/// @title TaikoInbox
-/// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
-/// original Taiko-Based Contestable Rollup (BCR) but with the tier-based proof system and
-/// contestation mechanisms removed.
-///
-/// Key assumptions of this protocol:
-/// - Block proposals and proofs are asynchronous. Proofs are not available at proposal time,
-///   unlike Taiko Gwyneth, which assumes synchronous composability.
-/// - Proofs are presumed error-free and thoroughly validated, with subproofs/multiproofs management
-/// delegated to IVerifier contracts.
-///
-/// @dev Registered in the address resolver as "taiko".
+/// @title Inbox
+/// @dev This contract extends AbstractInbox with L1-specific implementations for blob hash
+/// retrieval,
+/// block hash access, signal service integration, and fee transfers. It also implements the
+/// IBondManager2 interface to handle user bond management with deposit and withdrawal capabilities.
+/// The contract uses LibBonds for bond accounting and LibState for protocol state management.
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox is AbstractInbox, IBondManager2 {
+abstract contract Inbox is AbstractInbox, IBondManager2 {
     using LibBonds for I.State;
     using LibState for I.State;
     using SafeERC20 for IERC20;

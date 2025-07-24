@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "src/shared/libs/LibMath.sol";
 import { IInbox as I } from "../IInbox.sol";
 import "./LibForks.sol";
-import "./LibState.sol";
+import "./LibBinding.sol";
 
 /// @title LibVerify
 /// @notice Library for batch verification and bond distribution in Taiko protocol
@@ -26,13 +26,13 @@ library LibVerify {
     /// @dev Processes batches sequentially, validating transition metadata,
     ///      enforcing cooldown periods, and distributing bonds to provers.
     ///      Also handles periodic state root synchronization.
-    /// @param _access Read/write access functions for blockchain state
+    /// @param _bindings Library function binding
     /// @param _config Protocol configuration parameters
     /// @param _summary Current protocol summary state
     /// @param _trans Array of transition metadata for verification
     /// @return Updated summary with verification results
     function verify(
-        LibState.Access memory _access,
+        LibBinding.Bindings memory _bindings,
         I.Config memory _config,
         I.Summary memory _summary,
         I.TransitionMeta[] memory _trans
@@ -41,23 +41,24 @@ library LibVerify {
         returns (I.Summary memory)
     {
         unchecked {
-            uint48 batchId = _summary.lastVerifiedBatchId + 1;
-
-            if (!LibForks.isBlocksInCurrentFork(_config, batchId, batchId)) {
+            uint256 nextBlockId = _summary.lastVerifiedBlockId + 1;
+            if (!LibForks.isBlocksInCurrentFork(_config, nextBlockId, nextBlockId)) {
                 return _summary;
             }
 
-            uint256 stopBatchId = uint256(_summary.nextBatchId).min(
-                _config.maxBatchesToVerify + _summary.lastVerifiedBatchId + 1
-            );
+            uint48 batchId = _summary.lastVerifiedBatchId + 1;
+
+            uint256 stopBatchId =
+                uint256(_summary.nextBatchId).min(_config.maxBatchesToVerify + batchId);
 
             uint256 i;
             uint256 lastSyncedBatchId;
             uint256 nTransitions = _trans.length;
 
             for (; batchId < stopBatchId; ++batchId) {
-                (bytes32 tranMetaHash, bool isFirstTransition) =
-                    _access.loadTransitionMetaHash(_config, _summary.lastVerifiedBlockHash, batchId);
+                (bytes32 tranMetaHash, bool isFirstTransition) = _bindings.loadTransitionMetaHash(
+                    _config, _summary.lastVerifiedBlockHash, batchId
+                );
 
                 if (tranMetaHash == 0) break;
 
@@ -69,20 +70,24 @@ library LibVerify {
                 }
 
                 uint256 bondToProver = _calcBondToProver(_config, _trans[i], isFirstTransition);
-                _access.creditBond(_trans[i].prover, bondToProver * 1 gwei);
+                _bindings.creditBond(_trans[i].prover, bondToProver * 1 gwei);
 
                 if (batchId % _config.stateRootSyncInternal == 0) {
                     lastSyncedBatchId = batchId;
                 }
 
                 emit I.Verified(batchId << 48 | _trans[i].lastBlockId, _trans[i].blockHash);
-                _summary.lastVerifiedBlockHash = _trans[i++].blockHash;
+
+                _summary.lastVerifiedBlockHash = _trans[i].blockHash;
+                _summary.lastVerifiedBlockId = _trans[i].lastBlockId;
+                _summary.lastVerifiedBatchId = batchId;
+                ++i;
             }
 
             if (lastSyncedBatchId != 0) {
                 _summary.lastSyncedAt = uint48(block.timestamp);
                 _summary.lastSyncedBlockId = _trans[lastSyncedBatchId].lastBlockId;
-                _access.syncChainData(
+                _bindings.syncChainData(
                     _config, _summary.lastSyncedBlockId, _trans[lastSyncedBatchId].stateRoot
                 );
             }
