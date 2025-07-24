@@ -3,10 +3,9 @@ pragma solidity ^0.8.24;
 
 import { IInbox as I } from "../IInbox.sol";
 import "src/shared/libs/LibMath.sol";
-import "./LibCodec.sol";
 import "./LibData.sol";
 import "./LibForks.sol";
-import "./LibState.sol";
+import "./LibBinding.sol";
 
 /// @title LibProve
 /// @notice Library for batch proving operations and transition metadata management in Taiko
@@ -26,14 +25,14 @@ library LibProve {
     // -------------------------------------------------------------------------
 
     /// @notice Proves multiple batches and returns an aggregated hash for verification
-    /// @param _access Read/write function pointers for storage access
+    /// @param _bindings Library function binding
     /// @param _config The protocol configuration
     /// @param _evidences Array of batch prove inputs containing transition data
     /// @return _ The aggregated hash of all proven batches
     function prove(
-        LibState.Access memory _access,
+        LibBinding.Bindings memory _bindings,
         I.Config memory _config,
-        I.BatchProveInput[] memory _evidences
+        I.ProveBatchInput[] memory _evidences
     )
         internal
         returns (bytes32)
@@ -44,7 +43,7 @@ library LibProve {
 
         bytes32[] memory ctxHashes = new bytes32[](nBatches);
         for (uint256 i; i < nBatches; ++i) {
-            ctxHashes[i] = _proveBatch(_access, _config, _evidences[i]);
+            ctxHashes[i] = _proveBatch(_bindings, _config, _evidences[i]);
         }
 
         return keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
@@ -55,15 +54,15 @@ library LibProve {
     // -------------------------------------------------------------------------
 
     /// @notice Proves a single batch by validating metadata and saving the transition
-    /// @param _access Read/write function pointers for storage access
+    /// @param _bindings Library function binding
     /// @param _config The protocol configuration
     /// @param _input The batch prove input containing transition and metadata
     /// @return The context hash for this batch used in aggregation
     function _proveBatch(
-        LibState.Access memory _access,
+        LibBinding.Bindings memory _bindings,
         I.Config memory _config,
         // I.Summary memory _summary,
-        I.BatchProveInput memory _input
+        I.ProveBatchInput memory _input
     )
         private
         returns (bytes32)
@@ -80,7 +79,7 @@ library LibProve {
         );
 
         // Load and verify the batch metadata
-        bytes32 batchMetaHash = _access.loadBatchMetaHash(_config, _input.tran.batchId);
+        bytes32 batchMetaHash = _bindings.loadBatchMetaHash(_config, _input.tran.batchId);
 
         require(batchMetaHash == LibData.hashBatch(_input), MetaHashNotMatch());
 
@@ -104,7 +103,7 @@ library LibProve {
             livenessBond: _input.proveMeta.livenessBond
         });
 
-        bool isFirstTransition = _access.saveTransition(
+        bool isFirstTransition = _bindings.saveTransition(
             _config, _input.tran.batchId, _input.tran.parentHash, keccak256(abi.encode(tranMeta))
         );
 
@@ -113,13 +112,13 @@ library LibProve {
                 && msg.sender != _input.proveMeta.proposer
         ) {
             uint256 bondAmount = uint256(_input.proveMeta.provabilityBond) * 1 gwei;
-            _access.debitBond(_config, msg.sender, bondAmount);
-            _access.creditBond(_input.proveMeta.proposer, bondAmount);
+            _bindings.debitBond(_config, msg.sender, bondAmount);
+            _bindings.creditBond(_input.proveMeta.proposer, bondAmount);
         }
 
         I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](1);
         tranMetas[0] = tranMeta;
-        emit I.Proved(_input.tran.batchId, LibCodec.packTransitionMetas(tranMetas));
+        emit I.Proved(_input.tran.batchId, _bindings.encodeTransitionMetas(tranMetas));
 
         return keccak256(abi.encode(batchMetaHash, _input.tran));
     }

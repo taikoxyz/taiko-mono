@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IInbox as I } from "../IInbox.sol";
+import "../codec/LibCodecHeaderExtraInfo.sol";
 
 /// @title LibData
 /// @notice Library for batch metadata hashing and data encoding in Taiko protocol
@@ -38,12 +39,20 @@ library LibData {
             firstBlockId = _context.lastBlockId + 1 - uint48(_batch.blocks.length);
         }
 
+        bytes32 extraData = LibCodecHeaderExtraInfo.encode(
+            I.HeaderExtraInfo({
+                sharingPctg: _context.baseFeeSharingPctg,
+                isForcedInclusion: _batch.isForcedInclusion,
+                gasIssuancePerSecond: _batch.gasIssuancePerSecond
+            })
+        );
+
         // Block gas limit should be: `gasIssuancePerSecond * blockTime * 2`
         return I.BatchMetadata({
             buildMeta: I.BatchBuildMetadata({
                 txsHash: _context.txsHash,
                 blobHashes: _context.blobHashes,
-                extraData: _encodeExtraData(_context.baseFeeSharingPctg, _batch),
+                extraData: extraData,
                 coinbase: _batch.coinbase,
                 proposedIn: _proposedIn,
                 blobCreatedIn: _batch.blobs.createdIn,
@@ -51,7 +60,6 @@ library LibData {
                 blobByteSize: _batch.blobs.byteSize,
                 lastBlockId: _context.lastBlockId,
                 lastBlockTimestamp: _batch.lastBlockTimestamp,
-                anchorBlockIds: _batch.anchorBlockIds,
                 anchorBlockHashes: _context.anchorBlockHashes,
                 blocks: _batch.blocks
             }),
@@ -98,56 +106,25 @@ library LibData {
         return keccak256(abi.encode(leftHash, rightHash));
     }
 
-    /// @notice Computes a batch hash using BatchProposeMetadataEvidence
+    /// @notice Computes a batch hash using ProposeBatchEvidence
     /// @dev Alternative hashing method using pre-computed evidence data:
     ///      - Uses pre-computed idAndBuildHash instead of separate batchId and buildMeta
     ///      - Combines with proposeMeta and proveMetaHash
     ///      - More efficient when evidence is already available
     /// @param _evidence Pre-computed batch proposal metadata evidence
     /// @return Deterministic hash representing the batch
-    function hashBatch(I.BatchProposeMetadataEvidence memory _evidence)
-        public
-        pure
-        returns (bytes32)
-    {
+    function hashBatch(I.ProposeBatchEvidence memory _evidence) public pure returns (bytes32) {
         bytes32 proposeMetaHash = keccak256(abi.encode(_evidence.proposeMeta));
         bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, _evidence.proveMetaHash));
 
         return keccak256(abi.encode(_evidence.leftHash, rightHash));
     }
 
-    /// @notice  Computes a batch hash using BatchProveInput
-    /// @param _batchProveInput The batch prove input containing metadata to validate
-    function hashBatch(I.BatchProveInput memory _batchProveInput) internal pure returns (bytes32) {
-        bytes32 proveMetaHash = keccak256(abi.encode(_batchProveInput.proveMeta));
-        bytes32 rightHash = keccak256(abi.encode(_batchProveInput.proposeMetaHash, proveMetaHash));
-        return keccak256(abi.encode(_batchProveInput.leftHash, rightHash));
-    }
-    // -------------------------------------------------------------------------
-    // Private Functions
-    // -------------------------------------------------------------------------
-
-    /// @notice Encodes configuration and batch information into the lower 128 bits
-    /// @dev Bit-level encoding for efficient storage:
-    ///      - Bits 0-7: Base fee sharing percentage (0-100)
-    ///      - Bit 8: Forced inclusion flag (0 or 1)
-    ///      - Bits 9-40: Gas issuance per second (32 bits)
-    ///      - Bits 41-127: Reserved for future use
-    /// @param _baseFeeSharingPctg Base fee sharing percentage (0-100)
-    /// @param _batch Batch information containing forced inclusion flag and gas issuance
-    /// @return Encoded data as bytes32 with information packed in lower 128 bits
-    function _encodeExtraData(
-        uint8 _baseFeeSharingPctg,
-        I.Batch memory _batch
-    )
-        private
-        pure
-        returns (bytes32)
-    {
-        uint256 v = _baseFeeSharingPctg; // bits 0-7
-        v |= _batch.isForcedInclusion ? 1 << 8 : 0; // bit 8
-        v |= _batch.gasIssuancePerSecond << 9; // bits 9-40
-
-        return bytes32(v);
+    /// @notice  Computes a batch hash using ProveBatchInput
+    /// @param _proveBatchInput The batch prove input containing metadata to validate
+    function hashBatch(I.ProveBatchInput memory _proveBatchInput) internal pure returns (bytes32) {
+        bytes32 proveMetaHash = keccak256(abi.encode(_proveBatchInput.proveMeta));
+        bytes32 rightHash = keccak256(abi.encode(_proveBatchInput.proposeMetaHash, proveMetaHash));
+        return keccak256(abi.encode(_proveBatchInput.leftHash, rightHash));
     }
 }

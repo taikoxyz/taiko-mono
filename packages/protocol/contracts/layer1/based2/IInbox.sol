@@ -18,17 +18,18 @@ interface IInbox {
         uint8 timeShift;
         /// @notice Optional anchor block ID for L1-L2 synchronization
         uint48 anchorBlockId;
-        /// @notice Number of cross-chain signals in this block
-        uint8 numSignals;
-        /// @notice Whether this block references an anchor block
-        bool hasAnchor;
+        /// @notice Signal slots for cross-chain messages
+        bytes32[] signalSlots;
+        /// @notice Address that receives block rewards. If this address is address(0), use
+        /// Batch.coinbase.
+        address coinbase;
     }
 
     /// @notice Contains blob data for a batch
     /// @dev Supports both direct blob hashes and blob indices for different scenarios
     struct Blobs {
         /// @notice Direct blob hashes (if non-empty, firstBlobIndex and numBlobs must be 0)
-        bytes32[] hashes; // length <= type(uint4).max
+        bytes32[] hashes;
         /// @notice Index of the first blob in this batch (for blob index mode)
         uint8 firstBlobIndex;
         /// @notice Number of blobs in this batch
@@ -57,13 +58,9 @@ interface IInbox {
         /// @notice Whether this is a forced inclusion batch
         bool isForcedInclusion;
         /// @notice Prover authorization data
-        bytes proverAuth; // length <= type(uint16).max
-        /// @notice Signal slots for cross-chain messages
-        bytes32[] signalSlots; // length <= type(uint8).max
-        /// @notice Anchor block IDs for L1-L2 synchronization
-        uint48[] anchorBlockIds; // length <= type(uint16).max
+        bytes proverAuth;
         /// @notice Array of blocks in this batch
-        Block[] blocks; // length <= type(uint16).max
+        Block[] blocks;
         /// @notice Blob data for this batch
         Blobs blobs;
     }
@@ -133,8 +130,6 @@ interface IInbox {
         uint48 lastBlockId;
         /// @notice Timestamp of the last block in this batch
         uint48 lastBlockTimestamp;
-        /// @notice Array of anchor block IDs for L1-L2 synchronization
-        uint48[] anchorBlockIds; // length <= type(uint16).max
         /// @notice Hashes of anchor blocks for verification
         bytes32[] anchorBlockHashes; // length <= type(uint16).max
         /// @notice Array of blocks contained in this batch
@@ -171,6 +166,18 @@ interface IInbox {
         uint48 provabilityBond; // Gwei
     }
 
+    /// @notice Extra data to be embedded into each block header.
+    /// @dev This struct needs to be encoded into the least significant 128 bits of the header's
+    /// extraData field.
+    struct HeaderExtraInfo {
+        /// @notice Percentage of base fee shared with validators (0-100)
+        uint8 sharingPctg;
+        /// @notice Whether this is a forced inclusion batch
+        bool isForcedInclusion;
+        /// @notice Gas issuance per second for this batch
+        uint32 gasIssuancePerSecond;
+    }
+
     /// @notice Complete metadata for a batch combining all phases
     /// @dev Aggregates build, propose, and prove metadata for batch processing
     struct BatchMetadata {
@@ -184,7 +191,7 @@ interface IInbox {
 
     /// @notice Evidence structure for batch proposal metadata validation
     /// @dev Contains hashes and metadata needed to verify batch proposals
-    struct BatchProposeMetadataEvidence {
+    struct ProposeBatchEvidence {
         /// @notice Left hash for merkle proof verification
         bytes32 leftHash;
         /// @notice Hash of the prove metadata
@@ -195,7 +202,7 @@ interface IInbox {
 
     /// @notice Input structure for batch proving operations
     /// @dev Contains all data needed to prove a batch transition
-    struct BatchProveInput {
+    struct ProveBatchInput {
         /// @notice Left hash for merkle proof verification
         bytes32 leftHash;
         /// @notice Hash of the propose metadata
@@ -273,6 +280,8 @@ interface IInbox {
         uint48 lastSyncedAt;
         /// @notice ID of the last batch that was verified
         uint48 lastVerifiedBatchId;
+        /// @notice ID of the last block that was verified
+        uint48 lastVerifiedBlockId;
         /// @notice Timestamp when gas issuance rate was last updated
         uint48 gasIssuanceUpdatedAt;
         /// @notice Current gas issuance rate per second
@@ -367,44 +376,34 @@ interface IInbox {
     }
 
     /// @notice Emitted when the protocol summary is updated
-    /// @param packedSummary The updated protocol summary encoded as bytes
-    event SummaryUpdated(bytes packedSummary);
+    /// @param summary The updated protocol summary encoded as bytes
+    event SummaryUpdated(bytes summary);
 
     /// @notice Emitted when a new batch is proposed
     /// @param batchId The unique identifier of the proposed batch
-    /// @param packedContext The batch context data encoded as bytes
-    event Proposed(uint48 batchId, bytes packedContext);
+    /// @param context The batch context data encoded as bytes
+    event Proposed(uint48 batchId, bytes context);
 
     /// @notice Emitted when a batch transition is proven
     /// @param batchId The unique identifier of the proven batch
-    /// @param packedTranMeta The transition metadata encoded as bytes
-    event Proved(uint256 indexed batchId, bytes packedTranMeta);
+    /// @param tranMetas The transition metadata encoded as bytes
+    event Proved(uint256 indexed batchId, bytes tranMetas);
 
     /// @notice Emitted when a batch is verified and finalized
-    /// @param uint48_batchId_uint48_blockId Combined batch ID and last block ID (packed)
+    /// @param uint48_batchId_uint48_blockId Combined batch ID and last block ID
     /// @param blockHash The hash of the verified batch's last block
     // solhint-disable var-name-mixedcase
     event Verified(uint256 uint48_batchId_uint48_blockId, bytes32 blockHash);
 
-    /// @notice Proposes new batches and verifies existing ones
-    /// @dev Main function for batch proposal and verification in the protocol
-    /// @param _packedSummary Current protocol summary encoded as bytes
-    /// @param _packedBatches Array of batches to propose encoded as bytes
-    /// @param _packedEvidence Evidence for batch proposal validation encoded as bytes
-    /// @param _packedTransitionMetas Transition metadata for verification encoded as bytes
-    /// @return summary The updated protocol summary after processing
-    function propose4(
-        bytes calldata _packedSummary,
-        bytes calldata _packedBatches,
-        bytes calldata _packedEvidence,
-        bytes calldata _packedTransitionMetas
-    )
-        external
-        returns (Summary memory summary);
+    /// @notice Proposes and verifies batches
+    /// @param _inputs The inputs to propose and verify batches that can be decoded into (I.Summary
+    /// memory, I.Batch[] memory, I.ProposeBatchEvidence memory, I.TransitionMeta[] memory)
+    /// @return The updated summary
+    function propose4(bytes calldata _inputs) external returns (Summary memory);
 
     /// @notice Proves batch transitions using cryptographic proofs
     /// @dev Validates and processes cryptographic proofs for batch state transitions
-    /// @param _packedBatchProveInputs Batch proving inputs encoded as bytes
+    /// @param _inputs encoded I.ProveBatchInput[]
     /// @param _proof The cryptographic proof data for validation
-    function prove4(bytes calldata _packedBatchProveInputs, bytes calldata _proof) external;
+    function prove4(bytes calldata _inputs, bytes calldata _proof) external;
 }
