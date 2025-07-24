@@ -40,7 +40,6 @@ library LibPropose {
         returns (I.Summary memory)
     {
         unchecked {
-            // Make sure the lask verified batch is not overwritten by a new batch.
             // Assuming batchRingBufferSize = 100, right after genesis, we can propose up to 99
             // batches, the following requirement-statement will pass as:
             //  1 (nextBatchId) + 99 (_batches.length) <=
