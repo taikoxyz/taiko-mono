@@ -38,7 +38,9 @@ contract DeployMainnetPreconf is DeployCapability {
         address whitelist = deployProxy({
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (contractOwner, TWO_EPOCHS, TWO_EPOCHS))
+            data: abi.encodeCall(
+                PreconfWhitelist.init, (contractOwner, contractOwner, TWO_EPOCHS, TWO_EPOCHS)
+            )
         });
 
         address router = deployProxy({
