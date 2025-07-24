@@ -70,11 +70,7 @@ library LibPropose {
             _summary.lastBatchMetaHash = LibData.hashBatch(_summary.nextBatchId, metadata);
             _bindings.saveBatchMetaHash(_config, _summary.nextBatchId, _summary.lastBatchMetaHash);
 
-            emit I.Proposed(
-                _summary.nextBatchId,
-                _bindings.encodeBatchContext(context),
-                _isOuterMostTransaction() ? bytes("") : _inputs
-            );
+            emit I.Proposed(_summary.nextBatchId, _bindings.encodeBatchContext(context), _inputs);
 
             if (_summary.gasIssuancePerSecond != _batch.gasIssuancePerSecond) {
                 _summary.gasIssuancePerSecond = _batch.gasIssuancePerSecond;
@@ -84,17 +80,6 @@ library LibPropose {
             ++_summary.nextBatchId;
             return _summary;
         }
-    }
-
-    // -------------------------------------------------------------------------
-    // Private Functions
-    // -------------------------------------------------------------------------
-
-    /// @notice Checks if the current transaction is the outer most transaction
-    /// @return True if the current transaction is the outer most transaction, false otherwise
-    function _isOuterMostTransaction() private view returns (bool) {
-        // We should avoid using tx.origin, but how ....
-        return msg.sender == tx.origin;
     }
 
     // -------------------------------------------------------------------------
