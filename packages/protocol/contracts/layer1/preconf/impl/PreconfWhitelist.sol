@@ -19,6 +19,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
     event OperatorChangeDelaySet(uint8 delay);
+    event NewJecter(address indexed previousEjecter, address indexed newEjecter);
 
     /// @dev An operator consists of a proposer address(the key to this mapping) and a sequencer
     /// address.
@@ -37,13 +38,21 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     uint8 public randomnessDelay;
     /// @dev all operators in operatorMapping are active and none of them are to be deactivated.
     bool public havingPerfectOperators;
+    /// @dev The address that can eject operators from the whitelist.
+    address public ejecter;
 
-    uint256[46] private __gap;
+    uint256[45] private __gap;
+
+    modifier onlyOwnerOrEjecter() {
+        require(msg.sender == owner() || msg.sender == ejecter, NotOwnerOrEjecter());
+        _;
+    }
 
     constructor() EssentialContract(address(0)) { }
 
     function init(
         address _owner,
+        address _ejecter,
         uint8 _operatorChangeDelay,
         uint8 _randomnessDelay
     )
@@ -54,6 +63,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         operatorChangeDelay = _operatorChangeDelay;
         randomnessDelay = _randomnessDelay;
         havingPerfectOperators = true;
+        ejecter = _ejecter;
     }
 
     function setOperatorChangeDelay(uint8 _operatorChangeDelay) external onlyOwner {
@@ -67,7 +77,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     }
 
     /// @inheritdoc IPreconfWhitelist
-    function removeOperator(uint256 _operatorIndex) external onlyOwner {
+    function removeOperator(uint256 _operatorIndex) external onlyOwnerOrEjecter {
         require(_operatorIndex < operatorCount, InvalidOperatorIndex());
         _removeOperator(operatorMapping[_operatorIndex], operatorChangeDelay);
     }
@@ -76,7 +86,13 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     /// @param _proposer The proposer address of the operator to remove.
     /// @param _effectiveImmediately True if the removal should be effective immediately, otherwise
     /// it will be effective in two epochs.
-    function removeOperator(address _proposer, bool _effectiveImmediately) external onlyOwner {
+    function removeOperator(
+        address _proposer,
+        bool _effectiveImmediately
+    )
+        external
+        onlyOwnerOrEjecter
+    {
         _removeOperator(_proposer, _effectiveImmediately ? 0 : operatorChangeDelay);
     }
 
@@ -125,6 +141,18 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         operatorCount = _operatorCount;
         havingPerfectOperators = _havingPerfectOperators;
         emit Consolidated(_previousCount, _operatorCount, _havingPerfectOperators);
+    }
+
+    /// @notice Sets the ejecter address.
+    /// @param _ejecter The new ejecter address.
+    function setEjecter(address _ejecter) external onlyOwner {
+        address previousEjecter = ejecter;
+        if (_ejecter == previousEjecter) {
+            return;
+        }
+
+        ejecter = _ejecter;
+        emit NewJecter(previousEjecter, _ejecter);
     }
 
     /// @inheritdoc IPreconfWhitelist
