@@ -23,7 +23,6 @@ contract ERC20Vault is BaseVault {
     using SafeERC20 for IERC20;
 
     uint256 public constant MIN_MIGRATION_DELAY = 90 days;
-    uint256 public constant L1_CHAIN_ID = 1;
 
     /// @dev Represents a canonical ERC20 token.
     struct CanonicalERC20 {
@@ -195,7 +194,6 @@ contract ERC20Vault is BaseVault {
     error VAULT_INVALID_NEW_BTOKEN();
     error VAULT_LAST_MIGRATION_TOO_CLOSE();
     error VAULT_METAHASH_MISMATCH();
-    error VAULT_NOT_ON_L1();
 
     constructor(address _resolver) BaseVault(_resolver) { }
 
@@ -442,9 +440,8 @@ contract ERC20Vault is BaseVault {
     /// @param _op Parameters for the solve operation
     function solve(SolverOp memory _op) external payable nonReentrant whenNotPaused {
         if (_op.l2BatchMetaHash != 0) {
-            if (block.chainid != L1_CHAIN_ID) revert VAULT_NOT_ON_L1();
-
             address taiko = resolve(LibNames.B_TAIKO, false);
+            // If we are not on L1, the following v4GetBatch will revert.
             bytes32 l2BatchMetaHash = ITaikoInbox(taiko).v4GetBatch(_op.l2BatchId).metaHash;
             if (l2BatchMetaHash != _op.l2BatchMetaHash) revert VAULT_METAHASH_MISMATCH();
         }
