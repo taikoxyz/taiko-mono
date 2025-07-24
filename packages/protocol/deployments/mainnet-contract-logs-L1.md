@@ -508,7 +508,7 @@
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x8480ac4bcdf12dedf9c79bed7407bd290670d9fe9c867c5354e574c56c5ff48b`
   - upgraded on Jun 11, 2025 at commit `9dfb5b9` @tx `0x2b9250ebdcf10b1a1ec658e5cc9e7fd9aa19dd32573e6ab5bc036499682dea3a`
-  - upgraded on Jul 21, 2025 at commit `92ad14e` @tx ``
+  - upgraded on Jul 21, 2025 at commit `92ad14e` @tx `0x95d0cfffe42dc984ce8b24104a28d1083100ab638bb4fe396d1a145c17460db9`
 
 ### sp1_reth_verifier(Pacaya)
 
