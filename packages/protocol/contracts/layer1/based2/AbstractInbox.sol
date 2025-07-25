@@ -73,9 +73,8 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         // Verify batches
         summary = LibVerify.verify(bindings, config, summary, transitionMetas);
 
-        bytes memory summaryEncoded = bindings.encodeSummary(summary);
-        _saveSummaryHash(keccak256(summaryEncoded));
-        emit I.SummaryUpdated(summaryEncoded);
+        _saveSummaryHash(keccak256(abi.encode(summary)));
+        emit I.SummaryUpdated(bindings.encodeSummary(summary));
 
         return summary;
     }
@@ -403,10 +402,10 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     function _validateSummary(bytes memory _summaryEncoded)
         private
         view
-        returns (I.Summary memory)
+        returns (I.Summary memory summary_)
     {
-        if (_loadSummaryHash() != keccak256(_summaryEncoded)) revert SummaryMismatch();
-        return _decodeSummary(_summaryEncoded);
+        summary_ = _decodeSummary(_summaryEncoded);
+        if (_loadSummaryHash() != keccak256(abi.encode(summary_))) revert SummaryMismatch();
     }
 
     // -------------------------------------------------------------------------

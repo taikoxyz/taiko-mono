@@ -148,7 +148,7 @@ contract InboxHelper {
         pure
         returns (I.ProveBatchInput[] memory)
     {
-        return LibCodecProveBatchInputs.decodeProveBatchesInputs(_data);
+        return LibCodecProveBatchInputs.decode(_data);
     }
 
     /// @notice Encodes a ProposeBatchEvidence struct

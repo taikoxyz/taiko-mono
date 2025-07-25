@@ -21,15 +21,4 @@ library LibCodecProveBatchInputs {
     function decode(bytes memory _data) internal pure returns (I.ProveBatchInput[] memory) {
         return abi.decode(_data, (I.ProveBatchInput[]));
     }
-
-    /// @notice Decodes bytes into prove batches inputs
-    /// @param _data The encoded data
-    /// @return _ The decoded ProveBatchInput array
-    function decodeProveBatchesInputs(bytes memory _data)
-        internal
-        pure
-        returns (I.ProveBatchInput[] memory)
-    {
-        return decode(_data);
-    }
 }
