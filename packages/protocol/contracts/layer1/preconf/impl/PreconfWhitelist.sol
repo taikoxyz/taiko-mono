@@ -19,7 +19,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
     event OperatorChangeDelaySet(uint8 delay);
-    event NewJecter(address indexed previousEjecter, address indexed newEjecter);
+    event EjecterUpdated(address indexed ejecter, bool isEjecter);
 
     /// @dev An operator consists of a proposer address(the key to this mapping) and a sequencer
     /// address.
@@ -38,13 +38,13 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     uint8 public randomnessDelay;
     /// @dev all operators in operatorMapping are active and none of them are to be deactivated.
     bool public havingPerfectOperators;
-    /// @dev The address that can eject operators from the whitelist.
-    address public ejecter;
+    /// @dev The addresses that can eject operators from the whitelist.
+    mapping(address ejecter => bool isEjecter) public ejecters;
 
     uint256[45] private __gap;
 
     modifier onlyOwnerOrEjecter() {
-        require(msg.sender == owner() || msg.sender == ejecter, NotOwnerOrEjecter());
+        require(msg.sender == owner() || ejecters[msg.sender], NotOwnerOrEjecter());
         _;
     }
 
@@ -143,14 +143,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     /// @notice Sets the ejecter address.
     /// @param _ejecter The new ejecter address.
-    function setEjecter(address _ejecter) external onlyOwner {
-        address previousEjecter = ejecter;
-        if (_ejecter == previousEjecter) {
-            return;
-        }
-
-        ejecter = _ejecter;
-        emit NewJecter(previousEjecter, _ejecter);
+    function setEjecter(address _ejecter, bool _isEjecter) external onlyOwner {
+        ejecters[_ejecter] = _isEjecter;
+        emit EjecterUpdated(_ejecter, _isEjecter);
     }
 
     /// @inheritdoc IPreconfWhitelist

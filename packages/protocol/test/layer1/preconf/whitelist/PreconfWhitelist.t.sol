@@ -326,6 +326,46 @@ contract TestPreconfWhitelist is Layer1Test {
         assertTrue(nextOperator == Bob || nextOperator == Carol);
     }
 
+    function test_whitelist_removeOperatorByEjecterByIndex() external {
+        // Setup: add operator and set ejecter
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+        vm.prank(whitelistOwner);
+        whitelist.setEjecter(ejecter, true);
+
+        // Ejecter can remove operator by index
+        vm.prank(ejecter);
+        whitelist.removeOperator(0);
+
+        // Verify removal
+        (, uint32 inactiveSince,,) = whitelist.operators(Bob);
+        assertTrue(inactiveSince > 0);
+    }
+
+    function test_whitelist_removeOperatorByEjecterByAddress() external {
+        address ejecter2 = makeAddr("ejecter2");
+
+        // Set multiple ejecters
+        vm.startPrank(whitelistOwner);
+        whitelist.setEjecter(ejecter, true);
+        whitelist.setEjecter(ejecter2, true);
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+        vm.stopPrank();
+
+        // Both ejecters can remove operators
+        vm.prank(ejecter2);
+        whitelist.removeOperator(Bob, false);
+
+        (, uint32 inactiveSince,,) = whitelist.operators(Bob);
+        assertTrue(inactiveSince > 0);
+    }
+
+    function test_whitelist_removeOperatorUnauthorizedWillRevert() external {
+        vm.prank(Bob);
+        vm.expectRevert(IPreconfWhitelist.NotOwnerOrEjecter.selector);
+        whitelist.removeOperator(0);
+    }
+
     function test_whitelist_consolidate_whenEmpty_not_revert() external {
         whitelist.consolidate();
         assertEq(whitelist.havingPerfectOperators(), true);
@@ -442,6 +482,22 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(index, 0);
     }
 
+    function test_whitelist_setEjecter() external {
+        // Non-owner cannot set ejecter
+        vm.expectRevert();
+        vm.prank(Bob);
+        whitelist.setEjecter(ejecter, true);
+
+        // Owner can set ejecter
+        vm.prank(whitelistOwner);
+        vm.expectEmit();
+        emit PreconfWhitelist.EjecterUpdated(ejecter, true);
+
+        whitelist.setEjecter(ejecter, true);
+
+        assertTrue(whitelist.ejecters(ejecter));
+    }
+
     function _setBeaconBlockRoot(bytes32 _root) internal {
         vm.etch(
             LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,
@@ -456,42 +512,6 @@ contract TestPreconfWhitelist is Layer1Test {
     // Helper function that returns a deterministic sequencer address for testing purposes
     function _getSequencerAddress(address proposer) internal pure returns (address) {
         return address(uint160(proposer) + 1000);
-    }
-
-    function test_onlyOwnerCanSetEjecter() external {
-        address newEjecter = makeAddr("newEjecter");
-
-        // Non-owner cannot set ejecter
-        vm.expectRevert();
-        vm.prank(Bob);
-        whitelist.setEjecter(newEjecter);
-
-        // Owner can set ejecter
-        vm.prank(whitelistOwner);
-        whitelist.setEjecter(newEjecter);
-
-        assertEq(whitelist.ejecter(), newEjecter);
-    }
-
-    function test_ejecterCanRemoveOperators() external {
-        // Add an operator as owner
-        vm.prank(whitelistOwner);
-        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
-
-        assertEq(whitelist.operatorCount(), 1);
-
-        // Set ejecter
-        vm.prank(whitelistOwner);
-        whitelist.setEjecter(ejecter);
-
-        // Ejecter can remove the operator
-        vm.prank(ejecter);
-        whitelist.removeOperator(0);
-
-        // Verify operator is marked for removal
-        (uint32 activeSince, uint32 inactiveSince,,) = whitelist.operators(Bob);
-        assertEq(activeSince, 0);
-        assertTrue(inactiveSince > 0);
     }
 }
 
