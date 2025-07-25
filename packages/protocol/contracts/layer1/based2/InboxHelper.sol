@@ -67,7 +67,6 @@ contract InboxHelper {
         return LibCodecBatchContext.decode(_data);
     }
 
-
     /// @notice Encodes an array of TransitionMeta structs
     /// @param _transitionMetas The array of TransitionMeta structs to encode
     /// @return The encoded bytes

@@ -21,6 +21,7 @@ library LibPropose {
     // -------------------------------------------------------------------------
 
     /// @notice Proposes a batch in a single transaction
+    /// @param _inputs The inputs to the propose function
     /// @param _bindings Library function binding
     /// @param _config The protocol configuration
     /// @param _summary The current protocol summary
@@ -28,6 +29,7 @@ library LibPropose {
     /// @param _evidence Evidence containing parent batch metadata
     /// @return The updated protocol summary
     function propose(
+        bytes memory _inputs,
         LibBinding.Bindings memory _bindings,
         I.Config memory _config,
         I.Summary memory _summary,
@@ -67,7 +69,7 @@ library LibPropose {
             _summary.lastBatchMetaHash = LibData.hashBatch(_summary.nextBatchId, metadata);
             _bindings.saveBatchMetaHash(_config, _summary.nextBatchId, _summary.lastBatchMetaHash);
 
-            emit I.Proposed(_summary.nextBatchId, _bindings.encodeBatchContext(context));
+            emit I.Proposed(_summary.nextBatchId, _bindings.encodeBatchContext(context), _inputs);
 
             if (_summary.gasIssuancePerSecond != _batch.gasIssuancePerSecond) {
                 _summary.gasIssuancePerSecond = _batch.gasIssuancePerSecond;

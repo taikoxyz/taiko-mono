@@ -382,7 +382,8 @@ interface IInbox {
     /// @notice Emitted when a new batch is proposed
     /// @param batchId The unique identifier of the proposed batch
     /// @param context The batch context data encoded as bytes
-    event Proposed(uint48 batchId, bytes context);
+    /// @param inputs The inputs to the propose function.
+    event Proposed(uint48 batchId, bytes context, bytes inputs);
 
     /// @notice Emitted when a batch transition is proven
     /// @param batchId The unique identifier of the proven batch

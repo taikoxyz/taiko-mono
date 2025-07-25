@@ -52,7 +52,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
     }
 
     /// @inheritdoc IPropose
-    function propose4(bytes calldata _inputs)
+    function propose4(bytes memory _inputs)
         external
         override(I, IPropose)
         nonReentrant
@@ -69,7 +69,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve, 
         I.Config memory config = _getConfig();
 
         // Propose batches
-        summary = LibPropose.propose(bindings, config, summary, batch, evidence);
+        summary = LibPropose.propose(_inputs, bindings, config, summary, batch, evidence);
 
         // Verify batches
         summary = LibVerify.verify(bindings, config, summary, transitionMetas);
