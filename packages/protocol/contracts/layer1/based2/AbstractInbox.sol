@@ -10,6 +10,8 @@ import "./libs/LibVerify.sol";
 import "./IInbox.sol";
 import "./IPropose.sol";
 import "./IProve.sol";
+import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
+import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 
 /// @title AbstractInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -25,11 +27,26 @@ import "./IProve.sol";
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
+
+    error NotPreconfer();
+    
+    IPreconfWhitelist public immutable whitelist;
+    IForcedInclusionStore public immutable forcedStore;
+    address public immutable fallbackPreconfer;
+
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
 
-    constructor() EssentialContract() { }
+    constructor(
+        IPreconfWhitelist _whitelist,
+        IForcedInclusionStore _forcedStore,
+        address _fallbackPreconfer
+    ) EssentialContract() {
+        whitelist = _whitelist;
+        forcedStore = _forcedStore;
+        fallbackPreconfer = _fallbackPreconfer;
+    }
 
     // -------------------------------------------------------------------------
     // External Functions
@@ -57,6 +74,16 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         nonReentrant
         returns (I.Summary memory)
     {
+        // Verify if the caller is an authorized preconfer
+        address preconfer = whitelist.getOperatorForCurrentEpoch();
+        if (preconfer != address(0)) {
+            require(msg.sender == preconfer, NotPreconfer());
+        } else if (fallbackPreconfer != address(0)) {
+            require(msg.sender == fallbackPreconfer, NotPreconfer());
+        } else {
+            revert NotPreconfer();
+        }
+
         LibBinding.Bindings memory bindings = _getBindings();
 
         (
