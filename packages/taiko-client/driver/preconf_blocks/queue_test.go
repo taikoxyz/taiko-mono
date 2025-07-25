@@ -6,42 +6,49 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 )
 
 func (s *PreconfBlockAPIServerTestSuite) TestCacheGet() {
-	cache := newPayloadQueue()
+	cache := newEnvelopeQueue()
 	s.Nil(cache.get(uint64(testutils.RandomPort()), testutils.RandomHash()))
 	s.False(cache.has(uint64(testutils.RandomPort()), testutils.RandomHash()))
 
-	payload := &eth.ExecutionPayload{
-		BlockNumber: eth.Uint64Quantity(uint64(testutils.RandomPort())),
-		BlockHash:   testutils.RandomHash(),
+	payload := &preconf.Envelope{
+		Payload: &eth.ExecutionPayload{
+			BlockNumber: eth.Uint64Quantity(uint64(testutils.RandomPort())),
+			BlockHash:   testutils.RandomHash(),
+		},
 	}
-	cache.put(uint64(payload.BlockNumber), payload)
-	payloadCached := cache.get(uint64(payload.BlockNumber), payload.BlockHash)
+	cache.put(uint64(payload.Payload.BlockNumber), payload)
+	payloadCached := cache.get(uint64(payload.Payload.BlockNumber), payload.Payload.BlockHash)
 	s.Equal(payload, payloadCached)
-	s.True(cache.has(uint64(payload.BlockNumber), payload.BlockHash))
+	s.True(cache.has(uint64(payload.Payload.BlockNumber), payload.Payload.BlockHash))
 }
 
 func (s *PreconfBlockAPIServerTestSuite) TestCacheGetLongestChildren() {
-	cache := newPayloadQueue()
-	currentPayload := &eth.ExecutionPayload{
-		BlockNumber: eth.Uint64Quantity(uint64(testutils.RandomPort())),
-		BlockHash:   testutils.RandomHash(),
+	cache := newEnvelopeQueue()
+	currentPayload := &preconf.Envelope{
+		Payload: &eth.ExecutionPayload{
+			BlockNumber: eth.Uint64Quantity(uint64(testutils.RandomPort())),
+			BlockHash:   testutils.RandomHash(),
+		},
 	}
 
-	createFork := func(currentPayload *eth.ExecutionPayload, len int) []*eth.ExecutionPayload {
-		payloads := make([]*eth.ExecutionPayload, len)
+	createFork := func(currentPayload *preconf.Envelope, len int) []*preconf.Envelope {
+		payloads := make([]*preconf.Envelope, len)
 		parent := currentPayload
 		for i := 0; i < len; i++ {
-			payload := &eth.ExecutionPayload{
-				BlockNumber: eth.Uint64Quantity(uint64(currentPayload.BlockNumber) + uint64(i+1)),
-				BlockHash:   testutils.RandomHash(),
-				ParentHash:  parent.BlockHash,
+			payload := &preconf.Envelope{
+				Payload: &eth.ExecutionPayload{
+					BlockNumber: eth.Uint64Quantity(uint64(currentPayload.Payload.BlockNumber) + uint64(i+1)),
+					BlockHash:   testutils.RandomHash(),
+					ParentHash:  parent.Payload.BlockHash,
+				},
 			}
 			payloads[i] = payload
 			parent = payload
-			cache.put(uint64(payload.BlockNumber), payload)
+			cache.put(uint64(payload.Payload.BlockNumber), payload)
 		}
 		return payloads
 	}
@@ -55,19 +62,19 @@ func (s *PreconfBlockAPIServerTestSuite) TestCacheGetLongestChildren() {
 	s.Equal(len(fork1), randomLen)
 	s.Equal(len(fork2), randomLen+1)
 	s.Equal(len(fork3), randomLen+3)
-	s.NotEqual(fork1[len(fork1)-1].BlockHash, fork2[len(fork2)-1].BlockHash)
-	s.NotEqual(fork1[len(fork1)-1].BlockHash, fork3[len(fork3)-1].BlockHash)
-	s.NotEqual(fork2[len(fork2)-1].BlockHash, fork3[len(fork3)-1].BlockHash)
+	s.NotEqual(fork1[len(fork1)-1].Payload.BlockHash, fork2[len(fork2)-1].Payload.BlockHash)
+	s.NotEqual(fork1[len(fork1)-1].Payload.BlockHash, fork3[len(fork3)-1].Payload.BlockHash)
+	s.NotEqual(fork2[len(fork2)-1].Payload.BlockHash, fork3[len(fork3)-1].Payload.BlockHash)
 	for i := 0; i < len(fork1)-1; i++ {
-		s.Equal(fork1[i].BlockHash, fork1[i+1].ParentHash)
-		s.Equal(uint64(fork1[i].BlockNumber+1), uint64(fork1[i+1].BlockNumber))
+		s.Equal(fork1[i].Payload.BlockHash, fork1[i+1].Payload.ParentHash)
+		s.Equal(uint64(fork1[i].Payload.BlockNumber+1), uint64(fork1[i+1].Payload.BlockNumber))
 	}
 
 	// Search for the longest fork
-	longestFork := cache.getChildren(uint64(currentPayload.BlockNumber), currentPayload.BlockHash)
+	longestFork := cache.getChildren(uint64(currentPayload.Payload.BlockNumber), currentPayload.Payload.BlockHash)
 	s.Equal(len(longestFork), len(fork3))
 	for i := 0; i < len(longestFork)-1; i++ {
-		s.Equal(longestFork[i].BlockNumber, fork3[i].BlockNumber)
-		s.Equal(longestFork[i].BlockHash, fork3[i].BlockHash)
+		s.Equal(longestFork[i].Payload.BlockNumber, fork3[i].Payload.BlockNumber)
+		s.Equal(longestFork[i].Payload.BlockHash, fork3[i].Payload.BlockHash)
 	}
 }
