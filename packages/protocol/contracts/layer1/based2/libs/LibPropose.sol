@@ -44,15 +44,16 @@ library LibPropose {
             // batches, the following requirement-statement will pass as:
             //  1 (nextBatchId) + 99 (_batches.length) <=
             //  0 (lastVerifiedBatchId) + 100 (batchRingBufferSize)
-            require(
+            if (
                 _summary.nextBatchId + 1
-                    <= _summary.lastVerifiedBatchId + _config.batchRingBufferSize,
-                BatchLimitExceeded()
-            );
+                    > _summary.lastVerifiedBatchId + _config.batchRingBufferSize
+            ) {
+                revert BatchLimitExceeded();
+            }
 
-            require(
-                _summary.lastBatchMetaHash == LibData.hashBatch(_evidence), MetadataHashMismatch()
-            );
+            if (_summary.lastBatchMetaHash != LibData.hashBatch(_evidence)) {
+                revert MetadataHashMismatch();
+            }
 
             I.BatchProposeMetadata memory parentBatch = _evidence.proposeMeta;
 

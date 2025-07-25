@@ -124,17 +124,17 @@ library LibProver {
         // Supporting Ether as fee token will require making IInbox's proposing function
         // payable. We try to avoid this as much as possible. And since most proposers may simply
         // use USD stablecoins as fee token, we decided not to support Ether as fee token for now.
-        require(auth.feeToken != address(0), EtherAsFeeTokenNotSupportedYet());
-        require(auth.prover != address(0), InvalidProver());
-        require(auth.validUntil == 0 || auth.validUntil >= block.timestamp, InvalidValidUntil());
-        require(auth.batchId == 0 || auth.batchId == _batchId, InvalidBatchId());
+        if (auth.feeToken == address(0)) revert EtherAsFeeTokenNotSupportedYet();
+        if (auth.prover == address(0)) revert InvalidProver();
+        if (auth.validUntil != 0 && auth.validUntil < block.timestamp) revert InvalidValidUntil();
+        if (auth.batchId != 0 && auth.batchId != _batchId) revert InvalidBatchId();
 
         // Save and use later, before nullifying in computeProverAuthDigest()
         bytes memory signature = auth.signature;
         auth.signature = "";
         bytes32 digest = _computeProverAuthDigest(_chainId, _batchHash, auth);
 
-        require(auth.prover.isValidSignatureNow(digest, signature), InvalidSignature());
+        if (!auth.prover.isValidSignatureNow(digest, signature)) revert InvalidSignature();
 
         return (auth.prover, auth.feeToken, auth.fee);
     }
@@ -159,7 +159,7 @@ library LibProver {
         pure
         returns (bytes32)
     {
-        require(_auth.signature.length == 0, SignatureNotEmpty());
+        if (_auth.signature.length != 0) revert SignatureNotEmpty();
         return keccak256(abi.encode("PROVER_AUTHENTICATION", _chainId, _batchHash, _auth));
     }
 

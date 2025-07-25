@@ -34,7 +34,7 @@ library LibForks {
         pure
         returns (bool)
     {
-        require(_lastBlockId >= _firstBlockId, InvalidBlockRange());
+        if (_lastBlockId < _firstBlockId) revert InvalidBlockRange();
 
         // Check if blocks are beyond the unzen fork height
         if (_conf.forkHeights.unzen != 0 && _lastBlockId >= _conf.forkHeights.unzen) {

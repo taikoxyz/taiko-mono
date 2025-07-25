@@ -99,10 +99,10 @@ library LibValidate {
     /// @param _batch The batch being validated
     function _validateProposer(I.Config memory _config, I.Batch memory _batch) internal view {
         if (_config.inboxWrapper == address(0)) {
-            require(_batch.proposer == msg.sender, ProposerNotMsgSender());
+            if (_batch.proposer != msg.sender) revert ProposerNotMsgSender();
         } else {
-            require(msg.sender == _config.inboxWrapper, NotInboxWrapper());
-            require(_batch.proposer != address(0), CustomProposerMissing());
+            if (msg.sender != _config.inboxWrapper) revert NotInboxWrapper();
+            if (_batch.proposer == address(0)) revert CustomProposerMissing();
         }
     }
 
@@ -123,20 +123,21 @@ library LibValidate {
         unchecked {
             if (_batch.gasIssuancePerSecond == _summary.gasIssuancePerSecond) return;
 
-            require(
-                _batch.gasIssuancePerSecond <= MAX_GAS_ISSUANCE_PER_SECOND
-                    && _batch.gasIssuancePerSecond <= _summary.gasIssuancePerSecond * 101 / 100,
-                GasIssuanceTooHigh()
-            );
-            require(
-                _batch.gasIssuancePerSecond >= MIN_GAS_ISSUANCE_PER_SECOND
-                    && _batch.gasIssuancePerSecond >= _summary.gasIssuancePerSecond * 99 / 100,
-                GasIssuanceTooLow()
-            );
-            require(
-                block.timestamp >= _summary.gasIssuanceUpdatedAt + _config.gasIssuanceUpdateDelay,
-                GasIssuanceTooEarlyToChange()
-            );
+            if (
+                _batch.gasIssuancePerSecond > MAX_GAS_ISSUANCE_PER_SECOND
+                    || _batch.gasIssuancePerSecond > _summary.gasIssuancePerSecond * 101 / 100
+            ) {
+                revert GasIssuanceTooHigh();
+            }
+            if (
+                _batch.gasIssuancePerSecond < MIN_GAS_ISSUANCE_PER_SECOND
+                    || _batch.gasIssuancePerSecond < _summary.gasIssuancePerSecond * 99 / 100
+            ) {
+                revert GasIssuanceTooLow();
+            }
+            if (block.timestamp < _summary.gasIssuanceUpdatedAt + _config.gasIssuanceUpdateDelay) {
+                revert GasIssuanceTooEarlyToChange();
+            }
         }
     }
 
@@ -154,23 +155,26 @@ library LibValidate {
         view
     {
         unchecked {
-            require(_batch.lastBlockTimestamp != 0, LastBlockTimestampNotSet());
-            require(_batch.lastBlockTimestamp <= block.timestamp, TimestampTooLarge());
-            require(_batch.blocks[0].timeShift == 0, FirstBlockTimeShiftNotZero());
+            if (_batch.lastBlockTimestamp == 0) revert LastBlockTimestampNotSet();
+            if (_batch.lastBlockTimestamp > block.timestamp) revert TimestampTooLarge();
+            if (_batch.blocks[0].timeShift != 0) revert FirstBlockTimeShiftNotZero();
 
             uint64 totalShift;
             for (uint256 i; i < _batch.blocks.length; ++i) {
                 totalShift += _batch.blocks[i].timeShift;
             }
-            require(_batch.lastBlockTimestamp >= totalShift, TimestampTooSmall());
+            if (_batch.lastBlockTimestamp < totalShift) revert TimestampTooSmall();
 
             uint256 firstBlockTimestamp_ = _batch.lastBlockTimestamp - totalShift;
-            require(
+            if (
                 firstBlockTimestamp_
-                    + _config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME >= block.timestamp,
-                TimestampTooSmall()
-            );
-            require(firstBlockTimestamp_ >= _parentLastBlockTimestamp, TimestampSmallerThanParent());
+                    + _config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME < block.timestamp
+            ) {
+                revert TimestampTooSmall();
+            }
+            if (firstBlockTimestamp_ < _parentLastBlockTimestamp) {
+                revert TimestampSmallerThanParent();
+            }
         }
     }
 
@@ -189,10 +193,9 @@ library LibValidate {
     {
         for (uint256 i; i < _batch.blocks.length; ++i) {
             for (uint256 j; j < _batch.blocks[i].signalSlots.length; ++j) {
-                require(
-                    _bindings.isSignalSent(_config, _batch.blocks[i].signalSlots[j]),
-                    RequiredSignalNotSent()
-                );
+                if (!_bindings.isSignalSent(_config, _batch.blocks[i].signalSlots[j])) {
+                    revert RequiredSignalNotSent();
+                }
             }
         }
     }
@@ -225,18 +228,19 @@ library LibValidate {
             if (_batch.blocks[i].anchorBlockId == 0) continue;
 
             uint48 anchorBlockId = _batch.blocks[i].anchorBlockId;
-            require(anchorBlockId != 0, AnchorIdZero());
+            if (anchorBlockId == 0) revert AnchorIdZero();
 
-            require(
-                hasAnchorBlock
-                    || anchorBlockId + _config.maxAnchorHeightOffset >= uint48(block.number),
-                AnchorIdTooSmall()
-            );
+            if (
+                !hasAnchorBlock
+                    && anchorBlockId + _config.maxAnchorHeightOffset < uint48(block.number)
+            ) {
+                revert AnchorIdTooSmall();
+            }
 
-            require(anchorBlockId > lastAnchorBlockId_, AnchorIdSmallerThanParent());
+            if (anchorBlockId <= lastAnchorBlockId_) revert AnchorIdSmallerThanParent();
 
             anchorBlockHashes_[anchorIndex] = _bindings.getBlockHash(anchorBlockId);
-            require(anchorBlockHashes_[anchorIndex] != 0, ZeroAnchorBlockHash());
+            if (anchorBlockHashes_[anchorIndex] == 0) revert ZeroAnchorBlockHash();
 
             hasAnchorBlock = true;
             lastAnchorBlockId_ = anchorBlockId;
@@ -246,7 +250,7 @@ library LibValidate {
         // Ensure that if msg.sender is not the inboxWrapper, at least one block must
         // have a non-zero anchor block id.
         if (_config.inboxWrapper != address(0)) {
-            require(hasAnchorBlock, NoAnchorBlockIdWithinThisBatch());
+            if (!hasAnchorBlock) revert NoAnchorBlockIdWithinThisBatch();
         }
     }
 
@@ -267,13 +271,12 @@ library LibValidate {
     {
         unchecked {
             // Validate and decode blocks
-            require(_numBlocks != 0, BlockNotFound());
+            if (_numBlocks == 0) revert BlockNotFound();
             uint48 firstBlockId = _parentLastBlockId + 1;
             uint48 lastBlockId = uint48(_parentLastBlockId + _numBlocks);
-            require(
-                LibForks.isBlocksInCurrentFork(_conf, firstBlockId, lastBlockId),
-                BlocksNotInCurrentFork()
-            );
+            if (!LibForks.isBlocksInCurrentFork(_conf, firstBlockId, lastBlockId)) {
+                revert BlocksNotInCurrentFork();
+            }
             return lastBlockId;
         }
     }
@@ -294,22 +297,22 @@ library LibValidate {
     {
         if (_conf.inboxWrapper == address(0)) {
             // blob hashes are only accepted if the caller is trusted.
-            require(_batch.blobs.hashes.length == 0, InvalidBlobParams());
-            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
-            require(_batch.isForcedInclusion == false, InvalidForcedInclusion());
+            if (_batch.blobs.hashes.length != 0) revert InvalidBlobParams();
+            if (_batch.blobs.createdIn != 0) revert InvalidBlobCreatedIn();
+            if (_batch.isForcedInclusion) revert InvalidForcedInclusion();
             return uint48(block.number);
         } else if (_batch.blobs.hashes.length == 0) {
             // this is a normal batch, blobs are created and used in the current batches.
             // firstBlobIndex can be non-zero.
-            require(_batch.blobs.numBlobs != 0, BlobNotSpecified());
-            require(_batch.blobs.createdIn == 0, InvalidBlobCreatedIn());
+            if (_batch.blobs.numBlobs == 0) revert BlobNotSpecified();
+            if (_batch.blobs.createdIn != 0) revert InvalidBlobCreatedIn();
             return uint48(block.number);
         } else {
             // this is a forced-inclusion batch, blobs were created in early blocks and are used
             // in the current batches
             require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
-            require(_batch.blobs.numBlobs == 0, InvalidBlobParams());
-            require(_batch.blobs.firstBlobIndex == 0, InvalidBlobParams());
+            if (_batch.blobs.numBlobs != 0) revert InvalidBlobParams();
+            if (_batch.blobs.firstBlobIndex != 0) revert InvalidBlobParams();
             return _batch.blobs.createdIn;
         }
     }
@@ -339,7 +342,7 @@ library LibValidate {
             }
 
             for (uint256 i; i < blobHashes_.length; ++i) {
-                require(blobHashes_[i] != 0, BlobHashNotFound());
+                if (blobHashes_[i] == 0) revert BlobHashNotFound();
             }
 
             txsHash_ = keccak256(abi.encode(blobHashes_));
