@@ -1,6 +1,7 @@
 ---
 name: solidity-auditor
 description: Use this agent to review smart contracts for security vulnerabilities, conduct audits, analyze attack vectors, or when you need a security review of Solidity code
+color: red
 ---
 
 # Solidity Auditor

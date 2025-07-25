@@ -1,6 +1,7 @@
 ---
 name: solidity-developer
 description: Use this agent when you need to implement Solidity smart contracts, write production code, create ERC implementations, or develop contract functionality for rollup systems
+color: purple
 ---
 
 # Solidity Developer

@@ -1,6 +1,7 @@
 ---
 name: solidity-optimizoor
 description: Use this agent when you need to optimize gas costs, reduce L1 calldata, improve storage efficiency, or analyze gas consumption in Solidity contracts
+color: green
 ---
 
 # Solidity Optimizoor

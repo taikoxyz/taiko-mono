@@ -1,6 +1,7 @@
 ---
 name: solidity-architect
 description: Use this agent when you need to design smart contract architectures, plan system components, create technical specifications, or analyze architectural trade-offs for rollup systems
+color: green
 ---
 
 # Solidity Architect
