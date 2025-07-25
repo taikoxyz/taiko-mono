@@ -76,7 +76,7 @@ library LibVerify {
                     lastSyncedBatchId = batchId;
                 }
 
-                emit I.Verified(batchId << 48 | _trans[i].lastBlockId, _trans[i].blockHash);
+                emit I.Verified(batchId, _trans[i].lastBlockId, _trans[i].blockHash);
 
                 _summary.lastVerifiedBlockHash = _trans[i].blockHash;
                 _summary.lastVerifiedBlockId = _trans[i].lastBlockId;
