@@ -137,18 +137,29 @@ If you aren't, you can configure the ports and addresses so that the services ca
             --preconfirmation.whitelist 0x4aA38A15109eAbbf09b7967009A2e00D2D15cb84 \
             --preconfirmation.serverPort 9871 \
             --jwtSecret /data/taiko-geth/geth/jwtsecret \
+            --p2p.sync \
+            --p2p.checkPointSyncUrl https://rpc.hekla.taiko.xyz
             --p2p.bootnodes enode://1733a899719c64edc8ad6818598b6b9aa41889297a7ee7b9cbf3e610d4df2e207b0e04fd40060a36f020116ab5ad451201e448fc224cd38b0a0d5fcbb1d2c812@34.126.109.163:30303,enode://3c7e00eff6a98f5d49084db988b9bee9cab3338ee809d88e41318dc7ea7fb67ab8e8a923e4a9f193fecd7698ef92c0977e07ac850e10777bdd11cc25045d63bf@35.198.236.33:30303,enode://eb5079aae185d5d8afa01bfd2d349da5b476609aced2b57c90142556cf0ee4a152bcdd724627a7de97adfc2a68af5742a8f58781366e6a857d4bde98de6fe986@34.66.210.65:30303,enode://2294f526cbb7faa778192289c252307420532191438ce821d3c50232e019a797bda8c8f8541de0847e953bb03096123856935e32294de9814d15d120131499ba@34.72.186.213:30303 \
             --p2p.listen.ip 0.0.0.0 \
             --p2p.useragent taiko \
             --p2p.listen.tcp 4001
     ```
 
-      If you wish to set an ip to advertise publicly, you can append `--p2p.advertise.ip ${PUBLIC_IP}` to the above. If you instead want this done automatically, you can append `--p2p.nat` instead.
+    If you wish to set an ip to advertise publicly, you can append `--p2p.advertise.ip ${YOUR_EXTERNAL_IP}` to the above. If you instead want this done automatically, you can append `--p2p.nat` instead.
 
-    <Aside>
-    If you've participated in our old testnets, the L1 Node is no longer required to be an archive node!
-    </Aside>
+    We **highly recommend** that you set your external IP manually.
 </Steps>
+
+<Aside>
+  The method to find your external IP can differ depending on your setup. For a personal machine, `curl ifconfig.me` might suffice; if you are running your node through Kubernetes you will need to set a static IP for your LoadBalancer service as pod IPs change on recreation. If you run into issues doing this, please reach out to us on [Discord](https://discord.com/channels/984015101017346058/1117285651394600960)!
+</Aside>
+
+### Ensure that the relevant ports are open on your machine
+
+  Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following port on your device is open:
+    - `4001` OR whichever port you set `--p2p.listen.tcp` to.
+
+  This port **is required for p2p gossiping preconfirmed blocks**, so if you if it is not set you will only subscribe to the events that are emitted on chain.
 
 ### Syncing
 

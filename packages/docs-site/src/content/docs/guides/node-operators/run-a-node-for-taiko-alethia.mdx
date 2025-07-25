@@ -128,22 +128,38 @@ If you aren't, you can configure the ports and addresses so that the services ca
 
     ```bash
         ./bin/taiko-client driver \
-            --l1.ws ${L1_WS} \
-            --l1.beacon ${L1_BEACON_URL} \
-            --l2.ws ws://localhost:28546 \
-            --taikoL1 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a \
-            --taikoL2 0x1670000000000000000000000000000000010001 \
+            --l1.ws ${L1_ENDPOINT_WS} \
+            --l2.ws ws://l2_execution_engine:8546 \
+            --l1.beacon ${L1_BEACON_HTTP} \
+            --l2.auth http://l2_execution_engine:8551 \
+            --taikoInbox 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a \
+            --taikoAnchor 0x1670000000000000000000000000000000010001 \
+            --preconfirmation.whitelist 0xFD019460881e6EeC632258222393d5821029b2ac \
+            --preconfirmation.serverPort 9871 \
             --jwtSecret ./jwt.txt \
-            --l2.auth http://localhost:28551/ \
-            --verbosity 3 \
             --p2p.sync \
             --p2p.checkPointSyncUrl https://rpc.mainnet.taiko.xyz
+            --p2p.bootnodes enr:-J64QJBc_xYqNihi2YGH1kVu86WbbJnhSS3j5FvqzGeUco2wNuvKFRjnac0Rgt_dhXxMP5sWvWk_gzkFQmY_hSF3z4uGAZg-39MlgmlkgnY0gmlwhCKO7_uHb3BzdGFja4TYmAoAiXNlY3AyNTZrMaEDwmN0Gxd1nzhQ0k1n1sPLwwfHPhfYDGsSpjpHkqEFKdGDdGNwgg-hg3VkcILFaQ,enr:-J64QPL3oYpZ75230YMfbLfKcUEqlIyWW8-W4tsrY7c0iBMVWs6JF2Z723S7uFxPGIwBhqv3HTOix9xE8_ETZOmy-YiGAZg-3QnqgmlkgnY0gmlwhCP3n5yHb3BzdGFja4TYmAoAiXNlY3AyNTZrMaECLzfDr_2DJ0smL6KiWdMtQVEN1aSNbpFmlu_n8VmMs_mDdGNwgg-hg3VkcILQOA,enr:-J64QI3zcU780K_CEGyfoPyxZ50ZlSAwSgL4gdnFZwyiZURDMx2CR7PilARK9Ix7T495QsSkqfnhJL6N-UqoNwAUz-6GAZg-bEJ6gmlkgnY0gmlwhCJ-Wv-Hb3BzdGFja4TYmAoAiXNlY3AyNTZrMaEC3YPe3v9iLs_KDF7fMgJmUGyBFTmlU93ZFYnN_Mm7102DdGNwgg-hg3VkcIKjsQ \
+            --p2p.listen.ip 0.0.0.0 \
+            --p2p.useragent taiko \
+            --p2p.listen.tcp 4001
     ```
 
-    <Aside>
-    If you've participated in our old testnets, the L1 Node is no longer required to be an archive node!
-    </Aside>
+    If you wish to set an ip to advertise publicly, you can append `--p2p.advertise.ip ${YOUR_EXTERNAL_IP}` to the above. If you instead want this done automatically, you can append `--p2p.nat` instead.
+
+    We **highly recommend** that you set your external IP manually.
 </Steps>
+
+<Aside>
+    The method to find your external IP can differ depending on your setup. For a personal machine, `curl ifconfig.me` might suffice; if you are running your node through Kubernetes you will need to set a static IP for your LoadBalancer service as pod IPs change on recreation. If you run into issues doing this, please reach out to us on [Discord](https://discord.com/channels/984015101017346058/1117285651394600960)!
+</Aside>
+
+### Ensure that the relevant ports are open on your machine
+
+  Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following port on your device is open:
+    - `4001` OR whichever port you set `--p2p.listen.tcp` to.
+
+  This port **is required for p2p gossiping preconfirmed blocks**, so if you if it is not set you will only subscribe to the events that are emitted on chain.
 
 ### Syncing
 

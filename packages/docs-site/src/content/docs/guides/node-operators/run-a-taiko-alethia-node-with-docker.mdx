@@ -95,11 +95,22 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
 
 5. Set the profiles you want to run
 
-    In your `.env`, please set `COMPOSE_PROFILES` to whichever set of services you'd like to run in a comma separated list (i.e., `l2_execution_engine,proposer,prover` or any combination of the three).
+    In your `.env`, please set `COMPOSE_PROFILES` to whichever set of services you'd like to run in a comma separated list (i.e., `l2_execution_engine,prover` or any combination of the three).
 
-    Note that if you include `proposer` or `prover`, the services will still be disabled if you do not set `ENABLE_PROPOSER=true` or `ENABLE_PROVER=true` respectively.
+    Note that if you include `prover`, the service will still be disabled if you do not set `ENABLE_PROVER=true` in your `.env` file.
 
-6. Start the node
+6. Ensure that the relevant ports are open on your machine
+
+    Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following port on your device is open:
+    - `4001` OR whichever port you set `P2P_LISTEN_TCP_PORT` to.
+
+    This port is required for p2p gossiping the preconfirmed blocks, so if you if it is not set you will only subscribe to the events that are emitted on chain.
+
+7. Set your node's external IP for p2p discovery
+
+    This is an important config for based preconfirmations. Find your machine's external IP and set `PUBLIC_IP={EXTERNAL_IP}` in your `.env` file. You may choose to leave it blank, in which case our scripts will enable `p2p.nat` in your driver; this means that you will automatically enable NAT traversal with PMP/UPNP devices to learn external IP. This is not preferred, and we highly recommend you manually set the `PUBLIC_IP` for discovery.
+
+8. Start the node
 
     <Aside title="Info">
     Make sure Docker is running and then run the following command to start the node (you may need to use `sudo docker compose up -d` if your user is not in the `docker` group):
@@ -111,7 +122,7 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
     docker compose up -d
     ```
 
-7. Verify node is running
+9. Verify node is running
 
     #### Option 1: Check with the node dashboard
 
