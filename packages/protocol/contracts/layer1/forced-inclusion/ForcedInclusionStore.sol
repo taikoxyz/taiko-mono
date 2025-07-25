@@ -86,7 +86,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
         ForcedInclusion memory inclusion = ForcedInclusion({
             blobHash: blobHash,
-            feeInGwei: uint64(msg.value / 1 gwei),
+            feeInGwei: feeInGwei,
             createdAtBatchId: _nextBatchId(),
             blobByteOffset: blobByteOffset,
             blobByteSize: blobByteSize,
@@ -139,6 +139,14 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     function isOldestForcedInclusionDue() external view returns (bool) {
         uint256 deadline = getOldestForcedInclusionDeadline();
         return deadline != type(uint256).max && _nextBatchId() >= deadline;
+    }
+
+    /// @dev Check if the oldest forced inclusion is due for a specific batch id.
+    /// @param _batchId The batch id to check.
+    /// @return True if the oldest forced inclusion is due for the specified batch id, false otherwise.
+    function isOldestForcedInclusionDue(uint64 _batchId) external view returns (bool) {
+        uint256 deadline = getOldestForcedInclusionDeadline();
+        return deadline != type(uint256).max && _batchId >= deadline;
     }
 
     // @dev Override this function for easier testing blobs

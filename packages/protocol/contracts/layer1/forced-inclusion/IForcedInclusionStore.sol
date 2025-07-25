@@ -30,6 +30,8 @@ interface IForcedInclusionStore {
     error NoForcedInclusionFound();
     /// @dev Error thrown when a function is called more than once in one transaction.
     error MultipleCallsInOneTx();
+    /// @dev Error thrown when the forced inclusion validation fails when processing it.
+    error InvalidForcedInclusion();
 
     /// @dev Retrieve a forced inclusion request by its index.
     /// @param index The index of the forced inclusion request in the queue.
@@ -40,9 +42,16 @@ interface IForcedInclusionStore {
     /// @return The deadline for the oldest forced inclusion.
     function getOldestForcedInclusionDeadline() external view returns (uint256);
 
+    /// @dev DEPRECATED: Use `isOldestForcedInclusionDue(uint64 _batchId)` instead.
     /// @dev Check if the oldest forced inclusion is due.
     /// @return True if the oldest forced inclusion is due, false otherwise.
     function isOldestForcedInclusionDue() external view returns (bool);
+
+    /// @dev Check if the oldest forced inclusion is due for a specific batch id.
+    /// @param _batchId The batch id to check.
+    /// @return True if the oldest forced inclusion is due for the specified batch id, false otherwise.
+    function isOldestForcedInclusionDue(uint64 _batchId) external view returns (bool);
+
 
     /// @dev Consume a forced inclusion request.
     /// The inclusion request must be marked as processed and the priority fee must be paid to the

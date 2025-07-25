@@ -313,8 +313,6 @@ library LibValidate {
             require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
             if (_batch.blobs.numBlobs != 0) revert InvalidBlobParams();
             if (_batch.blobs.firstBlobIndex != 0) revert InvalidBlobParams();
-            // TODO: think if there's a better place to run this validations
-            _validateForcedInclusionBatch(_batch);
             return _batch.blobs.createdIn;
         }
     }
@@ -349,22 +347,6 @@ library LibValidate {
 
             txsHash_ = keccak256(abi.encode(blobHashes_));
         }
-    }
-
-     /// @dev Validates a forced inclusion batch follows all required rules
-    /// @param _batch The batch to validate as forced inclusion
-    function _validateForcedInclusionBatch(I.Batch memory _batch) private pure {
-        // Batch level validation
-        require(_batch.isForcedInclusion, InvalidForcedInclusion());
-        require(_batch.blocks.length == 1, InvalidForcedInclusion());
-        require(_batch.blobs.hashes.length == 1, InvalidForcedInclusion());
-        require(_batch.gasIssuancePerSecond == 0, InvalidForcedInclusion());
-
-        // Block level validation
-        require(_batch.blocks[0].numTransactions == type(uint16).max, InvalidForcedInclusion());
-        require(_batch.blocks[0].timeShift == 0, InvalidForcedInclusion());
-        require(_batch.blocks[0].anchorBlockId == 0, InvalidForcedInclusion());
-        require(_batch.blocks[0].signalSlots.length == 0, InvalidForcedInclusion());
     }
 
     // -------------------------------------------------------------------------

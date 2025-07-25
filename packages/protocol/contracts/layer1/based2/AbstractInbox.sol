@@ -94,8 +94,22 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         ) = bindings.decodeProposeBatchesInputs(_inputs);
         I.Config memory config = _getConfig();
 
+        // Capture the starting batch ID before proposal
+        uint48 nextBatchId = summary.nextBatchId;
+
         // Propose batches
         summary = LibPropose.propose(bindings, config, summary, batches, evidence);
+
+        // It is ok to pass the `nextBatchId` here because we already validated it
+        if (forcedStore.isOldestForcedInclusionDue(nextBatchId)) {
+
+            IForcedInclusionStore.ForcedInclusion memory processed =
+                forcedStore.consumeOldestForcedInclusion(msg.sender);
+
+            _validateForcedInclusionBatch(batches[0], processed);
+
+            emit IForcedInclusionStore.ForcedInclusionConsumed(processed);
+        }
 
         // Verify batches
         summary = LibVerify.verify(bindings, config, summary, transitionMetas);
@@ -434,6 +448,28 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     {
         if (_loadSummaryHash() != keccak256(_summaryEncoded)) revert SummaryMismatch();
         return _decodeSummary(_summaryEncoded);
+    }
+
+    /// @dev Validates a forced inclusion batch follows all required rules
+    /// @param _batch The batch to validate as forced inclusion
+    function _validateForcedInclusionBatch(I.Batch memory _batch, IForcedInclusionStore.ForcedInclusion memory _inclusion) private pure {
+        // Batch validation
+        require(_batch.isForcedInclusion, IForcedInclusionStore.InvalidForcedInclusion());
+        require(_batch.blocks.length == 1, IForcedInclusionStore.InvalidForcedInclusion());
+        require(_batch.blobs.hashes.length == 1, IForcedInclusionStore.InvalidForcedInclusion());
+        require(_batch.gasIssuancePerSecond == 0, IForcedInclusionStore.InvalidForcedInclusion());
+
+        // Block validation
+        require(_batch.blocks[0].numTransactions == type(uint16).max, IForcedInclusionStore.InvalidForcedInclusion());
+        require(_batch.blocks[0].timeShift == 0, IForcedInclusionStore.InvalidForcedInclusion());
+        require(_batch.blocks[0].anchorBlockId == 0, IForcedInclusionStore.InvalidForcedInclusion());
+        require(_batch.blocks[0].signalSlots.length == 0, IForcedInclusionStore.InvalidForcedInclusion());
+
+        // Blob validation
+        require(_batch.blobs.hashes[0] == _inclusion.blobHash, IForcedInclusionStore.InvalidForcedInclusion());
+        require(_batch.blobs.byteOffset == _inclusion.blobByteOffset, IForcedInclusionStore.InvalidForcedInclusion());
+        require(_batch.blobs.byteSize == _inclusion.blobByteSize, IForcedInclusionStore.InvalidForcedInclusion());
+        require(_batch.blobs.createdIn == _inclusion.blobCreatedIn, IForcedInclusionStore.InvalidForcedInclusion());
     }
 
     // -------------------------------------------------------------------------

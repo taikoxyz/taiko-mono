@@ -6,6 +6,7 @@ import "src/layer1/based/IProposeBatch.sol";
 import "./ForcedInclusionStore.sol";
 
 /// @title TaikoWrapper
+/// @dev DEPRECATED: Proposals are now handled directly by the new `Inbox` contract.
 /// @dev This contract is part of a delayed inbox implementation to enforce the inclusion of
 /// transactions.
 /// The current design is a simplified and can be improved with the following ideas:
