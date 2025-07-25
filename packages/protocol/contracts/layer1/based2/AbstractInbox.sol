@@ -103,12 +103,11 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         // It is ok to pass the `nextBatchId` here because we already validated it
         if (forcedStore.isOldestForcedInclusionDue(nextBatchId)) {
 
+            // We process the oldest forced inclusion first and then revert if the validation fails to avoid retrieving it first and then calling `consumeOldestForcedInclusion`
             IForcedInclusionStore.ForcedInclusion memory processed =
                 forcedStore.consumeOldestForcedInclusion(msg.sender);
 
             _validateForcedInclusionBatch(batches[0], processed);
-
-            emit IForcedInclusionStore.ForcedInclusionConsumed(processed);
         }
 
         // Verify batches
