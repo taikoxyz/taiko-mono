@@ -35,7 +35,9 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
         IPreconfWhitelist _whitelist,
         IForcedInclusionStore _forcedStore,
         address _fallbackPreconfer
-    ) AbstractInbox(_whitelist, _forcedStore, _fallbackPreconfer) { }
+    )
+        AbstractInbox(_whitelist, _forcedStore, _fallbackPreconfer)
+    { }
 
     // -------------------------------------------------------------------------
     // Bond Management Functions

@@ -24,7 +24,9 @@ abstract contract TaikoInbox is Inbox {
         IPreconfWhitelist _whitelist,
         IForcedInclusionStore _forcedStore,
         address _fallbackPreconfer
-    ) Inbox(_whitelist, _forcedStore, _fallbackPreconfer) { }
+    )
+        Inbox(_whitelist, _forcedStore, _fallbackPreconfer)
+    { }
 
     // -------------------------------------------------------------------------
     // Encoder Decoder Internal Functions Overrides

@@ -49,9 +49,9 @@ interface IForcedInclusionStore {
 
     /// @dev Check if the oldest forced inclusion is due for a specific batch id.
     /// @param _batchId The batch id to check.
-    /// @return True if the oldest forced inclusion is due for the specified batch id, false otherwise.
+    /// @return True if the oldest forced inclusion is due for the specified batch id, false
+    /// otherwise.
     function isOldestForcedInclusionDue(uint64 _batchId) external view returns (bool);
-
 
     /// @dev Consume a forced inclusion request.
     /// The inclusion request must be marked as processed and the priority fee must be paid to the

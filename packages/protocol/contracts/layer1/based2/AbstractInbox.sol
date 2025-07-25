@@ -27,9 +27,8 @@ import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
-
     error NotPreconfer();
-    
+
     IPreconfWhitelist public immutable whitelist;
     IForcedInclusionStore public immutable forcedStore;
     address public immutable fallbackPreconfer;
@@ -42,7 +41,9 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         IPreconfWhitelist _whitelist,
         IForcedInclusionStore _forcedStore,
         address _fallbackPreconfer
-    ) EssentialContract() {
+    )
+        EssentialContract()
+    {
         whitelist = _whitelist;
         forcedStore = _forcedStore;
         fallbackPreconfer = _fallbackPreconfer;
@@ -102,8 +103,8 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
 
         // It is ok to pass the `nextBatchId` here because we already validated it
         if (forcedStore.isOldestForcedInclusionDue(nextBatchId)) {
-
-            // We process the oldest forced inclusion first and then revert if the validation fails to avoid retrieving it first and then calling `consumeOldestForcedInclusion`
+            // We process the oldest forced inclusion first and then revert if the validation fails
+            // to avoid retrieving it first and then calling `consumeOldestForcedInclusion`
             IForcedInclusionStore.ForcedInclusion memory processed =
                 forcedStore.consumeOldestForcedInclusion(msg.sender);
 
@@ -451,7 +452,13 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
 
     /// @dev Validates a forced inclusion batch follows all required rules
     /// @param _batch The batch to validate as forced inclusion
-    function _validateForcedInclusionBatch(I.Batch memory _batch, IForcedInclusionStore.ForcedInclusion memory _inclusion) private pure {
+    function _validateForcedInclusionBatch(
+        I.Batch memory _batch,
+        IForcedInclusionStore.ForcedInclusion memory _inclusion
+    )
+        private
+        pure
+    {
         // Batch validation
         require(_batch.isForcedInclusion, IForcedInclusionStore.InvalidForcedInclusion());
         require(_batch.blocks.length == 1, IForcedInclusionStore.InvalidForcedInclusion());
@@ -459,16 +466,33 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         require(_batch.gasIssuancePerSecond == 0, IForcedInclusionStore.InvalidForcedInclusion());
 
         // Block validation
-        require(_batch.blocks[0].numTransactions == type(uint16).max, IForcedInclusionStore.InvalidForcedInclusion());
+        require(
+            _batch.blocks[0].numTransactions == type(uint16).max,
+            IForcedInclusionStore.InvalidForcedInclusion()
+        );
         require(_batch.blocks[0].timeShift == 0, IForcedInclusionStore.InvalidForcedInclusion());
         require(_batch.blocks[0].anchorBlockId == 0, IForcedInclusionStore.InvalidForcedInclusion());
-        require(_batch.blocks[0].signalSlots.length == 0, IForcedInclusionStore.InvalidForcedInclusion());
+        require(
+            _batch.blocks[0].signalSlots.length == 0, IForcedInclusionStore.InvalidForcedInclusion()
+        );
 
         // Blob validation
-        require(_batch.blobs.hashes[0] == _inclusion.blobHash, IForcedInclusionStore.InvalidForcedInclusion());
-        require(_batch.blobs.byteOffset == _inclusion.blobByteOffset, IForcedInclusionStore.InvalidForcedInclusion());
-        require(_batch.blobs.byteSize == _inclusion.blobByteSize, IForcedInclusionStore.InvalidForcedInclusion());
-        require(_batch.blobs.createdIn == _inclusion.blobCreatedIn, IForcedInclusionStore.InvalidForcedInclusion());
+        require(
+            _batch.blobs.hashes[0] == _inclusion.blobHash,
+            IForcedInclusionStore.InvalidForcedInclusion()
+        );
+        require(
+            _batch.blobs.byteOffset == _inclusion.blobByteOffset,
+            IForcedInclusionStore.InvalidForcedInclusion()
+        );
+        require(
+            _batch.blobs.byteSize == _inclusion.blobByteSize,
+            IForcedInclusionStore.InvalidForcedInclusion()
+        );
+        require(
+            _batch.blobs.createdIn == _inclusion.blobCreatedIn,
+            IForcedInclusionStore.InvalidForcedInclusion()
+        );
     }
 
     // -------------------------------------------------------------------------
