@@ -38,22 +38,23 @@ library LibPropose {
         returns (I.Summary memory)
     {
         unchecked {
-            require(_batches.length != 0, EmptyBatchArray());
+            if (_batches.length == 0) revert EmptyBatchArray();
 
             // Make sure the last verified batch is not overwritten by a new batch.
             // Assuming batchRingBufferSize = 100, right after genesis, we can propose up to 99
             // batches, the following requirement-statement will pass as:
             //  1 (nextBatchId) + 99 (_batches.length) <=
             //  0 (lastVerifiedBatchId) + 100 (batchRingBufferSize)
-            require(
+            if (
                 _summary.nextBatchId + _batches.length
-                    <= _summary.lastVerifiedBatchId + _config.batchRingBufferSize,
-                BatchLimitExceeded()
-            );
+                    > _summary.lastVerifiedBatchId + _config.batchRingBufferSize
+            ) {
+                revert BatchLimitExceeded();
+            }
 
-            require(
-                _summary.lastBatchMetaHash == LibData.hashBatch(_evidence), MetadataHashMismatch()
-            );
+            if (_summary.lastBatchMetaHash != LibData.hashBatch(_evidence)) {
+                revert MetadataHashMismatch();
+            }
 
             I.BatchProposeMetadata memory parentBatch = _evidence.proposeMeta;
 

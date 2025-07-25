@@ -38,8 +38,8 @@ library LibProve {
         returns (bytes32)
     {
         uint256 nBatches = _evidences.length;
-        require(nBatches != 0, NoBlocksToProve());
-        require(nBatches <= type(uint8).max, TooManyBatchesToProve());
+        if (nBatches == 0) revert NoBlocksToProve();
+        if (nBatches > type(uint8).max) revert TooManyBatchesToProve();
 
         bytes32[] memory ctxHashes = new bytes32[](nBatches);
         for (uint256 i; i < nBatches; ++i) {
@@ -67,21 +67,22 @@ library LibProve {
         private
         returns (bytes32)
     {
-        require(_input.tran.parentHash != 0, InvalidTransitionParentHash());
+        if (_input.tran.parentHash == 0) revert InvalidTransitionParentHash();
 
         // During batch proposal, we ensured that blocks won't cross fork boundaries.
         // Therefore, we only need to verify the firstBlockId in the following check.
-        require(
-            LibForks.isBlocksInCurrentFork(
+        if (
+            !LibForks.isBlocksInCurrentFork(
                 _config, _input.proveMeta.firstBlockId, _input.proveMeta.firstBlockId
-            ),
-            BlocksNotInCurrentFork()
-        );
+            )
+        ) {
+            revert BlocksNotInCurrentFork();
+        }
 
         // Load and verify the batch metadata
         bytes32 batchMetaHash = _bindings.loadBatchMetaHash(_config, _input.tran.batchId);
 
-        require(batchMetaHash == LibData.hashBatch(_input), MetaHashNotMatch());
+        if (batchMetaHash != LibData.hashBatch(_input)) revert MetaHashNotMatch();
 
         bytes32 stateRoot = _input.tran.batchId % _config.stateRootSyncInternal == 0
             ? _input.tran.stateRoot

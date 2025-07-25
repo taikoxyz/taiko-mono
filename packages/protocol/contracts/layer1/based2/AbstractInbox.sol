@@ -405,7 +405,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         view
         returns (I.Summary memory)
     {
-        require(_loadSummaryHash() == keccak256(_summaryEncoded), SummaryMismatch());
+        if (_loadSummaryHash() != keccak256(_summaryEncoded)) revert SummaryMismatch();
         return _decodeSummary(_summaryEncoded);
     }
 
