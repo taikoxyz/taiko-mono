@@ -28,6 +28,21 @@ interface IBlobRefRegistry {
         external
         returns (bytes32 refHash_, BlobRef memory ref_);
 
+    /// @notice Validates blobs starting from a given index, constructs a ref object, and registers
+    /// the ref hash
+    /// @param _blobStartIndex The starting index of the blobs to retrieve
+    /// @param _numBlobs The number of blobs to retrieve starting from the start index
+    /// @return refHash_ The keccak256 hash of the encoded blob ref
+    /// @return ref_ The retrieved blob data including block number and blob hashes
+    /// @dev Should revert if any blob index is invalid or if no blobs are provided
+
+    function registerRef(
+        uint256 _blobStartIndex,
+        uint256 _numBlobs
+    )
+        external
+        returns (bytes32 refHash_, BlobRef memory ref_);
+
     /// @notice Validates blobs at given indices and return a ref object
     /// @param _blobIndices Array of blob indices to retrieve
     /// @return The blob data including block number and blob hashes

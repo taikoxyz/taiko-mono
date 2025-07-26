@@ -23,6 +23,22 @@ contract BlobRefRegistry is IBlobRefRegistry {
     }
 
     /// @inheritdoc IBlobRefRegistry
+    function registerRef(
+        uint256 _blobStartIndex,
+        uint256 _numBlobs
+    )
+        external
+        returns (bytes32 refHash_, BlobRef memory ref_)
+    {
+        uint256[] memory blobIndices = new uint256[](_numBlobs);
+        for (uint256 i = 0; i < _numBlobs; ++i) {
+            blobIndices[i] = _blobStartIndex + i;
+        }
+        ref_ = _getRef(blobIndices);
+        refHash_ = _registerRefHash(ref_);
+    }
+
+    /// @inheritdoc IBlobRefRegistry
     function getRef(uint256[] calldata _blobIndices) external view returns (BlobRef memory) {
         return _getRef(_blobIndices);
     }
@@ -48,7 +64,7 @@ contract BlobRefRegistry is IBlobRefRegistry {
     /// @dev Retrieves the blob ref for given blob indices
     /// @param _blobIndices The indices of the blobhashes to retrieve
     /// @return The blob ref constructed from the block's number and the list of blob hashes
-    function _getRef(uint256[] calldata _blobIndices) private view returns (BlobRef memory) {
+    function _getRef(uint256[] memory _blobIndices) private view returns (BlobRef memory) {
         uint256 nBlobs = _blobIndices.length;
         if (nBlobs == 0) revert EmptyBlobIndices();
 
