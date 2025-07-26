@@ -493,7 +493,7 @@ contract DeployProtocolOnL1 is DeployCapability {
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
             data: abi.encodeCall(PreconfWhitelist.init, (owner, 2, 2)),
-            registerTo: address(0)
+            registerTo: rollupResolver
         });
 
         // Initializable a forced inclusion store with a fake address for TaikoWrapper at first,
