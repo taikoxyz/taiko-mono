@@ -10,13 +10,13 @@ import { IInbox as I } from "../IInbox.sol";
 library LibCodecProposeBatchInputs {
     /// @notice Encodes propose batches inputs into bytes
     /// @param _summary The summary
-    /// @param _batches The batches array
+    /// @param _batch The batch
     /// @param _evidence The evidence
     /// @param _transitionMetas The transition metas array
     /// @return _ The encoded data
     function encode(
         I.Summary memory _summary,
-        I.Batch[] memory _batches,
+        I.Batch memory _batch,
         I.ProposeBatchEvidence memory _evidence,
         I.TransitionMeta[] memory _transitionMetas
     )
@@ -24,13 +24,13 @@ library LibCodecProposeBatchInputs {
         pure
         returns (bytes memory)
     {
-        return abi.encode(_summary, _batches, _evidence, _transitionMetas);
+        return abi.encode(_summary, _batch, _evidence, _transitionMetas);
     }
 
     /// @notice Decodes bytes into propose batches inputs
     /// @param _data The encoded data
     /// @return _summary The decoded summary
-    /// @return _batches The decoded batches
+    /// @return _batch The decoded batch
     /// @return _evidence The decoded evidence
     /// @return _transitionMetas The decoded transition metas
     function decode(bytes memory _data)
@@ -38,12 +38,12 @@ library LibCodecProposeBatchInputs {
         pure
         returns (
             I.Summary memory _summary,
-            I.Batch[] memory _batches,
+            I.Batch memory _batch,
             I.ProposeBatchEvidence memory _evidence,
             I.TransitionMeta[] memory _transitionMetas
         )
     {
-        (_summary, _batches, _evidence, _transitionMetas) =
-            abi.decode(_data, (I.Summary, I.Batch[], I.ProposeBatchEvidence, I.TransitionMeta[]));
+        (_summary, _batch, _evidence, _transitionMetas) =
+            abi.decode(_data, (I.Summary, I.Batch, I.ProposeBatchEvidence, I.TransitionMeta[]));
     }
 }

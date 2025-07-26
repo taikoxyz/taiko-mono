@@ -382,8 +382,8 @@ interface IInbox {
     /// @notice Emitted when a new batch is proposed
     /// @param batchId The unique identifier of the proposed batch
     /// @param context The batch context data encoded as bytes
-    /// TODO(daniel): propose4's `inputs` calldata not emitted in this event.
-    event Proposed(uint256 indexed batchId, bytes context);
+    /// @param inputs The inputs to the propose function.
+    event Proposed(uint48 batchId, bytes context, bytes inputs);
 
     /// @notice Emitted when a batch transition is proven
     /// @param batchId The unique identifier of the proven batch
@@ -398,7 +398,7 @@ interface IInbox {
 
     /// @notice Proposes and verifies batches
     /// @param _inputs The inputs to propose and verify batches that can be decoded into (I.Summary
-    /// memory, I.Batch[] memory, I.ProposeBatchEvidence memory, I.TransitionMeta[] memory)
+    /// memory, I.Batch memory, I.ProposeBatchEvidence memory, I.TransitionMeta[] memory)
     /// @return The updated summary
     function propose4(bytes calldata _inputs) external returns (Summary memory);
 

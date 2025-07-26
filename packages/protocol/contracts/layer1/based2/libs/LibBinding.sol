@@ -57,7 +57,8 @@ library LibBinding {
         function(I.Summary memory) pure returns (bytes memory) encodeSummary;
         // Decoding functions -----------------------------------------------------
         function(bytes memory) pure returns (
-            I.Summary memory, I.Batch[] memory,
+            I.Summary memory,
+            I.Batch memory,
             I.ProposeBatchEvidence memory,
             I.TransitionMeta[] memory) decodeProposeBatchesInputs;
         function(bytes memory) pure returns (I.ProverAuth memory) decodeProverAuth;

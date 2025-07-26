@@ -63,7 +63,7 @@ abstract contract TaikoInbox is Inbox {
         override
         returns (
             I.Summary memory,
-            I.Batch[] memory,
+            I.Batch memory,
             I.ProposeBatchEvidence memory,
             I.TransitionMeta[] memory
         )
