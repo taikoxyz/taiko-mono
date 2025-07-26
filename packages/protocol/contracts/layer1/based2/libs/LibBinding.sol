@@ -23,6 +23,9 @@ library LibBinding {
         /// @notice Checks if a signal has been sent
         /// @dev Assume 1 SLOAD is needed
         function(I.Config memory, bytes32) view returns (bool) isSignalSent;
+        /// @notice Checks if a BlobRefHash was registered
+        /// @dev 1 SLOAD is needed
+        function (I.Config memory, bytes32) view returns (bool) isBlobRefRegistered;
         /// @notice Gets the blob hash for a given index
         function(uint256) view returns (bytes32) getBlobHash;
         /// @notice Gets a block's hash

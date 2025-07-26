@@ -7,6 +7,28 @@ pragma solidity ^0.8.24;
 ///      based rollup protocol without tier-based proof system
 /// @custom:security-contact security@taiko.xyz
 interface IInbox {
+    /// @notice Enumeration for proof submission timing
+    /// @dev Determines the validation rules and rewards for proof submission
+    enum ProofTiming {
+        /// @notice Proof submitted after extended proving window expired
+        OutOfExtendedProvingWindow,
+        /// @notice Proof submitted within normal proving window
+        InProvingWindow,
+        /// @notice Proof submitted within extended proving window
+        InExtendedProvingWindow
+    }
+
+    /// @notice Enumeration for supported compression algorithms
+    /// @dev Used to specify the compression algorithm for blob data
+    enum CompressionAlgo {
+        /// @notice ZLibrary (ZLIB) compression algorithm
+        ZLibrary,
+        /// @notice Zstandard compression (ZSTD) algorithm with level 3
+        Zstandard3,
+        /// @notice Zstandard compression (ZSTD) algorithm with level 5
+        Zstandard5
+    }
+
     /// @notice Represents a block within a batch
     /// @dev Contains block-specific parameters and anchor information
     struct Block {
@@ -44,6 +66,43 @@ interface IInbox {
         uint48 createdIn;
     }
 
+    /// @notice Represents the details of new blobs created in the current transaction.
+    struct LocalBlobs {
+        /// @notice The index of the first blob in this batch, used for blob index mode.
+        uint8 firstBlobIndex;
+        /// @notice The total number of blobs in this batch.
+        /// @dev Blobs are stored in a concatenated form and can be decompressed.
+        uint8 numBlobs;
+    }
+
+    /// @notice Represents the origin of blobs, indicating whether they are newly created or
+    /// referenced.
+    struct BlobsSource {
+        /// @notice This is a hash that identifies blobs created in a previous transaction, which
+        /// have been registered in the BlobRefRegistry.
+        /// @dev The hash is verified through the BlobRefRegistry, except when the source contract
+        /// is trusted, such as in the case of Taiko's forced inclusion store.
+        bytes32 blobRefHash;
+        /// @notice Details of new blobs created in this transaction. This is applicable only when
+        /// blobRefHash is zero.
+        LocalBlobs localBlobs;
+    }
+
+    /// @notice Locator for proposed L2 transactions within a batch
+    /// @dev Contains information about the source of blobs, byte offsets, and compression algorithm
+    struct TxListLocator {
+        /// @notice The source information of the blobs, indicating their origin.
+        BlobsSource blobsSource;
+        /// @notice The byte offset indicating where the blob data starts within the batch.
+        /// @dev A uint24 can accommodate up to 128 blobs.
+        uint24 byteOffset;
+        /// @notice The total size of the blob data in bytes.
+        /// @dev A uint24 can accommodate up to 128 blobs.
+        uint24 byteSize;
+        /// @notice Algorithm used for compressing the transaction list.
+        CompressionAlgo compressionAlgo;
+    }
+
     /// @notice Represents a batch of blocks to be proposed
     /// @dev Contains all data needed for batch validation and processing
     struct Batch {
@@ -62,7 +121,9 @@ interface IInbox {
         /// @notice Array of blocks in this batch
         Block[] blocks;
         /// @notice Blob data for this batch
-        Blobs blobs;
+        Blobs blobs; // TODO(daniel): remove Blobs.
+        /// @notice Data to locate proposed L2 transactions
+        TxListLocator txListLocator;
     }
 
     /// @notice Output structure containing validated batch information
@@ -226,17 +287,6 @@ interface IInbox {
         bytes32 stateRoot;
     }
 
-    /// @notice Enumeration for proof submission timing
-    /// @dev Determines the validation rules and rewards for proof submission
-    enum ProofTiming {
-        /// @notice Proof submitted after extended proving window expired
-        OutOfExtendedProvingWindow,
-        /// @notice Proof submitted within normal proving window
-        InProvingWindow,
-        /// @notice Proof submitted within extended proving window
-        InExtendedProvingWindow
-    }
-
     /// @notice Metadata for a transition proof
     /// @dev Contains all information about a submitted transition proof
     struct TransitionMeta {
@@ -344,6 +394,8 @@ interface IInbox {
         address verifier;
         /// @notice Address of the signal service contract
         address signalService;
+        /// @notice Address of the BlobRefRegistry contract
+        address blobRefRegistry;
         /// @notice Delay before gas issuance updates take effect
         uint16 gasIssuanceUpdateDelay;
         /// @notice Percentage of base fee shared with validators (0-100)

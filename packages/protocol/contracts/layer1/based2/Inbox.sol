@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
+import "./blobs/IBlobRefRegistry.sol";
 import "./AbstractInbox.sol";
 import "./libs/LibBonds.sol";
 import "./libs/LibState.sol";
@@ -17,8 +18,8 @@ import "./IBondManager2.sol";
 /// The contract uses LibBonds for bond accounting and LibState for protocol state management.
 /// @custom:security-contact security@taiko.xyz
 abstract contract Inbox is AbstractInbox, IBondManager2 {
-    using LibBonds for I.State;
-    using LibState for I.State;
+    using LibBonds for State;
+    using LibState for State;
     using SafeERC20 for IERC20;
 
     /// @notice Protocol state storage
@@ -79,7 +80,7 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
 
     /// @inheritdoc AbstractInbox
     function _isSignalSent(
-        I.Config memory _conf,
+        Config memory _conf,
         bytes32 _signalSlot
     )
         internal
@@ -91,8 +92,21 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
     }
 
     /// @inheritdoc AbstractInbox
+    function _isBlobRefRegistered(
+        Config memory _conf,
+        bytes32 _refHash
+    )
+        internal
+        view
+        override
+        returns (bool)
+    {
+        return IBlobRefRegistry(_conf.blobRefRegistry).isRefRegistered(_refHash);
+    }
+
+    /// @inheritdoc AbstractInbox
     function _syncChainData(
-        I.Config memory _conf,
+        Config memory _conf,
         uint64 _blockId,
         bytes32 _stateRoot
     )
@@ -118,7 +132,7 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
     }
 
     /// @inheritdoc AbstractInbox
-    function _debitBond(I.Config memory _conf, address _user, uint256 _amount) internal override {
+    function _debitBond(Config memory _conf, address _user, uint256 _amount) internal override {
         LibBonds.debitBond($, _conf.bondToken, _user, _amount);
     }
 
@@ -139,7 +153,7 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
 
     /// @inheritdoc AbstractInbox
     function _loadTransitionMetaHash(
-        I.Config memory _conf,
+        Config memory _conf,
         bytes32 _lastVerifiedBlockHash,
         uint256 _batchId
     )
@@ -153,7 +167,7 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
 
     /// @inheritdoc AbstractInbox
     function _saveTransition(
-        I.Config memory _conf,
+        Config memory _conf,
         uint48 _batchId,
         bytes32 _parentHash,
         bytes32 _tranMetahash
@@ -167,7 +181,7 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
 
     /// @inheritdoc AbstractInbox
     function _loadBatchMetaHash(
-        I.Config memory _conf,
+        Config memory _conf,
         uint256 _batchId
     )
         internal
@@ -180,7 +194,7 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
 
     /// @inheritdoc AbstractInbox
     function _saveBatchMetaHash(
-        I.Config memory _conf,
+        Config memory _conf,
         uint256 _batchId,
         bytes32 _metaHash
     )
