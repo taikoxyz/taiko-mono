@@ -247,7 +247,8 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         // The operators within lookahead may have unregistered or been slashed in the
         // current epoch.
         require(
-            operatorData_.unregisteredAt == 0 || operatorData_.unregisteredAt > _timestamp,
+            operatorData_.unregisteredAt == type(uint48).max
+                || operatorData_.unregisteredAt > _timestamp,
             OperatorHasUnregistered()
         );
         require(
