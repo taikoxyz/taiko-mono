@@ -1817,7 +1817,7 @@ Consider using VRF like solutions to make `_rand` truly random.
 **[adaki2004 (Taiko) commented](https://github.com/code-423n4/2024-03-taiko-findings/issues/172#issuecomment-2034096641):**
 
 > Eventually we will have only 1 (1 "aggregated ZK multiproof") proof tier, which will be the default/min too. (Maybe keeping guardian for a while to be as a failsafe, but that one also cannot be "picked" with thispseudoe random calculation).
-> Also Taiko foundation will run a proposer node, so in case noone is willing to propose to avoid fees, we will, regardless of cost - at least until we reach the 1 tier maturity.
+> Also Taiko foundation will run a proposer node, so in case no one is willing to propose to avoid fees, we will, regardless of cost - at least until we reach the 1 tier maturity.
 
 **[genesiscrew (Warden) commented](https://github.com/code-423n4/2024-03-taiko-findings/issues/172#issuecomment-2048545898):**
 
