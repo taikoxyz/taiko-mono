@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./blobs/IBlobRefRegistry.sol";
-
 /// @title IInbox
 /// @notice Interface for the Taiko Alethia protocol inbox
 /// @dev Defines all data structures and function signatures for the simplified
