@@ -18,6 +18,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
@@ -25,6 +26,11 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
+
+type l2HeadUpdateInfo struct {
+	blockID   uint64
+	updatedAt time.Time
+}
 
 // Proposer keep proposing new transactions from L2 execution engine's tx pool at a fixed interval.
 type Proposer struct {
@@ -36,6 +42,8 @@ type Proposer struct {
 
 	// Private keys and account addresses
 	proposerAddress common.Address
+
+	preconfRouterAddress common.Address
 
 	proposingTimer *time.Timer
 
@@ -49,6 +57,9 @@ type Proposer struct {
 
 	lastProposedAt time.Time
 	totalEpochs    uint64
+
+	// Fallback proposer related
+	l2HeadUpdate l2HeadUpdateInfo
 
 	txmgrSelector *utils.TxMgrSelector
 
@@ -73,6 +84,9 @@ func (p *Proposer) InitFromConfig(
 	privateTxMgr *txmgr.SimpleTxManager,
 ) (err error) {
 	p.proposerAddress = crypto.PubkeyToAddress(cfg.L1ProposerPrivKey.PublicKey)
+
+	log.Info("Proposer address", "address", p.proposerAddress.Hex())
+
 	p.ctx = ctx
 	p.Config = cfg
 	p.lastProposedAt = time.Now()
@@ -136,6 +150,18 @@ func (p *Proposer) InitFromConfig(
 
 // Start starts the proposer's main loop.
 func (p *Proposer) Start() error {
+	// get chain head and set it  to start off in case there is no new L2Heads incoming
+	// for the detection of the fallback preconfer to propose.
+	head, err := p.rpc.L2.HeaderByNumber(p.ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get L2 head: %w", err)
+	}
+
+	p.l2HeadUpdate = l2HeadUpdateInfo{
+		blockID:   head.Number.Uint64(),
+		updatedAt: time.Now().UTC(),
+	}
+
 	p.wg.Add(1)
 	go p.eventLoop()
 	return nil
@@ -143,8 +169,13 @@ func (p *Proposer) Start() error {
 
 // eventLoop starts the main loop of Taiko proposer.
 func (p *Proposer) eventLoop() {
+	l2HeadCh := make(chan *types.Header, 10)
+	l2HeadSub := rpc.SubscribeChainHead(p.rpc.L2, l2HeadCh)
+
 	defer func() {
 		p.proposingTimer.Stop()
+		l2HeadSub.Unsubscribe()
+		close(l2HeadCh)
 		p.wg.Done()
 	}()
 
@@ -163,6 +194,11 @@ func (p *Proposer) eventLoop() {
 			if err := p.ProposeOp(p.ctx); err != nil {
 				log.Error("Proposing operation error", "error", err)
 				continue
+			}
+		case h := <-l2HeadCh:
+			p.l2HeadUpdate = l2HeadUpdateInfo{
+				blockID:   h.Number.Uint64(),
+				updatedAt: time.Now().UTC(),
 			}
 		}
 	}
@@ -235,19 +271,18 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 // from L2 execution engine's tx pool, splitting them by proposing constraints,
 // and then proposing them to TaikoInbox contract.
 func (p *Proposer) ProposeOp(ctx context.Context) error {
-	// Check if the preconfirmation router is set, if so, skip proposing.
-	preconfRouter, err := p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return fmt.Errorf("failed to fetch preconfirmation router: %w", err)
-	}
-	if preconfRouter != rpc.ZeroAddress {
-		log.Info("Preconfirmation router is set, skip proposing", "address", preconfRouter, "time", time.Now())
-		return nil
-	}
-
 	// Wait until L2 execution engine is synced at first.
 	if err := p.rpc.WaitTillL2ExecutionEngineSynced(ctx); err != nil {
 		return fmt.Errorf("failed to wait until L2 execution engine synced: %w", err)
+	}
+
+	ok, err := p.shouldPropose(ctx)
+
+	if err != nil {
+		return fmt.Errorf("failed to check if proposer should propose: %w", err)
+	} else if !ok {
+		log.Info("Proposer is not allowed to propose at this time, skipping")
+		return nil
 	}
 
 	// Check whether it's time to allow proposing empty pool content, if the `--epoch.minProposingInterval` flag is set.
@@ -362,7 +397,14 @@ func (p *Proposer) ProposeTxListPacaya(
 	}
 
 	// Build the transaction to propose batch.
-	txCandidate, err := p.txBuilder.BuildPacaya(ctx, txBatch, forcedInclusion, minTxsPerForcedInclusion, parentMetaHash)
+	txCandidate, err := p.txBuilder.BuildPacaya(
+		ctx,
+		txBatch,
+		forcedInclusion,
+		minTxsPerForcedInclusion,
+		parentMetaHash,
+		p.preconfRouterAddress,
+	)
 	if err != nil {
 		log.Warn("Failed to build TaikoInbox.proposeBatch transaction", "error", encoding.TryParsingCustomError(err))
 		return err
@@ -448,4 +490,69 @@ func (p *Proposer) GetParentMetaHash(ctx context.Context) (common.Hash, error) {
 	}
 
 	return batch.MetaHash, nil
+}
+
+func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
+	preconfRouterAddr, err := p.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch preconfirmation router: %w", err)
+	}
+	if preconfRouterAddr == rpc.ZeroAddress {
+		// No pre‑confirmation router → propose as normal.
+		p.rpc.PacayaClients.PreconfRouter = nil
+		p.preconfRouterAddress = rpc.ZeroAddress
+	} else {
+		p.preconfRouterAddress = preconfRouterAddr
+		// if we havent set the preconfRouter, do so now.
+		if p.rpc.PacayaClients.PreconfRouter == nil {
+			p.rpc.PacayaClients.PreconfRouter, err = pacayaBindings.NewPreconfRouter(preconfRouterAddr, p.rpc.L1)
+			if err != nil {
+				return false, fmt.Errorf("failed to create preconfirmation router: %w", err)
+			}
+		}
+
+		// check the fallback address
+		fallbackPreconferAddress, err := p.rpc.PacayaClients.PreconfRouter.FallbackPreconfer(
+			&bind.CallOpts{
+				Context: ctx,
+			},
+		)
+		if err != nil {
+			return false, fmt.Errorf("failed to get fallback preconfer address: %w", err)
+		}
+
+		// it needs to be either us, or the proverSet we propose through
+		if fallbackPreconferAddress != p.proposerAddress && fallbackPreconferAddress != p.ProverSetAddress {
+			log.Info("Preconfirmation is activated and proposer isn't the fallback preconfer, skip proposing",
+				"time",
+				time.Now(),
+			)
+			return false, nil
+		}
+
+		// we need to check when the l2Head was last updated.
+		if time.Since(p.l2HeadUpdate.updatedAt.UTC()) < p.FallbackTimeout {
+			log.Info("Fallback timeout not reached, skip proposing",
+				"l2HeadUpdate", p.l2HeadUpdate.updatedAt.UTC(),
+				"l2HeadUpdate", p.l2HeadUpdate.blockID,
+				"now", time.Now().UTC(),
+				"fallbackTimeout", p.FallbackTimeout,
+			)
+			return false, nil
+		} else {
+			log.Info("Fallback timeout reached, proposer can propose",
+				"l2HeadUpdate", p.l2HeadUpdate.updatedAt.UTC(),
+				"now", time.Now().UTC(),
+				"fallbackTimeout", p.FallbackTimeout,
+				"blockID", p.l2HeadUpdate.blockID,
+			)
+			// reset the l2HeadUpdate to avoid proposing too often.
+			p.l2HeadUpdate = l2HeadUpdateInfo{
+				blockID:   0,
+				updatedAt: time.Now().UTC(),
+			}
+		}
+	}
+
+	return true, nil
 }
