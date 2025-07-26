@@ -7,6 +7,28 @@ pragma solidity ^0.8.24;
 ///      based rollup protocol without tier-based proof system
 /// @custom:security-contact security@taiko.xyz
 interface IInbox {
+    /// @notice Enumeration for proof submission timing
+    /// @dev Determines the validation rules and rewards for proof submission
+    enum ProofTiming {
+        /// @notice Proof submitted after extended proving window expired
+        OutOfExtendedProvingWindow,
+        /// @notice Proof submitted within normal proving window
+        InProvingWindow,
+        /// @notice Proof submitted within extended proving window
+        InExtendedProvingWindow
+    }
+
+    /// @notice Enumeration for supported compression algorithms
+    /// @dev Used to specify the compression algorithm for blob data
+    enum CompressionAlgo {
+        /// @notice ZLibrary (ZLIB) compression algorithm
+        ZLibrary,
+        /// @notice Zstandard compression (ZSTD) algorithm with level 3
+        Zstandard3,
+        /// @notice Zstandard compression (ZSTD) algorithm with level 5
+        Zstandard5
+    }
+
     /// @notice Represents a block within a batch
     /// @dev Contains block-specific parameters and anchor information
     struct Block {
@@ -66,6 +88,8 @@ interface IInbox {
         LocalBlobs localBlobs;
     }
 
+    /// @notice Locator for proposed L2 transactions within a batch
+    /// @dev Contains information about the source of blobs, byte offsets, and compression algorithm
     struct TxListLocator {
         /// @notice The source information of the blobs, indicating their origin.
         BlobsSource blobsSource;
@@ -75,6 +99,8 @@ interface IInbox {
         /// @notice The total size of the blob data in bytes.
         /// @dev A uint24 can accommodate up to 128 blobs.
         uint24 byteSize;
+        /// @notice Algorithm used for compressing the transaction list.
+        CompressionAlgo compressionAlgo;
     }
 
     /// @notice Represents a batch of blocks to be proposed
@@ -259,17 +285,6 @@ interface IInbox {
         bytes32 blockHash;
         /// @notice New state root after this transition
         bytes32 stateRoot;
-    }
-
-    /// @notice Enumeration for proof submission timing
-    /// @dev Determines the validation rules and rewards for proof submission
-    enum ProofTiming {
-        /// @notice Proof submitted after extended proving window expired
-        OutOfExtendedProvingWindow,
-        /// @notice Proof submitted within normal proving window
-        InProvingWindow,
-        /// @notice Proof submitted within extended proving window
-        InExtendedProvingWindow
     }
 
     /// @notice Metadata for a transition proof
