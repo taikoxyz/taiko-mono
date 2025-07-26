@@ -55,7 +55,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         external
         override(I, IPropose)
         nonReentrant
-        returns (I.Summary memory)
+        returns (Summary memory)
     {
         LibBinding.Bindings memory bindings = _getBindings();
 
@@ -116,7 +116,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     )
         external
         pure
-        returns (I.BatchMetadata memory meta_)
+        returns (BatchMetadata memory meta_)
     {
         return LibData.buildBatchMetadata(_proposedIn, _proposedAt, _batch, _context);
     }
@@ -150,8 +150,21 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @param _signalSlot The signal slot
     /// @return Whether the signal was sent
     function _isSignalSent(
-        I.Config memory _conf,
+        Config memory _conf,
         bytes32 _signalSlot
+    )
+        internal
+        view
+        virtual
+        returns (bool);
+
+    /// @notice Checks if a blob reference hash is registered
+    /// @param _conf The configuration
+    /// @param _blobRefHash The blob reference hash to check
+    /// @return Whether the blob reference is registered
+    function _isBlobRefRegistered(
+        Config memory _conf,
+        bytes32 _blobRefHash
     )
         internal
         view
@@ -163,7 +176,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @param _blockId The block ID
     /// @param _stateRoot The state root
     function _syncChainData(
-        I.Config memory _conf,
+        Config memory _conf,
         uint64 _blockId,
         bytes32 _stateRoot
     )
@@ -174,7 +187,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @param _conf The configuration
     /// @param _user The user address
     /// @param _amount The amount to debit
-    function _debitBond(I.Config memory _conf, address _user, uint256 _amount) internal virtual;
+    function _debitBond(Config memory _conf, address _user, uint256 _amount) internal virtual;
 
     /// @notice Credits bond to a user
     /// @param _user The user address
@@ -208,7 +221,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @param _batchId The batch ID
     /// @return The batch metadata hash
     function _loadBatchMetaHash(
-        I.Config memory _conf,
+        Config memory _conf,
         uint256 _batchId
     )
         internal
@@ -263,7 +276,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @notice Encodes a batch context
     /// @param _context The batch context to encode
     /// @return The encoded batch context
-    function _encodeBatchContext(I.BatchContext memory _context)
+    function _encodeBatchContext(BatchContext memory _context)
         internal
         pure
         virtual
@@ -275,7 +288,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @notice Encodes transition metas
     /// @param _transitionMetas The transition metas to encode
     /// @return The encoded transition metas
-    function _encodeTransitionMetas(I.TransitionMeta[] memory _transitionMetas)
+    function _encodeTransitionMetas(TransitionMeta[] memory _transitionMetas)
         internal
         pure
         virtual
@@ -284,12 +297,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         return abi.encode(_transitionMetas);
     }
 
-    function _encodeSummary(I.Summary memory _summary)
-        internal
-        pure
-        virtual
-        returns (bytes memory)
-    {
+    function _encodeSummary(Summary memory _summary) internal pure virtual returns (bytes memory) {
         return abi.encode(_summary);
     }
 
@@ -307,29 +315,29 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
             I.TransitionMeta[] memory
         )
     {
-        return abi.decode(_data, (I.Summary, I.Batch[], I.ProposeBatchEvidence, I.TransitionMeta[]));
+        return abi.decode(_data, (Summary, I.Batch[], I.ProposeBatchEvidence, I.TransitionMeta[]));
     }
 
     function _decodeProverAuth(bytes memory _data)
         internal
         pure
         virtual
-        returns (I.ProverAuth memory)
+        returns (ProverAuth memory)
     {
-        return abi.decode(_data, (I.ProverAuth));
+        return abi.decode(_data, (ProverAuth));
     }
 
-    function _decodeSummary(bytes memory _data) internal pure virtual returns (I.Summary memory) {
-        return abi.decode(_data, (I.Summary));
+    function _decodeSummary(bytes memory _data) internal pure virtual returns (Summary memory) {
+        return abi.decode(_data, (Summary));
     }
 
     function _decodeProveBatchesInputs(bytes memory _data)
         internal
         pure
         virtual
-        returns (I.ProveBatchInput[] memory)
+        returns (ProveBatchInput[] memory)
     {
-        return abi.decode(_data, (I.ProveBatchInput[]));
+        return abi.decode(_data, (ProveBatchInput[]));
     }
 
     /// @notice Decodes a batch context
@@ -377,6 +385,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
             // Read functions
             loadBatchMetaHash: _loadBatchMetaHash,
             isSignalSent: _isSignalSent,
+            isBlobRefRegistered: _isBlobRefRegistered,
             getBlobHash: _getBlobHash,
             getBlockHash: _getBlockHash,
             loadTransitionMetaHash: _loadTransitionMetaHash,
@@ -402,7 +411,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     function _validateSummary(bytes memory _summaryEncoded)
         private
         view
-        returns (I.Summary memory summary_)
+        returns (Summary memory summary_)
     {
         summary_ = _decodeSummary(_summaryEncoded);
         if (_loadSummaryHash() != keccak256(abi.encode(summary_))) revert SummaryMismatch();

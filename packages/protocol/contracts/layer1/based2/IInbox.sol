@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "./blobs/IBlobRefRegistry.sol";
+
 /// @title IInbox
 /// @notice Interface for the Taiko Alethia protocol inbox
 /// @dev Defines all data structures and function signatures for the simplified
@@ -44,6 +46,39 @@ interface IInbox {
         uint48 createdIn;
     }
 
+    /// @notice Represents the details of new blobs created in the current transaction.
+    struct LocalBlobs {
+        /// @notice The index of the first blob in this batch, used for blob index mode.
+        uint8 firstBlobIndex;
+        /// @notice The total number of blobs in this batch.
+        /// @dev Blobs are stored in a concatenated form and can be decompressed.
+        uint8 numBlobs;
+    }
+
+    /// @notice Represents the origin of blobs, indicating whether they are newly created or
+    /// referenced.
+    struct BlobsSource {
+        /// @notice This is a hash that identifies blobs created in a previous transaction, which
+        /// have been registered in the BlobRefRegistry.
+        /// @dev The hash is verified through the BlobRefRegistry, except when the source contract
+        /// is trusted, such as in the case of Taiko's forced inclusion store.
+        bytes32 blobRefHash;
+        /// @notice Details of new blobs created in this transaction. This is applicable only when
+        /// blobRefHash is zero.
+        LocalBlobs localBlobs;
+    }
+
+    struct TxListLocator {
+        /// @notice The source information of the blobs, indicating their origin.
+        BlobsSource blobsSource;
+        /// @notice The byte offset indicating where the blob data starts within the batch.
+        /// @dev A uint24 can accommodate up to 128 blobs.
+        uint24 byteOffset;
+        /// @notice The total size of the blob data in bytes.
+        /// @dev A uint24 can accommodate up to 128 blobs.
+        uint24 byteSize;
+    }
+
     /// @notice Represents a batch of blocks to be proposed
     /// @dev Contains all data needed for batch validation and processing
     struct Batch {
@@ -62,7 +97,9 @@ interface IInbox {
         /// @notice Array of blocks in this batch
         Block[] blocks;
         /// @notice Blob data for this batch
-        Blobs blobs;
+        Blobs blobs; // TODO(daniel): remove Blobs.
+        /// @notice Data to locate proposed L2 transactions
+        TxListLocator txListLocator;
     }
 
     /// @notice Output structure containing validated batch information
@@ -344,6 +381,8 @@ interface IInbox {
         address verifier;
         /// @notice Address of the signal service contract
         address signalService;
+        /// @notice Address of the BlobRefRegistry contract
+        address blobRefRegistry;
         /// @notice Delay before gas issuance updates take effect
         uint16 gasIssuanceUpdateDelay;
         /// @notice Percentage of base fee shared with validators (0-100)
