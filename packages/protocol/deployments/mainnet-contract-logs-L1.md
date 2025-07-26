@@ -323,12 +323,13 @@
 
 #### risc0_groth16_verifier
 
-- impl: `0xfB3Ca570A5348FD101e65303eECdB5Bf43C5548a`
+- impl: `0x34eda8bffb539aec33078819847b36d221c6641c`
 - logs:
   - deployed on Nov 6, 2024 @commit`bfb0386`
   - deployed on Jan 13, 2025 @commit`a58852f`
   - deployed on Jan 13, 2025 @commit`e0805e3`
   - deployed on Jun 11, 2025 at commit `9dfb5b9`
+  - deployed on Jul 21, 2025 at commit `92ad14e`
 
 #### sp1_remote_verifier
 
@@ -457,8 +458,6 @@
   - signal_service: `0x9e0a24964e5397B566c1ed39258e21aB5E35C77C`
   - bridge: `0xd60247c6848B7Ca29eDdF63AA924E53dB6Ddd8EC`
   - taiko: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-  - risc0_groth16_verifier: `0x48E32eFbe22e180A3FFe617f4955cD83B983dd98`
-  - sp1_remote_verifier: `0xff5adab685362dc4c33536a65af5873738d1216b`
   - automata_dcap_attestation: `0x8d7C954960a36a7596d7eA4945dDf891967ca8A3`
   - prover_set: `0xB8826B144eB895eFE2923b61b3b117B1298A9526`
   - sgx_geth_automata: `0x0ffa4A625ED9DB32B70F99180FD00759fc3e9261`
@@ -504,11 +503,12 @@
 ### risc0_reth_verifier(Pacaya)
 
 - proxy : `0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE`
-- impl : `0xfB3Ca570A5348FD101e65303eECdB5Bf43C5548a`
+- impl : `0x3dEF88e306E449c6Abf9AaD8038C95d11Bb0b614`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0x8480ac4bcdf12dedf9c79bed7407bd290670d9fe9c867c5354e574c56c5ff48b`
   - upgraded on Jun 11, 2025 at commit `9dfb5b9` @tx `0x2b9250ebdcf10b1a1ec658e5cc9e7fd9aa19dd32573e6ab5bc036499682dea3a`
+  - upgraded on Jul 21, 2025 at commit `92ad14e` @tx `0x95d0cfffe42dc984ce8b24104a28d1083100ab638bb4fe396d1a145c17460db9`
 
 ### sp1_reth_verifier(Pacaya)
 
