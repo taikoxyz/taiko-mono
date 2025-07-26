@@ -20,7 +20,6 @@ contract BlobRefRegistry is IBlobRefRegistry {
     {
         ref_ = _getRef(_blobIndices);
         refHash_ = _registerRefHash(ref_);
-        emit Registered(refHash_, ref_);
     }
 
     /// @inheritdoc IBlobRefRegistry
