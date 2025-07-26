@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.8.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.7.0...taiko-alethia-client-v1.8.0) (2025-07-25)
+
+
+### Features
+
+* **taiko-client:** add proof generation time sum metrics ([#19781](https://github.com/taikoxyz/taiko-mono/issues/19781)) ([4d2d404](https://github.com/taikoxyz/taiko-mono/commit/4d2d40464c02201d3a0f0fcdbf2295fa89edd670))
+* **taiko-client:** cache lookahead every l1 block ([#19785](https://github.com/taikoxyz/taiko-mono/issues/19785)) ([82c9308](https://github.com/taikoxyz/taiko-mono/commit/82c9308e8b30b3995608b23afb99b760b83513f6))
+
+
+### Bug Fixes
+
+* **taiko-client:** change to use `returnError` for some errors in `BuildPreconfBlock` ([#19753](https://github.com/taikoxyz/taiko-mono/issues/19753)) ([60320bc](https://github.com/taikoxyz/taiko-mono/commit/60320bcc1174c671e2efff431c891b6f4bea713f))
+
+
+### Code Refactoring
+
+* **taiko-client:** introduce `tryPutEnvelopeIntoCache` to reduce duplicated code ([#19769](https://github.com/taikoxyz/taiko-mono/issues/19769)) ([fb454b1](https://github.com/taikoxyz/taiko-mono/commit/fb454b19da004c00fe4c6cb8d731b16db4e14664))
+
 ## [1.7.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.6.3...taiko-alethia-client-v1.7.0) (2025-07-18)
 
 
