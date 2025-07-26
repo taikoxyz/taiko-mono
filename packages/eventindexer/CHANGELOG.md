@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.14.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.13.0...eventindexer-v0.14.0) (2025-07-26)
+
+
+### Features
+
+* **eventindexer:** pacaya event updates ([#18919](https://github.com/taikoxyz/taiko-mono/issues/18919)) ([e44ee25](https://github.com/taikoxyz/taiko-mono/commit/e44ee25fff0e8610c48c5e853e91a8ee16b1d54d))
+* **eventindexer:** update unique endpoints for `Pacaya` ([#19037](https://github.com/taikoxyz/taiko-mono/issues/19037)) ([03c932c](https://github.com/taikoxyz/taiko-mono/commit/03c932c952bc1d901a479169d2f8dcd43ad1ca00))
+
+
+### Bug Fixes
+
+* **eventindexer:** eventindexer starting block for pacaya ([#19266](https://github.com/taikoxyz/taiko-mono/issues/19266)) ([0b5cb00](https://github.com/taikoxyz/taiko-mono/commit/0b5cb00a0dacf7a25f036493dfe42549ca8eda57))
+* **eventindexer:** pacaya flag ([#19477](https://github.com/taikoxyz/taiko-mono/issues/19477)) ([140ec4d](https://github.com/taikoxyz/taiko-mono/commit/140ec4daaee20adaa667cb418ae05a28b3e16eba))
+
+
+### Chores
+
+* **eventindexer:** golangci-lint v2 migrate ([#19193](https://github.com/taikoxyz/taiko-mono/issues/19193)) ([ee403d9](https://github.com/taikoxyz/taiko-mono/commit/ee403d9e18a80d35317cb08e8897266bfbf0e4c7))
+* fix some minor issues in comments ([#19740](https://github.com/taikoxyz/taiko-mono/issues/19740)) ([e39f4db](https://github.com/taikoxyz/taiko-mono/commit/e39f4db8406c0ec5f6ac383f32d9126cdb099ec4))
+
+
+### Code Refactoring
+
+* **eventindexer, relayer:** simplify end index calculations using min function ([#19192](https://github.com/taikoxyz/taiko-mono/issues/19192)) ([9704aa3](https://github.com/taikoxyz/taiko-mono/commit/9704aa326541d601cfcb7d97e5040c839e1ea3f9))
+* **eventindexer, relayer:** use slices.Delete replace manual ops ([#19217](https://github.com/taikoxyz/taiko-mono/issues/19217)) ([e95496d](https://github.com/taikoxyz/taiko-mono/commit/e95496d58692aeae1f9dc4e8c195b66838a84875))
+
 ## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.12.0...eventindexer-v0.13.0) (2023-10-18)
 
 
