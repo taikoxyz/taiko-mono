@@ -127,6 +127,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		); err != nil {
 			return err
 		}
+		log.Info("Preconf Operator Address", "PreconfOperatorAddress", d.PreconfOperatorAddress)
 
 		// Enable P2P network for preconfirmation block propagation.
 		if cfg.P2PConfigs != nil && !cfg.P2PConfigs.DisableP2P {
