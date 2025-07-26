@@ -35,7 +35,6 @@ interface IBlobRefRegistry {
     /// @return refHash_ The keccak256 hash of the encoded blob ref
     /// @return ref_ The retrieved blob data including block number and blob hashes
     /// @dev Should revert if any blob index is invalid or if no blobs are provided
-
     function registerRef(
         uint256 _blobStartIndex,
         uint256 _numBlobs
