@@ -9,15 +9,20 @@ import "../IInbox.sol";
 // TODO(dnaiel): implement this library
 library LibCodecProveBatchInputs {
     /// @notice Encodes an array of ProveBatchInput structs into bytes
-    /// @param _inputs The array to encode
+    /// @param _proveBatchInputs The array to encode
     /// @return _ The encoded data
-    function encode(IInbox.ProveBatchInput[] memory _inputs) internal pure returns (bytes memory) {
-        return abi.encode(_inputs);
+    function encode(IInbox.ProveBatchInput[] memory _proveBatchInputs)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(_proveBatchInputs);
     }
 
     /// @notice Decodes bytes into an array of ProveBatchInput structs
     /// @param _data The encoded data
     /// @return _ The decoded array
+    /// @custom:encode optimize-gas
     function decode(bytes memory _data) internal pure returns (IInbox.ProveBatchInput[] memory) {
         return abi.decode(_data, (IInbox.ProveBatchInput[]));
     }

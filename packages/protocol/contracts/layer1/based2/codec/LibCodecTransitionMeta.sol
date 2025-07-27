@@ -11,6 +11,7 @@ library LibCodecTransitionMeta {
     /// @notice Encodes an array of TransitionMeta structs into bytes
     /// @param _transitionMetas The array to encode
     /// @return _ The encoded data
+    /// @custom:encode optimize-gas
     function encode(IInbox.TransitionMeta[] memory _transitionMetas)
         internal
         pure
