@@ -60,12 +60,12 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         LibBinding.Bindings memory bindings = _getBindings();
 
         (
-            I.Summary memory summary,
-            I.Batch[] memory batches,
-            I.ProposeBatchEvidence memory evidence,
-            I.TransitionMeta[] memory transitionMetas
+            Summary memory summary,
+            Batch[] memory batches,
+            ProposeBatchEvidence memory evidence,
+            TransitionMeta[] memory transitionMetas
         ) = bindings.decodeProposeBatchesInputs(_inputs);
-        I.Config memory config = _getConfig();
+        Config memory config = _getConfig();
 
         // Propose batches
         summary = LibPropose.propose(bindings, config, summary, batches, evidence);
@@ -74,7 +74,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         summary = LibVerify.verify(bindings, config, summary, transitionMetas);
 
         _saveSummaryHash(keccak256(abi.encode(summary)));
-        emit I.SummaryUpdated(bindings.encodeSummary(summary));
+        emit SummaryUpdated(bindings.encodeSummary(summary));
 
         return summary;
     }
@@ -92,8 +92,8 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         nonReentrant
     {
         LibBinding.Bindings memory bindings = _getBindings();
-        I.ProveBatchInput[] memory inputs = bindings.decodeProveBatchesInputs(_inputs);
-        I.Config memory config = _getConfig();
+        ProveBatchInput[] memory inputs = bindings.decodeProveBatchesInputs(_inputs);
+        Config memory config = _getConfig();
 
         // Prove batches and get aggregated hash
         bytes32 aggregatedBatchHash = LibProve.prove(bindings, config, inputs);
@@ -111,8 +111,8 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     function buildBatchMetadata(
         uint48 _proposedIn,
         uint48 _proposedAt,
-        I.Batch calldata _batch,
-        I.BatchContext calldata _context
+        Batch calldata _batch,
+        BatchContext calldata _context
     )
         external
         pure
@@ -236,7 +236,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @param _tranMetahash The transition metadata hash
     /// @return isFirstTransition_ Whether this is the first transition for the batch
     function _saveTransition(
-        I.Config memory _conf,
+        Config memory _conf,
         uint48 _batchId,
         bytes32 _parentHash,
         bytes32 _tranMetahash
@@ -250,7 +250,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @param _batchId The batch ID
     /// @param _metaHash The metadata hash to save
     function _saveBatchMetaHash(
-        I.Config memory _conf,
+        Config memory _conf,
         uint256 _batchId,
         bytes32 _metaHash
     )
@@ -264,7 +264,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @return metaHash_ The transition metadata hash
     /// @return isFirstTransition_ Whether this is the first transition for the batch
     function _loadTransitionMetaHash(
-        I.Config memory _conf,
+        Config memory _conf,
         bytes32 _lastVerifiedBlockHash,
         uint256 _batchId
     )
@@ -309,13 +309,13 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         pure
         virtual
         returns (
-            I.Summary memory,
-            I.Batch[] memory,
-            I.ProposeBatchEvidence memory,
-            I.TransitionMeta[] memory
+            Summary memory,
+            Batch[] memory,
+            ProposeBatchEvidence memory,
+            TransitionMeta[] memory
         )
     {
-        return abi.decode(_data, (Summary, I.Batch[], I.ProposeBatchEvidence, I.TransitionMeta[]));
+        return abi.decode(_data, (Summary, Batch[], ProposeBatchEvidence, TransitionMeta[]));
     }
 
     function _decodeProverAuth(bytes memory _data)
@@ -359,15 +359,15 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     {
         __Essential_init(_owner);
 
-        I.Config memory config = _getConfig();
+        Config memory config = _getConfig();
 
         // Initialize the genesis batch metadata
-        I.BatchMetadata memory meta;
+        BatchMetadata memory meta;
         meta.buildMeta.proposedIn = uint48(block.number);
         meta.proveMeta.proposedAt = uint48(block.timestamp);
 
         // Initialize the summary
-        I.Summary memory summary;
+        Summary memory summary;
         summary.lastBatchMetaHash = LibData.hashBatch(0, meta);
         summary.gasIssuancePerSecond = _gasIssuancePerSecond;
         summary.nextBatchId = 1;
@@ -375,7 +375,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         _saveBatchMetaHash(config, 0, summary.lastBatchMetaHash);
         _saveSummaryHash(keccak256(abi.encode(summary)));
 
-        emit I.Verified(0, 0, _genesisBlockHash);
+        emit Verified(0, 0, _genesisBlockHash);
     }
 
     /// @notice Creates a Bindings struct with function pointers
