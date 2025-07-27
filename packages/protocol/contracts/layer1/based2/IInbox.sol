@@ -68,7 +68,7 @@ interface IInbox {
         /// @notice Prover authorization data
         bytes proverAuth;
         /// @notice Array of blocks in this batch
-        /// @custom:encode max-size= 512
+        /// @custom:encode max-size=512
         Block[] blocks;
         /// @notice Blob data for this batch
         Blobs blobs;
@@ -94,10 +94,10 @@ interface IInbox {
         /// @notice Percentage of base fee shared with validators (0-100)
         uint8 baseFeeSharingPctg;
         /// @notice Hashes of anchor blocks for verification (length <= type(uint16).max)
-        /// @custom:encode max-size= 512
+        /// @custom:encode max-size=512
         bytes32[] anchorBlockHashes;
         /// @notice Array of blob hashes referenced by this batch (length <= type(uint4).max)
-        /// @custom:encode max-size= 256
+        /// @custom:encode max-size=256
         bytes32[] blobHashes;
     }
 
@@ -128,7 +128,7 @@ interface IInbox {
         /// @notice Hash of all transactions in the batch
         bytes32 txsHash;
         /// @notice Array of blob hashes referenced by this batch
-        /// @custom:encode max-size= 256
+        /// @custom:encode max-size=256
         bytes32[] blobHashes;
         /// @notice Additional arbitrary data for the batch
         bytes32 extraData;
@@ -147,10 +147,10 @@ interface IInbox {
         /// @notice Timestamp of the last block in this batch
         uint48 lastBlockTimestamp;
         /// @notice Hashes of anchor blocks for verification
-        /// @custom:encode max-size= 512
+        /// @custom:encode max-size=512
         bytes32[] anchorBlockHashes;
         /// @notice Array of blocks contained in this batch
-        /// @custom:encode max-size= 512
+        /// @custom:encode max-size=512
         Block[] blocks;
     }
 
