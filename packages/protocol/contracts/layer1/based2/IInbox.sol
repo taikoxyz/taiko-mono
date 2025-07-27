@@ -23,7 +23,7 @@ interface IInbox {
         bytes32[] signalSlots;
         /// @notice Address that receives block rewards. If this address is address(0), use
         /// Batch.coinbase.
-        /// @custom:claude Optional
+        /// @custom:encode optional
         address coinbase;
     }
 
@@ -31,23 +31,23 @@ interface IInbox {
     /// @dev Supports both direct blob hashes and blob indices for different scenarios
     struct Blobs {
         /// @notice Direct blob hashes (if non-empty, firstBlobIndex and numBlobs must be 0)
-        /// @custom:claude: max size 256
+        /// @custom:encode: max size 256
         bytes32[] hashes;
         /// @notice Index of the first blob in this batch (for blob index mode)
-        /// @custom:claude Optional
+        /// @custom:encode optional
         uint8 firstBlobIndex;
         /// @notice Number of blobs in this batch
         /// @dev Blobs are concatenated and decompressed via Zlib
-        /// @custom:claude Optional
+        /// @custom:encode optional
         uint8 numBlobs;
         /// @notice Byte offset of the blob data within the batch
-        /// @custom:claude Optional
+        /// @custom:encode optional
         uint32 byteOffset;
         /// @notice Size of the blob data in bytes
         uint32 byteSize;
         /// @notice Block number when blobs were created (only for forced inclusion)
         /// @dev Non-zero only when hashes array is used
-        /// @custom:claude Optional
+        /// @custom:encode optional
         uint48 createdIn;
     }
 
@@ -57,7 +57,7 @@ interface IInbox {
         /// @notice Address that proposed this batch
         address proposer;
         /// @notice Coinbase address for block rewards (can be zero)
-        /// @custom:claude Optional
+        /// @custom:encode optional
         address coinbase;
         /// @notice Timestamp of the last block in this batch
         uint48 lastBlockTimestamp;
@@ -68,7 +68,7 @@ interface IInbox {
         /// @notice Prover authorization data
         bytes proverAuth;
         /// @notice Array of blocks in this batch
-        /// @custom:claude max size 512
+        /// @custom:encode max-size= 512
         Block[] blocks;
         /// @notice Blob data for this batch
         Blobs blobs;
@@ -94,10 +94,10 @@ interface IInbox {
         /// @notice Percentage of base fee shared with validators (0-100)
         uint8 baseFeeSharingPctg;
         /// @notice Hashes of anchor blocks for verification (length <= type(uint16).max)
-        /// @custom:claude max size 512
+        /// @custom:encode max-size= 512
         bytes32[] anchorBlockHashes;
         /// @notice Array of blob hashes referenced by this batch (length <= type(uint4).max)
-        /// @custom:claude max size 256
+        /// @custom:encode max-size= 256
         bytes32[] blobHashes;
     }
 
@@ -107,15 +107,15 @@ interface IInbox {
         /// @notice Address authorized to prove this batch
         address prover;
         /// @notice Token used for fee payment (ETH not supported)
-        /// @custom:claude Optional
+        /// @custom:encode optional
         address feeToken;
         /// @notice Fee amount (in Gwei)
         uint48 fee;
         /// @notice Expiration timestamp (0 = no expiration)
-        /// @custom:claude Optional
+        /// @custom:encode optional
         uint48 validUntil;
         /// @notice Batch ID restriction (0 = any batch)
-        /// @custom:claude Optional
+        /// @custom:encode optional
         uint48 batchId;
         /// @notice Cryptographic signature authorizing the prover (length <= type(uint10).max)
         /// @custom: max size 128
@@ -128,7 +128,7 @@ interface IInbox {
         /// @notice Hash of all transactions in the batch
         bytes32 txsHash;
         /// @notice Array of blob hashes referenced by this batch
-        /// @custom:claude max size 256
+        /// @custom:encode max-size= 256
         bytes32[] blobHashes;
         /// @notice Additional arbitrary data for the batch
         bytes32 extraData;
@@ -147,10 +147,10 @@ interface IInbox {
         /// @notice Timestamp of the last block in this batch
         uint48 lastBlockTimestamp;
         /// @notice Hashes of anchor blocks for verification
-        /// @custom:claude max size 512
+        /// @custom:encode max-size= 512
         bytes32[] anchorBlockHashes;
         /// @notice Array of blocks contained in this batch
-        /// @custom:claude max size 512
+        /// @custom:encode max-size= 512
         Block[] blocks;
     }
 
@@ -261,7 +261,7 @@ interface IInbox {
         /// @notice Hash of the block for this transition
         bytes32 blockHash;
         /// @notice State root after this transition
-        /// @custom:claude Optional
+        /// @custom:encode optional
         bytes32 stateRoot;
         /// @notice Address that submitted the proof
         address prover;

@@ -33,6 +33,7 @@ library LibCodecProposeBatchInputs {
     /// @return _batches The decoded batches
     /// @return _evidence The decoded evidence
     /// @return _transitionMetas The decoded transition metas
+    /// @custom:encode optimize-gas
     function decode(bytes memory _data)
         internal
         pure

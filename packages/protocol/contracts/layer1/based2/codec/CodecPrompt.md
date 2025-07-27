@@ -14,7 +14,7 @@ This file can be used by Claude Code to implement or reimplement these libraries
 - **Functions**: Each library must implement:
   - `encode(StructType memory data) → bytes memory`
   - `decode(bytes memory data) → StructType memory`
-- **Gas Optimization**: Functions marked with `/// @custom:claude Optimize Gas` require assembly-level optimization
+- **Gas Optimization**: Functions marked with `/// @custom:encode optimize-gas` require assembly-level optimization
 
 ### 2. Gas Optimization Strategy
 
@@ -55,7 +55,7 @@ For `decode` functions, only optimize execution gas.
 
 ### Optional Fields
 
-Only fields marked with `/// @custom:claude Optional` use a presence flag:
+Only fields marked with `/// @custom:encode optional` use a presence flag:
 
 ```
 [1 bit flag][value if flag=1]
@@ -71,7 +71,7 @@ Only fields marked with `/// @custom:claude Optional` use a presence flag:
 Arrays use a length prefix followed by elements:
 
 - **Default max size**: type(uint8).max (255 elements) → use uint8 for length
-- **Custom max size**: Annotated as `/// @custom:claude max size N`
+- **Custom max size**: Annotated as `/// @custom:encode max-size=N`
   - N ≤ 15: use 4 bits for length
   - N ≤ 31: use 5 bits for length
   - N ≤ 63: use 6 bits for length
@@ -282,4 +282,4 @@ function decode(bytes memory data) public pure returns (ProverAuth memory result
 - [ ] No memory corruption or overwrites
 - [ ] Handles maximum values for all numeric types
 - [ ] Proper validation of all array lengths before encoding
-- [ ] For every encode or decode function annotated with `/// @custom:claude Optimize Gas`, make sure there is a corresponding gas measurement/comparision test at the end of its test file. The test should evaluate gas savings appropriately based on whether the function is for encoding or decoding.
+- [ ] For every encode or decode function annotated with `/// @custom:encode optimize-gas`, make sure there is a corresponding gas measurement/comparision test at the end of its test file. The test should evaluate gas savings appropriately based on whether the function is for encoding or decoding.
