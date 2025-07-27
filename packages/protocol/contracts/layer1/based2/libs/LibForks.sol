@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox as I } from "../IInbox.sol";
+import "../IInbox.sol";
 
 /// @title LibForks
 /// @notice Library for validating block ranges against protocol fork boundaries
@@ -26,7 +26,7 @@ library LibForks {
     /// @param _lastBlockId Last block ID in the range to validate
     /// @return True if the entire block range is within the current fork, false otherwise
     function isBlocksInCurrentFork(
-        I.Config memory _conf,
+        IInbox.Config memory _conf,
         uint256 _firstBlockId,
         uint256 _lastBlockId
     )

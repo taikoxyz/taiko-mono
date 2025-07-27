@@ -53,7 +53,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @inheritdoc IPropose
     function propose4(bytes calldata _inputs)
         external
-        override(I, IPropose)
+        override(IInbox, IPropose)
         nonReentrant
         returns (Summary memory)
     {
@@ -88,7 +88,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         bytes calldata _proof
     )
         external
-        override(I, IProve)
+        override(IInbox, IProve)
         nonReentrant
     {
         LibBinding.Bindings memory bindings = _getBindings();
