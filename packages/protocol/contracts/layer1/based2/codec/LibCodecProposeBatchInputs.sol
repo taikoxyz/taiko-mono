@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox as I } from "../IInbox.sol";
+import "../IInbox.sol";
 
 /// @title LibCodecProposeBatchInputs
 /// @notice Library for encoding and decoding propose batches inputs
@@ -15,10 +15,10 @@ library LibCodecProposeBatchInputs {
     /// @param _transitionMetas The transition metas array
     /// @return _ The encoded data
     function encode(
-        I.Summary memory _summary,
-        I.Batch[] memory _batches,
-        I.ProposeBatchEvidence memory _evidence,
-        I.TransitionMeta[] memory _transitionMetas
+        IInbox.Summary memory _summary,
+        IInbox.Batch[] memory _batches,
+        IInbox.ProposeBatchEvidence memory _evidence,
+        IInbox.TransitionMeta[] memory _transitionMetas
     )
         internal
         pure
@@ -37,13 +37,15 @@ library LibCodecProposeBatchInputs {
         internal
         pure
         returns (
-            I.Summary memory _summary,
-            I.Batch[] memory _batches,
-            I.ProposeBatchEvidence memory _evidence,
-            I.TransitionMeta[] memory _transitionMetas
+            IInbox.Summary memory _summary,
+            IInbox.Batch[] memory _batches,
+            IInbox.ProposeBatchEvidence memory _evidence,
+            IInbox.TransitionMeta[] memory _transitionMetas
         )
     {
-        (_summary, _batches, _evidence, _transitionMetas) =
-            abi.decode(_data, (I.Summary, I.Batch[], I.ProposeBatchEvidence, I.TransitionMeta[]));
+        (_summary, _batches, _evidence, _transitionMetas) = abi.decode(
+            _data,
+            (IInbox.Summary, IInbox.Batch[], IInbox.ProposeBatchEvidence, IInbox.TransitionMeta[])
+        );
     }
 }

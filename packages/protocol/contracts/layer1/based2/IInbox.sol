@@ -397,14 +397,16 @@ interface IInbox {
     event Verified(uint256 indexed batchId, uint256 lastBlockId, bytes32 lastBlockHash);
 
     /// @notice Proposes and verifies batches
-    /// @param _inputs The inputs to propose and verify batches that can be decoded into (I.Summary
-    /// memory, I.Batch[] memory, I.ProposeBatchEvidence memory, I.TransitionMeta[] memory)
+    /// @param _inputs The inputs to propose and verify batches that can be decoded into
+    /// (IInbox.Summary
+    /// memory, IInbox.Batch[] memory, IInbox.ProposeBatchEvidence memory, IInbox.TransitionMeta[]
+    /// memory)
     /// @return The updated summary
     function propose4(bytes calldata _inputs) external returns (Summary memory);
 
     /// @notice Proves batch transitions using cryptographic proofs
     /// @dev Validates and processes cryptographic proofs for batch state transitions
-    /// @param _inputs encoded I.ProveBatchInput[]
+    /// @param _inputs encoded IInbox.ProveBatchInput[]
     /// @param _proof The cryptographic proof data for validation
     function prove4(bytes calldata _inputs, bytes calldata _proof) external;
 }

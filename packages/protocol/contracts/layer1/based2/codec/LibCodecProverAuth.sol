@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox as I } from "../IInbox.sol";
+import "../IInbox.sol";
 
 /// @title LibCodecProverAuth
 /// @notice Library for encoding and decoding ProverAuth
@@ -11,14 +11,14 @@ library LibCodecProverAuth {
     /// @notice Encodes a ProverAuth struct into bytes
     /// @param _auth The ProverAuth to encode
     /// @return _ The encoded data
-    function encode(I.ProverAuth memory _auth) internal pure returns (bytes memory) {
+    function encode(IInbox.ProverAuth memory _auth) internal pure returns (bytes memory) {
         return abi.encode(_auth);
     }
 
     /// @notice Decodes bytes into a ProverAuth struct
     /// @param _data The encoded data
     /// @return _ The decoded ProverAuth
-    function decode(bytes memory _data) internal pure returns (I.ProverAuth memory) {
-        return abi.decode(_data, (I.ProverAuth));
+    function decode(bytes memory _data) internal pure returns (IInbox.ProverAuth memory) {
+        return abi.decode(_data, (IInbox.ProverAuth));
     }
 }

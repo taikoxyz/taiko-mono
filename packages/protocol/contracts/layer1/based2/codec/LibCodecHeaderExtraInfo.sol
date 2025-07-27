@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox as I } from "../IInbox.sol";
+import "../IInbox.sol";
 
 /// @title LibCodecHeaderExtraInfo
 /// @notice Library for encoding and decoding HeaderExtraInfo
@@ -18,7 +18,11 @@ library LibCodecHeaderExtraInfo {
     ///      - Bits 41-127: Reserved for future use
     /// @param _headerExtraInfo The HeaderExtraInfo to encode
     /// @return _ The encoded data
-    function encode(I.HeaderExtraInfo memory _headerExtraInfo) internal pure returns (bytes32) {
+    function encode(IInbox.HeaderExtraInfo memory _headerExtraInfo)
+        internal
+        pure
+        returns (bytes32)
+    {
         uint256 v = _headerExtraInfo.sharingPctg; // bits 0-7
         v |= _headerExtraInfo.isForcedInclusion ? 1 << 8 : 0; // bit 8
         v |= _headerExtraInfo.gasIssuancePerSecond << 9; // bits 9-40
@@ -29,10 +33,10 @@ library LibCodecHeaderExtraInfo {
     /// @notice Decodes bytes into a HeaderExtraInfo struct
     /// @param _data The encoded data
     /// @return _ The decoded HeaderExtraInfo
-    function decode(bytes32 _data) internal pure returns (I.HeaderExtraInfo memory) {
+    function decode(bytes32 _data) internal pure returns (IInbox.HeaderExtraInfo memory) {
         uint256 v = uint256(_data);
 
-        return I.HeaderExtraInfo({
+        return IInbox.HeaderExtraInfo({
             sharingPctg: uint8(v & 0xff), // bits 0-7
             isForcedInclusion: (v >> 8) & 1 == 1, // bit 8
             gasIssuancePerSecond: uint32((v >> 9) & 0xffffffff) // bits 9-40

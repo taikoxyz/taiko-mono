@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox as I } from "../IInbox.sol";
+import { IInbox } from "../IInbox.sol";
 import "./LibValidate.sol";
 import "./LibData.sol";
 import "./LibProver.sol";
@@ -29,13 +29,13 @@ library LibPropose {
     /// @return The updated protocol summary
     function propose(
         LibBinding.Bindings memory _bindings,
-        I.Config memory _config,
-        I.Summary memory _summary,
-        I.Batch[] memory _batches,
-        I.ProposeBatchEvidence memory _evidence
+        IInbox.Config memory _config,
+        IInbox.Summary memory _summary,
+        IInbox.Batch[] memory _batches,
+        IInbox.ProposeBatchEvidence memory _evidence
     )
         internal
-        returns (I.Summary memory)
+        returns (IInbox.Summary memory)
     {
         unchecked {
             if (_batches.length == 0) revert EmptyBatchArray();
@@ -56,7 +56,7 @@ library LibPropose {
                 revert MetadataHashMismatch();
             }
 
-            I.BatchProposeMetadata memory parentBatch = _evidence.proposeMeta;
+            IInbox.BatchProposeMetadata memory parentBatch = _evidence.proposeMeta;
 
             for (uint256 i; i < _batches.length; ++i) {
                 (parentBatch, _summary.lastBatchMetaHash) =
@@ -88,25 +88,25 @@ library LibPropose {
     /// @return _ The hash of the proposed batch metadata
     function _proposeBatch(
         LibBinding.Bindings memory _bindings,
-        I.Config memory _config,
-        I.Summary memory _summary,
-        I.Batch memory _batch,
-        I.BatchProposeMetadata memory _parentBatch
+        IInbox.Config memory _config,
+        IInbox.Summary memory _summary,
+        IInbox.Batch memory _batch,
+        IInbox.BatchProposeMetadata memory _parentBatch
     )
         private
-        returns (I.BatchProposeMetadata memory, bytes32)
+        returns (IInbox.BatchProposeMetadata memory, bytes32)
     {
         // Validate the batch parameters and return batch and batch context data
-        I.BatchContext memory context =
+        IInbox.BatchContext memory context =
             LibValidate.validate(_bindings, _config, _summary, _batch, _parentBatch);
 
         context.prover = LibProver.validateProver(_bindings, _config, _summary, _batch);
 
-        I.BatchMetadata memory metadata = LibData.buildBatchMetadata(
+        IInbox.BatchMetadata memory metadata = LibData.buildBatchMetadata(
             uint48(block.number), uint48(block.timestamp), _batch, context
         );
 
-        emit I.Proposed(_summary.nextBatchId, _bindings.encodeBatchContext(context));
+        emit IInbox.Proposed(_summary.nextBatchId, _bindings.encodeBatchContext(context));
 
         bytes32 batchMetaHash = LibData.hashBatch(_summary.nextBatchId, metadata);
         _bindings.saveBatchMetaHash(_config, _summary.nextBatchId, batchMetaHash);

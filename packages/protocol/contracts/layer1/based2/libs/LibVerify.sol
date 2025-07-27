@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/libs/LibMath.sol";
-import { IInbox as I } from "../IInbox.sol";
+import { IInbox } from "../IInbox.sol";
 import "./LibForks.sol";
 import "./LibBinding.sol";
 
@@ -33,12 +33,12 @@ library LibVerify {
     /// @return Updated summary with verification results
     function verify(
         LibBinding.Bindings memory _bindings,
-        I.Config memory _config,
-        I.Summary memory _summary,
-        I.TransitionMeta[] memory _trans
+        IInbox.Config memory _config,
+        IInbox.Summary memory _summary,
+        IInbox.TransitionMeta[] memory _trans
     )
         internal
-        returns (I.Summary memory)
+        returns (IInbox.Summary memory)
     {
         unchecked {
             uint256 nextBlockId = _summary.lastVerifiedBlockId + 1;
@@ -78,7 +78,7 @@ library LibVerify {
                     lastSyncedBatchId = batchId;
                 }
 
-                emit I.Verified(batchId, _trans[i].lastBlockId, _trans[i].blockHash);
+                emit IInbox.Verified(batchId, _trans[i].lastBlockId, _trans[i].blockHash);
 
                 _summary.lastVerifiedBlockHash = _trans[i].blockHash;
                 _summary.lastVerifiedBlockId = _trans[i].lastBlockId;
@@ -112,8 +112,8 @@ library LibVerify {
     /// @param _isFirstTransition Whether this is the first transition for the batch
     /// @return Bond amount to credit to the prover
     function _calcBondToProver(
-        I.Config memory _config,
-        I.TransitionMeta memory _tran,
+        IInbox.Config memory _config,
+        IInbox.TransitionMeta memory _tran,
         bool _isFirstTransition
     )
         private
@@ -121,14 +121,14 @@ library LibVerify {
         returns (uint256)
     {
         unchecked {
-            if (_tran.proofTiming == I.ProofTiming.InProvingWindow) {
+            if (_tran.proofTiming == IInbox.ProofTiming.InProvingWindow) {
                 // All liveness bond is returned to the prover, this is not a reward
                 return _isFirstTransition
                     ? _tran.livenessBond + _tran.provabilityBond
                     : _tran.livenessBond;
             }
 
-            if (_tran.proofTiming == I.ProofTiming.InExtendedProvingWindow) {
+            if (_tran.proofTiming == IInbox.ProofTiming.InExtendedProvingWindow) {
                 // Prover is rewarded with bondRewardPtcg% of the liveness bond
                 // Note: _config.bondRewardPtcg <= 100
                 uint256 amount = (uint256(_tran.livenessBond) * _config.bondRewardPtcg) / 100;
