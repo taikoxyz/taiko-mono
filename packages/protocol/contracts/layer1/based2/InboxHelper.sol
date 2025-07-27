@@ -37,14 +37,14 @@ contract InboxHelper {
     /// @notice Encodes a Summary struct
     /// @param _summary The Summary struct to encode
     /// @return The encoded bytes
-    function encodeSummary(IInbox.Summary memory _summary) public pure returns (bytes memory) {
+    function encodeSummary(IInbox.Summary memory _summary) external pure returns (bytes memory) {
         return LibCodecSummary.encode(_summary);
     }
 
     /// @notice Decodes bytes into a Summary struct
     /// @param _data The bytes to decode
     /// @return The decoded Summary struct
-    function decodeSummary(bytes memory _data) public pure returns (IInbox.Summary memory) {
+    function decodeSummary(bytes memory _data) external pure returns (IInbox.Summary memory) {
         return LibCodecSummary.decode(_data);
     }
 
@@ -52,7 +52,7 @@ contract InboxHelper {
     /// @param _context The BatchContext struct to encode
     /// @return The encoded bytes
     function encodeBatchContext(IInbox.BatchContext memory _context)
-        public
+        external
         pure
         returns (bytes memory)
     {
@@ -63,7 +63,7 @@ contract InboxHelper {
     /// @param _data The bytes to decode
     /// @return The decoded BatchContext struct
     function decodeBatchContext(bytes memory _data)
-        public
+        external
         pure
         returns (IInbox.BatchContext memory)
     {
@@ -74,7 +74,7 @@ contract InboxHelper {
     /// @param _transitionMetas The array of TransitionMeta structs to encode
     /// @return The encoded bytes
     function encodeTransitionMetas(IInbox.TransitionMeta[] memory _transitionMetas)
-        public
+        external
         pure
         returns (bytes memory)
     {
@@ -85,7 +85,7 @@ contract InboxHelper {
     /// @param _data The bytes to decode
     /// @return The decoded array of TransitionMeta structs
     function decodeTransitionMetas(bytes memory _data)
-        public
+        external
         pure
         returns (IInbox.TransitionMeta[] memory)
     {
@@ -95,14 +95,22 @@ contract InboxHelper {
     /// @notice Encodes a ProverAuth struct
     /// @param _auth The ProverAuth struct to encode
     /// @return The encoded bytes
-    function encodeProverAuth(IInbox.ProverAuth memory _auth) public pure returns (bytes memory) {
+    function encodeProverAuth(IInbox.ProverAuth memory _auth)
+        external
+        pure
+        returns (bytes memory)
+    {
         return LibCodecProverAuth.encode(_auth);
     }
 
     /// @notice Decodes bytes into a ProverAuth struct
     /// @param _data The bytes to decode
     /// @return The decoded ProverAuth struct
-    function decodeProverAuth(bytes memory _data) public pure returns (IInbox.ProverAuth memory) {
+    function decodeProverAuth(bytes memory _data)
+        external
+        pure
+        returns (IInbox.ProverAuth memory)
+    {
         return LibCodecProverAuth.decode(_data);
     }
 
@@ -110,7 +118,7 @@ contract InboxHelper {
     /// @param _inputs The array of ProveBatchInput structs to encode
     /// @return The encoded bytes
     function encodeProveBatchInputs(IInbox.ProveBatchInput[] memory _inputs)
-        public
+        external
         pure
         returns (bytes memory)
     {
@@ -121,7 +129,7 @@ contract InboxHelper {
     /// @param _data The bytes to decode
     /// @return The decoded array of ProveBatchInput structs
     function decodeProveBatchInputs(bytes memory _data)
-        public
+        external
         pure
         returns (IInbox.ProveBatchInput[] memory)
     {
@@ -132,7 +140,7 @@ contract InboxHelper {
     /// @param _data The bytes to decode
     /// @return The decoded array of ProveBatchInput structs
     function decodeProveBatchesInputs(bytes memory _data)
-        public
+        external
         pure
         returns (IInbox.ProveBatchInput[] memory)
     {
@@ -151,7 +159,7 @@ contract InboxHelper {
         IInbox.ProposeBatchEvidence memory _evidence,
         IInbox.TransitionMeta[] memory _transitionMetas
     )
-        public
+        external
         pure
         returns (bytes memory)
     {
@@ -165,7 +173,7 @@ contract InboxHelper {
     /// @return _evidence The decoded ProposeBatchEvidence struct
     /// @return _transitionMetas The decoded array of TransitionMeta structs
     function decodeProposeBatchInputs(bytes memory _data)
-        public
+        external
         pure
         returns (
             IInbox.Summary memory _summary,
@@ -181,7 +189,7 @@ contract InboxHelper {
     /// @param _headerExtraInfo The HeaderExtraInfo struct to encode
     /// @return The encoded bytes32
     function encodeHeaderExtraInfo(IInbox.HeaderExtraInfo memory _headerExtraInfo)
-        public
+        external
         pure
         returns (bytes32)
     {
@@ -192,7 +200,7 @@ contract InboxHelper {
     /// @param _data The bytes32 to decode
     /// @return The decoded HeaderExtraInfo struct
     function decodeHeaderExtraInfo(bytes32 _data)
-        public
+        external
         pure
         returns (IInbox.HeaderExtraInfo memory)
     {
