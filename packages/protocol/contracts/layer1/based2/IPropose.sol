@@ -10,9 +10,8 @@ import "./IInbox.sol";
 interface IPropose {
     /// @notice Proposes and verifies batches
     /// @param _inputs The inputs to propose and verify batches that can be decoded into
-    /// (IInbox.Summary
-    /// memory, IInbox.Batch[] memory, IInbox.ProposeBatchEvidence memory, IInbox.TransitionMeta[]
-    /// memory)
+    /// (IInbox.Summary memory, IInbox.Batch[] memory, IInbox.ProposeBatchEvidence memory,
+    /// IInbox.TransitionMeta[] memory)
     /// @return The updated summary
     function propose4(bytes calldata _inputs) external returns (IInbox.Summary memory);
 }
