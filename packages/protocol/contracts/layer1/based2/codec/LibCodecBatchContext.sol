@@ -9,10 +9,15 @@ import "../IInbox.sol";
 // TODO(dnaiel): implement this library
 library LibCodecBatchContext {
     /// @notice Encodes a BatchContext struct into bytes
-    /// @param _context The BatchContext to encode
+    /// @param _batchContext The BatchContext to encode
     /// @return _ The encoded data
-    function encode(IInbox.BatchContext memory _context) internal pure returns (bytes memory) {
-        return abi.encode(_context);
+    /// @custom:encode optimize-gas
+    function encode(IInbox.BatchContext memory _batchContext)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(_batchContext);
     }
 
     /// @notice Decodes bytes into a BatchContext struct

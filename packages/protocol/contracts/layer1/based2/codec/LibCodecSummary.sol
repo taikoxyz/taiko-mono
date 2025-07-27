@@ -11,6 +11,7 @@ library LibCodecSummary {
     /// @notice Encodes a Summary struct into bytes
     /// @param _summary The Summary to encode
     /// @return _ The encoded data
+    /// @custom:encode optimize-gas
     function encode(IInbox.Summary memory _summary) internal pure returns (bytes memory) {
         return abi.encode(_summary);
     }
@@ -18,6 +19,7 @@ library LibCodecSummary {
     /// @notice Decodes bytes into a Summary struct
     /// @param _data The encoded data
     /// @return _ The decoded Summary
+    /// @custom:encode optimize-gas
     function decode(bytes memory _data) internal pure returns (IInbox.Summary memory) {
         return abi.decode(_data, (IInbox.Summary));
     }
