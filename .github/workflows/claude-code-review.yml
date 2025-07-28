@@ -11,6 +11,25 @@ on:
     #   - "src/**/*.jsx"
 
 jobs:
+  membership-notice:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.author_association == 'CONTRIBUTOR' &&
+      github.event.pull_request.draft == false &&
+      !contains(github.event.pull_request.labels.*.name, 'option.do-not-merge')
+    steps:
+      - name: Notify about membership visibility
+        run: |
+          echo "⚠️ Claude Code Review was skipped because your GitHub organization membership is not public."
+          echo ""
+          echo "To enable Claude Code reviews on your PRs:"
+          echo "1. Go to https://github.com/orgs/taikoxyz/people/${{ github.event.pull_request.user.login }}"
+          echo "2. Change your 'Membership' visibility from 'Private' to 'Public'"
+          echo "3. Push a new commit or close/reopen this PR to trigger the review"
+          echo ""
+          echo "This is required because GitHub Actions sees you as a CONTRIBUTOR instead of a MEMBER when your membership is private."
+
   claude-review:
     # Only run for non-draft PRs from core contributors
     if: |
@@ -39,6 +58,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+
+      - name: Verify Node.js installation
+        run: |
+          echo "Node.js version:"
+          node --version
+          echo "NPM version:"
+          npm --version
+          echo "PATH:"
+          echo $PATH
+          echo "Which node:"
+          which node || echo "Node not found in PATH"
+          # Create symlink for node in /usr/bin
+          sudo ln -sf $(which node) /usr/bin/node || true
 
       - name: Run Claude Code Review
         id: claude-review
