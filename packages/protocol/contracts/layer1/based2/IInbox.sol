@@ -396,7 +396,8 @@ interface IInbox {
 
     /// @notice Emitted when the protocol summary is updated
     /// @param summary The updated protocol summary encoded as bytes
-    event SummaryUpdated(bytes summary);
+    /// @param proposeInputs The calldata inputs for propose4 function
+    event SummaryUpdated(bytes summary, bytes proposeInputs);
 
     /// @notice Emitted when a new batch is proposed
     /// @param batchId The unique identifier of the proposed batch

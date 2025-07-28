@@ -74,7 +74,10 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         summary = LibVerify.verify(bindings, config, summary, transitionMetas);
 
         _saveSummaryHash(keccak256(abi.encode(summary)));
-        emit SummaryUpdated(bindings.encodeSummary(summary));
+
+        emit SummaryUpdated(
+            bindings.encodeSummary(summary), _isOuterMostTransaction() ? bytes("") : _inputs
+        );
 
         return summary;
     }
@@ -392,6 +395,15 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
             decodeSummary: _decodeSummary,
             decodeProveBatchesInputs: _decodeProveBatchesInputs
         });
+    }
+
+    /// @notice Heuristically checks if the current transaction is the outermost one.
+    /// @dev Returns true if the call is directly from an EOA. May return false for
+    ///      smart contract wallets (e.g. ERC-4337), even if they initiate the outermost tx.
+    ///      This is acceptable for our use case — in false negative cases, we emit calldata
+    ///      explicitly, even though it could be extracted without tracing.
+    function _isOuterMostTransaction() private view returns (bool) {
+        return msg.sender == tx.origin;
     }
 
     function _validateSummary(bytes memory _summaryEncoded)
