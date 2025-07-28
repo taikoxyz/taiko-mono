@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.27;
+pragma solidity ^0.8.24;
 
 import "src/layer1/preconf/iface/IOverseer.sol";
 import "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import "openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/common/EssentialContract.sol";
+import "@solady/src/utils/MerkleProofLib.sol";
+import "@solady/src/utils/MerkleTreeLib.sol";
 
 /// @title Overseer
-/// @notice The Overseer is responsible for blacklisting preconf operators based on subjective faults.
+/// @notice The Overseer is responsible for blacklisting validators of preconf operators based on
+/// subjective faults.
 /// For instance, non-adherence to fair exchange.
-/// @dev Blacklisted operators are not inserted in the lookahead.
+/// @dev Operators of blacklisted validators are not inserted in the lookahead. This is done to
+/// prevent the lookahead from being polluted by invalidators.
 /// @custom:security-contact security@taiko.xyz
 contract Overseer is IOverseer, EssentialContract {
     uint64 public signingThreshold;
@@ -18,8 +22,9 @@ contract Overseer is IOverseer, EssentialContract {
 
     mapping(address signerAddress => bool isSigner) public signers;
 
-    mapping(bytes32 operatorRegistrationRoot => BlacklistedOperator blacklistedOperator) public
-        blacklistedOperators;
+    /// @dev Maps the root of a merkle tree of validator keys to the timestamp at which they
+    /// were blacklisted or unblacklisted.
+    mapping(bytes32 validatorsRoot => BlacklistTimestamps blacklistTimestamps) public blacklist;
 
     uint256[47] private __gap;
 
@@ -32,25 +37,28 @@ contract Overseer is IOverseer, EssentialContract {
     // -----------------------------------------------------------------------------------
 
     /// @inheritdoc IOverseer
-    function blacklistOperator(
-        bytes32 _operatorRegistrationRoot,
+    function blacklistValidators(
+        BLS.G1Point[] calldata _validatorPubKeys,
         bytes[] memory _signatures
     )
         external
     {
-        BlacklistedOperator memory blacklistedOperator =
-            blacklistedOperators[_operatorRegistrationRoot];
+        // Merkleize the validators to a single validator's merkle root
+        bytes32 validatorsRoot = MerkleTreeLib.root(_generateMerkleTree(_validatorPubKeys));
 
-        // The operator must not be already blacklisted
+        BlacklistTimestamps memory blacklistTimestamps = blacklist[validatorsRoot];
+
+        // The set of validators must not be already blacklisted
         require(
-            blacklistedOperator.blacklistedAt <= blacklistedOperator.unBlacklistedAt,
-            OperatorAlreadyBlacklisted()
+            blacklistTimestamps.blacklistedAt <= blacklistTimestamps.unBlacklistedAt,
+            ValidatorsAlreadyBlacklisted()
         );
 
-        // If the operator was unblacklisted, the overseer must wait for a delay before blacklisting
+        // If the validators were unblacklisted, the overseer must wait for a delay before
+        // blacklisting
         // them again in order to not mess up the lookahead.
         require(
-            block.timestamp > blacklistedOperator.unBlacklistedAt + getConfig().blacklistDelay,
+            block.timestamp > blacklistTimestamps.unBlacklistedAt + getConfig().blacklistDelay,
             BlacklistDelayNotMet()
         );
 
@@ -58,39 +66,32 @@ contract Overseer is IOverseer, EssentialContract {
         unchecked {
             bytes32 digest = keccak256(
                 abi.encode(
-                    LibPreconfConstants.BLACKLIST_OVERSEER_DOMAIN_SEPARATOR,
-                    nonce++,
-                    _operatorRegistrationRoot
+                    LibPreconfConstants.BLACKLIST_OVERSEER_DOMAIN_SEPARATOR, nonce++, validatorsRoot
                 )
             );
             _verifySignatures(digest, _signatures);
         }
 
-        blacklistedOperators[_operatorRegistrationRoot].blacklistedAt = uint128(block.timestamp);
+        blacklist[validatorsRoot].blacklistedAt = uint128(block.timestamp);
 
-        emit Blacklisted(_operatorRegistrationRoot, block.timestamp);
+        emit Blacklisted(validatorsRoot, block.timestamp);
     }
 
     /// @inheritdoc IOverseer
-    function unblacklistOperator(
-        bytes32 _operatorRegistrationRoot,
-        bytes[] memory _signatures
-    )
-        external
-    {
-        BlacklistedOperator memory blacklistedOperator =
-            blacklistedOperators[_operatorRegistrationRoot];
+    function unblacklistValidators(bytes32 _validatorsRoot, bytes[] memory _signatures) external {
+        BlacklistTimestamps memory blacklistTimestamps = blacklist[_validatorsRoot];
 
-        // The operator must be blacklisted
+        // The validators must be blacklisted
         require(
-            blacklistedOperator.blacklistedAt > blacklistedOperator.unBlacklistedAt,
-            OperatorNotBlacklisted()
+            blacklistTimestamps.blacklistedAt > blacklistTimestamps.unBlacklistedAt,
+            ValidatorsNotBlacklisted()
         );
 
-        // If the operator was blacklisted, the overseer must wait for a delay before unblacklisting
+        // If the validators were blacklisted, the overseer must wait for a delay before
+        // unblacklisting
         // them again in order to not mess up the lookahead.
         require(
-            block.timestamp > blacklistedOperator.blacklistedAt + getConfig().unblacklistDelay,
+            block.timestamp > blacklistTimestamps.blacklistedAt + getConfig().unblacklistDelay,
             UnblacklistDelayNotMet()
         );
 
@@ -100,15 +101,15 @@ contract Overseer is IOverseer, EssentialContract {
                 abi.encode(
                     LibPreconfConstants.UNBLACKLIST_OVERSEER_DOMAIN_SEPARATOR,
                     nonce++,
-                    _operatorRegistrationRoot
+                    _validatorsRoot
                 )
             );
             _verifySignatures(digest, _signatures);
         }
 
-        blacklistedOperators[_operatorRegistrationRoot].unBlacklistedAt = uint128(block.timestamp);
+        blacklist[_validatorsRoot].unBlacklistedAt = uint128(block.timestamp);
 
-        emit Unblacklisted(_operatorRegistrationRoot, block.timestamp);
+        emit Unblacklisted(_validatorsRoot, block.timestamp);
     }
 
     // Signers management functions
@@ -187,7 +188,33 @@ contract Overseer is IOverseer, EssentialContract {
     /// @inheritdoc IOverseer
     function getConfig() public pure returns (Config memory) {
         return Config({ blacklistDelay: 1 days, unblacklistDelay: 1 days });
-    }   
+    }
+
+    /// @inheritdoc IOverseer
+    function getValidatorBlacklistInclusionProof(
+        BLS.G1Point[] calldata _validatorPubKeys,
+        uint256 _validatorIndex
+    )
+        external
+        pure
+        returns (bytes32[] memory)
+    {
+        return MerkleTreeLib.leafProof(_generateMerkleTree(_validatorPubKeys), _validatorIndex);
+    }
+
+    /// @inheritdoc IOverseer
+    function isValidatorBlacklisted(
+        BLS.G1Point memory _validatorPubKey,
+        bytes32 _validatorsRoot,
+        bytes32[] calldata _proof
+    )
+        external
+        pure
+        returns (bool)
+    {
+        bytes32 validatorLeaf = keccak256(abi.encode(_validatorPubKey));
+        return MerkleProofLib.verifyCalldata(_proof, _validatorsRoot, validatorLeaf);
+    }
 
     // Internal functions
     // -----------------------------------------------------------------------------------
@@ -201,6 +228,45 @@ contract Overseer is IOverseer, EssentialContract {
 
         numSigners = uint64(_signers.length);
         signingThreshold = _signingThreshold;
+    }
+
+    function _generateMerkleTree(BLS.G1Point[] calldata _validatorPubKeys)
+        internal
+        pure
+        returns (bytes32[] memory)
+    {
+        return MerkleTreeLib.build(MerkleTreeLib.pad(_hashValidatorsToLeaves(_validatorPubKeys)));
+    }
+
+    /// @dev Saves gas by reusing a scratch space for encoding instead of repeatedly expanding
+    /// the memory by using abi.encode(..)
+    function _hashValidatorsToLeaves(BLS.G1Point[] calldata _validatorPubKeys)
+        internal
+        pure
+        returns (bytes32[] memory)
+    {
+        bytes32[] memory leaves = new bytes32[](_validatorPubKeys.length);
+
+        assembly {
+            // Scratch space for encoding and hashing a validator's G1Point pub key
+            let scratchSpace := mload(0x40)
+            // Size of a G1Point (128 bytes)
+            let scratchSpaceSize := 0x40
+            // Set the pointer to skip the length
+            let leavesPtr := add(leaves, 0x20)
+
+            // Solidity: keccak256(abi.encode(_validatorPubKeys[i]))
+            for { let i := 0 } lt(i, _validatorPubKeys.length) { i := add(i, 1) } {
+                calldatacopy(
+                    scratchSpace,
+                    add(_validatorPubKeys.offset, mul(i, scratchSpaceSize)),
+                    scratchSpaceSize
+                )
+                mstore(add(leavesPtr, mul(i, 0x20)), keccak256(scratchSpace, scratchSpaceSize))
+            }
+        }
+
+        return leaves;
     }
 
     function _verifySignatures(bytes32 _digest, bytes[] memory _signatures) internal view {
