@@ -11,6 +11,18 @@ on:
     #   - "src/**/*.jsx"
 
 jobs:
+  debug-info:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Debug PR Info
+        run: |
+          echo "PR Author Association: ${{ github.event.pull_request.author_association }}"
+          echo "PR Draft Status: ${{ github.event.pull_request.draft }}"
+          echo "PR Labels: ${{ toJson(github.event.pull_request.labels.*.name) }}"
+          echo "PR Number: ${{ github.event.pull_request.number }}"
+          echo "PR Author: ${{ github.event.pull_request.user.login }}"
+
   claude-review:
     # Only run for non-draft PRs from core contributors
     if: |
