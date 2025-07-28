@@ -394,16 +394,14 @@ interface IInbox {
         uint256[43] __gap;
     }
 
-    /// @notice Emitted when the protocol summary is updated
-    /// @param summary The updated protocol summary encoded as bytes
-    /// @param proposeInputs The calldata inputs for propose4 function
-    event SummaryUpdated(bytes summary, bytes proposeInputs);
-
     /// @notice Emitted when a new batch is proposed
-    /// @param batchId The unique identifier of the proposed batch
-    /// @param context The batch context data encoded as bytes
-    /// TODO(daniel): propose4's `inputs` calldata not emitted in this event.
-    event Proposed(uint256 indexed batchId, bytes context);
+    /// @param lastProposedBatchId The id of the last proposed batch
+    /// @param proposeInputs The calldata inputs for propose4 function
+    /// @param batchContexts The array of batch context encoded as bytes encoded as bytes
+    /// @param summary The updated protocol summary encoded as bytes
+    event Proposed(
+        uint256 indexed lastProposedBatchId, bytes proposeInputs, bytes batchContexts, bytes summary
+    );
 
     /// @notice Emitted when a batch transition is proven
     /// @param batchId The unique identifier of the proven batch

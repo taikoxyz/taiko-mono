@@ -48,24 +48,24 @@ contract InboxHelper {
         return LibCodecSummary.decode(_data);
     }
 
-    /// @notice Encodes a BatchContext struct
-    /// @param _context The BatchContext struct to encode
+    /// @notice Encodes a BatchContext array
+    /// @param _batchContexts The BatchContext struct to encode
     /// @return The encoded bytes
-    function encodeBatchContext(IInbox.BatchContext memory _context)
+    function encodeBatchContexts(IInbox.BatchContext[] memory _batchContexts)
         external
         pure
         returns (bytes memory)
     {
-        return LibCodecBatchContext.encode(_context);
+        return LibCodecBatchContext.encode(_batchContexts);
     }
 
     /// @notice Decodes bytes into a BatchContext struct
     /// @param _data The bytes to decode
-    /// @return The decoded BatchContext struct
+    /// @return The decoded BatchContext array
     function decodeBatchContext(bytes memory _data)
         external
         pure
-        returns (IInbox.BatchContext memory)
+        returns (IInbox.BatchContext[] memory)
     {
         return LibCodecBatchContext.decode(_data);
     }
