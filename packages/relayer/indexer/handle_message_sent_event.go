@@ -22,7 +22,7 @@ func (i *Indexer) handleMessageSentEvent(
 	event *bridge.BridgeMessageSent,
 	waitForConfirmations bool,
 ) error {
-	// if the destinatio chain doesnt match, we dont process it in this indexer.
+	// if the destinatio chain doesn't match, we dont process it in this indexer.
 	if new(big.Int).SetUint64(event.Message.DestChainId).Cmp(i.destChainId) != 0 {
 		return nil
 	}
@@ -95,7 +95,7 @@ func (i *Indexer) handleMessageSentEvent(
 		return nil
 	}
 
-	// we shouldnt add messages to the queue that will be determined
+	// we shouldn't add messages to the queue that will be determined
 	// unprocessable.
 	if event.Message.GasLimit == 0 {
 		slog.Warn("Zero gaslimit message found, will be unprocessable")
