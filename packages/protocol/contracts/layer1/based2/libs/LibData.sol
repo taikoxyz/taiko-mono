@@ -19,7 +19,7 @@ library LibData {
     /// @notice Populates batch metadata from batch and batch context data
     /// @param _proposer The address that proposed the batch
     /// @param _proposedIn The block number in which the batch is proposed
-    /// @param _proposedAt The toimestamp of the block in which the batch is proposed
+    /// @param _proposedAt The timestamp of the block in which the batch is proposed
     /// @param _batch The batch being proposed
     /// @param _context The batch context data containing computed values
     /// @return _ The populated batch metadata
