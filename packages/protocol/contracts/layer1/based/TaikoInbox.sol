@@ -93,14 +93,17 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             {
                 if (inboxWrapper == address(0)) {
-                    require(params.proposer == msg.sender, CustomProposerNotAllowed());
+                   if (params.proposer == address(0)) {
+                        params.proposer = msg.sender;
+                    } else {
+                        require(params.proposer == msg.sender, CustomProposerNotAllowed());
+                    }
 
                     // blob hashes are only accepted if the caller is trusted.
                     require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
                     require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
                     require(params.isForcedInclusion == false, InvalidForcedInclusion());
                 } else {
-                    require(params.proposer != address(0), CustomProposerMissing());
                     require(msg.sender == inboxWrapper, NotInboxWrapper());
                 }
 

@@ -253,7 +253,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     error BlobNotSpecified();
     error BlockNotFound();
     error ContractPaused();
-    error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();
     error FirstBlockTimeShiftNotZero();
