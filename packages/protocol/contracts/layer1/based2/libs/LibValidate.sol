@@ -69,15 +69,16 @@ library LibValidate {
             _validateBlockRange(_config, _batch.blocks.length, _parentBatch.lastBlockId);
 
         // Validate blobs
-        uint48 blobsCreatedIn = _validateBlobs(_config, _batch);
+        uint48 blobsCreatedIn = _validateDataSources(_config, _batch);
 
         // Calculate transaction hash
-        (bytes32[] memory blobHashes, bytes32 txsHash) = _calculateTxsHash(_bindings, _batch.blobs);
+        (bytes32[] memory blobHashes, bytes32 dataLocatorsHash) =
+            _calculatedataLocatorsHash(_bindings, _batch.blobs);
 
         // Initialize context
         return IInbox.BatchContext({
             prover: address(0), // Will be set later in LibProver.validateProver
-            txsHash: txsHash,
+            dataLocatorsHash: dataLocatorsHash,
             blobHashes: blobHashes,
             lastAnchorBlockId: lastAnchorBlockId,
             lastBlockId: lastBlockId,
@@ -293,66 +294,27 @@ library LibValidate {
     /// @param _conf Protocol configuration
     /// @param _batch The batch containing blob information
     /// @return blobsCreatedIn_ Block number where blobs were created
-    function _validateBlobs(
+    function _validateDataSources(
         IInbox.Config memory _conf,
         IInbox.Batch memory _batch
     )
         private
         view
         returns (uint48 blobsCreatedIn_)
-    {
-        if (_conf.inboxWrapper == address(0)) {
-            // blob hashes are only accepted if the caller is trusted.
-            if (_batch.blobs.hashes.length != 0) revert InvalidBlobParams();
-            if (_batch.blobs.createdIn != 0) revert InvalidBlobCreatedIn();
-            if (_batch.isForcedInclusion) revert InvalidForcedInclusion();
-            return uint48(block.number);
-        } else if (_batch.blobs.hashes.length == 0) {
-            // this is a normal batch, blobs are created and used in the current batches.
-            // firstBlobIndex can be non-zero.
-            if (_batch.blobs.numBlobs == 0) revert BlobNotSpecified();
-            if (_batch.blobs.createdIn != 0) revert InvalidBlobCreatedIn();
-            return uint48(block.number);
-        } else {
-            // this is a forced-inclusion batch, blobs were created in early blocks and are used
-            // in the current batches
-            require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
-            if (_batch.blobs.numBlobs != 0) revert InvalidBlobParams();
-            if (_batch.blobs.firstBlobIndex != 0) revert InvalidBlobParams();
-            return _batch.blobs.createdIn;
-        }
-    }
+    { }
 
     /// @notice Calculates the transaction hash from blob data
     /// @dev Retrieves blob hashes and computes the aggregate transaction hash
     /// @param _bindings Read/write bindings functions
-    /// @param _blobs Blob information containing hashes or indices
-    /// @return blobHashes_ Array of individual blob hashes
-    /// @return txsHash_ Hash of all transactions in the batch
-    function _calculateTxsHash(
+    function _calculatedataLocatorsHash(
         LibBinding.Bindings memory _bindings,
         IInbox.Blobs memory _blobs
     )
         private
         view
-        returns (bytes32[] memory blobHashes_, bytes32 txsHash_)
+        returns (bytes32[] memory blobHashes_, bytes32 dataLocatorsHash_)
     {
-        unchecked {
-            if (_blobs.hashes.length != 0) {
-                blobHashes_ = _blobs.hashes;
-            } else {
-                blobHashes_ = new bytes32[](_blobs.numBlobs);
-                for (uint256 i; i < _blobs.numBlobs; ++i) {
-                    blobHashes_[i] = _bindings.getBlobHash(_blobs.firstBlobIndex + i);
-                }
-            }
-
-            for (uint256 i; i < blobHashes_.length; ++i) {
-                if (blobHashes_[i] == 0) revert BlobHashNotFound();
-            }
-
-            txsHash_ = keccak256(abi.encode(blobHashes_));
-        }
+        // TODO
     }
 
     // -------------------------------------------------------------------------

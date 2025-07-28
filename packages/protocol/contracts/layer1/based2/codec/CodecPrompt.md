@@ -40,7 +40,7 @@ For `decode` functions, only optimize execution gas.
 | Data Type   | Encoding             | Assembly Example                                         |
 | ----------- | -------------------- | -------------------------------------------------------- |
 | **bool**    | 1 bit                | `and(1, value)`                                          |
-| **enum**    | Minimal bits         | Use ceil(log2(numValues)) bits                           |
+| **enum**    | Minimal + 1 bits     | Use ceil(log2(numValues)) + 1 bits                       |
 | **uint8**   | 8 bits               | `and(0xff, value)`                                       |
 | **uint16**  | 16 bits              | `and(0xffff, value)`                                     |
 | **uint24**  | 24 bits              | `and(0xffffff, value)`                                   |

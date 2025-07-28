@@ -29,9 +29,18 @@ interface IInbox {
         Zstandard5
     }
 
+    enum DataSourceType {
+        BlobRefRegistry,
+        TrustedContractsUsingBlobRefRegistry, // ForcedInclusionStore
+        BlobsInCurrentTransaction
+    }
+
     /// @notice Represents a block within a batch
     /// @dev Contains block-specific parameters and anchor information
     struct Block {
+        /// @notice DataLocator index for this block
+        /// @custom:encode max-size=4
+        uint8 dataLocatorIndex;
         /// @notice Maximum number of transactions in this block
         /// @dev If insufficient transactions in calldata/blobs, block contains as many as possible
         uint16 numTransactions;
@@ -54,7 +63,6 @@ interface IInbox {
     struct Blobs {
         /// @notice Direct blob hashes (if non-empty, firstBlobIndex and numBlobs must be 0)
         /// @custom:encode: max size 256
-        bytes32[] hashes;
         /// @notice Index of the first blob in this batch (for blob index mode)
         /// @custom:encode optional
         uint8 firstBlobIndex;
@@ -74,6 +82,7 @@ interface IInbox {
     }
 
     /// @notice Represents the details of new blobs created in the current transaction.
+    /// @dev This struct needs to be encoded to and decoded from a bytes32.
     struct LocalBlobs {
         /// @notice The index of the first blob in this batch, used for blob index mode.
         uint8 firstBlobIndex;
@@ -84,22 +93,20 @@ interface IInbox {
 
     /// @notice Represents the origin of blobs, indicating whether they are newly created or
     /// referenced.
-    struct BlobsSource {
-        /// @notice This is a hash that identifies blobs created in a previous transaction, which
-        /// have been registered in the BlobRefRegistry.
-        /// @dev The hash is verified through the BlobRefRegistry, except when the source contract
-        /// is trusted, such as in the case of Taiko's forced inclusion store.
-        bytes32 blobRefHash;
-        /// @notice Details of new blobs created in this transaction. This is applicable only when
-        /// blobRefHash is zero.
-        LocalBlobs localBlobs;
+    struct DataSource {
+        DataSourceType dataSourceType;
+        /// @notice Depending on dataSourceType, data will be used as follows:
+        /// - BlobRefRegistry: blobRefHash (bytes32)
+        /// - TrustedContractsUsingBlobRefRegistry: blobRefHash (bytes32)
+        /// - BlobsInCurrentTransaction: localBlobs (LocalBlobs)
+        bytes32 data;
     }
 
     /// @notice Locator for proposed L2 transactions within a batch
     /// @dev Contains information about the source of blobs, byte offsets, and compression algorithm
-    struct TxListLocator {
+    struct DataLocator {
         /// @notice The source information of the blobs, indicating their origin.
-        BlobsSource blobsSource;
+        DataSource dataSource;
         /// @notice The byte offset indicating where the blob data starts within the batch.
         /// @dev A uint24 can accommodate up to 127 blobs.
         uint24 byteOffset;
@@ -126,13 +133,16 @@ interface IInbox {
         bool isForcedInclusion;
         /// @notice Prover authorization data
         bytes proverAuth;
+        /// @notice Data to locate proposed L2 transactions
+        /// @custom:encode max-size=4
+        /// @dev This is an array of DataLocator structs, which is used to locate the proposed L2
+        /// transactions in the batch.
+        DataLocator[] dataLocators;
         /// @notice Array of blocks in this batch
         /// @custom:encode max-size=512
         Block[] blocks;
         /// @notice Blob data for this batch
         Blobs blobs; // TODO(daniel): remove Blobs.
-        /// @notice Data to locate proposed L2 transactions
-        TxListLocator txListLocator;
     }
 
     /// @notice Output structure containing validated batch information
@@ -140,8 +150,8 @@ interface IInbox {
     struct BatchContext {
         /// @notice Address authorized to prove this batch
         address prover;
-        /// @notice Hash of all transactions in the batch
-        bytes32 txsHash;
+        /// @notice Hash of all locators  in the batch
+        bytes32 dataLocatorsHash;
         /// @notice ID of the last anchor block referenced
         uint48 lastAnchorBlockId;
         /// @notice ID of the last block in this batch
@@ -187,7 +197,7 @@ interface IInbox {
     /// @dev Contains all necessary information for batch construction and verification
     struct BatchBuildMetadata {
         /// @notice Hash of all transactions in the batch
-        bytes32 txsHash;
+        bytes32 dataLocatorsHash;
         /// @notice Array of blob hashes referenced by this batch
         /// @custom:encode max-size=256
         bytes32[] blobHashes;
