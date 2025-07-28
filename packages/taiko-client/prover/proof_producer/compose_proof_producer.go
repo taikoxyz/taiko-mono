@@ -69,15 +69,6 @@ func (s *ComposeProofProducer) RequestProof(
 	)
 
 	g.Go(func() error {
-		if _, err := s.SgxGethProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
-			return err
-		} else {
-			// Note: we mark the `IsGethProofGenerated` with true to record if it is first time generated
-			opts.PacayaOptions().IsGethProofGenerated = true
-			return nil
-		}
-	})
-	g.Go(func() error {
 		if s.Dummy {
 			proofType = s.ProofType
 			if resp, err := s.DummyProofProducer.RequestProof(opts, batchID, meta, requestAt); err != nil {
@@ -107,6 +98,16 @@ func (s *ComposeProofProducer) RequestProof(
 			}
 		}
 		return nil
+	})
+
+	g.Go(func() error {
+		if _, err := s.SgxGethProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
+			return err
+		} else {
+			// Note: we mark the `IsGethProofGenerated` with true to record if it is first time generated
+			opts.PacayaOptions().IsGethProofGenerated = true
+			return nil
+		}
 	})
 
 	if err := g.Wait(); err != nil {
