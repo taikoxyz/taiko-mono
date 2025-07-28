@@ -101,10 +101,10 @@ interface IInbox {
         /// @notice The source information of the blobs, indicating their origin.
         BlobsSource blobsSource;
         /// @notice The byte offset indicating where the blob data starts within the batch.
-        /// @dev A uint24 can accommodate up to 128 blobs.
+        /// @dev A uint24 can accommodate up to 127 blobs.
         uint24 byteOffset;
         /// @notice The total size of the blob data in bytes.
-        /// @dev A uint24 can accommodate up to 128 blobs.
+        /// @dev A uint24 can accommodate up to 127 blobs.
         uint24 byteSize;
         /// @notice Algorithm used for compressing the transaction list.
         CompressionAlgo compressionAlgo;
