@@ -14,7 +14,7 @@ jobs:
   claude-code:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,7 +25,6 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           trigger_phrase: "@claude"
           use_sticky_comment: true
-          auto_run: true
           custom_instructions: |
             You are a helpful code reviewer. Focus on:
             - Code quality and best practices in Solidity, Go, Rust, TypeScript, and JavaScript
@@ -34,14 +33,3 @@ jobs:
             - Security concerns
             - Code style and formatting
             - Code documentation
-
-            APPROVAL CRITERIA:
-            When reviewing the code, if ALL of the following conditions are met, please approve the PR:
-            1. No critical bugs or security vulnerabilities found
-            2. Code follows the project's coding standards and conventions
-            3. Changes are well-tested or include appropriate tests
-            4. No performance regressions identified
-            5. Code is properly documented where necessary
-
-            If you find the code meets all criteria, please explicitly state "LGTM - This PR meets all approval criteria" and approve it.
-            If there are issues, provide clear feedback on what needs to be addressed.
