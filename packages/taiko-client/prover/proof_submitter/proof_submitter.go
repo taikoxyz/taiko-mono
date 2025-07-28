@@ -140,6 +140,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 		}
 		startAt       = time.Now()
 		proofResponse *proofProducer.ProofResponse
+		useZK         = true
 	)
 
 	// If the prover set address is provided, we use that address as the prover on chain.
@@ -169,7 +170,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 				return nil
 			}
 			// If zk proof is enabled, request zk proof first, and check if ZK proof is drawn.
-			if s.zkvmProofProducer != nil {
+			if s.zkvmProofProducer != nil && useZK {
 				if proofResponse, err = s.zkvmProofProducer.RequestProof(
 					ctx,
 					opts,
@@ -177,11 +178,11 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 					meta,
 					startAt,
 				); err != nil {
-					if errors.Is(err, proofProducer.ErrZkAnyNotDrawn) {
-						// If zk proof is not drawn, request SGX proof.
-						log.Debug("ZK proof was not chosen, attempting to request SGX proof", "batchID", opts.BatchID)
+					if errors.Is(err, proofProducer.ErrProofInProgress) || errors.Is(err, proofProducer.ErrRetry) {
+						return fmt.Errorf("zk proof is WIP, status: %w", err)
 					} else {
-						return fmt.Errorf("failed to request zk proof, error: %w", err)
+						log.Debug("ZK proof was not chosen or got unexpected error, attempting to request SGX proof", "batchID", opts.BatchID)
+						useZK = false
 					}
 				}
 			}
