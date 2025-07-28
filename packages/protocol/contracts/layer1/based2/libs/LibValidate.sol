@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "../IInbox.sol";
+import "../IInbox.sol";
 import "src/shared/libs/LibNetwork.sol";
+import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
 import "./LibForks.sol";
 import "./LibBinding.sol";
 
@@ -48,6 +49,8 @@ library LibValidate {
         // If a block's coinbase is address(0), _batch.coinbase will be used, if _batch.coinbase
         // is address(0), the driver shall use the proposer address as the coinbase address.
 
+        _validateProposer(_config);
+
         // Validate new gas issuance per second
         _validateGasIssuance(_config, _summary, _batch);
 
@@ -90,6 +93,17 @@ library LibValidate {
     // Private Functions
     // -------------------------------------------------------------------------
 
+    /// @notice Validates the proposer of the current transaction.
+    /// @dev Checks if the sender is the operator for the current epoch.
+    ///      If the preconfWhitelist address is zero, the function returns without validation.
+    /// @param _config The configuration containing the preconfWhitelist address.
+    /// @custom:reverts ProposerNotOperator if the sender is not the operator for the current epoch.
+    function _validateProposer(IInbox.Config memory _config) private view {
+        if (_config.preconfWhitelist == address(0)) return;
+        address operator = IPreconfWhitelist(_config.preconfWhitelist).getOperatorForCurrentEpoch();
+        if (msg.sender != operator) revert ProposerNotOperator();
+    }
+
     /// @notice Validates the gas issuance per second for a batch
     /// @dev Ensures that the gas issuance per second is within a 1% range of the last recorded
     ///      value
@@ -101,7 +115,7 @@ library LibValidate {
         IInbox.Summary memory _summary,
         IInbox.Batch memory _batch
     )
-        internal
+        private
         view
     {
         unchecked {
@@ -135,7 +149,7 @@ library LibValidate {
         IInbox.Batch memory _batch,
         uint48 _parentLastBlockTimestamp
     )
-        internal
+        private
         view
     {
         unchecked {
@@ -172,7 +186,7 @@ library LibValidate {
         IInbox.Config memory _config,
         IInbox.Batch memory _batch
     )
-        internal
+        private
         view
     {
         for (uint256 i; i < _batch.blocks.length; ++i) {
@@ -198,7 +212,7 @@ library LibValidate {
         IInbox.Batch memory _batch,
         uint48 _parentLastAnchorBlockId
     )
-        internal
+        private
         view
         returns (bytes32[] memory anchorBlockHashes_, uint48 lastAnchorBlockId_)
     {
@@ -245,7 +259,7 @@ library LibValidate {
         uint256 _numBlocks,
         uint48 _parentLastBlockId
     )
-        internal
+        private
         pure
         returns (uint48)
     {
@@ -352,6 +366,7 @@ library LibValidate {
     error NoAnchorBlockIdWithinThisBatch();
     error NotEnoughAnchorIds();
     error NotEnoughSignals();
+    error ProposerNotOperator();
     error RequiredSignalNotSent();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
