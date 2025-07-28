@@ -5,6 +5,7 @@ import { IInbox } from "../IInbox.sol";
 import "./LibValidate.sol";
 import "./LibData.sol";
 import "./LibProver.sol";
+import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 
 /// @title LibPropose
 /// @notice Library for processing batch proposals and metadata generation in Taiko protocol
@@ -38,6 +39,9 @@ library LibPropose {
         returns (IInbox.Summary memory)
     {
         unchecked {
+            // Validate preconfer authorization first
+            LibValidate.validatePreconfer(_bindings);
+
             if (_batches.length == 0) revert EmptyBatchArray();
 
             // Make sure the last verified batch is not overwritten by a new batch.
@@ -56,6 +60,9 @@ library LibPropose {
                 revert MetadataHashMismatch();
             }
 
+            // Capture the starting batch ID for forced inclusion check
+            uint48 nextBatchId = _summary.nextBatchId;
+
             IInbox.BatchProposeMetadata memory parentBatch = _evidence.proposeMeta;
 
             for (uint256 i; i < _batches.length; ++i) {
@@ -68,6 +75,14 @@ library LibPropose {
                     _summary.gasIssuancePerSecond = _batches[i].gasIssuancePerSecond;
                     _summary.gasIssuanceUpdatedAt = uint48(block.timestamp);
                 }
+            }
+
+            // Validate forced inclusion was processed if due
+            if (_bindings.isForcedInclusionDue(nextBatchId)) {
+                IForcedInclusionStore.ForcedInclusion memory processed = 
+                    _bindings.consumeForcedInclusion(msg.sender);
+                
+                LibValidate.validateForcedInclusionBatch(_batches[0], processed);
             }
 
             return _summary;

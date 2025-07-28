@@ -5,6 +5,7 @@ import { IInbox } from "../IInbox.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./LibForks.sol";
 import "./LibBinding.sol";
+import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 
 /// @title LibValidate
 /// @notice Library for comprehensive batch validation in Taiko protocol
@@ -87,6 +88,64 @@ library LibValidate {
             provabilityBond: _config.provabilityBond,
             baseFeeSharingPctg: _config.baseFeeSharingPctg
         });
+    }
+
+    /// @notice Validates that the caller is an authorized preconfer
+    /// @param _bindings Library function binding
+    function validatePreconfer(LibBinding.Bindings memory _bindings) internal view {
+        address preconfer = _bindings.getCurrentPreconfer();
+        if (preconfer != address(0)) {
+            require(msg.sender == preconfer, NotPreconfer());
+        } else if (_bindings.getFallbackPreconfer() != address(0)) {
+            require(msg.sender == _bindings.getFallbackPreconfer(), NotPreconfer());
+        } else {
+            revert NotPreconfer();
+        }
+    }
+
+    /// @notice Validates a forced inclusion batch
+    /// @param _batch The batch to validate
+    /// @param _inclusion The forced inclusion data to validate against
+    function validateForcedInclusionBatch(
+        IInbox.Batch memory _batch,
+        IForcedInclusionStore.ForcedInclusion memory _inclusion
+    )
+        internal
+        pure
+    {
+        // Batch validation
+        if (!_batch.isForcedInclusion) revert IForcedInclusionStore.InvalidForcedInclusion();
+        if (_batch.blocks.length != 1) revert IForcedInclusionStore.InvalidForcedInclusion();
+        if (_batch.blobs.hashes.length != 1) revert IForcedInclusionStore.InvalidForcedInclusion();
+        if (_batch.gasIssuancePerSecond != 0) revert IForcedInclusionStore.InvalidForcedInclusion();
+
+        // Block validation
+        if (_batch.blocks[0].numTransactions != type(uint16).max) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+        if (_batch.blocks[0].timeShift != 0) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+        if (_batch.blocks[0].anchorBlockId != 0) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+        if (_batch.blocks[0].signalSlots.length != 0) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+
+        // Blob validation
+        if (_batch.blobs.hashes[0] != _inclusion.blobHash) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+        if (_batch.blobs.byteOffset != _inclusion.blobByteOffset) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+        if (_batch.blobs.byteSize != _inclusion.blobByteSize) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+        if (_batch.blobs.createdIn != _inclusion.blobCreatedIn) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -381,6 +440,7 @@ library LibValidate {
     error NotEnoughAnchorIds();
     error NotEnoughSignals();
     error NotInboxWrapper();
+    error NotPreconfer();
     error ProposerNotMsgSender();
     error RequiredSignalNotSent();
     error TimestampSmallerThanParent();

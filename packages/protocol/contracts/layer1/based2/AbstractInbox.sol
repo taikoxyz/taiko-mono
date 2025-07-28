@@ -10,7 +10,6 @@ import "./libs/LibVerify.sol";
 import "./IInbox.sol";
 import "./IPropose.sol";
 import "./IProve.sol";
-import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
 import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 
 /// @title AbstractInbox
@@ -27,27 +26,6 @@ import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
-    error NotPreconfer();
-
-    IPreconfWhitelist public immutable whitelist;
-    IForcedInclusionStore public immutable forcedStore;
-    address public immutable fallbackPreconfer;
-
-    // -------------------------------------------------------------------------
-    // Constructor
-    // -------------------------------------------------------------------------
-
-    constructor(
-        IPreconfWhitelist _whitelist,
-        IForcedInclusionStore _forcedStore,
-        address _fallbackPreconfer
-    )
-        EssentialContract()
-    {
-        whitelist = _whitelist;
-        forcedStore = _forcedStore;
-        fallbackPreconfer = _fallbackPreconfer;
-    }
 
     // -------------------------------------------------------------------------
     // External Functions
@@ -75,16 +53,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         nonReentrant
         returns (Summary memory)
     {
-        // Verify if the caller is an authorized preconfer
-        address preconfer = whitelist.getOperatorForCurrentEpoch();
-        if (preconfer != address(0)) {
-            require(msg.sender == preconfer, NotPreconfer());
-        } else if (fallbackPreconfer != address(0)) {
-            require(msg.sender == fallbackPreconfer, NotPreconfer());
-        } else {
-            revert NotPreconfer();
-        }
-
         LibBinding.Bindings memory bindings = _getBindings();
 
         (
@@ -95,21 +63,8 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         ) = bindings.decodeProposeBatchesInputs(_inputs);
         Config memory config = _getConfig();
 
-        // Capture the starting batch ID before proposal
-        uint48 nextBatchId = summary.nextBatchId;
-
-        // Propose batches
+        // Propose batches (includes preconf validation and forced inclusion processing)
         summary = LibPropose.propose(bindings, config, summary, batches, evidence);
-
-        // It is ok to pass the `nextBatchId` here because we already validated it
-        if (forcedStore.isOldestForcedInclusionDue(nextBatchId)) {
-            // We process the oldest forced inclusion first and then revert if the validation fails
-            // to avoid retrieving it first and then calling `consumeOldestForcedInclusion`
-            IForcedInclusionStore.ForcedInclusion memory processed =
-                forcedStore.consumeOldestForcedInclusion(msg.sender);
-
-            _validateForcedInclusionBatch(batches[0], processed);
-        }
 
         // Verify batches
         summary = LibVerify.verify(bindings, config, summary, transitionMetas);
@@ -285,6 +240,27 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         internal
         virtual;
 
+    /// @notice Gets the current preconfer operator address
+    /// @return The preconfer address
+    function _getCurrentPreconfer() internal view virtual returns (address);
+
+    /// @notice Gets the fallback preconfer address
+    /// @return The fallback preconfer address
+    function _getFallbackPreconfer() internal view virtual returns (address);
+
+    /// @notice Checks if the oldest forced inclusion is due for a batch
+    /// @param _batchId The batch ID to check
+    /// @return Whether forced inclusion is due
+    function _isForcedInclusionDue(uint48 _batchId) internal view virtual returns (bool);
+
+    /// @notice Consumes the oldest forced inclusion
+    /// @param _feeRecipient The address to receive the fee
+    /// @return The forced inclusion data
+    function _consumeForcedInclusion(address _feeRecipient)
+        internal
+        virtual
+        returns (IForcedInclusionStore.ForcedInclusion memory);
+
     /// @notice Loads a transition metadata hash from storage
     /// @param _conf The configuration
     /// @param _lastVerifiedBlockHash The last verified block hash
@@ -416,6 +392,9 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
             getBlobHash: _getBlobHash,
             getBlockHash: _getBlockHash,
             loadTransitionMetaHash: _loadTransitionMetaHash,
+            getCurrentPreconfer: _getCurrentPreconfer,
+            getFallbackPreconfer: _getFallbackPreconfer,
+            isForcedInclusionDue: _isForcedInclusionDue,
             // Write functions
             saveTransition: _saveTransition,
             debitBond: _debitBond,
@@ -423,6 +402,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
             transferFee: _transferFee,
             syncChainData: _syncChainData,
             saveBatchMetaHash: _saveBatchMetaHash,
+            consumeForcedInclusion: _consumeForcedInclusion,
             // Encoding functions
             encodeBatchContext: _encodeBatchContext,
             encodeTransitionMetas: _encodeTransitionMetas,
@@ -442,51 +422,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     {
         summary_ = _decodeSummary(_summaryEncoded);
         if (_loadSummaryHash() != keccak256(abi.encode(summary_))) revert SummaryMismatch();
-    }
-
-    /// @dev Validates a forced inclusion batch follows all required rules
-    /// @param _batch The batch to validate as forced inclusion
-    function _validateForcedInclusionBatch(
-        I.Batch memory _batch,
-        IForcedInclusionStore.ForcedInclusion memory _inclusion
-    )
-        private
-        pure
-    {
-        // Batch validation
-        require(_batch.isForcedInclusion, IForcedInclusionStore.InvalidForcedInclusion());
-        require(_batch.blocks.length == 1, IForcedInclusionStore.InvalidForcedInclusion());
-        require(_batch.blobs.hashes.length == 1, IForcedInclusionStore.InvalidForcedInclusion());
-        require(_batch.gasIssuancePerSecond == 0, IForcedInclusionStore.InvalidForcedInclusion());
-
-        // Block validation
-        require(
-            _batch.blocks[0].numTransactions == type(uint16).max,
-            IForcedInclusionStore.InvalidForcedInclusion()
-        );
-        require(_batch.blocks[0].timeShift == 0, IForcedInclusionStore.InvalidForcedInclusion());
-        require(_batch.blocks[0].anchorBlockId == 0, IForcedInclusionStore.InvalidForcedInclusion());
-        require(
-            _batch.blocks[0].signalSlots.length == 0, IForcedInclusionStore.InvalidForcedInclusion()
-        );
-
-        // Blob validation
-        require(
-            _batch.blobs.hashes[0] == _inclusion.blobHash,
-            IForcedInclusionStore.InvalidForcedInclusion()
-        );
-        require(
-            _batch.blobs.byteOffset == _inclusion.blobByteOffset,
-            IForcedInclusionStore.InvalidForcedInclusion()
-        );
-        require(
-            _batch.blobs.byteSize == _inclusion.blobByteSize,
-            IForcedInclusionStore.InvalidForcedInclusion()
-        );
-        require(
-            _batch.blobs.createdIn == _inclusion.blobCreatedIn,
-            IForcedInclusionStore.InvalidForcedInclusion()
-        );
     }
 
     // -------------------------------------------------------------------------

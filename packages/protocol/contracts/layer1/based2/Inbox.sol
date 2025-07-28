@@ -8,6 +8,8 @@ import "./AbstractInbox.sol";
 import "./libs/LibBonds.sol";
 import "./libs/LibState.sol";
 import "./IBondManager2.sol";
+import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
+import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 
 /// @title Inbox
 /// @dev This contract extends AbstractInbox with L1-specific implementations for blob hash
@@ -20,6 +22,10 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
     using LibBonds for State;
     using LibState for State;
     using SafeERC20 for IERC20;
+
+    IPreconfWhitelist public immutable whitelist;
+    IForcedInclusionStore public immutable forcedStore;
+    address public immutable fallbackPreconfer;
 
     /// @notice Protocol state storage
     /// @dev Storage layout must match Ontake fork for upgrade compatibility
@@ -36,8 +42,12 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
         IForcedInclusionStore _forcedStore,
         address _fallbackPreconfer
     )
-        AbstractInbox(_whitelist, _forcedStore, _fallbackPreconfer)
-    { }
+        AbstractInbox()
+    {
+        whitelist = _whitelist;
+        forcedStore = _forcedStore;
+        fallbackPreconfer = _fallbackPreconfer;
+    }
 
     // -------------------------------------------------------------------------
     // Bond Management Functions
@@ -194,5 +204,29 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
         override
     {
         return $.saveBatchMetaHash(_conf, _batchId, _metaHash);
+    }
+
+    /// @inheritdoc AbstractInbox
+    function _getCurrentPreconfer() internal view override returns (address) {
+        return whitelist.getOperatorForCurrentEpoch();
+    }
+
+    /// @inheritdoc AbstractInbox
+    function _getFallbackPreconfer() internal view override returns (address) {
+        return fallbackPreconfer;
+    }
+
+    /// @inheritdoc AbstractInbox
+    function _isForcedInclusionDue(uint48 _batchId) internal view override returns (bool) {
+        return forcedStore.isOldestForcedInclusionDue(_batchId);
+    }
+
+    /// @inheritdoc AbstractInbox
+    function _consumeForcedInclusion(address _feeRecipient)
+        internal
+        override
+        returns (IForcedInclusionStore.ForcedInclusion memory)
+    {
+        return forcedStore.consumeOldestForcedInclusion(_feeRecipient);
     }
 }

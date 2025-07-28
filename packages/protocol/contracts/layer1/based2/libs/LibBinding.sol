@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../IInbox.sol";
+import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 
 /// @title LibBinding
 /// @notice Library for read/write state and encoding/decoding functions.
@@ -31,6 +32,12 @@ library LibBinding {
         /// @dev Assume 1 SLOAD is needed
         function (IInbox.Config memory, bytes32, uint256) view returns (bytes32 , bool)
             loadTransitionMetaHash;
+        /// @notice Gets the current preconfer operator address
+        function() view returns (address) getCurrentPreconfer;
+        /// @notice Gets the fallback preconfer address
+        function() view returns (address) getFallbackPreconfer;
+        /// @notice Checks if forced inclusion is due for a batch
+        function(uint48) view returns (bool) isForcedInclusionDue;
         //
         // Write functions -----------------------------------------------------
         //
@@ -49,6 +56,8 @@ library LibBinding {
         function(address, uint256) creditBond;
         /// @notice Debits bond from a user
         function(IInbox.Config memory, address, uint256) debitBond;
+        /// @notice Consumes the oldest forced inclusion
+        function(address) returns (IForcedInclusionStore.ForcedInclusion memory) consumeForcedInclusion;
         //
         // Encoding functions -----------------------------------------------------
         //
