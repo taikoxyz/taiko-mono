@@ -420,6 +420,7 @@ interface IInbox {
     /// (IInbox.Summary
     /// memory, IInbox.Batch[] memory, IInbox.ProposeBatchEvidence memory, IInbox.TransitionMeta[]
     /// memory)
+    /// @custom:encode max-size:7 for decoded IInbox.Batch[]
     /// @return The updated summary
     function propose4(bytes calldata _inputs) external returns (Summary memory);
 

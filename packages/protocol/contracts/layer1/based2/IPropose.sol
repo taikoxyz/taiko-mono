@@ -12,6 +12,8 @@ interface IPropose {
     /// @param _inputs The inputs to propose and verify batches that can be decoded into
     /// (IInbox.Summary memory, IInbox.Batch[] memory, IInbox.ProposeBatchEvidence memory,
     /// IInbox.TransitionMeta[] memory)
+    /// @dev The length of IInbox.Batch[] must be smaller than 8.
+    /// @custom:encode max-size:7 for decoded IInbox.Batch[]
     /// @return The updated summary
     function propose4(bytes calldata _inputs) external returns (IInbox.Summary memory);
 }

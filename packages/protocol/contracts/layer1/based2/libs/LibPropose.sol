@@ -39,6 +39,7 @@ library LibPropose {
     {
         unchecked {
             if (_batches.length == 0) revert EmptyBatchArray();
+            if (_batches.length > 7) revert BatchLimitExceeded();
 
             // Make sure the last verified batch is not overwritten by a new batch.
             // Assuming batchRingBufferSize = 100, right after genesis, we can propose up to 99
