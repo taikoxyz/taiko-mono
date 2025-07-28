@@ -44,6 +44,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error InvalidBlobByteSize();
     error InvalidBlobCreatedIn();
     error InvalidBlockSize();
+    error InvalidProposer();
     error InvalidTimeShift();
     error InvalidSignalSlots();
     error OldestForcedInclusionDue();
@@ -131,6 +132,8 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         require(p.blobParams.byteOffset == inclusion.blobByteOffset, InvalidBlobByteOffset());
         require(p.blobParams.byteSize == inclusion.blobByteSize, InvalidBlobByteSize());
         require(p.blobParams.createdIn == inclusion.blobCreatedIn, InvalidBlobCreatedIn());
+
+        require(p.proposer == msg.sender, InvalidProposer());
 
         emit ForcedInclusionProcessed(inclusion);
     }
