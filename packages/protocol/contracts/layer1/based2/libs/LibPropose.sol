@@ -35,10 +35,11 @@ library LibPropose {
         IInbox.ProposeBatchEvidence memory _evidence
     )
         internal
-        returns (IInbox.Summary memory)
+        returns (IInbox.Summary memory, IInbox.BatchContext[] memory)
     {
         unchecked {
             if (_batches.length == 0) revert EmptyBatchArray();
+            if (_batches.length > 7) revert BatchLimitExceeded();
 
             // Make sure the last verified batch is not overwritten by a new batch.
             // Assuming batchRingBufferSize = 100, right after genesis, we can propose up to 99
@@ -57,9 +58,10 @@ library LibPropose {
             }
 
             IInbox.BatchProposeMetadata memory parentBatch = _evidence.proposeMeta;
+            IInbox.BatchContext[] memory contexts = new IInbox.BatchContext[](_batches.length);
 
             for (uint256 i; i < _batches.length; ++i) {
-                (parentBatch, _summary.lastBatchMetaHash) =
+                (parentBatch, contexts[i], _summary.lastBatchMetaHash) =
                     _proposeBatch(_bindings, _config, _summary, _batches[i], parentBatch);
 
                 ++_summary.nextBatchId;
@@ -70,7 +72,7 @@ library LibPropose {
                 }
             }
 
-            return _summary;
+            return (_summary, contexts);
         }
     }
 
@@ -94,7 +96,7 @@ library LibPropose {
         IInbox.BatchProposeMetadata memory _parentBatch
     )
         private
-        returns (IInbox.BatchProposeMetadata memory, bytes32)
+        returns (IInbox.BatchProposeMetadata memory, IInbox.BatchContext memory, bytes32)
     {
         // Validate the batch parameters and return batch and batch context data
         IInbox.BatchContext memory context =
@@ -106,12 +108,10 @@ library LibPropose {
             uint48(block.number), uint48(block.timestamp), _batch, context
         );
 
-        emit IInbox.Proposed(_summary.nextBatchId, _bindings.encodeBatchContext(context));
-
         bytes32 batchMetaHash = LibData.hashBatch(_summary.nextBatchId, metadata);
         _bindings.saveBatchMetaHash(_config, _summary.nextBatchId, batchMetaHash);
 
-        return (metadata.proposeMeta, batchMetaHash);
+        return (metadata.proposeMeta, context, batchMetaHash);
     }
 
     // -------------------------------------------------------------------------
