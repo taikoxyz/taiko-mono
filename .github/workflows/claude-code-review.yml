@@ -61,12 +61,8 @@ jobs:
 
       - name: Verify Node.js installation
         run: |
-          echo "Node.js version:"
-          node --version
-          echo "NPM version:"
-          npm --version
           echo "Node.js location:"
-          which node
+          which node || echo "Node not found in PATH"
 
       - name: Run Claude Code Review
         id: claude-review
