@@ -41,9 +41,11 @@ interface IInbox {
         /// @notice Optional anchor block ID for L1-L2 synchronization
         uint48 anchorBlockId;
         /// @notice Signal slots for cross-chain messages
+        /// @custom: max size 16
         bytes32[] signalSlots;
         /// @notice Address that receives block rewards. If this address is address(0), use
         /// Batch.coinbase.
+        /// @custom:encode optional
         address coinbase;
     }
 
@@ -51,18 +53,23 @@ interface IInbox {
     /// @dev Supports both direct blob hashes and blob indices for different scenarios
     struct Blobs {
         /// @notice Direct blob hashes (if non-empty, firstBlobIndex and numBlobs must be 0)
+        /// @custom:encode: max size 256
         bytes32[] hashes;
         /// @notice Index of the first blob in this batch (for blob index mode)
+        /// @custom:encode optional
         uint8 firstBlobIndex;
         /// @notice Number of blobs in this batch
         /// @dev Blobs are concatenated and decompressed via Zlib
+        /// @custom:encode optional
         uint8 numBlobs;
         /// @notice Byte offset of the blob data within the batch
+        /// @custom:encode optional
         uint32 byteOffset;
         /// @notice Size of the blob data in bytes
         uint32 byteSize;
         /// @notice Block number when blobs were created (only for forced inclusion)
         /// @dev Non-zero only when hashes array is used
+        /// @custom:encode optional
         uint48 createdIn;
     }
 
@@ -109,6 +116,7 @@ interface IInbox {
         /// @notice Address that proposed this batch
         address proposer;
         /// @notice Coinbase address for block rewards (can be zero)
+        /// @custom:encode optional
         address coinbase;
         /// @notice Timestamp of the last block in this batch
         uint48 lastBlockTimestamp;
@@ -119,6 +127,7 @@ interface IInbox {
         /// @notice Prover authorization data
         bytes proverAuth;
         /// @notice Array of blocks in this batch
+        /// @custom:encode max-size=512
         Block[] blocks;
         /// @notice Blob data for this batch
         Blobs blobs; // TODO(daniel): remove Blobs.
@@ -146,8 +155,10 @@ interface IInbox {
         /// @notice Percentage of base fee shared with validators (0-100)
         uint8 baseFeeSharingPctg;
         /// @notice Hashes of anchor blocks for verification (length <= type(uint16).max)
+        /// @custom:encode max-size=512
         bytes32[] anchorBlockHashes;
         /// @notice Array of blob hashes referenced by this batch (length <= type(uint4).max)
+        /// @custom:encode max-size=256
         bytes32[] blobHashes;
     }
 
@@ -157,14 +168,18 @@ interface IInbox {
         /// @notice Address authorized to prove this batch
         address prover;
         /// @notice Token used for fee payment (ETH not supported)
+        /// @custom:encode optional
         address feeToken;
         /// @notice Fee amount (in Gwei)
         uint48 fee;
-        /// @notice Optional expiration timestamp (0 = no expiration)
+        /// @notice Expiration timestamp (0 = no expiration)
+        /// @custom:encode optional
         uint48 validUntil;
-        /// @notice Optional batch ID restriction (0 = any batch)
+        /// @notice Batch ID restriction (0 = any batch)
+        /// @custom:encode optional
         uint48 batchId;
         /// @notice Cryptographic signature authorizing the prover (length <= type(uint10).max)
+        /// @custom: max size 128
         bytes signature;
     }
 
@@ -174,7 +189,8 @@ interface IInbox {
         /// @notice Hash of all transactions in the batch
         bytes32 txsHash;
         /// @notice Array of blob hashes referenced by this batch
-        bytes32[] blobHashes; // length <= type(uint4).max
+        /// @custom:encode max-size=256
+        bytes32[] blobHashes;
         /// @notice Additional arbitrary data for the batch
         bytes32 extraData;
         /// @notice Address to receive block rewards
@@ -192,9 +208,11 @@ interface IInbox {
         /// @notice Timestamp of the last block in this batch
         uint48 lastBlockTimestamp;
         /// @notice Hashes of anchor blocks for verification
-        bytes32[] anchorBlockHashes; // length <= type(uint16).max
+        /// @custom:encode max-size=512
+        bytes32[] anchorBlockHashes;
         /// @notice Array of blocks contained in this batch
-        Block[] blocks; // length <= type(uint16).max
+        /// @custom:encode max-size=512
+        Block[] blocks;
     }
 
     /// @notice Simplified metadata for batch proposals
@@ -293,6 +311,7 @@ interface IInbox {
         /// @notice Hash of the block for this transition
         bytes32 blockHash;
         /// @notice State root after this transition
+        /// @custom:encode optional
         bytes32 stateRoot;
         /// @notice Address that submitted the proof
         address prover;
@@ -449,14 +468,16 @@ interface IInbox {
     event Verified(uint256 indexed batchId, uint256 lastBlockId, bytes32 lastBlockHash);
 
     /// @notice Proposes and verifies batches
-    /// @param _inputs The inputs to propose and verify batches that can be decoded into (I.Summary
-    /// memory, I.Batch[] memory, I.ProposeBatchEvidence memory, I.TransitionMeta[] memory)
+    /// @param _inputs The inputs to propose and verify batches that can be decoded into
+    /// (IInbox.Summary
+    /// memory, IInbox.Batch[] memory, IInbox.ProposeBatchEvidence memory, IInbox.TransitionMeta[]
+    /// memory)
     /// @return The updated summary
     function propose4(bytes calldata _inputs) external returns (Summary memory);
 
     /// @notice Proves batch transitions using cryptographic proofs
     /// @dev Validates and processes cryptographic proofs for batch state transitions
-    /// @param _inputs encoded I.ProveBatchInput[]
+    /// @param _inputs encoded IInbox.ProveBatchInput[]
     /// @param _proof The cryptographic proof data for validation
     function prove4(bytes calldata _inputs, bytes calldata _proof) external;
 }
