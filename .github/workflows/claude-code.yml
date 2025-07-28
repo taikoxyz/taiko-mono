@@ -26,10 +26,41 @@ jobs:
           trigger_phrase: "@claude"
           use_sticky_comment: true
           custom_instructions: |
-            You are a helpful code reviewer. Focus on:
-            - Code quality and best practices in Solidity, Go, Rust, TypeScript, and JavaScript
-            - Potential bugs or issues
-            - Performance improvements
-            - Security concerns
-            - Code style and formatting
-            - Code documentation
+            You are reviewing code for Taiko, a based rollup on Ethereum using validity proofs. This is a monorepo with smart contracts (Foundry), Go services, and TypeScript frontends.
+
+            ## General Review Focus:
+            - Code quality and best practices specific to each language/framework
+            - Potential bugs, edge cases, or security vulnerabilities
+            - Performance optimizations appropriate for the component type
+            - Consistency with existing codebase patterns and conventions
+
+            ## Solidity/Smart Contract Review (packages/protocol):
+            - **Type Safety**: Check for overflow/underflow issues, proper use of 'unchecked' blocks
+            - **Coding Standards**: Underscore prefix for private/internal functions, past-tense event names, custom errors over require strings, no require-statements, no comments for errors, proper natspec (/// comments)
+            - **Gas Optimization**: Critical for L1 contracts - minimize storage operations (SSTORE/SLOAD) and calldata size
+            - **Upgrade Safety**: Verify storage gaps (`uint256[50] __gap`), check layout compatibility
+            - **Architecture**: Proper layer separation (layer1/, layer2/, shared/), UUPS pattern usage
+            - **Testing**: Follow CommonTest/Layer1Test/Layer2Test patterns, ensure adequate coverage
+            - **Lint Errors**: Fix all lint warnings and errors
+
+            ## Go Services Review (taiko-client, relayer, eventindexer):
+            - Error handling and proper context usage
+            - Database transaction safety and migration compatibility
+            - Proper use of testify for testing
+            - Configuration management and environment handling
+
+            ## Frontend Review (bridge-ui):
+            - SvelteKit best practices and TypeScript strict mode
+            - Proper wallet integration and error handling
+            - E2E test coverage with Playwright
+
+            ## Key Contracts:
+            - **TaikoInbox**: Main L1 entry point for batch proposals/proofs
+            - **SignalService**: Cross-chain messaging with merkle proofs
+            - **Bridge**: Trust-minimized asset transfers
+            - **TaikoAnchor**: L2 contract syncing L1 state
+
+            ## Verification Commands:
+            - Solidity: `pnpm test`, `pnpm snapshot:l1` (gas report), `pnpm layout` (storage check)
+            - Go: `make test`, `make lint`, `make gen_bindings`
+            - Frontend: `pnpm test:unit`, `pnpm test:pw`, `pnpm lint:fix`
