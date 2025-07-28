@@ -156,10 +156,11 @@ If you aren't, you can configure the ports and addresses so that the services ca
 
 ### Ensure that the relevant ports are open on your machine
 
-  Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following port on your device is open:
-    - `4001` OR whichever port you set `--p2p.listen.tcp` to.
+  Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following ports on your device are open:
+    - TCP `4001` OR whichever port you set `--p2p.listen.tcp` to.
+    - UDP `30303` OR whichever port you set `--p2p.advertise.udp` to.
 
-  This port **is required for p2p gossiping preconfirmed blocks**, so if you if it is not set you will only subscribe to the events that are emitted on chain.
+  These ports **are required for p2p gossiping preconfirmed blocks**, so if it is not set you will only subscribe to the events that are emitted on chain.
 
 ### Syncing
 
