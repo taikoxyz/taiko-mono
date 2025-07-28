@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net/http"
 
+	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -40,8 +42,9 @@ type ExecutableData struct {
 // preconfirmation blocks creation requests.
 type BuildPreconfBlockRequestBody struct {
 	// @param ExecutableData engine.ExecutableData the data necessary to execute an EL payload.
-	ExecutableData  *ExecutableData `json:"executableData"`
-	EndOfSequencing *bool           `json:"endOfSequencing"`
+	ExecutableData    *ExecutableData `json:"executableData"`
+	EndOfSequencing   *bool           `json:"endOfSequencing"`
+	IsForcedInclusion *bool           `json:"isForcedInclusion"`
 }
 
 // BuildPreconfBlockResponseBody represents a response body when handling preconfirmation
@@ -59,7 +62,7 @@ type BuildPreconfBlockResponseBody struct {
 //		@Description	Insert a preconfirmation block to the L2 execution engine, if the preconfirmation block creation
 //		@Description	body in request are valid, it will insert the corresponding
 //	 	@Description	preconfirmation block to the backend L2 execution engine and return a success response.
-//		@Param  	body body BuildPreconfBlockRequestBody true "preconfirmation block creation request body"
+//		@Param  	body BuildPreconfBlockRequestBody true "preconfirmation block creation request body"
 //		@Accept	  json
 //		@Produce	json
 //		@Success	200		{object} BuildPreconfBlockResponseBody
@@ -68,7 +71,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// make a new context, we dont want to cancel the request if the caller times out.
+	// make a new context, we don't want to cancel the request if the caller times out.
 	ctx := context.Background()
 
 	if s.rpc.PacayaClients.TaikoWrapper != nil {
@@ -122,6 +125,11 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		endOfSequencing = true
 	}
 
+	isForcedInclusion := false
+	if reqBody.IsForcedInclusion != nil && *reqBody.IsForcedInclusion {
+		isForcedInclusion = true
+	}
+
 	log.Info(
 		"New preconfirmation block building request",
 		"blockID", reqBody.ExecutableData.Number,
@@ -132,6 +140,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		"extraData", common.Bytes2Hex(reqBody.ExecutableData.ExtraData),
 		"parentHash", reqBody.ExecutableData.ParentHash.Hex(),
 		"endOfSequencing", endOfSequencing,
+		"isForcedInclusion", isForcedInclusion,
 	)
 
 	// Check if the fee recipient the current operator or the next operator if its in handover window.
@@ -172,13 +181,19 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		return s.returnError(c, http.StatusBadRequest, err)
 	}
 	if progress.IsSyncing() {
-		return s.returnError(c, http.StatusBadRequest, errors.New("L2 execution engine is syncing"))
+		return s.returnError(c, http.StatusBadRequest, errors.New("l2 execution engine is syncing"))
 	}
 
 	// Insert the preconfirmation block.
-	headers, err := s.chainSyncer.InsertPreconfBlocksFromExecutionPayloads(
+	headers, err := s.chainSyncer.InsertPreconfBlocksFromEnvelopes(
 		ctx,
-		[]*eth.ExecutionPayload{executablePayload},
+		[]*preconf.Envelope{
+			{
+				Payload:           executablePayload,
+				Signature:         nil,
+				IsForcedInclusion: isForcedInclusion,
+			},
+		},
 		false,
 	)
 	if err != nil {
@@ -191,7 +206,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	header := headers[0]
 
 	// always update the highest unsafe L2 payload block ID.
-	// its either higher than the existing one, or we reorged.
+	// it's either higher than the existing one, or we reorged.
 	s.updateHighestUnsafeL2Payload(header.Number.Uint64())
 
 	// Propagate the preconfirmation block to the P2P network, if the current server
@@ -208,6 +223,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 			"extraData", common.Bytes2Hex(header.Extra),
 			"parentHash", header.ParentHash,
 			"endOfSequencing", endOfSequencing,
+			"isForcedInclusion", reqBody.IsForcedInclusion != nil && *reqBody.IsForcedInclusion,
 		)
 
 		var u256 uint256.Int
@@ -217,6 +233,30 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				"baseFee", header.BaseFee,
 			)
 		} else {
+			// sign the block hash, persist it to L1Origin as the signature
+			sigBytes, err := s.p2pSigner.Sign(
+				ctx,
+				p2p.SigningDomainBlocksV1,
+				s.rpc.L2.ChainID,
+				header.Hash().Bytes(),
+			)
+			if err != nil {
+				log.Warn(
+					"Failed to sign the preconfirmation block payload",
+					"blockHash", executablePayload.BlockHash.Hex(),
+					"blockID", header.Number.Uint64(),
+				)
+				return s.returnError(c, http.StatusInternalServerError, fmt.Errorf("failed to sign payload: %w", err))
+			}
+
+			if _, err = s.rpc.L2Engine.SetL1OriginSignature(ctx, header.Number, *sigBytes); err != nil {
+				return s.returnError(
+					c,
+					http.StatusInternalServerError,
+					fmt.Errorf("failed to update L1 origin signature: %w", err),
+				)
+			}
+
 			if err := s.p2pNode.GossipOut().PublishL2Payload(
 				ctx,
 				&eth.ExecutionPayloadEnvelope{
@@ -233,7 +273,9 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 						BlockHash:     header.Hash(),
 						Transactions:  []eth.Data{reqBody.ExecutableData.Transactions},
 					},
-					EndOfSequencing: reqBody.EndOfSequencing,
+					EndOfSequencing:   reqBody.EndOfSequencing,
+					IsForcedInclusion: &isForcedInclusion,
+					Signature:         sigBytes,
 				},
 				s.p2pSigner,
 			); err != nil {
@@ -285,9 +327,9 @@ func (s *PreconfBlockAPIServer) HealthCheck(c echo.Context) error {
 
 // Status represents the current status of the preconfirmation block server.
 type Status struct {
-	// @param lookahead Lookahead the current lookahead information.
+	// @param lookahead the current lookahead information.
 	Lookahead *Lookahead `json:"lookahead"`
-	// @param totalCached uint64 the total number of cached payloads after the start of the server.
+	// @param totalCached uint64 the total number of cached envelopes after the start of the server.
 	TotalCached uint64 `json:"totalCached"`
 	// @param highestUnsafeL2PayloadBlockID uint64 the highest preconfirmation block ID that the server
 	// @param has received from the P2P network, if its zero, it means the current server has not received
@@ -323,14 +365,15 @@ func (s *PreconfBlockAPIServer) GetStatus(c echo.Context) error {
 		"nextOperator", s.lookahead.NextOperator.Hex(),
 		"currRanges", s.lookahead.CurrRanges,
 		"nextRanges", s.lookahead.NextRanges,
-		"totalCached", s.payloadsCache.getTotalCached(),
+		"totalCached", s.envelopesCache.getTotalCached(),
 		"highestUnsafeL2PayloadBlockID", s.highestUnsafeL2PayloadBlockID,
 		"endOfSequencingBlockHash", endOfSequencingBlockHash.Hex(),
+		"currEpoch", s.rpc.L1Beacon.CurrentEpoch(),
 	)
 
 	return c.JSON(http.StatusOK, Status{
 		Lookahead:                     s.lookahead,
-		TotalCached:                   s.payloadsCache.getTotalCached(),
+		TotalCached:                   s.envelopesCache.getTotalCached(),
 		HighestUnsafeL2PayloadBlockID: s.highestUnsafeL2PayloadBlockID,
 		EndOfSequencingBlockHash:      endOfSequencingBlockHash.Hex(),
 	})

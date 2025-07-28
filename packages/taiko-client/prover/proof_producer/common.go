@@ -3,7 +3,6 @@ package producer
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -68,10 +67,10 @@ type ProofDataV2 struct {
 	Quote    string `json:"quote"`
 }
 
-// requestHTTPProof sends a POST request to the given URL with the given JWT and request body,
+// requestHTTPProof sends a POST request to the given URL with the given ApiKey and request body,
 // to get a proof of the given type.
-func requestHTTPProof[T, U any](ctx context.Context, url string, jwt string, reqBody T) (*U, error) {
-	res, err := requestHTTPProofResponse(ctx, url, jwt, reqBody)
+func requestHTTPProof[T, U any](ctx context.Context, url string, apiKey string, reqBody T) (*U, error) {
+	res, err := requestHTTPProofResponse(ctx, url, apiKey, reqBody)
 	if err != nil {
 		return nil, err
 	}
@@ -91,9 +90,14 @@ func requestHTTPProof[T, U any](ctx context.Context, url string, jwt string, req
 	return &output, nil
 }
 
-// requestHTTPProofResponse sends a POST request to the given URL with the given JWT and request body,
+// requestHTTPProofResponse sends a POST request to the given URL with the given ApiKey and request body,
 // and returns the raw HTTP response, the caller is responsible for closing the response body.
-func requestHTTPProofResponse[T any](ctx context.Context, url string, jwt string, reqBody T) (*http.Response, error) {
+func requestHTTPProofResponse[T any](
+	ctx context.Context,
+	url string,
+	apiKey string,
+	reqBody T,
+) (*http.Response, error) {
 	client := &http.Client{}
 
 	jsonValue, err := json.Marshal(reqBody)
@@ -106,8 +110,8 @@ func requestHTTPProofResponse[T any](ctx context.Context, url string, jwt string
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if len(jwt) > 0 {
-		req.Header.Set("Authorization", "Bearer "+base64.StdEncoding.EncodeToString([]byte(jwt)))
+	if len(apiKey) > 0 {
+		req.Header.Set("X-API-KEY", apiKey)
 	}
 
 	res, err := client.Do(req)
@@ -129,21 +133,26 @@ func requestHTTPProofResponse[T any](ctx context.Context, url string, jwt string
 // updateProvingMetrics updates the metrics for the given proof type, including
 // the generation time and the number of proofs generated.
 func updateProvingMetrics(proofType ProofType, requestAt time.Time, isAggregation bool) {
+	generationTime := time.Since(requestAt).Seconds()
 	if isAggregation {
 		// nolint:exhaustive
 		// We deliberately handle only known proof types and catch others in default case
 		switch proofType {
 		case ProofTypeSgxGeth:
-			metrics.ProverSgxGethAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSgxGethAggregationGenerationTime.Set(generationTime)
+			metrics.ProverSgxGethAggregationGenerationTimeSum.Add(generationTime)
 			metrics.ProverSgxGethProofAggregationGeneratedCounter.Add(1)
 		case ProofTypeSgx:
-			metrics.ProverSGXAggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSGXAggregationGenerationTime.Set(generationTime)
+			metrics.ProverSGXAggregationGenerationTimeSum.Add(generationTime)
 			metrics.ProverSgxProofAggregationGeneratedCounter.Add(1)
 		case ProofTypeZKR0:
-			metrics.ProverR0AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverR0AggregationGenerationTime.Set(generationTime)
+			metrics.ProverR0AggregationGenerationTimeSum.Add(generationTime)
 			metrics.ProverR0ProofAggregationGeneratedCounter.Add(1)
 		case ProofTypeZKSP1:
-			metrics.ProverSP1AggregationGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSP1AggregationGenerationTime.Set(generationTime)
+			metrics.ProverSP1AggregationGenerationTimeSum.Add(generationTime)
 			metrics.ProverSp1ProofAggregationGeneratedCounter.Add(1)
 		default:
 			log.Error("Unknown proof type", "proofType", proofType)
@@ -153,16 +162,20 @@ func updateProvingMetrics(proofType ProofType, requestAt time.Time, isAggregatio
 		// We deliberately handle only known proof types and catch others in default case
 		switch proofType {
 		case ProofTypeSgxGeth:
-			metrics.ProverSgxGethProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSgxGethProofGenerationTime.Set(generationTime)
+			metrics.ProverSgxGethProofGenerationTimeSum.Add(generationTime)
 			metrics.ProverSgxGethProofGeneratedCounter.Add(1)
 		case ProofTypeSgx:
-			metrics.ProverSgxProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSgxProofGenerationTime.Set(generationTime)
+			metrics.ProverSgxProofGenerationTimeSum.Add(generationTime)
 			metrics.ProverSgxProofGeneratedCounter.Add(1)
 		case ProofTypeZKR0:
-			metrics.ProverR0ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverR0ProofGenerationTime.Set(generationTime)
+			metrics.ProverR0ProofGenerationTimeSum.Add(generationTime)
 			metrics.ProverR0ProofGeneratedCounter.Add(1)
 		case ProofTypeZKSP1:
-			metrics.ProverSP1ProofGenerationTime.Set(float64(time.Since(requestAt).Seconds()))
+			metrics.ProverSP1ProofGenerationTime.Set(generationTime)
+			metrics.ProverSP1ProofGenerationTimeSum.Add(generationTime)
 			metrics.ProverSp1ProofGeneratedCounter.Add(1)
 		default:
 			log.Error("Unknown proof type", "proofType", proofType)

@@ -123,10 +123,10 @@
 ### taikoInbox
 
 - proxy: `0x79C9109b764609df928d16fC4a91e9081F7e87DB`
-- impl: `0xD60841Cf3f56C8A17A3aE7D8ddcAF3b834Eb86c3`
+- impl: `0x72Ad238e7f4a5D176928232CFF04178a2F326f3d`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - oldFork: `0x6e15d2049480C7E339C6B398774166e1ddbCd43e` at commit `a634150`
-- newFork: `0xF47eB6f8F9934F2838594A733f680Ee8136d1024` at commit `c663e2e`
+- newFork: `0x2eAe9fFB4D727640B9265F0a2e301441D767DD52` at commit `5bf047e`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
   - upgraded on Jun 10, 2024 at [PR #17532](https://github.com/taikoxyz/taiko-mono/pull/17532)
@@ -149,6 +149,7 @@
   - upgraded on Apr 18, 2025 at commit `791c524`
   - upgraded on May 29, 2025 at commit `baeaba9`
   - upgraded on Jun 28, 2025 at commit `c663e2e`
+  - upgraded on Jul 3, 2025 at commit `5bf047e`
 
 ### assignmentHook
 
@@ -225,10 +226,11 @@
 
 ### risc0_groth16_verifier(Pacaya)
 
-- addr : `0xC93ca45D35021B10B68A87E629BECa8AC3FE9C80`
+- addr : `0x7b6de561e26f5ab65958e5a3a1dcf807cb91fd02`
 - logs:
   - deployed on Apr 16, 2025 at commit `9bcf8e5`
   - deployed on Jun 11, 2025 at commit `9dfb5b9`
+  - deployed on Jul 21, 2025 at commit `92ad14e`
 
 ### tier_zkvm_risc0
 
@@ -335,12 +337,13 @@
 ### risc0_reth_verifier(Pacaya)
 
 - proxy : `0xCDdf353C838542834E443C3c9dE3ab3F81F27aF2`
-- impl : `0xC93ca45D35021B10B68A87E629BECa8AC3FE9C80`
+- impl : `0x8cF41Ee873Ca293Dc339006b0069d6337F68CCCA`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on March 21, 2025 at commit `80baf41`
   - upgraded on Apr 16, 2025 at commit `9bcf8e5`
   - upgraded on Jun 11, 2025 at commit `9dfb5b9`
+  - upgraded on Jul 21, 2025 at commit `92ad14e`
 
 ### sp1_reth_verifier(Pacaya)
 

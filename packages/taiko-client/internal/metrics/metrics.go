@@ -89,11 +89,17 @@ var (
 	ProverSGXAggregationGenerationTime = factory.NewGauge(prometheus.GaugeOpts{
 		Name: "prover_proof_sgx_aggregation_generation_time",
 	})
+	ProverSGXAggregationGenerationTimeSum = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_sgx_aggregation_generation_time_sum",
+	})
 	ProverSgxProofGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_sgx_generated",
 	})
 	ProverSgxProofGenerationTime = factory.NewGauge(prometheus.GaugeOpts{
 		Name: "prover_proof_sgx_generation_time",
+	})
+	ProverSgxProofGenerationTimeSum = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_sgx_generation_time_sum",
 	})
 	ProverSgxProofAggregationGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_sgx_aggregation_generated",
@@ -101,11 +107,17 @@ var (
 	ProverSgxGethAggregationGenerationTime = factory.NewGauge(prometheus.GaugeOpts{
 		Name: "prover_proof_sgx_geth_aggregation_generation_time",
 	})
+	ProverSgxGethAggregationGenerationTimeSum = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_sgx_geth_aggregation_generation_time_sum",
+	})
 	ProverSgxGethProofGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_sgx_geth_generated",
 	})
 	ProverSgxGethProofGenerationTime = factory.NewGauge(prometheus.GaugeOpts{
 		Name: "prover_proof_sgx_geth_generation_time",
+	})
+	ProverSgxGethProofGenerationTimeSum = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_sgx_geth_generation_time_sum",
 	})
 	ProverSgxGethProofAggregationGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_sgx_geth_aggregation_generated",
@@ -113,11 +125,17 @@ var (
 	ProverR0AggregationGenerationTime = factory.NewGauge(prometheus.GaugeOpts{
 		Name: "prover_proof_r0_aggregation_generation_time",
 	})
+	ProverR0AggregationGenerationTimeSum = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_r0_aggregation_generation_time_sum",
+	})
 	ProverR0ProofGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_r0_generated",
 	})
 	ProverR0ProofGenerationTime = factory.NewGauge(prometheus.GaugeOpts{
 		Name: "prover_proof_r0_generation_time",
+	})
+	ProverR0ProofGenerationTimeSum = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_r0_generation_time_sum",
 	})
 	ProverR0ProofAggregationGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_r0_aggregation_generated",
@@ -125,11 +143,17 @@ var (
 	ProverSP1AggregationGenerationTime = factory.NewGauge(prometheus.GaugeOpts{
 		Name: "prover_proof_sp1_aggregation_generation_time",
 	})
+	ProverSP1AggregationGenerationTimeSum = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_sp1_aggregation_generation_time_sum",
+	})
 	ProverSp1ProofGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_sp1_generated",
 	})
 	ProverSP1ProofGenerationTime = factory.NewGauge(prometheus.GaugeOpts{
 		Name: "prover_proof_sp1_generation_time",
+	})
+	ProverSP1ProofGenerationTimeSum = factory.NewCounter(prometheus.CounterOpts{
+		Name: "prover_proof_sp1_generation_time_sum",
 	})
 	ProverSp1ProofAggregationGeneratedCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "prover_proof_sp1_aggregation_generated",

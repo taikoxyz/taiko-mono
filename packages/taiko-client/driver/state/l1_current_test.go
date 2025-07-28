@@ -27,7 +27,7 @@ func (s *DriverStateTestSuite) TestResetL1CurrentEmptyHeight() {
 }
 
 func (s *DriverStateTestSuite) TestResetL1CurrentEmptyID() {
-	s.ErrorContains(s.s.ResetL1Current(context.Background(), common.Big1), "execution reverted")
+	s.ErrorContains(s.s.ResetL1Current(context.Background(), nil), "empty block ID")
 }
 
 func (s *DriverStateTestSuite) TestResetL1CurrentCtxErr() {
