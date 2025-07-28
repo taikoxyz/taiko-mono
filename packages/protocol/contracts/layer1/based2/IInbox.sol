@@ -396,7 +396,8 @@ interface IInbox {
 
     /// @notice Emitted when a new batch is proposed
     /// @param lastProposedBatchId The id of the last proposed batch
-    /// @param proposeInputs The calldata inputs for propose4 function
+    /// @param proposeInputs The calldata inputs for propose4 function. Note that when the propose4
+    /// function is called by an EOA, the proposeInputs will be empty.
     /// @param batchContexts The array of batch context encoded as bytes encoded as bytes
     /// @param summary The updated protocol summary encoded as bytes
     event Proposed(
