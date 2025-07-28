@@ -296,7 +296,7 @@ library LibValidate {
             if (_batch.isForcedInclusion) revert InvalidForcedInclusion();
             return uint48(block.number);
         }
-        
+
         if (_batch.blobs.hashes.length == 0) {
             // this is a normal batch, blobs are created and used in the current batches.
             // firstBlobIndex can be non-zero.
@@ -306,7 +306,7 @@ library LibValidate {
         }
         // this is a forced-inclusion batch, blobs were created in early blocks and are used
         // in the current batches
-        require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
+        if (_batch.blobs.createdIn == 0) revert InvalidBlobCreatedIn();
         if (_batch.blobs.numBlobs != 0) revert InvalidBlobParams();
         if (_batch.blobs.firstBlobIndex != 0) revert InvalidBlobParams();
         return _batch.blobs.createdIn;
