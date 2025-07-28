@@ -229,7 +229,10 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
         bool isOptedIn = urc.isOptedIntoSlasher(_lookaheadSlot.registrationRoot, preconfSlasher);
 
         // If the operator is slashed or unregistered, we use the fallback or whitelist preconfer
-        if (operatorData.unregisteredAt != 0 || operatorData.slashedAt != 0 || !isOptedIn) {
+        if (
+            operatorData.unregisteredAt != type(uint48).max || operatorData.slashedAt != 0
+                || !isOptedIn
+        ) {
             _validateWhitelistPreconfer();
         } else {
             // Sender must be the expected committer (i.e the opted in preconfer) for
