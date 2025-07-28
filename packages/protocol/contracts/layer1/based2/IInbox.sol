@@ -336,6 +336,7 @@ interface IInbox {
         /// @notice Size of the ring buffer for batch storage
         uint24 batchRingBufferSize;
         /// @notice Maximum number of batches to verify in one operation
+        /// @custom:encode max-size:63
         uint8 maxBatchesToVerify;
         /// @notice Bond amount for liveness guarantee (in Gwei)
         uint48 livenessBond;
