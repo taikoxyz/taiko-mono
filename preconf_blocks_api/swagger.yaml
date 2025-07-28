@@ -87,9 +87,9 @@ definitions:
       lookahead:
         allOf:
         - $ref: '#/definitions/preconfblocks.Lookahead'
-        description: '@param lookahead Lookahead the current lookahead information.'
+        description: '@param lookahead the current lookahead information.'
       totalCached:
-        description: '@param totalCached uint64 the total number of cached payloads
+        description: '@param totalCached uint64 the total number of cached envelopes
           after the start of the server.'
         type: integer
     type: object
@@ -190,7 +190,7 @@ paths:
       parameters:
       - description: preconfirmation block creation request body
         in: body
-        name: body
+        name: request
         required: true
         schema:
           $ref: '#/definitions/preconfblocks.BuildPreconfBlockRequestBody'

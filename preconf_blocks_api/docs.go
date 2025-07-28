@@ -57,7 +57,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "description": "preconfirmation block creation request body",
-                        "name": "body",
+                        "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -221,7 +221,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "lookahead": {
-                    "description": "@param lookahead Lookahead the current lookahead information.",
+                    "description": "@param lookahead the current lookahead information.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/preconfblocks.Lookahead"
@@ -229,7 +229,7 @@ const docTemplate = `{
                     ]
                 },
                 "totalCached": {
-                    "description": "@param totalCached uint64 the total number of cached payloads after the start of the server.",
+                    "description": "@param totalCached uint64 the total number of cached envelopes after the start of the server.",
                     "type": "integer"
                 }
             }
