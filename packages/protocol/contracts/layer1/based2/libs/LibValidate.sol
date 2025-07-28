@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox as I } from "../IInbox.sol";
+import { IInbox } from "../IInbox.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "./LibForks.sol";
 import "./LibBinding.sol";
@@ -36,14 +36,14 @@ library LibValidate {
     /// @return _ Validated batch information and computed hashes
     function validate(
         LibBinding.Bindings memory _bindings,
-        I.Config memory _config,
-        I.Summary memory _summary,
-        I.Batch memory _batch,
-        I.BatchProposeMetadata memory _parentBatch
+        IInbox.Config memory _config,
+        IInbox.Summary memory _summary,
+        IInbox.Batch memory _batch,
+        IInbox.BatchProposeMetadata memory _parentBatch
     )
         internal
         view
-        returns (I.BatchContext memory)
+        returns (IInbox.BatchContext memory)
     {
         // If a block's coinbase is address(0), _batch.coinbase will be used, if _batch.coinbase
         // is address(0), the driver shall use the proposer address as the coinbase address.
@@ -75,7 +75,7 @@ library LibValidate {
         (bytes32[] memory blobHashes, bytes32 txsHash) = _calculateTxsHash(_bindings, _batch.blobs);
 
         // Initialize context
-        return I.BatchContext({
+        return IInbox.BatchContext({
             prover: address(0), // Will be set later in LibProver.validateProver
             txsHash: txsHash,
             blobHashes: blobHashes,
@@ -97,7 +97,13 @@ library LibValidate {
     /// @dev Handles both direct proposing and inbox wrapper scenarios
     /// @param _config Protocol configuration
     /// @param _batch The batch being validated
-    function _validateProposer(I.Config memory _config, I.Batch memory _batch) internal view {
+    function _validateProposer(
+        IInbox.Config memory _config,
+        IInbox.Batch memory _batch
+    )
+        internal
+        view
+    {
         if (_config.inboxWrapper == address(0)) {
             if (_batch.proposer != msg.sender) revert ProposerNotMsgSender();
         } else {
@@ -113,9 +119,9 @@ library LibValidate {
     /// @param _summary The current protocol summary
     /// @param _batch The batch being validated, which includes the gas issuance per second
     function _validateGasIssuance(
-        I.Config memory _config,
-        I.Summary memory _summary,
-        I.Batch memory _batch
+        IInbox.Config memory _config,
+        IInbox.Summary memory _summary,
+        IInbox.Batch memory _batch
     )
         internal
         view
@@ -147,8 +153,8 @@ library LibValidate {
     /// @param _batch The batch being validated
     /// @param _parentLastBlockTimestamp Timestamp of the last block in the parent batch
     function _validateTimestamps(
-        I.Config memory _config,
-        I.Batch memory _batch,
+        IInbox.Config memory _config,
+        IInbox.Batch memory _batch,
         uint48 _parentLastBlockTimestamp
     )
         internal
@@ -185,8 +191,8 @@ library LibValidate {
     /// @param _batch The batch containing signal references
     function _validateSignals(
         LibBinding.Bindings memory _bindings,
-        I.Config memory _config,
-        I.Batch memory _batch
+        IInbox.Config memory _config,
+        IInbox.Batch memory _batch
     )
         internal
         view
@@ -210,8 +216,8 @@ library LibValidate {
     /// @return lastAnchorBlockId_ ID of the last anchor block in this batch
     function _validateAnchors(
         LibBinding.Bindings memory _bindings,
-        I.Config memory _config,
-        I.Batch memory _batch,
+        IInbox.Config memory _config,
+        IInbox.Batch memory _batch,
         uint48 _parentLastAnchorBlockId
     )
         internal
@@ -261,7 +267,7 @@ library LibValidate {
     /// @param _parentLastBlockId Last block ID from the parent batch
     /// @return The ID of the last block in this batch
     function _validateBlockRange(
-        I.Config memory _conf,
+        IInbox.Config memory _conf,
         uint256 _numBlocks,
         uint48 _parentLastBlockId
     )
@@ -288,8 +294,8 @@ library LibValidate {
     /// @param _batch The batch containing blob information
     /// @return blobsCreatedIn_ Block number where blobs were created
     function _validateBlobs(
-        I.Config memory _conf,
-        I.Batch memory _batch
+        IInbox.Config memory _conf,
+        IInbox.Batch memory _batch
     )
         private
         view
@@ -325,7 +331,7 @@ library LibValidate {
     /// @return txsHash_ Hash of all transactions in the batch
     function _calculateTxsHash(
         LibBinding.Bindings memory _bindings,
-        I.Blobs memory _blobs
+        IInbox.Blobs memory _blobs
     )
         private
         view

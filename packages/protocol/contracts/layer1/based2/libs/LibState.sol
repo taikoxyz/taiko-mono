@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox as I } from "../IInbox.sol";
+import { IInbox } from "../IInbox.sol";
 
 /// @title LibState
 /// @notice Library for read/write state data.
@@ -14,14 +14,14 @@ library LibState {
     /// @notice Loads the summary hash from storage
     /// @param $ The state storage
     /// @return The summary hash
-    function loadSummaryHash(I.State storage $) internal view returns (bytes32) {
+    function loadSummaryHash(IInbox.State storage $) internal view returns (bytes32) {
         return $.summaryHash;
     }
 
     /// @notice Saves the summary hash to storage
     /// @param $ The state storage
     /// @param _summaryHash The summary hash to save
-    function saveSummaryHash(I.State storage $, bytes32 _summaryHash) internal {
+    function saveSummaryHash(IInbox.State storage $, bytes32 _summaryHash) internal {
         $.summaryHash = _summaryHash;
     }
 
@@ -33,8 +33,8 @@ library LibState {
     /// @return metaHash_ The transition metadata hash
     /// @return isFirstTransition_ Whether this is the first transition
     function loadTransitionMetaHash(
-        I.State storage $,
-        I.Config memory _conf,
+        IInbox.State storage $,
+        IInbox.Config memory _conf,
         bytes32 _lastVerifiedBlockHash,
         uint256 _batchId
     )
@@ -62,8 +62,8 @@ library LibState {
     /// @param _tranMetahash The transition metadata hash
     /// @return isFirstTransition_ Whether this is the first transition
     function saveTransition(
-        I.State storage $,
-        I.Config memory _conf,
+        IInbox.State storage $,
+        IInbox.Config memory _conf,
         uint48 _batchId,
         bytes32 _parentHash,
         bytes32 _tranMetahash
@@ -101,8 +101,8 @@ library LibState {
     /// @param _batchId The batch ID
     /// @return The batch metadata hash
     function loadBatchMetaHash(
-        I.State storage $,
-        I.Config memory _conf,
+        IInbox.State storage $,
+        IInbox.Config memory _conf,
         uint256 _batchId
     )
         internal
@@ -118,8 +118,8 @@ library LibState {
     /// @param _batchId The batch ID
     /// @param _metaHash The metadata hash to save
     function saveBatchMetaHash(
-        I.State storage $,
-        I.Config memory _conf,
+        IInbox.State storage $,
+        IInbox.Config memory _conf,
         uint256 _batchId,
         bytes32 _metaHash
     )
@@ -138,7 +138,7 @@ library LibState {
     /// @return partialParentHash_ The partial parent hash
     /// @return batchId_ The embedded batch ID
     function _loadPartialParentHashAndBatchId(
-        I.State storage $,
+        IInbox.State storage $,
         uint256 _slot
     )
         private

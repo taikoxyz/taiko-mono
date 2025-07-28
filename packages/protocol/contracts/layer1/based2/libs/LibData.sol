@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox as I } from "../IInbox.sol";
 import "../codec/LibCodecHeaderExtraInfo.sol";
 
 /// @title LibData
@@ -26,12 +25,12 @@ library LibData {
     function buildBatchMetadata(
         uint48 _proposedIn,
         uint48 _proposedAt,
-        I.Batch memory _batch,
-        I.BatchContext memory _context
+        IInbox.Batch memory _batch,
+        IInbox.BatchContext memory _context
     )
         internal
         pure
-        returns (I.BatchMetadata memory)
+        returns (IInbox.BatchMetadata memory)
     {
         // Prove metadata section
         uint48 firstBlockId;
@@ -40,7 +39,7 @@ library LibData {
         }
 
         bytes32 extraData = LibCodecHeaderExtraInfo.encode(
-            I.HeaderExtraInfo({
+            IInbox.HeaderExtraInfo({
                 sharingPctg: _context.baseFeeSharingPctg,
                 isForcedInclusion: _batch.isForcedInclusion,
                 gasIssuancePerSecond: _batch.gasIssuancePerSecond
@@ -48,8 +47,8 @@ library LibData {
         );
 
         // Block gas limit should be: `gasIssuancePerSecond * blockTime * 2`
-        return I.BatchMetadata({
-            buildMeta: I.BatchBuildMetadata({
+        return IInbox.BatchMetadata({
+            buildMeta: IInbox.BatchBuildMetadata({
                 txsHash: _context.txsHash,
                 blobHashes: _context.blobHashes,
                 extraData: extraData,
@@ -63,12 +62,12 @@ library LibData {
                 anchorBlockHashes: _context.anchorBlockHashes,
                 blocks: _batch.blocks
             }),
-            proposeMeta: I.BatchProposeMetadata({
+            proposeMeta: IInbox.BatchProposeMetadata({
                 lastBlockTimestamp: _batch.lastBlockTimestamp,
                 lastBlockId: _context.lastBlockId,
                 lastAnchorBlockId: _context.lastAnchorBlockId
             }),
-            proveMeta: I.BatchProveMetadata({
+            proveMeta: IInbox.BatchProveMetadata({
                 proposer: _batch.proposer,
                 prover: _context.prover,
                 proposedAt: _proposedAt,
@@ -90,7 +89,7 @@ library LibData {
     /// @return Deterministic hash representing the batch and its metadata
     function hashBatch(
         uint64 _batchId,
-        I.BatchMetadata memory _meta
+        IInbox.BatchMetadata memory _meta
     )
         internal
         pure
@@ -113,7 +112,11 @@ library LibData {
     ///      - More efficient when evidence is already available
     /// @param _evidence Pre-computed batch proposal metadata evidence
     /// @return Deterministic hash representing the batch
-    function hashBatch(I.ProposeBatchEvidence memory _evidence) public pure returns (bytes32) {
+    function hashBatch(IInbox.ProposeBatchEvidence memory _evidence)
+        public
+        pure
+        returns (bytes32)
+    {
         bytes32 proposeMetaHash = keccak256(abi.encode(_evidence.proposeMeta));
         bytes32 rightHash = keccak256(abi.encode(proposeMetaHash, _evidence.proveMetaHash));
 
@@ -122,7 +125,11 @@ library LibData {
 
     /// @notice  Computes a batch hash using ProveBatchInput
     /// @param _proveBatchInput The batch prove input containing metadata to validate
-    function hashBatch(I.ProveBatchInput memory _proveBatchInput) internal pure returns (bytes32) {
+    function hashBatch(IInbox.ProveBatchInput memory _proveBatchInput)
+        internal
+        pure
+        returns (bytes32)
+    {
         bytes32 proveMetaHash = keccak256(abi.encode(_proveBatchInput.proveMeta));
         bytes32 rightHash = keccak256(abi.encode(_proveBatchInput.proposeMetaHash, proveMetaHash));
         return keccak256(abi.encode(_proveBatchInput.leftHash, rightHash));

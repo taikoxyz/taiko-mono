@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import { IInbox as I } from "../IInbox.sol";
+import "../IInbox.sol";
 import "./LibBinding.sol";
 
 /// @title LibProver
@@ -33,9 +33,9 @@ library LibProver {
     /// @param _batch The batch being proved
     function validateProver(
         LibBinding.Bindings memory _bindings,
-        I.Config memory _config,
-        I.Summary memory _summary,
-        I.Batch memory _batch
+        IInbox.Config memory _config,
+        IInbox.Summary memory _summary,
+        IInbox.Batch memory _batch
     )
         internal
         returns (address prover_)
@@ -119,7 +119,7 @@ library LibProver {
         view
         returns (address prover_, address feeToken_, uint256 fee_)
     {
-        I.ProverAuth memory auth = _bindings.decodeProverAuth(_proverAuth);
+        IInbox.ProverAuth memory auth = _bindings.decodeProverAuth(_proverAuth);
 
         // Supporting Ether as fee token will require making IInbox's proposing function
         // payable. We try to avoid this as much as possible. And since most proposers may simply
@@ -153,7 +153,7 @@ library LibProver {
     function _computeProverAuthDigest(
         uint64 _chainId,
         bytes32 _batchHash,
-        I.ProverAuth memory _auth
+        IInbox.ProverAuth memory _auth
     )
         private
         pure

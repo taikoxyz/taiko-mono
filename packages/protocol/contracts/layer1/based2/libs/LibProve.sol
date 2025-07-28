@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox as I } from "../IInbox.sol";
+import "../IInbox.sol";
 import "src/shared/libs/LibMath.sol";
 import "./LibData.sol";
 import "./LibForks.sol";
@@ -31,8 +31,8 @@ library LibProve {
     /// @return _ The aggregated hash of all proven batches
     function prove(
         LibBinding.Bindings memory _bindings,
-        I.Config memory _config,
-        I.ProveBatchInput[] memory _evidences
+        IInbox.Config memory _config,
+        IInbox.ProveBatchInput[] memory _evidences
     )
         internal
         returns (bytes32)
@@ -60,9 +60,9 @@ library LibProve {
     /// @return The context hash for this batch used in aggregation
     function _proveBatch(
         LibBinding.Bindings memory _bindings,
-        I.Config memory _config,
-        // I.Summary memory _summary,
-        I.ProveBatchInput memory _input
+        IInbox.Config memory _config,
+        // IInbox.Summary memory _summary,
+        IInbox.ProveBatchInput memory _input
     )
         private
         returns (bytes32)
@@ -88,11 +88,11 @@ library LibProve {
             ? _input.tran.stateRoot
             : bytes32(0);
 
-        (I.ProofTiming proofTiming, address prover) =
+        (IInbox.ProofTiming proofTiming, address prover) =
             _determineProofTiming(_config, _input.proveMeta.prover, _input.proveMeta.proposedAt);
 
         // Create the transition metadata
-        I.TransitionMeta memory tranMeta = I.TransitionMeta({
+        IInbox.TransitionMeta memory tranMeta = IInbox.TransitionMeta({
             blockHash: _input.tran.blockHash,
             stateRoot: stateRoot,
             prover: prover,
@@ -109,7 +109,8 @@ library LibProve {
         );
 
         if (
-            isFirstTransition && tranMeta.proofTiming != I.ProofTiming.OutOfExtendedProvingWindow
+            isFirstTransition
+                && tranMeta.proofTiming != IInbox.ProofTiming.OutOfExtendedProvingWindow
                 && msg.sender != _input.proveMeta.proposer
         ) {
             uint256 bondAmount = uint256(_input.proveMeta.provabilityBond) * 1 gwei;
@@ -117,9 +118,9 @@ library LibProve {
             _bindings.creditBond(_input.proveMeta.proposer, bondAmount);
         }
 
-        I.TransitionMeta[] memory tranMetas = new I.TransitionMeta[](1);
+        IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](1);
         tranMetas[0] = tranMeta;
-        emit I.Proved(_input.tran.batchId, _bindings.encodeTransitionMetas(tranMetas));
+        emit IInbox.Proved(_input.tran.batchId, _bindings.encodeTransitionMetas(tranMetas));
 
         return keccak256(abi.encode(batchMetaHash, _input.tran));
     }
@@ -131,21 +132,21 @@ library LibProve {
     /// @return timing_ The proof timing category
     /// @return prover_ The address to be recorded as the prover
     function _determineProofTiming(
-        I.Config memory _config,
+        IInbox.Config memory _config,
         address _assignedProver,
         uint256 _proposedAt
     )
         private
         view
-        returns (I.ProofTiming timing_, address prover_)
+        returns (IInbox.ProofTiming timing_, address prover_)
     {
         unchecked {
             if (block.timestamp <= _proposedAt + _config.provingWindow) {
-                return (I.ProofTiming.InProvingWindow, _assignedProver);
+                return (IInbox.ProofTiming.InProvingWindow, _assignedProver);
             } else if (block.timestamp <= _proposedAt + _config.extendedProvingWindow) {
-                return (I.ProofTiming.InExtendedProvingWindow, msg.sender);
+                return (IInbox.ProofTiming.InExtendedProvingWindow, msg.sender);
             } else {
-                return (I.ProofTiming.OutOfExtendedProvingWindow, msg.sender);
+                return (IInbox.ProofTiming.OutOfExtendedProvingWindow, msg.sender);
             }
         }
     }

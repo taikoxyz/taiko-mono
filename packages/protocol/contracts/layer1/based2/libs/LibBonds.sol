@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/libs/LibAddress.sol";
 import "../IBondManager2.sol";
-import { IInbox as I } from "../IInbox.sol";
+import { IInbox } from "../IInbox.sol";
 
 /// @title LibBonds
 /// @notice Library for managing bond deposits, withdrawals, and balance accounting in Taiko
@@ -28,7 +28,7 @@ library LibBonds {
     /// @param _bondToken The bond token address (0 for ETH)
     /// @param _amount The amount to withdraw
     function withdrawBond(
-        I.State storage $,
+        IInbox.State storage $,
         address _bondToken,
         uint256 _amount
     )
@@ -84,7 +84,7 @@ library LibBonds {
     /// @param _user The user whose bond is being debited
     /// @param _amount The amount to debit
     function debitBond(
-        I.State storage $,
+        IInbox.State storage $,
         address _bondToken,
         address _user,
         uint256 _amount
@@ -112,7 +112,7 @@ library LibBonds {
     /// @param $ The state storage
     /// @param _user The user receiving the credit
     /// @param _amount The amount to credit
-    function creditBond(I.State storage $, address _user, uint256 _amount) internal {
+    function creditBond(IInbox.State storage $, address _user, uint256 _amount) internal {
         if (_amount == 0) return;
         unchecked {
             $.bondBalance[_user] += _amount;

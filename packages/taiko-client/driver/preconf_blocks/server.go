@@ -74,8 +74,8 @@ type PreconfBlockAPIServer struct {
 	lookahead      *Lookahead
 	lookaheadMutex sync.Mutex
 	// Cache
-	envelopesCache     *envelopeQueue
-	blockRequestsCache *lru.Cache[common.Hash, struct{}]
+	envelopesCache               *envelopeQueue
+	blockRequestsCache           *lru.Cache[common.Hash, struct{}]
 	sequencingEndedForEpochCache *lru.Cache[uint64, common.Hash]
 	// ConfigureRoutes
 	preconfOperatorAddress common.Address
@@ -264,22 +264,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	if progress.IsSyncing() {
-		if !s.envelopesCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
-			log.Info(
-				"L2ExecutionEngine syncing: payload is cached",
-				"peer", from,
-				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-				"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
-				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-			)
-
-			s.envelopesCache.put(uint64(msg.ExecutionPayload.BlockNumber), &preconf.Envelope{
-				Payload:           msg.ExecutionPayload,
-				Signature:         msg.Signature,
-				IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
-			})
-		}
-
+		s.tryPutEnvelopeIntoCache(msg, from)
 		return nil
 	}
 
@@ -1085,19 +1070,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 			)
 
 			if !s.envelopesCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
-				log.Info(
-					"Payload is cached",
-					"peer", from,
-					"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-					"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
-					"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-				)
-
-				s.envelopesCache.put(uint64(msg.ExecutionPayload.BlockNumber), &preconf.Envelope{
-					Payload:           msg.ExecutionPayload,
-					Signature:         msg.Signature,
-					IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
-				})
+				s.tryPutEnvelopeIntoCache(msg, from)
 			}
 			return true, nil
 		}
@@ -1195,6 +1168,25 @@ func (s *PreconfBlockAPIServer) updateHighestUnsafeL2Payload(blockID uint64) {
 	}
 	s.highestUnsafeL2PayloadBlockID = blockID
 	metrics.DriverHighestPreconfUnsafePayloadGauge.Set(float64(blockID))
+}
+
+// tryPutEnvelopeIntoCache tries to put the given payload into the cache, if it is not already cached.
+func (s *PreconfBlockAPIServer) tryPutEnvelopeIntoCache(msg *eth.ExecutionPayloadEnvelope, from peer.ID) {
+	if !s.envelopesCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
+		log.Info(
+			"Envelope is cached",
+			"peer", from,
+			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
+			"blockHash", msg.ExecutionPayload.BlockHash.Hex(),
+			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+		)
+
+		s.envelopesCache.put(uint64(msg.ExecutionPayload.BlockNumber), &preconf.Envelope{
+			Payload:           msg.ExecutionPayload,
+			Signature:         msg.Signature,
+			IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+		})
+	}
 }
 
 // webSocketSever is a WebSocket server that handles incoming connections,
