@@ -90,8 +90,6 @@ library LibValidate {
     // Private Functions
     // -------------------------------------------------------------------------
 
-  
-
     /// @notice Validates the gas issuance per second for a batch
     /// @dev Ensures that the gas issuance per second is within a 1% range of the last recorded
     ///      value
@@ -233,7 +231,7 @@ library LibValidate {
             anchorIndex++;
         }
 
-            if (!hasAnchorBlock) revert NoAnchorBlockIdWithinThisBatch();
+        if (!hasAnchorBlock) revert NoAnchorBlockIdWithinThisBatch();
     }
 
     /// @notice Validates the block ID range for the batch
