@@ -295,20 +295,21 @@ library LibValidate {
             if (_batch.blobs.createdIn != 0) revert InvalidBlobCreatedIn();
             if (_batch.isForcedInclusion) revert InvalidForcedInclusion();
             return uint48(block.number);
-        } else if (_batch.blobs.hashes.length == 0) {
+        }
+        
+        if (_batch.blobs.hashes.length == 0) {
             // this is a normal batch, blobs are created and used in the current batches.
             // firstBlobIndex can be non-zero.
             if (_batch.blobs.numBlobs == 0) revert BlobNotSpecified();
             if (_batch.blobs.createdIn != 0) revert InvalidBlobCreatedIn();
             return uint48(block.number);
-        } else {
-            // this is a forced-inclusion batch, blobs were created in early blocks and are used
-            // in the current batches
-            require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
-            if (_batch.blobs.numBlobs != 0) revert InvalidBlobParams();
-            if (_batch.blobs.firstBlobIndex != 0) revert InvalidBlobParams();
-            return _batch.blobs.createdIn;
         }
+        // this is a forced-inclusion batch, blobs were created in early blocks and are used
+        // in the current batches
+        require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
+        if (_batch.blobs.numBlobs != 0) revert InvalidBlobParams();
+        if (_batch.blobs.firstBlobIndex != 0) revert InvalidBlobParams();
+        return _batch.blobs.createdIn;
     }
 
     /// @notice Calculates the transaction hash from blob data
