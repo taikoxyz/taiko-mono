@@ -65,7 +65,7 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 	parentMetahash common.Hash,
 	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
-	to := &b.taikoInboxAddress
+	to := &b.taikoWrapperAddress
 	if preconfRouterAddress != rpc.ZeroAddress {
 		to = &preconfRouterAddress
 	}
