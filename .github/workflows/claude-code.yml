@@ -13,7 +13,8 @@ permissions:
 jobs:
   claude-code:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    timeout-minutes: 10
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,7 +27,7 @@ jobs:
           use_sticky_comment: true
           custom_instructions: |
             You are a helpful code reviewer. Focus on:
-            - Code quality and best practices in Rust
+            - Code quality and best practices in Solidity, Go, Rust, TypeScript, and JavaScript
             - Potential bugs or issues
             - Performance improvements
             - Security concerns
