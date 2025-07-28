@@ -121,7 +121,7 @@ abstract contract PreconfRouter2TestBase is CommonTest {
             1 ether,
             10,
             block.timestamp - 1 days,
-            _unregistered ? block.timestamp - 1 days : 0,
+            _unregistered ? block.timestamp - 1 days : type(uint48).max,
             _slashed ? block.timestamp - 1 days : 0
         );
 
