@@ -93,7 +93,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             {
                 if (inboxWrapper == address(0)) {
-                   if (params.proposer == address(0)) {
+                    if (params.proposer == address(0)) {
                         params.proposer = msg.sender;
                     } else {
                         require(params.proposer == msg.sender, CustomProposerNotAllowed());
