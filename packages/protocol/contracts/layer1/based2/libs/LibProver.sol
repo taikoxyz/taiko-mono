@@ -45,7 +45,7 @@ library LibProver {
 
         unchecked {
             if (_batch.proverAuth.length == 0) {
-                prover_ = _batch.proposer;
+                prover_ = msg.sender;
                 _bindings.debitBond(_config, prover_, livenessBond + provabilityBond);
             } else {
                 // Circular dependency so zero it out. (Batch has proverAuth but
@@ -67,7 +67,7 @@ library LibProver {
 
                 if (feeToken == _config.bondToken) {
                     // proposer pay the prover fee with bond tokens
-                    _bindings.debitBond(_config, _batch.proposer, fee + provabilityBond);
+                    _bindings.debitBond(_config, msg.sender, fee + provabilityBond);
 
                     // if bondDelta is negative (proverFee < livenessBond), deduct the diff
                     // if not then add the diff to the bond balance
@@ -76,14 +76,14 @@ library LibProver {
                     bondDelta < 0
                         ? _bindings.debitBond(_config, prover_, uint256(-bondDelta))
                         : _bindings.creditBond(prover_, uint256(bondDelta));
-                } else if (prover_ == _batch.proposer) {
-                    _bindings.debitBond(_config, _batch.proposer, livenessBond + provabilityBond);
+                } else if (prover_ == msg.sender) {
+                    _bindings.debitBond(_config, msg.sender, livenessBond + provabilityBond);
                 } else {
-                    _bindings.debitBond(_config, _batch.proposer, provabilityBond);
+                    _bindings.debitBond(_config, msg.sender, provabilityBond);
                     _bindings.debitBond(_config, prover_, livenessBond);
 
                     if (fee != 0) {
-                        _bindings.transferFee(feeToken, _batch.proposer, prover_, fee);
+                        _bindings.transferFee(feeToken, msg.sender, prover_, fee);
                     }
                 }
             }

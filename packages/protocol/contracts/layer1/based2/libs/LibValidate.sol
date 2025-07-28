@@ -48,9 +48,6 @@ library LibValidate {
         // If a block's coinbase is address(0), _batch.coinbase will be used, if _batch.coinbase
         // is address(0), the driver shall use the proposer address as the coinbase address.
 
-        // Validate proposer
-        _validateProposer(_config, _batch);
-
         // Validate new gas issuance per second
         _validateGasIssuance(_config, _summary, _batch);
 
@@ -93,24 +90,7 @@ library LibValidate {
     // Private Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Validates the proposer
-    /// @dev Handles both direct proposing and inbox wrapper scenarios
-    /// @param _config Protocol configuration
-    /// @param _batch The batch being validated
-    function _validateProposer(
-        IInbox.Config memory _config,
-        IInbox.Batch memory _batch
-    )
-        internal
-        view
-    {
-        if (_config.inboxWrapper == address(0)) {
-            if (_batch.proposer != msg.sender) revert ProposerNotMsgSender();
-        } else {
-            if (msg.sender != _config.inboxWrapper) revert NotInboxWrapper();
-            if (_batch.proposer == address(0)) revert CustomProposerMissing();
-        }
-    }
+  
 
     /// @notice Validates the gas issuance per second for a batch
     /// @dev Ensures that the gas issuance per second is within a 1% range of the last recorded
@@ -253,11 +233,7 @@ library LibValidate {
             anchorIndex++;
         }
 
-        // Ensure that if msg.sender is not the inboxWrapper, at least one block must
-        // have a non-zero anchor block id.
-        if (_config.inboxWrapper != address(0)) {
             if (!hasAnchorBlock) revert NoAnchorBlockIdWithinThisBatch();
-        }
     }
 
     /// @notice Validates the block ID range for the batch
@@ -301,7 +277,7 @@ library LibValidate {
         view
         returns (uint48 blobsCreatedIn_)
     {
-        if (_conf.inboxWrapper == address(0)) {
+        if (_conf.forcedInclusionStore == address(0)) {
             // blob hashes are only accepted if the caller is trusted.
             if (_batch.blobs.hashes.length != 0) revert InvalidBlobParams();
             if (_batch.blobs.createdIn != 0) revert InvalidBlobCreatedIn();
@@ -367,8 +343,6 @@ library LibValidate {
     error BlockLimitExceeded();
     error BlockNotFound();
     error BlocksNotInCurrentFork();
-    error CustomProposerMissing();
-    error CustomProposerNotAllowed();
     error FirstBlockTimeShiftNotZero();
     error GasIssuanceTooEarlyToChange();
     error GasIssuanceTooHigh();
@@ -380,8 +354,6 @@ library LibValidate {
     error NoAnchorBlockIdWithinThisBatch();
     error NotEnoughAnchorIds();
     error NotEnoughSignals();
-    error NotInboxWrapper();
-    error ProposerNotMsgSender();
     error RequiredSignalNotSent();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();

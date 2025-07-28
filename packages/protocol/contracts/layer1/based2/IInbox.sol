@@ -54,8 +54,6 @@ interface IInbox {
     /// @notice Represents a batch of blocks to be proposed
     /// @dev Contains all data needed for batch validation and processing
     struct Batch {
-        /// @notice Address that proposed this batch
-        address proposer;
         /// @notice Coinbase address for block rewards (can be zero)
         /// @custom:encode optional
         address coinbase;
@@ -357,8 +355,10 @@ interface IInbox {
         ForkHeights forkHeights;
         /// @notice Address of the token used for bonds
         address bondToken;
-        /// @notice Address of the inbox wrapper contract
-        address inboxWrapper;
+        /// @notice Address of the forced inclusion store contract
+        address forcedInclusionStore;
+        /// @notice Address of the preconf whitelist contract
+        address preconfWhitelist;
         /// @notice Address of the proof verifier contract
         address verifier;
         /// @notice Address of the signal service contract
