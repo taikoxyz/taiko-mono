@@ -80,7 +80,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         bytes calldata
     )
         external
-        onlyFromOptional(preconfRouter)
+        onlyFrom(preconfRouter)
         nonReentrant
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
