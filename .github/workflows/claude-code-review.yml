@@ -69,8 +69,14 @@ jobs:
           echo $PATH
           echo "Which node:"
           which node || echo "Node not found in PATH"
-          # Create symlink for node in /usr/bin
-          sudo ln -sf $(which node) /usr/bin/node || true
+          # Create symlink for node in /usr/bin if node is found
+          NODE_PATH=$(which node)
+          if [ -n "$NODE_PATH" ]; then
+            echo "Creating symlink: $NODE_PATH -> /usr/bin/node"
+            sudo ln -sf "$NODE_PATH" /usr/bin/node
+          else
+            echo "Warning: Node.js not found in PATH, skipping symlink creation"
+          fi
 
       - name: Run Claude Code Review
         id: claude-review
