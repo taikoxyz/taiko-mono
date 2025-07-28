@@ -9,10 +9,12 @@ contract TestPreconfWhitelist is Layer1Test {
     PreconfWhitelist internal whitelist;
     PreconfWhitelist internal whitelistNoDelay;
     address internal whitelistOwner;
+    address internal ejecter;
     BeaconBlockRootImpl internal beaconBlockRootImpl;
 
     function setUpOnEthereum() internal virtual override {
         whitelistOwner = Alice;
+        ejecter = makeAddr("ejecter");
         whitelist = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist",
@@ -324,6 +326,46 @@ contract TestPreconfWhitelist is Layer1Test {
         assertTrue(nextOperator == Bob || nextOperator == Carol);
     }
 
+    function test_whitelist_removeOperatorByEjecterByIndex() external {
+        // Setup: add operator and set ejecter
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+        vm.prank(whitelistOwner);
+        whitelist.setEjecter(ejecter, true);
+
+        // Ejecter can remove operator by index
+        vm.prank(ejecter);
+        whitelist.removeOperator(0);
+
+        // Verify removal
+        (, uint32 inactiveSince,,) = whitelist.operators(Bob);
+        assertTrue(inactiveSince > 0);
+    }
+
+    function test_whitelist_removeOperatorByEjecterByAddress() external {
+        address ejecter2 = makeAddr("ejecter2");
+
+        // Set multiple ejecters
+        vm.startPrank(whitelistOwner);
+        whitelist.setEjecter(ejecter, true);
+        whitelist.setEjecter(ejecter2, true);
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+        vm.stopPrank();
+
+        // Both ejecters can remove operators
+        vm.prank(ejecter2);
+        whitelist.removeOperator(Bob, false);
+
+        (, uint32 inactiveSince,,) = whitelist.operators(Bob);
+        assertTrue(inactiveSince > 0);
+    }
+
+    function test_whitelist_removeOperatorUnauthorizedWillRevert() external {
+        vm.prank(Bob);
+        vm.expectRevert(IPreconfWhitelist.NotOwnerOrEjecter.selector);
+        whitelist.removeOperator(0);
+    }
+
     function test_whitelist_consolidate_whenEmpty_not_revert() external {
         whitelist.consolidate();
         assertEq(whitelist.havingPerfectOperators(), true);
@@ -438,6 +480,22 @@ contract TestPreconfWhitelist is Layer1Test {
         assertEq(activeSince, whitelist.epochStartTimestamp(2));
         assertEq(inactiveSince, 0);
         assertEq(index, 0);
+    }
+
+    function test_whitelist_setEjecter() external {
+        // Non-owner cannot set ejecter
+        vm.expectRevert();
+        vm.prank(Bob);
+        whitelist.setEjecter(ejecter, true);
+
+        // Owner can set ejecter
+        vm.prank(whitelistOwner);
+        vm.expectEmit();
+        emit PreconfWhitelist.EjecterUpdated(ejecter, true);
+
+        whitelist.setEjecter(ejecter, true);
+
+        assertTrue(whitelist.ejecters(ejecter));
     }
 
     function _setBeaconBlockRoot(bytes32 _root) internal {
