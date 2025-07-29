@@ -139,15 +139,19 @@ If you aren't, you can configure the ports and addresses so that the services ca
             --jwtSecret ./jwt.txt \
             --p2p.sync \
             --p2p.checkPointSyncUrl https://rpc.mainnet.taiko.xyz \
-            --p2p.bootnodes enr:-J64QJBc_xYqNihi2YGH1kVu86WbbJnhSS3j5FvqzGeUco2wNuvKFRjnac0Rgt_dhXxMP5sWvWk_gzkFQmY_hSF3z4uGAZg-39MlgmlkgnY0gmlwhCKO7_uHb3BzdGFja4TYmAoAiXNlY3AyNTZrMaEDwmN0Gxd1nzhQ0k1n1sPLwwfHPhfYDGsSpjpHkqEFKdGDdGNwgg-hg3VkcILFaQ,enr:-J64QPL3oYpZ75230YMfbLfKcUEqlIyWW8-W4tsrY7c0iBMVWs6JF2Z723S7uFxPGIwBhqv3HTOix9xE8_ETZOmy-YiGAZg-3QnqgmlkgnY0gmlwhCP3n5yHb3BzdGFja4TYmAoAiXNlY3AyNTZrMaECLzfDr_2DJ0smL6KiWdMtQVEN1aSNbpFmlu_n8VmMs_mDdGNwgg-hg3VkcILQOA,enr:-J64QI3zcU780K_CEGyfoPyxZ50ZlSAwSgL4gdnFZwyiZURDMx2CR7PilARK9Ix7T495QsSkqfnhJL6N-UqoNwAUz-6GAZg-bEJ6gmlkgnY0gmlwhCJ-Wv-Hb3BzdGFja4TYmAoAiXNlY3AyNTZrMaEC3YPe3v9iLs_KDF7fMgJmUGyBFTmlU93ZFYnN_Mm7102DdGNwgg-hg3VkcIKjsQ \
+            --p2p.bootnodes enode://c263741b17759f3850d24d67d6c3cbc307c73e17d80c6b12a63a4792a10529d1125d00ecf7ef4c9b0dc51d28b94dfc1b8798fb524f61a1f93946748649f73b23@34.142.239.251:4001?discport=30304,enode://2f37c3affd83274b262fa2a259d32d41510dd5a48d6e916696efe7f1598cb3f905305f5989e7b6607aab50697fb2e52cb4b6904116ed67cc5fcea1e6d66ccaba@35.247.159.156:4001?discport=30304,enode://dd83dedeff622ecfca0c5edf320266506c811539a553ddd91589cdfcc9bbd74d0d620f251d8d5e1180f19a446abbdd8b6b5301e9aa6cbad35cfd9716f80f2416@34.126.90.255:4001?discport=30304 \
             --p2p.listen.ip 0.0.0.0 \
             --p2p.useragent taiko \
-            --p2p.listen.tcp 4001
+            --p2p.listen.tcp 4001 \
+            --p2p.advertise.tcp 4001 \
+            --p2p.listen.udp 30303 \
+            --p2p.advertise.tcp 30303 \
+            --p2p.advertise.ip ${YOUR_EXTERNAL_IP}
     ```
 
-    If you wish to set an ip to advertise publicly, you can append `--p2p.advertise.ip ${YOUR_EXTERNAL_IP}` to the above. If you instead want this done automatically, you can append `--p2p.nat` instead.
+    If you do not wish to set an external IP manually, you may instead replace the `--p2p.listen.tcp` and all lines after in the above command with `--p2p.nat`. This will automate discovery, and you do not need to manually set ports.
 
-    We **highly recommend** that you set your external IP manually.
+    We **highly recommend** that you configure these manually.
 </Steps>
 
 <Aside>
@@ -156,11 +160,23 @@ If you aren't, you can configure the ports and addresses so that the services ca
 
 ### Ensure that the relevant ports are open on your machine
 
-  Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following ports on your device are open:
-    - TCP `4001` OR whichever port you set `--p2p.listen.tcp` to.
+  Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following ports on your machine are open and visible from the internet at your external IP:
+    - TCP `4001` OR whichever port you set `--p2p.advertise.tcp` to.
     - UDP `30303` OR whichever port you set `--p2p.advertise.udp` to.
 
-  These ports **are required for p2p gossiping preconfirmed blocks**, so if it is not set you will only subscribe to the events that are emitted on chain.
+  These ports **are required for p2p gossiping preconfirmed blocks**, so if it is not set you will only subscribe to the events that are emitted on chain. You may need to add additional port-forwarding rules in your firewall/router to enable discovery from the internet.
+
+### Ensure that your node has joined the P2P network
+
+  To ensure that your node is actually configured correctly and has joined the P2P network for preconfirmations, please set your `taiko-client` driver's verbosity level to 4. This can be done by appending `--verbosity 4` to the command that starts `taiko-client`.
+
+  Once you have done so, you can use `grep` to find logs regarding `peering tick`. You should find something that resembles the following:
+
+  ```
+  DEBUG[07-29|23:09:21.192] peering tick                             connected=8 advertised_udp=30303 advertised_tcp=4001 advertised_ip=x.x.x.x
+  ```
+
+  As long as `connected=X` is greater than or equal to 6, your node should have joined the P2P network correctly! If it is below that, please reach out to us on Discord for troubleshooting help.
 
 ### Syncing
 

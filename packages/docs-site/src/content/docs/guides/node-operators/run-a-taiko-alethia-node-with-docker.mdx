@@ -101,11 +101,11 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
 
 6. Ensure that the relevant ports are open on your machine
 
-  Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following ports on your device are open:
-    - TCP `4001` OR whichever port you set `--p2p.listen.tcp` to.
+  Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following ports on your machine are open and visible from the internet at your external IP:
+    - TCP `4001` OR whichever port you set `--p2p.advertise.tcp` to.
     - UDP `30303` OR whichever port you set `--p2p.advertise.udp` to.
 
-  These ports **are required for p2p gossiping preconfirmed blocks**, so if it is not set you will only subscribe to the events that are emitted on chain.
+  These ports **are required for p2p gossiping preconfirmed blocks**, so if it is not set you will only subscribe to the events that are emitted on chain. You may need to add additional port-forwarding rules in your firewall/router to enable discovery from the internet.
 
 7. Set your node's external IP for p2p discovery
 
@@ -123,7 +123,21 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
     docker compose up -d
     ```
 
-9. Verify node is running
+9. Verify that your node has joined the P2P network
+
+    To ensure that your node is actually configured correctly and has joined the P2P network for preconfirmations, please set your `taiko-client` driver's verbosity level to 4. This can be done by setting `VERBOSITY=4` in your `.env`.
+
+    Once you have done so, you can use `grep` to find logs regarding `peering tick`. You should find something that resembles the following:
+
+    ```
+    DEBUG[07-29|23:09:21.192] peering tick                             connected=8 advertised_udp=30303 advertised_tcp=4001 advertised_ip=x.x.x.x
+    ```
+
+    As long as `connected=X` is greater than or equal to 6, your node should have joined the P2P network correctly! If it is below that, please reach out to us on Discord for troubleshooting help.
+
+    You may change it back to `VERBOSITY=3` afterward for normal operations.
+
+10. Verify node is running
 
     #### Option 1: Check with the node dashboard
 
