@@ -155,6 +155,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         return blobhash(blobIndex);
     }
 
+    /// @dev DEPRECATED: The inbox reference is no longer used. It points to the old inbox.
     function _nextBatchId() private view returns (uint64) {
         return inbox.v4GetStats2().numBatches;
     }
