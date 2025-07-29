@@ -48,6 +48,7 @@ library LibProve {
         uint256 i;
         for (; i < _inputs.length; ++i) {
             if (_inputs[i].tran.parentHash == 0) revert InvalidTransitionParentHash();
+            if (_inputs[i].tran.batchId == 0) revert ZeroBatchId();
 
             // During batch proposal, we ensured that blocks won't cross fork boundaries.
             // Therefore, we only need to verify the firstBlockId in the following check.
@@ -219,4 +220,5 @@ library LibProve {
     error MetaHashNotMatch();
     error NoBlocksToProve();
     error TooManyBatchesToProve();
+    error ZeroBatchId();
 }
