@@ -17,12 +17,14 @@ library LibData {
     // -------------------------------------------------------------------------
 
     /// @notice Populates batch metadata from batch and batch context data
+    /// @param _proposer The address that proposed the batch
     /// @param _proposedIn The block number in which the batch is proposed
     /// @param _proposedAt The timestamp of the block in which the batch is proposed
     /// @param _batch The batch being proposed
     /// @param _context The batch context data containing computed values
     /// @return _ The populated batch metadata
     function buildBatchMetadata(
+        address _proposer,
         uint48 _proposedIn,
         uint48 _proposedAt,
         IInbox.Batch memory _batch,
@@ -68,7 +70,7 @@ library LibData {
                 lastAnchorBlockId: _context.lastAnchorBlockId
             }),
             proveMeta: IInbox.BatchProveMetadata({
-                proposer: _batch.proposer,
+                proposer: _proposer,
                 prover: _context.prover,
                 proposedAt: _proposedAt,
                 firstBlockId: firstBlockId,

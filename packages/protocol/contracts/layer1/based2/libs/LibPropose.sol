@@ -103,7 +103,7 @@ library LibPropose {
         context.prover = LibProver.validateProver(_bindings, _config, _summary, _batch);
 
         IInbox.BatchMetadata memory metadata = LibData.buildBatchMetadata(
-            uint48(block.number), uint48(block.timestamp), _batch, context
+            msg.sender, uint48(block.number), uint48(block.timestamp), _batch, context
         );
 
         emit IInbox.Proposed(_summary.nextBatchId, _bindings.encodeBatchContext(context));

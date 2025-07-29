@@ -16,12 +16,14 @@ import "./codec/LibCodecHeaderExtraInfo.sol";
 /// @custom:security-contact security@taiko.xyz
 contract InboxHelper {
     /// @notice Builds batch metadata from batch and batch context data
+    /// @param _proposer The address that proposed the batch
     /// @param _proposedIn The block number in which the batch is proposed
     /// @param _proposedAt The timestamp of the block in which the batch is proposed
     /// @param _batch The batch being proposed
     /// @param _context The batch context data containing computed values
     /// @return meta_ The populated batch metadata
     function buildBatchMetadata(
+        address _proposer,
         uint48 _proposedIn,
         uint48 _proposedAt,
         IInbox.Batch calldata _batch,
@@ -31,7 +33,7 @@ contract InboxHelper {
         pure
         returns (IInbox.BatchMetadata memory meta_)
     {
-        return LibData.buildBatchMetadata(_proposedIn, _proposedAt, _batch, _context);
+        return LibData.buildBatchMetadata(_proposer, _proposedIn, _proposedAt, _batch, _context);
     }
 
     /// @notice Encodes a Summary struct

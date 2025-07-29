@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "../IInbox.sol";
+import "../IInbox.sol";
 import "src/shared/libs/LibNetwork.sol";
+import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
 import "./LibForks.sol";
 import "./LibBinding.sol";
 
@@ -48,8 +49,7 @@ library LibValidate {
         // If a block's coinbase is address(0), _batch.coinbase will be used, if _batch.coinbase
         // is address(0), the driver shall use the proposer address as the coinbase address.
 
-        // Validate proposer
-        _validateProposer(_config, _batch);
+        _validateProposer(_config);
 
         // Validate new gas issuance per second
         _validateGasIssuance(_config, _summary, _batch);
@@ -93,23 +93,15 @@ library LibValidate {
     // Private Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Validates the proposer
-    /// @dev Handles both direct proposing and inbox wrapper scenarios
-    /// @param _config Protocol configuration
-    /// @param _batch The batch being validated
-    function _validateProposer(
-        IInbox.Config memory _config,
-        IInbox.Batch memory _batch
-    )
-        internal
-        view
-    {
-        if (_config.inboxWrapper == address(0)) {
-            if (_batch.proposer != msg.sender) revert ProposerNotMsgSender();
-        } else {
-            if (msg.sender != _config.inboxWrapper) revert NotInboxWrapper();
-            if (_batch.proposer == address(0)) revert CustomProposerMissing();
-        }
+    /// @notice Validates the proposer of the current transaction.
+    /// @dev Checks if the sender is the operator for the current epoch.
+    ///      If the preconfWhitelist address is zero, the function returns without validation.
+    /// @param _config The configuration containing the preconfWhitelist address.
+    /// @custom:reverts ProposerNotOperator if the sender is not the operator for the current epoch.
+    function _validateProposer(IInbox.Config memory _config) private view {
+        if (_config.preconfWhitelist == address(0)) return;
+        address operator = IPreconfWhitelist(_config.preconfWhitelist).getOperatorForCurrentEpoch();
+        if (msg.sender != operator) revert ProposerNotOperator();
     }
 
     /// @notice Validates the gas issuance per second for a batch
@@ -123,7 +115,7 @@ library LibValidate {
         IInbox.Summary memory _summary,
         IInbox.Batch memory _batch
     )
-        internal
+        private
         view
     {
         unchecked {
@@ -157,7 +149,7 @@ library LibValidate {
         IInbox.Batch memory _batch,
         uint48 _parentLastBlockTimestamp
     )
-        internal
+        private
         view
     {
         unchecked {
@@ -194,7 +186,7 @@ library LibValidate {
         IInbox.Config memory _config,
         IInbox.Batch memory _batch
     )
-        internal
+        private
         view
     {
         for (uint256 i; i < _batch.blocks.length; ++i) {
@@ -220,7 +212,7 @@ library LibValidate {
         IInbox.Batch memory _batch,
         uint48 _parentLastAnchorBlockId
     )
-        internal
+        private
         view
         returns (bytes32[] memory anchorBlockHashes_, uint48 lastAnchorBlockId_)
     {
@@ -253,11 +245,7 @@ library LibValidate {
             anchorIndex++;
         }
 
-        // Ensure that if msg.sender is not the inboxWrapper, at least one block must
-        // have a non-zero anchor block id.
-        if (_config.inboxWrapper != address(0)) {
-            if (!hasAnchorBlock) revert NoAnchorBlockIdWithinThisBatch();
-        }
+        if (!hasAnchorBlock) revert NoAnchorBlockIdWithinThisBatch();
     }
 
     /// @notice Validates the block ID range for the batch
@@ -271,7 +259,7 @@ library LibValidate {
         uint256 _numBlocks,
         uint48 _parentLastBlockId
     )
-        internal
+        private
         pure
         returns (uint48)
     {
@@ -301,26 +289,27 @@ library LibValidate {
         view
         returns (uint48 blobsCreatedIn_)
     {
-        if (_conf.inboxWrapper == address(0)) {
+        if (_conf.forcedInclusionStore == address(0)) {
             // blob hashes are only accepted if the caller is trusted.
             if (_batch.blobs.hashes.length != 0) revert InvalidBlobParams();
             if (_batch.blobs.createdIn != 0) revert InvalidBlobCreatedIn();
             if (_batch.isForcedInclusion) revert InvalidForcedInclusion();
             return uint48(block.number);
-        } else if (_batch.blobs.hashes.length == 0) {
+        }
+
+        if (_batch.blobs.hashes.length == 0) {
             // this is a normal batch, blobs are created and used in the current batches.
             // firstBlobIndex can be non-zero.
             if (_batch.blobs.numBlobs == 0) revert BlobNotSpecified();
             if (_batch.blobs.createdIn != 0) revert InvalidBlobCreatedIn();
             return uint48(block.number);
-        } else {
-            // this is a forced-inclusion batch, blobs were created in early blocks and are used
-            // in the current batches
-            require(_batch.blobs.createdIn != 0, InvalidBlobCreatedIn());
-            if (_batch.blobs.numBlobs != 0) revert InvalidBlobParams();
-            if (_batch.blobs.firstBlobIndex != 0) revert InvalidBlobParams();
-            return _batch.blobs.createdIn;
         }
+        // this is a forced-inclusion batch, blobs were created in early blocks and are used
+        // in the current batches
+        if (_batch.blobs.createdIn == 0) revert InvalidBlobCreatedIn();
+        if (_batch.blobs.numBlobs != 0) revert InvalidBlobParams();
+        if (_batch.blobs.firstBlobIndex != 0) revert InvalidBlobParams();
+        return _batch.blobs.createdIn;
     }
 
     /// @notice Calculates the transaction hash from blob data
@@ -367,8 +356,6 @@ library LibValidate {
     error BlockLimitExceeded();
     error BlockNotFound();
     error BlocksNotInCurrentFork();
-    error CustomProposerMissing();
-    error CustomProposerNotAllowed();
     error FirstBlockTimeShiftNotZero();
     error GasIssuanceTooEarlyToChange();
     error GasIssuanceTooHigh();
@@ -380,8 +367,7 @@ library LibValidate {
     error NoAnchorBlockIdWithinThisBatch();
     error NotEnoughAnchorIds();
     error NotEnoughSignals();
-    error NotInboxWrapper();
-    error ProposerNotMsgSender();
+    error ProposerNotOperator();
     error RequiredSignalNotSent();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
