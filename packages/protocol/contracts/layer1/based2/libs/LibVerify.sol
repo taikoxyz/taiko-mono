@@ -42,48 +42,50 @@ library LibVerify {
     {
         unchecked {
             uint256 nextBlockId = _summary.lastVerifiedBlockId + 1;
+
+            // A batch cannot cross fork boundaries, this is guaranteed by proposal and proving
+            // logics,
+            // so we can check the first block id only.
             if (!LibForks.isBlocksInCurrentFork(_config, nextBlockId, nextBlockId)) {
                 return _summary;
             }
 
-            uint48 batchId = _summary.lastVerifiedBatchId + 1;
-
-            uint256 stopBatchId =
-                uint256(_summary.nextBatchId).min(_config.maxBatchesToVerify + batchId);
-
-            uint256 i;
             uint256 lastSyncedBatchId;
-            uint256 nTransitions = _trans.length;
+            uint48 batchId = _summary.lastVerifiedBatchId;
 
-            for (; batchId < stopBatchId; ++batchId) {
+            for (uint256 i; i < _config.maxBatchesToVerify; ++i) {
+                if (i >= _trans.length) revert TransitionNotProvided();
+                IInbox.TransitionMeta memory tran = _trans[i];
+
+                batchId += tran.span;
+
                 (bytes32 tranMetaHash, bool isFirstTransition) = _bindings.loadTransitionMetaHash(
                     _config, _summary.lastVerifiedBlockHash, batchId
                 );
 
+                // Transition not found, we've reached the end of the transition linked list.
                 if (tranMetaHash == 0) break;
 
-                if (i >= nTransitions) revert TransitionNotProvided();
-                if (tranMetaHash != keccak256(abi.encode(_trans[i]))) {
-                    revert TransitionMetaMismatch();
-                }
+                // The provided transition is invalid, but we do not revert here to waste gas.
+                if (tranMetaHash != keccak256(abi.encode(tran))) break;
 
-                if (_trans[i].provedAt + _config.cooldownWindow > block.timestamp) {
-                    break;
-                }
+                // The transition is still cooling down, we stop here without reverting, as this
+                // transaction may
+                if (tran.provedAt + _config.cooldownWindow > block.timestamp) break;
 
-                uint256 bondToProver = _calcBondToProver(_config, _trans[i], isFirstTransition);
-                _bindings.creditBond(_trans[i].prover, bondToProver * 1 gwei);
+                uint256 bondToProver = _calcBondToProver(_config, tran, isFirstTransition);
+                _bindings.creditBond(tran.prover, bondToProver * 1 gwei);
 
                 if (batchId % _config.stateRootSyncInternal == 0) {
                     lastSyncedBatchId = batchId;
                 }
 
-                emit IInbox.Verified(batchId, _trans[i].lastBlockId, _trans[i].blockHash);
 
-                _summary.lastVerifiedBlockHash = _trans[i].blockHash;
-                _summary.lastVerifiedBlockId = _trans[i].lastBlockId;
+                _summary.lastVerifiedBlockHash = tran.blockHash;
+                _summary.lastVerifiedBlockId = tran.lastBlockId;
                 _summary.lastVerifiedBatchId = batchId;
-                ++i;
+
+                emit IInbox.Verified(batchId, tran.lastBlockId, tran.blockHash);
             }
 
             if (lastSyncedBatchId != 0) {
@@ -150,6 +152,5 @@ library LibVerify {
     // Errors
     // -------------------------------------------------------------------------
 
-    error TransitionMetaMismatch();
     error TransitionNotProvided();
 }
