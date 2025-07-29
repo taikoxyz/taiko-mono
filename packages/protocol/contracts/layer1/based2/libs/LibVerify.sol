@@ -67,8 +67,7 @@ library LibVerify {
             // The provided transition is invalid, but we do not revert here to waste gas.
             if (tranMetaHash != keccak256(abi.encode(tran))) break;
 
-            // The transition is still cooling down, we stop here without reverting, as this
-            // transaction may
+            // The transition is still cooling down, we stop here without reverting
             if (tran.provedAt + _config.cooldownWindow > block.timestamp) break;
 
             uint256 proverRefund = _calcBondRefundToProver(_config, tran);
