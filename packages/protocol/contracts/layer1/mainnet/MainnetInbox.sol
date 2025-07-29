@@ -30,12 +30,11 @@ contract MainnetInbox is TaikoInbox {
             chainId: LibNetwork.TAIKO_MAINNET,
             // Ring buffers are being reused on the mainnet, therefore the following two
             // configuration values must NEVER be changed!!!
-            maxUnverifiedBatches: 324_000, // DO NOT CHANGE!!!
-            batchRingBufferSize: 360_000, // DO NOT CHANGE!!!
-            maxBatchesToVerify: 8,
-            blockMaxGasLimit: 240_000_000,
-            livenessBondBase: 25e18, // 25 Taiko token per batch
-            livenessBondPerBlock: 0, // deprecated
+            maxUnverifiedBatches: maxUnverifiedBatches_,
+            batchRingBufferSize: batchRingBufferSize_,
+            maxBatchesToVerify: 16,
+            blockMaxGasLimit: 32_000_000,
+            livenessBond: 25e18, // 25 Taiko token per batch
             stateRootSyncInternal: 4,
             maxAnchorHeightOffset: 96,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
