@@ -152,7 +152,6 @@ func InitFromConfig(
 			return err
 		}
 	}
-
 	if privateTxMgr != nil {
 		p.privateTxmgr = privateTxMgr
 	} else {
