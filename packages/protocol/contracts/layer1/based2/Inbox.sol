@@ -5,8 +5,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
 import "./AbstractInbox.sol";
-import "./libs/LibBonds.sol";
-import "./libs/LibState.sol";
+import "./state/LibBonds.sol";
+import "./state/LibState.sol";
+import "./state/IStorage.sol";
 import "./IBondManager2.sol";
 
 /// @title Inbox
@@ -16,7 +17,7 @@ import "./IBondManager2.sol";
 /// IBondManager2 interface to handle user bond management with deposit and withdrawal capabilities.
 /// The contract uses LibBonds for bond accounting and LibState for protocol state management.
 /// @custom:security-contact security@taiko.xyz
-abstract contract Inbox is AbstractInbox, IBondManager2 {
+abstract contract Inbox is AbstractInbox, IBondManager2, IStorage {
     using LibBonds for State;
     using LibState for State;
     using SafeERC20 for IERC20;

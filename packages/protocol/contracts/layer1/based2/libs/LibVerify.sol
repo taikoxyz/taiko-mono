@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/libs/LibMath.sol";
-import { IInbox } from "../IInbox.sol";
+import "../IInbox.sol";
 import "./LibForks.sol";
 import "./LibBinding.sol";
 

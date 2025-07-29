@@ -43,7 +43,7 @@ library LibProve {
         IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](_inputs.length);
         bytes32[] memory ctxHashes = new bytes32[](_inputs.length);
 
-        uint256 lastParentIndex;
+        uint256 aggregationStartIdx;
         IInbox.TransitionMeta memory tranMeta; // The aggregated transition metadata.
         uint256 i;
         for (; i < _inputs.length; ++i) {
@@ -68,7 +68,7 @@ library LibProve {
                 _config, _inputs[i].proveMeta.prover, _inputs[i].proveMeta.proposedAt
             );
 
-            lastParentIndex = i;
+            aggregationStartIdx = i;
             tranMetas[i] = IInbox.TransitionMeta({
                 batchId: _inputs[i].tran.batchId,
                 provedAt: uint48(block.timestamp),
@@ -90,12 +90,12 @@ library LibProve {
                 // Save the previous aggregated transition if it is valid.
                 _bindings.saveTransition(
                     _config,
-                    tranMeta.batchId,
-                    _inputs[lastParentIndex].tran.parentHash,
+                    _inputs[aggregationStartIdx].tran.batchId,
+                    _inputs[aggregationStartIdx].tran.parentHash,
                     keccak256(abi.encode(tranMeta))
                 );
                 // Set the aggregated transition metadata to the current one.
-                lastParentIndex = i;
+                aggregationStartIdx = i;
                 tranMeta = tranMetas[i];
             }
         } // end of for-loop
@@ -103,8 +103,8 @@ library LibProve {
         // Save the last aggregated transition
         _bindings.saveTransition(
             _config,
-            tranMeta.batchId,
-            _inputs[lastParentIndex].tran.parentHash,
+            _inputs[aggregationStartIdx].tran.batchId,
+            _inputs[aggregationStartIdx].tran.parentHash,
             keccak256(abi.encode(tranMeta))
         );
 
@@ -116,6 +116,31 @@ library LibProve {
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
+
+    /// @notice Upon proving a batch, the prover is expected to trust that the transition will
+    /// eventually be used for batch verification. As a result, the prover should be willing to pay
+    /// the provability bond on their behalf. Once the transition is used to verify the batch, the
+    /// provability bond is returned to the prover, not the proposer.
+    function _proverPaysProvabilityBond(
+        LibBinding.Bindings memory _bindings,
+        IInbox.Config memory _config,
+        IInbox.ProveBatchInput memory _input,
+        IInbox.TransitionMeta memory _tranMeta
+    )
+        private
+    {
+        // If the batch is proved beyond the extended proving window, the provability bond of the
+        // proposer is not refunded. Hence, there is no need for the prover to make a payment on
+        // behalf of the proposer.
+        if (_tranMeta.proofTiming == IInbox.ProofTiming.OutOfExtendedProvingWindow) return;
+
+        // They are the same party, no need to waste gas.
+        if (msg.sender == _input.proveMeta.proposer) return;
+
+        uint256 provabilityBond = uint256(_input.proveMeta.provabilityBond) * 1 gwei;
+        _bindings.debitBond(_config, msg.sender, provabilityBond);
+        _bindings.creditBond(_input.proveMeta.proposer, provabilityBond);
+    }
 
     /// @notice Determines the proof timing and prover based on the current timestamp
     /// @param _config The configuration
@@ -141,31 +166,6 @@ library LibProve {
                 return (IInbox.ProofTiming.OutOfExtendedProvingWindow, msg.sender);
             }
         }
-    }
-
-    /// @notice Upon proving a batch, the prover is expected to trust that the transition will
-    /// eventually be used for batch verification. As a result, the prover should be willing to pay
-    /// the provability bond on their behalf. Once the transition is used to verify the batch, the
-    /// provability bond is returned to the prover, not the proposer.
-    function _proverPaysProvabilityBond(
-        LibBinding.Bindings memory _bindings,
-        IInbox.Config memory _config,
-        IInbox.ProveBatchInput memory _input,
-        IInbox.TransitionMeta memory _tranMeta
-    )
-        private
-    {
-        // If the batch is proved beyond the extended proving window, the provability bond of the
-        // proposer is not refunded. Hence, there is no need for the prover to make a payment on
-        // behalf of the proposer.
-        if (_tranMeta.proofTiming == IInbox.ProofTiming.OutOfExtendedProvingWindow) return;
-
-        // They are the same party, no need to waste gas.
-        if (msg.sender == _input.proveMeta.proposer) return;
-
-        uint256 provabilityBond = uint256(_input.proveMeta.provabilityBond) * 1 gwei;
-        _bindings.debitBond(_config, msg.sender, provabilityBond);
-        _bindings.creditBond(_input.proveMeta.proposer, provabilityBond);
     }
 
     /// @notice Checks if transitions can be aggregated

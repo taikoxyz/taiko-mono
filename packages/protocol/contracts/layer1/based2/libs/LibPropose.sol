@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "../IInbox.sol";
+import "../IInbox.sol";
 import "./LibValidate.sol";
 import "./LibData.sol";
 import "./LibProver.sol";
