@@ -62,8 +62,9 @@ library LibProve {
                 ? input.tran.stateRoot
                 : bytes32(0);
 
-            (IInbox.ProofTiming proofTiming, address prover) =
-                _determineProofTiming(_config, input.proveMeta.prover, input.proveMeta.proposedAt);
+            (IInbox.ProofTiming proofTiming, address prover) = _determineProofTimingAndProver(
+                _config, input.proveMeta.prover, input.proveMeta.proposedAt
+            );
 
             // Create the transition metadata
             IInbox.TransitionMeta memory tranMeta = IInbox.TransitionMeta({
@@ -113,7 +114,7 @@ library LibProve {
     /// @param _proposedAt The timestamp when the batch was proposed
     /// @return timing_ The proof timing category
     /// @return prover_ The address to be recorded as the prover
-    function _determineProofTiming(
+    function _determineProofTimingAndProver(
         IInbox.Config memory _config,
         address _assignedProver,
         uint256 _proposedAt
