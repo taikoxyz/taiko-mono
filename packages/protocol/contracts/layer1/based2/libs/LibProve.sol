@@ -43,6 +43,7 @@ library LibProve {
         IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](_inputs.length);
         bytes32[] memory ctxHashes = new bytes32[](_inputs.length);
 
+        bytes32 lastParentHash;
         IInbox.TransitionMeta memory tranMeta; // The aggregated transition metadata.
         uint256 i;
         for (; i < _inputs.length; ++i) {
@@ -78,6 +79,8 @@ library LibProve {
                 livenessBond: _inputs[i].proveMeta.livenessBond
             });
 
+            lastParentHash = _inputs[i].tran.parentHash;
+
             ctxHashes[i] = keccak256(abi.encode(batchMetaHash, _inputs[i].tran));
 
             _proverPaysProvabilityBond(_bindings, _config, _inputs[i], tranMetas[i]);
@@ -85,32 +88,24 @@ library LibProve {
             if (_canAggregateTransitions(tranMeta, tranMetas[i])) {
                 tranMeta = _aggregateTransitions(tranMeta, tranMetas[i]);
             } else {
-                if (tranMeta.batchId != 0) {
-                    // Save the previous aggregated transition if it is valid.
-                    _bindings.saveTransition(
-                        _config,
-                        _inputs[i].tran.batchId, // same as tranMeta.batchId
-                        _inputs[i].tran.parentHash,
-                        keccak256(abi.encode(tranMeta))
-                    );
-                }
+                // Save the previous aggregated transition if it is valid.
+                _bindings.saveTransition(
+                    _config, tranMeta.batchId, lastParentHash, keccak256(abi.encode(tranMeta))
+                );
                 // Set the aggregated transition metadata to the current one.
                 tranMeta = tranMetas[i];
+                lastParentHash = _inputs[i].tran.parentHash;
             }
         } // end of for-loop
 
-        assert(tranMeta.batchId != 0);
+        // Save the last aggregated transition
         _bindings.saveTransition(
-            _config,
-            tranMeta.batchId,
-            _inputs[i - 1].tran.parentHash,
-            keccak256(abi.encode(tranMeta))
+            _config, tranMeta.batchId, lastParentHash, keccak256(abi.encode(tranMeta))
         );
 
-        aggregatedProvingHash_ =
-            keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
+        emit IInbox.Proved(_bindings.encodeTransitionMetas(tranMetas));
 
-        emit IInbox.Proved(aggregatedProvingHash_, _bindings.encodeTransitionMetas(tranMetas));
+        return keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
     }
 
     // -------------------------------------------------------------------------

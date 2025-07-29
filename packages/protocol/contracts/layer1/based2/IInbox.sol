@@ -406,9 +406,8 @@ interface IInbox {
     );
 
     /// @notice Emitted when a batch transition is proven
-    /// @param aggregatedBatchHash The hash of the aggregated batch
     /// @param tranMetas The transition metadata encoded as bytes
-    event Proved(bytes32 aggregatedBatchHash, bytes tranMetas);
+    event Proved(bytes tranMetas);
 
     /// @notice Emitted when a batch is verified and finalized
     /// @param batchId The unique identifier of the verified batch
