@@ -135,6 +135,12 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         return _getConfig();
     }
 
+    /// @inheritdoc IInbox
+    /// @custom:reverts SummaryMismatch if the summary does not match the stored hash
+    function validateSummary(Summary memory _summary) public view {
+        if (_loadSummaryHash() != keccak256(abi.encode(_summary))) revert SummaryMismatch();
+    }
+
     // -------------------------------------------------------------------------
     // Internal Virtual Functions
     // -------------------------------------------------------------------------
@@ -434,15 +440,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     ///      explicitly, even though it could be extracted without tracing.
     function _isOuterMostTransaction() private view returns (bool) {
         return msg.sender == tx.origin;
-    }
-
-    function _validateSummary(bytes memory _summaryEncoded)
-        private
-        view
-        returns (Summary memory summary_)
-    {
-        summary_ = _decodeSummary(_summaryEncoded);
-        if (_loadSummaryHash() != keccak256(abi.encode(summary_))) revert SummaryMismatch();
     }
 
     // -------------------------------------------------------------------------

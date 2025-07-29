@@ -5,8 +5,8 @@ import "src/shared/common/EssentialContract.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibNames.sol";
-import "src/layer1/based/ITaikoInbox.sol";
 import "./IForcedInclusionStore.sol";
+import "src/layer1/based2/IInbox.sol";
 
 /// @title ForcedInclusionStore
 /// @dev A contract for storing and managing forced inclusion requests. Forced inclusions allow
@@ -19,8 +19,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
     uint8 public immutable inclusionDelay; // measured in the number of batches
     uint64 public immutable feeInGwei;
-    ITaikoInbox public immutable inbox;
-    address public immutable inboxWrapper;
+    IInbox public immutable inbox;
 
     mapping(uint256 id => ForcedInclusion inclusion) public queue; // slot 1
     uint64 public head; // slot 2
@@ -51,19 +50,15 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     constructor(
         uint8 _inclusionDelay,
         uint64 _feeInGwei,
-        address _inbox,
-        address _inboxWrapper
+        IInbox _inbox
     )
         nonZeroValue(_inclusionDelay)
         nonZeroValue(_feeInGwei)
-        nonZeroAddr(_inbox)
-        nonZeroAddr(_inboxWrapper)
         EssentialContract()
     {
         inclusionDelay = _inclusionDelay;
         feeInGwei = _feeInGwei;
-        inbox = ITaikoInbox(_inbox);
-        inboxWrapper = _inboxWrapper;
+        inbox = _inbox;
     }
 
     function init(address _owner) external initializer {
@@ -73,7 +68,8 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     function storeForcedInclusion(
         uint8 blobIndex,
         uint32 blobByteOffset,
-        uint32 blobByteSize
+        uint32 blobByteSize,
+        IInbox.Summary memory _summary
     )
         external
         payable
@@ -84,10 +80,13 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         require(blobHash != bytes32(0), BlobNotFound());
         require(msg.value == feeInGwei * 1 gwei, IncorrectFee());
 
+        // Validate the summary to be able to use the next batch id
+        inbox.validateSummary(_summary);
+
         ForcedInclusion memory inclusion = ForcedInclusion({
             blobHash: blobHash,
             feeInGwei: feeInGwei,
-            createdAtBatchId: _nextBatchId(),
+            createdAtBatchId: _summary.nextBatchId,
             blobByteOffset: blobByteOffset,
             blobByteSize: blobByteSize,
             blobCreatedIn: uint64(block.number)
@@ -98,9 +97,15 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         emit ForcedInclusionStored(inclusion);
     }
 
-    function consumeOldestForcedInclusion(address _feeRecipient)
+    /// @inheritdoc IForcedInclusionStore
+    /// @dev WARNING: The `nextBatchId` is trusted and should have been validated by the caller.
+    ///     Since we allow this function to only be called by the inbox this is ok.
+    function consumeOldestForcedInclusion(
+        address _feeRecipient,
+        uint64 _nextBatchId
+    )
         external
-        onlyFrom(inboxWrapper)
+        onlyFrom(inbox)
         nonReentrant
         returns (ForcedInclusion memory inclusion_)
     {
@@ -110,7 +115,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
         inclusion_ = inclusion;
 
-        lastProcessedAtBatchId = _nextBatchId();
+        lastProcessedAtBatchId = _nextBatchId;
 
         unchecked {
             delete queue[head++];
@@ -136,11 +141,6 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         }
     }
 
-    function isOldestForcedInclusionDue() external view returns (bool) {
-        uint256 deadline = getOldestForcedInclusionDeadline();
-        return deadline != type(uint256).max && _nextBatchId() >= deadline;
-    }
-
     /// @dev Check if the oldest forced inclusion is due for a specific batch id.
     /// @param _batchId The batch id to check.
     /// @return True if the oldest forced inclusion is due for the specified batch id, false
@@ -153,10 +153,5 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     // @dev Override this function for easier testing blobs
     function _blobHash(uint8 blobIndex) internal view virtual returns (bytes32) {
         return blobhash(blobIndex);
-    }
-
-    /// @dev DEPRECATED: The inbox reference is no longer used. It points to the old inbox.
-    function _nextBatchId() private view returns (uint64) {
-        return inbox.v4GetStats2().numBatches;
     }
 }

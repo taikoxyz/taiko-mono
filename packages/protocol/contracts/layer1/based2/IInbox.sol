@@ -429,4 +429,9 @@ interface IInbox {
     /// @param _inputs encoded IInbox.ProveBatchInput[]
     /// @param _proof The cryptographic proof data for validation
     function prove4(bytes calldata _inputs, bytes calldata _proof) external;
+
+    /// @notice Validates the summary against the stored hash
+    /// @dev Should revert if the summary is invalid
+    /// @param _summary The summary to validate
+    function validateSummary(Summary memory _summary) external view;
 }
