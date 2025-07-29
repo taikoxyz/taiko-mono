@@ -11,8 +11,11 @@ interface IOverseer {
         uint128 unBlacklistedAt;
     }
 
+    /// @dev These delays prevent the lookahead from being messed up mid-epoch 
     struct Config {
+        // Delay after which a formerly unblacklisted validator can be blacklisted again
         uint256 blacklistDelay;
+        // Delay after which a formerly blacklisted validator can be unblacklisted again
         uint256 unblacklistDelay;
     }
 

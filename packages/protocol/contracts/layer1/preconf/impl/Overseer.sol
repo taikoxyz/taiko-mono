@@ -13,7 +13,7 @@ import "@solady/src/utils/MerkleTreeLib.sol";
 /// subjective faults.
 /// For instance, non-adherence to fair exchange.
 /// @dev Operators of blacklisted validators are not inserted in the lookahead. This is done to
-/// prevent the lookahead from being polluted by invalidators.
+/// prevent the lookahead from being polluted by invalid validators.
 /// @custom:security-contact security@taiko.xyz
 contract Overseer is IOverseer, EssentialContract {
     uint64 public signingThreshold;
