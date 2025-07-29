@@ -26,6 +26,13 @@ import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
 abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
+
+    // -------------------------------------------------------------------------
+    // Constructor
+    // -------------------------------------------------------------------------
+
+    constructor() EssentialContract() { }
+    
     // -------------------------------------------------------------------------
     // External Functions
     // -------------------------------------------------------------------------
