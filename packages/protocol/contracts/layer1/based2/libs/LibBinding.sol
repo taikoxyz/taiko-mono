@@ -57,7 +57,8 @@ library LibBinding {
         /// @notice Debits bond from a user
         function(IInbox.Config memory, address, uint256) debitBond;
         /// @notice Consumes the oldest forced inclusion
-        function(address) returns (IForcedInclusionStore.ForcedInclusion memory) consumeForcedInclusion;
+        function(address) returns (IForcedInclusionStore.ForcedInclusion memory)
+            consumeForcedInclusion;
         //
         // Encoding functions -----------------------------------------------------
         //

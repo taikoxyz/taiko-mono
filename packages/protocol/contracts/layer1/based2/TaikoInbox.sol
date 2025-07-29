@@ -20,13 +20,7 @@ abstract contract TaikoInbox is Inbox {
     // Constructor
     // -------------------------------------------------------------------------
 
-    constructor(
-        IPreconfWhitelist _whitelist,
-        IForcedInclusionStore _forcedStore,
-        address _fallbackPreconfer
-    )
-        Inbox(_whitelist, _forcedStore, _fallbackPreconfer)
-    { }
+    constructor() Inbox() { }
 
     // -------------------------------------------------------------------------
     // Encoder Decoder Internal Functions Overrides

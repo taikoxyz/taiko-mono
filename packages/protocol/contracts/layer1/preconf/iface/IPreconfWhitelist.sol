@@ -65,4 +65,8 @@ interface IPreconfWhitelist {
     ///      of randomness.
     /// @return The address of the operator.
     function getOperatorForNextEpoch() external view returns (address);
+
+    /// @notice Retrieves the fallback preconfer address.
+    /// @return The fallback preconfer address.
+    function getFallbackPreconfer() external view returns (address);
 }

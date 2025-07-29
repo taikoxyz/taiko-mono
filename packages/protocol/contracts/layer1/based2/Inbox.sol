@@ -23,10 +23,6 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
     using LibState for State;
     using SafeERC20 for IERC20;
 
-    IPreconfWhitelist public immutable whitelist;
-    IForcedInclusionStore public immutable forcedStore;
-    address public immutable fallbackPreconfer;
-
     /// @notice Protocol state storage
     /// @dev Storage layout must match Ontake fork for upgrade compatibility
     State public $;
@@ -37,17 +33,7 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
     // Constructor
     // -------------------------------------------------------------------------
 
-    constructor(
-        IPreconfWhitelist _whitelist,
-        IForcedInclusionStore _forcedStore,
-        address _fallbackPreconfer
-    )
-        AbstractInbox()
-    {
-        whitelist = _whitelist;
-        forcedStore = _forcedStore;
-        fallbackPreconfer = _fallbackPreconfer;
-    }
+    constructor() AbstractInbox() { }
 
     // -------------------------------------------------------------------------
     // Bond Management Functions
@@ -208,17 +194,19 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
 
     /// @inheritdoc AbstractInbox
     function _getCurrentPreconfer() internal view override returns (address) {
-        return whitelist.getOperatorForCurrentEpoch();
+        return IPreconfWhitelist(_getConfig().preconfWhitelist).getOperatorForCurrentEpoch();
     }
 
     /// @inheritdoc AbstractInbox
     function _getFallbackPreconfer() internal view override returns (address) {
-        return fallbackPreconfer;
+        return IPreconfWhitelist(_getConfig().preconfWhitelist).getFallbackPreconfer();
     }
 
     /// @inheritdoc AbstractInbox
     function _isForcedInclusionDue(uint48 _batchId) internal view override returns (bool) {
-        return forcedStore.isOldestForcedInclusionDue(_batchId);
+        return IForcedInclusionStore(_getConfig().forcedInclusionStore).isOldestForcedInclusionDue(
+            _batchId
+        );
     }
 
     /// @inheritdoc AbstractInbox
@@ -227,6 +215,8 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
         override
         returns (IForcedInclusionStore.ForcedInclusion memory)
     {
-        return forcedStore.consumeOldestForcedInclusion(_feeRecipient);
+        return IForcedInclusionStore(_getConfig().forcedInclusionStore).consumeOldestForcedInclusion(
+            _feeRecipient
+        );
     }
 }

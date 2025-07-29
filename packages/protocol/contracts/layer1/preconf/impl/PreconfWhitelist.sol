@@ -20,6 +20,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
     event OperatorChangeDelaySet(uint8 delay);
 
+    /// @notice The fallback preconfer address.
+    address private immutable fallbackPreconfer;
+
     /// @dev An operator consists of a proposer address(the key to this mapping) and a sequencer
     /// address.
     ///     The proposer address is their main identifier and is used on-chain to identify the
@@ -176,6 +179,11 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         return uint32(
             LibPreconfUtils.getEpochTimestamp() + _offset * LibPreconfConstants.SECONDS_IN_EPOCH
         );
+    }
+
+    /// @inheritdoc IPreconfWhitelist
+    function getFallbackPreconfer() external view returns (address) {
+        return fallbackPreconfer;
     }
 
     function _addOperator(

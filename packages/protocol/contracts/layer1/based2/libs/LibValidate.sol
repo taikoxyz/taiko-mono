@@ -139,8 +139,15 @@ library LibValidate {
     ///      WARNING: Setting the `preconfWhitelist` to zero makes proposing permisionless.
     /// @param _config The configuration containing the preconfWhitelist address.
     /// @param _bindings Library function binding
-    /// @custom:reverts ProposerNotPreconfer if the sender is not the preconfer for the current epoch.
-    function validateProposer(IInbox.Config memory _config, LibBinding.Bindings memory _bindings) internal view {
+    /// @custom:reverts ProposerNotPreconfer if the sender is not the preconfer for the current
+    /// epoch.
+    function validateProposer(
+        IInbox.Config memory _config,
+        LibBinding.Bindings memory _bindings
+    )
+        internal
+        view
+    {
         if (_config.preconfWhitelist == address(0)) return;
         address preconfer = _bindings.getCurrentPreconfer();
         if (preconfer != address(0)) {
