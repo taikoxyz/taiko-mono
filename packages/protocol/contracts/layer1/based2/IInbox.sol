@@ -422,8 +422,7 @@ interface IInbox {
     /// memory, IInbox.Batch[] memory, IInbox.ProposeBatchEvidence memory, IInbox.TransitionMeta[]
     /// memory)
     /// @custom:encode max-size:7 for decoded IInbox.Batch[]
-    /// @return The updated summary
-    function propose4(bytes calldata _inputs) external returns (Summary memory);
+    function propose4(bytes calldata _inputs) external;
 
     /// @notice Proves batch transitions using cryptographic proofs
     /// @dev Validates and processes cryptographic proofs for batch state transitions
