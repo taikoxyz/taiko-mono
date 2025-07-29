@@ -80,7 +80,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         bytes calldata _txList
     )
         external
-        onlyFromOptional(preconfRouter)
+        onlyFrom(preconfRouter)
         nonReentrant
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
@@ -101,6 +101,10 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         return inbox.proposeBatch(bytesY, _txList);
     }
 
+    /// @dev Validates the forced inclusion params and consumes the oldest forced inclusion.
+    /// @param _forcedInclusionStore The forced inclusion store.
+    /// @param _bytesX The bytes of the forced inclusion params.
+    /// @param _proposer The proposer of the regular batch.
     function _validateForcedInclusionParams(
         IForcedInclusionStore _forcedInclusionStore,
         bytes memory _bytesX,
