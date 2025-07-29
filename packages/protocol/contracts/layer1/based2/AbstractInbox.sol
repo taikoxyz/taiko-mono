@@ -51,6 +51,22 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     }
 
     /// @inheritdoc IPropose
+    /// @dev Multiple batches can be proved by different provers. If verification is triggered
+    /// during the prove function, then the first call to prove would update the Summary, causing
+    /// subsequent prove calls for other batches to revert. This is a side effect of the current
+    /// design, where the Summary is not fully stored on-chain and must be provided as an input
+    /// parameter.
+    ///
+    /// A more critical issue is the timing and cost uncertainty of verification. ZK Proofs are
+    /// typically submitted a few minutes (in practice) after the prover quotes a price to the
+    /// proposer. If the prover is responsible for covering the verification cost—and that cost is
+    /// uncertain on chain—they risk incurring a significant loss.
+    ///
+    /// Proposers (who are also preconfers) are less affected by this issue, as they control L1
+    /// sequencing directly or indirectly. They can schedule all prove calls to occur after their
+    /// corresponding propose calls, mitigating the risk of unexpected verification costs. This
+    /// Shasta fork is specifically designed with preconfirmation in mind, making this sequencing
+    /// strategy practical.
     function propose4(bytes calldata _inputs) external override(IInbox, IPropose) nonReentrant {
         LibBinding.Bindings memory bindings = _getBindings();
 
