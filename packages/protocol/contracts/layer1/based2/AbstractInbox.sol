@@ -47,12 +47,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     }
 
     /// @inheritdoc IPropose
-    function propose4(bytes calldata _inputs)
-        external
-        override(IInbox, IPropose)
-        nonReentrant
-        returns (Summary memory)
-    {
+    function propose4(bytes calldata _inputs) external override(IInbox, IPropose) nonReentrant {
         LibBinding.Bindings memory bindings = _getBindings();
 
         (
@@ -63,16 +58,26 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         ) = bindings.decodeProposeBatchesInputs(_inputs);
         Config memory config = _getConfig();
 
-        // Propose batches (includes preconf validation and forced inclusion processing)
-        summary = LibPropose.propose(bindings, config, summary, batches, evidence);
+        // Propose batches
+        BatchContext[] memory contexts;
+        (summary, contexts) = LibPropose.propose(bindings, config, summary, batches, evidence);
+        uint48 lastProposedBatchId = summary.nextBatchId - 1;
 
         // Verify batches
         summary = LibVerify.verify(bindings, config, summary, transitionMetas);
 
         _saveSummaryHash(keccak256(abi.encode(summary)));
-        emit SummaryUpdated(bindings.encodeSummary(summary));
 
-        return summary;
+        // Skip calldata emission for gas optimization when directly called by EOA
+        // TODO: can we call IPreconfWhitelist or LookAhead from within this contract, instead of
+        // using the
+        // PreconfRouter as the msg.sender?
+        emit Proposed(
+            lastProposedBatchId,
+            _isOuterMostTransaction() ? bytes("") : _inputs,
+            bindings.encodeBatchContexts(contexts),
+            bindings.encodeSummary(summary)
+        );
     }
 
     /// @inheritdoc IProve
@@ -99,12 +104,14 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     }
 
     /// @notice Builds batch metadata from batch and batch context data
+    /// @param _proposer The address that proposed the batch
     /// @param _proposedIn The block number in which the batch is proposed
     /// @param _proposedAt The timestamp of the block in which the batch is proposed
     /// @param _batch The batch being proposed
     /// @param _context The batch context data containing computed values
     /// @return meta_ The populated batch metadata
     function buildBatchMetadata(
+        address _proposer,
         uint48 _proposedIn,
         uint48 _proposedAt,
         Batch calldata _batch,
@@ -114,7 +121,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         pure
         returns (BatchMetadata memory meta_)
     {
-        return LibData.buildBatchMetadata(_proposedIn, _proposedAt, _batch, _context);
+        return LibData.buildBatchMetadata(_proposer, _proposedIn, _proposedAt, _batch, _context);
     }
 
     /// @notice Gets the current configuration
@@ -278,15 +285,15 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         returns (bytes32 metaHash_, bool isFirstTransition_);
 
     /// @notice Encodes a batch context
-    /// @param _context The batch context to encode
-    /// @return The encoded batch context
-    function _encodeBatchContext(BatchContext memory _context)
+    /// @param _batchContexts The array of batch context to encode
+    /// @return The encoded batch context array
+    function _encodeBatchContexts(BatchContext[] memory _batchContexts)
         internal
         pure
         virtual
         returns (bytes memory)
     {
-        return abi.encode(_context);
+        return abi.encode(_batchContexts);
     }
 
     /// @notice Encodes transition metas
@@ -404,7 +411,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
             saveBatchMetaHash: _saveBatchMetaHash,
             consumeForcedInclusion: _consumeForcedInclusion,
             // Encoding functions
-            encodeBatchContext: _encodeBatchContext,
+            encodeBatchContexts: _encodeBatchContexts,
             encodeTransitionMetas: _encodeTransitionMetas,
             encodeSummary: _encodeSummary,
             // Decoding functions
@@ -413,6 +420,15 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
             decodeSummary: _decodeSummary,
             decodeProveBatchesInputs: _decodeProveBatchesInputs
         });
+    }
+
+    /// @notice Heuristically checks if the current transaction is the outermost one.
+    /// @dev Returns true if the call is directly from an EOA. May return false for
+    ///      smart contract wallets (e.g. ERC-4337), even if they initiate the outermost tx.
+    ///      This is acceptable for our use case — in false negative cases, we emit calldata
+    ///      explicitly, even though it could be extracted without tracing.
+    function _isOuterMostTransaction() private view returns (bool) {
+        return msg.sender == tx.origin;
     }
 
     function _validateSummary(bytes memory _summaryEncoded)

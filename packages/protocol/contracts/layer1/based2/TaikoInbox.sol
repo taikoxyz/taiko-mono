@@ -33,13 +33,13 @@ abstract contract TaikoInbox is Inbox {
     // -------------------------------------------------------------------------
 
     /// @inheritdoc AbstractInbox
-    function _encodeBatchContext(IInbox.BatchContext memory _context)
+    function _encodeBatchContexts(IInbox.BatchContext[] memory _batchContexts)
         internal
         pure
         override
         returns (bytes memory)
     {
-        return LibCodecBatchContext.encode(_context);
+        return LibCodecBatchContext.encode(_batchContexts);
     }
 
     /// @inheritdoc AbstractInbox

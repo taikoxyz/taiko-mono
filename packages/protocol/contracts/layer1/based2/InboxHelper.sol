@@ -16,12 +16,14 @@ import "./codec/LibCodecHeaderExtraInfo.sol";
 /// @custom:security-contact security@taiko.xyz
 contract InboxHelper {
     /// @notice Builds batch metadata from batch and batch context data
+    /// @param _proposer The address that proposed the batch
     /// @param _proposedIn The block number in which the batch is proposed
     /// @param _proposedAt The timestamp of the block in which the batch is proposed
     /// @param _batch The batch being proposed
     /// @param _context The batch context data containing computed values
     /// @return meta_ The populated batch metadata
     function buildBatchMetadata(
+        address _proposer,
         uint48 _proposedIn,
         uint48 _proposedAt,
         IInbox.Batch calldata _batch,
@@ -31,7 +33,7 @@ contract InboxHelper {
         pure
         returns (IInbox.BatchMetadata memory meta_)
     {
-        return LibData.buildBatchMetadata(_proposedIn, _proposedAt, _batch, _context);
+        return LibData.buildBatchMetadata(_proposer, _proposedIn, _proposedAt, _batch, _context);
     }
 
     /// @notice Encodes a Summary struct
@@ -48,24 +50,24 @@ contract InboxHelper {
         return LibCodecSummary.decode(_data);
     }
 
-    /// @notice Encodes a BatchContext struct
-    /// @param _context The BatchContext struct to encode
+    /// @notice Encodes a BatchContext array
+    /// @param _batchContexts The BatchContext struct to encode
     /// @return The encoded bytes
-    function encodeBatchContext(IInbox.BatchContext memory _context)
+    function encodeBatchContexts(IInbox.BatchContext[] memory _batchContexts)
         external
         pure
         returns (bytes memory)
     {
-        return LibCodecBatchContext.encode(_context);
+        return LibCodecBatchContext.encode(_batchContexts);
     }
 
     /// @notice Decodes bytes into a BatchContext struct
     /// @param _data The bytes to decode
-    /// @return The decoded BatchContext struct
+    /// @return The decoded BatchContext array
     function decodeBatchContext(bytes memory _data)
         external
         pure
-        returns (IInbox.BatchContext memory)
+        returns (IInbox.BatchContext[] memory)
     {
         return LibCodecBatchContext.decode(_data);
     }

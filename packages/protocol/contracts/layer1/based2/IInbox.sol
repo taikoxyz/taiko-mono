@@ -54,8 +54,6 @@ interface IInbox {
     /// @notice Represents a batch of blocks to be proposed
     /// @dev Contains all data needed for batch validation and processing
     struct Batch {
-        /// @notice Address that proposed this batch
-        address proposer;
         /// @notice Coinbase address for block rewards (can be zero)
         /// @custom:encode optional
         address coinbase;
@@ -336,6 +334,7 @@ interface IInbox {
         /// @notice Size of the ring buffer for batch storage
         uint24 batchRingBufferSize;
         /// @notice Maximum number of batches to verify in one operation
+        /// @custom:encode max-size:63
         uint8 maxBatchesToVerify;
         /// @notice Bond amount for liveness guarantee (in Gwei)
         uint48 livenessBond;
@@ -357,8 +356,10 @@ interface IInbox {
         ForkHeights forkHeights;
         /// @notice Address of the token used for bonds
         address bondToken;
-        /// @notice Address of the inbox wrapper contract
-        address inboxWrapper;
+        /// @notice Address of the forced inclusion store contract
+        address forcedInclusionStore;
+        /// @notice Address of the preconf whitelist contract
+        address preconfWhitelist;
         /// @notice Address of the proof verifier contract
         address verifier;
         /// @notice Address of the signal service contract
@@ -394,15 +395,15 @@ interface IInbox {
         uint256[43] __gap;
     }
 
-    /// @notice Emitted when the protocol summary is updated
-    /// @param summary The updated protocol summary encoded as bytes
-    event SummaryUpdated(bytes summary);
-
     /// @notice Emitted when a new batch is proposed
-    /// @param batchId The unique identifier of the proposed batch
-    /// @param context The batch context data encoded as bytes
-    /// TODO(daniel): propose4's `inputs` calldata not emitted in this event.
-    event Proposed(uint256 indexed batchId, bytes context);
+    /// @param lastProposedBatchId The id of the last proposed batch
+    /// @param proposeInputs The calldata inputs for propose4 function. Note that when the propose4
+    /// function is called by an EOA, the proposeInputs will be empty.
+    /// @param batchContexts The array of batch context encoded as bytes encoded as bytes
+    /// @param summary The updated protocol summary encoded as bytes
+    event Proposed(
+        uint256 indexed lastProposedBatchId, bytes proposeInputs, bytes batchContexts, bytes summary
+    );
 
     /// @notice Emitted when a batch transition is proven
     /// @param batchId The unique identifier of the proven batch
@@ -420,8 +421,8 @@ interface IInbox {
     /// (IInbox.Summary
     /// memory, IInbox.Batch[] memory, IInbox.ProposeBatchEvidence memory, IInbox.TransitionMeta[]
     /// memory)
-    /// @return The updated summary
-    function propose4(bytes calldata _inputs) external returns (Summary memory);
+    /// @custom:encode max-size:7 for decoded IInbox.Batch[]
+    function propose4(bytes calldata _inputs) external;
 
     /// @notice Proves batch transitions using cryptographic proofs
     /// @dev Validates and processes cryptographic proofs for batch state transitions
