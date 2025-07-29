@@ -16,8 +16,10 @@ library LibCodecProposeBatchInputs {
     /// @return _ The encoded data
     function encode(
         IInbox.Summary memory _summary,
+        /// @custom:encode max-size:7
         IInbox.Batch[] memory _batches,
         IInbox.ProposeBatchEvidence memory _proposeBatchEvidence,
+        /// @custom:encode max-size:63
         IInbox.TransitionMeta[] memory _transitionMetas
     )
         internal

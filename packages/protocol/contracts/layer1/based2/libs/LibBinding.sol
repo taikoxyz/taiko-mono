@@ -52,7 +52,7 @@ library LibBinding {
         //
         // Encoding functions -----------------------------------------------------
         //
-        function(IInbox.BatchContext memory) pure returns (bytes memory) encodeBatchContext;
+        function(IInbox.BatchContext[] memory) pure returns (bytes memory) encodeBatchContexts;
         function(IInbox.TransitionMeta[] memory) pure returns (bytes memory) encodeTransitionMetas;
         function(IInbox.Summary memory) pure returns (bytes memory) encodeSummary;
         // Decoding functions -----------------------------------------------------
