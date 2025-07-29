@@ -22,7 +22,7 @@ interface IVerifier {
 
 interface IVerifier2 {
     /// @notice Verifies multiple proofs. This function must throw if the proof cannot be verified.
-    /// @param aggregatedBatchHash The hash of the context for the proof verifications.
+    /// @param aggregatedProvingHash The hash of the context for the proof verifications.
     /// @param _proof The batch proof to verify.
-    function verifyProof(bytes32 aggregatedBatchHash, bytes calldata _proof) external;
+    function verifyProof(bytes32 aggregatedProvingHash, bytes calldata _proof) external;
 }

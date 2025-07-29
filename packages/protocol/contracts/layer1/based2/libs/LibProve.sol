@@ -28,14 +28,14 @@ library LibProve {
     /// @param _bindings Library function binding
     /// @param _config The protocol configuration
     /// @param _inputs Array of batch prove inputs containing transition data
-    /// @return aggregatedBatchHash_ The aggregated hash of all proven batches
+    /// @return aggregatedProvingHash_ The aggregated hash of all proven batches
     function prove(
         LibBinding.Bindings memory _bindings,
         IInbox.Config memory _config,
         IInbox.ProveBatchInput[] memory _inputs
     )
         internal
-        returns (bytes32 aggregatedBatchHash_)
+        returns (bytes32 aggregatedProvingHash_)
     {
         if (_inputs.length == 0) revert NoBlocksToProve();
         if (_inputs.length >= type(uint8).max) revert TooManyBatchesToProve();
@@ -94,21 +94,20 @@ library LibProve {
                         keccak256(abi.encode(tranMeta))
                     );
                 }
-                // Reset the aggregated transition metadata to the new one.
+                // Set the aggregated transition metadata to the current one.
                 tranMeta = tranMetas[i];
             }
         } // end of for-loop
 
-        if (tranMeta.batchId != 0) {
-            _bindings.saveTransition(
-                _config,
-                _inputs[i - 1].tran.batchId,
-                _inputs[i - 1].tran.parentHash,
-                keccak256(abi.encode(tranMeta))
-            );
-        }
+        assert(tranMeta.batchId != 0);
+        _bindings.saveTransition(
+            _config,
+            tranMeta.batchId,
+            _inputs[i - 1].tran.parentHash,
+            keccak256(abi.encode(tranMeta))
+        );
 
-        aggregatedBatchHash_ =
+        aggregatedProvingHash_ =
             keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
 
         emit IInbox.Proved(aggregatedBatchHash_, _bindings.encodeTransitionMetas(tranMetas));

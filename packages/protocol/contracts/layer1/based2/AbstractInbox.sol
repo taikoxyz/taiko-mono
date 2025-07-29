@@ -101,10 +101,10 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         Config memory config = _getConfig();
 
         // Prove batches and get aggregated hash
-        bytes32 aggregatedBatchHash = LibProve.prove(bindings, config, inputs);
+        bytes32 aggregatedProvingHash_ = LibProve.prove(bindings, config, inputs);
 
         // Verify the proof
-        IVerifier2(config.verifier).verifyProof(aggregatedBatchHash, _proof);
+        IVerifier2(config.verifier).verifyProof(aggregatedProvingHash_, _proof);
     }
 
     /// @notice Builds batch metadata from batch and batch context data
