@@ -271,8 +271,6 @@ interface IInbox {
         bytes32 stateRoot;
         /// @notice Timing category of the proof submission
         ProofTiming proofTiming;
-        /// @notice Whether proof was submitted by assigned prover
-        bool byAssignedProver;
         /// @notice Bond amount for provability guarantee (in Gwei)
         uint48 provabilityBond;
         /// @notice Bond amount for liveness guarantee (in Gwei)

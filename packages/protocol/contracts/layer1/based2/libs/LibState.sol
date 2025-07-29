@@ -31,7 +31,6 @@ library LibState {
     /// @param _lastVerifiedBlockHash The last verified block hash
     /// @param _batchId The batch ID
     /// @return metaHash_ The transition metadata hash
-    /// @return isFirstTransition_ Whether this is the first transition
     function loadTransitionMetaHash(
         IInbox.State storage $,
         IInbox.Config memory _conf,
@@ -40,17 +39,17 @@ library LibState {
     )
         internal
         view
-        returns (bytes32 metaHash_, bool isFirstTransition_)
+        returns (bytes32 metaHash_)
     {
         uint256 slot = _batchId % _conf.batchRingBufferSize;
         (bytes32 partialParentHash, uint48 batchId) = _loadPartialParentHashAndBatchId($, slot);
 
-        if (batchId != _batchId) return (0, false);
+        if (batchId != _batchId) return 0;
 
         if (partialParentHash == _lastVerifiedBlockHash >> 48) {
-            return ($.transitions[slot][1].metaHash, true);
+            return $.transitions[slot][1].metaHash;
         } else {
-            return ($.transitionMetaHashes[_batchId][_lastVerifiedBlockHash], false);
+            return $.transitionMetaHashes[_batchId][_lastVerifiedBlockHash];
         }
     }
 
@@ -60,7 +59,6 @@ library LibState {
     /// @param _batchId The batch ID
     /// @param _parentHash The parent hash
     /// @param _tranMetahash The transition metadata hash
-    /// @return isFirstTransition_ Whether this is the first transition
     function saveTransition(
         IInbox.State storage $,
         IInbox.Config memory _conf,
@@ -69,7 +67,6 @@ library LibState {
         bytes32 _tranMetahash
     )
         internal
-        returns (bool isFirstTransition_)
     {
         uint256 slot = _batchId % _conf.batchRingBufferSize;
 
@@ -78,9 +75,7 @@ library LibState {
         // Tip: the reuse of the first transition slot can save 3900 gas per batch.
         (bytes32 partialParentHash, uint48 batchId) = _loadPartialParentHashAndBatchId($, slot);
 
-        isFirstTransition_ = batchId != _batchId;
-
-        if (isFirstTransition_) {
+        if (batchId != _batchId) {
             // This is the very first transition of the batch.
             // We can reuse the transition slot to reduce gas cost.
             $.transitions[slot][1].batchIdAndPartialParentHash =

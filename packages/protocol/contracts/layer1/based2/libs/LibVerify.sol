@@ -59,7 +59,7 @@ library LibVerify {
 
                 batchId += tran.span;
 
-                (bytes32 tranMetaHash, bool isFirstTransition) = _bindings.loadTransitionMetaHash(
+                bytes32 tranMetaHash = _bindings.loadTransitionMetaHash(
                     _config, _summary.lastVerifiedBlockHash, batchId
                 );
 
@@ -73,8 +73,8 @@ library LibVerify {
                 // transaction may
                 if (tran.provedAt + _config.cooldownWindow > block.timestamp) break;
 
-                uint256 bondToProver = _calcBondToProver(_config, tran, isFirstTransition);
-                _bindings.creditBond(tran.prover, bondToProver * 1 gwei);
+                uint256 proverRefund = _calcBondRefundToProver(_config, tran);
+                _bindings.creditBond(tran.prover, proverRefund * 1 gwei);
 
                 if (batchId % _config.stateRootSyncInternal == 0) {
                     lastSyncedBatchId = batchId;
@@ -102,48 +102,26 @@ library LibVerify {
     // Private Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Calculates the bond amount to return to the prover based on timing and conditions
-    /// @dev Bond distribution logic:
-    ///      - InProvingWindow: Full bonds returned (liveness + provability for first transition)
-    ///      - InExtendedProvingWindow: Partial reward based on bondRewardPtcg
-    ///      - Assigned prover: Gets back provability bond
-    ///      - Other provers: Get percentage of provability bond
+    /// @notice Calculates the bond amount to refund to the prover based on timing and conditions
     /// @param _config Protocol configuration containing bond parameters
     /// @param _tran Transition metadata containing bond and timing information
-    /// @param _isFirstTransition Whether this is the first transition for the batch
-    /// @return Bond amount to credit to the prover
-    function _calcBondToProver(
+    /// @return  Bond amount to credit to the prover
+    function _calcBondRefundToProver(
         IInbox.Config memory _config,
-        IInbox.TransitionMeta memory _tran,
-        bool _isFirstTransition
+        IInbox.TransitionMeta memory _tran
     )
         private
         pure
         returns (uint256)
     {
-        unchecked {
-            if (_tran.proofTiming == IInbox.ProofTiming.InProvingWindow) {
-                // All liveness bond is returned to the prover, this is not a reward
-                return _isFirstTransition
-                    ? _tran.livenessBond + _tran.provabilityBond
-                    : _tran.livenessBond;
-            }
-
-            if (_tran.proofTiming == IInbox.ProofTiming.InExtendedProvingWindow) {
-                // Prover is rewarded with bondRewardPtcg% of the liveness bond
-                // Note: _config.bondRewardPtcg <= 100
-                uint256 amount = (uint256(_tran.livenessBond) * _config.bondRewardPtcg) / 100;
-                return _isFirstTransition ? amount + _tran.provabilityBond : amount;
-            }
-
-            if (_tran.byAssignedProver) {
-                // The assigned prover gets back his liveness bond, and 100% provability
-                // bond. This allows him to use a higher gas price to submit his proof first
-                return _tran.provabilityBond;
-            }
-
-            // Other provers get bondRewardPtcg% of the provability bond
-            return (uint256(_tran.provabilityBond) * _config.bondRewardPtcg) / 100;
+        if (_tran.proofTiming == IInbox.ProofTiming.InProvingWindow) {
+            return _tran.provabilityBond + _tran.livenessBond;
+        } else if (_tran.proofTiming == IInbox.ProofTiming.InExtendedProvingWindow) {
+            return
+                _tran.provabilityBond + uint256(_tran.livenessBond) * _config.bondRewardPtcg / 100;
+        } else {
+            //  _tran.proofTiming == IInbox.ProofTiming.OutOfExtendedProvingWindow
+            return uint256(_tran.provabilityBond) * _config.bondRewardPtcg / 100;
         }
     }
 

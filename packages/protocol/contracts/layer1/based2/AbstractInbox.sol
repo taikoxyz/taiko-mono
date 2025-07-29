@@ -228,7 +228,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @param _batchId The batch ID
     /// @param _parentHash The parent hash
     /// @param _tranMetahash The transition metadata hash
-    /// @return isFirstTransition_ Whether this is the first transition for the batch
     function _saveTransition(
         Config memory _conf,
         uint48 _batchId,
@@ -236,8 +235,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         bytes32 _tranMetahash
     )
         internal
-        virtual
-        returns (bool isFirstTransition_);
+        virtual;
 
     /// @notice Saves a batch metadata hash to storage
     /// @param _conf The configuration
@@ -256,7 +254,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @param _lastVerifiedBlockHash The last verified block hash
     /// @param _batchId The batch ID
     /// @return metaHash_ The transition metadata hash
-    /// @return isFirstTransition_ Whether this is the first transition for the batch
     function _loadTransitionMetaHash(
         Config memory _conf,
         bytes32 _lastVerifiedBlockHash,
@@ -265,7 +262,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         internal
         view
         virtual
-        returns (bytes32 metaHash_, bool isFirstTransition_);
+        returns (bytes32 metaHash_);
 
     /// @notice Encodes a batch context
     /// @param _batchContexts The array of batch context to encode

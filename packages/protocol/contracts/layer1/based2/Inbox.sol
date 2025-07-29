@@ -146,7 +146,7 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
         internal
         view
         override
-        returns (bytes32 metaHash_, bool isFirstTransition_)
+        returns (bytes32 metaHash_)
     {
         return $.loadTransitionMetaHash(_conf, _lastVerifiedBlockHash, _batchId);
     }
@@ -160,7 +160,6 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
     )
         internal
         override
-        returns (bool isFirstTransition_)
     {
         return $.saveTransition(_conf, _batchId, _parentHash, _tranMetahash);
     }

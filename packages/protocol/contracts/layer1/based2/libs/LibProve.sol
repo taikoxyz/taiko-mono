@@ -41,6 +41,9 @@ library LibProve {
         if (_inputs.length > type(uint8).max) revert TooManyBatchesToProve();
 
         bytes32[] memory ctxHashes = new bytes32[](_inputs.length);
+        IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](_inputs.length);
+
+        IInbox.TransitionMeta memory tranMeta;
 
         for (uint256 i; i < _inputs.length; ++i) {
             IInbox.ProveBatchInput memory input = _inputs[i];
@@ -67,7 +70,7 @@ library LibProve {
             );
 
             // Create the transition metadata
-            IInbox.TransitionMeta memory tranMeta = IInbox.TransitionMeta({
+            tranMeta = IInbox.TransitionMeta({
                 span: 1,
                 lastBlockId: input.proveMeta.lastBlockId,
                 prover: prover,
@@ -75,31 +78,22 @@ library LibProve {
                 blockHash: input.tran.blockHash,
                 stateRoot: stateRoot,
                 proofTiming: proofTiming,
-                byAssignedProver: msg.sender == input.proveMeta.prover,
                 provabilityBond: input.proveMeta.provabilityBond,
                 livenessBond: input.proveMeta.livenessBond
             });
 
-            bool isFirstTransition = _bindings.saveTransition(
+            _bindings.saveTransition(
                 _config, input.tran.batchId, input.tran.parentHash, keccak256(abi.encode(tranMeta))
             );
 
-            if (
-                isFirstTransition
-                    && tranMeta.proofTiming != IInbox.ProofTiming.OutOfExtendedProvingWindow
-                    && msg.sender != input.proveMeta.proposer
-            ) {
-                uint256 bondAmount = uint256(input.proveMeta.provabilityBond) * 1 gwei;
-                _bindings.debitBond(_config, msg.sender, bondAmount);
-                _bindings.creditBond(input.proveMeta.proposer, bondAmount);
-            }
-
-            IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](1);
-            tranMetas[0] = tranMeta;
-            emit IInbox.Proved(input.tran.batchId, _bindings.encodeTransitionMetas(tranMetas));
+            _provePaysProvabilityBond(_bindings, _config, input, tranMeta);
 
             ctxHashes[i] = keccak256(abi.encode(batchMetaHash, input.tran));
         }
+
+        //   IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](1);
+        //     tranMetas[0] = tranMeta;
+        // emit IInbox.Proved(input.tran.batchId, _bindings.encodeTransitionMetas(tranMetas));
 
         return keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
     }
@@ -134,6 +128,30 @@ library LibProve {
         }
     }
 
+    /// @notice Upon proving a batch, the prover is expected to trust that the transition will
+    /// eventually be used for batch verification. As a result, the prover should be willing to pay
+    /// the provability bond on their behalf. Once the transition is used to verify the batch, the
+    /// provability bond is returned to the prover, not the proposer.
+    function _provePaysProvabilityBond(
+        LibBinding.Bindings memory _bindings,
+        IInbox.Config memory _config,
+        IInbox.ProveBatchInput memory _input,
+        IInbox.TransitionMeta memory _tranMeta
+    )
+        private
+    {
+        // If the batch is proved beyond the extended proving window, the provability bond of the
+        // proposer is not refunded. Hence, there is no need for the prover to make a payment on
+        // behalf of the proposer.
+        if (_tranMeta.proofTiming == IInbox.ProofTiming.OutOfExtendedProvingWindow) return;
+
+        // They are the same party, no need to waste gas.
+        if (msg.sender == _input.proveMeta.proposer) return;
+
+        uint256 provabilityBond = uint256(_input.proveMeta.provabilityBond) * 1 gwei;
+        _bindings.debitBond(_config, msg.sender, provabilityBond);
+        _bindings.creditBond(_input.proveMeta.proposer, provabilityBond);
+    }
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
