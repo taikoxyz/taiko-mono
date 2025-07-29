@@ -80,7 +80,7 @@ library LibProve {
 
             ctxHashes[i] = keccak256(abi.encode(batchMetaHash, _inputs[i].tran));
 
-            _provePaysProvabilityBond(_bindings, _config, _inputs[i], tranMetas[i]);
+            _proverPaysProvabilityBond(_bindings, _config, _inputs[i], tranMetas[i]);
 
             if (_canAggregateTransitions(tranMeta, tranMetas[i])) {
                 tranMeta = _aggregateTransitions(tranMeta, tranMetas[i]);
@@ -147,7 +147,7 @@ library LibProve {
     /// eventually be used for batch verification. As a result, the prover should be willing to pay
     /// the provability bond on their behalf. Once the transition is used to verify the batch, the
     /// provability bond is returned to the prover, not the proposer.
-    function _provePaysProvabilityBond(
+    function _proverPaysProvabilityBond(
         LibBinding.Bindings memory _bindings,
         IInbox.Config memory _config,
         IInbox.ProveBatchInput memory _input,
