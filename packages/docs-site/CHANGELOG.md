@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.29.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.2...docs-site-v1.29.3) (2025-07-29)
+
+
+### Chores
+
+* **repo, docs-site:** remove dead link ([#19816](https://github.com/taikoxyz/taiko-mono/issues/19816)) ([f9f7bbb](https://github.com/taikoxyz/taiko-mono/commit/f9f7bbb447b5a6c1cc4fac3ae733821f6a17380f))
+
 ## [1.29.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.1...docs-site-v1.29.2) (2025-07-11)
 
 
