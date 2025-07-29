@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh:*)",
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(forge:*)",
+      "Bash(pnpm:*)",
+      "WebFetch"
+    ],
+    "deny": []
+  }
+}
