@@ -282,7 +282,7 @@ interface IInbox {
     struct Summary {
         /// @notice ID to be assigned to the next batch
         uint48 nextBatchId;
-        /// @notice ID of the last block synced from L1
+        /// @notice ID of the last L2 block synced to L1
         uint48 lastSyncedBlockId;
         /// @notice Timestamp of the last sync operation
         uint48 lastSyncedAt;
