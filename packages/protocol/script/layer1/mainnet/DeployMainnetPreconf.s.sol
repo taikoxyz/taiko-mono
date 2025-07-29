@@ -34,17 +34,18 @@ contract DeployMainnetPreconf is DeployCapability {
         // admin.taiko.eth
         address contractOwner = 0x9CBeE534B5D8a6280e01a14844Ee8aF350399C7F;
 
-        // Can't call `registerAddress` directly since the EOA isn't the owner of AddressResolver
         address whitelist = deployProxy({
             name: "preconf_whitelist",
             impl: address(new PreconfWhitelist()),
-            data: abi.encodeCall(PreconfWhitelist.init, (contractOwner, TWO_EPOCHS, TWO_EPOCHS))
+            data: abi.encodeCall(PreconfWhitelist.init, (contractOwner, TWO_EPOCHS, TWO_EPOCHS)),
+            registerTo: rollupResolver
         });
 
         address router = deployProxy({
             name: "preconf_router",
             impl: address(new PreconfRouter(taikoWrapper, whitelist, fallbackPreconfProposer)),
-            data: abi.encodeCall(PreconfRouter.init, (contractOwner))
+            data: abi.encodeCall(PreconfRouter.init, (contractOwner)),
+            registerTo: rollupResolver
         });
         address wrapper = address(new TaikoWrapper(taikoInbox, store, router));
         // Need to call `upgradeTo`, to address: 0x9F9D2fC7abe74C79f86F0D1212107692430eef72(should
