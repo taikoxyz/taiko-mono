@@ -80,7 +80,6 @@ library LibVerify {
                     lastSyncedBatchId = batchId;
                 }
 
-
                 _summary.lastVerifiedBlockHash = tran.blockHash;
                 _summary.lastVerifiedBlockId = tran.lastBlockId;
                 _summary.lastVerifiedBatchId = batchId;
