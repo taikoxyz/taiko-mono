@@ -45,6 +45,17 @@ library LibForks {
         return _firstBlockId >= _conf.forkHeights.shasta;
     }
 
+    function isBlocksInCurrentFork(
+        IInbox.Config memory _conf,
+        uint256 _blockId
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        return isBlocksInCurrentFork(_conf, _blockId, _blockId);
+    }
+
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------

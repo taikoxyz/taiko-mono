@@ -46,7 +46,7 @@ library LibVerify {
             // A batch cannot cross fork boundaries, this is guaranteed by proposal and proving
             // logics,
             // so we can check the first block id only.
-            if (!LibForks.isBlocksInCurrentFork(_config, nextBlockId, nextBlockId)) {
+            if (!LibForks.isBlocksInCurrentFork(_config, nextBlockId)) {
                 return _summary;
             }
 
