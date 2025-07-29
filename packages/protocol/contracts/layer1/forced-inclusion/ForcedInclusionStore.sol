@@ -105,7 +105,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         uint64 _nextBatchId
     )
         external
-        onlyFrom(inbox)
+        onlyFrom(address(inbox))
         nonReentrant
         returns (ForcedInclusion memory inclusion_)
     {

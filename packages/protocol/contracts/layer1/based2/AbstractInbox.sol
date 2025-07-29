@@ -273,8 +273,9 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
 
     /// @notice Consumes the oldest forced inclusion
     /// @param _feeRecipient The address to receive the fee
+    /// @param _nextBatchId The next batch ID
     /// @return The forced inclusion data
-    function _consumeForcedInclusion(address _feeRecipient)
+    function _consumeForcedInclusion(address _feeRecipient, uint64 _nextBatchId)
         internal
         virtual
         returns (IForcedInclusionStore.ForcedInclusion memory);

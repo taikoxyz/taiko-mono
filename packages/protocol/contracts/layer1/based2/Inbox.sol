@@ -210,13 +210,13 @@ abstract contract Inbox is AbstractInbox, IBondManager2 {
     }
 
     /// @inheritdoc AbstractInbox
-    function _consumeForcedInclusion(address _feeRecipient)
+    function _consumeForcedInclusion(address _feeRecipient, uint64 _nextBatchId)
         internal
         override
         returns (IForcedInclusionStore.ForcedInclusion memory)
     {
         return IForcedInclusionStore(_getConfig().forcedInclusionStore).consumeOldestForcedInclusion(
-            _feeRecipient
+            _feeRecipient, _nextBatchId
         );
     }
 }
