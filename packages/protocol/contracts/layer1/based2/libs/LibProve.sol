@@ -88,13 +88,15 @@ library LibProve {
 
             if (canAggregate) {
                 aggregatedTranMeta = _aggregateTransitions(aggregatedTranMeta, newTranMeta);
-            } else if (aggregatedTranMeta.span != 0) {
-                _bindings.saveTransition(
-                    _config,
-                    input.tran.batchId,
-                    input.tran.parentHash,
-                    keccak256(abi.encode(aggregatedTranMeta))
-                );
+            } else {
+                if (aggregatedTranMeta.span != 0) {
+                    _bindings.saveTransition(
+                        _config,
+                        input.tran.batchId,
+                        input.tran.parentHash,
+                        keccak256(abi.encode(aggregatedTranMeta))
+                    );
+                }
                 aggregatedTranMeta = newTranMeta;
             }
 
