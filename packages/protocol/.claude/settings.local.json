@@ -5,6 +5,7 @@
       "Bash(git:*)",
       "Bash(ls:*)",
       "Bash(forge:*)",
+      "Bash(pnpm:*)",
       "WebFetch"
     ],
     "deny": []

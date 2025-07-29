@@ -1,15 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git:*)",
-      "Bash(ls:*)",
-      "Bash(mv:*)",
       "WebFetch",
       "Bash(gh issue view:*)",
       "Bash(gh commit:*)",
       "Bash(gh pr view:*)",
       "Bash(gh pr diff:*)",
-      "Bash(gh pr edit:*)"
+      "Bash(gh pr edit:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run list:*)",
+      "Bash(find:*)",
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(mv:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
