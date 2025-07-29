@@ -27,84 +27,81 @@ library LibProve {
     /// @notice Proves multiple batches and returns an aggregated hash for verification
     /// @param _bindings Library function binding
     /// @param _config The protocol configuration
-    /// @param _evidences Array of batch prove inputs containing transition data
+    /// @param _inputs Array of batch prove inputs containing transition data
     /// @return _ The aggregated hash of all proven batches
     function prove(
         LibBinding.Bindings memory _bindings,
         IInbox.Config memory _config,
-        IInbox.ProveBatchInput[] memory _evidences
+        IInbox.ProveBatchInput[] memory _inputs
     )
         internal
         returns (bytes32)
     {
-        if (_evidences.length == 0) revert NoBlocksToProve();
-        if (_evidences.length > type(uint8).max) revert TooManyBatchesToProve();
+        if (_inputs.length == 0) revert NoBlocksToProve();
+        if (_inputs.length > type(uint8).max) revert TooManyBatchesToProve();
 
-        bytes32[] memory ctxHashes = new bytes32[](_evidences.length);
+        bytes32[] memory ctxHashes = new bytes32[](_inputs.length);
 
-        for (uint256 i; i < _evidences.length; ++i) {
-            IInbox.ProveBatchInput memory _input = _evidences[i];
+        for (uint256 i; i < _inputs.length; ++i) {
+            IInbox.ProveBatchInput memory input = _inputs[i];
 
-            if (_input.tran.parentHash == 0) revert InvalidTransitionParentHash();
+            if (input.tran.parentHash == 0) revert InvalidTransitionParentHash();
 
             // During batch proposal, we ensured that blocks won't cross fork boundaries.
             // Therefore, we only need to verify the firstBlockId in the following check.
             if (
                 !LibForks.isBlocksInCurrentFork(
-                    _config, _input.proveMeta.firstBlockId, _input.proveMeta.firstBlockId
+                    _config, input.proveMeta.firstBlockId, input.proveMeta.firstBlockId
                 )
             ) {
                 revert BlocksNotInCurrentFork();
             }
 
             // Load and verify the batch metadata
-            bytes32 batchMetaHash = _bindings.loadBatchMetaHash(_config, _input.tran.batchId);
+            bytes32 batchMetaHash = _bindings.loadBatchMetaHash(_config, input.tran.batchId);
 
-            if (batchMetaHash != LibData.hashBatch(_input)) revert MetaHashNotMatch();
+            if (batchMetaHash != LibData.hashBatch(input)) revert MetaHashNotMatch();
 
-            bytes32 stateRoot = _input.tran.batchId % _config.stateRootSyncInternal == 0
-                ? _input.tran.stateRoot
+            bytes32 stateRoot = input.tran.batchId % _config.stateRootSyncInternal == 0
+                ? input.tran.stateRoot
                 : bytes32(0);
 
             (IInbox.ProofTiming proofTiming, address prover) =
-                _determineProofTiming(_config, _input.proveMeta.prover, _input.proveMeta.proposedAt);
+                _determineProofTiming(_config, input.proveMeta.prover, input.proveMeta.proposedAt);
 
             // Create the transition metadata
             IInbox.TransitionMeta memory tranMeta = IInbox.TransitionMeta({
                 span: 1,
-                lastBlockId: _input.proveMeta.lastBlockId,
+                lastBlockId: input.proveMeta.lastBlockId,
                 prover: prover,
                 provedAt: uint48(block.timestamp),
-                blockHash: _input.tran.blockHash,
+                blockHash: input.tran.blockHash,
                 stateRoot: stateRoot,
                 proofTiming: proofTiming,
-                byAssignedProver: msg.sender == _input.proveMeta.prover,
-                provabilityBond: _input.proveMeta.provabilityBond,
-                livenessBond: _input.proveMeta.livenessBond
+                byAssignedProver: msg.sender == input.proveMeta.prover,
+                provabilityBond: input.proveMeta.provabilityBond,
+                livenessBond: input.proveMeta.livenessBond
             });
 
             bool isFirstTransition = _bindings.saveTransition(
-                _config,
-                _input.tran.batchId,
-                _input.tran.parentHash,
-                keccak256(abi.encode(tranMeta))
+                _config, input.tran.batchId, input.tran.parentHash, keccak256(abi.encode(tranMeta))
             );
 
             if (
                 isFirstTransition
                     && tranMeta.proofTiming != IInbox.ProofTiming.OutOfExtendedProvingWindow
-                    && msg.sender != _input.proveMeta.proposer
+                    && msg.sender != input.proveMeta.proposer
             ) {
-                uint256 bondAmount = uint256(_input.proveMeta.provabilityBond) * 1 gwei;
+                uint256 bondAmount = uint256(input.proveMeta.provabilityBond) * 1 gwei;
                 _bindings.debitBond(_config, msg.sender, bondAmount);
-                _bindings.creditBond(_input.proveMeta.proposer, bondAmount);
+                _bindings.creditBond(input.proveMeta.proposer, bondAmount);
             }
 
             IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](1);
             tranMetas[0] = tranMeta;
-            emit IInbox.Proved(_input.tran.batchId, _bindings.encodeTransitionMetas(tranMetas));
+            emit IInbox.Proved(input.tran.batchId, _bindings.encodeTransitionMetas(tranMetas));
 
-            ctxHashes[i] = keccak256(abi.encode(batchMetaHash, _input.tran));
+            ctxHashes[i] = keccak256(abi.encode(batchMetaHash, input.tran));
         }
 
         return keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
