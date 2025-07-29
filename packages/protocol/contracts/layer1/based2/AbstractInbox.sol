@@ -51,22 +51,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     }
 
     /// @inheritdoc IPropose
-    /// @dev Multiple batches can be proved by different provers. If verification is triggered
-    /// during the prove function, then the first call to prove would update the Summary, causing
-    /// subsequent prove calls for other batches to revert. This is a side effect of the current
-    /// design, where the Summary is not fully stored on-chain and must be provided as an input
-    /// parameter.
-    ///
-    /// A more critical issue is the timing and cost uncertainty of verification. ZK Proofs are
-    /// typically submitted a few minutes (in practice) after the prover quotes a price to the
-    /// proposer. If the prover is responsible for covering the verification cost—and that cost is
-    /// uncertain on chain—they risk incurring a significant loss.
-    ///
-    /// Proposers (who are also preconfers) are less affected by this issue, as they control L1
-    /// sequencing directly or indirectly. They can schedule all prove calls to occur after their
-    /// corresponding propose calls, mitigating the risk of unexpected verification costs. This
-    /// Shasta fork is specifically designed with preconfirmation in mind, making this sequencing
-    /// strategy practical.
     function propose4(bytes calldata _inputs) external override(IInbox, IPropose) nonReentrant {
         LibBinding.Bindings memory bindings = _getBindings();
 
@@ -98,9 +82,19 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     }
 
     /// @inheritdoc IProve
-    /// @dev In previous versions, proving a block may also trigger block verification, in this
-    /// upgrade, this is no longer the case as we would like to ensure more certainty for provers
-    /// and let proposers to manage the uncertainty of verification cost.
+    /// @dev In the current design, multiple batches can be proved by different provers. However,
+    /// if verification is initiated inside the prove function, the first prove call updates the
+    /// Summary, causing subsequent prove calls for other batches to fail. This occurs because the
+    /// Summary is not fully stored on-chain and must be supplied as an input parameter.
+    ///
+    /// A significant challenge is the uncertainty in timing and cost of batch verification. ZK
+    /// proofs are generally submitted a few minutes after the prover quotes a price to the
+    /// proposer. If the prover bears the batch verification cost, which is uncertain on-chain, they
+    /// risk substantial losses.
+    ///
+    /// Proposers, who also serve as preconfers and L1 validators, are less affected by this issue
+    /// because they have control over L1 sequencing. On L1, they can order prove calls after their
+    /// propose calls, minimizing the risk of unexpected batch verification costs.
     function prove4(
         bytes calldata _inputs,
         bytes calldata _proof

@@ -441,7 +441,9 @@ contract ERC20Vault is BaseVault {
     function solve(SolverOp memory _op) external payable nonReentrant whenNotPaused {
         if (_op.l2BatchMetaHash != 0) {
             address taiko = resolve(LibNames.B_TAIKO, false);
-            // If we are not on L1, the following v4GetBatch will revert.
+            // Security: v4GetBatch is only implemented by TaikoInbox (L1) and will revert on L2.
+            // TaikoAnchor contracts on L2 do not implement this function, ensuring L1-only
+            // validation.
             bytes32 l2BatchMetaHash = ITaikoInbox(taiko).v4GetBatch(_op.l2BatchId).metaHash;
             if (l2BatchMetaHash != _op.l2BatchMetaHash) revert VAULT_METAHASH_MISMATCH();
         }
