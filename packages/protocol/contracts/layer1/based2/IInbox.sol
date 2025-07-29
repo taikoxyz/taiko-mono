@@ -11,7 +11,7 @@ interface IInbox {
     /// @dev Contains block-specific parameters and anchor information
     struct Block {
         /// @notice Maximum number of transactions in this block
-        /// @dev If insufficient transactions in calldata/blobs, block contains as many as possible
+        /// @dev The max number of transactions to be included in this block.
         uint16 numTransactions;
         /// @notice Time difference in seconds between this block and its parent within the batch
         /// @dev For the first block in a batch, this should be 0 (no parent in same batch)
