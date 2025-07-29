@@ -110,7 +110,7 @@ library LibProve {
         aggregatedProvingHash_ =
             keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
 
-        emit IInbox.Proved(aggregatedBatchHash_, _bindings.encodeTransitionMetas(tranMetas));
+        emit IInbox.Proved(aggregatedProvingHash_, _bindings.encodeTransitionMetas(tranMetas));
     }
 
     // -------------------------------------------------------------------------
