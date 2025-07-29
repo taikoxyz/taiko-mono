@@ -93,13 +93,14 @@ library LibProve {
 
         // Create the transition metadata
         IInbox.TransitionMeta memory tranMeta = IInbox.TransitionMeta({
+            span: 1,
+            lastBlockId: _input.proveMeta.lastBlockId,
+            prover: prover,
+            provedAt: uint48(block.timestamp),
             blockHash: _input.tran.blockHash,
             stateRoot: stateRoot,
-            prover: prover,
             proofTiming: proofTiming,
-            provedAt: uint48(block.timestamp),
             byAssignedProver: msg.sender == _input.proveMeta.prover,
-            lastBlockId: _input.proveMeta.lastBlockId,
             provabilityBond: _input.proveMeta.provabilityBond,
             livenessBond: _input.proveMeta.livenessBond
         });

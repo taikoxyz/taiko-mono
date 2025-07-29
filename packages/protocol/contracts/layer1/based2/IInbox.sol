@@ -256,21 +256,23 @@ interface IInbox {
     /// @notice Metadata for a transition proof
     /// @dev Contains all information about a submitted transition proof
     struct TransitionMeta {
+        /// @notice how many batches this transition covers
+        uint8 span;
+        /// @notice ID of the last block in the batch
+        uint48 lastBlockId;
+        /// @notice Address that submitted the proof
+        address prover;
+        /// @notice Timestamp when the transition is proved at
+        uint48 provedAt;
         /// @notice Hash of the block for this transition
         bytes32 blockHash;
         /// @notice State root after this transition
         /// @custom:encode optional
         bytes32 stateRoot;
-        /// @notice Address that submitted the proof
-        address prover;
         /// @notice Timing category of the proof submission
         ProofTiming proofTiming;
-        /// @notice Timestamp when the transition is proved at
-        uint48 provedAt;
         /// @notice Whether proof was submitted by assigned prover
         bool byAssignedProver;
-        /// @notice ID of the last block in the batch
-        uint48 lastBlockId;
         /// @notice Bond amount for provability guarantee (in Gwei)
         uint48 provabilityBond;
         /// @notice Bond amount for liveness guarantee (in Gwei)
