@@ -10,7 +10,7 @@ Follow these steps:
    - Clear summary of what changed and why
    - Impact of the changes
    - Any breaking changes or migration notes
-   - Note: "PR description updated by Claude AI (improve-pr-desc command)"
+   - Note: "PR description updated by Claude AI (using comamnd: `/improve-pr-desc $ARGUMENTS`)"
 6. Update the PR using `gh pr edit $ARGUMENTS`
 
 Use GitHub CLI (`gh`) for all GitHub operations.
