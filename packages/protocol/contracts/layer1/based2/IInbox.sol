@@ -271,8 +271,6 @@ interface IInbox {
         bytes32 stateRoot;
         /// @notice ID of the last block in the batch
         uint48 lastBlockId;
-        /// @notice how many batches this transition covers
-        uint8 span;
         /// @notice Bond amount for provability guarantee (in Gwei)
         uint48 provabilityBond;
         /// @notice Bond amount for liveness guarantee (in Gwei)

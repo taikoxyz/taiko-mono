@@ -40,60 +40,57 @@ library LibVerify {
         internal
         returns (IInbox.Summary memory)
     {
-        unchecked {
-            uint256 nextBlockId = _summary.lastVerifiedBlockId + 1;
+        uint256 nextBlockId = _summary.lastVerifiedBlockId + 1;
 
-            // A batch cannot cross fork boundaries, this is guaranteed by proposal and proving
-            // logics,
-            // so we can check the first block id only.
-            if (!LibForks.isBlocksInCurrentFork(_config, nextBlockId)) {
-                return _summary;
+        // A batch cannot cross fork boundaries, this is guaranteed by proposal and proving
+        // logics,
+        // so we can check the first block id only.
+        if (!LibForks.isBlocksInCurrentFork(_config, nextBlockId)) {
+            return _summary;
+        }
+
+        uint256 lastSyncedBatchId;
+        uint48 batchId = _summary.lastVerifiedBatchId;
+
+        for (uint256 i; i < _config.maxBatchesToVerify; ++i) {
+            if (i >= _trans.length) revert TransitionNotProvided();
+            IInbox.TransitionMeta memory tran = _trans[i];
+
+            batchId = tran.batchId;
+
+            bytes32 tranMetaHash =
+                _bindings.loadTransitionMetaHash(_config, _summary.lastVerifiedBlockHash, batchId);
+
+            // Transition not found, we've reached the end of the transition linked list.
+            if (tranMetaHash == 0) break;
+
+            // The provided transition is invalid, but we do not revert here to waste gas.
+            if (tranMetaHash != keccak256(abi.encode(tran))) break;
+
+            // The transition is still cooling down, we stop here without reverting, as this
+            // transaction may
+            if (tran.provedAt + _config.cooldownWindow > block.timestamp) break;
+
+            uint256 proverRefund = _calcBondRefundToProver(_config, tran);
+            _bindings.creditBond(tran.prover, proverRefund * 1 gwei);
+
+            if (batchId % _config.stateRootSyncInternal == 0) {
+                lastSyncedBatchId = batchId;
             }
 
-            uint256 lastSyncedBatchId;
-            uint48 batchId = _summary.lastVerifiedBatchId;
+            _summary.lastVerifiedBlockHash = tran.blockHash;
+            _summary.lastVerifiedBlockId = tran.lastBlockId;
+            _summary.lastVerifiedBatchId = batchId;
 
-            for (uint256 i; i < _config.maxBatchesToVerify; ++i) {
-                if (i >= _trans.length) revert TransitionNotProvided();
-                IInbox.TransitionMeta memory tran = _trans[i];
+            emit IInbox.Verified(batchId, tran.lastBlockId, tran.blockHash);
+        }
 
-                batchId += tran.span;
-
-                bytes32 tranMetaHash = _bindings.loadTransitionMetaHash(
-                    _config, _summary.lastVerifiedBlockHash, batchId
-                );
-
-                // Transition not found, we've reached the end of the transition linked list.
-                if (tranMetaHash == 0) break;
-
-                // The provided transition is invalid, but we do not revert here to waste gas.
-                if (tranMetaHash != keccak256(abi.encode(tran))) break;
-
-                // The transition is still cooling down, we stop here without reverting, as this
-                // transaction may
-                if (tran.provedAt + _config.cooldownWindow > block.timestamp) break;
-
-                uint256 proverRefund = _calcBondRefundToProver(_config, tran);
-                _bindings.creditBond(tran.prover, proverRefund * 1 gwei);
-
-                if (batchId % _config.stateRootSyncInternal == 0) {
-                    lastSyncedBatchId = batchId;
-                }
-
-                _summary.lastVerifiedBlockHash = tran.blockHash;
-                _summary.lastVerifiedBlockId = tran.lastBlockId;
-                _summary.lastVerifiedBatchId = batchId;
-
-                emit IInbox.Verified(batchId, tran.lastBlockId, tran.blockHash);
-            }
-
-            if (lastSyncedBatchId != 0) {
-                _summary.lastSyncedAt = uint48(block.timestamp);
-                _summary.lastSyncedBlockId = _trans[lastSyncedBatchId].lastBlockId;
-                _bindings.syncChainData(
-                    _config, _summary.lastSyncedBlockId, _trans[lastSyncedBatchId].stateRoot
-                );
-            }
+        if (lastSyncedBatchId != 0) {
+            _summary.lastSyncedAt = uint48(block.timestamp);
+            _summary.lastSyncedBlockId = _trans[lastSyncedBatchId].lastBlockId;
+            _bindings.syncChainData(
+                _config, _summary.lastSyncedBlockId, _trans[lastSyncedBatchId].stateRoot
+            );
         }
         return _summary;
     }

@@ -40,13 +40,11 @@ library LibProve {
         if (_inputs.length == 0) revert NoBlocksToProve();
         if (_inputs.length > type(uint8).max) revert TooManyBatchesToProve();
 
+        IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](_inputs.length);
         bytes32[] memory ctxHashes = new bytes32[](_inputs.length);
 
-        // A list of each batch's transition metadata.
-        IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](_inputs.length);
-
         IInbox.ProveBatchInput memory input;
-        IInbox.TransitionMeta memory aggregatedTranMeta;
+        IInbox.TransitionMeta memory tranMeta; // The aggregated transition metadata.
 
         for (uint256 i; i < _inputs.length; ++i) {
             input = _inputs[i];
@@ -61,7 +59,6 @@ library LibProve {
 
             // Load and verify the batch metadata
             bytes32 batchMetaHash = _bindings.loadBatchMetaHash(_config, input.tran.batchId);
-
             if (batchMetaHash != LibData.hashBatch(input)) revert MetaHashNotMatch();
 
             bytes32 stateRoot = input.tran.batchId % _config.stateRootSyncInternal == 0
@@ -80,43 +77,40 @@ library LibProve {
                 blockHash: input.tran.blockHash,
                 stateRoot: stateRoot,
                 lastBlockId: input.proveMeta.lastBlockId,
-                span: 1,
                 provabilityBond: input.proveMeta.provabilityBond,
                 livenessBond: input.proveMeta.livenessBond
             });
 
+            ctxHashes[i] = keccak256(abi.encode(batchMetaHash, input.tran));
+
             _provePaysProvabilityBond(_bindings, _config, input, tranMetas[i]);
 
-            if (_canAggregateTransitions(aggregatedTranMeta, tranMetas[i])) {
-                aggregatedTranMeta = _aggregateTransitions(aggregatedTranMeta, tranMetas[i]);
+            if (_canAggregateTransitions(tranMeta, tranMetas[i])) {
+                tranMeta = _aggregateTransitions(tranMeta, tranMetas[i]);
             } else {
-                if (aggregatedTranMeta.span != 0) {
+                if (tranMeta.batchId != 0) {
                     // Save the previous aggregated transition if it is valid.
                     _bindings.saveTransition(
                         _config,
                         input.tran.batchId,
                         input.tran.parentHash,
-                        keccak256(abi.encode(aggregatedTranMeta))
+                        keccak256(abi.encode(tranMeta))
                     );
                 }
                 // Reset the aggregated transition metadata to the new one.
-                aggregatedTranMeta = tranMetas[i];
+                tranMeta = tranMetas[i];
             }
-
-            ctxHashes[i] = keccak256(abi.encode(batchMetaHash, input.tran));
         }
 
-        if (aggregatedTranMeta.span != 0) {
+        if (tranMeta.batchId != 0) {
             _bindings.saveTransition(
-                _config,
-                input.tran.batchId,
-                input.tran.parentHash,
-                keccak256(abi.encode(aggregatedTranMeta))
+                _config, input.tran.batchId, input.tran.parentHash, keccak256(abi.encode(tranMeta))
             );
         }
 
         aggregatedBatchHash_ =
             keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
+
         emit IInbox.Proved(aggregatedBatchHash_, _bindings.encodeTransitionMetas(tranMetas));
     }
 
@@ -176,44 +170,45 @@ library LibProve {
     }
 
     /// @notice Checks if transitions can be aggregated
-    /// @param _aggregatedTranMeta The aggregated transition metadata
+    /// @param _tranMeta The aggregated transition metadata
     /// @param _newTranMeta The new transition metadata
     /// @return True if transitions can be aggregated, false otherwise
     function _canAggregateTransitions(
-        IInbox.TransitionMeta memory _aggregatedTranMeta,
+        IInbox.TransitionMeta memory _tranMeta,
         IInbox.TransitionMeta memory _newTranMeta
     )
         private
         pure
         returns (bool)
     {
-        if (_aggregatedTranMeta.span == 0) return true;
-        return _aggregatedTranMeta.prover == _newTranMeta.prover
-            && _aggregatedTranMeta.proofTiming == _newTranMeta.proofTiming;
+        if (_tranMeta.batchId == 0) return true;
+        return _tranMeta.batchId + 1 == _newTranMeta.batchId
+            && _tranMeta.prover == _newTranMeta.prover
+            && _tranMeta.proofTiming == _newTranMeta.proofTiming;
     }
 
     /// @notice Aggregates transitions
-    /// @param _aggregatedTranMeta The aggregated transition metadata
+    /// @param _tranMeta The aggregated transition metadata
     /// @param _newTranMeta The new transition metadata
     /// @return The aggregated transition metadata
     function _aggregateTransitions(
-        IInbox.TransitionMeta memory _aggregatedTranMeta,
+        IInbox.TransitionMeta memory _tranMeta,
         IInbox.TransitionMeta memory _newTranMeta
     )
         private
         pure
         returns (IInbox.TransitionMeta memory)
     {
-        if (_aggregatedTranMeta.span == 0) {
+        if (_tranMeta.batchId == 0) {
             return _newTranMeta;
         } else {
-            _aggregatedTranMeta.blockHash = _newTranMeta.blockHash;
-            _aggregatedTranMeta.stateRoot = _newTranMeta.stateRoot;
-            _aggregatedTranMeta.lastBlockId = _newTranMeta.lastBlockId;
-            _aggregatedTranMeta.span += 1;
-            _aggregatedTranMeta.provabilityBond += _newTranMeta.provabilityBond;
-            _aggregatedTranMeta.livenessBond += _newTranMeta.livenessBond;
-            return _aggregatedTranMeta;
+            _tranMeta.batchId = _newTranMeta.batchId;
+            _tranMeta.blockHash = _newTranMeta.blockHash;
+            _tranMeta.stateRoot = _newTranMeta.stateRoot;
+            _tranMeta.lastBlockId = _newTranMeta.lastBlockId;
+            _tranMeta.provabilityBond += _newTranMeta.provabilityBond;
+            _tranMeta.livenessBond += _newTranMeta.livenessBond;
+            return _tranMeta;
         }
     }
 
