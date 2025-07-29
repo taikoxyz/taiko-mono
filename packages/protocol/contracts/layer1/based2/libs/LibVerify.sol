@@ -49,7 +49,7 @@ library LibVerify {
             return _summary;
         }
 
-        uint256 lastSyncedBatchId;
+        uint256 lastSyncedBatchIndex;
         uint48 batchId = _summary.lastVerifiedBatchId;
 
         for (uint256 i; i < _config.maxBatchesToVerify; ++i) {
@@ -75,7 +75,7 @@ library LibVerify {
             _bindings.creditBond(tran.prover, proverRefund * 1 gwei);
 
             if (batchId % _config.stateRootSyncInternal == 0) {
-                lastSyncedBatchId = batchId;
+                lastSyncedBatchIndex = i;
             }
 
             _summary.lastVerifiedBlockHash = tran.blockHash;
@@ -85,11 +85,11 @@ library LibVerify {
             emit IInbox.Verified(batchId, tran.lastBlockId, tran.blockHash);
         }
 
-        if (lastSyncedBatchId != 0) {
+        if (lastSyncedBatchIndex != 0) {
             _summary.lastSyncedAt = uint48(block.timestamp);
-            _summary.lastSyncedBlockId = _trans[lastSyncedBatchId].lastBlockId;
+            _summary.lastSyncedBlockId = _trans[lastSyncedBatchIndex].lastBlockId;
             _bindings.syncChainData(
-                _config, _summary.lastSyncedBlockId, _trans[lastSyncedBatchId].stateRoot
+                _config, _summary.lastSyncedBlockId, _trans[lastSyncedBatchIndex].stateRoot
             );
         }
         return _summary;
