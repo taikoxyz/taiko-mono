@@ -43,10 +43,11 @@ library LibProve {
         bytes32[] memory ctxHashes = new bytes32[](_inputs.length);
         IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](_inputs.length);
 
-        IInbox.TransitionMeta memory tranMeta;
+        IInbox.TransitionMeta memory aggregatedTranMeta;
+        IInbox.ProveBatchInput memory input;
 
         for (uint256 i; i < _inputs.length; ++i) {
-            IInbox.ProveBatchInput memory input = _inputs[i];
+            input = _inputs[i];
 
             if (input.tran.parentHash == 0) revert InvalidTransitionParentHash();
 
@@ -69,26 +70,44 @@ library LibProve {
                 _config, input.proveMeta.prover, input.proveMeta.proposedAt
             );
 
-            // Create the transition metadata
-            tranMeta = IInbox.TransitionMeta({
-                span: 1,
-                lastBlockId: input.proveMeta.lastBlockId,
-                prover: prover,
+            IInbox.TransitionMeta memory newTranMeta = IInbox.TransitionMeta({
                 provedAt: uint48(block.timestamp),
+                prover: prover,
+                proofTiming: proofTiming,
                 blockHash: input.tran.blockHash,
                 stateRoot: stateRoot,
-                proofTiming: proofTiming,
+                lastBlockId: input.proveMeta.lastBlockId,
+                span: 1,
                 provabilityBond: input.proveMeta.provabilityBond,
                 livenessBond: input.proveMeta.livenessBond
             });
 
-            _bindings.saveTransition(
-                _config, input.tran.batchId, input.tran.parentHash, keccak256(abi.encode(tranMeta))
-            );
+            _provePaysProvabilityBond(_bindings, _config, input, newTranMeta);
 
-            _provePaysProvabilityBond(_bindings, _config, input, tranMeta);
+            bool canAggregate = _canAggregateTransitions(aggregatedTranMeta, newTranMeta);
+
+            if (canAggregate) {
+                aggregatedTranMeta = _aggregateTransitions(aggregatedTranMeta, newTranMeta);
+            } else if (aggregatedTranMeta.span != 0) {
+                _bindings.saveTransition(
+                    _config,
+                    input.tran.batchId,
+                    input.tran.parentHash,
+                    keccak256(abi.encode(aggregatedTranMeta))
+                );
+                aggregatedTranMeta = newTranMeta;
+            }
 
             ctxHashes[i] = keccak256(abi.encode(batchMetaHash, input.tran));
+        }
+
+        if (aggregatedTranMeta.span != 0) {
+            _bindings.saveTransition(
+                _config,
+                input.tran.batchId,
+                input.tran.parentHash,
+                keccak256(abi.encode(aggregatedTranMeta))
+            );
         }
 
         //   IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](1);
@@ -152,6 +171,52 @@ library LibProve {
         _bindings.debitBond(_config, msg.sender, provabilityBond);
         _bindings.creditBond(_input.proveMeta.proposer, provabilityBond);
     }
+
+    function _canAggregateTransitions(
+        IInbox.TransitionMeta memory _tranMeta,
+        IInbox.TransitionMeta memory _newTranMeta
+    )
+        private
+        pure
+        returns (bool)
+    { }
+
+    function _aggregateTransitions(
+        IInbox.TransitionMeta memory _tranMeta,
+        IInbox.TransitionMeta memory _newTranMeta
+    )
+        private
+        pure
+        returns (IInbox.TransitionMeta memory)
+    { }
+
+    // if (tranMeta.span == 0) {
+    //     tranMeta = IInbox.TransitionMeta({
+    //         provedAt: uint48(block.timestamp),
+    //         prover: prover,
+    //         proofTiming: proofTiming,
+    //         blockHash: input.tran.blockHash,
+    //         stateRoot: stateRoot,
+    //         lastBlockId: input.proveMeta.lastBlockId,
+    //         span: 1,
+    //         provabilityBond: input.proveMeta.provabilityBond,
+    //         livenessBond: input.proveMeta.livenessBond
+    //     });
+    // } else if (tranMeta.prover == prover && tranMeta.proofTiming == proofTiming) {
+    //     tranMeta.blockHash = input.tran.blockHash;
+    //     tranMeta.stateRoot = stateRoot;
+    //     tranMeta.lastBlockId = input.proveMeta.lastBlockId;
+    //     tranMeta.span += 1;
+    //     tranMeta.provabilityBond +=input.proveMeta.provabilityBond;
+    //     tranMeta.livenessBond += input.proveMeta.livenessBond;
+    // } else {
+    //       _bindings.saveTransition(
+    //     _config, input.tran.batchId, input.tran.parentHash,
+    // keccak256(abi.encode(tranMeta))
+    // );
+
+    // }
+
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
