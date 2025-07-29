@@ -11,36 +11,11 @@ on:
     #   - "src/**/*.jsx"
 
 jobs:
-  membership-notice:
-    runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.author_association == 'CONTRIBUTOR' &&
-      github.event.pull_request.draft == false &&
-      !contains(github.event.pull_request.labels.*.name, 'option.do-not-merge')
-    steps:
-      - name: Notify about membership visibility
-        run: |
-          echo "⚠️ Claude Code Review was skipped because your GitHub organization membership is not public."
-          echo ""
-          echo "To enable Claude Code reviews on your PRs:"
-          echo "1. Go to https://github.com/orgs/taikoxyz/people/${{ github.event.pull_request.user.login }}"
-          echo "2. Change your 'Membership' visibility from 'Private' to 'Public'"
-          echo "3. Push a new commit or close/reopen this PR to trigger the review"
-          echo ""
-          echo "This is required because GitHub Actions sees you as a CONTRIBUTOR instead of a MEMBER when your membership is private."
-
   claude-review:
-    # Only run for non-draft PRs from core contributors
+    # Run for non-draft PRs that are not marked to be skipped
     if: |
-      (
-        github.event.pull_request.author_association == 'OWNER' ||
-        github.event.pull_request.author_association == 'MEMBER' ||
-        github.event.pull_request.author_association == 'COLLABORATOR'
-      ) &&
       github.event.pull_request.draft == false &&
       !contains(github.event.pull_request.labels.*.name, 'option.do-not-merge')
-
     runs-on: [arc-runner-set]
     permissions:
       contents: read
