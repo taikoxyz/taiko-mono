@@ -28,23 +28,25 @@ library LibProve {
     /// @param _bindings Library function binding
     /// @param _config The protocol configuration
     /// @param _inputs Array of batch prove inputs containing transition data
-    /// @return _ The aggregated hash of all proven batches
+    /// @return aggregatedBatchHash_ The aggregated hash of all proven batches
     function prove(
         LibBinding.Bindings memory _bindings,
         IInbox.Config memory _config,
         IInbox.ProveBatchInput[] memory _inputs
     )
         internal
-        returns (bytes32)
+        returns (bytes32 aggregatedBatchHash_)
     {
         if (_inputs.length == 0) revert NoBlocksToProve();
         if (_inputs.length > type(uint8).max) revert TooManyBatchesToProve();
 
         bytes32[] memory ctxHashes = new bytes32[](_inputs.length);
+
+        // A list of each batch's transition metadata.
         IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](_inputs.length);
 
-        IInbox.TransitionMeta memory aggregatedTranMeta;
         IInbox.ProveBatchInput memory input;
+        IInbox.TransitionMeta memory aggregatedTranMeta;
 
         for (uint256 i; i < _inputs.length; ++i) {
             input = _inputs[i];
@@ -70,7 +72,8 @@ library LibProve {
                 _config, input.proveMeta.prover, input.proveMeta.proposedAt
             );
 
-            IInbox.TransitionMeta memory newTranMeta = IInbox.TransitionMeta({
+            tranMetas[i] = IInbox.TransitionMeta({
+                batchId: input.tran.batchId,
                 provedAt: uint48(block.timestamp),
                 prover: prover,
                 proofTiming: proofTiming,
@@ -82,14 +85,13 @@ library LibProve {
                 livenessBond: input.proveMeta.livenessBond
             });
 
-            _provePaysProvabilityBond(_bindings, _config, input, newTranMeta);
+            _provePaysProvabilityBond(_bindings, _config, input, tranMetas[i]);
 
-            bool canAggregate = _canAggregateTransitions(aggregatedTranMeta, newTranMeta);
-
-            if (canAggregate) {
-                aggregatedTranMeta = _aggregateTransitions(aggregatedTranMeta, newTranMeta);
+            if (_canAggregateTransitions(aggregatedTranMeta, tranMetas[i])) {
+                aggregatedTranMeta = _aggregateTransitions(aggregatedTranMeta, tranMetas[i]);
             } else {
                 if (aggregatedTranMeta.span != 0) {
+                    // Save the previous aggregated transition if it is valid.
                     _bindings.saveTransition(
                         _config,
                         input.tran.batchId,
@@ -97,7 +99,8 @@ library LibProve {
                         keccak256(abi.encode(aggregatedTranMeta))
                     );
                 }
-                aggregatedTranMeta = newTranMeta;
+                // Reset the aggregated transition metadata to the new one.
+                aggregatedTranMeta = tranMetas[i];
             }
 
             ctxHashes[i] = keccak256(abi.encode(batchMetaHash, input.tran));
@@ -112,11 +115,9 @@ library LibProve {
             );
         }
 
-        //   IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](1);
-        //     tranMetas[0] = tranMeta;
-        // emit IInbox.Proved(input.tran.batchId, _bindings.encodeTransitionMetas(tranMetas));
-
-        return keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
+        aggregatedBatchHash_ =
+            keccak256(abi.encode(_config.chainId, msg.sender, _config.verifier, ctxHashes));
+        emit IInbox.Proved(aggregatedBatchHash_, _bindings.encodeTransitionMetas(tranMetas));
     }
 
     // -------------------------------------------------------------------------
@@ -174,50 +175,47 @@ library LibProve {
         _bindings.creditBond(_input.proveMeta.proposer, provabilityBond);
     }
 
+    /// @notice Checks if transitions can be aggregated
+    /// @param _aggregatedTranMeta The aggregated transition metadata
+    /// @param _newTranMeta The new transition metadata
+    /// @return True if transitions can be aggregated, false otherwise
     function _canAggregateTransitions(
-        IInbox.TransitionMeta memory _tranMeta,
+        IInbox.TransitionMeta memory _aggregatedTranMeta,
         IInbox.TransitionMeta memory _newTranMeta
     )
         private
         pure
         returns (bool)
-    { }
+    {
+        if (_aggregatedTranMeta.span == 0) return true;
+        return _aggregatedTranMeta.prover == _newTranMeta.prover
+            && _aggregatedTranMeta.proofTiming == _newTranMeta.proofTiming;
+    }
 
+    /// @notice Aggregates transitions
+    /// @param _aggregatedTranMeta The aggregated transition metadata
+    /// @param _newTranMeta The new transition metadata
+    /// @return The aggregated transition metadata
     function _aggregateTransitions(
-        IInbox.TransitionMeta memory _tranMeta,
+        IInbox.TransitionMeta memory _aggregatedTranMeta,
         IInbox.TransitionMeta memory _newTranMeta
     )
         private
         pure
         returns (IInbox.TransitionMeta memory)
-    { }
-
-    // if (tranMeta.span == 0) {
-    //     tranMeta = IInbox.TransitionMeta({
-    //         provedAt: uint48(block.timestamp),
-    //         prover: prover,
-    //         proofTiming: proofTiming,
-    //         blockHash: input.tran.blockHash,
-    //         stateRoot: stateRoot,
-    //         lastBlockId: input.proveMeta.lastBlockId,
-    //         span: 1,
-    //         provabilityBond: input.proveMeta.provabilityBond,
-    //         livenessBond: input.proveMeta.livenessBond
-    //     });
-    // } else if (tranMeta.prover == prover && tranMeta.proofTiming == proofTiming) {
-    //     tranMeta.blockHash = input.tran.blockHash;
-    //     tranMeta.stateRoot = stateRoot;
-    //     tranMeta.lastBlockId = input.proveMeta.lastBlockId;
-    //     tranMeta.span += 1;
-    //     tranMeta.provabilityBond +=input.proveMeta.provabilityBond;
-    //     tranMeta.livenessBond += input.proveMeta.livenessBond;
-    // } else {
-    //       _bindings.saveTransition(
-    //     _config, input.tran.batchId, input.tran.parentHash,
-    // keccak256(abi.encode(tranMeta))
-    // );
-
-    // }
+    {
+        if (_aggregatedTranMeta.span == 0) {
+            return _newTranMeta;
+        } else {
+            _aggregatedTranMeta.blockHash = _newTranMeta.blockHash;
+            _aggregatedTranMeta.stateRoot = _newTranMeta.stateRoot;
+            _aggregatedTranMeta.lastBlockId = _newTranMeta.lastBlockId;
+            _aggregatedTranMeta.span += 1;
+            _aggregatedTranMeta.provabilityBond += _newTranMeta.provabilityBond;
+            _aggregatedTranMeta.livenessBond += _newTranMeta.livenessBond;
+            return _aggregatedTranMeta;
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Errors

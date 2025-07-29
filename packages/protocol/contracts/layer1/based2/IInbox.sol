@@ -256,6 +256,8 @@ interface IInbox {
     /// @notice Metadata for a transition proof
     /// @dev Contains all information about a submitted transition proof
     struct TransitionMeta {
+        /// @notice ID of the batch
+        uint48 batchId;
         /// @notice Timestamp when the transition is proved at
         uint48 provedAt;
         /// @notice Address that submitted the proof
@@ -406,9 +408,9 @@ interface IInbox {
     );
 
     /// @notice Emitted when a batch transition is proven
-    /// @param batchId The unique identifier of the proven batch
+    /// @param aggregatedBatchHash The hash of the aggregated batch
     /// @param tranMetas The transition metadata encoded as bytes
-    event Proved(uint256 indexed batchId, bytes tranMetas);
+    event Proved(bytes32 aggregatedBatchHash, bytes tranMetas);
 
     /// @notice Emitted when a batch is verified and finalized
     /// @param batchId The unique identifier of the verified batch
