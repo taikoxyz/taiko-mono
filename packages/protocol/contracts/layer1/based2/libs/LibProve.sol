@@ -181,11 +181,14 @@ library LibProve {
         returns (bool)
     {
         if (_tranMeta.batchId == 0) return true;
-
-        // Only consecutive transitions with the same prover and proof timing can be aggregated.
-        return _tranMeta.batchId + 1 == _newTranMeta.batchId
-            && _tranMeta.prover == _newTranMeta.prover
-            && _tranMeta.proofTiming == _newTranMeta.proofTiming;
+        unchecked {
+            // Only consecutive transitions with the same prover and proof timing can be aggregated.
+            return _tranMeta.batchId + 1 == _newTranMeta.batchId
+                && _tranMeta.prover == _newTranMeta.prover
+                && _tranMeta.proofTiming == _newTranMeta.proofTiming
+                && _tranMeta.provabilityBond <= type(uint48).max - _newTranMeta.provabilityBond
+                && _tranMeta.livenessBond <= type(uint48).max - _newTranMeta.livenessBond;
+        }
     }
 
     /// @notice Aggregates transitions
@@ -200,20 +203,22 @@ library LibProve {
         pure
         returns (IInbox.TransitionMeta memory)
     {
-        if (_tranMeta.batchId == 0) {
-            return _newTranMeta;
-        } else {
-            // The following fields should use the new transition's data.
-            _tranMeta.batchId = _newTranMeta.batchId;
-            _tranMeta.blockHash = _newTranMeta.blockHash;
-            _tranMeta.stateRoot = _newTranMeta.stateRoot;
-            _tranMeta.lastBlockId = _newTranMeta.lastBlockId;
+        unchecked {
+            if (_tranMeta.batchId == 0) {
+                return _newTranMeta;
+            } else {
+                // The following fields should use the new transition's data.
+                _tranMeta.batchId = _newTranMeta.batchId;
+                _tranMeta.blockHash = _newTranMeta.blockHash;
+                _tranMeta.stateRoot = _newTranMeta.stateRoot;
+                _tranMeta.lastBlockId = _newTranMeta.lastBlockId;
 
-            // The following fields should be aggregated.
-            _tranMeta.provabilityBond += _newTranMeta.provabilityBond;
-            _tranMeta.livenessBond += _newTranMeta.livenessBond;
+                // The following fields should be aggregated.
+                _tranMeta.provabilityBond += _newTranMeta.provabilityBond;
+                _tranMeta.livenessBond += _newTranMeta.livenessBond;
 
-            return _tranMeta;
+                return _tranMeta;
+            }
         }
     }
 

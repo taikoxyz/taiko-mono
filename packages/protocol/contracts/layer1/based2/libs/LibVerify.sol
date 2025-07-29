@@ -64,8 +64,10 @@ library LibVerify {
             // Transition not found, we've reached the end of the transition linked list.
             if (tranMetaHash == 0) break;
 
-            // The provided transition is invalid, but we do not revert here to waste gas.
-            if (tranMetaHash != keccak256(abi.encode(tran))) break;
+            // The provided transition is invalid
+            if (tranMetaHash != keccak256(abi.encode(tran))) {
+                revert TransitionHashMismatch();
+            }
 
             // The transition is still cooling down, we stop here without reverting
             if (tran.provedAt + _config.cooldownWindow > block.timestamp) break;
@@ -126,4 +128,5 @@ library LibVerify {
     // -------------------------------------------------------------------------
 
     error TransitionNotProvided();
+    error TransitionHashMismatch();
 }
