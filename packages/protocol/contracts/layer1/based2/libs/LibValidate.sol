@@ -426,9 +426,7 @@ library LibValidate {
     error NoAnchorBlockIdWithinThisBatch();
     error NotEnoughAnchorIds();
     error NotEnoughSignals();
-    error NotInboxWrapper();
     error ProposerNotPreconfer();
-    error ProposerNotMsgSender();
     error RequiredSignalNotSent();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();
