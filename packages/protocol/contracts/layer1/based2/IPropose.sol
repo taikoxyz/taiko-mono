@@ -14,6 +14,5 @@ interface IPropose {
     /// IInbox.TransitionMeta[] memory)
     /// @dev The length of IInbox.Batch[] must be smaller than 8.
     /// @custom:encode max-size:7 for decoded IInbox.Batch[]
-    /// @return The updated summary
-    function propose4(bytes calldata _inputs) external returns (IInbox.Summary memory);
+    function propose4(bytes calldata _inputs) external;
 }
