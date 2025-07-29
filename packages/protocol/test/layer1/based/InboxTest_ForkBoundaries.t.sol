@@ -92,7 +92,12 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
         resolver.registerAddress(block.chainid, "proof_verifier", verifierAddr);
 
         inbox = deployInbox(
-            correctBlockhash(0), verifierAddr, address(0), address(signalService), v4GetConfig()
+            correctBlockhash(0),
+            verifierAddr,
+            address(0),
+            address(signalService),
+            address(0),
+            v4GetConfig()
         );
 
         signalService.authorize(address(inbox), true);
