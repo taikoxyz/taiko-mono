@@ -267,6 +267,8 @@ library LibValidate {
             // Validate and decode blocks
             if (_numBlocks == 0) revert BlockNotFound();
             uint48 firstBlockId = _parentLastBlockId + 1;
+            // Calculate last block ID: if parent ends at 10 and we add 3 blocks (11, 12, 13),
+            // then lastBlockId = 10 + 3 = 13. This is correct because block IDs are inclusive.
             uint48 lastBlockId = uint48(_parentLastBlockId + _numBlocks);
             if (!LibForks.isBlocksInCurrentFork(_conf, firstBlockId, lastBlockId)) {
                 revert BlocksNotInCurrentFork();
