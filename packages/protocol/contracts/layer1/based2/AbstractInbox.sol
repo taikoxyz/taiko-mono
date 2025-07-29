@@ -78,7 +78,8 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         _saveSummaryHash(keccak256(abi.encode(summary)));
 
         // Skip calldata emission for gas optimization when directly called by EOA
-        // TODO: can we call IPreconfWhitelist or LookAhead from within this contract, instead of using the
+        // TODO: can we call IPreconfWhitelist or LookAhead from within this contract, instead of
+        // using the
         // PreconfRouter as the msg.sender?
         emit Proposed(
             lastProposedBatchId,
