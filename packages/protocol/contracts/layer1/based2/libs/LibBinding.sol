@@ -29,14 +29,14 @@ library LibBinding {
         function (uint256) view returns(bytes32) getBlockHash;
         /// @notice Loads a transition metadata hash
         /// @dev Assume 1 SLOAD is needed
-        function (IInbox.Config memory, bytes32, uint256) view returns (bytes32 , bool)
+        function (IInbox.Config memory, bytes32, uint256) view returns (bytes32)
             loadTransitionMetaHash;
         //
         // Write functions -----------------------------------------------------
         //
         /// @notice Saves a transition
         /// @dev Assume 1 SSTORE is needed
-        function(IInbox.Config memory, uint48, bytes32, bytes32) returns (bool) saveTransition;
+        function(IInbox.Config memory, uint48, bytes32, bytes32) saveTransition;
         /// @notice Syncs chain data
         /// @dev Assume 1 SSTORE is needed
         function(IInbox.Config memory, uint64, bytes32) syncChainData;

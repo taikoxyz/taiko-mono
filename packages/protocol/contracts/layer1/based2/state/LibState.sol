@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "../IInbox.sol";
+import "../IInbox.sol";
+import "./IStorage.sol";
 
 /// @title LibState
 /// @notice Library for read/write state data.
@@ -14,14 +15,14 @@ library LibState {
     /// @notice Loads the summary hash from storage
     /// @param $ The state storage
     /// @return The summary hash
-    function loadSummaryHash(IInbox.State storage $) internal view returns (bytes32) {
+    function loadSummaryHash(IStorage.State storage $) internal view returns (bytes32) {
         return $.summaryHash;
     }
 
     /// @notice Saves the summary hash to storage
     /// @param $ The state storage
     /// @param _summaryHash The summary hash to save
-    function saveSummaryHash(IInbox.State storage $, bytes32 _summaryHash) internal {
+    function saveSummaryHash(IStorage.State storage $, bytes32 _summaryHash) internal {
         $.summaryHash = _summaryHash;
     }
 
@@ -31,26 +32,25 @@ library LibState {
     /// @param _lastVerifiedBlockHash The last verified block hash
     /// @param _batchId The batch ID
     /// @return metaHash_ The transition metadata hash
-    /// @return isFirstTransition_ Whether this is the first transition
     function loadTransitionMetaHash(
-        IInbox.State storage $,
+        IStorage.State storage $,
         IInbox.Config memory _conf,
         bytes32 _lastVerifiedBlockHash,
         uint256 _batchId
     )
         internal
         view
-        returns (bytes32 metaHash_, bool isFirstTransition_)
+        returns (bytes32 metaHash_)
     {
         uint256 slot = _batchId % _conf.batchRingBufferSize;
         (bytes32 partialParentHash, uint48 batchId) = _loadPartialParentHashAndBatchId($, slot);
 
-        if (batchId != _batchId) return (0, false);
+        if (batchId != _batchId) return 0;
 
         if (partialParentHash == _lastVerifiedBlockHash >> 48) {
-            return ($.transitions[slot][1].metaHash, true);
+            return $.transitions[slot][1].metaHash;
         } else {
-            return ($.transitionMetaHashes[_batchId][_lastVerifiedBlockHash], false);
+            return $.transitionMetaHashes[_batchId][_lastVerifiedBlockHash];
         }
     }
 
@@ -59,17 +59,15 @@ library LibState {
     /// @param _conf The configuration
     /// @param _batchId The batch ID
     /// @param _parentHash The parent hash
-    /// @param _tranMetahash The transition metadata hash
-    /// @return isFirstTransition_ Whether this is the first transition
+    /// @param _tranMetaHash The transition metadata hash
     function saveTransition(
-        IInbox.State storage $,
+        IStorage.State storage $,
         IInbox.Config memory _conf,
         uint48 _batchId,
         bytes32 _parentHash,
-        bytes32 _tranMetahash
+        bytes32 _tranMetaHash
     )
         internal
-        returns (bool isFirstTransition_)
     {
         uint256 slot = _batchId % _conf.batchRingBufferSize;
 
@@ -78,20 +76,18 @@ library LibState {
         // Tip: the reuse of the first transition slot can save 3900 gas per batch.
         (bytes32 partialParentHash, uint48 batchId) = _loadPartialParentHashAndBatchId($, slot);
 
-        isFirstTransition_ = batchId != _batchId;
-
-        if (isFirstTransition_) {
+        if (batchId != _batchId) {
             // This is the very first transition of the batch.
             // We can reuse the transition slot to reduce gas cost.
             $.transitions[slot][1].batchIdAndPartialParentHash =
                 (uint256(_parentHash) & ~type(uint48).max) | _batchId;
-            $.transitions[slot][1].metaHash = _tranMetahash;
+            $.transitions[slot][1].metaHash = _tranMetaHash;
         } else if (partialParentHash == _parentHash >> 48) {
             // Same parent hash as stored, overwrite the existing transition
-            $.transitions[slot][1].metaHash = _tranMetahash;
+            $.transitions[slot][1].metaHash = _tranMetaHash;
         } else {
             // Different parent hash, use separate mapping storage
-            $.transitionMetaHashes[_batchId][_parentHash] = _tranMetahash;
+            $.transitionMetaHashes[_batchId][_parentHash] = _tranMetaHash;
         }
     }
 
@@ -101,7 +97,7 @@ library LibState {
     /// @param _batchId The batch ID
     /// @return The batch metadata hash
     function loadBatchMetaHash(
-        IInbox.State storage $,
+        IStorage.State storage $,
         IInbox.Config memory _conf,
         uint256 _batchId
     )
@@ -118,7 +114,7 @@ library LibState {
     /// @param _batchId The batch ID
     /// @param _metaHash The metadata hash to save
     function saveBatchMetaHash(
-        IInbox.State storage $,
+        IStorage.State storage $,
         IInbox.Config memory _conf,
         uint256 _batchId,
         bytes32 _metaHash
@@ -138,7 +134,7 @@ library LibState {
     /// @return partialParentHash_ The partial parent hash
     /// @return batchId_ The embedded batch ID
     function _loadPartialParentHashAndBatchId(
-        IInbox.State storage $,
+        IStorage.State storage $,
         uint256 _slot
     )
         private
