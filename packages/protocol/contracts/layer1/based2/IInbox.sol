@@ -99,17 +99,6 @@ interface IInbox {
         bytes32[] blobHashes;
     }
 
-    /// @notice Represents a transition link
-    /// @dev Contains the essential data for a transition link
-    struct TransitionLink {
-        /// @notice ID of the batch
-        uint48 batchId;
-        /// @notice Hash of the parent block
-        bytes32 parentHash;
-        /// @notice Hash of the transition metadata
-        bytes32 transitionMetaHash;
-    }
-
     /// @notice Authorization data for proving a batch
     /// @dev Contains prover credentials, fee information, and validity constraints
     struct ProverAuth {
