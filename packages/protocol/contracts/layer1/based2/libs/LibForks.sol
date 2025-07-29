@@ -45,6 +45,11 @@ library LibForks {
         return _firstBlockId >= _conf.forkHeights.shasta;
     }
 
+    /// @notice Validates if a single block is within the current active fork
+    /// @dev Utilizes the isBlocksInCurrentFork function with the same block ID for start and end
+    /// @param _conf Protocol configuration containing fork heights
+    /// @param _blockId Block ID to validate
+    /// @return True if the block is within the current fork, false otherwise
     function isBlocksInCurrentFork(
         IInbox.Config memory _conf,
         uint256 _blockId
