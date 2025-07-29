@@ -43,7 +43,7 @@ library LibProve {
         IInbox.TransitionMeta[] memory tranMetas = new IInbox.TransitionMeta[](_inputs.length);
         bytes32[] memory ctxHashes = new bytes32[](_inputs.length);
 
-        bytes32 lastParentHash;
+        uint256 lastParentIndex;
         IInbox.TransitionMeta memory tranMeta; // The aggregated transition metadata.
         uint256 i;
         for (; i < _inputs.length; ++i) {
@@ -67,6 +67,7 @@ library LibProve {
                 _config, _inputs[i].proveMeta.prover, _inputs[i].proveMeta.proposedAt
             );
 
+            lastParentIndex = i;
             tranMetas[i] = IInbox.TransitionMeta({
                 batchId: _inputs[i].tran.batchId,
                 provedAt: uint48(block.timestamp),
@@ -78,9 +79,6 @@ library LibProve {
                 provabilityBond: _inputs[i].proveMeta.provabilityBond,
                 livenessBond: _inputs[i].proveMeta.livenessBond
             });
-
-            lastParentHash = _inputs[i].tran.parentHash;
-
             ctxHashes[i] = keccak256(abi.encode(batchMetaHash, _inputs[i].tran));
 
             _proverPaysProvabilityBond(_bindings, _config, _inputs[i], tranMetas[i]);
@@ -90,17 +88,23 @@ library LibProve {
             } else {
                 // Save the previous aggregated transition if it is valid.
                 _bindings.saveTransition(
-                    _config, tranMeta.batchId, lastParentHash, keccak256(abi.encode(tranMeta))
+                    _config,
+                    tranMeta.batchId,
+                    _inputs[lastParentIndex].tran.parentHash,
+                    keccak256(abi.encode(tranMeta))
                 );
                 // Set the aggregated transition metadata to the current one.
+                lastParentIndex = i;
                 tranMeta = tranMetas[i];
-                lastParentHash = _inputs[i].tran.parentHash;
             }
         } // end of for-loop
 
         // Save the last aggregated transition
         _bindings.saveTransition(
-            _config, tranMeta.batchId, lastParentHash, keccak256(abi.encode(tranMeta))
+            _config,
+            tranMeta.batchId,
+            _inputs[lastParentIndex].tran.parentHash,
+            keccak256(abi.encode(tranMeta))
         );
 
         emit IInbox.Proved(_bindings.encodeTransitionMetas(tranMetas));
