@@ -90,6 +90,15 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 		}
 	}
 
+	// Check if the L2 execution engine is syncing from L1.
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
+	if err != nil {
+		return s.returnError(c, http.StatusBadRequest, err)
+	}
+	if progress.IsSyncing() {
+		return s.returnError(c, http.StatusBadRequest, errors.New("l2 execution engine is syncing"))
+	}
+
 	// Parse the request body.
 	reqBody := new(BuildPreconfBlockRequestBody)
 	if err := c.Bind(reqBody); err != nil {
@@ -173,15 +182,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	if err := s.ValidateExecutionPayload(executablePayload); err != nil {
 		return s.returnError(c, http.StatusBadRequest, err)
-	}
-
-	// Check if the L2 execution engine is syncing from L1.
-	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
-	if err != nil {
-		return s.returnError(c, http.StatusBadRequest, err)
-	}
-	if progress.IsSyncing() {
-		return s.returnError(c, http.StatusBadRequest, errors.New("l2 execution engine is syncing"))
 	}
 
 	// Insert the preconfirmation block.
