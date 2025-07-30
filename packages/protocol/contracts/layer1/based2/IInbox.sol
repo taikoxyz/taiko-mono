@@ -9,23 +9,24 @@ pragma solidity ^0.8.24;
 interface IInbox {
     /// @notice Represents a block within a batch
     /// @dev Contains block-specific parameters and anchor information
-    struct Block {
-        /// @notice Maximum number of transactions in this block
-        /// @dev If insufficient transactions in calldata/blobs, block contains as many as possible
-        uint16 numTransactions;
-        /// @notice Time difference in seconds between this block and its parent within the batch
-        /// @dev For the first block in a batch, this should be 0 (no parent in same batch)
-        uint8 timeShift;
-        /// @notice Optional anchor block ID for L1-L2 synchronization
-        uint48 anchorBlockId;
-        /// @notice Signal slots for cross-chain messages
-        /// @custom: max size 16
-        bytes32[] signalSlots;
-        /// @notice Address that receives block rewards. If this address is address(0), use
-        /// Batch.coinbase.
-        /// @custom:encode optional
-        address coinbase;
-    }
+    // struct Block {
+    //     /// @notice Maximum number of transactions in this block
+    //     /// @dev If insufficient transactions in calldata/blobs, block contains as many as
+    // possible
+    //     uint16 numTransactions;
+    //     /// @notice Time difference in seconds between this block and its parent within the batch
+    //     /// @dev For the first block in a batch, this should be 0 (no parent in same batch)
+    //     uint8 timeShift;
+    //     /// @notice Optional anchor block ID for L1-L2 synchronization
+    //     uint48 anchorBlockId;
+    //     /// @notice Signal slots for cross-chain messages
+    //     /// @custom: max size 16
+    //     bytes32[] signalSlots;
+    //     /// @notice Address that receives block rewards. If this address is address(0), use
+    //     /// Batch.coinbase.
+    //     /// @custom:encode optional
+    //     address coinbase;
+    // }
 
     /// @notice Contains blob data for a batch
     /// @dev Supports both direct blob hashes and blob indices for different scenarios
@@ -54,20 +55,10 @@ interface IInbox {
     /// @notice Represents a batch of blocks to be proposed
     /// @dev Contains all data needed for batch validation and processing
     struct Batch {
-        /// @notice Coinbase address for block rewards (can be zero)
-        /// @custom:encode optional
-        address coinbase;
-        /// @notice Timestamp of the last block in this batch
-        uint48 lastBlockTimestamp;
-        // /// @notice Gas issuance rate per second for this batch
-        // uint32 gasIssuancePerSecond;
         /// @notice Whether this is a forced inclusion batch
         bool isForcedInclusion;
         /// @notice Prover authorization data
         bytes proverAuth;
-        /// @notice Array of blocks in this batch
-        /// @custom:encode max-size=512
-        Block[] blocks;
         /// @notice Blob data for this batch
         Blobs blobs;
     }
@@ -120,28 +111,8 @@ interface IInbox {
         /// @notice Array of blob hashes referenced by this batch
         /// @custom:encode max-size=256
         bytes32[] blobHashes;
-        /// @notice Additional arbitrary data for the batch
-        bytes32 extraData;
-        /// @notice Address to receive block rewards
-        address coinbase;
-        /// @notice Block number when this batch was proposed
-        uint48 proposedIn;
         /// @notice Block number when blobs were created
         uint48 blobCreatedIn;
-        /// @notice Byte offset within blob data
-        uint48 blobByteOffset;
-        /// @notice Size of blob data in bytes
-        uint48 blobByteSize;
-        /// @notice ID of the last block in this batch
-        uint48 lastBlockId;
-        /// @notice Timestamp of the last block in this batch
-        uint48 lastBlockTimestamp;
-        /// @notice Hashes of anchor blocks for verification
-        /// @custom:encode max-size=512
-        bytes32[] anchorBlockHashes;
-        /// @notice Array of blocks contained in this batch
-        /// @custom:encode max-size=512
-        Block[] blocks;
     }
 
     /// @notice Simplified metadata for batch proposals
@@ -162,11 +133,7 @@ interface IInbox {
         address proposer;
         /// @notice Address authorized to prove this batch
         address prover;
-        /// @notice Timestamp when the batch was proposed
         uint48 proposedAt;
-        /// @notice ID of the first block in the batch
-        uint48 firstBlockId;
-        /// @notice ID of the last block in the batch
         uint48 lastBlockId;
         /// @notice Bond amount for liveness guarantee in Gwei
         uint48 livenessBond; // Gwei

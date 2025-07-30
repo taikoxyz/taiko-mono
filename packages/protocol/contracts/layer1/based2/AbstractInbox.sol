@@ -38,16 +38,8 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @notice Initializes the contract with owner and genesis block hash
     /// @param _owner The owner address
     /// @param _genesisBlockHash The genesis block hash
-    /// @param _gasIssuancePerSecond The initial gas issuance per second
-    function init4(
-        address _owner,
-        bytes32 _genesisBlockHash,
-        uint32 _gasIssuancePerSecond
-    )
-        external
-        initializer
-    {
-        _init(_owner, _genesisBlockHash, _gasIssuancePerSecond);
+    function init4(address _owner, bytes32 _genesisBlockHash) external initializer {
+        _init(_owner, _genesisBlockHash);
     }
 
     /// @inheritdoc IPropose
@@ -319,8 +311,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
 
         // Initialize the genesis batch metadata
         BatchMetadata memory meta;
-        meta.buildMeta.proposedIn = uint48(block.number);
-        meta.proveMeta.proposedAt = uint48(block.timestamp);
 
         // Initialize the summary
         Summary memory summary;
