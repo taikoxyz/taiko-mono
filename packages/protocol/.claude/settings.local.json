@@ -7,7 +7,8 @@
       "Bash(forge:*)",
       "Bash(pnpm:*)",
       "WebFetch",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }

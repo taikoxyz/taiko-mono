@@ -1,209 +1,186 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-abstract contract ShastaInbox {
-    // -------------------------------------------------------------------------
-    // Structs
-    // -------------------------------------------------------------------------
+import { IShastaInbox } from "./IShastaInbox.sol";
+import { ShastaInboxState } from "./ShastaInboxState.sol";
 
-    /// @notice A batch represents oen or multiple layer 2 blocks
-    struct Batch {
-        address proposer;
-        // This is the hash of the most recent layer 1 block, which represents the most recent layer
-        // 1 state.
-        bytes32 parentBlockHash;
-        // For simplicity, we assume the proposal is only in a single blob and the blob is used by
-        // this proposal excelucely.
-        bytes32 batchDataHash;
-    }
-
-    /// @notice A claim represents what you try to prove.
-    struct Claim {
-        bytes32 batchHash;
-        bytes32 parentClaimHash;
-        uint256 lastBlockId;
-        bytes32 lastBlockHash;
-        bytes32 lastStateRoot;
-        address proposer;
-        address assignedProver;
-        address actualProver;
-        uint256 livenessBond;
-    }
-
-    struct ExtendedClaim {
-        Claim claim;
-        uint256 proposedAt;
-        uint256 provedAt;
-    }
-
-    struct BondRefund {
-        uint256 bondId;
-        address prover;
-        uint256 livenessBond;
-    }
-
-    // -------------------------------------------------------------------------
-    // Events
-    // -------------------------------------------------------------------------
-
-    event Proposed(uint256 batchId, Batch batch);
-    event Proved(uint256 batchId, Batch batch, Claim claim);
-    event Verified(uint256 batchId, Claim claim, BondRefund bondRefund);
+/// @title ShastaInbox
+/// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture
+/// @custom:security-contact security@taiko.xyz
+abstract contract ShastaInbox is IShastaInbox {
+    using ShastaInboxState for ShastaInboxState.State;
 
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
 
-    uint256 public nextBatchId;
-    uint256 public lastVerifiedBatchId;
-    bytes32 public lastVerifiedClaimHash;
-
-    uint256 public lastBlockId;
-    bytes32 public lastBlockHash;
-    bytes32 public lastStateRoot;
-
-    bytes32 public bondRefundAggregation;
-
-    mapping(uint256 batchId => mapping(bytes32 parentClaimHash => bytes32 claimHash)) private
-        _claims;
-    mapping(uint256 batchId => bytes32 batchHash) private _batchHashes;
+    ShastaInboxState.State private state;
 
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
 
     constructor() {
-        nextBatchId = 1;
+        state.initialize();
     }
 
     // -------------------------------------------------------------------------
-    // ExternalFunctions
+    // Public View Functions
     // -------------------------------------------------------------------------
 
-    function propose(uint256 blobId) external {
-        uint256 batchId = nextBatchId++;
-        Batch memory batch = Batch({
+    function nextProposalId() public view returns (uint48) {
+        return state.getNextProposalId();
+    }
+
+    function lastFinalizedProposalId() public view returns (uint48) {
+        return state.getLastFinalizedProposalId();
+    }
+
+    function lastFinalizedClaimHash() public view returns (bytes32) {
+        return state.getLastFinalizedClaimHash();
+    }
+
+    function lastL2BlockNumber() public view returns (uint48) {
+        return state.getLastL2BlockNumber();
+    }
+
+    function lastL2BlockHash() public view returns (bytes32) {
+        return state.getLastL2BlockHash();
+    }
+
+    function lastL2StateRoot() public view returns (bytes32) {
+        return state.getLastL2StateRoot();
+    }
+
+    function bondRefundsHash() public view returns (bytes32) {
+        return state.getBondRefundsHash();
+    }
+
+    // -------------------------------------------------------------------------
+    // External Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Proposes a new proposal of L2 blocks
+    /// @param blobIndex Index of the blob in the current transaction
+    function propose(uint48 blobIndex) external {
+        uint48 proposalId = state.incrementAndGetProposalId();
+        Proposal memory proposal = Proposal({
             proposer: msg.sender,
-            parentBlockHash: blockhash(block.number - 1),
-            batchDataHash: blobhash(blobId)
+            proposedAt: uint48(block.timestamp),
+            latestL1BlockHash: blockhash(block.number - 1),
+            blobDataHash: blobhash(blobIndex)
         });
 
-        if (batch.batchDataHash == 0) revert InvalidBatchDataHash();
+        if (proposal.blobDataHash == 0) revert InvalidBlobData();
+        bytes32 proposalHash = keccak256(abi.encode(proposal));
+        state.setProposalHash(proposalId, proposalHash);
 
-        saveBatchHash(batchId, keccak256(abi.encode(batch)));
-        emit Proposed(batchId, batch);
+        emit Proposed(proposalId, proposal);
     }
 
-    /// @dev msg.sender value doesn't matter in this function.
+    /// @notice Submits a proof for a proposal's state transition
+    /// @param proposalId ID of the proposal being proven
+    /// @param proposal Original proposal data
+    /// @param claim State transition claim being proven
+    /// @param proof Validity proof for the state transition
     function prove(
-        uint256 batchId,
-        Batch memory batch,
+        uint48 proposalId,
+        Proposal memory proposal,
         Claim memory claim,
         bytes calldata proof
     )
         external
     {
-        if (claim.batchHash != loadBatchHash(batchId)) revert BatchHashMismatch();
-
-        ExtendedClaim memory extendedClaim = ExtendedClaim(claim, batch.proposedAt, block.timestamp);
-        bytes32 extendedClaimHash = keccak256(abi.encode(extendedClaim));
-        saveClaimHash(batchId, claim.parentClaimHash, extendedClaimHash);
-        emit Proved(batchId, batch, claim);
-
-        // Verify the proof for the claim.
-        bytes32 claimHash = keccak256(abi.encode(extendedClaim));
-        verifyProof(claimHash, proof);
-    }
-
-    function verify(ExtendedClaim memory extendedClaim) external {
-        if (extendedClaim.claim.parentClaimHash != lastVerifiedClaimHash) {
-            revert InvalidParentClaimHash();
+        bytes32 proposalHash = keccak256(abi.encode(proposal));
+        if (proposalHash != claim.proposalHash) revert ProposalHashMismatchWithClaim();
+        if (proposalHash != state.getProposalHash(proposalId)) {
+            revert ProposalHashMismatchWithSavedHash();
         }
 
-        bytes32 extendedClaimHash = keccak256(abi.encode(extendedClaim));
-        uint256 batchId = lastVerifiedBatchId + 1;
+        ClaimRecord memory record = ClaimRecord({
+            claim: claim,
+            proposedAt: proposal.proposedAt,
+            provedAt: uint48(block.timestamp)
+        });
 
-        require(
-            loadClaimHash(batchId, lastVerifiedClaimHash) == extendedClaimHash, "Invalid claim hash"
+        bytes32 recordHash = keccak256(abi.encode(record));
+        state.setClaimRecordHash(proposalId, claim.parentClaimHash, recordHash);
+
+        emit Proved(proposalId, proposal, claim);
+
+        verifyProof(recordHash, proof);
+    }
+
+    /// @notice Finalizes a proven proposal and updates the L2 chain state
+    /// @param record The proven claim to finalize
+    function finalize(ClaimRecord memory record) external {
+        Claim memory claim = record.claim;
+
+        bytes32 lastFinalizedClaimHash_ = state.getLastFinalizedClaimHash();
+        if (claim.parentClaimHash != lastFinalizedClaimHash_) {
+            revert InvalidClaimChain();
+        }
+
+        uint48 proposalId = state.getLastFinalizedProposalId() + 1;
+        bytes32 recordHash = keccak256(abi.encode(record));
+
+        bytes32 storedRecordHash = state.getClaimRecordHash(proposalId, lastFinalizedClaimHash_);
+        if (storedRecordHash != recordHash) {
+            revert ClaimNotFoundInTree();
+        }
+
+        state.setLastFinalized(proposalId, recordHash);
+        state.setLastL2BlockData(
+            claim.endL2BlockNumber, claim.endL2BlockHash, claim.endL2StateRoot
         );
 
-        lastVerifiedBatchId = batchId;
-        lastVerifiedClaimHash = extendedClaimHash;
+        L2ProverBondPayment memory refund = calculateBondRefund(proposalId, record);
+        bytes32 currentBondRefundsHash = state.getBondRefundsHash();
+        state.setBondRefundsHash(keccak256(abi.encode(currentBondRefundsHash, refund)));
 
-        lastBlockId = extendedClaim.claim.lastBlockId;
-        lastBlockHash = extendedClaim.claim.lastBlockHash;
-        lastStateRoot = extendedClaim.claim.lastStateRoot;
-
-        // On layer 2, the assigned prover has paid the bond for this batch. Now we need to signal
-        // the bond shall be returned to the assigned prover, otherwise, we should signal the bond
-        // paid by the assigned prover slall be partially paid the the actual prover on layer 2)
-        uint256 bondAmount;
-        address bondReceiver;
-
-        if (extendedClaim.provedAt < extendedClaim.proposedAt + 1 hours) {
-            bondAmount = extendedClaim.claim.livenessBond;
-            bondReceiver = extendedClaim.claim.assignedProver;
-        } else {
-            bondAmount = extendedClaim.claim.livenessBond / 2;
-            bondReceiver = extendedClaim.claim.actualProver;
-        }
-
-        BondRefund memory bondRefund = BondRefund(batchId, bondReceiver, bondAmount);
-        bondRefundAggregation = keccak256(abi.encode(bondRefundAggregation, bondRefund));
-
-        emit Verified(batchId, extendedClaim.claim, bondRefund);
+        emit Finalized(proposalId, claim, refund);
     }
 
     // -------------------------------------------------------------------------
-    // Internal Functions
+    // Internal Functions - Bond Management
     // -------------------------------------------------------------------------
 
-    function saveBatchHash(uint256 batchId, bytes32 batchHash) internal virtual {
-        _batchHashes[batchId] = batchHash;
-    }
-
-    function loadBatchHash(uint256 batchId) internal view virtual returns (bytes32) {
-        return _batchHashes[batchId];
-    }
-
-    function saveClaimHash(
-        uint256 batchId,
-        bytes32 parentClaimHash,
-        bytes32 claimHash
+    function calculateBondRefund(
+        uint48 proposalId,
+        ClaimRecord memory record
     )
         internal
-        virtual
+        pure
+        returns (L2ProverBondPayment memory)
     {
-        _claims[batchId][parentClaimHash] = claimHash;
+        bool provedWithinLivenessWindow = record.provedAt < record.proposedAt + 1 hours;
+        return provedWithinLivenessWindow
+            ? L2ProverBondPayment({
+                recipient: record.claim.designatedProver,
+                proposalId: proposalId,
+                refundAmount: record.claim.proverBond
+            })
+            : L2ProverBondPayment({
+                recipient: record.claim.actualProver,
+                proposalId: proposalId,
+                refundAmount: record.claim.proverBond / 2
+            });
     }
 
-    function loadClaimHash(
-        uint256 batchId,
-        bytes32 parentClaimHash
-    )
-        internal
-        view
-        virtual
-        returns (bytes32)
-    {
-        return _claims[batchId][parentClaimHash];
-    }
+    // -------------------------------------------------------------------------
+    // Internal Functions - Abstract
+    // -------------------------------------------------------------------------
 
-    function debetBond(address from, uint256 amount) internal virtual;
-
-    /// @dev Verifies a proof for one or multiple claims.
-    ///      This funciton must revert if the proof is invalid.
+    /// @dev Verifies a validity proof for a state transition
     function verifyProof(bytes32 claimHash, bytes calldata proof) internal virtual;
-
-    // -------------------------------------------------------------------------
-    // Private Functions
-    // -------------------------------------------------------------------------
 
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
 
-    error BatchHashMismatch();
-    error InvalidParentClaimHash();
-    error InvalidBatchDataHash();
+    error InvalidBlobData();
+    error ProposalHashMismatchWithClaim();
+    error ProposalHashMismatchWithSavedHash();
+    error InvalidClaimChain();
+    error ClaimNotFoundInTree();
 }
