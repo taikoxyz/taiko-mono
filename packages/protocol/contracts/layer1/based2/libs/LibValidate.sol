@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-
 import "src/shared/libs/LibNetwork.sol";
 import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
 import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
@@ -51,8 +50,6 @@ library LibValidate {
         // If a block's coinbase is address(0), _batch.coinbase will be used, if _batch.coinbase
         // is address(0), the driver shall use the proposer address as the coinbase address.
 
-        _validateProposer(_config, _bindings);
-
         // Validate new gas issuance per second
         _validateGasIssuance(_config, _summary, _batch);
 
@@ -88,6 +85,32 @@ library LibValidate {
             provabilityBond: _config.provabilityBond,
             baseFeeSharingPctg: _config.baseFeeSharingPctg
         });
+    }
+
+    /// @notice Validates the proposer of the current transaction.
+    /// @dev Checks if the sender is the operator for the current epoch.
+    ///      If the preconfWhitelist address is zero, the function returns without validation.
+    ///      WARNING: Setting the `preconfWhitelist` to zero makes proposing permisionless.
+    /// @param _config The configuration containing the preconfWhitelist address.
+    /// @param _bindings Library function binding
+    /// @custom:reverts ProposerNotPreconfer if the sender is not the preconfer for the current
+    /// epoch.
+    function validateProposer(
+        IInbox.Config memory _config,
+        LibBinding.Bindings memory _bindings
+    )
+        internal
+        view
+    {
+        if (_config.preconfWhitelist == address(0)) return;
+        address preconfer = _bindings.getCurrentPreconfer();
+        if (preconfer != address(0)) {
+            require(msg.sender == preconfer, ProposerNotPreconfer());
+        } else if (_bindings.getFallbackPreconfer() != address(0)) {
+            require(msg.sender == _bindings.getFallbackPreconfer(), ProposerNotPreconfer());
+        } else {
+            revert ProposerNotPreconfer();
+        }
     }
 
     /// @notice Validates a forced inclusion batch
@@ -138,33 +161,6 @@ library LibValidate {
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
-
-
-    /// @notice Validates the proposer of the current transaction.
-    /// @dev Checks if the sender is the operator for the current epoch.
-    ///      If the preconfWhitelist address is zero, the function returns without validation.
-    ///      WARNING: Setting the `preconfWhitelist` to zero makes proposing permisionless.
-    /// @param _config The configuration containing the preconfWhitelist address.
-    /// @param _bindings Library function binding
-    /// @custom:reverts ProposerNotPreconfer if the sender is not the preconfer for the current
-    /// epoch.
-    function _validateProposer(
-        IInbox.Config memory _config,
-        LibBinding.Bindings memory _bindings
-    )
-        internal
-        view
-    {
-        if (_config.preconfWhitelist == address(0)) return;
-        address preconfer = _bindings.getCurrentPreconfer();
-        if (preconfer != address(0)) {
-            require(msg.sender == preconfer, ProposerNotPreconfer());
-        } else if (_bindings.getFallbackPreconfer() != address(0)) {
-            require(msg.sender == _bindings.getFallbackPreconfer(), ProposerNotPreconfer());
-        } else {
-            revert ProposerNotPreconfer();
-        }
-    }
 
     /// @notice Validates the gas issuance per second for a batch
     /// @dev Ensures that the gas issuance per second is within a 1% range of the last recorded

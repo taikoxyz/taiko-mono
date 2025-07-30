@@ -100,7 +100,6 @@ library LibVerify {
     // Private Functions
     // -------------------------------------------------------------------------
 
-
     /// @notice Calculates the bond amount to refund to the prover based on timing and conditions
     /// @param _config Protocol configuration containing bond parameters
     /// @param _tran Transition metadata containing bond and timing information

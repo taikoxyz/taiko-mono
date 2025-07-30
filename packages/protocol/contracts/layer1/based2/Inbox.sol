@@ -191,7 +191,7 @@ abstract contract Inbox is AbstractInbox, IBondManager2, IStorage {
     {
         return $.saveBatchMetaHash(_conf, _batchId, _metaHash);
     }
-    
+
     /// @inheritdoc AbstractInbox
     function _getCurrentPreconfer() internal view override returns (address) {
         return IPreconfWhitelist(_getConfig().preconfWhitelist).getOperatorForCurrentEpoch();
