@@ -30,6 +30,7 @@ import (
 const (
 	protocolStatusReportInterval     = 30 * time.Second
 	exchangeTransitionConfigInterval = 1 * time.Minute
+	peerLoopReportInterval           = 30 * time.Second
 )
 
 // Driver keeps the L2 execution engine's local block chain in sync with the TaikoInbox
@@ -193,6 +194,8 @@ func (d *Driver) Start() error {
 			&rollup.Config{L1ChainID: d.rpc.L1.ChainID, L2ChainID: d.rpc.L2.ChainID, Taiko: true},
 			d.p2pSetup.TargetPeers(),
 		)
+
+		go d.peerLoop(d.ctx)
 	} else {
 		log.Warn("Skip P2P discovery process")
 	}
@@ -534,20 +537,6 @@ func (d *Driver) cacheLookaheadLoop() {
 				"nextRanges", nextRanges,
 			)
 
-			peers := d.p2pNode.Host().Network().Peers()
-			advertisedUDP := d.p2pNode.Dv5Local().Node().UDP()
-			advertisedTCP := d.p2pNode.Dv5Local().Node().TCP()
-			asdvertisedIP := d.p2pNode.Dv5Local().Node().IP()
-
-			log.Info("Peer tick",
-				"peersLen", len(peers),
-				"peers", peers,
-				"id", d.p2pNode.Host().ID(),
-				"advertisedUDP", advertisedUDP,
-				"advertisedTCP", advertisedTCP,
-				"advertisedIP", asdvertisedIP,
-			)
-
 			return nil
 		}
 
@@ -593,6 +582,39 @@ func (d *Driver) cacheLookaheadLoop() {
 			}
 
 			checkHandover(currentEpoch, currentSlot)
+		}
+	}
+}
+
+func (d *Driver) peerLoop(ctx context.Context) {
+	d.wg.Add(1)
+	defer d.wg.Done()
+
+	t := time.NewTicker(peerLoopReportInterval)
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("Peer loop context done, exiting")
+			return
+		case <-t.C:
+			if d.p2pNode == nil {
+				log.Warn("P2P node is nil, skipping peer loop report")
+				continue
+			}
+
+			peers := d.p2pNode.Host().Network().Peers()
+			advertisedUDP := d.p2pNode.Dv5Local().Node().UDP()
+			advertisedTCP := d.p2pNode.Dv5Local().Node().TCP()
+			advertisedIP := d.p2pNode.Dv5Local().Node().IP()
+
+			log.Info("Peer tick",
+				"peersLen", len(peers),
+				"peers", peers,
+				"id", d.p2pNode.Host().ID(),
+				"advertisedUDP", advertisedUDP,
+				"advertisedTCP", advertisedTCP,
+				"advertisedIP", advertisedIP,
+			)
 		}
 	}
 }
