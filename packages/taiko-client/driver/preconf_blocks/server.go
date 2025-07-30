@@ -311,7 +311,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	defer s.mutex.Unlock()
 
 	// add responses seen to cache.
-	s.responseSeenCache.Add(msg.ExecutionPayload.BlockHash, time.Now())
+	s.responseSeenCache.Add(msg.ExecutionPayload.BlockHash, time.Now().UTC())
 
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
 	// it means the message is for importing the pending blocks from the cache after
@@ -473,14 +473,14 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return err
 	}
 
-	// we have the block, now wait a deterministic jitter before responding
-	// Deterministic backoff to reduce response storms.
+	// we have the block, now wait a deterministic jitter before responding.
+	// this will reduce "response storms" when many nodes receive the request for the block.
 	wait := deterministicJitter(s.p2pNode.Host().ID(), hash, 1*time.Second)
 	timer := time.NewTimer(wait)
 	select {
 	case <-timer.C:
 		// If any response for this hash was seen recently, skip ours.
-		if ts, ok := s.responseSeenCache.Get(hash); ok && time.Since(ts) < 2*time.Second {
+		if ts, ok := s.responseSeenCache.Get(hash); ok && time.Since(ts) < 10*time.Second {
 			log.Debug("Skip responding; recent response already seen",
 				"peer", from, "hash", hash.Hex())
 			return nil
@@ -517,7 +517,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		)
 	}
 
-	s.responseSeenCache.Add(hash, time.Now())
+	s.responseSeenCache.Add(hash, time.Now().UTC())
 
 	return nil
 }
