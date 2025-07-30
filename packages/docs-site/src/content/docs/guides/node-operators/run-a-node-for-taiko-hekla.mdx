@@ -148,6 +148,9 @@ If you aren't, you can configure the ports and addresses so that the services ca
             --p2p.advertise.tcp 30303 \
             --p2p.advertise.ip ${YOUR_EXTERNAL_IP}
     ```
+    <Aside type="danger">
+    `YOUR_EXTERNAL_IP` should be **publicly accessible** from the internet, at the UDP and TCP ports you advertise from. If it is not, your node will not join the P2P network correctly.
+    </Aside>
 
     If you do not wish to set an external IP manually, you may instead replace the `--p2p.listen.tcp` and all lines after in the above command with `--p2p.nat`. This will automate discovery, and you do not need to manually set ports.
 

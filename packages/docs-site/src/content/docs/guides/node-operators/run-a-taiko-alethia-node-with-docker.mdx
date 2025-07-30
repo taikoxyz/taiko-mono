@@ -111,6 +111,10 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
 
     This is an important config for based preconfirmations. Find your machine's external IP and set `PUBLIC_IP={EXTERNAL_IP}` in your `.env` file. You may choose to leave it blank, in which case our scripts will enable `p2p.nat` in your driver; this means that you will automatically enable NAT traversal with PMP/UPNP devices to learn external IP. This is not preferred, and we highly recommend you manually set the `PUBLIC_IP` for discovery.
 
+    <Aside type="danger">
+    `YOUR_EXTERNAL_IP` should be **publicly accessible** from the internet, at the UDP and TCP ports you advertise from. If it is not, your node will not join the P2P network correctly.
+    </Aside>
+
 8. Start the node
 
     <Aside title="Info">
