@@ -1,0 +1,17 @@
+[package]
+name = "ejector"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+config = { path = "crates/config" }
+clap = { workspace = true }
+dotenvy = { workspace = true }
+eyre = { workspace = true }
+color-eyre = { workspace = true }
+tokio = { workspace = true }
+alloy-provider = { workspace = true }
+alloy-network = { workspace = true }
+alloy-transport-ws = { workspace = true }
+url = { workspace = true }

@@ -1,0 +1,47 @@
+[workspace]
+members = [
+  "packages/ejector",
+  "packages/ejector/crates/config",
+]
+resolver = "2"
+
+# Inherit these into each crate with `*.workspace = true`
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+
+# One place to pin third‑party versions
+[workspace.dependencies]
+clap = { version = "4", features = ["derive", "env"] }
+dotenvy = "0.15"
+eyre = "0.6"
+color-eyre = "0.6"
+tokio = { version = "1.45", default-features = false, features = ["full"] }
+alloy-consensus = { version = "0.11.0", features = ["k256"] }
+alloy-contract = "0.11.0"
+alloy-eips = { version = "0.11.0", features = ["kzg"] }
+alloy-network = "0.11.0"
+alloy-primitives = { version = "0.8.19", features = ["getrandom", "k256"] }
+alloy-provider = { version = "0.11.0", features = ["ws"] }
+alloy-rlp = "0.3.9"
+alloy-rpc-types = { version = "0.11.0", features = ["beacon", "eth"] }
+alloy-rpc-types-txpool = "0.11.0"
+alloy-serde = "0.11.0"
+alloy-signer = "0.11.0"
+alloy-signer-local = "0.11.0"
+alloy-sol-macro = { version = "0.8.19", features = ["json"] }
+alloy-sol-types = "0.8.19"
+alloy-transport-ws = "0.11.0"
+alloy-transport-http = "0.11.0"
+url = { version = "2.5.0", features = ["serde"] }
+
+[workspace.lints.clippy]
+cast_lossless = "deny"
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_precision_loss = "deny"
+cast_sign_loss = "deny"
+needless_return = "deny"
+panicking_overflow_checks = "deny"
+unwrap_used = "deny"
