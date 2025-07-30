@@ -656,13 +656,13 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 					return nil
 				}
 
-				log.Info(
-					"Publish preconfirmation block request",
-					"blockID", parentNum,
-					"hash", currentPayload.Payload.ParentHash.Hex(),
-				)
-
 				publishRequest := func() {
+					log.Info(
+						"Publishing preconfirmation block request",
+						"blockID", parentNum,
+						"hash", currentPayload.Payload.ParentHash.Hex(),
+					)
+
 					if err := s.p2pNode.GossipOut().PublishL2Request(ctx, currentPayload.Payload.ParentHash); err != nil {
 						log.Warn(
 							"Failed to publish preconfirmation block request",
