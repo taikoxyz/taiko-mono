@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/modern-go/reflect2"
 	"github.com/urfave/cli/v2"
 
@@ -35,8 +34,8 @@ const (
 )
 
 type peerInfo struct {
-	id       peer.ID
-	addrInfo peer.AddrInfo
+	id       string
+	addrInfo []string
 }
 
 // Driver keeps the L2 execution engine's local block chain in sync with the TaikoInbox
@@ -603,19 +602,19 @@ func (d *Driver) peerLoop(ctx context.Context) {
 			log.Info("Peer loop context done, exiting")
 			return
 		case <-t.C:
-			if d.p2pNode == nil ||
-				d.p2pNode.Dv5Local() == nil ||
-				d.p2pNode.Dv5Local().Node() == nil {
-				log.Warn("P2P node is nil, skipping peer loop report")
-				continue
-			}
-
 			d.peerTick()
 		}
 	}
 }
 
 func (d *Driver) peerTick() {
+	if d.p2pNode == nil ||
+		d.p2pNode.Dv5Local() == nil ||
+		d.p2pNode.Dv5Local().Node() == nil {
+		log.Warn("P2P node is nil, skipping peer loop report")
+		return
+	}
+
 	peers := d.p2pNode.Host().Network().Peers()
 	advertisedUDP := d.p2pNode.Dv5Local().Node().UDP()
 	advertisedTCP := d.p2pNode.Dv5Local().Node().TCP()
@@ -623,9 +622,16 @@ func (d *Driver) peerTick() {
 
 	peersInfo := make([]peerInfo, 0, len(peers))
 	for _, p := range peers {
+		info := d.p2pNode.Host().Peerstore().PeerInfo(p)
+
+		addrInfo := make([]string, 0, len(info.Addrs))
+		for _, addr := range info.Addrs {
+			addrInfo = append(addrInfo, addr.String())
+		}
+
 		peersInfo = append(peersInfo, peerInfo{
-			id:       p,
-			addrInfo: d.p2pNode.Host().Peerstore().PeerInfo(p),
+			id:       info.ID.String(),
+			addrInfo: addrInfo,
 		})
 	}
 
