@@ -20,9 +20,9 @@ jobs:
       !contains(github.event.pull_request.labels.*.name, 'option.do-not-merge')
     runs-on: [arc-runner-set]
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
-      issues: write
+      issues: read
       id-token: write
 
     steps:
