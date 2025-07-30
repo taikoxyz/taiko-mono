@@ -122,17 +122,18 @@ library LibValidate {
             if (_batch.gasIssuancePerSecond == _summary.gasIssuancePerSecond) return;
 
             // Gas issuance must stay within ±1% of current value AND within absolute bounds.
-            // The MIN/MAX constants (100,000 to 100,000,000) ensure precision loss from integer
-            // division is negligible. For example: 100,000 * 99 / 100 = 99,000 (no precision loss).
+            // Using multiplication before comparison to avoid precision loss for small values.
+            // For example: with value=1, old formula 1*99/100=0 allows 100% decrease,
+            // but new formula 1*100 < 1*99 correctly prevents any decrease.
             if (
                 _batch.gasIssuancePerSecond > MAX_GAS_ISSUANCE_PER_SECOND
-                    || _batch.gasIssuancePerSecond > _summary.gasIssuancePerSecond * 101 / 100
+                    || _batch.gasIssuancePerSecond * 100 > _summary.gasIssuancePerSecond * 101
             ) {
                 revert GasIssuanceTooHigh();
             }
             if (
                 _batch.gasIssuancePerSecond < MIN_GAS_ISSUANCE_PER_SECOND
-                    || _batch.gasIssuancePerSecond < _summary.gasIssuancePerSecond * 99 / 100
+                    || _batch.gasIssuancePerSecond * 100 < _summary.gasIssuancePerSecond * 99
             ) {
                 revert GasIssuanceTooLow();
             }
