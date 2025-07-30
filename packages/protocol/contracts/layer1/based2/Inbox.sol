@@ -210,7 +210,10 @@ abstract contract Inbox is AbstractInbox, IBondManager2, IStorage {
     }
 
     /// @inheritdoc AbstractInbox
-    function _consumeForcedInclusion(address _feeRecipient, uint64 _nextBatchId)
+    function _consumeForcedInclusion(
+        address _feeRecipient,
+        uint64 _nextBatchId
+    )
         internal
         override
         returns (IForcedInclusionStore.ForcedInclusion memory)

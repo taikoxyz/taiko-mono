@@ -38,8 +38,8 @@ contract MockInbox is IInbox {
     }
 
     // Implement other required IInbox functions with empty bodies
-    function propose4(bytes calldata) external {}
-    function prove4(bytes calldata, bytes calldata) external {}
+    function propose4(bytes calldata) external { }
+    function prove4(bytes calldata, bytes calldata) external { }
 }
 
 abstract contract ForcedInclusionStoreTestBase is CommonTest {
@@ -109,15 +109,12 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
     {
         vm.prank(_prankAs);
         store.storeForcedInclusion{ value: _getFeeInWei() }(
-            _blobIndex,
-            _blobOffset,
-            _blobSize,
-            _createSummary(_batchId)
+            _blobIndex, _blobOffset, _blobSize, _createSummary(_batchId)
         );
 
         return store.getForcedInclusion(store.tail() - 1);
     }
-    
+
     function _storeForcedInclusionWithoutPrank(
         uint8 _blobIndex,
         uint32 _blobOffset,
@@ -128,16 +125,16 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         returns (IForcedInclusionStore.ForcedInclusion memory)
     {
         store.storeForcedInclusion{ value: _getFeeInWei() }(
-            _blobIndex,
-            _blobOffset,
-            _blobSize,
-            _createSummary(_batchId)
+            _blobIndex, _blobOffset, _blobSize, _createSummary(_batchId)
         );
 
         return store.getForcedInclusion(store.tail() - 1);
     }
 
-    function _storeDefaultForcedInclusion(address _prankAs, uint64 _batchId)
+    function _storeDefaultForcedInclusion(
+        address _prankAs,
+        uint64 _batchId
+    )
         internal
         returns (IForcedInclusionStore.ForcedInclusion memory)
     {
@@ -145,7 +142,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
             _prankAs, DEFAULT_BLOB_INDEX, DEFAULT_BLOB_OFFSET, DEFAULT_BLOB_SIZE, _batchId
         );
     }
-    
+
     function _storeDefaultForcedInclusionWithoutPrank(uint64 _batchId)
         internal
         returns (IForcedInclusionStore.ForcedInclusion memory)
@@ -214,19 +211,13 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         // Test with fee too low
         vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
         store.storeForcedInclusion{ value: correctFee - 1 }(
-            DEFAULT_BLOB_INDEX,
-            DEFAULT_BLOB_OFFSET,
-            DEFAULT_BLOB_SIZE,
-            summary
+            DEFAULT_BLOB_INDEX, DEFAULT_BLOB_OFFSET, DEFAULT_BLOB_SIZE, summary
         );
 
         // Test with fee too high
         vm.expectRevert(IForcedInclusionStore.IncorrectFee.selector);
         store.storeForcedInclusion{ value: correctFee + 1 }(
-            DEFAULT_BLOB_INDEX,
-            DEFAULT_BLOB_OFFSET,
-            DEFAULT_BLOB_SIZE,
-            summary
+            DEFAULT_BLOB_INDEX, DEFAULT_BLOB_OFFSET, DEFAULT_BLOB_SIZE, summary
         );
     }
 
@@ -344,7 +335,7 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         // After processing, with empty queue, deadline should be max uint256
         uint256 deadline = store.getOldestForcedInclusionDeadline();
         assertEq(deadline, type(uint256).max);
-        
+
         // Verify lastProcessedAtBatchId was updated
         assertEq(store.lastProcessedAtBatchId(), processBatchId);
     }
@@ -360,13 +351,13 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         _storeDefaultForcedInclusion(Alice, TEST_BATCH_ID);
 
         uint64 deadline = TEST_BATCH_ID + inclusionDelay;
-        
+
         // Not due yet
         assertFalse(store.isOldestForcedInclusionDue(deadline - 1));
-        
+
         // Due at exactly the deadline
         assertTrue(store.isOldestForcedInclusionDue(deadline));
-        
+
         // Due after the deadline
         assertTrue(store.isOldestForcedInclusionDue(deadline + 1));
     }
@@ -404,14 +395,11 @@ contract ForcedInclusionStoreTest is ForcedInclusionStoreTestBase {
         // Create a summary with wrong nextBatchId
         IInbox.Summary memory invalidSummary = _createSummary(200);
         uint256 fee = store.feeInGwei() * 1 gwei;
-        
+
         vm.prank(Alice);
         vm.expectRevert(bytes("Invalid summary"));
         store.storeForcedInclusion{ value: fee }(
-            DEFAULT_BLOB_INDEX,
-            DEFAULT_BLOB_OFFSET,
-            DEFAULT_BLOB_SIZE,
-            invalidSummary
+            DEFAULT_BLOB_INDEX, DEFAULT_BLOB_OFFSET, DEFAULT_BLOB_SIZE, invalidSummary
         );
     }
 }
