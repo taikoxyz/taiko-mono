@@ -675,9 +675,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 					}
 				}
 				if s.latestSeenProposal != nil {
-					s.mutex.Lock()
 					tip := s.latestSeenProposal.Pacaya().GetLastBlockID()
-					s.mutex.Unlock()
 					if tip >= requestSyncMargin && parentNum <= tip-requestSyncMargin {
 						log.Debug("Skipping request for very old block",
 							"tip", tip,
