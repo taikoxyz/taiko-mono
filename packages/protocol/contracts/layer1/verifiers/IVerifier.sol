@@ -19,3 +19,10 @@ interface IVerifier {
     /// @param _proof The batch proof to verify.
     function verifyProof(Context[] calldata _ctxs, bytes calldata _proof) external;
 }
+
+interface IVerifier2 {
+    /// @notice Verifies multiple proofs. This function must throw if the proof cannot be verified.
+    /// @param aggregatedProvingHash The hash of the context for the proof verifications.
+    /// @param _proof The batch proof to verify.
+    function verifyProof(bytes32 aggregatedProvingHash, bytes calldata _proof) external;
+}

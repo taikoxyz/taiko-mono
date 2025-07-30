@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/libs/LibNetwork.sol";
@@ -28,7 +27,7 @@ import "./IProposeBatch.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
+abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
     using LibMath for uint256;
     using LibVerification for ITaikoInbox.State;
     using SafeERC20 for IERC20;
@@ -538,11 +537,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     /// @inheritdoc IBondManager
     function v4BondBalanceOf(address _user) external view returns (uint256) {
         return state.bondBalance[_user];
-    }
-
-    /// @inheritdoc ITaiko
-    function v4IsInbox() external pure override returns (bool) {
-        return true;
     }
 
     // Public functions -------------------------------------------------------------------------
