@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   build-and-test:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     uses: ./.github/workflows/bridge-ui--ci.yml
 
   # Deployment name follow the pattern: deploy_<appname(bridge-ui)>_<network(devnet|hekla|mainnet)>_<environment(preview|production)>
@@ -41,7 +41,7 @@ jobs:
 
   # Hekla testnet
   deploy_bridge-ui_hekla_preview:
-    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' }}
+    if: ${{ github.event.pull_request.draft == false  && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     needs: build-and-test
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:
@@ -66,7 +66,7 @@ jobs:
 
   # Mainnet
   deploy_bridge-ui_mainnet_preview:
-    if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') && github.actor != 'dependabot[bot]' }}
+    if: ${{ github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please') && !startsWith(github.head_ref, 'dependabot') }}
     needs: build-and-test
     uses: ./.github/workflows/repo--vercel-deploy.yml
     with:

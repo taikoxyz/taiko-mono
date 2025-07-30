@@ -19,10 +19,6 @@ contract PrankTaikoInbox {
     function v4GetBatch(uint64) external view returns (ITaikoInbox.Batch memory) {
         return batch;
     }
-
-    function v4IsInbox() external pure returns (bool) {
-        return true;
-    }
 }
 
 // PrankDestBridge lets us simulate a transaction to the ERC20Vault

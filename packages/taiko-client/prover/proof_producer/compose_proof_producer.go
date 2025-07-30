@@ -34,7 +34,7 @@ type ComposeProofProducer struct {
 	Verifiers           map[ProofType]common.Address
 	RaikoHostEndpoint   string
 	RaikoRequestTimeout time.Duration
-	JWT                 string // JWT provided by Raiko
+	ApiKey              string // ApiKey provided by Raiko
 	SgxGethProducer     *SgxGethProofProducer
 	ProofType           ProofType
 	Dummy               bool
@@ -62,21 +62,13 @@ func (s *ComposeProofProducer) RequestProof(
 	)
 
 	var (
-		proof     []byte
-		proofType ProofType
-		batches   = []*RaikoBatches{{BatchID: batchID, L1InclusionBlockNumber: meta.GetRawBlockHeight()}}
-		g         = new(errgroup.Group)
+		proof          []byte
+		proofType      ProofType
+		batches        = []*RaikoBatches{{BatchID: batchID, L1InclusionBlockNumber: meta.GetRawBlockHeight()}}
+		g              = new(errgroup.Group)
+		rethProofError error
 	)
 
-	g.Go(func() error {
-		if _, err := s.SgxGethProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
-			return err
-		} else {
-			// Note: we mark the `IsGethProofGenerated` with true to record if it is first time generated
-			opts.PacayaOptions().IsGethProofGenerated = true
-			return nil
-		}
-	})
 	g.Go(func() error {
 		if s.Dummy {
 			proofType = s.ProofType
@@ -95,6 +87,7 @@ func (s *ComposeProofProducer) RequestProof(
 				requestAt,
 				opts.PacayaOptions().IsRethProofGenerated,
 			); err != nil {
+				rethProofError = err
 				return err
 			} else {
 				proofType = resp.ProofType
@@ -109,8 +102,18 @@ func (s *ComposeProofProducer) RequestProof(
 		return nil
 	})
 
+	g.Go(func() error {
+		if _, err := s.SgxGethProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
+			return err
+		} else {
+			// Note: we mark the `IsGethProofGenerated` with true to record if it is the first time generated
+			opts.PacayaOptions().IsGethProofGenerated = true
+			return nil
+		}
+	})
+
 	if err := g.Wait(); err != nil {
-		return nil, fmt.Errorf("failed to get batches proofs: %w", err)
+		return nil, fmt.Errorf("failed to get batches proofs: %w and %w", err, rethProofError)
 	}
 
 	return &ProofResponse{
@@ -225,7 +228,7 @@ func (s *ComposeProofProducer) requestBatchProof(
 	output, err := requestHTTPProof[RaikoRequestProofBodyV3Pacaya, RaikoRequestProofBodyResponseV2](
 		ctx,
 		s.RaikoHostEndpoint+"/v3/proof/batch",
-		s.JWT,
+		s.ApiKey,
 		RaikoRequestProofBodyV3Pacaya{
 			Type:      proofType,
 			Batches:   batches,

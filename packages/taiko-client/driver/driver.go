@@ -128,6 +128,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		); err != nil {
 			return err
 		}
+		log.Info("Preconf Operator Address", "PreconfOperatorAddress", d.PreconfOperatorAddress)
 
 		// Enable P2P network for preconfirmation block propagation.
 		if cfg.P2PConfigs != nil && !cfg.P2PConfigs.DisableP2P {
@@ -458,7 +459,7 @@ func (d *Driver) cacheLookaheadLoop() {
 		// once per epoch, since we push the next operator as the current range when we check.
 		// so, this means we should use a reliable slot past 0 where the operator has no possible
 		// way to change. mid-epooch works, so we use slot 16.
-		if lookahead == nil || lookahead.LastEpochUpdated < currentEpoch && slotInEpoch >= 2 {
+		if lookahead == nil || slotInEpoch >= 2 {
 			if currOp == d.PreconfOperatorAddress && nextOp == d.PreconfOperatorAddress {
 				log.Info(
 					"Pushing into window for current epoch as current and next operator",

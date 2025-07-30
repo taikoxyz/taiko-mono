@@ -47,6 +47,6 @@ jobs:
         run: pnpm layout &&  pnpm lint:sol
 
       - name: Commit contract layout table
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v6
         with:
           commit_message: "forge fmt & update contract layout table"

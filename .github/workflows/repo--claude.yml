@@ -1,0 +1,84 @@
+name: Claude Code
+# https://docs.anthropic.com/en/docs/claude-code/github-actions
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude:
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    runs-on: [arc-runner-set]
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+  
+      - name: Verify Node.js installation
+        run: |
+          echo "Node.js location:"
+          which node || echo "Node not found in PATH"
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@beta
+        env:
+          CLAUDE_CODE_MAX_OUTPUT_TOKENS: "30000"   # any safe value < 32000 to avoid reaching token limit
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          
+          # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
+          # model: "claude-opus-4-20250514"
+
+          # Optional: Customize the trigger phrase (default: @claude)
+          # trigger_phrase: "/claude"
+          
+          # Optional: Trigger when specific user is assigned to an issue
+          # assignee_trigger: "claude-bot"
+          
+          # Allow Claude to run specific commands
+          allowed_tools: |
+            mcp__github__create_pull_request
+            Bash(pnpm install)
+            Bash(pnpm test:*)
+            Bash(pnpm fmt:sol)
+            Bash(pnpm snapshot:*)
+            Bash(pnpm compile:*)
+            Bash(pnpm layout:*)
+            Bash(cat *)
+            Bash(find *)
+            Bash(grep *)
+            Bash(ls *)
+            WebFetch(domain:docs.anthropic.com)
+          
+          # Add custom instructions for Claude to customize its behavior for your project
+          custom_instructions: |
+            For protocol(smart contract) changes always start in the `packages/protocol` directory.
+            You MUST run `pnpm install` first.
+            You MUST follow the development workflow described in CLAUDE.md.
+            You MUST make sure the tests are passing before creating a pull request.
+            You MUST open a draft pull request after creating a branch.
+            You MUST create a pull request after completing your task.
+            You can create pull requests using the `mcp__github__create_pull_request` tool.
+

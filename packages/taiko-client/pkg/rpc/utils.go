@@ -116,7 +116,7 @@ type BatchProofStatus struct {
 	ParentHeader *types.Header
 }
 
-// GetBatchesProofStatus checks whether the L2 blocks batch still needs a new proof.
+// GetBatchProofStatus checks whether the L2 blocks batch still needs a new proof.
 // Here are the possible status:
 // 1. No proof on chain at all.
 // 2. An invalid proof has been submitted.

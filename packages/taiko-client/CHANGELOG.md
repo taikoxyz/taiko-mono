@@ -1,5 +1,63 @@
 # Changelog
 
+## [1.8.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.7.0...taiko-alethia-client-v1.8.0) (2025-07-25)
+
+
+### Features
+
+* **taiko-client:** add proof generation time sum metrics ([#19781](https://github.com/taikoxyz/taiko-mono/issues/19781)) ([4d2d404](https://github.com/taikoxyz/taiko-mono/commit/4d2d40464c02201d3a0f0fcdbf2295fa89edd670))
+* **taiko-client:** cache lookahead every l1 block ([#19785](https://github.com/taikoxyz/taiko-mono/issues/19785)) ([82c9308](https://github.com/taikoxyz/taiko-mono/commit/82c9308e8b30b3995608b23afb99b760b83513f6))
+
+
+### Bug Fixes
+
+* **taiko-client:** change to use `returnError` for some errors in `BuildPreconfBlock` ([#19753](https://github.com/taikoxyz/taiko-mono/issues/19753)) ([60320bc](https://github.com/taikoxyz/taiko-mono/commit/60320bcc1174c671e2efff431c891b6f4bea713f))
+
+
+### Code Refactoring
+
+* **taiko-client:** introduce `tryPutEnvelopeIntoCache` to reduce duplicated code ([#19769](https://github.com/taikoxyz/taiko-mono/issues/19769)) ([fb454b1](https://github.com/taikoxyz/taiko-mono/commit/fb454b19da004c00fe4c6cb8d731b16db4e14664))
+
+## [1.7.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.6.3...taiko-alethia-client-v1.7.0) (2025-07-18)
+
+
+### Features
+
+* **protocol:** allow operators to register a new address(sequencer) ([#19722](https://github.com/taikoxyz/taiko-mono/issues/19722)) ([01cc55a](https://github.com/taikoxyz/taiko-mono/commit/01cc55acdcf8f933de92dc2ee1cd497abf15d542))
+* **taiko-client:** add domain envelope type, update l1Origin with signature and forced inclusion marker ([#19719](https://github.com/taikoxyz/taiko-mono/issues/19719)) ([ee54a9d](https://github.com/taikoxyz/taiko-mono/commit/ee54a9dfee692106809ee7d21824bfef6027a720))
+* **taiko-client:** introduce api key for raiko ([#19732](https://github.com/taikoxyz/taiko-mono/issues/19732)) ([2962e23](https://github.com/taikoxyz/taiko-mono/commit/2962e2341457c85fb91f1922c9f9801bd9258ff0))
+* **taiko-client:** set highest unsafe l2 payload to latest head on server startup in driver ([#19696](https://github.com/taikoxyz/taiko-mono/issues/19696)) ([16ef25d](https://github.com/taikoxyz/taiko-mono/commit/16ef25d141f27bc4bc991e946c7ac9a63a1fef21))
+
+
+### Bug Fixes
+
+* **taiko-client:** should use blockID to get L1 origin ([#19713](https://github.com/taikoxyz/taiko-mono/issues/19713)) ([526018d](https://github.com/taikoxyz/taiko-mono/commit/526018d992e127e7feabd0b68412387b792ef3ad))
+* **taiko-client:** update L1 origin of parent if the block is building on a orphaned parent ([#19701](https://github.com/taikoxyz/taiko-mono/issues/19701)) ([6632b6d](https://github.com/taikoxyz/taiko-mono/commit/6632b6d318e0501ec88f33e3a6f904b0ce02cf65))
+
+
+### Chores
+
+* fix some minor issues in comments ([#19740](https://github.com/taikoxyz/taiko-mono/issues/19740)) ([e39f4db](https://github.com/taikoxyz/taiko-mono/commit/e39f4db8406c0ec5f6ac383f32d9126cdb099ec4))
+* **taiko-client:** fix some function names in comment ([#19724](https://github.com/taikoxyz/taiko-mono/issues/19724)) ([3c1d2cb](https://github.com/taikoxyz/taiko-mono/commit/3c1d2cbddd137354773e981a9f80929bc0cb9a57))
+* **taiko-client:** rename `payload` to `envelope` ([#19752](https://github.com/taikoxyz/taiko-mono/issues/19752)) ([3df3a1e](https://github.com/taikoxyz/taiko-mono/commit/3df3a1e8d3f6eca6f02f0b32a79420168a3277e1))
+
+
+### Tests
+
+* **taiko-client:** remove the dependency of `debug_setHead` for better node implementations diversity support ([#19721](https://github.com/taikoxyz/taiko-mono/issues/19721)) ([958f2ac](https://github.com/taikoxyz/taiko-mono/commit/958f2ac50be2021b2456b6f6d3f8d1583cda980d))
+
+## [1.6.3](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.6.2...taiko-alethia-client-v1.6.3) (2025-06-26)
+
+
+### Bug Fixes
+
+* **taiko-client:** handle reorg case when getting blobs ([#19660](https://github.com/taikoxyz/taiko-mono/issues/19660)) ([aeb9ddc](https://github.com/taikoxyz/taiko-mono/commit/aeb9ddca5c264581ebc409f64c29a300521d6725))
+
+
+### Chores
+
+* **taiko-client:** make function comment match function name ([#19649](https://github.com/taikoxyz/taiko-mono/issues/19649)) ([30bde71](https://github.com/taikoxyz/taiko-mono/commit/30bde714f9a8cd296d586d6a9da09222dbf41ab5))
+
 ## [1.6.2](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.6.1...taiko-alethia-client-v1.6.2) (2025-06-05)
 
 

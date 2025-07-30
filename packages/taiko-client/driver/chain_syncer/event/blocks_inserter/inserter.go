@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -26,6 +25,7 @@ import (
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -271,26 +271,26 @@ func (i *BlocksInserter) InsertBlocks(
 	return nil
 }
 
-// InsertPreconfBlocksFromExecutionPayloads inserts preconfirmation blocks from the given execution payloads.
-func (i *BlocksInserter) InsertPreconfBlocksFromExecutionPayloads(
+// InsertPreconfBlocksFromEnvelopes inserts preconfirmation blocks from the given envelopes.
+func (i *BlocksInserterPacaya) InsertPreconfBlocksFromEnvelopes(
 	ctx context.Context,
-	executionPayloads []*eth.ExecutionPayload,
+	envelopes []*preconf.Envelope,
 	fromCache bool,
 ) ([]*types.Header, error) {
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
 	log.Debug(
-		"Insert preconfirmation blocks from execution payloads",
-		"numBlocks", len(executionPayloads),
+		"Insert preconfirmation blocks from envelopes",
+		"numBlocks", len(envelopes),
 		"fromCache", fromCache,
 	)
 
-	headers := make([]*types.Header, len(executionPayloads))
-	for j, executableData := range executionPayloads {
-		header, err := i.insertPreconfBlockFromExecutionPayload(ctx, executableData)
+	headers := make([]*types.Header, len(envelopes))
+	for j, envelope := range envelopes {
+		header, err := i.insertPreconfBlockFromEnvelope(ctx, envelope)
 		if err != nil {
-			return nil, fmt.Errorf("failed to insert preconfirmation block %d: %w", executableData.BlockNumber, err)
+			return nil, fmt.Errorf("failed to insert preconfirmation block %d: %w", envelope.Payload.BlockNumber, err)
 		}
 		log.Info(
 			"⏰ New preconfirmation L2 block inserted",
@@ -311,19 +311,25 @@ func (i *BlocksInserter) InsertPreconfBlocksFromExecutionPayloads(
 	return headers, nil
 }
 
-// insertPreconfBlockFromExecutionPayload the inner method to insert a preconfirmation block from
-// the given execution payload.
-func (i *BlocksInserter) insertPreconfBlockFromExecutionPayload(
+// insertPreconfBlockFromEnvelope the inner method to insert a preconfirmation block from
+// the given envelope.
+func (i *BlocksInserterPacaya) insertPreconfBlockFromEnvelope(
 	ctx context.Context,
-	executableData *eth.ExecutionPayload,
+	envelope *preconf.Envelope,
 ) (*types.Header, error) {
+	var signature [65]byte
+	if envelope.Signature != nil {
+		signature = *envelope.Signature
+	}
+
 	log.Debug(
-		"Inserting preconfirmation block from execution payload",
-		"blockID", uint64(executableData.BlockNumber),
-		"blockHash", executableData.BlockHash,
-		"parentHash", executableData.ParentHash,
-		"timestamp", executableData.Timestamp,
-		"feeRecipient", executableData.FeeRecipient,
+		"Inserting preconfirmation block from execution payload envelope",
+		"blockID", uint64(envelope.Payload.BlockNumber),
+		"blockHash", envelope.Payload.BlockHash,
+		"parentHash", envelope.Payload.ParentHash,
+		"timestamp", envelope.Payload.Timestamp,
+		"feeRecipient", envelope.Payload.FeeRecipient,
+		"signature", common.Bytes2Hex(signature[:]),
 	)
 
 	// Ensure the preconfirmation block number is greater than the current head L1 origin block ID.
@@ -334,51 +340,51 @@ func (i *BlocksInserter) insertPreconfBlockFromExecutionPayload(
 
 	// When the chain only has the genesis block, we shall skip this check.
 	if headL1Origin != nil {
-		if uint64(executableData.BlockNumber) <= headL1Origin.BlockID.Uint64() {
+		if uint64(envelope.Payload.BlockNumber) <= headL1Origin.BlockID.Uint64() {
 			return nil, fmt.Errorf(
 				"preconfirmation block ID (%d, %s) is less than or equal to the current head L1 origin block ID (%d)",
-				executableData.BlockNumber,
-				executableData.BlockHash,
+				envelope.Payload.BlockNumber,
+				envelope.Payload.BlockHash,
 				headL1Origin.BlockID,
 			)
 		}
 
-		ok, err := i.IsBasedOnCanonicalChain(ctx, executableData, headL1Origin)
+		ok, err := i.IsBasedOnCanonicalChain(ctx, envelope, headL1Origin)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"failed to check if preconfirmation block (%d, %s) is in canonical chain: %w",
-				executableData.BlockNumber,
-				executableData.BlockHash,
+				envelope.Payload.BlockNumber,
+				envelope.Payload.BlockHash,
 				err,
 			)
 		}
 		if !ok {
 			return nil, fmt.Errorf(
 				"preconfirmation block (%d, %s) is not in the canonical chain, head L1 origin: (%d, %s)",
-				executableData.BlockNumber,
-				executableData.BlockHash,
+				envelope.Payload.BlockNumber,
+				envelope.Payload.BlockHash,
 				headL1Origin.BlockID,
 				headL1Origin.L2BlockHash,
 			)
 		}
 	}
 
-	if len(executableData.Transactions) == 0 {
+	if len(envelope.Payload.Transactions) == 0 {
 		return nil, fmt.Errorf("no transactions data in the payload")
 	}
 
 	// Decompress the transactions list.
-	decompressedTxs, err := utils.Decompress(executableData.Transactions[0])
+	decompressedTxs, err := utils.Decompress(envelope.Payload.Transactions[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to decompress transactions list bytes: %w", err)
 	}
 	var (
 		txListHash = crypto.Keccak256Hash(decompressedTxs)
 		args       = &miner.BuildPayloadArgs{
-			Parent:       executableData.ParentHash,
-			Timestamp:    uint64(executableData.Timestamp),
-			FeeRecipient: executableData.FeeRecipient,
-			Random:       common.Hash(executableData.PrevRandao),
+			Parent:       envelope.Payload.ParentHash,
+			Timestamp:    uint64(envelope.Payload.Timestamp),
+			FeeRecipient: envelope.Payload.FeeRecipient,
+			Random:       common.Hash(envelope.Payload.PrevRandao),
 			Withdrawals:  make([]*types.Withdrawal, 0),
 			Version:      engine.PayloadV2,
 			TxListHash:   &txListHash,
@@ -387,34 +393,38 @@ func (i *BlocksInserter) insertPreconfBlockFromExecutionPayload(
 
 	payloadID := args.Id()
 
+	var u256BaseFee = uint256.Int(envelope.Payload.BaseFeePerGas)
+
 	log.Debug(
 		"Payload arguments",
-		"blockID", uint64(executableData.BlockNumber),
+		"blockID", uint64(envelope.Payload.BlockNumber),
 		"parent", args.Parent.Hex(),
 		"timestamp", args.Timestamp,
 		"feeRecipient", args.FeeRecipient.Hex(),
 		"random", args.Random.Hex(),
 		"txListHash", args.TxListHash.Hex(),
 		"id", payloadID.String(),
+		"signature", common.Bytes2Hex(signature[:]),
 	)
 
-	var u256BaseFee = uint256.Int(executableData.BaseFeePerGas)
 	payload, err := createExecutionPayloadsAndSetHead(
 		ctx,
 		i.rpc,
 		&createExecutionPayloadsMetaData{
-			BlockID:               new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
-			ExtraData:             executableData.ExtraData,
-			SuggestedFeeRecipient: executableData.FeeRecipient,
-			GasLimit:              uint64(executableData.GasLimit),
-			Difficulty:            common.Hash(executableData.PrevRandao),
-			Timestamp:             uint64(executableData.Timestamp),
-			ParentHash:            executableData.ParentHash,
+			BlockID:               new(big.Int).SetUint64(uint64(envelope.Payload.BlockNumber)),
+			ExtraData:             envelope.Payload.ExtraData,
+			SuggestedFeeRecipient: envelope.Payload.FeeRecipient,
+			GasLimit:              uint64(envelope.Payload.GasLimit),
+			Difficulty:            common.Hash(envelope.Payload.PrevRandao),
+			Timestamp:             uint64(envelope.Payload.Timestamp),
+			ParentHash:            envelope.Payload.ParentHash,
 			L1Origin: &rawdb.L1Origin{
-				BlockID:            new(big.Int).SetUint64(uint64(executableData.BlockNumber)),
+				BlockID:            new(big.Int).SetUint64(uint64(envelope.Payload.BlockNumber)),
 				L2BlockHash:        common.Hash{}, // Will be set by taiko-geth.
 				L1BlockHeight:      nil,
 				L1BlockHash:        common.Hash{},
+				Signature:          signature,
+				IsForcedInclusion:  envelope.IsForcedInclusion,
 				BuildPayloadArgsID: payloadID,
 			},
 			BaseFee:     u256BaseFee.ToBig(),
@@ -426,7 +436,7 @@ func (i *BlocksInserter) insertPreconfBlockFromExecutionPayload(
 		return nil, fmt.Errorf("failed to create execution data: %w", err)
 	}
 
-	metrics.DriverL2PreconfHeadHeightGauge.Set(float64(executableData.BlockNumber))
+	metrics.DriverL2PreconfHeadHeightGauge.Set(float64(envelope.Payload.BlockNumber))
 
 	return i.rpc.L2.HeaderByHash(ctx, payload.BlockHash)
 }
@@ -434,22 +444,22 @@ func (i *BlocksInserter) insertPreconfBlockFromExecutionPayload(
 // IsBasedOnCanonicalChain checks if the given executable data is based on the canonical chain.
 func (i *BlocksInserter) IsBasedOnCanonicalChain(
 	ctx context.Context,
-	executableData *eth.ExecutionPayload,
+	envelope *preconf.Envelope,
 	headL1Origin *rawdb.L1Origin,
 ) (bool, error) {
-	canonicalParent, err := i.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(executableData.BlockNumber-1)))
+	canonicalParent, err := i.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(envelope.Payload.BlockNumber-1)))
 	if err != nil && !errors.Is(err, ethereum.NotFound) {
 		return false, fmt.Errorf("failed to fetch canonical parent block: %w", err)
 	}
 	// If the parent hash of the executable data matches the canonical parent block hash, it is in the canonical chain.
-	if canonicalParent != nil && canonicalParent.Hash() == executableData.ParentHash {
+	if canonicalParent != nil && canonicalParent.Hash() == envelope.Payload.ParentHash {
 		return true, nil
 	}
 
 	// Otherwise, we try to connect the L2 ancient blocks to the L2 block in current L1 head Origin.
-	currentParent, err := i.rpc.L2.HeaderByHash(ctx, executableData.ParentHash)
+	currentParent, err := i.rpc.L2.HeaderByHash(ctx, envelope.Payload.ParentHash)
 	if err != nil {
-		return false, fmt.Errorf("failed to fetch current parent block (%s): %w", executableData.ParentHash, err)
+		return false, fmt.Errorf("failed to fetch current parent block (%s): %w", envelope.Payload.ParentHash, err)
 	}
 	for currentParent.Number.Cmp(headL1Origin.BlockID) > 0 {
 		if currentParent, err = i.rpc.L2.HeaderByHash(ctx, currentParent.ParentHash); err != nil {
@@ -462,9 +472,9 @@ func (i *BlocksInserter) IsBasedOnCanonicalChain(
 
 	log.Debug(
 		"Check if block is based on canonical chain",
-		"blockID", uint64(executableData.BlockNumber),
-		"blockHash", executableData.BlockHash,
-		"parentHash", executableData.ParentHash,
+		"blockID", uint64(envelope.Payload.BlockNumber),
+		"blockHash", envelope.Payload.BlockHash,
+		"parentHash", envelope.Payload.ParentHash,
 		"headL1OriginBlockID", headL1Origin.BlockID,
 		"isBasedOnCanonicalChain", isBasedOnCanonicalChain,
 	)

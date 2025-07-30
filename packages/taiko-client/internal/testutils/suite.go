@@ -6,14 +6,19 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -25,6 +30,7 @@ import (
 type ClientTestSuite struct {
 	suite.Suite
 	testnetL1SnapshotID string
+	once                sync.Once
 	RPCClient           *rpc.Client
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
@@ -86,7 +92,12 @@ func (s *ClientTestSuite) SetupTest() {
 		s.depositProverSetTokens(ownerPrivKey)
 	}
 
-	s.testnetL1SnapshotID = s.SetL1Snapshot()
+	// At the beginning of each test, we ensure the L2 chain has been reset to the base block (height: 1).
+	s.once.Do(func() {
+		s.testnetL1SnapshotID = s.SetL1Snapshot()
+		s.resetToBaseBlock(l1ProposerPrivKey)
+	})
+
 	s.BlobServer = NewMemoryBlobServer()
 }
 
@@ -239,10 +250,73 @@ func (s *ClientTestSuite) KeyFromEnv(envName string) *ecdsa.PrivateKey {
 
 func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
-	s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big0))
-	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big0)
+	s.testnetL1SnapshotID = s.SetL1Snapshot()
+	s.resetToBaseBlock(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY"))
+	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big1)
 	s.Nil(err)
 	s.BlobServer.Close()
+}
+
+func (s *ClientTestSuite) TearDownSuite() {
+	s.RevertL1Snapshot(s.testnetL1SnapshotID)
+}
+
+func (s *ClientTestSuite) SetHead(headNum *big.Int) {
+	// For geth node, we can set the head directly.
+	if os.Getenv("L2_NODE") == "l2_geth" {
+		s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, headNum))
+		return
+	}
+
+	// For other nodes, we need to use the engine API to set the head instead,
+	// to reset the chain head to a block which is already in the canonical chain,
+	// we need to fork the chain to a block with different attributes at the same height
+	// at first, then set the canonical head to the block we want.
+	block, err := s.RPCClient.L2.BlockByNumber(context.Background(), headNum)
+	s.Nil(err)
+
+	l1Origin, err := s.RPCClient.L2.L1OriginByID(context.Background(), block.Number())
+	s.Nil(err)
+
+	b, err := rlp.EncodeToBytes(block.Transactions())
+	s.Nil(err)
+
+	originalCoinbase := block.Coinbase()
+	attributes := &engine.PayloadAttributes{
+		Timestamp:             block.Time(),
+		Random:                block.MixDigest(),
+		SuggestedFeeRecipient: originalCoinbase,
+		Withdrawals:           []*types.Withdrawal{},
+		BlockMetadata: &engine.BlockMetadata{
+			Beneficiary: block.Coinbase(),
+			GasLimit:    block.GasLimit(),
+			Timestamp:   block.Time(),
+			TxList:      b,
+			MixHash:     block.MixDigest(),
+			ExtraData:   block.Extra(),
+		},
+		BaseFeePerGas: block.BaseFee(),
+		L1Origin: &rawdb.L1Origin{
+			BlockID:            block.Number(),
+			L1BlockHeight:      l1Origin.L1BlockHeight,
+			L2BlockHash:        common.Hash{},
+			L1BlockHash:        l1Origin.L1BlockHash,
+			BuildPayloadArgsID: [8]byte{},
+		},
+	}
+	// Set the chain head to a block with different attributes at first.
+	attributes.SuggestedFeeRecipient = common.HexToAddress(RandomHash().Hex())
+	attributes.BlockMetadata.Beneficiary = attributes.SuggestedFeeRecipient
+	s.forkTo(attributes, block.ParentHash())
+
+	// Set the chain head back to the block we want.
+	attributes.SuggestedFeeRecipient = originalCoinbase
+	attributes.BlockMetadata.Beneficiary = originalCoinbase
+	s.forkTo(attributes, block.ParentHash())
+
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(block.Hash(), head.Hash())
 }
 
 func (s *ClientTestSuite) SetL1Automine(automine bool) {
@@ -280,4 +354,33 @@ func (s *ClientTestSuite) RevertL1Snapshot(snapshotID string) {
 	var revertRes bool
 	s.Nil(s.RPCClient.L1.CallContext(context.Background(), &revertRes, "evm_revert", snapshotID))
 	s.True(revertRes)
+}
+
+func (s *ClientTestSuite) forkTo(attributes *engine.PayloadAttributes, parentHash common.Hash) {
+	fcRes, err := s.RPCClient.L2Engine.ForkchoiceUpdate(
+		context.Background(),
+		&engine.ForkchoiceStateV1{HeadBlockHash: parentHash},
+		attributes,
+	)
+	s.Nil(err)
+	s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
+	s.NotNil(fcRes.PayloadID)
+
+	payload, err := s.RPCClient.L2Engine.GetPayload(context.Background(), fcRes.PayloadID)
+	s.Nil(err)
+
+	execStatus, err := s.RPCClient.L2Engine.NewPayload(context.Background(), payload)
+	s.Nil(err)
+	s.Equal(engine.VALID, execStatus.Status)
+
+	fc := &engine.ForkchoiceStateV1{HeadBlockHash: payload.BlockHash}
+
+	fcRes, err = s.RPCClient.L2Engine.ForkchoiceUpdate(context.Background(), fc, nil)
+	s.Nil(err)
+	s.Equal(engine.VALID, fcRes.PayloadStatus.Status)
+
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+
+	s.Equal(attributes.L1Origin.BlockID.Uint64(), head.Number.Uint64())
 }

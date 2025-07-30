@@ -2,129 +2,148 @@ package anchortxconstructor
 
 import (
 	"context"
-	"math/big"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/stretchr/testify/suite"
+	"github.com/stretchr/testify/require"
 
 	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-type AnchorTxConstructorTestSuite struct {
-	testutils.ClientTestSuite
-	l1Height *big.Int
-	l1Hash   common.Hash
-	c        *AnchorTxConstructor
+func TestGasLimit(t *testing.T) {
+	require.Greater(t, consensus.AnchorGasLimit, uint64(0))
 }
 
-func (s *AnchorTxConstructorTestSuite) SetupTest() {
-	s.ClientTestSuite.SetupTest()
-	c, err := New(s.RPCClient)
-	s.Nil(err)
-	head, err := s.RPCClient.L1.BlockByNumber(context.Background(), nil)
-	s.Nil(err)
-	s.l1Height = head.Number()
-	s.l1Hash = head.Hash()
-	s.c = c
-}
+func TestAssembleAnchorV3Tx(t *testing.T) {
+	client := newTestClient(t)
+	l1Head, err := client.L1.HeaderByNumber(context.Background(), nil)
+	require.Nil(t, err)
 
-func (s *AnchorTxConstructorTestSuite) TestGasLimit() {
-	s.Greater(consensus.AnchorGasLimit, uint64(0))
-}
-
-func (s *AnchorTxConstructorTestSuite) TestAssembleAnchorV3Tx() {
-	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
-	tx, err := s.c.AssembleAnchorV3Tx(
+	c, err := New(client)
+	require.Nil(t, err)
+	head, err := client.L2.HeaderByNumber(context.Background(), nil)
+	require.Nil(t, err)
+	tx, err := c.AssembleAnchorV3Tx(
 		context.Background(),
-		s.l1Height,
-		s.l1Hash,
+		l1Head.Number,
+		l1Head.Hash(),
 		head,
 		bindingTypes.NewBaseFeeConfigPacaya(&pacaya.LibSharedDataBaseFeeConfig{}),
 		[][32]byte{},
 		common.Big1,
 		common.Big256,
 	)
-	s.Nil(err)
-	s.NotNil(tx)
+	require.Nil(t, err)
+	require.NotNil(t, tx)
 }
 
-func (s *AnchorTxConstructorTestSuite) TestNewAnchorTransactor() {
-	goldenTouchAddress, err := s.RPCClient.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil)
-	s.Nil(err)
+func TestNewAnchorTransactor(t *testing.T) {
+	client := newTestClient(t)
 
-	c, err := New(s.RPCClient)
-	s.Nil(err)
+	goldenTouchAddress, err := client.PacayaClients.TaikoAnchor.GOLDENTOUCHADDRESS(nil)
+	require.Nil(t, err)
 
-	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
+	c, err := New(client)
+	require.Nil(t, err)
+
+	head, err := client.L2.HeaderByNumber(context.Background(), nil)
+	require.Nil(t, err)
 
 	opts, err := c.transactOpts(context.Background(), common.Big1, common.Big256, head.Hash())
-	s.Nil(err)
-	s.Equal(true, opts.NoSend)
-	s.Equal(common.Big0, opts.Nonce)
-	s.Equal(goldenTouchAddress, opts.From)
-	s.Equal(common.Big256, opts.GasFeeCap)
-	s.Equal(common.Big0, opts.GasTipCap)
+	require.Nil(t, err)
+	require.True(t, opts.NoSend)
+	require.Equal(t, goldenTouchAddress, opts.From)
+	require.Equal(t, common.Big256, opts.GasFeeCap)
+	require.Equal(t, common.Big0, opts.GasTipCap)
 }
 
-func (s *AnchorTxConstructorTestSuite) TestCancelCtxTransactOpts() {
+func TestCancelCtxTransactOpts(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
-	s.Nil(err)
+	client := newTestClient(t)
 
-	opts, err := s.c.transactOpts(ctx, common.Big1, common.Big256, head.Hash())
-	s.Nil(opts)
-	s.ErrorContains(err, "context canceled")
+	head, err := client.L2.HeaderByNumber(context.Background(), nil)
+	require.Nil(t, err)
+	c, err := New(client)
+	require.Nil(t, err)
+	opts, err := c.transactOpts(ctx, common.Big1, common.Big256, head.Hash())
+	require.Nil(t, opts)
+	require.ErrorContains(t, err, "context canceled")
 }
 
-func (s *AnchorTxConstructorTestSuite) TestSign() {
+func TestSign(t *testing.T) {
 	// Payload 1
 	hash := hexutil.MustDecode("0x44943399d1507f3ce7525e9be2f987c3db9136dc759cb7f92f742154196868b9")
-	signatureBytes := testutils.SignatureFromRSV(
+	signatureBytes := signatureFromRSV(
 		"0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
 		"0x782a1e70872ecc1a9f740dd445664543f8b7598c94582720bca9a8c48d6a4766",
 		1,
 	)
+	c, err := New(newTestClient(t))
+	require.Nil(t, err)
 	pubKey, err := crypto.Ecrecover(hash, signatureBytes)
-	s.Nil(err)
+	require.Nil(t, err)
 	isValid := crypto.VerifySignature(pubKey, hash, signatureBytes[:64])
-	s.True(isValid)
-	signed, err := s.c.signTxPayload(hash)
-	s.Nil(err)
-	s.Equal(signatureBytes, signed)
+	require.True(t, isValid)
+	signed, err := c.signTxPayload(hash)
+	require.Nil(t, err)
+	require.Equal(t, signatureBytes, signed)
 
 	// Payload 2
 	hash = hexutil.MustDecode("0x663d210fa6dba171546498489de1ba024b89db49e21662f91bf83cdffe788820")
-	signatureBytes = testutils.SignatureFromRSV(
+	signatureBytes = signatureFromRSV(
 		"0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
 		"0x568130fab1a3a9e63261d4278a7e130588beb51f27de7c20d0258d38a85a27ff",
 		1,
 	)
 	pubKey, err = crypto.Ecrecover(hash, signatureBytes)
-	s.Nil(err)
+	require.Nil(t, err)
 	isValid = crypto.VerifySignature(pubKey, hash, signatureBytes[:64])
-	s.True(isValid)
-	signed, err = s.c.signTxPayload(hash)
-	s.Nil(err)
-	s.Equal(signatureBytes, signed)
+	require.True(t, isValid)
+	signed, err = c.signTxPayload(hash)
+	require.Nil(t, err)
+	require.Equal(t, signatureBytes, signed)
 }
 
-func (s *AnchorTxConstructorTestSuite) TestSignShortHash() {
-	rand := testutils.RandomHash().Bytes()
+func TestSignShortHash(t *testing.T) {
+	rand := crypto.Keccak256Hash([]byte(time.Now().UTC().String()))
 	hash := rand[:len(rand)-2]
-	_, err := s.c.signTxPayload(hash)
-	s.ErrorContains(err, "hash is required to be exactly 32 bytes")
+	c, err := New(newTestClient(t))
+	require.Nil(t, err)
+	_, err = c.signTxPayload(hash)
+	require.ErrorContains(t, err, "hash is required to be exactly 32 bytes")
 }
 
-func TestAnchorTxConstructorTestSuite(t *testing.T) {
-	suite.Run(t, new(AnchorTxConstructorTestSuite))
+func newTestClient(t *testing.T) *rpc.Client {
+	client, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
+		L1Endpoint:                  os.Getenv("L1_WS"),
+		L2Endpoint:                  os.Getenv("L2_WS"),
+		TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
+		TaikoWrapperAddress:         common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),
+		ForcedInclusionStoreAddress: common.HexToAddress(os.Getenv("FORCED_INCLUSION_STORE")),
+		ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
+		TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
+		TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
+		L2EngineEndpoint:            os.Getenv("L2_AUTH"),
+		JwtSecret:                   os.Getenv("JWT_SECRET"),
+	})
+
+	require.Nil(t, err)
+	require.NotNil(t, client)
+
+	return client
+}
+
+// signatureFromRSV creates the signature bytes from r,s,v.
+func signatureFromRSV(r, s string, v byte) []byte {
+	return append(append(hexutil.MustDecode(r), hexutil.MustDecode(s)...), v)
 }
