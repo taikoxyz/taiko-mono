@@ -66,7 +66,7 @@ library LibVerify {
 
             // The provided transition is invalid
             if (tranMetaHash != keccak256(abi.encode(tran))) {
-                revert TransitionMetaMismatch();
+                revert TransitionHashMismatch();
             }
 
             // The transition is still cooling down, we stop here without reverting
@@ -127,6 +127,6 @@ library LibVerify {
     // Errors
     // -------------------------------------------------------------------------
 
-    error TransitionMetaMismatch();
     error TransitionNotProvided();
+    error TransitionHashMismatch();
 }
