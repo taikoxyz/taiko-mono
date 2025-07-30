@@ -18,43 +18,72 @@ library ShastaInboxState {
         // Slot 4
         bytes32 lastL2StateRoot;
         // Slot 5
-        bytes32 bondRefundsHash;
+        bytes32 l2BondRefundsHash;
         // Mappings (separate storage)
         mapping(uint48 proposalId => bytes32 proposalHash) proposalRegistry;
-        mapping(uint48 proposalId => mapping(bytes32 parentClaimHash => bytes32 claimRecordHash))
-            claimRecordHashLookup;
+        mapping(
+            uint48 proposalId => mapping(bytes32 parentClaimRecordHash => bytes32 claimRecordHash)
+        ) claimRecordHashLookup;
     }
 
     // -------------------------------------------------------------------------
     // Read Functions
     // -------------------------------------------------------------------------
 
-    function getNextProposalId(State storage _state) internal view returns (uint48) {
-        return _state.nextProposalId;
+    function getNextProposalId(State storage _state)
+        internal
+        view
+        returns (uint48 nextProposalId_)
+    {
+        nextProposalId_ = _state.nextProposalId;
     }
 
-    function getLastFinalizedProposalId(State storage _state) internal view returns (uint48) {
-        return _state.lastFinalizedProposalId;
+    function getLastFinalizedProposalId(State storage _state)
+        internal
+        view
+        returns (uint48 lastFinalizedProposalId_)
+    {
+        lastFinalizedProposalId_ = _state.lastFinalizedProposalId;
     }
 
-    function getLastFinalizedClaimHash(State storage _state) internal view returns (bytes32) {
-        return _state.lastFinalizedClaimHash;
+    function getLastFinalizedClaimHash(State storage _state)
+        internal
+        view
+        returns (bytes32 lastFinalizedClaimHash_)
+    {
+        lastFinalizedClaimHash_ = _state.lastFinalizedClaimHash;
     }
 
-    function getLastL2BlockNumber(State storage _state) internal view returns (uint48) {
-        return _state.lastL2BlockNumber;
+    function getLastL2BlockNumber(State storage _state)
+        internal
+        view
+        returns (uint48 lastL2BlockNumber_)
+    {
+        lastL2BlockNumber_ = _state.lastL2BlockNumber;
     }
 
-    function getLastL2BlockHash(State storage _state) internal view returns (bytes32) {
-        return _state.lastL2BlockHash;
+    function getLastL2BlockHash(State storage _state)
+        internal
+        view
+        returns (bytes32 lastL2BlockHash_)
+    {
+        lastL2BlockHash_ = _state.lastL2BlockHash;
     }
 
-    function getLastL2StateRoot(State storage _state) internal view returns (bytes32) {
-        return _state.lastL2StateRoot;
+    function getLastL2StateRoot(State storage _state)
+        internal
+        view
+        returns (bytes32 lastL2StateRoot_)
+    {
+        lastL2StateRoot_ = _state.lastL2StateRoot;
     }
 
-    function getBondRefundsHash(State storage _state) internal view returns (bytes32) {
-        return _state.bondRefundsHash;
+    function getL2BondRefundHash(State storage _state)
+        internal
+        view
+        returns (bytes32 l2BondRefundsHash_)
+    {
+        l2BondRefundsHash_ = _state.l2BondRefundsHash;
     }
 
     function getProposalHash(
@@ -63,21 +92,21 @@ library ShastaInboxState {
     )
         internal
         view
-        returns (bytes32)
+        returns (bytes32 proposalHash_)
     {
-        return _state.proposalRegistry[_proposalId];
+        proposalHash_ = _state.proposalRegistry[_proposalId];
     }
 
     function getClaimRecordHash(
         State storage _state,
         uint48 _proposalId,
-        bytes32 _parentClaimHash
+        bytes32 _parentClaimRecordHash
     )
         internal
         view
-        returns (bytes32)
+        returns (bytes32 claimRecordHash_)
     {
-        return _state.claimRecordHashLookup[_proposalId][_parentClaimHash];
+        claimRecordHash_ = _state.claimRecordHashLookup[_proposalId][_parentClaimRecordHash];
     }
 
     // -------------------------------------------------------------------------
@@ -88,8 +117,11 @@ library ShastaInboxState {
         _state.nextProposalId = 1;
     }
 
-    function incrementAndGetProposalId(State storage _state) internal returns (uint48) {
-        return _state.nextProposalId++;
+    function incrementAndGetProposalId(State storage _state)
+        internal
+        returns (uint48 proposalId_)
+    {
+        proposalId_ = _state.nextProposalId++;
     }
 
     function setLastFinalized(
@@ -116,8 +148,8 @@ library ShastaInboxState {
         _state.lastL2StateRoot = _stateRoot;
     }
 
-    function setBondRefundsHash(State storage _state, bytes32 _hash) internal {
-        _state.bondRefundsHash = _hash;
+    function setL2BondRefundsHash(State storage _state, bytes32 _hash) internal {
+        _state.l2BondRefundsHash = _hash;
     }
 
     function setProposalHash(
@@ -133,11 +165,11 @@ library ShastaInboxState {
     function setClaimRecordHash(
         State storage _state,
         uint48 _proposalId,
-        bytes32 _parentClaimHash,
+        bytes32 _parentClaimRecordHash,
         bytes32 _claimRecordHash
     )
         internal
     {
-        _state.claimRecordHashLookup[_proposalId][_parentClaimHash] = _claimRecordHash;
+        _state.claimRecordHashLookup[_proposalId][_parentClaimRecordHash] = _claimRecordHash;
     }
 }

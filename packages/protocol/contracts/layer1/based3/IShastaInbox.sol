@@ -10,9 +10,10 @@ interface IShastaInbox {
     // -------------------------------------------------------------------------
 
     struct Proposal {
-        // Slot 1: 160 + 48 = 208 bits (48 bits unused)
+        // Slot 1: 160 + 48 + 48 = 256 bits
         address proposer;
         uint48 proposedAt;
+        uint48 id;
         // Slot 2
         bytes32 latestL1BlockHash;
         // Slot 3
@@ -23,7 +24,7 @@ interface IShastaInbox {
         // Slot 1
         bytes32 proposalHash;
         // Slot 2
-        bytes32 parentClaimHash;
+        bytes32 parentClaimRecordHash;
         // Slot 3
         bytes32 endL2BlockHash;
         // Slot 4
@@ -65,45 +66,47 @@ interface IShastaInbox {
     event Finalized(uint48 indexed proposalId, Claim claim, L2ProverBondPayment bondRefund);
 
     // -------------------------------------------------------------------------
-    // Public View Functions
-    // -------------------------------------------------------------------------
-
-    function nextProposalId() external view returns (uint48);
-
-    function lastFinalizedProposalId() external view returns (uint48);
-
-    function lastFinalizedClaimHash() external view returns (bytes32);
-
-    function lastL2BlockNumber() external view returns (uint48);
-
-    function lastL2BlockHash() external view returns (bytes32);
-
-    function lastL2StateRoot() external view returns (bytes32);
-
-    function bondRefundsHash() external view returns (bytes32);
-
-    // -------------------------------------------------------------------------
-    // External Functions
+    // External Transactional Functions
     // -------------------------------------------------------------------------
 
     /// @notice Proposes a new proposal of L2 blocks
-    /// @param blobIndex Index of the blob in the current transaction
-    function propose(uint48 blobIndex) external;
+    /// @param _blobIndex Index of the blob in the current transaction
+    function propose(uint48 _blobIndex) external;
 
     /// @notice Submits a proof for a proposal's state transition
-    /// @param proposalId ID of the proposal being proven
-    /// @param proposal Original proposal data
-    /// @param claim State transition claim being proven
-    /// @param proof Validity proof for the state transition
+    /// @param _proposalId ID of the proposal being proven
+    /// @param _proposal Original proposal data
+    /// @param _claim State transition claim being proven
+    /// @param _proof Validity proof for the state transition
     function prove(
-        uint48 proposalId,
-        Proposal memory proposal,
-        Claim memory claim,
-        bytes calldata proof
+        uint48 _proposalId,
+        Proposal memory _proposal,
+        Claim memory _claim,
+        bytes calldata _proof
     )
         external;
 
     /// @notice Finalizes a proven proposal and updates the L2 chain state
-    /// @param claimRecord The proven claim to finalize
-    function finalize(ClaimRecord memory claimRecord) external;
+    /// @param _record The proven claim record to be used to finalize the next proposal
+    function finalize(ClaimRecord memory _record) external;
+
+    // -------------------------------------------------------------------------
+    // External View Functions
+    // -------------------------------------------------------------------------
+
+    function nextProposalId() external view returns (uint48 nextProposalId_);
+
+    function lastFinalizedProposalId() external view returns (uint48 lastFinalizedProposalId_);
+
+    function lastFinalizedClaimHash() external view returns (bytes32 lastFinalizedClaimHash_);
+
+    function lastL2BlockNumber() external view returns (uint48 lastL2BlockNumber_);
+
+    function lastL2BlockHash() external view returns (bytes32 lastL2BlockHash_);
+
+    function lastL2StateRoot() external view returns (bytes32 lastL2StateRoot_);
+
+    function l2BondRefundsHash() external view returns (bytes32 l2BondRefundsHash_);
+
+    function provingWindow() external view returns (uint48 provingWindow_);
 }
