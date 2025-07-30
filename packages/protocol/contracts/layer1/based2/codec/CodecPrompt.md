@@ -282,4 +282,4 @@ function decode(bytes memory data) public pure returns (ProverAuth memory result
 - [ ] No memory corruption or overwrites
 - [ ] Handles maximum values for all numeric types
 - [ ] Proper validation of all array lengths before encoding
-- [ ] For every encode or decode function annotated with `/// @custom:encode optimize-gas`, make sure there is a corresponding gas measurement/comparision test at the end of its test file. The test should evaluate gas savings appropriately based on whether the function is for encoding or decoding.
+- [ ] For every encode or decode function annotated with `/// @custom:encode optimize-gas`, make sure there is a corresponding gas measurement/comparison test at the end of its test file. The test should evaluate gas savings appropriately based on whether the function is for encoding or decoding.
