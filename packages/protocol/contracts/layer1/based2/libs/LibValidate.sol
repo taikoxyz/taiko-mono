@@ -106,8 +106,6 @@ library LibValidate {
         address preconfer = _bindings.getCurrentPreconfer();
         if (preconfer != address(0)) {
             require(msg.sender == preconfer, ProposerNotPreconfer());
-        } else if (_bindings.getFallbackPreconfer() != address(0)) {
-            require(msg.sender == _bindings.getFallbackPreconfer(), ProposerNotPreconfer());
         } else {
             revert ProposerNotPreconfer();
         }

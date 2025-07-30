@@ -34,8 +34,6 @@ library LibBinding {
             loadTransitionMetaHash;
         /// @notice Gets the current preconfer operator address
         function() view returns (address) getCurrentPreconfer;
-        /// @notice Gets the fallback preconfer address
-        function() view returns (address) getFallbackPreconfer;
         /// @notice Checks if forced inclusion is due for a batch
         function(uint48) view returns (bool) isForcedInclusionDue;
         //

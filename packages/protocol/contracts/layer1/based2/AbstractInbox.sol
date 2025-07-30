@@ -267,10 +267,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @return The preconfer address
     function _getCurrentPreconfer() internal view virtual returns (address);
 
-    /// @notice Gets the fallback preconfer address
-    /// @return The fallback preconfer address
-    function _getFallbackPreconfer() internal view virtual returns (address);
-
     /// @notice Checks if the oldest forced inclusion is due for a batch
     /// @param _batchId The batch ID to check
     /// @return Whether forced inclusion is due
@@ -419,7 +415,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
             getBlockHash: _getBlockHash,
             loadTransitionMetaHash: _loadTransitionMetaHash,
             getCurrentPreconfer: _getCurrentPreconfer,
-            getFallbackPreconfer: _getFallbackPreconfer,
             isForcedInclusionDue: _isForcedInclusionDue,
             // Write functions
             saveTransition: _saveTransition,

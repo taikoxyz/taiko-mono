@@ -194,12 +194,14 @@ abstract contract Inbox is AbstractInbox, IBondManager2, IStorage {
 
     /// @inheritdoc AbstractInbox
     function _getCurrentPreconfer() internal view override returns (address) {
-        return IPreconfWhitelist(_getConfig().preconfWhitelist).getOperatorForCurrentEpoch();
-    }
+        IPreconfWhitelist preconfWhitelist = IPreconfWhitelist(_getConfig().preconfWhitelist);
+        address preconfer = preconfWhitelist.getOperatorForCurrentEpoch();
 
-    /// @inheritdoc AbstractInbox
-    function _getFallbackPreconfer() internal view override returns (address) {
-        return IPreconfWhitelist(_getConfig().preconfWhitelist).getFallbackPreconfer();
+        if (preconfer != address(0)) {
+            return preconfer;
+        }
+
+        return preconfWhitelist.getFallbackPreconfer();
     }
 
     /// @inheritdoc AbstractInbox
