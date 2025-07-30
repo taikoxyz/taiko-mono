@@ -87,7 +87,7 @@ In `encode` functions:
 
 - Check array lengths against maximum sizes
 - Define custom error at library level: `error ArrayTooLarge();`
-- Example: `if(data.blocks.length > 512) revert ArrayTooLarge();`
+- Example: `if(data.blocks.length >= 512) revert ArrayTooLarge();`
 
 ### Field Reordering
 
@@ -140,7 +140,7 @@ ptr := add(ptr, 1)
 ```solidity
 function encode(ProverAuth memory data) public pure returns (bytes memory) {
     // Validation
-    if(data.signature.length > 128) revert ArrayTooLarge();
+    if(data.signature.length >= 128) revert ArrayTooLarge();
 
     // Calculate size
     uint256 size = 20 + 6; // prover + fee

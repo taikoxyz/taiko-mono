@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "../IInbox.sol";
+import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
+import "../IInbox.sol";
 import "./LibValidate.sol";
 import "./LibData.sol";
 import "./LibProver.sol";
-import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 
 /// @title LibPropose
 /// @notice Library for processing batch proposals and metadata generation in Taiko protocol
@@ -43,7 +43,7 @@ library LibPropose {
             LibValidate.validateProposer(_config, _bindings);
 
             if (_batches.length == 0) revert EmptyBatchArray();
-            if (_batches.length > 7) revert BatchLimitExceeded();
+            if (_batches.length >= 8) revert BatchLimitExceeded();
 
             // Make sure the last verified batch is not overwritten by a new batch.
             // Assuming batchRingBufferSize = 100, right after genesis, we can propose up to 99
@@ -61,9 +61,6 @@ library LibPropose {
                 revert MetadataHashMismatch();
             }
 
-            // Capture the starting batch ID for forced inclusion check
-            uint48 nextBatchId = _summary.nextBatchId;
-
             IInbox.BatchProposeMetadata memory parentBatch = _evidence.proposeMeta;
             IInbox.BatchContext[] memory contexts = new IInbox.BatchContext[](_batches.length);
 
@@ -80,7 +77,7 @@ library LibPropose {
             }
 
             // Validate forced inclusion was processed if due
-            if (_bindings.isForcedInclusionDue(nextBatchId)) {
+            if (_bindings.isForcedInclusionDue(_summary.nextBatchId)) {
                 IForcedInclusionStore.ForcedInclusion memory processed =
                     _bindings.consumeForcedInclusion(msg.sender, uint64(nextBatchId));
 

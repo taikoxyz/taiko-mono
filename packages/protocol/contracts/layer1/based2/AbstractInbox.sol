@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 import "src/layer1/verifiers/IVerifier.sol";
+import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 import "./libs/LibBinding.sol";
 import "./libs/LibPropose.sol";
 import "./libs/LibProve.sol";
@@ -10,7 +11,6 @@ import "./libs/LibVerify.sol";
 import "./IInbox.sol";
 import "./IPropose.sol";
 import "./IProve.sol";
-import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 
 /// @title AbstractInbox
 /// @notice Acts as the inbox for the Taiko Alethia protocol, a simplified version of the
@@ -74,9 +74,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         _saveSummaryHash(keccak256(abi.encode(summary)));
 
         // Skip calldata emission for gas optimization when directly called by EOA
-        // TODO: can we call IPreconfWhitelist or LookAhead from within this contract, instead of
-        // using the
-        // PreconfRouter as the msg.sender?
         emit Proposed(
             lastProposedBatchId,
             _isOuterMostTransaction() ? bytes("") : _inputs,
@@ -86,9 +83,19 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     }
 
     /// @inheritdoc IProve
-    /// @dev In previous versions, proving a block may also trigger block verification, in this
-    /// upgrade, this is no longer the case as we would like to ensure more certainty for provers
-    /// and let proposers to manage the uncertainty of verification cost.
+    /// @dev In the current design, multiple batches can be proved by different provers. However,
+    /// if verification is initiated inside the prove function, the first prove call updates the
+    /// Summary, causing subsequent prove calls for other batches to fail. This occurs because the
+    /// Summary is not fully stored on-chain and must be supplied as an input parameter.
+    ///
+    /// A significant challenge is the uncertainty in timing and cost of batch verification. ZK
+    /// proofs are generally submitted a few minutes after the prover quotes a price to the
+    /// proposer. If the prover bears the batch verification cost, which is uncertain on-chain, they
+    /// risk substantial losses.
+    ///
+    /// Proposers, who also serve as preconfers and L1 validators, are less affected by this issue
+    /// because they have control over L1 sequencing. On L1, they can order prove calls after their
+    /// propose calls, minimizing the risk of unexpected batch verification costs.
     function prove4(
         bytes calldata _inputs,
         bytes calldata _proof
@@ -102,10 +109,10 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         Config memory config = _getConfig();
 
         // Prove batches and get aggregated hash
-        bytes32 aggregatedBatchHash = LibProve.prove(bindings, config, inputs);
+        bytes32 aggregatedProvingHash_ = LibProve.prove(bindings, config, inputs);
 
         // Verify the proof
-        IVerifier2(config.verifier).verifyProof(aggregatedBatchHash, _proof);
+        IVerifier2(config.verifier).verifyProof(aggregatedProvingHash_, _proof);
     }
 
     /// @notice Builds batch metadata from batch and batch context data
@@ -235,7 +242,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @param _batchId The batch ID
     /// @param _parentHash The parent hash
     /// @param _tranMetahash The transition metadata hash
-    /// @return isFirstTransition_ Whether this is the first transition for the batch
     function _saveTransition(
         Config memory _conf,
         uint48 _batchId,
@@ -243,8 +249,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         bytes32 _tranMetahash
     )
         internal
-        virtual
-        returns (bool isFirstTransition_);
+        virtual;
 
     /// @notice Saves a batch metadata hash to storage
     /// @param _conf The configuration
@@ -285,7 +290,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @param _lastVerifiedBlockHash The last verified block hash
     /// @param _batchId The batch ID
     /// @return metaHash_ The transition metadata hash
-    /// @return isFirstTransition_ Whether this is the first transition for the batch
     function _loadTransitionMetaHash(
         Config memory _conf,
         bytes32 _lastVerifiedBlockHash,
@@ -294,7 +298,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         internal
         view
         virtual
-        returns (bytes32 metaHash_, bool isFirstTransition_);
+        returns (bytes32 metaHash_);
 
     /// @notice Encodes a batch context
     /// @param _batchContexts The array of batch context to encode

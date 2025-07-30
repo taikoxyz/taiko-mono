@@ -11,7 +11,7 @@ interface IInbox {
     /// @dev Contains block-specific parameters and anchor information
     struct Block {
         /// @notice Maximum number of transactions in this block
-        /// @dev If insufficient transactions in calldata/blobs, block contains as many as possible
+        /// @dev The max number of transactions to be included in this block.
         uint16 numTransactions;
         /// @notice Time difference in seconds between this block and its parent within the batch
         /// @dev For the first block in a batch, this should be 0 (no parent in same batch)
@@ -77,8 +77,6 @@ interface IInbox {
     struct BatchContext {
         /// @notice Address authorized to prove this batch
         address prover;
-        /// @notice Hash of all transactions in the batch
-        bytes32 txsHash;
         /// @notice ID of the last anchor block referenced
         uint48 lastAnchorBlockId;
         /// @notice ID of the last block in this batch
@@ -123,8 +121,6 @@ interface IInbox {
     /// @notice Metadata for building and validating a batch
     /// @dev Contains all necessary information for batch construction and verification
     struct BatchBuildMetadata {
-        /// @notice Hash of all transactions in the batch
-        bytes32 txsHash;
         /// @notice Array of blob hashes referenced by this batch
         /// @custom:encode max-size=256
         bytes32[] blobHashes;
@@ -256,19 +252,19 @@ interface IInbox {
     /// @notice Metadata for a transition proof
     /// @dev Contains all information about a submitted transition proof
     struct TransitionMeta {
+        /// @notice ID of the batch
+        uint48 batchId;
+        /// @notice Timestamp when the transition is proved at
+        uint48 provedAt;
+        /// @notice Address that submitted the proof
+        address prover;
+        /// @notice Timing category of the proof submission
+        ProofTiming proofTiming;
         /// @notice Hash of the block for this transition
         bytes32 blockHash;
         /// @notice State root after this transition
         /// @custom:encode optional
         bytes32 stateRoot;
-        /// @notice Address that submitted the proof
-        address prover;
-        /// @notice Timing category of the proof submission
-        ProofTiming proofTiming;
-        /// @notice Timestamp when the transition is proved at
-        uint48 provedAt;
-        /// @notice Whether proof was submitted by assigned prover
-        bool byAssignedProver;
         /// @notice ID of the last block in the batch
         uint48 lastBlockId;
         /// @notice Bond amount for provability guarantee (in Gwei)
@@ -277,21 +273,12 @@ interface IInbox {
         uint48 livenessBond;
     }
 
-    /// @notice Struct representing transition storage
-    /// @dev Uses 2 storage slots per transition for gas efficiency
-    struct TransitionState {
-        /// @notice Packed batch ID and partial parent hash for storage efficiency
-        uint256 batchIdAndPartialParentHash;
-        /// @notice Hash of the transition metadata
-        bytes32 metaHash;
-    }
-
     /// @notice Summary of the current protocol state
     /// @dev Contains key metrics and identifiers for protocol operation
     struct Summary {
         /// @notice ID to be assigned to the next batch
         uint48 nextBatchId;
-        /// @notice ID of the last block synced from L1
+        /// @notice ID of the last L2 block synced to L1
         uint48 lastSyncedBlockId;
         /// @notice Timestamp of the last sync operation
         uint48 lastSyncedAt;
@@ -370,31 +357,6 @@ interface IInbox {
         uint8 baseFeeSharingPctg;
     }
 
-    /// @notice State variables for the Taiko protocol contract
-    /// @dev Contains all persistent state including mappings and storage gaps for upgrades
-    struct State {
-        /// @notice Ring buffer for proposed and verified batch metadata hashes
-        mapping(uint256 batchId_mod_batchRingBufferSize => bytes32 metaHash) batches;
-        /// @notice Mapping from batch ID and parent hash to transition metadata hash
-        mapping(uint256 batchId => mapping(bytes32 parentHash => bytes32 metahash))
-            transitionMetaHashes;
-        /// @notice Ring buffer for transition states
-        mapping(
-            uint256 batchId_mod_batchRingBufferSize
-                => mapping(uint256 thisValueIsAlways1 => TransitionState ts)
-        ) transitions;
-        /// @notice Hash of the current protocol summary (storage slot 4)
-        bytes32 summaryHash;
-        /// @notice Deprecated statistics field (storage slot 5)
-        bytes32 __deprecatedStats1;
-        /// @notice Deprecated statistics field (storage slot 6)
-        bytes32 __deprecatedStats2;
-        /// @notice Mapping of account addresses to their bond balances
-        mapping(address account => uint256 bond) bondBalance;
-        /// @notice Storage gap for future upgrades
-        uint256[43] __gap;
-    }
-
     /// @notice Emitted when a new batch is proposed
     /// @param lastProposedBatchId The id of the last proposed batch
     /// @param proposeInputs The calldata inputs for propose4 function. Note that when the propose4
@@ -406,9 +368,8 @@ interface IInbox {
     );
 
     /// @notice Emitted when a batch transition is proven
-    /// @param batchId The unique identifier of the proven batch
     /// @param tranMetas The transition metadata encoded as bytes
-    event Proved(uint256 indexed batchId, bytes tranMetas);
+    event Proved(bytes tranMetas);
 
     /// @notice Emitted when a batch is verified and finalized
     /// @param batchId The unique identifier of the verified batch
