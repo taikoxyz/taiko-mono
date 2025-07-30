@@ -619,10 +619,10 @@ func (d *Driver) peerTick() {
 	for _, p := range peers {
 		info := d.p2pNode.Host().Peerstore().PeerInfo(p)
 
-		addrInfo := make([]string, 0, len(info.Addrs))
 		for _, addr := range info.Addrs {
 			addrInfo = append(addrInfo, addr.String())
 		}
+
 	}
 
 	log.Info("Peer tick",
