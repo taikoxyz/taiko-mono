@@ -603,35 +603,41 @@ func (d *Driver) peerLoop(ctx context.Context) {
 			log.Info("Peer loop context done, exiting")
 			return
 		case <-t.C:
-			if d.p2pNode == nil || d.p2pNode.Dv5Local() == nil || d.p2pNode.Dv5Local().Node() == nil {
+			if d.p2pNode == nil ||
+				d.p2pNode.Dv5Local() == nil ||
+				d.p2pNode.Dv5Local().Node() == nil {
 				log.Warn("P2P node is nil, skipping peer loop report")
 				continue
 			}
 
-			peers := d.p2pNode.Host().Network().Peers()
-			advertisedUDP := d.p2pNode.Dv5Local().Node().UDP()
-			advertisedTCP := d.p2pNode.Dv5Local().Node().TCP()
-			advertisedIP := d.p2pNode.Dv5Local().Node().IP()
-
-			peersInfo := make([]peerInfo, 0, len(peers))
-			for _, p := range peers {
-				peersInfo = append(peersInfo, peerInfo{
-					id:       p,
-					addrInfo: d.p2pNode.Host().Peerstore().PeerInfo(p),
-				})
-			}
-
-			log.Info("Peer tick",
-				"peersLen", len(peers),
-				"peers", peers,
-				"peersInfo", peersInfo,
-				"id", d.p2pNode.Host().ID(),
-				"advertisedUDP", advertisedUDP,
-				"advertisedTCP", advertisedTCP,
-				"advertisedIP", advertisedIP,
-			)
+			d.peerTick()
 		}
 	}
+}
+
+func (d *Driver) peerTick() {
+	peers := d.p2pNode.Host().Network().Peers()
+	advertisedUDP := d.p2pNode.Dv5Local().Node().UDP()
+	advertisedTCP := d.p2pNode.Dv5Local().Node().TCP()
+	advertisedIP := d.p2pNode.Dv5Local().Node().IP()
+
+	peersInfo := make([]peerInfo, 0, len(peers))
+	for _, p := range peers {
+		peersInfo = append(peersInfo, peerInfo{
+			id:       p,
+			addrInfo: d.p2pNode.Host().Peerstore().PeerInfo(p),
+		})
+	}
+
+	log.Info("Peer tick",
+		"peersLen", len(peers),
+		"peers", peers,
+		"peersInfo", peersInfo,
+		"id", d.p2pNode.Host().ID(),
+		"advertisedUDP", advertisedUDP,
+		"advertisedTCP", advertisedTCP,
+		"advertisedIP", advertisedIP,
+	)
 }
 
 // Name returns the application name.
