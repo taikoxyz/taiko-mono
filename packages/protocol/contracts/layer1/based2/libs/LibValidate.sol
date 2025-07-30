@@ -50,14 +50,10 @@ library LibValidate {
         // Validate blobs
         uint48 blobsCreatedIn = _validateBlobs(_config, _batch);
 
-        // Calculate transaction hash
-        (bytes32[] memory blobHashes, bytes32 txsHash) = _calculateTxsHash(_bindings, _batch.blobs);
-
         // Initialize context
         return IInbox.BatchContext({
             prover: address(0), // Will be set later in LibProver.validateProver
-            txsHash: txsHash,
-            blobHashes: blobHashes,
+            blobHashes: _getBlobHashes(_bindings, _batch.blobs),
             blobsCreatedIn: blobsCreatedIn,
             livenessBond: _config.livenessBond,
             provabilityBond: _config.provabilityBond
@@ -121,14 +117,13 @@ library LibValidate {
     /// @param _bindings Read/write bindings functions
     /// @param _blobs Blob information containing hashes or indices
     /// @return blobHashes_ Array of individual blob hashes
-    /// @return txsHash_ Hash of all transactions in the batch
-    function _calculateTxsHash(
+    function _getBlobHashes(
         LibBinding.Bindings memory _bindings,
         IInbox.Blobs memory _blobs
     )
         private
         view
-        returns (bytes32[] memory blobHashes_, bytes32 txsHash_)
+        returns (bytes32[] memory blobHashes_)
     {
         unchecked {
             if (_blobs.hashes.length != 0) {
@@ -143,8 +138,6 @@ library LibValidate {
             for (uint256 i; i < blobHashes_.length; ++i) {
                 if (blobHashes_[i] == 0) revert BlobHashNotFound();
             }
-
-            txsHash_ = keccak256(abi.encode(blobHashes_));
         }
     }
 

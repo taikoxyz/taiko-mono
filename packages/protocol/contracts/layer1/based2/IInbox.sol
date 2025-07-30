@@ -7,27 +7,6 @@ pragma solidity ^0.8.24;
 ///      based rollup protocol without tier-based proof system
 /// @custom:security-contact security@taiko.xyz
 interface IInbox {
-    /// @notice Represents a block within a batch
-    /// @dev Contains block-specific parameters and anchor information
-    // struct Block {
-    //     /// @notice Maximum number of transactions in this block
-    //     /// @dev If insufficient transactions in calldata/blobs, block contains as many as
-    // possible
-    //     uint16 numTransactions;
-    //     /// @notice Time difference in seconds between this block and its parent within the batch
-    //     /// @dev For the first block in a batch, this should be 0 (no parent in same batch)
-    //     uint8 timeShift;
-    //     /// @notice Optional anchor block ID for L1-L2 synchronization
-    //     uint48 anchorBlockId;
-    //     /// @notice Signal slots for cross-chain messages
-    //     /// @custom: max size 16
-    //     bytes32[] signalSlots;
-    //     /// @notice Address that receives block rewards. If this address is address(0), use
-    //     /// Batch.coinbase.
-    //     /// @custom:encode optional
-    //     address coinbase;
-    // }
-
     /// @notice Contains blob data for a batch
     /// @dev Supports both direct blob hashes and blob indices for different scenarios
     struct Blobs {
@@ -68,8 +47,6 @@ interface IInbox {
     struct BatchContext {
         /// @notice Address authorized to prove this batch
         address prover;
-        /// @notice Hash of all transactions in the batch
-        bytes32 txsHash;
         /// @notice Block number when blobs were created
         uint48 blobsCreatedIn;
         /// @notice Bond amount for liveness guarantee (in Gwei)
@@ -107,7 +84,7 @@ interface IInbox {
     /// @dev Contains all necessary information for batch construction and verification
     struct BatchBuildMetadata {
         /// @notice Hash of all transactions in the batch
-        bytes32 txsHash;
+        bytes32 batchBlobDataHash;
         /// @notice Array of blob hashes referenced by this batch
         /// @custom:encode max-size=256
         bytes32[] blobHashes;

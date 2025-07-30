@@ -53,14 +53,7 @@ library LibPropose {
 
                 // TODO: also emit these values as the new Context in event
                 bytes32 batchMetaHash = keccak256(
-                    abi.encode(
-                        msg.sender,
-                        block.timestamp,
-                        context.txsHash,
-                        context.blobHashes,
-                        _summary.nextBatchId,
-                        context.prover
-                    )
+                    abi.encode(msg.sender, block.timestamp, _summary.nextBatchId, context)
                 );
                 _bindings.saveBatchMetaHash(_config, _summary.nextBatchId, batchMetaHash);
                 _summary.nextBatchId += 1;
