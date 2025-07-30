@@ -2,28 +2,27 @@
 pragma solidity ^0.8.24;
 
 import { IShastaInbox } from "./IShastaInbox.sol";
-import { ShastaInboxState } from "./ShastaInboxState.sol";
+import { IShastaInboxStore } from "./IShastaInboxStore.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture
 /// @custom:security-contact security@taiko.xyz
 abstract contract ShastaInbox is IShastaInbox {
-    using ShastaInboxState for ShastaInboxState.State;
-
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
 
-    ShastaInboxState.State private $;
+    IShastaInboxStore public immutable store;
     uint48 public immutable provingWindow;
 
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
 
-    constructor(uint48 _provingWindow) {
+    constructor(IShastaInboxStore _store, uint48 _provingWindow) {
+        store = _store;
         provingWindow = _provingWindow;
-        $.initialize();
+        store.initialize();
     }
 
     // -------------------------------------------------------------------------
@@ -33,7 +32,7 @@ abstract contract ShastaInbox is IShastaInbox {
     /// @notice Proposes a new proposal of L2 blocks
     /// @param _blobIndex Index of the blob in the current transaction
     function propose(uint48 _blobIndex) external {
-        uint48 proposalId = $.incrementAndGetProposalId();
+        uint48 proposalId = store.incrementAndGetProposalId();
         Proposal memory proposal = Proposal({
             proposer: msg.sender,
             proposedAt: uint48(block.timestamp),
@@ -44,7 +43,7 @@ abstract contract ShastaInbox is IShastaInbox {
 
         if (proposal.blobDataHash == 0) revert InvalidBlobData();
         bytes32 proposalHash = keccak256(abi.encode(proposal));
-        $.setProposalHash(proposalId, proposalHash);
+        store.setProposalHash(proposalId, proposalHash);
 
         emit Proposed(proposalId, proposal);
     }
@@ -63,7 +62,7 @@ abstract contract ShastaInbox is IShastaInbox {
     {
         bytes32 proposalHash = keccak256(abi.encode(_proposal));
         if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
-        if (proposalHash != $.getProposalHash(_proposalId)) revert ProposalHashMismatch();
+        if (proposalHash != store.getProposalHash(_proposalId)) revert ProposalHashMismatch();
 
         ClaimRecord memory record = ClaimRecord({
             claim: _claim,
@@ -72,7 +71,7 @@ abstract contract ShastaInbox is IShastaInbox {
         });
 
         bytes32 recordHash = keccak256(abi.encode(record));
-        $.setClaimRecordHash(_proposal.id, _claim.parentClaimRecordHash, recordHash);
+        store.setClaimRecordHash(_proposal.id, _claim.parentClaimRecordHash, recordHash);
         emit Proved(_proposal.id, _proposal, _claim);
 
         verifyProof(recordHash, _proof);
@@ -83,72 +82,47 @@ abstract contract ShastaInbox is IShastaInbox {
     function finalize(ClaimRecord memory _record) external {
         Claim memory claim = _record.claim;
 
-        if (claim.parentClaimRecordHash != $.getLastFinalizedClaimHash()) {
+        if (claim.parentClaimRecordHash != store.getLastFinalizedClaimHash()) {
             revert InvalidClaimChain();
         }
 
-        uint48 proposalId = $.getLastFinalizedProposalId() + 1;
+        uint48 proposalId = store.getLastFinalizedProposalId() + 1;
         bytes32 recordHash = keccak256(abi.encode(_record));
 
-        if (recordHash != $.getClaimRecordHash(proposalId, claim.parentClaimRecordHash)) {
+        if (recordHash != store.getClaimRecordHash(proposalId, claim.parentClaimRecordHash)) {
             revert ClaimNotFound();
         }
 
         // Advance the last finalized proposal ID and update the last finalized ClaimRecord hash.
-        $.setLastFinalized(proposalId, recordHash);
+        store.setLastFinalized(proposalId, recordHash);
 
         // Sync L2 block data to L1
-        $.setLastL2BlockData(claim.endL2BlockNumber, claim.endL2BlockHash, claim.endL2StateRoot);
+        store.setLastL2BlockData(claim.endL2BlockNumber, claim.endL2BlockHash, claim.endL2StateRoot);
 
         // Instruct L2 block builder to refund bond to the designated prover or the actual prover.
-        L2ProverBondPayment memory refund = calculateBondRefund(proposalId, _record);
-        bytes32 currentBondRefundsHash = $.getL2BondRefundHash();
-        $.setL2BondRefundsHash(keccak256(abi.encode(currentBondRefundsHash, refund)));
+        L2ProverBondPayment memory refund = _calculateBondRefund(proposalId, _record);
+        bytes32 currentBondRefundsHash = store.getL2BondRefundHash();
+        store.setL2BondRefundsHash(keccak256(abi.encode(currentBondRefundsHash, refund)));
 
         emit Finalized(proposalId, claim, refund);
     }
 
     // -------------------------------------------------------------------------
-    // External View Functions
+    // Internal Functions - Abstract
     // -------------------------------------------------------------------------
 
-    function nextProposalId() external view returns (uint48) {
-        return $.getNextProposalId();
-    }
-
-    function lastFinalizedProposalId() external view returns (uint48) {
-        return $.getLastFinalizedProposalId();
-    }
-
-    function lastFinalizedClaimHash() external view returns (bytes32) {
-        return $.getLastFinalizedClaimHash();
-    }
-
-    function lastL2BlockNumber() external view returns (uint48) {
-        return $.getLastL2BlockNumber();
-    }
-
-    function lastL2BlockHash() external view returns (bytes32) {
-        return $.getLastL2BlockHash();
-    }
-
-    function lastL2StateRoot() external view returns (bytes32) {
-        return $.getLastL2StateRoot();
-    }
-
-    function l2BondRefundsHash() external view returns (bytes32) {
-        return $.getL2BondRefundHash();
-    }
+    /// @dev Verifies a validity proof for a state transition
+    function verifyProof(bytes32 _claimHash, bytes calldata _proof) internal virtual;
 
     // -------------------------------------------------------------------------
-    // Internal Functions - Bond Management
+    // Private Functions
     // -------------------------------------------------------------------------
 
-    function calculateBondRefund(
+    function _calculateBondRefund(
         uint48 _proposalId,
         ClaimRecord memory _record
     )
-        internal
+        private
         view
         returns (L2ProverBondPayment memory refund_)
     {
@@ -165,13 +139,6 @@ abstract contract ShastaInbox is IShastaInbox {
                 refundAmount: _record.claim.proverBond / 2
             });
     }
-
-    // -------------------------------------------------------------------------
-    // Internal Functions - Abstract
-    // -------------------------------------------------------------------------
-
-    /// @dev Verifies a validity proof for a state transition
-    function verifyProof(bytes32 _claimHash, bytes calldata _proof) internal virtual;
 
     // -------------------------------------------------------------------------
     // Errors

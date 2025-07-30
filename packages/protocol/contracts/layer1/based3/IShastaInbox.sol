@@ -94,19 +94,5 @@ interface IShastaInbox {
     // External View Functions
     // -------------------------------------------------------------------------
 
-    function nextProposalId() external view returns (uint48 nextProposalId_);
-
-    function lastFinalizedProposalId() external view returns (uint48 lastFinalizedProposalId_);
-
-    function lastFinalizedClaimHash() external view returns (bytes32 lastFinalizedClaimHash_);
-
-    function lastL2BlockNumber() external view returns (uint48 lastL2BlockNumber_);
-
-    function lastL2BlockHash() external view returns (bytes32 lastL2BlockHash_);
-
-    function lastL2StateRoot() external view returns (bytes32 lastL2StateRoot_);
-
-    function l2BondRefundsHash() external view returns (bytes32 l2BondRefundsHash_);
-
     function provingWindow() external view returns (uint48 provingWindow_);
 }
