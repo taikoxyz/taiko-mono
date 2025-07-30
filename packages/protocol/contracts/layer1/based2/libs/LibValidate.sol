@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../IInbox.sol";
+
 import "src/shared/libs/LibNetwork.sol";
 import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
+import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
+import "../IInbox.sol";
 import "./LibForks.sol";
 import "./LibBinding.sol";
-import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 
 /// @title LibValidate
 /// @notice Library for comprehensive batch validation in Taiko protocol
@@ -50,6 +51,8 @@ library LibValidate {
         // If a block's coinbase is address(0), _batch.coinbase will be used, if _batch.coinbase
         // is address(0), the driver shall use the proposer address as the coinbase address.
 
+        _validateProposer(_config);
+
         // Validate new gas issuance per second
         _validateGasIssuance(_config, _summary, _batch);
 
@@ -71,12 +74,11 @@ library LibValidate {
         uint48 blobsCreatedIn = _validateBlobs(_config, _batch);
 
         // Calculate transaction hash
-        (bytes32[] memory blobHashes, bytes32 txsHash) = _calculateTxsHash(_bindings, _batch.blobs);
+        bytes32[] memory blobHashes = _calculateTxsHash(_bindings, _batch.blobs);
 
         // Initialize context
         return IInbox.BatchContext({
             prover: address(0), // Will be set later in LibProver.validateProver
-            txsHash: txsHash,
             blobHashes: blobHashes,
             lastAnchorBlockId: lastAnchorBlockId,
             lastBlockId: lastBlockId,
@@ -133,6 +135,11 @@ library LibValidate {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
+
+
     /// @notice Validates the proposer of the current transaction.
     /// @dev Checks if the sender is the operator for the current epoch.
     ///      If the preconfWhitelist address is zero, the function returns without validation.
@@ -141,7 +148,7 @@ library LibValidate {
     /// @param _bindings Library function binding
     /// @custom:reverts ProposerNotPreconfer if the sender is not the preconfer for the current
     /// epoch.
-    function validateProposer(
+    function _validateProposer(
         IInbox.Config memory _config,
         LibBinding.Bindings memory _bindings
     )
@@ -158,10 +165,6 @@ library LibValidate {
             revert ProposerNotPreconfer();
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Private Functions
-    // -------------------------------------------------------------------------
 
     /// @notice Validates the gas issuance per second for a batch
     /// @dev Ensures that the gas issuance per second is within a 1% range of the last recorded
@@ -180,15 +183,19 @@ library LibValidate {
         unchecked {
             if (_batch.gasIssuancePerSecond == _summary.gasIssuancePerSecond) return;
 
+            // Gas issuance must stay within ±1% of current value AND within absolute bounds.
+            // Using multiplication before comparison to avoid precision loss for small values.
+            // For example: with value=1, old formula 1*99/100=0 allows 100% decrease,
+            // but new formula 1*100 < 1*99 correctly prevents any decrease.
             if (
                 _batch.gasIssuancePerSecond > MAX_GAS_ISSUANCE_PER_SECOND
-                    || _batch.gasIssuancePerSecond > _summary.gasIssuancePerSecond * 101 / 100
+                    || _batch.gasIssuancePerSecond * 100 > _summary.gasIssuancePerSecond * 101
             ) {
                 revert GasIssuanceTooHigh();
             }
             if (
                 _batch.gasIssuancePerSecond < MIN_GAS_ISSUANCE_PER_SECOND
-                    || _batch.gasIssuancePerSecond < _summary.gasIssuancePerSecond * 99 / 100
+                    || _batch.gasIssuancePerSecond * 100 < _summary.gasIssuancePerSecond * 99
             ) {
                 revert GasIssuanceTooLow();
             }
@@ -326,6 +333,8 @@ library LibValidate {
             // Validate and decode blocks
             if (_numBlocks == 0) revert BlockNotFound();
             uint48 firstBlockId = _parentLastBlockId + 1;
+            // Calculate last block ID: if parent ends at 10 and we add 3 blocks (11, 12, 13),
+            // then lastBlockId = 10 + 3 = 13. This is correct because block IDs are inclusive.
             uint48 lastBlockId = uint48(_parentLastBlockId + _numBlocks);
             if (!LibForks.isBlocksInCurrentFork(_conf, firstBlockId, lastBlockId)) {
                 revert BlocksNotInCurrentFork();
@@ -376,14 +385,13 @@ library LibValidate {
     /// @param _bindings Read/write bindings functions
     /// @param _blobs Blob information containing hashes or indices
     /// @return blobHashes_ Array of individual blob hashes
-    /// @return txsHash_ Hash of all transactions in the batch
     function _calculateTxsHash(
         LibBinding.Bindings memory _bindings,
         IInbox.Blobs memory _blobs
     )
         private
         view
-        returns (bytes32[] memory blobHashes_, bytes32 txsHash_)
+        returns (bytes32[] memory blobHashes_)
     {
         unchecked {
             if (_blobs.hashes.length != 0) {
@@ -398,8 +406,6 @@ library LibValidate {
             for (uint256 i; i < blobHashes_.length; ++i) {
                 if (blobHashes_[i] == 0) revert BlobHashNotFound();
             }
-
-            txsHash_ = keccak256(abi.encode(blobHashes_));
         }
     }
 

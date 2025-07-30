@@ -51,7 +51,6 @@ library LibData {
         // Block gas limit should be: `gasIssuancePerSecond * blockTime * 2`
         return IInbox.BatchMetadata({
             buildMeta: IInbox.BatchBuildMetadata({
-                txsHash: _context.txsHash,
                 blobHashes: _context.blobHashes,
                 extraData: extraData,
                 coinbase: _batch.coinbase,
