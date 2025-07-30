@@ -18,9 +18,6 @@ import "./LibBinding.sol";
 ///      - Signal validation
 /// @custom:security-contact security@taiko.xyz
 library LibValidate {
-    uint32 internal constant MIN_GAS_ISSUANCE_PER_SECOND = 100_000;
-    uint32 internal constant MAX_GAS_ISSUANCE_PER_SECOND = 100_000_000;
-
     // -------------------------------------------------------------------------
     // Internal Functions
     // -------------------------------------------------------------------------
@@ -125,14 +122,16 @@ library LibValidate {
             // For example: with value=1, old formula 1*99/100=0 allows 100% decrease,
             // but new formula 1*100 < 1*99 correctly prevents any decrease.
             if (
-                _batch.gasIssuancePerSecond > MAX_GAS_ISSUANCE_PER_SECOND
-                    || _batch.gasIssuancePerSecond * 100 > _summary.gasIssuancePerSecond * 101
+                _batch.gasIssuancePerSecond > _config.maxGasIssuancePerSecond
+                    || uint256(_batch.gasIssuancePerSecond) * 10_000
+                        > uint256(_summary.gasIssuancePerSecond) * (10_000 + _config.maxGasIssuanceDeltaBps)
             ) {
                 revert GasIssuanceTooHigh();
             }
             if (
-                _batch.gasIssuancePerSecond < MIN_GAS_ISSUANCE_PER_SECOND
-                    || _batch.gasIssuancePerSecond * 100 < _summary.gasIssuancePerSecond * 99
+                _batch.gasIssuancePerSecond < _config.minGasIssuancePerSecond
+                    || uint256(_batch.gasIssuancePerSecond) * 10_000
+                        < uint256(_summary.gasIssuancePerSecond) * (10_000 - _config.maxGasIssuanceDeltaBps)
             ) {
                 revert GasIssuanceTooLow();
             }
