@@ -51,7 +51,7 @@ library LibValidate {
         // If a block's coinbase is address(0), _batch.coinbase will be used, if _batch.coinbase
         // is address(0), the driver shall use the proposer address as the coinbase address.
 
-        _validateProposer(_config);
+        _validateProposer(_config, _bindings);
 
         // Validate new gas issuance per second
         _validateGasIssuance(_config, _summary, _batch);

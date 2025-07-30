@@ -77,7 +77,7 @@ library LibPropose {
             }
 
             // Validate forced inclusion was processed if due
-            if (_bindings.isForcedInclusionDue(nextBatchId)) {
+            if (_bindings.isForcedInclusionDue(_summary.nextBatchId)) {
                 IForcedInclusionStore.ForcedInclusion memory processed =
                     _bindings.consumeForcedInclusion(msg.sender);
 
