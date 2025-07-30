@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "../IInbox.sol";
+import "../IInbox.sol";
 import "./LibValidate.sol";
 import "./LibData.sol";
 import "./LibProver.sol";
@@ -37,7 +37,7 @@ library LibPropose {
     {
         unchecked {
             if (_batches.length == 0) revert EmptyBatchArray();
-            if (_batches.length > 7) revert BatchLimitExceeded();
+            if (_batches.length >= 8) revert BatchLimitExceeded();
 
             if (
                 _summary.nextBatchId + _batches.length
