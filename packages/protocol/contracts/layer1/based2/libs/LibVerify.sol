@@ -45,7 +45,7 @@ library LibVerify {
         // A batch cannot cross fork boundaries, this is guaranteed by proposal and proving
         // logics,
         // so we can check the first block id only.
-        if (!LibForks.isBlocksInCurrentFork(_config, nextBlockId)) {
+        if (!LibForks.isBlockInCurrentFork(_config, nextBlockId)) {
             return _summary;
         }
 
@@ -116,7 +116,7 @@ library LibVerify {
             return _tran.provabilityBond + _tran.livenessBond;
         } else if (_tran.proofTiming == IInbox.ProofTiming.InExtendedProvingWindow) {
             return
-                _tran.provabilityBond + uint256(_tran.livenessBond) * _config.bondRewardPtcg / 100;
+                uint256(_tran.livenessBond) * _config.bondRewardPtcg / 100 + _tran.provabilityBond;
         } else {
             //  _tran.proofTiming == IInbox.ProofTiming.OutOfExtendedProvingWindow
             return uint256(_tran.provabilityBond) * _config.bondRewardPtcg / 100;

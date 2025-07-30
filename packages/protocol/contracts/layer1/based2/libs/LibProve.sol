@@ -52,7 +52,7 @@ library LibProve {
 
             // During batch proposal, we ensured that blocks won't cross fork boundaries.
             // Therefore, we only need to verify the firstBlockId in the following check.
-            if (!LibForks.isBlocksInCurrentFork(_config, _inputs[i].proveMeta.firstBlockId)) {
+            if (!LibForks.isBlockInCurrentFork(_config, _inputs[i].proveMeta.firstBlockId)) {
                 revert BlocksNotInCurrentFork();
             }
 
