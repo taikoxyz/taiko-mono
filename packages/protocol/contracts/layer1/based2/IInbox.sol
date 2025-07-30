@@ -77,8 +77,6 @@ interface IInbox {
     struct BatchContext {
         /// @notice Address authorized to prove this batch
         address prover;
-        /// @notice Hash of all transactions in the batch
-        bytes32 txsHash;
         /// @notice ID of the last anchor block referenced
         uint48 lastAnchorBlockId;
         /// @notice ID of the last block in this batch
@@ -123,8 +121,6 @@ interface IInbox {
     /// @notice Metadata for building and validating a batch
     /// @dev Contains all necessary information for batch construction and verification
     struct BatchBuildMetadata {
-        /// @notice Hash of all transactions in the batch
-        bytes32 txsHash;
         /// @notice Array of blob hashes referenced by this batch
         /// @custom:encode max-size=256
         bytes32[] blobHashes;
