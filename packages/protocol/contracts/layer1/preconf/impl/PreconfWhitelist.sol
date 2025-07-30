@@ -50,17 +50,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     constructor() EssentialContract() { }
 
-    function init(
-        address _owner,
-        uint8 _operatorChangeDelay,
-        uint8 _randomnessDelay
-    )
-        external
-        initializer
-    {
+    function init(address _owner, uint8 _operatorChangeDelay) external initializer {
         __Essential_init(_owner);
         operatorChangeDelay = _operatorChangeDelay;
-        randomnessDelay = _randomnessDelay;
         havingPerfectOperators = true;
     }
 
@@ -272,12 +264,11 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
             return address(0);
         }
 
-        // Use the beacon block root from `randomnessDelay` epochs ago as the random number.
-        // If the beacon block root is not available (e.g., if the epoch is before genesis),
-        // return address(0) directly.
+        // Use the previous epoch's start timestamp as the random number, if it is not available
+        // (zero), return address(0) directly.
         uint256 rand = uint256(
             LibPreconfUtils.getBeaconBlockRootAtOrAfter(
-                _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH * randomnessDelay
+                _epochTimestamp - LibPreconfConstants.SECONDS_IN_EPOCH
             )
         );
 

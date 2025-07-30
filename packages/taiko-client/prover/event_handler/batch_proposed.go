@@ -95,6 +95,12 @@ func (h *BatchProposedEventHandler) Handle(
 	if meta.Pacaya().GetBatchID().Uint64() <= h.sharedState.GetLastHandledBatchID() {
 		return nil
 	}
+	var assignedProver common.Address
+	if meta.IsShasta() {
+		assignedProver = meta.Shasta().GetProver()
+	} else {
+		assignedProver = meta.GetProposer()
+	}
 
 	log.Info(
 		"New BatchProposed event",
@@ -102,7 +108,7 @@ func (h *BatchProposedEventHandler) Handle(
 		"l1Hash", meta.GetRawBlockHash(),
 		"batchID", meta.Pacaya().GetBatchID(),
 		"lastBlockID", meta.Pacaya().GetLastBlockID(),
-		"assignedProver", meta.GetProposer(),
+		"assignedProver", assignedProver,
 		"lastTimestamp", meta.Pacaya().GetLastBlockTimestamp(),
 		"numBlobs", len(meta.Pacaya().GetBlobHashes()),
 		"blocks", len(meta.Pacaya().GetBlocks()),
@@ -122,7 +128,7 @@ func (h *BatchProposedEventHandler) Handle(
 	go func() {
 		if err := backoff.Retry(
 			func() error {
-				if err := h.checkExpirationAndSubmitProofPacaya(ctx, meta, meta.Pacaya().GetBatchID()); err != nil {
+				if err := h.checkExpirationAndSubmitProofPacaya(ctx, meta, meta.Pacaya().GetBatchID(), assignedProver); err != nil {
 					log.Error(
 						"Failed to check proof status and submit proof",
 						"batchID", meta.Pacaya().GetBatchID(),
@@ -154,6 +160,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 	batchID *big.Int,
+	assignedProver common.Address,
 ) error {
 	// Check whether the batch has been verified.
 	isVerified, err := isBatchVerified(ctx, h.rpc, batchID)
@@ -196,16 +203,16 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 		return fmt.Errorf("failed to check if the proving window is expired: %w", err)
 	}
 
-	// If the proving window is not expired, we need to check if the current prover is the assigned prover,
-	// if no and the current prover wants to prove unassigned blocks, then we should wait for its expiration.
+	// If the proving window is not expired, we need to check if the current assignedProver is the assigned assignedProver,
+	// if no and the current assignedProver wants to prove unassigned blocks, then we should wait for its expiration.
 	if !windowExpired &&
-		meta.GetProposer() != h.proverAddress &&
-		meta.GetProposer() != h.proverSetAddress &&
-		!slices.Contains(h.localProposerAddresses, meta.GetProposer()) {
+		assignedProver != h.proverAddress &&
+		assignedProver != h.proverSetAddress &&
+		!slices.Contains(h.localProposerAddresses, assignedProver) {
 		log.Info(
-			"Proposed batch is not provable by current prover at the moment",
+			"Proposed batch is not provable by current assignedProver at the moment",
 			"batchID", meta.Pacaya().GetBatchID(),
-			"prover", meta.GetProposer(),
+			"assignedProver", assignedProver,
 			"timeToExpire", timeToExpire,
 			"localProposerAddresses", h.localProposerAddresses,
 		)
@@ -214,7 +221,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 			log.Info(
 				"Add proposed block to wait for proof window expiration",
 				"batchID", meta.Pacaya().GetBatchID(),
-				"assignProver", meta.GetProposer(),
+				"assignProver", assignedProver,
 				"timeToExpire", timeToExpire,
 				"localProposerAddresses", h.localProposerAddresses,
 			)
@@ -228,18 +235,18 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 		}
 	}
 
-	// If the current prover is not the assigned prover, and `--prover.proveUnassignedBlocks` is not set,
+	// If the current assignedProver is not the assigned assignedProver, and `--assignedProver.proveUnassignedBlocks` is not set,
 	// we should skip proving this batch.
 	if !h.proveUnassignedBlocks &&
-		meta.GetProposer() != h.proverAddress &&
-		meta.GetProposer() != h.proverSetAddress &&
-		!slices.Contains(h.localProposerAddresses, meta.GetProposer()) {
+		assignedProver != h.proverAddress &&
+		assignedProver != h.proverSetAddress &&
+		!slices.Contains(h.localProposerAddresses, assignedProver) {
 		log.Info(
-			"Expired batch is not provable by current prover",
+			"Expired batch is not provable by current assignedProver",
 			"batchID", meta.Pacaya().GetBatchID(),
 			"currentProver", h.proverAddress,
 			"currentProverSet", h.proverSetAddress,
-			"assignProver", meta.GetProposer(),
+			"assignProver", assignedProver,
 			"localProposerAddresses", h.localProposerAddresses,
 		)
 		return nil
@@ -248,7 +255,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofPacaya(
 	log.Info(
 		"Proposed batch is provable",
 		"batchID", meta.Pacaya().GetBatchID(),
-		"assignProver", meta.GetProposer(),
+		"assignProver", assignedProver,
 		"localProposerAddresses", h.localProposerAddresses,
 	)
 

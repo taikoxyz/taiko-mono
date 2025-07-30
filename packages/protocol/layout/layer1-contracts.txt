@@ -818,7 +818,7 @@
 |
 | operatorChangeDelay         | uint8                                                    | 253  | 1      | 1     |
 |
-| randomnessDelay             | uint8                                                    | 253  | 2      | 1     |
+| havingPerfectOperators      | bool                                                     | 253  | 2      | 1     |
 |
 | havingPerfectOperators      | bool                                                     | 253  | 3      | 1     |
 |

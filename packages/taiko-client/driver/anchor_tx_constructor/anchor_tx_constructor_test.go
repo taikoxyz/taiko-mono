@@ -12,7 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	bindingTypes "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding/binding_types"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -34,7 +36,7 @@ func TestAssembleAnchorV3Tx(t *testing.T) {
 		l1Head.Number,
 		l1Head.Hash(),
 		head,
-		&pacayaBindings.LibSharedDataBaseFeeConfig{},
+		bindingTypes.NewBaseFeeConfigPacaya(&pacaya.LibSharedDataBaseFeeConfig{}),
 		[][32]byte{},
 		common.Big1,
 		common.Big256,

@@ -76,7 +76,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	if s.rpc.PacayaClients.TaikoWrapper != nil {
 		// Check if the preconfirmation is enabled.
-		preconfRouter, err := s.rpc.GetPreconfRouterPacaya(&bind.CallOpts{Context: ctx})
+		preconfRouter, err := s.rpc.GetPreconfRouterShasta(&bind.CallOpts{Context: ctx})
 		if err != nil {
 			return s.returnError(c, http.StatusInternalServerError, err)
 		}
