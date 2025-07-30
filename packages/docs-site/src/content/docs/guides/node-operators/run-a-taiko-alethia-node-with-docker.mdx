@@ -101,11 +101,11 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
 
 6. Ensure that the relevant ports are open on your machine
 
-  Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following ports on your machine are open and visible from the internet at your external IP:
-    - TCP `4001` OR whichever port you set `--p2p.advertise.tcp` to.
-    - UDP `30303` OR whichever port you set `--p2p.advertise.udp` to.
+    Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following ports on your machine are open and visible from the internet at your external IP:
+      - TCP `4001` OR whichever port you set `--p2p.advertise.tcp` to.
+      - UDP `30303` OR whichever port you set `--p2p.advertise.udp` to.
 
-  These ports **are required for p2p gossiping preconfirmed blocks**, so if it is not set you will only subscribe to the events that are emitted on chain. You may need to add additional port-forwarding rules in your firewall/router to enable discovery from the internet.
+    These ports **are required for p2p gossiping preconfirmed blocks**, so if it is not set you will only subscribe to the events that are emitted on chain. You may need to add additional port-forwarding rules in your firewall/router to enable discovery from the internet.
 
 7. Set your node's external IP for p2p discovery
 
@@ -148,7 +148,6 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
     #### Option 2: Check with curl commands
 
     <Steps>
-
     1. Check if the Execution Layer client is connected to Taiko L2:
 
         ```bash
@@ -180,9 +179,7 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
         ```
 
         > Note: You may need to use `sudo docker compose logs -f` if you are not in the `docker` group.
-
     </Steps>
-
 </Steps>
 
 ## Video tutorial
