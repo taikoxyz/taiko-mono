@@ -6,7 +6,6 @@ import "../IInbox.sol";
 /// @title LibCodecBatchContext
 /// @notice Library for encoding and decoding BatchContext
 /// @custom:security-contact security@taiko.xyz
-// TODO(dnaiel): implement this library
 library LibCodecBatchContext {
     /// @notice Encodes a BatchContext struct into bytes
     /// @param _batchContexts The array of BatchContext to encode

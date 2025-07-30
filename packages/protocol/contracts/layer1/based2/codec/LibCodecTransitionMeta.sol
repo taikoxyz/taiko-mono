@@ -6,7 +6,6 @@ import "../IInbox.sol";
 /// @title LibCodecTransitionMeta
 /// @notice Library for encoding and decoding TransitionMeta arrays
 /// @custom:security-contact security@taiko.xyz
-// TODO(dnaiel): implement this library
 library LibCodecTransitionMeta {
     /// @notice Encodes an array of TransitionMeta structs into bytes
     /// @param _transitionMetas The array to encode

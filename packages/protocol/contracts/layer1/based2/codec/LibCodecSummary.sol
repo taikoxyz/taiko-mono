@@ -6,7 +6,6 @@ import "../IInbox.sol";
 /// @title LibCodecSummary
 /// @notice Library for encoding and decoding Summary
 /// @custom:security-contact security@taiko.xyz
-// TODO(dnaiel): implement this library
 library LibCodecSummary {
     /// @notice Encodes a Summary struct into bytes
     /// @param _summary The Summary to encode

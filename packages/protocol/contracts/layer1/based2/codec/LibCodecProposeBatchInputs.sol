@@ -6,7 +6,6 @@ import "../IInbox.sol";
 /// @title LibCodecProposeBatchInputs
 /// @notice Library for encoding and decoding propose batches inputs
 /// @custom:security-contact security@taiko.xyz
-// TODO(dnaiel): implement this library
 library LibCodecProposeBatchInputs {
     /// @notice Encodes propose batches inputs into bytes
     /// @param _summary The summary

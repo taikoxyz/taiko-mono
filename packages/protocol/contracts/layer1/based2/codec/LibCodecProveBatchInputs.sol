@@ -6,7 +6,6 @@ import "../IInbox.sol";
 /// @title LibCodecProveBatchInputs
 /// @notice Library for encoding and decoding ProveBatchInput arrays
 /// @custom:security-contact security@taiko.xyz
-// TODO(dnaiel): implement this library
 library LibCodecProveBatchInputs {
     /// @notice Encodes an array of ProveBatchInput structs into bytes
     /// @param _proveBatchInputs The array to encode

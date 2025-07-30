@@ -6,7 +6,6 @@ import "../IInbox.sol";
 /// @title LibCodecProverAuth
 /// @notice Library for encoding and decoding ProverAuth
 /// @custom:security-contact security@taiko.xyz
-// TODO(dnaiel): implement this library
 library LibCodecProverAuth {
     /// @notice Encodes a ProverAuth struct into bytes
     /// @param _proverAuth The ProverAuth to encode
