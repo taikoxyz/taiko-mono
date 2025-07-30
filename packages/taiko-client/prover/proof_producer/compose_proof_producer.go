@@ -62,11 +62,11 @@ func (s *ComposeProofProducer) RequestProof(
 	)
 
 	var (
-		proof          []byte
-		proofType      ProofType
-		batches        = []*RaikoBatches{{BatchID: batchID, L1InclusionBlockNumber: meta.GetRawBlockHeight()}}
-		g              = new(errgroup.Group)
-		rethProofError error
+		proof             []byte
+		proofType         ProofType
+		batches           = []*RaikoBatches{{BatchID: batchID, L1InclusionBlockNumber: meta.GetRawBlockHeight()}}
+		g                 = new(errgroup.Group)
+		firstGoroutineErr = make(chan error, 1)
 	)
 
 	g.Go(func() error {
@@ -87,7 +87,7 @@ func (s *ComposeProofProducer) RequestProof(
 				requestAt,
 				opts.PacayaOptions().IsRethProofGenerated,
 			); err != nil {
-				rethProofError = err
+				firstGoroutineErr <- err
 				return err
 			} else {
 				proofType = resp.ProofType
@@ -112,8 +112,10 @@ func (s *ComposeProofProducer) RequestProof(
 		}
 	})
 
-	if err := g.Wait(); err != nil {
-		return nil, fmt.Errorf("failed to get batches proofs: %w and %w", err, rethProofError)
+	g.Wait()
+
+	if err := <-firstGoroutineErr; err != nil {
+		return nil, fmt.Errorf("failed to get batches proofs: %w", err)
 	}
 
 	return &ProofResponse{
