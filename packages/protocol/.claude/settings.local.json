@@ -6,7 +6,8 @@
       "Bash(ls:*)",
       "Bash(forge:*)",
       "Bash(pnpm:*)",
-      "WebFetch"
+      "WebFetch",
+      "Bash(grep:*)"
     ],
     "deny": []
   }
