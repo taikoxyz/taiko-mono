@@ -117,27 +117,31 @@ library LibValidate {
         unchecked {
             if (_batch.gasIssuancePerSecond == _summary.gasIssuancePerSecond) return;
 
+            if (block.timestamp < _summary.gasIssuanceUpdatedAt + _config.gasIssuanceUpdateDelay) {
+                revert GasIssuanceTooEarlyToChange();
+            }
+
             // Gas issuance must stay within ±1% of current value AND within absolute bounds.
             // Using multiplication before comparison to avoid precision loss for small values.
             // For example: with value=1, old formula 1*99/100=0 allows 100% decrease,
             // but new formula 1*100 < 1*99 correctly prevents any decrease.
-            if (
-                _batch.gasIssuancePerSecond > _config.maxGasIssuancePerSecond
-                    || uint256(_batch.gasIssuancePerSecond) * 10_000
-                        > uint256(_summary.gasIssuancePerSecond) * (10_000 + _config.maxGasIssuanceDeltaBps)
-            ) {
+            if (_batch.gasIssuancePerSecond > _config.maxGasIssuancePerSecond) {
                 revert GasIssuanceTooHigh();
             }
+
             if (
-                _batch.gasIssuancePerSecond < _config.minGasIssuancePerSecond
-                    || uint256(_batch.gasIssuancePerSecond) * 10_000
-                        < uint256(_summary.gasIssuancePerSecond) * (10_000 - _config.maxGasIssuanceDeltaBps)
-            ) {
+                uint256(_batch.gasIssuancePerSecond) * 10_000
+                    > uint256(_summary.gasIssuancePerSecond) * (10_000 + _config.maxGasIssuanceDeltaBps)
+            ) revert GasIssuanceTooHigh();
+
+            if (_batch.gasIssuancePerSecond < _config.minGasIssuancePerSecond) {
                 revert GasIssuanceTooLow();
             }
-            if (block.timestamp < _summary.gasIssuanceUpdatedAt + _config.gasIssuanceUpdateDelay) {
-                revert GasIssuanceTooEarlyToChange();
-            }
+
+            if (
+                uint256(_batch.gasIssuancePerSecond) * 10_000
+                    < uint256(_summary.gasIssuancePerSecond) * (10_000 - _config.maxGasIssuanceDeltaBps)
+            ) revert GasIssuanceTooLow();
         }
     }
 
