@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/layer1/based2/IInbox.sol";
+
 /// @title IForcedInclusionStore
 /// @custom:security-contact security@taiko.xyz
 interface IForcedInclusionStore {
@@ -42,11 +44,6 @@ interface IForcedInclusionStore {
     /// @return The deadline for the oldest forced inclusion.
     function getOldestForcedInclusionDeadline() external view returns (uint256);
 
-    /// @dev DEPRECATED: Use `isOldestForcedInclusionDue(uint64 _batchId)` instead.
-    /// @dev Check if the oldest forced inclusion is due.
-    /// @return True if the oldest forced inclusion is due, false otherwise.
-    function isOldestForcedInclusionDue() external view returns (bool);
-
     /// @dev Check if the oldest forced inclusion is due for a specific batch id.
     /// @param _batchId The batch id to check.
     /// @return True if the oldest forced inclusion is due for the specified batch id, false
@@ -57,8 +54,12 @@ interface IForcedInclusionStore {
     /// The inclusion request must be marked as processed and the priority fee must be paid to the
     /// caller.
     /// @param _feeRecipient The address to receive the priority fee.
+    /// @param _nextBatchId The trusted next batch id.
     /// @return inclusion_ The forced inclusion request.
-    function consumeOldestForcedInclusion(address _feeRecipient)
+    function consumeOldestForcedInclusion(
+        address _feeRecipient,
+        uint64 _nextBatchId
+    )
         external
         returns (ForcedInclusion memory);
 
@@ -67,10 +68,12 @@ interface IForcedInclusionStore {
     /// @param blobIndex The index of the blob that contains the transaction data.
     /// @param blobByteOffset The byte offset in the blob
     /// @param blobByteSize The size of the blob in bytes
+    /// @param _summary The summary of the protocol state to validate against the inbox
     function storeForcedInclusion(
         uint8 blobIndex,
         uint32 blobByteOffset,
-        uint32 blobByteSize
+        uint32 blobByteSize,
+        IInbox.Summary memory _summary
     )
         external
         payable;
