@@ -33,11 +33,6 @@ const (
 	peerLoopReportInterval           = 30 * time.Second
 )
 
-type peerInfo struct {
-	id       string
-	addrInfo []string
-}
-
 // Driver keeps the L2 execution engine's local block chain in sync with the TaikoInbox
 // contract.
 type Driver struct {
@@ -620,7 +615,7 @@ func (d *Driver) peerTick() {
 	advertisedTCP := d.p2pNode.Dv5Local().Node().TCP()
 	advertisedIP := d.p2pNode.Dv5Local().Node().IP()
 
-	peersInfo := make([]peerInfo, 0, len(peers))
+	addrInfo := make([]string, 0, len(peers))
 	for _, p := range peers {
 		info := d.p2pNode.Host().Peerstore().PeerInfo(p)
 
@@ -628,17 +623,12 @@ func (d *Driver) peerTick() {
 		for _, addr := range info.Addrs {
 			addrInfo = append(addrInfo, addr.String())
 		}
-
-		peersInfo = append(peersInfo, peerInfo{
-			id:       info.ID.String(),
-			addrInfo: addrInfo,
-		})
 	}
 
 	log.Info("Peer tick",
 		"peersLen", len(peers),
 		"peers", peers,
-		"peersInfo", peersInfo,
+		"addrInfo", addrInfo,
 		"id", d.p2pNode.Host().ID(),
 		"advertisedUDP", advertisedUDP,
 		"advertisedTCP", advertisedTCP,
