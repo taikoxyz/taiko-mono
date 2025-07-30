@@ -25,5 +25,4 @@ dbdata
 # Testing
 integration_test/nodes/deployments/mainnet.json
 .env
-
-\.idea/
+.claude/

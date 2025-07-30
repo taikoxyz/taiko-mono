@@ -62,8 +62,8 @@ type BuildPreconfBlockResponseBody struct {
 //		@Description	Insert a preconfirmation block to the L2 execution engine, if the preconfirmation block creation
 //		@Description	body in request are valid, it will insert the corresponding
 //	 	@Description	preconfirmation block to the backend L2 execution engine and return a success response.
-//		@Param  	body BuildPreconfBlockRequestBody true "preconfirmation block creation request body"
-//		@Accept	  json
+//		@Param  		request body BuildPreconfBlockRequestBody true "preconfirmation block creation request body"
+//		@Accept	  	json
 //		@Produce	json
 //		@Success	200		{object} BuildPreconfBlockResponseBody
 //		@Router		/preconfBlocks [post]
@@ -88,6 +88,15 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				errors.New("preconfirmation is disabled via taikoWrapper"),
 			)
 		}
+	}
+
+	// Check if the L2 execution engine is syncing from L1.
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
+	if err != nil {
+		return s.returnError(c, http.StatusBadRequest, err)
+	}
+	if progress.IsSyncing() {
+		return s.returnError(c, http.StatusBadRequest, errors.New("l2 execution engine is syncing"))
 	}
 
 	// Parse the request body.
@@ -173,15 +182,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	if err := s.ValidateExecutionPayload(executablePayload); err != nil {
 		return s.returnError(c, http.StatusBadRequest, err)
-	}
-
-	// Check if the L2 execution engine is syncing from L1.
-	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
-	if err != nil {
-		return s.returnError(c, http.StatusBadRequest, err)
-	}
-	if progress.IsSyncing() {
-		return s.returnError(c, http.StatusBadRequest, errors.New("l2 execution engine is syncing"))
 	}
 
 	// Insert the preconfirmation block.

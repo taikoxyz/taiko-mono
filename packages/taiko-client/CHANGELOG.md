@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.9.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.8.0...taiko-alethia-client-v1.9.0) (2025-07-30)
+
+
+### Features
+
+* **protocol:** implement Shasta fork ([#19664](https://github.com/taikoxyz/taiko-mono/issues/19664)) ([2f798ff](https://github.com/taikoxyz/taiko-mono/commit/2f798ff47ab115946ffda8856f9c673344ee1ae3))
+
+
+### Bug Fixes
+
+* **taiko-client:** fix swagger gen preconf blocks api ([#19794](https://github.com/taikoxyz/taiko-mono/issues/19794)) ([aae4af8](https://github.com/taikoxyz/taiko-mono/commit/aae4af8a3bb997a72d9205f15a94535ee3ca016d))
+* **taiko-client:** p2p fixes ([#19841](https://github.com/taikoxyz/taiko-mono/issues/19841)) ([cac40c2](https://github.com/taikoxyz/taiko-mono/commit/cac40c2740ea2e065a71ac520ef43343df4ad5df))
+* **taiko-client:** use zk error as the err of `g.Wait()` ([#19806](https://github.com/taikoxyz/taiko-mono/issues/19806)) ([211d8fb](https://github.com/taikoxyz/taiko-mono/commit/211d8fb76522eca0190b1df1b880f5960d26c653))
+
+
+### Chores
+
+* **taiko-client:** log PreconfOperatorAddress ([#19787](https://github.com/taikoxyz/taiko-mono/issues/19787)) ([3d84ea5](https://github.com/taikoxyz/taiko-mono/commit/3d84ea5ef6e71400ae7ae47a0f3fac51b83ecdd5))
+
+
+### Code Refactoring
+
+* **taiko-client:** reduce the number of requests ([#19802](https://github.com/taikoxyz/taiko-mono/issues/19802)) ([b57892f](https://github.com/taikoxyz/taiko-mono/commit/b57892fa1327072e6305badb88e9300093ef4adc))
+
 ## [1.8.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.7.0...taiko-alethia-client-v1.8.0) (2025-07-25)
 
 

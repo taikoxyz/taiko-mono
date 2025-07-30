@@ -2,7 +2,9 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    # Only run the first time the PR is opened or when it is marked as ready for review
+    # This is to avoid claude from automatically reviewing the PR every time there's a new commit
+    types: [opened, ready_for_review]
     # Optional: Only run on specific file changes
     # paths:
     #   - "src/**/*.ts"
@@ -12,20 +14,14 @@ on:
 
 jobs:
   claude-review:
-    # Only run for non-draft PRs from core contributors
+    # Run for non-draft PRs that are not marked to be skipped
     if: |
-      (
-        github.event.pull_request.author_association == 'OWNER' ||
-        github.event.pull_request.author_association == 'MEMBER' ||
-        github.event.pull_request.author_association == 'COLLABORATOR'
-      ) &&
       github.event.pull_request.draft == false &&
       !contains(github.event.pull_request.labels.*.name, 'option.do-not-merge')
-
     runs-on: [arc-runner-set]
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
       issues: read
       id-token: write
 
@@ -34,6 +30,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Verify Node.js installation
+        run: |
+          echo "Node.js location:"
+          which node || echo "Node not found in PATH"
 
       - name: Run Claude Code Review
         id: claude-review
@@ -52,7 +58,7 @@ jobs:
             - Performance considerations
             - Security concerns
             - Test coverage
-            
+
             Be constructive and helpful in your feedback. Don't be overly polite or verbose, it is ok to be direct.
           # Optional: Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
           use_sticky_comment: true
@@ -67,7 +73,7 @@ jobs:
 
           # Optional: Different prompts for different authors
           # direct_prompt: |
-          #   ${{ github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' && 
+          #   ${{ github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' &&
           #   'Welcome! Please review this PR from a first-time contributor. Be encouraging and provide detailed explanations for any suggestions.' ||
           #   'Please provide a thorough code review focusing on our coding standards and best practices.' }}
 
