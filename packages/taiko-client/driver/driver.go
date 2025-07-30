@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/modern-go/reflect2"
 	"github.com/urfave/cli/v2"
 
@@ -32,6 +33,11 @@ const (
 	exchangeTransitionConfigInterval = 1 * time.Minute
 	peerLoopReportInterval           = 30 * time.Second
 )
+
+type peerInfo struct {
+	id       peer.ID
+	addrInfo peer.AddrInfo
+}
 
 // Driver keeps the L2 execution engine's local block chain in sync with the TaikoInbox
 // contract.
@@ -607,9 +613,18 @@ func (d *Driver) peerLoop(ctx context.Context) {
 			advertisedTCP := d.p2pNode.Dv5Local().Node().TCP()
 			advertisedIP := d.p2pNode.Dv5Local().Node().IP()
 
+			peersInfo := make([]peerInfo, 0, len(peers))
+			for _, p := range peers {
+				peersInfo = append(peersInfo, peerInfo{
+					id:       p,
+					addrInfo: d.p2pNode.Host().Peerstore().PeerInfo(p),
+				})
+			}
+
 			log.Info("Peer tick",
 				"peersLen", len(peers),
 				"peers", peers,
+				"peersInfo", peersInfo,
 				"id", d.p2pNode.Host().ID(),
 				"advertisedUDP", advertisedUDP,
 				"advertisedTCP", advertisedTCP,

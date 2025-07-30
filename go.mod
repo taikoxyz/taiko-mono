@@ -29,6 +29,7 @@ require (
 	github.com/labstack/echo/v4 v4.13.3
 	github.com/labstack/gommon v0.4.2
 	github.com/libp2p/go-libp2p v0.36.5
+	github.com/libp2p/go-libp2p-core v0.20.1
 	github.com/modern-go/reflect2 v1.0.2
 	github.com/morkid/paginate v1.1.10
 	github.com/patrickmn/go-cache v2.1.0+incompatible
