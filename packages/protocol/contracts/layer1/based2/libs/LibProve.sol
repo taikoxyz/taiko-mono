@@ -50,11 +50,6 @@ library LibProve {
             if (_inputs[i].tran.parentHash == 0) revert InvalidTransitionParentHash();
             if (_inputs[i].tran.batchId == 0) revert ZeroBatchId();
 
-            // During batch proposal, we ensured that blocks won't cross fork boundaries.
-            // Therefore, we only need to verify the firstBlockId in the following check.
-            if (!LibForks.isBlocksInCurrentFork(_config, _inputs[i].proveMeta.firstBlockId)) {
-                revert BlocksNotInCurrentFork();
-            }
 
             // Load and verify the batch metadata
             bytes32 batchMetaHash = _bindings.loadBatchMetaHash(_config, _inputs[i].tran.batchId);
