@@ -64,6 +64,9 @@ library LibPropose {
             IInbox.BatchProposeMetadata memory parentBatch = _evidence.proposeMeta;
             IInbox.BatchContext[] memory contexts = new IInbox.BatchContext[](_batches.length);
 
+            // Capture the starting batch ID for forced inclusion check
+            uint48 nextBatchId = _summary.nextBatchId;
+
             for (uint256 i; i < _batches.length; ++i) {
                 (parentBatch, contexts[i], _summary.lastBatchMetaHash) =
                     _proposeBatch(_bindings, _config, _summary, _batches[i], parentBatch);
@@ -77,9 +80,9 @@ library LibPropose {
             }
 
             // Validate forced inclusion was processed if due
-            if (_bindings.isForcedInclusionDue(_summary.nextBatchId)) {
+            if (_bindings.isForcedInclusionDue(nextBatchId)) {
                 IForcedInclusionStore.ForcedInclusion memory processed =
-                    _bindings.consumeForcedInclusion(msg.sender, uint64(_summary.nextBatchId));
+                    _bindings.consumeForcedInclusion(msg.sender, uint64(nextBatchId));
 
                 LibValidate.validateForcedInclusionBatch(_batches[0], processed);
             }
