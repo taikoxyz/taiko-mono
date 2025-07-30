@@ -11,14 +11,12 @@ library LibCodecProposeBatchInputs {
     /// @notice Encodes propose batches inputs into bytes
     /// @param _summary The summary
     /// @param _batches The batches array
-    /// @param _proposeBatchEvidence The evidence
     /// @param _transitionMetas The transition metas array
     /// @return _ The encoded data
     function encode(
         IInbox.Summary memory _summary,
         /// @custom:encode max-size:7
         IInbox.Batch[] memory _batches,
-        IInbox.ProposeBatchEvidence memory _proposeBatchEvidence,
         /// @custom:encode max-size:63
         IInbox.TransitionMeta[] memory _transitionMetas
     )
@@ -26,14 +24,13 @@ library LibCodecProposeBatchInputs {
         pure
         returns (bytes memory)
     {
-        return abi.encode(_summary, _batches, _proposeBatchEvidence, _transitionMetas);
+        return abi.encode(_summary, _batches, _transitionMetas);
     }
 
     /// @notice Decodes bytes into propose batches inputs
     /// @param _data The encoded data
     /// @return summary_ The decoded summary
     /// @return batches_ The decoded batches
-    /// @return proposeBatchEvidence_ The decoded evidence
     /// @return transitionMetas_ The decoded transition metas
     /// @custom:encode optimize-gas
     function decode(bytes memory _data)
@@ -42,13 +39,10 @@ library LibCodecProposeBatchInputs {
         returns (
             IInbox.Summary memory summary_,
             IInbox.Batch[] memory batches_,
-            IInbox.ProposeBatchEvidence memory proposeBatchEvidence_,
             IInbox.TransitionMeta[] memory transitionMetas_
         )
     {
-        (summary_, batches_, proposeBatchEvidence_, transitionMetas_) = abi.decode(
-            _data,
-            (IInbox.Summary, IInbox.Batch[], IInbox.ProposeBatchEvidence, IInbox.TransitionMeta[])
-        );
+        (summary_, batches_, transitionMetas_) =
+            abi.decode(_data, (IInbox.Summary, IInbox.Batch[], IInbox.TransitionMeta[]));
     }
 }

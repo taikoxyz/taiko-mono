@@ -31,16 +31,12 @@ library LibValidate {
     /// @dev The prover field of the returned context object will not be initialized.
     /// @param _bindings Library function binding
     /// @param _config Protocol configuration parameters
-    /// @param _summary Current protocol summary state
     /// @param _batch The batch to validate
-    /// @param _parentBatch Metadata from the parent batch proposal
     /// @return _ Validated batch information and computed hashes
     function validate(
         LibBinding.Bindings memory _bindings,
         IInbox.Config memory _config,
-        IInbox.Summary memory _summary,
-        IInbox.Batch memory _batch,
-        IInbox.BatchProposeMetadata memory _parentBatch
+        IInbox.Batch memory _batch
     )
         internal
         view
@@ -50,23 +46,6 @@ library LibValidate {
         // is address(0), the driver shall use the proposer address as the coinbase address.
 
         _validateProposer(_config);
-
-        // Validate new gas issuance per second
-        _validateGasIssuance(_config, _summary, _batch);
-
-        // Validate timestamps
-        _validateTimestamps(_config, _batch, _parentBatch.lastBlockTimestamp);
-
-        // Validate signals
-        _validateSignals(_bindings, _config, _batch);
-
-        // Validate anchors
-        (bytes32[] memory anchorBlockHashes, uint48 lastAnchorBlockId) =
-            _validateAnchors(_bindings, _config, _batch, _parentBatch.lastAnchorBlockId);
-
-        // Validate block range
-        uint48 lastBlockId =
-            _validateBlockRange(_config, _batch.blocks.length, _parentBatch.lastBlockId);
 
         // Validate blobs
         uint48 blobsCreatedIn = _validateBlobs(_config, _batch);
@@ -79,13 +58,9 @@ library LibValidate {
             prover: address(0), // Will be set later in LibProver.validateProver
             txsHash: txsHash,
             blobHashes: blobHashes,
-            lastAnchorBlockId: lastAnchorBlockId,
-            lastBlockId: lastBlockId,
-            anchorBlockHashes: anchorBlockHashes,
             blobsCreatedIn: blobsCreatedIn,
             livenessBond: _config.livenessBond,
-            provabilityBond: _config.provabilityBond,
-            baseFeeSharingPctg: _config.baseFeeSharingPctg
+            provabilityBond: _config.provabilityBond
         });
     }
 
@@ -102,177 +77,6 @@ library LibValidate {
         if (_config.preconfWhitelist == address(0)) return;
         address operator = IPreconfWhitelist(_config.preconfWhitelist).getOperatorForCurrentEpoch();
         if (msg.sender != operator) revert ProposerNotOperator();
-    }
-
-    /// @notice Validates the gas issuance per second for a batch
-    /// @dev Ensures that the gas issuance per second is within a 1% range of the last recorded
-    ///      value
-    /// @param _config The protocol configuration
-    /// @param _summary The current protocol summary
-    /// @param _batch The batch being validated, which includes the gas issuance per second
-    function _validateGasIssuance(
-        IInbox.Config memory _config,
-        IInbox.Summary memory _summary,
-        IInbox.Batch memory _batch
-    )
-        private
-        view
-    {
-        unchecked {
-            if (_batch.gasIssuancePerSecond == _summary.gasIssuancePerSecond) return;
-
-            if (
-                _batch.gasIssuancePerSecond > MAX_GAS_ISSUANCE_PER_SECOND
-                    || _batch.gasIssuancePerSecond > _summary.gasIssuancePerSecond * 101 / 100
-            ) {
-                revert GasIssuanceTooHigh();
-            }
-            if (
-                _batch.gasIssuancePerSecond < MIN_GAS_ISSUANCE_PER_SECOND
-                    || _batch.gasIssuancePerSecond < _summary.gasIssuancePerSecond * 99 / 100
-            ) {
-                revert GasIssuanceTooLow();
-            }
-            if (block.timestamp < _summary.gasIssuanceUpdatedAt + _config.gasIssuanceUpdateDelay) {
-                revert GasIssuanceTooEarlyToChange();
-            }
-        }
-    }
-
-    /// @notice Validates timestamp consistency across the batch
-    /// @dev Ensures timestamps are sequential, within bounds, and respect anchor constraints
-    /// @param _config Protocol configuration
-    /// @param _batch The batch being validated
-    /// @param _parentLastBlockTimestamp Timestamp of the last block in the parent batch
-    function _validateTimestamps(
-        IInbox.Config memory _config,
-        IInbox.Batch memory _batch,
-        uint48 _parentLastBlockTimestamp
-    )
-        private
-        view
-    {
-        unchecked {
-            if (_batch.lastBlockTimestamp == 0) revert LastBlockTimestampNotSet();
-            if (_batch.lastBlockTimestamp > block.timestamp) revert TimestampTooLarge();
-            if (_batch.blocks[0].timeShift != 0) revert FirstBlockTimeShiftNotZero();
-
-            uint64 totalShift;
-            for (uint256 i; i < _batch.blocks.length; ++i) {
-                totalShift += _batch.blocks[i].timeShift;
-            }
-            if (_batch.lastBlockTimestamp < totalShift) revert TimestampTooSmall();
-
-            uint256 firstBlockTimestamp_ = _batch.lastBlockTimestamp - totalShift;
-            if (
-                firstBlockTimestamp_
-                    + _config.maxAnchorHeightOffset * LibNetwork.ETHEREUM_BLOCK_TIME < block.timestamp
-            ) {
-                revert TimestampTooSmall();
-            }
-            if (firstBlockTimestamp_ < _parentLastBlockTimestamp) {
-                revert TimestampSmallerThanParent();
-            }
-        }
-    }
-
-    /// @notice Validates cross-chain signals in the batch
-    /// @dev Verifies that all referenced signals have been properly sent
-    /// @param _bindings Read/write bindings functions
-    /// @param _config Protocol configuration
-    /// @param _batch The batch containing signal references
-    function _validateSignals(
-        LibBinding.Bindings memory _bindings,
-        IInbox.Config memory _config,
-        IInbox.Batch memory _batch
-    )
-        private
-        view
-    {
-        for (uint256 i; i < _batch.blocks.length; ++i) {
-            for (uint256 j; j < _batch.blocks[i].signalSlots.length; ++j) {
-                if (!_bindings.isSignalSent(_config, _batch.blocks[i].signalSlots[j])) {
-                    revert RequiredSignalNotSent();
-                }
-            }
-        }
-    }
-
-    /// @notice Validates anchor blocks used for L1-L2 synchronization
-    /// @dev Ensures anchor blocks are properly ordered, within height limits, and have valid hashes
-    /// @param _bindings Read/write bindings functions
-    /// @param _config Protocol configuration
-    /// @param _batch The batch being validated
-    /// @param _parentLastAnchorBlockId Last anchor block ID from parent batch
-    /// @return anchorBlockHashes_ Array of validated anchor block hashes
-    /// @return lastAnchorBlockId_ ID of the last anchor block in this batch
-    function _validateAnchors(
-        LibBinding.Bindings memory _bindings,
-        IInbox.Config memory _config,
-        IInbox.Batch memory _batch,
-        uint48 _parentLastAnchorBlockId
-    )
-        private
-        view
-        returns (bytes32[] memory anchorBlockHashes_, uint48 lastAnchorBlockId_)
-    {
-        anchorBlockHashes_ = new bytes32[](_batch.blocks.length);
-        lastAnchorBlockId_ = _parentLastAnchorBlockId;
-
-        uint256 anchorIndex;
-        bool hasAnchorBlock;
-
-        for (uint256 i; i < _batch.blocks.length; ++i) {
-            if (_batch.blocks[i].anchorBlockId == 0) continue;
-
-            uint48 anchorBlockId = _batch.blocks[i].anchorBlockId;
-            if (anchorBlockId == 0) revert AnchorIdZero();
-
-            if (
-                !hasAnchorBlock
-                    && anchorBlockId + _config.maxAnchorHeightOffset < uint48(block.number)
-            ) {
-                revert AnchorIdTooSmall();
-            }
-
-            if (anchorBlockId <= lastAnchorBlockId_) revert AnchorIdSmallerThanParent();
-
-            anchorBlockHashes_[anchorIndex] = _bindings.getBlockHash(anchorBlockId);
-            if (anchorBlockHashes_[anchorIndex] == 0) revert ZeroAnchorBlockHash();
-
-            hasAnchorBlock = true;
-            lastAnchorBlockId_ = anchorBlockId;
-            anchorIndex++;
-        }
-
-        if (!hasAnchorBlock) revert NoAnchorBlockIdWithinThisBatch();
-    }
-
-    /// @notice Validates the block ID range for the batch
-    /// @dev Ensures blocks are sequential and within the current fork
-    /// @param _conf Protocol configuration
-    /// @param _numBlocks Number of blocks in the batch
-    /// @param _parentLastBlockId Last block ID from the parent batch
-    /// @return The ID of the last block in this batch
-    function _validateBlockRange(
-        IInbox.Config memory _conf,
-        uint256 _numBlocks,
-        uint48 _parentLastBlockId
-    )
-        private
-        pure
-        returns (uint48)
-    {
-        unchecked {
-            // Validate and decode blocks
-            if (_numBlocks == 0) revert BlockNotFound();
-            uint48 firstBlockId = _parentLastBlockId + 1;
-            uint48 lastBlockId = uint48(_parentLastBlockId + _numBlocks);
-            if (!LibForks.isBlocksInCurrentFork(_conf, firstBlockId, lastBlockId)) {
-                revert BlocksNotInCurrentFork();
-            }
-            return lastBlockId;
-        }
     }
 
     /// @notice Validates blob data and forced inclusion parameters

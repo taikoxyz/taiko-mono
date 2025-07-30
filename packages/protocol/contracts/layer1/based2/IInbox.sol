@@ -59,8 +59,8 @@ interface IInbox {
         address coinbase;
         /// @notice Timestamp of the last block in this batch
         uint48 lastBlockTimestamp;
-        /// @notice Gas issuance rate per second for this batch
-        uint32 gasIssuancePerSecond;
+        // /// @notice Gas issuance rate per second for this batch
+        // uint32 gasIssuancePerSecond;
         /// @notice Whether this is a forced inclusion batch
         bool isForcedInclusion;
         /// @notice Prover authorization data
@@ -79,10 +79,6 @@ interface IInbox {
         address prover;
         /// @notice Hash of all transactions in the batch
         bytes32 txsHash;
-        /// @notice ID of the last anchor block referenced
-        uint48 lastAnchorBlockId;
-        /// @notice ID of the last block in this batch
-        uint48 lastBlockId;
         /// @notice Block number when blobs were created
         uint48 blobsCreatedIn;
         /// @notice Bond amount for liveness guarantee (in Gwei)
@@ -90,10 +86,6 @@ interface IInbox {
         /// @notice Bond amount for provability guarantee (in Gwei)
         uint48 provabilityBond;
         /// @notice Percentage of base fee shared with validators (0-100)
-        uint8 baseFeeSharingPctg;
-        /// @notice Hashes of anchor blocks for verification (length <= type(uint16).max)
-        /// @custom:encode max-size=512
-        bytes32[] anchorBlockHashes;
         /// @notice Array of blob hashes referenced by this batch (length <= type(uint4).max)
         /// @custom:encode max-size=256
         bytes32[] blobHashes;
@@ -305,9 +297,9 @@ interface IInbox {
         uint32 gasIssuancePerSecond;
         /// @notice Hash of the last verified block
         bytes32 lastVerifiedBlockHash;
-        /// @notice Hash of the last batch metadata
-        bytes32 lastBatchMetaHash;
     }
+    // /// @notice Hash of the last batch metadata
+    // bytes32 lastBatchMetaHash;
 
     /// @notice Fork activation heights for protocol upgrades
     /// @dev All heights are L1 block numbers when forks activate

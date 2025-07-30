@@ -61,12 +61,7 @@ abstract contract TaikoInbox is Inbox {
         internal
         pure
         override
-        returns (
-            IInbox.Summary memory,
-            IInbox.Batch[] memory,
-            IInbox.ProposeBatchEvidence memory,
-            IInbox.TransitionMeta[] memory
-        )
+        returns (IInbox.Summary memory, IInbox.Batch[] memory, IInbox.TransitionMeta[] memory)
     {
         return LibCodecProposeBatchInputs.decode(_data);
     }

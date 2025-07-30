@@ -58,7 +58,6 @@ library LibBinding {
         // Decoding functions -----------------------------------------------------
         function(bytes memory) pure returns (
             IInbox.Summary memory, IInbox.Batch[] memory,
-            IInbox.ProposeBatchEvidence memory,
             IInbox.TransitionMeta[] memory) decodeProposeBatchesInputs;
         function(bytes memory) pure returns (IInbox.ProverAuth memory) decodeProverAuth;
         function(bytes memory) pure returns (IInbox.Summary memory) decodeSummary;

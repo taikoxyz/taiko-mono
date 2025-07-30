@@ -54,17 +54,13 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     function propose4(bytes calldata _inputs) external override(IInbox, IPropose) nonReentrant {
         LibBinding.Bindings memory bindings = _getBindings();
 
-        (
-            Summary memory summary,
-            Batch[] memory batches,
-            ProposeBatchEvidence memory evidence,
-            TransitionMeta[] memory transitionMetas
-        ) = bindings.decodeProposeBatchesInputs(_inputs);
+        (Summary memory summary, Batch[] memory batches, TransitionMeta[] memory transitionMetas) =
+            bindings.decodeProposeBatchesInputs(_inputs);
         Config memory config = _getConfig();
 
         // Propose batches
         BatchContext[] memory contexts;
-        (summary, contexts) = LibPropose.propose(bindings, config, summary, batches, evidence);
+        summary = LibPropose.propose(bindings, config, summary, batches);
         uint48 lastProposedBatchId = summary.nextBatchId - 1;
 
         // Verify batches
@@ -105,27 +101,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
 
         // Verify the proof
         IVerifier2(config.verifier).verifyProof(aggregatedBatchHash, _proof);
-    }
-
-    /// @notice Builds batch metadata from batch and batch context data
-    /// @param _proposer The address that proposed the batch
-    /// @param _proposedIn The block number in which the batch is proposed
-    /// @param _proposedAt The timestamp of the block in which the batch is proposed
-    /// @param _batch The batch being proposed
-    /// @param _context The batch context data containing computed values
-    /// @return meta_ The populated batch metadata
-    function buildBatchMetadata(
-        address _proposer,
-        uint48 _proposedIn,
-        uint48 _proposedAt,
-        Batch calldata _batch,
-        BatchContext calldata _context
-    )
-        external
-        pure
-        returns (BatchMetadata memory meta_)
-    {
-        return LibData.buildBatchMetadata(_proposer, _proposedIn, _proposedAt, _batch, _context);
     }
 
     /// @notice Gets the current configuration
@@ -302,14 +277,9 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         internal
         pure
         virtual
-        returns (
-            Summary memory,
-            Batch[] memory,
-            ProposeBatchEvidence memory,
-            TransitionMeta[] memory
-        )
+        returns (Summary memory, Batch[] memory, TransitionMeta[] memory)
     {
-        return abi.decode(_data, (Summary, Batch[], ProposeBatchEvidence, TransitionMeta[]));
+        return abi.decode(_data, (Summary, Batch[], TransitionMeta[]));
     }
 
     function _decodeProverAuth(bytes memory _data)
@@ -342,15 +312,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     /// @notice Initializes the Taiko contract
     /// @param _owner The owner address
     /// @param _genesisBlockHash The genesis block hash
-    /// @param _gasIssuancePerSecond The initial gas issuance per second
-    function _init(
-        address _owner,
-        bytes32 _genesisBlockHash,
-        uint32 _gasIssuancePerSecond
-    )
-        private
-        onlyInitializing
-    {
+    function _init(address _owner, bytes32 _genesisBlockHash) private onlyInitializing {
         __Essential_init(_owner);
 
         Config memory config = _getConfig();
@@ -362,11 +324,9 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
 
         // Initialize the summary
         Summary memory summary;
-        summary.lastBatchMetaHash = LibData.hashBatch(0, meta);
-        summary.gasIssuancePerSecond = _gasIssuancePerSecond;
         summary.nextBatchId = 1;
 
-        _saveBatchMetaHash(config, 0, summary.lastBatchMetaHash);
+        _saveBatchMetaHash(config, 0, LibData.hashBatch(0, meta));
         _saveSummaryHash(keccak256(abi.encode(summary)));
 
         emit Verified(0, 0, _genesisBlockHash);
