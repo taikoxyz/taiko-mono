@@ -597,7 +597,7 @@ func (d *Driver) peerLoop(ctx context.Context) {
 			log.Info("Peer loop context done, exiting")
 			return
 		case <-t.C:
-			if d.p2pNode == nil {
+			if d.p2pNode == nil || d.p2pNode.Dv5Local() == nil {
 				log.Warn("P2P node is nil, skipping peer loop report")
 				continue
 			}
