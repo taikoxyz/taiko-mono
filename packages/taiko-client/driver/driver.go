@@ -622,7 +622,6 @@ func (d *Driver) peerTick() {
 		for _, addr := range info.Addrs {
 			addrInfo = append(addrInfo, addr.String())
 		}
-
 	}
 
 	log.Info("Peer tick",
