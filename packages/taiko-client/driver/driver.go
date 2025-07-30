@@ -353,7 +353,7 @@ func (d *Driver) exchangeTransitionConfigLoop() {
 // which the currentOperator will return.
 func (d *Driver) cacheLookaheadLoop() {
 	if d.rpc.L1Beacon == nil || d.p2pNode == nil {
-		log.Warn("`--l1.beacon` flag value is empty, skipping lookahead cache")
+		log.Warn("`--l1.beacon` flag value is empty, or `d.p2pNode` is nil, skipping lookahead cache")
 		return
 	}
 
@@ -532,6 +532,14 @@ func (d *Driver) cacheLookaheadLoop() {
 				"nextOp", nextOp.Hex(),
 				"currRanges", currRanges,
 				"nextRanges", nextRanges,
+			)
+
+			peers := d.p2pNode.Host().Network().Peerstore().PeersWithAddrs()
+
+			log.Info("Peer tick",
+				"peersLen", len(peers),
+				"peers", peers,
+				"id", d.p2pNode.Host().ID(),
 			)
 
 			return nil
