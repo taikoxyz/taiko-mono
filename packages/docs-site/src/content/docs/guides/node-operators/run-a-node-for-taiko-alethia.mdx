@@ -171,12 +171,10 @@ If you aren't, you can configure the ports and addresses so that the services ca
 
 ### Ensure that your node has joined the P2P network
 
-  To ensure that your node is actually configured correctly and has joined the P2P network for preconfirmations, please set your `taiko-client` driver's verbosity level to 4. This can be done by appending `--verbosity 4` to the command that starts `taiko-client`.
-
-  Once you have done so, you can use `grep` to find logs regarding `peering tick`. You should find something that resembles the following:
+  To ensure that your node is actually configured correctly and has joined the P2P network for preconfirmations, please use `grep` to find logs regarding `peer tick`. You should find something that resembles the following:
 
   ```
-  DEBUG[07-29|23:09:21.192] peering tick                             connected=8 advertised_udp=30303 advertised_tcp=4001 advertised_ip=x.x.x.x
+  INFO [07-30|18:37:38.168] Peer tick                                peersLen=4 peers="[...]" addrInfo="[...]" id=... advertisedUDP=52700 advertisedTCP=4001 advertisedIP=...
   ```
 
   As long as `connected=X` is greater than or equal to 6, your node should have joined the P2P network correctly! If it is below that, please reach out to us on Discord for troubleshooting help.
