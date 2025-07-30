@@ -1,13 +1,16 @@
 import { getBalance } from '@wagmi/core';
-import { type Address, zeroAddress } from 'viem';
+import { type Address, UserRejectedRequestError, zeroAddress } from 'viem';
 
 import { routingContractsMap } from '$bridgeConfig';
 import {
+  BridgePausedError,
   InsufficientAllowanceError,
   InsufficientBalanceError,
   NoCanonicalInfoFoundError,
   RevertedWithFailedError,
   RevertedWithoutMessageError,
+  SendERC20Error,
+  SendERC1155Error,
 } from '$libs/error';
 import { getAddress, type Token, TokenType } from '$libs/token';
 import { getTokenAddresses } from '$libs/token/getTokenAddresses';
@@ -64,13 +67,18 @@ async function handleEthBridge(args: CheckBalanceToBridgeCommonArgs): Promise<vo
   } catch (err) {
     console.error(err);
 
+    if (err instanceof UserRejectedRequestError) {
+      throw err;
+    }
+
     if (`${err}`.includes('transaction exceeds the balance')) {
       throw new InsufficientBalanceError('you do not have enough balance to bridge ETH', { cause: err });
     }
 
     if (`${err}`.includes('reverted with the following reason: Failed')) {
-      throw new RevertedWithFailedError('BLL token doing its thing', { cause: err });
+      throw new RevertedWithFailedError('Bridge transaction failed', { cause: err });
     }
+
     throw new RevertedWithoutMessageError('reverted without reason', { cause: err });
   }
 
@@ -131,7 +139,25 @@ async function handleErc1155Bridge(args: CheckBalanceToBridgeTokenArgs) {
     } as ERC1155BridgeArgs);
   } catch (err) {
     console.error(err);
-    // TODO: catch/rethrow other errors
+
+    if (err instanceof BridgePausedError) {
+      throw err;
+    }
+
+    if (err instanceof UserRejectedRequestError) {
+      throw err;
+    }
+
+    if (`${err}`.includes('transaction exceeds the balance')) {
+      throw new InsufficientBalanceError('you do not have enough balance to bridge ERC1155', { cause: err });
+    }
+
+    if (`${err}`.includes('reverted with the following reason: Failed')) {
+      throw new RevertedWithFailedError('Bridge transaction failed', { cause: err });
+    }
+
+    // Default to a specific ERC1155 error for unknown cases
+    throw new SendERC1155Error('failed to estimate cost for ERC1155 bridge', { cause: err });
   }
 
   if (!estimatedCost) throw new Error('estimated cost is undefined');
@@ -187,12 +213,34 @@ async function handleErc20Bridge(args: CheckBalanceToBridgeTokenArgs): Promise<v
         tokenObject: token,
       } as ERC20BridgeArgs);
     } catch (err) {
-      // TODO: same here. Error code or instance would be better
+      console.error(err);
+
+      if (err instanceof BridgePausedError) {
+        throw err;
+      }
+
+      if (err instanceof UserRejectedRequestError) {
+        throw err;
+      }
+
+      if (err instanceof InsufficientAllowanceError) {
+        throw err;
+      }
+
       if (`${err}`.includes('insufficient allowance')) {
         throw new InsufficientAllowanceError(`insufficient allowance for the amount ${_amount}`, { cause: err });
-      } else {
-        console.error(err);
       }
+
+      if (`${err}`.includes('transaction exceeds the balance')) {
+        throw new InsufficientBalanceError('you do not have enough balance to bridge ERC20', { cause: err });
+      }
+
+      if (`${err}`.includes('reverted with the following reason: Failed')) {
+        throw new RevertedWithFailedError('Bridge transaction failed', { cause: err });
+      }
+
+      // Default to a specific ERC20 error for unknown cases
+      throw new SendERC20Error('failed to estimate cost for ERC20 bridge', { cause: err });
     }
     if (!estimatedCost) throw new Error('estimated cost is undefined');
     if (estimatedCost > balance) {
