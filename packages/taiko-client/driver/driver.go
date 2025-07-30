@@ -534,12 +534,18 @@ func (d *Driver) cacheLookaheadLoop() {
 				"nextRanges", nextRanges,
 			)
 
-			peers := d.p2pNode.Host().Network().Peerstore().PeersWithAddrs()
+			peers := d.p2pNode.Host().Network().Peers()
+			advertisedUDP := d.p2pNode.Dv5Local().Node().UDP()
+			advertisedTCP := d.p2pNode.Dv5Local().Node().TCP()
+			asdvertisedIP := d.p2pNode.Dv5Local().Node().IP()
 
 			log.Info("Peer tick",
 				"peersLen", len(peers),
 				"peers", peers,
 				"id", d.p2pNode.Host().ID(),
+				"advertisedUDP", advertisedUDP,
+				"advertisedTCP", advertisedTCP,
+				"advertisedIP", asdvertisedIP,
 			)
 
 			return nil
