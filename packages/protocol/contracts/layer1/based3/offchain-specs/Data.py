@@ -33,6 +33,7 @@ class Block:
     timestamp: int
     fee_recipient: Address
     transactions: List[Transaction]
+    anchorBlockHeight: int ## TODO?????
 
 @dataclass
 class ProposalData:

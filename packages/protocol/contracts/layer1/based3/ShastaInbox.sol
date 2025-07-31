@@ -37,7 +37,7 @@ abstract contract ShastaInbox is IShastaInbox {
         uint48 proposalId = store.incrementAndGetProposalId();
 
         // Create a new proposal.
-        // Note that the blobDataHash is not checked here to empty proposal without data.
+        // Note that the blobDataHash is not checked here to empty proposal data.
         Proposal memory proposal = Proposal({
             proposer: msg.sender,
             prover: msg.sender,
