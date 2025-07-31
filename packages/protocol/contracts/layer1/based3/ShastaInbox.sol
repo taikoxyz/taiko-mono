@@ -16,7 +16,6 @@ abstract contract ShastaInbox is IShastaInbox {
     // - [ ] support multi-step finalization
     // - [ ] support Summary approach
 
-    
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
