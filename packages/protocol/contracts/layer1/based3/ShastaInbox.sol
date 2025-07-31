@@ -40,12 +40,12 @@ abstract contract ShastaInbox is IShastaInbox {
     // -------------------------------------------------------------------------
 
     /// @notice Proposes a new proposal of L2 blocks
-    /// @param _blobIndex Index of the blob in the current transaction
-    function propose(uint48 _blobIndex) external {
+    /// @param _blobIndices Array of blob indices in the current transaction
+    function propose(uint256[] calldata _blobIndices) external {
         uint48 proposalId = store.incrementAndGetProposalId();
+        bytes32[] memory blobHashes = _getBlobHashes(_blobIndices);
 
         // Create a new proposal.
-        // Note that the blobDataHash is not checked here to empty proposal data.
         Proposal memory proposal = Proposal({
             proposer: msg.sender,
             prover: msg.sender,
@@ -53,7 +53,7 @@ abstract contract ShastaInbox is IShastaInbox {
             proposedAt: uint48(block.timestamp),
             id: proposalId,
             referenceL1BlockHash: blockhash(block.number - 1),
-            blobDataHash: blobhash(_blobIndex)
+            blobDataHashes: blobHashes
         });
 
         bytes32 proposalHash = keccak256(abi.encode(proposal));
@@ -128,6 +128,22 @@ abstract contract ShastaInbox is IShastaInbox {
     // Private Functions
     // -------------------------------------------------------------------------
 
+    function _getBlobHashes(uint256[] calldata blobIndices)
+        private
+        view
+        returns (bytes32[] memory)
+    {
+        if (blobIndices.length == 0) revert NoBlobsProvided();
+
+        bytes32[] memory blobhashes = new bytes32[](blobIndices.length);
+        for (uint256 i; i < blobIndices.length; ++i) {
+            blobhashes[i] = blobhash(blobIndices[i]);
+            if (blobhashes[i] == bytes32(0)) revert InvalidBlobHash();
+        }
+
+        return blobhashes;
+    }
+
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
@@ -135,4 +151,6 @@ abstract contract ShastaInbox is IShastaInbox {
     error ClaimNotFound();
     error ProposalHashMismatch();
     error InvalidClaimChain();
+    error NoBlobsProvided();
+    error InvalidBlobHash();
 }

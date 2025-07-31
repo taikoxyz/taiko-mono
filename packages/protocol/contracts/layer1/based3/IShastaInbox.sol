@@ -19,7 +19,7 @@ interface IShastaInbox {
         // Slot 2
         bytes32 referenceL1BlockHash;
         // Slot 3
-        bytes32 blobDataHash;
+        bytes32[] blobDataHashes;
     }
 
     struct Claim {
@@ -64,8 +64,8 @@ interface IShastaInbox {
     // -------------------------------------------------------------------------
 
     /// @notice Proposes a new proposal of L2 blocks
-    /// @param _blobIndex Index of the blob in the current transaction
-    function propose(uint48 _blobIndex) external;
+    /// @param _blobIndices Array of blob indices in the current transaction
+    function propose(uint256[] calldata _blobIndices) external;
 
     /// @notice Submits a proof for a proposal's state transition
     /// @param _proposalId ID of the proposal being proven
