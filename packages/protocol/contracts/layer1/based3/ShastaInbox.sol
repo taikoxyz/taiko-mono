@@ -8,6 +8,15 @@ import { IShastaInboxStore } from "./IShastaInboxStore.sol";
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture
 /// @custom:security-contact security@taiko.xyz
 abstract contract ShastaInbox is IShastaInbox {
+    // TODO
+    // - [ ] support anchor per block
+    // - [ ] support prover and liveness bond
+    // - [ ] support provability bond
+    // - [ ] support batch proving
+    // - [ ] support multi-step finalization
+    // - [ ] support Summary approach
+
+    
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
