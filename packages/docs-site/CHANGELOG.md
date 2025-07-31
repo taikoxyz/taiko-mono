@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.29.5](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.4...docs-site-v1.29.5) (2025-07-31)
+
+
+### Chores
+
+* **docs-site:** missed config ([#19853](https://github.com/taikoxyz/taiko-mono/issues/19853)) ([89f14c3](https://github.com/taikoxyz/taiko-mono/commit/89f14c3bf19e816ee4630b31a38f15cdaa7716e6))
+
 ## [1.29.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.3...docs-site-v1.29.4) (2025-07-31)
 
 
