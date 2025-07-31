@@ -355,6 +355,13 @@ interface IInbox {
         uint16 gasIssuanceUpdateDelay;
         /// @notice Percentage of base fee shared with validators (0-100)
         uint8 baseFeeSharingPctg;
+        /// @notice Maximum allowed basis points change in gas issuance between batches (0-10000)
+        /// @dev Setting to 0 disables gas issuance changes. 100 basis points = 1%
+        uint16 maxGasIssuanceDeltaBps;
+        /// @notice Minimum allowed gas issuance per second
+        uint32 minGasIssuancePerSecond;
+        /// @notice Maximum allowed gas issuance per second
+        uint32 maxGasIssuancePerSecond;
     }
 
     /// @notice Emitted when a new batch is proposed
