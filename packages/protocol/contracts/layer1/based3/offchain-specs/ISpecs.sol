@@ -33,8 +33,6 @@ interface ISpecs {
         uint256 number;
         uint256 gasLimit;
         bytes32 prevRandao;
-        bytes32 extraData;
-        bytes32 withdrawalsRoot;
         Transaction[] transactions;
     }
 }

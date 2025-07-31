@@ -72,7 +72,7 @@ abstract contract ShastaInbox is IShastaInbox {
         });
 
         bytes32 recordHash = keccak256(abi.encode(record));
-        store.setClaimRecordHash(_proposal.id, _claim.parentClaimRecordHash, recordHash);
+        store.setClaimRecordHash(_proposal.id, _claim.parentClaimHash, recordHash);
         emit Proved(_proposal.id, _proposal, _claim);
 
         verifyProof(_claim, _proof);
@@ -83,14 +83,14 @@ abstract contract ShastaInbox is IShastaInbox {
     function finalize(ClaimRecord memory _record) external {
         Claim memory claim = _record.claim;
 
-        if (claim.parentClaimRecordHash != store.getLastFinalizedClaimHash()) {
+        if (claim.parentClaimHash != store.getLastFinalizedClaimHash()) {
             revert InvalidClaimChain();
         }
 
         uint48 proposalId = store.getLastFinalizedProposalId() + 1;
         bytes32 recordHash = keccak256(abi.encode(_record));
 
-        bytes32 storedRecordHash = store.getClaimRecordHash(proposalId, claim.parentClaimRecordHash);
+        bytes32 storedRecordHash = store.getClaimRecordHash(proposalId, claim.parentClaimHash);
         if (storedRecordHash != recordHash) revert ClaimNotFound();
 
         // Advance the last finalized proposal ID and update the last finalized ClaimRecord hash.
