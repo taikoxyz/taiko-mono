@@ -2,51 +2,16 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/libs/LibMath.sol";
+import "./IOffchainData.sol";
 import "../IShastaInbox.sol";
 
-abstract contract BuildBlocksSpec {
+abstract contract BuildBlocksSpec is IOffchainData {
     using LibMath for uint256;
 
     uint256 constant L1_BLOCK_TIME = 12;
     uint256 constant MAX_BLOCK_TIMESTAMP_OFFSET = L1_BLOCK_TIME * 8;
     uint256 constant MIN_L2_BLOCK_TIME = 1;
     uint32 constant DEFAULT_GAS_ISSUANCE_PER_SECOND = 1_000_000;
-
-    struct BlockParams {
-        uint256 timestamp;
-        address feeRecipient;
-    }
-
-    struct ProposalSpec {
-        uint256 gasIssuancePerSecond;
-        BlockParams[] blocks;
-    }
-
-    struct L1LatestBlockData {
-        uint256 timestamp;
-        bytes32 prevRando;
-    }
-
-    struct L2ParentBlockData {
-        uint256 number;
-        uint256 timestamp;
-        bytes32 blockHash;
-    }
-
-    struct L2ProtocolState {
-        uint256 gasIssuancePerSecond;
-    }
-
-    struct BuildBlockInputs {
-        uint256 timestamp;
-        bytes32 parentHash;
-        address feeRecipient;
-        uint256 number;
-        uint256 gasLimit;
-        bytes32 prevRando;
-        bytes32 extraData;
-        bytes32 withdrawalsRoot;
-    }
 
     function buildBlocks(
         IShastaInbox.Proposal memory proposal,
