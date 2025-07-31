@@ -45,11 +45,11 @@ interface IShastaInbox {
         uint48 provedAt;
     }
 
-    struct L2ProverBondPayment {
+    struct L2BondPayment {
         // Slot 1: 160 + 48 + 48 = 256 bits
         address recipient;
-        uint48 proposalId;
         uint48 refundAmount;
+        uint48 timestamp;
     }
 
     // -------------------------------------------------------------------------
@@ -63,7 +63,7 @@ interface IShastaInbox {
     event Proved(uint48 indexed proposalId, Proposal proposal, Claim claim);
 
     /// @notice Emitted when a proposal is finalized on L1
-    event Finalized(uint48 indexed proposalId, Claim claim, L2ProverBondPayment bondRefund);
+    event Finalized(uint48 indexed proposalId, Claim claim, L2BondPayment bondRefund);
 
     // -------------------------------------------------------------------------
     // External Transactional Functions

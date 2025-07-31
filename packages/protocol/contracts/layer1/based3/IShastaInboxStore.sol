@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 /// @title IShastaInboxStore
 /// @notice Interface for managing ShastaInbox state data in a separate contract
+/// @dev It will be idea not to import structs defined in the IShastaInbox interface here to avoid
+/// storing anything but hashes.
 /// @custom:security-contact security@taiko.xyz
 interface IShastaInboxStore {
     // -------------------------------------------------------------------------
@@ -34,8 +36,8 @@ interface IShastaInboxStore {
     function getLastL2StateRoot() external view returns (bytes32 lastL2StateRoot_);
 
     /// @notice Gets the L2 bond refunds hash
-    /// @return l2BondRefundsHash_ The cumulative hash of bond refunds
-    function getL2BondRefundHash() external view returns (bytes32 l2BondRefundsHash_);
+    /// @return l2BondPaymentsHash_ The cumulative hash of bond refunds
+    function getL2BondPaymentHash() external view returns (bytes32 l2BondPaymentsHash_);
 
     /// @notice Gets the proposal hash for a given proposal ID
     /// @param _proposalId The proposal ID
@@ -87,8 +89,8 @@ interface IShastaInboxStore {
 
     /// @notice Sets the L2 bond refunds hash
     /// @dev Only callable by the inbox contract
-    /// @param _hash The new bond refunds hash
-    function setL2BondRefundsHash(bytes32 _hash) external;
+    /// @param _l2BondPaymentHash The bond payment hash to aggregate
+    function aggregateL2BondPayment(bytes32 _l2BondPaymentHash) external;
 
     /// @notice Sets the proposal hash for a given proposal ID
     /// @dev Only callable by the inbox contract

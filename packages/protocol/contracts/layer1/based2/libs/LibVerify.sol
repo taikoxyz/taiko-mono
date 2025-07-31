@@ -72,7 +72,7 @@ library LibVerify {
             // The transition is still cooling down, we stop here without reverting
             if (tran.provedAt + _config.cooldownWindow > block.timestamp) break;
 
-            uint256 proverRefund = _calcBondRefundToProver(_config, tran);
+            uint256 proverRefund = _calcBondPaymentToProver(_config, tran);
             _bindings.creditBond(tran.prover, proverRefund * 1 gwei);
 
             if (batchId % _config.stateRootSyncInternal == 0) {
@@ -104,7 +104,7 @@ library LibVerify {
     /// @param _config Protocol configuration containing bond parameters
     /// @param _tran Transition metadata containing bond and timing information
     /// @return  Bond amount to credit to the prover
-    function _calcBondRefundToProver(
+    function _calcBondPaymentToProver(
         IInbox.Config memory _config,
         IInbox.TransitionMeta memory _tran
     )

@@ -33,6 +33,9 @@ abstract contract ShastaInbox is IShastaInbox {
     /// @param _blobIndex Index of the blob in the current transaction
     function propose(uint48 _blobIndex) external {
         uint48 proposalId = store.incrementAndGetProposalId();
+
+        // Create a new proposal.
+        // Note that the blobDataHash is not checked here to empty proposal without data.
         Proposal memory proposal = Proposal({
             proposer: msg.sender,
             proposedAt: uint48(block.timestamp),
@@ -41,7 +44,6 @@ abstract contract ShastaInbox is IShastaInbox {
             blobDataHash: blobhash(_blobIndex)
         });
 
-        if (proposal.blobDataHash == 0) revert InvalidBlobData();
         bytes32 proposalHash = keccak256(abi.encode(proposal));
         store.setProposalHash(proposalId, proposalHash);
 
@@ -53,7 +55,6 @@ abstract contract ShastaInbox is IShastaInbox {
     /// @param _claim State transition claim being proven
     /// @param _proof Validity proof for the state transition
     function prove(
-        uint48 _proposalId,
         Proposal memory _proposal,
         Claim memory _claim,
         bytes calldata _proof
@@ -62,7 +63,7 @@ abstract contract ShastaInbox is IShastaInbox {
     {
         bytes32 proposalHash = keccak256(abi.encode(_proposal));
         if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
-        if (proposalHash != store.getProposalHash(_proposalId)) revert ProposalHashMismatch();
+        if (proposalHash != store.getProposalHash(_proposal.id)) revert ProposalHashMismatch();
 
         ClaimRecord memory record = ClaimRecord({
             claim: _claim,
@@ -74,10 +75,10 @@ abstract contract ShastaInbox is IShastaInbox {
         store.setClaimRecordHash(_proposal.id, _claim.parentClaimRecordHash, recordHash);
         emit Proved(_proposal.id, _proposal, _claim);
 
-        verifyProof(recordHash, _proof);
+        verifyProof(_claim, _proof);
     }
 
-    /// @notice Finalizes a proven proposal and updates the L2 chain state
+    /// @notice Finalizes the next verifiable proposal and updates the L2 chain state
     /// @param _record The proven claim to finalize
     function finalize(ClaimRecord memory _record) external {
         Claim memory claim = _record.claim;
@@ -89,9 +90,8 @@ abstract contract ShastaInbox is IShastaInbox {
         uint48 proposalId = store.getLastFinalizedProposalId() + 1;
         bytes32 recordHash = keccak256(abi.encode(_record));
 
-        if (recordHash != store.getClaimRecordHash(proposalId, claim.parentClaimRecordHash)) {
-            revert ClaimNotFound();
-        }
+        bytes32 storedRecordHash = store.getClaimRecordHash(proposalId, claim.parentClaimRecordHash);
+        if (storedRecordHash != recordHash) revert ClaimNotFound();
 
         // Advance the last finalized proposal ID and update the last finalized ClaimRecord hash.
         store.setLastFinalized(proposalId, recordHash);
@@ -100,9 +100,10 @@ abstract contract ShastaInbox is IShastaInbox {
         store.setLastL2BlockData(claim.endL2BlockNumber, claim.endL2BlockHash, claim.endL2StateRoot);
 
         // Instruct L2 block builder to refund bond to the designated prover or the actual prover.
-        L2ProverBondPayment memory refund = _calculateBondRefund(proposalId, _record);
-        bytes32 currentBondRefundsHash = store.getL2BondRefundHash();
-        store.setL2BondRefundsHash(keccak256(abi.encode(currentBondRefundsHash, refund)));
+        L2BondPayment memory refund = _calculateBondPayment(_record);
+
+        // Aggregate the refund with all historical refunds instructions to a verifiable hash.
+        store.aggregateL2BondPayment(keccak256(abi.encode(refund)));
 
         emit Finalized(proposalId, claim, refund);
     }
@@ -111,40 +112,38 @@ abstract contract ShastaInbox is IShastaInbox {
     // Internal Functions - Abstract
     // -------------------------------------------------------------------------
 
-    /// @dev Verifies a validity proof for a state transition
-    function verifyProof(bytes32 _claimHash, bytes calldata _proof) internal virtual;
+    /// @dev Verifies a validity proof for a state transition. This function must revert if the
+    /// proof is invalid.
+    /// @param _claim The claim to verify
+    /// @param _proof The proof for the claim
+    function verifyProof(Claim memory _claim, bytes calldata _proof) internal virtual;
 
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
 
-    function _calculateBondRefund(
-        uint48 _proposalId,
-        ClaimRecord memory _record
-    )
+    function _calculateBondPayment(ClaimRecord memory _record)
         private
         view
-        returns (L2ProverBondPayment memory refund_)
+        returns (L2BondPayment memory refund_)
     {
-        bool provedWithinLivenessWindow = _record.provedAt < _record.proposedAt + provingWindow;
-        refund_ = provedWithinLivenessWindow
-            ? L2ProverBondPayment({
-                recipient: _record.claim.designatedProver,
-                proposalId: _proposalId,
-                refundAmount: _record.claim.proverBond
-            })
-            : L2ProverBondPayment({
-                recipient: _record.claim.actualProver,
-                proposalId: _proposalId,
-                refundAmount: _record.claim.proverBond / 2
-            });
+        bool provedWithinLivenessWindow = _record.provedAt <= _record.proposedAt + provingWindow;
+
+        if (provedWithinLivenessWindow) {
+            refund_.recipient = _record.claim.designatedProver;
+            refund_.refundAmount = _record.claim.proverBond;
+        } else {
+            refund_.recipient = _record.claim.actualProver;
+            refund_.refundAmount = _record.claim.proverBond / 2;
+        }
+
+        refund_.timestamp = uint48(block.timestamp);
     }
 
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
 
-    error InvalidBlobData();
     error ProposalHashMismatch();
     error InvalidClaimChain();
     error ClaimNotFound();
