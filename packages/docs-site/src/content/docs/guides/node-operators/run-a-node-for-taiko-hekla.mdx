@@ -146,6 +146,8 @@ If you aren't, you can configure the ports and addresses so that the services ca
             --p2p.advertise.tcp 4001 \
             --p2p.listen.udp 30303 \
             --p2p.advertise.tcp 30303 \
+            --p2p.peerstore.path /node-keys/peerstore \
+            --p2p.discovery.path /node-keys/discv5 \
             --p2p.advertise.ip ${YOUR_EXTERNAL_IP} \
             --p2p.priv.raw ${PRIVATE_KEY}
     ```
