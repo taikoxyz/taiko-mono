@@ -8,7 +8,9 @@
       "Bash(pnpm:*)",
       "WebFetch",
       "Bash(grep:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(find:*)",
+      "Bash(python3:*)"
     ],
     "deny": []
   }

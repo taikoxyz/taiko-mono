@@ -24,8 +24,6 @@ contract ShastaInboxStore is IShastaInboxStore {
     bytes32 private lastL2BlockHash;
     // Slot 4
     bytes32 private lastL2StateRoot;
-    // Slot 5
-    bytes32 private l2BondPaymentsHash;
     // Mappings (separate storage)
     mapping(uint48 proposalId => bytes32 proposalHash) private proposalRegistry;
     mapping(uint48 proposalId => mapping(bytes32 parentClaimRecordHash => bytes32 claimRecordHash))
@@ -76,10 +74,6 @@ contract ShastaInboxStore is IShastaInboxStore {
         lastL2StateRoot_ = lastL2StateRoot;
     }
 
-    function getL2BondPaymentHash() external view returns (bytes32 l2BondPaymentsHash_) {
-        l2BondPaymentsHash_ = l2BondPaymentsHash;
-    }
-
     function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_) {
         proposalHash_ = proposalRegistry[_proposalId];
     }
@@ -107,9 +101,8 @@ contract ShastaInboxStore is IShastaInboxStore {
         proposalId_ = nextProposalId++;
     }
 
-    function setLastFinalized(uint48 _proposalId, bytes32 _claimRecordHash) external onlyInbox {
+    function setLastFinalizedProposalId(uint48 _proposalId) external onlyInbox {
         lastFinalizedProposalId = _proposalId;
-        lastFinalizedClaimHash = _claimRecordHash;
     }
 
     function setLastL2BlockData(
@@ -123,10 +116,6 @@ contract ShastaInboxStore is IShastaInboxStore {
         lastL2BlockNumber = _blockNumber;
         lastL2BlockHash = _blockHash;
         lastL2StateRoot = _stateRoot;
-    }
-
-    function aggregateL2BondPayment(bytes32 _l2BondPaymentHash) external onlyInbox {
-        l2BondPaymentsHash = keccak256(abi.encode(l2BondPaymentsHash, _l2BondPaymentHash));
     }
 
     function setProposalHash(uint48 _proposalId, bytes32 _proposalHash) external onlyInbox {

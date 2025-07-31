@@ -14,14 +14,16 @@ abstract contract ShastaInbox is IShastaInbox {
 
     IShastaInboxStore public immutable store;
     uint48 public immutable provingWindow;
+    uint48 public immutable livenessBond;
 
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
 
-    constructor(IShastaInboxStore _store, uint48 _provingWindow) {
+    constructor(IShastaInboxStore _store, uint48 _provingWindow, uint48 _livenessBond) {
         store = _store;
         provingWindow = _provingWindow;
+        livenessBond = _livenessBond;
         store.initialize();
     }
 
@@ -38,6 +40,8 @@ abstract contract ShastaInbox is IShastaInbox {
         // Note that the blobDataHash is not checked here to empty proposal without data.
         Proposal memory proposal = Proposal({
             proposer: msg.sender,
+            prover: msg.sender,
+            livenessBond: livenessBond,
             proposedAt: uint48(block.timestamp),
             id: proposalId,
             latestL1BlockHash: blockhash(block.number - 1),
@@ -94,18 +98,12 @@ abstract contract ShastaInbox is IShastaInbox {
         if (storedRecordHash != recordHash) revert ClaimNotFound();
 
         // Advance the last finalized proposal ID and update the last finalized ClaimRecord hash.
-        store.setLastFinalized(proposalId, recordHash);
+        store.setLastFinalizedProposalId(proposalId);
 
         // Sync L2 block data to L1
         store.setLastL2BlockData(claim.endL2BlockNumber, claim.endL2BlockHash, claim.endL2StateRoot);
 
-        // Instruct L2 block builder to refund bond to the designated prover or the actual prover.
-        L2BondPayment memory refund = _calculateBondPayment(_record);
-
-        // Aggregate the refund with all historical refunds instructions to a verifiable hash.
-        store.aggregateL2BondPayment(keccak256(abi.encode(refund)));
-
-        emit Finalized(proposalId, claim, refund);
+        emit Finalized(proposalId, claim);
     }
 
     // -------------------------------------------------------------------------
@@ -122,29 +120,11 @@ abstract contract ShastaInbox is IShastaInbox {
     // Private Functions
     // -------------------------------------------------------------------------
 
-    function _calculateBondPayment(ClaimRecord memory _record)
-        private
-        view
-        returns (L2BondPayment memory refund_)
-    {
-        bool provedWithinLivenessWindow = _record.provedAt <= _record.proposedAt + provingWindow;
-
-        if (provedWithinLivenessWindow) {
-            refund_.recipient = _record.claim.designatedProver;
-            refund_.refundAmount = _record.claim.proverBond;
-        } else {
-            refund_.recipient = _record.claim.actualProver;
-            refund_.refundAmount = _record.claim.proverBond / 2;
-        }
-
-        refund_.timestamp = uint48(block.timestamp);
-    }
-
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
 
+    error ClaimNotFound();
     error ProposalHashMismatch();
     error InvalidClaimChain();
-    error ClaimNotFound();
 }

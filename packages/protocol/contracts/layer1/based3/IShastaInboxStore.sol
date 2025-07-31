@@ -35,10 +35,6 @@ interface IShastaInboxStore {
     /// @return lastL2StateRoot_ The state root of the last L2 block
     function getLastL2StateRoot() external view returns (bytes32 lastL2StateRoot_);
 
-    /// @notice Gets the L2 bond refunds hash
-    /// @return l2BondPaymentsHash_ The cumulative hash of bond refunds
-    function getL2BondPaymentHash() external view returns (bytes32 l2BondPaymentsHash_);
-
     /// @notice Gets the proposal hash for a given proposal ID
     /// @param _proposalId The proposal ID
     /// @return proposalHash_ The hash of the proposal
@@ -72,8 +68,7 @@ interface IShastaInboxStore {
     /// @notice Sets the last finalized proposal ID and claim hash
     /// @dev Only callable by the inbox contract
     /// @param _proposalId The finalized proposal ID
-    /// @param _claimRecordHash The finalized claim record hash
-    function setLastFinalized(uint48 _proposalId, bytes32 _claimRecordHash) external;
+    function setLastFinalizedProposalId(uint48 _proposalId) external;
 
     /// @notice Sets the last L2 block data
     /// @dev Only callable by the inbox contract
@@ -86,11 +81,6 @@ interface IShastaInboxStore {
         bytes32 _stateRoot
     )
         external;
-
-    /// @notice Sets the L2 bond refunds hash
-    /// @dev Only callable by the inbox contract
-    /// @param _l2BondPaymentHash The bond payment hash to aggregate
-    function aggregateL2BondPayment(bytes32 _l2BondPaymentHash) external;
 
     /// @notice Sets the proposal hash for a given proposal ID
     /// @dev Only callable by the inbox contract

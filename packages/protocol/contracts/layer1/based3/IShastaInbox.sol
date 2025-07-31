@@ -12,6 +12,8 @@ interface IShastaInbox {
     struct Proposal {
         // Slot 1: 160 + 48 + 48 = 256 bits
         address proposer;
+        address prover;
+        uint48 livenessBond;
         uint48 proposedAt;
         uint48 id;
         // Slot 2
@@ -34,8 +36,7 @@ interface IShastaInbox {
         uint48 endL2BlockNumber;
         uint48 proverBond;
         // Slot 6: 160 + 160 = 320 bits (96 bits would be wasted)
-        address designatedProver;
-        address actualProver;
+        address prover;
     }
 
     struct ClaimRecord {
@@ -43,13 +44,6 @@ interface IShastaInbox {
         // 48 + 48 = 96 bits (160 bits unused)
         uint48 proposedAt;
         uint48 provedAt;
-    }
-
-    struct L2BondPayment {
-        // Slot 1: 160 + 48 + 48 = 256 bits
-        address recipient;
-        uint48 refundAmount;
-        uint48 timestamp;
     }
 
     // -------------------------------------------------------------------------
@@ -63,7 +57,7 @@ interface IShastaInbox {
     event Proved(uint48 indexed proposalId, Proposal proposal, Claim claim);
 
     /// @notice Emitted when a proposal is finalized on L1
-    event Finalized(uint48 indexed proposalId, Claim claim, L2BondPayment bondRefund);
+    event Finalized(uint48 indexed proposalId, Claim claim);
 
     // -------------------------------------------------------------------------
     // External Transactional Functions

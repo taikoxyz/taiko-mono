@@ -50,7 +50,45 @@ The L1-emitted `Proposal` structure contains:
 
 #### 3. Proposal Specification (`proposalSpec`)
 
-Encoded within proposal blobs, this specification contains proposer-customizable parameters and transaction data. When blob data is missing or invalid (non-decompressable/decodable), the system defaults to an empty specification with zero values and empty lists.
+Encoded within proposal blobs, this specification contains proposer-customizable parameters and transaction data. When blob data is missing or invalid (non-decompressable/decodable), the system defaults to an empty specification with zero values and empty lists. A python style code shall look like the following:
+
+```python
+class Transaction:
+    to: str                         # address
+    value: int                      # uint256
+    data: bytes
+    signature: bytes
+
+
+class Block:
+    timestamp: int                  # uint256
+    fee_recipient: str              # address
+    transactions: List[Transaction] # txList
+
+
+class ProposalSpec:
+    gas_issuance_per_second: int
+    blocks: List[Block]
+```
+
+The proposal specification shall be decoded from the blob with best error. If the blob is not availalbe or is invalid, we shall use default value:
+
+```python
+DEFAULT_PROPOSAL_SPEC= ProposalSpec(
+    gas_issuance_per_second=0,
+    blocks=[Block(timestamp=0, fee_recipient="0x0", transactions=[])]
+)
+
+def decode_proposal_data_from_blob_best_effort(blob_data: Optional[bytes]) -> ProposalData:
+    """
+    Try to decode ProposalSpec from blob. On failure, fallback to default proposal spec.
+    """
+    try:
+        return decode_blob_data(blob_data)
+    except Exception as e:
+        print(f"[Warning] Failed to decode blob: {e}. Using default ProposalSpec.")
+        return DEFAULT_PROPOSAL_SPEC
+```
 
 ### Protocol System Calls
 
@@ -62,14 +100,6 @@ The rollup client executes four categories of system calls during block producti
 4. **Block Trailing Call**: Executed after the last transaction in each block
 
 These calls are gas-free and manage protocol state transitions, including bond payments and parameter updates.
-
-### Empty Proposal Handling
-
-Empty proposals (lacking blob data or containing invalid data) generate a single empty L2 block. This design choice ensures:
-
-- Continuous protocol state progression
-- Proper bond payment processing
-- Consistent block numbering
 
 ## Block Header Construction
 
