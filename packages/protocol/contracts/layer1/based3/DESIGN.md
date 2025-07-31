@@ -15,8 +15,9 @@ The protocol adheres to the following fundamental principles:
    - Permission and authorization checks
    - Bond payment processing
    - Validity proof verification
+   - Signal processing
 
-3. **State Consistency**: Finalizing existing proposals must not invalidate preconfirmed but pending proposals, ensuring smooth state progression.
+3. **State Consistency**: Finalizing existing proposals must not invalidate preconfirmed but pending proposals.
 
 ## Terminology
 
@@ -26,7 +27,7 @@ The protocol introduces refined terminology to better capture semantic intent:
 | ------------- | --------- | ------------------------------------------------------------------------------------------- |
 | Batch         | Proposal  | Enables proposing multiple proposals in a single transaction without linguistic ambiguity   |
 | Transition    | Claim     | Encompasses the complete set of proven assertions, including state transitions and metadata |
-| Verified      | Finalized | Clarifies the completion of the validation process                                          |
+| Verified      | Finalized | Clarifies the completion of the proof validation process                                    |
 
 ## System Architecture
 
@@ -36,7 +37,7 @@ L2 blocks are deterministically constructed from three primary data sources:
 
 #### 1. Parent L2 Block State (`parentL2Block`)
 
-The parent block provides the foundation for constructing new blocks. Protocol state management occurs through a dedicated L2 storage address (e.g., `0x1234567890`) without associated private keys or contract code. State modifications are executed through system calls integrated into the rollup client.
+The parent block provides the foundation for constructing new blocks. Protocol state management occurs through a dedicated L2 storage address (e.g., `0x1234567890`) without associated private keys or contract code. State modifications are executed through system calls (hooks) integrated into the rollup client.
 
 #### 2. Proposal Object (`proposal`)
 
