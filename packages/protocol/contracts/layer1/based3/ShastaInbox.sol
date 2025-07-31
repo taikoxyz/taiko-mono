@@ -44,7 +44,7 @@ abstract contract ShastaInbox is IShastaInbox {
             livenessBond: livenessBond,
             proposedAt: uint48(block.timestamp),
             id: proposalId,
-            latestL1BlockHash: blockhash(block.number - 1),
+            referenceL1BlockHash: blockhash(block.number - 1),
             blobDataHash: blobhash(_blobIndex)
         });
 

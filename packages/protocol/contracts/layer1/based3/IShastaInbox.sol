@@ -17,7 +17,7 @@ interface IShastaInbox {
         uint48 proposedAt;
         uint48 id;
         // Slot 2
-        bytes32 latestL1BlockHash;
+        bytes32 referenceL1BlockHash;
         // Slot 3
         bytes32 blobDataHash;
     }
