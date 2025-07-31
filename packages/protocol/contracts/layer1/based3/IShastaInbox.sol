@@ -24,7 +24,7 @@ interface IShastaInbox {
         // Slot 1
         bytes32 proposalHash;
         // Slot 2
-        bytes32 parentClaimRecordHash;
+        bytes32 parentClaimHash;
         // Slot 3
         bytes32 endL2BlockHash;
         // Slot 4

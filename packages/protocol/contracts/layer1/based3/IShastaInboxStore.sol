@@ -46,11 +46,11 @@ interface IShastaInboxStore {
 
     /// @notice Gets the claim record hash for a given proposal and parent claim
     /// @param _proposalId The proposal ID
-    /// @param _parentClaimRecordHash The parent claim record hash
+    /// @param _parentClaimHash The parent claim hash
     /// @return claimRecordHash_ The claim record hash
     function getClaimRecordHash(
         uint48 _proposalId,
-        bytes32 _parentClaimRecordHash
+        bytes32 _parentClaimHash
     )
         external
         view
@@ -101,11 +101,11 @@ interface IShastaInboxStore {
     /// @notice Sets the claim record hash for a given proposal and parent claim
     /// @dev Only callable by the inbox contract
     /// @param _proposalId The proposal ID
-    /// @param _parentClaimRecordHash The parent claim record hash
+    /// @param _parentClaimHash The parent claim hash
     /// @param _claimRecordHash The claim record hash
     function setClaimRecordHash(
         uint48 _proposalId,
-        bytes32 _parentClaimRecordHash,
+        bytes32 _parentClaimHash,
         bytes32 _claimRecordHash
     )
         external;
