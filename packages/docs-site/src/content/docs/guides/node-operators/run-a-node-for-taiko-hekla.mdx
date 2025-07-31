@@ -137,18 +137,52 @@ If you aren't, you can configure the ports and addresses so that the services ca
             --preconfirmation.whitelist 0x4aA38A15109eAbbf09b7967009A2e00D2D15cb84 \
             --preconfirmation.serverPort 9871 \
             --jwtSecret /data/taiko-geth/geth/jwtsecret \
-            --p2p.bootnodes enode://1733a899719c64edc8ad6818598b6b9aa41889297a7ee7b9cbf3e610d4df2e207b0e04fd40060a36f020116ab5ad451201e448fc224cd38b0a0d5fcbb1d2c812@34.126.109.163:30303,enode://3c7e00eff6a98f5d49084db988b9bee9cab3338ee809d88e41318dc7ea7fb67ab8e8a923e4a9f193fecd7698ef92c0977e07ac850e10777bdd11cc25045d63bf@35.198.236.33:30303,enode://eb5079aae185d5d8afa01bfd2d349da5b476609aced2b57c90142556cf0ee4a152bcdd724627a7de97adfc2a68af5742a8f58781366e6a857d4bde98de6fe986@34.66.210.65:30303,enode://2294f526cbb7faa778192289c252307420532191438ce821d3c50232e019a797bda8c8f8541de0847e953bb03096123856935e32294de9814d15d120131499ba@34.72.186.213:30303 \
+            --p2p.sync \
+            --p2p.checkPointSyncUrl https://rpc.hekla.taiko.xyz
+            --p2p.bootnodes enode://ea5b8a797985f500afa37ba03ce47b0039792a942f0ac9bee9fa19a7a5410273fe43b4e8a9a28fa42cdec1b6435deb809fcb79479c55cc2ddbaf02de7a83f456@34.46.28.99:4001?discport=30304,enode://404e9493066107431bdf3f47bbb360a353244a6069903c76928fca3067575f2adf62ef396b0a8a74696669ef53cab8373e38ddd9b3d3d2d76f356d2cd2708951@34.30.143.124:4001?discport=30304,enode://b2d094ade1ce68990878b197bf818bd41d5b32e4019d42dc63d91d7020f531532f063833e44e84f78792969f69fd5553370216703c40fcc0cb835f17177fbe07@34.56.54.8:4001?discport=30304 \
             --p2p.listen.ip 0.0.0.0 \
             --p2p.useragent taiko \
-            --p2p.listen.tcp 4001
+            --p2p.listen.tcp 4001 \
+            --p2p.advertise.tcp 4001 \
+            --p2p.listen.udp 30303 \
+            --p2p.advertise.tcp 30303 \
+            --p2p.advertise.ip ${YOUR_EXTERNAL_IP} \
+            --p2p.priv.raw ${PRIVATE_KEY}
     ```
-
-      If you wish to set an ip to advertise publicly, you can append `--p2p.advertise.ip ${PUBLIC_IP}` to the above. If you instead want this done automatically, you can append `--p2p.nat` instead.
-
-    <Aside>
-    If you've participated in our old testnets, the L1 Node is no longer required to be an archive node!
+    <Aside type="danger">
+    `YOUR_EXTERNAL_IP` should be **publicly accessible** from the internet, at the UDP and TCP ports you advertise from. If it is not, your node will not join the P2P network correctly.
     </Aside>
+
+    If you do not wish to set an external IP manually, you may instead replace the `--p2p.listen.tcp` and all lines after in the above command with `--p2p.nat`. This will automate discovery, and you do not need to manually set ports.
+
+    We **highly recommend** that you configure these manually.
+
+    Your node also needs a private key set to acquire a stable peer ID. (`--p2p.priv.raw`) This private key should be unique to each node: if you are running multiple, please use different ones for each node. **This private key does not need to hold eth or any valuables, it is simply to persist an identity.**
+
+    You may alternatively set `--p2p.priv.path`, which should be a path to a file that contains the hex-encoded 32-byte private key for the peer ID.
 </Steps>
+
+<Aside>
+  The method to find your external IP can differ depending on your setup. For a personal machine, `curl ifconfig.me` might suffice; if you are running your node through Kubernetes you will need to set a static IP for your LoadBalancer service as pod IPs change on recreation. If you run into issues doing this, please reach out to us on [Discord](https://discord.com/channels/984015101017346058/1117285651394600960)!
+</Aside>
+
+### Ensure that the relevant ports are open on your machine
+
+  Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following ports on your machine are open and visible from the internet at your external IP:
+    - TCP `4001` OR whichever port you set `--p2p.advertise.tcp` to.
+    - UDP `30303` OR whichever port you set `--p2p.advertise.udp` to.
+
+  These ports **are required for p2p gossiping preconfirmed blocks**, so if it is not set you will only subscribe to the events that are emitted on chain. You may need to add additional port-forwarding rules in your firewall/router to enable discovery from the internet.
+
+### Ensure that your node has joined the P2P network
+
+  To ensure that your node is actually configured correctly and has joined the P2P network for preconfirmations, please use `grep` to find logs regarding `peer tick`. You should find something that resembles the following:
+
+  ```
+  INFO [07-30|18:37:38.168] Peer tick                                peersLen=4 peers="[...]" addrInfo="[...]" id=... advertisedUDP=52700 advertisedTCP=4001 advertisedIP=...
+  ```
+
+  As long as `connected=X` is greater than or equal to 3, your node should have joined the P2P network correctly! If it is below that, please reach out to us on Discord for troubleshooting help.
 
 ### Syncing
 

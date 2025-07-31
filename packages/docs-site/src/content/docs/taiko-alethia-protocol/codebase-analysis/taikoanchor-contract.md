@@ -121,17 +121,14 @@ Emitted when **gas parameters** are updated.
 ## Design Considerations
 
 1. **State Synchronization**
-
    - Ensures **L1-L2 consistency** via **anchoring**.
    - Uses **public input hash validation** to prevent state mismatches.
 
 2. **Gas Efficiency**
-
    - Implements **EIP-1559 dynamic gas pricing**.
    - Optimizes **L2 execution costs** based on **L1 gas usage**.
 
 3. **Bridging & Interoperability**
-
    - Stores **verified state roots** to facilitate **cross-layer message verification**.
    - Ensures compatibility with **bridging mechanisms**.
 
