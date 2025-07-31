@@ -12,17 +12,6 @@ interface IOffchainData {
         BlockParams[] blocks;
     }
 
-    struct L1LatestBlockData {
-        uint256 timestamp;
-        bytes32 prevRando;
-    }
-
-    struct L2ParentBlockData {
-        uint256 number;
-        uint256 timestamp;
-        bytes32 blockHash;
-    }
-
     struct L2ProtocolState {
         uint256 gasIssuancePerSecond;
     }
@@ -33,7 +22,7 @@ interface IOffchainData {
         address feeRecipient;
         uint256 number;
         uint256 gasLimit;
-        bytes32 prevRando;
+        bytes32 prevRandao;
         bytes32 extraData;
         bytes32 withdrawalsRoot;
     }
