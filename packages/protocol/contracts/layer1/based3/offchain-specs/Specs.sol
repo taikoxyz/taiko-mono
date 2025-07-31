@@ -2,47 +2,46 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/libs/LibMath.sol";
-import "./IOffchainData.sol";
+import "./ISpecs.sol";
 import "../IShastaInbox.sol";
 import "src/layer1/preconf/libs/LibBlockHeader.sol";
+import "./Hooks.sol";
 
-abstract contract BuildBlocksSpec is IOffchainData {
+abstract contract BuildBlocksSpec is ISpecs {
     using LibMath for uint256;
 
     uint256 constant L1_BLOCK_TIME = 12;
     uint256 constant MAX_BLOCK_TIMESTAMP_OFFSET = L1_BLOCK_TIME * 8;
     uint256 constant MIN_L2_BLOCK_TIME = 1;
-    uint32 constant DEFAULT_GAS_ISSUANCE_PER_SECOND = 1_000_000;
+    uint256 constant DEFAULT_GAS_ISSUANCE_PER_SECOND = 1_000_000;
+    bytes32 constant EMPTY_WITHDRAWALS_ROOT = bytes32(0);
 
-    function buildBlocks(
+    function createBlockBuildingInputs(
         IShastaInbox.Proposal memory proposal, // from L1
         LibBlockHeader.BlockHeader memory referenceBlockHeader, // from L1
-        LibBlockHeader.BlockHeader memory parentBlockHeader, // from L2
-        L2ProtocolState memory protocolState, // from L2
-        bytes memory blobData // from L1
+        bytes memory blobData, // from L1
+        ProtocolState memory protocolState, // from L2
+        LibBlockHeader.BlockHeader memory parentBlockHeader // from L2
     )
         external
         view
+        returns (BuildBlockInput[] memory inputs)
     {
-        ProposalSpec memory proposalSpec = _decodeBlobData(blobData);
+        ProposalData memory proposalSpec = decodeAndValidateProposalData(blobData);
 
-        for (uint256 i = 0; i < proposalSpec.blocks.length; i++) {
-            BlockParams memory blockParams = proposalSpec.blocks[i];
-
-            BuildBlockInputs memory inputs;
+        for (uint256 i; i < proposalSpec.blocks.length; i++) {
+            Block memory blk = proposalSpec.blocks[i];
 
             //--------------------------------
-            inputs.parentHash = _computeBlockHash(parentBlockHeader);
-            inputs.number = parentBlockHeader.number + 1;
+            inputs[i].parentHash = _computeBlockHash(parentBlockHeader);
+            inputs[i].number = parentBlockHeader.number + 1;
 
             //-------------------------------
-            blockParams.timestamp =
-                blockParams.timestamp.max(parentBlockHeader.timestamp + MIN_L2_BLOCK_TIME);
-            blockParams.timestamp =
-                blockParams.timestamp.min(referenceBlockHeader.timestamp + L1_BLOCK_TIME);
-            blockParams.timestamp =
-                blockParams.timestamp.min(referenceBlockHeader.timestamp + MAX_BLOCK_TIMESTAMP_OFFSET);
-            inputs.timestamp = blockParams.timestamp;
+            blk.timestamp = blk.timestamp.max(parentBlockHeader.timestamp + MIN_L2_BLOCK_TIME);
+            blk.timestamp = blk.timestamp.min(referenceBlockHeader.timestamp + L1_BLOCK_TIME);
+            blk.timestamp =
+                blk.timestamp.min(referenceBlockHeader.timestamp + MAX_BLOCK_TIMESTAMP_OFFSET);
+            inputs[i].timestamp = blk.timestamp;
 
             //--------------------------------
             if (i == 0) {
@@ -52,9 +51,9 @@ abstract contract BuildBlocksSpec is IOffchainData {
                 }
             }
 
-            uint256 blockTime = inputs.timestamp - parentBlockHeader.timestamp;
+            uint256 blockTime = inputs[i].timestamp - parentBlockHeader.timestamp;
             uint256 gasIssuance = blockTime * protocolState.gasIssuancePerSecond;
-            inputs.gasLimit = gasIssuance * 2;
+            inputs[i].gasLimit = gasIssuance * 2;
 
             // The following are offered by builder by running the L2 transactions.
             // header.stateRoot;
@@ -72,38 +71,37 @@ abstract contract BuildBlocksSpec is IOffchainData {
             }
 
             //--------------------------------
-            inputs.feeRecipient = proposalSpec.blocks[i].feeRecipient == address(0)
+            inputs[i].feeRecipient = proposalSpec.blocks[i].feeRecipient == address(0)
                 ? proposal.proposer
                 : proposalSpec.blocks[i].feeRecipient;
 
             //--------------------------------
-            inputs.prevRandao = keccak256(abi.encode(inputs.number, referenceBlockHeader.prevRandao));
+            inputs[i].prevRandao =
+                keccak256(abi.encode(inputs[i].number, referenceBlockHeader.prevRandao));
 
             //--------------------------------
-            inputs.extraData = bytes32(inputs.number);
-            inputs.withdrawalsRoot = bytes32(0);
+            inputs[i].extraData = bytes32(inputs[i].number);
+            inputs[i].withdrawalsRoot = EMPTY_WITHDRAWALS_ROOT;
         }
     }
 
-    function decodeBlobData(bytes memory blobData) external pure returns (ProposalSpec memory) {
-        return abi.decode(blobData, (ProposalSpec));
+    function decodeBlobData(bytes memory blobData) external pure returns (ProposalData memory) {
+        return abi.decode(blobData, (ProposalData));
     }
 
     // -------------------------------------------------------------------------
     // Proposal Leading Call
     // -------------------------------------------------------------------------
 
-    function _decodeBlobData(bytes memory blobData)
+    function decodeAndValidateProposalData(bytes memory blobData)
         internal
         view
-        returns (ProposalSpec memory proposalSpec)
+        returns (ProposalData memory proposalData)
     {
-        try this.decodeBlobData(blobData) returns (ProposalSpec memory spec) {
-            proposalSpec = spec;
-        } catch { }
-
-        if (proposalSpec.blocks.length == 0) {
-            proposalSpec.blocks = new BlockParams[](1);
+        try this.decodeBlobData(blobData) returns (ProposalData memory _proposalData) {
+            proposalData = _proposalData;
+        } catch {
+            proposalData.blocks = new Block[](1);
         }
     }
 
