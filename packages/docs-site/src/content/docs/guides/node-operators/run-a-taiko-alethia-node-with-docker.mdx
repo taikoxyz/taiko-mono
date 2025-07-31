@@ -99,21 +99,21 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
 
     Note that if you include `prover`, the service will still be disabled if you do not set `ENABLE_PROVER=true` in your `.env` file.
 
-6. Ensure that the relevant ports are open on your machine
-
-    Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following ports on your machine are open and visible from the internet at your external IP:
-      - TCP `4001` OR whichever port you set `--p2p.advertise.tcp` to.
-      - UDP `30303` OR whichever port you set `--p2p.advertise.udp` to.
-
-    These ports **are required for p2p gossiping preconfirmed blocks**, so if it is not set you will only subscribe to the events that are emitted on chain. You may need to add additional port-forwarding rules in your firewall/router to enable discovery from the internet.
-
-7. Set your node's external IP for p2p discovery
+6. Set your node's external IP for p2p discovery
 
     This is an important config for based preconfirmations. Find your machine's external IP and set `PUBLIC_IP={EXTERNAL_IP}` in your `.env` file. You may choose to leave it blank, in which case our scripts will enable `p2p.nat` in your driver; this means that you will automatically enable NAT traversal with PMP/UPNP devices to learn external IP. This is not preferred, and we highly recommend you manually set the `PUBLIC_IP` for discovery.
 
     <Aside type="danger">
     `YOUR_EXTERNAL_IP` should be **publicly accessible** from the internet, at the UDP and TCP ports you advertise from. If it is not, your node will not join the P2P network correctly.
     </Aside>
+
+7. Ensure that the relevant ports are open on your machine **at the external IP you set.**
+
+    Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following ports on your machine are **open and visible to the internet at your external IP:**
+      - TCP `4001` OR whichever port you set `P2P_TCP_PORT` to in your `.env`.
+      - UDP `30303` OR whichever port you set `P2P_UDP_PORT` to in your `.env`.
+
+    These ports **are required for p2p gossiping preconfirmed blocks**, so if it is not set you will only subscribe to the events that are emitted on chain. You may need to add additional port-forwarding rules in your firewall/router to enable discovery from the internet.
 
 8. Set a private key for your P2P id
 
