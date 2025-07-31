@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.29.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.3...docs-site-v1.29.4) (2025-07-31)
+
+
+### Chores
+
+* **docs-site:** add rpc, oracle and aa providers ([#19835](https://github.com/taikoxyz/taiko-mono/issues/19835)) ([bd6fe92](https://github.com/taikoxyz/taiko-mono/commit/bd6fe925bd65b8c320e048d4cc425b6cd153161f))
+* **docs-site:** update guides for based preconfs upgrade ([#19790](https://github.com/taikoxyz/taiko-mono/issues/19790)) ([4900ed9](https://github.com/taikoxyz/taiko-mono/commit/4900ed9f7311899a228e90ecb8a84610accb989f))
+
 ## [1.29.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.2...docs-site-v1.29.3) (2025-07-29)
 
 
