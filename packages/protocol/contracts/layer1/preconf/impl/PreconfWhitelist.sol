@@ -51,7 +51,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         _;
     }
 
-    constructor() EssentialContract() { }
+    constructor(address _fallbackPreconfer) EssentialContract() {
+        fallbackPreconfer = _fallbackPreconfer;
+    }
 
     function init(
         address _owner,
