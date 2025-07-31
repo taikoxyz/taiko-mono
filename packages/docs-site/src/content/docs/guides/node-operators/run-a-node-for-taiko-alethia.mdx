@@ -146,7 +146,8 @@ If you aren't, you can configure the ports and addresses so that the services ca
             --p2p.advertise.tcp 4001 \
             --p2p.listen.udp 30303 \
             --p2p.advertise.tcp 30303 \
-            --p2p.advertise.ip ${YOUR_EXTERNAL_IP}
+            --p2p.advertise.ip ${YOUR_EXTERNAL_IP} \
+            --p2p.priv.raw ${PRIVATE_KEY}
     ```
     <Aside type="danger">
     `YOUR_EXTERNAL_IP` should be **publicly accessible** from the internet, at the UDP and TCP ports you advertise from. If it is not, your node will not join the P2P network correctly.
@@ -155,6 +156,10 @@ If you aren't, you can configure the ports and addresses so that the services ca
     If you do not wish to set an external IP manually, you may instead replace the `--p2p.listen.tcp` and all lines after in the above command with `--p2p.nat`. This will automate discovery, and you do not need to manually set ports.
 
     We **highly recommend** that you configure these manually.
+
+    Your node also needs a private key set to acquire a stable peer ID. (`--p2p.priv.raw`) This private key should be unique to each node: if you are running multiple, please use different ones for each node. **This private key does not need to hold eth or any valuables, it is simply to persist an identity.**
+
+    You may alternatively set `--p2p.priv.path`, which should be a path to a file that contains the hex-encoded 32-byte private key for the peer ID.
 </Steps>
 
 <Aside>
