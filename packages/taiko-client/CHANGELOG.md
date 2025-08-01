@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.9.0...taiko-alethia-client-v1.10.0) (2025-08-01)
+
+
+### Features
+
+* **taiko-client:** add support for external signer from optimism module ([#19851](https://github.com/taikoxyz/taiko-mono/issues/19851)) ([0227770](https://github.com/taikoxyz/taiko-mono/commit/0227770f8baf256fd362b4393ab85da623e784f2))
+
 ## [1.9.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.8.0...taiko-alethia-client-v1.9.0) (2025-07-30)
 
 
