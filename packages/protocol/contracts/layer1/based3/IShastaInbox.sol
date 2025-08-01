@@ -9,39 +9,51 @@ interface IShastaInbox {
     // Structs
     // -------------------------------------------------------------------------
 
+    struct BlobSegment {
+        /// @dev The blobs containing the proposal's content.
+        bytes32[] blobHashes;
+        /// @dev The offset of the proposal's content in the containing blobs.
+        uint32 offset;
+        /// @dev The size of the proposal's content in the containing blobs.
+        uint32 size;
+    }
+
     struct Proposal {
-        // Slot 1: 160 + 48 + 48 = 256 bits
-        address proposer;
-        address prover;
-        uint48 livenessBond;
-        uint48 proposedAt;
+        /// @dev Unique identifier for the proposal.
         uint48 id;
-        // Slot 2
-        bytes32 referenceL1BlockHash;
-        // Slot 3
-        bytes32 blobDataHash;
+        /// @dev Address of the proposer. This is needed on L1 to handle provability bond
+        /// and proving fee.
+        address proposer;
+        /// @dev Address of the designated prover. This is needed on L1 to handle
+        /// liveness bond and proving fee.
+        address prover;
+        /// @dev Provability bond for the proposal, paid by the proposer.
+        uint48 provabilityBond;
+        /// @dev Liveness bond for the proposal, paid by the designated prover.
+        uint48 livenessBond;
+        /// @dev Timestamp when the proposal was made. This is needed on L1 to verify
+        /// the timing of the claim used to finalize the proposal for correct bond payments.
+        uint48 proposedAt;
+        /// @dev Latest known L1 block hash. This is used to verify all L1 data used in this
+        /// proposal's L2 blocks. However, this block hash does not affect the L2 blocks' world
+        /// states. Using a more recent L1 block hash as the reference block hash will not
+        /// invalidate any pre-confirmed L2 blocks. This value should not be confused with a L2
+        /// block's anchor block hash.
+        bytes32 referenceBlockHash;
+        /// @dev The proposal's content.
+        BlobSegment content;
     }
 
     struct Claim {
-        // Slot 1
         bytes32 proposalHash;
-        // Slot 2
         bytes32 parentClaimHash;
-        // Slot 3
         bytes32 endL2BlockHash;
-        // Slot 4
         bytes32 endL2StateRoot;
-        // Slot 5: 160 + 48 + 48 = 256 bits
-        address proposer;
         uint48 endL2BlockNumber;
-        uint48 proverBond;
-        // Slot 6: 160 + 160 = 320 bits (96 bits would be wasted)
-        address prover;
     }
 
     struct ClaimRecord {
         Claim claim;
-        // 48 + 48 = 96 bits (160 bits unused)
         uint48 proposedAt;
         uint48 provedAt;
     }
@@ -54,7 +66,7 @@ interface IShastaInbox {
     event Proposed(uint48 indexed proposalId, Proposal proposal);
 
     /// @notice Emitted when a proof is submitted for a proposal
-    event Proved(uint48 indexed proposalId, Proposal proposal, Claim claim);
+    event Proved(uint48 indexed proposalId, Proposal proposal, ClaimRecord claimRecord);
 
     /// @notice Emitted when a proposal is finalized on L1
     event Finalized(uint48 indexed proposalId, Claim claim);

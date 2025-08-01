@@ -21,17 +21,25 @@ abstract contract ShastaInbox is IShastaInbox {
     // -------------------------------------------------------------------------
 
     IShastaInboxStore public immutable store;
-    uint48 public immutable provingWindow;
+    uint48 public immutable provabilityBond;
     uint48 public immutable livenessBond;
+    uint48 public immutable provingWindow;
 
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
 
-    constructor(IShastaInboxStore _store, uint48 _provingWindow, uint48 _livenessBond) {
+    constructor(
+        IShastaInboxStore _store,
+        uint48 _provabilityBond,
+        uint48 _livenessBond,
+        uint48 _provingWindow
+    ) {
         store = _store;
-        provingWindow = _provingWindow;
+        provabilityBond = _provabilityBond;
         livenessBond = _livenessBond;
+        provingWindow = _provingWindow;
+
         store.initialize();
     }
 
@@ -40,32 +48,34 @@ abstract contract ShastaInbox is IShastaInbox {
     // -------------------------------------------------------------------------
 
     /// @notice Proposes a new proposal of L2 blocks
-    /// @param _blobIndex Index of the blob in the current transaction
-    function propose(uint48 _blobIndex) external {
-        uint48 proposalId = store.incrementAndGetProposalId();
+    /// @param _blobStartIndex The index of the first blob in the current transaction
+    /// @param _numBlobs The number of blobs in the proposal
+    /// @param _offset The offset of the proposal's content in the containing blobs
+    /// @param _size The size of the proposal's content in the containing blobs
+    function propose(
+        uint48 _blobStartIndex,
+        uint32 _numBlobs,
+        uint32 _offset,
+        uint32 _size
+    )
+        external
+    {
+        bytes32[] memory blobHashes = new bytes32[](_numBlobs);
+        for (uint48 i; i < _numBlobs; ++i) {
+            blobHashes[i] = blobhash(_blobStartIndex + i);
+            if (blobHashes[i] == 0) revert BlobNotFound();
+        }
 
-        // Create a new proposal.
-        // Note that the blobDataHash is not checked here to empty proposal data.
-        Proposal memory proposal = Proposal({
-            proposer: msg.sender,
-            prover: msg.sender,
-            livenessBond: livenessBond,
-            proposedAt: uint48(block.timestamp),
-            id: proposalId,
-            referenceL1BlockHash: blockhash(block.number - 1),
-            blobDataHash: blobhash(_blobIndex)
-        });
+        BlobSegment memory content =
+            BlobSegment({ blobHashes: blobHashes, offset: _offset, size: _size });
 
-        bytes32 proposalHash = keccak256(abi.encode(proposal));
-        store.setProposalHash(proposalId, proposalHash);
-
-        emit Proposed(proposalId, proposal);
+        _propose(content);
     }
 
-    /// @notice Submits a proof for a proposal's state transition
+    /// @notice Proves a claim about some properties of a proposal, including its state transition.
     /// @param _proposal Original proposal data
     /// @param _claim State transition claim being proven
-    /// @param _proof Validity proof for the state transition
+    /// @param _proof Validity proof for the claim
     function prove(
         Proposal memory _proposal,
         Claim memory _claim,
@@ -77,33 +87,42 @@ abstract contract ShastaInbox is IShastaInbox {
         if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
         if (proposalHash != store.getProposalHash(_proposal.id)) revert ProposalHashMismatch();
 
-        ClaimRecord memory record = ClaimRecord({
+        ClaimRecord memory claimRecord = ClaimRecord({
             claim: _claim,
             proposedAt: _proposal.proposedAt,
             provedAt: uint48(block.timestamp)
         });
 
-        bytes32 recordHash = keccak256(abi.encode(record));
-        store.setClaimRecordHash(_proposal.id, _claim.parentClaimHash, recordHash);
-        emit Proved(_proposal.id, _proposal, _claim);
+        bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
+        store.setClaimRecordHash(_proposal.id, _claim.parentClaimHash, claimRecordHash);
+        emit Proved(_proposal.id, _proposal, claimRecord);
 
         verifyProof(_claim, _proof);
     }
 
-    /// @notice Finalizes the next verifiable proposal and updates the L2 chain state
-    /// @param _record The proven claim to finalize
-    function finalize(ClaimRecord memory _record) external {
-        Claim memory claim = _record.claim;
-
-        if (claim.parentClaimHash != store.getLastFinalizedClaimHash()) {
-            revert InvalidClaimChain();
-        }
-
+    /// @notice Finalizes verifiable claims and updates the L2 chain state
+    /// @param _claimRecords The proven claims to finalize
+    function finalize(ClaimRecord[] memory _claimRecords) external {
+        bytes32 lastFinalizedClaimHash = store.getLastFinalizedClaimHash();
         uint48 proposalId = store.getLastFinalizedProposalId() + 1;
-        bytes32 recordHash = keccak256(abi.encode(_record));
+        Claim memory claim;
 
-        bytes32 storedRecordHash = store.getClaimRecordHash(proposalId, claim.parentClaimHash);
-        if (storedRecordHash != recordHash) revert ClaimNotFound();
+        for (uint48 i; i < _claimRecords.length; ++i) {
+            ClaimRecord memory claimRecord = _claimRecords[i];
+            claim = claimRecord.claim;
+            if (claim.parentClaimHash != lastFinalizedClaimHash) {
+                revert InvalidClaimChain();
+            }
+
+            bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
+
+            bytes32 storedClaimRecordHash =
+                store.getClaimRecordHash(proposalId, claim.parentClaimHash);
+            if (storedClaimRecordHash != claimRecordHash) revert ClaimNotFound();
+
+            lastFinalizedClaimHash = keccak256(abi.encode(claim));
+            proposalId++;
+        }
 
         // Advance the last finalized proposal ID and update the last finalized ClaimRecord hash.
         store.setLastFinalizedProposalId(proposalId);
@@ -128,11 +147,38 @@ abstract contract ShastaInbox is IShastaInbox {
     // Private Functions
     // -------------------------------------------------------------------------
 
+    /// @notice Proposes a new proposal of L2 blocks
+    /// @param _content The content of the proposal
+    function _propose(BlobSegment memory _content) private {
+        uint48 proposalId = store.incrementAndGetProposalId();
+
+        // Create a new proposal.
+        // Note that the contentHash is not checked here to empty proposal data.
+        Proposal memory proposal = Proposal({
+            id: proposalId,
+            proposer: msg.sender,
+            prover: msg.sender,
+            provabilityBond: provabilityBond,
+            livenessBond: livenessBond,
+            proposedAt: uint48(block.timestamp),
+            referenceBlockHash: blockhash(block.number - 1),
+            content: _content
+        });
+
+        bytes32 proposalHash = keccak256(abi.encode(proposal));
+        store.setProposalHash(proposalId, proposalHash);
+
+        // TODO: debit provability bond from proposer and liveness bond from prover.
+
+        emit Proposed(proposalId, proposal);
+    }
+
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
 
     error ClaimNotFound();
+    error BlobNotFound();
     error ProposalHashMismatch();
     error InvalidClaimChain();
 }

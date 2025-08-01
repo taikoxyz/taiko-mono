@@ -16,7 +16,7 @@ class Proposal:
     proposedAt: int  # uint48 in Solidity
     id: int  # uint48 in Solidity
     latestL1BlockHash: HexStr  # bytes32 in Solidity
-    blobDataHash: HexStr  # bytes32 in Solidity
+    contentHash: HexStr  # bytes32 in Solidity
     livenessBond: int
 
 @dataclass
