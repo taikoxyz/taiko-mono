@@ -71,7 +71,7 @@ func (s *ProposerTestSuite) SetupTest() {
 	s.Nil(p.InitFromConfig(ctx, &Config{
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:                  os.Getenv("L1_WS"),
-			L2Endpoint:                  os.Getenv("L2_HTTP"),
+			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
 			JwtSecret:                   string(jwtSecret),
 			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),

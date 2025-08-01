@@ -15,7 +15,7 @@ import (
 
 var (
 	l1Endpoint      = os.Getenv("L1_WS")
-	l2Endpoint      = os.Getenv("L2_HTTP")
+	l2Endpoint      = os.Getenv("L2_WS")
 	taikoInbox      = os.Getenv("TAIKO_INBOX")
 	taikoAnchor     = os.Getenv("TAIKO_ANCHOR")
 	taikoToken      = os.Getenv("TAIKO_TOKEN")
@@ -49,7 +49,7 @@ func (s *ProposerTestSuite) TestNewConfigFromCliContext() {
 	s.Nil(app.Run([]string{
 		"TestNewConfigFromCliContext",
 		"--" + flags.L1WSEndpoint.Name, l1Endpoint,
-		"--" + flags.L2HTTPEndpoint.Name, l2Endpoint,
+		"--" + flags.L2WSEndpoint.Name, l2Endpoint,
 		"--" + flags.TaikoInboxAddress.Name, taikoInbox,
 		"--" + flags.TaikoAnchorAddress.Name, taikoAnchor,
 		"--" + flags.TaikoTokenAddress.Name, taikoToken,
@@ -86,7 +86,7 @@ func (s *ProposerTestSuite) SetupApp() *cli.App {
 	app := cli.NewApp()
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{Name: flags.L1WSEndpoint.Name},
-		&cli.StringFlag{Name: flags.L2HTTPEndpoint.Name},
+		&cli.StringFlag{Name: flags.L2WSEndpoint.Name},
 		&cli.StringFlag{Name: flags.TaikoInboxAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoAnchorAddress.Name},
 		&cli.StringFlag{Name: flags.TaikoTokenAddress.Name},
