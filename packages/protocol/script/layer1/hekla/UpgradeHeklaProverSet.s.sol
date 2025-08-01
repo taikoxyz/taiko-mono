@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "test/shared/DeployCapability.sol";
-import "contracts/layer1/provers/ProverSet.sol";
+import "src/layer1/provers/ProverSet.sol";
 
 contract UpgradeHeklaProverSet is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
