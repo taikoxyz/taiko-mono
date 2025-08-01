@@ -12,10 +12,30 @@ pip install -r requirements.txt
 
 ## Files
 
-- `Data.py` - Data structures and types
+- `IShasta.py` - Data structures and types
 - `BlobDecoder.py` - Handles decoding of proposal data from blobs
-- `BlockPreparer.py` - Handles preparation of build block input
-- `SystemCall.py` - Handles system calls for block processing
+- `BlockCalls.py` - Handles system calls for block processing
+
+## Compilation
+
+Python is an interpreted language and doesn't require compilation in the traditional sense. However, you can:
+
+### Syntax Check
+
+To verify syntax without running the code:
+
+```bash
+python3 -m py_compile *.py
+```
+
+### Type Checking (Optional)
+
+If using type hints, run mypy for static type checking:
+
+```bash
+pip install mypy
+mypy *.py
+```
 
 ## Usage
 

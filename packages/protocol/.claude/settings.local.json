@@ -17,7 +17,11 @@
       "Bash(do echo \"Checking $file...\")",
       "Bash(echo \"✓ $file syntax is valid\")",
       "Bash(echo:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(do echo \"=== Checking $file ===\")",
+      "Bash(/dev/null)",
+      "Bash(pip3 list:*)",
+      "Bash(black:*)"
     ],
     "deny": []
   }
