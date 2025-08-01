@@ -1,8 +1,9 @@
 from typing import Optional, Dict, Any
-from Data import ProtocolState, BlockInput, ProposalData, Proposal
+from eth_typing import HexStr
+from IShasta import ProtoState, BlockInput, ProposalContent, Proposal
 
 
-class SystemCall:
+class BlockCalls:
     """
     Handles system calls that execute at the beginning and end of block processing.
     These calls do not consume gas and are used for protocol-level operations.
@@ -12,14 +13,14 @@ class SystemCall:
     GAS_ISSUANCE_PER_SECOND_MAX_OFFSET = 101
     GAS_ISSUANCE_PER_SECOND_MIN_OFFSET = 99
     
-    def load_protocol_state(self) -> ProtocolState:
+    def load_protocol_state(self) -> ProtoState:
         """
         Load the current protocol state from storage.
         This function retrieves the protocol state that persists across blocks.
         """
         raise NotImplementedError("Must be implemented by execution layer")
     
-    def save_protocol_state(self, protocol_state: ProtocolState) -> None:
+    def save_protocol_state(self, protocol_state: ProtoState) -> None:
         """
         Save the protocol state to storage.
         This function persists the protocol state for future blocks.
@@ -28,7 +29,7 @@ class SystemCall:
     
     def block_head_call(
         self,
-        protocol_state: ProtocolState,
+        protocol_state: ProtoState,
         block_input: BlockInput,
         prev_randao: HexStr
     ) -> None:
@@ -53,7 +54,7 @@ class SystemCall:
 
     def block_tail_call(
         self,
-        protocol_state: ProtocolState,
+        protocol_state: ProtoState,
         block_input: BlockInput,
         gas_used: int,
         parent_block_timestmap:int

@@ -1,8 +1,8 @@
 from typing import Optional
 from eth_typing import Address, HexStr
 import hashlib
-from Data import (
-    ProposalData, ProtocolState, BlockInput, BlockHeaderPartial, Proposal
+from IShasta import (
+    ProposalContent, ProtoState, BlockInput, BlockHeaderPartial, Proposal
 )
 
 
@@ -22,8 +22,8 @@ class BlockPreparer:
         self,
         proposal: Proposal,  # from L1
         reference_block_header: BlockHeaderPartial,  # from L1
-        proposal_data: ProposalData,  # from L1 blobs
-        protocol_state: ProtocolState,  # from L2
+        proposal_data: ProposalContent,  # from L1 blobs
+        protocol_state: ProtoState,  # from L2
         parent_block_header: BlockHeaderPartial,  # from L2
         parent_block_hash: HexStr,  # from L2
         i: int  # the i-th block in the list
@@ -110,7 +110,7 @@ class BlockPreparer:
             transactions=blk.transactions
         )
     
-    def _compute_base_fee_per_gas(self, block_time: int, protocol_state: ProtocolState) -> int:
+    def _compute_base_fee_per_gas(self, block_time: int, protocol_state: ProtoState) -> int:
         """
         Compute the base fee per gas for the block.
         

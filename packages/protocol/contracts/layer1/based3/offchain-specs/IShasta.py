@@ -2,13 +2,8 @@ from dataclasses import dataclass
 from typing import List, Optional
 from eth_typing import Address, HexStr
 
-@dataclass
-class BlockHeaderPartial:
-    """Partial representation of LibBlockHeader.BlockHeader with only fields used in building new blocs"""
-    number: int
-    timestamp: int
-    prevRandao: HexStr
 
+## --- Onchain ---
 @dataclass
 class BlobSegment:
     """Represents a blob segment from IShastaInbox."""
@@ -28,6 +23,14 @@ class Proposal:
     referenceBlockHash: HexStr  # bytes32 in Solidity
     content: BlobSegment
 
+## --- Offchain  ---
+@dataclass
+class BlockHeaderPartial:
+    """Partial representation of LibBlockHeader.BlockHeader with only fields used in building new blocs"""
+    number: int
+    timestamp: int
+    prevRandao: HexStr
+
 @dataclass
 class Transaction:
     """Represents a transaction in the system."""
@@ -45,13 +48,13 @@ class Block:
     anchorBlockHeight: int ## TODO?????
 
 @dataclass
-class ProposalData:
+class ProposalContent:
     """Data associated with a proposal."""
     gas_issuance_per_second: int
     blocks: List[Block]
 
 @dataclass
-class ProtocolState:
+class ProtoState:
     """Current state of the protocol."""
     gas_issuance_per_second: int
     gas_excess: int

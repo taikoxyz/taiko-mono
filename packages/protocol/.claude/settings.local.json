@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash(gh:*)",
@@ -10,7 +11,13 @@
       "Bash(grep:*)",
       "Bash(mv:*)",
       "Bash(find:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(for file in *.py)",
+      "Bash(do echo \"Checking $file...\")",
+      "Bash(echo \"✓ $file syntax is valid\")",
+      "Bash(echo:*)",
+      "Bash(done)"
     ],
     "deny": []
   }
