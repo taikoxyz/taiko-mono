@@ -47,38 +47,14 @@ abstract contract ShastaInbox is IShastaInbox {
     // External Transactional Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Proposes new proposals of L2 blocks
-    /// @param _blobLocators The locators of the blobs containing the proposal's content
+    /// @inheritdoc IShastaInbox
     function propose(BlobLocator[] memory _blobLocators) external {
         for (uint48 i; i < _blobLocators.length; ++i) {
             _propose(_validateBlockLocator(_blobLocators[i]));
         }
     }
 
-    function _validateBlockLocator(BlobLocator memory _blobLocator)
-        private
-        view
-        returns (BlobSegment memory)
-    {
-        if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
-
-        bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
-        for (uint48 i; i < _blobLocator.numBlobs; ++i) {
-            blobHashes[i] = blobhash(_blobLocator.blobStartIndex + i);
-            if (blobHashes[i] == 0) revert BlobNotFound();
-        }
-
-        return BlobSegment({
-            blobHashes: blobHashes,
-            offset: _blobLocator.offset,
-            size: _blobLocator.size
-        });
-    }
-
-    /// @notice Proves a claim about some properties of a proposal, including its state transition.
-    /// @param _proposals Original proposal data
-    /// @param _claims State transition claims being proven
-    /// @param _proof Validity proof for the claim
+    /// @inheritdoc IShastaInbox
     function prove(
         Proposal[] memory _proposals,
         Claim[] memory _claims,
@@ -111,8 +87,7 @@ abstract contract ShastaInbox is IShastaInbox {
         verifyProof(claimsHash, _proof);
     }
 
-    /// @notice Finalizes verifiable claims and updates the L2 chain state
-    /// @param _claimRecords The proven claims to finalize
+    /// @inheritdoc IShastaInbox
     function finalize(ClaimRecord[] memory _claimRecords) external {
         bytes32 lastFinalizedClaimHash = store.getLastFinalizedClaimHash();
         uint48 proposalId = store.getLastFinalizedProposalId() + 1;
@@ -183,6 +158,26 @@ abstract contract ShastaInbox is IShastaInbox {
         // TODO: debit provability bond from proposer and liveness bond from prover.
 
         emit Proposed(proposalId, proposal);
+    }
+
+    function _validateBlockLocator(BlobLocator memory _blobLocator)
+        private
+        view
+        returns (BlobSegment memory)
+    {
+        if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
+
+        bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
+        for (uint48 i; i < _blobLocator.numBlobs; ++i) {
+            blobHashes[i] = blobhash(_blobLocator.blobStartIndex + i);
+            if (blobHashes[i] == 0) revert BlobNotFound();
+        }
+
+        return BlobSegment({
+            blobHashes: blobHashes,
+            offset: _blobLocator.offset,
+            size: _blobLocator.size
+        });
     }
 
     // -------------------------------------------------------------------------

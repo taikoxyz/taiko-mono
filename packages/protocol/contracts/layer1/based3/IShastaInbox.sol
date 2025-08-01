@@ -82,26 +82,24 @@ interface IShastaInbox {
     // External Transactional Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Proposes a new proposal of L2 blocks
-    /// @param _blobIndex Index of the blob in the current transaction
-    function propose(uint48 _blobIndex) external;
+    /// @notice Proposes new proposals of L2 blocks
+    /// @param _blobLocators The locators of the blobs containing the proposal's content
+    function propose(BlobLocator[] memory _blobLocators) external;
 
-    /// @notice Submits a proof for a proposal's state transition
-    /// @param _proposalId ID of the proposal being proven
-    /// @param _proposal Original proposal data
-    /// @param _claim State transition claim being proven
-    /// @param _proof Validity proof for the state transition
+    /// @notice Proves a claim about some properties of a proposal, including its state transition.
+    /// @param _proposals Original proposal data
+    /// @param _claims State transition claims being proven
+    /// @param _proof Validity proof for the claim
     function prove(
-        uint48 _proposalId,
-        Proposal memory _proposal,
-        Claim memory _claim,
+        Proposal[] memory _proposals,
+        Claim[] memory _claims,
         bytes calldata _proof
     )
         external;
 
-    /// @notice Finalizes a proven proposal and updates the L2 chain state
-    /// @param _record The proven claim record to be used to finalize the next proposal
-    function finalize(ClaimRecord memory _record) external;
+    /// @notice Finalizes verifiable claims and updates the L2 chain state
+    /// @param _claimRecords The proven claims to finalize
+    function finalize(ClaimRecord[] memory _claimRecords) external;
 
     // -------------------------------------------------------------------------
     // External View Functions
