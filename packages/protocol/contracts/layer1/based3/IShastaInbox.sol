@@ -9,6 +9,13 @@ interface IShastaInbox {
     // Structs
     // -------------------------------------------------------------------------
 
+    struct BlobLocator {
+        uint48 blobStartIndex;
+        uint32 numBlobs;
+        uint32 offset;
+        uint32 size;
+    }
+
     struct BlobSegment {
         /// @dev The blobs containing the proposal's content.
         bytes32[] blobHashes;

@@ -47,29 +47,32 @@ abstract contract ShastaInbox is IShastaInbox {
     // External Transactional Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Proposes a new proposal of L2 blocks
-    /// @param _blobStartIndex The index of the first blob in the current transaction
-    /// @param _numBlobs The number of blobs in the proposal
-    /// @param _offset The offset of the proposal's content in the containing blobs
-    /// @param _size The size of the proposal's content in the containing blobs
-    function propose(
-        uint48 _blobStartIndex,
-        uint32 _numBlobs,
-        uint32 _offset,
-        uint32 _size
-    )
-        external
+    /// @notice Proposes new proposals of L2 blocks
+    /// @param _blobLocators The locators of the blobs containing the proposal's content
+    function propose(BlobLocator[] memory _blobLocators) external {
+        for (uint48 i; i < _blobLocators.length; ++i) {
+            _propose(_validateBlockLocator(_blobLocators[i]));
+        }
+    }
+
+    function _validateBlockLocator(BlobLocator memory _blobLocator)
+        private
+        view
+        returns (BlobSegment memory)
     {
-        bytes32[] memory blobHashes = new bytes32[](_numBlobs);
-        for (uint48 i; i < _numBlobs; ++i) {
-            blobHashes[i] = blobhash(_blobStartIndex + i);
+        if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
+
+        bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
+        for (uint48 i; i < _blobLocator.numBlobs; ++i) {
+            blobHashes[i] = blobhash(_blobLocator.blobStartIndex + i);
             if (blobHashes[i] == 0) revert BlobNotFound();
         }
 
-        BlobSegment memory content =
-            BlobSegment({ blobHashes: blobHashes, offset: _offset, size: _size });
-
-        _propose(content);
+        return BlobSegment({
+            blobHashes: blobHashes,
+            offset: _blobLocator.offset,
+            size: _blobLocator.size
+        });
     }
 
     /// @notice Proves a claim about some properties of a proposal, including its state transition.
@@ -191,4 +194,5 @@ abstract contract ShastaInbox is IShastaInbox {
     error ProposalsAndClaimsLengthMismatch();
     error ProposalHashMismatch();
     error InvalidClaimChain();
+    error InvalidBlobLocator();
 }
