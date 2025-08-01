@@ -10,7 +10,6 @@ class BlockCalls:
     These calls do not consume gas and are used for protocol-level operations.
     """
 
-    MIN_TAIKO_BALANCE = 10000 * 10**18
     DEFAULT_GAS_ISSUANCE_PER_SECOND = 1_000_000
     GAS_ISSUANCE_PER_SECOND_MAX_OFFSET = 101
     GAS_ISSUANCE_PER_SECOND_MIN_OFFSET = 99
@@ -133,6 +132,9 @@ class BlockCalls:
         """
         Calculate gas excess
         """
+        if current_gas_issuance_per_second == 0:
+            current_gas_issuance_per_second = self.DEFAULT_GAS_ISSUANCE_PER_SECOND
+
         gas_issuance = current_gas_issuance_per_second * block_time
         return max(current_gas_excess + gas_issuance - gas_used, 0)
 
