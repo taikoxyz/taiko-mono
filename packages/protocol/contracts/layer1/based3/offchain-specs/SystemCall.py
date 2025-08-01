@@ -26,39 +26,54 @@ class SystemCall:
         """
         raise NotImplementedError("Must be implemented by execution layer")
     
-    def head_system_call(
+    def block_head_call(
         self,
-        proposal: Proposal,
-        block_input: BlockInput,
-        protocol_state: ProtocolState
-    ) -> None:
-        """
-        Execute system operations before processing the first transaction in a block.
-        This call does not consume gas.
-        """
-       
-    def tail_system_call(
-        self,
-        block_input: BlockInput,
-        proposal_data: ProposalData,
         protocol_state: ProtocolState,
-        gas_used: int
+        block_input: BlockInput
     ) -> None:
         """
-        Execute system operations after processing all transactions in a block.
+        System call invoked before the the first transaction in every block.
         This call does not consume gas.
         """
+        assert protocol_state == self.load_protocol_state()
 
-        if block_input.block_count == block_input.extra_data + 1:
-            if proposal_data.gas_issuance_per_second != 0:
-                max_allowed = protocol_state.gas_issuance_per_second * self.GAS_ISSUANCE_PER_SECOND_MAX_OFFSET
-                min_allowed = protocol_state.gas_issuance_per_second * self.GAS_ISSUANCE_PER_SECOND_MIN_OFFSET
-                v = proposal_data.gas_issuance_per_second * 100
-                
-                if min_allowed <= v <= max_allowed:
-                    protocol_state.gas_issuance_per_second = proposal_data.gas_issuance_per_second
+        # The following code runs only once per proposal at the very beginning
+        if block_input.block_index == 0:
+            # what should be done here?
+            pass
 
-        protocol_state.gas_excess -= gas_used  
-        self.save_protocol_state(protocol_state)
+        if block_input.anchor_block_height > protocol_state.anchor_block_height and block_input.anchor_block_hash !=0:
+            protocol_state.anchor_block_height = block_input.anchor_block_height
+            protocol_state.anchor_block_hash = block_input.anchor_block_hash    
         
+        self.save_protocol_state(protocol_state)
+
+           
+
+    def block_tail_call(
+        self,
+        protocol_state: ProtocolState,
+        block_input: BlockInput,
+        gas_used: int,
+        parent_block_timestmap:int
+    ) -> None:
+        """
+        System call invoked after the last transaction in every block.
+        This call does not consume gas.
+        """ 
+        assert protocol_state == self.load_protocol_state()
+
+        # update base fee parameters
+        block_time = block_input.timestamp - parent_block_timestmap
+        gas_issuance = protocol_state.gas_issuance_per_second * block_time
+        protocol_state.gas_excess += gas_issuance
+        protocol_state.gas_excess -= gas_used
+        if protocol_state.gas_excess < 0:
+            protocol_state.gas_excess = 0
+
+        # the following code runs only once per proposal at the very end
+        if block_input.block_index == block_input.block_count - 1:
+            protocol_state.gas_issuance_per_second = block_input.gas_issuance_per_second / 100
+
+        self.save_protocol_state(protocol_state)
     

@@ -10,14 +10,23 @@ class BlockHeaderPartial:
     prevRandao: HexStr
 
 @dataclass
+class BlobSegment:
+    """Represents a blob segment from IShastaInbox."""
+    blobHashes: List[HexStr]  # bytes32[] in Solidity
+    offset: int  # uint32 in Solidity
+    size: int  # uint32 in Solidity
+
+@dataclass
 class Proposal:
     """Represents a proposal from IShastaInbox."""
-    proposer: Address
-    proposedAt: int  # uint48 in Solidity
     id: int  # uint48 in Solidity
-    latestL1BlockHash: HexStr  # bytes32 in Solidity
-    contentHash: HexStr  # bytes32 in Solidity
-    livenessBond: int
+    proposer: Address
+    prover: Address
+    provabilityBond: int  # uint48 in Solidity
+    livenessBond: int  # uint48 in Solidity
+    proposedAt: int  # uint48 in Solidity
+    referenceBlockHash: HexStr  # bytes32 in Solidity
+    content: BlobSegment
 
 @dataclass
 class Transaction:
@@ -46,11 +55,15 @@ class ProtocolState:
     """Current state of the protocol."""
     gas_issuance_per_second: int
     gas_excess: int
-    designated_proposer: Address
+    anchor_block_height: int    
+    anchor_block_hash: HexStr
 
 @dataclass
 class BlockInput:
     """Input parameters for building a block."""
+    parent_block_hash: HexStr
+    proposal: Proposal
+    block_index: int
     timestamp: int
     parent_hash: HexStr
     fee_recipient: Address
@@ -58,7 +71,8 @@ class BlockInput:
     gas_limit: int
     prev_randao: HexStr
     base_fee_per_gas: int
-    extra_data: int
     block_count: int
+    anchor_block_height: int
+    anchor_block_hash: HexStr
     transactions: List[Transaction]
 
