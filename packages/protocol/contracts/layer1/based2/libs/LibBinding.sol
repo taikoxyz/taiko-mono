@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 import "../IInbox.sol";
 
 /// @title LibBinding
@@ -31,6 +32,10 @@ library LibBinding {
         /// @dev Assume 1 SLOAD is needed
         function (IInbox.Config memory, bytes32, uint256) view returns (bytes32)
             loadTransitionMetaHash;
+        /// @notice Gets the current preconfer operator address
+        function() view returns (address) getCurrentPreconfer;
+        /// @notice Checks if forced inclusion is due for a batch
+        function(uint48) view returns (bool) isForcedInclusionDue;
         //
         // Write functions -----------------------------------------------------
         //
@@ -49,6 +54,9 @@ library LibBinding {
         function(address, uint256) creditBond;
         /// @notice Debits bond from a user
         function(IInbox.Config memory, address, uint256) debitBond;
+        /// @notice Consumes the oldest forced inclusion
+        function(address, uint64) returns (IForcedInclusionStore.ForcedInclusion memory)
+            consumeForcedInclusion;
         //
         // Encoding functions -----------------------------------------------------
         //

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 import "../IInbox.sol";
 import "./LibValidate.sol";
 import "./LibData.sol";
@@ -38,6 +39,9 @@ library LibPropose {
         returns (IInbox.Summary memory, IInbox.BatchContext[] memory)
     {
         unchecked {
+            // Validate preconfer authorization first
+            LibValidate.validateProposer(_config, _bindings);
+
             if (_batches.length == 0) revert EmptyBatchArray();
             if (_batches.length >= 8) revert BatchLimitExceeded();
 
@@ -60,6 +64,9 @@ library LibPropose {
             IInbox.BatchProposeMetadata memory parentBatch = _evidence.proposeMeta;
             IInbox.BatchContext[] memory contexts = new IInbox.BatchContext[](_batches.length);
 
+            // Capture the starting batch ID for forced inclusion check
+            uint48 nextBatchId = _summary.nextBatchId;
+
             for (uint256 i; i < _batches.length; ++i) {
                 (parentBatch, contexts[i], _summary.lastBatchMetaHash) =
                     _proposeBatch(_bindings, _config, _summary, _batches[i], parentBatch);
@@ -70,6 +77,14 @@ library LibPropose {
                     _summary.gasIssuancePerSecond = _batches[i].gasIssuancePerSecond;
                     _summary.gasIssuanceUpdatedAt = uint48(block.timestamp);
                 }
+            }
+
+            // Validate forced inclusion was processed if due
+            if (_bindings.isForcedInclusionDue(nextBatchId)) {
+                IForcedInclusionStore.ForcedInclusion memory processed =
+                    _bindings.consumeForcedInclusion(msg.sender, uint64(nextBatchId));
+
+                LibValidate.validateForcedInclusionBatch(_batches[0], processed);
             }
 
             return (_summary, contexts);

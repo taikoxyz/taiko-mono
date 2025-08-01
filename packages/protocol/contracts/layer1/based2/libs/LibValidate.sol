@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../IInbox.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
+import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
+import "../IInbox.sol";
 import "./LibForks.sol";
 import "./LibBinding.sol";
 
@@ -46,8 +47,6 @@ library LibValidate {
         // If a block's coinbase is address(0), _batch.coinbase will be used, if _batch.coinbase
         // is address(0), the driver shall use the proposer address as the coinbase address.
 
-        _validateProposer(_config);
-
         // Validate new gas issuance per second
         _validateGasIssuance(_config, _summary, _batch);
 
@@ -85,20 +84,78 @@ library LibValidate {
         });
     }
 
-    // -------------------------------------------------------------------------
-    // Private Functions
-    // -------------------------------------------------------------------------
-
     /// @notice Validates the proposer of the current transaction.
     /// @dev Checks if the sender is the operator for the current epoch.
     ///      If the preconfWhitelist address is zero, the function returns without validation.
+    ///      WARNING: Setting the `preconfWhitelist` to zero makes proposing permisionless.
     /// @param _config The configuration containing the preconfWhitelist address.
-    /// @custom:reverts ProposerNotOperator if the sender is not the operator for the current epoch.
-    function _validateProposer(IInbox.Config memory _config) private view {
+    /// @param _bindings Library function binding
+    /// @custom:reverts ProposerNotPreconfer if the sender is not the preconfer for the current
+    /// epoch.
+    function validateProposer(
+        IInbox.Config memory _config,
+        LibBinding.Bindings memory _bindings
+    )
+        internal
+        view
+    {
         if (_config.preconfWhitelist == address(0)) return;
-        address operator = IPreconfWhitelist(_config.preconfWhitelist).getOperatorForCurrentEpoch();
-        if (msg.sender != operator) revert ProposerNotOperator();
+        address preconfer = _bindings.getCurrentPreconfer();
+        if (preconfer != address(0)) {
+            require(msg.sender == preconfer, ProposerNotPreconfer());
+        } else {
+            revert ProposerNotPreconfer();
+        }
     }
+
+    /// @notice Validates a forced inclusion batch
+    /// @param _batch The batch to validate
+    /// @param _inclusion The forced inclusion data to validate against
+    function validateForcedInclusionBatch(
+        IInbox.Batch memory _batch,
+        IForcedInclusionStore.ForcedInclusion memory _inclusion
+    )
+        internal
+        pure
+    {
+        // Batch validation
+        if (!_batch.isForcedInclusion) revert IForcedInclusionStore.InvalidForcedInclusion();
+        if (_batch.blocks.length != 1) revert IForcedInclusionStore.InvalidForcedInclusion();
+        if (_batch.blobs.hashes.length != 1) revert IForcedInclusionStore.InvalidForcedInclusion();
+        if (_batch.gasIssuancePerSecond != 0) revert IForcedInclusionStore.InvalidForcedInclusion();
+
+        // Block validation
+        if (_batch.blocks[0].numTransactions != type(uint16).max) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+        if (_batch.blocks[0].timeShift != 0) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+        if (_batch.blocks[0].anchorBlockId != 0) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+        if (_batch.blocks[0].signalSlots.length != 0) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+
+        // Blob validation
+        if (_batch.blobs.hashes[0] != _inclusion.blobHash) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+        if (_batch.blobs.byteOffset != _inclusion.blobByteOffset) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+        if (_batch.blobs.byteSize != _inclusion.blobByteSize) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+        if (_batch.blobs.createdIn != _inclusion.blobCreatedIn) {
+            revert IForcedInclusionStore.InvalidForcedInclusion();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
 
     /// @notice Validates the gas issuance per second for a batch
     /// @dev Ensures that the gas issuance per second is within a 1% range of the last recorded
@@ -363,7 +420,7 @@ library LibValidate {
     error NoAnchorBlockIdWithinThisBatch();
     error NotEnoughAnchorIds();
     error NotEnoughSignals();
-    error ProposerNotOperator();
+    error ProposerNotPreconfer();
     error RequiredSignalNotSent();
     error TimestampSmallerThanParent();
     error TimestampTooLarge();

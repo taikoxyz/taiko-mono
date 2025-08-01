@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
+import "src/layer1/preconf/iface/IPreconfWhitelist.sol";
+import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 import "./AbstractInbox.sol";
 import "./state/LibBonds.sol";
 import "./state/LibState.sol";
@@ -188,5 +190,38 @@ abstract contract Inbox is AbstractInbox, IBondManager2, IStorage {
         override
     {
         return $.saveBatchMetaHash(_conf, _batchId, _metaHash);
+    }
+
+    /// @inheritdoc AbstractInbox
+    function _getCurrentPreconfer() internal view override returns (address) {
+        IPreconfWhitelist preconfWhitelist = IPreconfWhitelist(_getConfig().preconfWhitelist);
+        address preconfer = preconfWhitelist.getOperatorForCurrentEpoch();
+
+        if (preconfer != address(0)) {
+            return preconfer;
+        }
+
+        return preconfWhitelist.getFallbackPreconfer();
+    }
+
+    /// @inheritdoc AbstractInbox
+    function _isForcedInclusionDue(uint48 _batchId) internal view override returns (bool) {
+        return IForcedInclusionStore(_getConfig().forcedInclusionStore).isOldestForcedInclusionDue(
+            _batchId
+        );
+    }
+
+    /// @inheritdoc AbstractInbox
+    function _consumeForcedInclusion(
+        address _feeRecipient,
+        uint64 _nextBatchId
+    )
+        internal
+        override
+        returns (IForcedInclusionStore.ForcedInclusion memory)
+    {
+        return IForcedInclusionStore(_getConfig().forcedInclusionStore).consumeOldestForcedInclusion(
+            _feeRecipient, _nextBatchId
+        );
     }
 }

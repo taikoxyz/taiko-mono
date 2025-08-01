@@ -14,6 +14,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     IRegistry public immutable urc;
     address public immutable protector;
     address public immutable preconfSlasher;
+    // TODO(gustavo): Replace the preconf router with the inbox
     address public immutable preconfRouter;
 
     // Lookahead buffer that stores the hashed lookahead entries for an epoch

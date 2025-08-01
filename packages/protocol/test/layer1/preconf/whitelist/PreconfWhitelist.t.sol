@@ -10,15 +10,17 @@ contract TestPreconfWhitelist is Layer1Test {
     PreconfWhitelist internal whitelistNoDelay;
     address internal whitelistOwner;
     address internal ejecter;
+    address internal fallbackPreconfer;
     BeaconBlockRootImpl internal beaconBlockRootImpl;
 
     function setUpOnEthereum() internal virtual override {
         whitelistOwner = Alice;
+        fallbackPreconfer = makeAddr("fallbackPreconfer");
         ejecter = makeAddr("ejecter");
         whitelist = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist",
-                impl: address(new PreconfWhitelist()),
+                impl: address(new PreconfWhitelist(fallbackPreconfer)),
                 data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 2, 2))
             })
         );
@@ -26,7 +28,7 @@ contract TestPreconfWhitelist is Layer1Test {
         whitelistNoDelay = PreconfWhitelist(
             deploy({
                 name: "preconf_whitelist_nodelay",
-                impl: address(new PreconfWhitelist()),
+                impl: address(new PreconfWhitelist(fallbackPreconfer)),
                 data: abi.encodeCall(PreconfWhitelist.init, (whitelistOwner, 0, 2))
             })
         );

@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 import "src/layer1/verifiers/IVerifier.sol";
+import "src/layer1/forced-inclusion/IForcedInclusionStore.sol";
 import "./libs/LibBinding.sol";
 import "./libs/LibPropose.sol";
 import "./libs/LibProve.sol";
@@ -141,6 +142,12 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
         return _getConfig();
     }
 
+    /// @inheritdoc IInbox
+    /// @custom:reverts SummaryMismatch if the summary does not match the stored hash
+    function validateSummary(Summary memory _summary) public view {
+        if (_loadSummaryHash() != keccak256(abi.encode(_summary))) revert SummaryMismatch();
+    }
+
     // -------------------------------------------------------------------------
     // Internal Virtual Functions
     // -------------------------------------------------------------------------
@@ -255,6 +262,27 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     )
         internal
         virtual;
+
+    /// @notice Gets the current preconfer operator address
+    /// @return The preconfer address
+    function _getCurrentPreconfer() internal view virtual returns (address);
+
+    /// @notice Checks if the oldest forced inclusion is due for a batch
+    /// @param _batchId The batch ID to check
+    /// @return Whether forced inclusion is due
+    function _isForcedInclusionDue(uint48 _batchId) internal view virtual returns (bool);
+
+    /// @notice Consumes the oldest forced inclusion
+    /// @param _feeRecipient The address to receive the fee
+    /// @param _nextBatchId The next batch ID
+    /// @return The forced inclusion data
+    function _consumeForcedInclusion(
+        address _feeRecipient,
+        uint64 _nextBatchId
+    )
+        internal
+        virtual
+        returns (IForcedInclusionStore.ForcedInclusion memory);
 
     /// @notice Loads a transition metadata hash from storage
     /// @param _conf The configuration
@@ -386,6 +414,8 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
             getBlobHash: _getBlobHash,
             getBlockHash: _getBlockHash,
             loadTransitionMetaHash: _loadTransitionMetaHash,
+            getCurrentPreconfer: _getCurrentPreconfer,
+            isForcedInclusionDue: _isForcedInclusionDue,
             // Write functions
             saveTransition: _saveTransition,
             debitBond: _debitBond,
@@ -393,6 +423,7 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
             transferFee: _transferFee,
             syncChainData: _syncChainData,
             saveBatchMetaHash: _saveBatchMetaHash,
+            consumeForcedInclusion: _consumeForcedInclusion,
             // Encoding functions
             encodeBatchContexts: _encodeBatchContexts,
             encodeTransitionMetas: _encodeTransitionMetas,
@@ -412,15 +443,6 @@ abstract contract AbstractInbox is EssentialContract, IInbox, IPropose, IProve {
     ///      explicitly, even though it could be extracted without tracing.
     function _isOuterMostTransaction() private view returns (bool) {
         return msg.sender == tx.origin;
-    }
-
-    function _validateSummary(bytes memory _summaryEncoded)
-        private
-        view
-        returns (Summary memory summary_)
-    {
-        summary_ = _decodeSummary(_summaryEncoded);
-        if (_loadSummaryHash() != keccak256(abi.encode(summary_))) revert SummaryMismatch();
     }
 
     // -------------------------------------------------------------------------
