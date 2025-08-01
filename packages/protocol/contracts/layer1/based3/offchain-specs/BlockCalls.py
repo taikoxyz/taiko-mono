@@ -20,14 +20,19 @@ class BlockCalls:
 
     def block_head_call(
         self,
+        # provable: -> proposal_hash
         proposal: Proposal,
+        # provable: -> parent_block_hash
         proto_state: ProtoState,
+        # provable: -> content -> proposal_hash
         block_args: BlockArgs,
+        # provable: -> parent_block_number -> parent_block_hash
         block_number: int,
+        # provable: -> parent_block_hash
         parent_prev_randao: HexStr,
+        # provable: -> parent_block_hash
         parent_timestamp: int,
-        reference_block_timestamp: int,
-        reference_block_number: int,
+        # provable: -> up to 128 ancester block headers -> anchor_block_hash
         anchor_block_hash: HexStr,
     ) -> Tuple[int, HexStr, Address, int, int]:
         """
@@ -41,10 +46,18 @@ class BlockCalls:
             - gas limit
             - extra data
         """
+
+        if proto_state.proposal_id != proposal.id:
+            assert proto_state.proposal_id + 1 == proposal.id, "proposal_id mismatch"
+            assert proto_state.block_index != 0, "block_index mismatch"
+
+            proto_state.proposal_id = proposal.id
+            proto_state.block_index = 0
+
         timestamp = max(
-            min(block_args.timestamp, reference_block_timestamp),
             parent_timestamp,
-            reference_block_timestamp - 128,
+            proposal.reference_block_timestamp - 128,
+            min(block_args.timestamp, proposal.reference_block_timestamp),
         )
 
         extra_data = 0
@@ -54,7 +67,10 @@ class BlockCalls:
 
         proto_state.anchor_block_height, proto_state.anchor_block_hash = (
             self._calculate_anchor(
-                proto_state, block_args, reference_block_number, anchor_block_hash
+                proto_state,
+                block_args,
+                proposal.reference_block_number,
+                anchor_block_hash,
             )
         )
 
@@ -64,18 +80,22 @@ class BlockCalls:
 
     def block_tail_call(
         self,
+        # provable: -> parent_block_hash
         proto_state: ProtoState,
-        block_args: BlockArgs,
-        block_index: int,
+        # provable: -> content -> proposal_hash
         batch_size: int,
+        # provable: -> EVM Code
         gas_used: int,
+        # proverabel: same value as in block_head_call
         timestamp: int,
+        # proverabel: same value as in block_head_call
         parent_timestamp: int,
     ) -> None:
         """
         System call invoked after the last transaction in every block.
         This call does not consume gas.
         """
+
         # update base fee parameters
         proto_state.gas_excess = self._calculate_gas_excess(
             proto_state.gas_excess,
@@ -85,7 +105,7 @@ class BlockCalls:
         )
 
         # the following code runs only once per proposal at the very end
-        if block_index == batch_size - 1:
+        if proto_state.block_index == batch_size - 1:
             proto_state.gas_issuance_per_second = (
                 self._calculate_gas_issuance_per_second(
                     proto_state.gas_issuance_per_second,

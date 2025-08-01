@@ -20,10 +20,11 @@ class Proposal:
     id: int  # uint48 in Solidity
     proposer: Address
     prover: Address
-    provabilityBond: int  # uint48 in Solidity
-    livenessBond: int  # uint48 in Solidity
-    proposedAt: int  # uint48 in Solidity
-    referenceBlockHash: HexStr  # bytes32 in Solidity
+    provability_bond: int  # uint48 in Solidity
+    liveness_bond: int  # uint48 in Solidity
+    reference_block_timestamp: int  # uint48 in Solidity
+    reference_block_number: int  # uint48 in Solidity
+    reference_block_hash: HexStr  # bytes32 in Solidity
     content: BlobSegment
 
 
@@ -69,6 +70,8 @@ class Content:
 class ProtoState:
     """Current state of the protocol."""
 
+    proposal_id: int
+    block_index: int
     gas_issuance_per_second: int
     gas_excess: int
     anchor_block_height: int

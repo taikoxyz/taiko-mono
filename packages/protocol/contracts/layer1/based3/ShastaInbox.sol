@@ -74,7 +74,7 @@ abstract contract ShastaInbox is IShastaInbox {
 
             ClaimRecord memory claimRecord = ClaimRecord({
                 claim: claim,
-                proposedAt: proposal.proposedAt,
+                proposedAt: proposal.proposedBlockTimestamp,
                 provedAt: uint48(block.timestamp)
             });
 
@@ -141,14 +141,18 @@ abstract contract ShastaInbox is IShastaInbox {
 
         // Create a new proposal.
         // Note that the contentHash is not checked here to empty proposal data.
+        uint48 proposedBlockTimestamp = uint48(block.timestamp - 128);
+        uint48 proposedBlockNumber = uint48(block.number - 1);
+
         Proposal memory proposal = Proposal({
             id: proposalId,
             proposer: msg.sender,
             prover: msg.sender,
             provabilityBond: provabilityBond,
             livenessBond: livenessBond,
-            proposedAt: uint48(block.timestamp),
-            referenceBlockHash: blockhash(block.number - 1),
+            proposedBlockTimestamp: proposedBlockTimestamp,
+            proposedBlockNumber: proposedBlockNumber,
+            referenceBlockHash: blockhash(proposedBlockNumber),
             content: _content
         });
 

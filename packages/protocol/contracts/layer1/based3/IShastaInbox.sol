@@ -40,7 +40,9 @@ interface IShastaInbox {
         uint48 livenessBond;
         /// @dev Timestamp when the proposal was made. This is needed on L1 to verify
         /// the timing of the claim used to finalize the proposal for correct bond payments.
-        uint48 proposedAt;
+        uint48 proposedBlockTimestamp;
+        /// @dev The L1 block number when the proposal was made.
+        uint48 proposedBlockNumber;
         /// @dev Latest known L1 block hash. This is used to verify all L1 data used in this
         /// proposal's L2 blocks. However, this block hash does not affect the L2 blocks' world
         /// states. Using a more recent L1 block hash as the reference block hash will not
