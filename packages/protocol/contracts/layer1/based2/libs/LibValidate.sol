@@ -18,9 +18,6 @@ import "./LibBinding.sol";
 ///      - Signal validation
 /// @custom:security-contact security@taiko.xyz
 library LibValidate {
-    uint32 internal constant MIN_GAS_ISSUANCE_PER_SECOND = 100_000;
-    uint32 internal constant MAX_GAS_ISSUANCE_PER_SECOND = 100_000_000;
-
     // -------------------------------------------------------------------------
     // Internal Functions
     // -------------------------------------------------------------------------
@@ -117,29 +114,26 @@ library LibValidate {
         private
         view
     {
-        unchecked {
-            if (_batch.gasIssuancePerSecond == _summary.gasIssuancePerSecond) return;
+        if (_batch.gasIssuancePerSecond == _summary.gasIssuancePerSecond) return;
 
-            // Gas issuance must stay within ±1% of current value AND within absolute bounds.
-            // Using multiplication before comparison to avoid precision loss for small values.
-            // For example: with value=1, old formula 1*99/100=0 allows 100% decrease,
-            // but new formula 1*100 < 1*99 correctly prevents any decrease.
-            if (
-                _batch.gasIssuancePerSecond > MAX_GAS_ISSUANCE_PER_SECOND
-                    || _batch.gasIssuancePerSecond * 100 > _summary.gasIssuancePerSecond * 101
-            ) {
-                revert GasIssuanceTooHigh();
-            }
-            if (
-                _batch.gasIssuancePerSecond < MIN_GAS_ISSUANCE_PER_SECOND
-                    || _batch.gasIssuancePerSecond * 100 < _summary.gasIssuancePerSecond * 99
-            ) {
-                revert GasIssuanceTooLow();
-            }
-            if (block.timestamp < _summary.gasIssuanceUpdatedAt + _config.gasIssuanceUpdateDelay) {
-                revert GasIssuanceTooEarlyToChange();
-            }
+        if (block.timestamp < _summary.gasIssuanceUpdatedAt + _config.gasIssuanceUpdateDelay) {
+            revert GasIssuanceTooEarlyToChange();
         }
+
+        if (_batch.gasIssuancePerSecond > _config.maxGasIssuancePerSecond) {
+            revert GasIssuanceTooHigh();
+        }
+
+        if (_batch.gasIssuancePerSecond < _config.minGasIssuancePerSecond) {
+            revert GasIssuanceTooLow();
+        }
+
+        uint256 currentRate = uint256(_summary.gasIssuancePerSecond);
+        uint256 maxAllowed = currentRate * (10_000 + _config.maxGasIssuanceDeltaBps) / 10_000;
+        if (_batch.gasIssuancePerSecond > maxAllowed) revert GasIssuanceTooHigh();
+
+        uint256 minAllowed = currentRate * (10_000 - _config.maxGasIssuanceDeltaBps) / 10_000;
+        if (_batch.gasIssuancePerSecond < minAllowed) revert GasIssuanceTooLow();
     }
 
     /// @notice Validates timestamp consistency across the batch

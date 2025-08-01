@@ -19,21 +19,18 @@ Taiko Alethia is designed with **flexibility**, enabling:
 1. **Ethereum's Scaling Limits**
 
    A single L2 has inherent constraints:
-
    - Throughput bottlenecks: Even a performant rollup has an upper bound on TPS.
    - State Growth: Storing all state in a single rollup leads to **expensive calldata** and **verification costs** on Ethereum L1.
 
 <br/>
 
 2. **Multiple Rollups Are the Future**
-
    - The Ethereum roadmap anticipates a **multi-rollup ecosystem**.
    - Inception layers allow for **seamless rollup interoperability**.
 
 <br/>
 
 3. **Unlocking Extensible Scalability**
-
    - Multiple **Taiko L2 instances** can scale horizontally.
    - Multiple **L3 instances on top of L2** scale **vertically** (stacked rollups).
    - L3s inherit the **same security model** as L2s, ensuring trustless execution.
@@ -43,7 +40,6 @@ Taiko Alethia is designed with **flexibility**, enabling:
 ## Benefits of Inception Layers
 
 1. **Ethereum-Equivalence Across Layers**
-
    - **L2s and L3s** share the **same execution environment** as Ethereum.
    - Developers can **reuse smart contracts** across layers without modifications.
    - **EVM compatibility is preserved**, ensuring seamless migration.
@@ -51,14 +47,12 @@ Taiko Alethia is designed with **flexibility**, enabling:
    <br/>
 
 2. **Optimized for Composability & Interoperability**
-
    - Rollups at different layers can **efficiently interact** using **Merkle proofs**.
    - This enables **secure, trustless message passing** between L1, L2, and L3.
 
    <br/>
 
 3. **Mitigating UX Fragmentation**
-
    - A major downside of a multi-rollup world is **liquidity fragmentation** and **complex cross-chain UX**.
    - **Taiko’s inception layers combat this** by using built-in **arbitrary message passing**.
    - One rollup can natively **read Merkle proofs** from another, avoiding fragmented liquidity.
