@@ -29,7 +29,8 @@ class SystemCall:
     def block_head_call(
         self,
         protocol_state: ProtocolState,
-        block_input: BlockInput
+        block_input: BlockInput,
+        prev_randao: HexStr
     ) -> None:
         """
         System call invoked before the the first transaction in every block.
