@@ -73,31 +73,39 @@ abstract contract ShastaInbox is IShastaInbox {
     }
 
     /// @notice Proves a claim about some properties of a proposal, including its state transition.
-    /// @param _proposal Original proposal data
-    /// @param _claim State transition claim being proven
+    /// @param _proposals Original proposal data
+    /// @param _claims State transition claims being proven
     /// @param _proof Validity proof for the claim
     function prove(
-        Proposal memory _proposal,
-        Claim memory _claim,
+        Proposal[] memory _proposals,
+        Claim[] memory _claims,
         bytes calldata _proof
     )
         external
     {
-        bytes32 proposalHash = keccak256(abi.encode(_proposal));
-        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
-        if (proposalHash != store.getProposalHash(_proposal.id)) revert ProposalHashMismatch();
+        if (_proposals.length != _claims.length) revert ProposalsAndClaimsLengthMismatch();
 
-        ClaimRecord memory claimRecord = ClaimRecord({
-            claim: _claim,
-            proposedAt: _proposal.proposedAt,
-            provedAt: uint48(block.timestamp)
-        });
+        for (uint48 i; i < _proposals.length; ++i) {
+            Proposal memory proposal = _proposals[i];
+            Claim memory claim = _claims[i];
 
-        bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
-        store.setClaimRecordHash(_proposal.id, _claim.parentClaimHash, claimRecordHash);
-        emit Proved(_proposal.id, _proposal, claimRecord);
+            bytes32 proposalHash = keccak256(abi.encode(proposal));
+            if (proposalHash != claim.proposalHash) revert ProposalHashMismatch();
+            if (proposalHash != store.getProposalHash(proposal.id)) revert ProposalHashMismatch();
 
-        verifyProof(_claim, _proof);
+            ClaimRecord memory claimRecord = ClaimRecord({
+                claim: claim,
+                proposedAt: proposal.proposedAt,
+                provedAt: uint48(block.timestamp)
+            });
+
+            bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
+            store.setClaimRecordHash(proposal.id, claim.parentClaimHash, claimRecordHash);
+            emit Proved(proposal.id, proposal, claimRecord);
+        }
+
+        bytes32 claimsHash = keccak256(abi.encode(_claims));
+        verifyProof(claimsHash, _proof);
     }
 
     /// @notice Finalizes verifiable claims and updates the L2 chain state
@@ -128,6 +136,7 @@ abstract contract ShastaInbox is IShastaInbox {
         store.setLastFinalizedProposalId(proposalId);
 
         // Sync L2 block data to L1
+        // TODO: use signal service
         store.setLastL2BlockData(claim.endL2BlockNumber, claim.endL2BlockHash, claim.endL2StateRoot);
 
         emit Finalized(proposalId, claim);
@@ -139,9 +148,9 @@ abstract contract ShastaInbox is IShastaInbox {
 
     /// @dev Verifies a validity proof for a state transition. This function must revert if the
     /// proof is invalid.
-    /// @param _claim The claim to verify
-    /// @param _proof The proof for the claim
-    function verifyProof(Claim memory _claim, bytes calldata _proof) internal virtual;
+    /// @param _claimsHash The hash of the claims to verify
+    /// @param _proof The proof for the claims
+    function verifyProof(bytes32 _claimsHash, bytes calldata _proof) internal virtual;
 
     // -------------------------------------------------------------------------
     // Private Functions
@@ -179,6 +188,7 @@ abstract contract ShastaInbox is IShastaInbox {
 
     error ClaimNotFound();
     error BlobNotFound();
+    error ProposalsAndClaimsLengthMismatch();
     error ProposalHashMismatch();
     error InvalidClaimChain();
 }
