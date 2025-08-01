@@ -12,7 +12,7 @@ pip install -r requirements.txt
 
 ## Files
 
-- `IShasta.py` - Data structures and types
+- `Types.py` - Data structures and types
 - `BlobDecoder.py` - Handles decoding of proposal data from blobs
 - `BlockCalls.py` - Handles system calls for block processing
 
@@ -33,7 +33,6 @@ python3 -m py_compile *.py
 If using type hints, run mypy for static type checking:
 
 ```bash
-pip install mypy
 mypy *.py
 ```
 

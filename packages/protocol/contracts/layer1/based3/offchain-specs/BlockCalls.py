@@ -1,7 +1,7 @@
-from typing import Optional, Dict, Any, Tuple, cast
+from typing import Tuple, cast
 from eth_typing import HexStr, Address
 import hashlib
-from IShasta import ProtoState, BlockArgs, Content, Proposal
+from Types import ProtoState, BlockArgs, Proposal
 
 
 class BlockCalls:
@@ -164,7 +164,7 @@ class BlockCalls:
         """
         Calculate fee recipient
         """
-        if fee_recipient == self.ADDRESS_ZERO:
+        if fee_recipient == cast(Address, self.ADDRESS_ZERO):
             return cast(Address, self.TAIKO_DAO_TREASURE)
         else:
             return fee_recipient

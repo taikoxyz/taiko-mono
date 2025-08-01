@@ -1,6 +1,6 @@
-from typing import List, cast
+from typing import cast
 from eth_typing import Address
-from IShasta import Content, BlockArgs
+from Types import Content, BlockArgs
 
 
 class BlobDecoder:
