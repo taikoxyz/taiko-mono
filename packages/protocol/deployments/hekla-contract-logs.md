@@ -188,7 +188,7 @@
 ### prover_set
 
 - proxy: `0xD3f681bD6B49887A48cC9C9953720903967E9DC0`
-- impl: `0x4a81e58f3a9c108979Cc6eE87715938A07c34eFc.`
+- impl: `0x4a81e58f3a9c108979Cc6eE87715938A07c34eFc`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Jun 17, 2024 at commit `b7e12e3`
