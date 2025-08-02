@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
@@ -98,5 +97,5 @@ func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.E
 
 	log.Info("Block header to sync retrieved", "number", block.Number(), "hash", block.Hash())
 
-	return engine.BlockToExecutableData(block, nil, make([]*types.BlobTxSidecar, 0), [][]byte{}).ExecutionPayload, nil
+	return engine.BlockToExecutableData(block, nil, nil, [][]byte{}).ExecutionPayload, nil
 }
