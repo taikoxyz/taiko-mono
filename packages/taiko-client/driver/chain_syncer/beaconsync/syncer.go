@@ -95,7 +95,7 @@ func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.E
 		return nil, err
 	}
 
-	log.Info("Block header to sync retrieved", "number", block.Number(), "hash", block.Hash())
+	log.Info("Block to sync retrieved", "number", block.Number(), "hash", block.Hash())
 
 	return engine.BlockToExecutableData(block, nil, nil, nil).ExecutionPayload, nil
 }
