@@ -2,12 +2,12 @@ package repo
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/pkg/db"
-	"golang.org/x/exp/slog"
 
 	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
