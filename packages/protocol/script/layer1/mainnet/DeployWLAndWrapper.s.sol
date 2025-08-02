@@ -19,7 +19,7 @@ contract DeployWLAndWrapper is DeployCapability {
 
     function run() external broadcast {
         address taikoInbox = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
-        address store = 0x05d88855361808fA1d7fc28084Ef3fCa191c4e03;
+        address forcedInclusionStore = 0x05d88855361808fA1d7fc28084Ef3fCa191c4e03;
         address router = 0xD5AA0e20e8A6e9b04F080Cf8797410fafAa9688a;
         address rollupResolver = 0x5A982Fb1818c22744f5d7D36D0C4c9f61937b33a;
         address taikoToken = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
@@ -40,7 +40,7 @@ contract DeployWLAndWrapper is DeployCapability {
             abi.encodeCall(PreconfWhitelist.addOperator, (sequencer, sequencer))
         );
 
-        address wrapper = address(new TaikoWrapper(taikoInbox, store, router));
+        address wrapper = address(new TaikoWrapper(taikoInbox, forcedInclusionStore, router));
         console2.log(
             "Upgrading wrapper calldata: ", abi.encodeCall(UUPSUpgradeable.upgradeTo, (wrapper))
         );
