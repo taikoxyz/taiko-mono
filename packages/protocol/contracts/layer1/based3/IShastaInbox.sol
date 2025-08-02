@@ -49,8 +49,15 @@ interface IShastaInbox {
         /// invalidate any pre-confirmed L2 blocks. This value should not be confused with a L2
         /// block's anchor block hash.
         bytes32 referenceBlockHash;
+        bytes32 bondCreditHash;
         /// @dev The proposal's content.
         BlobSegment content;
+    }
+
+    enum ProofTiming {
+        InProvingWindow,
+        InExtendedProvingWindow,
+        OutOfExtendedProvingWindow
     }
 
     struct Claim {
@@ -59,12 +66,16 @@ interface IShastaInbox {
         bytes32 endL2BlockHash;
         bytes32 endL2StateRoot;
         uint48 endL2BlockNumber;
+        address designatedProver;
+        address actualProver;
     }
 
     struct ClaimRecord {
         Claim claim;
-        uint48 proposedAt;
-        uint48 provedAt;
+        address proposer;
+        uint48 livenessBond;
+        uint48 provabilityBond;
+        ProofTiming proofTiming;
     }
 
     // -------------------------------------------------------------------------

@@ -24,6 +24,7 @@ abstract contract ShastaInbox is IShastaInbox {
     uint48 public immutable provabilityBond;
     uint48 public immutable livenessBond;
     uint48 public immutable provingWindow;
+    uint48 public immutable extendedProvingWindow;
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -33,13 +34,14 @@ abstract contract ShastaInbox is IShastaInbox {
         IShastaInboxStore _store,
         uint48 _provabilityBond,
         uint48 _livenessBond,
-        uint48 _provingWindow
+        uint48 _provingWindow,
+        uint48 _extendedProvingWindow
     ) {
         store = _store;
         provabilityBond = _provabilityBond;
         livenessBond = _livenessBond;
         provingWindow = _provingWindow;
-
+        extendedProvingWindow = _extendedProvingWindow;
         store.initialize();
     }
 
@@ -49,9 +51,14 @@ abstract contract ShastaInbox is IShastaInbox {
 
     /// @inheritdoc IShastaInbox
     function propose(BlobLocator[] memory _blobLocators) external {
+        bytes32 bondCreditsHash = store.getBondCreditsHash();
         for (uint48 i; i < _blobLocators.length; ++i) {
-            _propose(_validateBlockLocator(_blobLocators[i]));
+            _propose(bondCreditsHash, _validateBlockLocator(_blobLocators[i]));
         }
+
+        // We assume the proposer is the designated prover
+        uint48 bondAmount = (provabilityBond + livenessBond) * uint48(_blobLocators.length);
+        _debitBond(msg.sender, bondAmount);
     }
 
     /// @inheritdoc IShastaInbox
@@ -72,10 +79,19 @@ abstract contract ShastaInbox is IShastaInbox {
             if (proposalHash != claim.proposalHash) revert ProposalHashMismatch();
             if (proposalHash != store.getProposalHash(proposal.id)) revert ProposalHashMismatch();
 
+            ProofTiming proofTiming = block.timestamp
+                < proposal.proposedBlockTimestamp + provingWindow
+                ? ProofTiming.InProvingWindow
+                : block.timestamp < proposal.proposedBlockTimestamp + extendedProvingWindow
+                    ? ProofTiming.InExtendedProvingWindow
+                    : ProofTiming.OutOfExtendedProvingWindow;
+
             ClaimRecord memory claimRecord = ClaimRecord({
                 claim: claim,
-                proposedAt: proposal.proposedBlockTimestamp,
-                provedAt: uint48(block.timestamp)
+                proposer: proposal.proposer,
+                livenessBond: proposal.livenessBond,
+                provabilityBond: proposal.provabilityBond,
+                proofTiming: proofTiming
             });
 
             bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
@@ -108,6 +124,12 @@ abstract contract ShastaInbox is IShastaInbox {
 
             lastFinalizedClaimHash = keccak256(abi.encode(claim));
             proposalId++;
+
+            // Handle bond paymento
+            (uint48 bondCredit, address receiver) = _handleBondPayment(claimRecord);
+            if (bondCredit > 0) {
+                store.aggregateBondCredits(receiver, bondCredit);
+            }
         }
 
         // Advance the last finalized proposal ID and update the last finalized ClaimRecord hash.
@@ -130,13 +152,17 @@ abstract contract ShastaInbox is IShastaInbox {
     /// @param _proof The proof for the claims
     function verifyProof(bytes32 _claimsHash, bytes calldata _proof) internal virtual;
 
+    function _debitBond(address _address, uint48 _bond) internal virtual { }
+
+    function _creditBond(address _address, uint48 _bond) internal virtual { }
+
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
 
     /// @notice Proposes a new proposal of L2 blocks
     /// @param _content The content of the proposal
-    function _propose(BlobSegment memory _content) private {
+    function _propose(bytes32 _bondCreditsHash, BlobSegment memory _content) private {
         uint48 proposalId = store.incrementAndGetProposalId();
 
         // Create a new proposal.
@@ -153,6 +179,10 @@ abstract contract ShastaInbox is IShastaInbox {
             proposedBlockTimestamp: proposedBlockTimestamp,
             proposedBlockNumber: proposedBlockNumber,
             referenceBlockHash: blockhash(proposedBlockNumber),
+            // Design flaw: the current _bondCreditsHash depends on the when the prooposal is
+            // proposed, it may change preconf-ed blocks.
+            // We should use anchor blocks here, somehow.
+            bondCreditHash: _bondCreditsHash,
             content: _content
         });
 
@@ -183,6 +213,11 @@ abstract contract ShastaInbox is IShastaInbox {
             size: _blobLocator.size
         });
     }
+
+    function _handleBondPayment(ClaimRecord memory _claimRecord)
+        private
+        returns (uint48 l2BondCredit_, address l2BondCreditReceiver_)
+    { }
 
     // -------------------------------------------------------------------------
     // Errors

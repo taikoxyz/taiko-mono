@@ -30,22 +30,13 @@ class Proposal:
 
 ## --- Offchain  ---
 @dataclass
-class BlockHeaderPartial:
-    """Partial representation of LibBlockHeader.BlockHeader with only fields used in building new blocs"""
-
-    number: int
-    timestamp: int
-    prevRandao: HexStr
-
-
-@dataclass
 class Transaction:
     """Represents a transaction in the system."""
 
     to: Address
     value: int
     data: bytes
-    signature: bytes
+    signature: HexStr
 
 
 @dataclass
@@ -64,6 +55,8 @@ class Content:
 
     gas_issuance_per_second: int
     block_argss: List[BlockArgs]
+    prover_fee: int
+    prover_signature: HexStr
 
 
 @dataclass
@@ -76,3 +69,5 @@ class ProtoState:
     gas_excess: int
     anchor_block_height: int
     anchor_block_hash: HexStr
+    designated_prover: Address
+    bond_credits_hash: HexStr

@@ -52,6 +52,10 @@ interface IShastaInboxStore {
         view
         returns (bytes32 claimRecordHash_);
 
+    /// @notice Gets the hash of the bond credits
+    /// @return bondCreditsHash_ The hash of the bond credits
+    function getBondCreditsHash() external view returns (bytes32 bondCreditsHash_);
+
     // -------------------------------------------------------------------------
     // External transactional (restricted to inbox contract)
     // -------------------------------------------------------------------------
@@ -99,6 +103,12 @@ interface IShastaInboxStore {
         bytes32 _claimRecordHash
     )
         external;
+
+    /// @notice Aggregates the L2 bond credit for a given address
+    /// @dev Only callable by the inbox contract
+    /// @param _address The address to aggregate the L2 bond credit for
+    /// @param _bond The amount of L2 bond credit to aggregate
+    function aggregateBondCredits(address _address, uint48 _bond) external;
 
     // -------------------------------------------------------------------------
     // Errors
