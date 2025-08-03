@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import List
-from eth_typing import Address, HexStr
+from eth_typing import Address
 
 
 ## --- Onchain ---
@@ -8,7 +8,7 @@ from eth_typing import Address, HexStr
 class BlobSegment:
     """Represents a blob segment from IShastaInbox."""
 
-    blobHashes: List[HexStr]  # bytes32[] in Solidity
+    blobHashes: List[str]  # bytes32[] in Solidity
     offset: int  # uint32 in Solidity
     size: int  # uint32 in Solidity
 
@@ -35,7 +35,7 @@ class Transaction:
     to: Address
     value: int
     data: bytes
-    signature: HexStr
+    signature: str
 
 
 @dataclass
@@ -55,7 +55,7 @@ class Content:
     gas_issuance_per_second: int
     block_argss: List[BlockArgs]
     prover_fee: int
-    prover_signature: HexStr
+    prover_signature: str
 
 
 @dataclass
@@ -67,6 +67,6 @@ class ProtoState:
     gas_issuance_per_second: int
     gas_excess: int
     anchor_block_height: int
-    anchor_block_hash: HexStr
+    anchor_block_hash: str
+    anchor_bond_credits_hash: str
     designated_prover: Address
-    bond_credits_hash: HexStr

@@ -6,6 +6,8 @@ from Types import Content, BlockArgs
 class BlobDecoder:
     """Handles decoding of proposal data from blobs."""
 
+    ADDRESS_ZERO = cast(Address, "0x0000000000000000000000000000000000000000")
+
     def decode_proposal_data_from_blobs(self, blob_data: bytes) -> Content:
         """
         Decode proposal data from blob data.
@@ -17,12 +19,12 @@ class BlobDecoder:
             # Return default proposal data with one empty block
             return Content(
                 gas_issuance_per_second=0,
+                prover_fee=0,
+                prover_signature="",
                 block_argss=[
                     BlockArgs(
                         timestamp=0,
-                        fee_recipient=cast(
-                            Address, "0x0000000000000000000000000000000000000000"
-                        ),
+                        fee_recipient=self.ADDRESS_ZERO,
                         transactions=[],
                         anchor_block_number=0,
                     )
