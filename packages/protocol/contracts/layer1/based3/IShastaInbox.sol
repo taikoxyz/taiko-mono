@@ -43,13 +43,6 @@ interface IShastaInbox {
         uint48 proposedBlockTimestamp;
         /// @dev The L1 block number when the proposal was made.
         uint48 proposedBlockNumber;
-        /// @dev Latest known L1 block hash. This is used to verify all L1 data used in this
-        /// proposal's L2 blocks. However, this block hash does not affect the L2 blocks' world
-        /// states. Using a more recent L1 block hash as the reference block hash will not
-        /// invalidate any pre-confirmed L2 blocks. This value should not be confused with a L2
-        /// block's anchor block hash.
-        bytes32 referenceBlockHash;
-        bytes32 bondCreditHash;
         /// @dev The proposal's content.
         BlobSegment content;
     }

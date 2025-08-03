@@ -51,9 +51,8 @@ abstract contract ShastaInbox is IShastaInbox {
 
     /// @inheritdoc IShastaInbox
     function propose(BlobLocator[] memory _blobLocators) external {
-        bytes32 bondCreditsHash = store.getBondCreditsHash();
         for (uint48 i; i < _blobLocators.length; ++i) {
-            _propose(bondCreditsHash, _validateBlockLocator(_blobLocators[i]));
+            _propose(_validateBlockLocator(_blobLocators[i]));
         }
 
         // We assume the proposer is the designated prover
@@ -161,7 +160,7 @@ abstract contract ShastaInbox is IShastaInbox {
 
     /// @notice Proposes a new proposal of L2 blocks
     /// @param _content The content of the proposal
-    function _propose(bytes32 _bondCreditsHash, BlobSegment memory _content) private {
+    function _propose(BlobSegment memory _content) private {
         uint48 proposalId = store.incrementAndGetProposalId();
 
         // Create a new proposal.
@@ -177,11 +176,6 @@ abstract contract ShastaInbox is IShastaInbox {
             livenessBond: livenessBond,
             proposedBlockTimestamp: proposedBlockTimestamp,
             proposedBlockNumber: proposedBlockNumber,
-            referenceBlockHash: blockhash(proposedBlockNumber),
-            // Design flaw: the current _bondCreditsHash depends on the when the prooposal is
-            // proposed, it may change preconf-ed blocks.
-            // We should use anchor blocks here, somehow.
-            bondCreditHash: _bondCreditsHash,
             content: _content
         });
 

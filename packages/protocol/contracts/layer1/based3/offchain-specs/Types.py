@@ -24,7 +24,6 @@ class Proposal:
     liveness_bond: int  # uint48 in Solidity
     reference_block_timestamp: int  # uint48 in Solidity
     reference_block_number: int  # uint48 in Solidity
-    reference_block_hash: HexStr  # bytes32 in Solidity
     content: BlobSegment
 
 
