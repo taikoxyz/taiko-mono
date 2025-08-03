@@ -55,7 +55,7 @@ abstract contract ShastaInbox is IShastaInbox {
         if (!_isValidProposer(msg.sender)) revert Unauthorized();
 
         for (uint256 i; i < _blobLocators.length; ++i) {
-            _propose(_validateBlockLocator(_blobLocators[i]));
+            _propose(_validateBlobLocator(_blobLocators[i]));
         }
 
         // We assume the proposer is the designated prover and it has to pay both the provability
@@ -126,12 +126,14 @@ abstract contract ShastaInbox is IShastaInbox {
             if (storedClaimRecordHash != claimRecordHash) revert ClaimRecordHashMismatch();
 
             lastFinalizedClaimHash = keccak256(abi.encode(claim));
-            ++proposalId;
 
             (uint48 credit, address receiver) = _handleBondPayment(claimRecord);
             if (credit > 0) {
                 store.aggregateBondCredits(proposalId, receiver, credit);
             }
+
+            emit Finalized(proposalId, claimRecord);
+            ++proposalId;
         }
 
         // Advance the last finalized proposal ID and update the last finalized ClaimRecord hash.
@@ -141,8 +143,6 @@ abstract contract ShastaInbox is IShastaInbox {
         // TODO: for both L1 and L2, lets try not use signal service as it writes to new slots for
         // each new synced block.
         store.setLastL2BlockData(claim.endBlockNumber, claim.endBlockHash, claim.endStateRoot);
-
-        emit Finalized(proposalId, claim);
     }
 
     // -------------------------------------------------------------------------
@@ -189,26 +189,6 @@ abstract contract ShastaInbox is IShastaInbox {
         store.setProposalHash(proposalId, proposalHash);
 
         emit Proposed(proposal);
-    }
-
-    function _validateBlockLocator(BlobLocator memory _blobLocator)
-        private
-        view
-        returns (BlobSegment memory)
-    {
-        if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
-
-        bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
-        for (uint48 i; i < _blobLocator.numBlobs; ++i) {
-            blobHashes[i] = blobhash(_blobLocator.blobStartIndex + i);
-            if (blobHashes[i] == 0) revert BlobNotFound();
-        }
-
-        return BlobSegment({
-            blobHashes: blobHashes,
-            offset: _blobLocator.offset,
-            size: _blobLocator.size
-        });
     }
 
     /// @dev Handles bond refunds and penalties based on proof timing and prover identity
@@ -273,6 +253,26 @@ abstract contract ShastaInbox is IShastaInbox {
                 l2BondCreditReceiver_ = claim.designatedProver;
             }
         }
+    }
+
+    function _validateBlobLocator(BlobLocator memory _blobLocator)
+        private
+        view
+        returns (BlobSegment memory)
+    {
+        if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
+
+        bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
+        for (uint48 i; i < _blobLocator.numBlobs; ++i) {
+            blobHashes[i] = blobhash(_blobLocator.blobStartIndex + i);
+            if (blobHashes[i] == 0) revert BlobNotFound();
+        }
+
+        return BlobSegment({
+            blobHashes: blobHashes,
+            offset: _blobLocator.offset,
+            size: _blobLocator.size
+        });
     }
 
     // -------------------------------------------------------------------------

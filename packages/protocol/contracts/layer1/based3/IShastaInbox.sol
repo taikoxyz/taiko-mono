@@ -101,7 +101,7 @@ interface IShastaInbox {
     event Proved(Proposal proposal, ClaimRecord claimRecord);
 
     /// @notice Emitted when a proposal is finalized on L1
-    event Finalized(uint48 indexed proposalId, Claim claim);
+    event Finalized(uint48 indexed proposalId, ClaimRecord claimRecord);
 
     // -------------------------------------------------------------------------
     // External Transactional Functions
