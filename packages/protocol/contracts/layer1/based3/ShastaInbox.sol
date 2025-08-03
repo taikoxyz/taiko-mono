@@ -149,9 +149,25 @@ abstract contract ShastaInbox is IShastaInbox {
     /// @param _proof The proof for the claims
     function verifyProof(bytes32 _claimsHash, bytes calldata _proof) internal virtual;
 
-    function _debitBond(address _address, uint48 _bond) internal virtual { }
+    /// @dev Debits a bond from an address with best effort
+    function _debitBond(
+        address _address,
+        uint48 _bond
+    )
+        internal
+        virtual
+        returns (uint48 amountDebited_)
+    { }
 
-    function _creditBond(address _address, uint48 _bond) internal virtual { }
+    /// @dev Credits a bond to an address with best effort
+    function _creditBond(
+        address _address,
+        uint48 _bond
+    )
+        internal
+        virtual
+        returns (uint48 amountCredited_)
+    { }
 
     function _isValidProposer(address _address) internal view virtual returns (bool) { }
 
@@ -210,8 +226,8 @@ abstract contract ShastaInbox is IShastaInbox {
             if (claim.designatedProver == _claimRecord.proposer) {
                 // Proposer was also the designated prover who failed to prove on time
                 // Forfeit their liveness bond but reward the actual prover with half
-                _debitBond(_claimRecord.proposer, _claimRecord.livenessBond);
-                _creditBond(claim.actualProver, _claimRecord.livenessBond / 2);
+                uint48 amountDebited = _debitBond(_claimRecord.proposer, _claimRecord.livenessBond);
+                _creditBond(claim.actualProver, amountDebited / 2);
             } else {
                 // Proposer and designated prover are different entities
                 // Reward the actual prover with half of the liveness bond on L2
@@ -223,8 +239,8 @@ abstract contract ShastaInbox is IShastaInbox {
             // Block was difficult to prove, forfeit provability bond but reward prover
 
             // Forfeit proposer's provability bond but give half to the actual prover
-            _debitBond(_claimRecord.proposer, _claimRecord.provabilityBond);
-            _creditBond(claim.actualProver, _claimRecord.provabilityBond / 2);
+            uint48 amountDebited = _debitBond(_claimRecord.proposer, _claimRecord.provabilityBond);
+            _creditBond(claim.actualProver, amountDebited / 2);
 
             if (claim.designatedProver != _claimRecord.proposer) {
                 // Proposer and designated prover are different entities
