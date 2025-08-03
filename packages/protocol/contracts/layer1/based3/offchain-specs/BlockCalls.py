@@ -25,7 +25,7 @@ class BlockCalls:
     def block_head_call(
         self,
         # provable: -> parent_block_hash
-        proto_state: ProtoState,
+        state: ProtoState,
         # provable: -> proposal_hash
         proposal: Proposal,
         # provable: -> proposal_hash
@@ -58,14 +58,14 @@ class BlockCalls:
             - designated_prover
         """
 
-        if proto_state.proposal_id != proposal.id:
-            assert proto_state.proposal_id + 1 == proposal.id, "proposal_id mismatch"
-            assert proto_state.block_index != 0, "block_index mismatch"
+        if state.proposal_id != proposal.id:
+            assert state.proposal_id + 1 == proposal.id, "proposal_id mismatch"
+            assert state.block_index != 0, "block_index mismatch"
 
-            proto_state.proposal_id = proposal.id
-            proto_state.block_index = 0
+            state.proposal_id = proposal.id
+            state.block_index = 0
 
-            proto_state.designated_prover = self._calculate_designated_prover(
+            state.designated_prover = self._calculate_designated_prover(
                 proposal, proposal_content
             )
 
@@ -80,34 +80,33 @@ class BlockCalls:
         prev_randao = self._calculate_prev_randao(block_number, parent_prev_randao)
         fee_recipient = self._caculate_fee_recipient(block_args.fee_recipient)
 
-        if self._is_anchor_block_height_valid(proposal, proto_state, block_args):
-            proto_state.anchor_block_height = block_args.anchor_block_number
-            proto_state.anchor_block_hash = anchor_block_hash
+        if self._is_anchor_block_height_valid(proposal, state, block_args):
+            state.anchor_block_height = block_args.anchor_block_number
+            state.anchor_block_hash = anchor_block_hash
 
             for bond_credit_op in bond_credit_ops:
                 bond_balance = self._get_bond_balance(bond_credit_op[0])
                 bond_balance += bond_credit_op[1]
                 self._save_bond_balance(bond_credit_op[0], bond_balance)
-                proto_state.anchor_bond_credits_hash = self._aggregate_bond_credits(
-                    proto_state.anchor_bond_credits_hash,
+                state.anchor_bond_credits_hash = self._aggregate_bond_credits(
+                    state.anchor_bond_credits_hash,
                     proposal.id,
                     bond_credit_op[0],
                     bond_credit_op[1],
                 )
 
             assert (
-                proto_state.anchor_bond_credits_hash
-                == expected_anchor_bond_credits_hash
+                state.anchor_bond_credits_hash == expected_anchor_bond_credits_hash
             ), "anchor_bond_credits_hash mismatch"
 
-        self._save_proto_state(proto_state)
+        self._save_state(state)
 
         return (timestamp, prev_randao, fee_recipient, gas_limit, extra_data)
 
     def block_tail_call(
         self,
         # provable: -> parent_block_hash
-        proto_state: ProtoState,
+        state: ProtoState,
         # provable: -> content -> proposal_hash
         batch_size: int,
         # provable: -> EVM Code
@@ -123,23 +122,21 @@ class BlockCalls:
         """
 
         # update base fee parameters
-        proto_state.gas_excess = self._calculate_gas_excess(
-            proto_state.gas_excess,
-            proto_state.gas_issuance_per_second,
+        state.gas_excess = self._calculate_gas_excess(
+            state.gas_excess,
+            state.gas_issuance_per_second,
             timestamp - parent_timestamp,
             gas_used,
         )
 
         # the following code runs only once per proposal at the very end
-        if proto_state.block_index == batch_size - 1:
-            proto_state.gas_issuance_per_second = (
-                self._calculate_gas_issuance_per_second(
-                    proto_state.gas_issuance_per_second,
-                    proto_state.gas_issuance_per_second,
-                )
+        if state.block_index == batch_size - 1:
+            state.gas_issuance_per_second = self._calculate_gas_issuance_per_second(
+                state.gas_issuance_per_second,
+                state.gas_issuance_per_second,
             )
 
-        self._save_proto_state(proto_state)
+        self._save_state(state)
 
     def _calculate_prev_randao(self, number: int, parent_prev_randao: str) -> str:
         """
@@ -193,14 +190,14 @@ class BlockCalls:
     def _is_anchor_block_height_valid(
         self,
         proposal: Proposal,
-        proto_state: ProtoState,
+        state: ProtoState,
         block_args: BlockArgs,
     ) -> bool:
         """
         Check if the anchor block height is valid
         """
         return (
-            block_args.anchor_block_number > proto_state.anchor_block_height
+            block_args.anchor_block_number > state.anchor_block_height
             and block_args.anchor_block_number
             >= proposal.reference_block_number - self.MAX_ANCHOR_BLOCK_HEIGHT_OFFSET
             and block_args.anchor_block_number < proposal.reference_block_number
@@ -273,7 +270,7 @@ class BlockCalls:
         """
         raise NotImplementedError("Must be implemented by execution layer")
 
-    def _save_proto_state(self, proto_state: ProtoState) -> None:
+    def _save_state(self, state: ProtoState) -> None:
         """
         Save the protocol state to storage.
         This function persists the protocol state for future blocks.
