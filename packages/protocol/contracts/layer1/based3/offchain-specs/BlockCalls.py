@@ -10,6 +10,8 @@ class BlockCalls:
     """
     Handles system calls that execute at the beginning and end of block processing.
     These calls do not consume gas and are used for protocol-level operations.
+    TODOs:
+    - [ ] how to make sure there there is at least one non-zero anchor block hash?
     """
 
     DEFAULT_GAS_ISSUANCE_PER_SECOND = 1_000_000
