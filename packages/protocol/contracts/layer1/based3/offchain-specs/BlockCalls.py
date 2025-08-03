@@ -59,17 +59,21 @@ class BlockCalls:
             proto_state.proposal_id = proposal.id
             proto_state.block_index = 0
 
-            proto_state.designated_prover = self._calculate_designated_prover(proposal, proposal_content)
-
-
+            proto_state.designated_prover = self._calculate_designated_prover(
+                proposal, proposal_content
+            )
 
             for bond_credit_op in bond_credit_ops:
                 bond_balance = self._get_bond_balance(bond_credit_op[0])
                 bond_balance += bond_credit_op[1]
                 self._save_bond_balance(bond_credit_op[0], bond_balance)
-                proto_state.bond_credits_hash = self._aggregate_bond_credits(proto_state.bond_credits_hash, bond_credit_op[0], bond_credit_op[1])
-                
-            assert proto_state.bond_credits_hash == proposal.bond_credit_hash, "bond_credits_hash mismatch"
+                proto_state.bond_credits_hash = self._aggregate_bond_credits(
+                    proto_state.bond_credits_hash, proposal.id, bond_credit_op[0], bond_credit_op[1]
+                )
+
+            assert (
+                proto_state.bond_credits_hash == proposal.bond_credit_hash
+            ), "bond_credits_hash mismatch"
 
         timestamp = max(
             parent_timestamp,
@@ -204,49 +208,45 @@ class BlockCalls:
         """
         Calculate fee recipient
         """
-        if fee_recipient ==  self.ADDRESS_ZERO:
+        if fee_recipient == self.ADDRESS_ZERO:
             return self.TAIKO_DAO_TREASURE
         else:
             return fee_recipient
 
-
-    def _calculate_designated_prover(self, proposal: Proposal, proposal_content: Content) -> Address:
+    def _calculate_designated_prover(
+        self, proposal: Proposal, proposal_content: Content
+    ) -> Address:
         """
         Calculate the designated prover for the proposal
         """
         # Recover prover address from signature
         try:
-            # Create hash of proposal data
-            proposal_data = (
-                proposal.id.to_bytes(6, 'big') +  # uint48
-                bytes.fromhex(proposal.proposer[2:]) +  # address
-                proposal.liveness_bond.to_bytes(6, 'big') +  # uint48
-            )
-            
             # Hash the proposal data using keccak256
-            message_hash = keccak(proposal_data)
-            
+            message_hash = keccak("abi.encode(proposal)")
+
             # Recover the address from the signature
-            account = Account.recover_message(message_hash, signature=proposal_content.prover_signature)
+            account = Account.recover_message(
+                message_hash, signature=proposal_content.prover_signature
+            )
             prover = cast(Address, account)
         except Exception:
             # If signature recovery fails, use zero address
-            prover =  self.ADDRESS_ZERO
-            
+            prover = self.ADDRESS_ZERO
+
         if prover == self.ADDRESS_ZERO or prover == proposal.proposer:
             return proposal.proposer
 
         if proposal.liveness_bond > 0:
             prover_bond_balance = self._get_bond_balance(prover)
-            if (prover_bond_balance < proposal.liveness_bond):
+            if prover_bond_balance < proposal.liveness_bond:
                 return proposal.proposer
-        
+
         if proposal_content.prover_fee > 0:
             proposer_bond_balance = self._get_bond_balance(proposal.proposer)
-            if (proposer_bond_balance < proposal_content.prover_fee):
+            if proposer_bond_balance < proposal_content.prover_fee:
                 return proposal.proposer
-        
-        prover_bond_balance +=  proposal_content.prover_fee
+
+        prover_bond_balance += proposal_content.prover_fee
         prover_bond_balance -= proposal.liveness_bond
         self._save_bond_balance(prover, prover_bond_balance)
 
@@ -255,47 +255,13 @@ class BlockCalls:
 
         return prover
 
-    def _aggregate_bond_credits(self, bond_credits_hash: HexStr, account: Address, bond: int) -> HexStr:
+    def _aggregate_bond_credits(
+        self, bond_credits_hash: HexStr, proposalId: int,  account: Address, bond: int
+    ) -> HexStr:
         """
-        Aggregate the bond credits
+        Aggregate the bond credit using keccak("abi.encode(bond_credits_hash, proposalId, account, bond)")
         """
-        # Convert bond_credits_hash from HexStr to bytes if needed
-        if isinstance(bond_credits_hash, str):
-            if bond_credits_hash.startswith('0x'):
-                bond_credits_hash_bytes = bytes.fromhex(bond_credits_hash[2:])
-            else:
-                bond_credits_hash_bytes = bytes.fromhex(bond_credits_hash)
-        else:
-            bond_credits_hash_bytes = bond_credits_hash
-            
-        # Convert address to bytes (20 bytes)
-        if isinstance(account, str):
-            if account.startswith('0x'):
-                account_bytes = bytes.fromhex(account[2:])
-            else:
-                account_bytes = bytes.fromhex(account)
-        else:
-            account_bytes = account
-            
-        # Ensure address is 20 bytes (pad with zeros if needed)
-        account_bytes = account_bytes.rjust(20, b'\x00')
-        
-        # Convert bond (uint48) to bytes (6 bytes)
-        bond_bytes = bond.to_bytes(6, byteorder='big')
-        
-        # ABI encode: bytes32 + address (20 bytes padded to 32) + uint48 (6 bytes padded to 32)
-        # Following Solidity's abi.encode rules
-        encoded_data = (
-            bond_credits_hash_bytes.rjust(32, b'\x00') +  # bytes32
-            account_bytes.rjust(32, b'\x00') +            # address padded to 32 bytes
-            bond_bytes.rjust(32, b'\x00')                 # uint48 padded to 32 bytes
-        )
-        
-        # Calculate keccak256 hash
-        new_hash = keccak(encoded_data)
-        
-        # Return as HexStr
-        return HexStr('0x' + new_hash.hex())
+        raise NotImplementedError("Must be implemented by execution layer")
 
     def _save_proto_state(self, proto_state: ProtoState) -> None:
         """
