@@ -111,6 +111,10 @@ contract ShastaInboxStore is IShastaInboxStore {
         lastFinalizedProposalId = _proposalId;
     }
 
+    function setLastFinalizedClaimHash(bytes32 _claimHash) external onlyInbox {
+        lastFinalizedClaimHash = _claimHash;
+    }
+
     function setLastL2BlockData(
         uint48 _blockNumber,
         bytes32 _blockHash,
@@ -149,4 +153,10 @@ contract ShastaInboxStore is IShastaInboxStore {
     {
         l2BondCreditsHash = keccak256(abi.encode(l2BondCreditsHash, _proposalId, _address, _bond));
     }
+
+    // -------------------------------------------------------------------------
+    // Errors
+    // -------------------------------------------------------------------------
+
+    error Unauthorized();
 }

@@ -9,13 +9,20 @@ interface IShastaInbox {
     // Structs
     // -------------------------------------------------------------------------
 
+    /// @dev RRepresents a segment of data that is stored in multiple consecutive blobs created in
+    /// this transaction.
     struct BlobLocator {
+        /// @dev The starting index of the blob.
         uint48 blobStartIndex;
+        /// @dev The number of blobs.
         uint32 numBlobs;
+        /// @dev The offset within the blob.
         uint32 offset;
+        /// @dev The size of the blob.
         uint32 size;
     }
 
+    /// @dev Represents a segment of data that is stored in multiple blobs.
     struct BlobSegment {
         /// @dev The blobs containing the proposal's content.
         bytes32[] blobHashes;
@@ -31,19 +38,18 @@ interface IShastaInbox {
         /// @dev Address of the proposer. This is needed on L1 to handle provability bond
         /// and proving fee.
         address proposer;
-        /// @dev Address of the designated prover. This is needed on L1 to handle
-        /// liveness bond and proving fee.
-        address prover;
-        /// @dev Provability bond for the proposal, paid by the proposer.
+        /// @dev Provability bond for the proposal, paid by the proposer on L1.
         uint48 provabilityBond;
-        /// @dev Liveness bond for the proposal, paid by the designated prover.
+        /// @dev Liveness bond for the proposal, paid by the proposer on L1 and potentially also by
+        /// the designated prover on L2.
         uint48 livenessBond;
-        /// @dev Timestamp when the proposal was made. This is needed on L1 to verify
-        /// the timing of the claim used to finalize the proposal for correct bond payments.
-        uint48 proposedBlockTimestamp;
-        /// @dev The L1 block number when the proposal was made.
+        /// @dev The L1 block timestamp when the proposal was made. This is needed on L2 to verify
+        /// each block's timestamp in the proposal's content.
+        uint48 timestamp;
+        /// @dev The L1 block number when the proposal was made. This is needed on L2 to verify
+        /// each block's anchor block number in the proposal's content.
         uint48 proposedBlockNumber;
-        /// @dev The proposal's content.
+        /// @dev The proposal's content identifier.
         BlobSegment content;
     }
 
@@ -54,20 +60,33 @@ interface IShastaInbox {
     }
 
     struct Claim {
+        /// @dev The proposal's hash.
         bytes32 proposalHash;
+        /// @dev The parent claim's hash, this is used to link the claim to its parent claim to
+        /// finalize the corresponding proposal.
         bytes32 parentClaimHash;
-        bytes32 endL2BlockHash;
-        bytes32 endL2StateRoot;
-        uint48 endL2BlockNumber;
+        /// @dev The block number for the end (last) L2 block in this proposal.
+        uint48 endBlockNumber;
+        /// @dev The block hash for the end (last) L2 block in this proposal.
+        bytes32 endBlockHash;
+        /// @dev The state root for the end (last) L2 block in this proposal.
+        bytes32 endStateRoot;
+        /// @dev The designated prover.
         address designatedProver;
+        /// @dev The actual prover.
         address actualProver;
     }
 
     struct ClaimRecord {
+        /// @dev The claim.
         Claim claim;
+        /// @dev The proposer, copied from the proposal.
         address proposer;
+        /// @dev The liveness bond, copied from the proposal.
         uint48 livenessBond;
+        /// @dev The provability bond, copied from the proposal.
         uint48 provabilityBond;
+        /// @dev The proof timing.
         ProofTiming proofTiming;
     }
 
@@ -76,10 +95,10 @@ interface IShastaInbox {
     // -------------------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed
-    event Proposed(uint48 indexed proposalId, Proposal proposal);
+    event Proposed(Proposal proposal);
 
     /// @notice Emitted when a proof is submitted for a proposal
-    event Proved(uint48 indexed proposalId, Proposal proposal, ClaimRecord claimRecord);
+    event Proved(Proposal proposal, ClaimRecord claimRecord);
 
     /// @notice Emitted when a proposal is finalized on L1
     event Finalized(uint48 indexed proposalId, Claim claim);

@@ -9,11 +9,11 @@ import { IShastaInboxStore } from "./IShastaInboxStore.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract ShastaInbox is IShastaInbox {
     // TODO
-    // - [ ] support anchor per block
-    // - [ ] support prover and liveness bond
-    // - [ ] support provability bond
-    // - [ ] support batch proving
-    // - [ ] support multi-step finalization
+    // - [x] support anchor per block
+    // - [x] support prover and liveness bond
+    // - [x] support provability bond
+    // - [x] support batch proving
+    // - [x] support multi-step finalization
     // - [ ] support Summary approach
 
     // -------------------------------------------------------------------------
@@ -50,12 +50,17 @@ abstract contract ShastaInbox is IShastaInbox {
     // -------------------------------------------------------------------------
 
     /// @inheritdoc IShastaInbox
+    /// @dev msg.sender is always the proposer
     function propose(BlobLocator[] memory _blobLocators) external {
-        for (uint48 i; i < _blobLocators.length; ++i) {
+        if (!_isValidProposer(msg.sender)) revert Unauthorized();
+
+        for (uint256 i; i < _blobLocators.length; ++i) {
             _propose(_validateBlockLocator(_blobLocators[i]));
         }
 
-        // We assume the proposer is the designated prover
+        // We assume the proposer is the designated prover and it has to pay both the provability
+        // and liveness bonds on L1 in case on L2 there is either no prover assigned, or the
+        // prover's balance is insufficient to pay the liveness bond.
         uint48 bondAmount = (provabilityBond + livenessBond) * uint48(_blobLocators.length);
         _debitBond(msg.sender, bondAmount);
     }
@@ -68,20 +73,19 @@ abstract contract ShastaInbox is IShastaInbox {
     )
         external
     {
-        if (_proposals.length != _claims.length) revert ProposalsAndClaimsLengthMismatch();
+        if (_proposals.length != _claims.length) revert InconsistentParams();
 
-        for (uint48 i; i < _proposals.length; ++i) {
+        for (uint256 i; i < _proposals.length; ++i) {
             Proposal memory proposal = _proposals[i];
             Claim memory claim = _claims[i];
 
             bytes32 proposalHash = keccak256(abi.encode(proposal));
-            if (proposalHash != claim.proposalHash) revert ProposalHashMismatch();
-            if (proposalHash != store.getProposalHash(proposal.id)) revert ProposalHashMismatch();
+            if (proposalHash != claim.proposalHash) revert ProposalHashMismatch1();
+            if (proposalHash != store.getProposalHash(proposal.id)) revert ProposalHashMismatch2();
 
-            ProofTiming proofTiming = block.timestamp
-                < proposal.proposedBlockTimestamp + provingWindow
+            ProofTiming proofTiming = block.timestamp <= proposal.timestamp + provingWindow
                 ? ProofTiming.InProvingWindow
-                : block.timestamp < proposal.proposedBlockTimestamp + extendedProvingWindow
+                : block.timestamp <= proposal.timestamp + extendedProvingWindow
                     ? ProofTiming.InExtendedProvingWindow
                     : ProofTiming.OutOfExtendedProvingWindow;
 
@@ -95,7 +99,7 @@ abstract contract ShastaInbox is IShastaInbox {
 
             bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
             store.setClaimRecordHash(proposal.id, claim.parentClaimHash, claimRecordHash);
-            emit Proved(proposal.id, proposal, claimRecord);
+            emit Proved(proposal, claimRecord);
         }
 
         bytes32 claimsHash = keccak256(abi.encode(_claims));
@@ -108,21 +112,21 @@ abstract contract ShastaInbox is IShastaInbox {
         uint48 proposalId = store.getLastFinalizedProposalId() + 1;
         Claim memory claim;
 
-        for (uint48 i; i < _claimRecords.length; ++i) {
+        for (uint256 i; i < _claimRecords.length; ++i) {
             ClaimRecord memory claimRecord = _claimRecords[i];
             claim = claimRecord.claim;
-            if (claim.parentClaimHash != lastFinalizedClaimHash) {
-                revert InvalidClaimChain();
-            }
+
+            if (claim.parentClaimHash != lastFinalizedClaimHash) revert InvalidClaimChain();
 
             bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
 
             bytes32 storedClaimRecordHash =
                 store.getClaimRecordHash(proposalId, claim.parentClaimHash);
-            if (storedClaimRecordHash != claimRecordHash) revert ClaimNotFound();
+
+            if (storedClaimRecordHash != claimRecordHash) revert ClaimRecordHashMismatch();
 
             lastFinalizedClaimHash = keccak256(abi.encode(claim));
-            proposalId++;
+            ++proposalId;
 
             (uint48 credit, address receiver) = _handleBondPayment(claimRecord);
             if (credit > 0) {
@@ -132,10 +136,11 @@ abstract contract ShastaInbox is IShastaInbox {
 
         // Advance the last finalized proposal ID and update the last finalized ClaimRecord hash.
         store.setLastFinalizedProposalId(proposalId);
+        store.setLastFinalizedClaimHash(lastFinalizedClaimHash);
 
-        // Sync L2 block data to L1
-        // TODO: use signal service
-        store.setLastL2BlockData(claim.endL2BlockNumber, claim.endL2BlockHash, claim.endL2StateRoot);
+        // TODO: for both L1 and L2, lets try not use signal service as it writes to new slots for
+        // each new synced block.
+        store.setLastL2BlockData(claim.endBlockNumber, claim.endBlockHash, claim.endStateRoot);
 
         emit Finalized(proposalId, claim);
     }
@@ -154,6 +159,8 @@ abstract contract ShastaInbox is IShastaInbox {
 
     function _creditBond(address _address, uint48 _bond) internal virtual { }
 
+    function _isValidProposer(address _address) internal view virtual returns (bool) { }
+
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
@@ -165,16 +172,15 @@ abstract contract ShastaInbox is IShastaInbox {
 
         // Create a new proposal.
         // Note that the contentHash is not checked here to empty proposal data.
-        uint48 proposedBlockTimestamp = uint48(block.timestamp - 128);
+        uint48 timestamp = uint48(block.timestamp - 128);
         uint48 proposedBlockNumber = uint48(block.number - 1);
 
         Proposal memory proposal = Proposal({
             id: proposalId,
             proposer: msg.sender,
-            prover: msg.sender,
             provabilityBond: provabilityBond,
             livenessBond: livenessBond,
-            proposedBlockTimestamp: proposedBlockTimestamp,
+            timestamp: timestamp,
             proposedBlockNumber: proposedBlockNumber,
             content: _content
         });
@@ -182,9 +188,7 @@ abstract contract ShastaInbox is IShastaInbox {
         bytes32 proposalHash = keccak256(abi.encode(proposal));
         store.setProposalHash(proposalId, proposalHash);
 
-        // TODO: debit provability bond from proposer and liveness bond from prover.
-
-        emit Proposed(proposalId, proposal);
+        emit Proposed(proposal);
     }
 
     function _validateBlockLocator(BlobLocator memory _blobLocator)
@@ -275,10 +279,12 @@ abstract contract ShastaInbox is IShastaInbox {
     // Errors
     // -------------------------------------------------------------------------
 
-    error ClaimNotFound();
     error BlobNotFound();
-    error ProposalsAndClaimsLengthMismatch();
-    error ProposalHashMismatch();
+    error InconsistentParams();
+    error ProposalHashMismatch1();
+    error ProposalHashMismatch2();
+    error ClaimRecordHashMismatch();
     error InvalidClaimChain();
     error InvalidBlobLocator();
+    error Unauthorized();
 }
