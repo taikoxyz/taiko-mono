@@ -29,6 +29,8 @@ contract ShastaInboxStore is IShastaInboxStore {
     mapping(uint48 proposalId => mapping(bytes32 parentClaimRecordHash => bytes32 claimRecordHash))
         private claimRecordHashLookup;
 
+    bytes32 private l2BondCreditsHash;
+
     // -------------------------------------------------------------------------
     // Modifiers
     // -------------------------------------------------------------------------
@@ -89,6 +91,10 @@ contract ShastaInboxStore is IShastaInboxStore {
         claimRecordHash_ = claimRecordHashLookup[_proposalId][_parentClaimRecordHash];
     }
 
+    function getBondCreditsHash() external view returns (bytes32 bondCreditsHash_) {
+        bondCreditsHash_ = l2BondCreditsHash;
+    }
+
     // -------------------------------------------------------------------------
     // External transactional (restricted to inbox)
     // -------------------------------------------------------------------------
@@ -103,6 +109,10 @@ contract ShastaInboxStore is IShastaInboxStore {
 
     function setLastFinalizedProposalId(uint48 _proposalId) external onlyInbox {
         lastFinalizedProposalId = _proposalId;
+    }
+
+    function setLastFinalizedClaimHash(bytes32 _claimHash) external onlyInbox {
+        lastFinalizedClaimHash = _claimHash;
     }
 
     function setLastL2BlockData(
@@ -132,4 +142,21 @@ contract ShastaInboxStore is IShastaInboxStore {
     {
         claimRecordHashLookup[_proposalId][_parentClaimRecordHash] = _claimRecordHash;
     }
+
+    function aggregateBondCredits(
+        uint48 _proposalId,
+        address _address,
+        uint48 _bond
+    )
+        external
+        onlyInbox
+    {
+        l2BondCreditsHash = keccak256(abi.encode(l2BondCreditsHash, _proposalId, _address, _bond));
+    }
+
+    // -------------------------------------------------------------------------
+    // Errors
+    // -------------------------------------------------------------------------
+
+    error Unauthorized();
 }

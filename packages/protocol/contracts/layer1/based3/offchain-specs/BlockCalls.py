@@ -1,49 +1,61 @@
-from typing import Tuple, cast
-from eth_typing import HexStr, Address
+from typing import Tuple, cast, List
+from eth_typing import Address
 import hashlib
-from Types import ProtoState, BlockArgs, Proposal
+from eth_account import Account
+from eth_utils import keccak
+from Types import ProtoState, BlockArgs, Proposal, Content
 
 
 class BlockCalls:
     """
     Handles system calls that execute at the beginning and end of block processing.
     These calls do not consume gas and are used for protocol-level operations.
+    TODOs:
+    - [ ] how to make sure there there is at least one non-zero anchor block hash?
     """
 
     DEFAULT_GAS_ISSUANCE_PER_SECOND = 1_000_000
     GAS_ISSUANCE_PER_SECOND_MAX_OFFSET = 101
     GAS_ISSUANCE_PER_SECOND_MIN_OFFSET = 99
-    ADDRESS_ZERO = "0x0000000000000000000000000000000000000000"
+    ADDRESS_ZERO = cast(Address, "0x0000000000000000000000000000000000000000")
     BLOCK_GAS_LIMIT = 100_000_000
-    TAIKO_DAO_TREASURE = "0x0000000000000000000000000000000000000123"
+    TAIKO_DAO_TREASURE = cast(Address, "0x0000000000000000000000000000000000000123")
+    MAX_ANCHOR_BLOCK_HEIGHT_OFFSET = 64
 
     def block_head_call(
         self,
-        # provable: -> proposal_hash
-        proposal: Proposal,
         # provable: -> parent_block_hash
         proto_state: ProtoState,
+        # provable: -> proposal_hash
+        proposal: Proposal,
+        # provable: -> proposal_hash
+        proposal_content: Content,
         # provable: -> content -> proposal_hash
         block_args: BlockArgs,
         # provable: -> parent_block_number -> parent_block_hash
         block_number: int,
         # provable: -> parent_block_hash
-        parent_prev_randao: HexStr,
+        parent_prev_randao: str,
         # provable: -> parent_block_hash
         parent_timestamp: int,
         # provable: -> up to 128 ancester block headers -> anchor_block_hash
-        anchor_block_hash: HexStr,
-    ) -> Tuple[int, HexStr, Address, int, int]:
+        anchor_block_hash: str,
+        #  provable: -> anchor_block_hash
+        expected_anchor_bond_credits_hash: str,
+        # provable: -> expected_anchor_bond_credits_hash
+        bond_credit_ops: List[Tuple[Address, int]],
+    ) -> Tuple[int, str, Address, int, int]:
         """
         System call invoked before the the first transaction in every block.
         This call does not consume gas.
 
         Returns:
             - timestamp
-            - prevRandao
-            - fee recipient
-            - gas limit
-            - extra data
+            - prev_randao
+            - fee_recipient
+            - gas_limit
+            - extra_data
+            - designated_prover
         """
 
         if proto_state.proposal_id != proposal.id:
@@ -52,6 +64,10 @@ class BlockCalls:
 
             proto_state.proposal_id = proposal.id
             proto_state.block_index = 0
+
+            proto_state.designated_prover = self._calculate_designated_prover(
+                proposal, proposal_content
+            )
 
         timestamp = max(
             parent_timestamp,
@@ -64,14 +80,25 @@ class BlockCalls:
         prev_randao = self._calculate_prev_randao(block_number, parent_prev_randao)
         fee_recipient = self._caculate_fee_recipient(block_args.fee_recipient)
 
-        proto_state.anchor_block_height, proto_state.anchor_block_hash = (
-            self._calculate_anchor(
-                proto_state,
-                block_args,
-                proposal.reference_block_number,
-                anchor_block_hash,
-            )
-        )
+        if self._is_anchor_block_height_valid(proposal, proto_state, block_args):
+            proto_state.anchor_block_height = block_args.anchor_block_number
+            proto_state.anchor_block_hash = anchor_block_hash
+
+            for bond_credit_op in bond_credit_ops:
+                bond_balance = self._get_bond_balance(bond_credit_op[0])
+                bond_balance += bond_credit_op[1]
+                self._save_bond_balance(bond_credit_op[0], bond_balance)
+                proto_state.anchor_bond_credits_hash = self._aggregate_bond_credits(
+                    proto_state.anchor_bond_credits_hash,
+                    proposal.id,
+                    bond_credit_op[0],
+                    bond_credit_op[1],
+                )
+
+            assert (
+                proto_state.anchor_bond_credits_hash
+                == expected_anchor_bond_credits_hash
+            ), "anchor_bond_credits_hash mismatch"
 
         self._save_proto_state(proto_state)
 
@@ -114,13 +141,13 @@ class BlockCalls:
 
         self._save_proto_state(proto_state)
 
-    def _calculate_prev_randao(self, number: int, parent_prev_randao: HexStr) -> HexStr:
+    def _calculate_prev_randao(self, number: int, parent_prev_randao: str) -> str:
         """
         Compute prevRandao value using keccak256 equivalent.
         In Solidity: keccak256(abi.encode(number, prevRandao))
         """
         data = f"{number}{parent_prev_randao}".encode()
-        return cast(HexStr, "0x" + hashlib.sha256(data).hexdigest())
+        return "0x" + hashlib.sha256(data).hexdigest()
 
     def _calculate_gas_excess(
         self,
@@ -163,37 +190,104 @@ class BlockCalls:
         else:
             return current_gas_issuance_per_second
 
-    def _calculate_anchor(
+    def _is_anchor_block_height_valid(
         self,
+        proposal: Proposal,
         proto_state: ProtoState,
         block_args: BlockArgs,
-        reference_block_number: int,
-        anchor_block_hash: HexStr,
-    ) -> Tuple[int, HexStr]:
+    ) -> bool:
         """
-        Calculate and update anchor block if conditions are met.
+        Check if the anchor block height is valid
         """
-        if (
+        return (
             block_args.anchor_block_number > proto_state.anchor_block_height
-            and block_args.anchor_block_number >= reference_block_number - 64
-            and block_args.anchor_block_number < reference_block_number
-        ):
-            return (block_args.anchor_block_number, anchor_block_hash)
-        else:
-            return (proto_state.anchor_block_height, proto_state.anchor_block_hash)
+            and block_args.anchor_block_number
+            >= proposal.reference_block_number - self.MAX_ANCHOR_BLOCK_HEIGHT_OFFSET
+            and block_args.anchor_block_number < proposal.reference_block_number
+        )
 
     def _caculate_fee_recipient(self, fee_recipient: Address) -> Address:
         """
         Calculate fee recipient
         """
-        if fee_recipient == cast(Address, self.ADDRESS_ZERO):
-            return cast(Address, self.TAIKO_DAO_TREASURE)
+        if fee_recipient == self.ADDRESS_ZERO:
+            return self.TAIKO_DAO_TREASURE
         else:
             return fee_recipient
+
+    def _calculate_designated_prover(
+        self, proposal: Proposal, proposal_content: Content
+    ) -> Address:
+        """
+        Calculate the designated prover for the proposal
+        """
+        # Recover prover address from signature
+        try:
+            # Hash the proposal data using keccak256
+            # TODO: Implement proper ABI encoding for the proposal
+            # For now, create a simple hash of the proposal data
+            proposal_str = f"{proposal.id}{str(proposal.proposer)}{str(proposal.prover)}{proposal.provability_bond}{proposal.liveness_bond}{proposal.reference_block_timestamp}{proposal.reference_block_number}"
+            proposal_data = proposal_str.encode("utf-8")
+            message_hash = keccak(proposal_data)
+
+            # Recover the address from the signature
+            account = Account.recover_message(
+                message_hash, signature=proposal_content.prover_signature
+            )
+            prover = cast(Address, account)
+        except Exception:
+            # If signature recovery fails, use zero address
+            prover = self.ADDRESS_ZERO
+
+        if prover == self.ADDRESS_ZERO or prover == proposal.proposer:
+            return proposal.proposer
+
+        if proposal.liveness_bond > 0:
+            prover_bond_balance = self._get_bond_balance(prover)
+            if prover_bond_balance < proposal.liveness_bond:
+                return proposal.proposer
+
+        if proposal_content.prover_fee > 0:
+            proposer_bond_balance = self._get_bond_balance(proposal.proposer)
+            if proposer_bond_balance < proposal_content.prover_fee:
+                return proposal.proposer
+
+        prover_bond_balance += proposal_content.prover_fee
+        prover_bond_balance -= proposal.liveness_bond
+        self._save_bond_balance(prover, prover_bond_balance)
+
+        proposer_bond_balance -= proposal_content.prover_fee
+        self._save_bond_balance(proposal.proposer, proposer_bond_balance)
+
+        return prover
+
+    def _aggregate_bond_credits(
+        self,
+        anchor_bond_credits_hash: str,
+        proposalId: int,
+        account: Address,
+        bond: int,
+    ) -> str:
+        """
+        Aggregate the bond credit using keccak("abi.encode(anchor_bond_credits_hash, proposalId, account, bond)")
+        """
+        raise NotImplementedError("Must be implemented by execution layer")
 
     def _save_proto_state(self, proto_state: ProtoState) -> None:
         """
         Save the protocol state to storage.
         This function persists the protocol state for future blocks.
+        """
+        raise NotImplementedError("Must be implemented by execution layer")
+
+    def _get_bond_balance(self, address: Address) -> int:
+        """
+        Get the bond balance for the address
+        """
+        raise NotImplementedError("Must be implemented by execution layer")
+
+    def _save_bond_balance(self, address: Address, balance: int) -> None:
+        """
+        Save the bond balance for the address
         """
         raise NotImplementedError("Must be implemented by execution layer")

@@ -52,6 +52,10 @@ interface IShastaInboxStore {
         view
         returns (bytes32 claimRecordHash_);
 
+    /// @notice Gets the hash of the bond credits
+    /// @return bondCreditsHash_ The hash of the bond credits
+    function getBondCreditsHash() external view returns (bytes32 bondCreditsHash_);
+
     // -------------------------------------------------------------------------
     // External transactional (restricted to inbox contract)
     // -------------------------------------------------------------------------
@@ -69,6 +73,11 @@ interface IShastaInboxStore {
     /// @dev Only callable by the inbox contract
     /// @param _proposalId The finalized proposal ID
     function setLastFinalizedProposalId(uint48 _proposalId) external;
+
+    /// @notice Sets the last finalized claim hash
+    /// @dev Only callable by the inbox contract
+    /// @param _claimHash The last finalized claim hash
+    function setLastFinalizedClaimHash(bytes32 _claimHash) external;
 
     /// @notice Sets the last L2 block data
     /// @dev Only callable by the inbox contract
@@ -100,9 +109,10 @@ interface IShastaInboxStore {
     )
         external;
 
-    // -------------------------------------------------------------------------
-    // Errors
-    // -------------------------------------------------------------------------
-
-    error Unauthorized();
+    /// @notice Aggregates the L2 bond credit for a given address
+    /// @dev Only callable by the inbox contract
+    /// @param _proposalId The proposal ID
+    /// @param _address The address to aggregate the L2 bond credit for
+    /// @param _bond The amount of L2 bond credit to aggregate
+    function aggregateBondCredits(uint48 _proposalId, address _address, uint48 _bond) external;
 }

@@ -9,11 +9,11 @@ import { IShastaInboxStore } from "./IShastaInboxStore.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract ShastaInbox is IShastaInbox {
     // TODO
-    // - [ ] support anchor per block
-    // - [ ] support prover and liveness bond
-    // - [ ] support provability bond
-    // - [ ] support batch proving
-    // - [ ] support multi-step finalization
+    // - [x] support anchor per block
+    // - [x] support prover and liveness bond
+    // - [x] support provability bond
+    // - [x] support batch proving
+    // - [x] support multi-step finalization
     // - [ ] support Summary approach
 
     // -------------------------------------------------------------------------
@@ -24,6 +24,7 @@ abstract contract ShastaInbox is IShastaInbox {
     uint48 public immutable provabilityBond;
     uint48 public immutable livenessBond;
     uint48 public immutable provingWindow;
+    uint48 public immutable extendedProvingWindow;
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -33,13 +34,14 @@ abstract contract ShastaInbox is IShastaInbox {
         IShastaInboxStore _store,
         uint48 _provabilityBond,
         uint48 _livenessBond,
-        uint48 _provingWindow
+        uint48 _provingWindow,
+        uint48 _extendedProvingWindow
     ) {
         store = _store;
         provabilityBond = _provabilityBond;
         livenessBond = _livenessBond;
         provingWindow = _provingWindow;
-
+        extendedProvingWindow = _extendedProvingWindow;
         store.initialize();
     }
 
@@ -48,10 +50,19 @@ abstract contract ShastaInbox is IShastaInbox {
     // -------------------------------------------------------------------------
 
     /// @inheritdoc IShastaInbox
+    /// @dev msg.sender is always the proposer
     function propose(BlobLocator[] memory _blobLocators) external {
-        for (uint48 i; i < _blobLocators.length; ++i) {
-            _propose(_validateBlockLocator(_blobLocators[i]));
+        if (!_isValidProposer(msg.sender)) revert Unauthorized();
+
+        for (uint256 i; i < _blobLocators.length; ++i) {
+            _propose(_validateBlobLocator(_blobLocators[i]));
         }
+
+        // We assume the proposer is the designated prover and it has to pay both the provability
+        // and liveness bonds on L1 in case on L2 there is either no prover assigned, or the
+        // prover's balance is insufficient to pay the liveness bond.
+        uint48 bondAmount = (provabilityBond + livenessBond) * uint48(_blobLocators.length);
+        _debitBond(msg.sender, bondAmount);
     }
 
     /// @inheritdoc IShastaInbox
@@ -62,25 +73,33 @@ abstract contract ShastaInbox is IShastaInbox {
     )
         external
     {
-        if (_proposals.length != _claims.length) revert ProposalsAndClaimsLengthMismatch();
+        if (_proposals.length != _claims.length) revert InconsistentParams();
 
-        for (uint48 i; i < _proposals.length; ++i) {
+        for (uint256 i; i < _proposals.length; ++i) {
             Proposal memory proposal = _proposals[i];
             Claim memory claim = _claims[i];
 
             bytes32 proposalHash = keccak256(abi.encode(proposal));
-            if (proposalHash != claim.proposalHash) revert ProposalHashMismatch();
-            if (proposalHash != store.getProposalHash(proposal.id)) revert ProposalHashMismatch();
+            if (proposalHash != claim.proposalHash) revert ProposalHashMismatch1();
+            if (proposalHash != store.getProposalHash(proposal.id)) revert ProposalHashMismatch2();
+
+            ProofTiming proofTiming = block.timestamp <= proposal.timestamp + provingWindow
+                ? ProofTiming.InProvingWindow
+                : block.timestamp <= proposal.timestamp + extendedProvingWindow
+                    ? ProofTiming.InExtendedProvingWindow
+                    : ProofTiming.OutOfExtendedProvingWindow;
 
             ClaimRecord memory claimRecord = ClaimRecord({
                 claim: claim,
-                proposedAt: proposal.proposedBlockTimestamp,
-                provedAt: uint48(block.timestamp)
+                proposer: proposal.proposer,
+                livenessBond: proposal.livenessBond,
+                provabilityBond: proposal.provabilityBond,
+                proofTiming: proofTiming
             });
 
             bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
             store.setClaimRecordHash(proposal.id, claim.parentClaimHash, claimRecordHash);
-            emit Proved(proposal.id, proposal, claimRecord);
+            emit Proved(proposal, claimRecord);
         }
 
         bytes32 claimsHash = keccak256(abi.encode(_claims));
@@ -93,31 +112,37 @@ abstract contract ShastaInbox is IShastaInbox {
         uint48 proposalId = store.getLastFinalizedProposalId() + 1;
         Claim memory claim;
 
-        for (uint48 i; i < _claimRecords.length; ++i) {
+        for (uint256 i; i < _claimRecords.length; ++i) {
             ClaimRecord memory claimRecord = _claimRecords[i];
             claim = claimRecord.claim;
-            if (claim.parentClaimHash != lastFinalizedClaimHash) {
-                revert InvalidClaimChain();
-            }
+
+            if (claim.parentClaimHash != lastFinalizedClaimHash) revert InvalidClaimChain();
 
             bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
 
             bytes32 storedClaimRecordHash =
                 store.getClaimRecordHash(proposalId, claim.parentClaimHash);
-            if (storedClaimRecordHash != claimRecordHash) revert ClaimNotFound();
+
+            if (storedClaimRecordHash != claimRecordHash) revert ClaimRecordHashMismatch();
 
             lastFinalizedClaimHash = keccak256(abi.encode(claim));
-            proposalId++;
+
+            (uint48 credit, address receiver) = _handleBondPayment(claimRecord);
+            if (credit > 0) {
+                store.aggregateBondCredits(proposalId, receiver, credit);
+            }
+
+            emit Finalized(proposalId, claimRecord);
+            ++proposalId;
         }
 
         // Advance the last finalized proposal ID and update the last finalized ClaimRecord hash.
         store.setLastFinalizedProposalId(proposalId);
+        store.setLastFinalizedClaimHash(lastFinalizedClaimHash);
 
-        // Sync L2 block data to L1
-        // TODO: use signal service
-        store.setLastL2BlockData(claim.endL2BlockNumber, claim.endL2BlockHash, claim.endL2StateRoot);
-
-        emit Finalized(proposalId, claim);
+        // TODO: for both L1 and L2, lets try not use signal service as it writes to new slots for
+        // each new synced block.
+        store.setLastL2BlockData(claim.endBlockNumber, claim.endBlockHash, claim.endStateRoot);
     }
 
     // -------------------------------------------------------------------------
@@ -130,6 +155,12 @@ abstract contract ShastaInbox is IShastaInbox {
     /// @param _proof The proof for the claims
     function verifyProof(bytes32 _claimsHash, bytes calldata _proof) internal virtual;
 
+    function _debitBond(address _address, uint48 _bond) internal virtual { }
+
+    function _creditBond(address _address, uint48 _bond) internal virtual { }
+
+    function _isValidProposer(address _address) internal view virtual returns (bool) { }
+
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
@@ -141,30 +172,90 @@ abstract contract ShastaInbox is IShastaInbox {
 
         // Create a new proposal.
         // Note that the contentHash is not checked here to empty proposal data.
-        uint48 proposedBlockTimestamp = uint48(block.timestamp - 128);
+        uint48 timestamp = uint48(block.timestamp - 128);
         uint48 proposedBlockNumber = uint48(block.number - 1);
 
         Proposal memory proposal = Proposal({
             id: proposalId,
             proposer: msg.sender,
-            prover: msg.sender,
             provabilityBond: provabilityBond,
             livenessBond: livenessBond,
-            proposedBlockTimestamp: proposedBlockTimestamp,
+            timestamp: timestamp,
             proposedBlockNumber: proposedBlockNumber,
-            referenceBlockHash: blockhash(proposedBlockNumber),
             content: _content
         });
 
         bytes32 proposalHash = keccak256(abi.encode(proposal));
         store.setProposalHash(proposalId, proposalHash);
 
-        // TODO: debit provability bond from proposer and liveness bond from prover.
-
-        emit Proposed(proposalId, proposal);
+        emit Proposed(proposal);
     }
 
-    function _validateBlockLocator(BlobLocator memory _blobLocator)
+    /// @dev Handles bond refunds and penalties based on proof timing and prover identity
+    /// @param _claimRecord The claim record containing bond and timing information
+    /// @return l2BondCredit_ Amount of bond to credit on L2
+    /// @return l2BondCreditReceiver_ Address to receive the L2 bond credit
+    function _handleBondPayment(ClaimRecord memory _claimRecord)
+        private
+        returns (uint48 l2BondCredit_, address l2BondCreditReceiver_)
+    {
+        Claim memory claim = _claimRecord.claim;
+        if (_claimRecord.proofTiming == ProofTiming.InProvingWindow) {
+            // Proof submitted within the designated proving window (on-time proof)
+            // The designated prover successfully proved the block on time
+
+            // Refund both provability and liveness bonds to the proposer since the block was
+            // proven successfully and on time
+            _creditBond(
+                _claimRecord.proposer, _claimRecord.provabilityBond + _claimRecord.livenessBond
+            );
+            if (claim.designatedProver == _claimRecord.proposer) {
+                // Proposer and designated prover are the same entity
+                // No L2 bond transfers needed since all bonds were handled on L1
+            } else {
+                // Proposer and designated prover are different entities
+                // The designated prover paid a liveness bond on L2 that needs to be refunded
+                l2BondCredit_ = _claimRecord.livenessBond;
+                l2BondCreditReceiver_ = claim.designatedProver;
+            }
+        } else if (_claimRecord.proofTiming == ProofTiming.InExtendedProvingWindow) {
+            // Proof submitted during extended window (late but acceptable proof)
+            // The designated prover failed to prove on time, but another prover stepped in
+
+            // Refund provability bond since the block was ultimately proven
+            _creditBond(_claimRecord.proposer, _claimRecord.provabilityBond);
+            if (claim.designatedProver == _claimRecord.proposer) {
+                // Proposer was also the designated prover who failed to prove on time
+                // Forfeit their liveness bond but reward the actual prover with half
+                _creditBond(claim.actualProver, _claimRecord.livenessBond / 2);
+            } else {
+                // Proposer and designated prover are different entities
+                // Refund the designated prover's L1 liveness bond
+                _creditBond(claim.designatedProver, _claimRecord.livenessBond);
+                // Reward the actual prover with half of the liveness bond on L2
+                l2BondCredit_ = _claimRecord.livenessBond / 2;
+                l2BondCreditReceiver_ = claim.actualProver;
+            }
+        } else {
+            // Proof submitted after extended window (very late proof)
+            // Block was difficult to prove, forfeit provability bond but reward prover
+
+            // Forfeit proposer's provability bond but give half to the actual prover
+            _creditBond(claim.actualProver, _claimRecord.provabilityBond / 2);
+            if (claim.designatedProver == _claimRecord.proposer) {
+                // Proposer was the designated prover
+                // Refund their liveness bond since the block was hard to prove
+                _creditBond(claim.designatedProver, _claimRecord.livenessBond);
+            } else {
+                // Proposer and designated prover are different entities
+                // Refund the designated prover's L2 liveness bond
+                l2BondCredit_ = _claimRecord.livenessBond;
+                l2BondCreditReceiver_ = claim.designatedProver;
+            }
+        }
+    }
+
+    function _validateBlobLocator(BlobLocator memory _blobLocator)
         private
         view
         returns (BlobSegment memory)
@@ -188,10 +279,12 @@ abstract contract ShastaInbox is IShastaInbox {
     // Errors
     // -------------------------------------------------------------------------
 
-    error ClaimNotFound();
     error BlobNotFound();
-    error ProposalsAndClaimsLengthMismatch();
-    error ProposalHashMismatch();
+    error InconsistentParams();
+    error ProposalHashMismatch1();
+    error ProposalHashMismatch2();
+    error ClaimRecordHashMismatch();
     error InvalidClaimChain();
     error InvalidBlobLocator();
+    error Unauthorized();
 }
