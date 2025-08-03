@@ -139,7 +139,14 @@ contract ShastaInboxStore is IShastaInboxStore {
         claimRecordHashLookup[_proposalId][_parentClaimRecordHash] = _claimRecordHash;
     }
 
-    function aggregateBondCredits(address _address, uint48 _bond) external onlyInbox {
-        l2BondCreditsHash = keccak256(abi.encode(l2BondCreditsHash, _address, _bond));
+    function aggregateBondCredits(
+        uint48 _proposalId,
+        address _address,
+        uint48 _bond
+    )
+        external
+        onlyInbox
+    {
+        l2BondCreditsHash = keccak256(abi.encode(l2BondCreditsHash, _proposalId, _address, _bond));
     }
 }

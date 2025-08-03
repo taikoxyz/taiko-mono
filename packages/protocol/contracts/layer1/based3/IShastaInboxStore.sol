@@ -106,9 +106,10 @@ interface IShastaInboxStore {
 
     /// @notice Aggregates the L2 bond credit for a given address
     /// @dev Only callable by the inbox contract
+    /// @param _proposalId The proposal ID
     /// @param _address The address to aggregate the L2 bond credit for
     /// @param _bond The amount of L2 bond credit to aggregate
-    function aggregateBondCredits(address _address, uint48 _bond) external;
+    function aggregateBondCredits(uint48 _proposalId, address _address, uint48 _bond) external;
 
     // -------------------------------------------------------------------------
     // Errors

@@ -125,10 +125,9 @@ abstract contract ShastaInbox is IShastaInbox {
             lastFinalizedClaimHash = keccak256(abi.encode(claim));
             proposalId++;
 
-            // Handle bond paymento
-            (uint48 bondCredit, address receiver) = _handleBondPayment(claimRecord);
-            if (bondCredit > 0) {
-                store.aggregateBondCredits(receiver, bondCredit);
+            (uint48 credit, address receiver) = _handleBondPayment(claimRecord);
+            if (credit > 0) {
+                store.aggregateBondCredits(proposalId, receiver, credit);
             }
         }
 
@@ -214,10 +213,69 @@ abstract contract ShastaInbox is IShastaInbox {
         });
     }
 
+    /// @dev Handles bond refunds and penalties based on proof timing and prover identity
+    /// @param _claimRecord The claim record containing bond and timing information
+    /// @return l2BondCredit_ Amount of bond to credit on L2
+    /// @return l2BondCreditReceiver_ Address to receive the L2 bond credit
     function _handleBondPayment(ClaimRecord memory _claimRecord)
         private
         returns (uint48 l2BondCredit_, address l2BondCreditReceiver_)
-    { }
+    {
+        Claim memory claim = _claimRecord.claim;
+        if (_claimRecord.proofTiming == ProofTiming.InProvingWindow) {
+            // Proof submitted within the designated proving window (on-time proof)
+            // The designated prover successfully proved the block on time
+
+            // Refund both provability and liveness bonds to the proposer since the block was
+            // proven successfully and on time
+            _creditBond(
+                _claimRecord.proposer, _claimRecord.provabilityBond + _claimRecord.livenessBond
+            );
+            if (claim.designatedProver == _claimRecord.proposer) {
+                // Proposer and designated prover are the same entity
+                // No L2 bond transfers needed since all bonds were handled on L1
+            } else {
+                // Proposer and designated prover are different entities
+                // The designated prover paid a liveness bond on L2 that needs to be refunded
+                l2BondCredit_ = _claimRecord.livenessBond;
+                l2BondCreditReceiver_ = claim.designatedProver;
+            }
+        } else if (_claimRecord.proofTiming == ProofTiming.InExtendedProvingWindow) {
+            // Proof submitted during extended window (late but acceptable proof)
+            // The designated prover failed to prove on time, but another prover stepped in
+
+            // Refund provability bond since the block was ultimately proven
+            _creditBond(_claimRecord.proposer, _claimRecord.provabilityBond);
+            if (claim.designatedProver == _claimRecord.proposer) {
+                // Proposer was also the designated prover who failed to prove on time
+                // Forfeit their liveness bond but reward the actual prover with half
+                _creditBond(claim.actualProver, _claimRecord.livenessBond / 2);
+            } else {
+                // Proposer and designated prover are different entities
+                // Refund the designated prover's L1 liveness bond
+                _creditBond(claim.designatedProver, _claimRecord.livenessBond);
+                // Reward the actual prover with half of the liveness bond on L2
+                l2BondCredit_ = _claimRecord.livenessBond / 2;
+                l2BondCreditReceiver_ = claim.actualProver;
+            }
+        } else {
+            // Proof submitted after extended window (very late proof)
+            // Block was difficult to prove, forfeit provability bond but reward prover
+
+            // Forfeit proposer's provability bond but give half to the actual prover
+            _creditBond(claim.actualProver, _claimRecord.provabilityBond / 2);
+            if (claim.designatedProver == _claimRecord.proposer) {
+                // Proposer was the designated prover
+                // Refund their liveness bond since the block was hard to prove
+                _creditBond(claim.designatedProver, _claimRecord.livenessBond);
+            } else {
+                // Proposer and designated prover are different entities
+                // Refund the designated prover's L2 liveness bond
+                l2BondCredit_ = _claimRecord.livenessBond;
+                l2BondCreditReceiver_ = claim.designatedProver;
+            }
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Errors
