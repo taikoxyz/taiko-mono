@@ -236,13 +236,15 @@ class BlockCalls:
         if prover == self.ADDRESS_ZERO or prover == proposal.proposer:
             return proposal.proposer
 
-        prover_bond_balance = self._get_bond_balance(prover)
-        if (prover_bond_balance < proposal.liveness_bond):
-            return proposal.proposer
+        if proposal.liveness_bond > 0:
+            prover_bond_balance = self._get_bond_balance(prover)
+            if (prover_bond_balance < proposal.liveness_bond):
+                return proposal.proposer
         
-        proposer_bond_balance = self._get_bond_balance(proposal.proposer)
-        if (proposer_bond_balance < proposal_content.prover_fee):
-            return proposal.proposer
+        if proposal_content.prover_fee > 0:
+            proposer_bond_balance = self._get_bond_balance(proposal.proposer)
+            if (proposer_bond_balance < proposal_content.prover_fee):
+                return proposal.proposer
         
         prover_bond_balance +=  proposal_content.prover_fee
         prover_bond_balance -= proposal.liveness_bond
