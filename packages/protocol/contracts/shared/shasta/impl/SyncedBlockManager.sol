@@ -6,13 +6,15 @@ import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
 /// @title SyncedBlockManager
 /// @notice Contract for managing synced L2 blocks
 /// @custom:security-contact security@taiko.xyz
+/// TODOs:
+/// - [ ] use a ring buffer so previously synecd blocks can be used in merkle proofs.
 contract SyncedBlockManager is ISyncedBlockManager {
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
 
-    /// @notice The address of the inbox contract that can update the synced block
-    address public immutable inbox;
+    /// @notice The address of the authorized contract that can update the synced block
+    address public immutable authorized;
 
     /// @notice The current synced L2 block information
     SyncedBlock private _syncedBlock;
@@ -22,8 +24,8 @@ contract SyncedBlockManager is ISyncedBlockManager {
     // -------------------------------------------------------------------------
 
     /// @notice Ensures only the inbox contract can call the function.
-    modifier onlyInbox() {
-        if (msg.sender != inbox) revert Unauthorized();
+    modifier onlyAuthorized() {
+        if (msg.sender != authorized) revert Unauthorized();
         _;
     }
 
@@ -31,10 +33,10 @@ contract SyncedBlockManager is ISyncedBlockManager {
     // Constructor
     // -------------------------------------------------------------------------
 
-    /// @notice Initializes the SyncedBlockManager with the inbox address
-    /// @param _inbox The address of the inbox contract
-    constructor(address _inbox) {
-        inbox = _inbox;
+    /// @notice Initializes the SyncedBlockManager with the authorized address
+    /// @param _authorized The address of the authorized contract. On L1, this shall be the inbox, on L2, this shall be the anchor transactor.
+    constructor(address _authorized) {
+        authorized = _authorized;
     }
 
     // -------------------------------------------------------------------------
@@ -42,7 +44,7 @@ contract SyncedBlockManager is ISyncedBlockManager {
     // -------------------------------------------------------------------------
 
     /// @inheritdoc ISyncedBlockManager
-    function setSyncedBlock(SyncedBlock calldata _newSyncedBlock) external onlyInbox {
+    function setSyncedBlock(SyncedBlock calldata _newSyncedBlock) external onlyAuthorized {
         if (_newSyncedBlock.blockNumber <= _syncedBlock.blockNumber) return;
         if (_newSyncedBlock.stateRoot == 0) return;
 
