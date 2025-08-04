@@ -308,13 +308,13 @@ abstract contract ShastaInbox is IShastaInbox {
     // -------------------------------------------------------------------------
 
     error BlobNotFound();
-    error InvalidState();
+    error ClaimRecordHashMismatch();
     error InconsistentParams();
     error InsufficientBond();
+    error InvalidBlobLocator();
+    error InvalidClaimChain();
+    error InvalidState();
     error ProposalHashMismatch1();
     error ProposalHashMismatch2();
-    error ClaimRecordHashMismatch();
-    error InvalidClaimChain();
-    error InvalidBlobLocator();
     error Unauthorized();
 }
