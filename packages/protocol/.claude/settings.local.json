@@ -22,7 +22,8 @@
       "Bash(/dev/null)",
       "Bash(pip3 list:*)",
       "Bash(black:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

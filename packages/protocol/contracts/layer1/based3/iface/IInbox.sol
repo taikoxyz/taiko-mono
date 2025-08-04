@@ -94,16 +94,6 @@ interface IInbox {
         ProofTiming proofTiming;
     }
 
-    /// @notice Represents a synced L2 block.
-    struct SyncedBlock {
-        /// @notice The L2 block number.
-        uint48 blockNumber;
-        /// @notice The L2 block hash.
-        bytes32 blockHash;
-        /// @notice The L2 state root.
-        bytes32 stateRoot;
-    }
-
     /// @notice Represents the core state of the inbox.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
@@ -120,8 +110,6 @@ interface IInbox {
     struct State {
         /// @notice The hash of the core state.
         bytes32 coreStateHash;
-        /// @notice The synced L2 block information.
-        SyncedBlock syncedBlock;
         /// @notice Maps proposal ID to proposal hash.
         mapping(uint48 proposalId => bytes32 proposalHash) proposalRegistry;
         /// @notice Maps proposal ID and parent claim hash to claim record hash.

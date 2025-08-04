@@ -1,34 +1,45 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./IInbox.sol";
-import "./LibState.sol";
+import { IInbox } from "../iface/IInbox.sol";
+import { IInboxStateManager } from "../iface/IInboxStateManager.sol";
+import { IBondManager } from "../iface/IBondManager.sol";
+import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
 /// @custom:security-contact security@taiko.xyz
 abstract contract Inbox is IInbox {
+    // -------------------------------------------------------------------------
+    // Internal Structs
+    // -------------------------------------------------------------------------
     // TODO
     // - [x] support anchor p   er block
     // - [x] support prover and liveness bond
     // - [x] support provability bond
     // - [x] support batch proving
     // - [x] support multi-step finalization
-    // - [ ] support Summary approach
+    // - [x] support Summary approach
     // - [ ] if no anchor block find, default to empty content.
 
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
 
-    /// @notice The complete protocol state.
-    State private state;
-
     uint48 public immutable provabilityBond;
     uint48 public immutable livenessBond;
     uint48 public immutable provingWindow;
     uint48 public immutable extendedProvingWindow;
     uint256 public immutable minBondBalance;
+
+    /// @notice The bond manager contract
+    IBondManager public immutable bondManager;
+
+    /// @notice The state manager contract
+    IInboxStateManager public immutable inboxStateManager;
+
+    /// @notice The synced block manager contract
+    ISyncedBlockManager public immutable syncedBlockManager;
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -39,15 +50,19 @@ abstract contract Inbox is IInbox {
         uint48 _livenessBond,
         uint48 _provingWindow,
         uint48 _extendedProvingWindow,
-        uint256 _minBondBalance
+        uint256 _minBondBalance,
+        address _stateManager,
+        address _bondManager,
+        address _syncedBlockManager
     ) {
         provabilityBond = _provabilityBond;
         livenessBond = _livenessBond;
         provingWindow = _provingWindow;
         extendedProvingWindow = _extendedProvingWindow;
         minBondBalance = _minBondBalance;
-
-        LibState.initialize(state);
+        inboxStateManager = IInboxStateManager(_stateManager);
+        bondManager = IBondManager(_bondManager);
+        syncedBlockManager = ISyncedBlockManager(_syncedBlockManager);
     }
 
     // -------------------------------------------------------------------------
@@ -63,8 +78,8 @@ abstract contract Inbox is IInbox {
         ) = abi.decode(_data, (CoreState, BlobLocator[], ClaimRecord[]));
 
         if (!_isValidProposer(msg.sender)) revert Unauthorized();
-        if (_getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
-        if (keccak256(abi.encode(coreState)) != LibState.getCoreStateHash(state)) {
+        if (bondManager.getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
+        if (keccak256(abi.encode(coreState)) != inboxStateManager.getCoreStateHash()) {
             revert InvalidState();
         }
 
@@ -73,11 +88,17 @@ abstract contract Inbox is IInbox {
             coreState = _propose(coreState, blobSegment);
         }
 
-        SyncedBlock memory syncedBlock;
+        ISyncedBlockManager.SyncedBlock memory syncedBlock;
         (coreState, syncedBlock) = _finalize(coreState, claimRecords);
 
-        LibState.setCoreStateHash(state, keccak256(abi.encode(coreState)));
-        LibState.setSyncedBlock(state, syncedBlock);
+        inboxStateManager.setCoreStateHash(keccak256(abi.encode(coreState)));
+        syncedBlockManager.setSyncedBlock(
+            ISyncedBlockManager.SyncedBlock({
+                blockNumber: syncedBlock.blockNumber,
+                blockHash: syncedBlock.blockHash,
+                stateRoot: syncedBlock.stateRoot
+            })
+        );
     }
 
     /// @inheritdoc IInbox
@@ -105,33 +126,10 @@ abstract contract Inbox is IInbox {
     /// @param _proof The proof for the claims.
     function verifyProof(bytes32 _claimsHash, bytes calldata _proof) internal virtual;
 
-    /// @dev Debits a bond from an address with best effort.
-    /// @param _address The address to debit the bond from.
-    /// @param _bond The amount of bond to debit.
-    /// @return amountDebited_ The actual amount debited.
-    function _debitBond(
-        address _address,
-        uint48 _bond
-    )
-        internal
-        virtual
-        returns (uint48 amountDebited_)
-    { }
-
-    /// @dev Credits a bond to an address.
-    /// @param _address The address to credit the bond to.
-    /// @param _bond The amount of bond to credit.
-    function _creditBond(address _address, uint48 _bond) internal virtual { }
-
     /// @dev Checks if an address is a valid proposer.
     /// @param _address The address to check.
     /// @return True if the address is a valid proposer, false otherwise.
     function _isValidProposer(address _address) internal view virtual returns (bool) { }
-
-    /// @dev Gets the bond balance of an address.
-    /// @param _address The address to get the bond balance for.
-    /// @return The bond balance of the address.
-    function _getBondBalance(address _address) internal view virtual returns (uint256) { }
 
     // -------------------------------------------------------------------------
     // Private Functions
@@ -163,7 +161,7 @@ abstract contract Inbox is IInbox {
         });
 
         bytes32 proposalHash = keccak256(abi.encode(proposal));
-        LibState.setProposalHash(state, proposalId, proposalHash);
+        inboxStateManager.setProposalHash(proposalId, proposalHash);
 
         emit Proposed(proposal);
         return _coreState;
@@ -172,7 +170,7 @@ abstract contract Inbox is IInbox {
     function _prove(Proposal memory _proposal, Claim memory _claim) private {
         bytes32 proposalHash = keccak256(abi.encode(_proposal));
         if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
-        if (proposalHash != LibState.getProposalHash(state, _proposal.id)) {
+        if (proposalHash != inboxStateManager.getProposalHash(_proposal.id)) {
             revert ProposalHashMismatch();
         }
 
@@ -191,7 +189,7 @@ abstract contract Inbox is IInbox {
         });
 
         bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
-        LibState.setClaimRecordHash(state, _proposal.id, _claim.parentClaimHash, claimRecordHash);
+        inboxStateManager.setClaimRecordHash(_proposal.id, _claim.parentClaimHash, claimRecordHash);
         emit Proved(_proposal, claimRecord);
     }
 
@@ -204,13 +202,13 @@ abstract contract Inbox is IInbox {
         ClaimRecord[] memory _claimRecords
     )
         private
-        returns (CoreState memory, SyncedBlock memory)
+        returns (CoreState memory, ISyncedBlockManager.SyncedBlock memory)
     {
-        if (keccak256(abi.encode(_coreState)) != LibState.getCoreStateHash(state)) {
+        if (keccak256(abi.encode(_coreState)) != inboxStateManager.getCoreStateHash()) {
             revert InvalidState();
         }
 
-        SyncedBlock memory syncedBlock;
+        ISyncedBlockManager.SyncedBlock memory syncedBlock;
         for (uint256 i; i < _claimRecords.length; ++i) {
             ClaimRecord memory claimRecord = _claimRecords[i];
             Claim memory claim = claimRecord.claim;
@@ -224,7 +222,7 @@ abstract contract Inbox is IInbox {
             uint48 proposalId = ++_coreState.lastFinalizedProposalId;
 
             bytes32 storedClaimRecordHash =
-                LibState.getClaimRecordHash(state, proposalId, claim.parentClaimHash);
+                inboxStateManager.getClaimRecordHash(proposalId, claim.parentClaimHash);
 
             if (storedClaimRecordHash != claimRecordHash) revert ClaimRecordHashMismatch();
 
@@ -234,7 +232,7 @@ abstract contract Inbox is IInbox {
 
             emit Finalized(proposalId, claimRecord);
 
-            syncedBlock = SyncedBlock({
+            syncedBlock = ISyncedBlockManager.SyncedBlock({
                 blockNumber: claim.endBlockNumber,
                 blockHash: claim.endBlockHash,
                 stateRoot: claim.endStateRoot
@@ -279,10 +277,10 @@ abstract contract Inbox is IInbox {
             // The designated prover failed to prove on time, but another prover stepped in
 
             if (claim.designatedProver == _claimRecord.proposer) {
-                _debitBond(_claimRecord.proposer, _claimRecord.livenessBond);
+                bondManager.debitBond(_claimRecord.proposer, _claimRecord.livenessBond);
                 // Proposer was also the designated prover who failed to prove on time
                 // Forfeit their liveness bond but reward the actual prover with half
-                _creditBond(claim.actualProver, _claimRecord.livenessBond / 2);
+                bondManager.creditBond(claim.actualProver, _claimRecord.livenessBond / 2);
             } else {
                 // Reward the actual prover with half of the liveness bond on L2
                 credit = _claimRecord.livenessBond / 2;
@@ -291,8 +289,8 @@ abstract contract Inbox is IInbox {
         } else {
             // Proof submitted after extended window (very late proof)
             // Block was difficult to prove, forfeit provability bond but reward prover
-            _debitBond(_claimRecord.proposer, _claimRecord.provabilityBond);
-            _creditBond(claim.actualProver, _claimRecord.provabilityBond / 2);
+            bondManager.debitBond(_claimRecord.proposer, _claimRecord.provabilityBond);
+            bondManager.creditBond(claim.actualProver, _claimRecord.provabilityBond / 2);
 
             // Forfeit proposer's provability bond but give half to the actual prover
             if (claim.designatedProver == _claimRecord.proposer) {
