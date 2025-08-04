@@ -5,11 +5,14 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IInboxStateManager } from "../iface/IInboxStateManager.sol";
 import { IBondManager } from "../iface/IBondManager.sol";
 import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
+import { LibDecoder } from "../lib/LibDecoder.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
 /// @custom:security-contact security@taiko.xyz
 abstract contract Inbox is IInbox {
+    using LibDecoder for bytes;
+
     // -------------------------------------------------------------------------
     // Internal Structs
     // -------------------------------------------------------------------------
@@ -75,7 +78,7 @@ abstract contract Inbox is IInbox {
             CoreState memory coreState,
             BlobLocator[] memory blobLocators,
             ClaimRecord[] memory claimRecords
-        ) = abi.decode(_data, (CoreState, BlobLocator[], ClaimRecord[]));
+        ) = _data.decodeProposeData();
 
         if (!_isValidProposer(msg.sender)) revert Unauthorized();
         if (bondManager.getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
@@ -103,8 +106,7 @@ abstract contract Inbox is IInbox {
 
     /// @inheritdoc IInbox
     function prove(bytes calldata _data, bytes calldata _proof) external {
-        (Proposal[] memory proposals, Claim[] memory claims) =
-            abi.decode(_data, (Proposal[], Claim[]));
+        (Proposal[] memory proposals, Claim[] memory claims) = _data.decodeProveData();
 
         if (proposals.length != claims.length) revert InconsistentParams();
 
