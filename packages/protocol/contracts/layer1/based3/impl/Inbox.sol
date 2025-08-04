@@ -13,13 +13,14 @@ import { LibDecoder } from "../lib/LibDecoder.sol";
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
 /// @custom:security-contact security@taiko.xyz
 // TODO
-// - [x] support anchor p   er block
+// - [x] support anchor per block
 // - [x] support prover and liveness bond
 // - [x] support provability bond
 // - [x] support batch proving
 // - [x] support multi-step finalization
 // - [x] support Summary approach
 // - [ ] if no anchor block find, default to empty content.
+// - [ ] How to validate 256 block hash in L2
 
 abstract contract Inbox is IInbox {
     using LibDecoder for bytes;
@@ -52,6 +53,17 @@ abstract contract Inbox is IInbox {
     // Constructor
     // -------------------------------------------------------------------------
 
+    /// @notice Initializes the Inbox contract with configuration parameters
+    /// @param _provabilityBond The bond required for block provability
+    /// @param _livenessBond The bond required for prover liveness
+    /// @param _provingWindow The initial proving window duration
+    /// @param _extendedProvingWindow The extended proving window duration
+    /// @param _minBondBalance The minimum bond balance required for proposers
+    /// @param _stateManager The address of the state manager contract
+    /// @param _bondManager The address of the bond manager contract
+    /// @param _syncedBlockManager The address of the synced block manager contract
+    /// @param _proofVerifier The address of the proof verifier contract
+    /// @param _proposerChecker The address of the proposer checker contract
     constructor(
         uint48 _provabilityBond,
         uint48 _livenessBond,
@@ -134,13 +146,13 @@ abstract contract Inbox is IInbox {
     /// @dev Proposes a new proposal of L2 blocks.
     /// @param _coreState The core state of the inbox.
     /// @param _content The content of the proposal.
-    /// @return The updated core state.
+    /// @return coreState_ The updated core state.
     function _propose(
         CoreState memory _coreState,
         BlobSegment memory _content
     )
         private
-        returns (CoreState memory)
+        returns (CoreState memory coreState_)
     {
         uint48 proposalId = _coreState.nextProposalId++;
         uint48 timestamp = uint48(block.timestamp);
@@ -160,7 +172,7 @@ abstract contract Inbox is IInbox {
         inboxStateManager.setProposalHash(proposalId, proposalHash);
 
         emit Proposed(proposal);
-        return _coreState;
+        return (_coreState);
     }
 
     function _prove(Proposal memory _proposal, Claim memory _claim) private {
@@ -192,13 +204,14 @@ abstract contract Inbox is IInbox {
     /// @dev Finalizes proposals by verifying claim records and updating state.
     /// @param _coreState The current core state.
     /// @param _claimRecords The claim records to finalize.
-    /// @return The updated core state and synced block.
+    /// @return coreState_ The updated core state
+    /// @return syncedBlock_ The synced block information
     function _finalize(
         CoreState memory _coreState,
         ClaimRecord[] memory _claimRecords
     )
         private
-        returns (CoreState memory, ISyncedBlockManager.SyncedBlock memory)
+        returns (CoreState memory coreState_, ISyncedBlockManager.SyncedBlock memory syncedBlock_)
     {
         if (keccak256(abi.encode(_coreState)) != inboxStateManager.getCoreStateHash()) {
             revert InvalidState();
@@ -241,7 +254,7 @@ abstract contract Inbox is IInbox {
             emit Finalized(_coreState.lastFinalizedProposalId, lastFinalizedClaimRecord);
         }
 
-        return (_coreState, syncedBlock);
+        return (_coreState, syncedBlock_);
     }
 
     /// @dev Handles bond refunds and penalties based on proof timing and prover identity.
@@ -261,6 +274,9 @@ abstract contract Inbox is IInbox {
         address receiver;
 
         Claim memory claim = _claimRecord.claim;
+        uint256 livenessBondWei = uint256(_claimRecord.livenessBond) * 1 gwei;
+        uint256 provabilityBondWei = uint256(_claimRecord.provabilityBond) * 1 gwei;
+
         if (_claimRecord.proofTiming == ProofTiming.InProvingWindow) {
             // Proof submitted within the designated proving window (on-time proof)
             // The designated prover successfully proved the block on time
@@ -276,10 +292,10 @@ abstract contract Inbox is IInbox {
             // The designated prover failed to prove on time, but another prover stepped in
 
             if (claim.designatedProver == _claimRecord.proposer) {
-                bondManager.debitBond(_claimRecord.proposer, _claimRecord.livenessBond);
+                bondManager.debitBond(_claimRecord.proposer, livenessBondWei);
                 // Proposer was also the designated prover who failed to prove on time
                 // Forfeit their liveness bond but reward the actual prover with half
-                bondManager.creditBond(claim.actualProver, _claimRecord.livenessBond / 2);
+                bondManager.creditBond(claim.actualProver, livenessBondWei / 2);
             } else {
                 // Reward the actual prover with half of the liveness bond on L2
                 credit = _claimRecord.livenessBond / 2;
@@ -288,8 +304,8 @@ abstract contract Inbox is IInbox {
         } else {
             // Proof submitted after extended window (very late proof)
             // Block was difficult to prove, forfeit provability bond but reward prover
-            bondManager.debitBond(_claimRecord.proposer, _claimRecord.provabilityBond);
-            bondManager.creditBond(claim.actualProver, _claimRecord.provabilityBond / 2);
+            bondManager.debitBond(_claimRecord.proposer, provabilityBondWei);
+            bondManager.creditBond(claim.actualProver, provabilityBondWei / 2);
 
             // Forfeit proposer's provability bond but give half to the actual prover
             if (claim.designatedProver != _claimRecord.proposer) {
@@ -309,11 +325,11 @@ abstract contract Inbox is IInbox {
 
     /// @dev Validates a blob locator and converts it to a blob segment.
     /// @param _blobLocator The blob locator to validate.
-    /// @return The blob segment.
+    /// @return blobSegment_ The blob segment.
     function _validateBlobLocator(BlobLocator memory _blobLocator)
         private
         view
-        returns (BlobSegment memory)
+        returns (BlobSegment memory blobSegment_)
     {
         if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
 

@@ -30,6 +30,9 @@ contract SyncedBlockManager is ISyncedBlockManager {
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
+
+    /// @notice Initializes the SyncedBlockManager with the inbox address
+    /// @param _inbox The address of the inbox contract
     constructor(address _inbox) {
         inbox = _inbox;
     }
@@ -70,20 +73,9 @@ contract SyncedBlockManager is ISyncedBlockManager {
     }
 
     // -------------------------------------------------------------------------
-    // Internal Functions - Virtual
-    // -------------------------------------------------------------------------
-
-    /// @dev Checks if the caller is authorized to update the synced block
-    /// @dev This should be overridden in inheriting contracts to implement proper access control
-    function _checkAuthorized() internal view virtual {
-        // Default implementation - override in inheriting contracts
-        // For example, check if msg.sender is the Inbox contract
-    }
-
-    // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
 
-    error Unauthorized();
     error InvalidSyncedBlock();
+    error Unauthorized();
 }

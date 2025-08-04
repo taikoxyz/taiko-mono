@@ -63,7 +63,7 @@ abstract contract BondManager is IBondManager {
     )
         internal
         virtual
-        returns (uint48 amountDebited_);
+        returns (uint256 amountDebited_);
 
     /// @dev Internal implementation for crediting a bond
     /// @param _address The address to credit the bond to

@@ -32,8 +32,9 @@ abstract contract InboxStateManager is IInboxStateManager {
     // Constructor
     // -------------------------------------------------------------------------
 
-    /// @param _inbox The address of the inbox contract.
-    /// @param _genesisBlockHash The genesis block hash.
+    /// @notice Initializes the InboxStateManager with the inbox address and genesis block hash
+    /// @param _inbox The address of the inbox contract
+    /// @param _genesisBlockHash The genesis block hash
     constructor(address _inbox, bytes32 _genesisBlockHash) {
         inbox = _inbox;
 
