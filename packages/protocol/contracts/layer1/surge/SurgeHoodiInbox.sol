@@ -48,11 +48,12 @@ contract SurgeHoodiInbox is TaikoInbox {
             maxUnverifiedBatches: 324_000, // DO NOT CHANGE!!!
             batchRingBufferSize: 360_000, // DO NOT CHANGE!!!
             maxBatchesToVerify: 16,
-            blockMaxGasLimit: 200_000_000,
+            blockMaxGasLimit: 60_000_000,
             livenessBondBase: livenessBondBase,
             livenessBondPerBlock: livenessBondPerBlock,
             stateRootSyncInternal: 2,
             maxAnchorHeightOffset: 64,
+            // Surge: `baseFeeConfig` is no longer relevant
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
                 sharingPctg: 75,
@@ -63,7 +64,7 @@ contract SurgeHoodiInbox is TaikoInbox {
             provingWindow: 24 hours,
             cooldownWindow: 7 days,
             maxSignalsToReceive: 16,
-            maxBlocksPerBatch: 768,
+            maxBlocksPerBatch: 7,
             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0, shasta: 0, unzen: 0 }),
             maxVerificationDelay: maxVerificationDelay
         });
