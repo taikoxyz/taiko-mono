@@ -209,6 +209,8 @@ abstract contract Inbox is IInbox {
         }
 
         ISyncedBlockManager.SyncedBlock memory syncedBlock;
+        ClaimRecord memory lastFinalizedClaimRecord;
+
         for (uint256 i; i < _claimRecords.length; ++i) {
             ClaimRecord memory claimRecord = _claimRecords[i];
             Claim memory claim = claimRecord.claim;
@@ -230,13 +232,17 @@ abstract contract Inbox is IInbox {
             _coreState.bondOperationsHash =
                 _processBonds(proposalId, claimRecord, _coreState.bondOperationsHash);
 
-            emit Finalized(proposalId, claimRecord);
+            lastFinalizedClaimRecord = claimRecord;
 
             syncedBlock = ISyncedBlockManager.SyncedBlock({
                 blockNumber: claim.endBlockNumber,
                 blockHash: claim.endBlockHash,
                 stateRoot: claim.endStateRoot
             });
+        }
+
+        if (lastFinalizedClaimRecord.proposer != address(0)) {
+            emit Finalized(_coreState.lastFinalizedProposalId, lastFinalizedClaimRecord);
         }
 
         return (_coreState, syncedBlock);
