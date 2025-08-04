@@ -63,12 +63,6 @@ abstract contract ShastaInbox is IShastaInbox {
         for (uint256 i; i < _blobLocators.length; ++i) {
             _propose(_validateBlobLocator(_blobLocators[i]));
         }
-
-        // We assume the proposer is the designated prover and it has to pay both the provability
-        // and liveness bonds on L1 in case on L2 there is either no prover assigned, or the
-        // prover's balance is insufficient to pay the liveness bond.
-        uint48 bondAmount = (provabilityBond + livenessBond) * uint48(_blobLocators.length);
-        _debitBond(msg.sender, bondAmount);
     }
 
     /// @inheritdoc IShastaInbox
