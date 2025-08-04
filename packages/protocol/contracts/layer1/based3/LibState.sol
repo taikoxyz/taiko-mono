@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./IShastaInbox.sol";
+import "./IInbox.sol";
 
 /// @title LibState
 /// @notice Library for managing ShastaInbox state data.
@@ -13,8 +13,8 @@ library LibState {
 
     /// @notice Initializes the state.
     /// @param _state The state to initialize.
-    function initialize(IShastaInbox.State storage _state) internal {
-        IShastaInbox.CoreState memory coreState = IShastaInbox.CoreState({
+    function initialize(IInbox.State storage _state) internal {
+        IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
             lastFinalizedClaimHash: 0,
@@ -26,7 +26,7 @@ library LibState {
     /// @notice Sets the hash of the core state.
     /// @param _state The state to update.
     /// @param _coreStateHash The hash of the core state.
-    function setCoreStateHash(IShastaInbox.State storage _state, bytes32 _coreStateHash) internal {
+    function setCoreStateHash(IInbox.State storage _state, bytes32 _coreStateHash) internal {
         _state.coreStateHash = _coreStateHash;
     }
 
@@ -34,8 +34,8 @@ library LibState {
     /// @param _state The state to update.
     /// @param _syncedBlock The synced block data.
     function setSyncedBlock(
-        IShastaInbox.State storage _state,
-        IShastaInbox.SyncedBlock memory _syncedBlock
+        IInbox.State storage _state,
+        IInbox.SyncedBlock memory _syncedBlock
     )
         internal
     {
@@ -47,7 +47,7 @@ library LibState {
     /// @param _proposalId The proposal ID.
     /// @param _proposalHash The proposal hash.
     function setProposalHash(
-        IShastaInbox.State storage _state,
+        IInbox.State storage _state,
         uint48 _proposalId,
         bytes32 _proposalHash
     )
@@ -62,7 +62,7 @@ library LibState {
     /// @param _parentClaimHash The parent claim hash.
     /// @param _claimRecordHash The claim record hash.
     function setClaimRecordHash(
-        IShastaInbox.State storage _state,
+        IInbox.State storage _state,
         uint48 _proposalId,
         bytes32 _parentClaimHash,
         bytes32 _claimRecordHash
@@ -76,7 +76,7 @@ library LibState {
     /// @param _state The state to update.
     /// @param _l2BondCreditsHash The L2 bond credits hash.
     function setL2BondCreditsHash(
-        IShastaInbox.State storage _state,
+        IInbox.State storage _state,
         bytes32 _l2BondCreditsHash
     )
         internal
@@ -91,7 +91,7 @@ library LibState {
     /// @notice Gets the hash of the core state.
     /// @param _state The state to read from.
     /// @return coreStateHash_ The hash of the core state.
-    function getCoreStateHash(IShastaInbox.State storage _state)
+    function getCoreStateHash(IInbox.State storage _state)
         internal
         view
         returns (bytes32 coreStateHash_)
@@ -102,10 +102,10 @@ library LibState {
     /// @notice Gets the synced block.
     /// @param _state The state to read from.
     /// @return syncedBlock_ The synced block data.
-    function getSyncedBlock(IShastaInbox.State storage _state)
+    function getSyncedBlock(IInbox.State storage _state)
         internal
         view
-        returns (IShastaInbox.SyncedBlock memory syncedBlock_)
+        returns (IInbox.SyncedBlock memory syncedBlock_)
     {
         syncedBlock_ = _state.syncedBlock;
     }
@@ -115,7 +115,7 @@ library LibState {
     /// @param _proposalId The proposal ID.
     /// @return proposalHash_ The hash of the proposal.
     function getProposalHash(
-        IShastaInbox.State storage _state,
+        IInbox.State storage _state,
         uint48 _proposalId
     )
         internal
@@ -131,7 +131,7 @@ library LibState {
     /// @param _parentClaimHash The parent claim hash.
     /// @return claimRecordHash_ The claim record hash.
     function getClaimRecordHash(
-        IShastaInbox.State storage _state,
+        IInbox.State storage _state,
         uint48 _proposalId,
         bytes32 _parentClaimHash
     )
@@ -145,7 +145,7 @@ library LibState {
     /// @notice Gets the L2 bond credits hash.
     /// @param _state The state to read from.
     /// @return l2BondCreditsHash_ The L2 bond credits hash.
-    function getL2BondCreditsHash(IShastaInbox.State storage _state)
+    function getL2BondCreditsHash(IInbox.State storage _state)
         internal
         view
         returns (bytes32 l2BondCreditsHash_)

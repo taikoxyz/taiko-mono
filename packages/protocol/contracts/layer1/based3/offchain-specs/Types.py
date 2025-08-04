@@ -6,7 +6,7 @@ from eth_typing import Address
 ## --- Onchain ---
 @dataclass
 class BlobSegment:
-    """Represents a blob segment from IShastaInbox."""
+    """Represents a blob segment from IInbox."""
 
     blobHashes: List[str]  # bytes32[] in Solidity
     offset: int  # uint32 in Solidity
@@ -15,7 +15,7 @@ class BlobSegment:
 
 @dataclass
 class Proposal:
-    """Represents a proposal from IShastaInbox."""
+    """Represents a proposal from IInbox."""
 
     id: int  # uint48 in Solidity
     proposer: Address

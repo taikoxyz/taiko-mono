@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IShastaInbox } from "./IShastaInbox.sol";
-import { LibState } from "./LibState.sol";
+import "./IInbox.sol";
+import "./LibState.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
 /// @custom:security-contact security@taiko.xyz
-abstract contract ShastaInbox is IShastaInbox {
+abstract contract Inbox is IInbox {
     // TODO
-    // - [x] support anchor per block
+    // - [x] support anchor p   er block
     // - [x] support prover and liveness bond
     // - [x] support provability bond
     // - [x] support batch proving
@@ -54,7 +54,7 @@ abstract contract ShastaInbox is IShastaInbox {
     // External Transactional Functions
     // -------------------------------------------------------------------------
 
-    /// @dev msg.sender is always the proposer.
+    /// @inheritdoc IInbox
     function propose(bytes calldata _data) external {
         (
             CoreState memory coreState,
@@ -80,6 +80,7 @@ abstract contract ShastaInbox is IShastaInbox {
         LibState.setSyncedBlock(state, syncedBlock);
     }
 
+    /// @inheritdoc IInbox
     function prove(bytes calldata _data, bytes calldata _proof) external {
         (Proposal[] memory proposals, Claim[] memory claims) =
             abi.decode(_data, (Proposal[], Claim[]));
@@ -87,86 +88,11 @@ abstract contract ShastaInbox is IShastaInbox {
         if (proposals.length != claims.length) revert InconsistentParams();
 
         for (uint256 i; i < proposals.length; ++i) {
-            Proposal memory proposal = proposals[i];
-
-            bytes32 proposalHash = keccak256(abi.encode(proposal));
-            if (proposalHash != claims[i].proposalHash) revert ProposalHashMismatch();
-            if (proposalHash != LibState.getProposalHash(state, proposal.id)) {
-                revert ProposalHashMismatch();
-            }
-
-            ProofTiming proofTiming = block.timestamp <= proposal.timestamp + provingWindow
-                ? ProofTiming.InProvingWindow
-                : block.timestamp <= proposal.timestamp + extendedProvingWindow
-                    ? ProofTiming.InExtendedProvingWindow
-                    : ProofTiming.OutOfExtendedProvingWindow;
-
-            ClaimRecord memory claimRecord = ClaimRecord({
-                claim: claims[i],
-                proposer: proposal.proposer,
-                livenessBond: proposal.livenessBond,
-                provabilityBond: proposal.provabilityBond,
-                proofTiming: proofTiming
-            });
-
-            bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
-            LibState.setClaimRecordHash(
-                state, proposal.id, claims[i].parentClaimHash, claimRecordHash
-            );
-            emit Proved(proposal, claimRecord);
+            _prove(proposals[i], claims[i]);
         }
 
         bytes32 claimsHash = keccak256(abi.encode(claims));
         verifyProof(claimsHash, _proof);
-    }
-
-    /// @dev Finalizes proposals by verifying claim records and updating state.
-    /// @param _coreState The current core state.
-    /// @param _claimRecords The claim records to finalize.
-    /// @return The updated core state and synced block.
-    function _finalize(
-        CoreState memory _coreState,
-        ClaimRecord[] memory _claimRecords
-    )
-        private
-        returns (CoreState memory, SyncedBlock memory)
-    {
-        if (keccak256(abi.encode(_coreState)) != LibState.getCoreStateHash(state)) {
-            revert InvalidState();
-        }
-
-        SyncedBlock memory syncedBlock;
-        for (uint256 i; i < _claimRecords.length; ++i) {
-            ClaimRecord memory claimRecord = _claimRecords[i];
-            Claim memory claim = claimRecord.claim;
-
-            if (claim.parentClaimHash != _coreState.lastFinalizedClaimHash) {
-                revert InvalidClaimChain();
-            }
-
-            bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
-
-            uint48 proposalId = ++_coreState.lastFinalizedProposalId;
-
-            bytes32 storedClaimRecordHash =
-                LibState.getClaimRecordHash(state, proposalId, claim.parentClaimHash);
-
-            if (storedClaimRecordHash != claimRecordHash) revert ClaimRecordHashMismatch();
-
-            _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claim));
-            _coreState.bondOperationsHash =
-                _processBonds(proposalId, claimRecord, _coreState.bondOperationsHash);
-
-            emit Finalized(proposalId, claimRecord);
-
-            syncedBlock = SyncedBlock({
-                blockNumber: claim.endBlockNumber,
-                blockHash: claim.endBlockHash,
-                stateRoot: claim.endStateRoot
-            });
-        }
-
-        return (_coreState, syncedBlock);
     }
 
     // -------------------------------------------------------------------------
@@ -241,6 +167,81 @@ abstract contract ShastaInbox is IShastaInbox {
 
         emit Proposed(proposal);
         return _coreState;
+    }
+
+    function _prove(Proposal memory _proposal, Claim memory _claim) private {
+        bytes32 proposalHash = keccak256(abi.encode(_proposal));
+        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
+        if (proposalHash != LibState.getProposalHash(state, _proposal.id)) {
+            revert ProposalHashMismatch();
+        }
+
+        ProofTiming proofTiming = block.timestamp <= _proposal.timestamp + provingWindow
+            ? ProofTiming.InProvingWindow
+            : block.timestamp <= _proposal.timestamp + extendedProvingWindow
+                ? ProofTiming.InExtendedProvingWindow
+                : ProofTiming.OutOfExtendedProvingWindow;
+
+        ClaimRecord memory claimRecord = ClaimRecord({
+            claim: _claim,
+            proposer: _proposal.proposer,
+            livenessBond: _proposal.livenessBond,
+            provabilityBond: _proposal.provabilityBond,
+            proofTiming: proofTiming
+        });
+
+        bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
+        LibState.setClaimRecordHash(state, _proposal.id, _claim.parentClaimHash, claimRecordHash);
+        emit Proved(_proposal, claimRecord);
+    }
+
+    /// @dev Finalizes proposals by verifying claim records and updating state.
+    /// @param _coreState The current core state.
+    /// @param _claimRecords The claim records to finalize.
+    /// @return The updated core state and synced block.
+    function _finalize(
+        CoreState memory _coreState,
+        ClaimRecord[] memory _claimRecords
+    )
+        private
+        returns (CoreState memory, SyncedBlock memory)
+    {
+        if (keccak256(abi.encode(_coreState)) != LibState.getCoreStateHash(state)) {
+            revert InvalidState();
+        }
+
+        SyncedBlock memory syncedBlock;
+        for (uint256 i; i < _claimRecords.length; ++i) {
+            ClaimRecord memory claimRecord = _claimRecords[i];
+            Claim memory claim = claimRecord.claim;
+
+            if (claim.parentClaimHash != _coreState.lastFinalizedClaimHash) {
+                revert InvalidClaimChain();
+            }
+
+            bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
+
+            uint48 proposalId = ++_coreState.lastFinalizedProposalId;
+
+            bytes32 storedClaimRecordHash =
+                LibState.getClaimRecordHash(state, proposalId, claim.parentClaimHash);
+
+            if (storedClaimRecordHash != claimRecordHash) revert ClaimRecordHashMismatch();
+
+            _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claim));
+            _coreState.bondOperationsHash =
+                _processBonds(proposalId, claimRecord, _coreState.bondOperationsHash);
+
+            emit Finalized(proposalId, claimRecord);
+
+            syncedBlock = SyncedBlock({
+                blockNumber: claim.endBlockNumber,
+                blockHash: claim.endBlockHash,
+                stateRoot: claim.endStateRoot
+            });
+        }
+
+        return (_coreState, syncedBlock);
     }
 
     /// @dev Handles bond refunds and penalties based on proof timing and prover identity.

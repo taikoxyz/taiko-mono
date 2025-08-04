@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title IShastaInbox
+/// @title IInbox
 /// @notice Interface for the ShastaInbox contract
 /// @custom:security-contact security@taiko.xyz
-interface IShastaInbox {
+interface IInbox {
     // -------------------------------------------------------------------------
     // Structs
     // -------------------------------------------------------------------------
@@ -153,34 +153,12 @@ interface IShastaInbox {
     // External Transactional Functions
     // -------------------------------------------------------------------------
 
-    // /// @notice Proposes new proposals of L2 blocks.
-    // /// @param _coreState The current core state of the inbox.
-    // /// @param _blobLocators The locators of the blobs containing the proposal's content.
-    // /// @param _claimRecords The claim records to be proven.
-    // function propose(
-    //     CoreState memory _coreState,
-    //     BlobLocator[] memory _blobLocators,
-    //     ClaimRecord[] memory _claimRecords
-    // )
-    //     external;
+    /// @notice Proposes new proposals of L2 blocks.
+    /// @param _data The data containing the core state, blob locators, and claim records.
+    function propose(bytes calldata _data) external;
 
-    // /// @notice Proves a claim about some properties of a proposal, including its state
-    // transition.
-    // /// @param _proposals Original proposal data.
-    // /// @param _claims State transition claims being proven.
-    // /// @param _proof Validity proof for the claim.
-    // function prove(
-    //     Proposal[] memory _proposals,
-    //     Claim[] memory _claims,
-    //     bytes calldata _proof
-    // )
-    //     external;
-
-    // -------------------------------------------------------------------------
-    // External View Functions
-    // -------------------------------------------------------------------------
-
-    /// @notice Returns the proving window duration.
-    /// @return provingWindow_ The proving window duration in seconds.
-    function provingWindow() external view returns (uint48 provingWindow_);
+    /// @notice Proves a claim about some properties of a proposal, including its state transition.
+    /// @param _data The data containing the proposals and claims.
+    /// @param _proof Validity proof for the claim.
+    function prove(bytes calldata _data, bytes calldata _proof) external;
 }
