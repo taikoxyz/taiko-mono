@@ -29,6 +29,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+  
+      - name: Verify Node.js installation
+        run: |
+          echo "Node.js location:"
+          which node || echo "Node not found in PATH"
 
       - name: Run Claude Code
         id: claude

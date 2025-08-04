@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.29.5](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.4...docs-site-v1.29.5) (2025-07-31)
+
+
+### Chores
+
+* **docs-site:** missed config ([#19853](https://github.com/taikoxyz/taiko-mono/issues/19853)) ([89f14c3](https://github.com/taikoxyz/taiko-mono/commit/89f14c3bf19e816ee4630b31a38f15cdaa7716e6))
+
+## [1.29.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.3...docs-site-v1.29.4) (2025-07-31)
+
+
+### Chores
+
+* **docs-site:** add rpc, oracle and aa providers ([#19835](https://github.com/taikoxyz/taiko-mono/issues/19835)) ([bd6fe92](https://github.com/taikoxyz/taiko-mono/commit/bd6fe925bd65b8c320e048d4cc425b6cd153161f))
+* **docs-site:** update guides for based preconfs upgrade ([#19790](https://github.com/taikoxyz/taiko-mono/issues/19790)) ([4900ed9](https://github.com/taikoxyz/taiko-mono/commit/4900ed9f7311899a228e90ecb8a84610accb989f))
+
+## [1.29.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.2...docs-site-v1.29.3) (2025-07-29)
+
+
+### Chores
+
+* **repo, docs-site:** remove dead link ([#19816](https://github.com/taikoxyz/taiko-mono/issues/19816)) ([f9f7bbb](https://github.com/taikoxyz/taiko-mono/commit/f9f7bbb447b5a6c1cc4fac3ae733821f6a17380f))
+
 ## [1.29.2](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.1...docs-site-v1.29.2) (2025-07-11)
 
 

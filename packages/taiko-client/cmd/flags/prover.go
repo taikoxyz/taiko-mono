@@ -3,6 +3,7 @@ package flags
 import (
 	"time"
 
+	opsigner "github.com/ethereum-optimism/optimism/op-service/signer"
 	"github.com/urfave/cli/v2"
 )
 
@@ -142,4 +143,4 @@ var ProverFlags = MergeFlags(CommonFlags, []cli.Flag{
 	SGXBatchSize,
 	ZKVMBatchSize,
 	ForceBatchProvingInterval,
-}, TxmgrFlags)
+}, opsigner.CLIFlags("PROVER", proverCategory), TxmgrFlags)
