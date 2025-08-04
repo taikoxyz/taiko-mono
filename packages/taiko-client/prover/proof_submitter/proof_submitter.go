@@ -49,6 +49,9 @@ type ProofSubmitterPacaya struct {
 	// Intervals
 	forceBatchProvingInterval time.Duration
 	proofPollingInterval      time.Duration
+	// Monitor
+	monitorCtx    context.Context
+	monitorCancel context.CancelFunc
 }
 
 // SenderOptions is the options for the transaction sender.
@@ -79,7 +82,9 @@ func NewProofSubmitterPacaya(
 		return nil, err
 	}
 
-	return &ProofSubmitterPacaya{
+	monitorCtx, monitorCancel := context.WithCancel(context.Background())
+
+	submitter := &ProofSubmitterPacaya{
 		rpc:                    senderOpts.RPCClient,
 		baseLevelProofProducer: baseLevelProver,
 		zkvmProofProducer:      zkvmProofProducer,
@@ -101,7 +106,14 @@ func NewProofSubmitterPacaya(
 		proofBuffers:              proofBuffers,
 		forceBatchProvingInterval: forceBatchProvingInterval,
 		proofPollingInterval:      proofPollingInterval,
-	}, nil
+		monitorCtx:                monitorCtx,
+		monitorCancel:             monitorCancel,
+	}
+
+	// Start the buffer monitor
+	submitter.StartBufferMonitor()
+
+	return submitter, nil
 }
 
 // RequestProof requests proof for the given Taiko batch.
@@ -465,4 +477,46 @@ func (s *ProofSubmitterPacaya) validateBatchProofs(
 	}
 
 	return invalidBatchIDs, nil
+}
+
+// StartBufferMonitor starts the buffer monitor goroutine.
+func (s *ProofSubmitterPacaya) StartBufferMonitor() {
+	go func() {
+		ticker := time.NewTicker(s.forceBatchProvingInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-s.monitorCtx.Done():
+				log.Info("Buffer monitor stopped")
+				return
+			case <-ticker.C:
+				for proofType, buffer := range s.proofBuffers {
+					// Check if buffer has items and first item has been waiting too long
+					if buffer.Len() > 0 && !buffer.IsAggregating() {
+						firstItemAge := time.Since(buffer.FirstItemAt())
+						if firstItemAge >= s.forceBatchProvingInterval {
+							log.Info(
+								"Buffer monitor timeout reached, triggering aggregation",
+								"proofType", proofType,
+								"bufferSize", buffer.Len(),
+								"firstItemAge", firstItemAge,
+								"threshold", s.forceBatchProvingInterval,
+							)
+							if s.TryAggregate(buffer, proofType) {
+								log.Debug("Aggregation triggered by buffer monitor", "proofType", proofType)
+							}
+						}
+					}
+				}
+			}
+		}
+	}()
+}
+
+// Stop stops the buffer monitor.
+func (s *ProofSubmitterPacaya) Stop() {
+	if s.monitorCancel != nil {
+		s.monitorCancel()
+	}
 }
