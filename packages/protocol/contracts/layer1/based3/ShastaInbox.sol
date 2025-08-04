@@ -187,7 +187,6 @@ abstract contract ShastaInbox is IShastaInbox {
 
     function _getBondBalance(address _address) internal view virtual returns (uint256) { }
 
-
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
