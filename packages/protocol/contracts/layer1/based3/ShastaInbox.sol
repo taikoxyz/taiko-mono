@@ -45,7 +45,7 @@ abstract contract ShastaInbox is IShastaInbox {
         livenessBond = _livenessBond;
         provingWindow = _provingWindow;
         extendedProvingWindow = _extendedProvingWindow;
-                minBondBalance = _minBondBalance;
+        minBondBalance = _minBondBalance;
 
         store.initialize();
     }
@@ -56,13 +56,27 @@ abstract contract ShastaInbox is IShastaInbox {
 
     /// @inheritdoc IShastaInbox
     /// @dev msg.sender is always the proposer
-    function propose(BlobLocator[] memory _blobLocators) external {
+    function propose(
+        State memory _state,
+        BlobLocator[] memory _blobLocators,
+        ClaimRecord[] memory _claimRecords
+    )
+        external
+    {
         if (!_isValidProposer(msg.sender)) revert Unauthorized();
         if (_getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
+        if (keccak256(abi.encode(_state)) != store.getStateHash()) revert InvalidState();
 
         for (uint256 i; i < _blobLocators.length; ++i) {
-            _propose(_validateBlobLocator(_blobLocators[i]));
+            BlobSegment memory blobSegment = _validateBlobLocator(_blobLocators[i]);
+            _state = _propose(_state, blobSegment);
         }
+
+        SyncedBlock memory syncedBlock;
+        (_state, syncedBlock) = _finalize(_state, _claimRecords);
+
+        store.setStateHash(keccak256(abi.encode(_state)));
+        store.setSyncedBlock(syncedBlock);
     }
 
     /// @inheritdoc IShastaInbox
@@ -106,44 +120,49 @@ abstract contract ShastaInbox is IShastaInbox {
         verifyProof(claimsHash, _proof);
     }
 
-    /// @inheritdoc IShastaInbox
-    function finalize(ClaimRecord[] memory _claimRecords) external {
-        bytes32 lastFinalizedClaimHash = store.getLastFinalizedClaimHash();
-        uint48 proposalId = store.getLastFinalizedProposalId() + 1;
-        Claim memory claim;
+    function _finalize(
+        State memory _state,
+        ClaimRecord[] memory _claimRecords
+    )
+        private
+        returns (State memory, SyncedBlock memory)
+    {
+        if (keccak256(abi.encode(_state)) != store.getStateHash()) revert InvalidState();
 
+        SyncedBlock memory syncedBlock;
         for (uint256 i; i < _claimRecords.length; ++i) {
             ClaimRecord memory claimRecord = _claimRecords[i];
-            claim = claimRecord.claim;
+            Claim memory claim = claimRecord.claim;
 
-            if (claim.parentClaimHash != lastFinalizedClaimHash) revert InvalidClaimChain();
+            if (claim.parentClaimHash != _state.lastFinalizedClaimHash) revert InvalidClaimChain();
 
             bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
+
+            uint48 proposalId = ++_state.lastFinalizedProposalId;
 
             bytes32 storedClaimRecordHash =
                 store.getClaimRecordHash(proposalId, claim.parentClaimHash);
 
             if (storedClaimRecordHash != claimRecordHash) revert ClaimRecordHashMismatch();
 
-            lastFinalizedClaimHash = keccak256(abi.encode(claim));
-
-// TODO：
-            (uint48 credit, address receiver) = _handleBondPayment(claimRecord);
-            if (credit > 0) {
-                store.aggregateBondCredits(proposalId, receiver, credit);
-            }
+            _state.lastFinalizedClaimHash = keccak256(abi.encode(claim));
+            _state.bondOperationsHash =
+                _processBonds(proposalId, claimRecord, _state.bondOperationsHash);
 
             emit Finalized(proposalId, claimRecord);
-            ++proposalId;
+
+            syncedBlock = SyncedBlock({
+                blockNumber: claim.endBlockNumber,
+                blockHash: claim.endBlockHash,
+                stateRoot: claim.endStateRoot
+            });
         }
 
-        // Advance the last finalized proposal ID and update the last finalized ClaimRecord hash.
-        store.setLastFinalizedProposalId(proposalId);
-        store.setLastFinalizedClaimHash(lastFinalizedClaimHash);
+        return (_state, syncedBlock);
 
         // TODO: for both L1 and L2, lets try not use signal service as it writes to new slots for
         // each new synced block.
-        store.setLastL2BlockData(claim.endBlockNumber, claim.endBlockHash, claim.endStateRoot);
+        // store.setLastL2BlockData(claim.endBlockNumber, claim.endBlockHash, claim.endStateRoot);
     }
 
     // -------------------------------------------------------------------------
@@ -169,13 +188,17 @@ abstract contract ShastaInbox is IShastaInbox {
     // -------------------------------------------------------------------------
 
     /// @notice Proposes a new proposal of L2 blocks
+    /// @param _state The state of the inbox
     /// @param _content The content of the proposal
-    function _propose(BlobSegment memory _content) private {
-        uint48 proposalId = store.incrementAndGetProposalId();
-
-        // Create a new proposal.
-        // Note that the contentHash is not checked here to empty proposal data.
-        uint48 referenceTiemstamp= uint48(block.timestamp);
+    function _propose(
+        State memory _state,
+        BlobSegment memory _content
+    )
+        private
+        returns (State memory)
+    {
+        uint48 proposalId = _state.nextProposalId++;
+        uint48 timestamp = uint48(block.timestamp);
         uint48 referenceBlockNumber = uint48(block.number);
 
         Proposal memory proposal = Proposal({
@@ -183,7 +206,7 @@ abstract contract ShastaInbox is IShastaInbox {
             proposer: msg.sender,
             provabilityBond: provabilityBond,
             livenessBond: livenessBond,
-            timestamp: referenceTiemstamp,
+            timestamp: timestamp,
             proposedBlockNumber: referenceBlockNumber,
             content: _content
         });
@@ -192,16 +215,25 @@ abstract contract ShastaInbox is IShastaInbox {
         store.setProposalHash(proposalId, proposalHash);
 
         emit Proposed(proposal);
+        return _state;
     }
 
     /// @dev Handles bond refunds and penalties based on proof timing and prover identity
+    /// @param _proposalId The ID of the proposal
     /// @param _claimRecord The claim record containing bond and timing information
-    /// @return l2BondCredit_ Amount of bond to credit on L2
-    /// @return l2BondCreditReceiver_ Address to receive the L2 bond credit
-    function _handleBondPayment(ClaimRecord memory _claimRecord)
+    /// @param _bondOperationsHash The hash of the bond operations
+    /// @return bondOperationsHash_ The hash of the bond operations
+    function _processBonds(
+        uint48 _proposalId,
+        ClaimRecord memory _claimRecord,
+        bytes32 _bondOperationsHash
+    )
         private
-        returns (uint48 l2BondCredit_, address l2BondCreditReceiver_)
+        returns (bytes32 bondOperationsHash_)
     {
+        uint48 credit;
+        address receiver;
+
         Claim memory claim = _claimRecord.claim;
         if (_claimRecord.proofTiming == ProofTiming.InProvingWindow) {
             // Proof submitted within the designated proving window (on-time proof)
@@ -213,8 +245,8 @@ abstract contract ShastaInbox is IShastaInbox {
             } else {
                 // Proposer and designated prover are different entities
                 // The designated prover paid a liveness bond on L2 that needs to be refunded
-                l2BondCredit_ = _claimRecord.livenessBond;
-                l2BondCreditReceiver_ = claim.designatedProver;
+                credit = _claimRecord.livenessBond;
+                receiver = claim.designatedProver;
             }
         } else if (_claimRecord.proofTiming == ProofTiming.InExtendedProvingWindow) {
             // Proof submitted during extended window (late but acceptable proof)
@@ -227,27 +259,31 @@ abstract contract ShastaInbox is IShastaInbox {
                 _creditBond(claim.actualProver, _claimRecord.livenessBond / 2);
             } else {
                 // Reward the actual prover with half of the liveness bond on L2
-                l2BondCredit_ = _claimRecord.livenessBond / 2;
-                l2BondCreditReceiver_ = claim.actualProver;
+                credit = _claimRecord.livenessBond / 2;
+                receiver = claim.actualProver;
             }
         } else {
             // Proof submitted after extended window (very late proof)
             // Block was difficult to prove, forfeit provability bond but reward prover
-             _debitBond(_claimRecord.proposer, _claimRecord.provabilityBond);
-             _debitBond(claim.actualProver, _claimRecord.provabilityBond/2);
+            _debitBond(_claimRecord.proposer, _claimRecord.provabilityBond);
+            _debitBond(claim.actualProver, _claimRecord.provabilityBond / 2);
 
             // Forfeit proposer's provability bond but give half to the actual prover
             if (claim.designatedProver == _claimRecord.proposer) {
-               
                 // Proposer was the designated prover
                 // Refund their liveness bond since the block was hard to prove
-                
             } else {
                 // Proposer and designated prover are different entities
                 // Refund the designated prover's L2 liveness bond
-                l2BondCredit_ = _claimRecord.livenessBond;
-                l2BondCreditReceiver_ = claim.designatedProver;
+                credit = _claimRecord.livenessBond;
+                receiver = claim.designatedProver;
             }
+        }
+
+        if (credit == 0) {
+            return _bondOperationsHash;
+        } else {
+            return keccak256(abi.encode(_bondOperationsHash, _proposalId, receiver, credit));
         }
     }
 
@@ -276,6 +312,7 @@ abstract contract ShastaInbox is IShastaInbox {
     // -------------------------------------------------------------------------
 
     error BlobNotFound();
+    error InvalidState();
     error InconsistentParams();
     error InsufficientBond();
     error ProposalHashMismatch1();

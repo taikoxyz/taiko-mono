@@ -90,6 +90,19 @@ interface IShastaInbox {
         ProofTiming proofTiming;
     }
 
+    struct SyncedBlock {
+        uint48 blockNumber;
+        bytes32 blockHash;
+        bytes32 stateRoot;
+    }
+
+    struct State {
+        uint48 nextProposalId;
+        uint48 lastFinalizedProposalId;
+        bytes32 lastFinalizedClaimHash;
+        bytes32 bondOperationsHash;
+    }
+
     // -------------------------------------------------------------------------
     // Events
     // -------------------------------------------------------------------------
@@ -108,8 +121,15 @@ interface IShastaInbox {
     // -------------------------------------------------------------------------
 
     /// @notice Proposes new proposals of L2 blocks
+    /// @param _state The state of the inbox
     /// @param _blobLocators The locators of the blobs containing the proposal's content
-    function propose(BlobLocator[] memory _blobLocators) external;
+    /// @param _claimRecords The claim records to be proven
+    function propose(
+        State memory _state,
+        BlobLocator[] memory _blobLocators,
+        ClaimRecord[] memory _claimRecords
+    )
+        external;
 
     /// @notice Proves a claim about some properties of a proposal, including its state transition.
     /// @param _proposals Original proposal data
@@ -121,10 +141,6 @@ interface IShastaInbox {
         bytes calldata _proof
     )
         external;
-
-    /// @notice Finalizes verifiable claims and updates the L2 chain state
-    /// @param _claimRecords The proven claims to finalize
-    function finalize(ClaimRecord[] memory _claimRecords) external;
 
     // -------------------------------------------------------------------------
     // External View Functions
