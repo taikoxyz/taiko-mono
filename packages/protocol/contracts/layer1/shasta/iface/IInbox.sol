@@ -142,8 +142,9 @@ interface IInbox {
     // -------------------------------------------------------------------------
 
     /// @notice Proposes new proposals of L2 blocks.
+    /// @param _lookahead The data to post a new lookahead.
     /// @param _data The data containing the core state, blob locators, and claim records.
-    function propose(bytes calldata _data) external;
+    function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
     /// @notice Proves a claim about some properties of a proposal, including its state transition.
     /// @param _data The data containing the proposals and claims.
