@@ -149,7 +149,7 @@ Exported serverless configurations with Block Explorer Api Keys will not contain
 
 ### Secrets (Action)
 
-Action secrets can be defined both globally and per stack. Secrets defined under `global` are not affected by changes to the `stackName` and will retain when redeployed under a new stack. Secrets defined under `stack` will be removed (on the condition that [SSOT mode](#SSOT-mode) is enabled) when the stack is redeployed under a new `stackName`. To reference secrets defined under `stack`, use the following format: `<stackname>_<secretkey>`, for example `mystack_test`.
+Action secrets can be defined both globally and per stack. Secrets defined under `global` are not affected by changes to the `stackName` and will retain when redeployed under a new stack. Secrets defined under `stack` will be removed (on the condition that [SSOT mode](#ssot-mode) is enabled) when the stack is redeployed under a new `stackName`. To reference secrets defined under `stack`, use the following format: `<stackname>_<secretkey>`, for example `mystack_test`.
 
 ```yaml
 secrets:
@@ -182,7 +182,7 @@ You can use `sls deploy` to deploy your current stack to Defender.
 
 The deploy takes in an optional `--stage` flag, which is defaulted to `dev` when installed from the template above.
 
-Moreover, the `serverless.yml` may contain an `ssot` property. More information can be found in the [SSOT mode](#SSOT-mode) section.
+Moreover, the `serverless.yml` may contain an `ssot` property. More information can be found in the [SSOT mode](#ssot-mode) section.
 
 This command will append a log entry in the `.defender` folder of the current working directory. Additionally, if any new relayer keys are created, these will be stored as JSON objects in the `.defender/relayer-keys` folder.
 
@@ -216,7 +216,7 @@ Errors thrown during the `deploy` process, will not revert any prior changes. Co
 
 - Not having set the API key and secret
 - Insufficient permissions for the API key
-- Validation error of the `serverless.yml` file (see [Types and Schema validation](#Types-and-Schema-validation))
+- Validation error of the `serverless.yml` file (see [Types and Schema validation](#types-and-schema-validation))
 
 Usually, fixing the error and retrying the deploy should suffice as any existing resources will fall within the `update` clause of the deployment. However, if unsure, you can always call `sls remove` to remove the entire stack, and retry.
 
