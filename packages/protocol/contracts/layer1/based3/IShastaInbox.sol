@@ -116,6 +116,21 @@ interface IShastaInbox {
         bytes32 bondOperationsHash;
     }
 
+    /// @notice Represents the complete protocol state including all mappings.
+    struct State {
+        /// @notice The hash of the core state.
+        bytes32 coreStateHash;
+        /// @notice The synced L2 block information.
+        SyncedBlock syncedBlock;
+        /// @notice Maps proposal ID to proposal hash.
+        mapping(uint48 proposalId => bytes32 proposalHash) proposalRegistry;
+        /// @notice Maps proposal ID and parent claim hash to claim record hash.
+        mapping(uint48 proposalId => mapping(bytes32 parentClaimHash => bytes32 claimRecordHash))
+            claimRecordHashLookup;
+        /// @notice The hash of bond credits on L2.
+        bytes32 l2BondCreditsHash;
+    }
+
     // -------------------------------------------------------------------------
     // Events
     // -------------------------------------------------------------------------
@@ -138,27 +153,28 @@ interface IShastaInbox {
     // External Transactional Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Proposes new proposals of L2 blocks.
-    /// @param _coreState The current core state of the inbox.
-    /// @param _blobLocators The locators of the blobs containing the proposal's content.
-    /// @param _claimRecords The claim records to be proven.
-    function propose(
-        CoreState memory _coreState,
-        BlobLocator[] memory _blobLocators,
-        ClaimRecord[] memory _claimRecords
-    )
-        external;
+    // /// @notice Proposes new proposals of L2 blocks.
+    // /// @param _coreState The current core state of the inbox.
+    // /// @param _blobLocators The locators of the blobs containing the proposal's content.
+    // /// @param _claimRecords The claim records to be proven.
+    // function propose(
+    //     CoreState memory _coreState,
+    //     BlobLocator[] memory _blobLocators,
+    //     ClaimRecord[] memory _claimRecords
+    // )
+    //     external;
 
-    /// @notice Proves a claim about some properties of a proposal, including its state transition.
-    /// @param _proposals Original proposal data.
-    /// @param _claims State transition claims being proven.
-    /// @param _proof Validity proof for the claim.
-    function prove(
-        Proposal[] memory _proposals,
-        Claim[] memory _claims,
-        bytes calldata _proof
-    )
-        external;
+    // /// @notice Proves a claim about some properties of a proposal, including its state
+    // transition.
+    // /// @param _proposals Original proposal data.
+    // /// @param _claims State transition claims being proven.
+    // /// @param _proof Validity proof for the claim.
+    // function prove(
+    //     Proposal[] memory _proposals,
+    //     Claim[] memory _claims,
+    //     bytes calldata _proof
+    // )
+    //     external;
 
     // -------------------------------------------------------------------------
     // External View Functions

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IShastaInbox } from "./IShastaInbox.sol";
-import { IShastaInboxStore } from "./IShastaInboxStore.sol";
+import { LibState } from "./LibState.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
@@ -21,7 +21,9 @@ abstract contract ShastaInbox is IShastaInbox {
     // State Variables
     // -------------------------------------------------------------------------
 
-    IShastaInboxStore public immutable store;
+    /// @notice The complete protocol state.
+    State private state;
+
     uint48 public immutable provabilityBond;
     uint48 public immutable livenessBond;
     uint48 public immutable provingWindow;
@@ -33,69 +35,65 @@ abstract contract ShastaInbox is IShastaInbox {
     // -------------------------------------------------------------------------
 
     constructor(
-        IShastaInboxStore _store,
         uint48 _provabilityBond,
         uint48 _livenessBond,
         uint48 _provingWindow,
         uint48 _extendedProvingWindow,
         uint256 _minBondBalance
     ) {
-        store = _store;
         provabilityBond = _provabilityBond;
         livenessBond = _livenessBond;
         provingWindow = _provingWindow;
         extendedProvingWindow = _extendedProvingWindow;
         minBondBalance = _minBondBalance;
 
-        store.initialize();
+        LibState.initialize(state);
     }
 
     // -------------------------------------------------------------------------
     // External Transactional Functions
     // -------------------------------------------------------------------------
 
-    /// @inheritdoc IShastaInbox
     /// @dev msg.sender is always the proposer.
-    function propose(
-        CoreState memory _coreState,
-        BlobLocator[] memory _blobLocators,
-        ClaimRecord[] memory _claimRecords
-    )
-        external
-    {
+    function propose(bytes calldata _data) external {
+        (
+            CoreState memory coreState,
+            BlobLocator[] memory blobLocators,
+            ClaimRecord[] memory claimRecords
+        ) = abi.decode(_data, (CoreState, BlobLocator[], ClaimRecord[]));
+
         if (!_isValidProposer(msg.sender)) revert Unauthorized();
         if (_getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
-        if (keccak256(abi.encode(_coreState)) != store.getStateHash()) revert InvalidState();
+        if (keccak256(abi.encode(coreState)) != LibState.getCoreStateHash(state)) {
+            revert InvalidState();
+        }
 
-        for (uint256 i; i < _blobLocators.length; ++i) {
-            BlobSegment memory blobSegment = _validateBlobLocator(_blobLocators[i]);
-            _coreState = _propose(_coreState, blobSegment);
+        for (uint256 i; i < blobLocators.length; ++i) {
+            BlobSegment memory blobSegment = _validateBlobLocator(blobLocators[i]);
+            coreState = _propose(coreState, blobSegment);
         }
 
         SyncedBlock memory syncedBlock;
-        (_coreState, syncedBlock) = _finalize(_coreState, _claimRecords);
+        (coreState, syncedBlock) = _finalize(coreState, claimRecords);
 
-        store.setStateHash(keccak256(abi.encode(_coreState)));
-        store.setSyncedBlock(syncedBlock);
+        LibState.setCoreStateHash(state, keccak256(abi.encode(coreState)));
+        LibState.setSyncedBlock(state, syncedBlock);
     }
 
-    /// @inheritdoc IShastaInbox
-    function prove(
-        Proposal[] memory _proposals,
-        Claim[] memory _claims,
-        bytes calldata _proof
-    )
-        external
-    {
-        if (_proposals.length != _claims.length) revert InconsistentParams();
+    function prove(bytes calldata _data, bytes calldata _proof) external {
+        (Proposal[] memory proposals, Claim[] memory claims) =
+            abi.decode(_data, (Proposal[], Claim[]));
 
-        for (uint256 i; i < _proposals.length; ++i) {
-            Proposal memory proposal = _proposals[i];
-            Claim memory claim = _claims[i];
+        if (proposals.length != claims.length) revert InconsistentParams();
+
+        for (uint256 i; i < proposals.length; ++i) {
+            Proposal memory proposal = proposals[i];
 
             bytes32 proposalHash = keccak256(abi.encode(proposal));
-            if (proposalHash != claim.proposalHash) revert ProposalHashMismatch();
-            if (proposalHash != store.getProposalHash(proposal.id)) revert ProposalHashMismatch();
+            if (proposalHash != claims[i].proposalHash) revert ProposalHashMismatch();
+            if (proposalHash != LibState.getProposalHash(state, proposal.id)) {
+                revert ProposalHashMismatch();
+            }
 
             ProofTiming proofTiming = block.timestamp <= proposal.timestamp + provingWindow
                 ? ProofTiming.InProvingWindow
@@ -104,7 +102,7 @@ abstract contract ShastaInbox is IShastaInbox {
                     : ProofTiming.OutOfExtendedProvingWindow;
 
             ClaimRecord memory claimRecord = ClaimRecord({
-                claim: claim,
+                claim: claims[i],
                 proposer: proposal.proposer,
                 livenessBond: proposal.livenessBond,
                 provabilityBond: proposal.provabilityBond,
@@ -112,11 +110,13 @@ abstract contract ShastaInbox is IShastaInbox {
             });
 
             bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
-            store.setClaimRecordHash(proposal.id, claim.parentClaimHash, claimRecordHash);
+            LibState.setClaimRecordHash(
+                state, proposal.id, claims[i].parentClaimHash, claimRecordHash
+            );
             emit Proved(proposal, claimRecord);
         }
 
-        bytes32 claimsHash = keccak256(abi.encode(_claims));
+        bytes32 claimsHash = keccak256(abi.encode(claims));
         verifyProof(claimsHash, _proof);
     }
 
@@ -131,21 +131,25 @@ abstract contract ShastaInbox is IShastaInbox {
         private
         returns (CoreState memory, SyncedBlock memory)
     {
-        if (keccak256(abi.encode(_coreState)) != store.getStateHash()) revert InvalidState();
+        if (keccak256(abi.encode(_coreState)) != LibState.getCoreStateHash(state)) {
+            revert InvalidState();
+        }
 
         SyncedBlock memory syncedBlock;
         for (uint256 i; i < _claimRecords.length; ++i) {
             ClaimRecord memory claimRecord = _claimRecords[i];
             Claim memory claim = claimRecord.claim;
 
-            if (claim.parentClaimHash != _coreState.lastFinalizedClaimHash) revert InvalidClaimChain();
+            if (claim.parentClaimHash != _coreState.lastFinalizedClaimHash) {
+                revert InvalidClaimChain();
+            }
 
             bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
 
             uint48 proposalId = ++_coreState.lastFinalizedProposalId;
 
             bytes32 storedClaimRecordHash =
-                store.getClaimRecordHash(proposalId, claim.parentClaimHash);
+                LibState.getClaimRecordHash(state, proposalId, claim.parentClaimHash);
 
             if (storedClaimRecordHash != claimRecordHash) revert ClaimRecordHashMismatch();
 
@@ -233,7 +237,7 @@ abstract contract ShastaInbox is IShastaInbox {
         });
 
         bytes32 proposalHash = keccak256(abi.encode(proposal));
-        store.setProposalHash(proposalId, proposalHash);
+        LibState.setProposalHash(state, proposalId, proposalHash);
 
         emit Proposed(proposal);
         return _coreState;

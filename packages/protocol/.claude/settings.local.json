@@ -21,7 +21,8 @@
       "Bash(do echo \"=== Checking $file ===\")",
       "Bash(/dev/null)",
       "Bash(pip3 list:*)",
-      "Bash(black:*)"
+      "Bash(black:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
