@@ -1,15 +1,40 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+/// @title IAnchor
+/// @notice Interface for the Anchor contract that manages L2 state synchronization with L1
+/// @dev This contract stores critical state information for L2 block production and gas management
+/// @custom:security-contact security@taiko.xyz
 interface IAnchor {
-
-    struct ProtoState {
-        uint256 proposalId;
+    /// @notice State structure containing L2 synchronization data
+    /// @dev Packed struct to optimize storage usage
+    struct State {
+        /// @notice The ID of the current L1 block proposal being processed
+        uint48 proposalId;
+        /// @notice Number of L2 blocks in the current batch
+        uint24 batchSize;
+        /// @notice Current index position within the batch (0-indexed)
+        uint24 indexInBatch;
+        /// @notice Gas issuance rate per second for L2 gas management
+        uint32 gasIssuancePerSecond;
+        /// @notice The hash of the bond operations for the current proposal
+        bytes32 bondOperationsHash;
     }
 
-    function get() external view returns (ProtoState memory);
+    /// @notice Emitted when the anchor state is updated
+    /// @param state The new state that has been set
+    event StateUpdated(State state);
 
-    function set(ProtoState memory _coreState) external;
+    /// @notice Retrieves the current anchor state
+    /// @return The current State struct containing synchronization data
+    function getState() external view returns (State memory);
 
+    /// @notice Updates the anchor state with new values
+    /// @param _newState The new state to be set
+    /// @dev Only callable by the authorized anchor transactor address
+    function setState(State memory _newState) external;
+
+    /// @notice Returns the address of the authorized anchor transactor
+    /// @return The address that is authorized to update the anchor state
     function anchorTransactor() external pure returns (address);
 }

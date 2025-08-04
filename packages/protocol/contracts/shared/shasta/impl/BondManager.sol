@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IBondManager } from "../iface/IBondManager.sol";
+import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 
 /// @title BondManager
 /// @notice Abstract contract for managing bonds in the Based3 protocol
@@ -12,16 +12,26 @@ abstract contract BondManager is IBondManager {
     // -------------------------------------------------------------------------
 
     /// @notice The address of the inbox contract that is allowed to call debitBond and creditBond
-    address public immutable inbox;
+    address public immutable authorized;
+
+    // -------------------------------------------------------------------------
+    // Modifiers
+    // -------------------------------------------------------------------------
+
+    /// @notice Ensures only the inbox contract can call the function.
+    modifier onlyAuthorized() {
+        if (msg.sender != authorized) revert Unauthorized();
+        _;
+    }
 
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
 
     /// @notice Initializes the BondManager with the inbox address
-    /// @param _inbox The address of the inbox contract
-    constructor(address _inbox) {
-        inbox = _inbox;
+    /// @param _authorized The address of the authorized contract
+    constructor(address _authorized) {
+        authorized = _authorized;
     }
 
     // -------------------------------------------------------------------------
@@ -29,8 +39,14 @@ abstract contract BondManager is IBondManager {
     // -------------------------------------------------------------------------
 
     /// @inheritdoc IBondManager
-    function debitBond(address _address, uint256 _bond) external returns (uint256 amountDebited_) {
-        if (msg.sender != inbox) revert OnlyInbox();
+    function debitBond(
+        address _address,
+        uint256 _bond
+    )
+        external
+        onlyAuthorized
+        returns (uint256 amountDebited_)
+    {
         amountDebited_ = _debitBond(_address, _bond);
         if (amountDebited_ > 0) {
             emit BondDebited(_address, amountDebited_);
@@ -38,8 +54,7 @@ abstract contract BondManager is IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    function creditBond(address _address, uint256 _bond) external {
-        if (msg.sender != inbox) revert OnlyInbox();
+    function creditBond(address _address, uint256 _bond) external onlyAuthorized {
         _creditBond(_address, _bond);
         emit BondCredited(_address, _bond);
     }
@@ -79,5 +94,5 @@ abstract contract BondManager is IBondManager {
     // Errors
     // -------------------------------------------------------------------------
 
-    error OnlyInbox();
+    error Unauthorized();
 }

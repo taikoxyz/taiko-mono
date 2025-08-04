@@ -34,7 +34,8 @@ contract SyncedBlockManager is ISyncedBlockManager {
     // -------------------------------------------------------------------------
 
     /// @notice Initializes the SyncedBlockManager with the authorized address
-    /// @param _authorized The address of the authorized contract. On L1, this shall be the inbox, on L2, this shall be the anchor transactor.
+    /// @param _authorized The address of the authorized contract. On L1, this shall be the inbox,
+    /// on L2, this shall be the anchor transactor.
     constructor(address _authorized) {
         authorized = _authorized;
     }

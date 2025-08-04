@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { IInboxStateManager } from "../iface/IInboxStateManager.sol";
-import { IBondManager } from "../iface/IBondManager.sol";
+import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 import { ISyncedBlockManager } from "../../../shared/shasta/iface/ISyncedBlockManager.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
