@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
@@ -81,6 +82,10 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 
 	if b.surgeProposerWrapperAddress != rpc.ZeroAddress {
 		to = &b.surgeProposerWrapperAddress
+		proposer = b.surgeProposerWrapperAddress
+		log.Info("Using SurgeProposerWrapper for calldata transaction at proposeBatch",
+			"surgeProposerWrapper", b.surgeProposerWrapperAddress.Hex(),
+			"taikoWrapper", b.taikoWrapperAddress.Hex())
 	}
 
 	if forcedInclusion != nil {

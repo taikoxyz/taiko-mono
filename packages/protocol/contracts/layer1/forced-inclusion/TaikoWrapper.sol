@@ -44,6 +44,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     error InvalidBlobByteSize();
     error InvalidBlobCreatedIn();
     error InvalidBlockSize();
+    error InvalidProposer();
     error InvalidTimeShift();
     error InvalidSignalSlots();
     error OldestForcedInclusionDue();
@@ -85,15 +86,21 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
     {
         (bytes memory bytesX, bytes memory bytesY) = abi.decode(_params, (bytes, bytes));
 
+        ITaikoInbox.BatchParams memory params = abi.decode(bytesY, (ITaikoInbox.BatchParams));
+
         if (bytesX.length == 0) {
             require(!forcedInclusionStore.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
         } else {
-            _validateForcedInclusionParams(forcedInclusionStore, bytesX);
+            // Surge: Required to enforce the actual proposer to be the `params.proposer`
+            // for the batch params of forced inclusion.
+            // It works on the assumption that `params.proposer` is verified by the preconf router.
+            address proposer = msg.sender == preconfRouter ? params.proposer : msg.sender;
+
+            _validateForcedInclusionParams(forcedInclusionStore, bytesX, proposer);
             inbox.proposeBatch(bytesX, "");
         }
 
         // Propose the normal batch after the potential forced inclusion batch.
-        ITaikoInbox.BatchParams memory params = abi.decode(bytesY, (ITaikoInbox.BatchParams));
         require(params.blobParams.blobHashes.length == 0, ITaikoInbox.InvalidBlobParams());
         require(params.blobParams.createdIn == 0, ITaikoInbox.InvalidBlobCreatedIn());
         return inbox.proposeBatch(bytesY, _txList);
@@ -101,7 +108,8 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
 
     function _validateForcedInclusionParams(
         IForcedInclusionStore _forcedInclusionStore,
-        bytes memory _bytesX
+        bytes memory _bytesX,
+        address _proposer
     )
         internal
     {
@@ -109,6 +117,9 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
 
         IForcedInclusionStore.ForcedInclusion memory inclusion =
             _forcedInclusionStore.consumeOldestForcedInclusion(p.proposer);
+
+        // Surge: Required to enforce the forced inclusion proposer param to be the actual proposer.
+        require(p.proposer == _proposer, InvalidProposer());
 
         // Only one block can be built from the request
         require(p.blocks.length == 1, InvalidBlockSize());

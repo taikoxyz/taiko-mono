@@ -123,6 +123,9 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 
 		if a.surgeProposerWrapperAddress != rpc.ZeroAddress {
 			to = a.surgeProposerWrapperAddress
+			log.Info("Using SurgeProposerWrapper for proof submission at proveBatches",
+				"surgeProposerWrapper", a.surgeProposerWrapperAddress.Hex(),
+				"taikoInbox", a.taikoInboxAddress.Hex())
 		} else {
 			to = a.taikoInboxAddress
 		}

@@ -499,8 +499,12 @@ func (p *Proposer) ProposeTxListPacaya(
 	}
 
 	// Check balance.
-	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
-		proposerAddress = p.Config.ClientConfig.ProverSetAddress
+	if p.Config.ClientConfig.SurgeProposerWrapperAddress != rpc.ZeroAddress {
+		// if the proposer wrapper is set (the flag `--surgeProposerWrapper`), use it to check balance
+		proposerAddress = p.Config.ClientConfig.SurgeProposerWrapperAddress
+		log.Info("Using SurgeProposerWrapper for balance checking",
+			"surgeProposerWrapper", proposerAddress.Hex(),
+			"proposerAddress", p.proposerAddress.Hex())
 	}
 
 	ok, err := rpc.CheckProverBalance(

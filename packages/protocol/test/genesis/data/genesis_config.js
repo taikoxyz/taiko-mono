@@ -2,19 +2,18 @@
 const ADDRESS_LENGTH = 40;
 
 // Surge: make owner configurable
-const ownerAddress = process.env.CONTRACT_OWNER;
+const ownerAddress = process.env.CONTRACT_OWNER || "0x3bc256069FF9af461F3e04494A3ece3f62F183fC";
 
 module.exports = {
   // Owner address of the pre-deployed L2 contracts.
   contractOwner: ownerAddress,
   // Chain ID of the Surge L2 network.
   // Surge: make chainId configurable
-  chainId: parseInt(process.env.L2_CHAINID),
-  l1ChainId: 1,
+  chainId: parseInt(process.env.L2_CHAINID) || 763374,
+  l1ChainId: parseInt(process.env.L1_CHAINID) || 560048,
   // Account address and pre-mint ETH amount as key-value pairs.
   seedAccounts: [
     { [ownerAddress]: 1000 },
-    { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1000 },
   ],
   get contractAddresses() {
     return {
