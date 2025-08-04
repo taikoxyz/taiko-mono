@@ -42,8 +42,13 @@ contract Anchor is IAnchor {
     /// @param _bondOperations The bond operations to be performed
     /// @dev Only the anchor transactor address can call this function
     ///      This ensures state updates come from the L2 system itself
-    function setState(State memory _newState, BondOperation[] memory _bondOperations) external onlyAuthorized {
-
+    function setState(
+        State memory _newState,
+        BondOperation[] memory _bondOperations
+    )
+        external
+        onlyAuthorized
+    {
         bytes32 bondOperationsHash = _state.bondOperationsHash;
         for (uint256 i; i < _bondOperations.length; ++i) {
             bondOperationsHash = keccak256(abi.encode(bondOperationsHash, _bondOperations[i]));
@@ -58,8 +63,6 @@ contract Anchor is IAnchor {
         _state = _newState;
         emit StateUpdated(_newState);
     }
-
-
 
     // -------------------------------------------------------------------------
     // Errors
