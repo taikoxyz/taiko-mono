@@ -15,6 +15,7 @@ abstract contract ShastaInbox is IShastaInbox {
     // - [x] support batch proving
     // - [x] support multi-step finalization
     // - [ ] support Summary approach
+    // - [ ] one proposal per L1 block
 
     // -------------------------------------------------------------------------
     // State Variables
@@ -25,6 +26,7 @@ abstract contract ShastaInbox is IShastaInbox {
     uint48 public immutable livenessBond;
     uint48 public immutable provingWindow;
     uint48 public immutable extendedProvingWindow;
+    uint256 public immutable minBondBalance;
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -35,13 +37,16 @@ abstract contract ShastaInbox is IShastaInbox {
         uint48 _provabilityBond,
         uint48 _livenessBond,
         uint48 _provingWindow,
-        uint48 _extendedProvingWindow
+        uint48 _extendedProvingWindow,
+        uint256 _minBondBalance
     ) {
         store = _store;
         provabilityBond = _provabilityBond;
         livenessBond = _livenessBond;
         provingWindow = _provingWindow;
         extendedProvingWindow = _extendedProvingWindow;
+                minBondBalance = _minBondBalance;
+
         store.initialize();
     }
 
@@ -53,6 +58,7 @@ abstract contract ShastaInbox is IShastaInbox {
     /// @dev msg.sender is always the proposer
     function propose(BlobLocator[] memory _blobLocators) external {
         if (!_isValidProposer(msg.sender)) revert Unauthorized();
+        if (_getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
 
         for (uint256 i; i < _blobLocators.length; ++i) {
             _propose(_validateBlobLocator(_blobLocators[i]));
@@ -160,6 +166,8 @@ abstract contract ShastaInbox is IShastaInbox {
     function _creditBond(address _address, uint48 _bond) internal virtual { }
 
     function _isValidProposer(address _address) internal view virtual returns (bool) { }
+
+    function _getBondBalance(address _address) internal view virtual returns (uint256) { }
 
     // -------------------------------------------------------------------------
     // Private Functions
@@ -281,6 +289,7 @@ abstract contract ShastaInbox is IShastaInbox {
 
     error BlobNotFound();
     error InconsistentParams();
+    error InsufficientBond();
     error ProposalHashMismatch1();
     error ProposalHashMismatch2();
     error ClaimRecordHashMismatch();
