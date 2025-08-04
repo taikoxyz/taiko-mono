@@ -61,7 +61,6 @@ class BlockCalls:
         if state.proposal_id != proposal.id:
             assert state.proposal_id + 1 == proposal.id, "proposal_id mismatch"
             assert state.block_index != 0, "block_index mismatch"
-
             state.proposal_id = proposal.id
             state.block_index = 0
 
@@ -75,28 +74,35 @@ class BlockCalls:
             min(block_args.timestamp, proposal.reference_block_timestamp),
         )
 
-        extra_data = 0
+        ## encode: 
+        # - if this is an end-of-proposal block
+        # - issuance_per_second
+        extra_data = 0; 
+
         gas_limit = self.BLOCK_GAS_LIMIT
         prev_randao = self._calculate_prev_randao(block_number, parent_prev_randao)
         fee_recipient = self._caculate_fee_recipient(block_args.fee_recipient)
 
-        if self._is_anchor_block_height_valid(proposal, state, block_args):
-            state.anchor_block_height = block_args.anchor_block_number
-            state.anchor_block_hash = anchor_block_hash
+        anchor_block_height = self._validate_anchor_block_height(proposal, proto_state, block_args)
+        if anchor_block_height != 0:
+            proto_state.anchor_block_height = anchor_block_height
+            proto_state.anchor_block_hash = anchor_block_hash
+
 
             for bond_credit_op in bond_credit_ops:
                 bond_balance = self._get_bond_balance(bond_credit_op[0])
                 bond_balance += bond_credit_op[1]
                 self._save_bond_balance(bond_credit_op[0], bond_balance)
-                state.anchor_bond_credits_hash = self._aggregate_bond_credits(
-                    state.anchor_bond_credits_hash,
+                proto_state.anchor_bond_credits_hash = self._aggregate_bond_credits(
+                    proto_state.anchor_bond_credits_hash,
                     proposal.id,
                     bond_credit_op[0],
                     bond_credit_op[1],
                 )
 
             assert (
-                state.anchor_bond_credits_hash == expected_anchor_bond_credits_hash
+                proto_state.anchor_bond_credits_hash
+                == expected_anchor_bond_credits_hash
             ), "anchor_bond_credits_hash mismatch"
 
         self._save_state(state)
@@ -120,15 +126,6 @@ class BlockCalls:
         System call invoked after the last transaction in every block.
         This call does not consume gas.
         """
-
-        # update base fee parameters
-        state.gas_excess = self._calculate_gas_excess(
-            state.gas_excess,
-            state.gas_issuance_per_second,
-            timestamp - parent_timestamp,
-            gas_used,
-        )
-
         # the following code runs only once per proposal at the very end
         if state.block_index == batch_size - 1:
             state.gas_issuance_per_second = self._calculate_gas_issuance_per_second(
@@ -187,19 +184,19 @@ class BlockCalls:
         else:
             return current_gas_issuance_per_second
 
-    def _is_anchor_block_height_valid(
+    def _validate_anchor_block_height(
         self,
         proposal: Proposal,
-        state: ProtoState,
+        proto_state: ProtoState,
         block_args: BlockArgs,
     ) -> bool:
         """
         Check if the anchor block height is valid
         """
         return (
-            block_args.anchor_block_number > state.anchor_block_height
+            block_args.anchor_block_number > proto_state.anchor_block_height
             and block_args.anchor_block_number
-            >= proposal.reference_block_number - self.MAX_ANCHOR_BLOCK_HEIGHT_OFFSET
+            < proposal.reference_block_number - self.MAX_ANCHOR_BLOCK_HEIGHT_OFFSET
             and block_args.anchor_block_number < proposal.reference_block_number
         )
 
@@ -270,7 +267,7 @@ class BlockCalls:
         """
         raise NotImplementedError("Must be implemented by execution layer")
 
-    def _save_state(self, state: ProtoState) -> None:
+    def _save_state(self, state: ProtoState) -> None
         """
         Save the protocol state to storage.
         This function persists the protocol state for future blocks.
