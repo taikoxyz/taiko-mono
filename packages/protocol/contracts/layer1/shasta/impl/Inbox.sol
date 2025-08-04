@@ -22,7 +22,7 @@ import { LibDecoder } from "../lib/LibDecoder.sol";
 // - [ ] if no anchor block find, default to empty content.
 // - [ ] How to validate 256 block hash in L2
 
-abstract contract Inbox is IInbox {
+contract Inbox is IInbox {
     using LibDecoder for bytes;
     // -------------------------------------------------------------------------
     // State Variables
