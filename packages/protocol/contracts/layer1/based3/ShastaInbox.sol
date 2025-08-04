@@ -127,6 +127,7 @@ abstract contract ShastaInbox is IShastaInbox {
 
             lastFinalizedClaimHash = keccak256(abi.encode(claim));
 
+// TODO：
             (uint48 credit, address receiver) = _handleBondPayment(claimRecord);
             if (credit > 0) {
                 store.aggregateBondCredits(proposalId, receiver, credit);
@@ -174,16 +175,16 @@ abstract contract ShastaInbox is IShastaInbox {
 
         // Create a new proposal.
         // Note that the contentHash is not checked here to empty proposal data.
-        uint48 timestamp = uint48(block.timestamp);
-        uint48 proposedBlockNumber = uint48(block.number);
+        uint48 referenceTiemstamp= uint48(block.timestamp);
+        uint48 referenceBlockNumber = uint48(block.number);
 
         Proposal memory proposal = Proposal({
             id: proposalId,
             proposer: msg.sender,
             provabilityBond: provabilityBond,
             livenessBond: livenessBond,
-            timestamp: timestamp,
-            proposedBlockNumber: proposedBlockNumber,
+            timestamp: referenceTiemstamp,
+            proposedBlockNumber: referenceBlockNumber,
             content: _content
         });
 

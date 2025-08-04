@@ -64,6 +64,7 @@ class BlockCalls:
 
             proto_state.proposal_id = proposal.id
             proto_state.block_index = 0
+            proto_state.num_block = proposal_content.num_block
 
             proto_state.designated_prover = self._calculate_designated_prover(
                 proposal, proposal_content
@@ -75,7 +76,11 @@ class BlockCalls:
             min(block_args.timestamp, proposal.reference_block_timestamp),
         )
 
-        extra_data = 0
+        ## encode: 
+        # - if this is an end-of-proposal block
+        # - issuance_per_second
+        extra_data = 0; 
+        
         gas_limit = self.BLOCK_GAS_LIMIT
         prev_randao = self._calculate_prev_randao(block_number, parent_prev_randao)
         fee_recipient = self._caculate_fee_recipient(block_args.fee_recipient)
@@ -202,7 +207,7 @@ class BlockCalls:
         return (
             block_args.anchor_block_number > proto_state.anchor_block_height
             and block_args.anchor_block_number
-            >= proposal.reference_block_number - self.MAX_ANCHOR_BLOCK_HEIGHT_OFFSET
+            < proposal.reference_block_number - self.MAX_ANCHOR_BLOCK_HEIGHT_OFFSET
             and block_args.anchor_block_number < proposal.reference_block_number
         )
 
