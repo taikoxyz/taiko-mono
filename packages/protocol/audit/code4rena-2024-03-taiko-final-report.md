@@ -1157,7 +1157,7 @@ Add new functionality in the vault that allows users to send a new message to th
 > We are OK with med, no issue. Please proceed accordinlgy - as we dont have:
 >
 > 1. the perfect solution to the problem
-> 2. the intention to fix it ATM - since we wont be using any native tokens anytime soon.
+> 2. the intention to fix it ATM - since we won't be using any native tokens anytime soon.
 >
 > But please proceed the way which is suitable for the wardens better, we appreciate their efforts. (So not questioning the severity)
 
