@@ -116,7 +116,7 @@ interface IInbox {
         mapping(uint48 proposalId => mapping(bytes32 parentClaimHash => bytes32 claimRecordHash))
             claimRecordHashLookup;
         /// @notice The hash of bond credits on L2.
-        bytes32 l2BondCreditsHash;
+        bytes32 bondOperationsHash;
     }
 
     // -------------------------------------------------------------------------
