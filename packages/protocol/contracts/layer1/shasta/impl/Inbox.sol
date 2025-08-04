@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { IInboxStateManager } from "../iface/IInboxStateManager.sol";
-import { IBondManager } from "../iface/IBondManager.sol";
-import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
+import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
+import { ISyncedBlockManager } from "../../../shared/shasta/iface/ISyncedBlockManager.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibDecoder } from "../lib/LibDecoder.sol";
@@ -24,6 +24,13 @@ import { LibDecoder } from "../lib/LibDecoder.sol";
 
 contract Inbox is IInbox {
     using LibDecoder for bytes;
+
+    struct BondOperation {
+        uint48 proposalId;
+        address receiver;
+        uint256 credit;
+    }
+
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
@@ -93,7 +100,7 @@ contract Inbox is IInbox {
     // -------------------------------------------------------------------------
 
     /// @inheritdoc IInbox
-    function propose(bytes calldata _data) external {
+    function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external {
         proposerChecker.checkProposer(msg.sender);
         if (bondManager.getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
 
@@ -319,7 +326,10 @@ contract Inbox is IInbox {
         if (credit == 0) {
             return _bondOperationsHash;
         } else {
-            return keccak256(abi.encode(_bondOperationsHash, _proposalId, receiver, credit));
+            BondOperation memory bondOperation =
+                BondOperation({ proposalId: _proposalId, receiver: receiver, credit: credit });
+
+            return keccak256(abi.encode(_bondOperationsHash, bondOperation));
         }
     }
 
