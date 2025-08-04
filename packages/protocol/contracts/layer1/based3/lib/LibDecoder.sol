@@ -6,6 +6,8 @@ import { IInbox } from "../iface/IInbox.sol";
 /// @title LibDecoder
 /// @notice Library for encoding and decoding data structures used in the Inbox system
 /// @custom:security-contact security@taiko.xyz
+// TODO:
+// - [ ] provide better decode/encode implementation
 library LibDecoder {
     // -------------------------------------------------------------------------
     // Decode Functions

@@ -5,26 +5,24 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IInboxStateManager } from "../iface/IInboxStateManager.sol";
 import { IBondManager } from "../iface/IBondManager.sol";
 import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
+import { IProofVerifier } from "../iface/IProofVerifier.sol";
+import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibDecoder } from "../lib/LibDecoder.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
 /// @custom:security-contact security@taiko.xyz
+// TODO
+// - [x] support anchor p   er block
+// - [x] support prover and liveness bond
+// - [x] support provability bond
+// - [x] support batch proving
+// - [x] support multi-step finalization
+// - [x] support Summary approach
+// - [ ] if no anchor block find, default to empty content.
+
 abstract contract Inbox is IInbox {
     using LibDecoder for bytes;
-
-    // -------------------------------------------------------------------------
-    // Internal Structs
-    // -------------------------------------------------------------------------
-    // TODO
-    // - [x] support anchor p   er block
-    // - [x] support prover and liveness bond
-    // - [x] support provability bond
-    // - [x] support batch proving
-    // - [x] support multi-step finalization
-    // - [x] support Summary approach
-    // - [ ] if no anchor block find, default to empty content.
-
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
@@ -44,6 +42,12 @@ abstract contract Inbox is IInbox {
     /// @notice The synced block manager contract
     ISyncedBlockManager public immutable syncedBlockManager;
 
+    /// @notice The proof verifier contract
+    IProofVerifier public immutable proofVerifier;
+
+    /// @notice The proposer checker contract
+    IProposerChecker public immutable proposerChecker;
+
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
@@ -56,7 +60,9 @@ abstract contract Inbox is IInbox {
         uint256 _minBondBalance,
         address _stateManager,
         address _bondManager,
-        address _syncedBlockManager
+        address _syncedBlockManager,
+        address _proofVerifier,
+        address _proposerChecker
     ) {
         provabilityBond = _provabilityBond;
         livenessBond = _livenessBond;
@@ -66,6 +72,8 @@ abstract contract Inbox is IInbox {
         inboxStateManager = IInboxStateManager(_stateManager);
         bondManager = IBondManager(_bondManager);
         syncedBlockManager = ISyncedBlockManager(_syncedBlockManager);
+        proofVerifier = IProofVerifier(_proofVerifier);
+        proposerChecker = IProposerChecker(_proposerChecker);
     }
 
     // -------------------------------------------------------------------------
@@ -74,14 +82,15 @@ abstract contract Inbox is IInbox {
 
     /// @inheritdoc IInbox
     function propose(bytes calldata _data) external {
+        proposerChecker.checkProposer(msg.sender);
+        if (bondManager.getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
+
         (
             CoreState memory coreState,
             BlobLocator[] memory blobLocators,
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
 
-        if (!_isValidProposer(msg.sender)) revert Unauthorized();
-        if (bondManager.getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
         if (keccak256(abi.encode(coreState)) != inboxStateManager.getCoreStateHash()) {
             revert InvalidState();
         }
@@ -115,23 +124,8 @@ abstract contract Inbox is IInbox {
         }
 
         bytes32 claimsHash = keccak256(abi.encode(claims));
-        verifyProof(claimsHash, _proof);
+        proofVerifier.verifyProof(claimsHash, _proof);
     }
-
-    // -------------------------------------------------------------------------
-    // Internal Functions - Abstract
-    // -------------------------------------------------------------------------
-
-    /// @dev Verifies a validity proof for a state transition. This function must revert if the
-    /// proof is invalid.
-    /// @param _claimsHash The hash of the claims to verify.
-    /// @param _proof The proof for the claims.
-    function verifyProof(bytes32 _claimsHash, bytes calldata _proof) internal virtual;
-
-    /// @dev Checks if an address is a valid proposer.
-    /// @param _address The address to check.
-    /// @return True if the address is a valid proposer, false otherwise.
-    function _isValidProposer(address _address) internal view virtual returns (bool) { }
 
     // -------------------------------------------------------------------------
     // Private Functions
@@ -271,10 +265,7 @@ abstract contract Inbox is IInbox {
             // Proof submitted within the designated proving window (on-time proof)
             // The designated prover successfully proved the block on time
 
-            if (claim.designatedProver == _claimRecord.proposer) {
-                // Proposer and designated prover are the same entity
-                // No L2 bond transfers needed since all bonds were handled on L1
-            } else {
+            if (claim.designatedProver != _claimRecord.proposer) {
                 // Proposer and designated prover are different entities
                 // The designated prover paid a liveness bond on L2 that needs to be refunded
                 credit = _claimRecord.livenessBond;
@@ -301,10 +292,7 @@ abstract contract Inbox is IInbox {
             bondManager.creditBond(claim.actualProver, _claimRecord.provabilityBond / 2);
 
             // Forfeit proposer's provability bond but give half to the actual prover
-            if (claim.designatedProver == _claimRecord.proposer) {
-                // Proposer was the designated prover
-                // Refund their liveness bond since the block was hard to prove
-            } else {
+            if (claim.designatedProver != _claimRecord.proposer) {
                 // Proposer and designated prover are different entities
                 // Refund the designated prover's L2 liveness bond
                 credit = _claimRecord.livenessBond;

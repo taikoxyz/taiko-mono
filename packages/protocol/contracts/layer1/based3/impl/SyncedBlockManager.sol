@@ -7,19 +7,31 @@ import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
 /// @notice Contract for managing synced L2 blocks
 /// @custom:security-contact security@taiko.xyz
 contract SyncedBlockManager is ISyncedBlockManager {
-    address public immutable updater;
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
+
+    /// @notice The address of the inbox contract that can update the synced block
+    address public immutable inbox;
 
     /// @notice The current synced L2 block information
     SyncedBlock private _syncedBlock;
 
     // -------------------------------------------------------------------------
+    // Modifiers
+    // -------------------------------------------------------------------------
+
+    /// @notice Ensures only the inbox contract can call the function.
+    modifier onlyInbox() {
+        if (msg.sender != inbox) revert Unauthorized();
+        _;
+    }
+
+    // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
-    constructor(address _updater) {
-        updater = _updater;
+    constructor(address _inbox) {
+        inbox = _inbox;
     }
 
     // -------------------------------------------------------------------------
@@ -27,11 +39,9 @@ contract SyncedBlockManager is ISyncedBlockManager {
     // -------------------------------------------------------------------------
 
     /// @inheritdoc ISyncedBlockManager
-    function setSyncedBlock(SyncedBlock memory _newSyncedBlock) external {
+    function setSyncedBlock(SyncedBlock calldata _newSyncedBlock) external onlyInbox {
         if (_newSyncedBlock.blockNumber <= _syncedBlock.blockNumber) return;
         if (_newSyncedBlock.stateRoot == 0) return;
-
-        if (msg.sender != updater) revert Unauthorized();
 
         _syncedBlock = _newSyncedBlock;
         emit SyncedBlockUpdated(
