@@ -159,10 +159,6 @@ abstract contract ShastaInbox is IShastaInbox {
         }
 
         return (_state, syncedBlock);
-
-        // TODO: for both L1 and L2, lets try not use signal service as it writes to new slots for
-        // each new synced block.
-        // store.setLastL2BlockData(claim.endBlockNumber, claim.endBlockHash, claim.endStateRoot);
     }
 
     // -------------------------------------------------------------------------
