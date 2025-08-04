@@ -180,8 +180,8 @@ abstract contract ShastaInbox is IShastaInbox {
 
         // Create a new proposal.
         // Note that the contentHash is not checked here to empty proposal data.
-        uint48 timestamp = uint48(block.timestamp - 128);
-        uint48 proposedBlockNumber = uint48(block.number - 1);
+        uint48 timestamp = uint48(block.timestamp);
+        uint48 proposedBlockNumber = uint48(block.number);
 
         Proposal memory proposal = Proposal({
             id: proposalId,
