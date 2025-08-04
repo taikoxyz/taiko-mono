@@ -24,6 +24,13 @@ import { LibDecoder } from "../lib/LibDecoder.sol";
 
 contract Inbox is IInbox {
     using LibDecoder for bytes;
+
+    struct BondOperation {
+        uint48 proposalId;
+        address receiver;
+        uint256 credit;
+    }
+
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
@@ -319,7 +326,10 @@ contract Inbox is IInbox {
         if (credit == 0) {
             return _bondOperationsHash;
         } else {
-            return keccak256(abi.encode(_bondOperationsHash, _proposalId, receiver, credit));
+            BondOperation memory bondOperation =
+                BondOperation({ proposalId: _proposalId, receiver: receiver, credit: credit });
+
+            return keccak256(abi.encode(_bondOperationsHash, bondOperation));
         }
     }
 

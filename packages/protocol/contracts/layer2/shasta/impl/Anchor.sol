@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { IAnchor } from "../iface/IAnchor.sol";
+import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 
 /// @title Anchor
 /// @notice Contract that manages L2 state synchronization with L1
@@ -12,15 +13,22 @@ import { IAnchor } from "../iface/IAnchor.sol";
 contract Anchor is IAnchor {
     /// @dev The address of the anchor transactor which shall NOT have a private key
     /// @dev This is a system address that only the L2 node can use to update state
-    address public constant _ANCHOR_TRANSACTOR = 0x0000000000000000000000000000000000001670;
+
+    address public immutable anchorTransactor;
+    IBondManager public immutable bondManager;
 
     /// @dev Private storage for the current anchor state
     State private _state;
 
     /// @dev Restricts function access to only the authorized anchor transactor
     modifier onlyAuthorized() {
-        if (msg.sender != _ANCHOR_TRANSACTOR) revert Unauthorized();
+        if (msg.sender != anchorTransactor) revert Unauthorized();
         _;
+    }
+
+    constructor(address _anchorTransactor, IBondManager _bondManager) {
+        bondManager = _bondManager;
+        anchorTransactor = _anchorTransactor;
     }
 
     /// @notice Retrieves the current anchor state
@@ -33,7 +41,20 @@ contract Anchor is IAnchor {
     /// @param _newState The new state to be set
     /// @dev Only the anchor transactor address can call this function
     ///      This ensures state updates come from the L2 system itself
-    function setState(State memory _newState) external onlyAuthorized {
+    function setState(
+        State memory _newState,
+        BondOperation[] memory _bondOperations
+    )
+        external
+        onlyAuthorized
+    {
+        bytes32 bondOperationsHash = _state.bondOperationsHash;
+        for (uint256 i; i < _bondOperations.length; ++i) {
+            bondOperationsHash = keccak256(abi.encode(bondOperationsHash, _bondOperations[i]));
+            bondManager.creditBond(_bondOperations[i].receiver, _bondOperations[i].credit);
+        }
+        if (bondOperationsHash != _newState.bondOperationsHash) revert BondOperationsHashMismatch();
+
         _newState.gasIssuancePerSecond = _newState.indexInBatch + 1 == _newState.batchSize
             ? _newState.gasIssuancePerSecond
             : _state.gasIssuancePerSecond;
@@ -42,15 +63,10 @@ contract Anchor is IAnchor {
         emit StateUpdated(_newState);
     }
 
-    /// @notice Returns the address of the authorized anchor transactor
-    /// @return The constant address that is authorized to update the anchor state
-    function anchorTransactor() external pure returns (address) {
-        return _ANCHOR_TRANSACTOR;
-    }
-
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
 
     error Unauthorized();
+    error BondOperationsHashMismatch();
 }

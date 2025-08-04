@@ -21,6 +21,12 @@ interface IAnchor {
         bytes32 bondOperationsHash;
     }
 
+    struct BondOperation {
+        uint48 proposalId;
+        address receiver;
+        uint256 credit;
+    }
+
     /// @notice Emitted when the anchor state is updated
     /// @param state The new state that has been set
     event StateUpdated(State state);
@@ -31,10 +37,11 @@ interface IAnchor {
 
     /// @notice Updates the anchor state with new values
     /// @param _newState The new state to be set
+    /// @param _bondOperations The bond operations to be performed
     /// @dev Only callable by the authorized anchor transactor address
-    function setState(State memory _newState) external;
+    function setState(State memory _newState, BondOperation[] memory _bondOperations) external;
 
     /// @notice Returns the address of the authorized anchor transactor
     /// @return The address that is authorized to update the anchor state
-    function anchorTransactor() external pure returns (address);
+    function anchorTransactor() external view returns (address);
 }
