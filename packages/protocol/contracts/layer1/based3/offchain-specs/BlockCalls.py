@@ -80,13 +80,14 @@ class BlockCalls:
         # - if this is an end-of-proposal block
         # - issuance_per_second
         extra_data = 0; 
-        
+
         gas_limit = self.BLOCK_GAS_LIMIT
         prev_randao = self._calculate_prev_randao(block_number, parent_prev_randao)
         fee_recipient = self._caculate_fee_recipient(block_args.fee_recipient)
 
-        if self._is_anchor_block_height_valid(proposal, proto_state, block_args):
-            proto_state.anchor_block_height = block_args.anchor_block_number
+        anchor_block_height = self._validate_anchor_block_height(proposal, proto_state, block_args)
+        if anchor_block_height != 0:
+            proto_state.anchor_block_height = anchor_block_height
             proto_state.anchor_block_hash = anchor_block_hash
 
             for bond_credit_op in bond_credit_ops:
@@ -126,14 +127,6 @@ class BlockCalls:
         System call invoked after the last transaction in every block.
         This call does not consume gas.
         """
-
-        # update base fee parameters
-        proto_state.gas_excess = self._calculate_gas_excess(
-            proto_state.gas_excess,
-            proto_state.gas_issuance_per_second,
-            timestamp - parent_timestamp,
-            gas_used,
-        )
 
         # the following code runs only once per proposal at the very end
         if proto_state.block_index == batch_size - 1:
@@ -195,7 +188,7 @@ class BlockCalls:
         else:
             return current_gas_issuance_per_second
 
-    def _is_anchor_block_height_valid(
+    def _validate_anchor_block_height(
         self,
         proposal: Proposal,
         proto_state: ProtoState,

@@ -14,7 +14,20 @@ class BlobDecoder:
         If decoding fails, returns a default Content with one empty block.
         """
         try:
-            return self.decode_blob_data(blob_data)
+            content = self.decode_blob_data(blob_data)
+            if content.num_block == 0:
+                raise Exception("Empty proposal data")
+            
+            num_anchor_block = 0;
+            for block_args in content.block_argss:
+                if block_args.anchor_block_number != 0:
+                    num_anchor_block += 1;
+
+            if num_anchor_block == 0:
+                raise Exception("No anchor block found")
+
+            return content  
+        
         except Exception:
             # Return default proposal data with one empty block
             return Content(

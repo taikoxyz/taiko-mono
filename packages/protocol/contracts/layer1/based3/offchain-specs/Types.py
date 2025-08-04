@@ -65,7 +65,6 @@ class ProtoState:
     proposal_id: int
     block_index: int
     gas_issuance_per_second: int
-    gas_excess: int
     anchor_block_height: int
     anchor_block_hash: str
     anchor_bond_credits_hash: str

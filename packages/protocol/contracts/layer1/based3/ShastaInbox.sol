@@ -15,7 +15,7 @@ abstract contract ShastaInbox is IShastaInbox {
     // - [x] support batch proving
     // - [x] support multi-step finalization
     // - [ ] support Summary approach
-    // - [ ] one proposal per L1 block
+    // - [ ] if no anchor block find, default to empty content.
 
     // -------------------------------------------------------------------------
     // State Variables
@@ -207,11 +207,6 @@ abstract contract ShastaInbox is IShastaInbox {
             // Proof submitted within the designated proving window (on-time proof)
             // The designated prover successfully proved the block on time
 
-            // Refund both provability and liveness bonds to the proposer since the block was
-            // proven successfully and on time
-            _creditBond(
-                _claimRecord.proposer, _claimRecord.provabilityBond + _claimRecord.livenessBond
-            );
             if (claim.designatedProver == _claimRecord.proposer) {
                 // Proposer and designated prover are the same entity
                 // No L2 bond transfers needed since all bonds were handled on L1
@@ -225,16 +220,12 @@ abstract contract ShastaInbox is IShastaInbox {
             // Proof submitted during extended window (late but acceptable proof)
             // The designated prover failed to prove on time, but another prover stepped in
 
-            // Refund provability bond since the block was ultimately proven
-            _creditBond(_claimRecord.proposer, _claimRecord.provabilityBond);
             if (claim.designatedProver == _claimRecord.proposer) {
+                _debitBond(_claimRecord.proposer, _claimRecord.livenessBond);
                 // Proposer was also the designated prover who failed to prove on time
                 // Forfeit their liveness bond but reward the actual prover with half
                 _creditBond(claim.actualProver, _claimRecord.livenessBond / 2);
             } else {
-                // Proposer and designated prover are different entities
-                // Refund the designated prover's L1 liveness bond
-                _creditBond(claim.designatedProver, _claimRecord.livenessBond);
                 // Reward the actual prover with half of the liveness bond on L2
                 l2BondCredit_ = _claimRecord.livenessBond / 2;
                 l2BondCreditReceiver_ = claim.actualProver;
@@ -242,13 +233,15 @@ abstract contract ShastaInbox is IShastaInbox {
         } else {
             // Proof submitted after extended window (very late proof)
             // Block was difficult to prove, forfeit provability bond but reward prover
+             _debitBond(_claimRecord.proposer, _claimRecord.provabilityBond);
+             _debitBond(claim.actualProver, _claimRecord.provabilityBond/2);
 
             // Forfeit proposer's provability bond but give half to the actual prover
-            _creditBond(claim.actualProver, _claimRecord.provabilityBond / 2);
             if (claim.designatedProver == _claimRecord.proposer) {
+               
                 // Proposer was the designated prover
                 // Refund their liveness bond since the block was hard to prove
-                _creditBond(claim.designatedProver, _claimRecord.livenessBond);
+                
             } else {
                 // Proposer and designated prover are different entities
                 // Refund the designated prover's L2 liveness bond
