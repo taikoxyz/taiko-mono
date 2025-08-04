@@ -171,13 +171,22 @@ abstract contract ShastaInbox is IShastaInbox {
     /// @param _proof The proof for the claims
     function verifyProof(bytes32 _claimsHash, bytes calldata _proof) internal virtual;
 
-    function _debitBond(address _address, uint48 _bond) internal virtual { }
+    /// @dev Debits a bond from an address with best effort
+    function _debitBond(
+        address _address,
+        uint48 _bond
+    )
+        internal
+        virtual
+        returns (uint48 amountDebited_)
+    { }
 
     function _creditBond(address _address, uint48 _bond) internal virtual { }
 
     function _isValidProposer(address _address) internal view virtual returns (bool) { }
 
     function _getBondBalance(address _address) internal view virtual returns (uint256) { }
+
 
     // -------------------------------------------------------------------------
     // Private Functions
@@ -262,7 +271,7 @@ abstract contract ShastaInbox is IShastaInbox {
             // Proof submitted after extended window (very late proof)
             // Block was difficult to prove, forfeit provability bond but reward prover
             _debitBond(_claimRecord.proposer, _claimRecord.provabilityBond);
-            _debitBond(claim.actualProver, _claimRecord.provabilityBond / 2);
+            _creditBond(claim.actualProver, _claimRecord.provabilityBond / 2);
 
             // Forfeit proposer's provability bond but give half to the actual prover
             if (claim.designatedProver == _claimRecord.proposer) {

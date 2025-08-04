@@ -19,6 +19,8 @@ contract ShastaInboxStore is IShastaInboxStore {
     mapping(uint48 proposalId => mapping(bytes32 parentClaimRecordHash => bytes32 claimRecordHash))
         private claimRecordHashLookup;
 
+    bytes32 private l2BondCreditsHash;
+
     // -------------------------------------------------------------------------
     // Modifiers
     // -------------------------------------------------------------------------
@@ -61,6 +63,10 @@ contract ShastaInboxStore is IShastaInboxStore {
         returns (bytes32)
     {
         return claimRecordHashLookup[_proposalId][_parentClaimRecordHash];
+    }
+
+    function getBondCreditsHash() external view returns (bytes32 bondCreditsHash_) {
+        bondCreditsHash_ = l2BondCreditsHash;
     }
 
     // -------------------------------------------------------------------------

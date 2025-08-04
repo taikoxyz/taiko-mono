@@ -10,20 +10,55 @@ import "./IShastaInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 interface IShastaInboxStore {
     // -------------------------------------------------------------------------
-    // External transactional (restricted to inbox contract)
+    // External view
     // -------------------------------------------------------------------------
 
-    /// @notice Initializes the store
-    /// @dev Only callable by the inbox contract
-    function initialize() external;
+    /// @notice Gets the next proposal ID
+    /// @return nextProposalId_ The next proposal ID to be used
+    function getNextProposalId() external view returns (uint48 nextProposalId_);
 
-    /// @notice Sets the hash of the state
-    /// @dev Only callable by the inbox contract
-    /// @param _stateHash The hash of the state
-    function setStateHash(bytes32 _stateHash) external;
+    /// @notice Gets the last finalized proposal ID
+    /// @return lastFinalizedProposalId_ The ID of the last finalized proposal
+    function getLastFinalizedProposalId() external view returns (uint48 lastFinalizedProposalId_);
 
-    /// @notice Sets the synced state
-    /// @dev Only callable by the inbox contract
+    /// @notice Gets the hash of the last finalized claim
+    /// @return lastFinalizedClaimHash_ The hash of the last finalized claim record
+    function getLastFinalizedClaimHash() external view returns (bytes32 lastFinalizedClaimHash_);
+
+    /// @notice Gets the last L2 block number
+    /// @return lastL2BlockNumber_ The number of the last L2 block
+    function getLastL2BlockNumber() external view returns (uint48 lastL2BlockNumber_);
+
+    /// @notice Gets the last L2 block hash
+    /// @return lastL2BlockHash_ The hash of the last L2 block
+    function getLastL2BlockHash() external view returns (bytes32 lastL2BlockHash_);
+
+    /// @notice Gets the last L2 state root
+    /// @return lastL2StateRoot_ The state root of the last L2 block
+    function getLastL2StateRoot() external view returns (bytes32 lastL2StateRoot_);
+
+    /// @notice Gets the proposal hash for a given proposal ID
+    /// @param _proposalId The proposal ID
+    /// @return proposalHash_ The hash of the proposal
+    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
+
+    /// @notice Gets the claim record hash for a given proposal and parent claim
+    /// @param _proposalId The proposal ID
+    /// @param _parentClaimHash The parent claim hash
+    /// @return claimRecordHash_ The claim record hash
+    function getClaimRecordHash(
+        uint48 _proposalId,
+        bytes32 _parentClaimHash
+    )
+        external
+        view
+        returns (bytes32 claimRecordHash_);
+
+    /// @notice Gets the hash of the bond credits
+    /// @return bondCreditsHash_ The hash of the bond credits
+    function getBondCreditsHash() external view returns (bytes32 bondCreditsHash_);
+
+    // -------------------------------------------------------------------------
     /// @param _syncedBlock The synced state
     function setSyncedBlock(IShastaInbox.SyncedBlock memory _syncedBlock) external;
 
