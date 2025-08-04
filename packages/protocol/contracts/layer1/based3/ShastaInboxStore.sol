@@ -83,13 +83,13 @@ contract ShastaInboxStore is IShastaInboxStore {
 
     /// @inheritdoc IShastaInboxStore
     function initialize() external onlyInbox {
-        IShastaInbox.State memory state = IShastaInbox.State({
+        IShastaInbox.CoreState memory coreState = IShastaInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
             lastFinalizedClaimHash: 0,
             bondOperationsHash: 0
         });
-        stateHash = keccak256(abi.encode(state));
+        stateHash = keccak256(abi.encode(coreState));
     }
 
     /// @inheritdoc IShastaInboxStore

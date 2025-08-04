@@ -104,8 +104,8 @@ interface IShastaInbox {
         bytes32 stateRoot;
     }
 
-    /// @notice Represents the current state of the inbox.
-    struct State {
+    /// @notice Represents the core state of the inbox.
+    struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
         /// @notice The ID of the last finalized proposal.
@@ -139,11 +139,11 @@ interface IShastaInbox {
     // -------------------------------------------------------------------------
 
     /// @notice Proposes new proposals of L2 blocks.
-    /// @param _state The current state of the inbox.
+    /// @param _coreState The current core state of the inbox.
     /// @param _blobLocators The locators of the blobs containing the proposal's content.
     /// @param _claimRecords The claim records to be proven.
     function propose(
-        State memory _state,
+        CoreState memory _coreState,
         BlobLocator[] memory _blobLocators,
         ClaimRecord[] memory _claimRecords
     )

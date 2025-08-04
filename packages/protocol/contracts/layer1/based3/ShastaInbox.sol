@@ -57,7 +57,7 @@ abstract contract ShastaInbox is IShastaInbox {
     /// @inheritdoc IShastaInbox
     /// @dev msg.sender is always the proposer.
     function propose(
-        State memory _state,
+        CoreState memory _coreState,
         BlobLocator[] memory _blobLocators,
         ClaimRecord[] memory _claimRecords
     )
@@ -65,17 +65,17 @@ abstract contract ShastaInbox is IShastaInbox {
     {
         if (!_isValidProposer(msg.sender)) revert Unauthorized();
         if (_getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
-        if (keccak256(abi.encode(_state)) != store.getStateHash()) revert InvalidState();
+        if (keccak256(abi.encode(_coreState)) != store.getStateHash()) revert InvalidState();
 
         for (uint256 i; i < _blobLocators.length; ++i) {
             BlobSegment memory blobSegment = _validateBlobLocator(_blobLocators[i]);
-            _state = _propose(_state, blobSegment);
+            _coreState = _propose(_coreState, blobSegment);
         }
 
         SyncedBlock memory syncedBlock;
-        (_state, syncedBlock) = _finalize(_state, _claimRecords);
+        (_coreState, syncedBlock) = _finalize(_coreState, _claimRecords);
 
-        store.setStateHash(keccak256(abi.encode(_state)));
+        store.setStateHash(keccak256(abi.encode(_coreState)));
         store.setSyncedBlock(syncedBlock);
     }
 
@@ -121,37 +121,37 @@ abstract contract ShastaInbox is IShastaInbox {
     }
 
     /// @dev Finalizes proposals by verifying claim records and updating state.
-    /// @param _state The current state.
+    /// @param _coreState The current core state.
     /// @param _claimRecords The claim records to finalize.
-    /// @return The updated state and synced block.
+    /// @return The updated core state and synced block.
     function _finalize(
-        State memory _state,
+        CoreState memory _coreState,
         ClaimRecord[] memory _claimRecords
     )
         private
-        returns (State memory, SyncedBlock memory)
+        returns (CoreState memory, SyncedBlock memory)
     {
-        if (keccak256(abi.encode(_state)) != store.getStateHash()) revert InvalidState();
+        if (keccak256(abi.encode(_coreState)) != store.getStateHash()) revert InvalidState();
 
         SyncedBlock memory syncedBlock;
         for (uint256 i; i < _claimRecords.length; ++i) {
             ClaimRecord memory claimRecord = _claimRecords[i];
             Claim memory claim = claimRecord.claim;
 
-            if (claim.parentClaimHash != _state.lastFinalizedClaimHash) revert InvalidClaimChain();
+            if (claim.parentClaimHash != _coreState.lastFinalizedClaimHash) revert InvalidClaimChain();
 
             bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
 
-            uint48 proposalId = ++_state.lastFinalizedProposalId;
+            uint48 proposalId = ++_coreState.lastFinalizedProposalId;
 
             bytes32 storedClaimRecordHash =
                 store.getClaimRecordHash(proposalId, claim.parentClaimHash);
 
             if (storedClaimRecordHash != claimRecordHash) revert ClaimRecordHashMismatch();
 
-            _state.lastFinalizedClaimHash = keccak256(abi.encode(claim));
-            _state.bondOperationsHash =
-                _processBonds(proposalId, claimRecord, _state.bondOperationsHash);
+            _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claim));
+            _coreState.bondOperationsHash =
+                _processBonds(proposalId, claimRecord, _coreState.bondOperationsHash);
 
             emit Finalized(proposalId, claimRecord);
 
@@ -162,7 +162,7 @@ abstract contract ShastaInbox is IShastaInbox {
             });
         }
 
-        return (_state, syncedBlock);
+        return (_coreState, syncedBlock);
     }
 
     // -------------------------------------------------------------------------
@@ -208,17 +208,17 @@ abstract contract ShastaInbox is IShastaInbox {
     // -------------------------------------------------------------------------
 
     /// @dev Proposes a new proposal of L2 blocks.
-    /// @param _state The state of the inbox.
+    /// @param _coreState The core state of the inbox.
     /// @param _content The content of the proposal.
-    /// @return The updated state.
+    /// @return The updated core state.
     function _propose(
-        State memory _state,
+        CoreState memory _coreState,
         BlobSegment memory _content
     )
         private
-        returns (State memory)
+        returns (CoreState memory)
     {
-        uint48 proposalId = _state.nextProposalId++;
+        uint48 proposalId = _coreState.nextProposalId++;
         uint48 timestamp = uint48(block.timestamp);
         uint48 referenceBlockNumber = uint48(block.number);
 
@@ -236,7 +236,7 @@ abstract contract ShastaInbox is IShastaInbox {
         store.setProposalHash(proposalId, proposalHash);
 
         emit Proposed(proposal);
-        return _state;
+        return _coreState;
     }
 
     /// @dev Handles bond refunds and penalties based on proof timing and prover identity.
