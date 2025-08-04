@@ -5,7 +5,7 @@ import { IShastaInbox } from "./IShastaInbox.sol";
 import { IShastaInboxStore } from "./IShastaInboxStore.sol";
 
 /// @title ShastaInbox
-/// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture
+/// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ShastaInbox is IShastaInbox {
     // TODO
@@ -55,7 +55,7 @@ abstract contract ShastaInbox is IShastaInbox {
     // -------------------------------------------------------------------------
 
     /// @inheritdoc IShastaInbox
-    /// @dev msg.sender is always the proposer
+    /// @dev msg.sender is always the proposer.
     function propose(
         State memory _state,
         BlobLocator[] memory _blobLocators,
@@ -94,8 +94,8 @@ abstract contract ShastaInbox is IShastaInbox {
             Claim memory claim = _claims[i];
 
             bytes32 proposalHash = keccak256(abi.encode(proposal));
-            if (proposalHash != claim.proposalHash) revert ProposalHashMismatch1();
-            if (proposalHash != store.getProposalHash(proposal.id)) revert ProposalHashMismatch2();
+            if (proposalHash != claim.proposalHash) revert ProposalHashMismatch();
+            if (proposalHash != store.getProposalHash(proposal.id)) revert ProposalHashMismatch();
 
             ProofTiming proofTiming = block.timestamp <= proposal.timestamp + provingWindow
                 ? ProofTiming.InProvingWindow
@@ -120,6 +120,10 @@ abstract contract ShastaInbox is IShastaInbox {
         verifyProof(claimsHash, _proof);
     }
 
+    /// @dev Finalizes proposals by verifying claim records and updating state.
+    /// @param _state The current state.
+    /// @param _claimRecords The claim records to finalize.
+    /// @return The updated state and synced block.
     function _finalize(
         State memory _state,
         ClaimRecord[] memory _claimRecords
@@ -167,11 +171,14 @@ abstract contract ShastaInbox is IShastaInbox {
 
     /// @dev Verifies a validity proof for a state transition. This function must revert if the
     /// proof is invalid.
-    /// @param _claimsHash The hash of the claims to verify
-    /// @param _proof The proof for the claims
+    /// @param _claimsHash The hash of the claims to verify.
+    /// @param _proof The proof for the claims.
     function verifyProof(bytes32 _claimsHash, bytes calldata _proof) internal virtual;
 
-    /// @dev Debits a bond from an address with best effort
+    /// @dev Debits a bond from an address with best effort.
+    /// @param _address The address to debit the bond from.
+    /// @param _bond The amount of bond to debit.
+    /// @return amountDebited_ The actual amount debited.
     function _debitBond(
         address _address,
         uint48 _bond
@@ -181,19 +188,29 @@ abstract contract ShastaInbox is IShastaInbox {
         returns (uint48 amountDebited_)
     { }
 
+    /// @dev Credits a bond to an address.
+    /// @param _address The address to credit the bond to.
+    /// @param _bond The amount of bond to credit.
     function _creditBond(address _address, uint48 _bond) internal virtual { }
 
+    /// @dev Checks if an address is a valid proposer.
+    /// @param _address The address to check.
+    /// @return True if the address is a valid proposer, false otherwise.
     function _isValidProposer(address _address) internal view virtual returns (bool) { }
 
+    /// @dev Gets the bond balance of an address.
+    /// @param _address The address to get the bond balance for.
+    /// @return The bond balance of the address.
     function _getBondBalance(address _address) internal view virtual returns (uint256) { }
 
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Proposes a new proposal of L2 blocks
-    /// @param _state The state of the inbox
-    /// @param _content The content of the proposal
+    /// @dev Proposes a new proposal of L2 blocks.
+    /// @param _state The state of the inbox.
+    /// @param _content The content of the proposal.
+    /// @return The updated state.
     function _propose(
         State memory _state,
         BlobSegment memory _content
@@ -222,11 +239,11 @@ abstract contract ShastaInbox is IShastaInbox {
         return _state;
     }
 
-    /// @dev Handles bond refunds and penalties based on proof timing and prover identity
-    /// @param _proposalId The ID of the proposal
-    /// @param _claimRecord The claim record containing bond and timing information
-    /// @param _bondOperationsHash The hash of the bond operations
-    /// @return bondOperationsHash_ The hash of the bond operations
+    /// @dev Handles bond refunds and penalties based on proof timing and prover identity.
+    /// @param _proposalId The ID of the proposal.
+    /// @param _claimRecord The claim record containing bond and timing information.
+    /// @param _bondOperationsHash The hash of the bond operations.
+    /// @return bondOperationsHash_ The updated hash of the bond operations.
     function _processBonds(
         uint48 _proposalId,
         ClaimRecord memory _claimRecord,
@@ -291,6 +308,9 @@ abstract contract ShastaInbox is IShastaInbox {
         }
     }
 
+    /// @dev Validates a blob locator and converts it to a blob segment.
+    /// @param _blobLocator The blob locator to validate.
+    /// @return The blob segment.
     function _validateBlobLocator(BlobLocator memory _blobLocator)
         private
         view
@@ -322,7 +342,6 @@ abstract contract ShastaInbox is IShastaInbox {
     error InvalidBlobLocator();
     error InvalidClaimChain();
     error InvalidState();
-    error ProposalHashMismatch1();
-    error ProposalHashMismatch2();
+    error ProposalHashMismatch();
     error Unauthorized();
 }
