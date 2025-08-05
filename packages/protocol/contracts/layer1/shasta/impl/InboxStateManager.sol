@@ -15,8 +15,13 @@ abstract contract InboxStateManager is IInboxStateManager {
     /// @notice The address of the inbox contract that can modify state.
     address public immutable inbox;
 
-    /// @notice The complete protocol state.
-    IInbox.State private state;
+    /// @notice The hash of the core state.
+    bytes32 private coreStateHash;
+    /// @notice Maps proposal ID to proposal hash.
+    mapping(uint48 proposalId => bytes32 proposalHash) private proposalRegistry;
+    /// @notice Maps proposal ID and parent claim hash to claim record hash.
+    mapping(uint48 proposalId => mapping(bytes32 parentClaimHash => bytes32 claimRecordHash))
+        private claimRecordHashLookup;
 
     // -------------------------------------------------------------------------
     // Modifiers
@@ -44,7 +49,7 @@ abstract contract InboxStateManager is IInboxStateManager {
         IInbox.CoreState memory coreState;
         coreState.nextProposalId = 1;
         coreState.lastFinalizedClaimHash = keccak256(abi.encode(claim));
-        state.coreStateHash = keccak256(abi.encode(coreState));
+        coreStateHash = keccak256(abi.encode(coreState));
     }
 
     // -------------------------------------------------------------------------
@@ -53,12 +58,12 @@ abstract contract InboxStateManager is IInboxStateManager {
 
     /// @inheritdoc IInboxStateManager
     function setCoreStateHash(bytes32 _coreStateHash) external onlyInbox {
-        state.coreStateHash = _coreStateHash;
+        coreStateHash = _coreStateHash;
     }
 
     /// @inheritdoc IInboxStateManager
     function setProposalHash(uint48 _proposalId, bytes32 _proposalHash) external onlyInbox {
-        state.proposalRegistry[_proposalId] = _proposalHash;
+        proposalRegistry[_proposalId] = _proposalHash;
     }
 
     /// @inheritdoc IInboxStateManager
@@ -70,17 +75,17 @@ abstract contract InboxStateManager is IInboxStateManager {
         external
         onlyInbox
     {
-        state.claimRecordHashLookup[_proposalId][_parentClaimHash] = _claimRecordHash;
+        claimRecordHashLookup[_proposalId][_parentClaimHash] = _claimRecordHash;
     }
 
     /// @inheritdoc IInboxStateManager
     function getCoreStateHash() public view returns (bytes32 coreStateHash_) {
-        coreStateHash_ = state.coreStateHash;
+        coreStateHash_ = coreStateHash;
     }
 
     /// @inheritdoc IInboxStateManager
     function getProposalHash(uint48 _proposalId) public view returns (bytes32 proposalHash_) {
-        proposalHash_ = state.proposalRegistry[_proposalId];
+        proposalHash_ = proposalRegistry[_proposalId];
     }
 
     /// @inheritdoc IInboxStateManager
@@ -92,7 +97,7 @@ abstract contract InboxStateManager is IInboxStateManager {
         view
         returns (bytes32 claimRecordHash_)
     {
-        claimRecordHash_ = state.claimRecordHashLookup[_proposalId][_parentClaimHash];
+        claimRecordHash_ = claimRecordHashLookup[_proposalId][_parentClaimHash];
     }
 
     // -------------------------------------------------------------------------

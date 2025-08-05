@@ -106,18 +106,6 @@ interface IInbox {
         bytes32 bondOperationsHash;
     }
 
-    /// @notice Represents the complete protocol state including all mappings.
-    struct State {
-        /// @notice The hash of the core state.
-        bytes32 coreStateHash;
-        /// @notice Maps proposal ID to proposal hash.
-        mapping(uint48 proposalId => bytes32 proposalHash) proposalRegistry;
-        /// @notice Maps proposal ID and parent claim hash to claim record hash.
-        mapping(uint48 proposalId => mapping(bytes32 parentClaimHash => bytes32 claimRecordHash))
-            claimRecordHashLookup;
-        /// @notice The hash of bond credits on L2.
-        bytes32 bondOperationsHash;
-    }
 
     // -------------------------------------------------------------------------
     // Events
