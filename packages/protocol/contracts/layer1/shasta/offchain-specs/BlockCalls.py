@@ -38,7 +38,7 @@ class BlockCalls:
         parent_prev_randao: str,
         # provable: -> parent_block_hash
         parent_timestamp: int,
-        # provable: -> up to 128 ancester block headers -> anchor_block_hash
+        # provable: -> up to 128 ancestor block headers -> anchor_block_hash
         anchor_block_hash: str,
         #  provable: -> anchor_block_hash
         expected_anchor_bond_credits_hash: str,
@@ -81,7 +81,7 @@ class BlockCalls:
 
         gas_limit = self.BLOCK_GAS_LIMIT
         prev_randao = self._calculate_prev_randao(block_number, parent_prev_randao)
-        fee_recipient = self._caculate_fee_recipient(block_args.fee_recipient)
+        fee_recipient = self._calculate_fee_recipient(block_args.fee_recipient)
 
         anchor_block_height = self._validate_anchor_block_height(proposal, proto_state, block_args)
         if anchor_block_height != 0:
@@ -200,7 +200,7 @@ class BlockCalls:
             and block_args.anchor_block_number < proposal.reference_block_number
         )
 
-    def _caculate_fee_recipient(self, fee_recipient: Address) -> Address:
+    def _calculate_fee_recipient(self, fee_recipient: Address) -> Address:
         """
         Calculate fee recipient
         """

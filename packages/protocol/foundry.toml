@@ -22,6 +22,7 @@ remappings = [
   "@eth-fabric/urc/=node_modules/urc/src/",
   "ds-test/=node_modules/ds-test/",
   "src/=contracts/",
+  "contracts/=contracts/",
   "test/=test/",
   "script/=script/",
 ]

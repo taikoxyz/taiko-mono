@@ -23,7 +23,8 @@
       "Bash(pip3 list:*)",
       "Bash(black:*)",
       "Bash(rm:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(FOUNDRY_PROFILE=shared forge test --match-path \"test/shared/shasta/SyncedBlockManager.t.sol\" -vv)"
     ],
     "deny": []
   }
