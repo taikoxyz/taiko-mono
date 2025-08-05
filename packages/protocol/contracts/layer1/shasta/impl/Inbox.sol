@@ -123,11 +123,11 @@ contract Inbox is IInbox {
         (coreState, syncedBlock) = _finalize(coreState, claimRecords);
 
         inboxStateManager.setCoreStateHash(keccak256(abi.encode(coreState)));
-        syncedBlockManager.setSyncedBlock(
+        syncedBlockManager.saveSyncedBlock(
             ISyncedBlockManager.SyncedBlock({
-                blockNumber: syncedBlock.blockNumber,
                 blockHash: syncedBlock.blockHash,
-                stateRoot: syncedBlock.stateRoot
+                stateRoot: syncedBlock.stateRoot,
+                blockNumber: syncedBlock.blockNumber
             })
         );
     }
@@ -328,7 +328,7 @@ contract Inbox is IInbox {
         } else {
             BondOperation memory bondOperation =
                 BondOperation({ proposalId: _proposalId, receiver: receiver, credit: credit });
-                // TODO: emit
+            // TODO: emit
 
             return keccak256(abi.encode(_bondOperationsHash, bondOperation));
         }
