@@ -22,14 +22,13 @@ interface IInbox {
         uint32 size;
     }
 
-    /// @notice Represents a segment of data that is stored in multiple blobs.
-    struct BlobSegment {
+    /// @notice Represents a frame of data that is stored in multiple blobs. Note the size is
+    /// encoded as a bytes32 at the offset location.
+    struct Frame {
         /// @notice The blobs containing the proposal's content.
         bytes32[] blobHashes;
         /// @notice The offset of the proposal's content in the containing blobs.
         uint32 offset;
-        /// @notice The size of the proposal's content in the containing blobs.
-        uint32 size;
     }
 
     /// @notice Represents a proposal for L2 blocks.
@@ -46,12 +45,12 @@ interface IInbox {
         uint48 livenessBond;
         /// @notice The L1 block timestamp when the proposal was made. This is needed on L2 to
         /// verify each block's timestamp in the proposal's content.
-        uint48 timestamp;
+        uint48 originTimestamp;
         /// @notice The L1 block number when the proposal was made. This is needed on L2 to verify
         /// each block's anchor block number in the proposal's content.
-        uint48 proposedBlockNumber;
-        /// @notice The proposal's content identifier.
-        BlobSegment content;
+        uint48 originBlockNumber;
+        /// @notice The proposal's frame.
+        Frame frame;
     }
 
     /// @notice Represents the timing of when a proof was submitted.
