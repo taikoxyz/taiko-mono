@@ -350,11 +350,8 @@ contract Inbox is IInbox {
             if (blobHashes[i] == 0) revert BlobNotFound();
         }
 
-        return Frame({
-            blobHashes: blobHashes,
-            offset: _blobLocator.offset,
-            size: _blobLocator.size
-        });
+        return
+            Frame({ blobHashes: blobHashes, offset: _blobLocator.offset, size: _blobLocator.size });
     }
 
     // -------------------------------------------------------------------------
