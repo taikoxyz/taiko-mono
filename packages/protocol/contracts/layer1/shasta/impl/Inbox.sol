@@ -128,39 +128,26 @@ contract Inbox is IInbox {
             revert ExceedsUnfinalizedProposalCapacity();
         }
 
-        Proposal memory proposal;
+        // Create regular proposal
         Frame memory frame = _validateBlobLocator(blobLocator);
+        Proposal memory proposal;
         (coreState, proposal) = _propose(coreState, frame, false);
 
-        uint256 numProposals = 1;
+        // Handle forced inclusion if required
         Proposal memory forcedInclusionProposal;
+        bool hasForcedInclusion = forcedInclusionFrame.blobHashes.length > 0;
 
-        // If the proposer didn't send any forced inclusion frames, make sure none is due
-        if (forcedInclusionFrame.blobHashes.length == 0) {
-            require(!forcedInclusionStore.isOldestForcedInclusionDue(), IForcedInclusionStore.ForcedInclusionDue());
+        if (hasForcedInclusion) {
+            (coreState, forcedInclusionProposal) =
+                _processForcedInclusion(coreState, forcedInclusionFrame);
         } else {
-            (coreState, forcedInclusionProposal) = _propose(coreState, forcedInclusionFrame, true);
-
-            // consume the oldest forced inclusion
-            IForcedInclusionStore.ForcedInclusion memory consumed =
-                forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
-                
-            //verify the consumed inclusion matches the frame received from the proposer
-            require(
-                consumed.blobHash == forcedInclusionFrame.blobHashes[0], InvalidForcedInclusion()
-            );
-            require(
-                consumed.blobByteOffset == forcedInclusionFrame.offset, InvalidForcedInclusion()
-            );
-
-            numProposals++;
+            // Ensure no forced inclusion is due when none is provided
+            _ensureNoForcedInclusionDue();
         }
 
-        Proposal[] memory proposals = new Proposal[](numProposals);
-        proposals[0] = proposal;
-        if (numProposals > 1) {
-            proposals[1] = forcedInclusionProposal;
-        }
+        // Build proposals array
+        Proposal[] memory proposals =
+            _buildProposalsArray(proposal, forcedInclusionProposal, hasForcedInclusion);
 
         // Finalize proved proposals
         coreState = _finalize(coreState, claimRecords);
@@ -394,6 +381,78 @@ contract Inbox is IInbox {
         }
 
         return Frame({ blobHashes: blobHashes, offset: _blobLocator.offset });
+    }
+
+    /// @dev Processes a forced inclusion proposal and validates it against the stored data on the
+    /// `ForcedInclusionStore` contract
+    /// @param _coreState The current core state
+    /// @param _forcedInclusionFrame The frame containing forced inclusion data
+    /// @return coreState_ Updated core state
+    /// @return proposal_ The created forced inclusion proposal
+    function _processForcedInclusion(
+        CoreState memory _coreState,
+        Frame memory _forcedInclusionFrame
+    )
+        private
+        returns (CoreState memory coreState_, Proposal memory proposal_)
+    {
+        // Create the forced inclusion proposal
+        (coreState_, proposal_) = _propose(_coreState, _forcedInclusionFrame, true);
+
+        // Consume and validate the oldest forced inclusion
+        IForcedInclusionStore.ForcedInclusion memory consumed =
+            forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
+
+        _validateForcedInclusion(consumed, _forcedInclusionFrame);
+    }
+
+    /// @dev Validates that a consumed forced inclusion matches the provided frame
+    /// @param _consumed The consumed forced inclusion from storage
+    /// @param _frame The frame provided by the proposer
+    function _validateForcedInclusion(
+        IForcedInclusionStore.ForcedInclusion memory _consumed,
+        Frame memory _frame
+    )
+        private
+        pure
+    {
+        if (_consumed.blobHash != _frame.blobHashes[0]) {
+            revert InvalidForcedInclusion();
+        }
+        if (_consumed.blobByteOffset != _frame.offset) {
+            revert InvalidForcedInclusion();
+        }
+    }
+
+    /// @dev Ensures no forced inclusion is due when none is provided
+    function _ensureNoForcedInclusionDue() private view {
+        if (forcedInclusionStore.isOldestForcedInclusionDue()) {
+            revert InvalidForcedInclusion();
+        }
+    }
+
+    /// @dev Builds the proposals array based on whether forced inclusion exists
+    /// @param _proposal The regular proposal
+    /// @param _forcedInclusionProposal The forced inclusion proposal (if any)
+    /// @param _hasForcedInclusion Whether a forced inclusion exists
+    /// @return proposals_ Array containing one or two proposals
+    function _buildProposalsArray(
+        Proposal memory _proposal,
+        Proposal memory _forcedInclusionProposal,
+        bool _hasForcedInclusion
+    )
+        private
+        pure
+        returns (Proposal[] memory proposals_)
+    {
+        if (_hasForcedInclusion) {
+            proposals_ = new Proposal[](2);
+            proposals_[0] = _proposal;
+            proposals_[1] = _forcedInclusionProposal;
+        } else {
+            proposals_ = new Proposal[](1);
+            proposals_[0] = _proposal;
+        }
     }
 
     // -------------------------------------------------------------------------

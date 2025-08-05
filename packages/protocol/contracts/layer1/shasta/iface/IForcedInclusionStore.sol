@@ -29,6 +29,8 @@ interface IForcedInclusionStore {
     error MultipleCallsInOneTx();
     /// @dev Error thrown when a forced inclusion is not found
     error NoForcedInclusionFound();
+    /// @dev Error thrown when a forced inclusion is due
+    error ForcedInclusionDue();
 
     /// @notice Store a forced inclusion request
     /// The priority fee must be paid to the contract
