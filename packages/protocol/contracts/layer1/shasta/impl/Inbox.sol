@@ -114,6 +114,14 @@ contract Inbox is IInbox {
             revert InvalidState();
         }
 
+        // Check if new proposals would exceed the unfinalized proposal capacity
+        uint256 unfinalizedProposalCapacity = inboxStateManager.getUnfinalizedProposalCapacity();
+        uint256 currentUnfinalizedCount =
+            coreState.nextProposalId - coreState.lastFinalizedProposalId - 1;
+        if (currentUnfinalizedCount + blobLocators.length > unfinalizedProposalCapacity) {
+            revert ExceedsUnfinalizedProposalCapacity();
+        }
+
         for (uint256 i; i < blobLocators.length; ++i) {
             Frame memory frame = _validateBlobLocator(blobLocators[i]);
             coreState = _propose(coreState, frame);
@@ -359,6 +367,7 @@ contract Inbox is IInbox {
 
     error BlobNotFound();
     error ClaimRecordHashMismatch();
+    error ExceedsUnfinalizedProposalCapacity();
     error InconsistentParams();
     error InsufficientBond();
     error InvalidBlobLocator();
