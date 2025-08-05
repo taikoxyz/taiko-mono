@@ -133,14 +133,18 @@ contract Inbox is IInbox {
         (coreState, proposal) = _propose(coreState, frame, false);
 
         uint256 numProposals = 1;
-        // process forced inclusions
         Proposal memory forcedInclusionProposal;
-        if (forcedInclusionStore.isOldestForcedInclusionDue()) {
+
+        // If the proposer didn't send any forced inclusion frames, make sure none is due
+        if (forcedInclusionFrame.blobHashes.length == 0) {
+            require(!forcedInclusionStore.isOldestForcedInclusionDue(), IForcedInclusionStore.ForcedInclusionDue());
+        } else {
             (coreState, forcedInclusionProposal) = _propose(coreState, forcedInclusionFrame, true);
 
             // consume the oldest forced inclusion
             IForcedInclusionStore.ForcedInclusion memory consumed =
                 forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
+                
             //verify the consumed inclusion matches the frame received from the proposer
             require(
                 consumed.blobHash == forcedInclusionFrame.blobHashes[0], InvalidForcedInclusion()
