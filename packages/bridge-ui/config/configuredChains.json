@@ -1,0 +1,50 @@
+{
+  "configuredChains": [
+    {
+      "3151908": {
+        "name": "L1 Devnet",
+        "type": "L1",
+        "icon": "https://cdn.worldvectorlogo.com/logos/ethereum-eth.svg",
+        "rpcUrls": {
+          "default": {
+            "http": ["https://devnet-two.surge.wtf/l1-rpc"]
+          }
+        },
+        "nativeCurrency": {
+          "name": "ETH",
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "blockExplorers": {
+          "default": {
+            "name": "L1 Devnet Explorer",
+            "url": "https://devnet-two.surge.wtf/l1-block-explorer"
+          }
+        }
+      }
+    },
+    {
+      "763374": {
+        "name": "Surge Devnet",
+        "type": "L2",
+        "icon": "https://cdn.worldvectorlogo.com/logos/ethereum-eth.svg",
+        "rpcUrls": {
+          "default": {
+            "http": ["https://devnet-two.surge.wtf/l2-rpc"]
+          }
+        },
+        "nativeCurrency": {
+          "name": "ETH",
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "blockExplorers": {
+          "default": {
+            "name": "Surge Explorer",
+            "url": "https://devnet-two.surge.wtf/l2-block-explorer"
+          }
+        }
+      }
+    }
+  ]
+}

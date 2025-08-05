@@ -3,14 +3,14 @@
   */
 
 [data-glow-border] {
-  --base: 333;
+  --base: 14;
   --border-size: calc(var(--border, 2) * 1px);
   --spotlight-size: calc(var(--size, 150) * 1px);
   --hue: calc(var(--base) + (var(--xp, 0) * var(--spread, 0)));
   background-image: radial-gradient(
     var(--spotlight-size) var(--spotlight-size) at calc(var(--x, 0) * 1px) calc(var(--y, 0) * 1px),
     hsl(
-      var(--hue, 210) calc(var(--saturation, 100) * 1%) calc(var(--lightness, 70) * 1%) / var(--bg-spot-opacity, 0.1)
+      var(--hue, 210) calc(var(--saturation, 89) * 1%) calc(var(--lightness, 83) * 1%) / var(--bg-spot-opacity, 0.1)
     ),
     transparent
   );

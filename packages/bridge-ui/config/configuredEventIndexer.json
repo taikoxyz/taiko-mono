@@ -1,0 +1,12 @@
+{
+  "configuredEventIndexer": [
+    {
+      "chainIds": [3151908, 763374],
+      "url": "https://devnet-two.surge.wtf/l1-relayer"
+    },
+    {
+      "chainIds": [763374, 3151908],
+      "url": "https://devnet-two.surge.wtf/l2-relayer"
+    }
+  ]
+}

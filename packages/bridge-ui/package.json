@@ -23,6 +23,7 @@
   "devDependencies": {
     "@playwright/test": "^1.43.1",
     "@sveltejs/adapter-auto": "^3.2.0",
+    "@sveltejs/adapter-node": "^5.2.12",
     "@sveltejs/kit": "^2.5.21",
     "@sveltejs/vite-plugin-svelte": "^3.1.0",
     "@types/debug": "^4.1.12",

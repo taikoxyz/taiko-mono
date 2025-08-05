@@ -90,11 +90,11 @@
 
   // Dynamic classes
   $: commonContainerClasses = classNames(
-    'flex text-primary-content md:h-[80px] h-[70px] w-full my-[5px] md:my-[0px] hover:bg-[#C8047D]/10 px-[14px] py-[10px] rounded-[10px]',
+    'flex text-primary-content md:h-[80px] h-[70px] w-full my-[5px] md:my-[0px] hover:bg-[#9676D7]/10 px-[14px] py-[10px] rounded-[10px]',
   );
   $: desktopContainerClasses = classNames(commonContainerClasses, 'items-center');
   $: tabletContainerClasses = classNames(commonContainerClasses, 'cursor-pointer');
-  $: mobileContainerClasses = classNames(commonContainerClasses, 'cursor-pointer dashed-border');
+  $: mobileContainerClasses = classNames(commonContainerClasses, 'cursor-pointer');
 
   $: containerClasses = $isDesktop
     ? desktopContainerClasses
@@ -108,7 +108,7 @@
     commonColumnClasses,
     'w-1/4 f-row  text-left start items-center text-sm space-y-[10px]',
   );
-  $: mobileColumnClasses = classNames(commonColumnClasses, 'w-1/3 justify-center f-col text-sm space-y-[10px]');
+  $: mobileColumnClasses = classNames(commonColumnClasses, 'w-1/2 justify-center f-col text-sm space-y-[10px]');
 
   $: columnClasses = $isDesktop ? desktopColumnClasses : $isTablet ? tabletColumnClasses : mobileColumnClasses;
 </script>
@@ -116,7 +116,7 @@
 <!-- svelte-ignore a11y-no-static-element-interactions -->
 <div class={containerClasses} on:click={openDetails} {...attrs}>
   <!-- Mobile -->
-  {#if $isMobile}
+  <!-- {#if $isMobile}
     <div class="before-circle"></div>
     <div class="after-circle"></div>
     <div class={`${columnClasses} !items-start pl-[10px]`}>
@@ -128,10 +128,10 @@
         <ChainSymbol class="min-w-[24px]" chainId={bridgeTx.destChainId} />
         {shortenAddress(bridgeTx.message?.to, 4, 3)}
       </div>
-    </div>
+    </div> -->
 
     <!-- Desktop -->
-  {:else if $isDesktop || $isTablet}
+  {#if $isDesktop || $isTablet}
     <div class={`${columnClasses}`}>
       <ChainSymbol class="min-w-[24px]" chainId={bridgeTx.srcChainId} />
       {shortenAddress(bridgeTx.message?.from)}

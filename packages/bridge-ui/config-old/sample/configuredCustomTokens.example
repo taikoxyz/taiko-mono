@@ -1,0 +1,26 @@
+[
+    {
+        "name": "Bull Token",
+        "addresses": {
+            "1234": "0x00...",
+            "4567": "0x00...",
+            "8910": "0x00..."
+        },
+        "symbol": "BLL",
+        "decimals": 18,
+        "type": "ERC20",
+        "logoURI": "http://example.com/logo.png"
+    },
+    {
+        "name": "Horse Token",
+        "addresses": {
+            "1234": "0x00...",
+            "4567": "0x00...",
+            "8910": "0x00..."
+        },
+        "symbol": "HORSE",
+        "decimals": 18,
+        "type": "ERC20",
+        "logoURI": "http://example.com/logo.png"
+    }
+]

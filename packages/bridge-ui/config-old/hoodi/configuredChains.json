@@ -1,0 +1,50 @@
+{
+  "configuredChains": [
+    {
+      "560048": {
+        "name": "Hoodi",
+        "type": "L1",
+        "icon": "https://cdn.worldvectorlogo.com/logos/ethereum-eth.svg",
+        "rpcUrls": {
+          "default": {
+            "http": [""]
+          }
+        },
+        "nativeCurrency": {
+          "name": "ETH",
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "blockExplorers": {
+          "default": {
+            "name": "Hoodi Explorer",
+            "url": "https://hoodi.etherscan.io"
+          }
+        }
+      }
+    },
+    {
+      "763375": {
+        "name": "Surge Testnet",
+        "type": "L2",
+        "icon": "https://cdn.worldvectorlogo.com/logos/ethereum-eth.svg",
+        "rpcUrls": {
+          "default": {
+            "http": [""]
+          }
+        },
+        "nativeCurrency": {
+          "name": "ETH",
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "blockExplorers": {
+          "default": {
+            "name": "Surge Explorer",
+            "url": "https://explorer.hoodi.surge.wtf"
+          }
+        }
+      }
+    }
+  ]
+}

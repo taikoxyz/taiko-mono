@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-  <title>Taiko Bridge</title>
+  <title>Surge Bridge</title>
 </svelte:head>
 <Page>
   <Bridge />

@@ -91,12 +91,6 @@
 
   function inputProcessFee(event: Event) {
     if (tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM) return;
-
-    const { value: initialValue } = event.target as HTMLInputElement;
-    if (parseToWei(initialValue) <= recommendedAmount) {
-      // If the user tries to input 0 or less, we set it to the current recommended amount
-      inputBox?.setValue(formatEther(recommendedAmount));
-    }
     const { value: finalValue } = event.target as HTMLInputElement;
     tempprocessingFee = parseToWei(finalValue);
   }
@@ -140,6 +134,10 @@
       // we're not changing state that could potentially end up in such situation.
       updateProcessingFee($processingFeeMethod, recommendedAmount);
     }
+  }
+
+  const onCustomClick = () => {
+    inputBox?.setValue(formatEther(recommendedAmount));
   }
 
   $: {
@@ -301,22 +299,20 @@
                 type="radio"
                 disabled={$gasLimitZero}
                 value={ProcessingFeeMethod.CUSTOM}
+                on:change={onCustomClick}
                 name="processingFeeMethod"
                 bind:group={tempProcessingFeeMethod} />
             </li>
-
-            <div class="relative f-items-center my-[20px]">
-              {#if tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM}
+            <div style="display: {tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM ? 'block' : 'none'}" class="relative f-items-center my-[20px]">
                 <InputBox
                   type="number"
                   min="0"
-                  placeholder="0.0015"
                   disabled={tempProcessingFeeMethod !== ProcessingFeeMethod.CUSTOM}
                   class="w-full input-box p-6 pr-16 title-subsection-bold placeholder:text-tertiary-content"
                   on:input={inputProcessFee}
-                  bind:this={inputBox} />
-                <span class="absolute right-6 uppercase body-bold text-secondary-content">ETH</span>
-              {/if}
+                  bind:this={inputBox}
+                />
+                <span class="absolute top-7 right-6 uppercase body-bold text-secondary-content">ETH</span>
             </div>
 
             {#if tempProcessingFeeMethod === ProcessingFeeMethod.CUSTOM}

@@ -79,14 +79,14 @@
                 <span>{$t('nav.bridge')}</span>
               </LinkButton>
             </li>
-            {#if testnetName !== ''}
+            <!-- {#if testnetName !== ''}
               <li>
                 <LinkButton href="/faucet" active={isFaucetPage}>
                   <Icon type="faucet" fillClass={getIconFillClass(isFaucetPage)} />
                   <span>{$t('nav.faucet')}</span>
                 </LinkButton>
               </li>
-            {/if}
+            {/if} -->
             <li>
               <LinkButton href="/transactions" active={isTransactionsPage} on:click={closeDrawer}>
                 <Icon type="transactions" fillClass={getIconFillClass(isTransactionsPage)} />

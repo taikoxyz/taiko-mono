@@ -1,0 +1,50 @@
+{
+  "configuredChains": [
+    {
+      "3151908": {
+        "name": "L1 Devnet",
+        "type": "L1",
+        "icon": "https://cdn.worldvectorlogo.com/logos/ethereum-eth.svg",
+        "rpcUrls": {
+          "default": {
+            "http": ["http://localhost:32002"]
+          }
+        },
+        "nativeCurrency": {
+          "name": "ETH",
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "blockExplorers": {
+          "default": {
+            "name": "L1 Devnet Explorer",
+            "url": "http://localhost:36005"
+          }
+        }
+      }
+    },
+    {
+      "763374": {
+        "name": "Surge Devnet",
+        "type": "L2",
+        "icon": "https://cdn.worldvectorlogo.com/logos/ethereum-eth.svg",
+        "rpcUrls": {
+          "default": {
+            "http": ["http://localhost:8547"]
+          }
+        },
+        "nativeCurrency": {
+          "name": "ETH",
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "blockExplorers": {
+          "default": {
+            "name": "Surge Explorer",
+            "url": "http://localhost:3000"
+          }
+        }
+      }
+    }
+  ]
+}

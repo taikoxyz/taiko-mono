@@ -7,11 +7,13 @@ node_modules
 .env
 .env.*
 !.env.example
+!.env.hoodi
+!.env.devnet
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 # Bridge config files
-/config/*
+# /config/*
 !/config/sample/
 !/config/schemas/
 

@@ -1,0 +1,12 @@
+{
+  "configuredEventIndexer": [
+    {
+      "chainIds": [3151908, 763374],
+      "url": "http://localhost:4102"
+    },
+    {
+      "chainIds": [763374, 3151908],
+      "url": "http://localhost:4103"
+    }
+  ]
+}

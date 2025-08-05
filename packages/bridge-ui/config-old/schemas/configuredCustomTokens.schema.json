@@ -1,0 +1,58 @@
+{
+  "$id": "configuredCustomTokens.json",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "addresses": {
+        "type": "object",
+        "propertyNames": {
+          "pattern": "^[0-9]+$"
+        },
+        "additionalProperties": {
+          "type": "string"
+        }
+      },
+      "symbol": {
+        "type": "string"
+      },
+      "decimals": {
+        "type": "integer"
+      },
+      "type": {
+        "type": "string"
+      },
+      "logoURI": {
+        "type": ["string", "null"]
+      },
+      "attributes": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "wrapped": {
+              "type": "boolean"
+            },
+            "supported": {
+              "type": "boolean"
+            },
+            "stablecoin": {
+              "type": "boolean"
+            },
+            "quotaLimited": {
+              "type": "boolean"
+            },
+            "mintable": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["name", "addresses", "symbol", "decimals", "type"]
+  }
+}

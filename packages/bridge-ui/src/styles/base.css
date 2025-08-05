@@ -30,7 +30,7 @@
     right: 0;
     bottom: 0;
     left: 0;
-    background-image: url(/bg/grid-dark.svg), url(/bg/spotlights-dark.svg),
+    background-image: url(/bg/plain-svg.svg), url(/bg/background-pattern.svg),
       linear-gradient(270deg, #1f1f1f 0%, #000000 100%);
     /* No grid background by default */
     background-size: 0, cover, cover;
@@ -45,11 +45,10 @@
     right: 0;
     bottom: 0;
     left: 0;
-    background-image: url(/bg/grid-light.svg), url(/bg/spotlights-light.svg),
+    background-image: url(/bg/plain-svg.svg), url(/bg/background-pattern.svg),
       linear-gradient(270deg, #e2e2e2 0%, #fff 100%);
     /* No grid background by default */
     background-size: 0, cover, cover;
-    background-blend-mode: color-dodge, color, hard-light;
     z-index: -1;
   }
 

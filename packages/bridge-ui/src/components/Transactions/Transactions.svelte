@@ -27,6 +27,7 @@
   import { isDesktop, isTablet } from '$libs/util/responsiveCheck';
   import { account } from '$stores';
   import type { Account } from '$stores/account';
+  import { connectedSourceChain } from '$stores/network';
 
   import { StatusFilterDialog, StatusFilterDropdown } from './Filter';
   import { FungibleTransactionRow, NftTransactionRow } from './Rows/';
@@ -89,7 +90,7 @@
   const updateTransactions = async (address: Address) => {
     if (loadingTxs) return;
     loadingTxs = true;
-    const { mergedTransactions, outdatedLocalTransactions, error } = await fetchTransactions(address);
+    const { mergedTransactions, outdatedLocalTransactions, error } = await fetchTransactions(address, $connectedSourceChain);
     transactions = mergedTransactions;
 
     if (outdatedLocalTransactions.length > 0) {
@@ -222,11 +223,8 @@
                 <StatusInfoDialog />
               </div>
             {:else}
-              <div class="w-1/3 text-left pl-[11px] text-secondary-content">
-                {$t('transactions.header.details')}
-              </div>
-              <div class="w-1/3 text-center text-secondary-content">{$t('transactions.header.amount')}</div>
-              <div class="w-1/3 pr-[14px] f-row items-center justify-end text-secondary-content">
+              <div class="w-1/2 text-center text-secondary-content">{$t('transactions.header.amount')}</div>
+              <div class="w-1/2 pr-[14px] f-row items-center justify-end text-secondary-content">
                 {$t('transactions.header.status')}
                 <StatusInfoDialog />
               </div>

@@ -1,0 +1,30 @@
+{
+  "configuredBridges": [
+    {
+      "source": "3151908",
+      "destination": "763374",
+      "addresses": {
+        "bridgeAddress": "0x63e6DDE6763C3466C7b45Be880f7eE5dC2ca3E25",
+        "erc20VaultAddress": "0xEE0fCB8E5cCAD0b4197BAabd633333886f5C364d",
+        "erc721VaultAddress": "0xB965D10739e19a9158e7f713720B0145D996E370",
+        "erc1155VaultAddress": "0x1430c9c2143F97aaE765197e744BaBa7e78acaf0",
+        "crossChainSyncAddress": "",
+        "signalServiceAddress": "0x72ae2643518179cF01bcA3278a37ceAD408DE8b2",
+        "quotaManagerAddress": ""
+      }
+    },
+    {
+      "source": "763374",
+      "destination": "3151908",
+      "addresses": {
+        "bridgeAddress": "0x7633740000000000000000000000000000000001",
+        "erc20VaultAddress": "0x7633740000000000000000000000000000000002",
+        "erc721VaultAddress": "0x7633740000000000000000000000000000000003",
+        "erc1155VaultAddress": "0x7633740000000000000000000000000000000004",
+        "crossChainSyncAddress": "",
+        "signalServiceAddress": "0x7633740000000000000000000000000000000005",
+        "quotaManagerAddress": ""
+      }
+    }
+  ]
+}
