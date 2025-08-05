@@ -115,8 +115,8 @@ contract Inbox is IInbox {
         }
 
         for (uint256 i; i < blobLocators.length; ++i) {
-            BlobSegment memory blobSegment = _validateBlobLocator(blobLocators[i]);
-            coreState = _propose(coreState, blobSegment);
+            Frame memory frame = _validateBlobLocator(blobLocators[i]);
+            coreState = _propose(coreState, frame);
         }
 
         ISyncedBlockManager.SyncedBlock memory syncedBlock;
@@ -152,11 +152,11 @@ contract Inbox is IInbox {
 
     /// @dev Proposes a new proposal of L2 blocks.
     /// @param _coreState The core state of the inbox.
-    /// @param _content The content of the proposal.
+    /// @param _frame The frame of the proposal.
     /// @return coreState_ The updated core state.
     function _propose(
         CoreState memory _coreState,
-        BlobSegment memory _content
+        Frame memory _frame
     )
         private
         returns (CoreState memory coreState_)
@@ -172,7 +172,7 @@ contract Inbox is IInbox {
             livenessBond: livenessBond,
             originTimestamp: originTimestamp,
             originBlockNumber: originBlockNumber,
-            content: _content
+            frame: _frame
         });
 
         bytes32 proposalHash = keccak256(abi.encode(proposal));
@@ -334,13 +334,13 @@ contract Inbox is IInbox {
         }
     }
 
-    /// @dev Validates a blob locator and converts it to a blob segment.
+    /// @dev Validates a blob locator and converts it to a frame.
     /// @param _blobLocator The blob locator to validate.
-    /// @return blobSegment_ The blob segment.
+    /// @return frame_ The frame.
     function _validateBlobLocator(BlobLocator memory _blobLocator)
         private
         view
-        returns (BlobSegment memory blobSegment_)
+        returns (Frame memory frame_)
     {
         if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
 
@@ -350,7 +350,7 @@ contract Inbox is IInbox {
             if (blobHashes[i] == 0) revert BlobNotFound();
         }
 
-        return BlobSegment({
+        return Frame({
             blobHashes: blobHashes,
             offset: _blobLocator.offset,
             size: _blobLocator.size
