@@ -22,14 +22,13 @@ interface IInbox {
         uint32 size;
     }
 
-    /// @notice Represents a frame of data that is stored in multiple blobs.
+    /// @notice Represents a frame of data that is stored in multiple blobs. Note the size is
+    /// encoded as a bytes32 at the offset location.
     struct Frame {
         /// @notice The blobs containing the proposal's content.
         bytes32[] blobHashes;
         /// @notice The offset of the proposal's content in the containing blobs.
         uint32 offset;
-        /// @notice The size of the proposal's content in the containing blobs.
-        uint32 size;
     }
 
     /// @notice Represents a proposal for L2 blocks.
