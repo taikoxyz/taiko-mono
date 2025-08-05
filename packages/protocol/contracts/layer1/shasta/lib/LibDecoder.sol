@@ -47,21 +47,21 @@ library LibDecoder {
     // Encode Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Encodes CoreState, BlobLocator array, and ClaimRecord array into bytes
+    /// @notice Encodes CoreState, BlobLocator, and ClaimRecord array into bytes
     /// @param _coreState The CoreState to encode
-    /// @param _blobLocators The array of BlobLocators to encode
+    /// @param _blobLocator The BlobLocator to encode
     /// @param _claimRecords The array of ClaimRecords to encode
     /// @return data_ The encoded data
     function encodeProposeData(
         IInbox.CoreState memory _coreState,
-        IInbox.BlobLocator[] memory _blobLocators,
+        IInbox.BlobLocator memory _blobLocator,
         IInbox.ClaimRecord[] memory _claimRecords
     )
         internal
         pure
         returns (bytes memory data_)
     {
-        data_ = abi.encode(_coreState, _blobLocators, _claimRecords);
+        data_ = abi.encode(_coreState, _blobLocator, _claimRecords);
     }
 
     /// @notice Encodes Proposal array and Claim array into bytes

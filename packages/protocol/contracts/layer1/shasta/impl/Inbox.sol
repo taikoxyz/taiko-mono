@@ -12,15 +12,6 @@ import { LibDecoder } from "../lib/LibDecoder.sol";
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
 /// @custom:security-contact security@taiko.xyz
-// TODO
-// - [x] support anchor per block
-// - [x] support prover and liveness bond
-// - [x] support provability bond
-// - [x] support batch proving
-// - [x] support multi-step finalization
-// - [x] support Summary approach
-// - [ ] if no anchor block find, default to empty content.
-// - [ ] How to validate 256 block hash in L2
 
 contract Inbox is IInbox {
     using LibDecoder for bytes;
@@ -150,9 +141,9 @@ contract Inbox is IInbox {
 
     /// @dev Proposes a new proposal of L2 blocks.
     /// @param _coreState The core state of the inbox.
-    /// @param _content The content of the proposal.
+    /// @param _content The blob segment containing the proposal content.
     /// @return coreState_ The updated core state.
-    /// @return proposal_ The proposed proposal.
+    /// @return proposal_ The created proposal.
     function _propose(
         CoreState memory _coreState,
         BlobSegment memory _content
@@ -180,6 +171,9 @@ contract Inbox is IInbox {
         return (_coreState, proposal_);
     }
 
+    /// @dev Proves a single proposal by validating the claim and storing the claim record.
+    /// @param _proposal The proposal to prove.
+    /// @param _claim The claim containing the proof details.
     function _prove(Proposal memory _proposal, Claim memory _claim) private {
         bytes32 proposalHash = keccak256(abi.encode(_proposal));
         if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
@@ -219,6 +213,7 @@ contract Inbox is IInbox {
     {
         // The last finalized claim record.
         ClaimRecord memory claimRecord;
+        bool hasFinalized;
 
         for (uint256 i; i < maxFinalizationCount; ++i) {
             // Id for the next proposal to be finalized.
@@ -245,9 +240,10 @@ contract Inbox is IInbox {
             _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claimRecord.claim));
             _coreState.bondOperationsHash =
                 _processBonds(proposalId, claimRecord, _coreState.bondOperationsHash);
+            hasFinalized = true;
         }
 
-        if (claimRecord.proposer != address(0)) {
+        if (hasFinalized) {
             syncedBlockManager.saveSyncedBlock(
                 ISyncedBlockManager.SyncedBlock({
                     blockNumber: claimRecord.claim.endBlockNumber,
@@ -324,7 +320,6 @@ contract Inbox is IInbox {
         } else {
             BondOperation memory bondOperation =
                 BondOperation({ proposalId: _proposalId, receiver: receiver, credit: credit });
-            // TODO: emit
 
             return keccak256(abi.encode(_bondOperationsHash, bondOperation));
         }
@@ -332,7 +327,7 @@ contract Inbox is IInbox {
 
     /// @dev Validates a blob locator and converts it to a blob segment.
     /// @param _blobLocator The blob locator to validate.
-    /// @return blobSegment_ The blob segment.
+    /// @return blobSegment_ The validated blob segment containing blob hashes.
     function _validateBlobLocator(BlobLocator memory _blobLocator)
         private
         view
@@ -363,7 +358,6 @@ contract Inbox is IInbox {
     error InconsistentParams();
     error InsufficientBond();
     error InvalidBlobLocator();
-    error InvalidClaimChain();
     error InvalidState();
     error ProposalHashMismatch();
     error Unauthorized();

@@ -6,8 +6,6 @@ import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
 /// @title SyncedBlockManager
 /// @notice Contract for managing synced L2 blocks
 /// @custom:security-contact security@taiko.xyz
-/// TODOs:
-/// - [ ] use a ring buffer so previously synecd blocks can be used in merkle proofs.
 contract SyncedBlockManager is ISyncedBlockManager {
     // -------------------------------------------------------------------------
     // State Variables
@@ -46,8 +44,7 @@ contract SyncedBlockManager is ISyncedBlockManager {
 
     /// @inheritdoc ISyncedBlockManager
     function saveSyncedBlock(SyncedBlock calldata _newSyncedBlock) external onlyAuthorized {
-        if (_newSyncedBlock.blockNumber <= _syncedBlock.blockNumber) return;
-        if (_newSyncedBlock.stateRoot == 0) return;
+        if (_newSyncedBlock.blockNumber <= _syncedBlock.blockNumber) revert InvalidSyncedBlock();
 
         _syncedBlock = _newSyncedBlock;
         emit SyncedBlockUpdated(

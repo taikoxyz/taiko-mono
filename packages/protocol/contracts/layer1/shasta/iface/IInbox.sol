@@ -16,9 +16,9 @@ interface IInbox {
         uint48 blobStartIndex;
         /// @notice The number of blobs.
         uint32 numBlobs;
-        /// @notice The offset within the blob.
+        /// @notice The offset within the blob data.
         uint32 offset;
-        /// @notice The size of the blob.
+        /// @notice The size of the data segment.
         uint32 size;
     }
 
@@ -56,9 +56,10 @@ interface IInbox {
 
     /// @notice Represents the timing of when a proof was submitted.
     enum ProofTiming {
-        InProvingWindow,
-        InExtendedProvingWindow,
-        OutOfExtendedProvingWindow
+        InProvingWindow, // Proof submitted within the initial proving window
+        InExtendedProvingWindow, // Proof submitted during the extended proving window
+        OutOfExtendedProvingWindow // Proof submitted after all proving windows expired
+
     }
 
     /// @notice Represents a claim about the state transition of a proposal.
@@ -124,12 +125,12 @@ interface IInbox {
     // -------------------------------------------------------------------------
 
     /// @notice Proposes new proposals of L2 blocks.
-    /// @param _lookahead The data to post a new lookahead.
-    /// @param _data The data containing the core state, blob locators, and claim records.
+    /// @param _lookahead The data to post a new lookahead (currently unused).
+    /// @param _data The data containing the core state, blob locator, and claim records.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
     /// @notice Proves a claim about some properties of a proposal, including its state transition.
-    /// @param _data The data containing the proposals and claims.
-    /// @param _proof Validity proof for the claim.
+    /// @param _data The data containing the proposals and claims to be proven.
+    /// @param _proof Validity proof for the claims.
     function prove(bytes calldata _data, bytes calldata _proof) external;
 }

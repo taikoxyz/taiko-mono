@@ -8,7 +8,6 @@ import { IInbox } from "../iface/IInbox.sol";
 /// @notice Implementation for managing Inbox state data.
 /// @custom:security-contact security@taiko.xyz
 abstract contract InboxStateManager is IInboxStateManager {
-    
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
