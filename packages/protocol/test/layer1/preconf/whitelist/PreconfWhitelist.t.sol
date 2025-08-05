@@ -498,6 +498,51 @@ contract TestPreconfWhitelist is Layer1Test {
         assertTrue(whitelist.ejecters(ejecter));
     }
 
+    function test_checkProposer_correctOperatorForEpoch() external {
+        _setBeaconBlockRoot(bytes32(uint256(7)));
+
+        // Add an operator
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+
+        // Fast forward to when operator is active
+        _advanceOneEpoch();
+        _advanceOneEpoch();
+
+        // Bob should be the valid operator for current epoch
+        assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
+
+        // This should not revert since Bob is the correct operator
+        whitelist.checkProposer(Bob);
+    }
+
+    function test_checkProposer_fallbackPreconfer() external view {
+        // When no operator is active, fallback preconfer should be valid
+        assertEq(whitelist.getOperatorForCurrentEpoch(), address(0));
+
+        // This should not revert since fallback is used when operator is address(0)
+        whitelist.checkProposer(whitelist.fallbackPreconfer());
+    }
+
+    function test_checkProposer_invalidOperatorWillRevert() external {
+        _setBeaconBlockRoot(bytes32(uint256(7)));
+
+        // Add an operator
+        vm.prank(whitelistOwner);
+        whitelist.addOperator(Bob, _getSequencerAddress(Bob));
+
+        // Fast forward to when operator is active
+        _advanceOneEpoch();
+        _advanceOneEpoch();
+
+        // Bob is the valid operator
+        assertEq(whitelist.getOperatorForCurrentEpoch(), Bob);
+
+        // Alice is not the correct operator, should revert
+        vm.expectRevert(IProposerChecker.InvalidProposer.selector);
+        whitelist.checkProposer(Alice);
+    }
+
     function _setBeaconBlockRoot(bytes32 _root) internal {
         vm.etch(
             LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,
