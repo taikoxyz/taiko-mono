@@ -5,6 +5,9 @@ import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
 
 /// @title SyncedBlockManager
 /// @notice Contract for managing synced L2 blocks using a ring buffer
+/// @dev This contract implements a ring buffer to store the most recent synced blocks.
+/// When the buffer is full, new blocks overwrite the oldest entries. The contract
+/// ensures blocks are saved in strictly increasing order by block number.
 /// @custom:security-contact security@taiko.xyz
 contract SyncedBlockManager is ISyncedBlockManager {
     // -------------------------------------------------------------------------
@@ -27,6 +30,7 @@ contract SyncedBlockManager is ISyncedBlockManager {
     uint48 private _stackSize;
 
     /// @notice Ring buffer as a stack for storing synced blocks
+    /// @dev Maps slot indices (0 to maxStackSize-1) to synced block data
     mapping(uint48 slot => SyncedBlock syncedBlock) private _syncedBlocks;
 
     // -------------------------------------------------------------------------
@@ -61,17 +65,23 @@ contract SyncedBlockManager is ISyncedBlockManager {
 
     /// @inheritdoc ISyncedBlockManager
     function saveSyncedBlock(SyncedBlock calldata _syncedBlock) external onlyAuthorized {
-        // Validate all fields in one check to save gas
-        if (_syncedBlock.stateRoot == 0) revert InvalidSyncedBlock();
-        if (_syncedBlock.blockHash == 0) revert InvalidSyncedBlock();
-        if (_syncedBlock.blockNumber <= _latestSyncedBlockNumber) revert InvalidSyncedBlock();
+        // Validate all fields in a single check to save gas
+        if (
+            _syncedBlock.stateRoot == 0 || _syncedBlock.blockHash == 0
+                || _syncedBlock.blockNumber <= _latestSyncedBlockNumber
+        ) {
+            revert InvalidSyncedBlock();
+        }
 
         unchecked {
-            // Push to the top of the stack (next position in ring buffer)
+            // Ring buffer implementation:
+            // - _stackTop starts at 0 and cycles through 0 to (maxStackSize-1)
+            // - When we reach maxStackSize, it wraps back to 0
+            // - This ensures we always overwrite the oldest entry when buffer is full
             _stackTop = (_stackTop + 1) % maxStackSize;
             _syncedBlocks[_stackTop] = _syncedBlock;
 
-            // Update stack size
+            // Update stack size (capped at maxStackSize)
             if (_stackSize < maxStackSize) {
                 ++_stackSize;
             }
@@ -93,11 +103,18 @@ contract SyncedBlockManager is ISyncedBlockManager {
         if (_offset >= _stackSize) revert IndexOutOfBounds();
 
         unchecked {
+            // Calculate the slot position for the requested offset:
+            // - offset 0 = most recent block (at _stackTop)
+            // - offset 1 = second most recent block
+            // - etc.
             uint48 slot;
             if (_stackTop >= _offset) {
+                // Simple case: we can subtract directly
                 slot = _stackTop - _offset;
             } else {
-                // Wrap around to the end of the ring buffer
+                // Wrap-around case: when offset goes past index 0
+                // Example: if _stackTop=1 and _offset=3, we need slot=(5+1-3)=3
+                // This correctly wraps to the end of the ring buffer
                 slot = maxStackSize + _stackTop - _offset;
             }
 

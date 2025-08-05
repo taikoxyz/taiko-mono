@@ -111,9 +111,7 @@ contract SyncedBlockManagerTest is CommonTest {
             blockNumber: 100
         });
 
-        vm.expectRevert(
-            abi.encodeWithSelector(SyncedBlockManager.InvalidSyncedBlock.selector, 100, 0)
-        );
+        vm.expectRevert(SyncedBlockManager.InvalidSyncedBlock.selector);
         syncedBlockManager.saveSyncedBlock(block_);
     }
 
@@ -126,9 +124,7 @@ contract SyncedBlockManagerTest is CommonTest {
             blockNumber: 100
         });
 
-        vm.expectRevert(
-            abi.encodeWithSelector(SyncedBlockManager.InvalidSyncedBlock.selector, 100, 0)
-        );
+        vm.expectRevert(SyncedBlockManager.InvalidSyncedBlock.selector);
         syncedBlockManager.saveSyncedBlock(block_);
     }
 
@@ -141,9 +137,7 @@ contract SyncedBlockManagerTest is CommonTest {
             blockNumber: 0
         });
 
-        vm.expectRevert(
-            abi.encodeWithSelector(SyncedBlockManager.InvalidSyncedBlock.selector, 0, 0)
-        );
+        vm.expectRevert(SyncedBlockManager.InvalidSyncedBlock.selector);
         syncedBlockManager.saveSyncedBlock(block_);
     }
 
@@ -163,9 +157,7 @@ contract SyncedBlockManagerTest is CommonTest {
             blockNumber: 99
         });
 
-        vm.expectRevert(
-            abi.encodeWithSelector(SyncedBlockManager.InvalidSyncedBlock.selector, 99, 100)
-        );
+        vm.expectRevert(SyncedBlockManager.InvalidSyncedBlock.selector);
         syncedBlockManager.saveSyncedBlock(block2);
 
         vm.stopPrank();
@@ -187,9 +179,7 @@ contract SyncedBlockManagerTest is CommonTest {
             blockNumber: 100
         });
 
-        vm.expectRevert(
-            abi.encodeWithSelector(SyncedBlockManager.InvalidSyncedBlock.selector, 100, 100)
-        );
+        vm.expectRevert(SyncedBlockManager.InvalidSyncedBlock.selector);
         syncedBlockManager.saveSyncedBlock(block2);
 
         vm.stopPrank();
@@ -210,7 +200,7 @@ contract SyncedBlockManagerTest is CommonTest {
         });
         syncedBlockManager.saveSyncedBlock(block_);
 
-        vm.expectRevert(abi.encodeWithSelector(SyncedBlockManager.IndexOutOfBounds.selector, 1, 1));
+        vm.expectRevert(SyncedBlockManager.IndexOutOfBounds.selector);
         syncedBlockManager.getSyncedBlock(1);
     }
 
@@ -249,7 +239,7 @@ contract SyncedBlockManagerTest is CommonTest {
         assertEq(oldest.blockNumber, 200); // Block 100 was overwritten
 
         // Verify block 100 cannot be accessed
-        vm.expectRevert(abi.encodeWithSelector(SyncedBlockManager.IndexOutOfBounds.selector, 5, 5));
+        vm.expectRevert(SyncedBlockManager.IndexOutOfBounds.selector);
         syncedBlockManager.getSyncedBlock(5);
 
         vm.stopPrank();
