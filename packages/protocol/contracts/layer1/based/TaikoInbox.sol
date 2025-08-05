@@ -254,7 +254,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         require(metas.length == trans.length, ArraySizesMismatch());
 
         Stats2 memory stats2 = state.stats2;
-        require(!stats2.paused, ContractPaused());
 
         Config memory config = pacayaConfig();
         IVerifier.Context[] memory ctxs = new IVerifier.Context[](metas.length);
@@ -408,8 +407,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             bool inProvingWindow;
             unchecked {
-                inProvingWindow = block.timestamp
-                    <= uint256(meta.proposedAt).max(stats2.lastUnpausedAt) + config.provingWindow;
+                inProvingWindow = block.timestamp <= uint256(meta.proposedAt) + config.provingWindow;
             }
 
             // Surge: Set the bond receiver based on the proving window and received proof type
@@ -450,24 +448,19 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     /// @dev This function is necessary to upgrade from this fork to the next one.
     /// @param _length Specifis how many batches to verify. The max number of batches to verify is
     /// `pacayaConfig().maxBatchesToVerify * _length`.
-    function verifyBatches(uint64 _length)
-        external
-        nonZeroValue(_length)
-        nonReentrant
-        whenNotPaused
-    {
+    function verifyBatches(uint64 _length) external nonZeroValue(_length) nonReentrant {
         LibVerifying.verifyBatches(
             state, pacayaConfig(), state.stats2, _length, dao, verifier, signalService
         );
     }
 
     /// @inheritdoc ITaikoInbox
-    function depositBond(uint256 _amount) external payable whenNotPaused {
+    function depositBond(uint256 _amount) external payable {
         state.bondBalance[msg.sender] += _handleDeposit(msg.sender, _amount);
     }
 
     /// @inheritdoc ITaikoInbox
-    function withdrawBond(uint256 _amount) external whenNotPaused {
+    function withdrawBond(uint256 _amount) external {
         uint256 balance = state.bondBalance[msg.sender];
         require(balance >= _amount, InsufficientBond());
 
@@ -620,11 +613,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
     // Public functions -------------------------------------------------------------------------
 
-    /// @inheritdoc EssentialContract
-    function paused() public view override returns (bool) {
-        return state.stats2.paused;
-    }
-
     /// @inheritdoc ITaikoInbox
     function getBatch(uint64 _batchId) public view returns (Batch memory batch_) {
         Config memory config = pacayaConfig();
@@ -684,15 +672,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         state.stats1.verificationStreakStartedAt = uint64(block.timestamp);
 
         emit BatchesVerified(0, _genesisBlockHash);
-    }
-
-    function _unpause() internal override {
-        state.stats2.lastUnpausedAt = uint64(block.timestamp);
-        state.stats2.paused = false;
-    }
-
-    function _pause() internal override {
-        state.stats2.paused = true;
     }
 
     function _calculateTxsHash(

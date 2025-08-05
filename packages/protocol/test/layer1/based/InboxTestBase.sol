@@ -241,9 +241,7 @@ abstract contract InboxTestBase is Layer1Test {
         ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         console2.log("Stats2 - numBatches:", stats2.numBatches);
         console2.log("Stats2 - lastVerifiedBatchId:", stats2.lastVerifiedBatchId);
-        console2.log("Stats2 - paused:", stats2.paused);
         console2.log("Stats2 - lastProposedIn:", stats2.lastProposedIn);
-        console2.log("Stats2 - lastUnpausedAt:", stats2.lastUnpausedAt);
 
         // console2.log("stats2.numBatches:", stats2.numBatches);
         // console2.log("getConfig().maxUnverifiedBatches:", getConfig().maxUnverifiedBatches);

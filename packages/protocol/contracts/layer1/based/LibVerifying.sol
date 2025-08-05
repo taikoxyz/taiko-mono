@@ -121,6 +121,7 @@ library LibVerifying {
                     synced.batchId = ls.batchId;
                     synced.blockId = batch.lastBlockId;
                     synced.tid = ls.tid;
+                    synced.fti = ls.fti;
                     synced.stateRoot = transitions[ls.fti].stateRoot;
                 }
             }
@@ -144,6 +145,7 @@ library LibVerifying {
                         // We write the synced batch's verifiedTransitionId to storage
                         batch = _state.batches[synced.batchId % _config.batchRingBufferSize];
                         batch.verifiedTransitionId = synced.tid;
+                        batch.finalisingTransitionIndex = uint8(synced.fti);
                     }
 
                     ITaikoInbox.Stats1 memory stats1 = _state.stats1;
@@ -234,6 +236,7 @@ library LibVerifying {
         uint64 batchId;
         uint64 blockId;
         uint24 tid;
+        uint256 fti;
         bytes32 stateRoot;
     }
 }

@@ -152,9 +152,11 @@ interface ITaikoInbox {
     struct Stats2 {
         uint64 numBatches;
         uint64 lastVerifiedBatchId;
-        bool paused;
+        // Surge: remove `paused`
+        uint8 _reserved1;
         uint56 lastProposedIn;
-        uint64 lastUnpausedAt;
+        // Surge: remove `lastPausedAt`
+        uint64 _reserved2;
     }
 
     struct ForkHeights {
@@ -287,7 +289,7 @@ interface ITaikoInbox {
     error BlobNotFound();
     error BlockNotFound();
     error BlobNotSpecified();
-    error ContractPaused();
+    // Surge: remove `ContractPaused`
     error CustomProposerMissing();
     error CustomProposerNotAllowed();
     error EtherNotPaidAsBond();

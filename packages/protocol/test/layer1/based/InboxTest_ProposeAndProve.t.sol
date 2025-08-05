@@ -50,9 +50,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         assertEq(stats2.numBatches, 1);
         assertEq(stats2.lastVerifiedBatchId, 0);
-        assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, genesisBlockProposedIn);
-        assertEq(stats2.lastUnpausedAt, 0);
 
         // - Verify genesis block
         ITaikoInbox.Batch memory batch = inbox.getBatch(0);
@@ -97,9 +95,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         assertEq(stats2.numBatches, 11);
         assertEq(stats2.lastVerifiedBatchId, 0);
-        assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
-        assertEq(stats2.lastUnpausedAt, 0);
 
         // - Verify genesis block
         ITaikoInbox.Batch memory batch = inbox.getBatch(0);
@@ -158,9 +154,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         assertEq(stats2.numBatches, 7);
         assertEq(stats2.lastVerifiedBatchId, 0);
-        assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
-        assertEq(stats2.lastUnpausedAt, 0);
 
         // - Verify genesis block
         ITaikoInbox.Batch memory batch = inbox.getBatch(0);
@@ -223,9 +217,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         assertEq(stats2.numBatches, 10);
         assertEq(stats2.lastVerifiedBatchId, 9);
-        assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
-        assertEq(stats2.lastUnpausedAt, 0);
 
         (uint64 batchId, uint64 blockId, ITaikoInbox.TransitionState memory ts) =
             inbox.getLastVerifiedTransition();
@@ -303,9 +295,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         assertEq(stats2.numBatches, 10);
         assertEq(stats2.lastVerifiedBatchId, 9);
-        assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
-        assertEq(stats2.lastUnpausedAt, 0);
 
         (uint64 batchId, uint64 blockId, ITaikoInbox.TransitionState memory ts) =
             inbox.getLastVerifiedTransition();
@@ -367,9 +357,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         assertEq(stats2.numBatches, 10);
         assertEq(stats2.lastVerifiedBatchId, 9);
-        assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
-        assertEq(stats2.lastUnpausedAt, 0);
 
         // - Verify genesis block
         ITaikoInbox.Batch memory batch = inbox.getBatch(0);
@@ -420,9 +408,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
         assertEq(stats2.numBatches, 18);
         assertEq(stats2.lastVerifiedBatchId, 10);
-        assertEq(stats2.paused, false);
         assertEq(stats2.lastProposedIn, block.number);
-        assertEq(stats2.lastUnpausedAt, 0);
 
         (uint64 batchId, uint64 blockId, ITaikoInbox.TransitionState memory ts) =
             inbox.getLastVerifiedTransition();
