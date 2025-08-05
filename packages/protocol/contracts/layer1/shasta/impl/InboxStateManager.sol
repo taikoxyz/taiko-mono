@@ -5,29 +5,63 @@ import { IInboxStateManager } from "../iface/IInboxStateManager.sol";
 import { IInbox } from "../iface/IInbox.sol";
 
 /// @title InboxStateManager
-/// @notice Implementation for managing Inbox state data.
+/// @notice Manages state storage for the Inbox contract using a ring buffer pattern.
+/// @dev This contract implements efficient storage for proposal and claim data using:
+/// - Ring buffer: Fixed-size circular storage that overwrites old data when full
+/// - Packed encoding: Stores proposal ID and partial parent claim hash in a single uint256
+/// - Gas optimization: Uses a default slot for first claim to reduce storage operations
+///
+/// The ring buffer size determines how many proposals can be stored before old ones are
+/// overwritten. Each slot can store one proposal hash and multiple claim records indexed
+/// by parent claim hash.
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxStateManager is IInboxStateManager {
+contract InboxStateManager is IInboxStateManager {
+    // -------------------------------------------------------------------------
+    // Structs
+    // -------------------------------------------------------------------------
+
+    /// @notice Extended claim record that stores both the claim hash and encoded metadata.
+    /// @dev The metadata includes the proposal ID and partial parent claim hash for efficient
+    /// lookups.
+    struct ExtendedClaimRecord {
+        bytes32 claimRecordHash;
+        uint256 slotReuseMarker;
+    }
+
+    /// @notice Stores proposal data and associated claim records.
+    /// @dev Each proposal can have multiple claims associated with it, indexed by parent claim
+    /// hash.
+    struct ProposalRecord {
+        /// @dev Hash of the proposal data
+        bytes32 proposalHash;
+        /// @dev Maps parent claim hashes to their corresponding claim record hashes
+        mapping(bytes32 parentClaimHash => ExtendedClaimRecord claimRecordHash) claimHashLookup;
+    }
+
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
+    bytes32 private immutable _DEFAULT_SLOT_HASH = bytes32(uint256(1));
 
     /// @notice The address of the inbox contract that can modify state.
     address public immutable inbox;
 
+    /// @notice The size of the ring buffer for proposals.
+    uint256 public immutable ringBufferSize;
+
     /// @notice The hash of the core state.
     bytes32 private coreStateHash;
-    /// @notice Maps proposal ID to proposal hash.
-    mapping(uint48 proposalId => bytes32 proposalHash) private proposalRegistry;
-    /// @notice Maps proposal ID and parent claim hash to claim record hash.
-    mapping(uint48 proposalId => mapping(bytes32 parentClaimHash => bytes32 claimRecordHash))
-        private claimRecordHashLookup;
+
+    /// @notice Ring buffer for storing proposal records.
+    /// @dev Key is proposalId % ringBufferSize
+    mapping(uint256 bufferSlot => ProposalRecord proposalRecord) private proposalRingBuffer;
 
     // -------------------------------------------------------------------------
     // Modifiers
     // -------------------------------------------------------------------------
 
     /// @notice Ensures only the inbox contract can call the function.
+    /// @dev Critical for maintaining state integrity - only the inbox should modify state.
     modifier onlyInbox() {
         if (msg.sender != inbox) revert Unauthorized();
         _;
@@ -37,11 +71,17 @@ abstract contract InboxStateManager is IInboxStateManager {
     // Constructor
     // -------------------------------------------------------------------------
 
-    /// @notice Initializes the InboxStateManager with the inbox address and genesis block hash
-    /// @param _inbox The address of the inbox contract
-    /// @param _genesisBlockHash The genesis block hash
-    constructor(address _inbox, bytes32 _genesisBlockHash) {
+    /// @notice Initializes the InboxStateManager with the inbox address and genesis block hash.
+    /// @dev Sets up the initial core state with proposal ID 1 and the genesis block as the
+    /// last finalized claim. The ring buffer size determines how many proposals can be
+    /// stored before old ones are overwritten.
+    /// @param _inbox The address of the authorized inbox contract.
+    /// @param _genesisBlockHash The hash of the genesis block.
+    /// @param _ringBufferSize The size of the ring buffer (must be > 0).
+    constructor(address _inbox, bytes32 _genesisBlockHash, uint256 _ringBufferSize) {
+        if (_ringBufferSize == 0) revert RingBufferSizeZero();
         inbox = _inbox;
+        ringBufferSize = _ringBufferSize;
 
         IInbox.Claim memory claim;
         claim.endBlockHash = _genesisBlockHash;
@@ -63,7 +103,9 @@ abstract contract InboxStateManager is IInboxStateManager {
 
     /// @inheritdoc IInboxStateManager
     function setProposalHash(uint48 _proposalId, bytes32 _proposalHash) external onlyInbox {
-        proposalRegistry[_proposalId] = _proposalHash;
+        uint256 bufferSlot = _proposalId % ringBufferSize;
+        // Overwrites any existing proposal at this slot
+        proposalRingBuffer[bufferSlot].proposalHash = _proposalHash;
     }
 
     /// @inheritdoc IInboxStateManager
@@ -75,7 +117,25 @@ abstract contract InboxStateManager is IInboxStateManager {
         external
         onlyInbox
     {
-        claimRecordHashLookup[_proposalId][_parentClaimHash] = _claimRecordHash;
+        ProposalRecord storage proposalRecord = proposalRingBuffer[_proposalId % ringBufferSize];
+
+        ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
+
+        (uint48 proposalId, bytes32 partialParentClaimHash) =
+            _decodeSlotReuseMarker(record.slotReuseMarker);
+
+        // Check if we need to use the default slot
+        if (proposalId != _proposalId) {
+            // Different proposal ID, so we can use the default slot
+            record.claimRecordHash = _claimRecordHash;
+            record.slotReuseMarker = _encodeSlotReuseMarker(_proposalId, _parentClaimHash);
+        } else if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
+            // Same proposal ID and same parent claim hash (partial match), update the default slot
+            record.claimRecordHash = _claimRecordHash;
+        } else {
+            // Same proposal ID but different parent claim hash, use direct mapping
+            proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash = _claimRecordHash;
+        }
     }
 
     /// @inheritdoc IInboxStateManager
@@ -85,7 +145,10 @@ abstract contract InboxStateManager is IInboxStateManager {
 
     /// @inheritdoc IInboxStateManager
     function getProposalHash(uint48 _proposalId) public view returns (bytes32 proposalHash_) {
-        proposalHash_ = proposalRegistry[_proposalId];
+        uint256 bufferSlot = _proposalId % ringBufferSize;
+        // Returns the hash at this slot, which may belong to a different proposal
+        // if the ring buffer has wrapped around
+        proposalHash_ = proposalRingBuffer[bufferSlot].proposalHash;
     }
 
     /// @inheritdoc IInboxStateManager
@@ -97,7 +160,92 @@ abstract contract InboxStateManager is IInboxStateManager {
         view
         returns (bytes32 claimRecordHash_)
     {
-        claimRecordHash_ = claimRecordHashLookup[_proposalId][_parentClaimHash];
+        uint256 bufferSlot = _proposalId % ringBufferSize;
+
+        ExtendedClaimRecord storage record =
+            proposalRingBuffer[bufferSlot].claimHashLookup[_DEFAULT_SLOT_HASH];
+
+        (uint48 proposalId, bytes32 partialParentClaimHash) =
+            _decodeSlotReuseMarker(record.slotReuseMarker);
+
+        // If the reusable slot's proposal ID does not match the given proposal ID, it indicates
+        // that
+        // there are no claims associated with this proposal at all.
+        if (proposalId != _proposalId) return bytes32(0);
+
+        // If there's a record in the default slot with matching parent claim hash, return it
+        if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
+            return record.claimRecordHash;
+        }
+
+        // Otherwise check the direct mapping
+        return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
+    }
+
+    /// @inheritdoc IInboxStateManager
+    function getUnfinalizedProposalCapacity() public view returns (uint256) {
+        // The ring buffer can hold ringBufferSize proposals total, but we need to ensure
+        // unfinalized proposals are not overwritten. Therefore, the maximum number of
+        // unfinalized proposals is ringBufferSize - 1.
+        unchecked {
+            return ringBufferSize - 1;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Decodes a slot reuse marker into proposal ID and partial parent claim hash.
+    /// @dev The encoding format:
+    ///      - Bits 255-208 (48 bits): Proposal ID
+    ///      - Bits 207-0 (208 bits): Highest 208 bits of parent claim hash
+    /// @param _slotReuseMarker The packed value to decode
+    /// @return proposalId_ The decoded proposal ID
+    /// @return partialParentClaimHash_ The decoded partial parent claim hash (low 48 bits zeroed)
+    function _decodeSlotReuseMarker(uint256 _slotReuseMarker)
+        internal
+        pure
+        returns (uint48 proposalId_, bytes32 partialParentClaimHash_)
+    {
+        proposalId_ = uint48(_slotReuseMarker >> 208);
+        partialParentClaimHash_ = bytes32(_slotReuseMarker << 48);
+    }
+
+    /// @notice Encodes a proposal ID and parent claim hash into a slot reuse marker.
+    /// @dev The encoding format:
+    ///      - Bits 255-208 (48 bits): Proposal ID
+    ///      - Bits 207-0 (208 bits): Highest 208 bits of parent claim hash
+    ///      This encoding allows us to store both values efficiently in a single storage slot.
+    /// @param _proposalId The proposal ID to encode (max 48 bits)
+    /// @param _parentClaimHash The parent claim hash (only highest 208 bits are stored)
+    /// @return slotReuseMarker_ The packed encoded value
+    function _encodeSlotReuseMarker(
+        uint48 _proposalId,
+        bytes32 _parentClaimHash
+    )
+        internal
+        pure
+        returns (uint256 slotReuseMarker_)
+    {
+        slotReuseMarker_ = (uint256(_proposalId) << 208) | (uint256(_parentClaimHash) >> 48);
+    }
+
+    /// @notice Checks if two parent claim hashes match in their high 208 bits.
+    /// @dev Compares the highest 208 bits of two claim hashes by right-shifting 48 bits.
+    ///      This is used to determine if a claim can reuse the default storage slot.
+    /// @param _partialParentClaimHash The partial parent claim hash (low 48 bits already zeroed)
+    /// @param _parentClaimHash The full parent claim hash to compare against
+    /// @return _ True if the high 208 bits match, false otherwise
+    function _isPartialParentClaimHashMatch(
+        bytes32 _partialParentClaimHash,
+        bytes32 _parentClaimHash
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
 
     // -------------------------------------------------------------------------
@@ -105,5 +253,6 @@ abstract contract InboxStateManager is IInboxStateManager {
     // -------------------------------------------------------------------------
 
     error InvalidInboxAddress();
+    error RingBufferSizeZero();
     error Unauthorized();
 }

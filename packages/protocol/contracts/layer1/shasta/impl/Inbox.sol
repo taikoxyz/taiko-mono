@@ -109,9 +109,16 @@ contract Inbox is IInbox {
             revert InvalidState();
         }
 
+        // Check if new proposals would exceed the unfinalized proposal capacity
+        uint256 unfinalizedProposalCapacity = inboxStateManager.getUnfinalizedProposalCapacity();  
+        
+        if (coreState.nextProposalId - coreState.lastFinalizedProposalId > unfinalizedProposalCapacity) {
+            revert ExceedsUnfinalizedProposalCapacity();
+        }
+
         Proposal[] memory proposals = new Proposal[](1);
 
-        BlobSegment memory blobSegment = _validateBlobLocator(blobLocator);
+        Frame memory frame = _validateBlobLocator(blobLocator);
         (coreState, proposals[0]) = _propose(coreState, blobSegment);
 
         // Finalize proved proposals
@@ -141,28 +148,28 @@ contract Inbox is IInbox {
 
     /// @dev Proposes a new proposal of L2 blocks.
     /// @param _coreState The core state of the inbox.
-    /// @param _content The blob segment containing the proposal content.
+    /// @param _frame The frame of the proposal.
     /// @return coreState_ The updated core state.
     /// @return proposal_ The created proposal.
     function _propose(
         CoreState memory _coreState,
-        BlobSegment memory _content
+        Frame memory _frame
     )
         private
         returns (CoreState memory coreState_, Proposal memory proposal_)
     {
         uint48 proposalId = _coreState.nextProposalId++;
-        uint48 timestamp = uint48(block.timestamp);
-        uint48 referenceBlockNumber = uint48(block.number);
+        uint48 originTimestamp = uint48(block.timestamp);
+        uint48 originBlockNumber = uint48(block.number);
 
         proposal_ = Proposal({
             id: proposalId,
             proposer: msg.sender,
             provabilityBond: provabilityBond,
             livenessBond: livenessBond,
-            timestamp: timestamp,
-            proposedBlockNumber: referenceBlockNumber,
-            content: _content
+            originTimestamp: originTimestamp,
+            originBlockNumber: originBlockNumber,
+            frame: _frame
         });
 
         bytes32 proposalHash = keccak256(abi.encode(proposal_));
@@ -181,9 +188,9 @@ contract Inbox is IInbox {
             revert ProposalHashMismatch();
         }
 
-        ProofTiming proofTiming = block.timestamp <= _proposal.timestamp + provingWindow
+        ProofTiming proofTiming = block.timestamp <= _proposal.originTimestamp + provingWindow
             ? ProofTiming.InProvingWindow
-            : block.timestamp <= _proposal.timestamp + extendedProvingWindow
+            : block.timestamp <= _proposal.originTimestamp + extendedProvingWindow
                 ? ProofTiming.InExtendedProvingWindow
                 : ProofTiming.OutOfExtendedProvingWindow;
 
@@ -325,13 +332,13 @@ contract Inbox is IInbox {
         }
     }
 
-    /// @dev Validates a blob locator and converts it to a blob segment.
+    /// @dev Validates a blob locator and converts it to a frame.
     /// @param _blobLocator The blob locator to validate.
-    /// @return blobSegment_ The validated blob segment containing blob hashes.
+    /// @return frame_ The frame.
     function _validateBlobLocator(BlobLocator memory _blobLocator)
         private
         view
-        returns (BlobSegment memory blobSegment_)
+        returns (Frame memory frame_)
     {
         if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
 
@@ -341,11 +348,7 @@ contract Inbox is IInbox {
             if (blobHashes[i] == 0) revert BlobNotFound();
         }
 
-        return BlobSegment({
-            blobHashes: blobHashes,
-            offset: _blobLocator.offset,
-            size: _blobLocator.size
-        });
+        return Frame({ blobHashes: blobHashes, offset: _blobLocator.offset });
     }
 
     // -------------------------------------------------------------------------
@@ -355,6 +358,7 @@ contract Inbox is IInbox {
     error BlobNotFound();
     error ClaimRecordHashMismatch();
     error ClaimRecordNotProvided();
+    error ExceedsUnfinalizedProposalCapacity();
     error InconsistentParams();
     error InsufficientBond();
     error InvalidBlobLocator();
