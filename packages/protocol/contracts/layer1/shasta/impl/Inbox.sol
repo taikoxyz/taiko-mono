@@ -106,7 +106,7 @@ contract Inbox is IInbox {
 
         (
             CoreState memory coreState,
-            BlobLocator[] memory blobLocators,
+            BlobLocator[] memory blobLocators, // TODO: change to support one single propossal
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
 
@@ -328,6 +328,7 @@ contract Inbox is IInbox {
         } else {
             BondOperation memory bondOperation =
                 BondOperation({ proposalId: _proposalId, receiver: receiver, credit: credit });
+                // TODO: emit
 
             return keccak256(abi.encode(_bondOperationsHash, bondOperation));
         }
