@@ -110,16 +110,19 @@ contract Inbox is IInbox {
         }
 
         // Check if new proposals would exceed the unfinalized proposal capacity
-        uint256 unfinalizedProposalCapacity = inboxStateManager.getUnfinalizedProposalCapacity();  
-        
-        if (coreState.nextProposalId - coreState.lastFinalizedProposalId > unfinalizedProposalCapacity) {
+        uint256 unfinalizedProposalCapacity = inboxStateManager.getCapacity();
+
+        if (
+            coreState.nextProposalId - coreState.lastFinalizedProposalId
+                > unfinalizedProposalCapacity
+        ) {
             revert ExceedsUnfinalizedProposalCapacity();
         }
 
         Proposal[] memory proposals = new Proposal[](1);
 
         Frame memory frame = _validateBlobLocator(blobLocator);
-        (coreState, proposals[0]) = _propose(coreState, blobSegment);
+        (coreState, proposals[0]) = _propose(coreState, frame);
 
         // Finalize proved proposals
         coreState = _finalize(coreState, claimRecords);

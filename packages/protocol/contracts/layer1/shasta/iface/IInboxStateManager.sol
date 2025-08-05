@@ -79,5 +79,5 @@ interface IInboxStateManager {
     /// @dev The difference between nextProposalId and lastFinalizedProposalId cannot exceed
     /// this capacity.
     /// @return _ The maximum number of unfinalized proposals that can exist.
-    function getUnfinalizedProposalCapacity() external view returns (uint256);
+    function getCapacity() external view returns (uint256);
 }
