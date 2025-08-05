@@ -100,7 +100,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
               tx_hash: evt.transactionHash,
               tx_from: from,
               block_number: evt.blockNumber,
-              tx_l1_fee_eth: proverTxL1FeeEth,
+              tx_l1_fee_eth: proverTxL1FeeEth / batchIds.length,
               prover: actualProver,
               bond_credited_amount: bondCreditedAmount / batchIds.length,
             }, { onConflict: 'batch_id,tx_hash' });
