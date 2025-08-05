@@ -12,7 +12,7 @@ contract InboxStateManagerTest is CommonTest {
     InboxStateManager private stateManager;
     address private inbox;
     bytes32 private constant GENESIS_BLOCK_HASH = keccak256("GENESIS");
-    uint256 private constant RING_BUFFER_SIZE = 10;
+    uint256 private constant RING_BUFFER_SIZE = 1000;
 
     function setUp() public override {
         super.setUp();
@@ -203,15 +203,17 @@ contract InboxStateManagerTest is CommonTest {
         // Overwrite with second proposal
         stateManager.setProposalHash(proposalId2, proposalHash2);
 
-        // The claim from the first proposal is still accessible
+        // After overwriting the proposal, claims from the first proposal are still accessible
         assertEq(stateManager.getClaimRecordHash(proposalId1, parentClaimHash), claimRecordHash1);
-        assertEq(stateManager.getClaimRecordHash(proposalId2, parentClaimHash), claimRecordHash1);
+        // The second proposal has no claims yet
+        assertEq(stateManager.getClaimRecordHash(proposalId2, parentClaimHash), bytes32(0));
 
         // Set new claim for the second proposal
         stateManager.setClaimRecordHash(proposalId2, parentClaimHash, claimRecordHash2);
 
-        // Both proposal IDs now return the new claim
-        assertEq(stateManager.getClaimRecordHash(proposalId1, parentClaimHash), claimRecordHash2);
+        // Now the first proposal's claim is no longer accessible (overwritten)
+        assertEq(stateManager.getClaimRecordHash(proposalId1, parentClaimHash), bytes32(0));
+        // The second proposal returns its claim
         assertEq(stateManager.getClaimRecordHash(proposalId2, parentClaimHash), claimRecordHash2);
 
         vm.stopPrank();
@@ -292,7 +294,7 @@ contract InboxStateManagerTest is CommonTest {
     // -------------------------------------------------------------------------
 
     function test_invalidRingBufferSize() public {
-        vm.expectRevert(InboxStateManager.InvalidRingBufferSize.selector);
+        vm.expectRevert(InboxStateManager.RingBufferSizeZero.selector);
         new InboxStateManager(inbox, GENESIS_BLOCK_HASH, 0);
     }
 }

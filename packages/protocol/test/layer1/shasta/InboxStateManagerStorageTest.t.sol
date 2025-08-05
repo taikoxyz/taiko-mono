@@ -11,7 +11,7 @@ contract InboxStateManagerStorageTest is Test {
     InboxStateManager stateManager;
     address constant INBOX = address(0x1234);
     bytes32 constant GENESIS_BLOCK_HASH = keccak256("GENESIS");
-    uint256 constant RING_BUFFER_SIZE = 10;
+    uint256 constant RING_BUFFER_SIZE = 1000;
     bytes32 constant DEFAULT_SLOT_HASH = bytes32(uint256(1));
 
     function setUp() public {
@@ -102,21 +102,23 @@ contract InboxStateManagerStorageTest is Test {
         // Overwrite with second proposal
         stateManager.setProposalHash(proposalId2, keccak256("PROPOSAL_2"));
 
-        // Old claims should still be accessible from both proposal IDs
+        // Old claims are still accessible from the first proposal ID
         assertEq(stateManager.getClaimRecordHash(proposalId1, parentClaimHash1), claimRecordHash1);
         assertEq(stateManager.getClaimRecordHash(proposalId1, parentClaimHash2), claimRecordHash2);
-        assertEq(stateManager.getClaimRecordHash(proposalId2, parentClaimHash1), claimRecordHash1);
-        assertEq(stateManager.getClaimRecordHash(proposalId2, parentClaimHash2), claimRecordHash2);
+        // The second proposal has no claims yet
+        assertEq(stateManager.getClaimRecordHash(proposalId2, parentClaimHash1), bytes32(0));
+        assertEq(stateManager.getClaimRecordHash(proposalId2, parentClaimHash2), bytes32(0));
 
         // Add new claim for the second proposal
         stateManager.setClaimRecordHash(proposalId2, parentClaimHash1, claimRecordHash3);
 
-        // The new claim should be accessible from both proposal IDs
-        assertEq(stateManager.getClaimRecordHash(proposalId1, parentClaimHash1), claimRecordHash3);
+        // The new claim is now accessible from the second proposal
         assertEq(stateManager.getClaimRecordHash(proposalId2, parentClaimHash1), claimRecordHash3);
+        // The first proposal's claims are no longer accessible (overwritten)
+        assertEq(stateManager.getClaimRecordHash(proposalId1, parentClaimHash1), bytes32(0));
+        assertEq(stateManager.getClaimRecordHash(proposalId1, parentClaimHash2), bytes32(0));
 
-        // The second parent claim should still have the old hash
-        assertEq(stateManager.getClaimRecordHash(proposalId1, parentClaimHash2), claimRecordHash2);
+        // The second parent claim hash still returns the old value from the direct mapping
         assertEq(stateManager.getClaimRecordHash(proposalId2, parentClaimHash2), claimRecordHash2);
 
         vm.stopPrank();

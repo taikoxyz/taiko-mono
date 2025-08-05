@@ -43,7 +43,7 @@ contract InboxStateManagerEncodingTest is Test {
     function setUp() public {
         address inbox = address(0x1);
         bytes32 genesisHash = keccak256("GENESIS");
-        harness = new InboxStateManagerHarness(inbox, genesisHash, 10);
+        harness = new InboxStateManagerHarness(inbox, genesisHash, 1000);
     }
 
     // -------------------------------------------------------------------------

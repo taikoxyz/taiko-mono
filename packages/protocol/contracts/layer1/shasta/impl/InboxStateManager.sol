@@ -79,7 +79,7 @@ contract InboxStateManager is IInboxStateManager {
     /// @param _genesisBlockHash The hash of the genesis block.
     /// @param _ringBufferSize The size of the ring buffer (must be > 0).
     constructor(address _inbox, bytes32 _genesisBlockHash, uint256 _ringBufferSize) {
-        if (_ringBufferSize == 0) revert InvalidRingBufferSize();
+        if (_ringBufferSize == 0) revert RingBufferSizeZero();
         inbox = _inbox;
         ringBufferSize = _ringBufferSize;
 
@@ -129,7 +129,7 @@ contract InboxStateManager is IInboxStateManager {
             // Different proposal ID, so we can use the default slot
             record.claimRecordHash = _claimRecordHash;
             record.slotReuseMarker = _encodeSlotReuseMarker(_proposalId, _parentClaimHash);
-        } else if (partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48)) {
+        } else if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
             // Same proposal ID and same parent claim hash (partial match), update the default slot
             record.claimRecordHash = _claimRecordHash;
         } else {
@@ -168,11 +168,13 @@ contract InboxStateManager is IInboxStateManager {
         (uint48 proposalId, bytes32 partialParentClaimHash) =
             _decodeSlotReuseMarker(record.slotReuseMarker);
 
+        // If the reusable slot's proposal ID does not match the given proposal ID, it indicates
+        // that
+        // there are no claims associated with this proposal at all.
+        if (proposalId != _proposalId) return bytes32(0);
+
         // If there's a record in the default slot with matching parent claim hash, return it
-        if (
-            proposalId != 0
-                && partialParentClaimHash == bytes32(uint256(_parentClaimHash) >> 48 << 48)
-        ) {
+        if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
             return record.claimRecordHash;
         }
 
@@ -219,11 +221,28 @@ contract InboxStateManager is IInboxStateManager {
         slotReuseMarker_ = (uint256(_proposalId) << 208) | (uint256(_parentClaimHash) >> 48);
     }
 
+    /// @notice Checks if two parent claim hashes match in their high 208 bits.
+    /// @dev Compares the highest 208 bits of two claim hashes by right-shifting 48 bits.
+    ///      This is used to determine if a claim can reuse the default storage slot.
+    /// @param _partialParentClaimHash The partial parent claim hash (low 48 bits already zeroed)
+    /// @param _parentClaimHash The full parent claim hash to compare against
+    /// @return _ True if the high 208 bits match, false otherwise
+    function _isPartialParentClaimHashMatch(
+        bytes32 _partialParentClaimHash,
+        bytes32 _parentClaimHash
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
+    }
+
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
 
     error InvalidInboxAddress();
-    error InvalidRingBufferSize();
+    error RingBufferSizeZero();
     error Unauthorized();
 }

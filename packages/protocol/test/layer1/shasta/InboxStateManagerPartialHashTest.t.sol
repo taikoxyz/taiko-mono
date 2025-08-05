@@ -11,7 +11,7 @@ contract InboxStateManagerPartialHashTest is Test {
     InboxStateManager stateManager;
     address constant INBOX = address(0x1234);
     bytes32 constant GENESIS_BLOCK_HASH = keccak256("GENESIS");
-    uint256 constant RING_BUFFER_SIZE = 10;
+    uint256 constant RING_BUFFER_SIZE = 1000;
 
     function setUp() public {
         vm.prank(INBOX);
