@@ -162,16 +162,16 @@ contract Inbox is IInbox {
         returns (CoreState memory coreState_)
     {
         uint48 proposalId = _coreState.nextProposalId++;
-        uint48 timestamp = uint48(block.timestamp);
-        uint48 referenceBlockNumber = uint48(block.number);
+        uint48 originTimestamp = uint48(block.timestamp);
+        uint48 originBlockNumber = uint48(block.number);
 
         Proposal memory proposal = Proposal({
             id: proposalId,
             proposer: msg.sender,
             provabilityBond: provabilityBond,
             livenessBond: livenessBond,
-            timestamp: timestamp,
-            proposedBlockNumber: referenceBlockNumber,
+            originTimestamp: originTimestamp,
+            originBlockNumber: originBlockNumber,
             content: _content
         });
 
@@ -189,9 +189,9 @@ contract Inbox is IInbox {
             revert ProposalHashMismatch();
         }
 
-        ProofTiming proofTiming = block.timestamp <= _proposal.timestamp + provingWindow
+        ProofTiming proofTiming = block.timestamp <= _proposal.originTimestamp + provingWindow
             ? ProofTiming.InProvingWindow
-            : block.timestamp <= _proposal.timestamp + extendedProvingWindow
+            : block.timestamp <= _proposal.originTimestamp + extendedProvingWindow
                 ? ProofTiming.InExtendedProvingWindow
                 : ProofTiming.OutOfExtendedProvingWindow;
 

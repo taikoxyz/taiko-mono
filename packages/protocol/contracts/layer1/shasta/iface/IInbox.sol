@@ -46,10 +46,10 @@ interface IInbox {
         uint48 livenessBond;
         /// @notice The L1 block timestamp when the proposal was made. This is needed on L2 to
         /// verify each block's timestamp in the proposal's content.
-        uint48 timestamp;
+        uint48 originTimestamp;
         /// @notice The L1 block number when the proposal was made. This is needed on L2 to verify
         /// each block's anchor block number in the proposal's content.
-        uint48 proposedBlockNumber;
+        uint48 originBlockNumber;
         /// @notice The proposal's content identifier.
         BlobSegment content;
     }
