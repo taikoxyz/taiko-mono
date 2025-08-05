@@ -287,11 +287,13 @@ contract Inbox is IInbox {
         uint256 livenessBondWei = uint256(_claimRecord.livenessBond) * 1 gwei;
         uint256 provabilityBondWei = uint256(_claimRecord.provabilityBond) * 1 gwei;
 
+        bool isSelfProven = claim.designatedProver == _claimRecord.proposer;
+
         if (_claimRecord.proofTiming == ProofTiming.InProvingWindow) {
             // Proof submitted within the designated proving window (on-time proof)
             // The designated prover successfully proved the block on time
 
-            if (claim.designatedProver != _claimRecord.proposer) {
+            if (!isSelfProven) {
                 // Proposer and designated prover are different entities
                 // The designated prover paid a liveness bond on L2 that needs to be refunded
                 credit = _claimRecord.livenessBond;
@@ -301,7 +303,7 @@ contract Inbox is IInbox {
             // Proof submitted during extended window (late but acceptable proof)
             // The designated prover failed to prove on time, but another prover stepped in
 
-            if (claim.designatedProver == _claimRecord.proposer) {
+            if (isSelfProven) {
                 bondManager.debitBond(_claimRecord.proposer, livenessBondWei);
                 // Proposer was also the designated prover who failed to prove on time
                 // Forfeit their liveness bond but reward the actual prover with half
@@ -318,7 +320,7 @@ contract Inbox is IInbox {
             bondManager.creditBond(claim.actualProver, provabilityBondWei / 2);
 
             // Forfeit proposer's provability bond but give half to the actual prover
-            if (claim.designatedProver != _claimRecord.proposer) {
+            if (!isSelfProven) {
                 // Proposer and designated prover are different entities
                 // Refund the designated prover's L2 liveness bond
                 credit = _claimRecord.livenessBond;
