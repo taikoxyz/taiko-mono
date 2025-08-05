@@ -283,7 +283,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
         urc.setSlasherCommitment(
             _lookaheadPostingOperator.registrationRoot,
             protector,
-            block.timestamp, // Opted in in the posting slot itself
+            block.timestamp, // Opted in the posting slot itself
             _lookaheadPostingOperator.optedOutAt,
             _lookaheadPostingOperator.committer
         );
