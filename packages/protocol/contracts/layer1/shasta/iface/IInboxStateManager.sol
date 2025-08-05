@@ -74,4 +74,10 @@ interface IInboxStateManager {
         external
         view
         returns (bytes32 claimRecordHash_);
+
+    /// @notice Gets the capacity for unfinalized proposals.
+    /// @dev The difference between nextProposalId and lastFinalizedProposalId cannot exceed
+    /// this capacity.
+    /// @return _ The maximum number of unfinalized proposals that can exist.
+    function getUnfinalizedProposalCapacity() external view returns (uint256);
 }

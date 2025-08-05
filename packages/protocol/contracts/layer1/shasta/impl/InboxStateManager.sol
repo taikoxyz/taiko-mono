@@ -182,6 +182,16 @@ contract InboxStateManager is IInboxStateManager {
         return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
     }
 
+    /// @inheritdoc IInboxStateManager
+    function getUnfinalizedProposalCapacity() public view returns (uint256) {
+        // The ring buffer can hold ringBufferSize proposals total, but we need to ensure
+        // unfinalized proposals are not overwritten. Therefore, the maximum number of
+        // unfinalized proposals is ringBufferSize - 1.
+        unchecked {
+            return ringBufferSize - 1;
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
