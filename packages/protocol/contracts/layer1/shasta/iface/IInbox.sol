@@ -111,18 +111,13 @@ interface IInbox {
     // -------------------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed.
-    /// @param proposal The proposal that was proposed.
-    event Proposed(Proposal proposal);
+    /// @param proposals The proposals that were proposed.
+    event Proposed(Proposal[] proposals, CoreState coreState);
 
     /// @notice Emitted when a proof is submitted for a proposal.
     /// @param proposal The proposal that was proven.
     /// @param claimRecord The claim record containing the proof details.
     event Proved(Proposal proposal, ClaimRecord claimRecord);
-
-    /// @notice Emitted when a proposal is finalized on L1.
-    /// @param proposalId The ID of the finalized proposal.
-    /// @param claimRecord The claim record of the finalized proposal.
-    event Finalized(uint48 indexed proposalId, ClaimRecord claimRecord);
 
     // -------------------------------------------------------------------------
     // External Transactional Functions

@@ -40,6 +40,7 @@ contract Inbox is IInbox {
     uint48 public immutable provingWindow;
     uint48 public immutable extendedProvingWindow;
     uint256 public immutable minBondBalance;
+    uint256 public immutable maxFinalizationCount;
 
     /// @notice The bond manager contract
     IBondManager public immutable bondManager;
@@ -66,6 +67,7 @@ contract Inbox is IInbox {
     /// @param _provingWindow The initial proving window duration
     /// @param _extendedProvingWindow The extended proving window duration
     /// @param _minBondBalance The minimum bond balance required for proposers
+    /// @param _maxFinalizationCount The maximum number of finalizations allowed
     /// @param _stateManager The address of the state manager contract
     /// @param _bondManager The address of the bond manager contract
     /// @param _syncedBlockManager The address of the synced block manager contract
@@ -77,6 +79,7 @@ contract Inbox is IInbox {
         uint48 _provingWindow,
         uint48 _extendedProvingWindow,
         uint256 _minBondBalance,
+        uint256 _maxFinalizationCount,
         address _stateManager,
         address _bondManager,
         address _syncedBlockManager,
@@ -88,6 +91,7 @@ contract Inbox is IInbox {
         provingWindow = _provingWindow;
         extendedProvingWindow = _extendedProvingWindow;
         minBondBalance = _minBondBalance;
+        maxFinalizationCount = _maxFinalizationCount;
         inboxStateManager = IInboxStateManager(_stateManager);
         bondManager = IBondManager(_bondManager);
         syncedBlockManager = ISyncedBlockManager(_syncedBlockManager);
@@ -106,7 +110,7 @@ contract Inbox is IInbox {
 
         (
             CoreState memory coreState,
-            BlobLocator[] memory blobLocators, // TODO: change to support one single propossal
+            BlobLocator memory blobLocator,
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
 
@@ -114,22 +118,16 @@ contract Inbox is IInbox {
             revert InvalidState();
         }
 
-        for (uint256 i; i < blobLocators.length; ++i) {
-            BlobSegment memory blobSegment = _validateBlobLocator(blobLocators[i]);
-            coreState = _propose(coreState, blobSegment);
-        }
+        Proposal[] memory proposals = new Proposal[](1);
 
-        ISyncedBlockManager.SyncedBlock memory syncedBlock;
-        (coreState, syncedBlock) = _finalize(coreState, claimRecords);
+        BlobSegment memory blobSegment = _validateBlobLocator(blobLocator);
+        (coreState, proposals[0]) = _propose(coreState, blobSegment);
+
+        // Finalize proved proposals
+        coreState = _finalize(coreState, claimRecords);
 
         inboxStateManager.setCoreStateHash(keccak256(abi.encode(coreState)));
-        syncedBlockManager.setSyncedBlock(
-            ISyncedBlockManager.SyncedBlock({
-                blockNumber: syncedBlock.blockNumber,
-                blockHash: syncedBlock.blockHash,
-                stateRoot: syncedBlock.stateRoot
-            })
-        );
+        emit Proposed(proposals, coreState);
     }
 
     /// @inheritdoc IInbox
@@ -154,18 +152,19 @@ contract Inbox is IInbox {
     /// @param _coreState The core state of the inbox.
     /// @param _content The content of the proposal.
     /// @return coreState_ The updated core state.
+    /// @return proposal_ The proposed proposal.
     function _propose(
         CoreState memory _coreState,
         BlobSegment memory _content
     )
         private
-        returns (CoreState memory coreState_)
+        returns (CoreState memory coreState_, Proposal memory proposal_)
     {
         uint48 proposalId = _coreState.nextProposalId++;
         uint48 timestamp = uint48(block.timestamp);
         uint48 referenceBlockNumber = uint48(block.number);
 
-        Proposal memory proposal = Proposal({
+        proposal_ = Proposal({
             id: proposalId,
             proposer: msg.sender,
             provabilityBond: provabilityBond,
@@ -175,11 +174,10 @@ contract Inbox is IInbox {
             content: _content
         });
 
-        bytes32 proposalHash = keccak256(abi.encode(proposal));
+        bytes32 proposalHash = keccak256(abi.encode(proposal_));
         inboxStateManager.setProposalHash(proposalId, proposalHash);
 
-        emit Proposed(proposal);
-        return (_coreState);
+        return (_coreState, proposal_);
     }
 
     function _prove(Proposal memory _proposal, Claim memory _claim) private {
@@ -212,56 +210,54 @@ contract Inbox is IInbox {
     /// @param _coreState The current core state.
     /// @param _claimRecords The claim records to finalize.
     /// @return coreState_ The updated core state
-    /// @return syncedBlock_ The synced block information
     function _finalize(
         CoreState memory _coreState,
         ClaimRecord[] memory _claimRecords
     )
         private
-        returns (CoreState memory coreState_, ISyncedBlockManager.SyncedBlock memory syncedBlock_)
+        returns (CoreState memory coreState_)
     {
-        if (keccak256(abi.encode(_coreState)) != inboxStateManager.getCoreStateHash()) {
-            revert InvalidState();
-        }
+        // The last finalized claim record.
+        ClaimRecord memory claimRecord;
 
-        ISyncedBlockManager.SyncedBlock memory syncedBlock;
-        ClaimRecord memory lastFinalizedClaimRecord;
+        for (uint256 i; i < maxFinalizationCount; ++i) {
+            // Id for the next proposal to be finalized.
+            uint48 proposalId = _coreState.lastFinalizedProposalId + 1;
 
-        for (uint256 i; i < _claimRecords.length; ++i) {
-            ClaimRecord memory claimRecord = _claimRecords[i];
-            Claim memory claim = claimRecord.claim;
-
-            if (claim.parentClaimHash != _coreState.lastFinalizedClaimHash) {
-                revert InvalidClaimChain();
-            }
-
-            bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
-
-            uint48 proposalId = ++_coreState.lastFinalizedProposalId;
+            // There is no more unfinalized proposals
+            if (proposalId == _coreState.nextProposalId) break;
 
             bytes32 storedClaimRecordHash =
-                inboxStateManager.getClaimRecordHash(proposalId, claim.parentClaimHash);
+                inboxStateManager.getClaimRecordHash(proposalId, _coreState.lastFinalizedClaimHash);
 
-            if (storedClaimRecordHash != claimRecordHash) revert ClaimRecordHashMismatch();
+            // The next proposal cannot be finalized as there is no claim record to link the chain
+            if (storedClaimRecordHash == 0) break;
 
-            _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claim));
+            // There is no claim record provided for the next proposal.
+            if (i >= _claimRecords.length) revert ClaimRecordNotProvided();
+
+            claimRecord = _claimRecords[i];
+
+            bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
+            if (claimRecordHash != storedClaimRecordHash) revert ClaimRecordHashMismatch();
+
+            _coreState.lastFinalizedProposalId = proposalId;
+            _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claimRecord.claim));
             _coreState.bondOperationsHash =
                 _processBonds(proposalId, claimRecord, _coreState.bondOperationsHash);
-
-            lastFinalizedClaimRecord = claimRecord;
-
-            syncedBlock = ISyncedBlockManager.SyncedBlock({
-                blockNumber: claim.endBlockNumber,
-                blockHash: claim.endBlockHash,
-                stateRoot: claim.endStateRoot
-            });
         }
 
-        if (lastFinalizedClaimRecord.proposer != address(0)) {
-            emit Finalized(_coreState.lastFinalizedProposalId, lastFinalizedClaimRecord);
+        if (claimRecord.proposer != address(0)) {
+            syncedBlockManager.saveSyncedBlock(
+                ISyncedBlockManager.SyncedBlock({
+                    blockNumber: claimRecord.claim.endBlockNumber,
+                    blockHash: claimRecord.claim.endBlockHash,
+                    stateRoot: claimRecord.claim.endStateRoot
+                })
+            );
         }
 
-        return (_coreState, syncedBlock_);
+        return _coreState;
     }
 
     /// @dev Handles bond refunds and penalties based on proof timing and prover identity.
@@ -363,6 +359,7 @@ contract Inbox is IInbox {
 
     error BlobNotFound();
     error ClaimRecordHashMismatch();
+    error ClaimRecordNotProvided();
     error InconsistentParams();
     error InsufficientBond();
     error InvalidBlobLocator();

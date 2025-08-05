@@ -35,7 +35,7 @@ interface ISyncedBlockManager {
 
     /// @notice Updates the synced block
     /// @param _syncedBlock The new synced block data
-    function setSyncedBlock(SyncedBlock calldata _syncedBlock) external;
+    function saveSyncedBlock(SyncedBlock calldata _syncedBlock) external;
 
     /// @notice Gets the current synced block
     /// @return syncedBlock_ The current synced block data

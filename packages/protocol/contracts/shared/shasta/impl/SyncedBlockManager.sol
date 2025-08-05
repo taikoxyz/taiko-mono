@@ -45,7 +45,7 @@ contract SyncedBlockManager is ISyncedBlockManager {
     // -------------------------------------------------------------------------
 
     /// @inheritdoc ISyncedBlockManager
-    function setSyncedBlock(SyncedBlock calldata _newSyncedBlock) external onlyAuthorized {
+    function saveSyncedBlock(SyncedBlock calldata _newSyncedBlock) external onlyAuthorized {
         if (_newSyncedBlock.blockNumber <= _syncedBlock.blockNumber) return;
         if (_newSyncedBlock.stateRoot == 0) return;
 
