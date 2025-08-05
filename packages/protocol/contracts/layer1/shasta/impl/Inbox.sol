@@ -8,6 +8,7 @@ import { ISyncedBlockManager } from "../../../shared/shasta/iface/ISyncedBlockMa
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibDecoder } from "../lib/LibDecoder.sol";
+import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
@@ -48,6 +49,9 @@ contract Inbox is IInbox {
     /// @notice The proposer checker contract
     IProposerChecker public immutable proposerChecker;
 
+    /// @notice The forced inclusion store contract
+    IForcedInclusionStore public immutable forcedInclusionStore;
+
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
@@ -64,6 +68,7 @@ contract Inbox is IInbox {
     /// @param _syncedBlockManager The address of the synced block manager contract
     /// @param _proofVerifier The address of the proof verifier contract
     /// @param _proposerChecker The address of the proposer checker contract
+    /// @param _forcedInclusionStore The address of the forced inclusion store contract
     constructor(
         uint48 _provabilityBond,
         uint48 _livenessBond,
@@ -75,7 +80,8 @@ contract Inbox is IInbox {
         address _bondManager,
         address _syncedBlockManager,
         address _proofVerifier,
-        address _proposerChecker
+        address _proposerChecker,
+        address _forcedInclusionStore
     ) {
         provabilityBond = _provabilityBond;
         livenessBond = _livenessBond;
@@ -88,6 +94,7 @@ contract Inbox is IInbox {
         syncedBlockManager = ISyncedBlockManager(_syncedBlockManager);
         proofVerifier = IProofVerifier(_proofVerifier);
         proposerChecker = IProposerChecker(_proposerChecker);
+        forcedInclusionStore = IForcedInclusionStore(_forcedInclusionStore);
     }
 
     // -------------------------------------------------------------------------
@@ -97,11 +104,13 @@ contract Inbox is IInbox {
     /// @inheritdoc IInbox
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external {
         proposerChecker.checkProposer(msg.sender);
+
         if (bondManager.getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
 
         (
             CoreState memory coreState,
             BlobLocator memory blobLocator,
+            Frame memory forcedInclusionFrame,
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
 
@@ -119,10 +128,35 @@ contract Inbox is IInbox {
             revert ExceedsUnfinalizedProposalCapacity();
         }
 
-        Proposal[] memory proposals = new Proposal[](1);
-
+        Proposal memory proposal;
         Frame memory frame = _validateBlobLocator(blobLocator);
-        (coreState, proposals[0]) = _propose(coreState, frame);
+        (coreState, proposal) = _propose(coreState, frame, false);
+
+        uint256 numProposals = 1;
+        // process forced inclusions
+        Proposal memory forcedInclusionProposal;
+        if (forcedInclusionStore.isOldestForcedInclusionDue()) {
+            (coreState, forcedInclusionProposal) = _propose(coreState, forcedInclusionFrame, true);
+
+            // consume the oldest forced inclusion
+            IForcedInclusionStore.ForcedInclusion memory consumed =
+                forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
+            //verify the consumed inclusion matches the frame received from the proposer
+            require(
+                consumed.blobHash == forcedInclusionFrame.blobHashes[0], InvalidForcedInclusion()
+            );
+            require(
+                consumed.blobByteOffset == forcedInclusionFrame.offset, InvalidForcedInclusion()
+            );
+
+            numProposals++;
+        }
+
+        Proposal[] memory proposals = new Proposal[](numProposals);
+        proposals[0] = proposal;
+        if (numProposals > 1) {
+            proposals[1] = forcedInclusionProposal;
+        }
 
         // Finalize proved proposals
         coreState = _finalize(coreState, claimRecords);
@@ -153,11 +187,13 @@ contract Inbox is IInbox {
     /// @dev Proposes a new proposal of L2 blocks.
     /// @param _coreState The core state of the inbox.
     /// @param _frame The frame of the proposal.
+    /// @param _isForcedInclusion Whether the proposal is a forced inclusion.
     /// @return coreState_ The updated core state.
     /// @return proposal_ The created proposal.
     function _propose(
         CoreState memory _coreState,
-        Frame memory _frame
+        Frame memory _frame,
+        bool _isForcedInclusion
     )
         private
         returns (CoreState memory coreState_, Proposal memory proposal_)
@@ -173,7 +209,8 @@ contract Inbox is IInbox {
             livenessBond: livenessBond,
             originTimestamp: originTimestamp,
             originBlockNumber: originBlockNumber,
-            frame: _frame
+            frame: _frame,
+            isForcedInclusion: _isForcedInclusion
         });
 
         bytes32 proposalHash = keccak256(abi.encode(proposal_));
@@ -369,4 +406,5 @@ contract Inbox is IInbox {
     error InvalidState();
     error ProposalHashMismatch();
     error Unauthorized();
+    error InvalidForcedInclusion();
 }
