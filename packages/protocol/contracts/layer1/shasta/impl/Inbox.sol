@@ -328,7 +328,7 @@ contract Inbox is IInbox {
         } else {
             BondOperation memory bondOperation =
                 BondOperation({ proposalId: _proposalId, receiver: receiver, credit: credit });
-                // TODO: emit
+            // TODO: emit
 
             return keccak256(abi.encode(_bondOperationsHash, bondOperation));
         }
