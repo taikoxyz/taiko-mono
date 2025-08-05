@@ -128,7 +128,6 @@ contract Inbox is IInbox {
         coreState = _finalize(coreState, claimRecords);
 
         inboxStateManager.setCoreStateHash(keccak256(abi.encode(coreState)));
-        syncedBlockManager.saveSyncedBlock(syncedBlock);
 
         emit Proposed(proposals, coreState);
     }
