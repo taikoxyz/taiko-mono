@@ -123,13 +123,7 @@ contract Inbox is IInbox {
         (coreState, syncedBlock) = _finalize(coreState, claimRecords);
 
         inboxStateManager.setCoreStateHash(keccak256(abi.encode(coreState)));
-        syncedBlockManager.saveSyncedBlock(
-            ISyncedBlockManager.SyncedBlock({
-                blockHash: syncedBlock.blockHash,
-                stateRoot: syncedBlock.stateRoot,
-                blockNumber: syncedBlock.blockNumber
-            })
-        );
+        syncedBlockManager.saveSyncedBlock(syncedBlock);
     }
 
     /// @inheritdoc IInbox
