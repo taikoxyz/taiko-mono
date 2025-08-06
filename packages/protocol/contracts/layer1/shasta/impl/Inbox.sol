@@ -119,17 +119,14 @@ contract Inbox is IInbox {
             revert ExceedsUnfinalizedProposalCapacity();
         }
 
-        Proposal[] memory proposals = new Proposal[](1);
+        Proposal memory proposal;
 
         Frame memory frame = _validateBlobLocator(blobLocator);
-        (coreState, proposals[0]) = _propose(coreState, frame);
-
-        // Finalize proved proposals
+        (coreState, proposal) = _propose(coreState, frame);
         coreState = _finalize(coreState, claimRecords);
+        emit Proposed(proposal, coreState);
 
         inboxStateManager.setCoreStateHash(keccak256(abi.encode(coreState)));
-
-        emit Proposed(proposals, coreState);
     }
 
     /// @inheritdoc IInbox

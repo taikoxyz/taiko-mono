@@ -113,8 +113,9 @@ interface IInbox {
     // -------------------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed.
-    /// @param proposals The proposals that were proposed.
-    event Proposed(Proposal[] proposals, CoreState coreState);
+    /// @param proposal The proposal that was proposed.
+    /// @param coreState The core state of the inbox.
+    event Proposed(Proposal proposal, CoreState coreState);
 
     /// @notice Emitted when a proof is submitted for a proposal.
     /// @param proposal The proposal that was proven.
