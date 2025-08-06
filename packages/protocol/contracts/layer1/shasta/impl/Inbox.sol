@@ -135,8 +135,18 @@ contract Inbox is IInbox {
 
         if (proposals.length != claims.length) revert InconsistentParams();
 
+        ClaimRecord[] memory claimRecords = new ClaimRecord[](proposals.length);
+
         for (uint256 i; i < proposals.length; ++i) {
-            _prove(proposals[i], claims[i]);
+            claimRecords[i] = _prove(proposals[i], claims[i]);
+        }
+
+        // Set all claim record hashes at once
+        for (uint256 i; i < proposals.length; ++i) {
+            bytes32 claimRecordHash = keccak256(abi.encode(claimRecords[i]));
+            inboxStateManager.setClaimRecordHash(
+                proposals[i].id, claims[i].parentClaimHash, claimRecordHash
+            );
         }
 
         bytes32 claimsHash = keccak256(abi.encode(claims));
@@ -179,10 +189,17 @@ contract Inbox is IInbox {
         return (_coreState, proposal_);
     }
 
-    /// @dev Proves a single proposal by validating the claim and storing the claim record.
+    /// @dev Proves a single proposal by validating the claim and creating the claim record.
     /// @param _proposal The proposal to prove.
     /// @param _claim The claim containing the proof details.
-    function _prove(Proposal memory _proposal, Claim memory _claim) private {
+    /// @return claimRecord_ The created claim record.
+    function _prove(
+        Proposal memory _proposal,
+        Claim memory _claim
+    )
+        private
+        returns (ClaimRecord memory claimRecord_)
+    {
         bytes32 proposalHash = keccak256(abi.encode(_proposal));
         if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
         if (proposalHash != inboxStateManager.getProposalHash(_proposal.id)) {
@@ -191,7 +208,7 @@ contract Inbox is IInbox {
 
         BondDecision bondDecision = _calculateBondDecision(_claim, _proposal);
 
-        ClaimRecord memory claimRecord = ClaimRecord({
+        claimRecord_ = ClaimRecord({
             claim: _claim,
             proposer: _proposal.proposer,
             livenessBond: _proposal.livenessBond,
@@ -199,9 +216,7 @@ contract Inbox is IInbox {
             bondDecision: bondDecision
         });
 
-        bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
-        inboxStateManager.setClaimRecordHash(_proposal.id, _claim.parentClaimHash, claimRecordHash);
-        emit Proved(_proposal, claimRecord);
+        emit Proved(_proposal, claimRecord_);
     }
 
     /// @dev Finalizes proposals by verifying claim records and updating state.
