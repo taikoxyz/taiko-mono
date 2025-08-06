@@ -28,6 +28,10 @@ import { LibDecoder } from "../lib/LibDecoder.sol";
 contract Inbox is IInbox {
     using LibDecoder for bytes;
 
+    // -------------------------------------------------------------------------
+    // Structs
+    // -------------------------------------------------------------------------
+
     struct BondOperation {
         uint48 proposalId;
         address receiver;
@@ -37,6 +41,8 @@ contract Inbox is IInbox {
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
+
+    uint256 private constant REWARD_FRACTION = 2;
 
     uint48 public immutable provabilityBond;
     uint48 public immutable livenessBond;
@@ -338,10 +344,10 @@ contract Inbox is IInbox {
             // Forfeit their liveness bond but reward the actual prover with half
             uint256 livenessBondWei = uint256(_claimRecord.livenessBond) * 1 gwei;
             bondManager.debitBond(_claimRecord.proposer, livenessBondWei);
-            bondManager.creditBond(claim.actualProver, livenessBondWei / 2);
+            bondManager.creditBond(claim.actualProver, livenessBondWei / REWARD_FRACTION);
         } else if (_claimRecord.bondDecision == BondDecision.L2RewardProver) {
             // Reward the actual prover with half of the liveness bond on L2
-            credit = _claimRecord.livenessBond / 2;
+            credit = _claimRecord.livenessBond / REWARD_FRACTION;
             receiver = claim.actualProver;
         } else if (
             _claimRecord.bondDecision == BondDecision.L1SlashProvabilityRewardProverL2RefundLiveness
@@ -350,7 +356,7 @@ contract Inbox is IInbox {
             // Block was difficult to prove, forfeit provability bond but reward prover
             uint256 provabilityBondWei = uint256(_claimRecord.provabilityBond) * 1 gwei;
             bondManager.debitBond(_claimRecord.proposer, provabilityBondWei);
-            bondManager.creditBond(claim.actualProver, provabilityBondWei / 2);
+            bondManager.creditBond(claim.actualProver, provabilityBondWei / REWARD_FRACTION);
             // Proposer and designated prover are different entities
             // Refund the designated prover's L2 liveness bond
             credit = _claimRecord.livenessBond;
@@ -360,7 +366,7 @@ contract Inbox is IInbox {
             // Forfeit provability bond but reward the actual prover
             uint256 provabilityBondWei = uint256(_claimRecord.provabilityBond) * 1 gwei;
             bondManager.debitBond(_claimRecord.proposer, provabilityBondWei);
-            bondManager.creditBond(claim.actualProver, provabilityBondWei / 2);
+            bondManager.creditBond(claim.actualProver, provabilityBondWei / REWARD_FRACTION);
         }
 
         BondOperation memory bondOperation =
