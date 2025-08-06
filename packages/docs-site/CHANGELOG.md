@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.29.6](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.5...docs-site-v1.29.6) (2025-08-06)
+
+
+### Bug Fixes
+
+* **docs-site:** minor identifier mismatch ([#19876](https://github.com/taikoxyz/taiko-mono/issues/19876)) ([288ab83](https://github.com/taikoxyz/taiko-mono/commit/288ab8368601ca2c5fafbd8b6e73f45092e61ff7))
+
 ## [1.29.5](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.4...docs-site-v1.29.5) (2025-07-31)
 
 
