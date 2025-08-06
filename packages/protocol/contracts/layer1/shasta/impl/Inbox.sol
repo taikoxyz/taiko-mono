@@ -42,7 +42,7 @@ contract Inbox is IInbox {
     // State Variables
     // -------------------------------------------------------------------------
 
-    uint256 private constant REWARD_FRACTION = 2;
+    uint48 private constant REWARD_FRACTION = 2;
 
     uint48 public immutable provabilityBond;
     uint48 public immutable livenessBond;
