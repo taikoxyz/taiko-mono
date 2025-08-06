@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
@@ -74,6 +75,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			maxTxListsPerEpoch,
 		)
 	}
+	log.Info("Proposer maxTxListsPerEpoch", "value", maxTxListsPerEpoch)
 
 	// Default L2 cost estimation parameters
 	provingCostPerL2Batch := big.NewInt(800_000_000_000_000) // 8 * 10^14 Wei
