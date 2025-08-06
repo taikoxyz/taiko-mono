@@ -459,7 +459,8 @@ contract Inbox is IInbox {
     }
 
     /// @dev Validates that a consumed forced inclusion matches the provided frame
-    /// @dev The frame is always assumed to be using the shared blob format(offsets and sizes are not empty)
+    /// @dev The frame is always assumed to be using the shared blob format(offsets and sizes are
+    /// not empty)
     /// @param _consumed The consumed forced inclusion from storage
     /// @param _frame The frame provided by the proposer
     function _validateForcedInclusion(
