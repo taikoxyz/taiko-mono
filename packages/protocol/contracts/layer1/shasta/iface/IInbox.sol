@@ -2,7 +2,12 @@
 pragma solidity ^0.8.24;
 
 /// @title IInbox
-/// @notice Interface for the ShastaInbox contract
+/// @notice Interface for the Shasta Inbox contract that manages L2 block proposals and proofs
+/// @dev The Inbox is a critical component of Taiko's based rollup architecture that:
+/// - Accepts L2 block proposals from proposers
+/// - Manages validity proofs with support for claim record aggregation
+/// - Handles bond operations for provability and liveness guarantees
+/// - Supports gas-efficient batch processing through claim aggregation
 /// @custom:security-contact security@taiko.xyz
 interface IInbox {
     // -------------------------------------------------------------------------
@@ -11,6 +16,7 @@ interface IInbox {
 
     /// @notice Represents a segment of data that is stored in multiple consecutive blobs created
     /// in this transaction.
+    /// @dev Used to locate proposal data within EIP-4844 blobs for efficient data availability
     struct BlobLocator {
         /// @notice The starting index of the blob.
         uint48 blobStartIndex;
@@ -22,8 +28,9 @@ interface IInbox {
         uint32 size;
     }
 
-    /// @notice Represents a frame of data that is stored in multiple blobs. Note the size is
-    /// encoded as a bytes32 at the offset location.
+    /// @notice Represents a frame of data that is stored in multiple blobs
+    /// @dev The size is encoded as a bytes32 at the offset location. This structure
+    /// enables efficient retrieval of proposal data from blob storage
     struct Frame {
         /// @notice The blobs containing the proposal's content.
         bytes32[] blobHashes;
@@ -31,7 +38,9 @@ interface IInbox {
         uint32 offset;
     }
 
-    /// @notice Represents a proposal for L2 blocks.
+    /// @notice Represents a proposal for L2 blocks
+    /// @dev Proposals contain L2 block data and associated bonds. Multiple proposals
+    /// can be submitted in a single transaction for efficiency
     struct Proposal {
         /// @notice Unique identifier for the proposal.
         uint48 id;
@@ -53,17 +62,22 @@ interface IInbox {
         Frame frame;
     }
 
-    /// @notice Represents the bond decision based on proof submission.
+    /// @notice Represents the bond decision based on proof submission timing and prover identity
+    /// @dev Bond decisions determine how provability and liveness bonds are distributed
+    /// based on whether proofs are submitted on time and by the correct party
     enum BondDecision {
-        NoOp,
-        L2RefundLiveness,
-        L1SlashLivenessRewardProver,
-        L2RewardProver,
-        L1SlashProvabilityRewardProverL2RefundLiveness,
-        L1SlashProvabilityRewardProver
+        NoOp, // Aggregatable
+        L2RefundLiveness, // Aggregatable
+        L2RewardProver, // Aggregatable
+        L1SlashLivenessRewardProver, // Non-aggregatable
+        L1SlashProvabilityRewardProverL2RefundLiveness, // Non-aggregatable
+        L1SlashProvabilityRewardProver // Non-aggregatable
+
     }
 
-    /// @notice Represents a claim about the state transition of a proposal.
+    /// @notice Represents a claim about the state transition of a proposal
+    /// @dev Claims link together to form a chain of state transitions. Multiple claims
+    /// can be proven in a single transaction for gas efficiency
     struct Claim {
         /// @notice The proposal's hash.
         bytes32 proposalHash;
@@ -82,7 +96,9 @@ interface IInbox {
         address actualProver;
     }
 
-    /// @notice Represents a record of a claim with additional metadata.
+    /// @notice Represents a record of a claim with additional metadata
+    /// @dev ClaimRecords can be aggregated when they have compatible properties,
+    /// significantly reducing gas costs when proving multiple consecutive proposals
     struct ClaimRecord {
         /// @notice The claim.
         Claim claim;
@@ -98,7 +114,9 @@ interface IInbox {
         uint48 nextProposalId;
     }
 
-    /// @notice Represents the core state of the inbox.
+    /// @notice Represents the core state of the inbox
+    /// @dev This state is updated atomically during propose operations to maintain
+    /// consistency across proposal submission and finalization
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
@@ -128,13 +146,25 @@ interface IInbox {
     // External Transactional Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Proposes new proposals of L2 blocks.
-    /// @param _lookahead The data to post a new lookahead (currently unused).
-    /// @param _data The data containing the core state, blob locator, and claim records.
+    /// @notice Proposes new L2 blocks and optionally finalizes previously proven proposals
+    /// @dev This function enables atomic proposal submission and finalization in a single
+    /// transaction. The finalization process supports claim record aggregation to reduce
+    /// gas costs when multiple consecutive proposals share the same prover and bond decision
+    /// @param _lookahead The data to post a new lookahead (reserved for future use)
+    /// @param _data The encoded data containing:
+    ///   - CoreState: Current state that must match on-chain state
+    ///   - BlobLocator: Location of proposal data in blobs
+    ///   - ClaimRecord[]: Previously proven claims to finalize (can be aggregated)
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
-    /// @notice Proves a claim about some properties of a proposal, including its state transition.
-    /// @param _data The data containing the proposals and claims to be proven.
-    /// @param _proof Validity proof for the claims.
+    /// @notice Proves claims about L2 state transitions for one or more proposals
+    /// @dev This function supports batch proving and automatic claim record aggregation.
+    /// When proving multiple consecutive proposals with the same designated prover and
+    /// bond decision, the system automatically aggregates them into a single claim record
+    /// to minimize storage operations and gas costs
+    /// @param _data The encoded data containing:
+    ///   - Proposal[]: Array of proposals to prove
+    ///   - Claim[]: Corresponding claims for each proposal
+    /// @param _proof The validity proof that verifies all claims in the batch
     function prove(bytes calldata _data, bytes calldata _proof) external;
 }
