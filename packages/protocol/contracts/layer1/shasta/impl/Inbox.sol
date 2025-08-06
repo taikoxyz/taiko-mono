@@ -447,8 +447,8 @@ contract Inbox is IInbox {
     /// they can be stored as 1 aggregated record instead of 10 individual records
     /// @param _proposals Array of proposals being proven
     /// @param _claimRecords Array of claim records to aggregate
-    /// @return proposalIds Array of proposal IDs (first ID of each aggregated group)
-    /// @return aggregatedRecords Array of aggregated claim records
+    /// @return _ Array of proposal IDs (first ID of each aggregated group)
+    /// @return _ Array of aggregated claim records
     function _aggregateClaimRecords(
         Proposal[] memory _proposals,
         ClaimRecord[] memory _claimRecords
@@ -481,8 +481,14 @@ contract Inbox is IInbox {
                     writeRecord.claim.endBlockHash = readRecord.claim.endBlockHash;
                     writeRecord.claim.endStateRoot = readRecord.claim.endStateRoot;
 
-                    if (writeRecord.bondDecision == BondDecision.L2RefundLiveness) {
+                    if (
+                        writeRecord.bondDecision == BondDecision.L2RefundLiveness
+                            || writeRecord.bondDecision == BondDecision.L2RewardProver
+                    ) {
                         writeRecord.livenessBond += readRecord.livenessBond;
+                    } else {
+                        // assert(writeRecord.bondDecision == BondDecision.NoOp);
+                        writeRecord.livenessBond = 0;
                     }
                 } else {
                     // Move to next write position and copy the current record
@@ -554,9 +560,7 @@ contract Inbox is IInbox {
                 && _recordA.claim.actualProver == _recordB.claim.actualProver
         ) return true;
 
-        if (_recordA.bondDecision == BondDecision.L1SlashLivenessRewardProver) return true;
-
-        return true;
+        return false;
     }
 
     // -------------------------------------------------------------------------
