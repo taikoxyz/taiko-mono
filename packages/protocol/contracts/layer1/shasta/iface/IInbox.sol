@@ -53,12 +53,14 @@ interface IInbox {
         Frame frame;
     }
 
-    /// @notice Represents the timing of when a proof was submitted.
-    enum ProofTiming {
-        InProvingWindow, // Proof submitted within the initial proving window
-        InExtendedProvingWindow, // Proof submitted during the extended proving window
-        OutOfExtendedProvingWindow // Proof submitted after all proving windows expired
-
+    /// @notice Represents the bond decision based on proof submission.
+    enum BondDecision {
+        NoOp,
+        L2RefundLiveness,
+        L1SlashLivenessRewardProver,
+        L2RewardProver,
+        L1SlashProvabilityRewardProverL2RefundLiveness,
+        L1SlashProvabilityRewardProver
     }
 
     /// @notice Represents a claim about the state transition of a proposal.
@@ -90,8 +92,8 @@ interface IInbox {
         uint48 livenessBond;
         /// @notice The provability bond, copied from the proposal.
         uint48 provabilityBond;
-        /// @notice The proof timing.
-        ProofTiming proofTiming;
+        /// @notice The bond decision.
+        BondDecision bondDecision;
     }
 
     /// @notice Represents the core state of the inbox.

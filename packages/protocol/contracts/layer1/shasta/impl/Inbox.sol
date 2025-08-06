@@ -192,18 +192,14 @@ contract Inbox is IInbox {
             revert ProposalHashMismatch();
         }
 
-        ProofTiming proofTiming = block.timestamp <= _proposal.originTimestamp + provingWindow
-            ? ProofTiming.InProvingWindow
-            : block.timestamp <= _proposal.originTimestamp + extendedProvingWindow
-                ? ProofTiming.InExtendedProvingWindow
-                : ProofTiming.OutOfExtendedProvingWindow;
+        BondDecision bondDecision = _calculateBondDecision(_claim, _proposal);
 
         ClaimRecord memory claimRecord = ClaimRecord({
             claim: _claim,
             proposer: _proposal.proposer,
             livenessBond: _proposal.livenessBond,
             provabilityBond: _proposal.provabilityBond,
-            proofTiming: proofTiming
+            bondDecision: bondDecision
         });
 
         bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
@@ -267,6 +263,40 @@ contract Inbox is IInbox {
         return _coreState;
     }
 
+    /// @dev Calculates the bond decision based on proof timing and prover identity.
+    /// @param _claim The claim containing prover information.
+    /// @param _proposal The proposal containing proposer information.
+    /// @return bondDecision_ The decision on how to process the bonds.
+    function _calculateBondDecision(
+        Claim memory _claim,
+        Proposal memory _proposal
+    )
+        private
+        view
+        returns (BondDecision bondDecision_)
+    {
+        unchecked {
+            if (block.timestamp <= _proposal.originTimestamp + provingWindow) {
+                // Proof submitted within the designated proving window (on-time proof)
+                return _claim.designatedProver != _proposal.proposer
+                    ? BondDecision.L2RefundLiveness
+                    : BondDecision.NoOp;
+            }
+
+            if (block.timestamp <= _proposal.originTimestamp + extendedProvingWindow) {
+                // Proof submitted during extended window (late but acceptable proof)
+                return _claim.designatedProver == _proposal.proposer
+                    ? BondDecision.L1SlashLivenessRewardProver
+                    : BondDecision.L2RewardProver;
+            }
+
+            // Proof submitted after extended window (very late proof)
+            return _claim.designatedProver != _proposal.proposer
+                ? BondDecision.L1SlashProvabilityRewardProverL2RefundLiveness
+                : BondDecision.L1SlashProvabilityRewardProver;
+        }
+    }
+
     /// @dev Handles bond refunds and penalties based on proof timing and prover identity.
     /// @param _proposalId The ID of the proposal.
     /// @param _claimRecord The claim record containing bond and timing information.
@@ -287,53 +317,44 @@ contract Inbox is IInbox {
         uint256 livenessBondWei = uint256(_claimRecord.livenessBond) * 1 gwei;
         uint256 provabilityBondWei = uint256(_claimRecord.provabilityBond) * 1 gwei;
 
-        if (_claimRecord.proofTiming == ProofTiming.InProvingWindow) {
-            // Proof submitted within the designated proving window (on-time proof)
-            // The designated prover successfully proved the block on time
-
-            if (claim.designatedProver != _claimRecord.proposer) {
-                // Proposer and designated prover are different entities
-                // The designated prover paid a liveness bond on L2 that needs to be refunded
-                credit = _claimRecord.livenessBond;
-                receiver = claim.designatedProver;
-            }
-        } else if (_claimRecord.proofTiming == ProofTiming.InExtendedProvingWindow) {
-            // Proof submitted during extended window (late but acceptable proof)
-            // The designated prover failed to prove on time, but another prover stepped in
-
-            if (claim.designatedProver == _claimRecord.proposer) {
-                bondManager.debitBond(_claimRecord.proposer, livenessBondWei);
-                // Proposer was also the designated prover who failed to prove on time
-                // Forfeit their liveness bond but reward the actual prover with half
-                bondManager.creditBond(claim.actualProver, livenessBondWei / 2);
-            } else {
-                // Reward the actual prover with half of the liveness bond on L2
-                credit = _claimRecord.livenessBond / 2;
-                receiver = claim.actualProver;
-            }
-        } else {
+        if (_claimRecord.bondDecision == BondDecision.NoOp) {
+            // No bond operations needed
+        } else if (_claimRecord.bondDecision == BondDecision.L2RefundLiveness) {
+            // Proposer and designated prover are different entities
+            // The designated prover paid a liveness bond on L2 that needs to be refunded
+            credit = _claimRecord.livenessBond;
+            receiver = claim.designatedProver;
+        } else if (_claimRecord.bondDecision == BondDecision.L1SlashLivenessRewardProver) {
+            // Proposer was also the designated prover who failed to prove on time
+            // Forfeit their liveness bond but reward the actual prover with half
+            bondManager.debitBond(_claimRecord.proposer, livenessBondWei);
+            bondManager.creditBond(claim.actualProver, livenessBondWei / 2);
+        } else if (_claimRecord.bondDecision == BondDecision.L2RewardProver) {
+            // Reward the actual prover with half of the liveness bond on L2
+            credit = _claimRecord.livenessBond / 2;
+            receiver = claim.actualProver;
+        } else if (
+            _claimRecord.bondDecision == BondDecision.L1SlashProvabilityRewardProverL2RefundLiveness
+        ) {
             // Proof submitted after extended window (very late proof)
             // Block was difficult to prove, forfeit provability bond but reward prover
             bondManager.debitBond(_claimRecord.proposer, provabilityBondWei);
             bondManager.creditBond(claim.actualProver, provabilityBondWei / 2);
-
-            // Forfeit proposer's provability bond but give half to the actual prover
-            if (claim.designatedProver != _claimRecord.proposer) {
-                // Proposer and designated prover are different entities
-                // Refund the designated prover's L2 liveness bond
-                credit = _claimRecord.livenessBond;
-                receiver = claim.designatedProver;
-            }
+            // Proposer and designated prover are different entities
+            // Refund the designated prover's L2 liveness bond
+            credit = _claimRecord.livenessBond;
+            receiver = claim.designatedProver;
+        } else if (_claimRecord.bondDecision == BondDecision.L1SlashProvabilityRewardProver) {
+            // Proof submitted after extended window, proposer and designated prover are same
+            // Forfeit provability bond but reward the actual prover
+            bondManager.debitBond(_claimRecord.proposer, provabilityBondWei);
+            bondManager.creditBond(claim.actualProver, provabilityBondWei / 2);
         }
 
-        if (credit == 0) {
-            return _bondOperationsHash;
-        } else {
-            BondOperation memory bondOperation =
-                BondOperation({ proposalId: _proposalId, receiver: receiver, credit: credit });
+        BondOperation memory bondOperation =
+            BondOperation({ proposalId: _proposalId, receiver: receiver, credit: credit });
 
-            return keccak256(abi.encode(_bondOperationsHash, bondOperation));
-        }
+        return keccak256(abi.encode(_bondOperationsHash, bondOperation));
     }
 
     /// @dev Validates a blob locator and converts it to a frame.
