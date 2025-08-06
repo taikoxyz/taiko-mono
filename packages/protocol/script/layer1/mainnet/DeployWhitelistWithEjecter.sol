@@ -21,7 +21,7 @@ contract DeployWhitelistWithEjecter is DeployCapability {
 
     function run() external broadcast {
         // https://etherscan.io/address/0xFD019460881e6EeC632258222393d5821029b2ac
-        address preconfWhitelist = 0xFD019460881e6EeC632258222393d5821029b2ac;
+        // address preconfWhitelist = 0xFD019460881e6EeC632258222393d5821029b2ac;
 
         // deploy new whitelist implementation with ejecter functionality
         address whitelist = address(new PreconfWhitelist());

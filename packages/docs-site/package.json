@@ -1,13 +1,15 @@
 {
   "name": "docs-site",
   "type": "module",
-  "version": "1.29.3",
+  "version": "1.29.5",
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro check && astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "format": "prettier --write .",
+    "lint": "eslint . --ext .js,.ts,.astro"
   },
   "dependencies": {
     "@astrojs/check": "^0.8.0",

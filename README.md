@@ -42,7 +42,6 @@ Get started with Taiko Alethia:
 | [eventindexer](./packages/eventindexer)                       | Event indexer.                                                     |
 | [fork-diff](./packages/fork-diff)                             | Fork diff page.                                                    |
 | [geth-rpc-gateway](./packages/geth-rpc-gateway)               | RPC gateway for geth nodes.                                        |
-| [monitors](./packages/monitors)                               | Monitoring and alerting services.                                  |
 | [nfts](./packages/nfts)                                       | NFT-related smart contracts and utilities.                         |
 | [protocol](./packages/protocol)                               | Taiko Alethia protocol smart contracts.                            |
 | [relayer](./packages/relayer)                                 | Bridge backend relayer.                                            |
