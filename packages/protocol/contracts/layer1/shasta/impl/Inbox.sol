@@ -371,8 +371,47 @@ contract Inbox is IInbox {
         view
         returns (Frame memory frame_)
     {
+        if (_blobLocator.blobs.length == 0) {
+            // Full blobs mode
+            return _validateFullBlobs(_blobLocator);
+        } else {
+            // Blob sharing mode
+            return _validateBlobSharing(_blobLocator);
+        }
+    }
+
+    /// @dev Validates full blobs mode - uses consecutive full blobs with no offsets/sizes.
+    /// @param _blobLocator The blob locator to validate.
+    /// @return The frame with blob hashes only.
+    function _validateFullBlobs(BlobLocator memory _blobLocator)
+        private
+        view
+        returns (Frame memory)
+    {
+        if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
+
+        bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
+
+        for (uint256 i; i < _blobLocator.numBlobs; ++i) {
+            uint48 blobIndex = _blobLocator.blobStartIndex + uint48(i);
+            bytes32 hash = blobhash(blobIndex);
+            if (hash == 0) revert BlobNotFound();
+            blobHashes[i] = hash;
+        }
+
+        // Return frame with empty offsets and sizes arrays for full blobs mode
+        return Frame({ blobHashes: blobHashes, offsets: new uint32[](0), sizes: new uint32[](0) });
+    }
+
+    /// @dev Validates blob sharing mode - allows custom offset/size per blob.
+    /// @param _blobLocator The blob locator to validate.
+    /// @return The frame with blob hashes, offsets, and sizes.
+    function _validateBlobSharing(BlobLocator memory _blobLocator)
+        private
+        view
+        returns (Frame memory)
+    {
         uint256 numBlobs = _blobLocator.blobs.length;
-        if (numBlobs == 0) revert InvalidBlobLocator();
 
         bytes32[] memory blobHashes = new bytes32[](numBlobs);
         uint32[] memory offsets = new uint32[](numBlobs);
@@ -380,11 +419,11 @@ contract Inbox is IInbox {
 
         for (uint256 i; i < numBlobs; ++i) {
             BlobDescriptor memory descriptor = _blobLocator.blobs[i];
-            
+
             // Validate blob exists
             bytes32 hash = blobhash(descriptor.blobIndex);
             if (hash == 0) revert BlobNotFound();
-            
+
             blobHashes[i] = hash;
             offsets[i] = descriptor.offset;
             sizes[i] = descriptor.size;

@@ -19,19 +19,30 @@ interface IInbox {
         uint32 size;
     }
 
-    /// @notice Represents a segment of data that may be stored across multiple blobs.
+    /// @notice Represents a segment of data stored across blobs
+    /// @dev Two modes are supported to provide enough flexibility for blob sharing, but be
+    /// efficient in the most common case of full blobs
+    /// - Full blobs: blobs.length == 0, uses blobStartIndex/numBlobs for consecutive full blobs
+    /// - Blob sharing: blobs.length > 0, uses custom blob descriptors
     struct BlobLocator {
-        /// @notice Array of blob descriptors specifying which blobs contain the data.
+        /// @notice Full blobs mode: starting blob index
+        uint48 blobStartIndex;
+        /// @notice Full blobs mode: number of consecutive full blobs
+        uint32 numBlobs;
+        /// @notice Blob sharing mode: custom blob descriptors (empty for full blobs)
         BlobDescriptor[] blobs;
     }
 
-    /// @notice Represents a frame of data that is stored in multiple blobs.
+    /// @notice Represents a frame of data
+    /// @dev Two modes determined by offsets array:
+    /// - Full blobs mode: offsets.length == 0, all blobs fully utilized
+    /// - Blob sharing: offsets.length > 0, custom offsets/sizes per blob
     struct Frame {
-        /// @notice The blobs containing the proposal's content.
+        /// @notice The blob hashes
         bytes32[] blobHashes;
-        /// @notice The offset for each blob.
+        /// @notice Blob sharing mode only: offset for each blob (empty for full blobs)
         uint32[] offsets;
-        /// @notice The size of data to read from each blob.
+        /// @notice Blob sharing mode only: size for each blob (empty for full blobs)
         uint32[] sizes;
     }
 
