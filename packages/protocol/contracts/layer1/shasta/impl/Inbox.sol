@@ -8,7 +8,6 @@ import { ISyncedBlockManager } from "../../../shared/shasta/iface/ISyncedBlockMa
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibDecoder } from "../lib/LibDecoder.sol";
-import { LibCoreState } from "../lib/LibCoreState.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
@@ -16,7 +15,6 @@ import { LibCoreState } from "../lib/LibCoreState.sol";
 
 contract Inbox is IInbox {
     using LibDecoder for bytes;
-    using LibCoreState for CoreState;
 
     struct BondOperation {
         uint48 proposalId;
@@ -113,7 +111,13 @@ contract Inbox is IInbox {
 
         // Check if new proposals would exceed the unfinalized proposal capacity
         uint256 unfinalizedProposalCapacity = inboxStateManager.getCapacity();
-        coreState.checkUnfinalizedCapacity(unfinalizedProposalCapacity);
+
+        if (
+            coreState.nextProposalId - coreState.lastFinalizedProposalId
+                > unfinalizedProposalCapacity
+        ) {
+            revert ExceedsUnfinalizedProposalCapacity();
+        }
 
         Proposal[] memory proposals = new Proposal[](1);
 
@@ -224,10 +228,10 @@ contract Inbox is IInbox {
 
         for (uint256 i; i < maxFinalizationCount; ++i) {
             // Id for the next proposal to be finalized.
-            uint48 proposalId = _coreState.getNextProposalToFinalize();
+            uint48 proposalId = _coreState.lastFinalizedProposalId + 1;
 
             // There is no more unfinalized proposals
-            if (proposalId == 0) break;
+            if (proposalId == _coreState.nextProposalId) break;
 
             bytes32 storedClaimRecordHash =
                 inboxStateManager.getClaimRecordHash(proposalId, _coreState.lastFinalizedClaimHash);
@@ -243,10 +247,10 @@ contract Inbox is IInbox {
             bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
             if (claimRecordHash != storedClaimRecordHash) revert ClaimRecordHashMismatch();
 
-            bytes32 claimHash = keccak256(abi.encode(claimRecord.claim));
-            bytes32 bondOperationsHash =
+            _coreState.lastFinalizedProposalId = proposalId;
+            _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claimRecord.claim));
+            _coreState.bondOperationsHash =
                 _processBonds(proposalId, claimRecord, _coreState.bondOperationsHash);
-            _coreState.finalizeProposal(proposalId, claimHash, bondOperationsHash);
             hasFinalized = true;
         }
 
@@ -358,6 +362,7 @@ contract Inbox is IInbox {
     error BlobNotFound();
     error ClaimRecordHashMismatch();
     error ClaimRecordNotProvided();
+    error ExceedsUnfinalizedProposalCapacity();
     error InconsistentParams();
     error InsufficientBond();
     error InvalidBlobLocator();
