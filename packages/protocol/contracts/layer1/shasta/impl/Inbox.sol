@@ -548,13 +548,17 @@ contract Inbox is IInbox {
         // Check specific conditions for aggregation
         if (_recordA.bondDecision == BondDecision.NoOp) return true;
 
+        // For other decions, we need to aggregate the liveness bonds. We need to make sure the sum
+        // does not overflow.
         if (uint256(_recordA.livenessBond) + _recordB.livenessBond > type(uint48).max) return false;
 
+        // For L2RefundLiveness, we need to make sure the designated prover is the same.
         if (
             _recordA.bondDecision == BondDecision.L2RefundLiveness
                 && _recordA.claim.designatedProver == _recordB.claim.designatedProver
         ) return true;
 
+        // For L2RewardProver, we need to make sure the actual prover is the same.
         if (
             _recordA.bondDecision == BondDecision.L2RewardProver
                 && _recordA.claim.actualProver == _recordB.claim.actualProver
