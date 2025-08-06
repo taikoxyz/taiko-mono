@@ -94,6 +94,8 @@ interface IInbox {
         uint48 provabilityBond;
         /// @notice The bond decision.
         BondDecision bondDecision;
+        /// @notice The next proposal ID.
+        uint48 nextProposalId;
     }
 
     /// @notice Represents the core state of the inbox.

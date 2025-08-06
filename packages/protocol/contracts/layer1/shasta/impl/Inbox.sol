@@ -141,11 +141,14 @@ contract Inbox is IInbox {
             claimRecords[i] = _prove(proposals[i], claims[i]);
         }
 
-        // Set all claim record hashes at once
-        for (uint256 i; i < proposals.length; ++i) {
-            bytes32 claimRecordHash = keccak256(abi.encode(claimRecords[i]));
+        (uint48[] memory proposalIds, ClaimRecord[] memory aggregatedClaimRecords) =
+            _aggregateClaimRecords(proposals, claimRecords);
+
+        for (uint256 i; i < aggregatedClaimRecords.length; ++i) {
+            bytes32 claimRecordHash = keccak256(abi.encode(aggregatedClaimRecords[i]));
+            // Use the parentClaimHash from the aggregated claim record
             inboxStateManager.setClaimRecordHash(
-                proposals[i].id, claims[i].parentClaimHash, claimRecordHash
+                proposalIds[i], aggregatedClaimRecords[i].claim.parentClaimHash, claimRecordHash
             );
         }
 
@@ -156,6 +159,110 @@ contract Inbox is IInbox {
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
+
+    function _aggregateClaimRecords(
+        Proposal[] memory _proposals,
+        ClaimRecord[] memory _claimRecords
+    )
+        private
+        pure
+        returns (uint48[] memory, ClaimRecord[] memory)
+    {
+        unchecked {
+            if (_claimRecords.length == 0) {
+                return (new uint48[](0), new ClaimRecord[](0));
+            }
+
+            // Allocate proposal IDs array with max possible size
+            uint48[] memory proposalIds = new uint48[](_claimRecords.length);
+            proposalIds[0] = _proposals[0].id;
+
+            // Reuse _claimRecords array for aggregation
+            uint256 writeIndex = 0;
+            uint256 readIndex = 1;
+
+            while (readIndex < _claimRecords.length) {
+                ClaimRecord memory writeRecord = _claimRecords[writeIndex];
+                ClaimRecord memory readRecord = _claimRecords[readIndex];
+
+                if (_canAggregate(writeRecord, readRecord, _proposals[readIndex].id)) {
+                    // Update the aggregated record at writeIndex to span multiple proposals
+                    writeRecord.nextProposalId = readRecord.nextProposalId;
+                    writeRecord.claim.endBlockNumber = readRecord.claim.endBlockNumber;
+                    writeRecord.claim.endBlockHash = readRecord.claim.endBlockHash;
+                    writeRecord.claim.endStateRoot = readRecord.claim.endStateRoot;
+
+                    if (writeRecord.bondDecision == BondDecision.L2RefundLiveness) {
+                        writeRecord.livenessBond += readRecord.livenessBond;
+                    }
+                } else {
+                    // Move to next write position and copy the current record
+                    writeIndex++;
+                    if (writeIndex != readIndex) {
+                        _claimRecords[writeIndex] = _claimRecords[readIndex];
+                    }
+                    proposalIds[writeIndex] = _proposals[readIndex].id;
+                }
+                readIndex++;
+            }
+
+            // Final aggregated count
+            uint256 aggregatedCount = writeIndex + 1;
+
+            // Set the correct length for proposalIds array using assembly
+            assembly {
+                mstore(proposalIds, aggregatedCount)
+                mstore(_claimRecords, aggregatedCount)
+            }
+            return (proposalIds, _claimRecords);
+        }
+    }
+
+    /// @dev Checks if two claim records can be aggregated.
+    /// @param _recordA The first claim record.
+    /// @param _recordB The second claim record.
+    /// @param _proposalBId The proposal ID of the second claim record.
+    /// @return _ True if the records can be aggregated, false otherwise.
+    function _canAggregate(
+        ClaimRecord memory _recordA,
+        ClaimRecord memory _recordB,
+        uint48 _proposalBId
+    )
+        private
+        pure
+        returns (bool)
+    {
+        // Check if a.nextProposalId equals the proposal id of b
+        // Since ClaimRecord stores nextProposalId which is proposalId + 1,
+        // we need to check if a.nextProposalId == b's implied proposalId
+        // b's proposalId = b.nextProposalId - 1
+        if (_recordA.nextProposalId != _proposalBId) return false;
+
+        // Check if parentClaimHash matches (required for valid aggregation)
+        if (_recordA.claim.parentClaimHash != _recordB.claim.parentClaimHash) return false;
+
+        // Check if bondDecision matches
+        if (_recordA.bondDecision != _recordB.bondDecision) return false;
+
+        // Check specific conditions for aggregation
+        if (_recordA.bondDecision == BondDecision.NoOp) return true;
+
+        if (uint256(_recordA.livenessBond) + _recordB.livenessBond > type(uint48).max) return false;
+
+        if (
+            _recordA.bondDecision == BondDecision.L2RefundLiveness
+                && _recordA.claim.designatedProver == _recordB.claim.designatedProver
+        ) return true;
+
+        if (
+            _recordA.bondDecision == BondDecision.L2RewardProver
+                && _recordA.claim.actualProver == _recordB.claim.actualProver
+        ) return true;
+
+        if (_recordA.bondDecision == BondDecision.L1SlashLivenessRewardProver) return true;
+
+        return true;
+    }
 
     /// @dev Proposes a new proposal of L2 blocks.
     /// @param _coreState The core state of the inbox.
@@ -213,7 +320,8 @@ contract Inbox is IInbox {
             proposer: _proposal.proposer,
             livenessBond: _proposal.livenessBond,
             provabilityBond: _proposal.provabilityBond,
-            bondDecision: bondDecision
+            bondDecision: bondDecision,
+            nextProposalId: _proposal.id + 1
         });
 
         emit Proved(_proposal, claimRecord_);
@@ -232,12 +340,10 @@ contract Inbox is IInbox {
     {
         // The last finalized claim record.
         ClaimRecord memory claimRecord;
-        bool hasFinalized;
+
+        uint48 proposalId = _coreState.lastFinalizedProposalId + 1;
 
         for (uint256 i; i < maxFinalizationCount; ++i) {
-            // Id for the next proposal to be finalized.
-            uint48 proposalId = _coreState.lastFinalizedProposalId + 1;
-
             // There is no more unfinalized proposals
             if (proposalId == _coreState.nextProposalId) break;
 
@@ -259,10 +365,10 @@ contract Inbox is IInbox {
             _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claimRecord.claim));
             _coreState.bondOperationsHash =
                 _processBonds(proposalId, claimRecord, _coreState.bondOperationsHash);
-            hasFinalized = true;
+            proposalId = claimRecord.nextProposalId;
         }
 
-        if (hasFinalized) {
+        if (proposalId != _coreState.lastFinalizedProposalId) {
             syncedBlockManager.saveSyncedBlock(
                 ISyncedBlockManager.SyncedBlock({
                     blockNumber: claimRecord.claim.endBlockNumber,
@@ -310,7 +416,7 @@ contract Inbox is IInbox {
     }
 
     /// @dev Handles bond refunds and penalties based on proof timing and prover identity.
-    /// @param _proposalId The ID of the proposal.
+    /// @param _proposalId The proposal ID being processed.
     /// @param _claimRecord The claim record containing bond and timing information.
     /// @param _bondOperationsHash The hash of the bond operations.
     /// @return bondOperationsHash_ The updated hash of the bond operations.
@@ -326,8 +432,6 @@ contract Inbox is IInbox {
         address receiver;
 
         Claim memory claim = _claimRecord.claim;
-        uint256 livenessBondWei = uint256(_claimRecord.livenessBond) * 1 gwei;
-        uint256 provabilityBondWei = uint256(_claimRecord.provabilityBond) * 1 gwei;
 
         if (_claimRecord.bondDecision == BondDecision.NoOp) {
             // No bond operations needed
@@ -339,6 +443,7 @@ contract Inbox is IInbox {
         } else if (_claimRecord.bondDecision == BondDecision.L1SlashLivenessRewardProver) {
             // Proposer was also the designated prover who failed to prove on time
             // Forfeit their liveness bond but reward the actual prover with half
+            uint256 livenessBondWei = uint256(_claimRecord.livenessBond) * 1 gwei;
             bondManager.debitBond(_claimRecord.proposer, livenessBondWei);
             bondManager.creditBond(claim.actualProver, livenessBondWei / 2);
         } else if (_claimRecord.bondDecision == BondDecision.L2RewardProver) {
@@ -350,6 +455,7 @@ contract Inbox is IInbox {
         ) {
             // Proof submitted after extended window (very late proof)
             // Block was difficult to prove, forfeit provability bond but reward prover
+            uint256 provabilityBondWei = uint256(_claimRecord.provabilityBond) * 1 gwei;
             bondManager.debitBond(_claimRecord.proposer, provabilityBondWei);
             bondManager.creditBond(claim.actualProver, provabilityBondWei / 2);
             // Proposer and designated prover are different entities
@@ -359,6 +465,7 @@ contract Inbox is IInbox {
         } else if (_claimRecord.bondDecision == BondDecision.L1SlashProvabilityRewardProver) {
             // Proof submitted after extended window, proposer and designated prover are same
             // Forfeit provability bond but reward the actual prover
+            uint256 provabilityBondWei = uint256(_claimRecord.provabilityBond) * 1 gwei;
             bondManager.debitBond(_claimRecord.proposer, provabilityBondWei);
             bondManager.creditBond(claim.actualProver, provabilityBondWei / 2);
         }
