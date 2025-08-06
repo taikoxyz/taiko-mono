@@ -32,7 +32,7 @@ InboxStateManagerEncodingTest:test_encodeDecode_differentParentHashesSamePartial
 InboxStateManagerEncodingTest:test_encodeDecode_maxValues() (gas: 9986)
 InboxStateManagerEncodingTest:test_encodeDecode_zeroValues() (gas: 9966)
 InboxStateManagerEncodingTest:test_encode_bitsDoNotOverlap() (gas: 8586)
-InboxStateManagerPartialHashTest:testFuzz_partialHashCollisionProbability(bytes32,bytes32) (runs: 256, μ: 98137, ~: 105851)
+InboxStateManagerPartialHashTest:testFuzz_partialHashCollisionProbability(bytes32,bytes32) (runs: 256, μ: 98397, ~: 105851)
 InboxStateManagerPartialHashTest:test_avoidingPartialHashCollision() (gas: 129739)
 InboxStateManagerPartialHashTest:test_documentedCollisionBehavior() (gas: 81869)
 InboxStateManagerPartialHashTest:test_partialHashCollision_overwritesDefaultSlot() (gas: 83816)
