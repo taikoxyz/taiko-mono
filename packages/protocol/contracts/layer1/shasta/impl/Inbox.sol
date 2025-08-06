@@ -388,15 +388,18 @@ contract Inbox is IInbox {
         view
         returns (Frame memory)
     {
-        if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
+        uint256 numBlobs = _blobLocator.numBlobs;
+        if (numBlobs == 0) revert InvalidBlobLocator();
 
-        bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
+        bytes32[] memory blobHashes = new bytes32[](numBlobs);
 
-        for (uint256 i; i < _blobLocator.numBlobs; ++i) {
-            uint48 blobIndex = _blobLocator.blobStartIndex + uint48(i);
-            bytes32 hash = blobhash(blobIndex);
-            if (hash == 0) revert BlobNotFound();
-            blobHashes[i] = hash;
+        unchecked {
+            for (uint256 i; i < _blobLocator.numBlobs; ++i) {
+                uint48 blobIndex = _blobLocator.blobStartIndex + uint48(i);
+                bytes32 hash = blobhash(blobIndex);
+                if (hash == 0) revert BlobNotFound();
+                blobHashes[i] = hash;
+            }
         }
 
         // Return frame with empty offsets and sizes arrays for full blobs mode
@@ -456,6 +459,7 @@ contract Inbox is IInbox {
     }
 
     /// @dev Validates that a consumed forced inclusion matches the provided frame
+    /// @dev The frame is always assumed to be using the shared blob format(offsets and sizes are not empty)
     /// @param _consumed The consumed forced inclusion from storage
     /// @param _frame The frame provided by the proposer
     function _validateForcedInclusion(
