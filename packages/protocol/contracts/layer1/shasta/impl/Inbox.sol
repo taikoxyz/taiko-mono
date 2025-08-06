@@ -440,7 +440,7 @@ contract Inbox is IInbox {
     /// into fewer records when they share compatible properties:
     /// - Same parent claim hash (ensures they're part of the same chain)
     /// - Same bond decision (ensures consistent bond handling)
-    /// - Same designated prover (for L2RefundLiveness and L2RewardProver decisions)
+    /// - Same designated prover (for L2RefundLiveness decisions)
     /// - Same actual prover (for L2RewardProver decisions)
     ///
     /// Gas savings example: If 10 consecutive proposals are proven by the same prover,
