@@ -104,7 +104,6 @@ contract Inbox is IInbox {
     /// @inheritdoc IInbox
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external {
         proposerChecker.checkProposer(msg.sender);
-
         if (bondManager.getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
 
         (
