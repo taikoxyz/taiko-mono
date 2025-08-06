@@ -371,15 +371,26 @@ contract Inbox is IInbox {
         view
         returns (Frame memory frame_)
     {
-        if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
+        uint256 numBlobs = _blobLocator.blobs.length;
+        if (numBlobs == 0) revert InvalidBlobLocator();
 
-        bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
-        for (uint48 i; i < _blobLocator.numBlobs; ++i) {
-            blobHashes[i] = blobhash(_blobLocator.blobStartIndex + i);
-            if (blobHashes[i] == 0) revert BlobNotFound();
+        bytes32[] memory blobHashes = new bytes32[](numBlobs);
+        uint32[] memory offsets = new uint32[](numBlobs);
+        uint32[] memory sizes = new uint32[](numBlobs);
+
+        for (uint256 i; i < numBlobs; ++i) {
+            BlobDescriptor memory descriptor = _blobLocator.blobs[i];
+            
+            // Validate blob exists
+            bytes32 hash = blobhash(descriptor.blobIndex);
+            if (hash == 0) revert BlobNotFound();
+            
+            blobHashes[i] = hash;
+            offsets[i] = descriptor.offset;
+            sizes[i] = descriptor.size;
         }
 
-        return Frame({ blobHashes: blobHashes, offset: _blobLocator.offset });
+        return Frame({ blobHashes: blobHashes, offsets: offsets, sizes: sizes });
     }
 
     /// @dev Processes a forced inclusion proposal and validates it against the stored data on the
@@ -415,12 +426,10 @@ contract Inbox is IInbox {
         private
         pure
     {
-        if (_consumed.blobHash != _frame.blobHashes[0]) {
-            revert InvalidForcedInclusion();
-        }
-        if (_consumed.blobByteOffset != _frame.offset) {
-            revert InvalidForcedInclusion();
-        }
+        // Forced inclusions are limited to 1 blob only
+        require(_consumed.blobHash == _frame.blobHashes[0], InvalidForcedInclusion());
+        require(_consumed.blobByteOffset == _frame.offsets[0], InvalidForcedInclusion());
+        require(_consumed.blobByteSize == _frame.sizes[0], InvalidForcedInclusion());
     }
 
     /// @dev Ensures no forced inclusion is due when none is provided

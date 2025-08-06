@@ -9,26 +9,30 @@ interface IInbox {
     // Structs
     // -------------------------------------------------------------------------
 
-    /// @notice Represents a segment of data that is stored in multiple consecutive blobs created
-    /// in this transaction.
-    struct BlobLocator {
-        /// @notice The starting index of the blob.
-        uint48 blobStartIndex;
-        /// @notice The number of blobs.
-        uint32 numBlobs;
-        /// @notice The offset within the blob data.
+    /// @notice Describes a single blob with its data location.
+    struct BlobDescriptor {
+        /// @notice The index of the blob in the transaction.
+        uint48 blobIndex;
+        /// @notice The offset within this blob.
         uint32 offset;
-        /// @notice The size of the data segment.
+        /// @notice The size of data to read from this blob.
         uint32 size;
     }
 
-    /// @notice Represents a frame of data that is stored in multiple blobs. Note the size is
-    /// encoded as a bytes32 at the offset location.
+    /// @notice Represents a segment of data that may be stored across multiple blobs.
+    struct BlobLocator {
+        /// @notice Array of blob descriptors specifying which blobs contain the data.
+        BlobDescriptor[] blobs;
+    }
+
+    /// @notice Represents a frame of data that is stored in multiple blobs.
     struct Frame {
         /// @notice The blobs containing the proposal's content.
         bytes32[] blobHashes;
-        /// @notice The offset of the proposal's content in the containing blobs.
-        uint32 offset;
+        /// @notice The offset for each blob.
+        uint32[] offsets;
+        /// @notice The size of data to read from each blob.
+        uint32[] sizes;
     }
 
     /// @notice Represents a proposal for L2 blocks.
