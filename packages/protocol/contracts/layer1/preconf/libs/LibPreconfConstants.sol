@@ -23,16 +23,6 @@ library LibPreconfConstants {
     uint256 internal constant RANDOMNESS_DELAY_EPOCHS = 2;
 
     bytes32 internal constant PRECONF_DOMAIN_SEPARATOR = keccak256("TAIKO_ALETHIA_PRECONF");
-    bytes32 internal constant ADD_OVERSEER_SIGNER_DOMAIN_SEPARATOR =
-        keccak256("TAIKO_ALETHIA_ADD_OVERSEER_SIGNER");
-    bytes32 internal constant REMOVE_OVERSEER_SIGNER_DOMAIN_SEPARATOR =
-        keccak256("TAIKO_ALETHIA_REMOVE_OVERSEER_SIGNER");
-    bytes32 internal constant UPDATE_OVERSEER_SIGNING_THRESHOLD_DOMAIN_SEPARATOR =
-        keccak256("TAIKO_ALETHIA_UPDATE_OVERSEER_SIGNING_THRESHOLD");
-    bytes32 internal constant BLACKLIST_OVERSEER_DOMAIN_SEPARATOR =
-        keccak256("TAIKO_ALETHIA_BLACKLIST_OVERSEER");
-    bytes32 internal constant UNBLACKLIST_OVERSEER_DOMAIN_SEPARATOR =
-        keccak256("TAIKO_ALETHIA_UNBLACKLIST_OVERSEER");
 
     function getGenesisTimestamp(uint256 _chainid) internal pure returns (uint256) {
         if (_chainid == LibNetwork.ETHEREUM_MAINNET) {

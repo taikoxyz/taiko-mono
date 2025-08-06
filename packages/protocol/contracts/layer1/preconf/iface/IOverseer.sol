@@ -7,8 +7,9 @@ import "@solady/src/utils/ext/ithaca/BLS.sol";
 /// @custom:security-contact security@taiko.xyz
 interface IOverseer {
     struct BlacklistTimestamps {
-        uint128 blacklistedAt;
-        uint128 unBlacklistedAt;
+        uint48 blacklistedAt;
+        uint48 unBlacklistedAt;
+        uint160 _reserved;
     }
 
     /// @dev These delays prevent the lookahead from being messed up mid-epoch
@@ -20,24 +21,12 @@ interface IOverseer {
     }
 
     // Blacklist events
-    event Blacklisted(bytes32 indexed validatorsRoot, uint256 timestamp);
-    event Unblacklisted(bytes32 indexed validatorsRoot, uint256 timestamp);
-
-    // Signer events
-    event SignerAdded(address indexed signer);
-    event SignerRemoved(address indexed signer);
-    event SigningThresholdUpdated(uint64 newSigningThreshold);
+    event Blacklisted(bytes32 indexed validatorPubKeysRoot, uint48 timestamp);
+    event Unblacklisted(bytes32 indexed validatorPubKeysRoot, uint48 timestamp);
 
     error BlacklistDelayNotMet();
-    error CannotRemoveSignerWhenThresholdIsReached();
-    error InsufficientSignatures();
-    error InvalidSigningThreshold();
-    error NotAnExistingSigner();
     error ValidatorsAlreadyBlacklisted();
     error ValidatorsNotBlacklisted();
-    error SignerAlreadyExists();
-    error SignerDoesNotExist();
-    error SignersMustBeSortedInAscendingOrder();
     error UnblacklistDelayNotMet();
 
     /// @notice Blacklists the validators of a preconf operator for subjective faults
@@ -50,25 +39,10 @@ interface IOverseer {
         external;
 
     /// @notice Removes a validator set from the blacklist
-    /// @param _validatorsRoot merkle root of the validator set to unblacklist
+    /// @param _validatorPubKeysRoot merkle root of the validator set to unblacklist
     /// @param _signatures signatures of the overseer signers
-    function unblacklistValidators(bytes32 _validatorsRoot, bytes[] memory _signatures) external;
-
-    /// @notice Adds a new signer to the set of authorized signers.
-    /// @param _signer The address to add as a signer.
-    /// @param _signatures Array of signatures from existing signers authorizing the addition.
-    function addSigner(address _signer, bytes[] memory _signatures) external;
-
-    /// @notice Removes a signer from the set of authorized signers.
-    /// @param _signer The address to remove as a signer.
-    /// @param _signatures Array of signatures from existing signers authorizing the removal.
-    function removeSigner(address _signer, bytes[] memory _signatures) external;
-
-    /// @notice Updates the signing threshold required for multi-signature operations.
-    /// @param _signingThreshold The new threshold value.
-    /// @param _signatures Array of signatures from existing signers authorizing the update.
-    function updateSigningThreshold(
-        uint64 _signingThreshold,
+    function unblacklistValidators(
+        bytes32 _validatorPubKeysRoot,
         bytes[] memory _signatures
     )
         external;
@@ -94,12 +68,12 @@ interface IOverseer {
 
     /// @notice Returns whether a validator is blacklisted
     /// @param _validatorPubKey consensus layer public key of the validator
-    /// @param _validatorsRoot merkle root of the validator set
+    /// @param _validatorPubKeysRoot merkle root of the validator set
     /// @param _proof merkle proof of the validator's inclusion in the validator set
     /// @return Whether the validator is blacklisted
     function isValidatorBlacklisted(
         BLS.G1Point memory _validatorPubKey,
-        bytes32 _validatorsRoot,
+        bytes32 _validatorPubKeysRoot,
         bytes32[] calldata _proof
     )
         external

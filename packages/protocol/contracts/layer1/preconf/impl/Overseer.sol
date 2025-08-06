@@ -5,6 +5,7 @@ import "src/layer1/preconf/iface/IOverseer.sol";
 import "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import "openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "src/shared/common/EssentialContract.sol";
+import "src/shared/governance/SimpleMultisig.sol";
 import "@solady/src/utils/MerkleProofLib.sol";
 import "@solady/src/utils/MerkleTreeLib.sol";
 
@@ -15,22 +16,17 @@ import "@solady/src/utils/MerkleTreeLib.sol";
 /// @dev Operators of blacklisted validators are not inserted in the lookahead. This is done to
 /// prevent the lookahead from being polluted by invalid validators.
 /// @custom:security-contact security@taiko.xyz
-contract Overseer is IOverseer, EssentialContract {
-    uint64 public signingThreshold;
-    uint64 public numSigners;
-    uint64 public nonce;
-
-    mapping(address signerAddress => bool isSigner) public signers;
-
+contract Overseer is IOverseer, SimpleMultisig, EssentialContract {
     /// @dev Maps the root of a merkle tree of validator keys to the timestamp at which they
     /// were blacklisted or unblacklisted.
-    mapping(bytes32 validatorsRoot => BlacklistTimestamps blacklistTimestamps) public blacklist;
+    mapping(bytes32 validatorPubKeysRoot => BlacklistTimestamps blacklistTimestamps) public
+        blacklist;
 
-    uint256[47] private __gap;
+    uint256[49] private __gap;
 
     function init(uint64 _signingThreshold, address[] memory _signers) external initializer {
         __Essential_init(address(0));
-        __OverseerInit(_signingThreshold, _signers);
+        __SimpleMultisig_init(_signingThreshold, _signers);
     }
 
     // Blacklist functions
@@ -44,9 +40,9 @@ contract Overseer is IOverseer, EssentialContract {
         external
     {
         // Merkleize the validators to a single validator's merkle root
-        bytes32 validatorsRoot = MerkleTreeLib.root(_generateMerkleTree(_validatorPubKeys));
+        bytes32 validatorPubKeysRoot = MerkleTreeLib.root(_generateMerkleTree(_validatorPubKeys));
 
-        BlacklistTimestamps memory blacklistTimestamps = blacklist[validatorsRoot];
+        BlacklistTimestamps memory blacklistTimestamps = blacklist[validatorPubKeysRoot];
 
         // The set of validators must not be already blacklisted
         require(
@@ -55,31 +51,28 @@ contract Overseer is IOverseer, EssentialContract {
         );
 
         // If the validators were unblacklisted, the overseer must wait for a delay before
-        // blacklisting
-        // them again in order to not mess up the lookahead.
+        // blacklisting them again in order to not mess up the lookahead.
         require(
             block.timestamp > blacklistTimestamps.unBlacklistedAt + getConfig().blacklistDelay,
             BlacklistDelayNotMet()
         );
 
         // The signatures must be valid
-        unchecked {
-            bytes32 digest = keccak256(
-                abi.encode(
-                    LibPreconfConstants.BLACKLIST_OVERSEER_DOMAIN_SEPARATOR, nonce++, validatorsRoot
-                )
-            );
-            _verifySignatures(digest, _signatures);
-        }
+        _verifySignatures(_getBlacklistDomainSeparator(), validatorPubKeysRoot, _signatures);
 
-        blacklist[validatorsRoot].blacklistedAt = uint128(block.timestamp);
+        blacklist[validatorPubKeysRoot].blacklistedAt = uint48(block.timestamp);
 
-        emit Blacklisted(validatorsRoot, block.timestamp);
+        emit Blacklisted(validatorPubKeysRoot, uint48(block.timestamp));
     }
 
     /// @inheritdoc IOverseer
-    function unblacklistValidators(bytes32 _validatorsRoot, bytes[] memory _signatures) external {
-        BlacklistTimestamps memory blacklistTimestamps = blacklist[_validatorsRoot];
+    function unblacklistValidators(
+        bytes32 _validatorPubKeysRoot,
+        bytes[] memory _signatures
+    )
+        external
+    {
+        BlacklistTimestamps memory blacklistTimestamps = blacklist[_validatorPubKeysRoot];
 
         // The validators must be blacklisted
         require(
@@ -96,90 +89,11 @@ contract Overseer is IOverseer, EssentialContract {
         );
 
         // The signatures must be valid
-        unchecked {
-            bytes32 digest = keccak256(
-                abi.encode(
-                    LibPreconfConstants.UNBLACKLIST_OVERSEER_DOMAIN_SEPARATOR,
-                    nonce++,
-                    _validatorsRoot
-                )
-            );
-            _verifySignatures(digest, _signatures);
-        }
+        _verifySignatures(_getUnblacklistDomainSeparator(), _validatorPubKeysRoot, _signatures);
 
-        blacklist[_validatorsRoot].unBlacklistedAt = uint128(block.timestamp);
+        blacklist[_validatorPubKeysRoot].unBlacklistedAt = uint48(block.timestamp);
 
-        emit Unblacklisted(_validatorsRoot, block.timestamp);
-    }
-
-    // Signers management functions
-    // -----------------------------------------------------------------------------------
-
-    /// @inheritdoc IOverseer
-    function addSigner(address _signer, bytes[] memory _signatures) external {
-        require(!signers[_signer], SignerAlreadyExists());
-
-        unchecked {
-            bytes32 digest = keccak256(
-                abi.encode(
-                    LibPreconfConstants.ADD_OVERSEER_SIGNER_DOMAIN_SEPARATOR, nonce++, _signer
-                )
-            );
-            _verifySignatures(digest, _signatures);
-
-            signers[_signer] = true;
-            ++numSigners;
-        }
-
-        emit SignerAdded(_signer);
-    }
-
-    /// @inheritdoc IOverseer
-    function removeSigner(address _signer, bytes[] memory _signatures) external {
-        require(signers[_signer], SignerDoesNotExist());
-
-        // The number of signers must not fall below the signing threshold
-        require(numSigners > signingThreshold, CannotRemoveSignerWhenThresholdIsReached());
-
-        unchecked {
-            bytes32 digest = keccak256(
-                abi.encode(
-                    LibPreconfConstants.REMOVE_OVERSEER_SIGNER_DOMAIN_SEPARATOR, nonce++, _signer
-                )
-            );
-            _verifySignatures(digest, _signatures);
-
-            delete signers[_signer];
-            --numSigners;
-        }
-
-        emit SignerRemoved(_signer);
-    }
-
-    /// @inheritdoc IOverseer
-    function updateSigningThreshold(
-        uint64 _signingThreshold,
-        bytes[] memory _signatures
-    )
-        external
-    {
-        // The new threshold must not exceed the number of signers
-        require(_signingThreshold <= numSigners, InvalidSigningThreshold());
-
-        unchecked {
-            bytes32 digest = keccak256(
-                abi.encode(
-                    LibPreconfConstants.UPDATE_OVERSEER_SIGNING_THRESHOLD_DOMAIN_SEPARATOR,
-                    nonce++,
-                    _signingThreshold
-                )
-            );
-            _verifySignatures(digest, _signatures);
-        }
-
-        signingThreshold = _signingThreshold;
-
-        emit SigningThresholdUpdated(_signingThreshold);
+        emit Unblacklisted(_validatorPubKeysRoot, uint48(block.timestamp));
     }
 
     // Views
@@ -193,54 +107,45 @@ contract Overseer is IOverseer, EssentialContract {
     /// @inheritdoc IOverseer
     function getValidatorBlacklistInclusionProof(
         BLS.G1Point[] calldata _validatorPubKeys,
-        uint256 _validatorIndex
+        uint256 _validatorPubKeyIndex
     )
         external
         pure
         returns (bytes32[] memory)
     {
-        return MerkleTreeLib.leafProof(_generateMerkleTree(_validatorPubKeys), _validatorIndex);
+        return
+            MerkleTreeLib.leafProof(_generateMerkleTree(_validatorPubKeys), _validatorPubKeyIndex);
     }
 
     /// @inheritdoc IOverseer
     function isValidatorBlacklisted(
         BLS.G1Point memory _validatorPubKey,
-        bytes32 _validatorsRoot,
+        bytes32 _validatorPubKeysRoot,
         bytes32[] calldata _proof
     )
         external
         pure
         returns (bool)
     {
-        bytes32 validatorLeaf = keccak256(abi.encode(_validatorPubKey));
-        return MerkleProofLib.verifyCalldata(_proof, _validatorsRoot, validatorLeaf);
+        bytes32 validatorPubKeyLeaf = keccak256(abi.encode(_validatorPubKey));
+        return MerkleProofLib.verifyCalldata(_proof, _validatorPubKeysRoot, validatorPubKeyLeaf);
     }
 
     // Internal functions
     // -----------------------------------------------------------------------------------
-
-    function __OverseerInit(uint64 _signingThreshold, address[] memory _signers) internal {
-        require(_signingThreshold <= _signers.length, InvalidSigningThreshold());
-
-        for (uint256 i; i < _signers.length; ++i) {
-            signers[_signers[i]] = true;
-        }
-
-        numSigners = uint64(_signers.length);
-        signingThreshold = _signingThreshold;
-    }
 
     function _generateMerkleTree(BLS.G1Point[] calldata _validatorPubKeys)
         internal
         pure
         returns (bytes32[] memory)
     {
-        return MerkleTreeLib.build(MerkleTreeLib.pad(_hashValidatorsToLeaves(_validatorPubKeys)));
+        return
+            MerkleTreeLib.build(MerkleTreeLib.pad(_hashValidatorPubKeysToLeaves(_validatorPubKeys)));
     }
 
     /// @dev Saves gas by reusing a scratch space for encoding instead of repeatedly expanding
     /// the memory by using abi.encode(..)
-    function _hashValidatorsToLeaves(BLS.G1Point[] calldata _validatorPubKeys)
+    function _hashValidatorPubKeysToLeaves(BLS.G1Point[] calldata _validatorPubKeys)
         internal
         pure
         returns (bytes32[] memory)
@@ -251,7 +156,7 @@ contract Overseer is IOverseer, EssentialContract {
             // Scratch space for encoding and hashing a validator's G1Point pub key
             let scratchSpace := mload(0x40)
             // Size of a G1Point (128 bytes)
-            let scratchSpaceSize := 0x40
+            let scratchSpaceSize := 0x80
             // Set the pointer to skip the length
             let leavesPtr := add(leaves, 0x20)
 
@@ -269,21 +174,26 @@ contract Overseer is IOverseer, EssentialContract {
         return leaves;
     }
 
-    function _verifySignatures(bytes32 _digest, bytes[] memory _signatures) internal view {
-        require(_signatures.length >= signingThreshold, InsufficientSignatures());
+    function _getBlacklistDomainSeparator() internal pure virtual returns (bytes32) {
+        return keccak256("TAIKO_ALETHIA_BLACKLIST_OVERSEER");
+    }
 
-        address lastSigner;
-        address currentSigner;
+    function _getUnblacklistDomainSeparator() internal pure virtual returns (bytes32) {
+        return keccak256("TAIKO_ALETHIA_UNBLACKLIST_OVERSEER");
+    }
 
-        for (uint256 i; i < _signatures.length; ++i) {
-            // Recover the signer from the signature
-            currentSigner = ECDSA.recover(_digest, _signatures[i]);
-            require(signers[currentSigner], NotAnExistingSigner());
+    // Overrides
+    // -----------------------------------------------------------------------------------
 
-            // To prevent reuse of same signer
-            require(lastSigner < currentSigner, SignersMustBeSortedInAscendingOrder());
+    function _getAddSignerDomainSeparator() internal pure override returns (bytes32) {
+        return keccak256("TAIKO_ALETHIA_ADD_OVERSEER_SIGNER");
+    }
 
-            lastSigner = currentSigner;
-        }
+    function _getRemoveSignerDomainSeparator() internal pure override returns (bytes32) {
+        return keccak256("TAIKO_ALETHIA_REMOVE_OVERSEER_SIGNER");
+    }
+
+    function _getUpdateSigningThresholdDomainSeparator() internal pure override returns (bytes32) {
+        return keccak256("TAIKO_ALETHIA_UPDATE_OVERSEER_SIGNING_THRESHOLD");
     }
 }
