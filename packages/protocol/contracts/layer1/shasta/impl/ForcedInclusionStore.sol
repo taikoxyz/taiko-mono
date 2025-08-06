@@ -14,7 +14,8 @@ import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 /// @dev Inclusion delay is measured in seconds, since we don't have an easy way to get batch number
 /// in the Shasta design.
 /// @dev We only allow one forced inclusion per L1 transaction to avoid spamming the proposer.
-/// @dev Forced inclusions are limited to 1 blob only, and one L2 block only(this and other protocol constrains are enforced by the node and verified by the prover)
+/// @dev Forced inclusions are limited to 1 blob only, and one L2 block only(this and other protocol
+/// constrains are enforced by the node and verified by the prover)
 /// @custom:security-contact security@taiko.xyz
 contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     using LibAddress for address;
