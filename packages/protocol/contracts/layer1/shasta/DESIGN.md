@@ -82,11 +82,7 @@ The finalization process enforces strict sequential validation to maintain proto
 
 ## Bond Economics
 
-The protocol implements two types of bonds to ensure proper incentives. Provability bonds are paid by proposers to ensure their proposals can be successfully proven, creating an economic disincentive for submitting invalid or unprovable proposals. Liveness bonds are paid by designated provers to ensure timely proof submission, addressing the potential free-rider problem in permissionless proving systems. Both bond amounts are set at contract deployment and stored as uint48 values to optimize storage.
-
-The proving window mechanism creates time-based incentives where designated provers who submit proofs within the window receive full bond refunds, encouraging timely proof submission. Provers who submit outside the window receive partial refunds, compensating them for providing backup proving services while still incentivizing timely submission by designated provers. This dual incentive structure ensures both liveness and efficiency in the proving process.
-
-Bond management features are currently marked as TODO in the implementation, including mechanisms for bond collection during proposal submission, bond distribution during proof verification, and slashing conditions for invalid proofs. These features will be critical for the protocol's economic security once implemented.
+Please see the bonds [document](./BONDS.md) to understand how bonds are handled.
 
 ## Gas Economics
 
