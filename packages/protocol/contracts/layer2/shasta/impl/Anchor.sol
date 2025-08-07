@@ -6,6 +6,7 @@ import { IAnchor } from "../iface/IAnchor.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
 import { IBlockHashManager } from "../iface/IBlockHashManager.sol";
+import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 
 /// @title Anchor
 /// @notice Contract that manages L2 state synchronization with L1

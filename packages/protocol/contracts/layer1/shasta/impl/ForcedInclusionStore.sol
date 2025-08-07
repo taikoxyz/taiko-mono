@@ -137,7 +137,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
             return uint256(lastProcessedAt).max(inclusion.submittedAt) + inclusionDelay;
         }
     }
-
+    
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
