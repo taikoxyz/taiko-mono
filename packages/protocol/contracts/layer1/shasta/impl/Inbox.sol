@@ -507,6 +507,78 @@ contract Inbox is IInbox {
         }
     }
 
+    /// @dev Processes a forced inclusion proposal and validates it against the stored data on the
+    /// `ForcedInclusionStore` contract
+    /// @param _coreState The current core state
+    /// @param _forcedInclusionFrame The frame containing forced inclusion data
+    /// @return coreState_ Updated core state
+    /// @return proposal_ The created forced inclusion proposal
+    function _processForcedInclusion(
+        CoreState memory _coreState,
+        Frame memory _forcedInclusionFrame
+    )
+        private
+        returns (CoreState memory coreState_, Proposal memory proposal_)
+    {
+        // Create the forced inclusion proposal
+        (coreState_, proposal_) = _propose(_coreState, _forcedInclusionFrame, true);
+
+        // Consume and validate the oldest forced inclusion
+        IForcedInclusionStore.ForcedInclusion memory consumed =
+            forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
+
+        _validateForcedInclusion(consumed, _forcedInclusionFrame);
+    }
+
+    /// @dev Validates that a consumed forced inclusion matches the provided frame
+    /// @param _consumed The consumed forced inclusion from storage
+    /// @param _frame The frame provided by the proposer
+    function _validateForcedInclusion(
+        IForcedInclusionStore.ForcedInclusion memory _consumed,
+        Frame memory _frame
+    )
+        private
+        pure
+    {
+        if (_consumed.blobHash != _frame.blobHashes[0]) {
+            revert InvalidForcedInclusion();
+        }
+        if (_consumed.blobByteOffset != _frame.offset) {
+            revert InvalidForcedInclusion();
+        }
+    }
+
+    /// @dev Ensures no forced inclusion is due when none is provided
+    function _ensureNoForcedInclusionDue() private view {
+        if (forcedInclusionStore.isOldestForcedInclusionDue()) {
+            revert InvalidForcedInclusion();
+        }
+    }
+
+    /// @dev Builds the proposals array based on whether forced inclusion exists
+    /// @param _proposal The regular proposal
+    /// @param _forcedInclusionProposal The forced inclusion proposal (if any)
+    /// @param _hasForcedInclusion Whether a forced inclusion exists
+    /// @return proposals_ Array containing one or two proposals
+    function _buildProposalsArray(
+        Proposal memory _proposal,
+        Proposal memory _forcedInclusionProposal,
+        bool _hasForcedInclusion
+    )
+        private
+        pure
+        returns (Proposal[] memory proposals_)
+    {
+        if (_hasForcedInclusion) {
+            proposals_ = new Proposal[](2);
+            proposals_[0] = _proposal;
+            proposals_[1] = _forcedInclusionProposal;
+        } else {
+            proposals_ = new Proposal[](1);
+            proposals_[0] = _proposal;
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
