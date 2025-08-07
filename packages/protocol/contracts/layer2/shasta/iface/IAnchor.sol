@@ -31,7 +31,6 @@ interface IAnchor {
     }
 
 
-    }
 
     /// @notice Emitted when the anchor state is updated
     /// @param state The new state that has been set

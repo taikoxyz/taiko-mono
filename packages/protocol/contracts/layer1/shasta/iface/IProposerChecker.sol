@@ -5,8 +5,6 @@ pragma solidity ^0.8.24;
 /// @notice Interface for checking if an address is authorized to propose blocks
 /// @custom:security-contact security@taiko.xyz
 interface IProposerChecker {
-    error InvalidProposer();
-
     /// @notice Checks if an address is a valid proposer
     /// @param _proposer The address to check
     /// @dev This function must revert if the address is not a valid proposer
