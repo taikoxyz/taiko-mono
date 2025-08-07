@@ -89,6 +89,7 @@ contract Anchor is EssentialContract, IAnchor {
     /// @param _newState New state containing L1 block info and configuration
     /// @param _bondOperations Bond credit operations to execute
     /// @dev Security: Only callable by the keyless anchor transactor address
+    /// TODO(daniel): remove all validations as node cannot afford reverting.
     function setState(
         State memory _newState,
         LibBondOperation.BondOperation[] memory _bondOperations
