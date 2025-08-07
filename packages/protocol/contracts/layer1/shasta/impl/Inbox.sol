@@ -339,6 +339,10 @@ contract Inbox is EssentialContract, IInbox {
         return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
 
+    // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
+
     /// @dev Aggregates and saves consecutive claim records to reduce gas costs
     /// @notice This function is a key gas optimization that combines multiple claim records
     /// into fewer records when they share compatible properties:
@@ -481,10 +485,6 @@ contract Inbox is EssentialContract, IInbox {
 
         return false;
     }
-
-    // -------------------------------------------------------------------------
-    // Private Functions
-    // -------------------------------------------------------------------------
 
     /// @dev Proposes a new proposal of L2 blocks.
     /// @param _coreState The core state of the inbox.
