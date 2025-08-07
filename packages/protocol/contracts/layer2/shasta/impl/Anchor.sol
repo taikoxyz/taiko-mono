@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
 import { IAnchor } from "../iface/IAnchor.sol";
+import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
+import { IBlockHashManager } from "../iface/IBlockHashManager.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 
 /// @title Anchor
@@ -10,25 +13,38 @@ import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 ///      It can only be updated by a special system address that has no private key,
 ///      ensuring updates come from the L2 system itself rather than external actors.
 /// @custom:security-contact security@taiko.xyz
-contract Anchor is IAnchor {
+contract Anchor is EssentialContract, IAnchor {
     /// @dev The address of the anchor transactor which shall NOT have a private key
     /// @dev This is a system address that only the L2 node can use to update state
 
     address public immutable anchorTransactor;
     IBondManager public immutable bondManager;
+    IBlockHashManager public immutable blockHashManager;
 
     /// @dev Private storage for the current anchor state
     State private _state;
 
-    /// @dev Restricts function access to only the authorized anchor transactor
-    modifier onlyAuthorized() {
-        if (msg.sender != anchorTransactor) revert Unauthorized();
-        _;
-    }
+    uint256[49] private __gap;
 
-    constructor(address _anchorTransactor, IBondManager _bondManager) {
+    constructor(
+        address _anchorTransactor,
+        IBondManager _bondManager,
+        IBlockHashManager _blockHashManager
+    )
+        nonZeroAddr(_anchorTransactor)
+        nonZeroAddr(address(_bondManager))
+        nonZeroAddr(address(_blockHashManager))
+        EssentialContract()
+    {
         bondManager = _bondManager;
         anchorTransactor = _anchorTransactor;
+        blockHashManager = _blockHashManager;
+    }
+
+    /// @notice Initialize the contract
+    /// @param _owner The owner of the contract
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @notice Retrieves the current anchor state
@@ -44,15 +60,25 @@ contract Anchor is IAnchor {
     ///      This ensures state updates come from the L2 system itself
     function setState(
         State memory _newState,
-        BondOperation[] memory _bondOperations
+        LibBondOperation.BondOperation[] memory _bondOperations
     )
         external
-        onlyAuthorized
+        onlyFrom(anchorTransactor)
     {
+        if (
+            _newState.anchorBlockNumber != 0
+                && _newState.anchorBlockNumber > _state.anchorBlockNumber
+        ) {
+            blockHashManager.saveBlockHash(_newState.anchorBlockNumber, _newState.anchorBlockHash);
+        }
+
         bytes32 bondOperationsHash = _state.bondOperationsHash;
         for (uint256 i; i < _bondOperations.length; ++i) {
-            bondOperationsHash = keccak256(abi.encode(bondOperationsHash, _bondOperations[i]));
-            bondManager.creditBond(_bondOperations[i].receiver, _bondOperations[i].credit);
+            if (_bondOperations[i].receiver != address(0) && _bondOperations[i].credit != 0) {
+                bondManager.creditBond(_bondOperations[i].receiver, _bondOperations[i].credit);
+            }
+            bondOperationsHash =
+                LibBondOperation.aggregateBondOperation(bondOperationsHash, _bondOperations[i]);
         }
         if (bondOperationsHash != _newState.bondOperationsHash) revert BondOperationsHashMismatch();
 
@@ -68,6 +94,5 @@ contract Anchor is IAnchor {
     // Errors
     // -------------------------------------------------------------------------
 
-    error Unauthorized();
     error BondOperationsHashMismatch();
 }

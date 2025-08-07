@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
+
 /// @title IAnchor
 /// @notice Interface for the Anchor contract that manages L2 state synchronization with L1
 /// @dev This contract stores critical state information for L2 block production and gas management
@@ -19,12 +21,10 @@ interface IAnchor {
         uint32 gasIssuancePerSecond;
         /// @notice The hash of the bond operations for the current proposal
         bytes32 bondOperationsHash;
-    }
-
-    struct BondOperation {
-        uint48 proposalId;
-        address receiver;
-        uint256 credit;
+        /// @notice The number of the anchor block
+        uint48 anchorBlockNumber;
+        /// @notice The hash of the anchor block
+        bytes32 anchorBlockHash;
     }
 
     /// @notice Emitted when the anchor state is updated
@@ -39,7 +39,11 @@ interface IAnchor {
     /// @param _newState The new state to be set
     /// @param _bondOperations The bond operations to be performed
     /// @dev Only callable by the authorized anchor transactor address
-    function setState(State memory _newState, BondOperation[] memory _bondOperations) external;
+    function setState(
+        State memory _newState,
+        LibBondOperation.BondOperation[] memory _bondOperations
+    )
+        external;
 
     /// @notice Returns the address of the authorized anchor transactor
     /// @return The address that is authorized to update the anchor state
