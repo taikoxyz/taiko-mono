@@ -603,12 +603,13 @@ contract Inbox is EssentialContract, IInbox {
         ClaimRecord memory claimRecord;
         bool hasFinalized;
 
+        uint48 proposalId = _coreState.lastFinalizedProposalId + 1;
+
         for (uint256 i; i < maxFinalizationCount; ++i) {
             // Id for the next proposal to be finalized.
-            uint48 proposalId = _coreState.lastFinalizedProposalId + 1;
 
             // There is no more unfinalized proposals
-            if (proposalId == _coreState.nextProposalId) break;
+            if (proposalId >= _coreState.nextProposalId) break;
 
             bytes32 storedClaimRecordHash =
                 getClaimRecordHash(proposalId, _coreState.lastFinalizedClaimHash);
@@ -628,6 +629,8 @@ contract Inbox is EssentialContract, IInbox {
             _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claimRecord.claim));
             _coreState.bondOperationsHash =
                 _processBonds(proposalId, claimRecord, _coreState.bondOperationsHash);
+
+            proposalId = _claimRecords[i].nextProposalId;
             hasFinalized = true;
         }
 
