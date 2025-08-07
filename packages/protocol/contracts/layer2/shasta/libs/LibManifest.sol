@@ -4,7 +4,15 @@ pragma solidity ^0.8.24;
 /// @title LibManifest
 /// @custom:security-contact security@taiko.xyz
 library LibManifest {
+    // -------------------------------------------------------------------------
+    // Constants
+    // -------------------------------------------------------------------------
+
+    /// @notice The maximum number of bytes allowed for a proposal slice.
+    uint256 internal constant MAX_PROPOSAL_SLICE_BYTES = 10 * 1024;
+    /// @notice The maximum number of blocks allowed in a proposal.
     uint256 internal constant MAX_BLOCKS_PER_PROPOSAL = 1024;
+    /// @notice The maximum number of transactions allowed in a block.
     uint256 internal constant MAX_TRANSACTIONS_PER_BLOCK = 4096;
 
     // -------------------------------------------------------------------------
