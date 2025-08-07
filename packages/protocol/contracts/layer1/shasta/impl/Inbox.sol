@@ -372,13 +372,12 @@ contract Inbox is EssentialContract, IInbox {
             uint48 lastAggregatedProposalId = _proposals[0].id;
 
             while (readIdx < _claimRecords.length) {
-                // Check if current proposal is consecutive to the last aggregated one
-                bool isConsecutive = _proposals[readIdx].id == lastAggregatedProposalId + 1;
-                
                 if (
-                    isConsecutive
-                    && _canAggregate(
-                        _claimRecords[writeIndex], _claimRecords[readIdx], _proposals[readIdx].id
+                    _canAggregate(
+                        _claimRecords[writeIndex],
+                        _claimRecords[readIdx],
+                        lastAggregatedProposalId,
+                        _proposals[readIdx].id
                     )
                 ) {
                     // Update the aggregated record at writeIndex to span multiple proposals
@@ -432,6 +431,7 @@ contract Inbox is EssentialContract, IInbox {
 
     /// @dev Checks if two claim records can be aggregated for gas optimization
     /// @notice Aggregation rules ensure that only compatible records are combined:
+    /// - Proposals must be consecutive
     /// - Records must be consecutive (recordA.nextProposalId == proposalBId)
     /// - Must share the same parent claim hash (same chain)
     /// - Must have the same bond decision
@@ -439,17 +439,22 @@ contract Inbox is EssentialContract, IInbox {
     /// - Liveness bond sum must not overflow uint48
     /// @param _recordA The first claim record
     /// @param _recordB The second claim record
+    /// @param _lastAggregatedProposalId The last proposal ID that was aggregated
     /// @param _proposalBId The proposal ID of the second claim record
     /// @return _ True if the records can be aggregated, false otherwise
     function _canAggregate(
         ClaimRecord memory _recordA,
         ClaimRecord memory _recordB,
+        uint48 _lastAggregatedProposalId,
         uint48 _proposalBId
     )
         private
         pure
         returns (bool)
     {
+        // Check if proposals are consecutive
+        if (_proposalBId != _lastAggregatedProposalId + 1) return false;
+        
         // Check if a.nextProposalId equals the proposal id of b
         // Since ClaimRecord stores nextProposalId which is proposalId + 1,
         // we need to check if a.nextProposalId == b's implied proposalId
