@@ -3,7 +3,8 @@ pragma solidity ^0.8.24;
 
 import { IAnchor } from "../iface/IAnchor.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
-import { IBondOperation } from "contracts/shared/shasta/iface/IBondOperation.sol";
+import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
+import { IBlockHashManager } from "../iface/IBlockHashManager.sol";
 
 /// @title Anchor
 /// @notice Contract that manages L2 state synchronization with L1
@@ -17,6 +18,7 @@ contract Anchor is IAnchor {
 
     address public immutable anchorTransactor;
     IBondManager public immutable bondManager;
+    IBlockHashManager public immutable blockHashManager;
 
     /// @dev Private storage for the current anchor state
     State private _state;
@@ -45,15 +47,23 @@ contract Anchor is IAnchor {
     ///      This ensures state updates come from the L2 system itself
     function setState(
         State memory _newState,
-        IBondOperation.BondOperation[] memory _bondOperations
+        LibBondOperation.BondOperation[] memory _bondOperations
     )
         external
         onlyAuthorized
     {
+        if (
+            _newState.anchorBlockNumber != 0
+                && _newState.anchorBlockNumber > _state.anchorBlockNumber
+        ) {
+            blockHashManager.saveBlockHash(_newState.anchorBlockNumber, _newState.anchorBlockHash);
+        }
+
         bytes32 bondOperationsHash = _state.bondOperationsHash;
         for (uint256 i; i < _bondOperations.length; ++i) {
-            bondOperationsHash = keccak256(abi.encode(bondOperationsHash, _bondOperations[i]));
             bondManager.creditBond(_bondOperations[i].receiver, _bondOperations[i].credit);
+            bondOperationsHash =
+                LibBondOperation.aggregateBondOperation(bondOperationsHash, _bondOperations[i]);
         }
         if (bondOperationsHash != _newState.bondOperationsHash) revert BondOperationsHashMismatch();
 

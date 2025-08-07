@@ -2,10 +2,11 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
+import { LibBlobs } from "../lib/LibBlobs.sol";
 import { IInboxStateManager } from "../iface/IInboxStateManager.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 import { ISyncedBlockManager } from "../../../shared/shasta/iface/ISyncedBlockManager.sol";
-import { IBondOperation } from "../../../shared/shasta/iface/IBondOperation.sol";
+import { LibBondOperation } from "../../../shared/shasta/libs/LibBondOperation.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibDecoder } from "../lib/LibDecoder.sol";
@@ -103,8 +104,7 @@ contract Inbox is IInbox {
 
         (
             CoreState memory coreState,
-            BlobLocator memory blobLocator,
-            Frame memory forcedInclusionFrame,
+            LibBlobs.BlobLocator memory blobLocator,
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
 
@@ -122,33 +122,25 @@ contract Inbox is IInbox {
             revert ExceedsUnfinalizedProposalCapacity();
         }
 
-        // Create regular proposal
-        Frame memory frame = _validateBlobLocator(blobLocator);
         Proposal memory proposal;
-        (coreState, proposal) = _propose(coreState, frame, false);
 
         // Handle forced inclusion if required
-        Proposal memory forcedInclusionProposal;
-        bool hasForcedInclusion = forcedInclusionFrame.blobHashes.length > 0;
+        if (forcedInclusionStore.isOldestForcedInclusionDue()) {
+            IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
+                forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
 
-        if (hasForcedInclusion) {
-            (coreState, forcedInclusionProposal) =
-                _processForcedInclusion(coreState, forcedInclusionFrame);
-        } else {
-            // Ensure no forced inclusion is due when none is provided
-            _ensureNoForcedInclusionDue();
+            (coreState, proposal) = _propose(coreState, forcedInclusion.frame, true);
+            emit Proposed(proposal, coreState);
         }
 
-        // Build proposals array
-        Proposal[] memory proposals =
-            _buildProposalsArray(proposal, forcedInclusionProposal, hasForcedInclusion);
-
+        // Create regular proposal
+        LibBlobs.BlobFrame memory frame = LibBlobs.validateBlobLocator(blobLocator);
+        (coreState, proposal) = _propose(coreState, frame, false);
         // Finalize proved proposals
         coreState = _finalize(coreState, claimRecords);
+        emit Proposed(proposal, coreState);
 
         inboxStateManager.setCoreStateHash(keccak256(abi.encode(coreState)));
-
-        emit Proposed(proposals, coreState);
     }
 
     /// @inheritdoc IInbox
@@ -177,7 +169,7 @@ contract Inbox is IInbox {
     /// @return proposal_ The created proposal.
     function _propose(
         CoreState memory _coreState,
-        Frame memory _frame,
+        LibBlobs.BlobFrame memory _frame,
         bool _isForcedInclusion
     )
         private
@@ -306,7 +298,7 @@ contract Inbox is IInbox {
         uint256 livenessBondWei = uint256(_claimRecord.livenessBondGwei) * 1 gwei;
         uint256 provabilityBondWei = uint256(_claimRecord.provabilityBondGwei) * 1 gwei;
 
-        IBondOperation.BondOperation memory bondOperation;
+        LibBondOperation.BondOperation memory bondOperation;
         bondOperation.proposalId = _proposalId;
 
         if (_claimRecord.proofTiming == ProofTiming.InProvingWindow) {
@@ -347,77 +339,7 @@ contract Inbox is IInbox {
                 bondOperation.credit = livenessBondWei;
             }
         }
-
-        return bondOperation.credit == 0
-            ? _bondOperationsHash
-            : keccak256(abi.encode(_bondOperationsHash, bondOperation));
-    }
-
-    /// @dev Validates a blob locator and converts it to a frame.
-    /// @param _blobLocator The blob locator to validate.
-    /// @return frame_ The frame.
-    function _validateBlobLocator(BlobLocator memory _blobLocator)
-        private
-        view
-        returns (Frame memory frame_)
-    {
-        if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
-
-        bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
-        for (uint48 i; i < _blobLocator.numBlobs; ++i) {
-            blobHashes[i] = blobhash(_blobLocator.blobStartIndex + i);
-            if (blobHashes[i] == 0) revert BlobNotFound();
-        }
-
-        return Frame({ blobHashes: blobHashes, offset: _blobLocator.offset });
-    }
-
-    /// @dev Processes a forced inclusion proposal and validates it against the stored data on the
-    /// `ForcedInclusionStore` contract
-    /// @param _coreState The current core state
-    /// @param _forcedInclusionFrame The frame containing forced inclusion data
-    /// @return coreState_ Updated core state
-    /// @return proposal_ The created forced inclusion proposal
-    function _processForcedInclusion(
-        CoreState memory _coreState,
-        Frame memory _forcedInclusionFrame
-    )
-        private
-        returns (CoreState memory coreState_, Proposal memory proposal_)
-    {
-        // Create the forced inclusion proposal
-        (coreState_, proposal_) = _propose(_coreState, _forcedInclusionFrame, true);
-
-        // Consume and validate the oldest forced inclusion
-        IForcedInclusionStore.ForcedInclusion memory consumed =
-            forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
-
-        _validateForcedInclusion(consumed, _forcedInclusionFrame);
-    }
-
-    /// @dev Validates that a consumed forced inclusion matches the provided frame
-    /// @param _consumed The consumed forced inclusion from storage
-    /// @param _frame The frame provided by the proposer
-    function _validateForcedInclusion(
-        IForcedInclusionStore.ForcedInclusion memory _consumed,
-        Frame memory _frame
-    )
-        private
-        pure
-    {
-        if (_consumed.blobHash != _frame.blobHashes[0]) {
-            revert InvalidForcedInclusion();
-        }
-        if (_consumed.blobByteOffset != _frame.offset) {
-            revert InvalidForcedInclusion();
-        }
-    }
-
-    /// @dev Ensures no forced inclusion is due when none is provided
-    function _ensureNoForcedInclusionDue() private view {
-        if (forcedInclusionStore.isOldestForcedInclusionDue()) {
-            revert InvalidForcedInclusion();
-        }
+        return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
     }
 
     /// @dev Builds the proposals array based on whether forced inclusion exists
@@ -448,15 +370,12 @@ contract Inbox is IInbox {
     // Errors
     // -------------------------------------------------------------------------
 
-    error BlobNotFound();
     error ClaimRecordHashMismatch();
     error ClaimRecordNotProvided();
     error ExceedsUnfinalizedProposalCapacity();
     error InconsistentParams();
     error InsufficientBond();
-    error InvalidBlobLocator();
     error InvalidState();
     error ProposalHashMismatch();
     error Unauthorized();
-    error InvalidForcedInclusion();
 }

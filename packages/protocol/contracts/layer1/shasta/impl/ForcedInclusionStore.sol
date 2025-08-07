@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/common/EssentialContract.sol";
-import "src/shared/libs/LibMath.sol";
-import "src/shared/libs/LibAddress.sol";
-import "src/shared/libs/LibNames.sol";
+import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
+import { LibMath } from "contracts/shared/libs/LibMath.sol";
+import { LibAddress } from "contracts/shared/libs/LibAddress.sol";
+import { LibBlobs } from "../lib/LibBlobs.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 
 /// @title ForcedInclusionStore
@@ -75,26 +75,19 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     }
 
     /// @inheritdoc IForcedInclusionStore
-    function storeForcedInclusion(
-        uint256 blobIndex,
-        uint32 blobByteOffset,
-        uint32 blobByteSize
-    )
+    function storeForcedInclusion(LibBlobs.BlobLocator memory _blobLocator)
         external
         payable
         onlyStandaloneTx
         whenNotPaused
     {
-        bytes32 blobHash = blobhash(blobIndex);
-        require(blobHash != bytes32(0), BlobNotFound());
         require(msg.value == feeInGwei * 1 gwei, IncorrectFee());
+        LibBlobs.BlobFrame memory frame = LibBlobs.validateBlobLocator(_blobLocator);
 
         ForcedInclusion memory inclusion = ForcedInclusion({
-            blobHash: blobHash,
             feeInGwei: feeInGwei, // we already validated it above
             submittedAt: uint64(block.timestamp),
-            blobByteOffset: blobByteOffset,
-            blobByteSize: blobByteSize
+            frame: frame
         });
 
         queue[tail++] = inclusion;
@@ -144,4 +137,14 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
             return uint256(lastProcessedAt).max(inclusion.submittedAt) + inclusionDelay;
         }
     }
+
+    // -------------------------------------------------------------------------
+    // Errors
+    // -------------------------------------------------------------------------
+
+    error BlobNotFound();
+    error IncorrectFee();
+    error MultipleCallsInOneTx();
+    error NoForcedInclusionFound();
+    error ForcedInclusionDue();
 }

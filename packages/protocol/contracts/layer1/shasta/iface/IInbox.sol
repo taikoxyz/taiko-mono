@@ -1,36 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { LibBlobs } from "../lib/LibBlobs.sol";
+
 /// @title IInbox
 /// @notice Interface for the ShastaInbox contract
 /// @custom:security-contact security@taiko.xyz
 interface IInbox {
-    // -------------------------------------------------------------------------
-    // Structs
-    // -------------------------------------------------------------------------
-
-    /// @notice Represents a segment of data that is stored in multiple consecutive blobs created
-    /// in this transaction.
-    struct BlobLocator {
-        /// @notice The starting index of the blob.
-        uint48 blobStartIndex;
-        /// @notice The number of blobs.
-        uint32 numBlobs;
-        /// @notice The offset within the blob data.
-        uint32 offset;
-        /// @notice The size of the data segment.
-        uint32 size;
-    }
-
-    /// @notice Represents a frame of data that is stored in multiple blobs. Note the size is
-    /// encoded as a bytes32 at the offset location.
-    struct Frame {
-        /// @notice The blobs containing the proposal's content.
-        bytes32[] blobHashes;
-        /// @notice The offset of the proposal's content in the containing blobs.
-        uint32 offset;
-    }
-
     /// @notice Represents a proposal for L2 blocks.
     struct Proposal {
         /// @notice Unique identifier for the proposal.
@@ -49,10 +25,10 @@ interface IInbox {
         /// @notice The L1 block number when the proposal was made. This is needed on L2 to verify
         /// each block's anchor block number in the proposal's content.
         uint48 originBlockNumber;
-        /// @notice The proposal's frame.
-        Frame frame;
         /// @notice Whether the proposal is a forced inclusion.
         bool isForcedInclusion;
+        /// @notice The proposal's frame.
+        LibBlobs.BlobFrame frame;
     }
 
     /// @notice Represents the timing of when a proof was submitted.
@@ -113,8 +89,8 @@ interface IInbox {
     // -------------------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed.
-    /// @param proposals The proposals that were proposed.
-    event Proposed(Proposal[] proposals, CoreState coreState);
+    /// @param proposal The proposal that was proposed.
+    event Proposed(Proposal proposal, CoreState coreState);
 
     /// @notice Emitted when a proof is submitted for a proposal.
     /// @param proposal The proposal that was proven.

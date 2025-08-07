@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { LibBlobs } from "./LibBlobs.sol";
 import { IInbox } from "../iface/IInbox.sol";
 
 /// @title LibDecoder
@@ -17,21 +18,18 @@ library LibDecoder {
     /// @param _data The encoded data
     /// @return coreState_ The decoded CoreState
     /// @return blobLocator_ The decoded BlobLocator
-    /// @return forcedInclusion_ The decoded Frame for forced inclusions
     /// @return claimRecords_ The decoded array of ClaimRecords
     function decodeProposeData(bytes calldata _data)
         internal
         pure
         returns (
             IInbox.CoreState memory coreState_,
-            IInbox.BlobLocator memory blobLocator_,
-            IInbox.Frame memory forcedInclusion_,
+            LibBlobs.BlobLocator memory blobLocator_,
             IInbox.ClaimRecord[] memory claimRecords_
         )
     {
-        (coreState_, blobLocator_, forcedInclusion_, claimRecords_) = abi.decode(
-            _data, (IInbox.CoreState, IInbox.BlobLocator, IInbox.Frame, IInbox.ClaimRecord[])
-        );
+        (coreState_, blobLocator_, claimRecords_) =
+            abi.decode(_data, (IInbox.CoreState, LibBlobs.BlobLocator, IInbox.ClaimRecord[]));
     }
 
     /// @notice Decodes data into Proposal array and Claim array
@@ -57,7 +55,7 @@ library LibDecoder {
     /// @return data_ The encoded data
     function encodeProposeData(
         IInbox.CoreState memory _coreState,
-        IInbox.BlobLocator memory _blobLocator,
+        LibBlobs.BlobLocator memory _blobLocator,
         IInbox.ClaimRecord[] memory _claimRecords
     )
         internal
