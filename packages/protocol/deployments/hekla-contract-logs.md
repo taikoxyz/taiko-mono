@@ -295,19 +295,23 @@
 ### preconf_whitelist
 
 - proxy : `0x4aA38A15109eAbbf09b7967009A2e00D2D15cb84`
-- impl : `0xcfc9A0b7a9f123D1Cd78034CC8F06F4646588483`
+- impl : `0x5D6Ce55F3300ac2b78726372066280674774ab25`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- ejectors:
+  - `0x166c5Ac627B2dE22095e93b7c2dCB86506c6C2B2`
 - logs:
   - deployed on May 29, 2025 at commit `baeaba9`
   - upgraded on Jun 19, 2025 at commit `edf2041`
+  - upgraded on Aug 7, 2025 at commit `31094a6`
 
 ### preconf_router
 
 - proxy : `0xce04A91Db63aDBe26c83c761f99933CE5f09cf6C`
-- impl : `0x797ad2F5Ee4cB9A626636b7a05686BA9690860Ba`
+- impl : `0xA05780F864B512ddFA3773D7b869550AE3f60d7B`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on May 29, 2025 at commit `baeaba9`
+  - upgraded on Aug 7, 2025 at commit `31094a6`
 
 ### taiko_wrapper
 
