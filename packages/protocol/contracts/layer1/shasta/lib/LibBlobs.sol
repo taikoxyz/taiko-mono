@@ -29,6 +29,10 @@ library LibBlobs {
         uint32 offset;
     }
 
+    // -------------------------------------------------------------------------
+    // Functions
+    // -------------------------------------------------------------------------
+
     /// @dev Validates a blob locator and converts it to a frame.
     /// @param _blobLocator The blob locator to validate.
     /// @return _ The frame.
