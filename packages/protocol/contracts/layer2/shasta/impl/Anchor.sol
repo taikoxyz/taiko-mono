@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
 import { IAnchor } from "../iface/IAnchor.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
@@ -12,7 +13,7 @@ import { IBlockHashManager } from "../iface/IBlockHashManager.sol";
 ///      It can only be updated by a special system address that has no private key,
 ///      ensuring updates come from the L2 system itself rather than external actors.
 /// @custom:security-contact security@taiko.xyz
-contract Anchor is IAnchor {
+contract Anchor is EssentialContract, IAnchor {
     /// @dev The address of the anchor transactor which shall NOT have a private key
     /// @dev This is a system address that only the L2 node can use to update state
 
@@ -23,15 +24,27 @@ contract Anchor is IAnchor {
     /// @dev Private storage for the current anchor state
     State private _state;
 
-    /// @dev Restricts function access to only the authorized anchor transactor
-    modifier onlyAuthorized() {
-        if (msg.sender != anchorTransactor) revert Unauthorized();
-        _;
-    }
+    uint256[49] private __gap;
 
-    constructor(address _anchorTransactor, IBondManager _bondManager) {
+    constructor(
+        address _anchorTransactor,
+        IBondManager _bondManager,
+        IBlockHashManager _blockHashManager
+    )
+        nonZeroAddr(_anchorTransactor)
+        nonZeroAddr(address(_bondManager))
+        nonZeroAddr(address(_blockHashManager))
+        EssentialContract()
+    {
         bondManager = _bondManager;
         anchorTransactor = _anchorTransactor;
+        blockHashManager = _blockHashManager;
+    }
+
+    /// @notice Initialize the contract
+    /// @param _owner The owner of the contract
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     /// @notice Retrieves the current anchor state
@@ -50,7 +63,7 @@ contract Anchor is IAnchor {
         LibBondOperation.BondOperation[] memory _bondOperations
     )
         external
-        onlyAuthorized
+        onlyFrom(anchorTransactor)
     {
         if (
             _newState.anchorBlockNumber != 0
@@ -79,6 +92,5 @@ contract Anchor is IAnchor {
     // Errors
     // -------------------------------------------------------------------------
 
-    error Unauthorized();
     error BondOperationsHashMismatch();
 }
