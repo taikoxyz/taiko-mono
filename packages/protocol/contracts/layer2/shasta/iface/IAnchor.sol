@@ -29,10 +29,6 @@ interface IAnchor {
         bytes32 bondOperationsHash;
     }
 
-    /// @notice Emitted when the anchor state is updated
-    /// @param state The new state that has been set
-    event StateUpdated(State state);
-
     /// @notice Retrieves the current anchor state
     /// @return The current State struct containing synchronization data
     function getState() external view returns (State memory);
