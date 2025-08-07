@@ -11,7 +11,7 @@ library LibBlobs {
 
     /// @notice Represents a segment of data that is stored in multiple consecutive blobs created
     /// in this transaction.
-    struct BlobLocator {
+    struct BlobReference {
         /// @notice The starting index of the blob.
         uint48 blobStartIndex;
         /// @notice The number of blobs.
@@ -22,7 +22,7 @@ library LibBlobs {
 
     /// @notice Represents a frame of data that is stored in multiple blobs. Note the size is
     /// encoded as a bytes32 at the offset location.
-    struct BlobFrame {
+    struct BlobSlice {
         /// @notice The blobs containing the proposal's content.
         bytes32[] blobHashes;
         /// @notice The offset of the proposal's content in the containing blobs.
@@ -33,23 +33,23 @@ library LibBlobs {
     // Functions
     // -------------------------------------------------------------------------
 
-    /// @dev Validates a blob locator and converts it to a frame.
-    /// @param _blobLocator The blob locator to validate.
-    /// @return _ The frame.
-    function validateBlobLocator(BlobLocator memory _blobLocator)
+    /// @dev Validates a blob locator and converts it to a blob slice.
+    /// @param _blobReference The blob locator to validate.
+    /// @return _ The blob slice.
+    function validateBlobReference(BlobReference memory _blobReference)
         internal
         view
-        returns (BlobFrame memory)
+        returns (BlobSlice memory)
     {
-        if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
+        if (_blobReference.numBlobs == 0) revert InvalidBlobReference();
 
-        bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
-        for (uint256 i; i < _blobLocator.numBlobs; ++i) {
-            blobHashes[i] = blobhash(_blobLocator.blobStartIndex + i);
+        bytes32[] memory blobHashes = new bytes32[](_blobReference.numBlobs);
+        for (uint256 i; i < _blobReference.numBlobs; ++i) {
+            blobHashes[i] = blobhash(_blobReference.blobStartIndex + i);
             if (blobHashes[i] == 0) revert BlobNotFound();
         }
 
-        return BlobFrame({ blobHashes: blobHashes, offset: _blobLocator.offset });
+        return BlobSlice({ blobHashes: blobHashes, offset: _blobReference.offset });
     }
 
     // -------------------------------------------------------------------------
@@ -57,5 +57,5 @@ library LibBlobs {
     // -------------------------------------------------------------------------
 
     error BlobNotFound();
-    error InvalidBlobLocator();
+    error InvalidBlobReference();
 }

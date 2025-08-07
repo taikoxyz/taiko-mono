@@ -12,9 +12,8 @@ interface IForcedInclusionStore {
         uint64 feeInGwei;
         /// @notice The timestamp when the forced inclusion was submitted.
         uint64 submittedAt;
-        /// @notice The byte offset of the forced inclusion in the blob.
-        /// @notice The proposal's frame.
-        LibBlobs.BlobFrame frame;
+        /// @notice The proposal's chunk.
+        LibBlobs.BlobSlice blobSlice;
     }
 
     /// @dev Event emitted when a forced inclusion is stored.
@@ -22,8 +21,8 @@ interface IForcedInclusionStore {
 
     /// @notice Store a forced inclusion request
     /// The priority fee must be paid to the contract
-    /// @param _blobLocator The blob locator that contains the transaction data
-    function storeForcedInclusion(LibBlobs.BlobLocator memory _blobLocator) external payable;
+    /// @param _blobReference The blob locator that contains the transaction data
+    function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
     /// @notice Consume the oldest forced inclusion request and removes it from the queue
     /// @param _feeRecipient The address to receive the fee

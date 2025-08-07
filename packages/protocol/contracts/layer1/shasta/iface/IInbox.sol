@@ -27,8 +27,8 @@ interface IInbox {
         uint48 originBlockNumber;
         /// @notice Whether the proposal is a forced inclusion.
         bool isForcedInclusion;
-        /// @notice The proposal's frame.
-        LibBlobs.BlobFrame frame;
+        /// @notice The proposal's chunk.
+        LibBlobs.BlobSlice blobSlice;
     }
 
     /// @notice Represents the bond decision based on proof submission timing and prover identity

@@ -75,19 +75,19 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     }
 
     /// @inheritdoc IForcedInclusionStore
-    function storeForcedInclusion(LibBlobs.BlobLocator memory _blobLocator)
+    function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference)
         external
         payable
         onlyStandaloneTx
         whenNotPaused
     {
         require(msg.value == feeInGwei * 1 gwei, IncorrectFee());
-        LibBlobs.BlobFrame memory frame = LibBlobs.validateBlobLocator(_blobLocator);
+        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_blobReference);
 
         ForcedInclusion memory inclusion = ForcedInclusion({
             feeInGwei: feeInGwei, // we already validated it above
             submittedAt: uint64(block.timestamp),
-            frame: frame
+            blobSlice: blobSlice
         });
 
         queue[tail++] = inclusion;

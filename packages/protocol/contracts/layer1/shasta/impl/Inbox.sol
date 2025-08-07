@@ -150,7 +150,7 @@ contract Inbox is EssentialContract, IInbox {
 
         (
             CoreState memory coreState,
-            LibBlobs.BlobLocator memory blobLocator,
+            LibBlobs.BlobReference memory blobReference,
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
 
@@ -170,13 +170,13 @@ contract Inbox is EssentialContract, IInbox {
             IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
                 forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
 
-            (coreState, proposal) = _propose(coreState, forcedInclusion.frame, true);
+            (coreState, proposal) = _propose(coreState, forcedInclusion.blobSlice, true);
             emit Proposed(proposal, coreState);
         }
 
         // Create regular proposal
-        LibBlobs.BlobFrame memory frame = LibBlobs.validateBlobLocator(blobLocator);
-        (coreState, proposal) = _propose(coreState, frame, false);
+        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(blobReference);
+        (coreState, proposal) = _propose(coreState, blobSlice, false);
         // Finalize proved proposals
         coreState = _finalize(coreState, claimRecords);
         emit Proposed(proposal, coreState);
@@ -488,13 +488,13 @@ contract Inbox is EssentialContract, IInbox {
 
     /// @dev Proposes a new proposal of L2 blocks.
     /// @param _coreState The core state of the inbox.
-    /// @param _frame The frame of the proposal.
+    /// @param _blobSlice The blob slice of the proposal.
     /// @param _isForcedInclusion Whether the proposal is a forced inclusion.
     /// @return coreState_ The updated core state.
     /// @return proposal_ The created proposal.
     function _propose(
         CoreState memory _coreState,
-        LibBlobs.BlobFrame memory _frame,
+        LibBlobs.BlobSlice memory _blobSlice,
         bool _isForcedInclusion
     )
         private
@@ -511,7 +511,7 @@ contract Inbox is EssentialContract, IInbox {
             livenessBondGwei: livenessBondGwei,
             originTimestamp: originTimestamp,
             originBlockNumber: originBlockNumber,
-            frame: _frame,
+            blobSlice: _blobSlice,
             isForcedInclusion: _isForcedInclusion
         });
 
