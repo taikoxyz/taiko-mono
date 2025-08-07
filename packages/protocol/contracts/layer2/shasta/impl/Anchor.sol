@@ -79,8 +79,8 @@ contract Anchor is EssentialContract, IAnchor {
         _state.indexInBatch = _newState.indexInBatch;
 
         _processAnchorBlock(_newState);
-        _processBondOperations(_newState, _bondOperations);
-        _processGasIssuance(_newState);
+        _payBonds(_newState, _bondOperations);
+        _setGasIssuance(_newState);
 
         emit StateUpdated(_newState);
 
@@ -94,10 +94,11 @@ contract Anchor is EssentialContract, IAnchor {
 
     function _processAnchorBlock(State memory _newState) private {
         if (_newState.anchorBlockNumber == 0) return;
+        if (_newState.anchorBlockHash == 0) revert InvalidAnchorBlockHash();
+        if (_newState.anchorStateRoot == 0) revert InvalidAnchorStateRoot();
         if (_newState.anchorBlockNumber <= _state.anchorBlockNumber) {
             revert InvalidAnchorBlockNumber();
         }
-        if (_newState.anchorBlockHash == bytes32(0)) revert InvalidAnchorBlockHash();
 
         syncedBlockManager.saveSyncedBlock(
             ISyncedBlockManager.SyncedBlock({
@@ -108,7 +109,7 @@ contract Anchor is EssentialContract, IAnchor {
         );
     }
 
-    function _processBondOperations(
+    function _payBonds(
         State memory _newState,
         LibBondOperation.BondOperation[] memory _bondOperations
     )
@@ -133,7 +134,7 @@ contract Anchor is EssentialContract, IAnchor {
         _state.bondOperationsHash = _newState.bondOperationsHash;
     }
 
-    function _processGasIssuance(State memory _newState) private {
+    function _setGasIssuance(State memory _newState) private {
         if (_newState.gasIssuancePerSecond == 0) return;
 
         uint32 currentIssuance = _state.gasIssuancePerSecond;
@@ -154,5 +155,6 @@ contract Anchor is EssentialContract, IAnchor {
     error BondOperationsNotEmpty();
     error InvalidAnchorBlockHash();
     error InvalidAnchorBlockNumber();
+    error InvalidAnchorStateRoot();
     error InvalidBondOperation();
 }
