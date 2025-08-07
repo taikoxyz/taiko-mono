@@ -22,7 +22,8 @@ contract UpgradeHeklaProverSet is DeployCapability {
         address proverSet = 0xD3f681bD6B49887A48cC9C9953720903967E9DC0;
         address preconfRouter = 0xce04A91Db63aDBe26c83c761f99933CE5f09cf6C;
 
-        address proverSetImpl = address(new ProverSet(rollupResolver, taikoInbox, taikoToken, preconfRouter));
+        address proverSetImpl =
+            address(new ProverSet(rollupResolver, taikoInbox, taikoToken, preconfRouter));
 
         UUPSUpgradeable(proverSet).upgradeTo(proverSetImpl);
     }
