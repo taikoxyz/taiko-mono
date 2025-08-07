@@ -82,7 +82,7 @@ contract Anchor is EssentialContract, IAnchor {
         _payBonds(_newState, _bondOperations);
         _setGasIssuance(_newState);
 
-        emit StateUpdated(_newState);
+        emit StateUpdated(_state);
 
         uint256 parentBlockNumber = _newState.anchorBlockNumber - 1;
         blockHashManager.saveBlockHash(parentBlockNumber, blockhash(parentBlockNumber));
