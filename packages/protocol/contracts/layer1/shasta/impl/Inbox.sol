@@ -320,43 +320,38 @@ contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Calculates the bond decision based on proof timing and prover identity
-    /// @notice Bond decisions determine how provability and liveness bonds are handled:
-    /// - On-time proofs: Bonds may be refunded or remain unchanged
-    /// - Late proofs: Liveness bonds may be slashed and redistributed
-    /// - Very late proofs: Provability bonds may also be slashed
-    /// The decision affects whether claim records can be aggregated
-    /// @param _claim The claim containing prover information
-    /// @param _proposal The proposal containing timing and proposer information
-    /// @return bondDecision_ The bond decision that affects aggregation eligibility
-    function _calculateBondDecision(
-        Claim memory _claim,
-        Proposal memory _proposal
-    )
-        private
-        view
-        returns (BondDecision bondDecision_)
+    /// @dev Decodes a slot reuse marker into proposal ID and partial parent claim hash.
+    function _decodeSlotReuseMarker(uint256 _slotReuseMarker)
+        internal
+        pure
+        returns (uint48 proposalId_, bytes32 partialParentClaimHash_)
     {
-        unchecked {
-            if (block.timestamp <= _proposal.originTimestamp + provingWindow) {
-                // Proof submitted within the designated proving window (on-time proof)
-                return _claim.designatedProver != _proposal.proposer
-                    ? BondDecision.L2RefundLiveness
-                    : BondDecision.NoOp;
-            }
+        proposalId_ = uint48(_slotReuseMarker >> 208);
+        partialParentClaimHash_ = bytes32(_slotReuseMarker << 48);
+    }
 
-            if (block.timestamp <= _proposal.originTimestamp + extendedProvingWindow) {
-                // Proof submitted during extended window (late but acceptable proof)
-                return _claim.designatedProver == _proposal.proposer
-                    ? BondDecision.L1SlashLivenessRewardProver
-                    : BondDecision.L2RewardProver;
-            }
+    /// @dev Encodes a proposal ID and parent claim hash into a slot reuse marker.
+    function _encodeSlotReuseMarker(
+        uint48 _proposalId,
+        bytes32 _parentClaimHash
+    )
+        internal
+        pure
+        returns (uint256 slotReuseMarker_)
+    {
+        slotReuseMarker_ = (uint256(_proposalId) << 208) | (uint256(_parentClaimHash) >> 48);
+    }
 
-            // Proof submitted after extended window (very late proof)
-            return _claim.designatedProver != _proposal.proposer
-                ? BondDecision.L1SlashProvabilityRewardProverL2RefundLiveness
-                : BondDecision.L1SlashProvabilityRewardProver;
-        }
+    /// @dev Checks if two parent claim hashes match in their high 208 bits.
+    function _isPartialParentClaimHashMatch(
+        bytes32 _partialParentClaimHash,
+        bytes32 _parentClaimHash
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
 
     /// @dev Aggregates consecutive claim records to reduce gas costs
@@ -493,40 +488,6 @@ contract Inbox is EssentialContract, IInbox {
         return false;
     }
 
-    /// @dev Decodes a slot reuse marker into proposal ID and partial parent claim hash.
-    function _decodeSlotReuseMarker(uint256 _slotReuseMarker)
-        internal
-        pure
-        returns (uint48 proposalId_, bytes32 partialParentClaimHash_)
-    {
-        proposalId_ = uint48(_slotReuseMarker >> 208);
-        partialParentClaimHash_ = bytes32(_slotReuseMarker << 48);
-    }
-
-    /// @dev Encodes a proposal ID and parent claim hash into a slot reuse marker.
-    function _encodeSlotReuseMarker(
-        uint48 _proposalId,
-        bytes32 _parentClaimHash
-    )
-        internal
-        pure
-        returns (uint256 slotReuseMarker_)
-    {
-        slotReuseMarker_ = (uint256(_proposalId) << 208) | (uint256(_parentClaimHash) >> 48);
-    }
-
-    /// @dev Checks if two parent claim hashes match in their high 208 bits.
-    function _isPartialParentClaimHashMatch(
-        bytes32 _partialParentClaimHash,
-        bytes32 _parentClaimHash
-    )
-        internal
-        pure
-        returns (bool)
-    {
-        return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
-    }
-
     // -------------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------------
@@ -567,7 +528,71 @@ contract Inbox is EssentialContract, IInbox {
         return (_coreState, proposal_);
     }
 
-  
+    /// @dev Builds a claim record for a single proposal.
+    /// @param _proposal The proposal to prove.
+    /// @param _claim The claim containing the proof details.
+    function _buildClaimRecord(
+        Proposal memory _proposal,
+        Claim memory _claim
+    )
+        private
+        view
+        returns (ClaimRecord memory claimRecord_)
+    {
+        bytes32 proposalHash = keccak256(abi.encode(_proposal));
+        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
+        if (proposalHash != getProposalHash(_proposal.id)) revert ProposalHashMismatch();
+
+        BondDecision bondDecision = _calculateBondDecision(_claim, _proposal);
+
+        claimRecord_ = ClaimRecord({
+            claim: _claim,
+            proposer: _proposal.proposer,
+            livenessBondGwei: _proposal.livenessBondGwei,
+            provabilityBondGwei: _proposal.provabilityBondGwei,
+            bondDecision: bondDecision,
+            nextProposalId: _proposal.id + 1
+        });
+    }
+
+    /// @dev Calculates the bond decision based on proof timing and prover identity
+    /// @notice Bond decisions determine how provability and liveness bonds are handled:
+    /// - On-time proofs: Bonds may be refunded or remain unchanged
+    /// - Late proofs: Liveness bonds may be slashed and redistributed
+    /// - Very late proofs: Provability bonds may also be slashed
+    /// The decision affects whether claim records can be aggregated
+    /// @param _claim The claim containing prover information
+    /// @param _proposal The proposal containing timing and proposer information
+    /// @return bondDecision_ The bond decision that affects aggregation eligibility
+    function _calculateBondDecision(
+        Claim memory _claim,
+        Proposal memory _proposal
+    )
+        private
+        view
+        returns (BondDecision bondDecision_)
+    {
+        unchecked {
+            if (block.timestamp <= _proposal.originTimestamp + provingWindow) {
+                // Proof submitted within the designated proving window (on-time proof)
+                return _claim.designatedProver != _proposal.proposer
+                    ? BondDecision.L2RefundLiveness
+                    : BondDecision.NoOp;
+            }
+
+            if (block.timestamp <= _proposal.originTimestamp + extendedProvingWindow) {
+                // Proof submitted during extended window (late but acceptable proof)
+                return _claim.designatedProver == _proposal.proposer
+                    ? BondDecision.L1SlashLivenessRewardProver
+                    : BondDecision.L2RewardProver;
+            }
+
+            // Proof submitted after extended window (very late proof)
+            return _claim.designatedProver != _proposal.proposer
+                ? BondDecision.L1SlashProvabilityRewardProverL2RefundLiveness
+                : BondDecision.L1SlashProvabilityRewardProver;
+        }
+    }
 
     /// @dev Finalizes proposals by verifying claim records and updating state.
     /// @param _coreState The current core state.
@@ -683,33 +708,6 @@ contract Inbox is EssentialContract, IInbox {
         }
 
         return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
-    }
-
-      /// @dev Builds a claim record for a single proposal.
-    /// @param _proposal The proposal to prove.
-    /// @param _claim The claim containing the proof details.
-    function _buildClaimRecord(
-        Proposal memory _proposal,
-        Claim memory _claim
-    )
-        private
-        view
-        returns (ClaimRecord memory claimRecord_)
-    {
-        bytes32 proposalHash = keccak256(abi.encode(_proposal));
-        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
-        if (proposalHash != getProposalHash(_proposal.id)) revert ProposalHashMismatch();
-
-        BondDecision bondDecision = _calculateBondDecision(_claim, _proposal);
-
-        claimRecord_ = ClaimRecord({
-            claim: _claim,
-            proposer: _proposal.proposer,
-            livenessBondGwei: _proposal.livenessBondGwei,
-            provabilityBondGwei: _proposal.provabilityBondGwei,
-            bondDecision: bondDecision,
-            nextProposalId: _proposal.id + 1
-        });
     }
 
     // -------------------------------------------------------------------------
