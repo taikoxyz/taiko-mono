@@ -11,7 +11,8 @@ import { LibMath } from "contracts/shared/libs/LibMath.sol";
 
 /// @title Anchor
 /// @notice Manages L2 state synchronization with L1 through a secure system-level interface
-/// @dev Critical security component: Only updatable by a keyless system address to prevent external manipulation.
+/// @dev Critical security component: Only updatable by a keyless system address to prevent external
+/// manipulation.
 ///      Handles block anchoring, bond payments, and gas issuance rate adjustments.
 /// @custom:security-contact security@taiko.xyz
 contract Anchor is EssentialContract, IAnchor {
@@ -20,7 +21,7 @@ contract Anchor is EssentialContract, IAnchor {
     // -------------------------------------------------------------------------
     // Constants
     // -------------------------------------------------------------------------
-    
+
     /// @dev Maximum gas issuance adjustment per update (0.01% = 1/10000)
     uint32 private constant GAS_ISSUANCE_MAX_ADJUSTMENT_DIVISOR = 10_000;
 
@@ -104,10 +105,10 @@ contract Anchor is EssentialContract, IAnchor {
             // Validate and save new anchor block data
             _validateAndSaveAnchorBlock(_newState);
         }
-        
+
         // Process bond operations and update hash
         _newState.bondOperationsHash = _processBondOperations(_newState, _bondOperations);
-        
+
         // Apply gas issuance rate adjustment with bounds
         _newState.gasIssuancePerSecond = _adjustGasIssuanceRate(_newState.gasIssuancePerSecond);
 
@@ -128,7 +129,7 @@ contract Anchor is EssentialContract, IAnchor {
         // Validate block data integrity
         if (_newState.anchorBlockHash == 0) revert InvalidAnchorBlockHash();
         if (_newState.anchorStateRoot == 0) revert InvalidAnchorStateRoot();
-        
+
         // Ensure monotonic block progression
         if (_newState.anchorBlockNumber <= _state.anchorBlockNumber) {
             revert InvalidAnchorBlockNumber();
@@ -153,7 +154,7 @@ contract Anchor is EssentialContract, IAnchor {
         returns (bytes32 resultHash_)
     {
         resultHash_ = _state.bondOperationsHash;
-        
+
         // No operations needed if hash unchanged
         if (resultHash_ == _newState.bondOperationsHash) {
             if (_bondOperations.length != 0) revert BondOperationsNotEmpty();
@@ -164,7 +165,7 @@ contract Anchor is EssentialContract, IAnchor {
         uint256 length = _bondOperations.length;
         for (uint256 i; i < length; ++i) {
             LibBondOperation.BondOperation memory op = _bondOperations[i];
-            
+
             // Validate operation
             if (op.receiver == address(0) || op.credit == 0) {
                 revert InvalidBondOperation();
@@ -174,7 +175,7 @@ contract Anchor is EssentialContract, IAnchor {
             bondManager.creditBond(op.receiver, op.credit);
             resultHash_ = LibBondOperation.aggregateBondOperation(resultHash_, op);
         }
-        
+
         // Verify final hash matches expected
         if (resultHash_ != _newState.bondOperationsHash) {
             revert BondOperationsHashMismatch();
@@ -191,18 +192,16 @@ contract Anchor is EssentialContract, IAnchor {
         if (_proposedRate == 0) return _state.gasIssuancePerSecond;
 
         uint32 currentRate = _state.gasIssuancePerSecond;
-        
+
         // Calculate allowed adjustment range
         uint32 maxAdjustment = currentRate / GAS_ISSUANCE_MAX_ADJUSTMENT_DIVISOR;
-        
+
         // Define bounds with minimum floor
         uint256 lowerBound = uint256(currentRate - maxAdjustment).max(minGasIssuancePerSecond);
         uint256 upperBound = uint256(currentRate) + maxAdjustment;
 
         // Clamp proposed rate to bounds
-        adjustedRate_ = uint32(
-            LibMath.max(lowerBound, LibMath.min(_proposedRate, upperBound))
-        );
+        adjustedRate_ = uint32(LibMath.max(lowerBound, LibMath.min(_proposedRate, upperBound)));
     }
 
     /// @dev Saves parent block hash for verification
