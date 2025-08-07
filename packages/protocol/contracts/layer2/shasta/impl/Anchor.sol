@@ -33,9 +33,6 @@ contract Anchor is EssentialContract, IAnchor {
     // Immutable Configuration
     // -------------------------------------------------------------------------
 
-    /// @notice Minimum allowed gas issuance rate to prevent extreme adjustments
-    uint32 public immutable minGasIssuancePerSecond;
-
     /// @notice External contract dependencies
     IBondManager public immutable bondManager;
     IBlockHashManager public immutable blockHashManager;
@@ -52,14 +49,12 @@ contract Anchor is EssentialContract, IAnchor {
     uint256[46] private __gap;
 
     constructor(
-        uint32 _minGasIssuancePerSecond,
         IBondManager _bondManager,
         IBlockHashManager _blockHashManager,
         ISyncedBlockManager _syncedBlockManager
     )
         EssentialContract()
     {
-        minGasIssuancePerSecond = _minGasIssuancePerSecond;
         bondManager = _bondManager;
         blockHashManager = _blockHashManager;
         syncedBlockManager = _syncedBlockManager;
