@@ -154,7 +154,7 @@ contract Inbox is IInbox {
 
         if (hasForcedInclusion) {
             // Create and propose the forced inclusion proposal
-            (coreState, proposal) = _processForcedInclusion(coreState, forcedInclusionFrame);
+            (coreState, proposal) = _processForcedInclusion(coreState, true);
             emit Proposed(proposal, coreState);
         } else {
             // Ensure no forced inclusion is due when none is provided
