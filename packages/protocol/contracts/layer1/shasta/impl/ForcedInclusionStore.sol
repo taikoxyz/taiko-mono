@@ -83,12 +83,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     {
         require(msg.value == feeInGwei * 1 gwei, IncorrectFee());
         LibBlobs.BlobFrame memory frame = LibBlobs.validateBlobLocator(_blobLocator);
-
-        ForcedInclusion memory inclusion = ForcedInclusion({
-            feeInGwei: feeInGwei, // we already validated it above
-            submittedAt: uint64(block.timestamp),
-            frame: frame
-        });
+        ForcedInclusion memory inclusion = ForcedInclusion({ feeInGwei: feeInGwei, frame: frame });
 
         queue[tail++] = inclusion;
 
@@ -105,7 +100,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     {
         // we only need to check the first one, since it will be the oldest.
         ForcedInclusion storage inclusion = queue[head];
-        require(inclusion.submittedAt != 0, NoForcedInclusionFound());
+        require(inclusion.frame.createdAt != 0, NoForcedInclusionFound());
 
         inclusion_ = inclusion;
 
@@ -131,10 +126,10 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
         ForcedInclusion storage inclusion = queue[head];
         // there is no forced inclusion in the queue
-        if (inclusion.submittedAt == 0) return type(uint256).max;
+        if (inclusion.frame.createdAt == 0) return type(uint256).max;
 
         unchecked {
-            return uint256(lastProcessedAt).max(inclusion.submittedAt) + inclusionDelay;
+            return uint256(lastProcessedAt).max(inclusion.frame.createdAt) + inclusionDelay;
         }
     }
 

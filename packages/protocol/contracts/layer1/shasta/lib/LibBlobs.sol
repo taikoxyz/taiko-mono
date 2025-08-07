@@ -27,6 +27,8 @@ library LibBlobs {
         bytes32[] blobHashes;
         /// @notice The offset of the proposal's content in the containing blobs.
         uint32 offset;
+        /// @notice The timestamp when the frame was created.
+        uint48 createdAt;
     }
 
     /// @dev Validates a blob locator and converts it to a frame.
@@ -45,7 +47,11 @@ library LibBlobs {
             if (blobHashes[i] == 0) revert BlobNotFound();
         }
 
-        return BlobFrame({ blobHashes: blobHashes, offset: _blobLocator.offset });
+        return BlobFrame({
+            blobHashes: blobHashes,
+            offset: _blobLocator.offset,
+            createdAt: uint48(block.timestamp)
+        });
     }
 
     // -------------------------------------------------------------------------
