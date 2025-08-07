@@ -95,6 +95,7 @@ contract Anchor is EssentialContract, IAnchor {
     )
         external
         onlyFrom(anchorTransactor)
+        nonReentrant
     {
         // Preserve anchor block data if not updating
         if (_newState.anchorBlockNumber == 0) {
