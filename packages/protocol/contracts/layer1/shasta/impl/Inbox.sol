@@ -567,31 +567,7 @@ contract Inbox is EssentialContract, IInbox {
         return (_coreState, proposal_);
     }
 
-    /// @dev Builds a claim record for a single proposal.
-    /// @param _proposal The proposal to prove.
-    /// @param _claim The claim containing the proof details.
-    function _buildClaimRecord(
-        Proposal memory _proposal,
-        Claim memory _claim
-    )
-        private
-        returns (ClaimRecord memory claimRecord_)
-    {
-        bytes32 proposalHash = keccak256(abi.encode(_proposal));
-        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
-        if (proposalHash != getProposalHash(_proposal.id)) revert ProposalHashMismatch();
-
-        BondDecision bondDecision = _calculateBondDecision(_claim, _proposal);
-
-        claimRecord_ = ClaimRecord({
-            claim: _claim,
-            proposer: _proposal.proposer,
-            livenessBondGwei: _proposal.livenessBondGwei,
-            provabilityBondGwei: _proposal.provabilityBondGwei,
-            bondDecision: bondDecision,
-            nextProposalId: _proposal.id + 1
-        });
-    }
+  
 
     /// @dev Finalizes proposals by verifying claim records and updating state.
     /// @param _coreState The current core state.
@@ -707,6 +683,33 @@ contract Inbox is EssentialContract, IInbox {
         }
 
         return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
+    }
+
+      /// @dev Builds a claim record for a single proposal.
+    /// @param _proposal The proposal to prove.
+    /// @param _claim The claim containing the proof details.
+    function _buildClaimRecord(
+        Proposal memory _proposal,
+        Claim memory _claim
+    )
+        private
+        view
+        returns (ClaimRecord memory claimRecord_)
+    {
+        bytes32 proposalHash = keccak256(abi.encode(_proposal));
+        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
+        if (proposalHash != getProposalHash(_proposal.id)) revert ProposalHashMismatch();
+
+        BondDecision bondDecision = _calculateBondDecision(_claim, _proposal);
+
+        claimRecord_ = ClaimRecord({
+            claim: _claim,
+            proposer: _proposal.proposer,
+            livenessBondGwei: _proposal.livenessBondGwei,
+            provabilityBondGwei: _proposal.provabilityBondGwei,
+            bondDecision: bondDecision,
+            nextProposalId: _proposal.id + 1
+        });
     }
 
     // -------------------------------------------------------------------------
