@@ -70,6 +70,9 @@ contract Anchor is EssentialContract, IAnchor {
         _processGasIssuance(_newState);
 
         emit StateUpdated(_newState);
+
+        uint256 parentBlockNumber = _newState.anchorBlockNumber - 1;
+        blockHashManager.saveBlockHash(parentBlockNumber, blockhash(parentBlockNumber));
     }
 
     // -------------------------------------------------------------------------
@@ -108,7 +111,7 @@ contract Anchor is EssentialContract, IAnchor {
     }
 
     function _processGasIssuance(State memory _newState) private {
-        if ( _newState.indexInBatch + 1 != _newState.batchSize) return;
+        if (_newState.indexInBatch + 1 != _newState.batchSize) return;
         _state.gasIssuancePerSecond = _newState.gasIssuancePerSecond;
     }
 
