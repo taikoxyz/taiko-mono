@@ -362,17 +362,6 @@ contract Inbox is EssentialContract, IInbox {
             Proposal[] memory firstProposals = new Proposal[](_claimRecords.length);
             firstProposals[0] = _proposals[0];
 
-            // Handle single element case
-            if (_claimRecords.length == 1) {
-                _setClaimRecordHash(
-                    _proposals[0].id,
-                    _claimRecords[0].claim.parentClaimHash,
-                    keccak256(abi.encode(_claimRecords[0]))
-                );
-                emit Proved(_proposals[0], _claimRecords[0]);
-                return;
-            }
-
             // Reuse _claimRecords array for aggregation
             uint256 writeIndex = 0;
             uint256 readIdx = 1;
@@ -397,15 +386,13 @@ contract Inbox is EssentialContract, IInbox {
                     _claimRecords[writeIndex].claim.endStateRoot =
                         _claimRecords[readIdx].claim.endStateRoot;
 
+                    // Aggregate liveness bonds for decisions that require it
                     if (
                         _claimRecords[writeIndex].bondDecision == BondDecision.L2RefundLiveness
                             || _claimRecords[writeIndex].bondDecision == BondDecision.L2RewardProver
                     ) {
                         _claimRecords[writeIndex].livenessBondGwei +=
                             _claimRecords[readIdx].livenessBondGwei;
-                    } else {
-                        // assert(_claimRecords[writeIndex].bondDecision == BondDecision.NoOp);
-                        _claimRecords[writeIndex].livenessBondGwei = 0;
                     }
                     
                     // Update the last aggregated proposal ID
@@ -728,6 +715,7 @@ contract Inbox is EssentialContract, IInbox {
     error ClaimRecordNotProvided();
     error EmptyProposals();
     error ExceedsUnfinalizedProposalCapacity();
+    error InconsistentParams();
     error InsufficientBond();
     error InvalidState();
     error ProposalHashMismatch();
