@@ -482,29 +482,34 @@
 ### taiko_wrapper
 
 - proxy : `0x9F9D2fC7abe74C79f86F0D1212107692430eef72`
-- impl : `0x7df2Eff4271329511Ab32418e16c0a03E71bD15a`
+- impl : `0xa2D216dD9c84cb2e738240aac0956BE98293be61`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0xe0c52c898ce19785fb139e822a9b5a088b374692820bc402eb31e7a6086664e7`
-  - upgraded to `0x7df2Eff4271329511Ab32418e16c0a03E71bD15a` @commit`c2a941e` @tx`` // TODO: fill the tx hash
+  - upgraded to `0xa2D216dD9c84cb2e738240aac0956BE98293be61` @commit`31094a6` @tx`` // TODO: fill the tx hash
 
 ### preconf_whitelist
 
 - proxy : `0xFD019460881e6EeC632258222393d5821029b2ac`
-- impl : `0x86f0AeFA26A1447bbE62bd2bE1D30ff3353B88fB`
+- impl : `0x44eC275996BD69361EF062ed488882a58256CF11`
 - owner : `admin.taiko.eth`
 - enabled operators:
-  - `` // TODO(@jeff): add the operator info after collecting them from our partners
+  - `0x5F62d006C10C009ff50C878Cd6157aC861C99990`(taiko)
+  - `0x000cb000E880A92a8f383D69dA2142a969B93DE7`(chainbound)
+- ejectors:
+  - `0x45D4403351Bc34283CE6450D91c099f40D06dA4e`
 - logs:
   - deployed on Jul 23, 2025 @commit `c2a941e` @tx `0x797256dc575734f2af55c2c2138aaf72aaed91e0909b6cd03d637b54b0c99bba`
+  - upgraded to `0x44eC275996BD69361EF062ed488882a58256CF11` @commit`31094a6` @tx`` // TODO: fill the tx hash
 
 ### preconf_router
 
 - proxy : `0xD5AA0e20e8A6e9b04F080Cf8797410fafAa9688a`
-- impl : `0x2e2FB919E87947f156b374AE5831D756d8EcFBF9`
+- impl : `0xf571E2626E2CE68127852123A2cC6AA522C586A0`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on Jul 23, 2025 @commit `c2a941e` @tx `0x5a309fa38d79de894c96e5082356b0e52e9653726b1400b1d8d72e181b50d5d8`
+  - upgraded to `0xf571E2626E2CE68127852123A2cC6AA522C586A0` @commit`31094a6` @tx`` // TODO: fill the tx hash
 
 ### proof_verifier
 
