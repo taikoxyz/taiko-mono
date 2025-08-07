@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { LibAddress } from "contracts/shared/libs/LibAddress.sol";
-import { LibBlobs } from "../lib/LibBlobs.sol";
+import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibMath } from "contracts/shared/libs/LibMath.sol";
 
 /// @title ForcedInclusionStore
