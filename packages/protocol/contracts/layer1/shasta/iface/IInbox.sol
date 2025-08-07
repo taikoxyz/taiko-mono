@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
+import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
 
 /// @title IInbox
 /// @notice Interface for the ShastaInbox contract
@@ -103,6 +104,10 @@ interface IInbox {
     /// @param proposal The proposal that was proven.
     /// @param claimRecord The claim record containing the proof details.
     event Proved(Proposal proposal, ClaimRecord claimRecord);
+
+    /// @notice Emitted when a bond operation is instructed
+    /// @param bondOperation The bond operation that needs to be performed.
+    event BondOperation(LibBondOperation.BondOperation bondOperation);
 
     // -------------------------------------------------------------------------
     // External Transactional Functions

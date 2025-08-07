@@ -9,8 +9,8 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
 import { LibDecoder } from "../libs/LibDecoder.sol";
+import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
@@ -703,6 +703,8 @@ contract Inbox is EssentialContract, IInbox {
             bondManager.debitBond(_claimRecord.proposer, provabilityBondWei);
             bondManager.creditBond(claim.actualProver, provabilityBondWei / REWARD_FRACTION);
         }
+
+        emit BondOperation(bondOperation);
 
         return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
     }
