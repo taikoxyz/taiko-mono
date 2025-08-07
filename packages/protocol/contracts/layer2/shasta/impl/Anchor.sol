@@ -21,17 +21,19 @@ contract Anchor is EssentialContract, IAnchor {
     /// @dev This is a system address that only the L2 node can use to update state
 
     address public immutable anchorTransactor;
+    uint32 public immutable minGasIssuancePerSecond;
     IBondManager public immutable bondManager;
     IBlockHashManager public immutable blockHashManager;
     ISyncedBlockManager public immutable syncedBlockManager;
 
     /// @dev Private storage for the current anchor state
-    State private _state;
+    State private _state; // 4 slots
 
-    uint256[49] private __gap;
+    uint256[46] private __gap;
 
     constructor(
         address _anchorTransactor,
+        uint32 _minGasIssuancePerSecond,
         IBondManager _bondManager,
         IBlockHashManager _blockHashManager,
         ISyncedBlockManager _syncedBlockManager
@@ -39,6 +41,7 @@ contract Anchor is EssentialContract, IAnchor {
         nonZeroAddr(_anchorTransactor)
         EssentialContract()
     {
+        minGasIssuancePerSecond = _minGasIssuancePerSecond;
         bondManager = _bondManager;
         anchorTransactor = _anchorTransactor;
         blockHashManager = _blockHashManager;
@@ -47,8 +50,10 @@ contract Anchor is EssentialContract, IAnchor {
 
     /// @notice Initialize the contract
     /// @param _owner The owner of the contract
-    function init(address _owner) external initializer {
+    /// @param _defaultState The default state to be set
+    function init(address _owner, State memory _defaultState) external initializer {
         __Essential_init(_owner);
+        _state = _defaultState;
     }
 
     /// @notice Retrieves the current anchor state
@@ -69,6 +74,10 @@ contract Anchor is EssentialContract, IAnchor {
         external
         onlyFrom(anchorTransactor)
     {
+        _state.proposalId = _newState.proposalId;
+        _state.batchSize = _newState.batchSize;
+        _state.indexInBatch = _newState.indexInBatch;
+
         _processAnchorBlock(_newState);
         _processBondOperations(_newState, _bondOperations);
         _processGasIssuance(_newState);
@@ -89,9 +98,6 @@ contract Anchor is EssentialContract, IAnchor {
             revert InvalidAnchorBlockNumber();
         }
         if (_newState.anchorBlockHash == bytes32(0)) revert InvalidAnchorBlockHash();
-
-        _state.anchorBlockNumber = _newState.anchorBlockNumber;
-        _state.anchorBlockHash = _newState.anchorBlockHash;
 
         syncedBlockManager.saveSyncedBlock(
             ISyncedBlockManager.SyncedBlock({
@@ -131,13 +137,8 @@ contract Anchor is EssentialContract, IAnchor {
         if (_newState.gasIssuancePerSecond == 0) return;
 
         uint32 currentIssuance = _state.gasIssuancePerSecond;
-        if (currentIssuance == 0) {
-            _state.gasIssuancePerSecond = _newState.gasIssuancePerSecond;
-            return;
-        }
-
         uint32 maxDelta = currentIssuance / 10_000;
-        uint256 minBound = currentIssuance - maxDelta;
+        uint256 minBound = uint256(currentIssuance - maxDelta).max(minGasIssuancePerSecond);
         uint256 maxBound = uint256(currentIssuance) + maxDelta;
 
         uint256 clampedValue =
