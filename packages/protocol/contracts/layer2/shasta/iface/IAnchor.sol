@@ -19,6 +19,8 @@ interface IAnchor {
         uint48 anchorBlockNumber;
         /// @notice The hash of the anchor block
         bytes32 anchorBlockHash;
+        /// @notice The state root of the anchor block
+        bytes32 anchorStateRoot;
     }
 
     /// @notice Emitted when the anchor state is updated

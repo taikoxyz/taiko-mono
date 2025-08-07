@@ -3,9 +3,10 @@ pragma solidity ^0.8.24;
 
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
 import { IAnchor } from "../iface/IAnchor.sol";
-import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
 import { IBlockHashManager } from "../iface/IBlockHashManager.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
+import { ISyncedBlockManager } from "contracts/shared/shasta/iface/ISyncedBlockManager.sol";
+import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
 import { LibMath } from "contracts/shared/libs/LibMath.sol";
 
 /// @title Anchor
@@ -22,6 +23,7 @@ contract Anchor is EssentialContract, IAnchor {
     address public immutable anchorTransactor;
     IBondManager public immutable bondManager;
     IBlockHashManager public immutable blockHashManager;
+    ISyncedBlockManager public immutable syncedBlockManager;
 
     /// @dev Private storage for the current anchor state
     State private _state;
@@ -31,16 +33,16 @@ contract Anchor is EssentialContract, IAnchor {
     constructor(
         address _anchorTransactor,
         IBondManager _bondManager,
-        IBlockHashManager _blockHashManager
+        IBlockHashManager _blockHashManager,
+        ISyncedBlockManager _syncedBlockManager
     )
         nonZeroAddr(_anchorTransactor)
-        nonZeroAddr(address(_bondManager))
-        nonZeroAddr(address(_blockHashManager))
         EssentialContract()
     {
         bondManager = _bondManager;
         anchorTransactor = _anchorTransactor;
         blockHashManager = _blockHashManager;
+        syncedBlockManager = _syncedBlockManager;
     }
 
     /// @notice Initialize the contract
@@ -88,9 +90,16 @@ contract Anchor is EssentialContract, IAnchor {
         }
         if (_newState.anchorBlockHash == bytes32(0)) revert InvalidAnchorBlockHash();
 
-        blockHashManager.saveBlockHash(_newState.anchorBlockNumber, _newState.anchorBlockHash);
         _state.anchorBlockNumber = _newState.anchorBlockNumber;
         _state.anchorBlockHash = _newState.anchorBlockHash;
+
+        syncedBlockManager.saveSyncedBlock(
+            ISyncedBlockManager.SyncedBlock({
+                blockNumber: _newState.anchorBlockNumber,
+                blockHash: _newState.anchorBlockHash,
+                stateRoot: _newState.anchorStateRoot
+            })
+        );
     }
 
     function _processBondOperations(
