@@ -39,6 +39,8 @@ library LibManifest {
 
     /// @notice Represents a block manifest
     struct BlockManifest {
+        /// @notice The timestamp of the block.
+        uint48 timestamp;
         /// @notice The anchor block number. This field can be zero, if so, this block will use the
         /// most recent anchor in a previous block.
         uint48 anchorBlockNumber;
