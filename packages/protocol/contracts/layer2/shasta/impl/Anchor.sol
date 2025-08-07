@@ -66,22 +66,9 @@ contract Anchor is EssentialContract, IAnchor {
         onlyFrom(anchorTransactor)
     {
         _processAnchorBlock(_newState);
+        _processBondOperations(_newState, _bondOperations);
+        _processGasIssuance(_newState);
 
-        bytes32 bondOperationsHash = _state.bondOperationsHash;
-        for (uint256 i; i < _bondOperations.length; ++i) {
-            if (_bondOperations[i].receiver != address(0) && _bondOperations[i].credit != 0) {
-                bondManager.creditBond(_bondOperations[i].receiver, _bondOperations[i].credit);
-            }
-            bondOperationsHash =
-                LibBondOperation.aggregateBondOperation(bondOperationsHash, _bondOperations[i]);
-        }
-        if (bondOperationsHash != _newState.bondOperationsHash) revert BondOperationsHashMismatch();
-
-        _newState.gasIssuancePerSecond = _newState.indexInBatch + 1 == _newState.batchSize
-            ? _newState.gasIssuancePerSecond
-            : _state.gasIssuancePerSecond;
-
-        _state = _newState;
         emit StateUpdated(_newState);
     }
 
@@ -118,6 +105,11 @@ contract Anchor is EssentialContract, IAnchor {
         }
         if (bondOperationsHash != _newState.bondOperationsHash) revert BondOperationsHashMismatch();
         _state.bondOperationsHash = _newState.bondOperationsHash;
+    }
+
+    function _processGasIssuance(State memory _newState) private {
+        if ( _newState.indexInBatch + 1 != _newState.batchSize) return;
+        _state.gasIssuancePerSecond = _newState.gasIssuancePerSecond;
     }
 
     // -------------------------------------------------------------------------
