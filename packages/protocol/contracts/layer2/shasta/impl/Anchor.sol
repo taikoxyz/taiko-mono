@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
 import { IAnchor } from "../iface/IAnchor.sol";
-import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
 import { IBlockHashManager } from "../iface/IBlockHashManager.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
