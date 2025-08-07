@@ -397,7 +397,7 @@ contract Inbox is EssentialContract, IInbox {
                         _claimRecords[writeIndex].livenessBondGwei +=
                             _claimRecords[readIdx].livenessBondGwei;
                     }
-                    
+
                     // Update the last aggregated proposal ID
                     lastAggregatedProposalId = _proposals[readIdx].id;
                 } else {
@@ -407,7 +407,7 @@ contract Inbox is EssentialContract, IInbox {
                         _claimRecords[writeIndex] = _claimRecords[readIdx];
                     }
                     firstProposals[writeIndex] = _proposals[readIdx];
-                    
+
                     // Update the last aggregated proposal ID for the new write position
                     lastAggregatedProposalId = _proposals[readIdx].id;
                 }
@@ -454,7 +454,7 @@ contract Inbox is EssentialContract, IInbox {
     {
         // Check if proposals are consecutive
         if (_proposalBId != _lastAggregatedProposalId + 1) return false;
-        
+
         // Check if a.nextProposalId equals the proposal id of b
         // Since ClaimRecord stores nextProposalId which is proposalId + 1,
         // we need to check if a.nextProposalId == b's implied proposalId
