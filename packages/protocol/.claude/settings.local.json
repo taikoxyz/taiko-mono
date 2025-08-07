@@ -24,7 +24,8 @@
       "Bash(black:*)",
       "Bash(rm:*)",
       "Bash(mkdir:*)",
-      "Bash(FOUNDRY_PROFILE=shared forge test --match-path \"test/shared/shasta/SyncedBlockManager.t.sol\" -vv)"
+      "Bash(FOUNDRY_PROFILE=shared forge test --match-path \"test/shared/shasta/SyncedBlockManager.t.sol\" -vv)",
+      "Bash(FOUNDRY_PROFILE=layer2 forge test --match-path \"test/layer2/shasta/Anchor.t.sol\" -vv)"
     ],
     "deny": []
   }
