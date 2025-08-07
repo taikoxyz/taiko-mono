@@ -2,25 +2,43 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
-import { IInboxStateManager } from "../iface/IInboxStateManager.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 import { ISyncedBlockManager } from "../../../shared/shasta/iface/ISyncedBlockManager.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibDecoder } from "../lib/LibDecoder.sol";
+import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
 /// @custom:security-contact security@taiko.xyz
 
-contract Inbox is IInbox {
+contract Inbox is EssentialContract, IInbox {
     using LibDecoder for bytes;
 
     struct BondOperation {
         uint48 proposalId;
         address receiver;
         uint256 credit;
+    }
+
+    /// @notice Extended claim record that stores both the claim hash and encoded metadata.
+    /// @dev The metadata includes the proposal ID and partial parent claim hash for efficient
+    /// lookups.
+    struct ExtendedClaimRecord {
+        bytes32 claimRecordHash;
+        uint256 slotReuseMarker;
+    }
+
+    /// @notice Stores proposal data and associated claim records.
+    /// @dev Each proposal can have multiple claims associated with it, indexed by parent claim
+    /// hash.
+    struct ProposalRecord {
+        /// @dev Hash of the proposal data
+        bytes32 proposalHash;
+        /// @dev Maps parent claim hashes to their corresponding claim record hashes
+        mapping(bytes32 parentClaimHash => ExtendedClaimRecord claimRecordHash) claimHashLookup;
     }
 
     // -------------------------------------------------------------------------
@@ -33,12 +51,10 @@ contract Inbox is IInbox {
     uint48 public immutable extendedProvingWindow;
     uint256 public immutable minBondBalance;
     uint256 public immutable maxFinalizationCount;
+    uint256 public immutable ringBufferSize;
 
     /// @notice The bond manager contract
     IBondManager public immutable bondManager;
-
-    /// @notice The state manager contract
-    IInboxStateManager public immutable inboxStateManager;
 
     /// @notice The synced block manager contract
     ISyncedBlockManager public immutable syncedBlockManager;
@@ -52,6 +68,17 @@ contract Inbox is IInbox {
     /// @notice The forced inclusion store contract
     IForcedInclusionStore public immutable forcedInclusionStore;
 
+    bytes32 private immutable _DEFAULT_SLOT_HASH = bytes32(uint256(1));
+
+    /// @notice The hash of the core state.
+    bytes32 private coreStateHash;
+
+    /// @notice Ring buffer for storing proposal records.
+    /// @dev Key is proposalId % ringBufferSize
+    mapping(uint256 bufferSlot => ProposalRecord proposalRecord) private proposalRingBuffer;
+
+    uint256[48] private __gap;
+
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
@@ -63,7 +90,7 @@ contract Inbox is IInbox {
     /// @param _extendedProvingWindow The extended proving window duration
     /// @param _minBondBalance The minimum bond balance required for proposers
     /// @param _maxFinalizationCount The maximum number of finalizations allowed
-    /// @param _stateManager The address of the state manager contract
+    /// @param _ringBufferSize The size of the ring buffer (must be > 0)
     /// @param _bondManager The address of the bond manager contract
     /// @param _syncedBlockManager The address of the synced block manager contract
     /// @param _proofVerifier The address of the proof verifier contract
@@ -76,20 +103,21 @@ contract Inbox is IInbox {
         uint48 _extendedProvingWindow,
         uint256 _minBondBalance,
         uint256 _maxFinalizationCount,
-        address _stateManager,
+        uint256 _ringBufferSize,
         address _bondManager,
         address _syncedBlockManager,
         address _proofVerifier,
         address _proposerChecker,
         address _forcedInclusionStore
     ) {
+        if (_ringBufferSize == 0) revert RingBufferSizeZero();
         provabilityBond = _provabilityBond;
         livenessBond = _livenessBond;
         provingWindow = _provingWindow;
         extendedProvingWindow = _extendedProvingWindow;
         minBondBalance = _minBondBalance;
         maxFinalizationCount = _maxFinalizationCount;
-        inboxStateManager = IInboxStateManager(_stateManager);
+        ringBufferSize = _ringBufferSize;
         bondManager = IBondManager(_bondManager);
         syncedBlockManager = ISyncedBlockManager(_syncedBlockManager);
         proofVerifier = IProofVerifier(_proofVerifier);
@@ -97,12 +125,27 @@ contract Inbox is IInbox {
         forcedInclusionStore = IForcedInclusionStore(_forcedInclusionStore);
     }
 
+    /// @notice Initializes the Inbox contract with genesis block
+    /// @param _owner The owner of this contract
+    /// @param _genesisBlockHash The hash of the genesis block
+    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
+        __Essential_init(_owner);
+
+        Claim memory claim;
+        claim.endBlockHash = _genesisBlockHash;
+
+        CoreState memory coreState;
+        coreState.nextProposalId = 1;
+        coreState.lastFinalizedClaimHash = keccak256(abi.encode(claim));
+        coreStateHash = keccak256(abi.encode(coreState));
+    }
+
     // -------------------------------------------------------------------------
     // External Transactional Functions
     // -------------------------------------------------------------------------
 
     /// @inheritdoc IInbox
-    function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external {
+    function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         proposerChecker.checkProposer(msg.sender);
         if (bondManager.getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
 
@@ -113,12 +156,12 @@ contract Inbox is IInbox {
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
 
-        if (keccak256(abi.encode(coreState)) != inboxStateManager.getCoreStateHash()) {
+        if (keccak256(abi.encode(coreState)) != getCoreStateHash()) {
             revert InvalidState();
         }
 
         // Check if new proposals would exceed the unfinalized proposal capacity
-        uint256 unfinalizedProposalCapacity = inboxStateManager.getCapacity();
+        uint256 unfinalizedProposalCapacity = getCapacity();
 
         if (
             coreState.nextProposalId - coreState.lastFinalizedProposalId
@@ -151,13 +194,13 @@ contract Inbox is IInbox {
         // Finalize proved proposals
         coreState = _finalize(coreState, claimRecords);
 
-        inboxStateManager.setCoreStateHash(keccak256(abi.encode(coreState)));
+        _setCoreStateHash(keccak256(abi.encode(coreState)));
 
         emit Proposed(proposals, coreState);
     }
 
     /// @inheritdoc IInbox
-    function prove(bytes calldata _data, bytes calldata _proof) external {
+    function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         (Proposal[] memory proposals, Claim[] memory claims) = _data.decodeProveData();
 
         if (proposals.length != claims.length) revert InconsistentParams();
@@ -204,7 +247,7 @@ contract Inbox is IInbox {
         });
 
         bytes32 proposalHash = keccak256(abi.encode(proposal_));
-        inboxStateManager.setProposalHash(proposalId, proposalHash);
+        _setProposalHash(proposalId, proposalHash);
 
         return (_coreState, proposal_);
     }
@@ -215,7 +258,7 @@ contract Inbox is IInbox {
     function _prove(Proposal memory _proposal, Claim memory _claim) private {
         bytes32 proposalHash = keccak256(abi.encode(_proposal));
         if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
-        if (proposalHash != inboxStateManager.getProposalHash(_proposal.id)) {
+        if (proposalHash != getProposalHash(_proposal.id)) {
             revert ProposalHashMismatch();
         }
 
@@ -234,7 +277,7 @@ contract Inbox is IInbox {
         });
 
         bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
-        inboxStateManager.setClaimRecordHash(_proposal.id, _claim.parentClaimHash, claimRecordHash);
+        _setClaimRecordHash(_proposal.id, _claim.parentClaimHash, claimRecordHash);
         emit Proved(_proposal, claimRecord);
     }
 
@@ -261,7 +304,7 @@ contract Inbox is IInbox {
             if (proposalId == _coreState.nextProposalId) break;
 
             bytes32 storedClaimRecordHash =
-                inboxStateManager.getClaimRecordHash(proposalId, _coreState.lastFinalizedClaimHash);
+                getClaimRecordHash(proposalId, _coreState.lastFinalizedClaimHash);
 
             // The next proposal cannot be finalized as there is no claim record to link the chain
             if (storedClaimRecordHash == 0) break;
@@ -455,6 +498,146 @@ contract Inbox is IInbox {
     }
 
     // -------------------------------------------------------------------------
+    // Public View Functions
+    // -------------------------------------------------------------------------
+
+    /// @notice Gets the hash of the core state.
+    /// @return coreStateHash_ The hash of the current core state.
+    function getCoreStateHash() public view returns (bytes32 coreStateHash_) {
+        coreStateHash_ = coreStateHash;
+    }
+
+    /// @notice Gets the proposal hash for a given proposal ID.
+    /// @param _proposalId The proposal ID to look up.
+    /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
+    function getProposalHash(uint48 _proposalId) public view returns (bytes32 proposalHash_) {
+        uint256 bufferSlot = _proposalId % ringBufferSize;
+        proposalHash_ = proposalRingBuffer[bufferSlot].proposalHash;
+    }
+
+    /// @notice Gets the claim record hash for a given proposal and parent claim.
+    /// @param _proposalId The proposal ID to look up.
+    /// @param _parentClaimHash The parent claim hash to look up.
+    /// @return claimRecordHash_ The claim record hash, or bytes32(0) if not found.
+    function getClaimRecordHash(
+        uint48 _proposalId,
+        bytes32 _parentClaimHash
+    )
+        public
+        view
+        returns (bytes32 claimRecordHash_)
+    {
+        uint256 bufferSlot = _proposalId % ringBufferSize;
+
+        ExtendedClaimRecord storage record =
+            proposalRingBuffer[bufferSlot].claimHashLookup[_DEFAULT_SLOT_HASH];
+
+        (uint48 proposalId, bytes32 partialParentClaimHash) =
+            _decodeSlotReuseMarker(record.slotReuseMarker);
+
+        // If the reusable slot's proposal ID does not match the given proposal ID, it indicates
+        // that there are no claims associated with this proposal at all.
+        if (proposalId != _proposalId) return bytes32(0);
+
+        // If there's a record in the default slot with matching parent claim hash, return it
+        if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
+            return record.claimRecordHash;
+        }
+
+        // Otherwise check the direct mapping
+        return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
+    }
+
+    /// @notice Gets the capacity for unfinalized proposals.
+    /// @return _ The maximum number of unfinalized proposals that can exist.
+    function getCapacity() public view returns (uint256) {
+        // The ring buffer can hold ringBufferSize proposals total, but we need to ensure
+        // unfinalized proposals are not overwritten. Therefore, the maximum number of
+        // unfinalized proposals is ringBufferSize - 1.
+        unchecked {
+            return ringBufferSize - 1;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal State Management Functions
+    // -------------------------------------------------------------------------
+
+    /// @dev Sets the hash of the core state.
+    function _setCoreStateHash(bytes32 _coreStateHash) internal {
+        coreStateHash = _coreStateHash;
+    }
+
+    /// @dev Sets the proposal hash for a given proposal ID.
+    function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
+        uint256 bufferSlot = _proposalId % ringBufferSize;
+        proposalRingBuffer[bufferSlot].proposalHash = _proposalHash;
+    }
+
+    /// @dev Sets the claim record hash for a given proposal and parent claim.
+    function _setClaimRecordHash(
+        uint48 _proposalId,
+        bytes32 _parentClaimHash,
+        bytes32 _claimRecordHash
+    )
+        internal
+    {
+        ProposalRecord storage proposalRecord = proposalRingBuffer[_proposalId % ringBufferSize];
+
+        ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
+
+        (uint48 proposalId, bytes32 partialParentClaimHash) =
+            _decodeSlotReuseMarker(record.slotReuseMarker);
+
+        // Check if we need to use the default slot
+        if (proposalId != _proposalId) {
+            // Different proposal ID, so we can use the default slot
+            record.claimRecordHash = _claimRecordHash;
+            record.slotReuseMarker = _encodeSlotReuseMarker(_proposalId, _parentClaimHash);
+        } else if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
+            // Same proposal ID and same parent claim hash (partial match), update the default slot
+            record.claimRecordHash = _claimRecordHash;
+        } else {
+            // Same proposal ID but different parent claim hash, use direct mapping
+            proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash = _claimRecordHash;
+        }
+    }
+
+    /// @dev Decodes a slot reuse marker into proposal ID and partial parent claim hash.
+    function _decodeSlotReuseMarker(uint256 _slotReuseMarker)
+        internal
+        pure
+        returns (uint48 proposalId_, bytes32 partialParentClaimHash_)
+    {
+        proposalId_ = uint48(_slotReuseMarker >> 208);
+        partialParentClaimHash_ = bytes32(_slotReuseMarker << 48);
+    }
+
+    /// @dev Encodes a proposal ID and parent claim hash into a slot reuse marker.
+    function _encodeSlotReuseMarker(
+        uint48 _proposalId,
+        bytes32 _parentClaimHash
+    )
+        internal
+        pure
+        returns (uint256 slotReuseMarker_)
+    {
+        slotReuseMarker_ = (uint256(_proposalId) << 208) | (uint256(_parentClaimHash) >> 48);
+    }
+
+    /// @dev Checks if two parent claim hashes match in their high 208 bits.
+    function _isPartialParentClaimHashMatch(
+        bytes32 _partialParentClaimHash,
+        bytes32 _parentClaimHash
+    )
+        internal
+        pure
+        returns (bool)
+    {
+        return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
+    }
+
+    // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
 
@@ -467,6 +650,7 @@ contract Inbox is IInbox {
     error InvalidBlobLocator();
     error InvalidState();
     error ProposalHashMismatch();
+    error RingBufferSizeZero();
     error Unauthorized();
     error InvalidForcedInclusion();
 }
