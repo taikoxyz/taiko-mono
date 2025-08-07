@@ -6,6 +6,7 @@ import { IAnchor } from "../iface/IAnchor.sol";
 import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
 import { IBlockHashManager } from "../iface/IBlockHashManager.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
+import { LibMath } from "contracts/shared/libs/LibMath.sol";
 
 /// @title Anchor
 /// @notice Contract that manages L2 state synchronization with L1
@@ -14,6 +15,7 @@ import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 ///      ensuring updates come from the L2 system itself rather than external actors.
 /// @custom:security-contact security@taiko.xyz
 contract Anchor is EssentialContract, IAnchor {
+    using LibMath for uint256;
     /// @dev The address of the anchor transactor which shall NOT have a private key
     /// @dev This is a system address that only the L2 node can use to update state
 
@@ -98,21 +100,40 @@ contract Anchor is EssentialContract, IAnchor {
         private
     {
         bytes32 bondOperationsHash = _state.bondOperationsHash;
-        for (uint256 i; i < _bondOperations.length; ++i) {
-            if (_bondOperations[i].receiver != address(0) && _bondOperations[i].credit != 0) {
-                bondManager.creditBond(_bondOperations[i].receiver, _bondOperations[i].credit);
+        if (bondOperationsHash == _newState.bondOperationsHash) {
+            if (_bondOperations.length != 0) revert BondOperationsNotEmpty();
+        }
 
-                bondOperationsHash =
-                    LibBondOperation.aggregateBondOperation(bondOperationsHash, _bondOperations[i]);
+        for (uint256 i; i < _bondOperations.length; ++i) {
+            if (_bondOperations[i].receiver == address(0) || _bondOperations[i].credit == 0) {
+                revert InvalidBondOperation();
             }
+
+            bondManager.creditBond(_bondOperations[i].receiver, _bondOperations[i].credit);
+
+            bondOperationsHash =
+                LibBondOperation.aggregateBondOperation(bondOperationsHash, _bondOperations[i]);
         }
         if (bondOperationsHash != _newState.bondOperationsHash) revert BondOperationsHashMismatch();
         _state.bondOperationsHash = _newState.bondOperationsHash;
     }
 
     function _processGasIssuance(State memory _newState) private {
-        if (_newState.indexInBatch + 1 != _newState.batchSize) return;
-        _state.gasIssuancePerSecond = _newState.gasIssuancePerSecond;
+        if (_newState.gasIssuancePerSecond == 0) return;
+
+        uint32 currentIssuance = _state.gasIssuancePerSecond;
+        if (currentIssuance == 0) {
+            _state.gasIssuancePerSecond = _newState.gasIssuancePerSecond;
+            return;
+        }
+
+        uint32 maxDelta = currentIssuance / 10_000;
+        uint256 minBound = currentIssuance - maxDelta;
+        uint256 maxBound = uint256(currentIssuance) + maxDelta;
+
+        uint256 clampedValue =
+            LibMath.max(minBound, LibMath.min(_newState.gasIssuancePerSecond, maxBound));
+        _state.gasIssuancePerSecond = uint32(clampedValue);
     }
 
     // -------------------------------------------------------------------------
@@ -120,6 +141,8 @@ contract Anchor is EssentialContract, IAnchor {
     // -------------------------------------------------------------------------
 
     error BondOperationsHashMismatch();
-    error InvalidAnchorBlockNumber();
+    error BondOperationsNotEmpty();
     error InvalidAnchorBlockHash();
+    error InvalidAnchorBlockNumber();
+    error InvalidBondOperation();
 }

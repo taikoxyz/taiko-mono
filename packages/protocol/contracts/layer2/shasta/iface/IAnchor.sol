@@ -11,12 +11,6 @@ interface IAnchor {
     /// @notice State structure containing L2 synchronization data
     /// @dev Packed struct to optimize storage usage
     struct State {
-        /// @notice The ID of the current L1 block proposal being processed
-        uint48 proposalId;
-        /// @notice Number of L2 blocks in the current batch
-        uint24 batchSize;
-        /// @notice Current index position within the batch (0-indexed)
-        uint24 indexInBatch;
         /// @notice Gas issuance rate per second for L2 gas management
         uint32 gasIssuancePerSecond;
         /// @notice The hash of the bond operations for the current proposal
