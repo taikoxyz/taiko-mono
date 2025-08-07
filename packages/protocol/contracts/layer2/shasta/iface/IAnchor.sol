@@ -43,7 +43,5 @@ interface IAnchor {
     )
         external;
 
-    /// @notice Returns the address of the authorized anchor transactor
-    /// @return The address that is authorized to update the anchor state
     function anchorTransactor() external view returns (address);
 }

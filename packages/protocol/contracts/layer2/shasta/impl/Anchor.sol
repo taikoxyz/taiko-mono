@@ -23,14 +23,15 @@ contract Anchor is EssentialContract, IAnchor {
     // -------------------------------------------------------------------------
 
     /// @dev Maximum gas issuance adjustment per update (0.01% = 1/10000)
-    uint32 private constant GAS_ISSUANCE_MAX_ADJUSTMENT_DIVISOR = 10_000;
+    uint32 private constant _GAS_ISSUANCE_MAX_ADJUSTMENT_DIVISOR = 10_000;
+
+    /// @dev The keyless address that can transact the saveState function.
+    address private constant _ANCHOR_TRANSACTOR =
+        address(bytes20(keccak256("TAIKO_ANCHOR_TRANSACTOR")));
 
     // -------------------------------------------------------------------------
     // Immutable Configuration
     // -------------------------------------------------------------------------
-
-    /// @notice System address that anchors L1 state to L2 (must be keyless)
-    address public immutable anchorTransactor;
 
     /// @notice Minimum allowed gas issuance rate to prevent extreme adjustments
     uint32 public immutable minGasIssuancePerSecond;
@@ -51,16 +52,13 @@ contract Anchor is EssentialContract, IAnchor {
     uint256[46] private __gap;
 
     constructor(
-        address _anchorTransactor,
         uint32 _minGasIssuancePerSecond,
         IBondManager _bondManager,
         IBlockHashManager _blockHashManager,
         ISyncedBlockManager _syncedBlockManager
     )
-        nonZeroAddr(_anchorTransactor)
         EssentialContract()
     {
-        anchorTransactor = _anchorTransactor;
         minGasIssuancePerSecond = _minGasIssuancePerSecond;
         bondManager = _bondManager;
         blockHashManager = _blockHashManager;
@@ -95,132 +93,35 @@ contract Anchor is EssentialContract, IAnchor {
         LibBondOperation.BondOperation[] memory _bondOperations
     )
         external
-        onlyFrom(anchorTransactor)
+        onlyFrom(_ANCHOR_TRANSACTOR)
         nonReentrant
     {
-        // Preserve anchor block data if not updating
-        if (_newState.anchorBlockNumber == 0) {
-            _newState.anchorBlockNumber = _state.anchorBlockNumber;
-            _newState.anchorBlockHash = _state.anchorBlockHash;
-            _newState.anchorStateRoot = _state.anchorStateRoot;
-        } else {
-            // Validate and save new anchor block data
-            _validateAndSaveAnchorBlock(_newState);
+        // Persist synced block data
+        if (_newState.anchorBlockNumber > _state.anchorBlockNumber) {
+            syncedBlockManager.saveSyncedBlock(
+                ISyncedBlockManager.SyncedBlock({
+                    blockNumber: _newState.anchorBlockNumber,
+                    blockHash: _newState.anchorBlockHash,
+                    stateRoot: _newState.anchorStateRoot
+                })
+            );
         }
 
-        // Process bond operations and update hash
-        _newState.bondOperationsHash = _processBondOperations(_newState, _bondOperations);
+        // Save parent block hash for future verification
+        uint256 parentNumber = _newState.anchorBlockNumber - 1;
+        blockHashManager.saveBlockHash(parentNumber, blockhash(parentNumber));
 
-        // Apply gas issuance rate adjustment with bounds
-        _newState.gasIssuancePerSecond = _adjustGasIssuanceRate(_newState.gasIssuancePerSecond);
+        // Process each bond operation
+        for (uint256 i; i < _bondOperations.length; ++i) {
+            LibBondOperation.BondOperation memory op = _bondOperations[i];
+            bondManager.creditBond(op.receiver, op.credit);
+        }
 
         // Atomically update state
         _state = _newState;
-
-        // Save parent block hash for future verification
-        _saveParentBlockHash(_newState.anchorBlockNumber);
     }
 
-    // -------------------------------------------------------------------------
-    // Internal Functions
-    // -------------------------------------------------------------------------
-
-    /// @dev Validates anchor block data and saves to synced block manager
-    function _validateAndSaveAnchorBlock(State memory _newState) private {
-        // Validate block data integrity
-        if (_newState.anchorBlockHash == 0) revert InvalidAnchorBlockHash();
-        if (_newState.anchorStateRoot == 0) revert InvalidAnchorStateRoot();
-
-        // Ensure monotonic block progression
-        if (_newState.anchorBlockNumber <= _state.anchorBlockNumber) {
-            revert InvalidAnchorBlockNumber();
-        }
-
-        // Persist synced block data
-        syncedBlockManager.saveSyncedBlock(
-            ISyncedBlockManager.SyncedBlock({
-                blockNumber: _newState.anchorBlockNumber,
-                blockHash: _newState.anchorBlockHash,
-                stateRoot: _newState.anchorStateRoot
-            })
-        );
+    function anchorTransactor() external pure returns (address) {
+        return _ANCHOR_TRANSACTOR;
     }
-
-    /// @dev Processes bond credit operations and verifies hash consistency
-    function _processBondOperations(
-        State memory _newState,
-        LibBondOperation.BondOperation[] memory _bondOperations
-    )
-        private
-        returns (bytes32 resultHash_)
-    {
-        resultHash_ = _state.bondOperationsHash;
-
-        // No operations needed if hash unchanged
-        if (resultHash_ == _newState.bondOperationsHash) {
-            if (_bondOperations.length != 0) revert BondOperationsNotEmpty();
-            return _newState.bondOperationsHash;
-        }
-
-        // Process each bond operation
-        uint256 length = _bondOperations.length;
-        for (uint256 i; i < length; ++i) {
-            LibBondOperation.BondOperation memory op = _bondOperations[i];
-
-            // Validate operation
-            if (op.receiver == address(0) || op.credit == 0) {
-                revert InvalidBondOperation();
-            }
-
-            // Credit bond and update hash
-            bondManager.creditBond(op.receiver, op.credit);
-            resultHash_ = LibBondOperation.aggregateBondOperation(resultHash_, op);
-        }
-
-        // Verify final hash matches expected
-        if (resultHash_ != _newState.bondOperationsHash) {
-            revert BondOperationsHashMismatch();
-        }
-    }
-
-    /// @dev Adjusts gas issuance rate within allowed bounds (±0.01% per update)
-    function _adjustGasIssuanceRate(uint32 _proposedRate)
-        private
-        view
-        returns (uint32 adjustedRate_)
-    {
-        // Keep current rate if no change proposed
-        if (_proposedRate == 0) return _state.gasIssuancePerSecond;
-
-        uint32 currentRate = _state.gasIssuancePerSecond;
-
-        // Calculate allowed adjustment range
-        uint32 maxAdjustment = currentRate / GAS_ISSUANCE_MAX_ADJUSTMENT_DIVISOR;
-
-        // Define bounds with minimum floor
-        uint256 lowerBound = uint256(currentRate - maxAdjustment).max(minGasIssuancePerSecond);
-        uint256 upperBound = uint256(currentRate) + maxAdjustment;
-
-        // Clamp proposed rate to bounds
-        adjustedRate_ = uint32(LibMath.max(lowerBound, LibMath.min(_proposedRate, upperBound)));
-    }
-
-    /// @dev Saves parent block hash for verification
-    function _saveParentBlockHash(uint256 _anchorBlockNumber) private {
-        if (_anchorBlockNumber > 0) {
-            uint256 parentNumber = _anchorBlockNumber - 1;
-            blockHashManager.saveBlockHash(parentNumber, blockhash(parentNumber));
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Errors
-    // -------------------------------------------------------------------------
-
-    error BondOperationsHashMismatch();
-    error BondOperationsNotEmpty();
-    error InvalidAnchorBlockHash();
-    error InvalidAnchorBlockNumber();
-    error InvalidAnchorStateRoot();
-    error InvalidBondOperation();
 }
