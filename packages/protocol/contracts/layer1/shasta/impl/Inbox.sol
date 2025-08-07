@@ -704,7 +704,7 @@ contract Inbox is EssentialContract, IInbox {
             bondManager.creditBond(claim.actualProver, provabilityBondWei / REWARD_FRACTION);
         }
 
-        emit BondOperation(bondOperation);
+        emit BondRequest(bondOperation);
 
         return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
     }

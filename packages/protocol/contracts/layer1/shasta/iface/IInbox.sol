@@ -107,7 +107,7 @@ interface IInbox {
 
     /// @notice Emitted when a bond operation is instructed
     /// @param bondOperation The bond operation that needs to be performed.
-    event BondOperation(LibBondOperation.BondOperation bondOperation);
+    event BondRequest(LibBondOperation.BondOperation bondOperation);
 
     // -------------------------------------------------------------------------
     // External Transactional Functions
