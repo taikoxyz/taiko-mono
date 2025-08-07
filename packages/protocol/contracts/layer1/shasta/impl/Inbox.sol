@@ -19,12 +19,6 @@ import { LibDecoder } from "../lib/LibDecoder.sol";
 contract Inbox is EssentialContract, IInbox {
     using LibDecoder for bytes;
 
-    struct BondOperation {
-        uint48 proposalId;
-        address receiver;
-        uint256 credit;
-    }
-
     /// @notice Extended claim record that stores both the claim hash and encoded metadata.
     /// @dev The metadata includes the proposal ID and partial parent claim hash for efficient
     /// lookups.
