@@ -74,7 +74,9 @@ contract Anchor is EssentialContract, IAnchor {
 
         bytes32 bondOperationsHash = _state.bondOperationsHash;
         for (uint256 i; i < _bondOperations.length; ++i) {
-            bondManager.creditBond(_bondOperations[i].receiver, _bondOperations[i].credit);
+            if (_bondOperations[i].receiver != address(0) && _bondOperations[i].credit != 0) {
+                bondManager.creditBond(_bondOperations[i].receiver, _bondOperations[i].credit);
+            }
             bondOperationsHash =
                 LibBondOperation.aggregateBondOperation(bondOperationsHash, _bondOperations[i]);
         }

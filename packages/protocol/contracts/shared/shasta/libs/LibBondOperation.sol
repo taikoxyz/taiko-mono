@@ -23,7 +23,7 @@ library LibBondOperation {
         pure
         returns (bytes32)
     {
-        return _bondOperation.credit == 0
+        return _bondOperation.receiver == address(0) || _bondOperation.credit == 0
             ? _bondOperationsHash
             : keccak256(abi.encode(_bondOperationsHash, _bondOperation));
     }

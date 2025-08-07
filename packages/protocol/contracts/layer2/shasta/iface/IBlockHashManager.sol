@@ -3,9 +3,8 @@ pragma solidity ^0.8.24;
 
 import { IBlockHashProvider } from "contracts/layer2/based/IBlockHashProvider.sol";
 
-/// @title IAnchor
-/// @notice Interface for the Anchor contract that manages L2 state synchronization with L1
-/// @dev This contract stores critical state information for L2 block production and gas management
+/// @title IBlockHashManager
+/// @notice Interface for the BlockHashManager contract that manages L2 block hashes
 /// @custom:security-contact security@taiko.xyz
 interface IBlockHashManager is IBlockHashProvider {
     /// @notice Saves the block hash for a given block ID.

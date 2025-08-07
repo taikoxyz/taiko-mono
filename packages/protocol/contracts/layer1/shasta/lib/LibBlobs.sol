@@ -40,7 +40,7 @@ library LibBlobs {
         if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
 
         bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
-        for (uint48 i; i < _blobLocator.numBlobs; ++i) {
+        for (uint256 i; i < _blobLocator.numBlobs; ++i) {
             blobHashes[i] = blobhash(_blobLocator.blobStartIndex + i);
             if (blobHashes[i] == 0) revert BlobNotFound();
         }
