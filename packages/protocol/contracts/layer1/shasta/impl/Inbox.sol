@@ -145,7 +145,7 @@ contract Inbox is EssentialContract, IInbox {
     // -------------------------------------------------------------------------
 
     /// @inheritdoc IInbox
-    function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external whenNotPaused {
+    function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         proposerChecker.checkProposer(msg.sender);
         if (bondManager.getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
 
@@ -200,7 +200,7 @@ contract Inbox is EssentialContract, IInbox {
     }
 
     /// @inheritdoc IInbox
-    function prove(bytes calldata _data, bytes calldata _proof) external whenNotPaused {
+    function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         (Proposal[] memory proposals, Claim[] memory claims) = _data.decodeProveData();
 
         if (proposals.length != claims.length) revert InconsistentParams();
