@@ -65,12 +65,7 @@ contract Anchor is EssentialContract, IAnchor {
         external
         onlyFrom(anchorTransactor)
     {
-        if (
-            _newState.anchorBlockNumber != 0
-                && _newState.anchorBlockNumber > _state.anchorBlockNumber
-        ) {
-            blockHashManager.saveBlockHash(_newState.anchorBlockNumber, _newState.anchorBlockHash);
-        }
+        _processAnchorBlock(_newState);
 
         bytes32 bondOperationsHash = _state.bondOperationsHash;
         for (uint256 i; i < _bondOperations.length; ++i) {
@@ -91,8 +86,45 @@ contract Anchor is EssentialContract, IAnchor {
     }
 
     // -------------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------------
+
+    function _processAnchorBlock(State memory _newState) private {
+        if (_newState.anchorBlockNumber == 0) return;
+        if (_newState.anchorBlockNumber <= _state.anchorBlockNumber) {
+            revert InvalidAnchorBlockNumber();
+        }
+        if (_newState.anchorBlockHash == bytes32(0)) revert InvalidAnchorBlockHash();
+
+        blockHashManager.saveBlockHash(_newState.anchorBlockNumber, _newState.anchorBlockHash);
+        _state.anchorBlockNumber = _newState.anchorBlockNumber;
+        _state.anchorBlockHash = _newState.anchorBlockHash;
+    }
+
+    function _processBondOperations(
+        State memory _newState,
+        LibBondOperation.BondOperation[] memory _bondOperations
+    )
+        private
+    {
+        bytes32 bondOperationsHash = _state.bondOperationsHash;
+        for (uint256 i; i < _bondOperations.length; ++i) {
+            if (_bondOperations[i].receiver != address(0) && _bondOperations[i].credit != 0) {
+                bondManager.creditBond(_bondOperations[i].receiver, _bondOperations[i].credit);
+
+                bondOperationsHash =
+                    LibBondOperation.aggregateBondOperation(bondOperationsHash, _bondOperations[i]);
+            }
+        }
+        if (bondOperationsHash != _newState.bondOperationsHash) revert BondOperationsHashMismatch();
+        _state.bondOperationsHash = _newState.bondOperationsHash;
+    }
+
+    // -------------------------------------------------------------------------
     // Errors
     // -------------------------------------------------------------------------
 
     error BondOperationsHashMismatch();
+    error InvalidAnchorBlockNumber();
+    error InvalidAnchorBlockHash();
 }
