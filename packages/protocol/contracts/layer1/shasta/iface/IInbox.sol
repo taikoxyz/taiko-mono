@@ -60,6 +60,8 @@ interface IInbox {
         uint48 originBlockNumber;
         /// @notice The proposal's frame.
         Frame frame;
+        /// @notice Whether the proposal is a forced inclusion.
+        bool isForcedInclusion;
     }
 
     /// @notice Represents the bond decision based on proof submission timing and prover identity
