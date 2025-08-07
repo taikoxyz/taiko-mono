@@ -148,29 +148,25 @@ contract Inbox is IInbox {
             revert ExceedsUnfinalizedProposalCapacity();
         }
 
-        // Create regular proposal
-        Frame memory frame = _validateBlobLocator(blobLocator);
-        Proposal memory proposal;
-        (coreState, proposal) = _propose(coreState, frame, false);
-
-        // Handle forced inclusion if required
-        Proposal memory forcedInclusionProposal;
+        // Handle forced inclusion first if required
         bool hasForcedInclusion = forcedInclusionFrame.blobHashes.length > 0;
+        Proposal memory proposal;
 
         if (hasForcedInclusion) {
-            (coreState, forcedInclusionProposal) =
-                _processForcedInclusion(coreState, forcedInclusionFrame);
+            // Create and propose the forced inclusion proposal
+            (coreState, proposal) = _processForcedInclusion(coreState, forcedInclusionFrame);
+            emit Proposed(proposal, coreState);
         } else {
             // Ensure no forced inclusion is due when none is provided
             _ensureNoForcedInclusionDue();
         }
 
-        // Build proposals array
-        Proposal[] memory proposals =
-            _buildProposalsArray(proposal, forcedInclusionProposal, hasForcedInclusion);
+        Frame memory frame = _validateBlobLocator(blobLocator);
+        (coreState, proposal) = _propose(coreState, frame, false);
 
         // Finalize proved proposals
         coreState = _finalize(coreState, claimRecords);
+        // Emit the event after finalizing proposals
         emit Proposed(proposal, coreState);
 
         inboxStateManager.setCoreStateHash(keccak256(abi.encode(coreState)));
@@ -189,7 +185,7 @@ contract Inbox is IInbox {
         ClaimRecord[] memory claimRecords = new ClaimRecord[](proposals.length);
 
         for (uint256 i; i < proposals.length; ++i) {
-            claimRecords[i] = _prove(proposals[i], claims[i]);
+            claimRecords[i] = _buildClaimRecord(proposals[i], claims[i]);
         }
 
         (uint48[] memory proposalIds, ClaimRecord[] memory aggregatedClaimRecords) =
@@ -249,14 +245,14 @@ contract Inbox is IInbox {
         return (_coreState, proposal_);
     }
 
-    /// @dev Proves a single proposal by validating the claim and creating the claim record
-    /// @notice This function validates the proposal hash and determines the bond decision
+    /// @dev Builds a claim record by validating the proposal and claim
+    /// @notice This function checks the proposal hash and determines the bond decision
     /// based on proof timing. The resulting claim record may be aggregated with others
     /// for gas efficiency
-    /// @param _proposal The proposal to prove
+    /// @param _proposal The proposal to validate
     /// @param _claim The claim containing the state transition details
     /// @return claimRecord_ The claim record that may be aggregated with others
-    function _prove(
+    function _buildClaimRecord(
         Proposal memory _proposal,
         Claim memory _claim
     )
