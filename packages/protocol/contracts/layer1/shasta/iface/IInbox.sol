@@ -4,134 +4,117 @@ pragma solidity ^0.8.24;
 import { LibBlobs } from "../lib/LibBlobs.sol";
 
 /// @title IInbox
-/// @notice Interface for the Shasta Inbox contract that manages L2 block proposals and proofs
-/// @dev Implements a based rollup architecture with contestable validity proofs
+/// @notice Interface for the ShastaInbox contract
 /// @custom:security-contact security@taiko.xyz
 interface IInbox {
-    /// @notice Represents a proposal for a batch of L2 blocks
-    /// @dev Proposals contain block data and metadata needed for proving and finalization
+    /// @notice Represents a proposal for L2 blocks.
     struct Proposal {
-        /// @notice Unique sequential identifier for the proposal
+        /// @notice Unique identifier for the proposal.
         uint48 id;
-        /// @notice Address that submitted the proposal and posted bonds
+        /// @notice Address of the proposer. This is needed on L1 to handle provability bond
+        /// and proving fee.
         address proposer;
-        /// @notice Bond amount in gwei ensuring the proposal can be proven
-        /// @dev Slashed if the proposal cannot be proven within the extended window
+        /// @notice Provability bond for the proposal, paid by the proposer on L1.
         uint48 provabilityBondGwei;
-        /// @notice Bond amount in gwei ensuring timely proof submission
-        /// @dev Slashed if the designated prover fails to prove within the proving window
+        /// @notice Liveness bond for the proposal, paid by the proposer on L1 and potentially
+        /// also by the designated prover on L2.
         uint48 livenessBondGwei;
-        /// @notice L1 timestamp when the proposal was submitted
-        /// @dev Used to calculate proving windows and validate L2 block timestamps
+        /// @notice The L1 block timestamp when the proposal was made. This is needed on L2 to
+        /// verify each block's timestamp in the proposal's content.
         uint48 originTimestamp;
-        /// @notice L1 block number when the proposal was submitted
-        /// @dev Used as the anchor block for L2 blocks in this proposal
+        /// @notice The L1 block number when the proposal was made. This is needed on L2 to verify
+        /// each block's anchor block number in the proposal's content.
         uint48 originBlockNumber;
-        /// @notice Flag indicating if this proposal contains forced transactions
+        /// @notice Whether the proposal is a forced inclusion.
         bool isForcedInclusion;
-        /// @notice Blob data frame containing the compressed L2 block data
+        /// @notice The proposal's frame.
         LibBlobs.BlobFrame frame;
     }
 
-    /// @notice Bond decision based on proof submission timing and prover identity
-    /// @dev Determines bond distribution: refunds, rewards, or slashing
-    /// Aggregatable decisions allow gas-efficient batch processing
+    /// @notice Represents the bond decision based on proof submission timing and prover identity
+    /// @dev Bond decisions determine how provability and liveness bonds are distributed
+    /// based on whether proofs are submitted on time and by the correct party
     enum BondDecision {
-        /// @dev No bond operation needed (proposer proved on time)
-        NoOp,
-        /// @dev Refund liveness bond to designated prover on L2 (different from proposer)
-        L2RefundLiveness,
-        /// @dev Reward actual prover with portion of liveness bond on L2
-        L2RewardProver,
-        /// @dev Slash proposer's liveness bond and reward actual prover on L1
-        L1SlashLivenessRewardProver,
-        /// @dev Slash provability bond, reward prover, and refund L2 liveness bond
-        L1SlashProvabilityRewardProverL2RefundLiveness,
-        /// @dev Slash provability bond and reward actual prover on L1
-        L1SlashProvabilityRewardProver
+        NoOp, // Aggregatable
+        L2RefundLiveness, // Aggregatable
+        L2RewardProver, // Aggregatable
+        L1SlashLivenessRewardProver, // Non-aggregatable
+        L1SlashProvabilityRewardProverL2RefundLiveness, // Non-aggregatable
+        L1SlashProvabilityRewardProver // Non-aggregatable
+
     }
 
-    /// @notice Claim asserting the state transition result of a proposal
-    /// @dev Claims form a chain linking proposals through parent-child relationships
+    /// @notice Represents a claim about the state transition of a proposal.
     struct Claim {
-        /// @notice Hash of the proposal being proven
+        /// @notice The proposal's hash.
         bytes32 proposalHash;
-        /// @notice Hash of the parent claim to maintain chain continuity
-        /// @dev Must match the last finalized claim hash for the claim to be finalizable
+        /// @notice The parent claim's hash, this is used to link the claim to its parent claim to
+        /// finalize the corresponding proposal.
         bytes32 parentClaimHash;
-        /// @notice Final L2 block number in this proposal batch
+        /// @notice The block number for the end (last) L2 block in this proposal.
         uint48 endBlockNumber;
-        /// @notice Hash of the final L2 block in this proposal batch
+        /// @notice The block hash for the end (last) L2 block in this proposal.
         bytes32 endBlockHash;
-        /// @notice State root after executing all blocks in this proposal
+        /// @notice The state root for the end (last) L2 block in this proposal.
         bytes32 endStateRoot;
-        /// @notice Address assigned to prove this proposal (may differ from proposer)
+        /// @notice The designated prover.
         address designatedProver;
-        /// @notice Address that actually submitted the proof
+        /// @notice The actual prover.
         address actualProver;
     }
 
-    /// @notice Extended claim data with metadata for finalization and bond processing
-    /// @dev May represent aggregated claims for gas efficiency
+    /// @notice Represents a record of a claim with additional metadata.
     struct ClaimRecord {
-        /// @notice The claim data including state transition results
+        /// @notice The claim.
         Claim claim;
-        /// @notice Original proposer address for bond operations
+        /// @notice The proposer, copied from the proposal.
         address proposer;
-        /// @notice Liveness bond amount (may be aggregated across multiple proposals)
+        /// @notice The liveness bond, copied from the proposal.
         uint48 livenessBondGwei;
-        /// @notice Provability bond amount from the proposal
+        /// @notice The provability bond, copied from the proposal.
         uint48 provabilityBondGwei;
-        /// @notice ID of the next proposal (for aggregation tracking)
+        /// @notice The next proposal ID.
         uint48 nextProposalId;
-        /// @notice Bond decision determining refunds, rewards, or slashing
+        /// @notice The proof timing.
         BondDecision bondDecision;
     }
 
-    /// @notice Core state tracking proposal progression and finalization
-    /// @dev Hashed and stored on-chain to ensure state consistency
+    /// @notice Represents the core state of the inbox.
     struct CoreState {
-        /// @notice Next sequential ID to assign to new proposals
+        /// @notice The next proposal ID to be assigned.
         uint48 nextProposalId;
-        /// @notice Most recent proposal that has been finalized
+        /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
-        /// @notice Hash of the claim for the last finalized proposal
-        /// @dev New claims must chain from this hash to be finalizable
+        /// @notice The hash of the last finalized claim.
         bytes32 lastFinalizedClaimHash;
-        /// @notice Aggregated hash of all bond operations for verification
-        bytes32 bondOperationAggregationHash;
+        /// @notice The hash of all bond operations.
+        bytes32 bondOperationsHash;
     }
 
     // -------------------------------------------------------------------------
     // Events
     // -------------------------------------------------------------------------
 
-    /// @notice Emitted when a new proposal is submitted
-    /// @param proposal The submitted proposal containing L2 block data
-    /// @param coreState Updated core state after proposal submission
+    /// @notice Emitted when a new proposal is proposed.
+    /// @param proposal The proposal that was proposed.
     event Proposed(Proposal proposal, CoreState coreState);
 
-    /// @notice Emitted when a proof is submitted for a proposal
-    /// @param proposal The proposal that was proven
-    /// @param claimRecord Claim record with proof details and bond decision
+    /// @notice Emitted when a proof is submitted for a proposal.
+    /// @param proposal The proposal that was proven.
+    /// @param claimRecord The claim record containing the proof details.
     event Proved(Proposal proposal, ClaimRecord claimRecord);
 
     // -------------------------------------------------------------------------
     // External Transactional Functions
     // -------------------------------------------------------------------------
 
-    /// @notice Submits a new proposal containing L2 block data
-    /// @dev Handles forced inclusions, validates state, and may finalize previous proposals
-    /// @param _lookahead Reserved for future lookahead mechanism (currently unused)
-    /// @param _data Encoded data containing:
-    ///   - CoreState: Current state for validation
-    ///   - BlobLocator: Reference to blob data
-    ///   - ClaimRecord[]: Claims for finalization
+    /// @notice Proposes new proposals of L2 blocks.
+    /// @param _lookahead The data to post a new lookahead (currently unused).
+    /// @param _data The data containing the core state, blob locator, and claim records.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
-    /// @notice Submits proofs for one or more proposals
-    /// @dev Proofs can be aggregated for gas efficiency when conditions allow
-    /// @param _data Encoded array of proposals and corresponding claims
-    /// @param _proof Aggregated validity proof covering all claims
+    /// @notice Proves a claim about some properties of a proposal, including its state transition.
+    /// @param _data The data containing the proposals and claims to be proven.
+    /// @param _proof Validity proof for the claims.
     function prove(bytes calldata _data, bytes calldata _proof) external;
 }

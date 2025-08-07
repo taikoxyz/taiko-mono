@@ -20,7 +20,7 @@ interface IAnchor {
         /// @notice Gas issuance rate per second for L2 gas management
         uint32 gasIssuancePerSecond;
         /// @notice The hash of the bond operations for the current proposal
-        bytes32 bondOperationAggregationHash;
+        bytes32 bondOperationsHash;
         /// @notice The number of the anchor block
         uint48 anchorBlockNumber;
         /// @notice The hash of the anchor block
