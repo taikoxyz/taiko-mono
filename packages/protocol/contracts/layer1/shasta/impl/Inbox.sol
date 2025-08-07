@@ -8,6 +8,7 @@ import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibDecoder } from "../lib/LibDecoder.sol";
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
+import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
@@ -63,7 +64,7 @@ contract Inbox is EssentialContract, IInbox {
 
     /// @notice The proposer checker contract
     IProposerChecker public immutable proposerChecker;
-    
+
     /// @notice The forced inclusion store contract
     IForcedInclusionStore public immutable forcedInclusionStore;
 
