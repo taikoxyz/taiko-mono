@@ -17,6 +17,7 @@ library LibDecoder {
     /// @param _data The encoded data
     /// @return coreState_ The decoded CoreState
     /// @return blobLocator_ The decoded BlobLocator
+    /// @return forcedInclusion_ The decoded Frame for forced inclusions
     /// @return claimRecords_ The decoded array of ClaimRecords
     function decodeProposeData(bytes calldata _data)
         internal
@@ -24,11 +25,13 @@ library LibDecoder {
         returns (
             IInbox.CoreState memory coreState_,
             IInbox.BlobLocator memory blobLocator_,
+            IInbox.Frame memory forcedInclusion_,
             IInbox.ClaimRecord[] memory claimRecords_
         )
     {
-        (coreState_, blobLocator_, claimRecords_) =
-            abi.decode(_data, (IInbox.CoreState, IInbox.BlobLocator, IInbox.ClaimRecord[]));
+        (coreState_, blobLocator_, forcedInclusion_, claimRecords_) = abi.decode(
+            _data, (IInbox.CoreState, IInbox.BlobLocator, IInbox.Frame, IInbox.ClaimRecord[])
+        );
     }
 
     /// @notice Decodes data into Proposal array and Claim array
