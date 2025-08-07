@@ -6,6 +6,7 @@ import "test/shared/DeployCapability.sol";
 import "src/layer1/preconf/impl/PreconfWhitelist.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/provers/ProverSet.sol";
+import "src/layer1/preconf/impl/PreconfRouter.sol";
 
 contract DeployWLAndWrapper is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -24,38 +25,33 @@ contract DeployWLAndWrapper is DeployCapability {
         address rollupResolver = 0x5A982Fb1818c22744f5d7D36D0C4c9f61937b33a;
         address taikoToken = 0x10dea67478c5F8C5E2D90e5E9B26dBe60c54d800;
         address sequencer = 0x5F62d006C10C009ff50C878Cd6157aC861C99990;
-        address ejecter = address(0); // TODO: need the ejecter address
+        address ejector = 0x45D4403351Bc34283CE6450D91c099f40D06dA4e;
+        address taikoWrapper = 0x9F9D2fC7abe74C79f86F0D1212107692430eef72;
+        address whitelist = 0xFD019460881e6EeC632258222393d5821029b2ac;
+        address fallbackProposer = 0x7A853a6480F4D7dB79AE91c16c960dBbB6710d25;
 
-        address whitelist = address(new PreconfWhitelist());
+
+    address whitelistImpl = address(new PreconfWhitelist());
         console2.log(
-            "Upgrading whitelist calldata: ", abi.encodeCall(UUPSUpgradeable.upgradeTo, (whitelist))
+            "Upgrading whitelist calldata: ", abi.encodeCall(UUPSUpgradeable.upgradeTo, (whitelistImpl))
         );
         console2.log(
-            "Set ejecter calldata: ", abi.encodeCall(PreconfWhitelist.setEjecter, (ejecter, true))
+            "Set ejector calldata: ", abi.encodeCall(PreconfWhitelist.setEjecter, (ejector, true))
         );
-        // TODO: confirm that we use the same address as _proposer and _sequencer
-        // Note: Should be in the first batch by multi-sig
+
         console2.log(
             "Add operator calldata: ",
             abi.encodeCall(PreconfWhitelist.addOperator, (sequencer, sequencer))
         );
 
+        address router = address(new PreconfRouter(taikoWrapper, whitelist, fallbackProposer));
+        console2.log(
+            "Upgrading router calldata: ", abi.encodeCall(UUPSUpgradeable.upgradeTo, (router))
+        );
+
         address wrapper = address(new TaikoWrapper(taikoInbox, forcedInclusionStore, router));
         console2.log(
             "Upgrading wrapper calldata: ", abi.encodeCall(UUPSUpgradeable.upgradeTo, (wrapper))
-        );
-
-        address proverSetImpl = new ProverSet(rollupResolver, taikoInbox, taikoToken, router);
-        console2.log(
-            "Upgrading ProverSet calldata: ",
-            abi.encodeCall(UUPSUpgradeable.upgradeTo, (proverSetImpl))
-        );
-        console2.log(
-            "Register ProverSet template calldata: ",
-            abi.encodeCall(
-                DefaultResolver.registerAddress,
-                (uint64(block.chainid), bytes32(bytes("prover_set")), proverSetImpl)
-            )
         );
     }
 }
