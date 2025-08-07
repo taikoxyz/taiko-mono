@@ -194,6 +194,7 @@ contract Inbox is EssentialContract, IInbox {
 
         for (uint256 i; i < proposals.length; ++i) {
             claimRecords[i] = _buildClaimRecord(proposals[i], claims[i]);
+            // TODO: emit Proved event for aggregated claim records
             emit Proved(proposals[i], claimRecords[i]);
         }
 
