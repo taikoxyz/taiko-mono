@@ -115,7 +115,7 @@ contract Anchor is EssentialContract, IAnchor {
 
         // Atomically update state
         _state = _newState;
-        
+
         // Save parent block hash for future verification
         _saveParentBlockHash(_newState.anchorBlockNumber);
     }

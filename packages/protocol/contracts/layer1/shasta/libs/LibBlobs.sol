@@ -28,7 +28,7 @@ library LibBlobs {
         /// @notice The offset of the proposal's content in the containing blobs.
         uint32 offset;
         /// @notice The timestamp when the frame was created.
-        uint48 createdAt;
+        uint48 timestamp;
     }
 
     // -------------------------------------------------------------------------
@@ -54,7 +54,7 @@ library LibBlobs {
         return BlobSlice({
             blobHashes: blobHashes,
             offset: _blobReference.offset,
-            createdAt: uint48(block.timestamp)
+            timestamp: uint48(block.timestamp)
         });
     }
 
