@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "../iface/IInbox.sol";
-import { LibBlobs } from "../lib/LibBlobs.sol";
+import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
-import { ISyncedBlockManager } from "../../../shared/shasta/iface/ISyncedBlockManager.sol";
-import { LibBondOperation } from "../../../shared/shasta/libs/LibBondOperation.sol";
+import { ISyncedBlockManager } from "contracts/shared/shasta/iface/ISyncedBlockManager.sol";
+import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
+import { LibBlobs } from "../lib/LibBlobs.sol";
+import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
 import { LibDecoder } from "../lib/LibDecoder.sol";
-import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
-import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
