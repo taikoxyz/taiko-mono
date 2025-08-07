@@ -13,10 +13,10 @@ interface IAnchor {
     struct State {
         /// @notice The ID of the proposal this state belongs to
         uint48 proposalId;
-        /// @notice The total number of blocks in the batch
-        uint16 batchSize;
-        /// @notice The index of this block within the batch
-        uint16 indexInBatch;
+        /// @notice The total number of blocks in the proposal
+        uint16 numBlocks;
+        /// @notice The index of this block within the proposal
+        uint16 blockIndex;
         /// @notice Gas issuance rate per second for L2 gas management
         uint32 gasIssuancePerSecond;
         /// @notice The number of the anchor block

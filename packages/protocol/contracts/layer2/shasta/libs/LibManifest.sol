@@ -51,7 +51,6 @@ library LibManifest {
 
     /// @notice Represents a proposal manifest
     struct ProposalManifest {
-        uint48 gasIssuancePerSecond;
         BlockManifest[] blocks;
     }
 }
