@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-
 import { LibBlobs } from "./LibBlobs.sol";
 
 import { IInbox } from "../iface/IInbox.sol";
@@ -32,7 +31,6 @@ library LibDecoder {
     {
         (coreState_, blobLocator_, claimRecords_) =
             abi.decode(_data, (IInbox.CoreState, LibBlobs.BlobLocator, IInbox.ClaimRecord[]));
-
     }
 
     /// @notice Decodes data into Proposal array and Claim array
@@ -58,9 +56,7 @@ library LibDecoder {
     /// @return data_ The encoded data
     function encodeProposeData(
         IInbox.CoreState memory _coreState,
-
         LibBlobs.BlobLocator memory _blobLocator,
-
         IInbox.ClaimRecord[] memory _claimRecords
     )
         internal

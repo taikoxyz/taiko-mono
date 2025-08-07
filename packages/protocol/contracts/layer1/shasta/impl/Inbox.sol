@@ -58,7 +58,6 @@ contract Inbox is EssentialContract, IInbox {
     /// @notice The bond manager contract
     IBondManager public immutable bondManager;
 
-
     /// @notice The synced block manager contract
     ISyncedBlockManager public immutable syncedBlockManager;
 
@@ -164,10 +163,7 @@ contract Inbox is EssentialContract, IInbox {
         }
 
         // Check if new proposals would exceed the unfinalized proposal capacity
-        if (
-            coreState.nextProposalId - coreState.lastFinalizedProposalId
-                >  getCapacity()
-        ) {
+        if (coreState.nextProposalId - coreState.lastFinalizedProposalId > getCapacity()) {
             revert ExceedsUnfinalizedProposalCapacity();
         }
 
@@ -533,7 +529,6 @@ contract Inbox is EssentialContract, IInbox {
         }
         return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
     }
-
 
     // -------------------------------------------------------------------------
     // Errors
