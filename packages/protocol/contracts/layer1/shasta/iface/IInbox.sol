@@ -39,10 +39,10 @@ interface IInbox {
         /// and proving fee.
         address proposer;
         /// @notice Provability bond for the proposal, paid by the proposer on L1.
-        uint48 provabilityBond;
+        uint48 provabilityBondGwei;
         /// @notice Liveness bond for the proposal, paid by the proposer on L1 and potentially
         /// also by the designated prover on L2.
-        uint48 livenessBond;
+        uint48 livenessBondGwei;
         /// @notice The L1 block timestamp when the proposal was made. This is needed on L2 to
         /// verify each block's timestamp in the proposal's content.
         uint48 originTimestamp;
@@ -89,9 +89,9 @@ interface IInbox {
         /// @notice The proposer, copied from the proposal.
         address proposer;
         /// @notice The liveness bond, copied from the proposal.
-        uint48 livenessBond;
+        uint48 livenessBondGwei;
         /// @notice The provability bond, copied from the proposal.
-        uint48 provabilityBond;
+        uint48 provabilityBondGwei;
         /// @notice The proof timing.
         ProofTiming proofTiming;
     }

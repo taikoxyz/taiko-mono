@@ -18,13 +18,12 @@ import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 contract Inbox is IInbox {
     using LibDecoder for bytes;
 
-
     // -------------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------------
 
-    uint48 public immutable provabilityBond;
-    uint48 public immutable livenessBond;
+    uint48 public immutable provabilityBondGwei;
+    uint48 public immutable livenessBondGwei;
     uint48 public immutable provingWindow;
     uint48 public immutable extendedProvingWindow;
     uint256 public immutable minBondBalance;
@@ -53,8 +52,8 @@ contract Inbox is IInbox {
     // -------------------------------------------------------------------------
 
     /// @notice Initializes the Inbox contract with configuration parameters
-    /// @param _provabilityBond The bond required for block provability
-    /// @param _livenessBond The bond required for prover liveness
+    /// @param _provabilityBondGwei The bond required for block provability
+    /// @param _livenessBondGwei The bond required for prover liveness
     /// @param _provingWindow The initial proving window duration
     /// @param _extendedProvingWindow The extended proving window duration
     /// @param _minBondBalance The minimum bond balance required for proposers
@@ -66,8 +65,8 @@ contract Inbox is IInbox {
     /// @param _proposerChecker The address of the proposer checker contract
     /// @param _forcedInclusionStore The address of the forced inclusion store contract
     constructor(
-        uint48 _provabilityBond,
-        uint48 _livenessBond,
+        uint48 _provabilityBondGwei,
+        uint48 _livenessBondGwei,
         uint48 _provingWindow,
         uint48 _extendedProvingWindow,
         uint256 _minBondBalance,
@@ -79,8 +78,8 @@ contract Inbox is IInbox {
         address _proposerChecker,
         address _forcedInclusionStore
     ) {
-        provabilityBond = _provabilityBond;
-        livenessBond = _livenessBond;
+        provabilityBondGwei = _provabilityBondGwei;
+        livenessBondGwei = _livenessBondGwei;
         provingWindow = _provingWindow;
         extendedProvingWindow = _extendedProvingWindow;
         minBondBalance = _minBondBalance;
@@ -191,8 +190,8 @@ contract Inbox is IInbox {
         proposal_ = Proposal({
             id: proposalId,
             proposer: msg.sender,
-            provabilityBond: provabilityBond,
-            livenessBond: livenessBond,
+            provabilityBondGwei: provabilityBondGwei,
+            livenessBondGwei: livenessBondGwei,
             originTimestamp: originTimestamp,
             originBlockNumber: originBlockNumber,
             frame: _frame,
@@ -224,8 +223,8 @@ contract Inbox is IInbox {
         ClaimRecord memory claimRecord = ClaimRecord({
             claim: _claim,
             proposer: _proposal.proposer,
-            livenessBond: _proposal.livenessBond,
-            provabilityBond: _proposal.provabilityBond,
+            livenessBondGwei: _proposal.livenessBondGwei,
+            provabilityBondGwei: _proposal.provabilityBondGwei,
             proofTiming: proofTiming
         });
 
@@ -303,12 +302,12 @@ contract Inbox is IInbox {
         private
         returns (bytes32 bondOperationsHash_)
     {
-        uint48 credit;
-        address receiver;
-
         Claim memory claim = _claimRecord.claim;
-        uint256 livenessBondWei = uint256(_claimRecord.livenessBond) * 1 gwei;
-        uint256 provabilityBondWei = uint256(_claimRecord.provabilityBond) * 1 gwei;
+        uint256 livenessBondWei = uint256(_claimRecord.livenessBondGwei) * 1 gwei;
+        uint256 provabilityBondWei = uint256(_claimRecord.provabilityBondGwei) * 1 gwei;
+
+        IBondOperation.BondOperation memory bondOperation;
+        bondOperation.proposalId = _proposalId;
 
         if (_claimRecord.proofTiming == ProofTiming.InProvingWindow) {
             // Proof submitted within the designated proving window (on-time proof)
@@ -317,8 +316,8 @@ contract Inbox is IInbox {
             if (claim.designatedProver != _claimRecord.proposer) {
                 // Proposer and designated prover are different entities
                 // The designated prover paid a liveness bond on L2 that needs to be refunded
-                credit = _claimRecord.livenessBond;
-                receiver = claim.designatedProver;
+                bondOperation.receiver = claim.designatedProver;
+                bondOperation.credit = livenessBondWei;
             }
         } else if (_claimRecord.proofTiming == ProofTiming.InExtendedProvingWindow) {
             // Proof submitted during extended window (late but acceptable proof)
@@ -331,8 +330,8 @@ contract Inbox is IInbox {
                 bondManager.creditBond(claim.actualProver, livenessBondWei / 2);
             } else {
                 // Reward the actual prover with half of the liveness bond on L2
-                credit = _claimRecord.livenessBond / 2;
-                receiver = claim.actualProver;
+                bondOperation.receiver = claim.actualProver;
+                bondOperation.credit = livenessBondWei / 2;
             }
         } else {
             // Proof submitted after extended window (very late proof)
@@ -344,19 +343,14 @@ contract Inbox is IInbox {
             if (claim.designatedProver != _claimRecord.proposer) {
                 // Proposer and designated prover are different entities
                 // Refund the designated prover's L2 liveness bond
-                credit = _claimRecord.livenessBond;
-                receiver = claim.designatedProver;
+                bondOperation.receiver = claim.designatedProver;
+                bondOperation.credit = livenessBondWei;
             }
         }
 
-        if (credit == 0) {
-            return _bondOperationsHash;
-        } else {
-            BondOperation memory bondOperation =
-                BondOperation({ proposalId: _proposalId, receiver: receiver, credit: credit });
-
-            return keccak256(abi.encode(_bondOperationsHash, bondOperation));
-        }
+        return bondOperation.credit == 0
+            ? _bondOperationsHash
+            : keccak256(abi.encode(_bondOperationsHash, bondOperation));
     }
 
     /// @dev Validates a blob locator and converts it to a frame.
