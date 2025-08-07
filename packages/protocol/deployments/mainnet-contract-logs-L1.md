@@ -498,6 +498,7 @@
   - `0x000cb000E880A92a8f383D69dA2142a969B93DE7`(chainbound)
 - ejectors:
   - `0x45D4403351Bc34283CE6450D91c099f40D06dA4e`
+  - `0x0F026a3efE44E0Fe34B87375EFe69b16c05D0438`
 - logs:
   - deployed on Jul 23, 2025 @commit `c2a941e` @tx `0x797256dc575734f2af55c2c2138aaf72aaed91e0909b6cd03d637b54b0c99bba`
   - upgraded to `0x44eC275996BD69361EF062ed488882a58256CF11` @commit`31094a6` @tx`` // TODO: fill the tx hash
