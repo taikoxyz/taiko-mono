@@ -677,7 +677,6 @@ contract Inbox is EssentialContract, IInbox {
         } else if (_claimRecord.bondDecision == BondDecision.L2RefundLiveness) {
             // Proposer and designated prover are different entities
             // The designated prover paid a liveness bond on L2 that needs to be refunded
-
             bondOperation.credit = livenessBondWei;
             bondOperation.receiver = claim.designatedProver;
         } else if (_claimRecord.bondDecision == BondDecision.L1SlashLivenessRewardProver) {
@@ -703,7 +702,6 @@ contract Inbox is EssentialContract, IInbox {
         } else if (_claimRecord.bondDecision == BondDecision.L1SlashProvabilityRewardProver) {
             // Proof submitted after extended window, proposer and designated prover are same
             // Forfeit provability bond but reward the actual prover
-
             bondManager.debitBond(_claimRecord.proposer, provabilityBondWei);
             bondManager.creditBond(claim.actualProver, provabilityBondWei / REWARD_FRACTION);
         }
