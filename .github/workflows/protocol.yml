@@ -47,7 +47,7 @@ jobs:
           submodules: recursive
           fetch-depth: 0
           ref: ${{ github.head_ref }}
-
+          token: ${{ secrets.TAIKO_KITTY_TOKEN }}
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.4.0
@@ -89,7 +89,7 @@ jobs:
         with:
           commit_message: "forge fmt & update contract layout tables"
           branch: ${{ github.head_ref }}
-          push_options: '--force-with-lease'
+          push_options: "--force-with-lease"
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol

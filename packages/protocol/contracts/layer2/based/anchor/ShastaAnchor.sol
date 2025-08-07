@@ -48,7 +48,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _parentGasUsed This is the amount of gas used in the parent block.
     /// @param _baseFeeConfig This is the configuration for the base fee.
     /// @param _signalSlots These are the signal slots to be marked as received.
-    function v4Anchor(
+    function anchor4(
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint256, /*_parentBaseFee*/
@@ -87,7 +87,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         lastAnchorGasUsed = uint32(ANCHOR_GAS_LIMIT - gasleft() + 5006);
     }
 
-    function v4GetBaseFee(
+    function getBaseFee4(
         uint32 _parentGasUsed,
         uint64 _blockTimestamp,
         LibSharedData.BaseFeeConfig calldata _baseFeeConfig

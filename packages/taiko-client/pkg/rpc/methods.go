@@ -218,7 +218,7 @@ func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
 				log.Info(
 					"L2 execution engine is syncing",
 					"currentBlockID", progress.CurrentBlockID,
-					"highestBlockID", progress.HighestBlockID,
+					"highestOriginBlockID", progress.HighestOriginBlockID,
 					"progress", progress.SyncProgress,
 					"time", time.Since(start),
 				)
@@ -468,8 +468,8 @@ func (c *Client) L2AccountNonce(
 // the sync progress of verified blocks, and block IDs are used to check the sync progress of pending blocks.
 type L2SyncProgress struct {
 	*ethereum.SyncProgress
-	CurrentBlockID *big.Int
-	HighestBlockID *big.Int
+	CurrentBlockID       *big.Int
+	HighestOriginBlockID *big.Int
 }
 
 // IsSyncing returns true if the L2 execution engine is syncing with L1.
@@ -478,11 +478,11 @@ func (p *L2SyncProgress) IsSyncing() bool {
 		return false
 	}
 
-	if p.CurrentBlockID == nil || p.HighestBlockID == nil {
+	if p.CurrentBlockID == nil || p.HighestOriginBlockID == nil {
 		return true
 	}
 
-	return p.CurrentBlockID.Cmp(p.HighestBlockID) < 0
+	return p.CurrentBlockID.Cmp(p.HighestOriginBlockID) < 0
 }
 
 // L2ExecutionEngineSyncProgress fetches the sync progress of the given L2 execution engine.
@@ -512,7 +512,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 			return err
 		}
 
-		progress.HighestBlockID = new(big.Int).SetUint64(batch.LastBlockId)
+		progress.HighestOriginBlockID = new(big.Int).SetUint64(batch.LastBlockId)
 
 		return nil
 	})
