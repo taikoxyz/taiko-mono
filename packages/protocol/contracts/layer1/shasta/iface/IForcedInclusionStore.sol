@@ -10,9 +10,6 @@ interface IForcedInclusionStore {
     struct ForcedInclusion {
         /// @notice The fee in Gwei that was paid to submit the forced inclusion.
         uint64 feeInGwei;
-        /// @notice The timestamp when the forced inclusion was submitted.
-        uint64 submittedAt;
-        /// @notice The byte offset of the forced inclusion in the blob.
         /// @notice The proposal's frame.
         LibBlobs.BlobFrame frame;
     }
