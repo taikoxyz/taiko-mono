@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IAnchor } from "../iface/IAnchor.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
+import { IBondOperation } from "contracts/shared/shasta/iface/IBondOperation.sol";
 
 /// @title Anchor
 /// @notice Contract that manages L2 state synchronization with L1
@@ -44,7 +45,7 @@ contract Anchor is IAnchor {
     ///      This ensures state updates come from the L2 system itself
     function setState(
         State memory _newState,
-        BondOperation[] memory _bondOperations
+        IBondOperation.BondOperation[] memory _bondOperations
     )
         external
         onlyAuthorized

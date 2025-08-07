@@ -5,6 +5,7 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IInboxStateManager } from "../iface/IInboxStateManager.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 import { ISyncedBlockManager } from "../../../shared/shasta/iface/ISyncedBlockManager.sol";
+import { IBondOperation } from "../../../shared/shasta/iface/IBondOperation.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibDecoder } from "../lib/LibDecoder.sol";
@@ -17,11 +18,6 @@ import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 contract Inbox is IInbox {
     using LibDecoder for bytes;
 
-    struct BondOperation {
-        uint48 proposalId;
-        address receiver;
-        uint256 credit;
-    }
 
     // -------------------------------------------------------------------------
     // State Variables
