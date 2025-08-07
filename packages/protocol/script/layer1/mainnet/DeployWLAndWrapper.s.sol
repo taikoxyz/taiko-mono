@@ -31,10 +31,10 @@ contract DeployWLAndWrapper is DeployCapability {
         address fallbackProposer = 0x7A853a6480F4D7dB79AE91c16c960dBbB6710d25;
         address chainBoundSequencer = 0x000cb000E880A92a8f383D69dA2142a969B93DE7;
 
-
-    address whitelistImpl = address(new PreconfWhitelist());
+        address whitelistImpl = address(new PreconfWhitelist());
         console2.log(
-            "Upgrading whitelist calldata: ", abi.encodeCall(UUPSUpgradeable.upgradeTo, (whitelistImpl))
+            "Upgrading whitelist calldata: ",
+            abi.encodeCall(UUPSUpgradeable.upgradeTo, (whitelistImpl))
         );
         console2.log(
             "Set ejector calldata: ", abi.encodeCall(PreconfWhitelist.setEjecter, (ejector, true))
