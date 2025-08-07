@@ -189,25 +189,15 @@ contract Inbox is EssentialContract, IInbox {
         (Proposal[] memory proposals, Claim[] memory claims) = _data.decodeProveData();
 
         if (proposals.length != claims.length) revert InconsistentParams();
+        if (proposals.length == 0) revert EmptyProposals();
 
         ClaimRecord[] memory claimRecords = new ClaimRecord[](proposals.length);
 
         for (uint256 i; i < proposals.length; ++i) {
             claimRecords[i] = _buildClaimRecord(proposals[i], claims[i]);
-            // TODO: emit Proved event for aggregated claim records
-            emit Proved(proposals[i], claimRecords[i]);
         }
 
-        (uint48[] memory proposalIds, ClaimRecord[] memory aggregatedClaimRecords) =
-            _aggregateClaimRecords(proposals, claimRecords);
-
-        for (uint256 i; i < aggregatedClaimRecords.length; ++i) {
-            bytes32 claimRecordHash = keccak256(abi.encode(aggregatedClaimRecords[i]));
-            // Use the parentClaimHash from the aggregated claim record
-            _setClaimRecordHash(
-                proposalIds[i], aggregatedClaimRecords[i].claim.parentClaimHash, claimRecordHash
-            );
-        }
+        _aggregateAndSaveClaimRecords(proposals, claimRecords);
 
         bytes32 claimsHash = keccak256(abi.encode(claims));
         proofVerifier.verifyProof(claimsHash, _proof);
@@ -349,7 +339,7 @@ contract Inbox is EssentialContract, IInbox {
         return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
 
-    /// @dev Aggregates consecutive claim records to reduce gas costs
+    /// @dev Aggregates and saves consecutive claim records to reduce gas costs
     /// @notice This function is a key gas optimization that combines multiple claim records
     /// into fewer records when they share compatible properties:
     /// - Same parent claim hash (ensures they're part of the same chain)
@@ -361,69 +351,91 @@ contract Inbox is EssentialContract, IInbox {
     /// they can be stored as 1 aggregated record instead of 10 individual records
     /// @param _proposals Array of proposals being proven
     /// @param _claimRecords Array of claim records to aggregate
-    /// @return _ Array of proposal IDs (first ID of each aggregated group)
-    /// @return _ Array of aggregated claim records
-    function _aggregateClaimRecords(
+    function _aggregateAndSaveClaimRecords(
         Proposal[] memory _proposals,
         ClaimRecord[] memory _claimRecords
     )
         private
-        pure
-        returns (uint48[] memory, ClaimRecord[] memory)
     {
         unchecked {
-            if (_claimRecords.length == 0) {
-                return (new uint48[](0), new ClaimRecord[](0));
-            }
+            // Track the first proposal for each aggregated record
+            Proposal[] memory firstProposals = new Proposal[](_claimRecords.length);
+            firstProposals[0] = _proposals[0];
 
-            // Allocate proposal IDs array with max possible size
-            uint48[] memory proposalIds = new uint48[](_claimRecords.length);
-            proposalIds[0] = _proposals[0].id;
+            // Handle single element case
+            if (_claimRecords.length == 1) {
+                _setClaimRecordHash(
+                    _proposals[0].id,
+                    _claimRecords[0].claim.parentClaimHash,
+                    keccak256(abi.encode(_claimRecords[0]))
+                );
+                emit Proved(_proposals[0], _claimRecords[0]);
+                return;
+            }
 
             // Reuse _claimRecords array for aggregation
             uint256 writeIndex = 0;
-            uint256 readIndex = 1;
+            uint256 readIdx = 1;
+            uint48 lastAggregatedProposalId = _proposals[0].id;
 
-            while (readIndex < _claimRecords.length) {
-                ClaimRecord memory writeRecord = _claimRecords[writeIndex];
-                ClaimRecord memory readRecord = _claimRecords[readIndex];
-
-                if (_canAggregate(writeRecord, readRecord, _proposals[readIndex].id)) {
+            while (readIdx < _claimRecords.length) {
+                // Check if current proposal is consecutive to the last aggregated one
+                bool isConsecutive = _proposals[readIdx].id == lastAggregatedProposalId + 1;
+                
+                if (
+                    isConsecutive
+                    && _canAggregate(
+                        _claimRecords[writeIndex], _claimRecords[readIdx], _proposals[readIdx].id
+                    )
+                ) {
                     // Update the aggregated record at writeIndex to span multiple proposals
-                    writeRecord.nextProposalId = readRecord.nextProposalId;
-                    writeRecord.claim.endBlockNumber = readRecord.claim.endBlockNumber;
-                    writeRecord.claim.endBlockHash = readRecord.claim.endBlockHash;
-                    writeRecord.claim.endStateRoot = readRecord.claim.endStateRoot;
+                    _claimRecords[writeIndex].nextProposalId = _claimRecords[readIdx].nextProposalId;
+                    _claimRecords[writeIndex].claim.endBlockNumber =
+                        _claimRecords[readIdx].claim.endBlockNumber;
+                    _claimRecords[writeIndex].claim.endBlockHash =
+                        _claimRecords[readIdx].claim.endBlockHash;
+                    _claimRecords[writeIndex].claim.endStateRoot =
+                        _claimRecords[readIdx].claim.endStateRoot;
 
                     if (
-                        writeRecord.bondDecision == BondDecision.L2RefundLiveness
-                            || writeRecord.bondDecision == BondDecision.L2RewardProver
+                        _claimRecords[writeIndex].bondDecision == BondDecision.L2RefundLiveness
+                            || _claimRecords[writeIndex].bondDecision == BondDecision.L2RewardProver
                     ) {
-                        writeRecord.livenessBondGwei += readRecord.livenessBondGwei;
+                        _claimRecords[writeIndex].livenessBondGwei +=
+                            _claimRecords[readIdx].livenessBondGwei;
                     } else {
-                        // assert(writeRecord.bondDecision == BondDecision.NoOp);
-                        writeRecord.livenessBondGwei = 0;
+                        // assert(_claimRecords[writeIndex].bondDecision == BondDecision.NoOp);
+                        _claimRecords[writeIndex].livenessBondGwei = 0;
                     }
+                    
+                    // Update the last aggregated proposal ID
+                    lastAggregatedProposalId = _proposals[readIdx].id;
                 } else {
                     // Move to next write position and copy the current record
                     writeIndex++;
-                    if (writeIndex != readIndex) {
-                        _claimRecords[writeIndex] = _claimRecords[readIndex];
+                    if (writeIndex != readIdx) {
+                        _claimRecords[writeIndex] = _claimRecords[readIdx];
                     }
-                    proposalIds[writeIndex] = _proposals[readIndex].id;
+                    firstProposals[writeIndex] = _proposals[readIdx];
+                    
+                    // Update the last aggregated proposal ID for the new write position
+                    lastAggregatedProposalId = _proposals[readIdx].id;
                 }
-                readIndex++;
+                readIdx++;
             }
 
             // Final aggregated count
             uint256 aggregatedCount = writeIndex + 1;
 
-            // Set the correct length for proposalIds array using assembly
-            assembly {
-                mstore(proposalIds, aggregatedCount)
-                mstore(_claimRecords, aggregatedCount)
+            // Emit events and set hashes for all aggregated records
+            for (uint256 i; i < aggregatedCount; ++i) {
+                _setClaimRecordHash(
+                    firstProposals[i].id,
+                    _claimRecords[i].claim.parentClaimHash,
+                    keccak256(abi.encode(_claimRecords[i]))
+                );
+                emit Proved(firstProposals[i], _claimRecords[i]);
             }
-            return (proposalIds, _claimRecords);
         }
     }
 
@@ -714,8 +726,8 @@ contract Inbox is EssentialContract, IInbox {
 
     error ClaimRecordHashMismatch();
     error ClaimRecordNotProvided();
+    error EmptyProposals();
     error ExceedsUnfinalizedProposalCapacity();
-    error InconsistentParams();
     error InsufficientBond();
     error InvalidState();
     error ProposalHashMismatch();
