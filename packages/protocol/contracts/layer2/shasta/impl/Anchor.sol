@@ -72,15 +72,18 @@ contract Anchor is EssentialContract, IAnchor {
             blockHashManager.saveBlockHash(_newState.anchorBlockNumber, _newState.anchorBlockHash);
         }
 
-        bytes32 bondOperationsHash = _state.bondOperationsHash;
+        bytes32 bondOperationAggregationHash = _state.bondOperationAggregationHash;
         for (uint256 i; i < _bondOperations.length; ++i) {
             if (_bondOperations[i].receiver != address(0) && _bondOperations[i].credit != 0) {
                 bondManager.creditBond(_bondOperations[i].receiver, _bondOperations[i].credit);
             }
-            bondOperationsHash =
-                LibBondOperation.aggregateBondOperation(bondOperationsHash, _bondOperations[i]);
+            bondOperationAggregationHash = LibBondOperation.aggregateBondOperation(
+                bondOperationAggregationHash, _bondOperations[i]
+            );
         }
-        if (bondOperationsHash != _newState.bondOperationsHash) revert BondOperationsHashMismatch();
+        if (bondOperationAggregationHash != _newState.bondOperationAggregationHash) {
+            revert BondOperationsHashMismatch();
+        }
 
         _newState.gasIssuancePerSecond = _newState.indexInBatch + 1 == _newState.batchSize
             ? _newState.gasIssuancePerSecond

@@ -15,8 +15,12 @@ library LibBondOperation {
         uint256 credit;
     }
 
+    // -------------------------------------------------------------------------
+    // Functions
+    // -------------------------------------------------------------------------
+
     function aggregateBondOperation(
-        bytes32 _bondOperationsHash,
+        bytes32 _bondOperationAggregationHash,
         BondOperation memory _bondOperation
     )
         internal
@@ -24,7 +28,7 @@ library LibBondOperation {
         returns (bytes32)
     {
         return _bondOperation.receiver == address(0) || _bondOperation.credit == 0
-            ? _bondOperationsHash
-            : keccak256(abi.encode(_bondOperationsHash, _bondOperation));
+            ? _bondOperationAggregationHash
+            : keccak256(abi.encode(_bondOperationAggregationHash, _bondOperation));
     }
 }
