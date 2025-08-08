@@ -30,6 +30,9 @@ library LibBlockHeader {
         bytes32 parentBeaconBlockRoot;
     }
 
+    /// @dev Encodes a block header into RLP format
+    /// @param _blockHeader The block header to encode
+    /// @return The RLP-encoded block header as bytes
     function encodeRLP(BlockHeader memory _blockHeader) internal pure returns (bytes memory) {
         LibRLP.List memory list = LibRLP.p();
         list = LibRLP.p(list, abi.encodePacked(_blockHeader.parentHash));
@@ -52,6 +55,9 @@ library LibBlockHeader {
         return LibRLP.encode(list);
     }
 
+    /// @dev Computes the hash of a block header
+    /// @param _blockHeader The block header to hash
+    /// @return The keccak256 hash of the RLP-encoded block header
     function hash(BlockHeader memory _blockHeader) internal pure returns (bytes32) {
         return keccak256(encodeRLP(_blockHeader));
     }

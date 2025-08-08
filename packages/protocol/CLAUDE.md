@@ -46,14 +46,38 @@ packages/
 - Prefer straightforward custom errors over require strings and avoid natspec comments for errors, always put errors at the end of the implementation file, not in the interface.
 - For larger files, have clear separators between external & public, internal, private functions, and errors.
   ```
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------
   // Group label
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------
   ```
 - Always make sure there is a "/// @custom:security-contact security@taiko.xyz" for solidity files (test not included), and ensure license is MIT (all solidity files)
 - Use `///` comments for natspec. Only external and public functions should have a `@notice`, while internal or private only have `@dev`
 - Use named parameters on mapping definitions
 - Function parameters should always start with "_", and return values should always end with "_"
+- Always use `require` statements with custom errors instead of `if-revert` patterns
+  - YES: `require(condition, ErrorName())`
+  - NO: `if (!condition) revert ErrorName()`
+- Use consistent code separators for larger files with these exact labels only:
+
+  ```
+  // ---------------------------------------------------------------
+  // Group Labels
+  // ---------------------------------------------------------------
+  ```
+
+  Where only the following labels are used:
+
+  - Structs
+  - Events
+  - Variables
+  - Constants
+  - Immutables
+  - State variables
+  - Constructor
+  - External functions
+  - Internal functions
+  - Private functions
+  - Errors
 
 ### Commands
 
