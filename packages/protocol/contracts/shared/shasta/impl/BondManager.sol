@@ -7,9 +7,9 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title BondManager
-/// @notice Contract for managing bonds in the Based3 protocol
+/// @notice Abstract contract for managing bonds in the Based3 protocol
 /// @custom:security-contact security@taiko.xyz
-contract BondManager is IBondManager {
+abstract contract BondManager is IBondManager {
     using SafeERC20 for IERC20;
     // -------------------------------------------------------------------
     // State Variables
@@ -18,14 +18,8 @@ contract BondManager is IBondManager {
     /// @notice The address of the inbox contract that is allowed to call debitBond and creditBond
     address public immutable authorized;
 
-    /// @notice Whether to enforce L1 finalization guard in withdraw.
-    bool public immutable enforceFinalizationGuard;
-
     /// @notice ERC20 token used as bond.
     IERC20 public immutable bondToken;
-
-    /// @notice Minimum bond required on L1 to propose; can be zero on L2. uint96-bounded.
-    uint96 public immutable minBond;
 
     /// @notice Per-user bond state
     mapping(address proposer => Bond bond) public bond;
@@ -47,19 +41,9 @@ contract BondManager is IBondManager {
     /// @notice Initializes the BondManager with the inbox address
     /// @param _authorized The address of the authorized contract
     /// @param _bondToken The ERC20 bond token address
-    /// @param _enforceFinalizationGuard Whether to enforce the proposal finalization guard. This
-    /// should be set to true on L1 and false on L2.
-    /// @param _minBond The minimum bond required for proposers. This should be set to zero on L2.
-    constructor(
-        address _authorized,
-        address _bondToken,
-        bool _enforceFinalizationGuard,
-        uint96 _minBond
-    ) {
+    constructor(address _authorized, address _bondToken) {
         authorized = _authorized;
         bondToken = IERC20(_bondToken);
-        enforceFinalizationGuard = _enforceFinalizationGuard;
-        minBond = _minBond;
     }
 
     // -------------------------------------------------------------------
@@ -95,33 +79,13 @@ contract BondManager is IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    /// @dev Since the inbox contract is trusted, we can always assume that the proposalId is bigger
-    /// than the current maxProposedId.
-    function notifyProposed(address proposer, uint48 proposalId) external onlyAuthorized {
-        Bond storage bond_ = bond[proposer];
-        if (bond_.balance < minBond) revert InsufficientBond();
-        bond_.maxProposedId = proposalId;
-    }
-
-    /// @inheritdoc IBondManager
-    /// @dev On L1, we only allow withdrawals that do not have unfinalized proposals or that are
-    /// down to the minimum bond.
-    function withdraw(address to, uint96 amount, IInbox.CoreState calldata coreState) external {
-        if (enforceFinalizationGuard) {
-            bytes32 expected = IInbox(authorized).getCoreStateHash();
-            if (keccak256(abi.encode(coreState)) != expected) revert InvalidState();
-
-            IBondManager.Bond storage bond_ = bond[msg.sender];
-            bool hasUnfinalized = bond_.maxProposedId > coreState.lastFinalizedProposalId;
-            if (hasUnfinalized) {
-                // Allow withdrawal only down to minBond
-                require(bond_.balance - amount >= minBond, UnfinalizedProposals());
-            }
-        }
-
-        _withdraw(msg.sender, to, amount);
-        emit BondWithdrawn(msg.sender, amount);
-    }
+    function withdraw(
+        address to,
+        uint96 amount,
+        IInbox.CoreState calldata coreState
+    )
+        external
+        virtual;
 
     /// @inheritdoc IBondManager
     function deposit(uint96 amount) external {
@@ -166,9 +130,8 @@ contract BondManager is IBondManager {
     /// @param amount The amount to withdraw
     function _withdraw(address from, address to, uint96 amount) internal {
         _debitBond(from, amount);
-
-        // Transfer ERC20 bond tokens out to recipient
         bondToken.safeTransfer(to, amount);
+        emit BondWithdrawn(from, amount);
     }
 
     /// @dev Internal implementation for getting the bond balance

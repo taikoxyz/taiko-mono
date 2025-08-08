@@ -58,13 +58,6 @@ interface IBondManager {
     /// @return The bond balance of the address
     function getBondBalance(address _address) external view returns (uint96);
 
-    /// @notice Notifies the bond manager that a proposal was created by a proposer and checks that
-    /// the proposer has enough balance.
-    /// @dev Called only by the authorized inbox contract.
-    /// @param proposer The proposer address.
-    /// @param proposalId The proposal id.
-    function notifyProposed(address proposer, uint48 proposalId) external;
-
     /// @notice Deposit ERC20 bond tokens into the manager.
     /// @param amount The amount to deposit.
     function deposit(uint96 amount) external;
