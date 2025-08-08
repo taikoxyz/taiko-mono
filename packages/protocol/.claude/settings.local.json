@@ -12,7 +12,8 @@
       "Bash(find:*)",
       "Bash(pnpm compile:*)",
       "Bash(grep:*)",
-      "Bash(forge build:*)"
+      "Bash(forge build:*)",
+      "Bash(pnpm test:*)"
     ],
     "deny": []
   }

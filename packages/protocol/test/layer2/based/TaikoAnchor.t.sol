@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "test/layer2/Layer2Test.sol";
 import "test/layer2/helpers/TaikoAnchor_NoBaseFeeCheck.sol";
+import "src/layer2/based/OntakeAnchor.sol";
 
 contract TestTaikoAnchor is Layer2Test {
     uint32 public constant BLOCK_GAS_LIMIT = 30_000_000;
@@ -93,7 +94,7 @@ contract TestTaikoAnchor is Layer2Test {
         external
         onTaiko
     {
-        LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
+        OntakeAnchor.BaseFeeConfig memory baseFeeConfig = OntakeAnchor.BaseFeeConfig({
             adjustmentQuotient: _adjustmentQuotient,
             sharingPctg: _sharingPctg,
             gasIssuancePerSecond: _gasIssuancePerSecond,
@@ -124,7 +125,7 @@ contract TestTaikoAnchor is Layer2Test {
         if (_gasIssuancePerSecond == type(uint32).max) _gasIssuancePerSecond -= 1;
         if (_adjustmentQuotient == 0) _adjustmentQuotient = 1;
 
-        LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
+        OntakeAnchor.BaseFeeConfig memory baseFeeConfig = OntakeAnchor.BaseFeeConfig({
             adjustmentQuotient: _adjustmentQuotient,
             sharingPctg: _sharingPctg,
             gasIssuancePerSecond: _gasIssuancePerSecond,
@@ -156,7 +157,7 @@ contract TestTaikoAnchor is Layer2Test {
 
     function _anchorV3(uint32 parentGasUsed) private {
         bytes32 anchorStateRoot = randBytes32();
-        LibSharedData.BaseFeeConfig memory baseFeeConfig = LibSharedData.BaseFeeConfig({
+        OntakeAnchor.BaseFeeConfig memory baseFeeConfig = OntakeAnchor.BaseFeeConfig({
             adjustmentQuotient: 8,
             sharingPctg: 75,
             gasIssuancePerSecond: 5_000_000,

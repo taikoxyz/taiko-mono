@@ -117,7 +117,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
+        BaseFeeConfig calldata _baseFeeConfig,
         bytes32[] calldata _signalSlots
     )
         external
@@ -176,7 +176,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
     function getBasefeeV2(
         uint32 _parentGasUsed,
         uint64 _blockTimestamp,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+        BaseFeeConfig calldata _baseFeeConfig
     )
         public
         view
@@ -274,7 +274,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
     /// @param _baseFeeConfig The configuration parameters for calculating the base fee.
     function _verifyBaseFeeAndUpdateGasExcess(
         uint32 _parentGasUsed,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+        BaseFeeConfig calldata _baseFeeConfig
     )
         internal
     {
