@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 import { ISyncedBlockManager } from "contracts/shared/shasta/iface/ISyncedBlockManager.sol";
@@ -18,6 +20,16 @@ import { LibDecoder } from "../lib/LibDecoder.sol";
 
 contract Inbox is EssentialContract, IInbox {
     using LibDecoder for bytes;
+    using SafeERC20 for IERC20;
+
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
+    /// @notice Emitted when bond is withdrawn from the contract
+    /// @param user The user whose bond was withdrawn
+    /// @param amount The amount of bond withdrawn
+    event BondWithdrawn(address indexed user, uint256 amount);
 
     /// @notice Extended claim record that stores both the claim hash and encoded metadata.
     /// @dev The metadata includes the proposal ID and partial parent claim hash for efficient
@@ -43,6 +55,7 @@ contract Inbox is EssentialContract, IInbox {
 
     uint256 public constant REWARD_FRACTION = 2;
 
+    address public immutable bondToken;
     uint48 public immutable provabilityBondGwei;
     uint48 public immutable livenessBondGwei;
     uint48 public immutable provingWindow;
@@ -68,20 +81,32 @@ contract Inbox is EssentialContract, IInbox {
 
     bytes32 private immutable _DEFAULT_SLOT_HASH = bytes32(uint256(1));
 
-    /// @notice The hash of the core state.
+    // 6 slots are used by the State object defined in Pacaya inbox:
+    // mapping(uint256 batchId_mod_batchRingBufferSize => Batch batch) batches;
+    // mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
+    // mapping(uint256 batchId_mod_batchRingBufferSize => mapping(uint24 transitionId =>
+    //         TransitionState ts)) transitions;
+    // bytes32 __reserve1;
+    // Stats1 stats1;
+    // Stats2 stats2;
+    uint256[6] private __slotsUsedByPacaya;
+
+    mapping(address account => uint256 bond) public bondBalance;
+
+    /// @dev The hash of the core state.
     bytes32 private coreStateHash;
 
-    /// @notice Ring buffer for storing proposal records.
-    /// @dev Key is proposalId % ringBufferSize
+    /// @dev Ring buffer for storing proposal records.
     mapping(uint256 bufferSlot => ProposalRecord proposalRecord) private proposalRingBuffer;
 
-    uint256[48] private __gap;
+    uint256[41] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
     /// @notice Initializes the Inbox contract with configuration parameters
+    /// @param _bondToken The address of the bond token contract
     /// @param _provabilityBondGwei The bond required for block provability
     /// @param _livenessBondGwei The bond required for prover liveness
     /// @param _provingWindow The initial proving window duration
@@ -95,6 +120,7 @@ contract Inbox is EssentialContract, IInbox {
     /// @param _proposerChecker The address of the proposer checker contract
     /// @param _forcedInclusionStore The address of the forced inclusion store contract
     constructor(
+        address _bondToken,
         uint48 _provabilityBondGwei,
         uint48 _livenessBondGwei,
         uint48 _provingWindow,
@@ -110,6 +136,7 @@ contract Inbox is EssentialContract, IInbox {
     )
         EssentialContract()
     {
+        bondToken = _bondToken;
         provabilityBondGwei = _provabilityBondGwei;
         livenessBondGwei = _livenessBondGwei;
         provingWindow = _provingWindow;
@@ -200,6 +227,19 @@ contract Inbox is EssentialContract, IInbox {
 
         bytes32 claimsHash = keccak256(abi.encode(claims));
         proofVerifier.verifyProof(claimsHash, _proof);
+    }
+
+    /// @notice Withdraws bond balance for a given user.
+    /// @dev Anyone can call this function to withdraw bond for any user.
+    /// @param _user The address of the user whose bond to withdraw.
+    function withdrawBond(address _user) external nonReentrant {
+        uint256 amount = bondBalance[_user];
+        require(amount > 0, NoBondToWithdraw());
+
+        bondBalance[_user] = 0;
+        IERC20(bondToken).safeTransfer(_user, amount);
+
+        emit BondWithdrawn(_user, amount);
     }
 
     /// @notice Gets the hash of the core state.
@@ -726,4 +766,5 @@ contract Inbox is EssentialContract, IInbox {
     error RingBufferSizeZero();
     error Unauthorized();
     error InvalidForcedInclusion();
+    error NoBondToWithdraw();
 }
