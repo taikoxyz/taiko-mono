@@ -57,7 +57,7 @@ If you find a bug or have a feature request, please [open an issue](https://gith
 
 ## Contributing
 
-Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute. You can also check out our grants cycle at [grants.taiko.xyz](https://grants.taiko.xyz).
+Check out [CONTRIBUTING.md](./CONTRIBUTING.md) for details on how to contribute. You can also check out our grants cycle at [https://taiko.xyz/grant-program](https://taiko.xyz/grant-program).
 
 ## Getting support
 
