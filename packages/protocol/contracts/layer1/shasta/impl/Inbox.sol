@@ -170,15 +170,13 @@ contract Inbox is EssentialContract, IInbox {
                 forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
 
             (coreState, proposal) = _propose(coreState, forcedInclusion.frame, true);
-            // Notify bond manager about this proposal for L1 withdraw guard
-            bondManager.notifyProposed(msg.sender, proposal.id);
             emit Proposed(proposal, coreState);
         }
 
         // Create regular proposal
         LibBlobs.BlobFrame memory frame = LibBlobs.validateBlobLocator(blobLocator);
         (coreState, proposal) = _propose(coreState, frame, false);
-        // Notify bond manager about this proposal for L1 withdraw guard
+        // Notify bond manager about this proposal for L1 withdraw guard. We only need to notify about the latest proposal.
         bondManager.notifyProposed(msg.sender, proposal.id);
         // Finalize proved proposals
         coreState = _finalize(coreState, claimRecords);
