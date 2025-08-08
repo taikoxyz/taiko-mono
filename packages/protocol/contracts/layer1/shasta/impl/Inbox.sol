@@ -37,9 +37,9 @@ contract Inbox is EssentialContract, IInbox {
         mapping(bytes32 parentClaimHash => ExtendedClaimRecord claimRecordHash) claimHashLookup;
     }
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // State Variables
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     uint256 public constant REWARD_FRACTION = 2;
 
@@ -77,9 +77,9 @@ contract Inbox is EssentialContract, IInbox {
 
     uint256[48] private __gap;
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Constructor
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @notice Initializes the Inbox contract with configuration parameters
     /// @param _provabilityBondGwei The bond required for block provability
@@ -139,9 +139,9 @@ contract Inbox is EssentialContract, IInbox {
         coreStateHash = keccak256(abi.encode(coreState));
     }
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // External & Public Functions
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @inheritdoc IInbox
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
@@ -194,22 +194,8 @@ contract Inbox is EssentialContract, IInbox {
 
         for (uint256 i; i < proposals.length; ++i) {
             claimRecords[i] = _buildClaimRecord(proposals[i], claims[i]);
-<<<<<<< HEAD
             // TODO: emit Proved event for aggregated claim records
             emit Proved(proposals[i], claimRecords[i]);
-        }
-
-        (uint48[] memory proposalIds, ClaimRecord[] memory aggregatedClaimRecords) =
-            _aggregateClaimRecords(proposals, claimRecords);
-
-        for (uint256 i; i < aggregatedClaimRecords.length; ++i) {
-            bytes32 claimRecordHash = keccak256(abi.encode(aggregatedClaimRecords[i]));
-            // Use the parentClaimHash from the aggregated claim record
-            _setClaimRecordHash(
-                proposalIds[i], aggregatedClaimRecords[i].claim.parentClaimHash, claimRecordHash
-            );
-=======
->>>>>>> origin/feat/protocol/shasta
         }
 
         _aggregateAndSaveClaimRecords(proposals, claimRecords);
@@ -276,9 +262,9 @@ contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Internal Functions
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @dev Sets the hash of the core state.
     function _setCoreStateHash(bytes32 _coreStateHash) internal {
@@ -489,12 +475,12 @@ contract Inbox is EssentialContract, IInbox {
         return false;
     }
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------------
 =======
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 >>>>>>> origin/feat/protocol/shasta
     // Private Functions
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @dev Aggregates and saves consecutive claim records to reduce gas costs
     /// @notice This function is a key gas optimization that combines multiple claim records
@@ -875,9 +861,9 @@ contract Inbox is EssentialContract, IInbox {
         return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
     }
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     error ClaimRecordHashMismatch();
     error ClaimRecordNotProvided();
