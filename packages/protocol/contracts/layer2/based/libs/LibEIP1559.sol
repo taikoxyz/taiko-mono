@@ -102,23 +102,30 @@ library LibEIP1559 {
     /// @dev Calculates the base fee using the formula: exp(_gasExcess/_gasTarget)/_gasTarget
     /// @param _gasTarget The current gas target.
     /// @param _gasExcess The current gas excess.
-    /// @return The calculated base fee.
-    function basefee(uint64 _gasTarget, uint64 _gasExcess) internal pure returns (uint256) {
+    /// @return basefee_ The calculated base fee.
+    function basefee(
+        uint64 _gasTarget,
+        uint64 _gasExcess
+    )
+        internal
+        pure
+        returns (uint256 basefee_)
+    {
         if (_gasTarget == 0) return 1;
 
-        return (ethQty(_gasTarget, _gasExcess) / _gasTarget).max(1);
+        basefee_ = (ethQty(_gasTarget, _gasExcess) / _gasTarget).max(1);
     }
 
     /// @dev Calculates the exponential of the ratio of gas excess to gas target.
     /// @param _gasTarget The current gas target.
     /// @param _gasExcess The current gas excess.
-    /// @return The calculated exponential value.
-    function ethQty(uint64 _gasTarget, uint64 _gasExcess) internal pure returns (uint256) {
+    /// @return ethQty_ The calculated exponential value.
+    function ethQty(uint64 _gasTarget, uint64 _gasExcess) internal pure returns (uint256 ethQty_) {
         assert(_gasTarget != 0);
         uint256 input = FixedPointMathLib.WAD * _gasExcess / _gasTarget;
         if (input > MAX_EXP_INPUT) {
             input = MAX_EXP_INPUT;
         }
-        return uint256(FixedPointMathLib.expWad(int256(input))) / FixedPointMathLib.WAD;
+        ethQty_ = uint256(FixedPointMathLib.expWad(int256(input))) / FixedPointMathLib.WAD;
     }
 }

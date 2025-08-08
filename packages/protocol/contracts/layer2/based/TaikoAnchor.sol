@@ -11,11 +11,13 @@ import { IShastaBondManager } from "contracts/shared/shasta/iface/IBondManager.s
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
-///
-/// This contract receives a portion of L2 base fees, while the remainder is directed to
+/// @dev This contract receives a portion of L2 base fees, while the remainder is directed to
 /// L2 block's coinbase address.
 /// @custom:security-contact security@taiko.xyz
 contract TaikoAnchor is ShastaAnchor {
+    // -------------------------------------------------------------------
+    // Constructor
+    // -------------------------------------------------------------------
     constructor(
         address _signalService,
         uint64 _pacayaForkHeight,
@@ -30,6 +32,10 @@ contract TaikoAnchor is ShastaAnchor {
             IShastaBondManager(address(0))
         )
     { }
+
+    // -------------------------------------------------------------------
+    // External functions
+    // -------------------------------------------------------------------
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.

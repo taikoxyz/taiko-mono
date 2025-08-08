@@ -10,9 +10,9 @@ import { LibBondOperation } from "src/shared/shasta/libs/LibBondOperation.sol";
 /// @notice Anchoring functions for the Shasta fork.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ShastaAnchor is PacayaAnchor {
-    // ---------------------------------------------------------------
+    // ---------------------------------------------------------------2
     // Structs
-    // ---------------------------------------------------------------
+    // ---------------------------------------------------------------2
 
     struct State {
         uint48 anchorBlockNumber;
@@ -21,9 +21,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
         address anchorTransactor;
     }
 
-    // ---------------------------------------------------------------
+    // ---------------------------------------------------------------2
     // State variables
-    // ---------------------------------------------------------------
+    // ---------------------------------------------------------------2
 
     // The v4Anchor's transaction gas limit, this value must be enforced
     uint64 private constant _ANCHOR_GAS_LIMIT = 200_000;
@@ -36,10 +36,16 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
     uint256[48] private __gap;
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------2----
     // Constructor
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------2----
 
+    /// @notice Initializes the ShastaAnchor contract.
+    /// @param _signalService The address of the signal service.
+    /// @param _pacayaForkHeight The block height at which the Pacaya fork is activated.
+    /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
+    /// @param _syncedBlockManager The address of the synced block manager.
+    /// @param _bondManager The address of the bond manager.
     constructor(
         address _signalService,
         uint64 _pacayaForkHeight,
@@ -56,10 +62,17 @@ abstract contract ShastaAnchor is PacayaAnchor {
         bondManager = _bondManager;
     }
 
-    // ---------------------------------------------------------------
+    // ---------------------------------------------------------------2
     // External functions
-    // ---------------------------------------------------------------
+    // ---------------------------------------------------------------2
 
+    /// @notice Sets the state of the anchor, including the latest L1 block details and bond
+    /// operations.
+    /// @param _anchorBlockNumber The anchor block number.
+    /// @param _anchorBlockHash The anchor block hash.
+    /// @param _anchorStateRoot The anchor state root.
+    /// @param _bondOperationsHash The hash of all bond operations.
+    /// @param _bondOperations Array of bond operations to process.
     function setState(
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
@@ -106,8 +119,10 @@ abstract contract ShastaAnchor is PacayaAnchor {
         bondOperationsHash = _bondOperationsHash;
     }
 
-    function getState() external view returns (State memory) {
-        return State({
+    /// @notice Returns the current state of the anchor.
+    /// @return state_ The current state.
+    function getState() external view returns (State memory state_) {
+        state_ = State({
             anchorBlockNumber: anchorBlockNumber,
             bondOperationsHash: bondOperationsHash,
             anchorGasLimit: _ANCHOR_GAS_LIMIT,
@@ -115,9 +130,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
         });
     }
 
-    // ---------------------------------------------------------------
+    // ---------------------------------------------------------------2
     // Errors
-    // ---------------------------------------------------------------
+    // ---------------------------------------------------------------2
 
     error BondOperationsHashMismatch();
     error InvalidForkHeight();

@@ -9,6 +9,10 @@ import { IBlockHashProvider } from "./IBlockHashProvider.sol";
 /// @custom:deprecated This contract is deprecated and should not be used in new implementations
 /// @custom:security-contact security@taiko.xyz
 abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
+    // -------------------------------------------------------------------
+    // Structs
+    // -------------------------------------------------------------------
+
     /// @dev Struct that represents L2 basefee configurations
     struct BaseFeeConfig {
         // This is the base fee change denominator per 12 second window.
@@ -19,14 +23,30 @@ abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
         uint32 maxGasIssuancePerBlock;
     }
 
+    // -------------------------------------------------------------------
+    // Errors
+    // -------------------------------------------------------------------
+
     error L2_DEPRECATED_METHOD();
 
+    // -------------------------------------------------------------------
+    // Constructor
+    // -------------------------------------------------------------------
+
     constructor() EssentialContract() { }
+
+    // -------------------------------------------------------------------
+    // Modifiers
+    // -------------------------------------------------------------------
 
     modifier deprecated() {
         revert L2_DEPRECATED_METHOD();
         _;
     }
+
+    // -------------------------------------------------------------------
+    // External functions (deprecated)
+    // -------------------------------------------------------------------
 
     function anchor(
         bytes32 _l1BlockHash,
@@ -38,6 +58,7 @@ abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
         deprecated
     { }
 
+    /// @dev Deprecated function for getting base fee
     function getBasefee(
         uint64 _anchorBlockId,
         uint32 _parentGasUsed
@@ -48,6 +69,7 @@ abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
         returns (uint256 basefee_, uint64 parentGasExcess_)
     { }
 
+    /// @dev Deprecated function for adjusting gas excess
     function adjustExcess(
         uint64 _currGasExcess,
         uint64 _currGasTarget,
@@ -59,6 +81,7 @@ abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
         returns (uint64 newGasExcess_)
     { }
 
+    /// @dev Deprecated function for calculating base fee
     function calculateBaseFee(
         BaseFeeConfig calldata _baseFeeConfig,
         uint64 _blocktime,
@@ -80,4 +103,8 @@ abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
         external
         deprecated
     { }
+
+    // -------------------------------------------------------------------
+    // Public functions (deprecated)
+    // -------------------------------------------------------------------
 }

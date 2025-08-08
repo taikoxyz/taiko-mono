@@ -209,17 +209,21 @@ abstract contract PacayaAnchor is OntakeAnchor {
     }
 
     /// @inheritdoc IBlockHashProvider
-    function getBlockHash(uint256 _blockId) public view returns (bytes32) {
+    function getBlockHash(uint256 _blockId) public view returns (bytes32 blockHash_) {
         if (_blockId >= block.number) return 0;
         if (_blockId + 256 >= block.number) return blockhash(_blockId);
-        return _blockhashes[_blockId];
+        blockHash_ = _blockhashes[_blockId];
     }
 
     /// @notice Tells if we need to validate basefee (for simulation).
-    /// @return Returns true to skip checking basefee mismatch.
-    function skipFeeCheck() public pure virtual returns (bool) {
+    /// @return skipCheck_ Returns true to skip checking basefee mismatch.
+    function skipFeeCheck() public pure virtual returns (bool skipCheck_) {
         return false;
     }
+
+    // -------------------------------------------------------------------
+    // Internal functions
+    // -------------------------------------------------------------------
 
     /// @dev Synchronizes chain data with the given anchor block ID and state root.
     /// @param _anchorBlockId The ID of the anchor block.
