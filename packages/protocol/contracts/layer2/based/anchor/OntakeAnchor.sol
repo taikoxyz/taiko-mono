@@ -7,6 +7,7 @@ import { IBlockHashProvider } from "../iface/IBlockHashProvider.sol";
 
 /// @title OntakeAnchor
 /// @notice Anchoring functions for the Ontake and pre-Ontake fork.
+/// @custom:deprecated This contract is deprecated and should not be used in new implementations
 /// @custom:security-contact security@taiko.xyz
 abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
     error L2_DEPRECATED_METHOD();

@@ -13,6 +13,7 @@ import "./OntakeAnchor.sol";
 
 /// @title PacayaAnchor
 /// @notice Anchoring functions for the Pacaya fork.
+/// @custom:deprecated This contract is deprecated and should not be used in new implementations
 /// @custom:security-contact security@taiko.xyz
 abstract contract PacayaAnchor is OntakeAnchor {
     using LibAddress for address;
