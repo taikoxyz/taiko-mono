@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
-import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
+import { IBondManagerL1 } from "../iface/IBondManagerL1.sol";
 import { ISyncedBlockManager } from "contracts/shared/shasta/iface/ISyncedBlockManager.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
@@ -41,18 +41,17 @@ contract Inbox is EssentialContract, IInbox {
     // State Variables
     // ---------------------------------------------------------------
 
-    uint256 public constant REWARD_FRACTION = 2;
+    uint96 public constant REWARD_FRACTION = 2;
 
     uint48 public immutable provabilityBondGwei;
     uint48 public immutable livenessBondGwei;
     uint48 public immutable provingWindow;
     uint48 public immutable extendedProvingWindow;
-    uint256 public immutable minBondBalance;
     uint256 public immutable maxFinalizationCount;
     uint256 public immutable ringBufferSize;
 
     /// @notice The bond manager contract
-    IBondManager public immutable bondManager;
+    IBondManagerL1 public immutable bondManager;
 
     /// @notice The synced block manager contract
     ISyncedBlockManager public immutable syncedBlockManager;
@@ -86,7 +85,6 @@ contract Inbox is EssentialContract, IInbox {
     /// @param _livenessBondGwei The bond required for prover liveness
     /// @param _provingWindow The initial proving window duration
     /// @param _extendedProvingWindow The extended proving window duration
-    /// @param _minBondBalance The minimum bond balance required for proposers
     /// @param _maxFinalizationCount The maximum number of finalizations allowed
     /// @param _ringBufferSize The size of the ring buffer (must be > 0)
     /// @param _bondManager The address of the bond manager contract
@@ -99,7 +97,6 @@ contract Inbox is EssentialContract, IInbox {
         uint48 _livenessBondGwei,
         uint48 _provingWindow,
         uint48 _extendedProvingWindow,
-        uint256 _minBondBalance,
         uint256 _maxFinalizationCount,
         uint256 _ringBufferSize,
         address _bondManager,
@@ -114,10 +111,9 @@ contract Inbox is EssentialContract, IInbox {
         livenessBondGwei = _livenessBondGwei;
         provingWindow = _provingWindow;
         extendedProvingWindow = _extendedProvingWindow;
-        minBondBalance = _minBondBalance;
         maxFinalizationCount = _maxFinalizationCount;
         ringBufferSize = _ringBufferSize;
-        bondManager = IBondManager(_bondManager);
+        bondManager = IBondManagerL1(_bondManager);
         syncedBlockManager = ISyncedBlockManager(_syncedBlockManager);
         proofVerifier = IProofVerifier(_proofVerifier);
         proposerChecker = IProposerChecker(_proposerChecker);
@@ -146,7 +142,6 @@ contract Inbox is EssentialContract, IInbox {
     /// @inheritdoc IInbox
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         proposerChecker.checkProposer(msg.sender);
-        require(bondManager.getBondBalance(msg.sender) >= minBondBalance, InsufficientBond());
 
         (
             CoreState memory coreState,
@@ -176,6 +171,9 @@ contract Inbox is EssentialContract, IInbox {
         // Create regular proposal
         LibBlobs.BlobFrame memory frame = LibBlobs.validateBlobLocator(blobLocator);
         (coreState, proposal) = _propose(coreState, frame, false);
+        // Notify bond manager about this proposal for L1 withdraw guard. We only need to notify
+        // about the latest proposal.
+        bondManager.notifyProposed(msg.sender, proposal.id);
         // Finalize proved proposals
         coreState = _finalize(coreState, claimRecords);
         emit Proposed(proposal, coreState);
@@ -671,8 +669,8 @@ contract Inbox is EssentialContract, IInbox {
         bondOperation.proposalId = _proposalId;
 
         Claim memory claim = _claimRecord.claim;
-        uint256 livenessBondWei = uint256(_claimRecord.livenessBondGwei) * 1 gwei;
-        uint256 provabilityBondWei = uint256(_claimRecord.provabilityBondGwei) * 1 gwei;
+        uint96 livenessBondWei = _claimRecord.livenessBondGwei * 1 gwei;
+        uint96 provabilityBondWei = _claimRecord.provabilityBondGwei * 1 gwei;
 
         if (_claimRecord.bondDecision == BondDecision.NoOp) {
             // No bond operations needed

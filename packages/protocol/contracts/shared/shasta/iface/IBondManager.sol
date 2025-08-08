@@ -1,10 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
+
 /// @title IBondManager
 /// @notice Interface for managing bonds in the Based3 protocol
 /// @custom:security-contact security@taiko.xyz
 interface IBondManager {
+    /// @notice Represents a bond for a given address.
+    /// @dev On L2, the `maxProposedId` is not used.
+    struct Bond {
+        uint48 maxProposedId;
+        uint96 balance;
+    }
+
     // -------------------------------------------------------------------
     // Events
     // -------------------------------------------------------------------
@@ -12,12 +21,22 @@ interface IBondManager {
     /// @notice Emitted when a bond is debited from an address
     /// @param account The account from which the bond was debited
     /// @param amount The amount debited
-    event BondDebited(address indexed account, uint256 amount);
+    event BondDebited(address indexed account, uint96 amount);
 
     /// @notice Emitted when a bond is credited to an address
     /// @param account The account to which the bond was credited
     /// @param amount The amount credited
-    event BondCredited(address indexed account, uint256 amount);
+    event BondCredited(address indexed account, uint96 amount);
+
+    /// @notice Emitted when a bond is deposited into the manager
+    /// @param account The account that deposited the bond
+    /// @param amount The amount deposited
+    event BondDeposited(address indexed account, uint96 amount);
+
+    /// @notice Emitted when a bond is withdrawn from the manager
+    /// @param account The account that withdrew the bond
+    /// @param amount The amount withdrawn
+    event BondWithdrawn(address indexed account, uint96 amount);
 
     // -------------------------------------------------------------------
     // External Functions
@@ -27,15 +46,28 @@ interface IBondManager {
     /// @param _address The address to debit the bond from
     /// @param _bond The amount of bond to debit
     /// @return amountDebited_ The actual amount debited
-    function debitBond(address _address, uint256 _bond) external returns (uint256 amountDebited_);
+    function debitBond(address _address, uint96 _bond) external returns (uint96 amountDebited_);
 
     /// @notice Credits a bond to an address
     /// @param _address The address to credit the bond to
     /// @param _bond The amount of bond to credit
-    function creditBond(address _address, uint256 _bond) external;
+    function creditBond(address _address, uint96 _bond) external;
 
     /// @notice Gets the bond balance of an address
     /// @param _address The address to get the bond balance for
     /// @return The bond balance of the address
-    function getBondBalance(address _address) external view returns (uint256);
+    function getBondBalance(address _address) external view returns (uint96);
+
+    /// @notice Deposit ERC20 bond tokens into the manager.
+    /// @param amount The amount to deposit.
+    function deposit(uint96 amount) external;
+
+    /// @notice Withdraw bond to a recipient.
+    /// @dev On L1, this enforces that the caller has no unfinalized proposals by verifying
+    ///      the provided core state against the inbox's current core state hash. On L2, the
+    ///      guard is skipped and only balance checks apply in the implementation.
+    /// @param to The recipient of withdrawn funds.
+    /// @param amount The amount to withdraw.
+    /// @param coreState The core state to validate (ignored on L2 implementations).
+    function withdraw(address to, uint96 amount, IInbox.CoreState calldata coreState) external;
 }

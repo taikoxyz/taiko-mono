@@ -117,4 +117,8 @@ interface IInbox {
     /// @param _data The data containing the proposals and claims to be proven.
     /// @param _proof Validity proof for the claims.
     function prove(bytes calldata _data, bytes calldata _proof) external;
+
+    /// @notice Gets the hash of the core state.
+    /// @return coreStateHash_ The hash of the current core state.
+    function getCoreStateHash() external view returns (bytes32 coreStateHash_);
 }
