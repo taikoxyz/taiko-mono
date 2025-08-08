@@ -18,9 +18,9 @@ import { LibMath } from "contracts/shared/libs/LibMath.sol";
 contract Anchor is EssentialContract, IAnchor {
     using LibMath for uint256;
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Constants
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @dev Maximum gas issuance adjustment per update (0.01% = 1/10000)
     uint32 private constant _GAS_ISSUANCE_MAX_ADJUSTMENT_DIVISOR = 10_000;
@@ -29,18 +29,18 @@ contract Anchor is EssentialContract, IAnchor {
     address private constant _ANCHOR_TRANSACTOR =
         address(bytes20(keccak256("TAIKO_ANCHOR_TRANSACTOR")));
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Immutable Configuration
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @notice External contract dependencies
     IBondManager public immutable bondManager;
     IBlockHashManager public immutable blockHashManager;
     ISyncedBlockManager public immutable syncedBlockManager;
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // State Variables
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @dev Current anchor state (4 storage slots)
     State private _state;
@@ -60,9 +60,9 @@ contract Anchor is EssentialContract, IAnchor {
         syncedBlockManager = _syncedBlockManager;
     }
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // External Functions
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @notice Initializes the anchor contract with initial state
     /// @param _owner Contract owner address for admin functions
