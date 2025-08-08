@@ -8,7 +8,6 @@ library LibSharedData {
         uint8 sharingPctg;
         uint32 gasIssuancePerSecond;
         uint64 minGasExcess;
-        // Surge: switch from uint32 to uint64
-        uint64 maxGasIssuancePerBlock;
+        uint32 maxGasIssuancePerBlock;
     }
 }

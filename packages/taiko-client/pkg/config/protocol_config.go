@@ -63,7 +63,7 @@ func (c *OntakeProtocolConfigs) BaseFeeConfig() *pacayaBindings.LibSharedDataBas
 		SharingPctg:            c.configs.BaseFeeConfig.SharingPctg,
 		GasIssuancePerSecond:   c.configs.BaseFeeConfig.GasIssuancePerSecond,
 		MinGasExcess:           c.configs.BaseFeeConfig.MinGasExcess,
-		MaxGasIssuancePerBlock: uint64(c.configs.BaseFeeConfig.MaxGasIssuancePerBlock),
+		MaxGasIssuancePerBlock: c.configs.BaseFeeConfig.MaxGasIssuancePerBlock,
 	}
 }
 
