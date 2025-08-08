@@ -34,7 +34,7 @@ jobs:
           # The Claude action will handle checking out the correct branch
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Fetch PR if commenting on PR
+      - name: Setup PR environment
         if: github.event.issue.pull_request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -43,22 +43,35 @@ jobs:
           PR_NUMBER=$(echo "${{ github.event.issue.pull_request.url }}" | grep -oE '[0-9]+$')
           echo "Fetching PR #${PR_NUMBER}"
 
+          # Fetch all PR refs first
+          git fetch origin "pull/${PR_NUMBER}/head:refs/remotes/origin/pr/${PR_NUMBER}" || true
+          git fetch origin "pull/${PR_NUMBER}/merge:refs/remotes/origin/pr/${PR_NUMBER}-merge" || true
+
           # Get PR details including fork info
-          PR_DATA=$(gh pr view ${PR_NUMBER} --json headRefName,headRepository,headRepositoryOwner)
+          PR_DATA=$(gh pr view ${PR_NUMBER} --json headRefName,headRepository,headRepositoryOwner,isCrossRepository)
           HEAD_REF=$(echo "$PR_DATA" | jq -r '.headRefName')
           HEAD_REPO_OWNER=$(echo "$PR_DATA" | jq -r '.headRepositoryOwner.login')
           HEAD_REPO_NAME=$(echo "$PR_DATA" | jq -r '.headRepository.name')
+          IS_FORK=$(echo "$PR_DATA" | jq -r '.isCrossRepository')
 
-          # If it's from a fork, add the fork as a remote
-          if [ "$HEAD_REPO_OWNER" != "${{ github.repository_owner }}" ]; then
+          # If it's from a fork, we need to set up the fork remote
+          if [ "$IS_FORK" = "true" ]; then
             echo "PR is from fork: ${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}"
+            # Add fork as remote
             git remote add fork "https://github.com/${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}.git" || true
-            git fetch fork "${HEAD_REF}:${HEAD_REF}" || true
+            # Fetch the specific branch from the fork
+            git fetch fork "${HEAD_REF}:refs/remotes/fork/${HEAD_REF}" || true
+            # Create a local branch that tracks the fork branch
+            git branch -f "${HEAD_REF}" "refs/remotes/fork/${HEAD_REF}" || true
+          else
+            echo "PR is from the same repository"
+            # For same-repo PRs, just fetch the branch
+            git fetch origin "${HEAD_REF}:${HEAD_REF}" || true
           fi
 
-          # Always fetch the PR refs from origin
-          git fetch origin "pull/${PR_NUMBER}/head:pr-${PR_NUMBER}" || true
-          git fetch origin "pull/${PR_NUMBER}/merge:pr-${PR_NUMBER}-merge" || true
+          # List all branches for debugging
+          echo "Available branches:"
+          git branch -a
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
