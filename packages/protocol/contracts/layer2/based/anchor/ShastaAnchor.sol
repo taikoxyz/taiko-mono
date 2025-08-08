@@ -14,10 +14,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // State variables
     // ---------------------------------------------------------------
 
-    // The v4Anchor's transaction gas limit, this value must be enforced by the node and prover.
-    // When there are 16 signals in v4Anchor's parameter, the estimated gas cost is actually
-    // around 361,579 gas.  We set the limit to 1,000,000 to be safe.
-    uint256 public constant ANCHOR_GAS_LIMIT = 1_000_000;
+    // The v4Anchor's transaction gas limit, this value must be enforced
+    uint256 public constant ANCHOR_GAS_LIMIT = 200_000;
 
     IShastaBondManager public immutable bondManager;
     ISyncedBlockManager public immutable syncedBlockManager;
