@@ -7,6 +7,24 @@ import { LibBlobs } from "../lib/LibBlobs.sol";
 /// @notice Interface for the ShastaInbox contract
 /// @custom:security-contact security@taiko.xyz
 interface IInbox {
+    /// @notice Configuration struct for Inbox contract
+    struct Config {
+        uint48 forkActivationHeight;
+        address bondToken;
+        uint48 provabilityBondGwei;
+        uint48 livenessBondGwei;
+        uint48 provingWindow;
+        uint48 extendedProvingWindow;
+        uint256 minBondBalance;
+        uint256 maxFinalizationCount;
+        uint256 ringBufferSize;
+        address bondManager;
+        address syncedBlockManager;
+        address proofVerifier;
+        address proposerChecker;
+        address forcedInclusionStore;
+    }
+
     /// @notice Represents a proposal for L2 blocks.
     struct Proposal {
         /// @notice Unique identifier for the proposal.
@@ -94,6 +112,10 @@ interface IInbox {
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
+
+    /// @notice Emitted when the core state is set.
+    /// @param coreState The core state.
+    event CoreStateSet(CoreState coreState);
 
     /// @notice Emitted when a new proposal is proposed.
     /// @param proposal The proposal that was proposed.
