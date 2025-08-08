@@ -83,8 +83,10 @@ abstract contract BondManager is IBondManager {
 
     /// @inheritdoc IBondManager
     function creditBond(address _address, uint256 _bond) external onlyAuthorized {
-        _creditBond(_address, _bond);
-        emit BondCredited(_address, _bond);
+        uint256 amountCredited = _creditBond(_address, _bond);
+        if (amountCredited > 0) {
+            emit BondCredited(_address, amountCredited);
+        }
     }
 
     /// @inheritdoc IBondManager
@@ -109,7 +111,6 @@ abstract contract BondManager is IBondManager {
             bytes32 expected = IInbox(authorized).getCoreStateHash();
             if (keccak256(abi.encode(coreState)) != expected) revert InvalidState();
 
-            // Guard: caller must have no unfinalized proposals on L1
             IBondManager.Bond storage bond_ = bond[msg.sender];
             bool hasUnfinalized = bond_.maxProposedId > coreState.lastFinalizedProposalId;
             if (hasUnfinalized) {
@@ -123,10 +124,9 @@ abstract contract BondManager is IBondManager {
 
     /// @inheritdoc IBondManager
     function deposit(uint256 amount) external {
-        require(amount != 0, InsufficientBond());
-        // Pull tokens first
         bondToken.safeTransferFrom(msg.sender, address(this), amount);
         _creditBond(msg.sender, amount);
+        
         emit BondCredited(msg.sender, amount);
     }
 
@@ -145,32 +145,39 @@ abstract contract BondManager is IBondManager {
         uint256 _bond
     )
         internal
-        virtual
-        returns (uint256 amountDebited_);
+        returns (uint256) {
+        Bond storage bond_ = bond[_address];
+
+        require(bond_.balance >= _bond, InsufficientBond());
+
+        bond_.balance = uint96(bond_.balance - _bond);
+        return _bond;
+    }
 
     /// @dev Internal implementation for crediting a bond
     /// @param _address The address to credit the bond to
     /// @param _bond The amount of bond to credit
-    function _creditBond(address _address, uint256 _bond) internal virtual;
+    function _creditBond(address _address, uint256 _bond) internal returns (uint256) {
+        Bond storage bond_ = bond[_address];
+
+        bond_.balance = uint96(uint256(bond_.balance) + _bond);
+        
+        return _bond;
+    }
 
     /// @dev Internal implementation for withdrawing funds from a user's bond balance
     /// @param from The address whose balance will be reduced
     /// @param to The recipient address
     /// @param amount The amount to withdraw
     function _withdraw(address from, address to, uint256 amount) internal virtual {
-        require(to != address(0), "INVALID_TO");
-
-        // Reduce internal accounting first
-        IBondManager.Bond storage bond_ = bond[from];
+        Bond storage bond_ = bond[from];
         require(bond_.balance >= amount, InsufficientBond());
-        unchecked {
-            bond_.balance = uint96(uint256(bond_.balance) - amount);
-        }
-
-        emit BondWithdrawn(from, amount);
+        bond_.balance = uint96(uint256(bond_.balance) - amount);
 
         // Transfer ERC20 bond tokens out to recipient
         bondToken.safeTransfer(to, amount);
+
+        emit BondWithdrawn(from, amount);
     }
 
     /// @dev Internal implementation for getting the bond balance
