@@ -33,45 +33,141 @@ jobs:
           # This ensures we have access to all branches and PR refs
           # The Claude action will handle checking out the correct branch
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Don't persist credentials to avoid conflicts with fork operations
+          persist-credentials: false
 
       - name: Setup PR environment
-        if: github.event.issue.pull_request
+        if: github.event.issue.pull_request || github.event.pull_request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get PR number from the issue
-          PR_NUMBER=$(echo "${{ github.event.issue.pull_request.url }}" | grep -oE '[0-9]+$')
-          echo "Fetching PR #${PR_NUMBER}"
+          set -e  # Exit on error
 
-          # Fetch all PR refs first
-          git fetch origin "pull/${PR_NUMBER}/head:refs/remotes/origin/pr/${PR_NUMBER}" || true
-          git fetch origin "pull/${PR_NUMBER}/merge:refs/remotes/origin/pr/${PR_NUMBER}-merge" || true
+          # Configure git for proper authentication with GitHub token
+          git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
 
-          # Get PR details including fork info
-          PR_DATA=$(gh pr view ${PR_NUMBER} --json headRefName,headRepository,headRepositoryOwner,isCrossRepository)
+          # Determine PR number based on event type
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            PR_NUMBER=$(echo "${{ github.event.issue.pull_request.url }}" | grep -oE '[0-9]+$')
+          elif [[ "${{ github.event_name }}" == "pull_request_review" ]] || [[ "${{ github.event_name }}" == "pull_request_review_comment" ]]; then
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+          else
+            echo "⚠️ Could not determine PR number for event type: ${{ github.event_name }}"
+            exit 0  # Not a PR-related event, skip setup
+          fi
+
+          echo "📋 Setting up environment for PR #${PR_NUMBER}"
+
+          # Get comprehensive PR details
+          echo "📥 Fetching PR metadata..."
+          PR_DATA=$(gh pr view ${PR_NUMBER} --json headRefName,headRepository,headRepositoryOwner,isCrossRepository,state,mergeable)
+
+          # Extract PR information
           HEAD_REF=$(echo "$PR_DATA" | jq -r '.headRefName')
           HEAD_REPO_OWNER=$(echo "$PR_DATA" | jq -r '.headRepositoryOwner.login')
           HEAD_REPO_NAME=$(echo "$PR_DATA" | jq -r '.headRepository.name')
           IS_FORK=$(echo "$PR_DATA" | jq -r '.isCrossRepository')
+          PR_STATE=$(echo "$PR_DATA" | jq -r '.state')
+          IS_MERGEABLE=$(echo "$PR_DATA" | jq -r '.mergeable')
 
-          # If it's from a fork, we need to set up the fork remote
-          if [ "$IS_FORK" = "true" ]; then
-            echo "PR is from fork: ${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}"
-            # Add fork as remote
-            git remote add fork "https://github.com/${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}.git" || true
-            # Fetch the specific branch from the fork
-            git fetch fork "${HEAD_REF}:refs/remotes/fork/${HEAD_REF}" || true
-            # Create a local branch that tracks the fork branch
-            git branch -f "${HEAD_REF}" "refs/remotes/fork/${HEAD_REF}" || true
-          else
-            echo "PR is from the same repository"
-            # For same-repo PRs, just fetch the branch
-            git fetch origin "${HEAD_REF}:${HEAD_REF}" || true
+          # Display PR information
+          echo "📊 PR Information:"
+          echo "  - Branch: ${HEAD_REF}"
+          echo "  - Repository: ${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}"
+          echo "  - Is Fork: ${IS_FORK}"
+          echo "  - State: ${PR_STATE}"
+          echo "  - Mergeable: ${IS_MERGEABLE}"
+
+          # Warn if PR is closed
+          if [[ "$PR_STATE" != "OPEN" ]]; then
+            echo "⚠️ Warning: PR is not open (state: ${PR_STATE})"
           fi
 
-          # List all branches for debugging
-          echo "Available branches:"
-          git branch -a
+          # Fetch PR refs from origin (these should always be available)
+          echo "🔄 Fetching PR refs from origin..."
+          if git fetch origin "pull/${PR_NUMBER}/head:refs/remotes/origin/pr/${PR_NUMBER}"; then
+            echo "✅ Successfully fetched PR head ref"
+          else
+            echo "⚠️ Could not fetch PR head ref (this may be normal for some PR states)"
+          fi
+
+          if git fetch origin "pull/${PR_NUMBER}/merge:refs/remotes/origin/pr/${PR_NUMBER}-merge" 2>/dev/null; then
+            echo "✅ Successfully fetched PR merge ref"
+          else
+            echo "ℹ️ No merge ref available (PR might have conflicts)"
+          fi
+
+          # Handle fork-specific setup
+          if [[ "$IS_FORK" == "true" ]]; then
+            echo "🔀 Setting up fork remote: ${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}"
+            
+            # Check if fork remote already exists
+            if git remote get-url fork >/dev/null 2>&1; then
+              echo "ℹ️ Fork remote already exists, updating URL..."
+              git remote set-url fork "https://github.com/${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}.git"
+            else
+              echo "➕ Adding fork as remote..."
+              git remote add fork "https://github.com/${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}.git"
+            fi
+            
+            # Fetch the branch from fork with authentication for private repos
+            echo "🔄 Fetching branch '${HEAD_REF}' from fork..."
+            if git fetch fork "${HEAD_REF}:refs/remotes/fork/${HEAD_REF}"; then
+              echo "✅ Successfully fetched branch from fork"
+              
+              # Create or update local branch
+              if git show-ref --verify --quiet "refs/heads/${HEAD_REF}"; then
+                echo "🔄 Updating existing local branch '${HEAD_REF}'"
+                git branch -f "${HEAD_REF}" "refs/remotes/fork/${HEAD_REF}"
+              else
+                echo "➕ Creating new local branch '${HEAD_REF}'"
+                git branch "${HEAD_REF}" "refs/remotes/fork/${HEAD_REF}"
+              fi
+            else
+              echo "❌ Failed to fetch branch from fork. The fork might be private or the branch might be deleted."
+              echo "ℹ️ Will try to use PR refs instead..."
+              
+              # Fallback: use the PR head ref we fetched earlier
+              if git show-ref --verify --quiet "refs/remotes/origin/pr/${PR_NUMBER}"; then
+                echo "🔄 Using PR head ref as fallback"
+                git branch -f "${HEAD_REF}" "refs/remotes/origin/pr/${PR_NUMBER}"
+              fi
+            fi
+          else
+            echo "🔄 Fetching branch from same repository..."
+            if git fetch origin "${HEAD_REF}:refs/remotes/origin/${HEAD_REF}"; then
+              echo "✅ Successfully fetched branch"
+              
+              # Create or update local branch
+              if git show-ref --verify --quiet "refs/heads/${HEAD_REF}"; then
+                echo "🔄 Updating existing local branch '${HEAD_REF}'"
+                git branch -f "${HEAD_REF}" "refs/remotes/origin/${HEAD_REF}"
+              else
+                echo "➕ Creating new local branch '${HEAD_REF}'"
+                git branch "${HEAD_REF}" "refs/remotes/origin/${HEAD_REF}"
+              fi
+            else
+              echo "⚠️ Could not fetch branch '${HEAD_REF}' from origin"
+            fi
+          fi
+
+          # Debug output
+          echo ""
+          echo "📝 Git remotes:"
+          git remote -v
+
+          echo ""
+          echo "🌳 Available branches:"
+          git branch -a | head -20
+
+          echo ""
+          echo "📍 Current HEAD:"
+          git rev-parse HEAD
+
+          echo ""
+          echo "✅ PR environment setup complete"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
