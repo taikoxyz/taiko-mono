@@ -2,7 +2,9 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    # Only run the first time the PR is opened or when it is marked as ready for review
+    # This is to avoid claude from automatically reviewing the PR every time there's a new commit
+    types: [opened, ready_for_review]
     # Optional: Only run on specific file changes
     # paths:
     #   - "src/**/*.ts"
@@ -19,7 +21,7 @@ jobs:
     runs-on: [arc-runner-set]
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
       issues: read
       id-token: write
 

@@ -58,7 +58,6 @@ All modifications to `go-ethereum` can be reviewed in the [Geth fork diff](https
 The **Taiko Alethia consensus model** differs from Ethereum’s due to its rollup-based structure.
 
 1. **Driver Initialization**
-
    - Fetches the latest **verified L2 head** from `TaikoInbox`.
    - Tries to sync state **via P2P**.
    - If P2P sync fails, inserts **verified L2 blocks sequentially** using the Engine API.
@@ -67,7 +66,6 @@ The **Taiko Alethia consensus model** differs from Ethereum’s due to its rollu
 <br/>
 
 2. **Batch Proposal Ingestion**
-
    - Listens for `TaikoInbox.BatchProposed` events.
    - Retrieves the **transaction calldata** from `TaikoInbox.proposeBatch`.
    - Decompresses `txListBytes` and reconstructs **blocks shared metadata**.
@@ -75,7 +73,6 @@ The **Taiko Alethia consensus model** differs from Ethereum’s due to its rollu
 <br/>
 
 3. **Validation and Execution**
-
    - If `txList` is **valid**, constructs an **L2 anchor transaction** and inserts the block.
    - If `txList` is **invalid**, constructs an **empty L2 block**.
 
@@ -104,7 +101,6 @@ For a **valid or invalid txList**, the prover:
 2. Verifies the **TaikoAnchor.anchorV3** transaction in the **Merkle Patricia Trie (MPT)**.
 
 3. Submits:
-
    - `TaikoAnchor.anchorV3` transaction’s **RLP-encoded bytes**.
    - **Merkle proofs**.
    - **Proof-of-validity** to `TaikoInbox.proveBatches`.

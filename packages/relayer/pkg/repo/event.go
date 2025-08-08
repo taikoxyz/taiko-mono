@@ -271,7 +271,7 @@ WHERE block_id >= ? AND chain_id = ? AND dest_chain_id = ?`
 	return r.db.GormDB().Table("events").Exec(query, blockID, srcChainID, destChainID).Error
 }
 
-// GetLatestBlockID get latest block id
+// FindLatestBlockID get latest block id
 func (r *EventRepository) FindLatestBlockID(
 	ctx context.Context,
 	event string,

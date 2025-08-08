@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -20,6 +21,9 @@ const (
 	DefaultRetryInterval      = 12 * time.Second
 	DefaultBlockConfirmations = 0
 	BackOffMaxRetries         = 5
+	// State sync aware retry settings
+	StateSyncRetryInterval = 30 * time.Second
+	StateSyncMaxRetries    = 12 // 6 minutes total for state sync issues
 )
 
 var (
@@ -128,6 +132,61 @@ func NewBlockBatchIterator(ctx context.Context, cfg *BlockBatchIteratorConfig) (
 	return iterator, nil
 }
 
+// isMissingTrieNodeError checks if the error is a missing trie node error
+// that indicates the state is not yet available for the requested block.
+func isMissingTrieNodeError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "missing trie node") &&
+		strings.Contains(errStr, "state") &&
+		strings.Contains(errStr, "not available")
+}
+
+// smartRetry performs intelligent retry based on error type
+func (i *BlockBatchIterator) smartRetry(operation func() error) error {
+	// First, try once to detect error type
+	err := operation()
+	if err == nil {
+		return nil // Success on first try
+	}
+
+	// Check if this is a state sync issue
+	if isMissingTrieNodeError(err) {
+		log.Warn(
+			"Detected missing trie node error - using extended retry for state sync",
+			"error", err.Error(),
+		)
+
+		// Use state-sync friendly settings
+		stateSyncBackoff := backoff.NewExponentialBackOff()
+		stateSyncBackoff.InitialInterval = StateSyncRetryInterval // 30s
+		stateSyncBackoff.MaxInterval = 2 * time.Minute            // 2min max
+		stateSyncBackoff.MaxElapsedTime = 10 * time.Minute        // 10min total
+		stateSyncBackoff.Multiplier = 1.5
+
+		log.Info(
+			"Starting state-sync aware retry",
+			"initialInterval", stateSyncBackoff.InitialInterval,
+			"maxElapsedTime", stateSyncBackoff.MaxElapsedTime,
+		)
+
+		return backoff.Retry(operation, backoff.WithContext(stateSyncBackoff, i.ctx))
+	}
+
+	// For other errors, use standard retry
+	log.Debug("Using standard retry for non-state-sync error", "error", err.Error())
+	return backoff.Retry(
+		operation,
+		backoff.WithMaxRetries(
+			backoff.WithContext(backoff.NewConstantBackOff(i.retryInterval), i.ctx),
+			BackOffMaxRetries,
+		),
+	)
+}
+
 // Iter iterates the given chain between the given start and end heights,
 // will call the callback when a batch of blocks in chain are iterated.
 func (i *BlockBatchIterator) Iter() error {
@@ -164,10 +223,8 @@ func (i *BlockBatchIterator) Iter() error {
 		return nil
 	}
 
-	if err := backoff.Retry(
-		iterOp,
-		backoff.WithMaxRetries(backoff.WithContext(backoff.NewConstantBackOff(i.retryInterval), i.ctx), BackOffMaxRetries),
-	); err != nil {
+	// Smart retry: detect missing trie node errors and use appropriate backoff
+	if err := i.smartRetry(iterOp); err != nil {
 		return err
 	}
 
