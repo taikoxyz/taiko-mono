@@ -120,12 +120,14 @@ abstract contract BondManager is IBondManager {
         }
 
         _withdraw(msg.sender, to, amount);
+        emit BondWithdrawn(msg.sender, amount);
     }
 
     /// @inheritdoc IBondManager
     function deposit(uint256 amount) external {
-        bondToken.safeTransferFrom(msg.sender, address(this), amount);
         _creditBond(msg.sender, amount);
+
+        bondToken.safeTransferFrom(msg.sender, address(this), amount);
         
         emit BondCredited(msg.sender, amount);
     }
@@ -170,14 +172,10 @@ abstract contract BondManager is IBondManager {
     /// @param to The recipient address
     /// @param amount The amount to withdraw
     function _withdraw(address from, address to, uint256 amount) internal virtual {
-        Bond storage bond_ = bond[from];
-        require(bond_.balance >= amount, InsufficientBond());
-        bond_.balance = uint96(uint256(bond_.balance) - amount);
+        _debitBond(from, amount);
 
         // Transfer ERC20 bond tokens out to recipient
         bondToken.safeTransfer(to, amount);
-
-        emit BondWithdrawn(from, amount);
     }
 
     /// @dev Internal implementation for getting the bond balance
