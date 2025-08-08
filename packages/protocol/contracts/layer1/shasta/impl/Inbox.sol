@@ -41,7 +41,7 @@ contract Inbox is EssentialContract, IInbox {
     // State Variables
     // ---------------------------------------------------------------
 
-    uint256 public constant REWARD_FRACTION = 2;
+    uint96 public constant REWARD_FRACTION = 2;
 
     uint48 public immutable provabilityBondGwei;
     uint48 public immutable livenessBondGwei;
@@ -669,8 +669,8 @@ contract Inbox is EssentialContract, IInbox {
         bondOperation.proposalId = _proposalId;
 
         Claim memory claim = _claimRecord.claim;
-        uint256 livenessBondWei = uint256(_claimRecord.livenessBondGwei) * 1 gwei;
-        uint256 provabilityBondWei = uint256(_claimRecord.provabilityBondGwei) * 1 gwei;
+        uint96 livenessBondWei = _claimRecord.livenessBondGwei * 1 gwei;
+        uint96 provabilityBondWei = _claimRecord.provabilityBondGwei * 1 gwei;
 
         if (_claimRecord.bondDecision == BondDecision.NoOp) {
             // No bond operations needed

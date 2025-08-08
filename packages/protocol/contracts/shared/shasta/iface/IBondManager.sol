@@ -21,22 +21,22 @@ interface IBondManager {
     /// @notice Emitted when a bond is debited from an address
     /// @param account The account from which the bond was debited
     /// @param amount The amount debited
-    event BondDebited(address indexed account, uint256 amount);
+    event BondDebited(address indexed account, uint96 amount);
 
     /// @notice Emitted when a bond is credited to an address
     /// @param account The account to which the bond was credited
     /// @param amount The amount credited
-    event BondCredited(address indexed account, uint256 amount);
+    event BondCredited(address indexed account, uint96 amount);
 
     /// @notice Emitted when a bond is deposited into the manager
     /// @param account The account that deposited the bond
     /// @param amount The amount deposited
-    event BondDeposited(address indexed account, uint256 amount);
+    event BondDeposited(address indexed account, uint96 amount);
 
     /// @notice Emitted when a bond is withdrawn from the manager
     /// @param account The account that withdrew the bond
     /// @param amount The amount withdrawn
-    event BondWithdrawn(address indexed account, uint256 amount);
+    event BondWithdrawn(address indexed account, uint96 amount);
 
     // -------------------------------------------------------------------
     // External Functions
@@ -46,17 +46,17 @@ interface IBondManager {
     /// @param _address The address to debit the bond from
     /// @param _bond The amount of bond to debit
     /// @return amountDebited_ The actual amount debited
-    function debitBond(address _address, uint256 _bond) external returns (uint256 amountDebited_);
+    function debitBond(address _address, uint96 _bond) external returns (uint96 amountDebited_);
 
     /// @notice Credits a bond to an address
     /// @param _address The address to credit the bond to
     /// @param _bond The amount of bond to credit
-    function creditBond(address _address, uint256 _bond) external;
+    function creditBond(address _address, uint96 _bond) external;
 
     /// @notice Gets the bond balance of an address
     /// @param _address The address to get the bond balance for
     /// @return The bond balance of the address
-    function getBondBalance(address _address) external view returns (uint256);
+    function getBondBalance(address _address) external view returns (uint96);
 
     /// @notice Notifies the bond manager that a proposal was created by a proposer and checks that
     /// the proposer has enough balance.
@@ -67,7 +67,7 @@ interface IBondManager {
 
     /// @notice Deposit ERC20 bond tokens into the manager.
     /// @param amount The amount to deposit.
-    function deposit(uint256 amount) external;
+    function deposit(uint96 amount) external;
 
     /// @notice Withdraw bond to a recipient.
     /// @dev On L1, this enforces that the caller has no unfinalized proposals by verifying
@@ -76,5 +76,5 @@ interface IBondManager {
     /// @param to The recipient of withdrawn funds.
     /// @param amount The amount to withdraw.
     /// @param coreState The core state to validate (ignored on L2 implementations).
-    function withdraw(address to, uint256 amount, IInbox.CoreState calldata coreState) external;
+    function withdraw(address to, uint96 amount, IInbox.CoreState calldata coreState) external;
 }

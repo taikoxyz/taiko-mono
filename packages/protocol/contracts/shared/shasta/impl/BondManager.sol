@@ -69,11 +69,11 @@ abstract contract BondManager is IBondManager {
     /// @inheritdoc IBondManager
     function debitBond(
         address _address,
-        uint256 _bond
+        uint96 _bond
     )
         external
         onlyAuthorized
-        returns (uint256 amountDebited_)
+        returns (uint96 amountDebited_)
     {
         amountDebited_ = _debitBond(_address, _bond);
         if (amountDebited_ > 0) {
@@ -82,15 +82,15 @@ abstract contract BondManager is IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    function creditBond(address _address, uint256 _bond) external onlyAuthorized {
-        uint256 amountCredited = _creditBond(_address, _bond);
+    function creditBond(address _address, uint96 _bond) external onlyAuthorized {
+        uint96 amountCredited = _creditBond(_address, _bond);
         if (amountCredited > 0) {
             emit BondCredited(_address, amountCredited);
         }
     }
 
     /// @inheritdoc IBondManager
-    function getBondBalance(address _address) external view returns (uint256) {
+    function getBondBalance(address _address) external view returns (uint96) {
         return _getBondBalance(_address);
     }
 
@@ -106,7 +106,7 @@ abstract contract BondManager is IBondManager {
     /// @inheritdoc IBondManager
     /// @dev On L1, we only allow withdrawals that do not have unfinalized proposals or that are
     /// down to the minimum bond.
-    function withdraw(address to, uint256 amount, IInbox.CoreState calldata coreState) external {
+    function withdraw(address to, uint96 amount, IInbox.CoreState calldata coreState) external {
         if (enforceFinalizationGuard) {
             bytes32 expected = IInbox(authorized).getCoreStateHash();
             if (keccak256(abi.encode(coreState)) != expected) revert InvalidState();
@@ -115,7 +115,7 @@ abstract contract BondManager is IBondManager {
             bool hasUnfinalized = bond_.maxProposedId > coreState.lastFinalizedProposalId;
             if (hasUnfinalized) {
                 // Allow withdrawal only down to minBond
-                require(uint256(bond_.balance) - amount >= minBond, UnfinalizedProposals());
+                require(bond_.balance - amount >= minBond, UnfinalizedProposals());
             }
         }
 
@@ -124,11 +124,11 @@ abstract contract BondManager is IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    function deposit(uint256 amount) external {
+    function deposit(uint96 amount) external {
         _creditBond(msg.sender, amount);
 
         bondToken.safeTransferFrom(msg.sender, address(this), amount);
-        
+
         emit BondCredited(msg.sender, amount);
     }
 
@@ -142,28 +142,23 @@ abstract contract BondManager is IBondManager {
     /// @param _address The address to debit the bond from
     /// @param _bond The amount of bond to debit
     /// @return amountDebited_ The actual amount debited
-    function _debitBond(
-        address _address,
-        uint256 _bond
-    )
-        internal
-        returns (uint256) {
+    function _debitBond(address _address, uint96 _bond) internal returns (uint96) {
         Bond storage bond_ = bond[_address];
 
         require(bond_.balance >= _bond, InsufficientBond());
 
-        bond_.balance = uint96(bond_.balance - _bond);
+        bond_.balance = bond_.balance - _bond;
         return _bond;
     }
 
     /// @dev Internal implementation for crediting a bond
     /// @param _address The address to credit the bond to
     /// @param _bond The amount of bond to credit
-    function _creditBond(address _address, uint256 _bond) internal returns (uint256) {
+    function _creditBond(address _address, uint96 _bond) internal returns (uint96) {
         Bond storage bond_ = bond[_address];
 
-        bond_.balance = uint96(uint256(bond_.balance) + _bond);
-        
+        bond_.balance = bond_.balance + _bond;
+
         return _bond;
     }
 
@@ -171,7 +166,7 @@ abstract contract BondManager is IBondManager {
     /// @param from The address whose balance will be reduced
     /// @param to The recipient address
     /// @param amount The amount to withdraw
-    function _withdraw(address from, address to, uint256 amount) internal virtual {
+    function _withdraw(address from, address to, uint96 amount) internal virtual {
         _debitBond(from, amount);
 
         // Transfer ERC20 bond tokens out to recipient
@@ -181,7 +176,7 @@ abstract contract BondManager is IBondManager {
     /// @dev Internal implementation for getting the bond balance
     /// @param _address The address to get the bond balance for
     /// @return The bond balance of the address
-    function _getBondBalance(address _address) internal view virtual returns (uint256) {
+    function _getBondBalance(address _address) internal view virtual returns (uint96) {
         return bond[_address].balance;
     }
 
