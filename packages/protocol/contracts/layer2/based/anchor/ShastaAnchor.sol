@@ -20,11 +20,13 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // around 361,579 gas.  We set the limit to 1,000,000 to be safe.
     uint256 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
-    IShastaBondManager immutable bondManager;
-    ISyncedBlockManager immutable syncedBlockManager;
+    IShastaBondManager public immutable bondManager;
+    ISyncedBlockManager public immutable syncedBlockManager;
     uint48 public anchorBlockNumber;
+    uint32 public gasIssuancePerSecond;
+    bytes32 public bondOperationsHash;
 
-    uint256[49] private __gap;
+    uint256[48] private __gap;
 
     constructor(
         address _signalService,
@@ -43,9 +45,11 @@ abstract contract ShastaAnchor is PacayaAnchor {
     }
 
     function anchor4(
+        uint32 _gasIssuancePerSecond,
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
         bytes32 _anchorStateRoot,
+        bytes32 _bondOperationsHash,
         LibBondOperation.BondOperation[] calldata _bondOperations
     )
         external
@@ -53,6 +57,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
         nonReentrant
     {
         require(block.number >= shastaForkHeight, L2_FORK_ERROR());
+
+        gasIssuancePerSecond = _gasIssuancePerSecond;
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
@@ -77,10 +83,14 @@ abstract contract ShastaAnchor is PacayaAnchor {
         }
 
         // Process each bond operation
+        bytes32 h = bondOperationsHash;
         for (uint256 i; i < _bondOperations.length; ++i) {
             LibBondOperation.BondOperation memory op = _bondOperations[i];
             bondManager.creditBond(op.receiver, op.credit);
+            h = LibBondOperation.aggregateBondOperation(h, op);
         }
+        require(h == _bondOperationsHash, BondOperationsHashMismatch());
+        bondOperationsHash = _bondOperationsHash;
     }
 
     // ---------------------------------------------------------------
@@ -89,4 +99,5 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
     error NonZeroAnchorBlockHash();
     error ZeroAnchorBlockHash();
+    error BondOperationsHashMismatch();
 }
