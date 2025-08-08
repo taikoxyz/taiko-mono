@@ -8,12 +8,12 @@ library LibManifest {
     // Constants
     // -------------------------------------------------------------------
 
-    /// @notice The maximum number of bytes allowed for a proposal slice.
-    uint256 internal constant MAX_PROPOSAL_SLICE_BYTES = 10 * 1024;
-    /// @notice The maximum number of blocks allowed in a proposal.
-    uint256 internal constant MAX_BLOCKS_PER_PROPOSAL = 1024;
     /// @notice The maximum number of transactions allowed in a block.
-    uint256 internal constant MAX_TRANSACTIONS_PER_BLOCK = 4096;
+    uint256 internal constant BLOB_SIZE_BYTES = 128 * 1024;
+    /// @notice The maximum number of bytes allowed for a proposal slice.
+    uint256 internal constant MAX_PROPOSAL_SLICE_BYTES = 6 * BLOB_SIZE_BYTES;
+    /// @notice The maximum number of blocks allowed in a proposal.
+    uint256 internal constant MAX_BLOCKS_PER_PROPOSAL = 384;
 
     // -------------------------------------------------------------------
     // Structs
