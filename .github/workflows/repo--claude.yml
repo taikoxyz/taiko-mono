@@ -27,6 +27,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Fetch more history for better git operations
+          fetch-depth: 0
+          # This ensures we have access to all branches and PR refs
+          # The Claude action will handle checking out the correct branch
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch PR if commenting on PR
+        if: github.event.issue.pull_request
+        run: |
+          # Get PR number from the issue
+          PR_NUMBER=$(echo "${{ github.event.issue.pull_request.url }}" | grep -oE '[0-9]+$')
+          echo "Fetching PR #${PR_NUMBER}"
+
+          # Fetch the PR ref
+          git fetch origin "pull/${PR_NUMBER}/head:pr-${PR_NUMBER}" || true
+
+          # Also try to fetch the merge ref
+          git fetch origin "pull/${PR_NUMBER}/merge:pr-${PR_NUMBER}-merge" || true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
