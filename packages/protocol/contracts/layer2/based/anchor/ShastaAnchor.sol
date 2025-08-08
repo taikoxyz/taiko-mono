@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./PacayaAnchor.sol";
+import { PacayaAnchor } from "./PacayaAnchor.sol";
 import { ISyncedBlockManager } from "src/shared/shasta/iface/ISyncedBlockManager.sol";
 import { IShastaBondManager } from "src/shared/shasta/iface/IBondManager.sol";
 import { LibBondOperation } from "src/shared/shasta/libs/LibBondOperation.sol";
@@ -30,7 +30,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
     IShastaBondManager public immutable bondManager;
     ISyncedBlockManager public immutable syncedBlockManager;
-    
+
     uint48 public anchorBlockNumber;
     bytes32 public bondOperationsHash;
 
