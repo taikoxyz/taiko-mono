@@ -37,9 +37,9 @@ contract Inbox is EssentialContract, IInbox {
         mapping(bytes32 parentClaimHash => ExtendedClaimRecord claimRecordHash) claimHashLookup;
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // State Variables
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     uint256 public constant REWARD_FRACTION = 2;
 
@@ -77,9 +77,9 @@ contract Inbox is EssentialContract, IInbox {
 
     uint256[48] private __gap;
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Constructor
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Initializes the Inbox contract with configuration parameters
     /// @param _provabilityBondGwei The bond required for block provability
@@ -139,9 +139,9 @@ contract Inbox is EssentialContract, IInbox {
         coreStateHash = keccak256(abi.encode(coreState));
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // External & Public Functions
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @inheritdoc IInbox
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
@@ -260,9 +260,9 @@ contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Internal Functions
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @dev Sets the hash of the core state.
     function _setCoreStateHash(bytes32 _coreStateHash) internal {
@@ -338,9 +338,9 @@ contract Inbox is EssentialContract, IInbox {
         return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Private Functions
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @dev Aggregates and saves consecutive claim records to reduce gas costs
     /// @notice This function is a key gas optimization that combines multiple claim records
@@ -711,9 +711,9 @@ contract Inbox is EssentialContract, IInbox {
         return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     error ClaimRecordHashMismatch();
     error ClaimRecordNotProvided();

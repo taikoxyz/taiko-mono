@@ -10,9 +10,9 @@ import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
 /// ensures blocks are saved in strictly increasing order by block number.
 /// @custom:security-contact security@taiko.xyz
 contract SyncedBlockManager is ISyncedBlockManager {
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // State Variables
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice The address of the authorized contract that can update the synced block
     address public immutable authorized;
@@ -33,9 +33,9 @@ contract SyncedBlockManager is ISyncedBlockManager {
     /// @dev Maps slot indices (0 to maxStackSize-1) to synced block data
     mapping(uint48 slot => SyncedBlock syncedBlock) private _syncedBlocks;
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Modifiers
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Ensures only the authorized contract can call the function
     modifier onlyAuthorized() {
@@ -43,9 +43,9 @@ contract SyncedBlockManager is ISyncedBlockManager {
         _;
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Constructor
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Initializes the SyncedBlockManager with the authorized address and ring buffer size
     /// @param _authorized The address of the authorized contract. On L1, this shall be the inbox,
@@ -59,9 +59,9 @@ contract SyncedBlockManager is ISyncedBlockManager {
         maxStackSize = _maxStackSize;
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // External Functions
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @inheritdoc ISyncedBlockManager
     function saveSyncedBlock(SyncedBlock calldata _syncedBlock) external onlyAuthorized {
@@ -129,9 +129,9 @@ contract SyncedBlockManager is ISyncedBlockManager {
         return _stackSize;
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     error IndexOutOfBounds();
     error InvalidAddress();

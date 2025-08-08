@@ -5,9 +5,9 @@ pragma solidity ^0.8.24;
 /// @notice Interface for managing bonds in the Based3 protocol
 /// @custom:security-contact security@taiko.xyz
 interface IBondManager {
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Events
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Emitted when a bond is debited from an address
     /// @param account The account from which the bond was debited
@@ -19,9 +19,9 @@ interface IBondManager {
     /// @param amount The amount credited
     event BondCredited(address indexed account, uint256 amount);
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // External Functions
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Debits a bond from an address with best effort
     /// @param _address The address to debit the bond from

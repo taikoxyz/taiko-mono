@@ -91,9 +91,9 @@ interface IInbox {
         bytes32 bondOperationsHash;
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Events
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed.
     /// @param proposal The proposal that was proposed.
@@ -104,9 +104,9 @@ interface IInbox {
     /// @param claimRecord The claim record containing the proof details.
     event Proved(Proposal proposal, ClaimRecord claimRecord);
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // External Transactional Functions
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Proposes new proposals of L2 blocks.
     /// @param _lookahead The data to post a new lookahead (currently unused).

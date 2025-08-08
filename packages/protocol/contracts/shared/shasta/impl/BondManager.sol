@@ -7,16 +7,16 @@ import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 /// @notice Abstract contract for managing bonds in the Based3 protocol
 /// @custom:security-contact security@taiko.xyz
 abstract contract BondManager is IBondManager {
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // State Variables
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice The address of the inbox contract that is allowed to call debitBond and creditBond
     address public immutable authorized;
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Modifiers
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Ensures only the inbox contract can call the function.
     modifier onlyAuthorized() {
@@ -24,9 +24,9 @@ abstract contract BondManager is IBondManager {
         _;
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Constructor
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Initializes the BondManager with the inbox address
     /// @param _authorized The address of the authorized contract
@@ -34,9 +34,9 @@ abstract contract BondManager is IBondManager {
         authorized = _authorized;
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // External Functions
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @inheritdoc IBondManager
     function debitBond(
@@ -64,9 +64,9 @@ abstract contract BondManager is IBondManager {
         return _getBondBalance(_address);
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Internal Functions - Abstract
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @dev Internal implementation for debiting a bond
     /// @param _address The address to debit the bond from
@@ -90,9 +90,9 @@ abstract contract BondManager is IBondManager {
     /// @return The bond balance of the address
     function _getBondBalance(address _address) internal view virtual returns (uint256);
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     error Unauthorized();
 }

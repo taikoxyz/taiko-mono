@@ -67,7 +67,7 @@ abstract contract PreconfRouter2TestBase is CommonTest {
     }
 
     // Modifiers
-    // --------------------------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @dev Use mainnet chainid since we are using mainnet genesis as reference
     modifier useMainnet() {
@@ -112,7 +112,7 @@ abstract contract PreconfRouter2TestBase is CommonTest {
     }
 
     // Internal Helpers
-    // --------------------------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     function _setupOperator(bool _unregistered, bool _slashed, bool _isOptedOut) internal {
         urc.setOperatorData(
