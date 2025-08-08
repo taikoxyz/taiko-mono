@@ -6,9 +6,9 @@ import "@solady/src/utils/ext/ithaca/BLS.sol";
 /// @title IOverseer
 /// @custom:security-contact security@taiko.xyz
 interface IOverseer {
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Structs
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     struct BlacklistTimestamps {
         uint48 blacklistedAt;
@@ -24,16 +24,16 @@ interface IOverseer {
         uint256 unblacklistDelay;
     }
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Events
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     event Blacklisted(bytes32 indexed validatorPubKeysRoot, uint48 timestamp);
     event Unblacklisted(bytes32 indexed validatorPubKeysRoot, uint48 timestamp);
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // External functions
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @notice Blacklists the validators of a preconf operator for subjective faults
     /// @param _validatorPubKeys consensus layer public keys of the validators being blacklisted
@@ -83,9 +83,9 @@ interface IOverseer {
         pure
         returns (bool);
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     error BlacklistDelayNotMet();
     error ValidatorsAlreadyBlacklisted();

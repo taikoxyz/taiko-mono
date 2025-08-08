@@ -11,17 +11,17 @@ import "openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 /// It can be inherited by other contracts that need multisig capabilities.
 /// @custom:security-contact security@taiko.xyz
 abstract contract SimpleMultisig {
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Events
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     event SignerAdded(address indexed signer);
     event SignerRemoved(address indexed signer);
     event SigningThresholdUpdated(uint64 newSigningThreshold);
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // State variables
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     uint64 public signingThreshold;
     uint64 public numSigners;
@@ -31,9 +31,9 @@ abstract contract SimpleMultisig {
 
     uint256[48] private __gap;
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // External functions
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @notice Adds a new signer to the multisig
     /// @param _signer The address of the signer to add
@@ -99,9 +99,9 @@ abstract contract SimpleMultisig {
         emit SigningThresholdUpdated(_signingThreshold);
     }
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Internal functions
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     function __SimpleMultisig_init(uint64 _signingThreshold, address[] memory _signers) internal {
         require(_signers.length > 0, AtleastOneSignerIsRequired());
@@ -163,9 +163,9 @@ abstract contract SimpleMultisig {
         return keccak256("UPDATE_SIGNING_THRESHOLD");
     }
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     error AtleastOneSignerIsRequired();
     error CannotRemoveSignerWhenThresholdIsReached();

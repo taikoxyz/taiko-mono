@@ -17,9 +17,9 @@ import "@solady/src/utils/MerkleTreeLib.sol";
 /// prevent the lookahead from being polluted by invalid validators.
 /// @custom:security-contact security@taiko.xyz
 contract Overseer is IOverseer, SimpleMultisig, EssentialContract {
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // State variables
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @dev Maps the root of a merkle tree of validator keys to the timestamp at which they
     /// were blacklisted or unblacklisted.
@@ -28,9 +28,9 @@ contract Overseer is IOverseer, SimpleMultisig, EssentialContract {
 
     uint256[49] private __gap;
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // External functions
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     function init(uint64 _signingThreshold, address[] memory _signers) external initializer {
         __Essential_init(address(0));
@@ -133,9 +133,9 @@ contract Overseer is IOverseer, SimpleMultisig, EssentialContract {
         return Config({ blacklistDelay: 1 days, unblacklistDelay: 1 days });
     }
 
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Internal functions
-    // -------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @dev Generates a merkle tree from validator public keys
     /// @param _validatorPubKeys The validator public keys to merkleize
