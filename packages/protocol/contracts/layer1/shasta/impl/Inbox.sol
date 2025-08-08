@@ -239,15 +239,14 @@ contract Inbox is EssentialContract, IInbox {
 
     /// @notice Withdraws bond balance for a given user.
     /// @dev Anyone can call this function to withdraw bond for any user.
-    /// @param _user The address of the user whose bond to withdraw.
-    function withdrawBond(address _user) external nonReentrant {
-        uint256 amount = bondBalance[_user];
+    function withdrawBond() external nonReentrant {
+        uint256 amount = bondBalance[msg.sender];
         require(amount > 0, NoBondToWithdraw());
 
-        bondBalance[_user] = 0;
-        IERC20(bondToken).safeTransfer(_user, amount);
+        bondBalance[msg.sender] = 0;
+        IERC20(bondToken).safeTransfer(msg.sender, amount);
 
-        emit BondWithdrawn(_user, amount);
+        emit BondWithdrawn(msg.sender, amount);
     }
 
     /// @notice Gets the hash of the core state.
