@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-
 /// @title IBondManager
 /// @notice Interface for managing bonds in the Based3 protocol
 /// @custom:security-contact security@taiko.xyz
 interface IBondManager {
     /// @notice Represents a bond for a given address.
-    /// @dev On L2, the `maxProposedId` is not used.
     struct Bond {
-        uint48 maxProposedId;
         uint96 balance;
+        uint48 withdrawalRequestedAt; // 0 = active, >0 = withdrawal requested timestamp
     }
 
     // -------------------------------------------------------------------
@@ -68,6 +65,5 @@ interface IBondManager {
     ///      guard is skipped and only balance checks apply in the implementation.
     /// @param to The recipient of withdrawn funds.
     /// @param amount The amount to withdraw.
-    /// @param coreState The core state to validate (ignored on L2 implementations).
-    function withdraw(address to, uint96 amount, IInbox.CoreState calldata coreState) external;
+    function withdraw(address to, uint96 amount) external;
 }

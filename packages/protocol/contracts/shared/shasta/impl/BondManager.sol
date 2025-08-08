@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -79,13 +78,7 @@ abstract contract BondManager is IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    function withdraw(
-        address to,
-        uint96 amount,
-        IInbox.CoreState calldata coreState
-    )
-        external
-        virtual;
+    function withdraw(address to, uint96 amount) external virtual;
 
     /// @inheritdoc IBondManager
     function deposit(uint96 amount) external {
@@ -146,7 +139,5 @@ abstract contract BondManager is IBondManager {
     // -------------------------------------------------------------------
 
     error Unauthorized();
-    error UnfinalizedProposals();
-    error InvalidState();
     error InsufficientBond();
 }

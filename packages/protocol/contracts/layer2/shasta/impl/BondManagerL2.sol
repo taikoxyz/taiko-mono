@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { BondManager } from "contracts/shared/shasta/impl/BondManager.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 
 /// @title BondManagerL2
 /// @notice L2 implementation of BondManager without finalization guards
@@ -23,14 +22,7 @@ contract BondManagerL2 is BondManager {
 
     /// @notice Withdraw bond to a recipient without restrictions
     /// @dev On L2, withdrawals are unrestricted - no finalization guard needed
-    function withdraw(
-        address to,
-        uint96 amount,
-        IInbox.CoreState calldata /* coreState */
-    )
-        external
-        override
-    {
+    function withdraw(address to, uint96 amount) external override {
         _withdraw(msg.sender, to, amount);
     }
 }

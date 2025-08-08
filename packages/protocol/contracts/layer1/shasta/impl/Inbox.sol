@@ -143,6 +143,9 @@ contract Inbox is EssentialContract, IInbox {
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         proposerChecker.checkProposer(msg.sender);
 
+        // Check if proposer is active (has sufficient bond and hasn't requested withdrawal)
+        require(bondManager.isProposerActive(msg.sender), ProposerNotActive());
+
         (
             CoreState memory coreState,
             LibBlobs.BlobLocator memory blobLocator,
@@ -171,9 +174,6 @@ contract Inbox is EssentialContract, IInbox {
         // Create regular proposal
         LibBlobs.BlobFrame memory frame = LibBlobs.validateBlobLocator(blobLocator);
         (coreState, proposal) = _propose(coreState, frame, false);
-        // Notify bond manager about this proposal for L1 withdraw guard. We only need to notify
-        // about the latest proposal.
-        bondManager.notifyProposed(msg.sender, proposal.id);
         // Finalize proved proposals
         coreState = _finalize(coreState, claimRecords);
         emit Proposed(proposal, coreState);
@@ -721,6 +721,7 @@ contract Inbox is EssentialContract, IInbox {
     error InsufficientBond();
     error InvalidState();
     error ProposalHashMismatch();
+    error ProposerNotActive();
     error RingBufferSizeZero();
     error Unauthorized();
     error InvalidForcedInclusion();
