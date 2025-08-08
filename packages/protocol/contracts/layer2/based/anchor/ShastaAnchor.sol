@@ -20,7 +20,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
     IShastaBondManager public immutable bondManager;
     ISyncedBlockManager public immutable syncedBlockManager;
     uint48 public anchorBlockNumber;
-    uint32 public gasIssuancePerSecond;
     bytes32 public bondOperationsHash;
 
     uint256[48] private __gap;
@@ -50,7 +49,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // ---------------------------------------------------------------
 
     function anchor4(
-        uint32 _gasIssuancePerSecond,
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
         bytes32 _anchorStateRoot,
@@ -62,8 +60,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
         nonReentrant
     {
         require(block.number >= shastaForkHeight, L2_FORK_ERROR());
-
-        gasIssuancePerSecond = _gasIssuancePerSecond;
 
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
