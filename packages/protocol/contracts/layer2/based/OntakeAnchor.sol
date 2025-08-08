@@ -75,7 +75,7 @@ abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+        BaseFeeConfig calldata _baseFeeConfig
     )
         external
         deprecated
