@@ -80,7 +80,8 @@ contract BondManagerL1 is BondManager, IBondManagerL1 {
 
         bool beforeWithdrawalDelay = block.timestamp < bond_.withdrawalRequestedAt + withdrawalDelay;
         if (bond_.withdrawalRequestedAt == 0 || beforeWithdrawalDelay) {
-            // Active proposer or withdrawal delay not passed yet, can only withdraw excess above minBond
+            // Active proposer or withdrawal delay not passed yet, can only withdraw excess above
+            // minBond
             require(bond_.balance - amount >= minBond, MustMaintainMinBond());
         } else {
             // Exiting proposer - check if withdrawal delay has passed

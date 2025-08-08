@@ -60,7 +60,8 @@ interface IBondManager {
     function deposit(uint96 amount) external;
 
     /// @notice Withdraw bond to a recipient.
-    /// @dev On L1, withdrawal is subject to time-based security. On L2, withdrawals are unrestricted.
+    /// @dev On L1, withdrawal is subject to time-based security. On L2, withdrawals are
+    /// unrestricted.
     /// @param to The recipient of withdrawn funds.
     /// @param amount The amount to withdraw.
     function withdraw(address to, uint96 amount) external;

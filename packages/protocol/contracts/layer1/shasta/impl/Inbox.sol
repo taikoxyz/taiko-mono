@@ -200,7 +200,6 @@ contract Inbox is EssentialContract, IInbox {
         proofVerifier.verifyProof(claimsHash, _proof);
     }
 
-
     /// @notice Gets the proposal hash for a given proposal ID.
     /// @param _proposalId The proposal ID to look up.
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
