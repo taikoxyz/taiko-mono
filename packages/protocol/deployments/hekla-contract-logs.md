@@ -188,7 +188,7 @@
 ### prover_set
 
 - proxy: `0xD3f681bD6B49887A48cC9C9953720903967E9DC0`
-- impl: `0x3C8D6D4F6fDda77c1d86b4C5F0712C07B150A87c.`
+- impl: `0x4a81e58f3a9c108979Cc6eE87715938A07c34eFc`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Jun 17, 2024 at commit `b7e12e3`
@@ -196,6 +196,7 @@
   - upgraded on Sep 20, 2024 at commit `fd1c039`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
   - upgraded on Mar 21, 2025 at commit `80baf41`
+  - upgraded on Aug 1, 2025 at commit `6751487`
 
 ### prover_set_contester
 
