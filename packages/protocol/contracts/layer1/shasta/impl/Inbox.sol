@@ -769,10 +769,10 @@ contract Inbox is EssentialContract, IInbox {
     error ExceedsUnfinalizedProposalCapacity();
     error InconsistentParams();
     error InsufficientBond();
+    error InvalidForcedInclusion();
     error InvalidState();
+    error NoBondToWithdraw();
     error ProposalHashMismatch();
     error RingBufferSizeZero();
     error Unauthorized();
-    error InvalidForcedInclusion();
-    error NoBondToWithdraw();
 }
