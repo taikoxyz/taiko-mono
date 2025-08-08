@@ -146,7 +146,6 @@ contract Inbox is EssentialContract, IInbox {
     /// @inheritdoc IInbox
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         proposerChecker.checkProposer(msg.sender);
-        require(bondManager.getBondBalance(msg.sender) >= minBondBalance, InsufficientBond());
 
         (
             CoreState memory coreState,
@@ -177,7 +176,7 @@ contract Inbox is EssentialContract, IInbox {
         LibBlobs.BlobFrame memory frame = LibBlobs.validateBlobLocator(blobLocator);
         (coreState, proposal) = _propose(coreState, frame, false);
         // Notify bond manager about this proposal for L1 withdraw guard. We only need to notify about the latest proposal.
-        bondManager.notifyProposed(msg.sender, proposal.id);
+        bondManager.notifyProposed(msg.sender, proposal.id, minBondBalance);
         // Finalize proved proposals
         coreState = _finalize(coreState, claimRecords);
         emit Proposed(proposal, coreState);

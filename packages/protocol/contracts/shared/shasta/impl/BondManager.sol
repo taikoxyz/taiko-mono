@@ -19,7 +19,7 @@ abstract contract BondManager is IBondManager {
     bool public immutable enforceFinalizationGuard;
 
     /// @notice Max proposal id per proposer. Used for L1 withdraw guard.
-    mapping(address => uint48) internal maxProposedId;
+    mapping(address proposer => Bond bond) public bond;
 
     // -------------------------------------------------------------------------
     // Modifiers
@@ -37,7 +37,7 @@ abstract contract BondManager is IBondManager {
 
     /// @notice Initializes the BondManager with the inbox address
     /// @param _authorized The address of the authorized contract
-    /// @param _enforceFinalizationGuard Whether to enforce L1 guard on withdraw
+    /// @param _enforceFinalizationGuard Whether to enforce the proposal finalization guard. This should be set to true on L1 and false on L2.
     constructor(address _authorized, bool _enforceFinalizationGuard) {
         authorized = _authorized;
         enforceFinalizationGuard = _enforceFinalizationGuard;
@@ -75,8 +75,13 @@ abstract contract BondManager is IBondManager {
 
     /// @inheritdoc IBondManager
     /// @dev Since the inbox contract is trusted, we can always assume that the proposalId is bigger than the current maxProposedId.
-    function notifyProposed(address proposer, uint48 proposalId) external onlyAuthorized {
-        maxProposedId[proposer] = proposalId;
+    function notifyProposed(address proposer, uint48 proposalId, uint256 minBondBalance) external onlyAuthorized {
+        Bond storage bond_ = bond[proposer];
+
+        // check that the proposer has enough bond
+        if (bond_.balance < minBondBalance) revert InsufficientBond();
+
+        bond_.maxProposedId = proposalId;
     }
 
     /// @inheritdoc IBondManager
@@ -87,7 +92,7 @@ abstract contract BondManager is IBondManager {
             if (keccak256(abi.encode(coreState)) != expected) revert InvalidState();
 
             // Guard: caller must have no unfinalized proposals on L1
-            if (maxProposedId[msg.sender] > coreState.lastFinalizedProposalId) {
+            if (bond[msg.sender].maxProposedId > coreState.lastFinalizedProposalId) {
                 revert UnfinalizedProposals();
             }
         }
@@ -134,4 +139,5 @@ abstract contract BondManager is IBondManager {
     error Unauthorized();
     error UnfinalizedProposals();
     error InvalidState();
+    error InsufficientBond();
 }

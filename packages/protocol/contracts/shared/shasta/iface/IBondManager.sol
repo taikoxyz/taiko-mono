@@ -7,6 +7,13 @@ import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 /// @notice Interface for managing bonds in the Based3 protocol
 /// @custom:security-contact security@taiko.xyz
 interface IBondManager {
+    /// @notice Represents a bond for a given address.
+    /// @dev On L2, the `maxProposedId` is not used.
+    struct Bond {
+        uint48 maxProposedId;
+        uint96 balance;
+    }
+
     // -------------------------------------------------------------------
     // Events
     // -------------------------------------------------------------------
@@ -45,11 +52,12 @@ interface IBondManager {
     // New Functions (Shasta withdraw flow)
     // -------------------------------------------------------------------------
 
-    /// @notice Notifies the bond manager that a proposal was created by a proposer.
+    /// @notice Notifies the bond manager that a proposal was created by a proposer and checks that the proposer has enough balance.
     /// @dev Called only by the authorized inbox contract.
     /// @param proposer The proposer address.
     /// @param proposalId The proposal id.
-    function notifyProposed(address proposer, uint48 proposalId) external;
+    /// @param minBondBalance The minimum bond balance required for the proposer.
+    function notifyProposed(address proposer, uint48 proposalId, uint256 minBondBalance) external;
 
     /// @notice Withdraw bond to a recipient.
     /// @dev On L1, this enforces that the caller has no unfinalized proposals by verifying
