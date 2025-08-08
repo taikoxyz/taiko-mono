@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 /// @title LibManifest
 /// @custom:security-contact security@taiko.xyz
 library LibManifest {
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Constants
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice The maximum number of bytes allowed for a proposal slice.
     uint256 internal constant MAX_PROPOSAL_SLICE_BYTES = 10 * 1024;
@@ -15,9 +15,9 @@ library LibManifest {
     /// @notice The maximum number of transactions allowed in a block.
     uint256 internal constant MAX_TRANSACTIONS_PER_BLOCK = 4096;
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Structs
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Represents a signed Ethereum transaction
     /// @dev Follows EIP-2718 typed transaction format with EIP-1559 support
