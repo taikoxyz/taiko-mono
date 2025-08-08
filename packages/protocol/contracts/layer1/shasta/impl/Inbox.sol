@@ -148,10 +148,11 @@ abstract contract Inbox is EssentialContract, IInbox {
         Proposal memory proposal;
 
         // Handle forced inclusion if required
-        if (IForcedInclusionStore(config.forcedInclusionStore).isOldestForcedInclusionDue()) {
-            IForcedInclusionStore.ForcedInclusion memory forcedInclusion = IForcedInclusionStore(
-                config.forcedInclusionStore
-            ).consumeOldestForcedInclusion(msg.sender);
+        IForcedInclusionStore forcedInclusionStore =
+            IForcedInclusionStore(config.forcedInclusionStore);
+        if (forcedInclusionStore.isOldestForcedInclusionDue()) {
+            IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
+                forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
 
             (coreState, proposal) = _propose(config, coreState, forcedInclusion.frame, true);
             emit Proposed(proposal, coreState);
