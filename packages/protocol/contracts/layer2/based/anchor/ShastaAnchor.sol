@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/based/LibSharedData.sol";
 import "./PacayaAnchor.sol";
-import "src/shared/shasta/iface/ISyncedBlockManager.sol";
-import { IShastaBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
-import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
+import { ISyncedBlockManager } from "src/shared/shasta/iface/ISyncedBlockManager.sol";
+import { IShastaBondManager } from "src/shared/shasta/iface/IBondManager.sol";
+import { LibBondOperation } from "src/shared/shasta/libs/LibBondOperation.sol";
 
 /// @title ShastaAnchor
 /// @notice Anchoring functions for the Shasta fork.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ShastaAnchor is PacayaAnchor {
-    error InvalidForkHeight();
-    error NonZeroAnchorStateRoot();
-    error ZeroAnchorStateRoot();
+    // ---------------------------------------------------------------
+    // State variables
+    // ---------------------------------------------------------------
 
     // The v4Anchor's transaction gas limit, this value must be enforced by the node and prover.
     // When there are 16 signals in v4Anchor's parameter, the estimated gas cost is actually
@@ -27,6 +26,10 @@ abstract contract ShastaAnchor is PacayaAnchor {
     bytes32 public bondOperationsHash;
 
     uint256[48] private __gap;
+
+    // -------------------------------------------------------------------
+    // Constructor
+    // -------------------------------------------------------------------
 
     constructor(
         address _signalService,
@@ -43,6 +46,10 @@ abstract contract ShastaAnchor is PacayaAnchor {
         syncedBlockManager = _syncedBlockManager;
         bondManager = _bondManager;
     }
+
+    // ---------------------------------------------------------------
+    // External functions
+    // ---------------------------------------------------------------
 
     function anchor4(
         uint32 _gasIssuancePerSecond,
@@ -97,7 +104,11 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // Errors
     // ---------------------------------------------------------------
 
-    error NonZeroAnchorBlockHash();
-    error ZeroAnchorBlockHash();
     error BondOperationsHashMismatch();
+    error InvalidForkHeight();
+    error InvalidGasIssuancePerSecond();
+    error NonZeroAnchorBlockHash();
+    error NonZeroAnchorStateRoot();
+    error ZeroAnchorBlockHash();
+    error ZeroAnchorStateRoot();
 }
