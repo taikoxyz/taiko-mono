@@ -12,7 +12,7 @@ import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
-import "src/layer2/based/anchor/TaikoAnchor.sol";
+import "src/layer2/based/TaikoAnchor.sol";
 
 contract DeployPacayaL2 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
 import "src/shared/based/LibSharedData.sol";
-import { IBlockHashProvider } from "../iface/IBlockHashProvider.sol";
+import { IBlockHashProvider } from "src/layer2/based/IBlockHashProvider.sol";
 
 /// @title OntakeAnchor
 /// @notice Anchoring functions for the Ontake and pre-Ontake fork.

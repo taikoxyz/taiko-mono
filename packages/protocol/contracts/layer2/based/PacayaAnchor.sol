@@ -8,8 +8,8 @@ import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
-import "../eip1559/LibEIP1559.sol";
-import "./OntakeAnchor.sol";
+import "src/layer2/based/eip1559/LibEIP1559.sol";
+import "src/layer2/based/OntakeAnchor.sol";
 
 /// @title PacayaAnchor
 /// @notice Anchoring functions for the Pacaya fork.
