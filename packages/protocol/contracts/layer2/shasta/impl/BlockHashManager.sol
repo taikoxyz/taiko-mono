@@ -37,8 +37,8 @@ contract BlockHashManager is EssentialContract, IBlockHashManager {
     /// @param _blockHash The hash of the block
     /// @dev Only the authorized address can call this function
     function saveBlockHash(uint256 _blockId, bytes32 _blockHash) external onlyFrom(authorized) {
-        if (_blockHash == bytes32(0)) revert InvalidBlockHash();
-        if (_blockHashes[_blockId] != bytes32(0)) revert BlockAlreadyExists();
+        require(_blockHash != bytes32(0), InvalidBlockHash());
+        require(_blockHashes[_blockId] == bytes32(0), BlockAlreadyExists());
 
         _blockHashes[_blockId] = _blockHash;
         emit BlockHashSaved(_blockId, _blockHash);
@@ -51,9 +51,9 @@ contract BlockHashManager is EssentialContract, IBlockHashManager {
         return _blockHashes[blockId];
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     error InvalidBlockHash();
     error BlockAlreadyExists();

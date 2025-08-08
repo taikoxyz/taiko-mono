@@ -5,9 +5,9 @@ pragma solidity ^0.8.24;
 /// @notice Library for the ShastaInbox contract
 /// @custom:security-contact security@taiko.xyz
 library LibBlobs {
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Structs
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Represents a segment of data that is stored in multiple consecutive blobs created
     /// in this transaction.
@@ -31,9 +31,9 @@ library LibBlobs {
         uint48 createdAt;
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Functions
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @dev Validates a blob locator and converts it to a frame.
     /// @param _blobLocator The blob locator to validate.
@@ -43,12 +43,12 @@ library LibBlobs {
         view
         returns (BlobFrame memory)
     {
-        if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
+        require(_blobLocator.numBlobs != 0, InvalidBlobLocator());
 
         bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
         for (uint256 i; i < _blobLocator.numBlobs; ++i) {
             blobHashes[i] = blobhash(_blobLocator.blobStartIndex + i);
-            if (blobHashes[i] == 0) revert BlobNotFound();
+            require(blobHashes[i] != 0, BlobNotFound());
         }
 
         return BlobFrame({
@@ -58,9 +58,9 @@ library LibBlobs {
         });
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     error BlobNotFound();
     error InvalidBlobLocator();

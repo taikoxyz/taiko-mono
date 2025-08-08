@@ -118,7 +118,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         return deadline != type(uint256).max && block.timestamp >= deadline;
     }
 
-    /// @notice Get the deadline for the oldest forced inclusion.
+    /// @notice Gets the deadline for the oldest forced inclusion.
     /// @return The deadline for the oldest forced inclusion or `type(uint256).max` if there is no
     /// forced inclusion in the queue
     function getOldestForcedInclusionDeadline() public view returns (uint256) {
@@ -133,9 +133,9 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         }
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     error BlobNotFound();
     error IncorrectFee();

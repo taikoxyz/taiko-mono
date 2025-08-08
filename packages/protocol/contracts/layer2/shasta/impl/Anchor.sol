@@ -80,7 +80,7 @@ contract Anchor is EssentialContract, IAnchor {
             bondOperationsHash =
                 LibBondOperation.aggregateBondOperation(bondOperationsHash, _bondOperations[i]);
         }
-        if (bondOperationsHash != _newState.bondOperationsHash) revert BondOperationsHashMismatch();
+        require(bondOperationsHash == _newState.bondOperationsHash, BondOperationsHashMismatch());
 
         _newState.gasIssuancePerSecond = _newState.indexInBatch + 1 == _newState.batchSize
             ? _newState.gasIssuancePerSecond
@@ -90,9 +90,9 @@ contract Anchor is EssentialContract, IAnchor {
         emit StateUpdated(_newState);
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     error BondOperationsHashMismatch();
 }

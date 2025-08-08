@@ -10,9 +10,9 @@ import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
 /// ensures blocks are saved in strictly increasing order by block number.
 /// @custom:security-contact security@taiko.xyz
 contract SyncedBlockManager is ISyncedBlockManager {
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // State Variables
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice The address of the authorized contract that can update the synced block
     address public immutable authorized;
@@ -33,45 +33,42 @@ contract SyncedBlockManager is ISyncedBlockManager {
     /// @dev Maps slot indices (0 to maxStackSize-1) to synced block data
     mapping(uint48 slot => SyncedBlock syncedBlock) private _syncedBlocks;
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Modifiers
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Ensures only the authorized contract can call the function
     modifier onlyAuthorized() {
-        if (msg.sender != authorized) revert Unauthorized();
+        require(msg.sender == authorized, Unauthorized());
         _;
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Constructor
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Initializes the SyncedBlockManager with the authorized address and ring buffer size
     /// @param _authorized The address of the authorized contract. On L1, this shall be the inbox,
     /// on L2, this shall be the anchor transactor.
     /// @param _maxStackSize The size of the ring buffer
     constructor(address _authorized, uint48 _maxStackSize) {
-        if (_authorized == address(0)) revert InvalidAddress();
-        if (_maxStackSize == 0) revert InvalidMaxStackSize();
+        require(_authorized != address(0), InvalidAddress());
+        require(_maxStackSize != 0, InvalidMaxStackSize());
 
         authorized = _authorized;
         maxStackSize = _maxStackSize;
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // External Functions
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @inheritdoc ISyncedBlockManager
     function saveSyncedBlock(SyncedBlock calldata _syncedBlock) external onlyAuthorized {
-        // Validate all fields in a single check to save gas
-        if (
-            _syncedBlock.stateRoot == 0 || _syncedBlock.blockHash == 0
-                || _syncedBlock.blockNumber <= _latestSyncedBlockNumber
-        ) {
-            revert InvalidSyncedBlock();
-        }
+        // Validate all fields
+        require(_syncedBlock.stateRoot != 0, InvalidSyncedBlock());
+        require(_syncedBlock.blockHash != 0, InvalidSyncedBlock());
+        require(_syncedBlock.blockNumber > _latestSyncedBlockNumber, InvalidSyncedBlock());
 
         unchecked {
             // Ring buffer implementation:
@@ -99,8 +96,8 @@ contract SyncedBlockManager is ISyncedBlockManager {
         view
         returns (SyncedBlock memory syncedBlock_)
     {
-        if (_stackSize == 0) revert NoSyncedBlocks();
-        if (_offset >= _stackSize) revert IndexOutOfBounds();
+        require(_stackSize != 0, NoSyncedBlocks());
+        require(_offset < _stackSize, IndexOutOfBounds());
 
         unchecked {
             // Calculate the slot position for the requested offset:
@@ -132,9 +129,9 @@ contract SyncedBlockManager is ISyncedBlockManager {
         return _stackSize;
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     error IndexOutOfBounds();
     error InvalidAddress();
