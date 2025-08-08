@@ -17,19 +17,19 @@ interface IForcedInclusionStore {
     /// @dev Event emitted when a forced inclusion is stored.
     event ForcedInclusionStored(ForcedInclusion forcedInclusion);
 
-    /// @notice Store a forced inclusion request
+    /// @notice Stores a forced inclusion request
     /// The priority fee must be paid to the contract
     /// @param _blobReference The blob locator that contains the transaction data
     function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
-    /// @notice Consume the oldest forced inclusion request and removes it from the queue
+    /// @notice Consumes the oldest forced inclusion request and removes it from the queue
     /// @param _feeRecipient The address to receive the fee
     /// @return The forced inclusion that was consumed
     function consumeOldestForcedInclusion(address _feeRecipient)
         external
         returns (ForcedInclusion memory);
 
-    /// @notice Check if the oldest forced inclusion is due
+    /// @notice Checks if the oldest forced inclusion is due
     /// @return True if the oldest forced inclusion is due, false otherwise
     function isOldestForcedInclusionDue() external view returns (bool);
 }

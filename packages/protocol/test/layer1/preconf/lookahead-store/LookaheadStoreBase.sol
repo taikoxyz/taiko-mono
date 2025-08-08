@@ -45,7 +45,7 @@ contract LookaheadStoreBase is CommonTest {
     }
 
     // Modifiers
-    // ---------------------------------------------------------------------------------------------
+    // ----------------------------------------------------------------
 
     /// @dev Use mainnet chainid since we are using mainnet genesis as reference
     modifier useMainnet() {
@@ -65,7 +65,7 @@ contract LookaheadStoreBase is CommonTest {
     }
 
     // Internal helpers
-    // ---------------------------------------------------------------------------------------------
+    // ----------------------------------------------------------------
 
     function _setupURCAndPrepareInputs(uint256 _numOperators)
         internal

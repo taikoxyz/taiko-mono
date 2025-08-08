@@ -92,9 +92,9 @@ interface IInbox {
         bytes32 bondOperationsHash;
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Events
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed.
     /// @param proposal The proposal that was proposed.
@@ -109,9 +109,9 @@ interface IInbox {
     /// @param bondOperation The bond operation that needs to be performed.
     event BondRequest(LibBondOperation.BondOperation bondOperation);
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // External Transactional Functions
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Proposes new proposals of L2 blocks.
     /// @param _lookahead The data to post a new lookahead (currently unused).

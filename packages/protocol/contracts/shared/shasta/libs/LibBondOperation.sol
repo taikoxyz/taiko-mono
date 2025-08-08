@@ -5,9 +5,9 @@ pragma solidity ^0.8.24;
 /// @notice Library for managing bond operations
 /// @custom:security-contact security@taiko.xyz
 library LibBondOperation {
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Structs
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     struct BondOperation {
         uint48 proposalId;

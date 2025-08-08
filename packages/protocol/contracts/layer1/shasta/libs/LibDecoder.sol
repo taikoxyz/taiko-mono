@@ -11,9 +11,9 @@ import { IInbox } from "../iface/IInbox.sol";
 // TODO:
 // - [ ] provide better decode/encode implementation
 library LibDecoder {
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Decode Functions
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Decodes data into CoreState, BlobReference array, and ClaimRecord array
     /// @param _data The encoded data
@@ -45,9 +45,9 @@ library LibDecoder {
         (proposals_, claims_) = abi.decode(_data, (IInbox.Proposal[], IInbox.Claim[]));
     }
 
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
     // Encode Functions
-    // -------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     /// @notice Encodes CoreState, BlobReference, and ClaimRecord array into bytes
     /// @param _coreState The CoreState to encode

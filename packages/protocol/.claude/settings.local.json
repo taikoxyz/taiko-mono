@@ -1,32 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
-    "allow": [
-      "Bash(gh:*)",
-      "Bash(git:*)",
-      "Bash(ls:*)",
-      "Bash(forge:*)",
-      "Bash(pnpm:*)",
-      "WebFetch",
-      "Bash(grep:*)",
-      "Bash(mv:*)",
-      "Bash(find:*)",
-      "Bash(python3:*)",
-      "Bash(python:*)",
-      "Bash(for file in *.py)",
-      "Bash(do echo \"Checking $file...\")",
-      "Bash(echo \"✓ $file syntax is valid\")",
-      "Bash(echo:*)",
-      "Bash(done)",
-      "Bash(do echo \"=== Checking $file ===\")",
-      "Bash(/dev/null)",
-      "Bash(pip3 list:*)",
-      "Bash(black:*)",
-      "Bash(rm:*)",
-      "Bash(mkdir:*)",
-      "Bash(FOUNDRY_PROFILE=shared forge test --match-path \"test/shared/shasta/SyncedBlockManager.t.sol\" -vv)",
-      "Bash(FOUNDRY_PROFILE=layer2 forge test --match-path \"test/layer2/shasta/Anchor.t.sol\" -vv)"
-    ],
+    "allow": ["Bash(*)"],
     "deny": []
   }
 }
