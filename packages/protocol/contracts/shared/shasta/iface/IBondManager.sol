@@ -60,9 +60,7 @@ interface IBondManager {
     function deposit(uint96 amount) external;
 
     /// @notice Withdraw bond to a recipient.
-    /// @dev On L1, this enforces that the caller has no unfinalized proposals by verifying
-    ///      the provided core state against the inbox's current core state hash. On L2, the
-    ///      guard is skipped and only balance checks apply in the implementation.
+    /// @dev On L1, withdrawal is subject to time-based security. On L2, withdrawals are unrestricted.
     /// @param to The recipient of withdrawn funds.
     /// @param amount The amount to withdraw.
     function withdraw(address to, uint96 amount) external;

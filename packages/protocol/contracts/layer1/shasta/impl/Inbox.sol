@@ -200,11 +200,6 @@ contract Inbox is EssentialContract, IInbox {
         proofVerifier.verifyProof(claimsHash, _proof);
     }
 
-    /// @notice Gets the hash of the core state.
-    /// @return coreStateHash_ The hash of the current core state.
-    function getCoreStateHash() public view returns (bytes32 coreStateHash_) {
-        coreStateHash_ = coreStateHash;
-    }
 
     /// @notice Gets the proposal hash for a given proposal ID.
     /// @param _proposalId The proposal ID to look up.
