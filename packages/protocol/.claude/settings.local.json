@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
-    "allow": ["Bash(*)"],
+    "allow": ["Bash(*)", "Bash(pnpm compile:l1:*)"],
     "deny": []
   }
 }
