@@ -47,7 +47,6 @@ contract Inbox is EssentialContract, IInbox {
     uint48 public immutable livenessBondGwei;
     uint48 public immutable provingWindow;
     uint48 public immutable extendedProvingWindow;
-    uint256 public immutable minBondBalance;
     uint256 public immutable maxFinalizationCount;
     uint256 public immutable ringBufferSize;
 
@@ -86,7 +85,6 @@ contract Inbox is EssentialContract, IInbox {
     /// @param _livenessBondGwei The bond required for prover liveness
     /// @param _provingWindow The initial proving window duration
     /// @param _extendedProvingWindow The extended proving window duration
-    /// @param _minBondBalance The minimum bond balance required for proposers
     /// @param _maxFinalizationCount The maximum number of finalizations allowed
     /// @param _ringBufferSize The size of the ring buffer (must be > 0)
     /// @param _bondManager The address of the bond manager contract
@@ -99,7 +97,6 @@ contract Inbox is EssentialContract, IInbox {
         uint48 _livenessBondGwei,
         uint48 _provingWindow,
         uint48 _extendedProvingWindow,
-        uint256 _minBondBalance,
         uint256 _maxFinalizationCount,
         uint256 _ringBufferSize,
         address _bondManager,
@@ -114,7 +111,6 @@ contract Inbox is EssentialContract, IInbox {
         livenessBondGwei = _livenessBondGwei;
         provingWindow = _provingWindow;
         extendedProvingWindow = _extendedProvingWindow;
-        minBondBalance = _minBondBalance;
         maxFinalizationCount = _maxFinalizationCount;
         ringBufferSize = _ringBufferSize;
         bondManager = IBondManager(_bondManager);
@@ -175,8 +171,9 @@ contract Inbox is EssentialContract, IInbox {
         // Create regular proposal
         LibBlobs.BlobFrame memory frame = LibBlobs.validateBlobLocator(blobLocator);
         (coreState, proposal) = _propose(coreState, frame, false);
-        // Notify bond manager about this proposal for L1 withdraw guard. We only need to notify about the latest proposal.
-        bondManager.notifyProposed(msg.sender, proposal.id, minBondBalance);
+        // Notify bond manager about this proposal for L1 withdraw guard. We only need to notify
+        // about the latest proposal.
+        bondManager.notifyProposed(msg.sender, proposal.id);
         // Finalize proved proposals
         coreState = _finalize(coreState, claimRecords);
         emit Proposed(proposal, coreState);

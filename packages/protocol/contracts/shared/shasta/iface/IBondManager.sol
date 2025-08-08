@@ -28,6 +28,16 @@ interface IBondManager {
     /// @param amount The amount credited
     event BondCredited(address indexed account, uint256 amount);
 
+    /// @notice Emitted when a bond is deposited into the manager
+    /// @param account The account that deposited the bond
+    /// @param amount The amount deposited
+    event BondDeposited(address indexed account, uint256 amount);
+
+    /// @notice Emitted when a bond is withdrawn from the manager
+    /// @param account The account that withdrew the bond
+    /// @param amount The amount withdrawn
+    event BondWithdrawn(address indexed account, uint256 amount);
+
     // -------------------------------------------------------------------
     // External Functions
     // -------------------------------------------------------------------
@@ -48,16 +58,16 @@ interface IBondManager {
     /// @return The bond balance of the address
     function getBondBalance(address _address) external view returns (uint256);
 
-    // -------------------------------------------------------------------------
-    // New Functions (Shasta withdraw flow)
-    // -------------------------------------------------------------------------
-
-    /// @notice Notifies the bond manager that a proposal was created by a proposer and checks that the proposer has enough balance.
+    /// @notice Notifies the bond manager that a proposal was created by a proposer and checks that
+    /// the proposer has enough balance.
     /// @dev Called only by the authorized inbox contract.
     /// @param proposer The proposer address.
     /// @param proposalId The proposal id.
-    /// @param minBondBalance The minimum bond balance required for the proposer.
-    function notifyProposed(address proposer, uint48 proposalId, uint256 minBondBalance) external;
+    function notifyProposed(address proposer, uint48 proposalId) external;
+
+    /// @notice Deposit ERC20 bond tokens into the manager.
+    /// @param amount The amount to deposit.
+    function deposit(uint256 amount) external;
 
     /// @notice Withdraw bond to a recipient.
     /// @dev On L1, this enforces that the caller has no unfinalized proposals by verifying

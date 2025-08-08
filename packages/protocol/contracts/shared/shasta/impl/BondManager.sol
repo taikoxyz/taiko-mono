@@ -3,11 +3,14 @@ pragma solidity ^0.8.24;
 
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title BondManager
 /// @notice Abstract contract for managing bonds in the Based3 protocol
 /// @custom:security-contact security@taiko.xyz
 abstract contract BondManager is IBondManager {
+    using SafeERC20 for IERC20;
     // -------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------
@@ -18,7 +21,13 @@ abstract contract BondManager is IBondManager {
     /// @notice Whether to enforce L1 finalization guard in withdraw.
     bool public immutable enforceFinalizationGuard;
 
-    /// @notice Max proposal id per proposer. Used for L1 withdraw guard.
+    /// @notice ERC20 token used as bond.
+    IERC20 public immutable bondToken;
+
+    /// @notice Minimum bond required on L1 to propose; can be zero on L2. uint96-bounded.
+    uint96 public immutable minBond;
+
+    /// @notice Per-user bond state
     mapping(address proposer => Bond bond) public bond;
 
     // -------------------------------------------------------------------------
@@ -37,10 +46,20 @@ abstract contract BondManager is IBondManager {
 
     /// @notice Initializes the BondManager with the inbox address
     /// @param _authorized The address of the authorized contract
-    /// @param _enforceFinalizationGuard Whether to enforce the proposal finalization guard. This should be set to true on L1 and false on L2.
-    constructor(address _authorized, bool _enforceFinalizationGuard) {
+    /// @param _bondToken The ERC20 bond token address
+    /// @param _enforceFinalizationGuard Whether to enforce the proposal finalization guard. This
+    /// should be set to true on L1 and false on L2.
+    /// @param _minBond The minimum bond required for proposers. This should be set to zero on L2.
+    constructor(
+        address _authorized,
+        address _bondToken,
+        bool _enforceFinalizationGuard,
+        uint96 _minBond
+    ) {
         authorized = _authorized;
+        bondToken = IERC20(_bondToken);
         enforceFinalizationGuard = _enforceFinalizationGuard;
+        minBond = _minBond;
     }
 
     // -------------------------------------------------------------------
@@ -74,31 +93,44 @@ abstract contract BondManager is IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    /// @dev Since the inbox contract is trusted, we can always assume that the proposalId is bigger than the current maxProposedId.
-    function notifyProposed(address proposer, uint48 proposalId, uint256 minBondBalance) external onlyAuthorized {
+    /// @dev Since the inbox contract is trusted, we can always assume that the proposalId is bigger
+    /// than the current maxProposedId.
+    function notifyProposed(address proposer, uint48 proposalId) external onlyAuthorized {
         Bond storage bond_ = bond[proposer];
-
-        // check that the proposer has enough bond
-        if (bond_.balance < minBondBalance) revert InsufficientBond();
-
+        if (bond_.balance < minBond) revert InsufficientBond();
         bond_.maxProposedId = proposalId;
     }
 
     /// @inheritdoc IBondManager
+    /// @dev On L1, we only allow withdrawals that do not have unfinalized proposals or that are
+    /// down to the minimum bond.
     function withdraw(address to, uint256 amount, IInbox.CoreState calldata coreState) external {
         if (enforceFinalizationGuard) {
-            // Validate coreState against Inbox coreStateHash without adding new storage to Inbox
             bytes32 expected = IInbox(authorized).getCoreStateHash();
             if (keccak256(abi.encode(coreState)) != expected) revert InvalidState();
 
             // Guard: caller must have no unfinalized proposals on L1
-            if (bond[msg.sender].maxProposedId > coreState.lastFinalizedProposalId) {
-                revert UnfinalizedProposals();
+            IBondManager.Bond storage bond_ = bond[msg.sender];
+            bool hasUnfinalized = bond_.maxProposedId > coreState.lastFinalizedProposalId;
+            if (hasUnfinalized) {
+                // Allow withdrawal only down to minBond
+                require(uint256(bond_.balance) - amount >= minBond, UnfinalizedProposals());
             }
         }
 
         _withdraw(msg.sender, to, amount);
     }
+
+    /// @inheritdoc IBondManager
+    function deposit(uint256 amount) external {
+        require(amount != 0, InsufficientBond());
+        // Pull tokens first
+        bondToken.safeTransferFrom(msg.sender, address(this), amount);
+        _creditBond(msg.sender, amount);
+        emit BondCredited(msg.sender, amount);
+    }
+
+    // No setter for minBond since it's immutable
 
     // -------------------------------------------------------------------------
     // Internal Functions - Abstract
@@ -125,12 +157,28 @@ abstract contract BondManager is IBondManager {
     /// @param from The address whose balance will be reduced
     /// @param to The recipient address
     /// @param amount The amount to withdraw
-    function _withdraw(address from, address to, uint256 amount) internal virtual;
+    function _withdraw(address from, address to, uint256 amount) internal virtual {
+        require(to != address(0), "INVALID_TO");
+
+        // Reduce internal accounting first
+        IBondManager.Bond storage bond_ = bond[from];
+        require(bond_.balance >= amount, InsufficientBond());
+        unchecked {
+            bond_.balance = uint96(uint256(bond_.balance) - amount);
+        }
+
+        emit BondWithdrawn(from, amount);
+
+        // Transfer ERC20 bond tokens out to recipient
+        bondToken.safeTransfer(to, amount);
+    }
 
     /// @dev Internal implementation for getting the bond balance
     /// @param _address The address to get the bond balance for
     /// @return The bond balance of the address
-    function _getBondBalance(address _address) internal view virtual returns (uint256);
+    function _getBondBalance(address _address) internal view virtual returns (uint256) {
+        return bond[_address].balance;
+    }
 
     // -------------------------------------------------------------------
     // Errors
