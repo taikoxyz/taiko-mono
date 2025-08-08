@@ -59,7 +59,10 @@ export default defineConfig({
           label: "Start Here",
           items: [
             { label: "Getting started", link: "/start-here/getting-started/" },
-            { label: "Set up your wallet", link: "/start-here/set-up-your-wallet/", },
+            {
+              label: "Set up your wallet",
+              link: "/start-here/set-up-your-wallet/",
+            },
             { label: "Contributing", link: "/start-here/contributing/" },
             { label: "Getting support", link: "/start-here/getting-support" },
           ],
@@ -72,45 +75,99 @@ export default defineConfig({
               label: "Protocol Design",
               collapsed: true,
               items: [
-                { label: "Based rollups", link: "/taiko-alethia-protocol/protocol-design/based-rollups/" },
-                { label: "Inception layers", link: "/taiko-alethia-protocol/protocol-design/inception-layers/" },
-                { label: "Pacaya fork Taiko Alethia", link: "/taiko-alethia-protocol/protocol-design/pacaya-fork-taiko-alethia/" },
-                { label: "Based preconfirmations", link: "/taiko-alethia-protocol/protocol-design/based-preconfirmation/" },
-              ]
+                {
+                  label: "Based rollups",
+                  link: "/taiko-alethia-protocol/protocol-design/based-rollups/",
+                },
+                {
+                  label: "Inception layers",
+                  link: "/taiko-alethia-protocol/protocol-design/inception-layers/",
+                },
+                {
+                  label: "Pacaya fork Taiko Alethia",
+                  link: "/taiko-alethia-protocol/protocol-design/pacaya-fork-taiko-alethia/",
+                },
+                {
+                  label: "Based preconfirmations",
+                  link: "/taiko-alethia-protocol/protocol-design/based-preconfirmation/",
+                },
+              ],
             },
             {
               label: "Protocol Architecture",
               collapsed: true,
               items: [
-                { label: "Account abstraction", link: "/taiko-alethia-protocol/protocol-architecture/account-abstraction" },
-                { label: "Block states", link: "/taiko-alethia-protocol/protocol-architecture/block-states" },
-                { label: "Bridging", link: "/taiko-alethia-protocol/protocol-architecture/bridging" },
-                { label: "Economics", link: "/taiko-alethia-protocol/protocol-architecture/economics" },
-                { label: "Taiko nodes", link: "/taiko-alethia-protocol/protocol-architecture/taiko-alethia-nodes" },
+                {
+                  label: "Account abstraction",
+                  link: "/taiko-alethia-protocol/protocol-architecture/account-abstraction",
+                },
+                {
+                  label: "Block states",
+                  link: "/taiko-alethia-protocol/protocol-architecture/block-states",
+                },
+                {
+                  label: "Bridging",
+                  link: "/taiko-alethia-protocol/protocol-architecture/bridging",
+                },
+                {
+                  label: "Economics",
+                  link: "/taiko-alethia-protocol/protocol-architecture/economics",
+                },
+                {
+                  label: "Taiko nodes",
+                  link: "/taiko-alethia-protocol/protocol-architecture/taiko-alethia-nodes",
+                },
               ],
             },
             {
               label: "Codebase Analysis",
               collapsed: true,
               items: [
-                {label: "TaikoInbox Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikoinbox-contract"},
-                {label: "TaikoAnchor Contract", link: "/taiko-alethia-protocol/codebase-analysis/taikoanchor-contract"},
-                {label: "SGXVerifier Contract", link: "/taiko-alethia-protocol/codebase-analysis/sgxverifier-contract"},
-                {label: "ComposeVerifier Contract", link: "/taiko-alethia-protocol/codebase-analysis/composeverifier-contract"},
-                {label: "SignalService Contract", link: "/taiko-alethia-protocol/codebase-analysis/signalservice-contract"},
-                {label: "Bridge Contract", link: "/taiko-alethia-protocol/codebase-analysis/bridge-contract"},
+                {
+                  label: "TaikoInbox Contract",
+                  link: "/taiko-alethia-protocol/codebase-analysis/taikoinbox-contract",
+                },
+                {
+                  label: "TaikoAnchor Contract",
+                  link: "/taiko-alethia-protocol/codebase-analysis/taikoanchor-contract",
+                },
+                {
+                  label: "SGXVerifier Contract",
+                  link: "/taiko-alethia-protocol/codebase-analysis/sgxverifier-contract",
+                },
+                {
+                  label: "ComposeVerifier Contract",
+                  link: "/taiko-alethia-protocol/codebase-analysis/composeverifier-contract",
+                },
+                {
+                  label: "SignalService Contract",
+                  link: "/taiko-alethia-protocol/codebase-analysis/signalservice-contract",
+                },
+                {
+                  label: "Bridge Contract",
+                  link: "/taiko-alethia-protocol/codebase-analysis/bridge-contract",
+                },
               ],
             },
-            { label: "What is Taiko Alethia?", link: "/taiko-alethia-protocol/what-is-taiko-alethia/" },
-          ]
+            {
+              label: "What is Taiko Alethia?",
+              link: "/taiko-alethia-protocol/what-is-taiko-alethia/",
+            },
+          ],
         },
         {
           label: "Taiko Gwyneth Protocol",
           collapsed: true,
           items: [
-            { label: "What is Taiko Gwyneth?", link: "/taiko-gwyneth-protocol/what-is-taiko-gwyneth/" },
-            { label: "Booster rollups", link: "/taiko-gwyneth-protocol/booster-rollups/" },
-          ]
+            {
+              label: "What is Taiko Gwyneth?",
+              link: "/taiko-gwyneth-protocol/what-is-taiko-gwyneth/",
+            },
+            {
+              label: "Booster rollups",
+              link: "/taiko-gwyneth-protocol/booster-rollups/",
+            },
+          ],
         },
         {
           label: "Guides",
