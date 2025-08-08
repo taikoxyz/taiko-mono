@@ -31,6 +31,10 @@ contract Inbox is EssentialContract, IInbox {
     /// @param amount The amount of bond withdrawn
     event BondWithdrawn(address indexed user, uint256 amount);
 
+    // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
+
     /// @notice Extended claim record that stores both the claim hash and encoded metadata.
     /// @dev The metadata includes the proposal ID and partial parent claim hash for efficient
     /// lookups.
@@ -50,7 +54,7 @@ contract Inbox is EssentialContract, IInbox {
     }
 
     // ---------------------------------------------------------------
-    // State Variables
+    // Immutables
     // ---------------------------------------------------------------
 
     uint256 public constant REWARD_FRACTION = 2;
@@ -80,6 +84,10 @@ contract Inbox is EssentialContract, IInbox {
     IForcedInclusionStore public immutable forcedInclusionStore;
 
     bytes32 private immutable _DEFAULT_SLOT_HASH = bytes32(uint256(1));
+
+    // ---------------------------------------------------------------
+    // State Variables
+    // ---------------------------------------------------------------
 
     // 6 slots are used by the State object defined in Pacaya inbox:
     // mapping(uint256 batchId_mod_batchRingBufferSize => Batch batch) batches;
