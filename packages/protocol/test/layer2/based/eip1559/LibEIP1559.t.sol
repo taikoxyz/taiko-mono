@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "test/layer2/Layer2Test.sol";
-import "src/layer2/based/eip1559/LibEIP1559.sol";
+import "src/layer2/based/libs/LibEIP1559.sol";
 
 contract TestLibEIP1559 is Layer2Test {
     using LibMath for uint256;

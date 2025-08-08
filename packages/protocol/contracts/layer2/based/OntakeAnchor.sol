@@ -2,14 +2,23 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/common/EssentialContract.sol";
-import "src/shared/based/LibSharedData.sol";
-import { IBlockHashProvider } from "src/layer2/based/IBlockHashProvider.sol";
+import { IBlockHashProvider } from "./IBlockHashProvider.sol";
 
 /// @title OntakeAnchor
 /// @notice Anchoring functions for the Ontake and pre-Ontake fork.
 /// @custom:deprecated This contract is deprecated and should not be used in new implementations
 /// @custom:security-contact security@taiko.xyz
 abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
+    /// @dev Struct that represents L2 basefee configurations
+    struct BaseFeeConfig {
+        // This is the base fee change denominator per 12 second window.
+        uint8 adjustmentQuotient;
+        uint8 sharingPctg;
+        uint32 gasIssuancePerSecond;
+        uint64 minGasExcess;
+        uint32 maxGasIssuancePerBlock;
+    }
+
     error L2_DEPRECATED_METHOD();
 
     constructor() EssentialContract() { }
@@ -51,7 +60,7 @@ abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
     { }
 
     function calculateBaseFee(
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
+        BaseFeeConfig calldata _baseFeeConfig,
         uint64 _blocktime,
         uint64 _parentGasExcess,
         uint32 _parentGasUsed
