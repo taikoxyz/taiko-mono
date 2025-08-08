@@ -17,6 +17,10 @@ import "@solady/src/utils/MerkleTreeLib.sol";
 /// prevent the lookahead from being polluted by invalid validators.
 /// @custom:security-contact security@taiko.xyz
 contract Overseer is IOverseer, SimpleMultisig, EssentialContract {
+    // -------------------------------------------------------------------------
+    // State variables
+    // -------------------------------------------------------------------------
+
     /// @dev Maps the root of a merkle tree of validator keys to the timestamp at which they
     /// were blacklisted or unblacklisted.
     mapping(bytes32 validatorPubKeysRoot => BlacklistTimestamps blacklistTimestamps) public
@@ -24,13 +28,14 @@ contract Overseer is IOverseer, SimpleMultisig, EssentialContract {
 
     uint256[49] private __gap;
 
+    // -------------------------------------------------------------------------
+    // External functions
+    // -------------------------------------------------------------------------
+
     function init(uint64 _signingThreshold, address[] memory _signers) external initializer {
         __Essential_init(address(0));
         __SimpleMultisig_init(_signingThreshold, _signers);
     }
-
-    // Blacklist functions
-    // -----------------------------------------------------------------------------------
 
     /// @inheritdoc IOverseer
     function blacklistValidators(
@@ -96,14 +101,6 @@ contract Overseer is IOverseer, SimpleMultisig, EssentialContract {
         emit Unblacklisted(_validatorPubKeysRoot, uint48(block.timestamp));
     }
 
-    // Views
-    // -----------------------------------------------------------------------------------
-
-    /// @inheritdoc IOverseer
-    function getConfig() public pure returns (Config memory) {
-        return Config({ blacklistDelay: 1 days, unblacklistDelay: 1 days });
-    }
-
     /// @inheritdoc IOverseer
     function getValidatorBlacklistInclusionProof(
         BLS.G1Point[] calldata _validatorPubKeys,
@@ -131,9 +128,18 @@ contract Overseer is IOverseer, SimpleMultisig, EssentialContract {
         return MerkleProofLib.verifyCalldata(_proof, _validatorPubKeysRoot, validatorPubKeyLeaf);
     }
 
-    // Internal functions
-    // -----------------------------------------------------------------------------------
+    /// @inheritdoc IOverseer
+    function getConfig() public pure returns (Config memory) {
+        return Config({ blacklistDelay: 1 days, unblacklistDelay: 1 days });
+    }
 
+    // -------------------------------------------------------------------------
+    // Internal functions
+    // -------------------------------------------------------------------------
+
+    /// @dev Generates a merkle tree from validator public keys
+    /// @param _validatorPubKeys The validator public keys to merkleize
+    /// @return The merkle tree as an array of bytes32
     function _generateMerkleTree(BLS.G1Point[] calldata _validatorPubKeys)
         internal
         pure
@@ -143,8 +149,10 @@ contract Overseer is IOverseer, SimpleMultisig, EssentialContract {
             MerkleTreeLib.build(MerkleTreeLib.pad(_hashValidatorPubKeysToLeaves(_validatorPubKeys)));
     }
 
-    /// @dev Saves gas by reusing a scratch space for encoding instead of repeatedly expanding
-    /// the memory by using abi.encode(..)
+    /// @dev Hashes validator public keys to merkle leaves. Saves gas by reusing a scratch space
+    /// for encoding instead of repeatedly expanding the memory by using abi.encode(..)
+    /// @param _validatorPubKeys The validator public keys to hash
+    /// @return The merkle leaves as an array of bytes32
     function _hashValidatorPubKeysToLeaves(BLS.G1Point[] calldata _validatorPubKeys)
         internal
         pure
@@ -174,25 +182,32 @@ contract Overseer is IOverseer, SimpleMultisig, EssentialContract {
         return leaves;
     }
 
+    /// @dev Returns the domain separator for blacklisting operations
+    /// @return The domain separator as bytes32
     function _getBlacklistDomainSeparator() internal pure virtual returns (bytes32) {
         return keccak256("TAIKO_ALETHIA_BLACKLIST_OVERSEER");
     }
 
+    /// @dev Returns the domain separator for unblacklisting operations
+    /// @return The domain separator as bytes32
     function _getUnblacklistDomainSeparator() internal pure virtual returns (bytes32) {
         return keccak256("TAIKO_ALETHIA_UNBLACKLIST_OVERSEER");
     }
 
-    // Overrides
-    // -----------------------------------------------------------------------------------
-
+    /// @dev Returns the domain separator for adding a signer
+    /// @return The domain separator as bytes32
     function _getAddSignerDomainSeparator() internal pure override returns (bytes32) {
         return keccak256("TAIKO_ALETHIA_ADD_OVERSEER_SIGNER");
     }
 
+    /// @dev Returns the domain separator for removing a signer
+    /// @return The domain separator as bytes32
     function _getRemoveSignerDomainSeparator() internal pure override returns (bytes32) {
         return keccak256("TAIKO_ALETHIA_REMOVE_OVERSEER_SIGNER");
     }
 
+    /// @dev Returns the domain separator for updating the signing threshold
+    /// @return The domain separator as bytes32
     function _getUpdateSigningThresholdDomainSeparator() internal pure override returns (bytes32) {
         return keccak256("TAIKO_ALETHIA_UPDATE_OVERSEER_SIGNING_THRESHOLD");
     }

@@ -29,13 +29,21 @@ abstract contract BaseVault is
 {
     using LibBytesInternal for bytes;
 
+    // -------------------------------------------------------------------------
+    // State variables
+    // -------------------------------------------------------------------------
+
     uint256[50] private __gap;
 
-    error VAULT_INSUFFICIENT_FEE();
-    error VAULT_INVALID_TO_ADDR();
-    error VAULT_PERMISSION_DENIED();
+    // -------------------------------------------------------------------------
+    // Constructor
+    // -------------------------------------------------------------------------
 
     constructor(address _resolver) EssentialResolverContract(_resolver) { }
+
+    // -------------------------------------------------------------------------
+    // External functions
+    // -------------------------------------------------------------------------
 
     /// @notice Checks if the contract supports the given interface.
     /// @param _interfaceId The interface identifier.
@@ -50,6 +58,12 @@ abstract contract BaseVault is
     /// @return The name of the vault.
     function name() public pure virtual returns (bytes32);
 
+    // -------------------------------------------------------------------------
+    // Internal functions
+    // -------------------------------------------------------------------------
+
+    /// @dev Checks the context when processing a message from the bridge
+    /// @return ctx_ The bridge context
     function checkProcessMessageContext()
         internal
         view
@@ -58,7 +72,7 @@ abstract contract BaseVault is
     {
         ctx_ = IBridge(msg.sender).context();
         address selfOnSourceChain = resolve(ctx_.srcChainId, name(), false);
-        if (ctx_.from != selfOnSourceChain) revert VAULT_PERMISSION_DENIED();
+        require(ctx_.from == selfOnSourceChain, VAULT_PERMISSION_DENIED());
     }
 
     function checkRecallMessageContext()
@@ -68,17 +82,17 @@ abstract contract BaseVault is
         returns (IBridge.Context memory ctx_)
     {
         ctx_ = IBridge(msg.sender).context();
-        if (ctx_.from != msg.sender) revert VAULT_PERMISSION_DENIED();
+        require(ctx_.from == msg.sender, VAULT_PERMISSION_DENIED());
     }
 
     function checkToAddressOnDestChain(address _to) internal view {
-        if (_to == address(0) || _to == address(this)) revert VAULT_INVALID_TO_ADDR();
+        require(_to != address(0), VAULT_INVALID_TO_ADDR());
+        require(_to != address(this), VAULT_INVALID_TO_ADDR());
     }
 
     function checkToAddressOnSrcChain(address _to, uint64 _destChainId) internal view {
-        if (_to == address(0) || _to == resolve(_destChainId, name(), true)) {
-            revert VAULT_INVALID_TO_ADDR();
-        }
+        require(_to != address(0), VAULT_INVALID_TO_ADDR());
+        require(_to != resolve(_destChainId, name(), true), VAULT_INVALID_TO_ADDR());
     }
 
     function safeSymbol(address _token) internal view returns (string memory symbol_) {
@@ -92,4 +106,12 @@ abstract contract BaseVault is
             address(_token).staticcall(abi.encodeCall(INameSymbol.name, ()));
         return success ? data.toString() : "";
     }
+
+    // -------------------------------------------------------------------------
+    // Errors
+    // -------------------------------------------------------------------------
+
+    error VAULT_INSUFFICIENT_FEE();
+    error VAULT_INVALID_TO_ADDR();
+    error VAULT_PERMISSION_DENIED();
 }

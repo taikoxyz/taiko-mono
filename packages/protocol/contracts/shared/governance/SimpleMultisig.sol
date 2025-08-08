@@ -11,24 +11,17 @@ import "openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 /// It can be inherited by other contracts that need multisig capabilities.
 /// @custom:security-contact security@taiko.xyz
 abstract contract SimpleMultisig {
-    // Events and errors
-    // -----------------
+    // -------------------------------------------------------------------------
+    // Events
+    // -------------------------------------------------------------------------
 
     event SignerAdded(address indexed signer);
     event SignerRemoved(address indexed signer);
     event SigningThresholdUpdated(uint64 newSigningThreshold);
 
-    error AtleastOneSignerIsRequired();
-    error CannotRemoveSignerWhenThresholdIsReached();
-    error InsufficientSignatures();
-    error InvalidSigningThreshold();
-    error NotAnExistingSigner();
-    error SignerAlreadyExists();
-    error SignerDoesNotExist();
-    error SignersMustBeSortedInAscendingOrder();
-
-    // Storage
-    // -------
+    // -------------------------------------------------------------------------
+    // State variables
+    // -------------------------------------------------------------------------
 
     uint64 public signingThreshold;
     uint64 public numSigners;
@@ -38,26 +31,9 @@ abstract contract SimpleMultisig {
 
     uint256[48] private __gap;
 
-    // Initializer
-    // -----------------------------------------------------------------------------------
-
-    function __SimpleMultisig_init(uint64 _signingThreshold, address[] memory _signers) internal {
-        require(_signers.length > 0, AtleastOneSignerIsRequired());
-        require(
-            _signingThreshold != 0 && _signingThreshold <= _signers.length,
-            InvalidSigningThreshold()
-        );
-
-        for (uint256 i; i < _signers.length; ++i) {
-            signers[_signers[i]] = true;
-        }
-
-        numSigners = uint64(_signers.length);
-        signingThreshold = _signingThreshold;
-    }
-
-    // Signers management functions
-    // -----------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
+    // External functions
+    // -------------------------------------------------------------------------
 
     /// @notice Adds a new signer to the multisig
     /// @param _signer The address of the signer to add
@@ -123,9 +99,26 @@ abstract contract SimpleMultisig {
         emit SigningThresholdUpdated(_signingThreshold);
     }
 
+    // -------------------------------------------------------------------------
     // Internal functions
-    // -----------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------
 
+    function __SimpleMultisig_init(uint64 _signingThreshold, address[] memory _signers) internal {
+        require(_signers.length > 0, AtleastOneSignerIsRequired());
+        require(
+            _signingThreshold != 0 && _signingThreshold <= _signers.length,
+            InvalidSigningThreshold()
+        );
+
+        for (uint256 i; i < _signers.length; ++i) {
+            signers[_signers[i]] = true;
+        }
+
+        numSigners = uint64(_signers.length);
+        signingThreshold = _signingThreshold;
+    }
+
+    /// @dev Verifies that the provided signatures meet the signing threshold
     /// @param _ds The domain separator
     /// @param _data The data to be hashed and signed
     /// @param _signatures The signatures to be verified
@@ -152,18 +145,34 @@ abstract contract SimpleMultisig {
         }
     }
 
-    // Virtual functions
-    // -----------------------------------------------------------------------------------
-
+    /// @dev Returns the domain separator for adding a signer
+    /// @return The domain separator as bytes32
     function _getAddSignerDomainSeparator() internal pure virtual returns (bytes32) {
         return keccak256("ADD_SIGNER");
     }
 
+    /// @dev Returns the domain separator for removing a signer
+    /// @return The domain separator as bytes32
     function _getRemoveSignerDomainSeparator() internal pure virtual returns (bytes32) {
         return keccak256("REMOVE_SIGNER");
     }
 
+    /// @dev Returns the domain separator for updating the signing threshold
+    /// @return The domain separator as bytes32
     function _getUpdateSigningThresholdDomainSeparator() internal pure virtual returns (bytes32) {
         return keccak256("UPDATE_SIGNING_THRESHOLD");
     }
+
+    // -------------------------------------------------------------------------
+    // Errors
+    // -------------------------------------------------------------------------
+
+    error AtleastOneSignerIsRequired();
+    error CannotRemoveSignerWhenThresholdIsReached();
+    error InsufficientSignatures();
+    error InvalidSigningThreshold();
+    error NotAnExistingSigner();
+    error SignerAlreadyExists();
+    error SignerDoesNotExist();
+    error SignersMustBeSortedInAscendingOrder();
 }

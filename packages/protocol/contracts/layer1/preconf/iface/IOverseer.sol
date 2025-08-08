@@ -6,6 +6,10 @@ import "@solady/src/utils/ext/ithaca/BLS.sol";
 /// @title IOverseer
 /// @custom:security-contact security@taiko.xyz
 interface IOverseer {
+    // -------------------------------------------------------------------------
+    // Structs
+    // -------------------------------------------------------------------------
+
     struct BlacklistTimestamps {
         uint48 blacklistedAt;
         uint48 unBlacklistedAt;
@@ -20,14 +24,16 @@ interface IOverseer {
         uint256 unblacklistDelay;
     }
 
-    // Blacklist events
+    // -------------------------------------------------------------------------
+    // Events
+    // -------------------------------------------------------------------------
+
     event Blacklisted(bytes32 indexed validatorPubKeysRoot, uint48 timestamp);
     event Unblacklisted(bytes32 indexed validatorPubKeysRoot, uint48 timestamp);
 
-    error BlacklistDelayNotMet();
-    error ValidatorsAlreadyBlacklisted();
-    error ValidatorsNotBlacklisted();
-    error UnblacklistDelayNotMet();
+    // -------------------------------------------------------------------------
+    // External functions
+    // -------------------------------------------------------------------------
 
     /// @notice Blacklists the validators of a preconf operator for subjective faults
     /// @param _validatorPubKeys consensus layer public keys of the validators being blacklisted
@@ -46,9 +52,6 @@ interface IOverseer {
         bytes[] memory _signatures
     )
         external;
-
-    // Views
-    // -----------------------------------------------------------------------------------
 
     /// @notice Returns the current configuration of the overseer
     /// @return The current configuration of the overseer
@@ -79,4 +82,13 @@ interface IOverseer {
         external
         pure
         returns (bool);
+
+    // -------------------------------------------------------------------------
+    // Errors
+    // -------------------------------------------------------------------------
+
+    error BlacklistDelayNotMet();
+    error ValidatorsAlreadyBlacklisted();
+    error ValidatorsNotBlacklisted();
+    error UnblacklistDelayNotMet();
 }

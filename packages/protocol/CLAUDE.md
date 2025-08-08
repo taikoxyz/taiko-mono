@@ -54,6 +54,30 @@ packages/
 - Use `///` comments for natspec. Only external and public functions should have a `@notice`, while internal or private only have `@dev`
 - Use named parameters on mapping definitions
 - Function parameters should always start with "_", and return values should always end with "_"
+- Always use `require` statements with custom errors instead of `if-revert` patterns
+  - YES: `require(condition, ErrorName())`
+  - NO: `if (!condition) revert ErrorName()`
+- Use consistent code separators for larger files with these exact labels only:
+
+  ```
+  // -------------------------------------------------------------------------
+  // Group Labels
+  // -------------------------------------------------------------------------
+  ```
+
+  Where only the following labels are used:
+
+  - Structs
+  - Events
+  - Variables
+  - Constants
+  - Immutables
+  - State variables
+  - Constructor
+  - External functions
+  - Internal functions
+  - Private functions
+  - Errors
 
 ### Commands
 
