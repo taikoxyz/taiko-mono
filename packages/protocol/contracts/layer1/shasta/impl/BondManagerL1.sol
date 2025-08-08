@@ -17,6 +17,9 @@ contract BondManagerL1 is BondManager, IBondManagerL1 {
     uint96 public immutable minBond;
 
     /// @notice Time delay required before withdrawal after request
+    /// @dev WARNING: In theory proposal can remain unfinalized indefinitely, but in practice after
+    ///      the `extendedProvingWindow` the incentives are very strong for a prover to come in.
+    ///      A safe value for this is `extendedProvingWindow` + buffer.
     uint48 public immutable withdrawalDelay;
 
     // -------------------------------------------------------------------
