@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
 import { IAnchor } from "../iface/IAnchor.sol";
-import { IBlockHashManager } from "../iface/IBlockHashManager.sol";
 import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 import { ISyncedBlockManager } from "contracts/shared/shasta/iface/ISyncedBlockManager.sol";
 import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
@@ -35,7 +34,6 @@ contract Anchor is EssentialContract, IAnchor {
 
     /// @notice External contract dependencies
     IBondManager public immutable bondManager;
-    IBlockHashManager public immutable blockHashManager;
     ISyncedBlockManager public immutable syncedBlockManager;
 
     // ---------------------------------------------------------------
@@ -50,13 +48,11 @@ contract Anchor is EssentialContract, IAnchor {
 
     constructor(
         IBondManager _bondManager,
-        IBlockHashManager _blockHashManager,
         ISyncedBlockManager _syncedBlockManager
     )
         EssentialContract()
     {
         bondManager = _bondManager;
-        blockHashManager = _blockHashManager;
         syncedBlockManager = _syncedBlockManager;
     }
 
@@ -94,17 +90,14 @@ contract Anchor is EssentialContract, IAnchor {
         // Persist synced block data
         if (_newState.anchorBlockNumber > _state.anchorBlockNumber) {
             syncedBlockManager.saveSyncedBlock(
-                ISyncedBlockManager.SyncedBlock({
-                    blockNumber: _newState.anchorBlockNumber,
-                    blockHash: _newState.anchorBlockHash,
-                    stateRoot: _newState.anchorStateRoot
-                })
+                _newState.anchorBlockNumber,
+                _newState.anchorBlockHash,
+                _newState.anchorStateRoot
             );
         }
 
         // Save parent block hash for future verification
         uint256 parentNumber = _newState.anchorBlockNumber - 1;
-        blockHashManager.saveBlockHash(parentNumber, blockhash(parentNumber));
 
         // Process each bond operation
         for (uint256 i; i < _bondOperations.length; ++i) {

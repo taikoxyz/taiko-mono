@@ -21,7 +21,7 @@ contract TestTaikoAnchor is Layer2Test {
         );
 
         anchor = deployAnchor(
-            address(new TaikoAnchor_NoBaseFeeCheck(address(signalService))), ethereumChainId
+            address(new TaikoAnchor_NoBaseFeeCheck(address(signalService), 0, 0)), ethereumChainId
         );
 
         signalService.authorize(address(anchor), true);

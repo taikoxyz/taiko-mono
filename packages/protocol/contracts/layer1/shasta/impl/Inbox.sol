@@ -642,11 +642,9 @@ contract Inbox is EssentialContract, IInbox {
 
         if (hasFinalized) {
             syncedBlockManager.saveSyncedBlock(
-                ISyncedBlockManager.SyncedBlock({
-                    blockNumber: claimRecord.claim.endBlockNumber,
-                    blockHash: claimRecord.claim.endBlockHash,
-                    stateRoot: claimRecord.claim.endStateRoot
-                })
+                claimRecord.claim.endBlockNumber,
+                claimRecord.claim.endBlockHash,
+                claimRecord.claim.endStateRoot
             );
         }
 
