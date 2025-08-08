@@ -39,7 +39,7 @@ contract SyncedBlockManager is ISyncedBlockManager {
 
     /// @notice Ensures only the authorized contract can call the function
     modifier onlyAuthorized() {
-        if (msg.sender != authorized) revert Unauthorized();
+        require(msg.sender == authorized, Unauthorized());
         _;
     }
 
@@ -52,8 +52,8 @@ contract SyncedBlockManager is ISyncedBlockManager {
     /// on L2, this shall be the anchor transactor.
     /// @param _maxStackSize The size of the ring buffer
     constructor(address _authorized, uint48 _maxStackSize) {
-        if (_authorized == address(0)) revert InvalidAddress();
-        if (_maxStackSize == 0) revert InvalidMaxStackSize();
+        require(_authorized != address(0), InvalidAddress());
+        require(_maxStackSize != 0, InvalidMaxStackSize());
 
         authorized = _authorized;
         maxStackSize = _maxStackSize;
@@ -65,13 +65,10 @@ contract SyncedBlockManager is ISyncedBlockManager {
 
     /// @inheritdoc ISyncedBlockManager
     function saveSyncedBlock(SyncedBlock calldata _syncedBlock) external onlyAuthorized {
-        // Validate all fields in a single check to save gas
-        if (
-            _syncedBlock.stateRoot == 0 || _syncedBlock.blockHash == 0
-                || _syncedBlock.blockNumber <= _latestSyncedBlockNumber
-        ) {
-            revert InvalidSyncedBlock();
-        }
+        // Validate all fields
+        require(_syncedBlock.stateRoot != 0, InvalidSyncedBlock());
+        require(_syncedBlock.blockHash != 0, InvalidSyncedBlock());
+        require(_syncedBlock.blockNumber > _latestSyncedBlockNumber, InvalidSyncedBlock());
 
         unchecked {
             // Ring buffer implementation:
@@ -99,8 +96,8 @@ contract SyncedBlockManager is ISyncedBlockManager {
         view
         returns (SyncedBlock memory syncedBlock_)
     {
-        if (_stackSize == 0) revert NoSyncedBlocks();
-        if (_offset >= _stackSize) revert IndexOutOfBounds();
+        require(_stackSize != 0, NoSyncedBlocks());
+        require(_offset < _stackSize, IndexOutOfBounds());
 
         unchecked {
             // Calculate the slot position for the requested offset:

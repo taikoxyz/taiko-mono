@@ -146,7 +146,7 @@ contract Inbox is EssentialContract, IInbox {
     /// @inheritdoc IInbox
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         proposerChecker.checkProposer(msg.sender);
-        if (bondManager.getBondBalance(msg.sender) < minBondBalance) revert InsufficientBond();
+        require(bondManager.getBondBalance(msg.sender) >= minBondBalance, InsufficientBond());
 
         (
             CoreState memory coreState,
@@ -154,14 +154,13 @@ contract Inbox is EssentialContract, IInbox {
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
 
-        if (keccak256(abi.encode(coreState)) != coreStateHash) {
-            revert InvalidState();
-        }
+        require(keccak256(abi.encode(coreState)) == coreStateHash, InvalidState());
 
         // Check if new proposals would exceed the unfinalized proposal capacity
-        if (coreState.nextProposalId - coreState.lastFinalizedProposalId > getCapacity()) {
-            revert ExceedsUnfinalizedProposalCapacity();
-        }
+        require(
+            coreState.nextProposalId - coreState.lastFinalizedProposalId <= getCapacity(),
+            ExceedsUnfinalizedProposalCapacity()
+        );
 
         Proposal memory proposal;
 
@@ -188,8 +187,8 @@ contract Inbox is EssentialContract, IInbox {
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         (Proposal[] memory proposals, Claim[] memory claims) = _data.decodeProveData();
 
-        if (proposals.length != claims.length) revert InconsistentParams();
-        if (proposals.length == 0) revert EmptyProposals();
+        require(proposals.length == claims.length, InconsistentParams());
+        require(proposals.length != 0, EmptyProposals());
 
         ClaimRecord[] memory claimRecords = new ClaimRecord[](proposals.length);
 
@@ -539,8 +538,8 @@ contract Inbox is EssentialContract, IInbox {
         returns (ClaimRecord memory claimRecord_)
     {
         bytes32 proposalHash = keccak256(abi.encode(_proposal));
-        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
-        if (proposalHash != getProposalHash(_proposal.id)) revert ProposalHashMismatch();
+        require(proposalHash == _claim.proposalHash, ProposalHashMismatch());
+        require(proposalHash == getProposalHash(_proposal.id), ProposalHashMismatch());
 
         BondDecision bondDecision = _calculateBondDecision(_claim, _proposal);
 
@@ -623,12 +622,12 @@ contract Inbox is EssentialContract, IInbox {
             if (storedClaimRecordHash == 0) break;
 
             // There is no claim record provided for the next proposal.
-            if (i >= _claimRecords.length) revert ClaimRecordNotProvided();
+            require(i < _claimRecords.length, ClaimRecordNotProvided());
 
             claimRecord = _claimRecords[i];
 
             bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
-            if (claimRecordHash != storedClaimRecordHash) revert ClaimRecordHashMismatch();
+            require(claimRecordHash == storedClaimRecordHash, ClaimRecordHashMismatch());
 
             _coreState.lastFinalizedProposalId = proposalId;
             _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claimRecord.claim));

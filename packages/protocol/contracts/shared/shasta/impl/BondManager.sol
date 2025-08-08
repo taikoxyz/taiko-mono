@@ -20,7 +20,7 @@ abstract contract BondManager is IBondManager {
 
     /// @notice Ensures only the inbox contract can call the function.
     modifier onlyAuthorized() {
-        if (msg.sender != authorized) revert Unauthorized();
+        require(msg.sender == authorized, Unauthorized());
         _;
     }
 

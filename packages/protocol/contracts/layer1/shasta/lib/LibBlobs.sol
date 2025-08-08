@@ -43,12 +43,12 @@ library LibBlobs {
         view
         returns (BlobFrame memory)
     {
-        if (_blobLocator.numBlobs == 0) revert InvalidBlobLocator();
+        require(_blobLocator.numBlobs != 0, InvalidBlobLocator());
 
         bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
         for (uint256 i; i < _blobLocator.numBlobs; ++i) {
             blobHashes[i] = blobhash(_blobLocator.blobStartIndex + i);
-            if (blobHashes[i] == 0) revert BlobNotFound();
+            require(blobHashes[i] != 0, BlobNotFound());
         }
 
         return BlobFrame({
