@@ -36,15 +36,28 @@ jobs:
 
       - name: Fetch PR if commenting on PR
         if: github.event.issue.pull_request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Get PR number from the issue
           PR_NUMBER=$(echo "${{ github.event.issue.pull_request.url }}" | grep -oE '[0-9]+$')
           echo "Fetching PR #${PR_NUMBER}"
 
-          # Fetch the PR ref
-          git fetch origin "pull/${PR_NUMBER}/head:pr-${PR_NUMBER}" || true
+          # Get PR details including fork info
+          PR_DATA=$(gh pr view ${PR_NUMBER} --json headRefName,headRepository,headRepositoryOwner)
+          HEAD_REF=$(echo "$PR_DATA" | jq -r '.headRefName')
+          HEAD_REPO_OWNER=$(echo "$PR_DATA" | jq -r '.headRepositoryOwner.login')
+          HEAD_REPO_NAME=$(echo "$PR_DATA" | jq -r '.headRepository.name')
 
-          # Also try to fetch the merge ref
+          # If it's from a fork, add the fork as a remote
+          if [ "$HEAD_REPO_OWNER" != "${{ github.repository_owner }}" ]; then
+            echo "PR is from fork: ${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}"
+            git remote add fork "https://github.com/${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}.git" || true
+            git fetch fork "${HEAD_REF}:${HEAD_REF}" || true
+          fi
+
+          # Always fetch the PR refs from origin
+          git fetch origin "pull/${PR_NUMBER}/head:pr-${PR_NUMBER}" || true
           git fetch origin "pull/${PR_NUMBER}/merge:pr-${PR_NUMBER}-merge" || true
 
       - name: Setup Node.js
