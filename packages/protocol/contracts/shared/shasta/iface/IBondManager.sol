@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
+
 /// @title IBondManager
 /// @notice Interface for managing bonds in the Based3 protocol
 /// @custom:security-contact security@taiko.xyz
@@ -38,4 +40,23 @@ interface IBondManager {
     /// @param _address The address to get the bond balance for
     /// @return The bond balance of the address
     function getBondBalance(address _address) external view returns (uint256);
+
+    // -------------------------------------------------------------------------
+    // New Functions (Shasta withdraw flow)
+    // -------------------------------------------------------------------------
+
+    /// @notice Notifies the bond manager that a proposal was created by a proposer.
+    /// @dev Called only by the authorized inbox contract.
+    /// @param proposer The proposer address.
+    /// @param proposalId The proposal id.
+    function notifyProposed(address proposer, uint48 proposalId) external;
+
+    /// @notice Withdraw bond to a recipient.
+    /// @dev On L1, this enforces that the caller has no unfinalized proposals by verifying
+    ///      the provided core state against the inbox's current core state hash. On L2, the
+    ///      guard is skipped and only balance checks apply in the implementation.
+    /// @param to The recipient of withdrawn funds.
+    /// @param amount The amount to withdraw.
+    /// @param coreState The core state to validate (ignored on L2 implementations).
+    function withdraw(address to, uint256 amount, IInbox.CoreState calldata coreState) external;
 }
