@@ -7,9 +7,9 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title BondManager
-/// @notice Abstract contract for managing bonds in the Based3 protocol
+/// @notice Contract for managing bonds in the Based3 protocol
 /// @custom:security-contact security@taiko.xyz
-abstract contract BondManager is IBondManager {
+contract BondManager is IBondManager {
     using SafeERC20 for IERC20;
     // -------------------------------------------------------------------
     // State Variables
@@ -132,10 +132,8 @@ abstract contract BondManager is IBondManager {
         emit BondCredited(msg.sender, amount);
     }
 
-    // No setter for minBond since it's immutable
-
     // -------------------------------------------------------------------------
-    // Internal Functions - Abstract
+    // Internal Functions
     // -------------------------------------------------------------------
 
     /// @dev Internal implementation for debiting a bond
@@ -166,7 +164,7 @@ abstract contract BondManager is IBondManager {
     /// @param from The address whose balance will be reduced
     /// @param to The recipient address
     /// @param amount The amount to withdraw
-    function _withdraw(address from, address to, uint96 amount) internal virtual {
+    function _withdraw(address from, address to, uint96 amount) internal {
         _debitBond(from, amount);
 
         // Transfer ERC20 bond tokens out to recipient
@@ -176,7 +174,7 @@ abstract contract BondManager is IBondManager {
     /// @dev Internal implementation for getting the bond balance
     /// @param _address The address to get the bond balance for
     /// @return The bond balance of the address
-    function _getBondBalance(address _address) internal view virtual returns (uint96) {
+    function _getBondBalance(address _address) internal view returns (uint96) {
         return bond[_address].balance;
     }
 
