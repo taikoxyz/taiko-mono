@@ -31,11 +31,16 @@ interface IInbox {
         LibBlobs.BlobFrame frame;
     }
 
-    /// @notice Represents the timing of when a proof was submitted.
-    enum ProofTiming {
-        InProvingWindow, // Proof submitted within the initial proving window
-        InExtendedProvingWindow, // Proof submitted during the extended proving window
-        OutOfExtendedProvingWindow // Proof submitted after all proving windows expired
+    /// @notice Represents the bond decision based on proof submission timing and prover identity
+    /// @dev Bond decisions determine how provability and liveness bonds are distributed
+    /// based on whether proofs are submitted on time and by the correct party
+    enum BondDecision {
+        NoOp, // Aggregatable
+        L2RefundLiveness, // Aggregatable
+        L2RewardProver, // Aggregatable
+        L1SlashLivenessRewardProver, // Non-aggregatable
+        L1SlashProvabilityRewardProverL2RefundLiveness, // Non-aggregatable
+        L1SlashProvabilityRewardProver // Non-aggregatable
 
     }
 
@@ -68,8 +73,10 @@ interface IInbox {
         uint48 livenessBondGwei;
         /// @notice The provability bond, copied from the proposal.
         uint48 provabilityBondGwei;
+        /// @notice The next proposal ID.
+        uint48 nextProposalId;
         /// @notice The proof timing.
-        ProofTiming proofTiming;
+        BondDecision bondDecision;
     }
 
     /// @notice Represents the core state of the inbox.
