@@ -340,7 +340,6 @@ contract Inbox is EssentialContract, IInbox {
         return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
 
-<<<<<<< HEAD
     /// @dev Aggregates consecutive claim records to reduce gas costs
     /// @notice This function is a key gas optimization that combines multiple claim records
     /// into fewer records when they share compatible properties:
@@ -475,10 +474,7 @@ contract Inbox is EssentialContract, IInbox {
         return false;
     }
 
-    // ---------------------------------------------------------------------
-=======
     // ---------------------------------------------------------------
->>>>>>> origin/feat/protocol/shasta
     // Private Functions
     // ---------------------------------------------------------------
 
@@ -678,13 +674,8 @@ contract Inbox is EssentialContract, IInbox {
         returns (ClaimRecord memory claimRecord_)
     {
         bytes32 proposalHash = keccak256(abi.encode(_proposal));
-<<<<<<< HEAD
         if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
         if (proposalHash != getProposalHash(_proposal.id)) revert ProposalHashMismatch();
-=======
-        require(proposalHash == _claim.proposalHash, ProposalHashMismatch());
-        require(proposalHash == getProposalHash(_proposal.id), ProposalHashMismatch());
->>>>>>> origin/feat/protocol/shasta
 
         BondDecision bondDecision = _calculateBondDecision(_claim, _proposal);
 
@@ -853,11 +844,8 @@ contract Inbox is EssentialContract, IInbox {
             bondManager.creditBond(claim.actualProver, provabilityBondWei / REWARD_FRACTION);
         }
 
-<<<<<<< HEAD
         emit BondRequest(bondOperation);
 
-=======
->>>>>>> origin/feat/protocol/shasta
         return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
     }
 
