@@ -11,14 +11,26 @@ import { LibBondOperation } from "src/shared/shasta/libs/LibBondOperation.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract ShastaAnchor is PacayaAnchor {
     // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
+
+    struct State {
+        uint48 anchorBlockNumber;
+        bytes32 bondOperationsHash;
+        uint64 anchorGasLimit;
+        address anchorTransactor;
+    }
+
+    // ---------------------------------------------------------------
     // State variables
     // ---------------------------------------------------------------
 
     // The v4Anchor's transaction gas limit, this value must be enforced
-    uint256 public constant ANCHOR_GAS_LIMIT = 200_000;
+    uint64 private constant _ANCHOR_GAS_LIMIT = 200_000;
 
     IShastaBondManager public immutable bondManager;
     ISyncedBlockManager public immutable syncedBlockManager;
+    
     uint48 public anchorBlockNumber;
     bytes32 public bondOperationsHash;
 
@@ -48,7 +60,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // External functions
     // ---------------------------------------------------------------
 
-    function anchor4(
+    function setState(
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
         bytes32 _anchorStateRoot,
@@ -92,6 +104,15 @@ abstract contract ShastaAnchor is PacayaAnchor {
         }
         require(h == _bondOperationsHash, BondOperationsHashMismatch());
         bondOperationsHash = _bondOperationsHash;
+    }
+
+    function getState() external view returns (State memory) {
+        return State({
+            anchorBlockNumber: anchorBlockNumber,
+            bondOperationsHash: bondOperationsHash,
+            anchorGasLimit: _ANCHOR_GAS_LIMIT,
+            anchorTransactor: GOLDEN_TOUCH_ADDRESS
+        });
     }
 
     // ---------------------------------------------------------------
