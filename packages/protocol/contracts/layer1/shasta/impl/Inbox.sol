@@ -43,6 +43,8 @@ contract Inbox is EssentialContract, IInbox {
 
     uint256 public constant REWARD_FRACTION = 2;
 
+    uint256 public constant REWARD_FRACTION = 2;
+
     uint48 public immutable provabilityBondGwei;
     uint48 public immutable livenessBondGwei;
     uint48 public immutable provingWindow;
@@ -341,6 +343,154 @@ contract Inbox is EssentialContract, IInbox {
     // -------------------------------------------------------------------
     // Private Functions
     // -------------------------------------------------------------------
+
+    /// @dev Aggregates and saves consecutive claim records to reduce gas costs
+    /// @notice This function is a key gas optimization that combines multiple claim records
+    /// into fewer records when they share compatible properties:
+    /// - Same parent claim hash (ensures they're part of the same chain)
+    /// - Same bond decision (ensures consistent bond handling)
+    /// - Same designated prover (for L2RefundLiveness decisions)
+    /// - Same actual prover (for L2RewardProver decisions)
+    ///
+    /// Gas savings example: If 10 consecutive proposals are proven by the same prover,
+    /// they can be stored as 1 aggregated record instead of 10 individual records
+    /// @param _proposals Array of proposals being proven
+    /// @param _claimRecords Array of claim records to aggregate
+    function _aggregateAndSaveClaimRecords(
+        Proposal[] memory _proposals,
+        ClaimRecord[] memory _claimRecords
+    )
+        private
+    {
+        unchecked {
+            // Track the first proposal for each aggregated record
+            Proposal[] memory firstProposals = new Proposal[](_claimRecords.length);
+            firstProposals[0] = _proposals[0];
+
+            // Reuse _claimRecords array for aggregation
+            uint256 writeIndex = 0;
+            uint256 readIdx = 1;
+            uint48 lastAggregatedProposalId = _proposals[0].id;
+
+            while (readIdx < _claimRecords.length) {
+                if (
+                    _canAggregate(
+                        _claimRecords[writeIndex],
+                        _claimRecords[readIdx],
+                        lastAggregatedProposalId,
+                        _proposals[readIdx].id
+                    )
+                ) {
+                    // Update the aggregated record at writeIndex to span multiple proposals
+                    _claimRecords[writeIndex].nextProposalId = _claimRecords[readIdx].nextProposalId;
+                    _claimRecords[writeIndex].claim.endBlockNumber =
+                        _claimRecords[readIdx].claim.endBlockNumber;
+                    _claimRecords[writeIndex].claim.endBlockHash =
+                        _claimRecords[readIdx].claim.endBlockHash;
+                    _claimRecords[writeIndex].claim.endStateRoot =
+                        _claimRecords[readIdx].claim.endStateRoot;
+
+                    // Aggregate liveness bonds for decisions that require it
+                    if (
+                        _claimRecords[writeIndex].bondDecision == BondDecision.L2RefundLiveness
+                            || _claimRecords[writeIndex].bondDecision == BondDecision.L2RewardProver
+                    ) {
+                        _claimRecords[writeIndex].livenessBondGwei +=
+                            _claimRecords[readIdx].livenessBondGwei;
+                    }
+
+                    // Update the last aggregated proposal ID
+                    lastAggregatedProposalId = _proposals[readIdx].id;
+                } else {
+                    // Move to next write position and copy the current record
+                    writeIndex++;
+                    if (writeIndex != readIdx) {
+                        _claimRecords[writeIndex] = _claimRecords[readIdx];
+                    }
+                    firstProposals[writeIndex] = _proposals[readIdx];
+
+                    // Update the last aggregated proposal ID for the new write position
+                    lastAggregatedProposalId = _proposals[readIdx].id;
+                }
+                readIdx++;
+            }
+
+            // Final aggregated count
+            uint256 aggregatedCount = writeIndex + 1;
+
+            // Emit events and set hashes for all aggregated records
+            for (uint256 i; i < aggregatedCount; ++i) {
+                _setClaimRecordHash(
+                    firstProposals[i].id,
+                    _claimRecords[i].claim.parentClaimHash,
+                    keccak256(abi.encode(_claimRecords[i]))
+                );
+                emit Proved(firstProposals[i], _claimRecords[i]);
+            }
+        }
+    }
+
+    /// @dev Checks if two claim records can be aggregated for gas optimization
+    /// @notice Aggregation rules ensure that only compatible records are combined:
+    /// - Proposals must be consecutive
+    /// - Records must be consecutive (recordA.nextProposalId == proposalBId)
+    /// - Must share the same parent claim hash (same chain)
+    /// - Must have the same bond decision
+    /// - For certain bond decisions, must have the same prover
+    /// - Liveness bond sum must not overflow uint48
+    /// @param _recordA The first claim record
+    /// @param _recordB The second claim record
+    /// @param _lastAggregatedProposalId The last proposal ID that was aggregated
+    /// @param _proposalBId The proposal ID of the second claim record
+    /// @return _ True if the records can be aggregated, false otherwise
+    function _canAggregate(
+        ClaimRecord memory _recordA,
+        ClaimRecord memory _recordB,
+        uint48 _lastAggregatedProposalId,
+        uint48 _proposalBId
+    )
+        private
+        pure
+        returns (bool)
+    {
+        // Check if proposals are consecutive
+        if (_proposalBId != _lastAggregatedProposalId + 1) return false;
+
+        // Check if a.nextProposalId equals the proposal id of b
+        // Since ClaimRecord stores nextProposalId which is proposalId + 1,
+        // we need to check if a.nextProposalId == b's implied proposalId
+        // b's proposalId = b.nextProposalId - 1
+        if (_recordA.nextProposalId != _proposalBId) return false;
+
+        // Check if parentClaimHash matches (required for valid aggregation)
+        if (_recordA.claim.parentClaimHash != _recordB.claim.parentClaimHash) return false;
+
+        // Check if bondDecision matches
+        if (_recordA.bondDecision != _recordB.bondDecision) return false;
+
+        // Check specific conditions for aggregation
+        if (_recordA.bondDecision == BondDecision.NoOp) return true;
+
+        // For other decions, we need to aggregate the liveness bonds. We need to make sure the sum
+        // does not overflow.
+        if (uint256(_recordA.livenessBondGwei) + _recordB.livenessBondGwei > type(uint48).max) {
+            return false;
+        }
+
+        // For L2RefundLiveness, we need to make sure the designated prover is the same.
+        if (
+            _recordA.bondDecision == BondDecision.L2RefundLiveness
+                && _recordA.claim.designatedProver == _recordB.claim.designatedProver
+        ) return true;
+
+        // For L2RewardProver, we need to make sure the actual prover is the same.
+        if (
+            _recordA.bondDecision == BondDecision.L2RewardProver
+                && _recordA.claim.actualProver == _recordB.claim.actualProver
+        ) return true;
+
+        return false;
+    }
 
     /// @dev Aggregates and saves consecutive claim records to reduce gas costs
     /// @notice This function is a key gas optimization that combines multiple claim records
