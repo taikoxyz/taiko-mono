@@ -82,11 +82,11 @@ abstract contract BondManager is IBondManager {
 
     /// @inheritdoc IBondManager
     function deposit(uint96 amount) external {
-        _creditBond(msg.sender, amount);
-
         bondToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        emit BondCredited(msg.sender, amount);
+        _creditBond(msg.sender, amount);
+
+        emit BondDeposited(msg.sender, amount);
     }
 
     // -------------------------------------------------------------------------

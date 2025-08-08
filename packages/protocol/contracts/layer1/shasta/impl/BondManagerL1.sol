@@ -78,7 +78,10 @@ contract BondManagerL1 is BondManager, IBondManagerL1 {
     function withdraw(address to, uint96 amount) external override(BondManager, IBondManager) {
         Bond storage bond_ = bond[msg.sender];
 
-        if (bond_.withdrawalRequestedAt == 0 || block.timestamp < bond_.withdrawalRequestedAt + withdrawalDelay) {
+        if (
+            bond_.withdrawalRequestedAt == 0
+                || block.timestamp < bond_.withdrawalRequestedAt + withdrawalDelay
+        ) {
             // Active proposer or withdrawal delay not passed yet, can only withdraw excess above
             // minBond
             require(bond_.balance - amount >= minBond, MustMaintainMinBond());
