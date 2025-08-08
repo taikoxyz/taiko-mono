@@ -12,7 +12,8 @@ library LibManifest {
     uint256 internal constant BLOB_SIZE_BYTES = 128 * 1024;
     /// @notice The maximum number of bytes allowed for a proposal slice.
     uint256 internal constant MAX_PROPOSAL_SLICE_BYTES = 6 * BLOB_SIZE_BYTES;
-    /// @notice The maximum number of blocks allowed in a proposal.
+    /// @notice The maximum number of blocks allowed in a proposal. If we assume block time is as
+    /// small as one second, 384 blocks will cover an Ethereum epoch.
     uint256 internal constant MAX_BLOCKS_PER_PROPOSAL = 384;
 
     // -------------------------------------------------------------------
