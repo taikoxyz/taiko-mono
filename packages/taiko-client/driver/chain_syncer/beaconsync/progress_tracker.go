@@ -51,6 +51,7 @@ func NewSyncProgressTracker(c *rpc.EthClient, timeout time.Duration) *SyncProgre
 
 // Track starts the inner event loop, to monitor the sync progress.
 func (t *SyncProgressTracker) Track(ctx context.Context) {
+	defer t.ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():

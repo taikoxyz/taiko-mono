@@ -52,8 +52,9 @@ type Driver struct {
 	p2pSigner p2p.Signer
 	p2pSetup  p2p.SetupP2P
 
-	ctx context.Context
-	wg  sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 // InitFromCli initializes the given driver instance based on the command line flags.
@@ -69,7 +70,7 @@ func (d *Driver) InitFromCli(ctx context.Context, c *cli.Context) error {
 // InitFromConfig initializes the driver instance based on the given configurations.
 func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.l1HeadCh = make(chan *types.Header, 1024)
-	d.ctx = ctx
+	d.ctx, d.cancel = context.WithCancel(ctx)
 	d.Config = cfg
 
 	if d.rpc, err = rpc.NewClient(d.ctx, cfg.ClientConfig); err != nil {
@@ -207,7 +208,13 @@ func (d *Driver) Start() error {
 
 // Close closes the driver instance.
 func (d *Driver) Close(_ context.Context) {
-	d.l1HeadSub.Unsubscribe()
+	if d.cancel != nil {
+		d.cancel()
+	}
+
+	if d.l1HeadSub != nil {
+		d.l1HeadSub.Unsubscribe()
+	}
 	d.state.Close()
 	// Close the preconfirmation block server if it is enabled.
 	if d.preconfBlockServer != nil {
@@ -591,6 +598,7 @@ func (d *Driver) peerLoop(ctx context.Context) {
 	defer d.wg.Done()
 
 	t := time.NewTicker(peerLoopReportInterval)
+	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
