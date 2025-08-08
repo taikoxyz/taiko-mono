@@ -9,7 +9,8 @@ contract TaikoAnchor_NoBaseFeeCheck is TaikoAnchor {
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight
     )
-        TaikoAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight) { }
+        TaikoAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
+    { }
 
     function skipFeeCheck() public pure override returns (bool) {
         return true;

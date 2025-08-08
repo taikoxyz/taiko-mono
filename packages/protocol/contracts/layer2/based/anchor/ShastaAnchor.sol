@@ -4,13 +4,13 @@ pragma solidity ^0.8.24;
 import "src/shared/based/LibSharedData.sol";
 import "./PacayaAnchor.sol";
 import "src/shared/shasta/iface/ISyncedBlockManager.sol";
-import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
+import { IShastaBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
 
 /// @title ShastaAnchor
 /// @notice Anchoring functions for the Shasta fork.
 /// @custom:security-contact security@taiko.xyz
-abstract contract ShastaAnchor is PacayaAnchor{
+abstract contract ShastaAnchor is PacayaAnchor {
     error InvalidForkHeight();
     error NonZeroAnchorStateRoot();
     error ZeroAnchorStateRoot();
@@ -20,25 +20,24 @@ abstract contract ShastaAnchor is PacayaAnchor{
     // around 361,579 gas.  We set the limit to 1,000,000 to be safe.
     uint256 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
-    IBondManager immutable bondManager;
+    IShastaBondManager immutable bondManager;
     ISyncedBlockManager immutable syncedBlockManager;
     uint48 public anchorBlockNumber;
 
-    uint256[50] private __gap;
+    uint256[49] private __gap;
 
     constructor(
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
         ISyncedBlockManager _syncedBlockManager,
-        IBondManager _bondManager
+        IShastaBondManager _bondManager
     )
-        PacayaAnchor(_signalService, _pacayaForkHeight)
+        PacayaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
     {
         require(
             _shastaForkHeight == 0 || _shastaForkHeight > _pacayaForkHeight, InvalidForkHeight()
         );
-        shastaForkHeight = _shastaForkHeight;
         syncedBlockManager = _syncedBlockManager;
         bondManager = _bondManager;
     }
@@ -58,12 +57,12 @@ abstract contract ShastaAnchor is PacayaAnchor{
         uint256 parentId = block.number - 1;
         _verifyAndUpdatePublicInputHash(parentId);
 
-        // _verifyBaseFeeAndUpdateGasExcess(_parentGasUsed, _baseFeeConfig);
-        _updateParentHashAndTimestamp(parentId);
+        // Store the parent block hash in the _blockhashes mapping.
+        _blockhashes[parentId] = blockhash(parentId);
 
         if (_anchorBlockNumber > anchorBlockNumber) {
             // This block must be the last block in the batch.
-            require(_anchorBlockHash == 0, ZeroAnchorBlockHash());
+            require(_anchorBlockHash != 0, ZeroAnchorBlockHash());
             require(_anchorStateRoot != 0, ZeroAnchorStateRoot());
 
             anchorBlockNumber = _anchorBlockNumber;
@@ -77,7 +76,7 @@ abstract contract ShastaAnchor is PacayaAnchor{
             require(_anchorStateRoot == 0, NonZeroAnchorStateRoot());
         }
 
-            // Process each bond operation
+        // Process each bond operation
         for (uint256 i; i < _bondOperations.length; ++i) {
             LibBondOperation.BondOperation memory op = _bondOperations[i];
             bondManager.creditBond(op.receiver, op.credit);

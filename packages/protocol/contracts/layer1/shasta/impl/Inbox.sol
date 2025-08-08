@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
-import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
+import { IShastaBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 import { ISyncedBlockManager } from "contracts/shared/shasta/iface/ISyncedBlockManager.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
@@ -52,7 +52,7 @@ contract Inbox is EssentialContract, IInbox {
     uint256 public immutable ringBufferSize;
 
     /// @notice The bond manager contract
-    IBondManager public immutable bondManager;
+    IShastaBondManager public immutable bondManager;
 
     /// @notice The synced block manager contract
     ISyncedBlockManager public immutable syncedBlockManager;
@@ -117,7 +117,7 @@ contract Inbox is EssentialContract, IInbox {
         minBondBalance = _minBondBalance;
         maxFinalizationCount = _maxFinalizationCount;
         ringBufferSize = _ringBufferSize;
-        bondManager = IBondManager(_bondManager);
+        bondManager = IShastaBondManager(_bondManager);
         syncedBlockManager = ISyncedBlockManager(_syncedBlockManager);
         proofVerifier = IProofVerifier(_proofVerifier);
         proposerChecker = IProposerChecker(_proposerChecker);

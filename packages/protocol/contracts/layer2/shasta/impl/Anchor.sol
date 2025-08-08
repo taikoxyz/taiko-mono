@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
 import { IAnchor } from "../iface/IAnchor.sol";
-import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
+import { IShastaBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 import { ISyncedBlockManager } from "contracts/shared/shasta/iface/ISyncedBlockManager.sol";
 import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
 import { LibMath } from "contracts/shared/libs/LibMath.sol";
@@ -33,7 +33,7 @@ contract Anchor is EssentialContract, IAnchor {
     // ---------------------------------------------------------------
 
     /// @notice External contract dependencies
-    IBondManager public immutable bondManager;
+    IShastaBondManager public immutable bondManager;
     ISyncedBlockManager public immutable syncedBlockManager;
 
     // ---------------------------------------------------------------
@@ -47,7 +47,7 @@ contract Anchor is EssentialContract, IAnchor {
     uint256[46] private __gap;
 
     constructor(
-        IBondManager _bondManager,
+        IShastaBondManager _bondManager,
         ISyncedBlockManager _syncedBlockManager
     )
         EssentialContract()
@@ -90,14 +90,9 @@ contract Anchor is EssentialContract, IAnchor {
         // Persist synced block data
         if (_newState.anchorBlockNumber > _state.anchorBlockNumber) {
             syncedBlockManager.saveSyncedBlock(
-                _newState.anchorBlockNumber,
-                _newState.anchorBlockHash,
-                _newState.anchorStateRoot
+                _newState.anchorBlockNumber, _newState.anchorBlockHash, _newState.anchorStateRoot
             );
         }
-
-        // Save parent block hash for future verification
-        uint256 parentNumber = _newState.anchorBlockNumber - 1;
 
         // Process each bond operation
         for (uint256 i; i < _bondOperations.length; ++i) {

@@ -39,11 +39,7 @@ interface ISyncedBlockManager {
     function getSyncedBlock(uint48 _offset)
         external
         view
-        returns (
-            uint48 blockNumber_,
-            bytes32 blockHash_,
-            bytes32 stateRoot_
-        );
+        returns (uint48 blockNumber_, bytes32 blockHash_, bytes32 stateRoot_);
 
     /// @notice Gets the latest synced block number
     /// @return _ The latest synced block number

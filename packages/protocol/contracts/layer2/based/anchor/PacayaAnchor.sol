@@ -89,9 +89,16 @@ abstract contract PacayaAnchor is OntakeAnchor {
         _;
     }
 
-    constructor(address _signalService, uint64 _pacayaForkHeight) OntakeAnchor() {
+    constructor(
+        address _signalService,
+        uint64 _pacayaForkHeight,
+        uint64 _shastaForkHeight
+    )
+        OntakeAnchor()
+    {
         signalService = ISignalService(_signalService);
         pacayaForkHeight = _pacayaForkHeight;
+        shastaForkHeight = _shastaForkHeight;
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
