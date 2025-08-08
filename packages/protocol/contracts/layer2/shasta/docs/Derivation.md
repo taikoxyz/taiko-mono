@@ -34,9 +34,6 @@ The Proposal struct encapsulates all metadata required for L2 block derivation. 
       /// @notice The L1 block timestamp when the proposal was made. This is needed on L2 to
       /// verify each block's timestamp in the proposal's content.
       uint48 originTimestamp;
-      /// @notice The L1 block number when the proposal was made. This is needed on L2 to verify
-      /// each block's anchor block number in the proposal's content.
-      uint48 originBlockNumber;
       /// @notice Whether the proposal is a forced inclusion.
       bool isForcedInclusion;
       /// @notice The proposal's chunk.
