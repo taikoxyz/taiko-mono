@@ -225,13 +225,9 @@ function updateState(
     external;
 ```
 
-    blockManifest[i].anchorBlockNumber == 0 ||
-
 ### Parameters preparation for `updateState`
 
 The following parameters must be prepared in the order they appear in the function signature:
-
-**Proposal level fields (set once per proposal on first block):**
 
 - **`_proposalId`**
 
@@ -271,8 +267,6 @@ The following parameters must be prepared in the order they appear in the functi
   - `proposalId`: The proposal ID associated with the bond
   - `receiver`: The address receiving the bond credit
   - `credit`: The amount of bond credit in wei
-
-**Block level fields (specific to this block in the proposal):**
 
 - **`_blockIndex`**
 
