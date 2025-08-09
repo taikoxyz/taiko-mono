@@ -225,84 +225,92 @@ function updateState(
     external;
 ```
 
-### `_proposalId`
-
-This value must be identical to `proposal.id`
-
-### `_anchorBlockNumber`
-
-This value is determined for `blockManifest[i]` as follows:
-
-```solidity
-if (
     blockManifest[i].anchorBlockNumber == 0 ||
-    blockManifest[i].anchorBlockNumber <= parentState.anchorBlockNumber ||
-    blockManifest[i].anchorBlockNumber >= proposal.originBlockNumber ||
-    blockManifest[i].anchorBlockNumber + ANCHOR_BLOCK_MAX_ORIGIN_OFFSET <= proposal.originBlockNumber
-) {
-    if (proposal.isForcedInclusion) return 0;
-    else return max(proposal.originBlockNumber - ANCHOR_BLOCK_MAX_ORIGIN_OFFSET, 1)
-} else {
-    return blockManifest[i].anchorBlockNumber;
-}
-```
 
-### `_anchorBlockHash`
+### Parameters preparation for `updateState`
 
-This value is determined as:
+The following parameters must be prepared in the order they appear in the function signature:
 
-```solidity
-return _anchorBlockNumber == 0 ?
-    bytes32(0) :
-    IBlockHashProvider(syncedBlockManager).getBlockHash(_anchorBlockNumber);
-```
+**Proposal level fields (set once per proposal on first block):**
 
-Where `syncedBlockManager` is the [`ISyncedBlockManager`](../../../shared/shasta/iface/ISyncedBlockManager.sol) contract instance from [`ShastaAnchor`](../ShastaAnchor.sol).
+- **`_proposalId`**
 
-### `_anchorStateRoot`
+  This value must be identical to `proposal.id`
 
-TBD
+- **`_blockCount`**
 
-### `_bondOperationsHash`
+  For the first block in a proposal (`_blockIndex == 0`), this must equal `proposalManifest.blocks.length`. For subsequent blocks, it must match the value from the first block.
 
-If `_anchorBlockNumber` is zero, this value must be zero. Otherwise, it must be a value that satisfies the following:
+- **`_proposer`**
 
-- There must be an [`IInbox.CoreState`](../../../layer1/shasta/iface/IInbox.sol) instance with field `bondOperationsHash` equal to `_bondOperationsHash`
-- The hash of this [`IInbox.CoreState`](../../../layer1/shasta/iface/IInbox.sol) instance must match the `coreStateHash()` stored in the L1 signal service at block `_anchorBlockNumber`
+  Must be identical to `proposal.proposer`.
 
-### `_bondOperations`
+- **`_proverAuth`**
 
-If `_anchorBlockNumber` is zero, then this array must be empty. Otherwise, it must contain all the [`LibBondOperation.BondOperation`](../../../shared/shasta/libs/LibBondOperation.sol) instances emitted in [`IInbox.BondRequest`](../../../layer1/shasta/iface/IInbox.sol) events from the [`IInbox`](../../../layer1/shasta/iface/IInbox.sol) contract between `parentState.anchorBlockNumber` and `_anchorBlockNumber` on L1.
+  Bytes encoding of `proposalManifest.proverAuth`. If the proposer wants to designate themselves as the prover, this contains authentication data with:
 
-Each [`LibBondOperation.BondOperation`](../../../shared/shasta/libs/LibBondOperation.sol) contains:
+  - `proposalId`: Must match `proposal.id`
+  - `proposer`: Must match `proposal.proposer`
+  - `signature`: ECDSA signature of `keccak256(abi.encode(proposalId, proposer))`
 
-- `proposalId`: The proposal ID associated with the bond
-- `receiver`: The address receiving the bond credit
-- `credit`: The amount of bond credit in wei
+  If all fields are zero/empty, no prover is designated.
 
-### Additional `updateState` Parameters
+- **`_bondOperationsHash`**
 
-#### `_blockCount`
+  If `_anchorBlockNumber` is zero, this value must be zero. Otherwise, it must be a value that satisfies the following:
 
-For the first block in a proposal (`_blockIndex == 0`), this must equal `proposalManifest.blocks.length`. For subsequent blocks, it must match the value from the first block.
+  - There must be an [`IInbox.CoreState`](../../../layer1/shasta/iface/IInbox.sol) instance with field `bondOperationsHash` equal to `_bondOperationsHash`
+  - The hash of this [`IInbox.CoreState`](../../../layer1/shasta/iface/IInbox.sol) instance must match the `coreStateHash()` stored in the L1 signal service at block `_anchorBlockNumber`
 
-#### `_proposer`
+- **`_bondOperations`**
 
-Must be identical to `proposal.proposer`.
+  If `_anchorBlockNumber` is zero, then this array must be empty. Otherwise, it must contain all the [`LibBondOperation.BondOperation`](../../../shared/shasta/libs/LibBondOperation.sol) instances emitted in [`IInbox.BondRequest`](../../../layer1/shasta/iface/IInbox.sol) events from the [`IInbox`](../../../layer1/shasta/iface/IInbox.sol) contract between `parentState.anchorBlockNumber` and `_anchorBlockNumber` on L1.
 
-#### `_proverAuth`
+  Each [`LibBondOperation.BondOperation`](../../../shared/shasta/libs/LibBondOperation.sol) contains:
 
-A `ProverAuth` struct containing authentication data for designating a prover. If the proposer wants to designate themselves as the prover, they must provide a valid ECDSA signature. The struct contains:
+  - `proposalId`: The proposal ID associated with the bond
+  - `receiver`: The address receiving the bond credit
+  - `credit`: The amount of bond credit in wei
 
-- `proposalId`: Must match `proposal.id`
-- `proposer`: Must match `proposal.proposer`
-- `signature`: ECDSA signature of `keccak256(abi.encode(proposalId, proposer))`
+**Block level fields (specific to this block in the proposal):**
 
-If all fields are zero/empty, no prover is designated.
+- **`_blockIndex`**
 
-#### `_blockIndex`
+  The current block being processed within the proposal (0-indexed). Must be less than `_blockCount` and follow sequential ordering from the parent block.
 
-The current block being processed within the proposal (0-indexed). Must be less than `_blockCount` and follow sequential ordering from the parent block.
+- **`_anchorBlockNumber`**
+
+  This value is determined for `blockManifest[i]` as follows:
+
+  ```solidity
+  if (
+      blockManifest[i].anchorBlockNumber == 0 ||
+      blockManifest[i].anchorBlockNumber <= parentState.anchorBlockNumber ||
+      blockManifest[i].anchorBlockNumber >= proposal.originBlockNumber ||
+      blockManifest[i].anchorBlockNumber + ANCHOR_BLOCK_MAX_ORIGIN_OFFSET <= proposal.originBlockNumber
+  ) {
+      if (proposal.isForcedInclusion) return 0;
+      else return max(proposal.originBlockNumber - ANCHOR_BLOCK_MAX_ORIGIN_OFFSET, 1)
+  } else {
+      return blockManifest[i].anchorBlockNumber;
+  }
+  ```
+
+- **`_anchorBlockHash`**
+
+  This value is determined as:
+
+  ```solidity
+  return _anchorBlockNumber == 0 ?
+      bytes32(0) :
+      IBlockHashProvider(syncedBlockManager).getBlockHash(_anchorBlockNumber);
+  ```
+
+  Where `syncedBlockManager` is the [`ISyncedBlockManager`](../../../shared/shasta/iface/ISyncedBlockManager.sol) contract instance from [`ShastaAnchor`](../ShastaAnchor.sol).
+
+- **`_anchorStateRoot`**
+
+  TODO: Add derivation logic for anchor state root
 
 ## Pre-execution Header Fields
 
