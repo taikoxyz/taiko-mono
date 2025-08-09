@@ -23,8 +23,8 @@ Throughout this document, we use the following conventions to clearly identify d
 
 ### Source References
 
-- Contract locations: `ContractName` (e.g., `ShastaAnchor`, `IInbox`)
-- Library references: `LibraryName` (e.g., `LibManifest`, `LibBlobs`, `LibBondOperation`)
+- Contract locations: `ContractName` (e.g., [`ShastaAnchor`](../ShastaAnchor.sol), [`IInbox`](../../../layer1/shasta/iface/IInbox.sol))
+- Library references: `LibraryName` (e.g., [`LibManifest`](../libs/LibManifest.sol), [`LibBlobs`](../../../layer1/shasta/libs/LibBlobs.sol), [`LibBondOperation`](../../../shared/shasta/libs/LibBondOperation.sol))
 
 ## Protocol Constants
 
@@ -32,7 +32,7 @@ The following constants are referenced in this derivation specification:
 
 ### LibManifest Constants
 
-Constants defined in `LibManifest.sol` at `/contracts/layer2/based/libs/LibManifest.sol`:
+Constants defined in [`LibManifest.sol`](../libs/LibManifest.sol):
 
 - `PROPOSAL_MAX_FIELD_ELEMENTS_SIZE`: Maximum field elements for a proposal
 - `PROPOSAL_MAX_BLOBS`: Maximum number of blobs per proposal
@@ -55,7 +55,7 @@ The Taiko driver begins by subscribing to the `Proposed` event emitted by the L1
 event Proposed(Proposal proposal, CoreState coreState);
 ```
 
-The `Proposal` struct encapsulates all metadata required for L2 block derivation. Each field serves a specific purpose in the derivation process:
+The [`Proposal`](../../../layer1/shasta/iface/IInbox.sol) struct encapsulates all metadata required for L2 block derivation. Each field serves a specific purpose in the derivation process:
 
 ```solidity
 struct Proposal {
@@ -80,14 +80,14 @@ struct Proposal {
 
 ## Blob Data Extraction and Manifest Decoding
 
-The proposal's actual content resides in blob storage, referenced through the `LibBlobs.BlobSlice` structure. This design leverages Ethereum's blob storage mechanism introduced in EIP-4844, providing cost-effective data availability for L2 operations.
+The proposal's actual content resides in blob storage, referenced through the [`LibBlobs.BlobSlice`](../../../layer1/shasta/libs/LibBlobs.sol) structure. This design leverages Ethereum's blob storage mechanism introduced in EIP-4844, providing cost-effective data availability for L2 operations.
 
 ### BlobSlice Structure
 
 ```solidity
 /// @notice Represents a frame of data that is stored in multiple blobs. Note the size is
 /// encoded as a bytes32 at the offset location.
-/// @dev Defined in LibBlobs.sol
+/// @dev Defined in [LibBlobs.sol](../../../layer1/shasta/libs/LibBlobs.sol)
 struct BlobSlice {
     /// @notice The blobs containing the proposal's content.
     bytes32[] blobHashes;
@@ -160,6 +160,7 @@ struct BlockManifest {
 
 /// @notice Represents a proposal manifest
 struct ProposalManifest {
+    bytes proverAuth;
     BlockManifest[] blocks;
 }
 
@@ -187,9 +188,9 @@ This design ensures that even a malformed proposal manifest result in a valid, t
 
 ## Anchor Transaction and State
 
-The Anchor contract (`ShastaAnchor`) offers a `updateState` function that must be called by a protocol-specific EOA as the very first transaction in each and every L2 block without reverting. The parameters for the `updateState` function are thus part of the L2 transaction's calldata and can be handled by Taiko Node's Ethereum equivalent transaction processing logic without custom code. This offers greater flexibility than out-of-transaction system calls where inputs are restricted to data from the parent block's header or the current block's header fields.
+The Anchor contract ([`ShastaAnchor`](../ShastaAnchor.sol)) offers a `updateState` function that must be called by a protocol-specific EOA as the very first transaction in each and every L2 block without reverting. The parameters for the `updateState` function are thus part of the L2 transaction's calldata and can be handled by Taiko Node's Ethereum equivalent transaction processing logic without custom code. This offers greater flexibility than out-of-transaction system calls where inputs are restricted to data from the parent block's header or the current block's header fields.
 
-In the `ShastaAnchor` contract, the `State` struct is defined as:
+In the [`ShastaAnchor`](../ShastaAnchor.sol) contract, the `State` struct is defined as:
 
 ```solidity
     // Proposal level fields (set once per proposal on first block)
@@ -256,7 +257,7 @@ return _anchorBlockNumber == 0 ?
     IBlockHashProvider(syncedBlockManager).getBlockHash(_anchorBlockNumber);
 ```
 
-Where `syncedBlockManager` is the `ISyncedBlockManager` contract instance from `ShastaAnchor`.
+Where `syncedBlockManager` is the [`ISyncedBlockManager`](../../../shared/shasta/iface/ISyncedBlockManager.sol) contract instance from [`ShastaAnchor`](../ShastaAnchor.sol).
 
 ### `_anchorStateRoot`
 
@@ -266,14 +267,14 @@ TBD
 
 If `_anchorBlockNumber` is zero, this value must be zero. Otherwise, it must be a value that satisfies the following:
 
-- There must be an `IInbox.CoreState` instance with field `bondOperationsHash` equal to `_bondOperationsHash`
-- The hash of this `IInbox.CoreState` instance must match the `coreStateHash()` stored in the L1 signal service at block `_anchorBlockNumber`
+- There must be an [`IInbox.CoreState`](../../../layer1/shasta/iface/IInbox.sol) instance with field `bondOperationsHash` equal to `_bondOperationsHash`
+- The hash of this [`IInbox.CoreState`](../../../layer1/shasta/iface/IInbox.sol) instance must match the `coreStateHash()` stored in the L1 signal service at block `_anchorBlockNumber`
 
 ### `_bondOperations`
 
-If `_anchorBlockNumber` is zero, then this array must be empty. Otherwise, it must contain all the `LibBondOperation.BondOperation` instances emitted in `IInbox.BondRequest` events from the `IInbox` contract between `parentState.anchorBlockNumber` and `_anchorBlockNumber` on L1.
+If `_anchorBlockNumber` is zero, then this array must be empty. Otherwise, it must contain all the [`LibBondOperation.BondOperation`](../../../shared/shasta/libs/LibBondOperation.sol) instances emitted in [`IInbox.BondRequest`](../../../layer1/shasta/iface/IInbox.sol) events from the [`IInbox`](../../../layer1/shasta/iface/IInbox.sol) contract between `parentState.anchorBlockNumber` and `_anchorBlockNumber` on L1.
 
-Each `LibBondOperation.BondOperation` contains:
+Each [`LibBondOperation.BondOperation`](../../../shared/shasta/libs/LibBondOperation.sol) contains:
 
 - `proposalId`: The proposal ID associated with the bond
 - `receiver`: The address receiving the bond credit
