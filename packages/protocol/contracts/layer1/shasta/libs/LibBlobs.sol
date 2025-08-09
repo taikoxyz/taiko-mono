@@ -16,8 +16,8 @@ library LibBlobs {
         uint48 blobStartIndex;
         /// @notice The number of blobs.
         uint32 numBlobs;
-        /// @notice The offset within the blob data.
-        uint32 offset;
+        /// @notice The field-element offset within the blob data.
+        uint24 offset;
     }
 
     /// @notice Represents a frame of data that is stored in multiple blobs. Note the size is
@@ -25,8 +25,9 @@ library LibBlobs {
     struct BlobSlice {
         /// @notice The blobs containing the proposal's content.
         bytes32[] blobHashes;
-        /// @notice The offset of the proposal's content in the containing blobs.
-        uint32 offset;
+        /// @notice The field-element offset of the proposal's content in the containing blobs.
+        /// The byte-offset would be 32 * offset.
+        uint24 offset;
         /// @notice The timestamp when the frame was created.
         uint48 timestamp;
     }

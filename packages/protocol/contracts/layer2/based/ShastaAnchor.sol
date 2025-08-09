@@ -15,10 +15,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // ---------------------------------------------------------------2
 
     struct State {
-        uint48 anchorBlockNumber;
         bytes32 bondOperationsHash;
-        uint64 anchorGasLimit;
-        address anchorTransactor;
+        uint48 anchorBlockNumber;
     }
 
     // ---------------------------------------------------------------2
@@ -26,13 +24,13 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // ---------------------------------------------------------------2
 
     // The v4Anchor's transaction gas limit, this value must be enforced
-    uint64 private constant _ANCHOR_GAS_LIMIT = 200_000;
+    uint64 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
     IShastaBondManager public immutable bondManager;
     ISyncedBlockManager public immutable syncedBlockManager;
 
-    uint48 public anchorBlockNumber;
     bytes32 public bondOperationsHash;
+    uint48 public anchorBlockNumber;
 
     uint256[48] private __gap;
 
@@ -108,6 +106,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
             require(_anchorStateRoot == 0, NonZeroAnchorStateRoot());
         }
 
+        if (_bondOperationsHash != 0) {
         // Process each bond operation
         bytes32 h = bondOperationsHash;
         for (uint256 i; i < _bondOperations.length; ++i) {
@@ -118,15 +117,14 @@ abstract contract ShastaAnchor is PacayaAnchor {
         require(h == _bondOperationsHash, BondOperationsHashMismatch());
         bondOperationsHash = _bondOperationsHash;
     }
+    }
 
     /// @notice Returns the current state of the anchor.
     /// @return state_ The current state.
     function getState() external view returns (State memory state_) {
         state_ = State({
             anchorBlockNumber: anchorBlockNumber,
-            bondOperationsHash: bondOperationsHash,
-            anchorGasLimit: _ANCHOR_GAS_LIMIT,
-            anchorTransactor: GOLDEN_TOUCH_ADDRESS
+            bondOperationsHash: bondOperationsHash   
         });
     }
 

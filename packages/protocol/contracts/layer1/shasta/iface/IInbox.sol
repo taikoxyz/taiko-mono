@@ -12,29 +12,25 @@ interface IInbox {
     struct Proposal {
         /// @notice Unique identifier for the proposal.
         uint48 id;
-        /// @notice Address of the proposer. This is needed on L1 to handle provability bond
-        /// and proving fee.
+        /// @notice Address of the proposer.
         address proposer;
-        /// @notice Provability bond for the proposal, paid by the proposer on L1.
+        /// @notice Provability bond for the proposal.
         uint48 provabilityBondGwei;
-        /// @notice Liveness bond for the proposal, paid by the proposer on L1 and potentially
-        /// also by the designated prover on L2.
+        /// @notice Liveness bond for the proposal, paid by the designated prover.
         uint48 livenessBondGwei;
-        /// @notice The L1 block timestamp when the proposal was made. This is needed on L2 to
-        /// verify each block's timestamp in the proposal's content.
+        /// @notice The L1 block timestamp when the proposal was accepted.
         uint48 originTimestamp;
-        /// @notice The L1 block number when the proposal was made. This is needed on L2 to verify
-        /// each block's anchor block number in the proposal's content.
+        /// @notice The L1 block number when the proposal was accepted.
         uint48 originBlockNumber;
-        /// @notice Whether the proposal is a forced inclusion.
+        /// @notice Whether the proposal is from a forced inclusion.
         bool isForcedInclusion;
         /// @notice The proposal's chunk.
         LibBlobs.BlobSlice blobSlice;
     }
 
-    /// @notice Represents the bond decision based on proof submission timing and prover identity
-    /// @dev Bond decisions determine how provability and liveness bonds are distributed
-    /// based on whether proofs are submitted on time and by the correct party
+    /// @notice Represents the bond decision based on proof submission timing and prover identity.
+    /// @dev Bond decisions determine how provability and liveness bonds are distributed based on
+    /// whether proofs are submitted on time and by the correct party.
     enum BondDecision {
         NoOp, // Aggregatable
         L2RefundLiveness, // Aggregatable
