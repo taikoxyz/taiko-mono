@@ -17,7 +17,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
     /// @notice Stores the current state of an anchor proposal being processed.
     /// @dev This state is updated incrementally as each block in a proposal is processed via
-    /// setState().
+    /// updateState().
     struct State {
         // Proposal level fields (set once per proposal on first block)
         uint48 proposalId; // Unique identifier for the current proposal
@@ -121,7 +121,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _anchorBlockNumber L1 block number to anchor (0 = skip anchoring for this block)
     /// @param _anchorBlockHash L1 block hash at _anchorBlockNumber (must be 0 if not anchoring)
     /// @param _anchorStateRoot L1 state root at _anchorBlockNumber (must be 0 if not anchoring)
-    function setState(
+    function updateState(
         // Proposal level fields - define the overall batch
         uint48 _proposalId,
         uint16 _blockCount,
