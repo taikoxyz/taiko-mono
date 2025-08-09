@@ -5,10 +5,10 @@ import "src/layer1/based/TaikoInbox.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "src/layer1/mainnet/libs/LibFasterReentryLock.sol";
 
-/// @title SurgeHoodiInbox
+/// @title SurgeMainnetInbox
 /// @notice See the documentation in {ITaikoInbox}.
 /// @custom:security-contact security@nethermind.io
-contract SurgeHoodiInbox is TaikoInbox {
+contract SurgeMainnetInbox is TaikoInbox {
     struct ConfigParams {
         uint64 chainId;
         uint64 maxVerificationDelay;

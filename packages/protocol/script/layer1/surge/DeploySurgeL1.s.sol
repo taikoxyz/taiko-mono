@@ -35,7 +35,9 @@ import "src/layer1/verifiers/SP1Verifier.sol";
 import "src/layer1/verifiers/SgxVerifier.sol";
 
 // Surge contracts
+import "src/layer1/surge/SurgeDevnetInbox.sol";
 import "src/layer1/surge/SurgeHoodiInbox.sol";
+import "src/layer1/surge/SurgeMainnetInbox.sol";
 import "src/layer1/surge/bridge/SurgeBridge.sol";
 import "src/layer1/surge/bridge/SurgeERC20Vault.sol";
 import "src/layer1/surge/bridge/SurgeERC721Vault.sol";
@@ -80,7 +82,6 @@ contract DeploySurgeL1 is DeployCapability {
     uint64 internal immutable maxVerificationDelay = uint64(vm.envUint("MAX_VERIFICATION_DELAY"));
     uint64 internal immutable minVerificationStreak = uint64(vm.envUint("MIN_VERIFICATION_STREAK"));
     uint96 internal immutable livenessBondBase = uint96(vm.envUint("LIVENESS_BOND_BASE"));
-    uint96 internal immutable livenessBondPerBlock = uint96(vm.envUint("LIVENESS_BOND_PER_BLOCK"));
 
     // Preconf configuration
     // ---------------------------------------------------------------
@@ -153,7 +154,6 @@ contract DeploySurgeL1 is DeployCapability {
         require(maxVerificationDelay != 0, "config: MAX_VERIFICATION_DELAY");
         require(minVerificationStreak != 0, "config: MIN_LIVENESS_STREAK");
         require(livenessBondBase != 0, "config: LIVENESS_BOND_BASE");
-        require(livenessBondPerBlock != 0, "config: LIVENESS_BOND_PER_BLOCK");
 
         address l1Owner = msg.sender;
 
@@ -554,21 +554,7 @@ contract DeploySurgeL1 is DeployCapability {
     {
         // Since this is a fresh protocol deployment, we don't have an old fork to use.
         address oldFork = address(0);
-        address newFork = address(
-            new SurgeHoodiInbox(
-                SurgeHoodiInbox.ConfigParams({
-                    chainId: l2ChainId,
-                    maxVerificationDelay: maxVerificationDelay,
-                    livenessBondBase: livenessBondBase,
-                    livenessBondPerBlock: livenessBondPerBlock
-                }),
-                _taikoWrapper,
-                dao,
-                _proofVerifier,
-                address(0),
-                _signalService
-            )
-        );
+        address newFork = deployInbox(_taikoWrapper, _proofVerifier, _signalService);
 
         UUPSUpgradeable(_taikoInbox).upgradeTo({
             newImplementation: address(new PacayaForkRouter(oldFork, newFork))
@@ -666,6 +652,69 @@ contract DeploySurgeL1 is DeployCapability {
         // Toggle quote validity check
         automataAttestation.toggleLocalReportCheck();
         console2.log("** Quote validity check toggled");
+    }
+
+    /// @dev Deploy the inbox contract based on the L2 network
+    function deployInbox(
+        address _taikoWrapper,
+        address _proofVerifier,
+        address _signalService
+    )
+        internal
+        returns (address)
+    {
+        string memory l2Network = vm.envString("L2_NETWORK");
+
+        if (keccak256(abi.encodePacked(l2Network)) == keccak256(abi.encodePacked("devnet"))) {
+            return address(
+                new SurgeDevnetInbox(
+                    SurgeDevnetInbox.ConfigParams({
+                        chainId: l2ChainId,
+                        maxVerificationDelay: maxVerificationDelay,
+                        livenessBondBase: livenessBondBase
+                    }),
+                    _taikoWrapper,
+                    dao,
+                    _proofVerifier,
+                    address(0),
+                    _signalService
+                )
+            );
+        } else if (keccak256(abi.encodePacked(l2Network)) == keccak256(abi.encodePacked("testnet")))
+        {
+            return address(
+                new SurgeHoodiInbox(
+                    SurgeHoodiInbox.ConfigParams({
+                        chainId: l2ChainId,
+                        maxVerificationDelay: maxVerificationDelay,
+                        livenessBondBase: livenessBondBase
+                    }),
+                    _taikoWrapper,
+                    dao,
+                    _proofVerifier,
+                    address(0),
+                    _signalService
+                )
+            );
+        } else if (keccak256(abi.encodePacked(l2Network)) == keccak256(abi.encodePacked("mainnet")))
+        {
+            return address(
+                new SurgeMainnetInbox(
+                    SurgeMainnetInbox.ConfigParams({
+                        chainId: l2ChainId,
+                        maxVerificationDelay: maxVerificationDelay,
+                        livenessBondBase: livenessBondBase
+                    }),
+                    _taikoWrapper,
+                    dao,
+                    _proofVerifier,
+                    address(0),
+                    _signalService
+                )
+            );
+        } else {
+            revert("Invalid L2 network");
+        }
     }
 
     function verifyDeployment(
