@@ -32,13 +32,10 @@ interface IInbox {
     /// @dev Bond decisions determine how provability and liveness bonds are distributed based on
     /// whether proofs are submitted on time and by the correct party.
     enum BondDecision {
-        NoOp, // Aggregatable
-        L2RefundLiveness, // Aggregatable
-        L2RewardProver, // Aggregatable
-        L1SlashLivenessRewardProver, // Non-aggregatable
-        L1SlashProvabilityRewardProverL2RefundLiveness, // Non-aggregatable
-        L1SlashProvabilityRewardProver // Non-aggregatable
-
+        NoOp,
+        L1SlashLivenessRewardProver,
+        L1SlashProvabilityRewardProver,
+        L2SlashLivenessRewardProver
     }
 
     /// @notice Represents a claim about the state transition of a proposal.

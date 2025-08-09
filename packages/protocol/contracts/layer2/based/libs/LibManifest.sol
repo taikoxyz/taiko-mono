@@ -50,6 +50,7 @@ library LibManifest {
     struct ProverAuth {
         uint48 proposalId;
         address proposer;
+        uint48 provingFeeGwei;
         bytes signature;
     }
 

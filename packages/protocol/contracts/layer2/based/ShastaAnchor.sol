@@ -6,6 +6,7 @@ import { PacayaAnchor } from "./PacayaAnchor.sol";
 import { ISyncedBlockManager } from "src/shared/shasta/iface/ISyncedBlockManager.sol";
 import { IShastaBondManager } from "src/shared/shasta/iface/IBondManager.sol";
 import { LibBondOperation } from "src/shared/shasta/libs/LibBondOperation.sol";
+import { LibManifest } from "./libs/LibManifest.sol";
 
 /// @title ShastaAnchor
 /// @notice Anchoring functions for the Shasta fork.
@@ -28,15 +29,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Block level fields (updated for each block in the proposal)
         uint16 blockIndex; // Current block being processed (0-indexed, < blockCount)
         uint48 anchorBlockNumber; // Latest L1 block number anchored
-    }
-
-    /// @notice Contains authentication data for designating a prover.
-    /// @dev The proposer can designate themselves as the prover by signing a message.
-    /// If all fields are zero/empty, no prover is designated.
-    struct ProverAuth {
-        uint48 proposalId; // The proposal ID this auth is for (must match _proposalId)
-        address proposer; // The proposer's address (must match _proposer)
-        bytes signature; // ECDSA signature of keccak256(abi.encode(proposalId, proposer))
     }
 
     // ---------------------------------------------------------------
@@ -221,26 +213,29 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Empty auth means no designated prover
         if (_proverAuth.length == 0) return address(0);
 
-        ProverAuth memory proverAuth = abi.decode(_proverAuth, (ProverAuth));
+        LibManifest.ProverAuth memory proverAuth = abi.decode(_proverAuth, (LibManifest.ProverAuth));
 
         // Handle zero proposal ID case - all fields must be empty
-        if (proverAuth.proposalId != _proposalId) return address(0);
-        if (proverAuth.proposer != _proposer) return address(0);
-        if (proverAuth.signature.length == 0) return address(0);
+        if (proverAuth.proposalId != _proposalId) return _proposer;
+        if (proverAuth.proposer != _proposer) return _proposer;
+        if (proverAuth.signature.length == 0) return _proposer;
 
         // Verify the ECDSA signature
         bytes32 message = keccak256(abi.encode(proverAuth.proposalId, proverAuth.proposer));
         address signer = ECDSA.recover(message, proverAuth.signature);
 
         // Ensure valid signature from the proposer (self-designation)
-        if (signer == address(0) || signer != _proposer) return address(0);
+        if (signer == address(0) || signer != _proposer) return _proposer;
 
         // Check if signer has sufficient bond balance
-        uint48 totalBondRequired = provabilityBondGwei + livenessBondGwei;
-        if (bondManager.getBondBalance(signer) < totalBondRequired) return address(0);
+        // TODO: fix minBondBalance
+        uint256 minBondBalance = provabilityBondGwei + livenessBondGwei + proverAuth.provingFeeGwei;
+        if (bondManager.getBondBalance(signer) < minBondBalance) return _proposer;
 
         // Debit the required bonds from the designated prover
-        bondManager.debitBond(signer, totalBondRequired);
+        bondManager.debitBond(signer, proverAuth.provingFeeGwei);
+        bondManager.creditBond(_proposer, proverAuth.provingFeeGwei);
+
         return signer;
     }
 
