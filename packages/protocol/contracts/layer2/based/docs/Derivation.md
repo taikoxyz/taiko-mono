@@ -2,10 +2,6 @@
 
 This document describes the block derivation process in Taiko's Shasta upgrade, detailing how Layer 2 (L2, aka Taiko) blocks are derived from Layer 1 (L1, aka Ethereum) proposals.
 
-## TODO:
-
-- [ ] L2 fund payment in anchor
-
 ## Data Referencing Conventions
 
 Throughout this document, we use the following conventions to clearly identify data types, instances, and fields:
@@ -32,24 +28,49 @@ Throughout this document, we use the following conventions to clearly identify d
 
 ## Protocol Constants
 
-All protocol constants are defined in `LibManifest.sol` at `/contracts/layer2/based/libs/LibManifest.sol`:
+### LibManifest Constants
 
-| Constant                           | Value   | Description                                                         |
-| ---------------------------------- | ------- | ------------------------------------------------------------------- |
-| `FIELD_ELEMENT_BYTE_SIZE`          | 32      | Size of a field element in bytes                                    |
-| `BLOB_FIELD_ELEMENT_SIZE`          | 4096    | Number of field elements per blob                                   |
-| `BLOB_BYTE_SIZE`                   | 131,072 | Total size of a blob in bytes (4096 × 32)                           |
-| `PROPOSAL_MAX_FIELD_ELEMENTS_SIZE` | 24,576  | Maximum field elements for a proposal (6 × 4096)                    |
-| `PROPOSAL_MAX_BLOBS`               | 10      | Maximum number of blobs per proposal                                |
-| `PROPOSAL_MAX_BLOCKS`              | 384     | Maximum blocks per proposal (covers an Ethereum epoch at 1s blocks) |
-| `BLOCK_MAX_TRANSACTIONS`           | 4096    | Maximum transactions per block                                      |
-| `ANCHOR_BLOCK_MAX_ORIGIN_OFFSET`   | 128     | Maximum L1 block offset for anchor selection                        |
+Constants defined in `LibManifest.sol` at `/contracts/layer2/based/libs/LibManifest.sol`:
 
-Additional constants from `ShastaAnchor.sol`:
+- `FIELD_ELEMENT_BYTE_SIZE`: Size of a field element in bytes
+- `BLOB_FIELD_ELEMENT_SIZE`: Number of field elements per blob
+- `BLOB_BYTE_SIZE`: Total size of a blob in bytes
+- `PROPOSAL_MAX_FIELD_ELEMENTS_SIZE`: Maximum field elements for a proposal
+- `PROPOSAL_MAX_BLOBS`: Maximum number of blobs per proposal
+- `PROPOSAL_MAX_BLOCKS`: Maximum blocks per proposal
+- `BLOCK_MAX_TRANSACTIONS`: Maximum transactions per block
+- `ANCHOR_BLOCK_MAX_ORIGIN_OFFSET`: Maximum L1 block offset for anchor selection
 
-| Constant           | Value     | Description                                |
-| ------------------ | --------- | ------------------------------------------ |
-| `ANCHOR_GAS_LIMIT` | 1,000,000 | Gas limit for anchor transaction execution |
+### Inbox Constants
+
+Constants defined in `Inbox.sol` at `/contracts/layer1/shasta/impl/Inbox.sol`:
+
+- `REWARD_FRACTION`: Divisor for bond rewards
+
+Immutable values set during `Inbox` contract deployment:
+
+- `provabilityBondGwei`: Bond required for block provability
+- `livenessBondGwei`: Bond required for prover liveness
+- `provingWindow`: Initial proving window duration
+- `extendedProvingWindow`: Extended proving window duration
+- `minBondBalance`: Minimum bond balance required for proposers
+- `maxFinalizationCount`: Maximum number of finalizations allowed per batch
+- `ringBufferSize`: Size of the proposal ring buffer
+
+### Anchor Constants
+
+Constants from anchor contracts in `/contracts/layer2/based/`:
+
+**ShastaAnchor.sol:**
+
+- `ANCHOR_GAS_LIMIT`: Gas limit for anchor transaction execution
+- `livenessBondGwei`: Liveness bond amount (immutable)
+- `provabilityBondGwei`: Provability bond amount (immutable)
+
+**PacayaAnchor.sol:**
+
+- `GOLDEN_TOUCH_ADDRESS`: Protocol-specific EOA for anchor updates
+- `BASEFEE_MIN_VALUE`: Minimum base fee
 
 ## Overview
 
@@ -117,16 +138,16 @@ All blobs must be created in the same Ethereum transaction.
 The driver locates and processes blob data through the following steps:
 
 1. **Blob Retrieval**: Using `proposal.blobSlice.timestamp`, the driver identifies and retrieves the associated blobs from the network.
-2. **Check Number of Blobs**: If `proposal.blobSlice.blobHashes.length` exceeds `PROPOSAL_MAX_BLOBS` (10), the default manifest specification will be returned.
+2. **Check Number of Blobs**: If `proposal.blobSlice.blobHashes.length` exceeds `PROPOSAL_MAX_BLOBS`, the default manifest specification will be returned.
 3. **Data Concatenation**: Multiple blobs are concatenated into a single continuous byte array for processing.
-4. **Header Parsing**: The data header contains critical metadata:
+4. **Leading Bytes Parsing**: The leading bytes contain critical metadata:
    - Field element as `bytes32` at `proposal.blobSlice.offset`: Version number (currently `0x1` for Shasta)
    - Field element as `uint256` at `proposal.blobSlice.offset + 1`, denoted as `size`: Size of the compressed data in terms of field elements
 5. **Version Validation**: If the version number is not `0x1`, the default manifest specification will be returned.
-6. **Size Validation**: The `size` is validated against `PROPOSAL_MAX_FIELD_ELEMENTS_SIZE` (24,576). If the size exceeds this protocol constant, the default manifest specification will be returned.
-7. **Decompression and Decoding**: For version `0x1`, the data undergoes:
+6. **Size Validation**: The `size` is validated against `PROPOSAL_MAX_FIELD_ELEMENTS_SIZE`. If the size exceeds this protocol constant, the default manifest specification will be returned.
+7. **Data Extraction**: Slice the concatenated blob field elements between `[proposal.blobSlice.offset, proposal.blobSlice.offset + size]` as a `bytes32[]`, convert it then to a `bytes` array, denoted as `compressedManifestBytes`
+8. **Decompression and Decoding**: For version `0x1`, the data undergoes:
 
-   - Slice the concatenated blob field elements between `[proposal.blobSlice.offset, proposal.blobSlice.offset + size]` as a `bytes32[]`, convert it then to a `bytes` array, denoted as `compressedManifestBytes`
    - ZLIB decompress `compressedManifestBytes` to `rawManifestBytes`
    - RLP decode `rawManifestBytes` to reconstruct the structured `proposalManifest` object
 
