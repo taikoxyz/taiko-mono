@@ -224,7 +224,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         ProverAuth memory proverAuth = abi.decode(_proverAuth, (ProverAuth));
 
         // Handle zero proposal ID case - all fields must be empty
-        if (proverAuth.proposalId == 0)  return address(0);
+        if (proverAuth.proposalId != _proposalId) return address(0);
         if (proverAuth.proposer != _proposer) return address(0);
         if (proverAuth.signature.length == 0) return address(0);
 

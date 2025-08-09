@@ -258,7 +258,7 @@ The following parameters must be prepared in the order they appear in the functi
   Each [`LibBondOperation.BondOperation`](../../../shared/shasta/libs/LibBondOperation.sol) contains:
 
   - `proposalId`: The proposal ID associated with the bond
-  - `receiver`: The address receiving the bond credit
+  - `receiver`: The address receiving the bond credit in Gwei
   - `credit`: The amount of bond credit in wei
 
 - **`_blockIndex`**
