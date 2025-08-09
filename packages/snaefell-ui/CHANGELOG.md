@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.1.1](https://github.com/taikoxyz/taiko-mono/compare/snaefell-ui-v1.1.0...snaefell-ui-v1.1.1) (2024-11-04)
+
+
+### Bug Fixes
+
+* **nfts:** snaefell-ui terms acceptance button visible in mobile ([#17645](https://github.com/taikoxyz/taiko-mono/issues/17645)) ([31175b8](https://github.com/taikoxyz/taiko-mono/commit/31175b8f2783eeebceb6acebc73b111c22206a88))
+
+
+### Workflow
+
+* **protocol:** trigger patch release (1.10.1) ([#18358](https://github.com/taikoxyz/taiko-mono/issues/18358)) ([f4f4796](https://github.com/taikoxyz/taiko-mono/commit/f4f4796488059b02c79d6fb15170df58dd31dc4e))
+
+
+### Build
+
+* **deps-dev:** bump @sveltejs/kit from 2.5.7 to 2.5.21 ([#17901](https://github.com/taikoxyz/taiko-mono/issues/17901)) ([7a32ac4](https://github.com/taikoxyz/taiko-mono/commit/7a32ac40a654521c82cb3ff5b6f5af87d0a915a4))
+* **deps:** bump @web3modal/common from 4.1.11 to 5.0.11 ([#17876](https://github.com/taikoxyz/taiko-mono/issues/17876)) ([6ac4eb0](https://github.com/taikoxyz/taiko-mono/commit/6ac4eb0141be1bc3332da6ff63e8bebd9c00e326))
+
 ## [1.1.0](https://github.com/taikoxyz/taiko-mono/compare/snaefell-ui-v1.0.0...snaefell-ui-v1.1.0) (2024-06-18)
 
 
