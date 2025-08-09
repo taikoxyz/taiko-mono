@@ -19,12 +19,16 @@ contract TaikoAnchor is ShastaAnchor {
     // Constructor
     // -------------------------------------------------------------------
     constructor(
+        uint48 _livenessBondGwei,
+        uint48 _provabilityBondGwei,
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight
     )
         // TODO: add _syncedBlockManager and _bondManager
         ShastaAnchor(
+            _livenessBondGwei,
+            _provabilityBondGwei,
             _signalService,
             _pacayaForkHeight,
             _shastaForkHeight,

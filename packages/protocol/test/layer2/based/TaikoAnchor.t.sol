@@ -21,8 +21,15 @@ contract TestTaikoAnchor is Layer2Test {
             })
         );
 
+        uint48 livenessBondGwei = 10_000_000;
+        uint48 provabilityBondGwei = 10_000_000;
         anchor = deployAnchor(
-            address(new TaikoAnchor_NoBaseFeeCheck(address(signalService), 0, 0)), ethereumChainId
+            address(
+                new TaikoAnchor_NoBaseFeeCheck(
+                    livenessBondGwei, provabilityBondGwei, address(signalService), 0, 0
+                )
+            ),
+            ethereumChainId
         );
 
         signalService.authorize(address(anchor), true);
