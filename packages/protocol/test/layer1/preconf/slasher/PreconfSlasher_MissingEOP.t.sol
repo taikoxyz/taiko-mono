@@ -5,7 +5,7 @@ import "./PreconfSlasherBase.sol";
 
 contract TestPreconfSlasher_MissingEOP is PreconfSlasherBase {
     // Slashing
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function test_slashesWhenLastPreconfedBlockIsMissingEOP()
         external
@@ -29,7 +29,7 @@ contract TestPreconfSlasher_MissingEOP is PreconfSlasherBase {
     }
 
     // Reverts
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function test_revertsWhenPreconfedBlockHeaderIsInvalid()
         external

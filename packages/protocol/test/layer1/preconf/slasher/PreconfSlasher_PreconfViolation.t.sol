@@ -5,7 +5,7 @@ import "./PreconfSlasherBase.sol";
 
 contract TestPreconfSlasher_PreconfViolation is PreconfSlasherBase {
     // Slashing
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function test_slashesWhenPreconfedBlockHashIsMismatched_Case1()
         external
@@ -146,7 +146,7 @@ contract TestPreconfSlasher_PreconfViolation is PreconfSlasherBase {
     }
 
     // Reverts
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function test_revertsWhenPreconfedBlockHeaderIsInvalid()
         external

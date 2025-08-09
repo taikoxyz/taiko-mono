@@ -47,7 +47,7 @@ contract MockTaikoInbox is EssentialContract {
     }
 
     // Used by PreconfRouter
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function v4ProposeBatch(
         bytes calldata _params,
@@ -97,7 +97,7 @@ contract MockTaikoInbox is EssentialContract {
     }
 
     // Used by PreconfSlasher
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function v4GetBatch(uint64 _batchId) external view returns (ITaikoInbox.Batch memory) {
         return _batches[_batchId];
