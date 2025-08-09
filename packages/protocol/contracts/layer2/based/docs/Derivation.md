@@ -15,6 +15,7 @@ Throughout this document, we use the following conventions to clearly identify d
   - `proposalManifest`: The final `ProposalManifest` object obtained from the Data Extraction Process
   - `blockManifest[i]`: The i-th `BlockManifest` in `proposalManifest.blocks` array
   - `parentState`: The parent L2 block's anchor `State` object from `ShastaAnchor`
+  - `parentBlockHeader`: The parent L2 block's header.
 
 ### Field Access
 
@@ -39,6 +40,7 @@ Constants defined in [`LibManifest.sol`](../libs/LibManifest.sol):
 - `PROPOSAL_MAX_BLOCKS`: Maximum blocks per proposal
 - `BLOCK_MAX_TRANSACTIONS`: Maximum transactions per block
 - `ANCHOR_BLOCK_MAX_ORIGIN_OFFSET`: Maximum L1 block offset for anchor selection
+- `BLOCK_GAS_LIMIT` Maximum gas used by any L2 transaction.
 
 ## Overview
 
@@ -148,6 +150,8 @@ struct SignedTransaction {
 struct BlockManifest {
     /// @notice The timestamp of the block.
     uint48 timestamp;
+    /// @notice The coinbase address
+    address coinbase;
     /// @notice The anchor block number. This field can be zero, if so, this block will use the
     /// most recent anchor in a previous block.
     uint48 anchorBlockNumber;
@@ -171,8 +175,20 @@ struct ProposalManifest {
 The system enforces several constraints to ensure manifest validity:
 
 - **Block Count Limit**: `proposalManifest.blocks.length` cannot exceed `PROPOSAL_MAX_BLOCKS` (384). If exceeded or the count is zero, keep only the first `PROPOSAL_MAX_BLOCKS` blocks.
-- **Transaction Limit**: Each `blockManifest[i].transactions.length` cannot contain more than `BLOCK_MAX_TRANSACTIONS` (4096) transactions. If exceeded, keep only the first `BLOCK_MAX_TRANSACTIONS` transactions.
+
 - **proverAuth**: if these bytes can no be decoded into a valid ProverAuth object, set it to bytes("").
+
+For each blocks, the following contraints are applied:
+
+- **timestamp**:
+
+- **coinbase**:
+
+- **anchorBlockNumber**:
+
+- **gasIssuancePerSecond**:
+
+- **transactions**: The `transactions.length` cannot contain more than `BLOCK_MAX_TRANSACTIONS` (4096) transactions. If exceeded, keep only the first `BLOCK_MAX_TRANSACTIONS` transactions.
 
 ### Default Manifest Specification
 
@@ -244,6 +260,7 @@ The following parameters must be prepared in the order they appear in the functi
 
 - **`_proverAuth`**
   This value must be identical to `proposalManifest.blocks.proverAuth`.
+
 - **`_bondOperationsHash`**
 
   If `_anchorBlockNumber` is zero, this value must be zero. Otherwise, it must be a value that satisfies the following:
@@ -301,10 +318,70 @@ The following parameters must be prepared in the order they appear in the functi
 
 ## Pre-execution Header Fields
 
-_[Section to be completed based on Q&A answers]_
+Before executing transactions, the following block header fields are set:
+
+### Deterministic Fields (Set Before Execution)
+
+- **`parentHash`**:
+
+  Must be the hash of `parentBlockHeader`.
+
+- **`ommersHash`**:
+
+  Always `0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347` (empty ommers)
+
+- **`coinbase`**:
+
+  Must be the `blockManifest[i].coinbase` address.
+
+- **`difficulty`**:
+
+  Must be identical to `keccak256(abi.encode(parentBlockHeader.difficulty, proposal.id))`.
+
+- **`number`**:
+
+  Must be `parentBlockHeader.number + 1`.
+
+- **`gasLimit`**:
+
+  Must be a protocol constant `BLOCK_GAS_LIMIT`.
+
+- **`timestamp`**:
+
+  Set to `blockManifest[i].timestamp`.
+
+- **`extraData`**:
+
+  Empty or protocol-specific data.
+
+- **`mixHash`**:
+
+  Always `0x0000000000000000000000000000000000000000000000000000000000000000`.
+
+- **`nonce`**:
+
+  Always `0x0000000000000000` (post-merge).
+
+- **`baseFeePerGas`**:
+
+  Calculated using EIP-1559 formula based on parent block.
+
+- **`withdrawalsRoot`**:
+
+  Empty withdrawals root (no L2 withdrawals).
+
+- **`blobGasUsed`**:
+
+  Always `0` (L2 doesn't use blobs).
+
+- **`excessBlobGas`**:
+
+  Always `0` (L2 doesn't use blobs).
+
+- **`parentBeaconBlockRoot`**:
+
+  Always set to `0x0000000000000000000000000000000000000000000000000000000000000000`.
 
 ## Transaction Execution
 
 _[Section to be completed based on Q&A answers]_
-
----

@@ -25,6 +25,8 @@ library LibManifest {
 
     uint256 internal constant ANCHOR_BLOCK_MAX_ORIGIN_OFFSET = 128;
 
+    uint256 internal constant BLOCK_GAS_LIMIT = 100_000_000;
+
     // -------------------------------------------------------------------
     // Structs
     // -------------------------------------------------------------------
@@ -58,6 +60,8 @@ library LibManifest {
     struct BlockManifest {
         /// @notice The timestamp of the block.
         uint48 timestamp;
+        /// @notice The coinbase of the block.
+        address coinbase;
         /// @notice The anchor block number. This field can be zero, if so, this block will use the
         /// most recent anchor in a previous block.
         uint48 anchorBlockNumber;
