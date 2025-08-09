@@ -2,6 +2,10 @@
 members = [
   "packages/ejector",
   "packages/ejector/crates/config",
+  "packages/ejector/crates/monitor",
+  "packages/ejector/crates/bindings",
+  "packages/ejector/crates/beacon",
+  "packages/ejector/crates/utils",
 ]
 resolver = "2"
 
@@ -13,28 +17,25 @@ rust-version = "1.88"
 
 # One place to pin third‑party versions
 [workspace.dependencies]
+bindings = { path = "packages/ejector/crates/bindings" }
+beacon = { path = "packages/ejector/crates/beacon" }
+utils = { path = "packages/ejector/crates/utils" }
+alloy = { version = "1.0.13", features = ["full"] }
 clap = { version = "4", features = ["derive", "env"] }
 dotenvy = "0.15"
 eyre = "0.6"
 color-eyre = "0.6"
 tokio = { version = "1.45", default-features = false, features = ["full"] }
-alloy-consensus = { version = "0.11.0", features = ["k256"] }
-alloy-contract = "0.11.0"
-alloy-eips = { version = "0.11.0", features = ["kzg"] }
-alloy-network = "0.11.0"
-alloy-primitives = { version = "0.8.19", features = ["getrandom", "k256"] }
-alloy-provider = { version = "0.11.0", features = ["ws"] }
-alloy-rlp = "0.3.9"
-alloy-rpc-types = { version = "0.11.0", features = ["beacon", "eth"] }
-alloy-rpc-types-txpool = "0.11.0"
-alloy-serde = "0.11.0"
-alloy-signer = "0.11.0"
-alloy-signer-local = "0.11.0"
-alloy-sol-macro = { version = "0.8.19", features = ["json"] }
-alloy-sol-types = "0.8.19"
-alloy-transport-ws = "0.11.0"
-alloy-transport-http = "0.11.0"
+tokio-util = { version = "0.7" }
 url = { version = "2.5.0", features = ["serde"] }
+futures-util = "0.3.0"
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+reqwest = { version = "0.12" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+alloy-serde = "0.11.0"
+
 
 [workspace.lints.clippy]
 cast_lossless = "deny"

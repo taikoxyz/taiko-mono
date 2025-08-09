@@ -1,0 +1,57 @@
+use std::time::Duration;
+
+use alloy::{primitives::Address, providers::ProviderBuilder, transports::http::reqwest::Url};
+use tracing::{info, warn};
+
+use crate::receipt::poll_receipt_until;
+
+use super::lookahead::Lookahead;
+
+pub async fn eject_operator(
+    l1_http_url: Url,
+    signer: alloy::signers::local::PrivateKeySigner,
+    whitelist_addr: Address,
+    lookahead: Lookahead,
+) -> eyre::Result<()> {
+    let l1 = ProviderBuilder::new().wallet(signer.clone()).connect_http(l1_http_url.clone());
+
+    let preconf_whitelist = bindings::IPreconfWhitelist::new(whitelist_addr, l1.clone());
+
+    let operator = match lookahead {
+        Lookahead::Current => preconf_whitelist.getOperatorForCurrentEpoch().call().await?,
+        Lookahead::Next => preconf_whitelist.getOperatorForNextEpoch().call().await?,
+    };
+
+    info!("Ejecting operator: {operator:#x} for lookahead: {lookahead:?}");
+
+    if operator.is_zero() {
+        warn!("{lookahead:?} operator is zero; skipping eject.");
+        return Ok(());
+    }
+
+    let pending = preconf_whitelist.removeOperator(operator, true).send().await?;
+
+    let tx_hash = pending.tx_hash();
+    info!("Eject operator transaction sent: {:?}", tx_hash);
+
+    // Poll for receipt (e.g. every 12s, up to 2 minutes)
+    let poll_every = Duration::from_secs(12);
+    let timeout = Duration::from_secs(120);
+
+    match poll_receipt_until(l1.clone(), tx_hash.clone(), poll_every, timeout).await? {
+        Some(rcpt) => {
+            info!(
+                "removeOperator mined in block {:?}, tx {:?}",
+                rcpt.block_number, rcpt.transaction_hash
+            );
+            // If your receipt type exposes status, you can check/log it here.
+            // e.g., info!("status = {:?}", rcpt.status);
+        }
+        None => {
+            warn!("Timed out waiting for receipt for {tx_hash:#x}; continuing to run.");
+        }
+    }
+
+    // optional: your receipt polling here
+    Ok(())
+}
