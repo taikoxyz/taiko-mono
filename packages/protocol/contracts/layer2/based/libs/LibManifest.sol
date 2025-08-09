@@ -7,9 +7,9 @@ library LibManifest {
     // -------------------------------------------------------------------
     // Constants
     // -------------------------------------------------------------------
-    uint internal constant FIELD_ELEMENT_BYTE_SIZE = 32;
+    uint256 internal constant FIELD_ELEMENT_BYTE_SIZE = 32;
 
-    uint internal constant BLOB_FIELD_ELEMENT_SIZE = 4096;
+    uint256 internal constant BLOB_FIELD_ELEMENT_SIZE = 4096;
 
     /// @notice The maximum number of transactions allowed in a block.
     uint256 internal constant BLOB_BYTE_SIZE = BLOB_FIELD_ELEMENT_SIZE * FIELD_ELEMENT_BYTE_SIZE;
@@ -21,9 +21,9 @@ library LibManifest {
     /// small as one second, 384 blocks will cover an Ethereum epoch.
     uint256 internal constant PROPOSAL_MAX_BLOCKS = 384;
 
-    uint internal constant BLOCK_MAX_TRANSACTIONS = 4096;
+    uint256 internal constant BLOCK_MAX_TRANSACTIONS = 4096;
 
-    uint internal constant ANCHOR_BLOCK_MAX_ORIGIN_OFFSET = 128;
+    uint256 internal constant ANCHOR_BLOCK_MAX_ORIGIN_OFFSET = 128;
 
     // -------------------------------------------------------------------
     // Structs
@@ -47,8 +47,10 @@ library LibManifest {
         bytes32 s;
     }
 
-    struct ProverAuth{
-        
+    struct ProverAuth {
+        uint48 proposalId;
+        address proposer;
+        bytes signature;
     }
 
     /// @notice Represents a block manifest
@@ -67,6 +69,7 @@ library LibManifest {
 
     /// @notice Represents a proposal manifest
     struct ProposalManifest {
+        ProverAuth proverAuth;
         BlockManifest[] blocks;
     }
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { PacayaAnchor } from "./PacayaAnchor.sol";
 import { ISyncedBlockManager } from "src/shared/shasta/iface/ISyncedBlockManager.sol";
 import { IShastaBondManager } from "src/shared/shasta/iface/IBondManager.sol";
@@ -10,21 +11,30 @@ import { LibBondOperation } from "src/shared/shasta/libs/LibBondOperation.sol";
 /// @notice Anchoring functions for the Shasta fork.
 /// @custom:security-contact security@taiko.xyz
 abstract contract ShastaAnchor is PacayaAnchor {
-    // ---------------------------------------------------------------2
+    // ---------------------------------------------------------------
     // Structs
-    // ---------------------------------------------------------------2
+    // ---------------------------------------------------------------
 
     struct State {
         bytes32 bondOperationsHash;
         uint48 anchorBlockNumber;
     }
 
-    // ---------------------------------------------------------------2
+    struct ProverAuth {
+        uint48 proposalId;
+        address proposer;
+        bytes signature;
+    }
+
+    // ---------------------------------------------------------------
     // State variables
-    // ---------------------------------------------------------------2
+    // ---------------------------------------------------------------
 
     // The v4Anchor's transaction gas limit, this value must be enforced
     uint64 public constant ANCHOR_GAS_LIMIT = 1_000_000;
+
+    uint48 public immutable livenessBondGwei;
+    uint48 public immutable provabilityBondGwei;
 
     IShastaBondManager public immutable bondManager;
     ISyncedBlockManager public immutable syncedBlockManager;
@@ -34,9 +44,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
     uint256[48] private __gap;
 
-    // ---------------------------------------------------------------2----
+    // -------------------------------------------------------------------
     // Constructor
-    // ---------------------------------------------------------------2----
+    // -------------------------------------------------------------------
 
     /// @notice Initializes the ShastaAnchor contract.
     /// @param _signalService The address of the signal service.
@@ -60,27 +70,37 @@ abstract contract ShastaAnchor is PacayaAnchor {
         bondManager = _bondManager;
     }
 
-    // ---------------------------------------------------------------2
+    // ---------------------------------------------------------------
     // External functions
-    // ---------------------------------------------------------------2
+    // ---------------------------------------------------------------
 
     /// @notice Sets the state of the anchor, including the latest L1 block details and bond
     /// operations.
+    /// @param _proposalId The proposal ID.
+    /// @param _blockIndex The index of the block in the proposal.
+    /// @param _blockCount The total number of blocks in the proposal.
+    /// @param _proposer The address of the proposer.
     /// @param _anchorBlockNumber The anchor block number.
     /// @param _anchorBlockHash The anchor block hash.
     /// @param _anchorStateRoot The anchor state root.
     /// @param _bondOperationsHash The hash of all bond operations.
     /// @param _bondOperations Array of bond operations to process.
     function setState(
+        uint48 _proposalId,
+        uint32 _blockIndex,
+        uint32 _blockCount,
+        address _proposer,
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
         bytes32 _anchorStateRoot,
         bytes32 _bondOperationsHash,
-        LibBondOperation.BondOperation[] calldata _bondOperations
+        LibBondOperation.BondOperation[] calldata _bondOperations,
+        ProverAuth calldata _proverAuth
     )
         external
         onlyGoldenTouch
         nonReentrant
+        returns (address designatedProver_)
     {
         require(block.number >= shastaForkHeight, L2_FORK_ERROR());
 
@@ -107,34 +127,68 @@ abstract contract ShastaAnchor is PacayaAnchor {
         }
 
         if (_bondOperationsHash != 0) {
-        // Process each bond operation
-        bytes32 h = bondOperationsHash;
-        for (uint256 i; i < _bondOperations.length; ++i) {
-            LibBondOperation.BondOperation memory op = _bondOperations[i];
-            bondManager.creditBond(op.receiver, op.credit);
-            h = LibBondOperation.aggregateBondOperation(h, op);
+            // Process each bond operation
+            bytes32 h = bondOperationsHash;
+            for (uint256 i; i < _bondOperations.length; ++i) {
+                LibBondOperation.BondOperation memory op = _bondOperations[i];
+                bondManager.creditBond(op.receiver, op.credit);
+                h = LibBondOperation.aggregateBondOperation(h, op);
+            }
+            require(h == _bondOperationsHash, BondOperationsHashMismatch());
+            bondOperationsHash = _bondOperationsHash;
+
+            if (_blockIndex == 0) {
+                designatedProver_ = _verifyProverAuth(_proposalId, _proposer, _proverAuth);
+            }
         }
-        require(h == _bondOperationsHash, BondOperationsHashMismatch());
-        bondOperationsHash = _bondOperationsHash;
-    }
     }
 
     /// @notice Returns the current state of the anchor.
     /// @return state_ The current state.
     function getState() external view returns (State memory state_) {
-        state_ = State({
-            anchorBlockNumber: anchorBlockNumber,
-            bondOperationsHash: bondOperationsHash   
-        });
+        state_ =
+            State({ anchorBlockNumber: anchorBlockNumber, bondOperationsHash: bondOperationsHash });
     }
 
-    // ---------------------------------------------------------------2
+    // ---------------------------------------------------------------
+    // Private Functions
+    // ---------------------------------------------------------------
+
+    function _verifyProverAuth(
+        uint48 _proposalId,
+        address _proposer,
+        ProverAuth calldata _proverAuth
+    )
+        private
+        returns (address)
+    {
+        if (_proverAuth.proposalId == 0) {
+            require(_proverAuth.proposer == address(0), InvalidProverAuth());
+            require(_proverAuth.signature.length == 0, InvalidProverAuth());
+            return address(0);
+        }
+        if (_proverAuth.proposalId != _proposalId) return address(0);
+        if (_proverAuth.proposer != _proposer) return address(0);
+
+        bytes32 message = keccak256(abi.encode(_proverAuth.proposalId, _proverAuth.proposer));
+        address signer = ECDSA.recover(message, _proverAuth.signature);
+
+        if (signer == address(0) || signer != _proposer) return address(0);
+
+        uint48 totalBondRequired = provabilityBondGwei + livenessBondGwei;
+        if (bondManager.getBondBalance(signer) < totalBondRequired) return address(0);
+
+        bondManager.debitBond(signer, totalBondRequired);
+        return signer;
+    }
+
+    // ---------------------------------------------------------------
     // Errors
-    // ---------------------------------------------------------------2
+    // ---------------------------------------------------------------
 
     error BondOperationsHashMismatch();
     error InvalidForkHeight();
-    error InvalidGasIssuancePerSecond();
+    error InvalidProverAuth();
     error NonZeroAnchorBlockHash();
     error NonZeroAnchorStateRoot();
     error ZeroAnchorBlockHash();
