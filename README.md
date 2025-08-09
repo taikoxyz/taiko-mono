@@ -49,6 +49,7 @@ Get started with Taiko Alethia:
 | [supplementary-contracts](./packages/supplementary-contracts) | Supplementary contracts not part of the Taiko Alethia protocol.    |
 | [taiko-client](./packages/taiko-client)                       | Taiko Alethia client implementation in Go.                         |
 | [taikoon-ui](./packages/taikoon-ui)                           | Taikoon UI.                                                        |
+| [tools](./packages/tools)                                     | Tools library.                                                     |
 | [ui-lib](./packages/ui-lib)                                   | UI library.                                                        |
 
 ## Issues
