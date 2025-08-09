@@ -34,6 +34,7 @@ type Config struct {
 	RevertProtectionEnabled bool
 	TxmgrConfigs            *txmgr.CLIConfig
 	PrivateTxmgrConfigs     *txmgr.CLIConfig
+	FallbackTimeout         time.Duration
 }
 
 // NewConfigFromCliContext initializes a Config instance from
@@ -70,7 +71,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	return &Config{
 		ClientConfig: &rpc.ClientConfig{
 			L1Endpoint:                  c.String(flags.L1WSEndpoint.Name),
-			L2Endpoint:                  c.String(flags.L2HTTPEndpoint.Name),
+			L2Endpoint:                  c.String(flags.L2WSEndpoint.Name),
 			TaikoInboxAddress:           common.HexToAddress(c.String(flags.TaikoInboxAddress.Name)),
 			TaikoWrapperAddress:         common.HexToAddress(c.String(flags.TaikoWrapperAddress.Name)),
 			ForcedInclusionStoreAddress: common.HexToAddress(c.String(flags.ForcedInclusionStoreAddress.Name)),
@@ -102,5 +103,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			l1ProposerPrivKey,
 			c,
 		),
+		FallbackTimeout: c.Duration(flags.FallbackTimeout.Name),
 	}, nil
 }
