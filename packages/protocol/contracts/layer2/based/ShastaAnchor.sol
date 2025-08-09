@@ -152,35 +152,33 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
             // Verify prover authentication and debit bonds if valid
             _state.designatedProver = _verifyProverAuth(_proposalId, _proposer, _proverAuth);
-        } else {
-            // Subsequent blocks: ensure no prover auth is provided
-            require(_proverAuth.length == 0, InvalidProverAuth());
         }
-
-        // Process bond operations incrementally
-        bytes32 bondOperationsHash = _state.bondOperationsHash;
-
-        for (uint256 i; i < _bondOperations.length; ++i) {
-            LibBondOperation.BondOperation memory op = _bondOperations[i];
-            // Credit the bond to the receiver
-            bondManager.creditBond(op.receiver, op.credit);
-            // Update cumulative hash
-            bondOperationsHash = LibBondOperation.aggregateBondOperation(bondOperationsHash, op);
-        }
-        // Verify the cumulative hash matches expected value
-        require(bondOperationsHash == _bondOperationsHash, BondOperationsHashMismatch());
-        _state.bondOperationsHash = bondOperationsHash;
 
         // Update current block index
         _state.blockIndex = _blockIndex;
 
         // Process L1 anchor data if provided
         if (_anchorBlockNumber != 0) {
-            _state.anchorBlockNumber = _anchorBlockNumber;
             // Save the L1 block data for cross-chain verification
             syncedBlockManager.saveSyncedBlock(
                 _anchorBlockNumber, _anchorBlockHash, _anchorStateRoot
             );
+
+            // Process bond operations incrementally
+            bytes32 bondOperationsHash = _state.bondOperationsHash;
+
+            for (uint256 i; i < _bondOperations.length; ++i) {
+                LibBondOperation.BondOperation memory op = _bondOperations[i];
+                // Credit the bond to the receiver
+                bondManager.creditBond(op.receiver, op.credit);
+                // Update cumulative hash
+                bondOperationsHash = LibBondOperation.aggregateBondOperation(bondOperationsHash, op);
+            }
+            // Verify the cumulative hash matches expected value
+            require(bondOperationsHash == _bondOperationsHash, BondOperationsHashMismatch());
+
+            _state.bondOperationsHash = bondOperationsHash;
+            _state.anchorBlockNumber = _anchorBlockNumber;
         } else {
             // If no anchor block, ensure hash and state root are also zero
             require(_anchorBlockHash == 0, NonZeroAnchorBlockHash());
@@ -226,15 +224,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
         ProverAuth memory proverAuth = abi.decode(_proverAuth, (ProverAuth));
 
         // Handle zero proposal ID case - all fields must be empty
-        if (proverAuth.proposalId == 0) {
-            require(proverAuth.proposer == address(0), InvalidProverAuth());
-            require(proverAuth.signature.length == 0, InvalidProverAuth());
-            return address(0);
-        }
-
-        // Validate proposal ID and proposer match the provided parameters
-        if (proverAuth.proposalId != _proposalId) return address(0);
+        if (proverAuth.proposalId == 0)  return address(0);
         if (proverAuth.proposer != _proposer) return address(0);
+        if (proverAuth.signature.length == 0) return address(0);
 
         // Verify the ECDSA signature
         bytes32 message = keccak256(abi.encode(proverAuth.proposalId, proverAuth.proposer));
@@ -258,7 +250,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
     error BondOperationsHashMismatch();
     error InvalidForkHeight();
-    error InvalidProverAuth();
     error NonZeroAnchorBlockHash();
     error NonZeroAnchorStateRoot();
     error NonZeroBlockIndex();

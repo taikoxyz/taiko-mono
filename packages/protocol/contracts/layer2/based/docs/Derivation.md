@@ -172,6 +172,7 @@ The system enforces several constraints to ensure manifest validity:
 
 - **Block Count Limit**: `proposalManifest.blocks.length` cannot exceed `PROPOSAL_MAX_BLOCKS` (384). If exceeded or the count is zero, keep only the first `PROPOSAL_MAX_BLOCKS` blocks.
 - **Transaction Limit**: Each `blockManifest[i].transactions.length` cannot contain more than `BLOCK_MAX_TRANSACTIONS` (4096) transactions. If exceeded, keep only the first `BLOCK_MAX_TRANSACTIONS` transactions.
+- **proverAuth**: if these bytes can no be decoded into a valid ProverAuth object, set it to bytes("").
 
 ### Default Manifest Specification
 
@@ -231,32 +232,24 @@ The following parameters must be prepared in the order they appear in the functi
 
 - **`_proposalId`**
 
-  This value must be identical to `proposal.id`
+  This value must be identical to `proposal.id`.
 
 - **`_blockCount`**
 
-  For the first block in a proposal (`_blockIndex == 0`), this must equal `proposalManifest.blocks.length`. For subsequent blocks, it must match the value from the first block.
+  This value must be identical to `proposalManifest.blocks.length`.
 
 - **`_proposer`**
 
   Must be identical to `proposal.proposer`.
 
 - **`_proverAuth`**
-
-  Bytes encoding of `proposalManifest.proverAuth`. If the proposer wants to designate themselves as the prover, this contains authentication data with:
-
-  - `proposalId`: Must match `proposal.id`
-  - `proposer`: Must match `proposal.proposer`
-  - `signature`: ECDSA signature of `keccak256(abi.encode(proposalId, proposer))`
-
-  If all fields are zero/empty, no prover is designated.
-
+  This value must be identical to `proposalManifest.blocks.proverAuth`.
 - **`_bondOperationsHash`**
 
   If `_anchorBlockNumber` is zero, this value must be zero. Otherwise, it must be a value that satisfies the following:
 
   - There must be an [`IInbox.CoreState`](../../../layer1/shasta/iface/IInbox.sol) instance with field `bondOperationsHash` equal to `_bondOperationsHash`
-  - The hash of this [`IInbox.CoreState`](../../../layer1/shasta/iface/IInbox.sol) instance must match the `coreStateHash()` stored in the L1 signal service at block `_anchorBlockNumber`
+  - The hash of this `IInbox.CoreState`instance must match the `coreStateHash()` stored in the L1 world state at block `_anchorBlockNumber`.
 
 - **`_bondOperations`**
 
