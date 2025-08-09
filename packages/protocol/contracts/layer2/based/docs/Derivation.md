@@ -246,8 +246,6 @@ if (
 }
 ```
 
-Note: `ANCHOR_BLOCK_MAX_ORIGIN_OFFSET` = 128
-
 ### `_anchorBlockHash`
 
 This value is determined as:
