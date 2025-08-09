@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.10.0...taiko-alethia-client-v1.10.1) (2025-08-09)
+
+
+### Bug Fixes
+
+* **taiko-client:** add extended retry for missing trie node sync errors ([#19874](https://github.com/taikoxyz/taiko-mono/issues/19874)) ([65c00fd](https://github.com/taikoxyz/taiko-mono/commit/65c00fd2c2d78a6dc317c1fcf1911513d8d2250e))
+
 ## [1.10.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.9.0...taiko-alethia-client-v1.10.0) (2025-08-05)
 
 
