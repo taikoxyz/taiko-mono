@@ -1,0 +1,25 @@
+graph TD
+    %% Tree structure for proving hierarchy
+    Root[Latest L1 World State]
+    
+    %% Proposal with sub-boxes for fields
+    Root -- hashing --> Proposal
+    
+    subgraph ProposalBox[" "]
+        Proposal -.-> proposer[proposer]
+        Proposal -.-> provabilityBondGwei[provabilityBondGwei]
+        Proposal -.-> livenessBondGwei[livenessBondGwei]
+        Proposal -.-> anchorBlockNumber[anchorBlockNumber]
+        Proposal -.-> originBlockNumber[originBlockNumber]
+        Proposal -.-> originBlockTimestamp[originBlockTimestamp]
+        Proposal -.-> blobSlice[blobSlice]
+    end
+
+    Root --> AnchorTransaction
+
+    subgraph AnchorTransactionBox["AnchorTransaction"]
+        AnchorTransaction -.-> proposer[proposer]
+    end
+    
+    style ProposalBox stroke:#01579b,stroke-width:1px
+ 

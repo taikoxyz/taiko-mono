@@ -33,36 +33,28 @@ contract SyncedBlockManagerTest is CommonTest {
     function test_saveSyncedBlock() public {
         vm.prank(authorized);
 
-        ISyncedBlockManager.SyncedBlock memory block1 = ISyncedBlockManager.SyncedBlock({
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(uint256(2)),
-            blockNumber: 100
-        });
-
         vm.expectEmit(true, true, true, true);
         emit ISyncedBlockManager.SyncedBlockSaved(100, bytes32(uint256(1)), bytes32(uint256(2)));
 
-        syncedBlockManager.saveSyncedBlock(block1);
+        syncedBlockManager.saveSyncedBlock(100, bytes32(uint256(1)), bytes32(uint256(2)));
 
         assertEq(syncedBlockManager.getLatestSyncedBlockNumber(), 100);
         assertEq(syncedBlockManager.getNumberOfSyncedBlocks(), 1);
 
-        ISyncedBlockManager.SyncedBlock memory retrieved = syncedBlockManager.getSyncedBlock(0);
-        assertEq(retrieved.blockNumber, 100);
-        assertEq(retrieved.blockHash, bytes32(uint256(1)));
-        assertEq(retrieved.stateRoot, bytes32(uint256(2)));
+        (uint48 blockNumber, bytes32 blockHash, bytes32 stateRoot) =
+            syncedBlockManager.getSyncedBlock(0);
+        assertEq(blockNumber, 100);
+        assertEq(blockHash, bytes32(uint256(1)));
+        assertEq(stateRoot, bytes32(uint256(2)));
     }
 
     function test_saveSyncedBlock_multipleBlocks() public {
         vm.startPrank(authorized);
 
         for (uint48 i = 1; i <= 3; i++) {
-            ISyncedBlockManager.SyncedBlock memory block_ = ISyncedBlockManager.SyncedBlock({
-                blockHash: bytes32(uint256(i)),
-                stateRoot: bytes32(uint256(i * 10)),
-                blockNumber: i * 100
-            });
-            syncedBlockManager.saveSyncedBlock(block_);
+            syncedBlockManager.saveSyncedBlock(
+                i * 100, bytes32(uint256(i)), bytes32(uint256(i * 10))
+            );
         }
 
         vm.stopPrank();
@@ -71,94 +63,60 @@ contract SyncedBlockManagerTest is CommonTest {
         assertEq(syncedBlockManager.getNumberOfSyncedBlocks(), 3);
 
         // Check offset 0 (latest)
-        ISyncedBlockManager.SyncedBlock memory latest = syncedBlockManager.getSyncedBlock(0);
-        assertEq(latest.blockNumber, 300);
-        assertEq(latest.blockHash, bytes32(uint256(3)));
-        assertEq(latest.stateRoot, bytes32(uint256(30)));
+        (uint48 blockNumber, bytes32 blockHash, bytes32 stateRoot) =
+            syncedBlockManager.getSyncedBlock(0);
+        assertEq(blockNumber, 300);
+        assertEq(blockHash, bytes32(uint256(3)));
+        assertEq(stateRoot, bytes32(uint256(30)));
 
         // Check offset 1 (second latest)
-        ISyncedBlockManager.SyncedBlock memory secondLatest = syncedBlockManager.getSyncedBlock(1);
-        assertEq(secondLatest.blockNumber, 200);
-        assertEq(secondLatest.blockHash, bytes32(uint256(2)));
-        assertEq(secondLatest.stateRoot, bytes32(uint256(20)));
+        (blockNumber, blockHash, stateRoot) = syncedBlockManager.getSyncedBlock(1);
+        assertEq(blockNumber, 200);
+        assertEq(blockHash, bytes32(uint256(2)));
+        assertEq(stateRoot, bytes32(uint256(20)));
 
         // Check offset 2 (third latest)
-        ISyncedBlockManager.SyncedBlock memory thirdLatest = syncedBlockManager.getSyncedBlock(2);
-        assertEq(thirdLatest.blockNumber, 100);
-        assertEq(thirdLatest.blockHash, bytes32(uint256(1)));
-        assertEq(thirdLatest.stateRoot, bytes32(uint256(10)));
+        (blockNumber, blockHash, stateRoot) = syncedBlockManager.getSyncedBlock(2);
+        assertEq(blockNumber, 100);
+        assertEq(blockHash, bytes32(uint256(1)));
+        assertEq(stateRoot, bytes32(uint256(10)));
     }
 
     function test_saveSyncedBlock_revert_unauthorized() public {
         vm.prank(Bob);
 
-        ISyncedBlockManager.SyncedBlock memory block_ = ISyncedBlockManager.SyncedBlock({
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(uint256(2)),
-            blockNumber: 100
-        });
-
         vm.expectRevert(SyncedBlockManager.Unauthorized.selector);
-        syncedBlockManager.saveSyncedBlock(block_);
+        syncedBlockManager.saveSyncedBlock(100, bytes32(uint256(1)), bytes32(uint256(2)));
     }
 
     function test_saveSyncedBlock_revert_zeroStateRoot() public {
         vm.prank(authorized);
 
-        ISyncedBlockManager.SyncedBlock memory block_ = ISyncedBlockManager.SyncedBlock({
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(0),
-            blockNumber: 100
-        });
-
         vm.expectRevert(SyncedBlockManager.InvalidSyncedBlock.selector);
-        syncedBlockManager.saveSyncedBlock(block_);
+        syncedBlockManager.saveSyncedBlock(100, bytes32(uint256(1)), bytes32(0));
     }
 
     function test_saveSyncedBlock_revert_zeroBlockHash() public {
         vm.prank(authorized);
 
-        ISyncedBlockManager.SyncedBlock memory block_ = ISyncedBlockManager.SyncedBlock({
-            blockHash: bytes32(0),
-            stateRoot: bytes32(uint256(2)),
-            blockNumber: 100
-        });
-
         vm.expectRevert(SyncedBlockManager.InvalidSyncedBlock.selector);
-        syncedBlockManager.saveSyncedBlock(block_);
+        syncedBlockManager.saveSyncedBlock(100, bytes32(0), bytes32(uint256(2)));
     }
 
     function test_saveSyncedBlock_revert_zeroBlockNumber() public {
         vm.prank(authorized);
 
-        ISyncedBlockManager.SyncedBlock memory block_ = ISyncedBlockManager.SyncedBlock({
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(uint256(2)),
-            blockNumber: 0
-        });
-
         vm.expectRevert(SyncedBlockManager.InvalidSyncedBlock.selector);
-        syncedBlockManager.saveSyncedBlock(block_);
+        syncedBlockManager.saveSyncedBlock(0, bytes32(uint256(1)), bytes32(uint256(2)));
     }
 
     function test_saveSyncedBlock_revert_decreasingBlockNumber() public {
         vm.startPrank(authorized);
 
-        ISyncedBlockManager.SyncedBlock memory block1 = ISyncedBlockManager.SyncedBlock({
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(uint256(2)),
-            blockNumber: 100
-        });
-        syncedBlockManager.saveSyncedBlock(block1);
-
-        ISyncedBlockManager.SyncedBlock memory block2 = ISyncedBlockManager.SyncedBlock({
-            blockHash: bytes32(uint256(3)),
-            stateRoot: bytes32(uint256(4)),
-            blockNumber: 99
-        });
+        syncedBlockManager.saveSyncedBlock(100, bytes32(uint256(1)), bytes32(uint256(2)));
 
         vm.expectRevert(SyncedBlockManager.InvalidSyncedBlock.selector);
-        syncedBlockManager.saveSyncedBlock(block2);
+        syncedBlockManager.saveSyncedBlock(99, bytes32(uint256(3)), bytes32(uint256(4)));
 
         vm.stopPrank();
     }
@@ -166,21 +124,10 @@ contract SyncedBlockManagerTest is CommonTest {
     function test_saveSyncedBlock_revert_sameBlockNumber() public {
         vm.startPrank(authorized);
 
-        ISyncedBlockManager.SyncedBlock memory block1 = ISyncedBlockManager.SyncedBlock({
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(uint256(2)),
-            blockNumber: 100
-        });
-        syncedBlockManager.saveSyncedBlock(block1);
-
-        ISyncedBlockManager.SyncedBlock memory block2 = ISyncedBlockManager.SyncedBlock({
-            blockHash: bytes32(uint256(3)),
-            stateRoot: bytes32(uint256(4)),
-            blockNumber: 100
-        });
+        syncedBlockManager.saveSyncedBlock(100, bytes32(uint256(1)), bytes32(uint256(2)));
 
         vm.expectRevert(SyncedBlockManager.InvalidSyncedBlock.selector);
-        syncedBlockManager.saveSyncedBlock(block2);
+        syncedBlockManager.saveSyncedBlock(100, bytes32(uint256(3)), bytes32(uint256(4)));
 
         vm.stopPrank();
     }
@@ -193,12 +140,7 @@ contract SyncedBlockManagerTest is CommonTest {
     function test_getSyncedBlock_revert_indexOutOfBounds() public {
         vm.prank(authorized);
 
-        ISyncedBlockManager.SyncedBlock memory block_ = ISyncedBlockManager.SyncedBlock({
-            blockHash: bytes32(uint256(1)),
-            stateRoot: bytes32(uint256(2)),
-            blockNumber: 100
-        });
-        syncedBlockManager.saveSyncedBlock(block_);
+        syncedBlockManager.saveSyncedBlock(100, bytes32(uint256(1)), bytes32(uint256(2)));
 
         vm.expectRevert(SyncedBlockManager.IndexOutOfBounds.selector);
         syncedBlockManager.getSyncedBlock(1);
@@ -209,34 +151,26 @@ contract SyncedBlockManagerTest is CommonTest {
 
         // Fill the ring buffer to capacity (5 blocks)
         for (uint48 i = 1; i <= 5; i++) {
-            ISyncedBlockManager.SyncedBlock memory block_ = ISyncedBlockManager.SyncedBlock({
-                blockHash: bytes32(uint256(i)),
-                stateRoot: bytes32(uint256(i * 10)),
-                blockNumber: i * 100
-            });
-            syncedBlockManager.saveSyncedBlock(block_);
+            syncedBlockManager.saveSyncedBlock(
+                i * 100, bytes32(uint256(i)), bytes32(uint256(i * 10))
+            );
         }
 
         assertEq(syncedBlockManager.getNumberOfSyncedBlocks(), 5);
         assertEq(syncedBlockManager.getLatestSyncedBlockNumber(), 500);
 
         // Add a 6th block - should overwrite the oldest
-        ISyncedBlockManager.SyncedBlock memory block6 = ISyncedBlockManager.SyncedBlock({
-            blockHash: bytes32(uint256(6)),
-            stateRoot: bytes32(uint256(60)),
-            blockNumber: 600
-        });
-        syncedBlockManager.saveSyncedBlock(block6);
+        syncedBlockManager.saveSyncedBlock(600, bytes32(uint256(6)), bytes32(uint256(60)));
 
         assertEq(syncedBlockManager.getNumberOfSyncedBlocks(), 5);
         assertEq(syncedBlockManager.getLatestSyncedBlockNumber(), 600);
 
         // Verify we can still access the last 5 blocks
-        ISyncedBlockManager.SyncedBlock memory latest = syncedBlockManager.getSyncedBlock(0);
-        assertEq(latest.blockNumber, 600);
+        (uint48 latestBlockNum,,) = syncedBlockManager.getSyncedBlock(0);
+        assertEq(latestBlockNum, 600);
 
-        ISyncedBlockManager.SyncedBlock memory oldest = syncedBlockManager.getSyncedBlock(4);
-        assertEq(oldest.blockNumber, 200); // Block 100 was overwritten
+        (uint48 oldestBlockNum,,) = syncedBlockManager.getSyncedBlock(4);
+        assertEq(oldestBlockNum, 200); // Block 100 was overwritten
 
         // Verify block 100 cannot be accessed
         vm.expectRevert(SyncedBlockManager.IndexOutOfBounds.selector);
@@ -250,12 +184,9 @@ contract SyncedBlockManagerTest is CommonTest {
 
         // Fill buffer completely multiple times to test wrap-around
         for (uint48 i = 1; i <= 12; i++) {
-            ISyncedBlockManager.SyncedBlock memory block_ = ISyncedBlockManager.SyncedBlock({
-                blockHash: bytes32(uint256(i)),
-                stateRoot: bytes32(uint256(i * 10)),
-                blockNumber: i * 100
-            });
-            syncedBlockManager.saveSyncedBlock(block_);
+            syncedBlockManager.saveSyncedBlock(
+                i * 100, bytes32(uint256(i)), bytes32(uint256(i * 10))
+            );
         }
 
         assertEq(syncedBlockManager.getNumberOfSyncedBlocks(), 5);
@@ -263,8 +194,11 @@ contract SyncedBlockManagerTest is CommonTest {
 
         // Check that we have blocks 8-12 (blocks 1-7 were overwritten)
         for (uint48 i = 0; i < 5; i++) {
-            ISyncedBlockManager.SyncedBlock memory block_ = syncedBlockManager.getSyncedBlock(i);
-            assertEq(block_.blockNumber, (12 - i) * 100);
+            (uint48 blockNumber, bytes32 blockHash, bytes32 stateRoot) =
+                syncedBlockManager.getSyncedBlock(i);
+            assertEq(blockNumber, (12 - i) * 100);
+            assertEq(blockHash, bytes32(uint256(12 - i)));
+            assertEq(stateRoot, bytes32(uint256((12 - i) * 10)));
         }
 
         vm.stopPrank();

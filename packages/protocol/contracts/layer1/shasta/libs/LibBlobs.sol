@@ -11,50 +11,51 @@ library LibBlobs {
 
     /// @notice Represents a segment of data that is stored in multiple consecutive blobs created
     /// in this transaction.
-    struct BlobLocator {
+    struct BlobReference {
         /// @notice The starting index of the blob.
         uint48 blobStartIndex;
         /// @notice The number of blobs.
         uint32 numBlobs;
-        /// @notice The offset within the blob data.
-        uint32 offset;
+        /// @notice The field-element offset within the blob data.
+        uint24 offset;
     }
 
     /// @notice Represents a frame of data that is stored in multiple blobs. Note the size is
     /// encoded as a bytes32 at the offset location.
-    struct BlobFrame {
+    struct BlobSlice {
         /// @notice The blobs containing the proposal's content.
         bytes32[] blobHashes;
-        /// @notice The offset of the proposal's content in the containing blobs.
-        uint32 offset;
+        /// @notice The field-element offset of the proposal's content in the containing blobs.
+        /// The byte-offset would be 32 * offset.
+        uint24 offset;
         /// @notice The timestamp when the frame was created.
-        uint48 createdAt;
+        uint48 timestamp;
     }
 
     // -------------------------------------------------------------------
     // Functions
     // -------------------------------------------------------------------
 
-    /// @dev Validates a blob locator and converts it to a frame.
-    /// @param _blobLocator The blob locator to validate.
-    /// @return _ The frame.
-    function validateBlobLocator(BlobLocator memory _blobLocator)
+    /// @dev Validates a blob locator and converts it to a blob slice.
+    /// @param _blobReference The blob locator to validate.
+    /// @return _ The blob slice.
+    function validateBlobReference(BlobReference memory _blobReference)
         internal
         view
-        returns (BlobFrame memory)
+        returns (BlobSlice memory)
     {
-        require(_blobLocator.numBlobs != 0, InvalidBlobLocator());
+        if (_blobReference.numBlobs == 0) revert InvalidBlobReference();
 
-        bytes32[] memory blobHashes = new bytes32[](_blobLocator.numBlobs);
-        for (uint256 i; i < _blobLocator.numBlobs; ++i) {
-            blobHashes[i] = blobhash(_blobLocator.blobStartIndex + i);
-            require(blobHashes[i] != 0, BlobNotFound());
+        bytes32[] memory blobHashes = new bytes32[](_blobReference.numBlobs);
+        for (uint256 i; i < _blobReference.numBlobs; ++i) {
+            blobHashes[i] = blobhash(_blobReference.blobStartIndex + i);
+            if (blobHashes[i] == 0) revert BlobNotFound();
         }
 
-        return BlobFrame({
+        return BlobSlice({
             blobHashes: blobHashes,
-            offset: _blobLocator.offset,
-            createdAt: uint48(block.timestamp)
+            offset: _blobReference.offset,
+            timestamp: uint48(block.timestamp)
         });
     }
 
@@ -63,5 +64,5 @@ library LibBlobs {
     // -------------------------------------------------------------------
 
     error BlobNotFound();
-    error InvalidBlobLocator();
+    error InvalidBlobReference();
 }

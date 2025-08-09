@@ -26,7 +26,7 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
             livenessBond: 0,
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
-            baseFeeConfig: LibSharedData.BaseFeeConfig({
+            baseFeeConfig: ITaikoInbox.BaseFeeConfig({
                 adjustmentQuotient: 8,
                 sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,
@@ -61,7 +61,7 @@ contract InboxTest_ForkBoundaries is InboxTestBase {
             livenessBond: 0,
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
-            baseFeeConfig: LibSharedData.BaseFeeConfig({
+            baseFeeConfig: ITaikoInbox.BaseFeeConfig({
                 adjustmentQuotient: 8,
                 sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,

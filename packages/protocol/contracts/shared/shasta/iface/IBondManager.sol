@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title IBondManager
+/// @title IShastaBondManager
 /// @notice Interface for managing bonds in the Based3 protocol
 /// @custom:security-contact security@taiko.xyz
-interface IBondManager {
+interface IShastaBondManager {
     // -------------------------------------------------------------------
     // Events
     // -------------------------------------------------------------------

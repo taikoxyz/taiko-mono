@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "./ShastaAnchor.sol";
+import "src/shared/shasta/iface/ISyncedBlockManager.sol";
+import { IShastaBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 
 /// @title TaikoAnchor
 /// @notice TaikoAnchor is a smart contract that handles cross-layer message
@@ -9,18 +11,35 @@ import "./ShastaAnchor.sol";
 /// It is used to anchor the latest L1 block details to L2 for cross-layer
 /// communication, manage EIP-1559 parameters for gas pricing, and store
 /// verified L1 block information.
-///
-/// This contract receives a portion of L2 base fees, while the remainder is directed to
+/// @dev This contract receives a portion of L2 base fees, while the remainder is directed to
 /// L2 block's coinbase address.
 /// @custom:security-contact security@taiko.xyz
 contract TaikoAnchor is ShastaAnchor {
+    // -------------------------------------------------------------------
+    // Constructor
+    // -------------------------------------------------------------------
     constructor(
+        uint48 _livenessBondGwei,
+        uint48 _provabilityBondGwei,
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight
     )
-        ShastaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
+        // TODO: add _syncedBlockManager and _bondManager
+        ShastaAnchor(
+            _livenessBondGwei,
+            _provabilityBondGwei,
+            _signalService,
+            _pacayaForkHeight,
+            _shastaForkHeight,
+            ISyncedBlockManager(address(0)),
+            IShastaBondManager(address(0))
+        )
     { }
+
+    // -------------------------------------------------------------------
+    // External functions
+    // -------------------------------------------------------------------
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.

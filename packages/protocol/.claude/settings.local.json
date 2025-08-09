@@ -1,7 +1,21 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
-    "allow": ["Bash(*)"],
+    "allow": [
+      "Bash(*)",
+      "Bash(forge *)",
+      "Bash(pnpm *)",
+      "Bash(npm *)",
+      "Bash(git *)",
+      "Bash(FOUNDRY_PROFILE=* forge *)",
+      "Bash(pnpm compile:l2:*)",
+      "Bash(find:*)",
+      "Bash(pnpm compile:*)",
+      "Bash(grep:*)",
+      "Bash(forge build:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm fmt:sol:*)"
+    ],
     "deny": []
   }
 }
