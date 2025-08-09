@@ -28,49 +28,17 @@ Throughout this document, we use the following conventions to clearly identify d
 
 ## Protocol Constants
 
+The following constants are referenced in this derivation specification:
+
 ### LibManifest Constants
 
 Constants defined in `LibManifest.sol` at `/contracts/layer2/based/libs/LibManifest.sol`:
 
-- `FIELD_ELEMENT_BYTE_SIZE`: Size of a field element in bytes
-- `BLOB_FIELD_ELEMENT_SIZE`: Number of field elements per blob
-- `BLOB_BYTE_SIZE`: Total size of a blob in bytes
 - `PROPOSAL_MAX_FIELD_ELEMENTS_SIZE`: Maximum field elements for a proposal
 - `PROPOSAL_MAX_BLOBS`: Maximum number of blobs per proposal
 - `PROPOSAL_MAX_BLOCKS`: Maximum blocks per proposal
 - `BLOCK_MAX_TRANSACTIONS`: Maximum transactions per block
 - `ANCHOR_BLOCK_MAX_ORIGIN_OFFSET`: Maximum L1 block offset for anchor selection
-
-### Inbox Constants
-
-Constants defined in `Inbox.sol` at `/contracts/layer1/shasta/impl/Inbox.sol`:
-
-- `REWARD_FRACTION`: Divisor for bond rewards
-
-Immutable values set during `Inbox` contract deployment:
-
-- `provabilityBondGwei`: Bond required for block provability
-- `livenessBondGwei`: Bond required for prover liveness
-- `provingWindow`: Initial proving window duration
-- `extendedProvingWindow`: Extended proving window duration
-- `minBondBalance`: Minimum bond balance required for proposers
-- `maxFinalizationCount`: Maximum number of finalizations allowed per batch
-- `ringBufferSize`: Size of the proposal ring buffer
-
-### Anchor Constants
-
-Constants from anchor contracts in `/contracts/layer2/based/`:
-
-**ShastaAnchor.sol:**
-
-- `ANCHOR_GAS_LIMIT`: Gas limit for anchor transaction execution
-- `livenessBondGwei`: Liveness bond amount (immutable)
-- `provabilityBondGwei`: Provability bond amount (immutable)
-
-**PacayaAnchor.sol:**
-
-- `GOLDEN_TOUCH_ADDRESS`: Protocol-specific EOA for anchor updates
-- `BASEFEE_MIN_VALUE`: Minimum base fee
 
 ## Overview
 
