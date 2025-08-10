@@ -13,11 +13,11 @@ A preconfirmation (preconf) is a cryptographic commitment from a preconfer that 
 
 To achieve this, there is a two-stage rollout of how this will operate.
 
-**Stage 1: Whitelisted Preconfers**
+**Whitelisted Preconfirmations Stage**
 
 - Our three partners Nethermind, Chainbound, and Gattaca will each run a preconfer using their own custom solution and be whitelisted in the protocol onchain. This provides us client diversity from day one. Each custom solution adheres to the onchain protocol and offchain spec, allowing us to focus on delivering fast, reliable preconfirmations.
 
-**Stage 2: Secured by Stake Preconfers**
+**Secured by Stake Preconfirmations Stage**
 
 - L1 validators will opt in to being a preconfer, and either run their own preconfer, or delegate their preconfirming rights to a separate entity running one of the above solutions.
 
@@ -109,7 +109,7 @@ The preconfer's process follows seven key steps:
 
 - **Censorship Resistance & Trust-Minimization**: Based preconfirmations leverage Ethereum validators to sequence transactions, ensuring decentralized sequencing with resistance to censorship by MEV players.
 
-  - With the addition of the [`ForcedInclusionStore` smart contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer1/forced-inclusion/ForcedInclusionStore.sol) which allows users to submit transactions and force their inclusion irregardless of the preconfers, the protocol can remain censorship-resistant even while preconfers are permissioned ([Stage 1](/taiko-alethia-protocol/protocol-design/based-preconfirmation/#what-are-based-preconfirmations)).
+  - With the addition of the [`ForcedInclusionStore` smart contract](https://github.com/taikoxyz/taiko-mono/blob/taiko-alethia-protocol-v2.3.0/packages/protocol/contracts/layer1/forced-inclusion/ForcedInclusionStore.sol) which allows users to submit transactions and force their inclusion irregardless of the preconfers, the protocol can remain censorship-resistant [even while preconfers are permissioned](/taiko-alethia-protocol/protocol-design/based-preconfirmation/#what-are-based-preconfirmations).
 
 ## Summary
 

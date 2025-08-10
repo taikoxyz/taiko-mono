@@ -41,9 +41,9 @@ Taiko Alethia operates as a fully decentralized protocol governed by **DAOs, com
 | **Taiko Community**                      | Open social groups and discussions (Discord, Twitter, forums).                           |
 | **Taiko Labs**                           | Research and development entity supporting the Taiko Alethia protocol.                   |
 | **Taiko Treasury**                       | Collects fees from L2 congestion pricing and distributes funds for development.          |
-| **Taiko DAO**              | Governing body managing smart contract upgrades, network parameters, and protocol funds. |
+| **Taiko DAO**                            | Governing body managing smart contract upgrades, network parameters, and protocol funds. |
 | **Taiko Foundation**                     | Funds technical development, partnerships, and ecosystem growth.                         |
-| **Taiko Security Council (in progress)** | Handles critical protocol security and emergency network decisions.   |
+| **Taiko Security Council (in progress)** | Handles critical protocol security and emergency network decisions.                      |
 
 ---
 
@@ -68,7 +68,6 @@ These services are open-source, meaning anyone can replicate or improve them.
 - [Bridge Relayer](/api-reference/bridge-relayer) → Facilitates trust-minimized bridging.
 - [Taiko Alethia & Hekla P2P Bootstrapping Nodes](https://github.com/taikoxyz/simple-taiko-node/tree/v1.16.1) → Helps decentralized peers sync with the network. Found in their respective `.env.sample` files.
 - [Taiko Alethia Taiko Labs' proposers and provers](/network-reference/contract-addresses)
-
 
 ---
 

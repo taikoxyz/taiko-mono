@@ -2,14 +2,19 @@ package preconfblocks
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
+	"github.com/libp2p/go-libp2p/core/peer"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -73,4 +78,13 @@ func checkMessageBlockNumber(
 	}
 
 	return headL1Origin, nil
+}
+
+// deterministicJitter returns a deterministic jitter based on the peer ID and block hash,
+// such that we dont immediately reply to messages.
+func deterministicJitter(self peer.ID, h common.Hash, max time.Duration) time.Duration {
+	b := append([]byte(self), h.Bytes()...)
+	sum := sha256.Sum256(b)
+	v := binary.LittleEndian.Uint64(sum[:8])
+	return time.Duration(v % uint64(max))
 }
