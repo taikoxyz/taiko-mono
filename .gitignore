@@ -127,3 +127,5 @@ packages/taiko-client/opnode_peerstore_db
 packages/taiko-client/opnode_p2p_priv.txt
 
 target
+
+**/*.env
