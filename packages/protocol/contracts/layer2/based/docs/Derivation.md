@@ -1,387 +1,266 @@
-# Taiko Block Derivation
+# Block Derivation in Taiko
 
-This document describes the block derivation process in Taiko's Shasta upgrade, detailing how Layer 2 (L2, aka Taiko) blocks are derived from Layer 1 (L1, aka Ethereum) proposals.
+This document details the process of deriving blocks from on-chain proposals in Taiko's Shasta fork.
 
-## Data Referencing Conventions
+## Terminology
 
-Throughout this document, we use the following conventions to clearly identify data types, instances, and fields:
+In the Shasta fork, the term _Proposal_ is used instead of _Batch_ to denote the unit of on-chain submission for block construction data. The term _Finalization_ replaces _Verification_ to describe the state where a proposal's post-state is confirmed as final.
 
-### Type Notation
+## Metadata
 
-- **Structs/Types**: Written with capitalized first letter (e.g., `Proposal`, `CoreState`, `BlockManifest`)
-- **Instances**: Written with camelCase prefix to indicate the specific object:
-  - `proposal`: The `IInbox.Proposal` instance emitted in the `Proposed` event
-  - `coreState`: The `IInbox.CoreState` instance emitted in the `Proposed` event
-  - `proposalManifest`: The final `ProposalManifest` object obtained from the Data Extraction Process
-  - `blockManifest[i]`: The i-th `BlockManifest` in `proposalManifest.blocks` array
-  - `parentState`: The parent L2 block's anchor `State` object from `ShastaAnchor`
-  - `parentBlockHeader`: The parent L2 block's header.
+To construct a block, a detailed collection of data, referred to as the block's metadata, is required. This metadata is divided into two primary categories: proposal-level metadata and block-level metadata. The proposal-level metadata is common to all blocks within the proposal, while block-level metadata is specific to each individual block.
 
-### Field Access
+### Proposal-level Metadata
 
-- Object fields are accessed using dot notation: `proposal.id`, `blockManifest[i].timestamp`
-- Array elements use bracket notation: `proposalManifest.blocks[i]`, `blockManifest[i].transactions[j]`
+| Metadata Component  | Description                                            |
+| ------------------- | ------------------------------------------------------ | ---------------------------------------------------- |
+| id                  | A unique, sequential identifier for the proposal       |
+| proposer            | The address that proposed the proposal                 |
+| originTimestamp     | The timestamp when the proposal was proposed           |
+| originBlockNumber   | The L1 block number in which the proposal was proposed |
+| proverAuthBytes     | An ABI-encoded ProverAuth object                       |
+| numBlocks           | The total number of blocks in this proposal            |
+| basefeeSharingPctg  | The percentage of base fee paid to coinbase            |
+| isEnforcedInclusion | Indicates if the proposal is a forced inclusion        |
+| bondOperationsHash  | bytes32                                                | Expected cumulative hash after processing operations |
+| bondOperations      | BondOperation[]                                        | Array of bond credit/debit operations                |
 
-### Source References
+### Block-level Metadata
 
-- Contract locations: `ContractName` (e.g., [`ShastaAnchor`](../ShastaAnchor.sol), [`IInbox`](../../../layer1/shasta/iface/IInbox.sol))
-- Library references: `LibraryName` (e.g., [`LibManifest`](../libs/LibManifest.sol), [`LibBlobs`](../../../layer1/shasta/libs/LibBlobs.sol), [`LibBondOperation`](../../../shared/shasta/libs/LibBondOperation.sol))
+| Metadata Component   | Description                                           |
+| -------------------- | ----------------------------------------------------- |
+| index                | The zero-based index of the block within the proposal |
+| timestamp            | The timestamp of the block                            |
+| coinbase             | The coinbase address for the block                    |
+| gasIssuancePerSecond | The gas issuance rate per second for the next block   |
+| transactions         | The list of transactions included in the block        |
+| anchorBlockNumber    | The L1 block number to which this block anchors       |
+| anchorBlockHash      | The block hash for block at anchorBlockNumber         |
+| anchorStateRoot      | The state root for block at anchorBlockNumber         |
 
-## Protocol Constants
+The process of constructing blocks involves first preparing the necessary metadata for each block. This metadata is then used to assemble the actual L2 block. Throughout this document, we will refer to this metadata as `metadata`, with individual fields denoted as `metadata.someField`.
 
-The following constants are referenced in this derivation specification:
+## Metadata Preparation
 
-### LibManifest Constants
-
-Constants defined in [`LibManifest.sol`](../libs/LibManifest.sol):
-
-- `PROPOSAL_MAX_FIELD_ELEMENTS_SIZE`: Maximum field elements for a proposal
-- `PROPOSAL_MAX_BLOBS`: Maximum number of blobs per proposal
-- `PROPOSAL_MAX_BLOCKS`: Maximum blocks per proposal
-- `BLOCK_MAX_TRANSACTIONS`: Maximum transactions per block
-- `ANCHOR_BLOCK_MAX_ORIGIN_OFFSET`: Maximum L1 block offset for anchor selection
-- `BLOCK_GAS_LIMIT` Maximum gas used by any L2 transaction.
-
-## Overview
-
-The Shasta block derivation process transforms L1 proposals into L2 blocks through a deterministic process executed by the Taiko driver. This involves subscribing to L1 events, extracting and decompressing proposal data from blobs, building blocks according to the manifest, and managing state synchronization through the Anchor contract.
-
-## Event Subscription and Proposal Structure
-
-The Taiko driver begins by subscribing to the `Proposed` event emitted by the L1 Inbox contract. This event signals that a new proposal has been accepted to the network and contains all the necessary information for block derivation.
+This process begins with a subscription to the inbox's Proposed event. In this event, a `proposal` object is emitted. The following is how the proposal is defined in the protocol's L1 contract:
 
 ```solidity
-/// @notice Emitted when a new proposal is accepted.
-/// @param proposal The proposal that was proposed.
-/// @param coreState The core state at the time of proposal.
-event Proposed(Proposal proposal, CoreState coreState);
-```
-
-The [`Proposal`](../../../layer1/shasta/iface/IInbox.sol) struct encapsulates all metadata required for L2 block derivation. Each field serves a specific purpose in the derivation process:
-
-```solidity
+/// @notice Represents a proposal for L2 blocks.
 struct Proposal {
-        /// @notice Unique identifier for the proposal.
-        uint48 id;
-        /// @notice Address of the proposer.
-        address proposer;
-        /// @notice Provability bond for the proposal.
-        uint48 provabilityBondGwei;
-        /// @notice Liveness bond for the proposal, paid by the designated prover.
-        uint48 livenessBondGwei;
-        /// @notice The L1 block timestamp when the proposal was accepted.
-        uint48 originTimestamp;
-        /// @notice The L1 block number when the proposal was accepted.
-        uint48 originBlockNumber;
-        /// @notice Whether the proposal is from a forced inclusion.
-        bool isForcedInclusion;
-        /// @notice The proposal's chunk.
-        LibBlobs.BlobSlice blobSlice;
+    /// @notice Unique identifier for the proposal.
+    uint48 id;
+    /// @notice Address of the proposer.
+    address proposer;
+    /// @notice The L1 block timestamp when the proposal was accepted.
+    uint48 originTimestamp;
+    /// @notice The L1 block number when the proposal was accepted.
+    uint48 originBlockNumber;
+    /// @notice Whether the proposal is from a forced inclusion.
+    bool isForcedInclusion;
+    /// @notice The percentage of base fee paid to coinbase.
+    uint8 basefeeSharingPctg;
+    /// @notice Provability bond for the proposal.
+    uint48 provabilityBondGwei;
+    /// @notice Liveness bond for the proposal, paid by the designated prover.
+    uint48 livenessBondGwei;
+    /// @notice Blobs that contains the proposal's manifest data.
+    LibBlobs.BlobSlice blobSlice;
 }
 ```
 
-## Blob Data Extraction and Manifest Decoding
+We can now collect the following metadata fields:
 
-The proposal's actual content resides in blob storage, referenced through the [`LibBlobs.BlobSlice`](../../../layer1/shasta/libs/LibBlobs.sol) structure. This design leverages Ethereum's blob storage mechanism introduced in EIP-4844, providing cost-effective data availability for L2 operations.
+| Metadata Field              | Value Assignment                |
+| --------------------------- | ------------------------------- |
+| metadata.id                 | `= proposal.id`                 |
+| metadata.proposer           | `= proposal.proposer`           |
+| metadata.originTimestamp    | `= proposal.originTimestamp`    |
+| metadata.originBlockNumber  | `= proposal.originBlockNumber`  |
+| metadata.basefeeSharingPctg | `= proposal.basefeeSharingPctg` |
+| metadata.isForcedInclusion  | `= proposal.isForcedInclusion`  |
 
-### BlobSlice Structure
+The `blobSlice` within the proposal is instrumental in pinpointing and validating the proposal's manifest, which is defined as follows:
+
+```solidity
+ /// @notice Represents a signed Ethereum transaction
+    /// @dev Follows EIP-2718 typed transaction format with EIP-1559 support
+    struct SignedTransaction {
+        // Transaction fields omitted for brevity
+    }
+
+    struct ProverAuth {
+        // Fields omitted for brevity
+    }
+
+    /// @notice Represents a block manifest
+    struct BlockManifest {
+        /// @notice The timestamp of the block.
+        uint48 timestamp;
+        /// @notice The coinbase of the block.
+        address coinbase;
+        /// @notice The anchor block number. This field can be zero, if so, this block will use the
+        /// most recent anchor in a previous block.
+        uint48 anchorBlockNumber;
+        /// @notice The gas issuance per second for this block. This number can be zero to indicate
+        /// that the gas issuance should be the same as the previous block.
+        uint32 gasIssuancePerSecond;
+        /// @notice The transactions for this block.
+        SignedTransaction[] transactions;
+    }
+
+    /// @notice Represents a proposal manifest
+    struct ProposalManifest {
+        bytes proverAuthBytes;
+        BlockManifest[] blocks;
+    }
+```
+
+### Obtain Manifest
+
+The `BlobSlice` struct is defined as:
 
 ```solidity
 /// @notice Represents a frame of data that is stored in multiple blobs. Note the size is
 /// encoded as a bytes32 at the offset location.
-/// @dev Defined in [LibBlobs.sol](../../../layer1/shasta/libs/LibBlobs.sol)
 struct BlobSlice {
     /// @notice The blobs containing the proposal's content.
     bytes32[] blobHashes;
-    /// @notice The field-element offset of the proposal's content in the containing blobs.
-    /// The byte-offset would be 32 * offset.
+     /// @notice The byte offset of the proposal's content in the containing blobs.
     uint24 offset;
     /// @notice The timestamp when the frame was created.
     uint48 timestamp;
 }
 ```
 
-All blobs must be created in the same Ethereum transaction.
+The `BlobSlice` structure is designed to represent a segment of data distributed across multiple blobs. To process this data, concatenate the blobs in the order specified by the `blobHashes` array. The initial 32 bytes, located at the range `[offset, offset+32)`, denote the version number. Within the Shasta protocol, only version `0x1` is considered valid. For this version, the next 32 bytes, located at `[offset+32, offset+64)`, specify the size of the data slice, termed as `size`.
 
-### Data Extraction Process
+Subsequently, the data slice is subjected to ZLIB decompression followed by RLP decoding to transform it into a `manifest` object.
 
-The driver locates and processes blob data through the following steps:
+A default Manifest will be returned in any of the following conditions:
 
-1. **Blob Retrieval**: Using `proposal.blobSlice.timestamp`, the driver identifies and retrieves the associated blobs from the network.
-2. **Check Number of Blobs**: If `proposal.blobSlice.blobHashes.length` exceeds `PROPOSAL_MAX_BLOBS`, the default manifest specification will be returned.
-3. **Data Concatenation**: Multiple blobs are concatenated into a single continuous byte array for processing.
-4. **Leading Bytes Parsing**: The leading bytes contain critical metadata:
-   - Field element as `bytes32` at `proposal.blobSlice.offset`: Version number (currently `0x1` for Shasta)
-   - Field element as `uint256` at `proposal.blobSlice.offset + 1`, denoted as `size`: Size of the compressed data in terms of field elements
-5. **Version Validation**: If the version number is not `0x1`, the default manifest specification will be returned.
-6. **Size Validation**: The `size` is validated against `PROPOSAL_MAX_FIELD_ELEMENTS_SIZE`. If the size exceeds this protocol constant, the default manifest specification will be returned.
-7. **Data Extraction**: Slice the concatenated blob field elements between `[proposal.blobSlice.offset, proposal.blobSlice.offset + size]` as a `bytes32[]`, convert it then to a `bytes` array, denoted as `compressedManifestBytes`
-8. **Decompression and Decoding**: For version `0x1`, the data undergoes:
+- `blobHashes.length` is either zero or exceeds `PROPOSAL_MAX_BLOBS`.
+- `offset` is greater than `4096 * 32 * blobHashes.length - 64`.
+- The version number is not `0x1`.
+- `size` exceeds `PROPOSAL_MAX_BYTE_SIZE`.
+- ZLIB-decompression fails.
+- RLP-decoding fails.
+- `manifest.blocks.length` exceeds `PROPOSAL_MAX_BLOCKS`.
+- `proverAuthBytes` bytes is non-empty but cannot be ABI-decoded into a `ProverAuth` struct.
+- Any block in `manifest.blocks` contains more than `BLOCK_MAX_RAW_TRANSACTIONS` transactions.
 
-   - ZLIB decompress `compressedManifestBytes` to `rawManifestBytes`
-   - RLP decode `rawManifestBytes` to reconstruct the structured `proposalManifest` object
-
-   If decompression or RLP decoding fails at any stage, the default manifest specification will be returned.
-
-### ProposalManifest Structure
-
-The decoded `ProposalManifest` contains the complete specification for one or more L2 blocks to be derived:
+The default manifest is one initialized as:
 
 ```solidity
-/// @notice Represents a signed Ethereum transaction
-/// @dev Follows EIP-2718 typed transaction format with EIP-1559 support
-struct SignedTransaction {
-    uint8 txType;
-    uint64 chainId;
-    uint64 nonce;
-    uint256 maxPriorityFeePerGas;
-    uint256 maxFeePerGas;
-    uint64 gasLimit;
-    address to;
-    uint256 value;
-    bytes data;
-    bytes accessList;
-    uint8 v;
-    bytes32 r;
-    bytes32 s;
-}
-
-/// @notice Represents a block manifest
-struct BlockManifest {
-    /// @notice The timestamp of the block.
-    uint48 timestamp;
-    /// @notice The coinbase address
-    address coinbase;
-    /// @notice The anchor block number. This field can be zero, if so, this block will use the
-    /// most recent anchor in a previous block.
-    uint48 anchorBlockNumber;
-    /// @notice The gas issuance per second for this block. This number can be zero to indicate
-    /// that the gas issuance should be the same as the previous block.
-    uint32 gasIssuancePerSecond;
-    /// @notice The transactions for this block.
-    SignedTransaction[] transactions;
-}
-
-/// @notice Represents a proposal manifest
-struct ProposalManifest {
-    bytes proverAuth;
-    BlockManifest[] blocks;
-}
-
+ProposalManifest memory default;
+default.blocks = new Block[](1);
 ```
 
-### Manifest Validation
+The default manifest is characterized by having only one empty block.
 
-The system enforces several constraints to ensure manifest validity:
+At this stage, we have an unvalidated `manifest` object, which is used to compute the metadata for this block in conjunction with the parent block's metadata, `parent.metadata`.
 
-- **Block Count Limit**: `proposalManifest.blocks.length` cannot exceed `PROPOSAL_MAX_BLOCKS` (384). If exceeded or the count is zero, keep only the first `PROPOSAL_MAX_BLOCKS` blocks.
+- **`timestamp`**
 
-- **proverAuth**: if these bytes can no be decoded into a valid ProverAuth object, set it to bytes("").
+  A crucial piece of metadata is the `timestamp`. The validation of this metadata is performed for all blocks in the proposal collectively, and it may result in altering the number of blocks in the proposal. For each block's timestamp, the following rules are applied:
 
-For each blocks, the following contraints are applied:
+  - Calculate the lower bound as `lowerBound = max(parent.metadata.timestamp + 1, proposal.originTimestamp - TIMESTAMP_MAX_OFFSET)`.
+  - If `metadata.timestamp` is smaller than this lower bound, set `metadata.timestamp = lowerBound`.
+  - If `metadata.timestamp` exceeds `proposal.originTimestamp`, this block and all subsequent blocks are discarded, reducing the total number of blocks in the manifest.
 
-- **timestamp**:
+- **`anchorBlockNumber`**
 
-- **coinbase**:
+  This is another crucial piece of metadata that must be validated collectively for all blocks, potentially reducing the number of blocks in the manifest. For a block, we set this metadata to 0 if any of the following conditions are met:
 
-- **anchorBlockNumber**:
+  - `manifest.blocks[i].anchorBlockNumber` is bigger than `parent.metadata.anchorBlockNumber`.
+  - `manifest.blocks[i].anchorBlockNumber` is not smaller than `proposal.originBlockNumber`.
 
-- **gasIssuancePerSecond**:
+  If `proposal.isForcedInclusion` is true, we count the number of blocks in the manifest with a non-zero anchor block number. If this count is zero, we assign the default manifest to `manifest`, resulting in a proposal with a single empty block.
 
-- **transactions**: The `transactions.length` cannot contain more than `BLOCK_MAX_TRANSACTIONS` (4096) transactions. If exceeded, keep only the first `BLOCK_MAX_TRANSACTIONS` transactions.
+- **`anchorBlockHash` and `anchorStateRoot`**
 
-### Default Manifest Specification
+  If a L2 block has a zero `anchorBlockNumber`, both `anchorBlockHash` and `anchorStateRoot` should also be zero. Otherwise, they must accurately reflect the values corresponding to the L1 block at the specified `anchorBlockNumber`.
 
-The default manifest serves as a fallback mechanism, ensuring the protocol can continue operating even when blobs contain invalid proposal manifests. It contains a single empty block with the following properties:
+  @Yue, could this pose a challenge for the prover?
 
-```solidity
-assert(proposalManifest.blocks.length == 1);
-assert(proposalManifest.blocks[0].anchorBlockNumber == 0);
-assert(proposalManifest.blocks[0].gasIssuancePerSecond == 0);
-assert(proposalManifest.blocks[0].transactions.length == 0);
-```
+- **`coinbase`**
 
-This design ensures that even a malformed proposal manifest result in a valid, though empty, L2 block, preventing network stalls.
-
-## Anchor Transaction and State
-
-The Anchor contract ([`ShastaAnchor`](../ShastaAnchor.sol)) offers a `updateState` function that must be called by a protocol-specific EOA as the very first transaction in each and every L2 block without reverting. The parameters for the `updateState` function are thus part of the L2 transaction's calldata and can be handled by Taiko Node's Ethereum equivalent transaction processing logic without custom code. This offers greater flexibility than out-of-transaction system calls where inputs are restricted to data from the parent block's header or the current block's header fields.
-
-In the [`ShastaAnchor`](../ShastaAnchor.sol) contract, the `State` struct is defined as:
-
-```solidity
-    // Proposal level fields (set once per proposal on first block)
-    uint48 proposalId; // Unique identifier for the current proposal
-    uint16 blockCount; // Total number of blocks in the proposal
-    address proposer; // Address that initiated the proposal
-    address designatedProver; // Address authorized to prove this proposal (address(0) if none)
-    bytes32 bondOperationsHash; // Cumulative hash of all bond operations processed so far
-
-    // Block level fields (updated for each block in the proposal)
-    uint16 blockIndex; // Current block being processed (0-indexed, < blockCount)
-    uint48 anchorBlockNumber; // Latest L1 block number anchored
-```
-
-The `updateState` function takes the following parameters, which are derived from `proposal`, `proposalManifest`, and validated against the parent L2 block's anchor `State` object (`parentState`):
-
-```solidity
-function updateState(
-        // Proposal level fields - define the overall batch
-        uint48 _proposalId,
-        uint16 _blockCount,
-        address _proposer,
-        bytes calldata _proverAuth,
-        bytes32 _bondOperationsHash,
-        LibBondOperation.BondOperation[] calldata _bondOperations,
-        // Block level fields - specific to this block in the proposal
-        uint16 _blockIndex,
-        uint48 _anchorBlockNumber,
-        bytes32 _anchorBlockHash,
-        bytes32 _anchorStateRoot
-)
-    external;
-```
-
-### Parameters preparation for `updateState`
-
-The following parameters must be prepared in the order they appear in the function signature:
-
-- **`_proposalId`**
-
-  This value must be identical to `proposal.id`.
-
-- **`_blockCount`**
-
-  This value must be identical to `proposalManifest.blocks.length`.
-
-- **`_proposer`**
-
-  Must be identical to `proposal.proposer`.
-
-- **`_proverAuth`**
-  This value must be identical to `proposalManifest.blocks.proverAuth`.
-
-- **`_bondOperationsHash`**
-
-  If `_anchorBlockNumber` is zero, this value must be zero. Otherwise, it must be a value that satisfies the following:
-
-  - There must be an [`IInbox.CoreState`](../../../layer1/shasta/iface/IInbox.sol) instance with field `bondOperationsHash` equal to `_bondOperationsHash`
-  - The hash of this `IInbox.CoreState`instance must match the `coreStateHash()` stored in the L1 world state at block `_anchorBlockNumber`.
-
-- **`_bondOperations`**
-
-  If `_anchorBlockNumber` is zero, then this array must be empty. Otherwise, it must contain all the [`LibBondOperation.BondOperation`](../../../shared/shasta/libs/LibBondOperation.sol) instances emitted in [`IInbox.BondRequest`](../../../layer1/shasta/iface/IInbox.sol) events from the [`IInbox`](../../../layer1/shasta/iface/IInbox.sol) contract between `parentState.anchorBlockNumber` and `_anchorBlockNumber` on L1.
-
-  Each [`LibBondOperation.BondOperation`](../../../shared/shasta/libs/LibBondOperation.sol) contains:
-
-  - `proposalId`: The proposal ID associated with the bond
-  - `receiver`: The address receiving the bond credit in Gwei
-  - `credit`: The amount of bond credit in wei
-
-- **`_blockIndex`**
-
-  The current block being processed within the proposal (0-indexed). Must be less than `_blockCount` and follow sequential ordering from the parent block.
-
-- **`_anchorBlockNumber`**
-
-  This value is determined for `blockManifest[i]` as follows:
+  The L2 coinbase value is determined by checking if the proposal is a forced inclusion. If it is, the coinbase is set to the proposal's proposer. Otherwise, it is set to the coinbase address specified in the block manifest. If this address is zero, the coinbase defaults to the proposal's proposer.
 
   ```solidity
-  if (
-      blockManifest[i].anchorBlockNumber == 0 ||
-      blockManifest[i].anchorBlockNumber <= parentState.anchorBlockNumber ||
-      blockManifest[i].anchorBlockNumber >= proposal.originBlockNumber ||
-      blockManifest[i].anchorBlockNumber + ANCHOR_BLOCK_MAX_ORIGIN_OFFSET <= proposal.originBlockNumber
-  ) {
-      if (proposal.isForcedInclusion) return 0;
-      else return max(proposal.originBlockNumber - ANCHOR_BLOCK_MAX_ORIGIN_OFFSET, 1)
-  } else {
-      return blockManifest[i].anchorBlockNumber;
+  function assignCoinbase() {
+      if (metadata.isForcedInclusion) {
+          metadata.coinbase = proposal.proposer;
+      } else {
+          metadata.coinbase = manifest.blocks[i].coinbase;
+          if (metadata.coinbase == address(0)) {
+              metadata.coinbase = proposal.proposer;
+          }
+      }
   }
   ```
 
-- **`_anchorBlockHash`**
+- **`gasIssuancePerSecond`**
 
-  This value is determined as:
+  Each L2 block can adjust the gas issuance parameter as long as the new value is within a +/-1 basis point range. Therefore the value is determined as follows:
 
-  ```solidity
-  return _anchorBlockNumber == 0 ?
-      bytes32(0) :
-      IBlockHashProvider(syncedBlockManager).getBlockHash(_anchorBlockNumber);
-  ```
+  - let `lowerBound = parent.metadata.gasIssuancePerSecond * 9999/10000` and `upperBound = parent.metadata.gasIssuancePerSecond * 10001/10000`
+  - if `manifest.blocks[i].gasIssuancePerSecond` is zero, use `parent.metadata.gasIssuancePerSecond`
+  - if `manifest.blocks[i].gasIssuancePerSecond` is smaller than `lowerBound`, use `lowerBound` as the value,
+  - if `manifest.blocks[i].gasIssuancePerSecond` is greater than `upperBound`, use `upperBound` as the value,
+  - otherwise, use `manifest.blocks[i].gasIssuancePerSecond` as is.
 
-  Where `syncedBlockManager` is the [`ISyncedBlockManager`](../../../shared/shasta/iface/ISyncedBlockManager.sol) contract instance from [`ShastaAnchor`](../ShastaAnchor.sol).
+- **`bondOperationsHash` and `bondOperations`**:
 
-- **`_anchorStateRoot`**
+TBD
 
-  TODO: Add derivation logic for anchor state root
+- Other metadata
+  Other metadata assignments are more straightforward.
 
-## Pre-execution Header Fields
+  | Metadata Field           | Value Assignment                                     |
+  | ------------------------ | ---------------------------------------------------- |
+  | metadata.index           | `= parent.metadata.index + 1` (we use `i` for short) |
+  | metadata.numBlocks       | `= manifest.blocks.length`                           |
+  | metadata.proverAuthBytes | `= manifest.proverAuthBytes`                         |
+  | metadata.transactions    | `= manifest.blocks[i].transactions`                  |
 
-Before executing transactions, the following block header fields are set:
+## Metadata Application
 
-### Deterministic Fields (Set Before Execution)
+### Pre-Execution Block Header
 
-- **`parentHash`**:
+The following metadata are encoded into specific L2 block header fields to streamline block validation by nodes from peers and simplify the collection of proposal-related statistics by software tools.
 
-  Must be the hash of `parentBlockHeader`.
+| Metadata Component   | Type   | Header Field      |
+| -------------------- | ------ | ----------------- |
+| timestamp            | uint48 | `timestamp`       |
+| id                   | uint48 | `withdrawalsRoot` |
+| numBlocks            | uint24 | `withdrawalsRoot` |
+| isEnforcedInclusion  | bool   | `withdrawalsRoot` |
+| index                | uint24 | `withdrawalsRoot` |
+| basefeeSharingPctg   | uint32 | `extraData`       |
+| gasIssuancePerSecond | uint32 | `extraData`       |
 
-- **`ommersHash`**:
+### Anchor Transaction
 
-  Always `0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347` (empty ommers)
+The anchor transaction is a special system transaction that synchronizes L1 state and processes bond operations. It calls the `updateState` function on the ShastaAnchor contract with the following parameters:
 
-- **`coinbase`**:
+| Parameter          | Type            |
+| ------------------ | --------------- |
+| proposalId         | uint48          |
+| blockCount         | uint16          |
+| proposer           | address         |
+| proverAuth         | bytes           |
+| bondOperationsHash | bytes32         |
+| bondOperations     | BondOperation[] |
+| blockIndex         | uint16          |
+| anchorBlockNumber  | uint48          |
+| anchorBlockHash    | bytes32         |
+| anchorStateRoot    | bytes32         |
 
-  Must be the `blockManifest[i].coinbase` address.
+The anchor transaction performs the following operations:
 
-- **`difficulty`**:
+1. **First block only (blockIndex == 0)**: Initializes proposal state and verifies prover authentication
+2. **For each block**: Processes bond operations incrementally with cumulative hashing
+3. **If anchoring (anchorBlockNumber != 0)**: Saves L1 block data for cross-chain verification
+4. **Updates parent block**: Verifies and caches parent block hash for chain continuity
 
-  Must be identical to `keccak256(abi.encode(parentBlockHeader.difficulty, proposal.id))`.
-
-- **`number`**:
-
-  Must be `parentBlockHeader.number + 1`.
-
-- **`gasLimit`**:
-
-  Must be a protocol constant `BLOCK_GAS_LIMIT`.
-
-- **`timestamp`**:
-
-  Set to `blockManifest[i].timestamp`.
-
-- **`extraData`**:
-
-  Empty or protocol-specific data.
-
-- **`mixHash`**:
-
-  Always `0x0000000000000000000000000000000000000000000000000000000000000000`.
-
-- **`nonce`**:
-
-  Always `0x0000000000000000` (post-merge).
-
-- **`baseFeePerGas`**:
-
-  Calculated using EIP-1559 formula based on parent block.
-
-- **`withdrawalsRoot`**:
-
-  Empty withdrawals root (no L2 withdrawals).
-
-- **`blobGasUsed`**:
-
-  Always `0` (L2 doesn't use blobs).
-
-- **`excessBlobGas`**:
-
-  Always `0` (L2 doesn't use blobs).
-
-- **`parentBeaconBlockRoot`**:
-
-  Always set to `0x0000000000000000000000000000000000000000000000000000000000000000`.
-
-## Transaction Execution
-
-_[Section to be completed based on Q&A answers]_
+The transaction must have a gas limit of exactly 1,000,000 gas and can only be called by the golden touch address (system account).
