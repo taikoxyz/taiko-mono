@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { PacayaAnchor } from "./PacayaAnchor.sol";
 import { ISyncedBlockManager } from "src/shared/shasta/iface/ISyncedBlockManager.sol";
-import { IShastaBondManager } from "src/shared/shasta/iface/IBondManager.sol";
+import { IBondManager as IShastaBondManager } from "src/shared/shasta/iface/IBondManager.sol";
 import { LibBondOperation } from "src/shared/shasta/libs/LibBondOperation.sol";
 import { LibManifest } from "./libs/LibManifest.sol";
 

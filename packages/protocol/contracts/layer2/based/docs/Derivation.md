@@ -13,7 +13,7 @@ To construct a block, a detailed collection of data, referred to as the block's 
 ### Proposal-level Metadata
 
 | Metadata Component  | Description                                            |
-| ------------------- | ------------------------------------------------------ | ---------------------------------------------------- |
+| ------------------- | ------------------------------------------------------ |
 | id                  | A unique, sequential identifier for the proposal       |
 | proposer            | The address that proposed the proposal                 |
 | originTimestamp     | The timestamp when the proposal was proposed           |
@@ -22,8 +22,8 @@ To construct a block, a detailed collection of data, referred to as the block's 
 | numBlocks           | The total number of blocks in this proposal            |
 | basefeeSharingPctg  | The percentage of base fee paid to coinbase            |
 | isEnforcedInclusion | Indicates if the proposal is a forced inclusion        |
-| bondOperationsHash  | bytes32                                                | Expected cumulative hash after processing operations |
-| bondOperations      | BondOperation[]                                        | Array of bond credit/debit operations                |
+| bondOperationsHash  | Expected cumulative hash after processing operations   |
+| bondOperations      | Array of bond credit/debit operations                  |
 
 ### Block-level Metadata
 

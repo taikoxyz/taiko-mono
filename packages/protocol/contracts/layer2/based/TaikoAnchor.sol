@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./ShastaAnchor.sol";
 import "src/shared/shasta/iface/ISyncedBlockManager.sol";
-import { IShastaBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
+import { IBondManager as IShastaBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 
 /// @title TaikoAnchor
 /// @notice TaikoAnchor is a smart contract that handles cross-layer message

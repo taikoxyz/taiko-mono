@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IShastaBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
+import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
 
 /// @title ShastaBondManager
 /// @notice Abstract contract for managing bonds in the Based3 protocol
 /// @custom:security-contact security@taiko.xyz
-abstract contract ShastaBondManager is IShastaBondManager {
+abstract contract BondManager is IBondManager {
     // -------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------
@@ -38,7 +38,7 @@ abstract contract ShastaBondManager is IShastaBondManager {
     // External Functions
     // -------------------------------------------------------------------
 
-    /// @inheritdoc IShastaBondManager
+    /// @inheritdoc IBondManager
     function debitBond(
         address _address,
         uint256 _bond
@@ -53,13 +53,13 @@ abstract contract ShastaBondManager is IShastaBondManager {
         }
     }
 
-    /// @inheritdoc IShastaBondManager
+    /// @inheritdoc IBondManager
     function creditBond(address _address, uint256 _bond) external onlyAuthorized {
         _creditBond(_address, _bond);
         emit BondCredited(_address, _bond);
     }
 
-    /// @inheritdoc IShastaBondManager
+    /// @inheritdoc IBondManager
     function getBondBalance(address _address) external view returns (uint256) {
         return _getBondBalance(_address);
     }
