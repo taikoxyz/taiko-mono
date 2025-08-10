@@ -12,27 +12,29 @@ To construct a block, a detailed collection of data, referred to as the block's 
 
 ### Proposal-level Metadata
 
-| Metadata Component  | Description                                            | Value Assigned |
-| ------------------- | ------------------------------------------------------ | -------------- |
-| id                  | A unique, sequential identifier for the proposal       | Y              |
-| proposer            | The address that proposed the proposal                 | Y              |
-| originTimestamp     | The timestamp when the proposal was proposed           | Y              |
-| originBlockNumber   | The L1 block number in which the proposal was proposed | Y              |
-| proverAuth          | An ABI-encoded ProverAuth object                       |                |
-| numBlocks           | The total number of blocks in this proposal            |                |
-| basefeeSharingPctg  | The percentage of base fee paid to coinbase            | Y              |
-| isEnforcedInclusion | Indicates if the proposal is a forced inclusion        | Y              |
+| Metadata Component  | Description                                            |
+| ------------------- | ------------------------------------------------------ |
+| id                  | A unique, sequential identifier for the proposal       |
+| proposer            | The address that proposed the proposal                 |
+| originTimestamp     | The timestamp when the proposal was proposed           |
+| originBlockNumber   | The L1 block number in which the proposal was proposed |
+| proverAuthBytes     | An ABI-encoded ProverAuth object                       |
+| numBlocks           | The total number of blocks in this proposal            |
+| basefeeSharingPctg  | The percentage of base fee paid to coinbase            |
+| isEnforcedInclusion | Indicates if the proposal is a forced inclusion        |
 
 ### Block-level Metadata
 
-| Metadata Component   | Description                                           | Value Assigned |
-| -------------------- | ----------------------------------------------------- | -------------- |
-| timestamp            | The timestamp of the block                            |                |
-| coinbase             | The coinbase address for the block                    |                |
-| anchorBlockNumber    | The L1 block number to which this block anchors       |                |
-| gasIssuancePerSecond | The gas issuance rate per second for the next block   |                |
-| transactions         | The list of transactions included in the block        |                |
-| index                | The zero-based index of the block within the proposal | Y              |
+| Metadata Component   | Description                                           |
+| -------------------- | ----------------------------------------------------- |
+| index                | The zero-based index of the block within the proposal |
+| timestamp            | The timestamp of the block                            |
+| coinbase             | The coinbase address for the block                    |
+| gasIssuancePerSecond | The gas issuance rate per second for the next block   |
+| transactions         | The list of transactions included in the block        |
+| anchorBlockNumber    | The L1 block number to which this block anchors       |
+| anchorBlockHash      | The block hash for block at anchorBlockNumber         |
+| anchorStateRoot      | The state root for block at anchorBlockNumber         |
 
 The process of constructing blocks involves first preparing the necessary metadata for each block. This metadata is then used to assemble the actual L2 block. Throughout this document, we will refer to this metadata as `metadata`, with individual fields denoted as `metadata.someField`.
 
@@ -66,14 +68,14 @@ struct Proposal {
 
 We can now collect the following metadata fields:
 
-| Metadata Field              | Value Assignment                 |
-| --------------------------- | -------------------------------- |
-| metadata.id                 | `= proposal.id;`                 |
-| metadata.proposer           | `= proposal.proposer;`           |
-| metadata.originTimestamp    | `= proposal.originTimestamp;`    |
-| metadata.originBlockNumber  | `= proposal.originBlockNumber;`  |
-| metadata.basefeeSharingPctg | `= proposal.basefeeSharingPctg;` |
-| metadata.isForcedInclusion  | `= proposal.isForcedInclusion;`  |
+| Metadata Field              | Value Assignment                |
+| --------------------------- | ------------------------------- |
+| metadata.id                 | `= proposal.id`                 |
+| metadata.proposer           | `= proposal.proposer`           |
+| metadata.originTimestamp    | `= proposal.originTimestamp`    |
+| metadata.originBlockNumber  | `= proposal.originBlockNumber`  |
+| metadata.basefeeSharingPctg | `= proposal.basefeeSharingPctg` |
+| metadata.isForcedInclusion  | `= proposal.isForcedInclusion`  |
 
 The `blobSlice` within the proposal is instrumental in pinpointing and validating the proposal's manifest, which is defined as follows:
 
@@ -106,12 +108,12 @@ The `blobSlice` within the proposal is instrumental in pinpointing and validatin
 
     /// @notice Represents a proposal manifest
     struct ProposalManifest {
-        ProverAuth proverAuth;
+        bytes proverAuthBytes;
         BlockManifest[] blocks;
     }
 ```
 
-### Slicing blobs
+### Obtain Manifest
 
 The `BlobSlice` struct is defined as:
 
@@ -128,13 +130,87 @@ struct BlobSlice {
 }
 ```
 
-It reporsents a byte slice contained in one or multiple blobs. We need to concatenate all blobs in the order they are contained in the `blobhashes` field, then read the first 32 bytes at `[offset, offset+31]` as the version number, in Shasta, only `0x1` is supported. For `version = 0x1`, the next 24 bytes at `[offset+32, offset+55]` is the size of the data slice, denoted as `size`.
+The `BlobSlice` structure is designed to represent a segment of data distributed across multiple blobs. To process this data, concatenate the blobs in the order specified by the `blobHashes` array. The initial 32 bytes, located at the range `[offset, offset+32)`, denote the version number. Within the Shasta protocol, only version `0x1` is considered valid. For this version, the next 32 bytes, located at `[offset+32, offset+64)`, specify the size of the data slice, termed as `size`.
 
-If the size exceeds a protocol constant `PROPOSAL_MAX_BYTE_SIZE`, an empty bytes (`""`) will be returned.
+Subsequently, the data slice is subjected to ZLIB decompression followed by RLP decoding to transform it into a `manifest` object.
 
-### Decoding data slice
+A default Manifest will be returned in any of the following conditions:
 
-The data slice will then be ZLIB-decompressed and then RLP-decoded into a `ProposalManifest` object. If decompression fails or decoding fails, an default proposal manifest will be returned.
+- `blobHashes.length` is either zero or exceeds `PROPOSAL_MAX_BLOBS`.
+- `offset` is greater than `4096 * 32 * blobHashes.length - 64`.
+- The version number is not `0x1`.
+- `size` exceeds `PROPOSAL_MAX_BYTE_SIZE`.
+- ZLIB-decompression fails.
+- RLP-decoding fails.
+- `manifest.blocks.length` exceeds `PROPOSAL_MAX_BLOCKS`.
+- `proverAuthBytes` bytes is non-empty but cannot be ABI-decoded into a `ProverAuth` struct.
+- Any block in `manifest.blocks` contains more than `BLOCK_MAX_RAW_TRANSACTIONS` transactions.
+
+The default menifest is one initialized as:
+
+```solidity
+ProposalManifest memory default;
+default.blocks = new Block[](1);
+```
+
+The default manifest is characterized by having only one empty block.
+
+At this stage, we have an unvalidated `manifest` object, which is used to compute the metadata for this block in conjunction with the parent block's metadata, `parent.metadata`.
+
+- **`timestamp`**
+
+  A crucial piece of metadata is the `timestamp`. The validation of this metadata is performed for all blocks in the proposal collectively, and it may result in altering the number of blocks in the proposal. For each block's timestamp, the following rules are applied:
+
+  - Calculate the lower bound as `lowerBound = max(metadata.timestamp = parent.metadata.timestamp + 1, proposal.originalTimestamp - TIMESTAMP_MAX_OFFSET)`.
+  - If `metadata.timestamp` is smaller than this lower bound, set `metadata.timestamp = lowerBound`.
+  - If `metadata.timestamp` exceeds `proposal.originalTimestamp`, this block and all subsequent blocks are discarded, reducing the total number of blocks in the manifest.
+
+- **`anchorBlockNumber`**
+
+  This is another crucial piece of metadata that must be validated collectively for all blocks, potentially reducing the number of blocks in the manifest. For a block, we set this metadata to 0 if any of the following conditions are met:
+
+  - `manifest.blocks[i].anchorBlockNumber` is bigger than `parent.metadata.anchorBlockNumber`.
+  - `manifest.blocks[i].anchorBlockNumber` is not small than `proposal.originBlockNumber`.
+
+  If `proposal.isForcedInclusion` is true, we count the number of blocks in the manifest with a non-zero anchor block number. If this count is zero, we assign the default manifest to `manifest`, resulting in a proposal with a single empty block.
+
+- **`coinbase`**
+
+  The L2 coinbase value is determined by checking if the proposal is a forced inclusion. If it is, the coinbase is set to the proposal's proposer. Otherwise, it is set to the coinbase address specified in the block manifest. If this address is zero, the coinbase defaults to the proposal's proposer.
+
+  ```solidity
+  function assignCoinbase() {
+      if (metadata.isForcedInclusion) {
+          metadata.coinbase = proposal.proposer;
+      } else {
+          metadata.coinbase = manifest.blocks[i].coinbase;
+          if (metadata.coinbase == address(0)) {
+              metadata.coinbase = proposal.proposer;
+          }
+      }
+  }
+  ```
+
+- **`gasIssuancePerSecond`**
+
+  Each L2 block can adjust the gas issuance parameter as long as the new value is withi a +/-1 basis point range. Threfore the value is determined as follows:
+
+  - let `lowerBond = parent.metadata.gasIssuancePerSecond * 9999/10000` and `upperBond= parent.metadata.gasIssuancePerSecond * 10001/10000`
+  - if `manefest.blocks[i].gasIssuancePerSecond` is zero, use `parent.metadata.gasIssuancePerSecond`
+  - if `manefest.blocks[i].gasIssuancePerSecond` is smaller than `lowerBond`, use `lowerBond` as the value,
+  - if `manefest.blocks[i].gasIssuancePerSecond` is greater than `upperBond`, use `upperBond` as the value,
+  - otherwise, use `manefest.blocks[i].gasIssuancePerSecond` as is.
+
+| Metadata Field           | Value Assignment                                     |
+| ------------------------ | ---------------------------------------------------- |
+| metadata.index           | `= parent.metadata.index + 1` (we use `i` for short) |
+| metadata.numBlocks       | `= manifest.blocks.length`                           |
+| metadata.proverAuthBytes | `= manifest.proverAuthBytes`                         |
+| metadata.transactions    | `= manifest.blocks[i].transactions`                  |
+
+| Metadata Field    | Value Assignment     |
+| ----------------- | -------------------- |
+| metadata.coinbase | `= assignCoinbase()` |
 
 ## Metadata Application
 
