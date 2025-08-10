@@ -13,7 +13,7 @@ To construct a block, a detailed collection of data, referred to as the block's 
 ### Proposal-level Metadata
 
 | Metadata Component  | Description                                            |
-| ------------------- | ------------------------------------------------------ |
+| ------------------- | ------------------------------------------------------ | ---------------------------------------------------- |
 | id                  | A unique, sequential identifier for the proposal       |
 | proposer            | The address that proposed the proposal                 |
 | originTimestamp     | The timestamp when the proposal was proposed           |
@@ -22,6 +22,8 @@ To construct a block, a detailed collection of data, referred to as the block's 
 | numBlocks           | The total number of blocks in this proposal            |
 | basefeeSharingPctg  | The percentage of base fee paid to coinbase            |
 | isEnforcedInclusion | Indicates if the proposal is a forced inclusion        |
+| bondOperationsHash  | bytes32                                                | Expected cumulative hash after processing operations |
+| bondOperations      | BondOperation[]                                        | Array of bond credit/debit operations                |
 
 ### Block-level Metadata
 
@@ -207,6 +209,10 @@ At this stage, we have an unvalidated `manifest` object, which is used to comput
   - if `manifest.blocks[i].gasIssuancePerSecond` is greater than `upperBound`, use `upperBound` as the value,
   - otherwise, use `manifest.blocks[i].gasIssuancePerSecond` as is.
 
+- **`bondOperationsHash` and `bondOperations`**:
+
+TBD
+
 - Other metadata
   Other metadata assignments are more straightforward.
 
@@ -221,4 +227,40 @@ At this stage, we have an unvalidated `manifest` object, which is used to comput
 
 ### Pre-Execution Block Header
 
+The following metadata are encoded into specific L2 block header fields to streamline block validation by nodes from peers and simplify the collection of proposal-related statistics by software tools.
+
+| Metadata Component   | Type   | Header Field      |
+| -------------------- | ------ | ----------------- |
+| timestamp            | uint48 | `timestamp`       |
+| id                   | uint48 | `withdrawalsRoot` |
+| numBlocks            | uint24 | `withdrawalsRoot` |
+| isEnforcedInclusion  | bool   | `withdrawalsRoot` |
+| index                | uint24 | `withdrawalsRoot` |
+| basefeeSharingPctg   | uint32 | `extraData`       |
+| gasIssuancePerSecond | uint32 | `extraData`       |
+
 ### Anchor Transaction
+
+The anchor transaction is a special system transaction that synchronizes L1 state and processes bond operations. It calls the `updateState` function on the ShastaAnchor contract with the following parameters:
+
+| Parameter          | Type            |
+| ------------------ | --------------- |
+| proposalId         | uint48          |
+| blockCount         | uint16          |
+| proposer           | address         |
+| proverAuth         | bytes           |
+| bondOperationsHash | bytes32         |
+| bondOperations     | BondOperation[] |
+| blockIndex         | uint16          |
+| anchorBlockNumber  | uint48          |
+| anchorBlockHash    | bytes32         |
+| anchorStateRoot    | bytes32         |
+
+The anchor transaction performs the following operations:
+
+1. **First block only (blockIndex == 0)**: Initializes proposal state and verifies prover authentication
+2. **For each block**: Processes bond operations incrementally with cumulative hashing
+3. **If anchoring (anchorBlockNumber != 0)**: Saves L1 block data for cross-chain verification
+4. **Updates parent block**: Verifies and caches parent block hash for chain continuity
+
+The transaction must have a gas limit of exactly 1,000,000 gas and can only be called by the golden touch address (system account).
