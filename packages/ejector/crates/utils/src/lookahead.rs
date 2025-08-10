@@ -23,7 +23,7 @@ pub struct Responsibility {
     pub lookahead: Lookahead,
 }
 
-// responsiblity_for_slot determines whether the current or next operator
+// responsibility_for_slot determines whether the current or next operator
 // "owns" a given slot, taking the handover window into account
 pub fn responsibility_for_slot(
     slot: u64,
