@@ -26,7 +26,8 @@ fn load_env_for_dev() {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    color_eyre::install().unwrap();
+    color_eyre::install().expect("Failed to install color_eyre");
+
     let filter =
         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::from_env("RUST_LOG"));
 
@@ -42,7 +43,9 @@ async fn main() -> Result<()> {
 
     let signer = PrivateKeySigner::from_str(&config.private_key).expect("Invalid private key");
 
-    let whitelist_address = Address::from_str(&config.preconf_whitelist_address).unwrap();
+    let whitelist_address =
+        Address::from_str(&config.preconf_whitelist_address).expect("Invalid whitelist address");
+
     info!("Whitelist Address: {:?}", whitelist_address);
 
     let taiko_wrapper_address =
