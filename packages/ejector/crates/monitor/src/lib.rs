@@ -121,6 +121,7 @@ impl Monitor {
                         continue;
                     }
                     Err(e) => {
+                        // should rarely happen, l1 rpc error only
                         warn!("preconfs check error: {e:?}; skipping eject this tick");
                         // don't reset timer; just skip the eject decision below
                         continue;
