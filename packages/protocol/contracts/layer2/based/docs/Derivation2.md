@@ -12,33 +12,33 @@ To construct a block, a detailed collection of data, referred to as the block's 
 
 ### Proposal-level Metadata
 
-| Metadata Component       | Description                                      |
-| ------------------------ | ------------------------------------------------ |
-| id                       | A unique, sequential identifier for the proposal |
-| proposer                 | The address of the entity proposing the proposal |
-| originTimestamp          | The timestamp when the proposal was accepted     |
-| originBlockNumber        | The block number when the proposal was accepted  |
-| proverAuth               | An ABI-encoded ProverAuth object                 |
-| numBlocks                | The total number of blocks in this proposal      |
-| basefeeSharingPercentage | The percentage of base fee paid to coinbase      |
-| isEnforcedInclusion      | Indicates if the proposal is a forced inclusion  |
+| Metadata Component  | Description                                            | Value Assigned |
+| ------------------- | ------------------------------------------------------ | -------------- |
+| id                  | A unique, sequential identifier for the proposal       | Y              |
+| proposer            | The address that proposed the proposal                 | Y              |
+| originTimestamp     | The timestamp when the proposal was proposed           | Y              |
+| originBlockNumber   | The L1 block number in which the proposal was proposed | Y              |
+| proverAuth          | An ABI-encoded ProverAuth object                       |                |
+| numBlocks           | The total number of blocks in this proposal            |                |
+| basefeeSharingPctg  | The percentage of base fee paid to coinbase            | Y              |
+| isEnforcedInclusion | Indicates if the proposal is a forced inclusion        | Y              |
 
 ### Block-level Metadata
 
-| Metadata Component   | Description                                           |
-| -------------------- | ----------------------------------------------------- |
-| timestamp            | The timestamp of the block                            |
-| coinbase             | The coinbase address for the block                    |
-| anchorBlockNumber    | The L1 block number to which this block anchors       |
-| gasIssuancePerSecond | The gas issuance rate per second for the next block   |
-| transactions         | The list of transactions included in the block        |
-| index                | The zero-based index of the block within the proposal |
+| Metadata Component   | Description                                           | Value Assigned |
+| -------------------- | ----------------------------------------------------- | -------------- |
+| timestamp            | The timestamp of the block                            |                |
+| coinbase             | The coinbase address for the block                    |                |
+| anchorBlockNumber    | The L1 block number to which this block anchors       |                |
+| gasIssuancePerSecond | The gas issuance rate per second for the next block   |                |
+| transactions         | The list of transactions included in the block        |                |
+| index                | The zero-based index of the block within the proposal | Y              |
 
 The process of constructing blocks involves first preparing the necessary metadata for each block. This metadata is then used to assemble the actual L2 block. Throughout this document, we will refer to this metadata as `metadata`, with individual fields denoted as `metadata.someField`.
 
 ## Metadata Preparation
 
-This process begins with a subscription to the inbox's Proposed event. In this event, a `proposal` object is emitted. The following is how the proposal is defined in the protocol contract:
+This process begins with a subscription to the inbox's Proposed event. In this event, a `proposal` object is emitted. The following is how the proposal is defined in the protocol's L1 contract:
 
 ```solidity
 /// @notice Represents a proposal for L2 blocks.
@@ -47,30 +47,33 @@ struct Proposal {
     uint48 id;
     /// @notice Address of the proposer.
     address proposer;
-    /// @notice Provability bond for the proposal.
-    uint48 provabilityBondGwei;
-    /// @notice Liveness bond for the proposal, paid by the designated prover.
-    uint48 livenessBondGwei;
     /// @notice The L1 block timestamp when the proposal was accepted.
     uint48 originTimestamp;
     /// @notice The L1 block number when the proposal was accepted.
     uint48 originBlockNumber;
     /// @notice Whether the proposal is from a forced inclusion.
     bool isForcedInclusion;
-    /// @notice The proposal's chunk.
+    /// @notice The percentage of base fee paid to coinbase.
+    uint8 basefeeSharingPctg;
+    /// @notice Provability bond for the proposal.
+    uint48 provabilityBondGwei;
+    /// @notice Liveness bond for the proposal, paid by the designated prover.
+    uint48 livenessBondGwei;
+    /// @notice Blobs that contains the proposal's manifest data.
     LibBlobs.BlobSlice blobSlice;
 }
 ```
 
 We can now collect the following metadata fields:
 
-```solidity
-    metadata.id = proposal.id;
-    metadata.proposer = proposal.proposer;
-    metadata.originTimestamp = proposal.originTimestamp;
-    metadata.originBlockNumber = proposal.originBlockNumber;
-    metadata.isForcedInclusion = proposal.isForcedInclusion;
-```
+| Metadata Field              | Value Assignment                 |
+| --------------------------- | -------------------------------- |
+| metadata.id                 | `= proposal.id;`                 |
+| metadata.proposer           | `= proposal.proposer;`           |
+| metadata.originTimestamp    | `= proposal.originTimestamp;`    |
+| metadata.originBlockNumber  | `= proposal.originBlockNumber;`  |
+| metadata.basefeeSharingPctg | `= proposal.basefeeSharingPctg;` |
+| metadata.isForcedInclusion  | `= proposal.isForcedInclusion;`  |
 
 The blob slice object in the proposal can help locate and verify the proposal's mannifest, an object defined as:
 
@@ -109,6 +112,31 @@ The blob slice object in the proposal can help locate and verify the proposal's 
 ```
 
 But the manifest object is encoded and compressed in the blob, so we need to first identify the slice of bytes then perform decompression and decoding.
+
+### Slicing blobs
+
+The `BlobSlice` struct is defined as:
+
+```solidity
+/// @notice Represents a frame of data that is stored in multiple blobs. Note the size is
+/// encoded as a bytes32 at the offset location.
+struct BlobSlice {
+    /// @notice The blobs containing the proposal's content.
+    bytes32[] blobHashes;
+     /// @notice The byte offset of the proposal's content in the containing blobs.
+    uint24 offset;
+    /// @notice The timestamp when the frame was created.
+    uint48 timestamp;
+}
+```
+
+It reporsents a byte slice contained in one or multiple blobs. We need to concatenate all blobs in the order they are contained in the `blobhashes` field, then read the first 32 bytes at `[offset, offset+31]` as the version number, in Shasta, only `0x1` is supported. For `version = 0x1`, the next 24 bytes at `[offset+32, offset+55]` is the size of the data slice, denoted as `size`.
+
+If the size exceeds a protocol constant `PROPOSAL_MAX_BYTE_SIZE`, an empty bytes (`""`) will be returned.
+
+### Decoding data slice
+
+The data slice will then be ZLIB-decompressed and then RLP-decoded into a `ProposalManifest` object. If decompression fails or decoding fails, an default proposal manifest will be returned.
 
 ## Metadata Application
 
