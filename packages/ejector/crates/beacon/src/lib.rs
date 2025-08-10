@@ -144,7 +144,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let base = Url::parse(&server.uri()).unwrap();
+        let base = Url::parse(&server.uri()).expect("Invalid mock server URL");
         let bc = BeaconClient::new(base).await?;
 
         assert_eq!(bc.genesis_time_sec, 1_700_000_000);
@@ -171,7 +171,7 @@ mod tests {
             .mount(&server)
             .await;
 
-        let base = Url::parse(&server.uri()).unwrap();
+        let base = Url::parse(&server.uri()).expect("Invalid mock server URL");
         let err = BeaconClient::new(base).await.unwrap_err();
         let msg = format!("{err}");
         assert!(msg.contains("Failed to fetch genesis data"));
@@ -182,8 +182,10 @@ mod tests {
         let server = MockServer::start().await;
 
         // Capture a stable "now" in seconds for expected math
-        let now =
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("Server is behind unix time")
+            .as_secs();
 
         // Choose friendly numbers to avoid off-by-one from sub-second drift
         let seconds_per_slot = 1000u64;
@@ -210,12 +212,14 @@ mod tests {
             .mount(&server)
             .await;
 
-        let base = Url::parse(&server.uri()).unwrap();
+        let base = Url::parse(&server.uri()).expect("Invalid mock server URL");
         let bc = BeaconClient::new(base).await?;
 
         // Recompute expected with a fresh "now" to match what the method will read
-        let now2 =
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        let now2 = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("Server is behind unix time")
+            .as_secs();
         let delta = now2 - genesis_time;
         let expected_slot = delta / seconds_per_slot;
         let expected_epoch = expected_slot / slots_per_epoch;

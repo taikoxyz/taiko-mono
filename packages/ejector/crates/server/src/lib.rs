@@ -11,7 +11,7 @@ pub async fn spawn_server(
 
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port as u16);
 
-    let listener = tokio::net::TcpListener::bind(socket).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(socket).await.expect("Could not bind to socket");
 
     info!("Server listening on http://{}", socket);
 
