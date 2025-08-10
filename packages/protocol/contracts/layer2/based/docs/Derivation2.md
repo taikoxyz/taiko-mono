@@ -174,6 +174,12 @@ At this stage, we have an unvalidated `manifest` object, which is used to comput
 
   If `proposal.isForcedInclusion` is true, we count the number of blocks in the manifest with a non-zero anchor block number. If this count is zero, we assign the default manifest to `manifest`, resulting in a proposal with a single empty block.
 
+- **`anchorBlockHash` and `anchorStateRoot`**
+
+  If a L2 block has a zero `anchorBlockNumber`, both `anchorBlockHash` and `anchorStateRoot` should also be zero. Otherwise, they must accurately reflect the values corresponding to the L1 block at the specified `anchorBlockNumber`.
+
+  @Yue, could this pose a challenge for the prover?
+
 - **`coinbase`**
 
   The L2 coinbase value is determined by checking if the proposal is a forced inclusion. If it is, the coinbase is set to the proposal's proposer. Otherwise, it is set to the coinbase address specified in the block manifest. If this address is zero, the coinbase defaults to the proposal's proposer.
@@ -201,16 +207,15 @@ At this stage, we have an unvalidated `manifest` object, which is used to comput
   - if `manefest.blocks[i].gasIssuancePerSecond` is greater than `upperBond`, use `upperBond` as the value,
   - otherwise, use `manefest.blocks[i].gasIssuancePerSecond` as is.
 
-| Metadata Field           | Value Assignment                                     |
-| ------------------------ | ---------------------------------------------------- |
-| metadata.index           | `= parent.metadata.index + 1` (we use `i` for short) |
-| metadata.numBlocks       | `= manifest.blocks.length`                           |
-| metadata.proverAuthBytes | `= manifest.proverAuthBytes`                         |
-| metadata.transactions    | `= manifest.blocks[i].transactions`                  |
+- Other metadata
+  Other metadata assignments are more straightforward.
 
-| Metadata Field    | Value Assignment     |
-| ----------------- | -------------------- |
-| metadata.coinbase | `= assignCoinbase()` |
+  | Metadata Field           | Value Assignment                                     |
+  | ------------------------ | ---------------------------------------------------- |
+  | metadata.index           | `= parent.metadata.index + 1` (we use `i` for short) |
+  | metadata.numBlocks       | `= manifest.blocks.length`                           |
+  | metadata.proverAuthBytes | `= manifest.proverAuthBytes`                         |
+  | metadata.transactions    | `= manifest.blocks[i].transactions`                  |
 
 ## Metadata Application
 
