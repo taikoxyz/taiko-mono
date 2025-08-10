@@ -121,8 +121,7 @@ impl Monitor {
                         continue;
                     }
                     Err(e) => {
-                        error!("Error checking preconfs, keeping previous state: {:?}", e);
-                        continue;
+                        panic!("Error checking if preconfs are enabled: {:?}", e);
                     }
                     Ok(true) => {}
                 }

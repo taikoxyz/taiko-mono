@@ -1,3 +1,4 @@
+// Lookahead is either Current or Next epoch's operator
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Lookahead {
     Current,
@@ -14,12 +15,16 @@ impl std::fmt::Display for Lookahead {
     }
 }
 
+// Responsibility indicates which operator we are monitoring for a given epoch
+// either the next, or the current.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Responsibility {
     pub epoch: u64,
     pub lookahead: Lookahead,
 }
 
+// responsiblity_for_slot determines whether the current or next operator
+// "owns" a given slot, taking the handover window into account
 pub fn responsibility_for_slot(
     slot: u64,
     slots_per_epoch: u64,
@@ -29,9 +34,8 @@ pub fn responsibility_for_slot(
     let epoch = slot / slots_per_epoch;
     let slot_in_epoch = slot % slots_per_epoch;
 
-    // Cap handover (it can be 0..=slots_per_epoch)
     let handover = handover_slots.min(slots_per_epoch);
-    let boundary = slots_per_epoch - handover; // last `handover` slots go to NEXT
+    let boundary = slots_per_epoch - handover;
 
     let lookahead = if slot_in_epoch >= boundary { Lookahead::Next } else { Lookahead::Current };
     Responsibility { epoch, lookahead }
@@ -42,7 +46,6 @@ mod tests {
     use super::*;
 
     fn expect_window(slots_per_epoch: u64, handover: u64, slot: u64) -> Lookahead {
-        // ground truth definition
         let handover = handover.min(slots_per_epoch);
         let slot_in_epoch = slot % slots_per_epoch;
         let boundary = slots_per_epoch - handover;

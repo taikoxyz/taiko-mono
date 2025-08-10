@@ -2,7 +2,7 @@ use eyre::{Result, eyre};
 use serde::Deserialize;
 use url::Url;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BeaconClient {
     pub seconds_per_slot: u64,
     pub genesis_time_sec: u64,
@@ -10,6 +10,7 @@ pub struct BeaconClient {
 }
 
 impl BeaconClient {
+    // fetches and constructs a BeaconClient from the given base URL
     pub async fn new(base_url: Url) -> Result<Self> {
         let genesis = Self::fetch_genesis(base_url.clone()).await?;
 
@@ -27,8 +28,10 @@ impl BeaconClient {
     }
 
     pub fn current_slot(&self) -> u64 {
-        let now =
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("System time before unix epoch")
+            .as_secs();
 
         (now - self.genesis_time_sec) / self.seconds_per_slot
     }
@@ -108,4 +111,119 @@ struct Spec {
     seconds_per_slot: u64,
     #[serde(with = "alloy_serde::displayfromstr")]
     slots_per_epoch: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[tokio::test]
+    async fn new_fetches_and_parses_genesis_and_spec() -> Result<()> {
+        let server = MockServer::start().await;
+
+        // Mock /genesis
+        Mock::given(method("GET"))
+            .and(path("/eth/v1/beacon/genesis"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": { "genesis_time": "1700000000" }
+            })))
+            .mount(&server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path("/eth/v1/config/spec"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "data": {
+                    "SECONDS_PER_SLOT": "12",
+                    "SLOTS_PER_EPOCH": "32"
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let base = Url::parse(&server.uri()).unwrap();
+        let bc = BeaconClient::new(base).await?;
+
+        assert_eq!(bc.genesis_time_sec, 1_700_000_000);
+        assert_eq!(bc.seconds_per_slot, 12);
+        assert_eq!(bc.slots_per_epoch, 32);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn new_errors_on_non_200_genesis() {
+        let server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/eth/v1/beacon/genesis"))
+            .respond_with(ResponseTemplate::new(500))
+            .mount(&server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path("/eth/v1/config/spec"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({ "data": {
+                "SECONDS_PER_SLOT": "12", "SLOTS_PER_EPOCH": "32"
+            }})))
+            .mount(&server)
+            .await;
+
+        let base = Url::parse(&server.uri()).unwrap();
+        let err = BeaconClient::new(base).await.unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("Failed to fetch genesis data"));
+    }
+
+    #[tokio::test]
+    async fn current_slot_epoch_and_slot_in_epoch_are_consistent() -> Result<()> {
+        let server = MockServer::start().await;
+
+        // Capture a stable "now" in seconds for expected math
+        let now =
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+
+        // Choose friendly numbers to avoid off-by-one from sub-second drift
+        let seconds_per_slot = 1000u64;
+        let slots_per_epoch = 10u64;
+        // Set genesis so that (now - genesis) is clearly within the same slot
+        let genesis_time = now - (42_000); // 42 slots * 1000s
+
+        // Mocks
+        Mock::given(method("GET"))
+            .and(path("/eth/v1/beacon/genesis"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(json!({"data": { "genesis_time": genesis_time.to_string() }})),
+            )
+            .mount(&server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path("/eth/v1/config/spec"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data": {
+                "SECONDS_PER_SLOT": seconds_per_slot.to_string(),
+                "SLOTS_PER_EPOCH": slots_per_epoch.to_string()
+            }})))
+            .mount(&server)
+            .await;
+
+        let base = Url::parse(&server.uri()).unwrap();
+        let bc = BeaconClient::new(base).await?;
+
+        // Recompute expected with a fresh "now" to match what the method will read
+        let now2 =
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        let delta = now2 - genesis_time;
+        let expected_slot = delta / seconds_per_slot;
+        let expected_epoch = expected_slot / slots_per_epoch;
+        let expected_slot_in_epoch = expected_slot % slots_per_epoch;
+
+        assert_eq!(bc.current_slot(), expected_slot);
+        assert_eq!(bc.current_epoch(), expected_epoch);
+        assert_eq!(bc.slot_in_epoch(), expected_slot_in_epoch);
+        Ok(())
+    }
 }
