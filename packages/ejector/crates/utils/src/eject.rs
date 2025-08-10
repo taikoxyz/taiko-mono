@@ -34,7 +34,6 @@ pub async fn eject_operator(
     let tx_hash = pending.tx_hash();
     info!("Eject operator transaction sent: {:?}", tx_hash);
 
-    // Poll for receipt (e.g. every 12s, up to 2 minutes)
     let poll_every = Duration::from_secs(12);
     let timeout = Duration::from_secs(120);
 
@@ -44,14 +43,10 @@ pub async fn eject_operator(
                 "removeOperator mined in block {:?}, tx {:?}",
                 rcpt.block_number, rcpt.transaction_hash
             );
-            // If your receipt type exposes status, you can check/log it here.
-            // e.g., info!("status = {:?}", rcpt.status);
         }
         None => {
             warn!("Timed out waiting for receipt for {tx_hash:#x}; continuing to run.");
         }
     }
-
-    // optional: your receipt polling here
     Ok(())
 }
