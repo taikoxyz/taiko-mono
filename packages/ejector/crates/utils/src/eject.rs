@@ -38,7 +38,7 @@ pub async fn eject_operator(
     let poll_every = Duration::from_secs(12);
     let timeout = Duration::from_secs(120);
 
-    match poll_receipt_until(l1.clone(), tx_hash.clone(), poll_every, timeout).await? {
+    match poll_receipt_until(l1.clone(), *tx_hash, poll_every, timeout).await? {
         Some(rcpt) => {
             info!(
                 "removeOperator mined in block {:?}, tx {:?}",
