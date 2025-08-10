@@ -550,9 +550,9 @@ abstract contract Inbox is EssentialContract, IInbox {
             bondOperation = LibBondOperation.BondOperation({
                 proposalId: _proposalId,
                 creditAmountGwei: _claimRecord.livenessBondGwei / REWARD_FRACTION,
-                creditReceiver: claim.actualProver,
+                creditTo: claim.actualProver,
                 debitAmountGwei: _claimRecord.livenessBondGwei,
-                debitReceiver: claim.designatedProver
+                debitFrom: claim.designatedProver
             });
             emit BondRequest(bondOperation);
             return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);

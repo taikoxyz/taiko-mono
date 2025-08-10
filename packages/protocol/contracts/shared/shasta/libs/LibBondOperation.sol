@@ -12,9 +12,9 @@ library LibBondOperation {
     struct BondOperation {
         uint48 proposalId;
         uint48 creditAmountGwei;
-        address creditReceiver;
+        address creditTo;
         uint48 debitAmountGwei;
-        address debitReceiver;
+        address debitFrom;
     }
 
     function aggregateBondOperation(

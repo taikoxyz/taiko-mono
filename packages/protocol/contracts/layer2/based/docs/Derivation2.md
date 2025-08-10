@@ -75,7 +75,7 @@ We can now collect the following metadata fields:
 | metadata.basefeeSharingPctg | `= proposal.basefeeSharingPctg;` |
 | metadata.isForcedInclusion  | `= proposal.isForcedInclusion;`  |
 
-The blob slice object in the proposal can help locate and verify the proposal's mannifest, an object defined as:
+The `blobSlice` within the proposal is instrumental in pinpointing and validating the proposal's manifest, which is defined as follows:
 
 ```solidity
  /// @notice Represents a signed Ethereum transaction
@@ -110,8 +110,6 @@ The blob slice object in the proposal can help locate and verify the proposal's 
         BlockManifest[] blocks;
     }
 ```
-
-But the manifest object is encoded and compressed in the blob, so we need to first identify the slice of bytes then perform decompression and decoding.
 
 ### Slicing blobs
 

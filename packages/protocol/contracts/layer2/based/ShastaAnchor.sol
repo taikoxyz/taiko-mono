@@ -162,7 +162,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
             for (uint256 i; i < _bondOperations.length; ++i) {
                 LibBondOperation.BondOperation memory op = _bondOperations[i];
                 // Credit the bond to the receiver
-                bondManager.creditBond(op.receiver, op.credit);
+                bondManager.creditBond(op.creditTo, op.creditAmountGwei);
+                // Debit the bond from the sender
+                bondManager.debitBond(op.debitFrom, op.debitAmountGwei);
                 // Update cumulative hash
                 bondOperationsHash = LibBondOperation.aggregateBondOperation(bondOperationsHash, op);
             }
