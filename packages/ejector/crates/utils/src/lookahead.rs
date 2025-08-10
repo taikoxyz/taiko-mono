@@ -17,7 +17,7 @@ impl std::fmt::Display for Lookahead {
 
 // Responsibility indicates which operator we are monitoring for a given epoch
 // either the next, or the current.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Responsibility {
     pub epoch: u64,
     pub lookahead: Lookahead,

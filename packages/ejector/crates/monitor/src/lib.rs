@@ -136,7 +136,7 @@ impl Monitor {
                         l1_http_url.clone(),
                         signer.clone(),
                         whitelist_address,
-                        Lookahead::Current,
+                        curr_resp.clone().lookahead,
                     )
                     .await
                     {
