@@ -24,7 +24,7 @@ interface IInbox {
         uint48 originBlockNumber;
         /// @notice Whether the proposal is from a forced inclusion.
         bool isForcedInclusion;
-        /// @notice The proposal's chunk.
+        /// @notice Blobs that contains the proposal's manifest data.
         LibBlobs.BlobSlice blobSlice;
     }
 
