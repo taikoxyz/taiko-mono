@@ -121,7 +121,9 @@ impl Monitor {
                         continue;
                     }
                     Err(e) => {
-                        panic!("Error checking if preconfs are enabled: {:?}", e);
+                        warn!("preconfs check error: {e:?}; skipping eject this tick");
+                        // don't reset timer; just skip the eject decision below
+                        continue;
                     }
                     Ok(true) => {}
                 }
