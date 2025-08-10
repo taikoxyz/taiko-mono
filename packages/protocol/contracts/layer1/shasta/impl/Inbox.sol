@@ -16,7 +16,7 @@ import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
 /// @custom:security-contact security@taiko.xyz
 
-contract Inbox is EssentialContract, IInbox {
+abstract contract Inbox is EssentialContract, IInbox {
     using LibDecoder for bytes;
 
     /// @notice Extended claim record that stores both the claim hash and encoded metadata.
@@ -43,36 +43,13 @@ contract Inbox is EssentialContract, IInbox {
 
     uint48 public constant REWARD_FRACTION = 2;
 
-    uint48 public immutable provabilityBondGwei;
-    uint48 public immutable livenessBondGwei;
-    uint48 public immutable provingWindow;
-    uint48 public immutable extendedProvingWindow;
-    uint256 public immutable minBondBalance;
-    uint256 public immutable maxFinalizationCount;
-    uint256 public immutable ringBufferSize;
-
-    /// @notice The bond manager contract
-    IShastaBondManager public immutable bondManager;
-
-    /// @notice The synced block manager contract
-    ISyncedBlockManager public immutable syncedBlockManager;
-
-    /// @notice The proof verifier contract
-    IProofVerifier public immutable proofVerifier;
-
-    /// @notice The proposer checker contract
-    IProposerChecker public immutable proposerChecker;
-
-    /// @notice The forced inclusion store contract
-    IForcedInclusionStore public immutable forcedInclusionStore;
-
-    bytes32 private immutable _DEFAULT_SLOT_HASH = bytes32(uint256(1));
+    bytes32 private constant _DEFAULT_SLOT_HASH = bytes32(uint256(1));
 
     /// @notice The hash of the core state.
     bytes32 private coreStateHash;
 
     /// @notice Ring buffer for storing proposal records.
-    /// @dev Key is proposalId % ringBufferSize
+    /// @dev Key is proposalId % getConfig().ringBufferSize
     mapping(uint256 bufferSlot => ProposalRecord proposalRecord) private proposalRingBuffer;
 
     uint256[48] private __gap;
@@ -82,47 +59,7 @@ contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
 
     /// @notice Initializes the Inbox contract with configuration parameters
-    /// @param _provabilityBondGwei The bond required for block provability
-    /// @param _livenessBondGwei The bond required for prover liveness
-    /// @param _provingWindow The initial proving window duration
-    /// @param _extendedProvingWindow The extended proving window duration
-    /// @param _minBondBalance The minimum bond balance required for proposers
-    /// @param _maxFinalizationCount The maximum number of finalizations allowed
-    /// @param _ringBufferSize The size of the ring buffer (must be > 0)
-    /// @param _bondManager The address of the bond manager contract
-    /// @param _syncedBlockManager The address of the synced block manager contract
-    /// @param _proofVerifier The address of the proof verifier contract
-    /// @param _proposerChecker The address of the proposer checker contract
-    /// @param _forcedInclusionStore The address of the forced inclusion store contract
-    constructor(
-        uint48 _provabilityBondGwei,
-        uint48 _livenessBondGwei,
-        uint48 _provingWindow,
-        uint48 _extendedProvingWindow,
-        uint256 _minBondBalance,
-        uint256 _maxFinalizationCount,
-        uint256 _ringBufferSize,
-        address _bondManager,
-        address _syncedBlockManager,
-        address _proofVerifier,
-        address _proposerChecker,
-        address _forcedInclusionStore
-    )
-        EssentialContract()
-    {
-        provabilityBondGwei = _provabilityBondGwei;
-        livenessBondGwei = _livenessBondGwei;
-        provingWindow = _provingWindow;
-        extendedProvingWindow = _extendedProvingWindow;
-        minBondBalance = _minBondBalance;
-        maxFinalizationCount = _maxFinalizationCount;
-        ringBufferSize = _ringBufferSize;
-        bondManager = IShastaBondManager(_bondManager);
-        syncedBlockManager = ISyncedBlockManager(_syncedBlockManager);
-        proofVerifier = IProofVerifier(_proofVerifier);
-        proposerChecker = IProposerChecker(_proposerChecker);
-        forcedInclusionStore = IForcedInclusionStore(_forcedInclusionStore);
-    }
+    constructor() EssentialContract() { }
 
     /// @notice Initializes the Inbox contract with genesis block
     /// @param _owner The owner of this contract
@@ -145,8 +82,13 @@ contract Inbox is EssentialContract, IInbox {
 
     /// @inheritdoc IInbox
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
-        proposerChecker.checkProposer(msg.sender);
-        require(bondManager.getBondBalance(msg.sender) >= minBondBalance, InsufficientBond());
+        Config memory config = getConfig();
+        IProposerChecker(config.proposerChecker).checkProposer(msg.sender);
+        require(
+            IShastaBondManager(config.bondManager).getBondBalance(msg.sender)
+                >= config.minBondBalance,
+            InsufficientBond()
+        );
 
         (
             CoreState memory coreState,
@@ -158,26 +100,27 @@ contract Inbox is EssentialContract, IInbox {
 
         // Check if new proposals would exceed the unfinalized proposal capacity
         require(
-            coreState.nextProposalId - coreState.lastFinalizedProposalId <= getCapacity(),
+            coreState.nextProposalId - coreState.lastFinalizedProposalId <= _getCapacity(config),
             ExceedsUnfinalizedProposalCapacity()
         );
 
         Proposal memory proposal;
 
         // Handle forced inclusion if required
-        if (forcedInclusionStore.isOldestForcedInclusionDue()) {
-            IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
-                forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
+        if (IForcedInclusionStore(config.forcedInclusionStore).isOldestForcedInclusionDue()) {
+            IForcedInclusionStore.ForcedInclusion memory forcedInclusion = IForcedInclusionStore(
+                config.forcedInclusionStore
+            ).consumeOldestForcedInclusion(msg.sender);
 
-            (coreState, proposal) = _propose(coreState, forcedInclusion.blobSlice, true);
+            (coreState, proposal) = _propose(config, coreState, forcedInclusion.blobSlice, true);
             emit Proposed(proposal, coreState);
         }
 
         // Create regular proposal
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(blobReference);
-        (coreState, proposal) = _propose(coreState, blobSlice, false);
+        (coreState, proposal) = _propose(config, coreState, blobSlice, false);
         // Finalize proved proposals
-        coreState = _finalize(coreState, claimRecords);
+        coreState = _finalize(config, coreState, claimRecords);
         emit Proposed(proposal, coreState);
 
         _setCoreStateHash(keccak256(abi.encode(coreState)));
@@ -186,21 +129,25 @@ contract Inbox is EssentialContract, IInbox {
     /// @inheritdoc IInbox
     // TODO(daniel): support proving a segment of proposals with one claim.
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
+        Config memory config = getConfig();
         (Proposal[] memory proposals, Claim[] memory claims) = _data.decodeProveData();
 
         require(proposals.length == claims.length, InconsistentParams());
         require(proposals.length != 0, EmptyProposals());
 
         for (uint256 i; i < proposals.length; ++i) {
-            ClaimRecord memory claimRecord = _buildClaimRecord(proposals[i], claims[i]);
+            ClaimRecord memory claimRecord = _buildClaimRecord(config, proposals[i], claims[i]);
             _setClaimRecordHash(
-                proposals[i].id, claims[i].parentClaimHash, keccak256(abi.encode(claimRecord))
+                config,
+                proposals[i].id,
+                claims[i].parentClaimHash,
+                keccak256(abi.encode(claimRecord))
             );
             emit Proved(proposals[i], claimRecord);
         }
 
         bytes32 claimsHash = keccak256(abi.encode(claims));
-        proofVerifier.verifyProof(claimsHash, _proof);
+        IProofVerifier(config.proofVerifier).verifyProof(claimsHash, _proof);
     }
 
     /// @notice Gets the hash of the core state.
@@ -213,7 +160,8 @@ contract Inbox is EssentialContract, IInbox {
     /// @param _proposalId The proposal ID to look up.
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
     function getProposalHash(uint48 _proposalId) public view returns (bytes32 proposalHash_) {
-        uint256 bufferSlot = _proposalId % ringBufferSize;
+        Config memory config = getConfig();
+        uint256 bufferSlot = _proposalId % config.ringBufferSize;
         proposalHash_ = proposalRingBuffer[bufferSlot].proposalHash;
     }
 
@@ -229,7 +177,8 @@ contract Inbox is EssentialContract, IInbox {
         view
         returns (bytes32 claimRecordHash_)
     {
-        uint256 bufferSlot = _proposalId % ringBufferSize;
+        Config memory config = getConfig();
+        uint256 bufferSlot = _proposalId % config.ringBufferSize;
 
         ExtendedClaimRecord storage record =
             proposalRingBuffer[bufferSlot].claimHashLookup[_DEFAULT_SLOT_HASH];
@@ -253,13 +202,13 @@ contract Inbox is EssentialContract, IInbox {
     /// @notice Gets the capacity for unfinalized proposals.
     /// @return _ The maximum number of unfinalized proposals that can exist.
     function getCapacity() public view returns (uint256) {
-        // The ring buffer can hold ringBufferSize proposals total, but we need to ensure
-        // unfinalized proposals are not overwritten. Therefore, the maximum number of
-        // unfinalized proposals is ringBufferSize - 1.
-        unchecked {
-            return ringBufferSize - 1;
-        }
+        Config memory config = getConfig();
+        return _getCapacity(config);
     }
+
+    /// @notice Gets the configuration parameters for the Inbox contract
+    /// @return config_ The configuration parameters
+    function getConfig() public view virtual returns (Config memory config_);
 
     // ---------------------------------------------------------------
     // Internal Functions
@@ -271,20 +220,28 @@ contract Inbox is EssentialContract, IInbox {
     }
 
     /// @dev Sets the proposal hash for a given proposal ID.
-    function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
-        uint256 bufferSlot = _proposalId % ringBufferSize;
+    function _setProposalHash(
+        Config memory _config,
+        uint48 _proposalId,
+        bytes32 _proposalHash
+    )
+        internal
+    {
+        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         proposalRingBuffer[bufferSlot].proposalHash = _proposalHash;
     }
 
     /// @dev Sets the claim record hash for a given proposal and parent claim.
     function _setClaimRecordHash(
+        Config memory _config,
         uint48 _proposalId,
         bytes32 _parentClaimHash,
         bytes32 _claimRecordHash
     )
         internal
     {
-        ProposalRecord storage proposalRecord = proposalRingBuffer[_proposalId % ringBufferSize];
+        ProposalRecord storage proposalRecord =
+            proposalRingBuffer[_proposalId % _config.ringBufferSize];
 
         ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
 
@@ -339,17 +296,60 @@ contract Inbox is EssentialContract, IInbox {
         return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
 
+    /// @dev Gets the capacity for unfinalized proposals.
+    function _getCapacity(Config memory _config) internal pure returns (uint256) {
+        // The ring buffer can hold ringBufferSize proposals total, but we need to ensure
+        // unfinalized proposals are not overwritten. Therefore, the maximum number of
+        // unfinalized proposals is ringBufferSize - 1.
+        unchecked {
+            return _config.ringBufferSize - 1;
+        }
+    }
+
+    /// @dev Gets the claim record hash for a given proposal and parent claim.
+    function _getClaimRecordHash(
+        Config memory _config,
+        uint48 _proposalId,
+        bytes32 _parentClaimHash
+    )
+        internal
+        view
+        returns (bytes32 claimRecordHash_)
+    {
+        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
+
+        ExtendedClaimRecord storage record =
+            proposalRingBuffer[bufferSlot].claimHashLookup[_DEFAULT_SLOT_HASH];
+
+        (uint48 proposalId, bytes32 partialParentClaimHash) =
+            _decodeSlotReuseMarker(record.slotReuseMarker);
+
+        // If the reusable slot's proposal ID does not match the given proposal ID, it indicates
+        // that there are no claims associated with this proposal at all.
+        if (proposalId != _proposalId) return bytes32(0);
+
+        // If there's a record in the default slot with matching parent claim hash, return it
+        if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
+            return record.claimRecordHash;
+        }
+
+        // Otherwise check the direct mapping
+        return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
+    }
+
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
 
     /// @dev Proposes a new proposal of L2 blocks.
+    /// @param _config The configuration parameters.
     /// @param _coreState The core state of the inbox.
     /// @param _blobSlice The blob slice of the proposal.
     /// @param _isForcedInclusion Whether the proposal is a forced inclusion.
     /// @return coreState_ The updated core state.
     /// @return proposal_ The created proposal.
     function _propose(
+        Config memory _config,
         CoreState memory _coreState,
         LibBlobs.BlobSlice memory _blobSlice,
         bool _isForcedInclusion
@@ -364,25 +364,28 @@ contract Inbox is EssentialContract, IInbox {
         proposal_ = Proposal({
             id: proposalId,
             proposer: msg.sender,
-            provabilityBondGwei: provabilityBondGwei,
-            livenessBondGwei: livenessBondGwei,
             originTimestamp: originTimestamp,
             originBlockNumber: originBlockNumber,
-            blobSlice: _blobSlice,
-            isForcedInclusion: _isForcedInclusion
+            isForcedInclusion: _isForcedInclusion,
+            basefeeSharingPctg: _config.basefeeSharingPctg,
+            provabilityBondGwei: _config.provabilityBondGwei,
+            livenessBondGwei: _config.livenessBondGwei,
+            blobSlice: _blobSlice
         });
 
         bytes32 proposalHash = keccak256(abi.encode(proposal_));
 
-        _setProposalHash(proposalId, proposalHash);
+        _setProposalHash(_config, proposalId, proposalHash);
 
         return (_coreState, proposal_);
     }
 
     /// @dev Builds a claim record for a single proposal.
+    /// @param _config The configuration parameters.
     /// @param _proposal The proposal to prove.
     /// @param _claim The claim containing the proof details.
     function _buildClaimRecord(
+        Config memory _config,
         Proposal memory _proposal,
         Claim memory _claim
     )
@@ -392,9 +395,12 @@ contract Inbox is EssentialContract, IInbox {
     {
         bytes32 proposalHash = keccak256(abi.encode(_proposal));
         if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
-        if (proposalHash != getProposalHash(_proposal.id)) revert ProposalHashMismatch();
+        uint256 bufferSlot = _proposal.id % _config.ringBufferSize;
+        if (proposalHash != proposalRingBuffer[bufferSlot].proposalHash) {
+            revert ProposalHashMismatch();
+        }
 
-        BondDecision bondDecision = _calculateBondDecision(_claim, _proposal);
+        BondDecision bondDecision = _calculateBondDecision(_config, _claim, _proposal);
 
         claimRecord_ = ClaimRecord({
             claim: _claim,
@@ -412,10 +418,12 @@ contract Inbox is EssentialContract, IInbox {
     /// - Late proofs: Liveness bonds may be slashed and redistributed
     /// - Very late proofs: Provability bonds may also be slashed
     /// The decision affects whether claim records can be aggregated
+    /// @param _config The configuration parameters.
     /// @param _claim The claim containing prover information
     /// @param _proposal The proposal containing timing and proposer information
     /// @return bondDecision_ The bond decision that affects aggregation eligibility
     function _calculateBondDecision(
+        Config memory _config,
         Claim memory _claim,
         Proposal memory _proposal
     )
@@ -424,12 +432,12 @@ contract Inbox is EssentialContract, IInbox {
         returns (BondDecision bondDecision_)
     {
         unchecked {
-            if (block.timestamp <= _proposal.originTimestamp + provingWindow) {
+            if (block.timestamp <= _proposal.originTimestamp + _config.provingWindow) {
                 // Proof submitted within the designated proving window (on-time proof)
                 return BondDecision.NoOp;
             }
 
-            if (block.timestamp <= _proposal.originTimestamp + extendedProvingWindow) {
+            if (block.timestamp <= _proposal.originTimestamp + _config.extendedProvingWindow) {
                 // Proof submitted during extended window (late but acceptable proof)
                 return _claim.designatedProver == _proposal.proposer
                     ? BondDecision.L1SlashLivenessRewardProver
@@ -442,10 +450,12 @@ contract Inbox is EssentialContract, IInbox {
     }
 
     /// @dev Finalizes proposals by verifying claim records and updating state.
+    /// @param _config The configuration parameters.
     /// @param _coreState The current core state.
     /// @param _claimRecords The claim records to finalize.
     /// @return coreState_ The updated core state
     function _finalize(
+        Config memory _config,
         CoreState memory _coreState,
         ClaimRecord[] memory _claimRecords
     )
@@ -458,14 +468,14 @@ contract Inbox is EssentialContract, IInbox {
 
         uint48 proposalId = _coreState.lastFinalizedProposalId + 1;
 
-        for (uint256 i; i < maxFinalizationCount; ++i) {
+        for (uint256 i; i < _config.maxFinalizationCount; ++i) {
             // Id for the next proposal to be finalized.
 
             // There is no more unfinalized proposals
             if (proposalId >= _coreState.nextProposalId) break;
 
             bytes32 storedClaimRecordHash =
-                getClaimRecordHash(proposalId, _coreState.lastFinalizedClaimHash);
+                _getClaimRecordHash(_config, proposalId, _coreState.lastFinalizedClaimHash);
 
             // The next proposal cannot be finalized as there is no claim record to link the chain
             if (storedClaimRecordHash == 0) break;
@@ -481,14 +491,14 @@ contract Inbox is EssentialContract, IInbox {
             _coreState.lastFinalizedProposalId = proposalId;
             _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claimRecord.claim));
             _coreState.bondOperationsHash =
-                _processBonds(proposalId, claimRecord, _coreState.bondOperationsHash);
+                _processBonds(_config, proposalId, claimRecord, _coreState.bondOperationsHash);
 
             proposalId = _claimRecords[i].nextProposalId;
             hasFinalized = true;
         }
 
         if (hasFinalized) {
-            syncedBlockManager.saveSyncedBlock(
+            ISyncedBlockManager(_config.syncedBlockManager).saveSyncedBlock(
                 claimRecord.claim.endBlockNumber,
                 claimRecord.claim.endBlockHash,
                 claimRecord.claim.endStateRoot
@@ -502,11 +512,13 @@ contract Inbox is EssentialContract, IInbox {
     /// @notice Processes bonds for potentially aggregated claim records. When a claim
     /// record represents multiple aggregated proposals, liveness bonds are summed
     /// and processed together, reducing the number of bond operations
+    /// @param _config The configuration parameters.
     /// @param _proposalId The first proposal ID in the aggregated record
     /// @param _claimRecord The claim record (may represent multiple proposals)
     /// @param _bondOperationsHash The current hash of bond operations
     /// @return bondOperationsHash_ The updated hash including this operation
     function _processBonds(
+        Config memory _config,
         uint48 _proposalId,
         ClaimRecord memory _claimRecord,
         bytes32 _bondOperationsHash
@@ -519,14 +531,18 @@ contract Inbox is EssentialContract, IInbox {
         Claim memory claim = _claimRecord.claim;
 
         if (_claimRecord.bondDecision == BondDecision.L1SlashLivenessRewardProver) {
-            bondManager.debitBond(_claimRecord.proposer, _claimRecord.livenessBondGwei);
-            bondManager.creditBond(
+            IShastaBondManager(_config.bondManager).debitBond(
+                _claimRecord.proposer, _claimRecord.livenessBondGwei
+            );
+            IShastaBondManager(_config.bondManager).creditBond(
                 claim.actualProver, _claimRecord.livenessBondGwei / REWARD_FRACTION
             );
             return _bondOperationsHash;
         } else if (_claimRecord.bondDecision == BondDecision.L1SlashProvabilityRewardProver) {
-            bondManager.debitBond(_claimRecord.proposer, _claimRecord.provabilityBondGwei);
-            bondManager.creditBond(
+            IShastaBondManager(_config.bondManager).debitBond(
+                _claimRecord.proposer, _claimRecord.provabilityBondGwei
+            );
+            IShastaBondManager(_config.bondManager).creditBond(
                 claim.actualProver, _claimRecord.provabilityBondGwei / REWARD_FRACTION
             );
             return _bondOperationsHash;

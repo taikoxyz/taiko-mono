@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 /// @title LibManifest
 /// @custom:security-contact security@taiko.xyz
+// TODO: move some constants to LibBlobs.sol
 library LibManifest {
     // -------------------------------------------------------------------
     // Constants
@@ -14,7 +15,7 @@ library LibManifest {
     /// @notice The maximum number of transactions allowed in a block.
     uint256 internal constant BLOB_BYTE_SIZE = BLOB_FIELD_ELEMENT_SIZE * FIELD_ELEMENT_BYTE_SIZE;
     /// @notice The maximum number of bytes allowed for a proposal slice.
-    uint256 internal constant PROPOSAL_MAX_FIELD_ELEMENTS_SIZE = 6 * BLOB_FIELD_ELEMENT_SIZE;
+    uint256 internal constant PROPOSAL_MAX_BYTE_SIZE = 6 * BLOB_FIELD_ELEMENT_SIZE;
 
     uint256 internal constant PROPOSAL_MAX_BLOBS = 10;
     /// @notice The maximum number of blocks allowed in a proposal. If we assume block time is as

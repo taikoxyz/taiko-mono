@@ -8,22 +8,41 @@ import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.
 /// @notice Interface for the ShastaInbox contract
 /// @custom:security-contact security@taiko.xyz
 interface IInbox {
+    /// @notice Configuration parameters for the Inbox contract
+    struct Config {
+        uint48 provabilityBondGwei;
+        uint48 livenessBondGwei;
+        uint48 provingWindow;
+        uint48 extendedProvingWindow;
+        uint256 minBondBalance;
+        uint256 maxFinalizationCount;
+        uint256 ringBufferSize;
+        uint8 basefeeSharingPctg;
+        address bondManager;
+        address syncedBlockManager;
+        address proofVerifier;
+        address proposerChecker;
+        address forcedInclusionStore;
+    }
+
     /// @notice Represents a proposal for L2 blocks.
     struct Proposal {
         /// @notice Unique identifier for the proposal.
         uint48 id;
         /// @notice Address of the proposer.
         address proposer;
-        /// @notice Provability bond for the proposal.
-        uint48 provabilityBondGwei;
-        /// @notice Liveness bond for the proposal, paid by the designated prover.
-        uint48 livenessBondGwei;
         /// @notice The L1 block timestamp when the proposal was accepted.
         uint48 originTimestamp;
         /// @notice The L1 block number when the proposal was accepted.
         uint48 originBlockNumber;
         /// @notice Whether the proposal is from a forced inclusion.
         bool isForcedInclusion;
+        /// @notice The percentage of base fee paid to coinbase.
+        uint8 basefeeSharingPctg;
+        /// @notice Provability bond for the proposal.
+        uint48 provabilityBondGwei;
+        /// @notice Liveness bond for the proposal, paid by the designated prover.
+        uint48 livenessBondGwei;
         /// @notice Blobs that contains the proposal's manifest data.
         LibBlobs.BlobSlice blobSlice;
     }

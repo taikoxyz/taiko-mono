@@ -25,8 +25,7 @@ library LibBlobs {
     struct BlobSlice {
         /// @notice The blobs containing the proposal's content.
         bytes32[] blobHashes;
-        /// @notice The field-element offset of the proposal's content in the containing blobs.
-        /// The byte-offset would be 32 * offset.
+        /// @notice The byte offset of the proposal's content in the containing blobs.
         uint24 offset;
         /// @notice The timestamp when the frame was created.
         uint48 timestamp;

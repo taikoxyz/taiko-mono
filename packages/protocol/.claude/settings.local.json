@@ -14,7 +14,8 @@
       "Bash(grep:*)",
       "Bash(forge build:*)",
       "Bash(pnpm test:*)",
-      "Bash(pnpm fmt:sol:*)"
+      "Bash(pnpm fmt:sol:*)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/based/InboxTest*.t.sol')"
     ],
     "deny": []
   }
