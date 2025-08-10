@@ -41,6 +41,10 @@ pub struct Config {
     // handover slots
     #[arg(long, env = "HANDOVER_SLOTS", default_value_t = 4)]
     pub handover_slots: u64,
+
+    // server port
+    #[arg(long, env = "SERVER_PORT", default_value_t = 8080u64)]
+    pub server_port: u64,
 }
 
 // tests
@@ -71,6 +75,8 @@ mod tests {
             "http://test-beacon.com",
             "--handover-slots",
             "4",
+            "--server-port",
+            "8081",
         ]);
 
         assert_eq!(config.preconf_whitelist_address, "0x1123");
@@ -83,5 +89,6 @@ mod tests {
         assert_eq!(config.taiko_wrapper_address, "0x456");
         assert_eq!(config.beacon_url, "http://test-beacon.com");
         assert_eq!(config.handover_slots, 4);
+        assert_eq!(config.server_port, 8081);
     }
 }

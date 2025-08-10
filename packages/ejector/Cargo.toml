@@ -9,6 +9,7 @@ bindings= { path = "crates/bindings" }
 config = { path = "crates/config" }
 monitor = { path = "crates/monitor" }
 beacon = { path = "crates/beacon" }
+server = { path = "crates/server" }
 clap = { workspace = true }
 dotenvy = { workspace = true }
 eyre = { workspace = true }

@@ -6,6 +6,7 @@ members = [
   "packages/ejector/crates/bindings",
   "packages/ejector/crates/beacon",
   "packages/ejector/crates/utils",
+  "packages/ejector/crates/server"
 ]
 resolver = "2"
 
@@ -20,7 +21,9 @@ rust-version = "1.88"
 bindings = { path = "packages/ejector/crates/bindings" }
 beacon = { path = "packages/ejector/crates/beacon" }
 utils = { path = "packages/ejector/crates/utils" }
+server = { path = "packages/ejector/crates/server" }
 alloy = { version = "1.0.13", features = ["full"] }
+axum = "0.7"
 clap = { version = "4", features = ["derive", "env"] }
 dotenvy = "0.15"
 eyre = "0.6"
