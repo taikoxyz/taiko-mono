@@ -29,12 +29,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-          
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-  
+
       - name: Verify Node.js installation
         run: |
           echo "Node.js location:"
@@ -44,19 +46,19 @@ jobs:
         id: claude
         uses: anthropics/claude-code-action@beta
         env:
-          CLAUDE_CODE_MAX_OUTPUT_TOKENS: "30000"   # any safe value < 32000 to avoid reaching token limit
+          CLAUDE_CODE_MAX_OUTPUT_TOKENS: "30000" # any safe value < 32000 to avoid reaching token limit
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          
+
           # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4)
           # model: "claude-opus-4-20250514"
 
           # Optional: Customize the trigger phrase (default: @claude)
           # trigger_phrase: "/claude"
-          
+
           # Optional: Trigger when specific user is assigned to an issue
           # assignee_trigger: "claude-bot"
-          
+
           # Allow Claude to run specific commands
           allowed_tools: |
             mcp__github__create_pull_request
@@ -71,7 +73,7 @@ jobs:
             Bash(grep *)
             Bash(ls *)
             WebFetch(domain:docs.anthropic.com)
-          
+
           # Add custom instructions for Claude to customize its behavior for your project
           custom_instructions: |
             For protocol(smart contract) changes always start in the `packages/protocol` directory.
@@ -81,4 +83,3 @@ jobs:
             You MUST open a draft pull request after creating a branch.
             You MUST create a pull request after completing your task.
             You can create pull requests using the `mcp__github__create_pull_request` tool.
-
