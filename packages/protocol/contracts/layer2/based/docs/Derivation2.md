@@ -83,11 +83,11 @@ The `blobSlice` within the proposal is instrumental in pinpointing and validatin
  /// @notice Represents a signed Ethereum transaction
     /// @dev Follows EIP-2718 typed transaction format with EIP-1559 support
     struct SignedTransaction {
-        ... // fields ignore here
+        // Transaction fields omitted for brevity
     }
 
     struct ProverAuth {
-       ... // fields ignore here
+        // Fields omitted for brevity
     }
 
     /// @notice Represents a block manifest
@@ -146,7 +146,7 @@ A default Manifest will be returned in any of the following conditions:
 - `proverAuthBytes` bytes is non-empty but cannot be ABI-decoded into a `ProverAuth` struct.
 - Any block in `manifest.blocks` contains more than `BLOCK_MAX_RAW_TRANSACTIONS` transactions.
 
-The default menifest is one initialized as:
+The default manifest is one initialized as:
 
 ```solidity
 ProposalManifest memory default;
@@ -161,16 +161,16 @@ At this stage, we have an unvalidated `manifest` object, which is used to comput
 
   A crucial piece of metadata is the `timestamp`. The validation of this metadata is performed for all blocks in the proposal collectively, and it may result in altering the number of blocks in the proposal. For each block's timestamp, the following rules are applied:
 
-  - Calculate the lower bound as `lowerBound = max(metadata.timestamp = parent.metadata.timestamp + 1, proposal.originalTimestamp - TIMESTAMP_MAX_OFFSET)`.
+  - Calculate the lower bound as `lowerBound = max(parent.metadata.timestamp + 1, proposal.originTimestamp - TIMESTAMP_MAX_OFFSET)`.
   - If `metadata.timestamp` is smaller than this lower bound, set `metadata.timestamp = lowerBound`.
-  - If `metadata.timestamp` exceeds `proposal.originalTimestamp`, this block and all subsequent blocks are discarded, reducing the total number of blocks in the manifest.
+  - If `metadata.timestamp` exceeds `proposal.originTimestamp`, this block and all subsequent blocks are discarded, reducing the total number of blocks in the manifest.
 
 - **`anchorBlockNumber`**
 
   This is another crucial piece of metadata that must be validated collectively for all blocks, potentially reducing the number of blocks in the manifest. For a block, we set this metadata to 0 if any of the following conditions are met:
 
   - `manifest.blocks[i].anchorBlockNumber` is bigger than `parent.metadata.anchorBlockNumber`.
-  - `manifest.blocks[i].anchorBlockNumber` is not small than `proposal.originBlockNumber`.
+  - `manifest.blocks[i].anchorBlockNumber` is not smaller than `proposal.originBlockNumber`.
 
   If `proposal.isForcedInclusion` is true, we count the number of blocks in the manifest with a non-zero anchor block number. If this count is zero, we assign the default manifest to `manifest`, resulting in a proposal with a single empty block.
 
@@ -199,13 +199,13 @@ At this stage, we have an unvalidated `manifest` object, which is used to comput
 
 - **`gasIssuancePerSecond`**
 
-  Each L2 block can adjust the gas issuance parameter as long as the new value is withi a +/-1 basis point range. Threfore the value is determined as follows:
+  Each L2 block can adjust the gas issuance parameter as long as the new value is within a +/-1 basis point range. Therefore the value is determined as follows:
 
-  - let `lowerBond = parent.metadata.gasIssuancePerSecond * 9999/10000` and `upperBond= parent.metadata.gasIssuancePerSecond * 10001/10000`
-  - if `manefest.blocks[i].gasIssuancePerSecond` is zero, use `parent.metadata.gasIssuancePerSecond`
-  - if `manefest.blocks[i].gasIssuancePerSecond` is smaller than `lowerBond`, use `lowerBond` as the value,
-  - if `manefest.blocks[i].gasIssuancePerSecond` is greater than `upperBond`, use `upperBond` as the value,
-  - otherwise, use `manefest.blocks[i].gasIssuancePerSecond` as is.
+  - let `lowerBound = parent.metadata.gasIssuancePerSecond * 9999/10000` and `upperBound = parent.metadata.gasIssuancePerSecond * 10001/10000`
+  - if `manifest.blocks[i].gasIssuancePerSecond` is zero, use `parent.metadata.gasIssuancePerSecond`
+  - if `manifest.blocks[i].gasIssuancePerSecond` is smaller than `lowerBound`, use `lowerBound` as the value,
+  - if `manifest.blocks[i].gasIssuancePerSecond` is greater than `upperBound`, use `upperBound` as the value,
+  - otherwise, use `manifest.blocks[i].gasIssuancePerSecond` as is.
 
 - Other metadata
   Other metadata assignments are more straightforward.
