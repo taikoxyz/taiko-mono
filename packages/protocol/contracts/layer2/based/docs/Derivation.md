@@ -35,18 +35,18 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ### Block-level Metadata
 
-| **Metadata Component**   | **Description**                                       |
-| ------------------------ | ----------------------------------------------------- |
-| **number**               | The block number                                      |
-| **difficulty**           | A random number seed                                  |
-| **index**                | The zero-based index of the block within the proposal |
-| **timestamp**            | The timestamp of the block                            |
-| **coinbase**             | The coinbase address for the block                    |
-| **gasIssuancePerSecond** | The gas issuance per second for the next block        |
-| **transactions**         | The list of raw transactions included in the block    |
-| **anchorBlockNumber**    | The L1 block number to which this block anchors       |
-| **anchorBlockHash**      | The block hash for the block at anchorBlockNumber     |
-| **anchorStateRoot**      | The state root for the block at anchorBlockNumber     |
+| **Metadata Component** | **Description**                                       |
+| ---------------------- | ----------------------------------------------------- |
+| **number**             | The block number                                      |
+| **difficulty**         | A random number seed                                  |
+| **index**              | The zero-based index of the block within the proposal |
+| **timestamp**          | The timestamp of the block                            |
+| **coinbase**           | The coinbase address for the block                    |
+| **gasLimit**           | The block's gas limit                                 |
+| **transactions**       | The list of raw transactions included in the block    |
+| **anchorBlockNumber**  | The L1 block number to which this block anchors       |
+| **anchorBlockHash**    | The block hash for the block at anchorBlockNumber     |
+| **anchorStateRoot**    | The state root for the block at anchorBlockNumber     |
 
 ## Metadata Preparation
 
@@ -117,9 +117,8 @@ struct BlockManifest {
   /// @notice The anchor block number. This field can be zero, if so, this block will use the
   /// most recent anchor in a previous block.
   uint48 anchorBlockNumber;
-  /// @notice The gas issuance per second for this block. This number can be zero to indicate
-  /// that the gas issuance should be the same as the previous block.
-  uint32 gasIssuancePerSecond;
+  /// @notice The block's gas limit.
+  uint48 gasLimit;
   /// @notice The transactions for this block.
   SignedTransaction[] transactions;
 }
@@ -230,19 +229,19 @@ function assignCoinbase() {
 }
 ```
 
-#### `gasIssuancePerSecond` Validation
+#### `gasLimit` Validation
 
-Gas issuance adjustments are constrained by `MAX_GAS_ISSUANCE_CHANGE_PERMYRIAD` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±0.1 basis points (±0.001%) change per block. Additionally, gas issuance must never fall below `MIN_GAS_ISSUANCE_PER_SECOND`:
+Gas limit adjustments are constrained by `MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±0.1 basis points (±0.001%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
 
 **Calculation process**:
 
 1. **Define bounds**:
 
-   - `lowerBound = max(parent.metadata.gasIssuancePerSecond * (100000 - MAX_GAS_ISSUANCE_CHANGE_PERMYRIAD) / 100000, MIN_GAS_ISSUANCE_PER_SECOND)`
-   - `upperBound = parent.metadata.gasIssuancePerSecond * (100000 + MAX_GAS_ISSUANCE_CHANGE_PERMYRIAD) / 100000`
+   - `lowerBound = max(parent.metadata.gasLimit * (100000 - MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 100000, MIN_BLOCK_GAS_LIMIT)`
+   - `upperBound = parent.metadata.gasLimit * (100000 + MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 100000`
 
 2. **Apply constraints**:
-   - If `manifest.blocks[i].gasIssuancePerSecond == 0`: Inherit parent value
+   - If `manifest.blocks[i].gasLimit == 0`: Inherit parent value
    - If below `lowerBound`: Clamp to `lowerBound`
    - If above `upperBound`: Clamp to `upperBound`
    - Otherwise: Use manifest value unchanged
@@ -282,19 +281,18 @@ The validated metadata serves three critical functions in block construction:
 
 Metadata encoding into L2 block header fields facilitates efficient peer validation and statistical analysis:
 
-| Metadata Component     | Type    | Header Field                  |
-| ---------------------- | ------- | ----------------------------- |
-| `number`               | uint256 | `number`                      |
-| `timestamp`            | uint256 | `timestamp`                   |
-| `difficulty`           | uint256 | `difficulty`                  |
-| `gasLimit`             | uint256 | `BLOCK_GAS_LIMIT`             |
-| `id`                   | uint48  | `withdrawalsRoot` (bytes TBD) |
-| `numBlocks`            | uint16  | `withdrawalsRoot` (bytes TBD) |
-| `isForcedInclusion`    | bool    | `withdrawalsRoot` (bytes TBD) |
-| `index`                | uint16  | `withdrawalsRoot` (bytes TBD) |
-| `basefeeSharingPctg`   | uint8   | First byte in `extraData`     |
-| `gasIssuancePerSecond` | uint32  | Next 4 bytes in `extraData`   |
-| `anchorBlockNumber `   | uint48  | Next 6 bytes in `extraData`   |
+| Metadata Component   | Type    | Header Field                  |
+| -------------------- | ------- | ----------------------------- |
+| `number`             | uint256 | `number`                      |
+| `timestamp`          | uint256 | `timestamp`                   |
+| `difficulty`         | uint256 | `difficulty`                  |
+| `gasLimit`           | uint256 | `gasLimit`                    |
+| `id`                 | uint48  | `withdrawalsRoot` (bytes TBD) |
+| `numBlocks`          | uint16  | `withdrawalsRoot` (bytes TBD) |
+| `isForcedInclusion`  | bool    | `withdrawalsRoot` (bytes TBD) |
+| `index`              | uint16  | `withdrawalsRoot` (bytes TBD) |
+| `basefeeSharingPctg` | uint8   | First byte in `extraData`     |
+| `anchorBlockNumber ` | uint48  | Next 6 bytes in `extraData`   |
 
 #### Additional Pre-Execution Block Header Fields
 
@@ -356,3 +354,9 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 ### Transaction Execution
 
 ## Base Fee Calculation
+
+The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification).
+
+```
+
+```
