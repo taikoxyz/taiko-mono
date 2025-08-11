@@ -18,7 +18,35 @@ import { LibDecoder } from "../libs/LibDecoder.sol";
 /// @notice Base implementation for managing L2 proposals, proofs, and verification
 /// @dev Provides a simpler baseline implementation without slot optimization
 /// @custom:security-contact security@taiko.xyz
-
+///
+/// Gas Analysis (assuming ring buffer reuse, 1 claim per proposal, bonds on L2, no forced
+/// inclusion):
+/// ┌─────────────────────────────────────────────────────────────────────────────┐
+/// │ Operation: propose() with n finalizations                                   │
+/// ├─────────────────────────────────────────────────────────────────────────────┤
+/// │ SLOAD Operations:                                                           │
+/// │ - Read coreStateHash: 1                                                     │
+/// │ - Per finalization (n times):                                               │
+/// │   - Read claim record hash from mapping: 1                                  │
+/// │ Total SLOADs: 1 + n*1                                                       │
+/// ├─────────────────────────────────────────────────────────────────────────────┤
+/// │ SSTORE Operations:                                                          │
+/// │ - Update coreStateHash (non-zero->non-zero): 1                              │
+/// │ - Store proposal hash (non-zero->non-zero): 1                               │
+/// │ Total SSTOREs: 2                                                            │
+/// └─────────────────────────────────────────────────────────────────────────────┘
+/// ┌─────────────────────────────────────────────────────────────────────────────┐
+/// │ Operation: prove() for 1 proposal                                           │
+/// ├─────────────────────────────────────────────────────────────────────────────┤
+/// │ SLOAD Operations:                                                           │
+/// │ - Read proposal hash for verification: 1                                    │
+/// │ Total SLOADs: 1                                                             │
+/// ├─────────────────────────────────────────────────────────────────────────────┤
+/// │ SSTORE Operations:                                                          │
+/// │ - Store claim record hash (0->non-zero): 1                                  │
+/// │ Total SSTOREs: 1                                                            │
+/// └─────────────────────────────────────────────────────────────────────────────┘
+///
 abstract contract InboxBase is EssentialContract, IInbox {
     using LibDecoder for bytes;
     using SafeERC20 for IERC20;

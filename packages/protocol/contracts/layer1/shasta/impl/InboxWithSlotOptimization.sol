@@ -7,6 +7,23 @@ import { InboxBase } from "./InboxBase.sol";
 /// @notice Optimized inbox implementation with storage slot optimization for claim records
 /// @dev Extends InboxBase with optimized storage patterns for gas efficiency
 /// @custom:security-contact security@taiko.xyz
+///
+/// Gas Analysis (assuming ring buffer reuse, 1 claim per proposal, bonds on L2, no forced
+/// inclusion):
+/// ┌─────────────────────────────────────────────────────────────────────────────┐
+/// │ Operation: prove() for 1 proposal (first claim)                             │
+/// ├─────────────────────────────────────────────────────────────────────────────┤
+/// │ SLOAD Operations:                                                           │
+/// │ - Read proposal hash for verification: 1                                    │
+/// │ - Check default slot (empty): 1                                             │
+/// │ Total SLOADs: 2                                                             │
+/// ├─────────────────────────────────────────────────────────────────────────────┤
+/// │ SSTORE Operations:                                                          │
+/// │ - Store in default slot:                                                    │
+/// │   - Subsequent (non-zero->non-zero): 1                                      │
+/// │ Total SSTOREs: 1                                                            │
+/// └─────────────────────────────────────────────────────────────────────────────┘
+///
 abstract contract InboxWithSlotOptimization is InboxBase {
     // ---------------------------------------------------------------
     // Constructor
@@ -92,13 +109,8 @@ abstract contract InboxWithSlotOptimization is InboxBase {
         if (defaultValue != bytes32(0)) {
             // Check if this specific parent hash has a claim
             bytes32 specificValue = proposalRecord.claimHashLookup[_parentClaimHash];
-            if (specificValue != bytes32(0)) {
-                // Multiple claims case - return the specific one
-                return specificValue;
-            }
-            // Single claim case - return the default
-            // Note: This assumes the parent claim hash matches, which is true for sequential claims
-            return defaultValue;
+
+            return specificValue == 0 ? defaultValue : specificValue;
         }
 
         // No default value, check regular mapping
