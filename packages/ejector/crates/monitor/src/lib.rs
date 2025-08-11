@@ -12,14 +12,14 @@ use std::{
 use tokio::{
     sync::Mutex,
     time::{interval, sleep},
-}; // <- include sleep
+};
 use tracing::{debug, error, info, warn};
 
 use ::beacon::BeaconClient;
 use ::bindings::TaikoWrapper;
 use ::utils::{
     eject::eject_operator,
-    lookahead::{Lookahead, Responsibility, responsibility_for_slot},
+    lookahead::{Responsibility, responsibility_for_slot},
 };
 
 pub struct Monitor {
@@ -35,6 +35,7 @@ pub struct Monitor {
 }
 
 impl Monitor {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         beacon_client: BeaconClient,
         l1_signer: alloy::signers::local::PrivateKeySigner,
