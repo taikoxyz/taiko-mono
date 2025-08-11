@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
 
 /// @title SyncedBlockManager
@@ -9,7 +10,7 @@ import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
 /// When the buffer is full, new blocks overwrite the oldest entries. The contract
 /// ensures blocks are saved in strictly increasing order by block number.
 /// @custom:security-contact security@taiko.xyz
-contract SyncedBlockManager is ISyncedBlockManager {
+contract SyncedBlockManager is EssentialContract, ISyncedBlockManager {
     // -------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------
@@ -33,30 +34,28 @@ contract SyncedBlockManager is ISyncedBlockManager {
     /// @dev Maps slot indices (0 to maxStackSize-1) to synced block data
     mapping(uint48 slot => SyncedBlock syncedBlock) private _syncedBlocks;
 
-    // -------------------------------------------------------------------
-    // Modifiers
-    // -------------------------------------------------------------------
-
-    /// @notice Ensures only the authorized contract can call the function
-    modifier onlyAuthorized() {
-        require(msg.sender == authorized, Unauthorized());
-        _;
-    }
+    uint256[48] private __gap;
 
     // -------------------------------------------------------------------
-    // Constructor
+    // Constructor and Initializer
     // -------------------------------------------------------------------
 
     /// @notice Initializes the SyncedBlockManager with the authorized address and ring buffer size
     /// @param _authorized The address of the authorized contract. On L1, this shall be the inbox,
     /// on L2, this shall be the anchor transactor.
     /// @param _maxStackSize The size of the ring buffer
-    constructor(address _authorized, uint48 _maxStackSize) {
+    constructor(address _authorized, uint48 _maxStackSize) EssentialContract() {
         require(_authorized != address(0), InvalidAddress());
         require(_maxStackSize != 0, InvalidMaxStackSize());
 
         authorized = _authorized;
         maxStackSize = _maxStackSize;
+    }
+
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
     }
 
     // -------------------------------------------------------------------
@@ -70,7 +69,7 @@ contract SyncedBlockManager is ISyncedBlockManager {
         bytes32 _stateRoot
     )
         external
-        onlyAuthorized
+        onlyFrom(authorized)
     {
         // Validate all fields
         require(_stateRoot != 0, InvalidSyncedBlock());
