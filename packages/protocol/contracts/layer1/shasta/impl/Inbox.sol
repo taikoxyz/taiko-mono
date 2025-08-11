@@ -4,15 +4,15 @@ pragma solidity ^0.8.24;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
-import { IBondManager as IShastaBondManager } from "contracts/shared/based/iface/IBondManager.sol";
+import { IBondManager } from "contracts/shared/based/iface/IBondManager.sol";
 import { ISyncedBlockManager } from "contracts/shared/based/iface/ISyncedBlockManager.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibDecoder } from "../libs/LibDecoder.sol";
 import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.sol";
+import { LibDecoder } from "../libs/LibDecoder.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
@@ -127,9 +127,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(_isForkActive(config), ForkNotActive());
         IProposerChecker(config.proposerChecker).checkProposer(msg.sender);
         require(
-            IShastaBondManager(config.bondManager).getBondBalance(msg.sender)
-                >= config.minBondBalance,
-            InsufficientBond()
+            IBondManager(config.bondManager).hasSufficientBond(msg.sender, 0),
+            ProposerBondInsufficient()
         );
 
         (
@@ -203,12 +202,6 @@ abstract contract Inbox is EssentialContract, IInbox {
         IERC20(config.bondToken).safeTransfer(msg.sender, amount);
 
         emit BondWithdrawn(msg.sender, amount);
-    }
-
-    /// @notice Gets the hash of the core state.
-    /// @return coreStateHash_ The hash of the current core state.
-    function getCoreStateHash() public view returns (bytes32 coreStateHash_) {
-        coreStateHash_ = coreStateHash;
     }
 
     /// @notice Gets the proposal hash for a given proposal ID.
@@ -606,17 +599,17 @@ abstract contract Inbox is EssentialContract, IInbox {
             return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
         }
 
-        IShastaBondManager bondManager = IShastaBondManager(_config.bondManager);
+        IBondManager bondManager = IBondManager(_config.bondManager);
 
         if (_claimRecord.bondDecision == BondDecision.L1SlashLivenessRewardProver) {
-            bondManager.debitBond(_claimRecord.proposer, _claimRecord.livenessBondGwei);
+            bondManager.debitBond(_claimRecord.proposer, uint96(_claimRecord.livenessBondGwei));
             bondManager.creditBond(
-                claim.actualProver, _claimRecord.livenessBondGwei / REWARD_FRACTION
+                claim.actualProver, uint96(_claimRecord.livenessBondGwei / REWARD_FRACTION)
             );
         } else if (_claimRecord.bondDecision == BondDecision.L1SlashProvabilityRewardProver) {
-            bondManager.debitBond(_claimRecord.proposer, _claimRecord.provabilityBondGwei);
+            bondManager.debitBond(_claimRecord.proposer, uint96(_claimRecord.provabilityBondGwei));
             bondManager.creditBond(
-                claim.actualProver, _claimRecord.provabilityBondGwei / REWARD_FRACTION
+                claim.actualProver, uint96(_claimRecord.provabilityBondGwei / REWARD_FRACTION)
             );
         }
         return _bondOperationsHash;
@@ -642,6 +635,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     error InvalidState();
     error NoBondToWithdraw();
     error ProposalHashMismatch();
+    error ProposerBondInsufficient();
     error RingBufferSizeZero();
     error Unauthorized();
 }

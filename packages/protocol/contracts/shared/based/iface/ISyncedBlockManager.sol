@@ -6,6 +6,20 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 interface ISyncedBlockManager {
     // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
+
+    /// @notice Represents a synced lock
+    struct SyncedBlock {
+        /// @notice The block hash
+        bytes32 blockHash;
+        /// @notice The state root
+        bytes32 stateRoot;
+        /// @notice The block number
+        uint48 blockNumber;
+    }
+
+    // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
 
