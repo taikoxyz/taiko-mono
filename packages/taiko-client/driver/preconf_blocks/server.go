@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -674,16 +675,24 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 						s.blockRequestsCache.Add(currentPayload.Payload.ParentHash, struct{}{})
 					}
 				}
-				if s.latestSeenProposal != nil {
-					tip := s.latestSeenProposal.Pacaya().GetLastBlockID()
-					if tip >= requestSyncMargin && parentNum <= tip-requestSyncMargin {
-						log.Debug("Skipping request for very old block",
-							"tip", tip,
-							"margin", requestSyncMargin,
-						)
-					} else {
-						publishRequest()
-					}
+				// Try get the highest block ID from the Pacaya protocol state variables.
+				stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+				if err != nil {
+					return err
+				}
+
+				batch, err := s.rpc.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
+				if err != nil {
+					return err
+				}
+
+				tip := batch.LastBlockId // last block ID proposed on chain
+
+				if tip >= requestSyncMargin && parentNum <= tip-requestSyncMargin {
+					log.Debug("Skipping request for very old block",
+						"tip", tip,
+						"margin", requestSyncMargin,
+					)
 				} else {
 					publishRequest()
 				}
