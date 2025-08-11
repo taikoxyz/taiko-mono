@@ -20,16 +20,17 @@ contract InboxProposeBasic is ShastaInboxTestBase {
         inbox.exposed_setCoreStateHash(initialCoreStateHash);
         
         // Setup mocks
-        mockProposerAllowed(Alice);
-        mockHasSufficientBond(Alice, true);
-        mockForcedInclusionDue(false);
+        setupStandardProposerMocks(Alice);
         
         // Create proposal data
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(1);
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
         bytes memory data = encodeProposeProposeData(coreState, blobRef, claimRecords);
         
-        // Expected proposal
+        // Expected proposal with correct blob hash
+        bytes32[] memory expectedBlobHashes = new bytes32[](1);
+        expectedBlobHashes[0] = keccak256(abi.encode("blob", uint256(1)));  // blobRef uses index 1
+        
         IInbox.Proposal memory expectedProposal = IInbox.Proposal({
             id: 1,
             proposer: Alice,
@@ -40,7 +41,7 @@ contract InboxProposeBasic is ShastaInboxTestBase {
             provabilityBondGwei: DEFAULT_PROVABILITY_BOND,
             livenessBondGwei: DEFAULT_LIVENESS_BOND,
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: new bytes32[](1),
+                blobHashes: expectedBlobHashes,
                 offset: 0,
                 timestamp: uint48(block.timestamp)
             })
@@ -116,11 +117,11 @@ contract InboxProposeBasic is ShastaInboxTestBase {
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
         
         // Setup mocks
-        mockProposerAllowed(Alice);
-        mockHasSufficientBond(Alice, true);
-        mockForcedInclusionDue(false);
+        setupStandardProposerMocks(Alice);
         
         // Create blob reference with specific values
+        // Note: We need to mock the blob hash for index 1
+        mockBlobHash(1, keccak256(abi.encode("blob", 1)));
         LibBlobs.BlobReference memory blobRef = LibBlobs.BlobReference({
             blobStartIndex: 1,
             numBlobs: 1,
@@ -167,10 +168,14 @@ contract InboxProposeBasic is ShastaInboxTestBase {
         // Get emitted logs
         Vm.Log[] memory logs = vm.getRecordedLogs();
         
-        // Find Proposed event (should be the last one)
+        // Find Proposed event - using the actual event signature from the logs
+        // The event signature for Proposed(Proposal,CoreState) is the first topic
+        bytes32 proposedEventSig = keccak256("Proposed((uint48,address,uint48,uint48,bool,uint8,uint48,uint48,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32))");
+        
         bool foundEvent = false;
         for (uint i = 0; i < logs.length; i++) {
-            if (logs[i].topics[0] == keccak256("Proposed(IInbox.Proposal,IInbox.CoreState)")) {
+            // Check if this is a Proposed event
+            if (logs[i].topics[0] == proposedEventSig) {
                 foundEvent = true;
                 // Decode and verify event data
                 (IInbox.Proposal memory emittedProposal, IInbox.CoreState memory emittedCoreState) = 

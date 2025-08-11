@@ -39,7 +39,9 @@ contract InboxProposeForcedInclusion is ShastaInboxTestBase {
         uint proposedEventCount = 0;
         
         for (uint i = 0; i < logs.length; i++) {
-            if (logs[i].topics[0] == keccak256("Proposed(IInbox.Proposal,IInbox.CoreState)")) {
+            // The event signature for Proposed(Proposal,CoreState)
+            bytes32 proposedEventSig = keccak256("Proposed((uint48,address,uint48,uint48,bool,uint8,uint48,uint48,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32))");
+            if (logs[i].topics[0] == proposedEventSig) {
                 proposedEventCount++;
                 (IInbox.Proposal memory emittedProposal,) = 
                     abi.decode(logs[i].data, (IInbox.Proposal, IInbox.CoreState));
@@ -114,6 +116,10 @@ contract InboxProposeForcedInclusion is ShastaInboxTestBase {
         mockForcedInclusionDue(true);
         mockConsumeForcedInclusion(Carol);
         
+        // Mock blob hashes for indices 1 and 2 since we're using numBlobs: 2
+        mockBlobHash(1, keccak256(abi.encode("blob", 1)));
+        mockBlobHash(2, keccak256(abi.encode("blob", 2)));
+        
         // Create a large regular proposal
         LibBlobs.BlobReference memory blobRef = LibBlobs.BlobReference({
             blobStartIndex: 1,
@@ -174,7 +180,9 @@ contract InboxProposeForcedInclusion is ShastaInboxTestBase {
         uint proposedEventCount = 0;
         
         for (uint i = 0; i < logs.length; i++) {
-            if (logs[i].topics[0] == keccak256("Proposed(IInbox.Proposal,IInbox.CoreState)")) {
+            // The event signature for Proposed(Proposal,CoreState)
+            bytes32 proposedEventSig = keccak256("Proposed((uint48,address,uint48,uint48,bool,uint8,uint48,uint48,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32))");
+            if (logs[i].topics[0] == proposedEventSig) {
                 proposedEventCount++;
                 (IInbox.Proposal memory emittedProposal,) = 
                     abi.decode(logs[i].data, (IInbox.Proposal, IInbox.CoreState));
@@ -211,7 +219,7 @@ contract InboxProposeForcedInclusion is ShastaInboxTestBase {
                 blobSlice: LibBlobs.BlobSlice({
                     blobHashes: blobHashes,
                     offset: 100,
-                    timestamp: uint48(block.timestamp - 1 hours)
+                    timestamp: uint48(block.timestamp > 1 hours ? block.timestamp - 1 hours : 0)
                 })
             });
         
@@ -240,14 +248,16 @@ contract InboxProposeForcedInclusion is ShastaInboxTestBase {
         Vm.Log[] memory logs = vm.getRecordedLogs();
         
         for (uint i = 0; i < logs.length; i++) {
-            if (logs[i].topics[0] == keccak256("Proposed(IInbox.Proposal,IInbox.CoreState)")) {
+            // The event signature for Proposed(Proposal,CoreState)
+            bytes32 proposedEventSig = keccak256("Proposed((uint48,address,uint48,uint48,bool,uint8,uint48,uint48,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32))");
+            if (logs[i].topics[0] == proposedEventSig) {
                 (IInbox.Proposal memory emittedProposal,) = 
                     abi.decode(logs[i].data, (IInbox.Proposal, IInbox.CoreState));
                 
                 if (emittedProposal.isForcedInclusion) {
                     assertEq(emittedProposal.blobSlice.blobHashes[0], keccak256("forced_blob"));
                     assertEq(emittedProposal.blobSlice.offset, 100);
-                    assertEq(emittedProposal.blobSlice.timestamp, uint48(block.timestamp - 1 hours));
+                    assertEq(emittedProposal.blobSlice.timestamp, uint48(block.timestamp > 1 hours ? block.timestamp - 1 hours : 0));
                     break;
                 }
             }

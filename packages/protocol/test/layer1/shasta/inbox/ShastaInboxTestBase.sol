@@ -112,6 +112,53 @@ abstract contract ShastaInboxTestBase is CommonTest {
     // Helper Functions for Mocking with Foundry
     // -------------------------------------------------------------------
     
+    /// @notice Setup standard mocks for a valid proposer
+    /// @dev Commonly used combination of mocks for testing proposals
+    function setupStandardProposerMocks(address _proposer) internal {
+        mockProposerAllowed(_proposer);
+        mockHasSufficientBond(_proposer, true);
+        mockForcedInclusionDue(false);
+    }
+    
+    /// @notice Setup standard mocks for a valid proposer with forced inclusion
+    function setupForcedInclusionProposerMocks(address _proposer) internal {
+        mockProposerAllowed(_proposer);
+        mockHasSufficientBond(_proposer, true);
+        mockForcedInclusionDue(true);
+        mockConsumeForcedInclusion(_proposer);
+    }
+    
+    /// @notice Get the correct event signature for Proposed event
+    function getProposedEventSignature() internal pure returns (bytes32) {
+        return keccak256("Proposed((uint48,address,uint48,uint48,bool,uint8,uint48,uint48,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32))");
+    }
+    
+    /// @notice Count Proposed events in logs
+    function countProposedEvents(Vm.Log[] memory logs) internal pure returns (uint) {
+        bytes32 eventSig = getProposedEventSignature();
+        uint count = 0;
+        for (uint i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == eventSig) {
+                count++;
+            }
+        }
+        return count;
+    }
+    
+    /// @notice Create standard proposal data for testing
+    function createStandardProposalData(
+        IInbox.CoreState memory _coreState,
+        uint256 _blobSeed
+    ) internal returns (bytes memory) {
+        LibBlobs.BlobReference memory blobRef = createValidBlobReference(_blobSeed);
+        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
+        return encodeProposeProposeData(_coreState, blobRef, claimRecords);
+    }
+    
+    // -------------------------------------------------------------------
+    // Original Helper Functions for Mocking with Foundry
+    // -------------------------------------------------------------------
+    
     /// @notice Mock a successful proposer check
     function mockProposerAllowed(address _proposer) internal {
         vm.mockCall(
@@ -350,9 +397,15 @@ abstract contract ShastaInboxTestBase is CommonTest {
     }
     
     /// @notice Creates a valid blob reference
-    function createValidBlobReference(uint256 _seed) internal pure returns (LibBlobs.BlobReference memory) {
+    function createValidBlobReference(uint256 _seed) internal returns (LibBlobs.BlobReference memory) {
+        // Always use index 0-9 which are already mocked in setupDefaultBlobHashes
+        uint48 index = uint48(_seed % 10);
+        
+        // Ensure the blob hash is mocked for this index
+        mockBlobHash(index, keccak256(abi.encode("blob", index)));
+        
         return LibBlobs.BlobReference({
-            blobStartIndex: uint48(_seed),
+            blobStartIndex: index,
             numBlobs: 1,
             offset: 0
         });
@@ -364,11 +417,6 @@ abstract contract ShastaInboxTestBase is CommonTest {
 contract TestInbox is Inbox {
     IInbox.Config private _config;
     
-    // Override the constructor to not call parent constructor that disables initializers
-    // This allows us to call init() in tests
-    constructor() {
-        // Intentionally empty - don't call parent constructor
-    }
     
     function setConfig(IInbox.Config memory _newConfig) external {
         _config = _newConfig;

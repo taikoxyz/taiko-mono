@@ -171,9 +171,10 @@ contract InboxRingBuffer is ShastaInboxTestBase {
         inbox.propose(bytes(""), data5);
     }
     
-    /// @notice Test that finalized proposals can be overwritten
-    /// @dev Verifies that once a proposal is finalized, its slot can be reused
-    /// Expected behavior: Finalized proposal slots are available for new proposals
+    /// @notice Test that the LAST finalized proposal cannot be overwritten
+    /// @dev Verifies that the last finalized proposal is protected from overwriting
+    ///      to maintain chain integrity. Only older finalized proposals can be overwritten.
+    /// Expected behavior: Attempting to overwrite the last finalized proposal fails
     function test_ring_buffer_overwrite_finalized() public {
         // Set small buffer
         IInbox.Config memory config = defaultConfig;
@@ -217,8 +218,15 @@ contract InboxRingBuffer is ShastaInboxTestBase {
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
         
-        // Now proposal 1 is finalized, its slot (1 % 3 = 1) can be reused
-        // Create proposal 4 which should use slot 1 (4 % 3 = 1)
+        // After this, we have:
+        // - Proposal 1: finalized (but it's the LAST finalized, so protected)
+        // - Proposal 2: unfinalized
+        // - nextProposalId = 3, lastFinalizedProposalId = 1
+        
+        // Now trying to create proposal 4 would exceed capacity because:
+        // - We can't overwrite proposal 1 (last finalized)
+        // - We can't overwrite proposal 2 (unfinalized)
+        // - 4 - 1 = 3, but capacity is only 2
         coreState = createCoreState(4, 1); // nextId=4, lastFinalized=1
         coreState.lastFinalizedClaimHash = keccak256(abi.encode(claim));
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
@@ -231,15 +239,10 @@ contract InboxRingBuffer is ShastaInboxTestBase {
         claimRecords = new IInbox.ClaimRecord[](0);
         data = encodeProposeProposeData(coreState, blobRef, claimRecords);
         
+        // This should revert because it would exceed capacity
+        vm.expectRevert(abi.encodeWithSignature("ExceedsUnfinalizedProposalCapacity()"));
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
-        
-        // Verify proposal 4 is stored in slot 1
-        bytes32 proposalHash4 = inbox.getProposalHash(4);
-        assertTrue(proposalHash4 != bytes32(0));
-        
-        // Verify proposal 1's hash was overwritten (same slot)
-        assertEq(inbox.getProposalHash(1), proposalHash4);
     }
     
     /// @notice Test protection of unfinalized proposals from overwrite
