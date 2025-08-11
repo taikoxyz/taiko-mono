@@ -44,7 +44,7 @@ var (
 	wsUpgrader             = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 )
 
-const requestSyncMargin = uint64(64) // Margin for requesting sync, to avoid requesting very old blocks.
+const requestSyncMargin = uint64(128) // Margin for requesting sync, to avoid requesting very old blocks.
 
 // preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
 type preconfBlockChainSyncer interface {
