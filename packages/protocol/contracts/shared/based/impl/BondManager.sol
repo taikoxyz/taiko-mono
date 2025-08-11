@@ -23,7 +23,7 @@ contract BondManager is EssentialContract, IBondManager {
     IERC20 public immutable bondToken;
 
     /// @notice Minimum bond required on L1 (in gwei)
-    uint96 public immutable minBond;
+    uint256 public immutable minBond;
 
     /// @notice Time delay required before withdrawal after request
     /// @dev WARNING: In theory operations can remain unfinalized indefinitely, but in practice
@@ -49,7 +49,7 @@ contract BondManager is EssentialContract, IBondManager {
     constructor(
         address _authorized,
         address _bondToken,
-        uint96 _minBond,
+        uint256 _minBond,
         uint48 _withdrawalDelay
     )
         EssentialContract()
