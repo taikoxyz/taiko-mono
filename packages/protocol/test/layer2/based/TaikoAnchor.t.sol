@@ -26,7 +26,13 @@ contract TestTaikoAnchor is Layer2Test {
         anchor = deployAnchor(
             address(
                 new TaikoAnchor_NoBaseFeeCheck(
-                    livenessBondGwei, provabilityBondGwei, address(signalService), 0, 0
+                    livenessBondGwei,
+                    provabilityBondGwei,
+                    address(signalService),
+                    0,
+                    0,
+                    address(0), // syncedBlockManager
+                    address(0) // bondManager
                 )
             ),
             ethereumChainId

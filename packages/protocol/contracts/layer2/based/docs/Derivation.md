@@ -141,7 +141,7 @@ A default Manifest will be returned in any of the following conditions:
 - `blobHashes.length` is either zero or exceeds `PROPOSAL_MAX_BLOBS`.
 - `offset` is greater than `4096 * 32 * blobHashes.length - 64`.
 - The version number is not `0x1`.
-- `size` exceeds `PROPOSAL_MAX_BYTE_SIZE`.
+- `size` exceeds `PROPOSAL_MAX_BYTES`.
 - ZLIB-decompression fails.
 - RLP-decoding fails.
 - `manifest.blocks.length` exceeds `PROPOSAL_MAX_BLOCKS`.
@@ -173,6 +173,7 @@ At this stage, we have an unvalidated `manifest` object, which is used to comput
 
   - `manifest.blocks[i].anchorBlockNumber` is bigger than `parent.metadata.anchorBlockNumber`.
   - `manifest.blocks[i].anchorBlockNumber` is not smaller than `proposal.originBlockNumber`.
+  - `manifest.blocks[i].anchorBlockNumber` is smaller than `proposal.originBlockNumber - ANCHOR_MAX_OFFSET`.
 
   If `proposal.isForcedInclusion` is true, we count the number of blocks in the manifest with a non-zero anchor block number. If this count is zero, we assign the default manifest to `manifest`, resulting in a proposal with a single empty block.
 

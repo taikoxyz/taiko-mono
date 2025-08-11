@@ -108,7 +108,9 @@ contract DeployPacayaL2 is DeployCapability {
                 provabilityBondGwei,
                 signalService,
                 pacayaForkHeight,
-                shastaForkHeight
+                shastaForkHeight,
+                address(0), // syncedBlockManager - to be set later
+                address(0) // bondManager - to be set later
             )
         );
         console2.log("taikoAnchor", taikoAnchorImpl);

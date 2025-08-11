@@ -236,9 +236,10 @@ abstract contract ShastaAnchor is PacayaAnchor {
         if (signer == address(0) || signer != _proposer) return _proposer;
 
         // Check if signer has sufficient bond balance
-        // TODO: fix minBondBalance
-        uint256 minBondBalance = provabilityBondGwei + livenessBondGwei + proverAuth.provingFeeGwei;
-        if (bondManager.getBondBalance(signer) < minBondBalance) return _proposer;
+        uint256 minBondBalance = provabilityBondGwei + livenessBondGwei;
+        if (bondManager.getBondBalance(signer) < minBondBalance + proverAuth.provingFeeGwei) {
+            return _proposer;
+        }
 
         // Debit the required bonds from the designated prover
         bondManager.debitBond(signer, proverAuth.provingFeeGwei);

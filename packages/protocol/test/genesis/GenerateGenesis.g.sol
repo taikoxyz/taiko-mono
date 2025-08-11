@@ -13,7 +13,7 @@ import "src/shared/tokenvault/BridgedERC20.sol";
 import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/signal/SignalService.sol";
-import "src/layer2/based/anchor/TaikoAnchor.sol";
+import "src/layer2/based/TaikoAnchor.sol";
 import "../shared/helpers/RegularERC20.sol";
 
 contract TestGenerateGenesis is Test {
@@ -126,9 +126,13 @@ contract TestGenerateGenesis is Test {
         taikoAnchorProxy.upgradeTo(
             address(
                 new TaikoAnchor(
+                    10_000_000, // livenessBondGwei
+                    10_000_000, // provabilityBondGwei
                     getPredeployedContractAddress("SignalService"),
                     uint64(pacayaForkHeight),
-                    uint64(shastaForkHeight)
+                    uint64(shastaForkHeight),
+                    address(0), // syncedBlockManager - to be set later
+                    address(0) // bondManager - to be set later
                 )
             )
         );
