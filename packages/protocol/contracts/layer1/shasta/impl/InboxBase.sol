@@ -110,7 +110,7 @@ abstract contract InboxBase is EssentialContract, IInbox {
     }
 
     // ---------------------------------------------------------------
-    // External & Public Functions
+    // External Functions
     // ---------------------------------------------------------------
 
     /// @inheritdoc IInbox
@@ -205,6 +205,10 @@ abstract contract InboxBase is EssentialContract, IInbox {
 
         emit BondWithdrawn(msg.sender, amount);
     }
+
+    // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
 
     /// @notice Gets the proposal hash for a given proposal ID.
     /// @param _proposalId The proposal ID to look up.
