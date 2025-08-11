@@ -22,7 +22,9 @@
       "Bash(git mv:*)",
       "Bash(rmdir:*)",
       "Bash(mv:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(pnpm compile:l2:*)"
     ],
     "deny": []
   }

@@ -606,7 +606,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         } else if (_claimRecord.bondDecision == BondDecision.L2SlashLivenessRewardProver) {
             bondOperation = LibBondOperation.BondOperation({
                 proposalId: _proposalId,
-                creditAmountGwei: _claimRecord.livenessBondGwei / REWARD_FRACTION,
+                creditAmountGwei: uint48(_claimRecord.livenessBondGwei / REWARD_FRACTION),
                 creditTo: claim.actualProver,
                 debitAmountGwei: _claimRecord.livenessBondGwei,
                 debitFrom: claim.designatedProver

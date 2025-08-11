@@ -44,6 +44,7 @@ contract MainnetInbox is Inbox {
             minBondBalance: 0,
             maxFinalizationCount: 16,
             ringBufferSize: 2400,
+            basefeeSharingPctg: 0,
             bondManager: address(0),
             syncedBlockManager: address(0),
             proofVerifier: address(0),
