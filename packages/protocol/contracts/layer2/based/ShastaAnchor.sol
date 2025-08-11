@@ -185,7 +185,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
             require(_anchorStateRoot == 0, NonZeroAnchorStateRoot());
         }
 
-        // Keep track of the parent block hash for future reference, this logic also guarantess
+        // Keep track of the parent block hash for future reference, this logic also guarantees
         // setState cannot be called twice for the same block.
         uint256 parentId = block.number - 1;
         require(_blockhashes[parentId] == 0, BlockHashAlreadySet());
