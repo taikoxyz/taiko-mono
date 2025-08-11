@@ -2,8 +2,8 @@
 pragma solidity ^0.8.24;
 
 import { CommonTest } from "../CommonTest.sol";
-import { SyncedBlockManager } from "contracts/shared/shasta/impl/SyncedBlockManager.sol";
-import { ISyncedBlockManager } from "contracts/shared/shasta/iface/ISyncedBlockManager.sol";
+import { SyncedBlockManager } from "contracts/shared/based/impl/SyncedBlockManager.sol";
+import { ISyncedBlockManager } from "contracts/shared/based/iface/ISyncedBlockManager.sol";
 
 /// @custom:security-contact security@taiko.xyz
 contract SyncedBlockManagerTest is CommonTest {

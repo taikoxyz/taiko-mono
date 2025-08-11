@@ -4,14 +4,14 @@ pragma solidity ^0.8.24;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
-import { IBondManagerL1 } from "../iface/IBondManagerL1.sol";
-import { ISyncedBlockManager } from "contracts/shared/shasta/iface/ISyncedBlockManager.sol";
+import { IBondManager } from "contracts/shared/based/iface/IBondManager.sol";
+import { ISyncedBlockManager } from "contracts/shared/based/iface/ISyncedBlockManager.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../lib/LibBlobs.sol";
-import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
+import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.sol";
 import { LibDecoder } from "../lib/LibDecoder.sol";
 
 /// @title ShastaInbox
@@ -126,7 +126,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         Config memory config = getConfig();
         require(_isForkActive(config), ForkNotActive());
         IProposerChecker(config.proposerChecker).checkProposer(msg.sender);
-        require(IBondManager(config.bondManager).isProposerActive(msg.sender), ProposerNotActive());
+        require(
+            IBondManager(config.bondManager).hasSufficientBond(msg.sender, 0),
+            ProposerBondInsufficient()
+        );
 
         (
             CoreState memory coreState,
@@ -703,11 +706,11 @@ abstract contract Inbox is EssentialContract, IInbox {
             // Forfeit their liveness bond but reward the actual prover with half
             IBondManager(_cfg.bondManager).debitBond(_claimRecord.proposer, livenessBondWei);
             IBondManager(_cfg.bondManager).creditBond(
-                claim.actualProver, livenessBondWei / REWARD_FRACTION
+                claim.actualProver, uint96(livenessBondWei / REWARD_FRACTION)
             );
         } else if (_claimRecord.bondDecision == BondDecision.L2RewardProver) {
             // Reward the actual prover with half of the liveness bond on L2
-            bondOperation.credit = livenessBondWei / REWARD_FRACTION;
+            bondOperation.credit = uint96(livenessBondWei / REWARD_FRACTION);
             bondOperation.receiver = claim.actualProver;
         } else if (
             _claimRecord.bondDecision == BondDecision.L1SlashProvabilityRewardProverL2RefundLiveness
@@ -716,7 +719,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             // Block was difficult to prove, forfeit provability bond but reward prover
             IBondManager(_cfg.bondManager).debitBond(_claimRecord.proposer, provabilityBondWei);
             IBondManager(_cfg.bondManager).creditBond(
-                claim.actualProver, provabilityBondWei / REWARD_FRACTION
+                claim.actualProver, uint96(provabilityBondWei / REWARD_FRACTION)
             );
             // Proposer and designated prover are different entities
             // Refund the designated prover's L2 liveness bond
@@ -727,7 +730,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             // Forfeit provability bond but reward the actual prover
             IBondManager(_cfg.bondManager).debitBond(_claimRecord.proposer, provabilityBondWei);
             IBondManager(_cfg.bondManager).creditBond(
-                claim.actualProver, provabilityBondWei / REWARD_FRACTION
+                claim.actualProver, uint96(provabilityBondWei / REWARD_FRACTION)
             );
         }
 
@@ -754,7 +757,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     error InvalidState();
     error NoBondToWithdraw();
     error ProposalHashMismatch();
-    error ProposerNotActive();
+    error ProposerBondInsufficient();
     error RingBufferSizeZero();
     error Unauthorized();
 }
