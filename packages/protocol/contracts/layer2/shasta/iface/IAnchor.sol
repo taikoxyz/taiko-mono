@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
+import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.sol";
 
 /// @title IAnchor
 /// @notice Interface for the Anchor contract that manages L2 state synchronization with L1

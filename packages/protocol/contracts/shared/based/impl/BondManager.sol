@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
+import { IBondManager } from "../iface/IBondManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { EssentialContract } from "../../common/EssentialContract.sol";
 
 /// @title BondManager
-/// @notice Abstract contract for managing bonds in the Based3 protocol
+/// @notice L1 implementation of BondManager with time-based withdrawal mechanism
 /// @custom:security-contact security@taiko.xyz
-abstract contract BondManager is IBondManager {
+contract BondManager is EssentialContract, IBondManager {
     using SafeERC20 for IERC20;
-    // -------------------------------------------------------------------
+
+    // ---------------------------------------------------------------
     // State Variables
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @notice The address of the inbox contract that is allowed to call debitBond and creditBond
     address public immutable authorized;
@@ -20,34 +22,53 @@ abstract contract BondManager is IBondManager {
     /// @notice ERC20 token used as bond.
     IERC20 public immutable bondToken;
 
-    /// @notice Per-user bond state
-    mapping(address proposer => Bond bond) public bond;
+    /// @notice Minimum bond required on L1 (in gwei)
+    uint96 public immutable minBond;
 
-    // -------------------------------------------------------------------------
-    // Modifiers
-    // -------------------------------------------------------------------
+    /// @notice Time delay required before withdrawal after request
+    /// @dev WARNING: In theory operations can remain unfinalized indefinitely, but in practice
+    /// after
+    ///      the `extendedProvingWindow` the incentives are very strong for finalization.
+    ///      A safe value for this is `extendedProvingWindow` + buffer.
+    uint48 public immutable withdrawalDelay;
 
-    /// @notice Ensures only the inbox contract can call the function.
-    modifier onlyAuthorized() {
-        require(msg.sender == authorized, Unauthorized());
-        _;
-    }
+    /// @notice Per-account bond state (balances in gwei)
+    mapping(address account => Bond bond) public bond;
 
-    // -------------------------------------------------------------------
-    // Constructor
-    // -------------------------------------------------------------------
+    uint256[48] private __gap;
 
-    /// @notice Initializes the BondManager with the inbox address
-    /// @param _authorized The address of the authorized contract
+    // ---------------------------------------------------------------
+    // Constructor and Initialization
+    // ---------------------------------------------------------------
+
+    /// @notice Constructor disables initializers for upgradeable pattern
+    /// @param _authorized The address of the authorized contract (Inbox)
     /// @param _bondToken The ERC20 bond token address
-    constructor(address _authorized, address _bondToken) {
+    /// @param _minBond The minimum bond required (in gwei)
+    /// @param _withdrawalDelay The delay period for withdrawals (e.g., 7 days)
+    constructor(
+        address _authorized,
+        address _bondToken,
+        uint96 _minBond,
+        uint48 _withdrawalDelay
+    )
+        EssentialContract()
+    {
         authorized = _authorized;
         bondToken = IERC20(_bondToken);
+        minBond = _minBond;
+        withdrawalDelay = _withdrawalDelay;
     }
 
-    // -------------------------------------------------------------------
+    /// @notice Initializes the BondManager contract
+    /// @param _owner The owner of this contract
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
+
+    // ---------------------------------------------------------------
     // External Functions
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @inheritdoc IBondManager
     function debitBond(
@@ -55,7 +76,7 @@ abstract contract BondManager is IBondManager {
         uint96 _bond
     )
         external
-        onlyAuthorized
+        onlyFrom(authorized)
         returns (uint96 amountDebited_)
     {
         amountDebited_ = _debitBond(_address, _bond);
@@ -65,7 +86,7 @@ abstract contract BondManager is IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    function creditBond(address _address, uint96 _bond) external onlyAuthorized {
+    function creditBond(address _address, uint96 _bond) external onlyFrom(authorized) {
         uint96 amountCredited = _creditBond(_address, _bond);
         if (amountCredited > 0) {
             emit BondCredited(_address, amountCredited);
@@ -78,25 +99,70 @@ abstract contract BondManager is IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    function withdraw(address to, uint96 amount) external virtual;
+    function deposit(uint96 _amount) external nonReentrant {
+        bondToken.safeTransferFrom(msg.sender, address(this), _amount);
 
-    /// @inheritdoc IBondManager
-    function deposit(uint96 amount) external {
-        bondToken.safeTransferFrom(msg.sender, address(this), amount);
+        _creditBond(msg.sender, _amount);
 
-        _creditBond(msg.sender, amount);
-
-        emit BondDeposited(msg.sender, amount);
+        emit BondDeposited(msg.sender, _amount);
     }
 
-    // -------------------------------------------------------------------------
+    /// @inheritdoc IBondManager
+    function hasSufficientBond(
+        address _address,
+        uint96 _additionalBond
+    )
+        external
+        view
+        returns (bool)
+    {
+        Bond storage bond_ = bond[_address];
+        return bond_.balance >= minBond + _additionalBond && bond_.withdrawalRequestedAt == 0;
+    }
+
+    /// @inheritdoc IBondManager
+    function requestWithdrawal() external nonReentrant {
+        Bond storage bond_ = bond[msg.sender];
+        require(bond_.balance > 0, NoBondToWithdraw());
+        require(bond_.withdrawalRequestedAt == 0, WithdrawalAlreadyRequested());
+
+        bond_.withdrawalRequestedAt = uint48(block.timestamp);
+        emit WithdrawalRequested(msg.sender, block.timestamp + withdrawalDelay);
+    }
+
+    /// @inheritdoc IBondManager
+    function cancelWithdrawal() external nonReentrant {
+        Bond storage bond_ = bond[msg.sender];
+        require(bond_.withdrawalRequestedAt > 0, NoWithdrawalRequested());
+
+        bond_.withdrawalRequestedAt = 0;
+        emit WithdrawalCancelled(msg.sender);
+    }
+
+    /// @inheritdoc IBondManager
+    function withdraw(address _to, uint96 _amount) external nonReentrant {
+        Bond storage bond_ = bond[msg.sender];
+
+        if (
+            bond_.withdrawalRequestedAt == 0
+                || block.timestamp < bond_.withdrawalRequestedAt + withdrawalDelay
+        ) {
+            // Active account or withdrawal delay not passed yet, can only withdraw excess above
+            // minBond
+            require(bond_.balance - _amount >= minBond, MustMaintainMinBond());
+        }
+
+        _withdraw(msg.sender, _to, _amount);
+    }
+
+    // ---------------------------------------------------------------
     // Internal Functions
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @dev Internal implementation for debiting a bond
     /// @param _address The address to debit the bond from
-    /// @param _bond The amount of bond to debit
-    /// @return amountDebited_ The actual amount debited
+    /// @param _bond The amount of bond to debit in gwei
+    /// @return The actual amount debited in gwei
     function _debitBond(address _address, uint96 _bond) internal returns (uint96) {
         Bond storage bond_ = bond[_address];
 
@@ -108,7 +174,7 @@ abstract contract BondManager is IBondManager {
 
     /// @dev Internal implementation for crediting a bond
     /// @param _address The address to credit the bond to
-    /// @param _bond The amount of bond to credit
+    /// @param _bond The amount of bond to credit in gwei
     function _creditBond(address _address, uint96 _bond) internal returns (uint96) {
         Bond storage bond_ = bond[_address];
 
@@ -118,26 +184,30 @@ abstract contract BondManager is IBondManager {
     }
 
     /// @dev Internal implementation for withdrawing funds from a user's bond balance
-    /// @param from The address whose balance will be reduced
-    /// @param to The recipient address
-    /// @param amount The amount to withdraw
-    function _withdraw(address from, address to, uint96 amount) internal {
-        _debitBond(from, amount);
-        bondToken.safeTransfer(to, amount);
-        emit BondWithdrawn(from, amount);
+    /// @param _from The address whose balance will be reduced
+    /// @param _to The recipient address
+    /// @param _amount The amount to withdraw in gwei
+    function _withdraw(address _from, address _to, uint96 _amount) internal {
+        _debitBond(_from, _amount);
+        bondToken.safeTransfer(_to, _amount);
+        emit BondWithdrawn(_from, _amount);
     }
 
     /// @dev Internal implementation for getting the bond balance
     /// @param _address The address to get the bond balance for
-    /// @return The bond balance of the address
+    /// @return The bond balance of the address in gwei
     function _getBondBalance(address _address) internal view returns (uint96) {
         return bond[_address].balance;
     }
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
-    error Unauthorized();
     error InsufficientBond();
+    error MustMaintainMinBond();
+    error NoBondToWithdraw();
+    error NoWithdrawalRequested();
+    error Unauthorized();
+    error WithdrawalAlreadyRequested();
 }

@@ -5,9 +5,9 @@ pragma solidity ^0.8.24;
 /// @notice Interface for managing synced blocks
 /// @custom:security-contact security@taiko.xyz
 interface ISyncedBlockManager {
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Structs
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @notice Represents a synced lock
     struct SyncedBlock {
@@ -19,9 +19,9 @@ interface ISyncedBlockManager {
         uint48 blockNumber;
     }
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Events
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @notice Emitted when a synced block is saved
     /// @param blockNumber The block number
@@ -29,9 +29,9 @@ interface ISyncedBlockManager {
     /// @param stateRoot The state root
     event SyncedBlockSaved(uint48 indexed blockNumber, bytes32 blockHash, bytes32 stateRoot);
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // External Functions
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @notice Saves a new synced block
     /// @param _syncedBlock The new synced block data

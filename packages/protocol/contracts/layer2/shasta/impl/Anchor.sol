@@ -3,9 +3,9 @@ pragma solidity ^0.8.24;
 
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
 import { IAnchor } from "../iface/IAnchor.sol";
-import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
+import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.sol";
 import { IBlockHashManager } from "../iface/IBlockHashManager.sol";
-import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
+import { IBondManager } from "contracts/shared/based/iface/IBondManager.sol";
 
 /// @title Anchor
 /// @notice Contract that manages L2 state synchronization with L1
