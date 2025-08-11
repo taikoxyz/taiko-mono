@@ -127,7 +127,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(_isForkActive(config), ForkNotActive());
         IProposerChecker(config.proposerChecker).checkProposer(msg.sender);
         require(
-            IBondManager(config.bondManager).hasSufficientBond(msg.sender, 0), ProposerNotActive()
+            IBondManager(config.bondManager).hasSufficientBond(msg.sender, 0), ProposerBondInsufficient()
         );
 
         (
@@ -756,7 +756,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     error InvalidState();
     error NoBondToWithdraw();
     error ProposalHashMismatch();
-    error ProposerNotActive();
+    error ProposerBondInsufficient();
     error RingBufferSizeZero();
     error Unauthorized();
 }
