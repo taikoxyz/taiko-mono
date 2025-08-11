@@ -459,11 +459,18 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         BondDecision bondDecision = _calculateBondDecision(_config, _claim, _proposal);
 
+        uint48 livenessBond = bondDecision == BondDecision.L1SlashLivenessRewardProver
+            || bondDecision == BondDecision.L2SlashLivenessRewardProver ? _proposal.livenessBondGwei : 0;
+
+        uint48 provabilityBond = bondDecision == BondDecision.L1SlashProvabilityRewardProver
+            ? _proposal.provabilityBondGwei
+            : 0;
+
         claimRecord_ = ClaimRecord({
             claim: _claim,
             proposer: _proposal.proposer,
-            livenessBondGwei: _proposal.livenessBondGwei,
-            provabilityBondGwei: _proposal.provabilityBondGwei,
+            livenessBondGwei: livenessBond,
+            provabilityBondGwei: provabilityBond,
             bondDecision: bondDecision,
             nextProposalId: _proposal.id + 1
         });
@@ -573,7 +580,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _proposalId The first proposal ID in the aggregated record
     /// @param _claimRecord The claim record (may represent multiple proposals)
     /// @param _bondOperationsHash The current hash of bond operations
-    /// @return bondOperationsHash_ The updated hash including this operation
+    /// @return _ The updated hash including this operation
     function _processBonds(
         Config memory _config,
         uint48 _proposalId,
@@ -581,29 +588,13 @@ abstract contract Inbox is EssentialContract, IInbox {
         bytes32 _bondOperationsHash
     )
         private
-        returns (bytes32 bondOperationsHash_)
+        returns (bytes32)
     {
         LibBondOperation.BondOperation memory bondOperation;
 
         Claim memory claim = _claimRecord.claim;
 
-        if (_claimRecord.bondDecision == BondDecision.L1SlashLivenessRewardProver) {
-            IShastaBondManager(_config.bondManager).debitBond(
-                _claimRecord.proposer, _claimRecord.livenessBondGwei
-            );
-            IShastaBondManager(_config.bondManager).creditBond(
-                claim.actualProver, _claimRecord.livenessBondGwei / REWARD_FRACTION
-            );
-            return _bondOperationsHash;
-        } else if (_claimRecord.bondDecision == BondDecision.L1SlashProvabilityRewardProver) {
-            IShastaBondManager(_config.bondManager).debitBond(
-                _claimRecord.proposer, _claimRecord.provabilityBondGwei
-            );
-            IShastaBondManager(_config.bondManager).creditBond(
-                claim.actualProver, _claimRecord.provabilityBondGwei / REWARD_FRACTION
-            );
-            return _bondOperationsHash;
-        } else if (_claimRecord.bondDecision == BondDecision.L2SlashLivenessRewardProver) {
+        if (_claimRecord.bondDecision == BondDecision.L2SlashLivenessRewardProver) {
             bondOperation = LibBondOperation.BondOperation({
                 proposalId: _proposalId,
                 creditAmountGwei: uint48(_claimRecord.livenessBondGwei / REWARD_FRACTION),
@@ -613,6 +604,20 @@ abstract contract Inbox is EssentialContract, IInbox {
             });
             emit BondRequest(bondOperation);
             return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
+        }
+
+        IShastaBondManager bondManager = IShastaBondManager(_config.bondManager);
+
+        if (_claimRecord.bondDecision == BondDecision.L1SlashLivenessRewardProver) {
+            bondManager.debitBond(_claimRecord.proposer, _claimRecord.livenessBondGwei);
+            bondManager.creditBond(
+                claim.actualProver, _claimRecord.livenessBondGwei / REWARD_FRACTION
+            );
+        } else if (_claimRecord.bondDecision == BondDecision.L1SlashProvabilityRewardProver) {
+            bondManager.debitBond(_claimRecord.proposer, _claimRecord.provabilityBondGwei);
+            bondManager.creditBond(
+                claim.actualProver, _claimRecord.provabilityBondGwei / REWARD_FRACTION
+            );
         }
         return _bondOperationsHash;
     }
