@@ -10,7 +10,7 @@ interface IForcedInclusionStore {
     struct ForcedInclusion {
         /// @notice The fee in Gwei that was paid to submit the forced inclusion.
         uint64 feeInGwei;
-        /// @notice The proposal's chunk.
+        /// @notice The proposal's blob slice.
         LibBlobs.BlobSlice blobSlice;
     }
 
