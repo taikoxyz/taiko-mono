@@ -12,7 +12,7 @@ import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
-import "src/layer2/based/anchor/TaikoAnchor.sol";
+import "src/layer2/based/TaikoAnchor.sol";
 
 contract DeployPacayaL2 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -100,8 +100,19 @@ contract DeployPacayaL2 is DeployCapability {
         address signalServiceImpl = address(new SignalService(sharedResolver));
         console2.log("signalService", signalServiceImpl);
         // Taiko Anchor
-        address taikoAnchorImpl =
-            address(new TaikoAnchor(signalService, pacayaForkHeight, shastaForkHeight));
+        uint48 livenessBondGwei = 10_000_000;
+        uint48 provabilityBondGwei = 10_000_000;
+        address taikoAnchorImpl = address(
+            new TaikoAnchor(
+                livenessBondGwei,
+                provabilityBondGwei,
+                signalService,
+                pacayaForkHeight,
+                shastaForkHeight,
+                address(0), // syncedBlockManager - to be set later
+                address(0) // bondManager - to be set later
+            )
+        );
         console2.log("taikoAnchor", taikoAnchorImpl);
     }
 }

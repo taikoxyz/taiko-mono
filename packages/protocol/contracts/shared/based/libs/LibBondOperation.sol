@@ -11,8 +11,10 @@ library LibBondOperation {
 
     struct BondOperation {
         uint48 proposalId;
-        address receiver;
-        uint256 credit;
+        uint48 creditAmountGwei;
+        address creditTo;
+        uint48 debitAmountGwei;
+        address debitFrom;
     }
 
     function aggregateBondOperation(
@@ -23,7 +25,7 @@ library LibBondOperation {
         pure
         returns (bytes32)
     {
-        return _bondOperation.receiver == address(0) || _bondOperation.credit == 0
+        return _bondOperation.proposalId == 0
             ? _bondOperationsHash
             : keccak256(abi.encode(_bondOperationsHash, _bondOperation));
     }
