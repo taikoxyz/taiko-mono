@@ -156,7 +156,7 @@ library LibVerification {
         unchecked {
             _state.bondBalance[_user] += _amount;
         }
-        emit IBondManager.BondCredited(_user, _amount);
+        emit IBondManager_Deprecated.BondCredited(_user, _amount);
     }
 
     function getBatch(

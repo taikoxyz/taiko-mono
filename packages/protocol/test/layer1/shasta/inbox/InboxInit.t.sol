@@ -1,0 +1,133 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import "./ShastaInboxTestBase.sol";
+
+/// @title InboxInit
+/// @notice Tests for Inbox initialization functionality
+/// @dev Tests cover successful initialization, genesis block setup, and edge cases
+contract InboxInit is ShastaInboxTestBase {
+    
+    /// @notice Test successful initialization with valid parameters
+    /// @dev Verifies that the contract initializes correctly with:
+    ///      - Correct owner set
+    ///      - Genesis block hash stored
+    ///      - Core state properly initialized
+    ///      - CoreStateSet event emitted
+    function test_init_success() public {
+        // Deploy a fresh inbox for this test
+        TestInbox freshInbox = new TestInbox();
+        
+        // Expected initial core state
+        IInbox.Claim memory genesisClaim;
+        genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
+        
+        IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
+            nextProposalId: 1,
+            lastFinalizedProposalId: 0,
+            lastFinalizedClaimHash: keccak256(abi.encode(genesisClaim)),
+            bondOperationsHash: bytes32(0)
+        });
+        
+        // Expect CoreStateSet event
+        vm.expectEmit(true, true, true, true);
+        emit CoreStateSet(expectedCoreState);
+        
+        // Initialize
+        freshInbox.init(Alice, GENESIS_BLOCK_HASH);
+        
+        // Verify owner
+        assertEq(freshInbox.owner(), Alice);
+        
+        // Verify core state hash
+        bytes32 actualCoreStateHash = freshInbox.getCoreStateHash();
+        bytes32 expectedCoreStateHash = keccak256(abi.encode(expectedCoreState));
+        assertEq(actualCoreStateHash, expectedCoreStateHash);
+    }
+    
+    /// @notice Test that contract cannot be initialized twice
+    /// @dev Verifies that calling init() on an already initialized contract reverts
+    /// Expected behavior: Transaction reverts with "Initializable: contract is already initialized"
+    function test_init_already_initialized() public {
+        // Inbox is already initialized in setUp()
+        vm.expectRevert("Initializable: contract is already initialized");
+        inbox.init(Bob, bytes32(uint256(2)));
+    }
+    
+    /// @notice Test initialization with zero address owner
+    /// @dev Verifies that initialization fails when trying to set owner to zero address
+    /// Expected behavior: Transaction reverts as zero address cannot be owner
+    function test_init_zero_address_owner() public {
+        TestInbox freshInbox = new TestInbox();
+        
+        // Expect revert when setting zero address as owner
+        vm.expectRevert("Ownable: new owner is the zero address");
+        freshInbox.init(address(0), GENESIS_BLOCK_HASH);
+    }
+    
+    /// @notice Test initialization with different genesis block hashes
+    /// @dev Verifies that any valid bytes32 can be used as genesis block hash
+    /// Expected behavior: Contract initializes successfully with any bytes32 value
+    function test_init_various_genesis_hashes() public {
+        bytes32[3] memory testHashes = [
+            bytes32(0),
+            bytes32(uint256(1)),
+            keccak256("genesis")
+        ];
+        
+        for (uint i = 0; i < testHashes.length; i++) {
+            TestInbox freshInbox = new TestInbox();
+            
+            // Initialize with test hash
+            freshInbox.init(Alice, testHashes[i]);
+            
+            // Verify core state includes the genesis hash
+            IInbox.Claim memory genesisClaim;
+            genesisClaim.endBlockHash = testHashes[i];
+            
+            IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
+                nextProposalId: 1,
+                lastFinalizedProposalId: 0,
+                lastFinalizedClaimHash: keccak256(abi.encode(genesisClaim)),
+                bondOperationsHash: bytes32(0)
+            });
+            
+            bytes32 actualCoreStateHash = freshInbox.getCoreStateHash();
+            bytes32 expectedCoreStateHash = keccak256(abi.encode(expectedCoreState));
+            assertEq(actualCoreStateHash, expectedCoreStateHash);
+        }
+    }
+    
+    /// @notice Test that nextProposalId starts at 1
+    /// @dev Verifies the initial proposal ID is set to 1, not 0
+    /// Expected behavior: nextProposalId should be 1 after initialization
+    function test_init_next_proposal_id_starts_at_one() public {
+        TestInbox freshInbox = new TestInbox();
+        freshInbox.init(Alice, GENESIS_BLOCK_HASH);
+        freshInbox.setConfig(defaultConfig);
+        
+        // Create a proposal to verify the first ID is 1
+        IInbox.CoreState memory coreState = createCoreState(1, 0);
+        bytes32 coreStateHash = keccak256(abi.encode(coreState));
+        freshInbox.exposed_setCoreStateHash(coreStateHash);
+        
+        // Setup mocks for propose
+        vm.prank(Alice);
+        mockProposerAllowed(Alice);
+        mockHasSufficientBond(Alice, true);
+        mockForcedInclusionDue(false);
+        
+        // Create proposal data with nextProposalId = 1
+        LibBlobs.BlobReference memory blobRef = createValidBlobReference(1);
+        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
+        bytes memory data = encodeProposeProposeData(coreState, blobRef, claimRecords);
+        
+        // Call propose and verify it succeeds with ID 1
+        vm.prank(Alice);
+        freshInbox.propose(bytes(""), data);
+        
+        // The proposal should have been created with ID 1
+        bytes32 proposalHash = freshInbox.getProposalHash(1);
+        assertTrue(proposalHash != bytes32(0));
+    }
+}

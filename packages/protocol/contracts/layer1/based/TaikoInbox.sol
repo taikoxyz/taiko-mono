@@ -423,12 +423,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
         state.verifyBatches(_getConfig(), state.stats2, signalService, _length);
     }
 
-    /// @inheritdoc IBondManager
+    /// @inheritdoc IBondManager_Deprecated
     function v4DepositBond(uint256 _amount) external payable whenNotPaused {
         state.bondBalance[msg.sender] += _handleDeposit(msg.sender, _amount);
     }
 
-    /// @inheritdoc IBondManager
+    /// @inheritdoc IBondManager_Deprecated
     function v4WithdrawBond(uint256 _amount) external whenNotPaused {
         uint256 balance = state.bondBalance[msg.sender];
         require(balance >= _amount, InsufficientBond());
@@ -444,7 +444,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
         }
     }
 
-    /// @inheritdoc IBondManager
+    /// @inheritdoc IBondManager_Deprecated
     function v4BondToken() external view returns (address) {
         return bondToken;
     }
@@ -534,7 +534,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
         ts_ = state.getBatchVerifyingTransition(config, batchId_);
     }
 
-    /// @inheritdoc IBondManager
+    /// @inheritdoc IBondManager_Deprecated
     function v4BondBalanceOf(address _user) external view returns (uint256) {
         return state.bondBalance[_user];
     }
