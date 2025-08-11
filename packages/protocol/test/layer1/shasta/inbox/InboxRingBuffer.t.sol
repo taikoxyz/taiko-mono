@@ -166,7 +166,7 @@ contract InboxRingBuffer is ShastaInboxTestBase {
         IInbox.ClaimRecord[] memory claimRecords5 = new IInbox.ClaimRecord[](0);
         bytes memory data5 = encodeProposeProposeData(coreState5, blobRef5, claimRecords5);
         
-        vm.expectRevert(Inbox.ExceedsUnfinalizedProposalCapacity.selector);
+        vm.expectRevert(InboxBase.ExceedsUnfinalizedProposalCapacity.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data5);
     }
@@ -284,7 +284,7 @@ contract InboxRingBuffer is ShastaInboxTestBase {
         bytes memory data3 = encodeProposeProposeData(coreState3, blobRef3, claimRecords3);
         
         // Should fail - exceeds capacity
-        vm.expectRevert(Inbox.ExceedsUnfinalizedProposalCapacity.selector);
+        vm.expectRevert(InboxBase.ExceedsUnfinalizedProposalCapacity.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data3);
     }

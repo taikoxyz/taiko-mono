@@ -27,7 +27,7 @@ contract InboxProposeValidation is ShastaInboxTestBase {
         bytes memory data = encodeProposeProposeData(coreState, blobRef, claimRecords);
         
         // Expect revert
-        vm.expectRevert(Inbox.ForkNotActive.selector);
+        vm.expectRevert(InboxBase.ForkNotActive.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }
@@ -82,7 +82,7 @@ contract InboxProposeValidation is ShastaInboxTestBase {
         bytes memory data = encodeProposeProposeData(coreState, blobRef, claimRecords);
         
         // Expect revert
-        vm.expectRevert(Inbox.ProposerBondInsufficient.selector);
+        vm.expectRevert(InboxBase.ProposerBondInsufficient.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }
@@ -107,7 +107,7 @@ contract InboxProposeValidation is ShastaInboxTestBase {
         bytes memory data = encodeProposeProposeData(wrongCoreState, blobRef, claimRecords);
         
         // Expect revert
-        vm.expectRevert(Inbox.InvalidState.selector);
+        vm.expectRevert(InboxBase.InvalidState.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }
@@ -141,7 +141,7 @@ contract InboxProposeValidation is ShastaInboxTestBase {
         bytes memory data = encodeProposeProposeData(coreState, blobRef, claimRecords);
         
         // Expect revert
-        vm.expectRevert(Inbox.ExceedsUnfinalizedProposalCapacity.selector);
+        vm.expectRevert(InboxBase.ExceedsUnfinalizedProposalCapacity.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }

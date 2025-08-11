@@ -253,7 +253,7 @@ contract InboxFinalization is ShastaInboxTestBase {
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
         
         // Expect revert
-        vm.expectRevert(Inbox.ClaimRecordHashMismatch.selector);
+        vm.expectRevert(InboxBase.ClaimRecordHashMismatch.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }

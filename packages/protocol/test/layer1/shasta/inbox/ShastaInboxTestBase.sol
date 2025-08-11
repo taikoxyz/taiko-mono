@@ -5,6 +5,7 @@ import "forge-std/src/Test.sol";
 import "forge-std/src/console2.sol";
 import "test/shared/CommonTest.sol";
 import "contracts/layer1/shasta/impl/Inbox.sol";
+import "contracts/layer1/shasta/impl/InboxBase.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
 import "contracts/layer1/shasta/libs/LibBlobs.sol";
 import "contracts/layer1/shasta/libs/LibDecoder.sol";
