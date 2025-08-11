@@ -30,16 +30,13 @@ library LibManifest {
     /// @notice The maximum number timestamp offset from the proposal origin timestamp.
     uint256 internal constant TIMESTAMP_MAX_OFFSET = 12 * 32;
 
-    /// @notice The block gas limit.
-    uint256 internal constant BLOCK_GAS_LIMIT = 100_000_000;
-
-    /// @notice The maximum gas issuance change per block in permyriad (1/10,000).
+    /// @notice The maximum block gas limit change per block in permyriad (1/10,000).
     /// @dev E.g., 10 = 0.1 basis points = 0.001% = 10/100,000
-    uint256 internal constant MAX_GAS_ISSUANCE_CHANGE_PERMYRIAD = 10;
+    uint256 internal constant MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD = 10;
 
-    /// @notice The minimum gas issuance per second.
-    /// @dev This ensures gas issuance never drops below a critical threshold.
-    uint256 internal constant MIN_GAS_ISSUANCE_PER_SECOND = 1_000_000;
+    /// @notice The minimum block gas limit.
+    /// @dev This ensures block gas limit never drops below a critical threshold.
+    uint256 internal constant MIN_BLOCK_GAS_LIMIT = 15_000_000;
 
     // -------------------------------------------------------------------
     // Structs
@@ -72,9 +69,8 @@ library LibManifest {
         /// @notice The anchor block number. This field can be zero, if so, this block will use the
         /// most recent anchor in a previous block.
         uint48 anchorBlockNumber;
-        /// @notice The gas issuance per second for this block. This number can be zero to indicate
-        /// that the gas issuance should be the same as the previous block.
-        uint32 gasIssuancePerSecond;
+        /// @notice The block's gas limit.
+        uint48 gasLimit;
         /// @notice The transactions for this block.
         SignedTransaction[] transactions;
     }
