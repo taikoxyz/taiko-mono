@@ -20,23 +20,25 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ### Proposal-level Metadata
 
-| **Metadata Component**  | **Description**                                             |
-| ----------------------- | ----------------------------------------------------------- |
-| **id**                  | A unique, sequential identifier for the proposal            |
-| **proposer**            | The address that proposed the proposal                      |
-| **originTimestamp**     | The timestamp when the proposal was accepted on L1          |
-| **originBlockNumber**   | The L1 block number in which the proposal was accepted      |
-| **proverAuthBytes**     | An ABI-encoded ProverAuth object                            |
-| **numBlocks**           | The total number of blocks in this proposal                 |
-| **basefeeSharingPctg**  | The percentage of base fee paid to coinbase                 |
-| **isEnforcedInclusion** | Indicates if the proposal is a forced inclusion             |
-| **bondOperationsHash**  | Expected cumulative hash after processing bond operations   |
-| **bondOperations**      | Array of bond credit/debit operations to be performed on L2 |
+| **Metadata Component** | **Description**                                             |
+| ---------------------- | ----------------------------------------------------------- |
+| **id**                 | A unique, sequential identifier for the proposal            |
+| **proposer**           | The address that proposed the proposal                      |
+| **originTimestamp**    | The timestamp when the proposal was accepted on L1          |
+| **originBlockNumber**  | The L1 block number in which the proposal was accepted      |
+| **proverAuthBytes**    | An ABI-encoded ProverAuth object                            |
+| **numBlocks**          | The total number of blocks in this proposal                 |
+| **basefeeSharingPctg** | The percentage of base fee paid to coinbase                 |
+| **isForcedInclusion**  | Indicates if the proposal is a forced inclusion             |
+| **bondOperationsHash** | Expected cumulative hash after processing bond operations   |
+| **bondOperations**     | Array of bond credit/debit operations to be performed on L2 |
 
 ### Block-level Metadata
 
 | **Metadata Component**   | **Description**                                       |
 | ------------------------ | ----------------------------------------------------- |
+| **number**               | The block number                                      |
+| **difficulty**           | A random number seed                                  |
 | **index**                | The zero-based index of the block within the proposal |
 | **timestamp**            | The timestamp of the block                            |
 | **coinbase**             | The coinbase address for the block                    |
@@ -91,7 +93,19 @@ The `blobSlice` field serves as the primary mechanism for locating and validatin
 /// @notice Represents a signed Ethereum transaction
 /// @dev Follows EIP-2718 typed transaction format with EIP-1559 support
 struct SignedTransaction {
-  // Transaction fields omitted for brevity
+  uint8 txType;
+  uint64 chainId;
+  uint64 nonce;
+  uint256 maxPriorityFeePerGas;
+  uint256 maxFeePerGas;
+  uint64 gasLimit;
+  address to;
+  uint256 value;
+  bytes data;
+  bytes accessList;
+  uint8 v;
+  bytes32 r;
+  bytes32 s;
 }
 
 /// @notice Represents a block manifest
@@ -241,12 +255,14 @@ _Specification pending - to be documented_
 
 The remaining metadata fields follow straightforward assignment patterns:
 
-| Metadata Field           | Value Assignment                                 |
-| ------------------------ | ------------------------------------------------ |
-| metadata.index           | `parent.metadata.index + 1` (abbreviated as `i`) |
-| metadata.numBlocks       | `manifest.blocks.length` (post-validation)       |
-| metadata.proverAuthBytes | `manifest.proverAuthBytes`                       |
-| metadata.transactions    | `manifest.blocks[i].transactions`                |
+| Metadata Field             | Value Assignment                                                  |
+| -------------------------- | ----------------------------------------------------------------- |
+| `metadata.index`           | `parent.metadata.index + 1` (abbreviated as `i`)                  |
+| `metadata.number`          | `parent.metadata.number + 1`                                      |
+| `metadata.difficulty`      | `keccak(abi.encode(parent.metadata.difficulty, metadata.number))` |
+| `metadata.numBlocks`       | `manifest.blocks.length` (post-validation)                        |
+| `metadata.proverAuthBytes` | `manifest.proverAuthBytes`                                        |
+| `metadata.transactions`    | `manifest.blocks[i].transactions`                                 |
 
 **Important**: The `numBlocks` field must be assigned only after timestamp and anchor block validation completes, as these validations may reduce the effective block count.
 
@@ -264,13 +280,28 @@ Metadata encoding into L2 block header fields facilitates efficient peer validat
 
 | Metadata Component     | Type    | Header Field                  |
 | ---------------------- | ------- | ----------------------------- |
+| `number`               | uint256 | `number`                      |
 | `timestamp`            | uint256 | `timestamp`                   |
+| `diffculty`            | uint256 | `diffculty`                   |
+| `gasLimit`             | uint256 | `BLOCK_GAS_LIMIT`             |
 | `id`                   | uint48  | `withdrawalsRoot` (bytes TBD) |
-| `numBlocks`            | uint24  | `withdrawalsRoot` (bytes TBD) |
-| `isEnforcedInclusion`  | bool    | `withdrawalsRoot` (bytes TBD) |
-| `index`                | uint24  | `withdrawalsRoot` (bytes TBD) |
-| `basefeeSharingPctg`   | uint32  | First byte in `extraData`     |
+| `numBlocks`            | uint16  | `withdrawalsRoot` (bytes TBD) |
+| `isForcedInclusion`    | bool    | `withdrawalsRoot` (bytes TBD) |
+| `index`                | uint16  | `withdrawalsRoot` (bytes TBD) |
+| `basefeeSharingPctg`   | uint8   | First byte in `extraData`     |
 | `gasIssuancePerSecond` | uint32  | Next 4 bytes in `extraData`   |
+
+#### Additional Pre-Execution Block Header Fields
+
+The following block header fields are also set before transaction execution but are not derived from metadata:
+
+| Header Field | Value                                                                                                                                                             |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parentHash` | Hash of the previous L2 block                                                                                                                                     |
+| `mixHash`    | 0                                                                                                                                                                 |
+| `baseFee`    | Calculated using EIP-4396 from `parent.metadata.timestamp`, `parent.metadata.timestamp`,[how to break here ]and `metadata.timestamp` before transaction execution |
+
+Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed` are populated after transaction execution.
 
 ### Anchor Transaction
 
@@ -318,3 +349,5 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 - Caller restriction: Golden touch address (system account) only
 
 ### Transaction Execution
+
+## Base Fee Calculation
