@@ -188,7 +188,6 @@ abstract contract InboxBase is EssentialContract, IInbox {
     }
 
     /// @inheritdoc IInbox
-    // TODO(daniel): support proving a segment of proposals with one claim.
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         Config memory config = getConfig();
         (Proposal[] memory proposals, Claim[] memory claims) = _data.decodeProveData();
