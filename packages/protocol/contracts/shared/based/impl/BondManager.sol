@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
+import { IBondManager } from "contracts/shared/based/iface/IBondManager.sol";
 
 /// @title ShastaBondManager
 /// @notice Abstract contract for managing bonds in the Based3 protocol

@@ -2,15 +2,15 @@
 pragma solidity ^0.8.24;
 
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
-import { IBondManager as IShastaBondManager } from "contracts/shared/shasta/iface/IBondManager.sol";
-import { ISyncedBlockManager } from "contracts/shared/shasta/iface/ISyncedBlockManager.sol";
+import { IBondManager as IShastaBondManager } from "contracts/shared/based/iface/IBondManager.sol";
+import { ISyncedBlockManager } from "contracts/shared/based/iface/ISyncedBlockManager.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibDecoder } from "../libs/LibDecoder.sol";
-import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
+import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.

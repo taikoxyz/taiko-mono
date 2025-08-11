@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBondOperation } from "contracts/shared/shasta/libs/LibBondOperation.sol";
+import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.sol";
 
 /// @title IInbox
 /// @notice Interface for the ShastaInbox contract
