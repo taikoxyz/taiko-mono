@@ -202,7 +202,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 - Future reference: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber`
 - Excessive lag: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET`
 
-**Forced inclusion protection**: For non-forced proposals (`proposal.isForcedInclusion == false`), if no blocks have valid anchor numbers greather than its parent's, the entire manifest is replaced with the default manifest, penalizing proposals that fail to provide proper L1 anchoring.
+**Forced inclusion protection**: For non-forced proposals (`proposal.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire manifest is replaced with the default manifest, penalizing proposals that fail to provide proper L1 anchoring.
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
@@ -286,7 +286,7 @@ Metadata encoding into L2 block header fields facilitates efficient peer validat
 | ---------------------- | ------- | ----------------------------- |
 | `number`               | uint256 | `number`                      |
 | `timestamp`            | uint256 | `timestamp`                   |
-| `diffculty`            | uint256 | `diffculty`                   |
+| `difficulty`           | uint256 | `difficulty`                  |
 | `gasLimit`             | uint256 | `BLOCK_GAS_LIMIT`             |
 | `id`                   | uint48  | `withdrawalsRoot` (bytes TBD) |
 | `numBlocks`            | uint16  | `withdrawalsRoot` (bytes TBD) |
