@@ -44,7 +44,7 @@ var (
 	wsUpgrader             = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 )
 
-const requestSyncMargin = uint64(512)
+const requestSyncMargin = uint64(64) // Margin for requesting sync, to avoid requesting very old blocks.
 
 // preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
 type preconfBlockChainSyncer interface {
@@ -426,7 +426,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	}
 
 	if headL1Origin != nil && block.NumberU64() <= headL1Origin.BlockID.Uint64() {
-		log.Warn(
+		log.Debug(
 			"Ignore the message for outdated block",
 			"peer", from,
 			"blockID", block.NumberU64(),
@@ -684,9 +684,6 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 					} else {
 						publishRequest()
 					}
-				} else {
-					// No known tip yet → safest is to skip to avoid spam during startup/backfill.
-					publishRequest()
 				}
 			}
 
