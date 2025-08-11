@@ -11,17 +11,6 @@ import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
 /// @custom:security-contact security@taiko.xyz
 contract SyncedBlockManager is ISyncedBlockManager {
     // -------------------------------------------------------------------
-    // Structs
-    // -------------------------------------------------------------------
-
-    /// @dev Internal struct for storing synced block data
-    struct SyncedBlock {
-        uint48 blockNumber;
-        bytes32 blockHash;
-        bytes32 stateRoot;
-    }
-
-    // -------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------
 

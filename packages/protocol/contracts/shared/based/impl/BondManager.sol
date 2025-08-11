@@ -35,7 +35,7 @@ contract BondManager is EssentialContract, IBondManager {
     /// @notice Per-account bond state (balances in gwei)
     mapping(address account => Bond bond) public bond;
 
-    uint256[48] private __gap;
+    uint256[49] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor and Initialization
