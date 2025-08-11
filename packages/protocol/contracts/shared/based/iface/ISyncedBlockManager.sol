@@ -34,14 +34,26 @@ interface ISyncedBlockManager {
     // ---------------------------------------------------------------
 
     /// @notice Saves a new synced block
-    /// @param _syncedBlock The new synced block data
-    function saveSyncedBlock(SyncedBlock calldata _syncedBlock) external;
+    /// @param _blockNumber The block number
+    /// @param _blockHash The block hash
+    /// @param _stateRoot The state root
+    function saveSyncedBlock(
+        uint48 _blockNumber,
+        bytes32 _blockHash,
+        bytes32 _stateRoot
+    )
+        external;
 
     /// @notice Gets a synced block by index
     /// @param _offset The offset of the synced block. Use 0 for the last synced block, 1 for the
     /// second last, etc.
-    /// @return _ The synced block data
-    function getSyncedBlock(uint48 _offset) external view returns (SyncedBlock memory);
+    /// @return blockNumber_ The block number
+    /// @return blockHash_ The block hash
+    /// @return stateRoot_ The state root
+    function getSyncedBlock(uint48 _offset)
+        external
+        view
+        returns (uint48 blockNumber_, bytes32 blockHash_, bytes32 stateRoot_);
 
     /// @notice Gets the latest synced block number
     /// @return _ The latest synced block number

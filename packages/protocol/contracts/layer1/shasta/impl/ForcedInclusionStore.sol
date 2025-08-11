@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { LibAddress } from "contracts/shared/libs/LibAddress.sol";
-import { LibBlobs } from "../lib/LibBlobs.sol";
+import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibMath } from "contracts/shared/libs/LibMath.sol";
 
 /// @title ForcedInclusionStore
@@ -75,15 +75,17 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     }
 
     /// @inheritdoc IForcedInclusionStore
-    function storeForcedInclusion(LibBlobs.BlobLocator memory _blobLocator)
+    function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference)
         external
         payable
         onlyStandaloneTx
         whenNotPaused
     {
         require(msg.value == feeInGwei * 1 gwei, IncorrectFee());
-        LibBlobs.BlobFrame memory frame = LibBlobs.validateBlobLocator(_blobLocator);
-        ForcedInclusion memory inclusion = ForcedInclusion({ feeInGwei: feeInGwei, frame: frame });
+
+        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_blobReference);
+        ForcedInclusion memory inclusion =
+            ForcedInclusion({ feeInGwei: feeInGwei, blobSlice: blobSlice });
 
         queue[tail++] = inclusion;
 
@@ -100,7 +102,7 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     {
         // we only need to check the first one, since it will be the oldest.
         ForcedInclusion storage inclusion = queue[head];
-        require(inclusion.frame.createdAt != 0, NoForcedInclusionFound());
+        require(inclusion.blobSlice.timestamp != 0, NoForcedInclusionFound());
 
         inclusion_ = inclusion;
 
@@ -126,10 +128,10 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
 
         ForcedInclusion storage inclusion = queue[head];
         // there is no forced inclusion in the queue
-        if (inclusion.frame.createdAt == 0) return type(uint256).max;
+        if (inclusion.blobSlice.timestamp == 0) return type(uint256).max;
 
         unchecked {
-            return uint256(lastProcessedAt).max(inclusion.frame.createdAt) + inclusionDelay;
+            return uint256(lastProcessedAt).max(inclusion.blobSlice.timestamp) + inclusionDelay;
         }
     }
 

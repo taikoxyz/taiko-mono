@@ -10,9 +10,9 @@ import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
-import { LibBlobs } from "../lib/LibBlobs.sol";
+import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.sol";
-import { LibDecoder } from "../lib/LibDecoder.sol";
+import { LibDecoder } from "../libs/LibDecoder.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
@@ -133,7 +133,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         (
             CoreState memory coreState,
-            LibBlobs.BlobLocator memory blobLocator,
+            LibBlobs.BlobReference memory blobReference,
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
 
@@ -141,26 +141,25 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Check if new proposals would exceed the unfinalized proposal capacity
         require(
-            coreState.nextProposalId - coreState.lastFinalizedProposalId <= getCapacity(),
+            coreState.nextProposalId - coreState.lastFinalizedProposalId <= _getCapacity(config),
             ExceedsUnfinalizedProposalCapacity()
         );
 
         Proposal memory proposal;
 
         // Handle forced inclusion if required
-        IForcedInclusionStore forcedInclusionStore =
-            IForcedInclusionStore(config.forcedInclusionStore);
-        if (forcedInclusionStore.isOldestForcedInclusionDue()) {
-            IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
-                forcedInclusionStore.consumeOldestForcedInclusion(msg.sender);
+        if (IForcedInclusionStore(config.forcedInclusionStore).isOldestForcedInclusionDue()) {
+            IForcedInclusionStore.ForcedInclusion memory forcedInclusion = IForcedInclusionStore(
+                config.forcedInclusionStore
+            ).consumeOldestForcedInclusion(msg.sender);
 
-            (coreState, proposal) = _propose(config, coreState, forcedInclusion.frame, true);
+            (coreState, proposal) = _propose(config, coreState, forcedInclusion.blobSlice, true);
             emit Proposed(proposal, coreState);
         }
 
         // Create regular proposal
-        LibBlobs.BlobFrame memory frame = LibBlobs.validateBlobLocator(blobLocator);
-        (coreState, proposal) = _propose(config, coreState, frame, false);
+        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(blobReference);
+        (coreState, proposal) = _propose(config, coreState, blobSlice, false);
         // Finalize proved proposals
         coreState = _finalize(config, coreState, claimRecords);
         emit Proposed(proposal, coreState);
@@ -169,6 +168,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     }
 
     /// @inheritdoc IInbox
+    // TODO(daniel): support proving a segment of proposals with one claim.
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         Config memory config = getConfig();
         (Proposal[] memory proposals, Claim[] memory claims) = _data.decodeProveData();
@@ -176,13 +176,16 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(proposals.length == claims.length, InconsistentParams());
         require(proposals.length != 0, EmptyProposals());
 
-        ClaimRecord[] memory claimRecords = new ClaimRecord[](proposals.length);
-
         for (uint256 i; i < proposals.length; ++i) {
-            claimRecords[i] = _buildClaimRecord(config, proposals[i], claims[i]);
+            ClaimRecord memory claimRecord = _buildClaimRecord(config, proposals[i], claims[i]);
+            _setClaimRecordHash(
+                config,
+                proposals[i].id,
+                claims[i].parentClaimHash,
+                keccak256(abi.encode(claimRecord))
+            );
+            emit Proved(proposals[i], claimRecord);
         }
-
-        _aggregateAndSaveClaimRecords(proposals, claimRecords);
 
         bytes32 claimsHash = keccak256(abi.encode(claims));
         IProofVerifier(config.proofVerifier).verifyProof(claimsHash, _proof);
@@ -248,12 +251,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @return _ The maximum number of unfinalized proposals that can exist.
     function getCapacity() public view returns (uint256) {
         Config memory config = getConfig();
-        // The ring buffer can hold ringBufferSize proposals total, but we need to ensure
-        // unfinalized proposals are not overwritten. Therefore, the maximum number of
-        // unfinalized proposals is ringBufferSize - 1.
-        unchecked {
-            return config.ringBufferSize - 1;
-        }
+        return _getCapacity(config);
     }
 
     /// @notice Gets the configuration for this Inbox contract
@@ -273,27 +271,27 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     /// @dev Sets the proposal hash for a given proposal ID.
     function _setProposalHash(
-        Config memory _cfg,
+        Config memory _config,
         uint48 _proposalId,
         bytes32 _proposalHash
     )
         internal
     {
-        uint256 bufferSlot = _proposalId % _cfg.ringBufferSize;
+        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         proposalRingBuffer[bufferSlot].proposalHash = _proposalHash;
     }
 
     /// @dev Sets the claim record hash for a given proposal and parent claim.
     function _setClaimRecordHash(
+        Config memory _config,
         uint48 _proposalId,
         bytes32 _parentClaimHash,
         bytes32 _claimRecordHash
     )
         internal
     {
-        Config memory config = getConfig();
         ProposalRecord storage proposalRecord =
-            proposalRingBuffer[_proposalId % config.ringBufferSize];
+            proposalRingBuffer[_proposalId % _config.ringBufferSize];
 
         ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
 
@@ -348,169 +346,62 @@ abstract contract Inbox is EssentialContract, IInbox {
         return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
 
+    /// @dev Gets the capacity for unfinalized proposals.
+    function _getCapacity(Config memory _config) internal pure returns (uint256) {
+        // The ring buffer can hold ringBufferSize proposals total, but we need to ensure
+        // unfinalized proposals are not overwritten. Therefore, the maximum number of
+        // unfinalized proposals is ringBufferSize - 1.
+        unchecked {
+            return _config.ringBufferSize - 1;
+        }
+    }
+
+    /// @dev Gets the claim record hash for a given proposal and parent claim.
+    function _getClaimRecordHash(
+        Config memory _config,
+        uint48 _proposalId,
+        bytes32 _parentClaimHash
+    )
+        internal
+        view
+        returns (bytes32 claimRecordHash_)
+    {
+        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
+
+        ExtendedClaimRecord storage record =
+            proposalRingBuffer[bufferSlot].claimHashLookup[_DEFAULT_SLOT_HASH];
+
+        (uint48 proposalId, bytes32 partialParentClaimHash) =
+            _decodeSlotReuseMarker(record.slotReuseMarker);
+
+        // If the reusable slot's proposal ID does not match the given proposal ID, it indicates
+        // that there are no claims associated with this proposal at all.
+        if (proposalId != _proposalId) return bytes32(0);
+
+        // If there's a record in the default slot with matching parent claim hash, return it
+        if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
+            return record.claimRecordHash;
+        }
+
+        // Otherwise check the direct mapping
+        return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
+    }
+
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Aggregates and saves consecutive claim records to reduce gas costs
-    /// @notice This function is a key gas optimization that combines multiple claim records
-    /// into fewer records when they share compatible properties:
-    /// - Same parent claim hash (ensures they're part of the same chain)
-    /// - Same bond decision (ensures consistent bond handling)
-    /// - Same designated prover (for L2RefundLiveness decisions)
-    /// - Same actual prover (for L2RewardProver decisions)
-    ///
-    /// Gas savings example: If 10 consecutive proposals are proven by the same prover,
-    /// they can be stored as 1 aggregated record instead of 10 individual records
-    /// @param _proposals Array of proposals being proven
-    /// @param _claimRecords Array of claim records to aggregate
-    function _aggregateAndSaveClaimRecords(
-        Proposal[] memory _proposals,
-        ClaimRecord[] memory _claimRecords
-    )
-        private
-    {
-        unchecked {
-            // Track the first proposal for each aggregated record
-            Proposal[] memory firstProposals = new Proposal[](_claimRecords.length);
-            firstProposals[0] = _proposals[0];
-
-            // Reuse _claimRecords array for aggregation
-            uint256 writeIndex = 0;
-            uint256 readIdx = 1;
-            uint48 lastAggregatedProposalId = _proposals[0].id;
-
-            while (readIdx < _claimRecords.length) {
-                if (
-                    _canAggregate(
-                        _claimRecords[writeIndex],
-                        _claimRecords[readIdx],
-                        lastAggregatedProposalId,
-                        _proposals[readIdx].id
-                    )
-                ) {
-                    // Update the aggregated record at writeIndex to span multiple proposals
-                    _claimRecords[writeIndex].nextProposalId = _claimRecords[readIdx].nextProposalId;
-                    _claimRecords[writeIndex].claim.endBlockNumber =
-                        _claimRecords[readIdx].claim.endBlockNumber;
-                    _claimRecords[writeIndex].claim.endBlockHash =
-                        _claimRecords[readIdx].claim.endBlockHash;
-                    _claimRecords[writeIndex].claim.endStateRoot =
-                        _claimRecords[readIdx].claim.endStateRoot;
-
-                    // Aggregate liveness bonds for decisions that require it
-                    if (
-                        _claimRecords[writeIndex].bondDecision == BondDecision.L2RefundLiveness
-                            || _claimRecords[writeIndex].bondDecision == BondDecision.L2RewardProver
-                    ) {
-                        _claimRecords[writeIndex].livenessBondGwei +=
-                            _claimRecords[readIdx].livenessBondGwei;
-                    }
-
-                    // Update the last aggregated proposal ID
-                    lastAggregatedProposalId = _proposals[readIdx].id;
-                } else {
-                    // Move to next write position and copy the current record
-                    writeIndex++;
-                    if (writeIndex != readIdx) {
-                        _claimRecords[writeIndex] = _claimRecords[readIdx];
-                    }
-                    firstProposals[writeIndex] = _proposals[readIdx];
-
-                    // Update the last aggregated proposal ID for the new write position
-                    lastAggregatedProposalId = _proposals[readIdx].id;
-                }
-                readIdx++;
-            }
-
-            // Final aggregated count
-            uint256 aggregatedCount = writeIndex + 1;
-
-            // Emit events and set hashes for all aggregated records
-            for (uint256 i; i < aggregatedCount; ++i) {
-                _setClaimRecordHash(
-                    firstProposals[i].id,
-                    _claimRecords[i].claim.parentClaimHash,
-                    keccak256(abi.encode(_claimRecords[i]))
-                );
-                emit Proved(firstProposals[i], _claimRecords[i]);
-            }
-        }
-    }
-
-    /// @dev Checks if two claim records can be aggregated for gas optimization
-    /// @notice Aggregation rules ensure that only compatible records are combined:
-    /// - Proposals must be consecutive
-    /// - Records must be consecutive (recordA.nextProposalId == proposalBId)
-    /// - Must share the same parent claim hash (same chain)
-    /// - Must have the same bond decision
-    /// - For certain bond decisions, must have the same prover
-    /// - Liveness bond sum must not overflow uint48
-    /// @param _recordA The first claim record
-    /// @param _recordB The second claim record
-    /// @param _lastAggregatedProposalId The last proposal ID that was aggregated
-    /// @param _proposalBId The proposal ID of the second claim record
-    /// @return _ True if the records can be aggregated, false otherwise
-    function _canAggregate(
-        ClaimRecord memory _recordA,
-        ClaimRecord memory _recordB,
-        uint48 _lastAggregatedProposalId,
-        uint48 _proposalBId
-    )
-        private
-        pure
-        returns (bool)
-    {
-        // Check if proposals are consecutive
-        if (_proposalBId != _lastAggregatedProposalId + 1) return false;
-
-        // Check if a.nextProposalId equals the proposal id of b
-        // Since ClaimRecord stores nextProposalId which is proposalId + 1,
-        // we need to check if a.nextProposalId == b's implied proposalId
-        // b's proposalId = b.nextProposalId - 1
-        if (_recordA.nextProposalId != _proposalBId) return false;
-
-        // Check if parentClaimHash matches (required for valid aggregation)
-        if (_recordA.claim.parentClaimHash != _recordB.claim.parentClaimHash) return false;
-
-        // Check if bondDecision matches
-        if (_recordA.bondDecision != _recordB.bondDecision) return false;
-
-        // Check specific conditions for aggregation
-        if (_recordA.bondDecision == BondDecision.NoOp) return true;
-
-        // For other decions, we need to aggregate the liveness bonds. We need to make sure the sum
-        // does not overflow.
-        if (uint256(_recordA.livenessBondGwei) + _recordB.livenessBondGwei > type(uint48).max) {
-            return false;
-        }
-
-        // For L2RefundLiveness, we need to make sure the designated prover is the same.
-        if (
-            _recordA.bondDecision == BondDecision.L2RefundLiveness
-                && _recordA.claim.designatedProver == _recordB.claim.designatedProver
-        ) return true;
-
-        // For L2RewardProver, we need to make sure the actual prover is the same.
-        if (
-            _recordA.bondDecision == BondDecision.L2RewardProver
-                && _recordA.claim.actualProver == _recordB.claim.actualProver
-        ) return true;
-
-        return false;
-    }
-
     /// @dev Proposes a new proposal of L2 blocks.
-    /// @param _cfg The configuration of the inbox.
+    /// @param _config The configuration parameters.
     /// @param _coreState The core state of the inbox.
-    /// @param _frame The frame of the proposal.
+    /// @param _blobSlice The blob slice of the proposal.
     /// @param _isForcedInclusion Whether the proposal is a forced inclusion.
     /// @return coreState_ The updated core state.
     /// @return proposal_ The created proposal.
     function _propose(
-        Config memory _cfg,
+        Config memory _config,
         CoreState memory _coreState,
-        LibBlobs.BlobFrame memory _frame,
+        LibBlobs.BlobSlice memory _blobSlice,
         bool _isForcedInclusion
     )
         private
@@ -523,27 +414,28 @@ abstract contract Inbox is EssentialContract, IInbox {
         proposal_ = Proposal({
             id: proposalId,
             proposer: msg.sender,
-            provabilityBondGwei: _cfg.provabilityBondGwei,
-            livenessBondGwei: _cfg.livenessBondGwei,
             originTimestamp: originTimestamp,
             originBlockNumber: originBlockNumber,
-            frame: _frame,
-            isForcedInclusion: _isForcedInclusion
+            isForcedInclusion: _isForcedInclusion,
+            basefeeSharingPctg: _config.basefeeSharingPctg,
+            provabilityBondGwei: _config.provabilityBondGwei,
+            livenessBondGwei: _config.livenessBondGwei,
+            blobSlice: _blobSlice
         });
 
         bytes32 proposalHash = keccak256(abi.encode(proposal_));
 
-        _setProposalHash(_cfg, proposalId, proposalHash);
+        _setProposalHash(_config, proposalId, proposalHash);
 
         return (_coreState, proposal_);
     }
 
     /// @dev Builds a claim record for a single proposal.
-    /// @param _cfg The configuration of the inbox.
+    /// @param _config The configuration parameters.
     /// @param _proposal The proposal to prove.
     /// @param _claim The claim containing the proof details.
     function _buildClaimRecord(
-        Config memory _cfg,
+        Config memory _config,
         Proposal memory _proposal,
         Claim memory _claim
     )
@@ -552,16 +444,26 @@ abstract contract Inbox is EssentialContract, IInbox {
         returns (ClaimRecord memory claimRecord_)
     {
         bytes32 proposalHash = keccak256(abi.encode(_proposal));
-        require(proposalHash == _claim.proposalHash, ProposalHashMismatch());
-        require(proposalHash == getProposalHash(_proposal.id), ProposalHashMismatch());
+        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
+        uint256 bufferSlot = _proposal.id % _config.ringBufferSize;
+        if (proposalHash != proposalRingBuffer[bufferSlot].proposalHash) {
+            revert ProposalHashMismatch();
+        }
 
-        BondDecision bondDecision = _calculateBondDecision(_cfg, _claim, _proposal);
+        BondDecision bondDecision = _calculateBondDecision(_config, _claim, _proposal);
+
+        uint48 livenessBond = bondDecision == BondDecision.L1SlashLivenessRewardProver
+            || bondDecision == BondDecision.L2SlashLivenessRewardProver ? _proposal.livenessBondGwei : 0;
+
+        uint48 provabilityBond = bondDecision == BondDecision.L1SlashProvabilityRewardProver
+            ? _proposal.provabilityBondGwei
+            : 0;
 
         claimRecord_ = ClaimRecord({
             claim: _claim,
             proposer: _proposal.proposer,
-            livenessBondGwei: _proposal.livenessBondGwei,
-            provabilityBondGwei: _proposal.provabilityBondGwei,
+            livenessBondGwei: livenessBond,
+            provabilityBondGwei: provabilityBond,
             bondDecision: bondDecision,
             nextProposalId: _proposal.id + 1
         });
@@ -573,12 +475,12 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// - Late proofs: Liveness bonds may be slashed and redistributed
     /// - Very late proofs: Provability bonds may also be slashed
     /// The decision affects whether claim records can be aggregated
-    /// @param _cfg The configuration of the inbox.
+    /// @param _config The configuration parameters.
     /// @param _claim The claim containing prover information
     /// @param _proposal The proposal containing timing and proposer information
     /// @return bondDecision_ The bond decision that affects aggregation eligibility
     function _calculateBondDecision(
-        Config memory _cfg,
+        Config memory _config,
         Claim memory _claim,
         Proposal memory _proposal
     )
@@ -587,34 +489,30 @@ abstract contract Inbox is EssentialContract, IInbox {
         returns (BondDecision bondDecision_)
     {
         unchecked {
-            if (block.timestamp <= _proposal.originTimestamp + _cfg.provingWindow) {
+            if (block.timestamp <= _proposal.originTimestamp + _config.provingWindow) {
                 // Proof submitted within the designated proving window (on-time proof)
-                return _claim.designatedProver != _proposal.proposer
-                    ? BondDecision.L2RefundLiveness
-                    : BondDecision.NoOp;
+                return BondDecision.NoOp;
             }
 
-            if (block.timestamp <= _proposal.originTimestamp + _cfg.extendedProvingWindow) {
+            if (block.timestamp <= _proposal.originTimestamp + _config.extendedProvingWindow) {
                 // Proof submitted during extended window (late but acceptable proof)
                 return _claim.designatedProver == _proposal.proposer
                     ? BondDecision.L1SlashLivenessRewardProver
-                    : BondDecision.L2RewardProver;
+                    : BondDecision.L2SlashLivenessRewardProver;
             }
 
             // Proof submitted after extended window (very late proof)
-            return _claim.designatedProver != _proposal.proposer
-                ? BondDecision.L1SlashProvabilityRewardProverL2RefundLiveness
-                : BondDecision.L1SlashProvabilityRewardProver;
+            return BondDecision.L1SlashProvabilityRewardProver;
         }
     }
 
     /// @dev Finalizes proposals by verifying claim records and updating state.
-    /// @param _cfg The configuration of the inbox.
+    /// @param _config The configuration parameters.
     /// @param _coreState The current core state.
     /// @param _claimRecords The claim records to finalize.
     /// @return coreState_ The updated core state
     function _finalize(
-        Config memory _cfg,
+        Config memory _config,
         CoreState memory _coreState,
         ClaimRecord[] memory _claimRecords
     )
@@ -627,14 +525,14 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         uint48 proposalId = _coreState.lastFinalizedProposalId + 1;
 
-        for (uint256 i; i < _cfg.maxFinalizationCount; ++i) {
+        for (uint256 i; i < _config.maxFinalizationCount; ++i) {
             // Id for the next proposal to be finalized.
 
             // There is no more unfinalized proposals
             if (proposalId >= _coreState.nextProposalId) break;
 
             bytes32 storedClaimRecordHash =
-                getClaimRecordHash(proposalId, _coreState.lastFinalizedClaimHash);
+                _getClaimRecordHash(_config, proposalId, _coreState.lastFinalizedClaimHash);
 
             // The next proposal cannot be finalized as there is no claim record to link the chain
             if (storedClaimRecordHash == 0) break;
@@ -650,19 +548,17 @@ abstract contract Inbox is EssentialContract, IInbox {
             _coreState.lastFinalizedProposalId = proposalId;
             _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claimRecord.claim));
             _coreState.bondOperationsHash =
-                _processBonds(_cfg, proposalId, claimRecord, _coreState.bondOperationsHash);
+                _processBonds(_config, proposalId, claimRecord, _coreState.bondOperationsHash);
 
             proposalId = _claimRecords[i].nextProposalId;
             hasFinalized = true;
         }
 
         if (hasFinalized) {
-            ISyncedBlockManager(_cfg.syncedBlockManager).saveSyncedBlock(
-                ISyncedBlockManager.SyncedBlock({
-                    blockNumber: claimRecord.claim.endBlockNumber,
-                    blockHash: claimRecord.claim.endBlockHash,
-                    stateRoot: claimRecord.claim.endStateRoot
-                })
+            ISyncedBlockManager(_config.syncedBlockManager).saveSyncedBlock(
+                claimRecord.claim.endBlockNumber,
+                claimRecord.claim.endBlockHash,
+                claimRecord.claim.endStateRoot
             );
         }
 
@@ -673,68 +569,50 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @notice Processes bonds for potentially aggregated claim records. When a claim
     /// record represents multiple aggregated proposals, liveness bonds are summed
     /// and processed together, reducing the number of bond operations
-    /// @param _cfg The configuration of the inbox.
+    /// @param _config The configuration parameters.
     /// @param _proposalId The first proposal ID in the aggregated record
     /// @param _claimRecord The claim record (may represent multiple proposals)
     /// @param _bondOperationsHash The current hash of bond operations
-    /// @return bondOperationsHash_ The updated hash including this operation
+    /// @return _ The updated hash including this operation
     function _processBonds(
-        Config memory _cfg,
+        Config memory _config,
         uint48 _proposalId,
         ClaimRecord memory _claimRecord,
         bytes32 _bondOperationsHash
     )
         private
-        returns (bytes32 bondOperationsHash_)
+        returns (bytes32)
     {
         LibBondOperation.BondOperation memory bondOperation;
-        bondOperation.proposalId = _proposalId;
 
         Claim memory claim = _claimRecord.claim;
-        uint96 livenessBondWei = _claimRecord.livenessBondGwei * 1 gwei;
-        uint96 provabilityBondWei = _claimRecord.provabilityBondGwei * 1 gwei;
 
-        if (_claimRecord.bondDecision == BondDecision.NoOp) {
-            // No bond operations needed
-        } else if (_claimRecord.bondDecision == BondDecision.L2RefundLiveness) {
-            // Proposer and designated prover are different entities
-            // The designated prover paid a liveness bond on L2 that needs to be refunded
-            bondOperation.credit = livenessBondWei;
-            bondOperation.receiver = claim.designatedProver;
-        } else if (_claimRecord.bondDecision == BondDecision.L1SlashLivenessRewardProver) {
-            // Proposer was also the designated prover who failed to prove on time
-            // Forfeit their liveness bond but reward the actual prover with half
-            IBondManager(_cfg.bondManager).debitBond(_claimRecord.proposer, livenessBondWei);
-            IBondManager(_cfg.bondManager).creditBond(
-                claim.actualProver, uint96(livenessBondWei / REWARD_FRACTION)
-            );
-        } else if (_claimRecord.bondDecision == BondDecision.L2RewardProver) {
-            // Reward the actual prover with half of the liveness bond on L2
-            bondOperation.credit = uint96(livenessBondWei / REWARD_FRACTION);
-            bondOperation.receiver = claim.actualProver;
-        } else if (
-            _claimRecord.bondDecision == BondDecision.L1SlashProvabilityRewardProverL2RefundLiveness
-        ) {
-            // Proof submitted after extended window (very late proof)
-            // Block was difficult to prove, forfeit provability bond but reward prover
-            IBondManager(_cfg.bondManager).debitBond(_claimRecord.proposer, provabilityBondWei);
-            IBondManager(_cfg.bondManager).creditBond(
-                claim.actualProver, uint96(provabilityBondWei / REWARD_FRACTION)
-            );
-            // Proposer and designated prover are different entities
-            // Refund the designated prover's L2 liveness bond
-            bondOperation.credit = livenessBondWei;
-            bondOperation.receiver = claim.designatedProver;
-        } else if (_claimRecord.bondDecision == BondDecision.L1SlashProvabilityRewardProver) {
-            // Proof submitted after extended window, proposer and designated prover are same
-            // Forfeit provability bond but reward the actual prover
-            IBondManager(_cfg.bondManager).debitBond(_claimRecord.proposer, provabilityBondWei);
-            IBondManager(_cfg.bondManager).creditBond(
-                claim.actualProver, uint96(provabilityBondWei / REWARD_FRACTION)
-            );
+        if (_claimRecord.bondDecision == BondDecision.L2SlashLivenessRewardProver) {
+            bondOperation = LibBondOperation.BondOperation({
+                proposalId: _proposalId,
+                creditAmountGwei: uint48(_claimRecord.livenessBondGwei / REWARD_FRACTION),
+                creditTo: claim.actualProver,
+                debitAmountGwei: _claimRecord.livenessBondGwei,
+                debitFrom: claim.designatedProver
+            });
+            emit BondRequest(bondOperation);
+            return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
         }
 
-        return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
+        IBondManager bondManager = IBondManager(_config.bondManager);
+
+        if (_claimRecord.bondDecision == BondDecision.L1SlashLivenessRewardProver) {
+            bondManager.debitBond(_claimRecord.proposer, uint96(_claimRecord.livenessBondGwei));
+            bondManager.creditBond(
+                claim.actualProver, uint96(_claimRecord.livenessBondGwei / REWARD_FRACTION)
+            );
+        } else if (_claimRecord.bondDecision == BondDecision.L1SlashProvabilityRewardProver) {
+            bondManager.debitBond(_claimRecord.proposer, uint96(_claimRecord.provabilityBondGwei));
+            bondManager.creditBond(
+                claim.actualProver, uint96(_claimRecord.provabilityBondGwei / REWARD_FRACTION)
+            );
+        }
+        return _bondOperationsHash;
     }
 
     function _isForkActive(Config memory _cfg) internal view returns (bool) {

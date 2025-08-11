@@ -15,22 +15,22 @@ library LibDecoder {
     // Decode Functions
     // -------------------------------------------------------------------
 
-    /// @notice Decodes data into CoreState, BlobLocator array, and ClaimRecord array
+    /// @notice Decodes data into CoreState, BlobReference array, and ClaimRecord array
     /// @param _data The encoded data
     /// @return coreState_ The decoded CoreState
-    /// @return blobLocator_ The decoded BlobLocator
+    /// @return blobReference_ The decoded BlobReference
     /// @return claimRecords_ The decoded array of ClaimRecords
     function decodeProposeData(bytes calldata _data)
         internal
         pure
         returns (
             IInbox.CoreState memory coreState_,
-            LibBlobs.BlobLocator memory blobLocator_,
+            LibBlobs.BlobReference memory blobReference_,
             IInbox.ClaimRecord[] memory claimRecords_
         )
     {
-        (coreState_, blobLocator_, claimRecords_) =
-            abi.decode(_data, (IInbox.CoreState, LibBlobs.BlobLocator, IInbox.ClaimRecord[]));
+        (coreState_, blobReference_, claimRecords_) =
+            abi.decode(_data, (IInbox.CoreState, LibBlobs.BlobReference, IInbox.ClaimRecord[]));
     }
 
     /// @notice Decodes data into Proposal array and Claim array
@@ -49,21 +49,21 @@ library LibDecoder {
     // Encode Functions
     // -------------------------------------------------------------------
 
-    /// @notice Encodes CoreState, BlobLocator, and ClaimRecord array into bytes
+    /// @notice Encodes CoreState, BlobReference, and ClaimRecord array into bytes
     /// @param _coreState The CoreState to encode
-    /// @param _blobLocator The BlobLocator to encode
+    /// @param _blobReference The BlobReference to encode
     /// @param _claimRecords The array of ClaimRecords to encode
     /// @return data_ The encoded data
     function encodeProposeData(
         IInbox.CoreState memory _coreState,
-        LibBlobs.BlobLocator memory _blobLocator,
+        LibBlobs.BlobReference memory _blobReference,
         IInbox.ClaimRecord[] memory _claimRecords
     )
         internal
         pure
         returns (bytes memory data_)
     {
-        data_ = abi.encode(_coreState, _blobLocator, _claimRecords);
+        data_ = abi.encode(_coreState, _blobReference, _claimRecords);
     }
 
     /// @notice Encodes Proposal array and Claim array into bytes

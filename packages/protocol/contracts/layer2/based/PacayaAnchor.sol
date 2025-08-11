@@ -8,11 +8,12 @@ import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
-import "../eip1559/LibEIP1559.sol";
-import "./OntakeAnchor.sol";
+import "src/layer2/based/libs/LibEIP1559.sol";
+import "src/layer2/based/OntakeAnchor.sol";
 
 /// @title PacayaAnchor
 /// @notice Anchoring functions for the Pacaya fork.
+/// @custom:deprecated This contract is deprecated and should not be used in new implementations
 /// @custom:security-contact security@taiko.xyz
 abstract contract PacayaAnchor is OntakeAnchor {
     using LibAddress for address;
@@ -89,9 +90,16 @@ abstract contract PacayaAnchor is OntakeAnchor {
         _;
     }
 
-    constructor(address _signalService, uint64 _pacayaForkHeight) OntakeAnchor() {
+    constructor(
+        address _signalService,
+        uint64 _pacayaForkHeight,
+        uint64 _shastaForkHeight
+    )
+        OntakeAnchor()
+    {
         signalService = ISignalService(_signalService);
         pacayaForkHeight = _pacayaForkHeight;
+        shastaForkHeight = _shastaForkHeight;
     }
 
     /// @notice Anchors the latest L1 block details to L2 for cross-layer
@@ -109,7 +117,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
+        BaseFeeConfig calldata _baseFeeConfig,
         bytes32[] calldata _signalSlots
     )
         external
@@ -168,7 +176,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
     function getBasefeeV2(
         uint32 _parentGasUsed,
         uint64 _blockTimestamp,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+        BaseFeeConfig calldata _baseFeeConfig
     )
         public
         view
@@ -201,17 +209,21 @@ abstract contract PacayaAnchor is OntakeAnchor {
     }
 
     /// @inheritdoc IBlockHashProvider
-    function getBlockHash(uint256 _blockId) public view returns (bytes32) {
+    function getBlockHash(uint256 _blockId) public view returns (bytes32 blockHash_) {
         if (_blockId >= block.number) return 0;
         if (_blockId + 256 >= block.number) return blockhash(_blockId);
-        return _blockhashes[_blockId];
+        blockHash_ = _blockhashes[_blockId];
     }
 
     /// @notice Tells if we need to validate basefee (for simulation).
-    /// @return Returns true to skip checking basefee mismatch.
-    function skipFeeCheck() public pure virtual returns (bool) {
+    /// @return skipCheck_ Returns true to skip checking basefee mismatch.
+    function skipFeeCheck() public pure virtual returns (bool skipCheck_) {
         return false;
     }
+
+    // -------------------------------------------------------------------
+    // Internal functions
+    // -------------------------------------------------------------------
 
     /// @dev Synchronizes chain data with the given anchor block ID and state root.
     /// @param _anchorBlockId The ID of the anchor block.
@@ -266,7 +278,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
     /// @param _baseFeeConfig The configuration parameters for calculating the base fee.
     function _verifyBaseFeeAndUpdateGasExcess(
         uint32 _parentGasUsed,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig
+        BaseFeeConfig calldata _baseFeeConfig
     )
         internal
     {
