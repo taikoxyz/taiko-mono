@@ -156,7 +156,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
         _state.blockIndex = _blockIndex;
 
         // Process L1 anchor data if provided
-        if (_anchorBlockNumber != 0) {
+        require(_anchorBlockNumber != 0, InvalidAnchorBlockNumber());
+        if (_anchorBlockNumber > _state.anchorBlockNumber) {
             // Save the L1 block data for cross-chain verification
             syncedBlockManager.saveSyncedBlock(
                 _anchorBlockNumber, _anchorBlockHash, _anchorStateRoot
@@ -254,6 +255,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     error BlockHashAlreadySet();
     error BondOperationsHashMismatch();
     error InvalidBlockIndex();
+    error InvalidAnchorBlockNumber();
     error InvalidForkHeight();
     error NonZeroAnchorBlockHash();
     error NonZeroAnchorStateRoot();

@@ -183,7 +183,7 @@ A default manifest contains a single empty block, effectively serving as a fallb
 
 With the extracted manifest, metadata computation proceeds using both the manifest data and the parent block's metadata (`parent.metadata`). The following sections detail the validation rules for each metadata component:
 
-#### Timestamp Validation
+#### `timestamp` Validation
 
 Timestamp validation is performed collectively across all blocks and may result in block count reduction:
 
@@ -192,26 +192,26 @@ Timestamp validation is performed collectively across all blocks and may result 
 3. **Lower bound enforcement**: If `metadata.timestamp < lowerBound`, set `metadata.timestamp = lowerBound`
 4. **Block pruning**: If `metadata.timestamp > proposal.originTimestamp` after adjustments, discard this and all subsequent blocks
 
-#### Anchor Block Number Validation
+#### `anchorBlockNumber` Validation
 
 Anchor block validation ensures proper L1 state synchronization and may trigger manifest replacement:
 
-**Invalidation conditions** (sets `anchorBlockNumber` to 0):
+**Invalidation conditions** (sets `anchorBlockNumber` to `parent.metadata.anchorBlockNumber`):
 
-- Non-monotonic progression: `manifest.blocks[i].anchorBlockNumber <= parent.metadata.anchorBlockNumber`
+- Non-monotonic progression: `manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber`
 - Future reference: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber`
 - Excessive lag: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET`
 
-**Forced inclusion protection**: For non-forced proposals (`proposal.isForcedInclusion == false`), if no blocks have valid anchor numbers, the entire manifest is replaced with the default manifest, penalizing proposals that fail to provide proper L1 anchoring.
+**Forced inclusion protection**: For non-forced proposals (`proposal.isForcedInclusion == false`), if no blocks have valid anchor numbers greather than its parent's, the entire manifest is replaced with the default manifest, penalizing proposals that fail to provide proper L1 anchoring.
 
-#### Anchor State Validation
+#### `anchorBlockHash` and `anchorStateRoot` Validation
 
 The anchor hash and state root must maintain consistency with the anchor block number:
 
-- If `anchorBlockNumber == 0`: Both `anchorBlockHash` and `anchorStateRoot` must be zero
-- If `anchorBlockNumber != 0`: Both fields must accurately reflect the L1 block state at the specified `anchorBlockNumber`
+- If `anchorBlockNumber == parent.metadata.anchorBlockNumber`: Both `anchorBlockHash` and `anchorStateRoot` must be zero
+- Otherwise: Both fields must accurately reflect the L1 block state at the specified `anchorBlockNumber`
 
-#### Coinbase Assignment
+#### `coinbase` Assignment
 
 The L2 coinbase address determination follows a hierarchical priority system:
 
@@ -230,16 +230,16 @@ function assignCoinbase() {
 }
 ```
 
-#### Gas Issuance Rate Adjustment
+#### `gasIssuancePerSecond` Validation
 
-Gas issuance adjustments are constrained to ±1 basis point per block to ensure economic stability:
+Gas issuance adjustments are constrained by `MAX_GAS_ISSUANCE_CHANGE_PERMYRIAD` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±0.1 basis points (±0.001%) change per block. Additionally, gas issuance must never fall below `MIN_GAS_ISSUANCE_PER_SECOND`:
 
 **Calculation process**:
 
 1. **Define bounds**:
 
-   - `lowerBound = parent.metadata.gasIssuancePerSecond * 9999/10000`
-   - `upperBound = parent.metadata.gasIssuancePerSecond * 10001/10000`
+   - `lowerBound = max(parent.metadata.gasIssuancePerSecond * (100000 - MAX_GAS_ISSUANCE_CHANGE_PERMYRIAD) / 100000, MIN_GAS_ISSUANCE_PER_SECOND)`
+   - `upperBound = parent.metadata.gasIssuancePerSecond * (100000 + MAX_GAS_ISSUANCE_CHANGE_PERMYRIAD) / 100000`
 
 2. **Apply constraints**:
    - If `manifest.blocks[i].gasIssuancePerSecond == 0`: Inherit parent value
@@ -247,9 +247,13 @@ Gas issuance adjustments are constrained to ±1 basis point per block to ensure 
    - If above `upperBound`: Clamp to `upperBound`
    - Otherwise: Use manifest value unchanged
 
-#### Bond Operations
+#### `bondOperationsHash` and `bondOperations` Validation
 
-_Specification pending - to be documented_
+For an L2 block with a higher anchor block number than its parent, bond operations must be processed within its anchor transaction.
+
+To begin, locate a `CoreState` object in the L1 anchor block's world state whose keccak hash matches the `coreStateHash` from the inbox contract. Extract the `bondOperationsHash` field from this object and set `metadata.bondOperationsHash` to this value.
+
+If `metadata.anchorBlockNumber` exceeds `parent.metadata.anchorBlockNumber`, collect all `BondOperations` emitted from the Taiko inbox via `BondOperationCreated` events, occurring between blocks numbered `parent.metadata.anchorBlockNumber + 1` and `metadata.anchorBlockNumber`. Assign this collection to `metadata.bondOperations`, which may be empty.
 
 #### Additional Metadata Fields
 
@@ -290,6 +294,7 @@ Metadata encoding into L2 block header fields facilitates efficient peer validat
 | `index`                | uint16  | `withdrawalsRoot` (bytes TBD) |
 | `basefeeSharingPctg`   | uint8   | First byte in `extraData`     |
 | `gasIssuancePerSecond` | uint32  | Next 4 bytes in `extraData`   |
+| `anchorBlockNumber `   | uint48  | Next 6 bytes in `extraData`   |
 
 #### Additional Pre-Execution Block Header Fields
 
@@ -334,7 +339,7 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
    - Processes operations incrementally
    - Maintains cumulative hash for verification
 
-3. **L1 state anchoring** (when anchorBlockNumber != 0)
+3. **L1 state anchoring** (when anchorBlockNumber > parent.metadata.anchorBlockNumber)
 
    - Persists L1 block data
    - Enables cross-chain verification

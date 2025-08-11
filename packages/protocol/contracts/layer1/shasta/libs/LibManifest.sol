@@ -33,6 +33,14 @@ library LibManifest {
     /// @notice The block gas limit.
     uint256 internal constant BLOCK_GAS_LIMIT = 100_000_000;
 
+    /// @notice The maximum gas issuance change per block in permyriad (1/10,000).
+    /// @dev E.g., 10 = 0.1 basis points = 0.001% = 10/100,000
+    uint256 internal constant MAX_GAS_ISSUANCE_CHANGE_PERMYRIAD = 10;
+
+    /// @notice The minimum gas issuance per second.
+    /// @dev This ensures gas issuance never drops below a critical threshold.
+    uint256 internal constant MIN_GAS_ISSUANCE_PER_SECOND = 1_000_000;
+
     // -------------------------------------------------------------------
     // Structs
     // -------------------------------------------------------------------
