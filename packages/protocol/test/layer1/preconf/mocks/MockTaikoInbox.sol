@@ -20,7 +20,7 @@ contract MockTaikoInbox is EssentialContract {
             livenessBond: 1 ether,
             stateRootSyncInternal: 1,
             maxAnchorHeightOffset: 100,
-            baseFeeConfig: ITaikoInbox.BaseFeeConfig({
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 1,
                 sharingPctg: 1,
                 gasIssuancePerSecond: 1,
@@ -76,7 +76,7 @@ contract MockTaikoInbox is EssentialContract {
             anchorBlockId: params.anchorBlockId,
             anchorBlockHash: bytes32(0), // Mock value
             blocks: params.blocks,
-            baseFeeConfig: ITaikoInbox.BaseFeeConfig({
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
                 sharingPctg: 75,
                 gasIssuancePerSecond: 0,

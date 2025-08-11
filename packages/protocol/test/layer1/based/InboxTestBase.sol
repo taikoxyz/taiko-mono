@@ -29,7 +29,7 @@ abstract contract InboxTestBase is Layer1Test {
             livenessBond: 125e18, // 125 Taiko token per batch
             stateRootSyncInternal: 5,
             maxAnchorHeightOffset: 64,
-            baseFeeConfig: ITaikoInbox.BaseFeeConfig({
+            baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 8,
                 sharingPctg: 75,
                 gasIssuancePerSecond: 5_000_000,

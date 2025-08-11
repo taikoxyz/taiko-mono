@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/shared/based/LibSharedData.sol";
 import "./IBondManager.sol";
 import "./IProveBatches.sol";
 
@@ -64,16 +65,6 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         bytes proverAuth;
     }
 
-    /// @dev Struct that represents L2 basefee configurations
-    struct BaseFeeConfig {
-        // This is the base fee change denominator per 12 second window.
-        uint8 adjustmentQuotient;
-        uint8 sharingPctg;
-        uint32 gasIssuancePerSecond;
-        uint64 minGasExcess;
-        uint32 maxGasIssuancePerBlock;
-    }
-
     /// @dev This struct holds batch information essential for constructing blocks offchain, but it
     /// does not include data necessary for batch proving.
     struct BatchInfo {
@@ -96,7 +87,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         // corresponds to the `_anchorStateRoot` parameter in the anchor transaction.
         // The batch's validity proof shall verify the integrity of these two values.
         bytes32 anchorBlockHash;
-        BaseFeeConfig baseFeeConfig;
+        LibSharedData.BaseFeeConfig baseFeeConfig;
     }
 
     /// @dev This struct holds batch metadata essential for proving the batch.
@@ -189,7 +180,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
         /// @notice The max differences of the anchor height and the current block number.
         uint64 maxAnchorHeightOffset;
         /// @notice Base fee configuration
-        BaseFeeConfig baseFeeConfig;
+        LibSharedData.BaseFeeConfig baseFeeConfig;
         /// @notice The proving window in seconds.
         uint16 provingWindow;
         /// @notice The time required for a transition to be used for verifying a batch.
