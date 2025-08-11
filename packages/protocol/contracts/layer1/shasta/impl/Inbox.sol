@@ -10,7 +10,7 @@ import { InboxWithSlotOptimization } from "./InboxWithSlotOptimization.sol";
 abstract contract Inbox is InboxWithSlotOptimization {
     /// @notice Initializes the Inbox contract
     constructor() InboxWithSlotOptimization() { }
-    
+
     // This contract now simply inherits from InboxWithSlotOptimization
     // All functionality is provided by the parent contracts
 }

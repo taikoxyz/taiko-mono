@@ -7,7 +7,6 @@ import "./ShastaInboxTestBase.sol";
 /// @notice Tests for basic proposal submission functionality
 /// @dev Tests cover single and multiple proposal submissions, event emissions, and state updates
 contract InboxProposeBasic is ShastaInboxTestBase {
-    
     /// @notice Test submitting a single valid proposal
     /// @dev Verifies that a valid proposal can be submitted successfully with:
     ///      - Correct proposal hash stored in ring buffer
@@ -18,19 +17,19 @@ contract InboxProposeBasic is ShastaInboxTestBase {
         IInbox.CoreState memory coreState = createCoreState(1, 0);
         bytes32 initialCoreStateHash = keccak256(abi.encode(coreState));
         inbox.exposed_setCoreStateHash(initialCoreStateHash);
-        
+
         // Setup mocks
         setupStandardProposerMocks(Alice);
-        
+
         // Create proposal data
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(1);
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
         bytes memory data = encodeProposeProposeData(coreState, blobRef, claimRecords);
-        
+
         // Expected proposal with correct blob hash
         bytes32[] memory expectedBlobHashes = new bytes32[](1);
-        expectedBlobHashes[0] = keccak256(abi.encode("blob", uint256(1)));  // blobRef uses index 1
-        
+        expectedBlobHashes[0] = keccak256(abi.encode("blob", uint256(1))); // blobRef uses index 1
+
         IInbox.Proposal memory expectedProposal = IInbox.Proposal({
             id: 1,
             proposer: Alice,
@@ -46,29 +45,29 @@ contract InboxProposeBasic is ShastaInboxTestBase {
                 timestamp: uint48(block.timestamp)
             })
         });
-        
+
         // Expected updated core state
         IInbox.CoreState memory expectedCoreState = coreState;
         expectedCoreState.nextProposalId = 2;
-        
+
         // Expect Proposed event
         vm.expectEmit(true, true, true, true);
         emit Proposed(expectedProposal, expectedCoreState);
-        
+
         // Submit proposal
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
-        
+
         // Verify proposal hash is stored
         bytes32 storedProposalHash = inbox.getProposalHash(1);
         bytes32 expectedProposalHash = keccak256(abi.encode(expectedProposal));
         assertEq(storedProposalHash, expectedProposalHash);
-        
+
         // Verify core state is updated
         bytes32 newCoreStateHash = inbox.getCoreStateHash();
         assertEq(newCoreStateHash, keccak256(abi.encode(expectedCoreState)));
     }
-    
+
     /// @notice Test submitting multiple proposals sequentially
     /// @dev Verifies that multiple proposals can be submitted in sequence with:
     ///      - Each proposal getting a unique incremented ID
@@ -76,70 +75,68 @@ contract InboxProposeBasic is ShastaInboxTestBase {
     ///      - Core state updated correctly after each proposal
     function test_propose_multiple_sequential() public {
         uint48 numProposals = 5;
-        
+
         for (uint48 i = 0; i < numProposals; i++) {
             // Setup core state for this iteration
             IInbox.CoreState memory coreState = createCoreState(i + 1, 0);
             inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
-            
+
             // Setup mocks
             mockProposerAllowed(Alice);
             mockHasSufficientBond(Alice, true);
             mockForcedInclusionDue(false);
-            
+
             // Create proposal data
             LibBlobs.BlobReference memory blobRef = createValidBlobReference(i + 1);
             IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
             bytes memory data = encodeProposeProposeData(coreState, blobRef, claimRecords);
-            
+
             // Submit proposal
             vm.prank(Alice);
             inbox.propose(bytes(""), data);
-            
+
             // Verify proposal is stored
             bytes32 proposalHash = inbox.getProposalHash(i + 1);
             assertTrue(proposalHash != bytes32(0));
         }
-        
+
         // Verify all proposals are accessible
         for (uint48 i = 0; i < numProposals; i++) {
             bytes32 proposalHash = inbox.getProposalHash(i + 1);
             assertTrue(proposalHash != bytes32(0));
         }
     }
-    
+
     /// @notice Test proposal with valid blob reference
     /// @dev Verifies that blob references are properly validated and stored
-    /// Expected behavior: Proposal succeeds with valid blob reference containing hash and KZG commitment
+    /// Expected behavior: Proposal succeeds with valid blob reference containing hash and KZG
+    /// commitment
     function test_propose_with_valid_blob_reference() public {
         // Setup core state
         IInbox.CoreState memory coreState = createCoreState(1, 0);
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
-        
+
         // Setup mocks
         setupStandardProposerMocks(Alice);
-        
+
         // Create blob reference with specific values
         // Note: We need to mock the blob hash for index 1
         mockBlobHash(1, keccak256(abi.encode("blob", 1)));
-        LibBlobs.BlobReference memory blobRef = LibBlobs.BlobReference({
-            blobStartIndex: 1,
-            numBlobs: 1,
-            offset: 100
-        });
-        
+        LibBlobs.BlobReference memory blobRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 100 });
+
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
         bytes memory data = encodeProposeProposeData(coreState, blobRef, claimRecords);
-        
+
         // Submit proposal
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
-        
+
         // Verify proposal contains correct blob slice
         bytes32 proposalHash = inbox.getProposalHash(1);
         assertTrue(proposalHash != bytes32(0));
     }
-    
+
     /// @notice Test proposal event emission with correct data
     /// @dev Verifies that the Proposed event contains all expected fields
     /// Expected behavior: Event emitted with proposal details and updated core state
@@ -147,40 +144,42 @@ contract InboxProposeBasic is ShastaInboxTestBase {
         // Setup core state
         IInbox.CoreState memory coreState = createCoreState(1, 0);
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
-        
+
         // Setup mocks
         mockProposerAllowed(Bob);
         mockHasSufficientBond(Bob, true);
         mockForcedInclusionDue(false);
-        
+
         // Create proposal data
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(999);
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
         bytes memory data = encodeProposeProposeData(coreState, blobRef, claimRecords);
-        
+
         // Record logs to check event data
         vm.recordLogs();
-        
+
         // Submit proposal
         vm.prank(Bob);
         inbox.propose(bytes(""), data);
-        
+
         // Get emitted logs
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        
+
         // Find Proposed event - using the actual event signature from the logs
         // The event signature for Proposed(Proposal,CoreState) is the first topic
-        bytes32 proposedEventSig = keccak256("Proposed((uint48,address,uint48,uint48,bool,uint8,uint48,uint48,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32))");
-        
+        bytes32 proposedEventSig = keccak256(
+            "Proposed((uint48,address,uint48,uint48,bool,uint8,uint48,uint48,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32))"
+        );
+
         bool foundEvent = false;
-        for (uint i = 0; i < logs.length; i++) {
+        for (uint256 i = 0; i < logs.length; i++) {
             // Check if this is a Proposed event
             if (logs[i].topics[0] == proposedEventSig) {
                 foundEvent = true;
                 // Decode and verify event data
-                (IInbox.Proposal memory emittedProposal, IInbox.CoreState memory emittedCoreState) = 
+                (IInbox.Proposal memory emittedProposal, IInbox.CoreState memory emittedCoreState) =
                     abi.decode(logs[i].data, (IInbox.Proposal, IInbox.CoreState));
-                
+
                 assertEq(emittedProposal.id, 1);
                 assertEq(emittedProposal.proposer, Bob);
                 assertEq(emittedCoreState.nextProposalId, 2);
@@ -189,32 +188,32 @@ contract InboxProposeBasic is ShastaInboxTestBase {
         }
         assertTrue(foundEvent);
     }
-    
+
     /// @notice Test multiple proposers submitting proposals
     /// @dev Verifies that different accounts can submit proposals
     /// Expected behavior: Each proposer can submit proposals independently
     function test_propose_multiple_proposers() public {
         address[3] memory proposers = [Alice, Bob, Carol];
-        
-        for (uint i = 0; i < proposers.length; i++) {
+
+        for (uint256 i = 0; i < proposers.length; i++) {
             // Setup core state
             IInbox.CoreState memory coreState = createCoreState(uint48(i + 1), 0);
             inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
-            
+
             // Setup mocks for this proposer
             mockProposerAllowed(proposers[i]);
             mockHasSufficientBond(proposers[i], true);
             mockForcedInclusionDue(false);
-            
+
             // Create proposal data
             LibBlobs.BlobReference memory blobRef = createValidBlobReference(i + 1);
             IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
             bytes memory data = encodeProposeProposeData(coreState, blobRef, claimRecords);
-            
+
             // Submit proposal
             vm.prank(proposers[i]);
             inbox.propose(bytes(""), data);
-            
+
             // Verify proposal is stored
             bytes32 proposalHash = inbox.getProposalHash(uint48(i + 1));
             assertTrue(proposalHash != bytes32(0));

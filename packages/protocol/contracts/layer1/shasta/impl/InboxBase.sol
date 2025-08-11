@@ -36,7 +36,6 @@ abstract contract InboxBase is EssentialContract, IInbox {
     // Structs
     // ---------------------------------------------------------------
 
-
     /// @notice Stores proposal data and associated claim records.
     /// @dev Each proposal can have multiple claims associated with it, indexed by parent claim
     /// hash.
@@ -286,7 +285,6 @@ abstract contract InboxBase is EssentialContract, IInbox {
             proposalRingBuffer[_proposalId % _config.ringBufferSize];
         proposalRecord.claimHashLookup[_parentClaimHash] = _claimRecordHash;
     }
-
 
     /// @dev Gets the capacity for unfinalized proposals.
     function _getCapacity(Config memory _config) internal pure returns (uint256) {
