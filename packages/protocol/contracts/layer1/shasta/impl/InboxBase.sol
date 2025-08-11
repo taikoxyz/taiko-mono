@@ -225,13 +225,10 @@ abstract contract InboxBase is EssentialContract, IInbox {
     )
         public
         view
-        virtual
         returns (bytes32 claimRecordHash_)
     {
         Config memory config = getConfig();
-        ProposalRecord storage proposalRecord =
-            proposalRingBuffer[_proposalId % config.ringBufferSize];
-        return proposalRecord.claimHashLookup[_parentClaimHash];
+        return _getClaimRecordHash(config, _proposalId, _parentClaimHash);
     }
 
     /// @notice Gets the capacity for unfinalized proposals.

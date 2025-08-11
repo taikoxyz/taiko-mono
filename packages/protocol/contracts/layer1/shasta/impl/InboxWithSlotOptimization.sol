@@ -104,21 +104,4 @@ abstract contract InboxWithSlotOptimization is InboxBase {
         // No default value, check regular mapping
         return proposalRecord.claimHashLookup[_parentClaimHash];
     }
-
-    /// @notice Gets the claim record hash for a given proposal and parent claim
-    /// @param _proposalId The proposal ID to look up
-    /// @param _parentClaimHash The parent claim hash to look up
-    /// @return claimRecordHash_ The claim record hash, or bytes32(0) if not found
-    function getClaimRecordHash(
-        uint48 _proposalId,
-        bytes32 _parentClaimHash
-    )
-        public
-        view
-        override
-        returns (bytes32 claimRecordHash_)
-    {
-        Config memory config = getConfig();
-        return _getClaimRecordHash(config, _proposalId, _parentClaimHash);
-    }
 }
