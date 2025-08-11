@@ -10,6 +10,8 @@ import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.s
 interface IInbox {
     /// @notice Configuration parameters for the Inbox contract
     struct Config {
+        uint48 forkActivationHeight;
+        address bondToken;
         uint48 provabilityBondGwei;
         uint48 livenessBondGwei;
         uint48 provingWindow;
@@ -107,6 +109,10 @@ interface IInbox {
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
+
+    /// @notice Emitted when the core state is set.
+    /// @param coreState The core state.
+    event CoreStateSet(CoreState coreState);
 
     /// @notice Emitted when a new proposal is proposed.
     /// @param proposal The proposal that was proposed.

@@ -9,6 +9,7 @@
       "Bash(git *)",
       "Bash(FOUNDRY_PROFILE=* forge *)",
       "Bash(pnpm compile:l2:*)",
+      "Bash(pnpm compile:l1:*)",
       "Bash(find:*)",
       "Bash(pnpm compile:*)",
       "Bash(grep:*)",
@@ -20,7 +21,8 @@
       "Bash(mkdir:*)",
       "Bash(git mv:*)",
       "Bash(rmdir:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
 import { IBondManager as IShastaBondManager } from "contracts/shared/based/iface/IBondManager.sol";
 import { ISyncedBlockManager } from "contracts/shared/based/iface/ISyncedBlockManager.sol";
@@ -18,6 +20,20 @@ import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.s
 
 abstract contract Inbox is EssentialContract, IInbox {
     using LibDecoder for bytes;
+    using SafeERC20 for IERC20;
+
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
+
+    /// @notice Emitted when bond is withdrawn from the contract
+    /// @param user The user whose bond was withdrawn
+    /// @param amount The amount of bond withdrawn
+    event BondWithdrawn(address indexed user, uint256 amount);
+
+    // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
 
     /// @notice Extended claim record that stores both the claim hash and encoded metadata.
     /// @dev The metadata includes the proposal ID and partial parent claim hash for efficient
@@ -37,28 +53,51 @@ abstract contract Inbox is EssentialContract, IInbox {
         mapping(bytes32 parentClaimHash => ExtendedClaimRecord claimRecordHash) claimHashLookup;
     }
 
+    struct PacayaStats2 {
+        uint64 numBatches;
+        uint64 lastVerifiedBatchId;
+        bool paused;
+        uint56 lastProposedIn;
+        uint64 lastUnpausedAt;
+    }
+
+    // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    uint256 public constant REWARD_FRACTION = 2;
+    bytes32 private constant _DEFAULT_SLOT_HASH = bytes32(uint256(1));
+
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
-    uint48 public constant REWARD_FRACTION = 2;
+    // 5 slots are used by the State object defined in Pacaya inbox:
+    // mapping(uint256 batchId_mod_batchRingBufferSize => Batch batch) batches;
+    // mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
+    // mapping(uint256 batchId_mod_batchRingBufferSize => mapping(uint24 transitionId =>
+    //         TransitionState ts)) transitions;
+    // bytes32 __reserve1;
+    // Stats1 stats1;
+    uint256[5] private __slotsUsedByPacaya;
 
-    bytes32 private constant _DEFAULT_SLOT_HASH = bytes32(uint256(1));
+    PacayaStats2 private _pacayaStats2;
 
-    /// @notice The hash of the core state.
-    bytes32 private coreStateHash;
+    mapping(address account => uint256 bond) public bondBalance;
 
-    /// @notice Ring buffer for storing proposal records.
-    /// @dev Key is proposalId % getConfig().ringBufferSize
-    mapping(uint256 bufferSlot => ProposalRecord proposalRecord) private proposalRingBuffer;
+    /// @dev The hash of the core state.
+    bytes32 internal coreStateHash;
 
-    uint256[48] private __gap;
+    /// @dev Ring buffer for storing proposal records.
+    mapping(uint256 bufferSlot => ProposalRecord proposalRecord) internal proposalRingBuffer;
+
+    uint256[41] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the Inbox contract with configuration parameters
+    /// @notice Initializes the Inbox contract
     constructor() EssentialContract() { }
 
     /// @notice Initializes the Inbox contract with genesis block
@@ -74,6 +113,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         coreState.nextProposalId = 1;
         coreState.lastFinalizedClaimHash = keccak256(abi.encode(claim));
         coreStateHash = keccak256(abi.encode(coreState));
+
+        emit CoreStateSet(coreState);
     }
 
     // ---------------------------------------------------------------
@@ -83,6 +124,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @inheritdoc IInbox
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         Config memory config = getConfig();
+        require(_isForkActive(config), ForkNotActive());
         IProposerChecker(config.proposerChecker).checkProposer(msg.sender);
         require(
             IShastaBondManager(config.bondManager).getBondBalance(msg.sender)
@@ -150,6 +192,19 @@ abstract contract Inbox is EssentialContract, IInbox {
         IProofVerifier(config.proofVerifier).verifyProof(claimsHash, _proof);
     }
 
+    /// @notice Withdraws bond balance for a given user.
+    /// @dev Anyone can call this function to withdraw bond for any user.
+    function withdrawBond() external nonReentrant {
+        uint256 amount = bondBalance[msg.sender];
+        require(amount > 0, NoBondToWithdraw());
+
+        bondBalance[msg.sender] = 0;
+        Config memory config = getConfig();
+        IERC20(config.bondToken).safeTransfer(msg.sender, amount);
+
+        emit BondWithdrawn(msg.sender, amount);
+    }
+
     /// @notice Gets the hash of the core state.
     /// @return coreStateHash_ The hash of the current core state.
     function getCoreStateHash() public view returns (bytes32 coreStateHash_) {
@@ -206,9 +261,11 @@ abstract contract Inbox is EssentialContract, IInbox {
         return _getCapacity(config);
     }
 
-    /// @notice Gets the configuration parameters for the Inbox contract
-    /// @return config_ The configuration parameters
-    function getConfig() public view virtual returns (Config memory config_);
+    /// @notice Gets the configuration for this Inbox contract
+    /// @dev This function must be overridden by subcontracts to provide their specific
+    /// configuration
+    /// @return _ The configuration struct
+    function getConfig() public view virtual returns (Config memory);
 
     // ---------------------------------------------------------------
     // Internal Functions
@@ -557,6 +614,12 @@ abstract contract Inbox is EssentialContract, IInbox {
             emit BondRequest(bondOperation);
             return LibBondOperation.aggregateBondOperation(_bondOperationsHash, bondOperation);
         }
+        return _bondOperationsHash;
+    }
+
+    function _isForkActive(Config memory _cfg) internal view returns (bool) {
+        return _cfg.forkActivationHeight == 0
+            || _pacayaStats2.numBatches + 1 == _cfg.forkActivationHeight;
     }
 
     // ---------------------------------------------------------------
@@ -567,11 +630,13 @@ abstract contract Inbox is EssentialContract, IInbox {
     error ClaimRecordNotProvided();
     error EmptyProposals();
     error ExceedsUnfinalizedProposalCapacity();
+    error ForkNotActive();
     error InconsistentParams();
     error InsufficientBond();
+    error InvalidForcedInclusion();
     error InvalidState();
+    error NoBondToWithdraw();
     error ProposalHashMismatch();
     error RingBufferSizeZero();
     error Unauthorized();
-    error InvalidForcedInclusion();
 }
