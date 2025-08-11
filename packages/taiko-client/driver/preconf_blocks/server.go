@@ -684,6 +684,8 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 					} else {
 						publishRequest()
 					}
+				} else {
+					publishRequest()
 				}
 			}
 
