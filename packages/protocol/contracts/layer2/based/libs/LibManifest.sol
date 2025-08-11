@@ -22,11 +22,11 @@ library LibManifest {
     /// small as one second, 384 blocks will cover an Ethereum epoch.
     uint256 internal constant PROPOSAL_MAX_BLOCKS = 384;
 
-    uint256 internal constant BLOCK_MAX_RAW_TRANSACTIONS = 4096*2;
+    uint256 internal constant BLOCK_MAX_RAW_TRANSACTIONS = 4096 * 2;
     uint256 internal constant BLOCK_MAX_TRANSACTIONS = 4096;
 
     uint256 internal constant ANCHOR_BLOCK_MAX_ORIGIN_OFFSET = 128;
-    uint256 internal constant TIMESTAMP_MAX_OFFSET = 12*32;
+    uint256 internal constant TIMESTAMP_MAX_OFFSET = 12 * 32;
 
     uint256 internal constant BLOCK_GAS_LIMIT = 100_000_000;
 
@@ -50,14 +50,6 @@ library LibManifest {
         uint8 v;
         bytes32 r;
         bytes32 s;
-    }
-
-// TODO: move somewhere else
-    struct ProverAuth {
-        uint48 proposalId;
-        address proposer;
-        uint48 provingFeeGwei;
-        bytes signature;
     }
 
     /// @notice Represents a block manifest

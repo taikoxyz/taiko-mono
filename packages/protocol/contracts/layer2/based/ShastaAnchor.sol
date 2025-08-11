@@ -6,7 +6,6 @@ import { PacayaAnchor } from "./PacayaAnchor.sol";
 import { ISyncedBlockManager } from "src/shared/shasta/iface/ISyncedBlockManager.sol";
 import { IBondManager as IShastaBondManager } from "src/shared/shasta/iface/IBondManager.sol";
 import { LibBondOperation } from "src/shared/shasta/libs/LibBondOperation.sol";
-import { LibManifest } from "./libs/LibManifest.sol";
 
 /// @title ShastaAnchor
 /// @notice Anchoring functions for the Shasta fork.
@@ -29,6 +28,13 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Block level fields (updated for each block in the proposal)
         uint16 blockIndex; // Current block being processed (0-indexed, < blockCount)
         uint48 anchorBlockNumber; // Latest L1 block number anchored
+    }
+
+    struct ProverAuth {
+        uint48 proposalId;
+        address proposer;
+        uint48 provingFeeGwei;
+        bytes signature;
     }
 
     // ---------------------------------------------------------------
@@ -215,7 +221,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Empty auth means no designated prover
         if (_proverAuth.length == 0) return address(0);
 
-        LibManifest.ProverAuth memory proverAuth = abi.decode(_proverAuth, (LibManifest.ProverAuth));
+        ProverAuth memory proverAuth = abi.decode(_proverAuth, (ProverAuth));
 
         // Handle zero proposal ID case - all fields must be empty
         if (proverAuth.proposalId != _proposalId) return _proposer;
