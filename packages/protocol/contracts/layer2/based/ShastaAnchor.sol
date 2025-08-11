@@ -185,11 +185,10 @@ abstract contract ShastaAnchor is PacayaAnchor {
             require(_anchorStateRoot == 0, NonZeroAnchorStateRoot());
         }
 
-        // Update public input hash for parent block verification
+        // Keep track of the parent block hash for future reference, this logic also guarantess
+        // setState cannot be called twice for the same block.
         uint256 parentId = block.number - 1;
-        _verifyAndUpdatePublicInputHash(parentId);
-
-        // Cache parent block hash for future reference
+        require(_blockhashes[parentId] == 0, BlockHashAlreadySet());
         _blockhashes[parentId] = blockhash(parentId);
     }
 
@@ -252,11 +251,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // Errors
     // ---------------------------------------------------------------
 
+    error BlockHashAlreadySet();
     error BondOperationsHashMismatch();
+    error InvalidBlockIndex();
     error InvalidForkHeight();
     error NonZeroAnchorBlockHash();
     error NonZeroAnchorStateRoot();
     error NonZeroBlockIndex();
     error ZeroBlockCount();
-    error InvalidBlockIndex();
 }
