@@ -133,8 +133,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         (
             CoreState memory coreState,
-            LibBlobs.BlobReference memory blobReference,
-            ClaimRecord[] memory claimRecords
+            LibBlobs.BlobReference memory blobReference
         ) = _data.decodeProposeData();
 
         require(keccak256(abi.encode(coreState)) == coreStateHash, InvalidState());
@@ -160,8 +159,6 @@ abstract contract Inbox is EssentialContract, IInbox {
         // Create regular proposal
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(blobReference);
         (coreState, proposal) = _propose(config, coreState, blobSlice, false);
-        // Finalize proved proposals
-        coreState = _finalize(config, coreState, claimRecords);
         emit Proposed(proposal, coreState);
 
         _setCoreStateHash(keccak256(abi.encode(coreState)));
@@ -169,7 +166,15 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     /// @inheritdoc IInbox
     // TODO(daniel): support proving a segment of proposals with one claim.
-    function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
+    function prove(
+        bytes calldata _data,
+        CoreState calldata _coreState,
+        bytes calldata _claimRecords,
+        bytes calldata _proof
+    )
+        external
+        nonReentrant
+    {
         Config memory config = getConfig();
         (Proposal[] memory proposals, Claim[] memory claims) = _data.decodeProveData();
 
@@ -199,6 +204,17 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         bytes32 claimsHash = keccak256(abi.encode(claims));
         IProofVerifier(config.proofVerifier).verifyProof(claimsHash, _proof);
+
+        // Validate core state and decode claim records for finalization
+        require(keccak256(abi.encode(_coreState)) == coreStateHash, InvalidState());
+        ClaimRecord[] memory claimRecordsToFinalize = _claimRecords.decodeClaimRecords();
+        
+        // Validate that all currently finalizable claims are being finalized
+        _validateAllFinalizableClaimsProvided(config, _coreState, claimRecordsToFinalize);
+        
+        // Finalize the claims
+        CoreState memory newCoreState = _finalize(config, _coreState, claimRecordsToFinalize);
+        _setCoreStateHash(keccak256(abi.encode(newCoreState)));
     }
 
     /// @notice Withdraws bond balance for a given user.
@@ -566,7 +582,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             if (storedClaimRecordHash == 0) break;
 
             // There is no claim record provided for the next proposal.
-            require(i < _claimRecords.length, ClaimRecordNotProvided());
+            require(i < _claimRecords.length, MissingFinalizableClaimRecord());
 
             claimRecord = _claimRecords[i];
 
@@ -643,6 +659,41 @@ abstract contract Inbox is EssentialContract, IInbox {
         return _bondOperationsHash;
     }
 
+    /// @dev Validates that all currently finalizable claims are provided for finalization.
+    /// This ensures provers finalize the complete sequence of finalizable claims.
+    function _validateAllFinalizableClaimsProvided(
+        Config memory _config,
+        CoreState memory _coreState,
+        ClaimRecord[] memory _claimRecords
+    )
+        private
+        view
+    {
+        uint48 proposalId = _coreState.lastFinalizedProposalId + 1;
+        bytes32 lastFinalizedClaimHash = _coreState.lastFinalizedClaimHash;
+        uint256 claimIndex = 0;
+        
+        // Walk through the finalization chain
+        for (uint256 i = 0; i < _config.maxFinalizationCount && proposalId < _coreState.nextProposalId; ++i) {
+            bytes32 storedClaimRecordHash = _getClaimRecordHash(_config, proposalId, lastFinalizedClaimHash);
+            
+            if (storedClaimRecordHash != 0) {
+                // This claim is finalizable - must be provided
+                require(claimIndex < _claimRecords.length, MissingFinalizableClaimRecord());
+                require(keccak256(abi.encode(_claimRecords[claimIndex])) == storedClaimRecordHash, ClaimRecordHashMismatch());
+                
+                lastFinalizedClaimHash = keccak256(abi.encode(_claimRecords[claimIndex].claim));
+                proposalId = _claimRecords[claimIndex].nextProposalId;
+                claimIndex++;
+            } else {
+                break; // Finalization chain ends
+            }
+        }
+        
+        // All provided claims must have been validated
+        require(claimIndex == _claimRecords.length, ExcessClaimRecordsProvided());
+    }
+
     function _isForkActive(Config memory _cfg) internal view returns (bool) {
         return _cfg.forkActivationHeight == 0
             || _pacayaStats2.numBatches + 1 == _cfg.forkActivationHeight;
@@ -653,14 +704,15 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
 
     error ClaimRecordHashMismatch();
-    error ClaimRecordNotProvided();
     error EmptyProposals();
     error ExceedsUnfinalizedProposalCapacity();
+    error ExcessClaimRecordsProvided();
     error ForkNotActive();
     error InconsistentParams();
     error InsufficientBond();
     error InvalidForcedInclusion();
     error InvalidState();
+    error MissingFinalizableClaimRecord();
     error NoBondToWithdraw();
     error ProposalHashMismatch();
     error ProposerBondInsufficient();

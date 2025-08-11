@@ -133,11 +133,18 @@ interface IInbox {
 
     /// @notice Proposes new proposals of L2 blocks.
     /// @param _lookahead The data to post a new lookahead (currently unused).
-    /// @param _data The data containing the core state, blob locator, and claim records.
+    /// @param _data The data containing the core state and blob locator.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
     /// @notice Proves a claim about some properties of a proposal, including its state transition.
     /// @param _data The data containing the proposals and claims to be proven.
+    /// @param _coreState The current core state for finalization.
+    /// @param _claimRecords The claim records to finalize (must include all newly finalizable claims).
     /// @param _proof Validity proof for the claims.
-    function prove(bytes calldata _data, bytes calldata _proof) external;
+    function prove(
+        bytes calldata _data,
+        CoreState calldata _coreState,
+        bytes calldata _claimRecords,
+        bytes calldata _proof
+    ) external;
 }
