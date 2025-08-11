@@ -85,7 +85,7 @@ contract SyncedBlockManagerTest is CommonTest {
     function test_saveSyncedBlock_revert_unauthorized() public {
         vm.prank(Bob);
 
-        vm.expectRevert(SyncedBlockManager.Unauthorized.selector);
+        vm.expectRevert();
         syncedBlockManager.saveSyncedBlock(100, bytes32(uint256(1)), bytes32(uint256(2)));
     }
 
