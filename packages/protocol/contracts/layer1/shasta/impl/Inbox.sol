@@ -236,25 +236,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         returns (bytes32 claimRecordHash_)
     {
         Config memory config = getConfig();
-        uint256 bufferSlot = _proposalId % config.ringBufferSize;
-
-        ExtendedClaimRecord storage record =
-            proposalRingBuffer[bufferSlot].claimHashLookup[_DEFAULT_SLOT_HASH];
-
-        (uint48 proposalId, bytes32 partialParentClaimHash) =
-            _decodeSlotReuseMarker(record.slotReuseMarker);
-
-        // If the reusable slot's proposal ID does not match the given proposal ID, it indicates
-        // that there are no claims associated with this proposal at all.
-        if (proposalId != _proposalId) return bytes32(0);
-
-        // If there's a record in the default slot with matching parent claim hash, return it
-        if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
-            return record.claimRecordHash;
-        }
-
-        // Otherwise check the direct mapping
-        return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
+        ProposalRecord storage proposalRecord =
+            proposalRingBuffer[_proposalId % config.ringBufferSize];
+        
+        return _readClaimRecord(proposalRecord, _proposalId, _parentClaimHash);
     }
 
     /// @notice Gets the capacity for unfinalized proposals.
@@ -303,23 +288,35 @@ abstract contract Inbox is EssentialContract, IInbox {
         ProposalRecord storage proposalRecord =
             proposalRingBuffer[_proposalId % _config.ringBufferSize];
 
-        ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
+        ExtendedClaimRecord storage defaultSlot = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
+        (uint48 storedProposalId, bytes32 storedPartialHash) = _decodeSlotReuseMarker(defaultSlot.slotReuseMarker);
 
-        (uint48 proposalId, bytes32 partialParentClaimHash) =
-            _decodeSlotReuseMarker(record.slotReuseMarker);
-
-        // Check if we need to use the default slot
-        if (proposalId != _proposalId) {
-            // Different proposal ID, so we can use the default slot
-            record.claimRecordHash = _claimRecordHash;
-            record.slotReuseMarker = _encodeSlotReuseMarker(_proposalId, _parentClaimHash);
-        } else if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
-            // Same proposal ID and same parent claim hash (partial match), update the default slot
-            record.claimRecordHash = _claimRecordHash;
-        } else {
-            // Same proposal ID but different parent claim hash, use direct mapping
-            proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash = _claimRecordHash;
+        // Case 1: Different proposal ID - reuse default slot
+        if (storedProposalId != _proposalId) {
+            _writeToDefaultSlot(proposalRecord, _proposalId, _parentClaimHash, _claimRecordHash);
+            return;
         }
+
+        // Case 2: Same proposal ID and partial hash match
+        if (_isPartialParentClaimHashMatch(storedPartialHash, _parentClaimHash)) {
+            // Check if there's already a direct mapping entry for this exact hash
+            ExtendedClaimRecord storage directRecord = proposalRecord.claimHashLookup[_parentClaimHash];
+            if (directRecord.claimRecordHash != bytes32(0)) {
+                // Update the existing direct mapping entry
+                directRecord.claimRecordHash = _claimRecordHash;
+            } else if (defaultSlot.claimRecordHash == bytes32(0)) {
+                // Default slot is empty, use it
+                _writeToDefaultSlot(proposalRecord, _proposalId, _parentClaimHash, _claimRecordHash);
+            } else {
+                // Default slot is occupied (possibly by a different full hash with same partial)
+                // Use direct mapping for this claim to avoid collision
+                _writeToDirectMapping(proposalRecord, _parentClaimHash, _claimRecordHash);
+            }
+            return;
+        }
+
+        // Case 3: Same proposal ID but different partial hash - use direct mapping
+        _writeToDirectMapping(proposalRecord, _parentClaimHash, _claimRecordHash);
     }
 
     /// @dev Decodes a slot reuse marker into proposal ID and partial parent claim hash.
@@ -356,6 +353,75 @@ abstract contract Inbox is EssentialContract, IInbox {
         return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
 
+    /// @dev Writes a claim record to the default slot.
+    /// @param _proposalRecord The proposal record to update.
+    /// @param _proposalId The proposal ID.
+    /// @param _parentClaimHash The parent claim hash.
+    /// @param _claimRecordHash The claim record hash to store.
+    function _writeToDefaultSlot(
+        ProposalRecord storage _proposalRecord,
+        uint48 _proposalId,
+        bytes32 _parentClaimHash,
+        bytes32 _claimRecordHash
+    )
+        private
+    {
+        ExtendedClaimRecord storage defaultSlot = _proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
+        defaultSlot.claimRecordHash = _claimRecordHash;
+        defaultSlot.slotReuseMarker = _encodeSlotReuseMarker(_proposalId, _parentClaimHash);
+    }
+
+    /// @dev Writes a claim record to the direct mapping.
+    /// @param _proposalRecord The proposal record to update.
+    /// @param _parentClaimHash The parent claim hash.
+    /// @param _claimRecordHash The claim record hash to store.
+    function _writeToDirectMapping(
+        ProposalRecord storage _proposalRecord,
+        bytes32 _parentClaimHash,
+        bytes32 _claimRecordHash
+    )
+        private
+    {
+        _proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash = _claimRecordHash;
+    }
+
+    /// @dev Reads a claim record from storage, checking both default slot and direct mapping.
+    /// @param _proposalRecord The proposal record to read from.
+    /// @param _proposalId The proposal ID.
+    /// @param _parentClaimHash The parent claim hash.
+    /// @return claimRecordHash_ The claim record hash, or bytes32(0) if not found.
+    function _readClaimRecord(
+        ProposalRecord storage _proposalRecord,
+        uint48 _proposalId,
+        bytes32 _parentClaimHash
+    )
+        private
+        view
+        returns (bytes32 claimRecordHash_)
+    {
+        ExtendedClaimRecord storage defaultSlot = _proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
+        (uint48 storedProposalId, bytes32 storedPartialHash) = _decodeSlotReuseMarker(defaultSlot.slotReuseMarker);
+        
+        // No claims for this proposal if the stored ID doesn't match
+        if (storedProposalId != _proposalId) {
+            return bytes32(0);
+        }
+        
+        // Check if there's a partial match with the stored hash
+        if (_isPartialParentClaimHashMatch(storedPartialHash, _parentClaimHash)) {
+            // First check direct mapping for exact match
+            bytes32 directHash = _proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash;
+            if (directHash != bytes32(0)) {
+                return directHash;
+            }
+            // Fall back to default slot
+            return defaultSlot.claimRecordHash;
+        }
+        
+        // No partial match, only check direct mapping
+        return _proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash;
+    }
+
     /// @dev Gets the capacity for unfinalized proposals.
     function _getCapacity(Config memory _config) internal pure returns (uint256) {
         // The ring buffer can hold ringBufferSize proposals total, but we need to ensure
@@ -376,25 +442,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         view
         returns (bytes32 claimRecordHash_)
     {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-
-        ExtendedClaimRecord storage record =
-            proposalRingBuffer[bufferSlot].claimHashLookup[_DEFAULT_SLOT_HASH];
-
-        (uint48 proposalId, bytes32 partialParentClaimHash) =
-            _decodeSlotReuseMarker(record.slotReuseMarker);
-
-        // If the reusable slot's proposal ID does not match the given proposal ID, it indicates
-        // that there are no claims associated with this proposal at all.
-        if (proposalId != _proposalId) return bytes32(0);
-
-        // If there's a record in the default slot with matching parent claim hash, return it
-        if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
-            return record.claimRecordHash;
-        }
-
-        // Otherwise check the direct mapping
-        return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
+        ProposalRecord storage proposalRecord =
+            proposalRingBuffer[_proposalId % _config.ringBufferSize];
+        
+        return _readClaimRecord(proposalRecord, _proposalId, _parentClaimHash);
     }
 
     /// @dev Aggregates claim records into a smaller list to reduce SSTORE operations.
