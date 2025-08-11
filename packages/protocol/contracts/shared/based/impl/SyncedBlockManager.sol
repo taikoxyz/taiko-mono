@@ -11,6 +11,17 @@ import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
 /// @custom:security-contact security@taiko.xyz
 contract SyncedBlockManager is ISyncedBlockManager {
     // -------------------------------------------------------------------
+    // Structs
+    // -------------------------------------------------------------------
+
+    /// @dev Internal struct for storing synced block data
+    struct SyncedBlock {
+        uint48 blockNumber;
+        bytes32 blockHash;
+        bytes32 stateRoot;
+    }
+
+    // -------------------------------------------------------------------
     // State Variables
     // -------------------------------------------------------------------
 
@@ -64,11 +75,21 @@ contract SyncedBlockManager is ISyncedBlockManager {
     // -------------------------------------------------------------------
 
     /// @inheritdoc ISyncedBlockManager
-    function saveSyncedBlock(SyncedBlock calldata _syncedBlock) external onlyAuthorized {
+    function saveSyncedBlock(
+        uint48 _blockNumber,
+        bytes32 _blockHash,
+        bytes32 _stateRoot
+    )
+        external
+        onlyAuthorized
+    {
         // Validate all fields
-        require(_syncedBlock.stateRoot != 0, InvalidSyncedBlock());
-        require(_syncedBlock.blockHash != 0, InvalidSyncedBlock());
-        require(_syncedBlock.blockNumber > _latestSyncedBlockNumber, InvalidSyncedBlock());
+        require(_stateRoot != 0, InvalidSyncedBlock());
+        require(_blockHash != 0, InvalidSyncedBlock());
+        require(_blockNumber > _latestSyncedBlockNumber, InvalidSyncedBlock());
+
+        SyncedBlock memory syncedBlock =
+            SyncedBlock({ blockNumber: _blockNumber, blockHash: _blockHash, stateRoot: _stateRoot });
 
         unchecked {
             // Ring buffer implementation:
@@ -76,25 +97,23 @@ contract SyncedBlockManager is ISyncedBlockManager {
             // - When we reach maxStackSize, it wraps back to 0
             // - This ensures we always overwrite the oldest entry when buffer is full
             _stackTop = (_stackTop + 1) % maxStackSize;
-            _syncedBlocks[_stackTop] = _syncedBlock;
+            _syncedBlocks[_stackTop] = syncedBlock;
 
             // Update stack size (capped at maxStackSize)
             if (_stackSize < maxStackSize) {
                 ++_stackSize;
             }
         }
-        _latestSyncedBlockNumber = _syncedBlock.blockNumber;
+        _latestSyncedBlockNumber = _blockNumber;
 
-        emit SyncedBlockSaved(
-            _syncedBlock.blockNumber, _syncedBlock.blockHash, _syncedBlock.stateRoot
-        );
+        emit SyncedBlockSaved(_blockNumber, _blockHash, _stateRoot);
     }
 
     /// @inheritdoc ISyncedBlockManager
     function getSyncedBlock(uint48 _offset)
         external
         view
-        returns (SyncedBlock memory syncedBlock_)
+        returns (uint48 blockNumber_, bytes32 blockHash_, bytes32 stateRoot_)
     {
         require(_stackSize != 0, NoSyncedBlocks());
         require(_offset < _stackSize, IndexOutOfBounds());
@@ -115,7 +134,10 @@ contract SyncedBlockManager is ISyncedBlockManager {
                 slot = maxStackSize + _stackTop - _offset;
             }
 
-            syncedBlock_ = _syncedBlocks[slot];
+            SyncedBlock memory syncedBlock = _syncedBlocks[slot];
+            blockNumber_ = syncedBlock.blockNumber;
+            blockHash_ = syncedBlock.blockHash;
+            stateRoot_ = syncedBlock.stateRoot;
         }
     }
 

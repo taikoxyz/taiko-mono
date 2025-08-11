@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibBlobs } from "../lib/LibBlobs.sol";
+import { LibBlobs } from "../libs/LibBlobs.sol";
 
 /// @title IForcedInclusionStore
 /// @custom:security-contact security@taiko.xyz
@@ -10,8 +10,8 @@ interface IForcedInclusionStore {
     struct ForcedInclusion {
         /// @notice The fee in Gwei that was paid to submit the forced inclusion.
         uint64 feeInGwei;
-        /// @notice The proposal's frame.
-        LibBlobs.BlobFrame frame;
+        /// @notice The proposal's blob slice.
+        LibBlobs.BlobSlice blobSlice;
     }
 
     /// @dev Event emitted when a forced inclusion is stored.
@@ -19,8 +19,8 @@ interface IForcedInclusionStore {
 
     /// @notice Stores a forced inclusion request
     /// The priority fee must be paid to the contract
-    /// @param _blobLocator The blob locator that contains the transaction data
-    function storeForcedInclusion(LibBlobs.BlobLocator memory _blobLocator) external payable;
+    /// @param _blobReference The blob locator that contains the transaction data
+    function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
     /// @notice Consumes the oldest forced inclusion request and removes it from the queue
     /// @param _feeRecipient The address to receive the fee
