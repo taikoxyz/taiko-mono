@@ -194,12 +194,14 @@ abstract contract ShastaAnchor is PacayaAnchor {
                     _payProvingReward(instruction.creditTo);
                 } else {
                     // Normal bond instruction processing
-                    uint48 bond = instruction.bondType == LibBondInstruction.BondType.LIVENESS
-                        ? livenessBondGwei
-                        : provabilityBondGwei;
-                    // Credit the bond to the receiver
-                    uint96 bondDebited = bondManager.debitBond(instruction.debitFrom, bond);
-                    bondManager.creditBond(instruction.creditTo, bondDebited);
+                    uint48 bond = _getBondAmount(instruction.bondType);
+                    
+                    // Only process bond if amount is non-zero
+                    if (bond > 0) {
+                        // Credit the bond to the receiver
+                        uint96 bondDebited = bondManager.debitBond(instruction.debitFrom, bond);
+                        bondManager.creditBond(instruction.creditTo, bondDebited);
+                    }
                 }
 
                 // Update cumulative hash
@@ -237,6 +239,20 @@ abstract contract ShastaAnchor is PacayaAnchor {
         if (reward > 0) {
             provingFeePoolGwei -= reward;
             bondManager.creditBond(_prover, reward);
+        }
+    }
+
+    /// @dev Returns the bond amount based on the bond type.
+    /// @param _bondType The type of bond
+    /// @return The bond amount in Gwei, or 0 for NONE
+    function _getBondAmount(LibBondInstruction.BondType _bondType) private view returns (uint48) {
+        if (_bondType == LibBondInstruction.BondType.LIVENESS) {
+            return livenessBondGwei;
+        } else if (_bondType == LibBondInstruction.BondType.PROVABILITY) {
+            return provabilityBondGwei;
+        } else {
+            // BondType.NONE
+            return 0;
         }
     }
 
