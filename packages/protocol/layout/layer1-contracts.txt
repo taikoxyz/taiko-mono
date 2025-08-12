@@ -312,7 +312,7 @@
 |
 | __slotsUsedByPacaya         | uint256[5]                                      | 251  | 0      | 160   |
 |
-| _pacayaStats2               | struct Inbox.PacayaStats2                       | 256  | 0      | 32    |
+| __reservedSlot              | uint256                                         | 256  | 0      | 32    |
 |
 | bondBalance                 | mapping(address => uint256)                     | 257  | 0      | 32    |
 |
