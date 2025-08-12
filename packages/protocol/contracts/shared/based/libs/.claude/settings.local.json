@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --filter @taiko/protocol compile:l1)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

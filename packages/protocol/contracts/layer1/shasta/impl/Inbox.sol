@@ -168,21 +168,14 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(proposals.length == claims.length, InconsistentParams());
         require(proposals.length != 0, EmptyProposals());
 
-        uint48[] memory proposalIds = new uint48[](proposals.length);
         ClaimRecord[] memory claimRecords = new ClaimRecord[](proposals.length);
 
         for (uint256 i; i < proposals.length; ++i) {
-            proposalIds[i] = proposals[i].id;
             claimRecords[i] = _buildClaimRecord(config, proposals[i], claims[i]);
-        }
 
-        // Aggregate claim records to reduce SSTORE operations.
-        (proposalIds, claimRecords) = _aggregateClaimRecords(proposalIds, claimRecords);
-
-        for (uint256 i; i < claimRecords.length; ++i) {
             _setClaimRecordHash(
                 config,
-                proposalIds[i],
+                proposals[i].id,
                 claimRecords[i].claim.parentClaimHash,
                 keccak256(abi.encode(claimRecords[i]))
             );
@@ -389,24 +382,6 @@ abstract contract Inbox is EssentialContract, IInbox {
         return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
     }
 
-    /// @dev Aggregates claim records into a smaller list to reduce SSTORE operations.
-    /// The default implementation returns the original list.
-    /// @param _proposalIds The proposal IDs to aggregate.
-    /// @param _claimRecords The claim records to aggregate.
-    /// @return proposalIds_  The list contains the proposal IDs of the aggregated claim records.
-    /// @return claimRecords_ The list contains the aggregated claim records.
-    function _aggregateClaimRecords(
-        uint48[] memory _proposalIds,
-        ClaimRecord[] memory _claimRecords
-    )
-        internal
-        pure
-        virtual
-        returns (uint48[] memory proposalIds_, ClaimRecord[] memory claimRecords_)
-    {
-        return (_proposalIds, _claimRecords);
-    }
-
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
@@ -486,7 +461,6 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// - On-time proofs: Bonds may be refunded or remain unchanged
     /// - Late proofs: Liveness bonds may be slashed and redistributed
     /// - Very late proofs: Provability bonds may also be slashed and redistributed
-    /// The decision affects whether claim records can be aggregated
     /// @param _config The configuration parameters.
     /// @param _proposal The proposal containing timing and proposer information
     /// @param _claim The claim containing the proof details.
