@@ -5,7 +5,7 @@ import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { PacayaAnchor } from "./PacayaAnchor.sol";
 import { ISyncedBlockManager } from "src/shared/based/iface/ISyncedBlockManager.sol";
 import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
-import { LibBondInstruction } from "src/shared/based/libs/LibBondInstruction.sol";
+import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title ShastaAnchor
 /// @notice Anchoring functions for the Shasta fork.
@@ -130,7 +130,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         bool _isLowBondProposal,
         bytes calldata _proverAuth,
         bytes32 _bondInstructionsHash,
-        LibBondInstruction.BondInstruction[] calldata _bondInstructions,
+        LibBonds.BondInstruction[] calldata _bondInstructions,
         // Block level fields - specific to this block in the proposal
         uint16 _blockIndex,
         uint48 _anchorBlockNumber,
@@ -213,7 +213,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _expectedHash The expected cumulative hash after processing
     /// @return newHash_ The new cumulative hash
     function _processBondInstructions(
-        LibBondInstruction.BondInstruction[] calldata _bondInstructions,
+        LibBonds.BondInstruction[] calldata _bondInstructions,
         bytes32 _expectedHash
     )
         private
@@ -222,7 +222,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         newHash_ = _state.bondInstructionsHash;
 
         for (uint256 i; i < _bondInstructions.length; ++i) {
-            LibBondInstruction.BondInstruction memory instruction = _bondInstructions[i];
+            LibBonds.BondInstruction memory instruction = _bondInstructions[i];
             uint48 bond = instruction.isLivenessBond ? livenessBondGwei : provabilityBondGwei;
 
             // Credit the bond to the receiver
@@ -230,7 +230,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
             bondManager.creditBond(instruction.creditTo, bondDebited);
 
             // Update cumulative hash
-            newHash_ = LibBondInstruction.aggregateBondInstruction(newHash_, instruction);
+            newHash_ = LibBonds.aggregateBondInstruction(newHash_, instruction);
         }
 
         // Verify the cumulative hash matches expected value
@@ -247,7 +247,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
         bytes32 _anchorStateRoot,
-        LibBondInstruction.BondInstruction[] calldata _bondInstructions,
+        LibBonds.BondInstruction[] calldata _bondInstructions,
         bytes32 _bondInstructionsHash
     )
         private

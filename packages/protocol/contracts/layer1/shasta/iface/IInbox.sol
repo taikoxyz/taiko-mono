@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBondInstruction } from "src/shared/based/libs/LibBondInstruction.sol";
+import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title IInbox
 /// @notice Interface for the ShastaInbox contract
@@ -68,7 +68,7 @@ interface IInbox {
         /// @notice The next proposal ID.
         uint48 nextProposalId;
         /// @notice The bond instructions.
-        LibBondInstruction.BondInstruction[] bondInstructions;
+        LibBonds.BondInstruction[] bondInstructions;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -102,7 +102,7 @@ interface IInbox {
 
     /// @notice Emitted when bond instructions are issued
     /// @param instructions The bond instructions that need to be performed.
-    event BondInstructed(LibBondInstruction.BondInstruction[] instructions);
+    event BondInstructed(LibBonds.BondInstruction[] instructions);
 
     // ---------------------------------------------------------------
     // External Transactional Functions

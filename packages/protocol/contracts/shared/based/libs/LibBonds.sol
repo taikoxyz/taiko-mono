@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title LibBondInstruction
+/// @title LibBonds
 /// @notice Library for managing bond instructions
 /// @custom:security-contact security@taiko.xyz
-library LibBondInstruction {
+library LibBonds {
     // -------------------------------------------------------------------
     // Structs
     // -------------------------------------------------------------------
@@ -15,6 +15,10 @@ library LibBondInstruction {
         address creditTo;
         address debitFrom;
     }
+
+    // -------------------------------------------------------------------
+    // Internal Functions
+    // -------------------------------------------------------------------
 
     function aggregateBondInstruction(
         bytes32 _bondInstructionsHash,
