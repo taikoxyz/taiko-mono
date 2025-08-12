@@ -41,7 +41,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     uint48 public immutable provabilityBondGwei;
     uint48 public immutable provingTaxGwei;
     uint48 public immutable lowBondProvingRewardGwei;
-    uint96 public immutable poolThresholdGwei;
+    uint48 public immutable poolThresholdGwei;
 
     IShastaBondManager public immutable bondManager;
     ISyncedBlockManager public immutable syncedBlockManager;
@@ -79,7 +79,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         IShastaBondManager _bondManager,
         uint48 _provingTaxGwei,
         uint48 _lowBondProvingRewardGwei,
-        uint96 _poolThresholdGwei
+        uint48 _poolThresholdGwei
     )
         PacayaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
     {
