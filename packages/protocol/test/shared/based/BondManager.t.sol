@@ -573,7 +573,7 @@ contract BondManagerTest is CommonTest {
         bondManager.init(address(this));
     }
 
-    function test_immutable_values_set_correctly() public {
+    function test_immutable_values_set_correctly() public view {
         assertEq(bondManager.authorized(), inbox);
         assertEq(address(bondManager.bondToken()), bondToken);
         assertEq(bondManager.minBond(), minBond);

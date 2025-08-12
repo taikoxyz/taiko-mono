@@ -90,8 +90,8 @@ contract InboxChainAdvancement is ShastaInboxTestBase {
         }
 
         // Final verification
-        assertEq(totalProposed, cyclesCount * proposalsPerCycle, "All proposals should be created");
-        assertEq(totalProven, cyclesCount * proposalsPerCycle, "All proposals should be proven");
+    assertEq(totalProposed, cyclesCount * proposalsPerCycle, "All proposals should be created");
+    assertEq(totalProven, cyclesCount * proposalsPerCycle, "All proposals should be proven");
         
         // Verify uniqueness of proposers and provers
         // Total of 12 proposals, each with unique proposer and prover
@@ -135,7 +135,7 @@ contract InboxChainAdvancement is ShastaInboxTestBase {
             // (The inbox will have set originTimestamp and originBlockNumber to current values)
             bytes32[] memory blobHashes = new bytes32[](1);
             blobHashes[0] = keccak256(abi.encode("blob", proposalBlobRef.blobStartIndex));
-            
+
             proposal = IInbox.Proposal({
                 id: i,
                 proposer: Alice,
@@ -208,20 +208,24 @@ contract InboxChainAdvancement is ShastaInboxTestBase {
         // Phase 3: Verify both forks have been proven
         // Fork A claims
         for (uint48 i = 1; i <= numProposals; i++) {
-            bytes32 claimRecordHashA = inbox.getClaimRecordHash(i, i == 1 ? initialParentHash : keccak256(abi.encode(claimsA[i - 2])));
+            bytes32 claimRecordHashA = inbox.getClaimRecordHash(
+                i, i == 1 ? initialParentHash : keccak256(abi.encode(claimsA[i - 2]))
+            );
             assertTrue(claimRecordHashA != bytes32(0), "Fork A claim should be stored");
         }
 
-        // Fork B claims  
+        // Fork B claims
         for (uint48 i = 1; i <= numProposals; i++) {
-            bytes32 claimRecordHashB = inbox.getClaimRecordHash(i, i == 1 ? initialParentHash : keccak256(abi.encode(claimsB[i - 2])));
+            bytes32 claimRecordHashB = inbox.getClaimRecordHash(
+                i, i == 1 ? initialParentHash : keccak256(abi.encode(claimsB[i - 2]))
+            );
             assertTrue(claimRecordHashB != bytes32(0), "Fork B claim should be stored");
         }
 
         // Verify that different claims exist for the same proposals (competing forks)
         assertEq(claimsA[0].endStateRoot, bytes32(uint256(1001)), "Fork A should have its state");
         assertEq(claimsB[0].endStateRoot, bytes32(uint256(2001)), "Fork B should have its state");
-        
+
         // Both forks coexist until one is finalized
         // This demonstrates that the system can handle multiple competing chains
     }
@@ -267,7 +271,7 @@ contract InboxChainAdvancement is ShastaInboxTestBase {
             // Recreate the actual proposal that was stored by the inbox
             bytes32[] memory blobHashes = new bytes32[](1);
             blobHashes[0] = keccak256(abi.encode("blob", proposalBlobRef.blobStartIndex));
-            
+
             storedProposals[i] = IInbox.Proposal({
                 id: proposalId,
                 proposer: Alice,
@@ -377,7 +381,10 @@ contract InboxChainAdvancement is ShastaInboxTestBase {
         uint48 proposalId,
         address proposer,
         bytes32 lastFinalizedHash
-    ) private returns (IInbox.Proposal memory) {
+    )
+        private
+        returns (IInbox.Proposal memory)
+    {
         // Setup core state
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: proposalId,
@@ -386,22 +393,22 @@ contract InboxChainAdvancement is ShastaInboxTestBase {
             bondOperationsHash: bytes32(0)
         });
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
-        
+
         // Setup proposer mocks
         setupStandardProposerMocks(proposer);
-        
+
         // Submit proposal
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(proposalId);
         IInbox.ClaimRecord[] memory emptyRecords = new IInbox.ClaimRecord[](0);
         bytes memory proposeData = encodeProposeProposeData(coreState, blobRef, emptyRecords);
-        
+
         vm.prank(proposer);
         inbox.propose(bytes(""), proposeData);
-        
+
         // Reconstruct and return the actual stored proposal
         bytes32[] memory blobHashes = new bytes32[](1);
         blobHashes[0] = keccak256(abi.encode("blob", blobRef.blobStartIndex));
-        
+
         return IInbox.Proposal({
             id: proposalId,
             proposer: proposer,
@@ -424,20 +431,38 @@ contract InboxChainAdvancement is ShastaInboxTestBase {
         // Create unique proposer addresses for each proposal
         // We have 12 proposals total, use different test addresses
         address[12] memory proposers = [
-            Alice, Bob, Carol, David,
-            Emma, Frank, Grace, Henry,
-            address(0x1001), address(0x1002), address(0x1003), address(0x1004)
+            Alice,
+            Bob,
+            Carol,
+            David,
+            Emma,
+            Frank,
+            Grace,
+            Henry,
+            address(0x1001),
+            address(0x1002),
+            address(0x1003),
+            address(0x1004)
         ];
         return proposers[index % 12];
     }
 
-    function getProver(uint48 index) private view returns (address) {
+    function getProver(uint48 index) private pure returns (address) {
         // Create unique prover addresses for each proposal
         // Different from proposers to ensure proposer != prover
         address[12] memory provers = [
-            address(0x2001), address(0x2002), address(0x2003), address(0x2004),
-            address(0x2005), address(0x2006), address(0x2007), address(0x2008),
-            address(0x2009), address(0x200A), address(0x200B), address(0x200C)
+            address(0x2001),
+            address(0x2002),
+            address(0x2003),
+            address(0x2004),
+            address(0x2005),
+            address(0x2006),
+            address(0x2007),
+            address(0x2008),
+            address(0x2009),
+            address(0x200A),
+            address(0x200B),
+            address(0x200C)
         ];
         return provers[index % 12];
     }

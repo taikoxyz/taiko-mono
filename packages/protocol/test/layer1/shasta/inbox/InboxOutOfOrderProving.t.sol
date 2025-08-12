@@ -44,7 +44,7 @@ contract InboxOutOfOrderProving is ShastaInboxTestBase {
             // (The inbox will have set originTimestamp and originBlockNumber to current values)
             bytes32[] memory blobHashes = new bytes32[](1);
             blobHashes[0] = keccak256(abi.encode("blob", proposalBlobRef.blobStartIndex));
-            
+
             proposal = IInbox.Proposal({
                 id: i,
                 proposer: Alice,
@@ -218,7 +218,7 @@ contract InboxOutOfOrderProving is ShastaInboxTestBase {
             // (The inbox will have set originTimestamp and originBlockNumber to current values)
             bytes32[] memory blobHashes = new bytes32[](1);
             blobHashes[0] = keccak256(abi.encode("blob", proposalBlobRef.blobStartIndex));
-            
+
             proposal = IInbox.Proposal({
                 id: i,
                 proposer: Alice,
@@ -353,9 +353,18 @@ contract InboxOutOfOrderProving is ShastaInboxTestBase {
         proveProposal(allProposals[2], allClaims[2], keccak256(abi.encode(allClaims[1])), Carol);
 
         // Verify all three were proven successfully
-        assertTrue(inbox.getClaimRecordHash(1, initialParentHash) != bytes32(0), "Proposal 1 should be proven");
-        assertTrue(inbox.getClaimRecordHash(2, keccak256(abi.encode(allClaims[0]))) != bytes32(0), "Proposal 2 should be proven");
-        assertTrue(inbox.getClaimRecordHash(3, keccak256(abi.encode(allClaims[1]))) != bytes32(0), "Proposal 3 should be proven");
+        assertTrue(
+            inbox.getClaimRecordHash(1, initialParentHash) != bytes32(0),
+            "Proposal 1 should be proven"
+        );
+        assertTrue(
+            inbox.getClaimRecordHash(2, keccak256(abi.encode(allClaims[0]))) != bytes32(0),
+            "Proposal 2 should be proven"
+        );
+        assertTrue(
+            inbox.getClaimRecordHash(3, keccak256(abi.encode(allClaims[1]))) != bytes32(0),
+            "Proposal 3 should be proven"
+        );
 
         // Round 2: Prove proposals 6, 4, 7, 5 (with gap at 4-5)
         proveProposal(allProposals[5], allClaims[5], keccak256(abi.encode(allClaims[4])), David);
@@ -364,10 +373,22 @@ contract InboxOutOfOrderProving is ShastaInboxTestBase {
         proveProposal(allProposals[4], allClaims[4], keccak256(abi.encode(allClaims[3])), Grace);
 
         // Verify these were proven successfully
-        assertTrue(inbox.getClaimRecordHash(4, keccak256(abi.encode(allClaims[2]))) != bytes32(0), "Proposal 4 should be proven");
-        assertTrue(inbox.getClaimRecordHash(5, keccak256(abi.encode(allClaims[3]))) != bytes32(0), "Proposal 5 should be proven");
-        assertTrue(inbox.getClaimRecordHash(6, keccak256(abi.encode(allClaims[4]))) != bytes32(0), "Proposal 6 should be proven");
-        assertTrue(inbox.getClaimRecordHash(7, keccak256(abi.encode(allClaims[5]))) != bytes32(0), "Proposal 7 should be proven");
+        assertTrue(
+            inbox.getClaimRecordHash(4, keccak256(abi.encode(allClaims[2]))) != bytes32(0),
+            "Proposal 4 should be proven"
+        );
+        assertTrue(
+            inbox.getClaimRecordHash(5, keccak256(abi.encode(allClaims[3]))) != bytes32(0),
+            "Proposal 5 should be proven"
+        );
+        assertTrue(
+            inbox.getClaimRecordHash(6, keccak256(abi.encode(allClaims[4]))) != bytes32(0),
+            "Proposal 6 should be proven"
+        );
+        assertTrue(
+            inbox.getClaimRecordHash(7, keccak256(abi.encode(allClaims[5]))) != bytes32(0),
+            "Proposal 7 should be proven"
+        );
 
         // Round 3: Prove remaining proposals 8-10 in random order (9, 10, 8)
         proveProposal(allProposals[8], allClaims[8], keccak256(abi.encode(allClaims[7])), Isabella);
@@ -376,11 +397,15 @@ contract InboxOutOfOrderProving is ShastaInboxTestBase {
 
         // Verify all 10 proposals were proven successfully
         for (uint48 i = 1; i <= totalProposals; i++) {
-            bytes32 expectedParentHash = i == 1 ? initialParentHash : keccak256(abi.encode(allClaims[i - 2]));
+            bytes32 expectedParentHash =
+                i == 1 ? initialParentHash : keccak256(abi.encode(allClaims[i - 2]));
             bytes32 recordHash = inbox.getClaimRecordHash(i, expectedParentHash);
-            assertTrue(recordHash != bytes32(0), string(abi.encodePacked("Proposal ", i, " should have been proven")));
+            assertTrue(
+                recordHash != bytes32(0),
+                string(abi.encodePacked("Proposal ", i, " should have been proven"))
+            );
         }
-        
+
         // Test demonstrates that proposals can be proven out of order
         // and the system tracks all proven claims correctly
     }
@@ -437,10 +462,18 @@ contract InboxOutOfOrderProving is ShastaInboxTestBase {
         proveProposal(proposals[2], claim3, claim2Hash, Bob);
 
         // Verify all proposals have been proven
-        assertTrue(inbox.getClaimRecordHash(1, initialParentHash) != bytes32(0), "Proposal 1 should be proven");
-        assertTrue(inbox.getClaimRecordHash(2, parentHashForProposal2) != bytes32(0), "Proposal 2 should be proven");
-        assertTrue(inbox.getClaimRecordHash(3, claim2Hash) != bytes32(0), "Proposal 3 should be proven");
-        
+        assertTrue(
+            inbox.getClaimRecordHash(1, initialParentHash) != bytes32(0),
+            "Proposal 1 should be proven"
+        );
+        assertTrue(
+            inbox.getClaimRecordHash(2, parentHashForProposal2) != bytes32(0),
+            "Proposal 2 should be proven"
+        );
+        assertTrue(
+            inbox.getClaimRecordHash(3, claim2Hash) != bytes32(0), "Proposal 3 should be proven"
+        );
+
         // Test demonstrates that multiple proofs can be submitted for the same proposal
         // and the system handles them correctly
     }
@@ -480,7 +513,7 @@ contract InboxOutOfOrderProving is ShastaInboxTestBase {
         // (The inbox will have set originTimestamp and originBlockNumber to current values)
         bytes32[] memory blobHashes = new bytes32[](1);
         blobHashes[0] = keccak256(abi.encode("blob", blobRef.blobStartIndex));
-        
+
         IInbox.Proposal memory proposal = IInbox.Proposal({
             id: proposalId,
             proposer: Alice,
@@ -570,13 +603,13 @@ contract InboxOutOfOrderProving is ShastaInboxTestBase {
         inbox.propose(bytes(""), proposeData);
     }
 
-    function decodeCurrentCoreState() private view returns (IInbox.CoreState memory) {
+    function decodeCurrentCoreState() private pure returns (IInbox.CoreState memory) {
         // For testing, we can't actually decode the state from the hash
         // This function is a placeholder - the actual verification should be done
         // by checking that the core state hash changed, not by decoding specific values
         return IInbox.CoreState({
             nextProposalId: 0, // Cannot decode from hash
-            lastFinalizedProposalId: 0, // Cannot decode from hash  
+            lastFinalizedProposalId: 0, // Cannot decode from hash
             lastFinalizedClaimHash: bytes32(0), // Cannot decode from hash
             bondOperationsHash: bytes32(0)
         });

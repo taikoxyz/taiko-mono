@@ -11,7 +11,7 @@ contract InboxRingBufferOverflow is ShastaInboxTestBase {
     mapping(uint48 => IInbox.Claim) private storedClaims;
     mapping(uint48 => bytes32) private storedParentHashes;
     mapping(uint48 => IInbox.ClaimRecord) private storedClaimRecords;
-    
+
     /// @notice Test processing more proposals than ring buffer size
     /// @dev Creates and processes 150 proposals with a ring buffer size of 100
     ///      Each proposal is proposed and proved by different addresses
@@ -46,7 +46,7 @@ contract InboxRingBufferOverflow is ShastaInboxTestBase {
                 
                 // If approaching capacity, include finalization data
                 IInbox.ClaimRecord[] memory claimRecords;
-                if (unfinalizedCount >= defaultConfig.ringBufferSize - 10 && lastFinalizedId > 0) {
+    if (unfinalizedCount >= defaultConfig.ringBufferSize - 10 && lastFinalizedId > 0) {
                     // Determine how many we can finalize
                     uint48 numToFinalize = 0;
                     for (uint48 j = 0; j < batchSize; j++) {
@@ -70,7 +70,7 @@ contract InboxRingBufferOverflow is ShastaInboxTestBase {
                         
                         // Update finalization tracking
                         lastFinalizedId = lastFinalizedId + numToFinalize;
-                        lastFinalizedClaimHash = keccak256(abi.encode(storedClaims[lastFinalizedId]));
+    lastFinalizedClaimHash = keccak256(abi.encode(storedClaims[lastFinalizedId]));
                         coreState.lastFinalizedProposalId = lastFinalizedId;
                         coreState.lastFinalizedClaimHash = lastFinalizedClaimHash;
                     } else {
@@ -84,8 +84,8 @@ contract InboxRingBufferOverflow is ShastaInboxTestBase {
                 inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
                 setupStandardProposerMocks(proposer);
                 
-                LibBlobs.BlobReference memory blobRef = createValidBlobReference(currentProposalId);
-                bytes memory proposeData = encodeProposeProposeData(coreState, blobRef, claimRecords);
+    LibBlobs.BlobReference memory blobRef = createValidBlobReference(currentProposalId);
+    bytes memory proposeData = encodeProposeProposeData(coreState, blobRef, claimRecords);
                 
                 vm.prank(proposer);
                 inbox.propose(bytes(""), proposeData);
@@ -152,23 +152,24 @@ contract InboxRingBufferOverflow is ShastaInboxTestBase {
         // Verify proposals are proven (spot check)
         for (uint48 i = 1; i <= 10; i++) {
             bytes32 claimRecordHash = inbox.getClaimRecordHash(i, storedParentHashes[i]);
-            assertTrue(claimRecordHash != bytes32(0), string(abi.encodePacked("Proposal ", i, " should be proven")));
+    assertTrue(claimRecordHash != bytes32(0), string(abi.encodePacked("Proposal ", i, " should be
+    proven")));
         }
     } */
-    
+
     /// @notice Helper to reconstruct proposal after submission
     function reconstructProposal(
         uint48 _proposalId,
         address _proposer,
         LibBlobs.BlobReference memory _blobRef
-    ) 
-        private 
-        view 
-        returns (IInbox.Proposal memory) 
+    )
+        private
+        view
+        returns (IInbox.Proposal memory)
     {
         bytes32[] memory blobHashes = new bytes32[](1);
         blobHashes[0] = keccak256(abi.encode("blob", _blobRef.blobStartIndex));
-        
+
         return IInbox.Proposal({
             id: _proposalId,
             proposer: _proposer,
@@ -185,50 +186,50 @@ contract InboxRingBufferOverflow is ShastaInboxTestBase {
             })
         });
     }
-    
+
     /// @notice Test that demonstrates the ring buffer size limit without finalization
     function test_ring_buffer_capacity_limit() public {
         // Use smaller ring buffer for demonstration
         IInbox.Config memory config = defaultConfig;
         config.ringBufferSize = 10; // Capacity = 9 unfinalized proposals
         inbox.setConfig(config);
-        
+
         // Successfully create 9 proposals (up to capacity)
         for (uint48 i = 1; i <= 9; i++) {
             // Each proposal gets a unique proposer
             address proposer = getUniqueProposer(i);
-            IInbox.Proposal memory proposal = submitStandardProposal(
+            submitStandardProposal(
                 proposer,
                 i,
                 0, // No finalization
                 createCoreState(1, 0).lastFinalizedClaimHash
             );
-            
+
             // Verify stored
             assertTrue(inbox.getProposalHash(i) != bytes32(0), "Proposal should be stored");
         }
-        
+
         // Attempt to create 10th proposal without finalization should fail
         address proposer10 = getUniqueProposer(10);
         IInbox.CoreState memory coreState = createCoreState(10, 0);
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
         setupStandardProposerMocks(proposer10);
-        
+
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(10);
         IInbox.ClaimRecord[] memory emptyRecords = new IInbox.ClaimRecord[](0);
         bytes memory proposeData = encodeProposeProposeData(coreState, blobRef, emptyRecords);
-        
+
         vm.expectRevert(InboxBase.ExceedsUnfinalizedProposalCapacity.selector);
         vm.prank(proposer10);
         inbox.propose(bytes(""), proposeData);
     }
-    
+
     /// @notice Helper to get unique proposer address for each proposal
     function getUniqueProposer(uint48 proposalId) private pure returns (address) {
         // Generate unique addresses for proposers
         return address(uint160(0x10000 + proposalId));
     }
-    
+
     /// @notice Helper to get unique prover address for each proposal
     function getUniqueProver(uint48 proposalId) private pure returns (address) {
         // Generate unique addresses for provers (different from proposers)
