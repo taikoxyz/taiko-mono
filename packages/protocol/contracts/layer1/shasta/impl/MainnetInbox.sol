@@ -24,7 +24,6 @@ contract MainnetInbox is Inbox {
     // TODO: what's the reinitializer(2) value, 2?
     function setCoreState(CoreState memory _coreState) external onlyOwner reinitializer(2) {
         require(_coreState.nextProposalId != 0, InvalidCoreState());
-        require(_coreState.nextProposalId == getConfig().forkActivationHeight, InvalidCoreState());
 
         coreStateHash = keccak256(abi.encode(_coreState));
         emit CoreStateSet(_coreState);
@@ -35,7 +34,6 @@ contract MainnetInbox is Inbox {
     // TODO: figure out these values
     function getConfig() public pure override returns (Config memory) {
         return Config({
-            forkActivationHeight: 0,
             bondToken: address(0),
             provingWindow: 2 hours,
             extendedProvingWindow: 4 hours,

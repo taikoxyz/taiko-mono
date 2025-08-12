@@ -115,7 +115,6 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @inheritdoc IInbox
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         Config memory config = getConfig();
-        require(_isForkActive(config), ForkNotActive());
         IProposerChecker(config.proposerChecker).checkProposer(msg.sender);
 
         (
@@ -168,11 +167,9 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(proposals.length == claims.length, InconsistentParams());
         require(proposals.length != 0, EmptyProposals());
 
-        ClaimRecord[] memory claimRecords = new ClaimRecord[](proposals.length);
+        ClaimRecord[] memory claimRecords = buildClaimRecords(config, proposals, claims);
 
         for (uint256 i; i < proposals.length; ++i) {
-            claimRecords[i] = _buildClaimRecord(config, proposals[i], claims[i]);
-
             _setClaimRecordHash(
                 config,
                 proposals[i].id,
@@ -258,6 +255,61 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @dev Builds claim records for multiple proposals and claims.
+    /// @param _config The configuration parameters.
+    /// @param _proposals The proposals to prove.
+    /// @param _claims The claims containing the proof details.
+    /// @return claimRecords_ The built claim records.
+    function buildClaimRecords(
+        Config memory _config,
+        Proposal[] memory _proposals,
+        Claim[] memory _claims
+    )
+        internal
+        virtual
+        returns (ClaimRecord[] memory claimRecords_)
+    {
+        claimRecords_ = new ClaimRecord[](_proposals.length);
+        for (uint256 i; i < _proposals.length; ++i) {
+            Proposal memory proposal = _proposals[i];
+            Claim memory claim = _claims[i];
+
+            _validateProposal(_config, proposal, claim);
+
+            LibBondInstruction.BondInstruction[] memory bondInstructions =
+                _calculateBondInstructions(_config, proposal, claim);
+
+            claimRecords_[i] = ClaimRecord({
+                claim: claim,
+                proposer: proposal.proposer,
+                nextProposalId: proposal.id + 1,
+                bondInstructions: bondInstructions
+            });
+        }
+    }
+
+    /// @dev Validates that a proposal hash matches both the claim and storage.
+    /// @param _config The configuration parameters.
+    /// @param _proposal The proposal to validate.
+    /// @param _claim The claim to validate against.
+    function _validateProposal(
+        Config memory _config,
+        Proposal memory _proposal,
+        Claim memory _claim
+    )
+        internal
+        view
+    {
+        bytes32 proposalHash = keccak256(abi.encode(_proposal));
+        // Validate proposal hash matches claim and storage in one check
+        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
+
+        uint256 bufferSlot = _proposal.id % _config.ringBufferSize;
+        if (proposalHash != proposalRingBuffer[bufferSlot].proposalHash) {
+            revert ProposalHashMismatch();
+        }
+    }
 
     /// @dev Sets the hash of the core state.
     function _setCoreStateHash(bytes32 _coreStateHash) internal {
@@ -423,39 +475,6 @@ abstract contract Inbox is EssentialContract, IInbox {
         return (_coreState, proposal_);
     }
 
-    /// @dev Builds a claim record for a single proposal.
-    /// @param _config The configuration parameters.
-    /// @param _proposal The proposal to prove.
-    /// @param _claim The claim containing the proof details.
-    function _buildClaimRecord(
-        Config memory _config,
-        Proposal memory _proposal,
-        Claim memory _claim
-    )
-        private
-        view
-        returns (ClaimRecord memory claimRecord_)
-    {
-        bytes32 proposalHash = keccak256(abi.encode(_proposal));
-        // Validate proposal hash matches claim and storage in one check
-        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
-
-        uint256 bufferSlot = _proposal.id % _config.ringBufferSize;
-        if (proposalHash != proposalRingBuffer[bufferSlot].proposalHash) {
-            revert ProposalHashMismatch();
-        }
-
-        LibBondInstruction.BondInstruction[] memory bondInstructions =
-            _calculateBondInstructions(_config, _proposal, _claim);
-
-        claimRecord_ = ClaimRecord({
-            claim: _claim,
-            proposer: _proposal.proposer,
-            nextProposalId: _proposal.id + 1,
-            bondInstructions: bondInstructions
-        });
-    }
-
     /// @dev Calculates the bond instructions based on proof timing and prover identity
     /// @notice Bond instructions determine how provability and liveness bonds are handled:
     /// - On-time proofs: Bonds may be refunded or remain unchanged
@@ -566,11 +585,6 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
 
         return _coreState;
-    }
-
-    function _isForkActive(Config memory _cfg) internal pure returns (bool) {
-        // Fork is active if no specific activation height is set (0 means always active)
-        return _cfg.forkActivationHeight == 0;
     }
 }
 

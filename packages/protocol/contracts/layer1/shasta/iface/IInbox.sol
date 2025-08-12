@@ -10,7 +10,6 @@ import { LibBondInstruction } from "src/shared/based/libs/LibBondInstruction.sol
 interface IInbox {
     /// @notice Configuration parameters for the Inbox contract
     struct Config {
-        uint48 forkActivationHeight;
         address bondToken;
         uint48 provingWindow;
         uint48 extendedProvingWindow;
