@@ -6,12 +6,23 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 library LibBondInstruction {
     // -------------------------------------------------------------------
+    // Enums
+    // -------------------------------------------------------------------
+
+    enum BondType {
+        PROVABILITY,
+        LIVENESS,
+        NONE // no bond should be slashed
+
+    }
+
+    // -------------------------------------------------------------------
     // Structs
     // -------------------------------------------------------------------
 
     struct BondInstruction {
         uint48 proposalId;
-        bool isLivenessBond; // false for provability bond
+        BondType bondType;
         address creditTo;
         address debitFrom;
     }

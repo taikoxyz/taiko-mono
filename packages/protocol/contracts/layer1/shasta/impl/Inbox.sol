@@ -478,12 +478,14 @@ abstract contract Inbox is EssentialContract, IInbox {
         });
     }
 
-    /// @dev Calculates the bond instructions based on proof timing and prover identity
-    /// @notice Bond instructions determine how provability and liveness bonds are handled:
+    /// @notice Calculates the bond instructions based on proof timing and prover identity
+    /// @dev Bond instructions determine how provability and liveness bonds are handled:
     /// - On-time proofs: Bonds may be refunded or remain unchanged
     /// - Late proofs: Liveness bonds may be slashed and redistributed
     /// - Very late proofs: Provability bonds may also be slashed and redistributed
     /// The decision affects whether claim records can be aggregated
+    /// @dev We always return a bond instruction, regardless if no bond should be slashed. This is
+    /// so that we can reward provers for low-bond proposals.
     /// @param _config The configuration parameters.
     /// @param _proposal The proposal containing timing and proposer information
     /// @param _claim The claim containing the proof details.
@@ -497,30 +499,33 @@ abstract contract Inbox is EssentialContract, IInbox {
         view
         returns (LibBondInstruction.BondInstruction[] memory bondInstructions_)
     {
+        bondInstructions_ = new LibBondInstruction.BondInstruction[](1);
+
         unchecked {
             if (block.timestamp <= _proposal.originTimestamp + _config.provingWindow) {
                 // Proof submitted within the designated proving window (on-time proof)
-                return new LibBondInstruction.BondInstruction[](0);
+                bondInstructions_[0] = LibBondInstruction.BondInstruction({
+                    proposalId: _proposal.id,
+                    bondType: LibBondInstruction.BondType.NONE,
+                    creditTo: _claim.actualProver,
+                    debitFrom: _claim.designatedProver
+                });
             } else {
-                LibBondInstruction.BondInstruction[] memory bondInstructions =
-                    new LibBondInstruction.BondInstruction[](1);
-
                 if (block.timestamp <= _proposal.originTimestamp + _config.extendedProvingWindow) {
-                    bondInstructions[0] = LibBondInstruction.BondInstruction({
+                    bondInstructions_[0] = LibBondInstruction.BondInstruction({
                         proposalId: _proposal.id,
-                        isLivenessBond: true,
+                        bondType: LibBondInstruction.BondType.LIVENESS,
                         creditTo: _claim.actualProver,
                         debitFrom: _claim.designatedProver
                     });
                 } else {
-                    bondInstructions[0] = LibBondInstruction.BondInstruction({
+                    bondInstructions_[0] = LibBondInstruction.BondInstruction({
                         proposalId: _proposal.id,
-                        isLivenessBond: false,
+                        bondType: LibBondInstruction.BondType.PROVABILITY,
                         creditTo: _claim.actualProver,
                         debitFrom: _proposal.proposer
                     });
                 }
-                return bondInstructions;
             }
         }
     }

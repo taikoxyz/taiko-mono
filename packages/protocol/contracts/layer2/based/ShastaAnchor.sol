@@ -188,13 +188,15 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
                 // Check if this is a low-bond proposal
                 if (lowBondProposals[instruction.proposalId]) {
-                    // For low-bond proposals, pay reward to the actual prover (creditTo)
+                    // For low-bond proposals, pay reward from the pool to the actual prover
+                    // (creditTo)
                     // regardless of timing
                     _payProvingReward(instruction.creditTo);
                 } else {
                     // Normal bond instruction processing
-                    uint48 bond =
-                        instruction.isLivenessBond ? livenessBondGwei : provabilityBondGwei;
+                    uint48 bond = instruction.bondType == LibBondInstruction.BondType.LIVENESS
+                        ? livenessBondGwei
+                        : provabilityBondGwei;
                     // Credit the bond to the receiver
                     uint96 bondDebited = bondManager.debitBond(instruction.debitFrom, bond);
                     bondManager.creditBond(instruction.creditTo, bondDebited);
