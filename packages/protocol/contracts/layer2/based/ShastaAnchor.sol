@@ -159,7 +159,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         if (_blockIndex == 0) {
             // Check if proposer has sufficient bonds
             bool hasInsufficientBonds = !bondManager.hasSufficientBond(_proposer, 0);
-            
+
             if (hasInsufficientBonds) {
                 // Mark as low-bond proposal
                 lowBondProposals[_proposalId] = true;
@@ -168,7 +168,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
                 uint96 taxDebited = bondManager.debitBond(_proposer, provingTaxGwei);
                 provingFeePoolGwei += taxDebited;
             }
-            
+
             // Verify prover authentication and debit bonds if valid
             _verifyProverAuth(_proposalId, _proposer, _proverAuth);
         }
@@ -185,7 +185,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
             for (uint256 i; i < _bondInstructions.length; ++i) {
                 LibBondInstruction.BondInstruction memory instruction = _bondInstructions[i];
-                
+
                 // Check if this is a low-bond proposal
                 if (lowBondProposals[instruction.proposalId]) {
                     // For low-bond proposals, pay reward to the actual prover (creditTo)
@@ -193,7 +193,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
                     _payProvingReward(instruction.creditTo);
                 } else {
                     // Normal bond instruction processing
-                    uint48 bond = instruction.isLivenessBond ? livenessBondGwei : provabilityBondGwei;
+                    uint48 bond =
+                        instruction.isLivenessBond ? livenessBondGwei : provabilityBondGwei;
                     // Credit the bond to the receiver
                     uint96 bondDebited = bondManager.debitBond(instruction.debitFrom, bond);
                     bondManager.creditBond(instruction.creditTo, bondDebited);
@@ -224,13 +225,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @dev Pays proving reward for low-bond proposals from the fee pool
     /// @param _prover The address of the prover to reward
     function _payProvingReward(address _prover) private {
-        
         // Calculate reward amount (minimum of pool balance and configured reward)
         uint96 reward = lowBondProvingRewardGwei;
         if (provingFeePoolGwei < reward) {
             reward = provingFeePoolGwei;
         }
-        
+
         // Pay the reward if available
         if (reward > 0) {
             provingFeePoolGwei -= reward;
