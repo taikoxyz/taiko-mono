@@ -14,8 +14,6 @@ interface IPreconfRouter is IProposeBatch {
     struct Config {
         /// @notice The number of slots for hand over
         uint256 handOverSlots;
-        /// @notice Reserved space for future config values to maintain ABI compatibility
-        uint256[9] __gap;
     }
 
     /// @notice Returns the preconf configuration
