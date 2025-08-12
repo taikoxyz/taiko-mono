@@ -132,10 +132,13 @@ abstract contract Inbox is EssentialContract, IInbox {
         );
 
         (
+            uint64 deadline,
             CoreState memory coreState,
             LibBlobs.BlobReference memory blobReference,
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
+
+        require(deadline == 0 || block.timestamp <= deadline, DeadlineExceeded());
 
         require(keccak256(abi.encode(coreState)) == coreStateHash, InvalidState());
 
@@ -654,6 +657,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     error ClaimRecordHashMismatch();
     error ClaimRecordNotProvided();
+    error DeadlineExceeded();
     error EmptyProposals();
     error ExceedsUnfinalizedProposalCapacity();
     error ForkNotActive();
