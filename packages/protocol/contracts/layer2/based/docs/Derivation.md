@@ -322,18 +322,17 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond instruction processing. It invokes the `updateState` function on the ShastaAnchor contract with precisely defined parameters:
 
-| Parameter          | Type            |
-| ------------------ | --------------- |
-| proposalId         | uint48          |
-| blockCount         | uint16          |
-| proposer           | address         |
-| proverAuth         | bytes           |
+| Parameter            | Type              |
+|----------------------|-------------------|
+| proposalId           | uint48            |
+| proposer             | address           |
+| proverAuth           | bytes             |
 | bondInstructionsHash | bytes32           |
 | bondInstructions     | BondInstruction[] |
-| blockIndex         | uint16          |
-| anchorBlockNumber  | uint48          |
-| anchorBlockHash    | bytes32         |
-| anchorStateRoot    | bytes32         |
+| blockIndex           | uint16            |
+| anchorBlockNumber    | uint48            |
+| anchorBlockHash      | bytes32           |
+| anchorStateRoot      | bytes32           |
 
 #### Transaction Execution Flow
 

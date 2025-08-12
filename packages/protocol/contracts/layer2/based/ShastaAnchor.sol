@@ -19,14 +19,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @dev This state is updated incrementally as each block in a proposal is processed via
     /// updateState().
     struct State {
-        // Proposal level fields (set once per proposal on first block)
-        uint48 proposalId; // Unique identifier for the current proposal
-        uint16 blockCount; // Total number of blocks in the proposal
-        address proposer; // Address that initiated the proposal
-        address designatedProver; // Address authorized to prove this proposal (address(0) if none)
         bytes32 bondInstructionsHash; // Cumulative hash of all bond instructions processed so far
-        // Block level fields (updated for each block in the proposal)
-        uint16 blockIndex; // Current block being processed (0-indexed, < blockCount)
         uint48 anchorBlockNumber; // Latest L1 block number anchored
     }
 
@@ -109,7 +102,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
     ///      - If anchorBlockNumber is 0, hash and stateRoot must also be 0
     ///
     /// @param _proposalId Unique identifier of the proposal being anchored
-    /// @param _blockCount Total number of blocks in this proposal (must be > _blockIndex)
     /// @param _proposer Address of the entity that proposed this batch of blocks
     /// @param _proverAuth Encoded ProverAuth struct for prover designation (must be empty after
     /// block 0)
@@ -124,7 +116,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
     function updateState(
         // Proposal level fields - define the overall batch
         uint48 _proposalId,
-        uint16 _blockCount,
         address _proposer,
         bytes calldata _proverAuth,
         bytes32 _bondInstructionsHash,
@@ -141,24 +132,20 @@ abstract contract ShastaAnchor is PacayaAnchor {
     {
         // Ensure Shasta fork is active
         require(block.number >= shastaForkHeight, L2_FORK_ERROR());
-        // Validate block index is within proposal bounds
-        require(_blockIndex < _blockCount, InvalidBlockIndex());
+
+        // Keep track of the parent block hash for future reference, this logic also guarantees
+        // setState cannot be called twice for the same block.
+        uint256 parentId = block.number - 1;
+        require(_blockhashes[parentId] == 0, BlockHashAlreadySet());
+        _blockhashes[parentId] = blockhash(parentId);
 
         // First block of proposal: initialize proposal state and verify prover
         if (_blockIndex == 0) {
-            _state.proposalId = _proposalId;
-            _state.blockCount = _blockCount;
-            _state.proposer = _proposer;
-
             // Verify prover authentication and debit bonds if valid
-            _state.designatedProver = _verifyProverAuth(_proposalId, _proposer, _proverAuth);
+            _verifyProverAuth(_proposalId, _proposer, _proverAuth);
         }
 
-        // Update current block index
-        _state.blockIndex = _blockIndex;
-
         // Process L1 anchor data if provided
-        require(_anchorBlockNumber != 0, InvalidAnchorBlockNumber());
         if (_anchorBlockNumber > _state.anchorBlockNumber) {
             // Save the L1 block data for cross-chain verification
             syncedBlockManager.saveSyncedBlock(
@@ -172,8 +159,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
                 LibBondInstruction.BondInstruction memory instruction = _bondInstructions[i];
                 uint48 bond = instruction.isLivenessBond ? livenessBondGwei : provabilityBondGwei;
                 // Credit the bond to the receiver
-                bondManager.creditBond(instruction.creditTo, bond);
-                bondManager.debitBond(instruction.debitFrom, bond);
+                uint96 bondDebited = bondManager.debitBond(instruction.debitFrom, bond);
+                bondManager.creditBond(instruction.creditTo, bondDebited);
 
                 // Update cumulative hash
                 bondInstructionsHash =
@@ -184,17 +171,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
             _state.bondInstructionsHash = bondInstructionsHash;
             _state.anchorBlockNumber = _anchorBlockNumber;
-        } else {
-            // If no anchor block, ensure hash and state root are also zero
-            require(_anchorBlockHash == 0, NonZeroAnchorBlockHash());
-            require(_anchorStateRoot == 0, NonZeroAnchorStateRoot());
         }
-
-        // Keep track of the parent block hash for future reference, this logic also guarantees
-        // setState cannot be called twice for the same block.
-        uint256 parentId = block.number - 1;
-        require(_blockhashes[parentId] == 0, BlockHashAlreadySet());
-        _blockhashes[parentId] = blockhash(parentId);
     }
 
     /// @notice Returns the current state of the anchor.
@@ -245,8 +222,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
         }
 
         // Debit the required bonds from the designated prover
-        bondManager.debitBond(signer, proverAuth.provingFeeGwei);
-        bondManager.creditBond(_proposer, proverAuth.provingFeeGwei);
+        uint96 bondDebited = bondManager.debitBond(_proposer, proverAuth.provingFeeGwei);
+        bondManager.creditBond(signer, bondDebited);
 
         return signer;
     }
