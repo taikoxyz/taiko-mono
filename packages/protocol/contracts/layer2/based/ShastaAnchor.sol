@@ -39,13 +39,20 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
     uint48 public immutable livenessBondGwei;
     uint48 public immutable provabilityBondGwei;
+    uint48 public immutable provingTaxGwei;
+    uint48 public immutable lowBondProvingRewardGwei;
+    uint96 public immutable poolThresholdGwei;
 
     IShastaBondManager public immutable bondManager;
     ISyncedBlockManager public immutable syncedBlockManager;
 
     State public _state;
 
-    uint256[48] private __gap;
+    // Proving incentive pool state
+    uint96 public provingFeePoolGwei;
+    mapping(uint48 proposalId => bool isLowBond) public lowBondProposals;
+
+    uint256[46] private __gap;
 
     // -------------------------------------------------------------------
     // Constructor
@@ -59,6 +66,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
     /// @param _syncedBlockManager The address of the synced block manager.
     /// @param _bondManager The address of the bond manager.
+    /// @param _provingTaxGwei The tax amount per proposal in Gwei.
+    /// @param _lowBondProvingRewardGwei The reward for proving low-bond proposals in Gwei.
+    /// @param _poolThresholdGwei The threshold below which tax is collected in Gwei.
     constructor(
         uint48 _livenessBondGwei,
         uint48 _provabilityBondGwei,
@@ -66,7 +76,10 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
         ISyncedBlockManager _syncedBlockManager,
-        IShastaBondManager _bondManager
+        IShastaBondManager _bondManager,
+        uint48 _provingTaxGwei,
+        uint48 _lowBondProvingRewardGwei,
+        uint96 _poolThresholdGwei
     )
         PacayaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
     {
@@ -78,6 +91,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
         provabilityBondGwei = _provabilityBondGwei;
         syncedBlockManager = _syncedBlockManager;
         bondManager = _bondManager;
+        provingTaxGwei = _provingTaxGwei;
+        lowBondProvingRewardGwei = _lowBondProvingRewardGwei;
+        poolThresholdGwei = _poolThresholdGwei;
     }
 
     // ---------------------------------------------------------------
@@ -141,6 +157,18 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
         // First block of proposal: initialize proposal state and verify prover
         if (_blockIndex == 0) {
+            // Check if proposer has sufficient bonds
+            bool hasInsufficientBonds = !bondManager.hasSufficientBond(_proposer, 0);
+            
+            if (hasInsufficientBonds) {
+                // Mark as low-bond proposal
+                lowBondProposals[_proposalId] = true;
+            } else if (provingFeePoolGwei < poolThresholdGwei) {
+                // Collect proving tax only if pool is below threshold
+                uint96 taxDebited = bondManager.debitBond(_proposer, provingTaxGwei);
+                provingFeePoolGwei += taxDebited;
+            }
+            
             // Verify prover authentication and debit bonds if valid
             _verifyProverAuth(_proposalId, _proposer, _proverAuth);
         }
@@ -157,10 +185,19 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
             for (uint256 i; i < _bondInstructions.length; ++i) {
                 LibBondInstruction.BondInstruction memory instruction = _bondInstructions[i];
-                uint48 bond = instruction.isLivenessBond ? livenessBondGwei : provabilityBondGwei;
-                // Credit the bond to the receiver
-                uint96 bondDebited = bondManager.debitBond(instruction.debitFrom, bond);
-                bondManager.creditBond(instruction.creditTo, bondDebited);
+                
+                // Check if this is a low-bond proposal
+                if (lowBondProposals[instruction.proposalId]) {
+                    // For low-bond proposals, pay reward to the actual prover (creditTo)
+                    // regardless of timing
+                    _payProvingReward(instruction.creditTo);
+                } else {
+                    // Normal bond instruction processing
+                    uint48 bond = instruction.isLivenessBond ? livenessBondGwei : provabilityBondGwei;
+                    // Credit the bond to the receiver
+                    uint96 bondDebited = bondManager.debitBond(instruction.debitFrom, bond);
+                    bondManager.creditBond(instruction.creditTo, bondDebited);
+                }
 
                 // Update cumulative hash
                 bondInstructionsHash =
@@ -183,6 +220,23 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
+
+    /// @dev Pays proving reward for low-bond proposals from the fee pool
+    /// @param _prover The address of the prover to reward
+    function _payProvingReward(address _prover) private {
+        
+        // Calculate reward amount (minimum of pool balance and configured reward)
+        uint96 reward = lowBondProvingRewardGwei;
+        if (provingFeePoolGwei < reward) {
+            reward = provingFeePoolGwei;
+        }
+        
+        // Pay the reward if available
+        if (reward > 0) {
+            provingFeePoolGwei -= reward;
+            bondManager.creditBond(_prover, reward);
+        }
+    }
 
     /// @dev Verifies prover authorization and debits required bonds.
     /// The function checks if the proposer has designated themselves as a prover
