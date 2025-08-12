@@ -263,7 +263,7 @@
   - Upgrade to `0x5110634593Ccb8072d161A7d260A409A7E74D7Ca` @commit`9a89166` @tx`0x6368890b9aa2f87c6a6b727efdd8af0ea357a11460b546d8a7f3e19e38a34e41`
   - Upgrade to `0x4e030b19135869F6fd926614754B7F9c184E2B83` @commit`cf55838` @tx`0x78f766ae83ce94ef2293c9c7d81ae514e8fa0a79fbce1530c3c68d7624708795`
   - Upgrade to `0xde813DD3b89702E5Eb186FeE6FBC5dCf02aE6319` @commit`3328024` @tx`0xffedb70a513e71486c3a47079508d3ba87ae5362e7efb3300febac1be69276bc`
-  - Upgrade to `0xb4530aBee1Dd239C02266e73ca83Fe6617e77F2F` @commit`c2a941e` @tx`` // TODO: fill the tx hash
+  - Upgrade to `0xb4530aBee1Dd239C02266e73ca83Fe6617e77F2F` @commit`c2a941e` @tx`0x9e26e018d5dc07349ea34f907728a43cd47a8a62058467c30cf21df975e59090`
 
 #### tier_router
 
@@ -486,7 +486,7 @@
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0xe0c52c898ce19785fb139e822a9b5a088b374692820bc402eb31e7a6086664e7`
-  - upgraded to `0xa2D216dD9c84cb2e738240aac0956BE98293be61` @commit`31094a6` @tx`` // TODO: fill the tx hash
+  - upgraded to `0xa2D216dD9c84cb2e738240aac0956BE98293be61` @commit`31094a6` @tx`0x9e26e018d5dc07349ea34f907728a43cd47a8a62058467c30cf21df975e59090`
 
 ### preconf_whitelist
 
@@ -501,7 +501,7 @@
   - `0x0F026a3efE44E0Fe34B87375EFe69b16c05D0438`
 - logs:
   - deployed on Jul 23, 2025 @commit `c2a941e` @tx `0x797256dc575734f2af55c2c2138aaf72aaed91e0909b6cd03d637b54b0c99bba`
-  - upgraded to `0x44eC275996BD69361EF062ed488882a58256CF11` @commit`31094a6` @tx`` // TODO: fill the tx hash
+  - upgraded to `0x44eC275996BD69361EF062ed488882a58256CF11` @commit`31094a6` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
 
 ### preconf_router
 
@@ -510,7 +510,7 @@
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on Jul 23, 2025 @commit `c2a941e` @tx `0x5a309fa38d79de894c96e5082356b0e52e9653726b1400b1d8d72e181b50d5d8`
-  - upgraded to `0xf571E2626E2CE68127852123A2cC6AA522C586A0` @commit`31094a6` @tx`` // TODO: fill the tx hash
+  - upgraded to `0xf571E2626E2CE68127852123A2cC6AA522C586A0` @commit`31094a6` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
 
 ### proof_verifier
 
