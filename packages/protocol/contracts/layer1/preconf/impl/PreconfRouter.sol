@@ -73,10 +73,8 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
 
     /// @inheritdoc IPreconfRouter
     function getConfig() external pure returns (IPreconfRouter.Config memory) {
-        return IPreconfRouter.Config({ 
-            handOverSlots: 4,
-            __gap: [uint256(0), 0, 0, 0, 0, 0, 0, 0, 0]
-        });
+        return
+            IPreconfRouter.Config({ handOverSlots: 4, __gap: [uint256(0), 0, 0, 0, 0, 0, 0, 0, 0] });
     }
 
     function _proposeBatch(
