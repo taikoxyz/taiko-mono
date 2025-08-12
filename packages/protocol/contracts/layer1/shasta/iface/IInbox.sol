@@ -13,11 +13,9 @@ interface IInbox {
         address bondToken;
         uint48 provingWindow;
         uint48 extendedProvingWindow;
-        uint256 minBondBalance;
         uint256 maxFinalizationCount;
         uint256 ringBufferSize;
         uint8 basefeeSharingPctg;
-        address bondManager;
         address syncedBlockManager;
         address proofVerifier;
         address proposerChecker;
