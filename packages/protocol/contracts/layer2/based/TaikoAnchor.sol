@@ -145,7 +145,6 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
     /// @param _anchorBlockId The `anchorBlockId` value in this block's metadata.
     /// @param _anchorStateRoot The state root for the L1 block with id equals `_anchorBlockId`.
     /// @param _parentGasUsed The gas used in the parent block.
-    /// @param _baseFeeConfig The base fee configuration.
     /// @param _signalSlots The signal slots to mark as received.
     function anchorV3(
         uint64 _anchorBlockId,
