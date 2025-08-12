@@ -5,6 +5,7 @@ import "src/shared/signal/ISignalService.sol";
 import "src/shared/signal/LibSignals.sol";
 import "src/shared/libs/LibMath.sol";
 import "../ITaikoInbox.sol";
+import "../IBondManager.sol";
 
 /// @title LibVerification
 /// @custom:security-contact security@taiko.xyz
@@ -156,7 +157,7 @@ library LibVerification {
         unchecked {
             _state.bondBalance[_user] += _amount;
         }
-        emit IBondManager_Deprecated.BondCredited(_user, _amount);
+        emit IBondManager.BondCredited(_user, _amount);
     }
 
     function getBatch(

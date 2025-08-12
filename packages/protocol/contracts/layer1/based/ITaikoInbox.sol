@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/shared/based/LibSharedData.sol";
-import "./IBondManager_Deprecated.sol";
+import { IBondManager as IBondManagerDeprecated } from "src/layer1/based/IBondManager.sol";
 import "./IProveBatches.sol";
 
 /// @title TaikoInbox
@@ -18,7 +18,7 @@ import "./IProveBatches.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-interface ITaikoInbox is IBondManager_Deprecated, IProveBatches {
+interface ITaikoInbox is IBondManagerDeprecated, IProveBatches {
     struct BlockParams {
         // the max number of transactions in this block. Note that if there are not enough
         // transactions in calldata or blobs, the block will contain as many transactions as

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title IBondManager_Deprecated
+/// @title IBondManager
 /// @custom:security-contact security@taiko.xyz
-interface IBondManager_Deprecated {
+interface IBondManager {
     /// @notice Emitted when tokens are deposited into a user's bond balance.
     /// @param user The address of the user who deposited the tokens.
     /// @param amount The amount of tokens deposited.
