@@ -21,6 +21,12 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 /// @title ShastaInboxTestBase
 /// @notice Base contract for all Shasta Inbox tests providing common setup and helper functions
 /// @dev Uses Foundry's testing features for mocking and stubbing dependencies
+/// @dev Test scenarios covered:
+///      - Proposal submission workflows
+///      - Proving workflows  
+///      - Finalization workflows
+///      - Event verification patterns
+///      - State management helpers
 abstract contract ShastaInboxTestBase is CommonTest {
     using LibDecoder for bytes;
 
@@ -424,6 +430,133 @@ abstract contract ShastaInboxTestBase is CommonTest {
         mockBlobHash(index, keccak256(abi.encode("blob", index)));
 
         return LibBlobs.BlobReference({ blobStartIndex: index, numBlobs: 1, offset: 0 });
+    }
+    // ---------------------------------------------------------------
+    // High-Level Helper Functions for Common Test Patterns
+    // ---------------------------------------------------------------
+
+    /// @notice Submits a proposal with standard setup and returns the actual stored proposal
+    /// @param _proposer Address that will submit the proposal
+    /// @param _proposalId The proposal ID to use
+    /// @param _lastFinalizedId Last finalized proposal ID
+    /// @param _lastFinalizedHash Last finalized claim hash
+    /// @return The actual proposal that was stored by the inbox
+    function submitStandardProposal(
+        address _proposer,
+        uint48 _proposalId,
+        uint48 _lastFinalizedId,
+        bytes32 _lastFinalizedHash
+    )
+        internal
+        returns (IInbox.Proposal memory)
+    {
+        // Setup core state
+        IInbox.CoreState memory coreState = createCoreState(_proposalId, _lastFinalizedId);
+        coreState.lastFinalizedClaimHash = _lastFinalizedHash;
+        inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
+        
+        // Setup proposer mocks
+        setupStandardProposerMocks(_proposer);
+        
+        // Create and submit proposal
+        LibBlobs.BlobReference memory blobRef = createValidBlobReference(_proposalId);
+        IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
+        bytes memory proposeData = encodeProposeProposeData(coreState, blobRef, emptyClaimRecords);
+        
+        vm.prank(_proposer);
+        inbox.propose(bytes(""), proposeData);
+        
+        // Recreate and return the actual stored proposal
+        bytes32[] memory blobHashes = new bytes32[](1);
+        blobHashes[0] = keccak256(abi.encode("blob", blobRef.blobStartIndex));
+        
+        return IInbox.Proposal({
+            id: _proposalId,
+            proposer: _proposer,
+            originTimestamp: uint48(block.timestamp),
+            originBlockNumber: uint48(block.number),
+            isForcedInclusion: false,
+            basefeeSharingPctg: defaultConfig.basefeeSharingPctg,
+            provabilityBondGwei: defaultConfig.provabilityBondGwei,
+            livenessBondGwei: defaultConfig.livenessBondGwei,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes,
+                offset: blobRef.offset,
+                timestamp: uint48(block.timestamp)
+            })
+        });
+    }
+
+    /// @notice Submits a proof for a proposal
+    /// @param _prover Address that will submit the proof
+    /// @param _proposal The proposal to prove
+    /// @param _claim The claim to prove
+    /// @param _parentClaimHash Parent claim hash for the claim
+    function submitProofForProposal(
+        address _prover,
+        IInbox.Proposal memory _proposal,
+        IInbox.Claim memory _claim,
+        bytes32 _parentClaimHash
+    )
+        internal
+    {
+        // Ensure claim has correct proposal hash
+        _claim.proposalHash = inbox.getProposalHash(_proposal.id);
+        _claim.parentClaimHash = _parentClaimHash;
+        
+        // Setup proof verification
+        mockProofVerification(true);
+        
+        // Create proof data
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = _proposal;
+        IInbox.Claim[] memory claims = new IInbox.Claim[](1);
+        claims[0] = _claim;
+        
+        bytes memory proveData = encodeProveData(proposals, claims);
+        bytes memory proof = bytes("valid_proof");
+        
+        // Submit proof
+        vm.prank(_prover);
+        inbox.prove(proveData, proof);
+    }
+
+
+    /// @notice Verifies that a proposal was proven with the expected claim
+    /// @param _proposalId The proposal ID to check
+    /// @param _parentClaimHash The parent claim hash
+    function verifyProposalProven(
+        uint48 _proposalId,
+        bytes32 _parentClaimHash
+    )
+        internal
+    {
+        bytes32 claimRecordHash = inbox.getClaimRecordHash(_proposalId, _parentClaimHash);
+        assertTrue(claimRecordHash != bytes32(0), "Proposal should be proven");
+    }
+
+    /// @notice Creates a standard claim record for testing
+    /// @param _proposal The proposal
+    /// @param _claim The claim  
+    /// @param _bondDecision The bond decision
+    /// @return The created claim record
+    function createStandardClaimRecord(
+        IInbox.Proposal memory _proposal,
+        IInbox.Claim memory _claim,
+        IInbox.BondDecision _bondDecision
+    )
+        internal
+        pure
+        returns (IInbox.ClaimRecord memory)
+    {
+        return IInbox.ClaimRecord({
+            claim: _claim,
+            proposer: _proposal.proposer,
+            livenessBondGwei: 0,
+            provabilityBondGwei: 0,
+            nextProposalId: _proposal.id + 1,
+            bondDecision: _bondDecision
+        });
     }
 }
 
