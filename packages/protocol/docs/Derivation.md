@@ -20,23 +20,26 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 
 ### Proposal-level Metadata
 
-| **Metadata Component** | **Description**                                             |
-| ---------------------- | ----------------------------------------------------------- |
-| **id**                 | A unique, sequential identifier for the proposal            |
-| **proposer**           | The address that proposed the proposal                      |
-| **originTimestamp**    | The timestamp when the proposal was accepted on L1          |
-| **originBlockNumber**  | The L1 block number in which the proposal was accepted      |
-| **proverAuthBytes**    | An ABI-encoded ProverAuth object                            |
-| **numBlocks**          | The total number of blocks in this proposal                 |
-| **basefeeSharingPctg** | The percentage of base fee paid to coinbase                 |
-| **isForcedInclusion**  | Indicates if the proposal is a forced inclusion             |
+| **Metadata Component**   | **Description**                                               |
+| **Metadata Component**   | **Description**                                               |
+|--------------------------|---------------------------------------------------------------|
+| **id**                   | A unique, sequential identifier for the proposal              |
+| **proposer**             | The address that proposed the proposal                        |
+| **isLowBondProposal**    | Indicates if the proposer has insufficient bond or is exiting |
+| **designatedProver**     | The prover responsible for proving the block                  |
+| **originTimestamp**      | The timestamp when the proposal was accepted on L1            |
+| **originBlockNumber**    | The L1 block number in which the proposal was accepted        |
+| **proverAuthBytes**      | An ABI-encoded ProverAuth object                              |
+| **numBlocks**            | The total number of blocks in this proposal                   |
+| **basefeeSharingPctg**   | The percentage of base fee paid to coinbase                   |
+| **isForcedInclusion**    | Indicates if the proposal is a forced inclusion               |
 | **bondInstructionsHash** | Expected cumulative hash after processing bond instructions   |
 | **bondInstructions**     | Array of bond credit/debit instructions to be performed on L2 |
 
 ### Block-level Metadata
 
 | **Metadata Component** | **Description**                                       |
-| ---------------------- | ----------------------------------------------------- |
+|------------------------|-------------------------------------------------------|
 | **number**             | The block number                                      |
 | **difficulty**         | A random number seed                                  |
 | **index**              | The zero-based index of the block within the proposal |
@@ -67,10 +70,6 @@ struct Proposal {
   bool isForcedInclusion;
   /// @notice The percentage of base fee paid to coinbase.
   uint8 basefeeSharingPctg;
-  /// @notice Provability bond for the proposal.
-  uint48 provabilityBondGwei;
-  /// @notice Liveness bond for the proposal, paid by the designated prover.
-  uint48 livenessBondGwei;
   /// @notice Blobs that contains the proposal's manifest data.
   LibBlobs.BlobSlice blobSlice;
 }
@@ -130,17 +129,15 @@ struct ProposalManifest {
 }
 ```
 
-### Proposer Validation
+### Proposer and `isLowBondProposal` Validation
 
-To ensure the integrity of the proposal process, the `proposer` address must undergo validation checks. These checks include:
-- Verifying that the proposer has an adequate balance in the L2 BondManager contract.
-- Ensuring there are no pending withdrawal requests from this proposer on L2.
+To maintain the integrity of the proposal process, the `proposer` address must pass specific validation checks, which include:
+- Confirming that the proposer holds a sufficient balance in the L2 BondManager contract.
+- Ensuring the proposer is not not waiting for exiting.
 
-If any of these validation checks fail, the proposal's manifest extraction will be bypassed, and a default manifest will be utilized instead.
+Should any of these validation checks fail, `metadata.isLowBondProposal` will be set to `true`. Consequently, the extraction of the proposal's manifest will be skipped, and a default manifest will be used instead.
 
-TODO: 
 
-- Who will be designated as the prover in such cases? Should a special address be used? What mechanisms can be implemented to incentivize this proving process?
 
 ### Manifest Extraction
 
@@ -266,6 +263,14 @@ To begin, locate a `CoreState` object in the L1 anchor block's world state whose
 
 If `metadata.anchorBlockNumber` exceeds `parent.metadata.anchorBlockNumber`, collect all `BondInstructions` emitted from the Taiko inbox via `BondInstructed` events, occurring between blocks numbered `parent.metadata.anchorBlockNumber + 1` and `metadata.anchorBlockNumber`. Assign this collection to `metadata.bondInstructions`, which may be empty.
 
+### Designated Prover Validation
+
+The `setState` function is responsible for assigning the designated prover address to `metadata.designatedProver`. In this function, if the `ProverAuth` object yields an address of `address(0)`, or if `proverAuthBytes` is not provided, the following logic applies:
+
+- If `metadata.isLowBondProposal` is `true`, the designated prover for the current block defaults to `parent.metadata.designatedProver`.
+- Otherwise, the designated prover is set to `metadata.proposer`.
+
+
 #### Additional Metadata Fields
 
 The remaining metadata fields follow straightforward assignment patterns:
@@ -302,6 +307,7 @@ Metadata encoding into L2 block header fields facilitates efficient peer validat
 | `id`                 | uint48  | `withdrawalsRoot` (bytes TBD) |
 | `numBlocks`          | uint16  | `withdrawalsRoot` (bytes TBD) |
 | `isForcedInclusion`  | bool    | `withdrawalsRoot` (bytes TBD) |
+| `isLowBondProposal`  | bool    | `withdrawalsRoot` (bytes TBD) |
 | `index`              | uint16  | `withdrawalsRoot` (bytes TBD) |
 | `basefeeSharingPctg` | uint8   | First byte in `extraData`     |
 | `anchorBlockNumber ` | uint48  | Next 6 bytes in `extraData`   |
@@ -326,6 +332,7 @@ The anchor transaction serves as a privileged system transaction responsible for
 |----------------------|-------------------|
 | proposalId           | uint48            |
 | proposer             | address           |
+| isLowBondProposal    | bool              |
 | proverAuth           | bytes             |
 | bondInstructionsHash | bytes32           |
 | bondInstructions     | BondInstruction[] |
