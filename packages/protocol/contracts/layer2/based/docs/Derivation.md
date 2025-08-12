@@ -30,8 +30,8 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 | **numBlocks**          | The total number of blocks in this proposal                 |
 | **basefeeSharingPctg** | The percentage of base fee paid to coinbase                 |
 | **isForcedInclusion**  | Indicates if the proposal is a forced inclusion             |
-| **bondOperationsHash** | Expected cumulative hash after processing bond operations   |
-| **bondOperations**     | Array of bond credit/debit operations to be performed on L2 |
+| **bondInstructionsHash** | Expected cumulative hash after processing bond instructions   |
+| **bondInstructions**     | Array of bond credit/debit instructions to be performed on L2 |
 
 ### Block-level Metadata
 
@@ -129,6 +129,18 @@ struct ProposalManifest {
   BlockManifest[] blocks;
 }
 ```
+
+### Proposer Validation
+
+To ensure the integrity of the proposal process, the `proposer` address must undergo validation checks. These checks include:
+- Verifying that the proposer has an adequate balance in the L2 BondManager contract.
+- Ensuring there are no pending withdrawal requests from this proposer on L2.
+
+If any of these validation checks fail, the proposal's manifest extraction will be bypassed, and a default manifest will be utilized instead.
+
+TODO: 
+
+- Who will be designated as the prover in such cases? Should a special address be used? What mechanisms can be implemented to incentivize this proving process?
 
 ### Manifest Extraction
 
@@ -246,13 +258,13 @@ Gas limit adjustments are constrained by `MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD` 
    - If above `upperBound`: Clamp to `upperBound`
    - Otherwise: Use manifest value unchanged
 
-#### `bondOperationsHash` and `bondOperations` Validation
+#### `bondInstructionsHash` and `bondInstructions` Validation
 
-For an L2 block with a higher anchor block number than its parent, bond operations must be processed within its anchor transaction.
+For an L2 block with a higher anchor block number than its parent, bond instructions must be processed within its anchor transaction.
 
-To begin, locate a `CoreState` object in the L1 anchor block's world state whose keccak hash matches the `coreStateHash` from the inbox contract. Extract the `bondOperationsHash` field from this object and set `metadata.bondOperationsHash` to this value.
+To begin, locate a `CoreState` object in the L1 anchor block's world state whose keccak hash matches the `coreStateHash` from the inbox contract. Extract the `bondInstructionsHash` field from this object and set `metadata.bondInstructionsHash` to this value.
 
-If `metadata.anchorBlockNumber` exceeds `parent.metadata.anchorBlockNumber`, collect all `BondOperations` emitted from the Taiko inbox via `BondOperationCreated` events, occurring between blocks numbered `parent.metadata.anchorBlockNumber + 1` and `metadata.anchorBlockNumber`. Assign this collection to `metadata.bondOperations`, which may be empty.
+If `metadata.anchorBlockNumber` exceeds `parent.metadata.anchorBlockNumber`, collect all `BondInstructions` emitted from the Taiko inbox via `BondInstructed` events, occurring between blocks numbered `parent.metadata.anchorBlockNumber + 1` and `metadata.anchorBlockNumber`. Assign this collection to `metadata.bondInstructions`, which may be empty.
 
 #### Additional Metadata Fields
 
@@ -308,7 +320,7 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 ### Anchor Transaction
 
-The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond operation processing. It invokes the `updateState` function on the ShastaAnchor contract with precisely defined parameters:
+The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond instruction processing. It invokes the `updateState` function on the ShastaAnchor contract with precisely defined parameters:
 
 | Parameter          | Type            |
 | ------------------ | --------------- |
@@ -316,8 +328,8 @@ The anchor transaction serves as a privileged system transaction responsible for
 | blockCount         | uint16          |
 | proposer           | address         |
 | proverAuth         | bytes           |
-| bondOperationsHash | bytes32         |
-| bondOperations     | BondOperation[] |
+| bondInstructionsHash | bytes32           |
+| bondInstructions     | BondInstruction[] |
 | blockIndex         | uint16          |
 | anchorBlockNumber  | uint48          |
 | anchorBlockHash    | bytes32         |
@@ -332,9 +344,9 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
    - Initializes proposal state
    - Validates prover authentication credentials
 
-2. **Bond operation processing** (all blocks)
+2. **Bond instruction processing** (all blocks)
 
-   - Processes operations incrementally
+   - Processes instructions incrementally
    - Maintains cumulative hash for verification
 
 3. **L1 state anchoring** (when anchorBlockNumber > parent.metadata.anchorBlockNumber)

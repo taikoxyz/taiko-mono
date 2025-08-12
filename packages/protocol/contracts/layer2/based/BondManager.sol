@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IBondManager } from "../iface/IBondManager.sol";
+import { IBondManager } from "./IBondManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { EssentialContract } from "../../common/EssentialContract.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 /// @title BondManager
 /// @notice L1 implementation of BondManager with time-based withdrawal mechanism

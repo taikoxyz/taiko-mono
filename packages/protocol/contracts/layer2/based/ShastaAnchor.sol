@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { PacayaAnchor } from "./PacayaAnchor.sol";
 import { ISyncedBlockManager } from "src/shared/based/iface/ISyncedBlockManager.sol";
-import { IBondManager as IShastaBondManager } from "src/shared/based/iface/IBondManager.sol";
-import { LibBondOperation } from "src/shared/based/libs/LibBondOperation.sol";
+import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
+import { LibBondInstruction } from "src/shared/based/libs/LibBondInstruction.sol";
 
 /// @title ShastaAnchor
 /// @notice Anchoring functions for the Shasta fork.
@@ -24,7 +24,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint16 blockCount; // Total number of blocks in the proposal
         address proposer; // Address that initiated the proposal
         address designatedProver; // Address authorized to prove this proposal (address(0) if none)
-        bytes32 bondOperationsHash; // Cumulative hash of all bond operations processed so far
+        bytes32 bondInstructionsHash; // Cumulative hash of all bond instructions processed so far
         // Block level fields (updated for each block in the proposal)
         uint16 blockIndex; // Current block being processed (0-indexed, < blockCount)
         uint48 anchorBlockNumber; // Latest L1 block number anchored
@@ -91,12 +91,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // External functions
     // ---------------------------------------------------------------
 
-    /// @notice Sets the state of the anchor for a proposal's block, processing bond operations
+    /// @notice Sets the state of the anchor for a proposal's block, processing bond instructions
     /// and synchronizing L1 block data.
     /// @dev Critical function in the Taiko anchoring mechanism that:
     ///      1. Processes blocks sequentially within a proposal (0 to blockCount-1)
     ///      2. Handles prover designation and bond debiting for first block only
-    ///      3. Incrementally processes and validates bond operations with cumulative hashing
+    ///      3. Incrementally processes and validates bond instructions with cumulative hashing
     ///      4. Synchronizes L1 block data for cross-chain verification
     ///      5. Updates parent block hash for chain continuity
     ///
@@ -105,7 +105,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     ///      - Shasta fork must be active (block.number >= shastaForkHeight)
     ///      - Blocks must be processed in order (blockIndex 0, 1, 2, ...)
     ///      - ProverAuth only allowed on first block (_blockIndex == 0)
-    ///      - Bond operations hash must match cumulative hash after processing
+    ///      - Bond instructions hash must match cumulative hash after processing
     ///      - If anchorBlockNumber is 0, hash and stateRoot must also be 0
     ///
     /// @param _proposalId Unique identifier of the proposal being anchored
@@ -113,8 +113,10 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _proposer Address of the entity that proposed this batch of blocks
     /// @param _proverAuth Encoded ProverAuth struct for prover designation (must be empty after
     /// block 0)
-    /// @param _bondOperationsHash Expected cumulative hash after processing this block's operations
-    /// @param _bondOperations Array of bond credit operations to process for this specific block
+    /// @param _bondInstructionsHash Expected cumulative hash after processing this block's
+    /// instructions
+    /// @param _bondInstructions Array of bond credit instructions to process for this specific
+    /// block
     /// @param _blockIndex Current block index within the proposal (0-based, must be < blockCount)
     /// @param _anchorBlockNumber L1 block number to anchor (0 = skip anchoring for this block)
     /// @param _anchorBlockHash L1 block hash at _anchorBlockNumber (must be 0 if not anchoring)
@@ -125,8 +127,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint16 _blockCount,
         address _proposer,
         bytes calldata _proverAuth,
-        bytes32 _bondOperationsHash,
-        LibBondOperation.BondOperation[] calldata _bondOperations,
+        bytes32 _bondInstructionsHash,
+        LibBondInstruction.BondInstruction[] calldata _bondInstructions,
         // Block level fields - specific to this block in the proposal
         uint16 _blockIndex,
         uint48 _anchorBlockNumber,
@@ -163,22 +165,24 @@ abstract contract ShastaAnchor is PacayaAnchor {
                 _anchorBlockNumber, _anchorBlockHash, _anchorStateRoot
             );
 
-            // Process bond operations incrementally
-            bytes32 bondOperationsHash = _state.bondOperationsHash;
+            // Process bond instructions incrementally
+            bytes32 bondInstructionsHash = _state.bondInstructionsHash;
 
-            for (uint256 i; i < _bondOperations.length; ++i) {
-                LibBondOperation.BondOperation memory op = _bondOperations[i];
+            for (uint256 i; i < _bondInstructions.length; ++i) {
+                LibBondInstruction.BondInstruction memory instruction = _bondInstructions[i];
+                uint48 bond = instruction.isLivenessBond ? livenessBondGwei : provabilityBondGwei;
                 // Credit the bond to the receiver
-                bondManager.creditBond(op.creditTo, op.creditAmountGwei);
-                // Debit the bond from the sender
-                bondManager.debitBond(op.debitFrom, op.debitAmountGwei);
+                bondManager.creditBond(instruction.creditTo, bond);
+                bondManager.debitBond(instruction.debitFrom, bond);
+
                 // Update cumulative hash
-                bondOperationsHash = LibBondOperation.aggregateBondOperation(bondOperationsHash, op);
+                bondInstructionsHash =
+                    LibBondInstruction.aggregateBondInstruction(bondInstructionsHash, instruction);
             }
             // Verify the cumulative hash matches expected value
-            require(bondOperationsHash == _bondOperationsHash, BondOperationsHashMismatch());
+            require(bondInstructionsHash == _bondInstructionsHash, BondInstructionsHashMismatch());
 
-            _state.bondOperationsHash = bondOperationsHash;
+            _state.bondInstructionsHash = bondInstructionsHash;
             _state.anchorBlockNumber = _anchorBlockNumber;
         } else {
             // If no anchor block, ensure hash and state root are also zero
@@ -253,7 +257,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // ---------------------------------------------------------------
 
     error BlockHashAlreadySet();
-    error BondOperationsHashMismatch();
+    error BondInstructionsHashMismatch();
     error InvalidBlockIndex();
     error InvalidAnchorBlockNumber();
     error InvalidForkHeight();

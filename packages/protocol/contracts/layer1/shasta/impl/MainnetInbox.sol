@@ -37,8 +37,6 @@ contract MainnetInbox is Inbox {
         return Config({
             forkActivationHeight: 0,
             bondToken: address(0),
-            provabilityBondGwei: 0,
-            livenessBondGwei: 0,
             provingWindow: 2 hours,
             extendedProvingWindow: 4 hours,
             minBondBalance: 0,

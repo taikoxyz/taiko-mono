@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.sol";
+import { LibBondInstruction } from "src/shared/based/libs/LibBondInstruction.sol";
 
 /// @title IInbox
 /// @notice Interface for the ShastaInbox contract
@@ -12,8 +12,6 @@ interface IInbox {
     struct Config {
         uint48 forkActivationHeight;
         address bondToken;
-        uint48 provabilityBondGwei;
-        uint48 livenessBondGwei;
         uint48 provingWindow;
         uint48 extendedProvingWindow;
         uint256 minBondBalance;
@@ -41,22 +39,8 @@ interface IInbox {
         bool isForcedInclusion;
         /// @notice The percentage of base fee paid to coinbase.
         uint8 basefeeSharingPctg;
-        /// @notice Provability bond for the proposal.
-        uint48 provabilityBondGwei;
-        /// @notice Liveness bond for the proposal, paid by the designated prover.
-        uint48 livenessBondGwei;
         /// @notice Blobs that contains the proposal's manifest data.
         LibBlobs.BlobSlice blobSlice;
-    }
-
-    /// @notice Represents the bond decision based on proof submission timing and prover identity.
-    /// @dev Bond decisions determine how provability and liveness bonds are distributed based on
-    /// whether proofs are submitted on time and by the correct party.
-    enum BondDecision {
-        NoOp,
-        L1SlashLivenessRewardProver,
-        L1SlashProvabilityRewardProver,
-        L2SlashLivenessRewardProver
     }
 
     /// @notice Represents a claim about the state transition of a proposal.
@@ -84,14 +68,10 @@ interface IInbox {
         Claim claim;
         /// @notice The proposer, copied from the proposal.
         address proposer;
-        /// @notice The liveness bond, copied from the proposal.
-        uint48 livenessBondGwei;
-        /// @notice The provability bond, copied from the proposal.
-        uint48 provabilityBondGwei;
         /// @notice The next proposal ID.
         uint48 nextProposalId;
-        /// @notice The proof timing.
-        BondDecision bondDecision;
+        /// @notice The bond instructions.
+        LibBondInstruction.BondInstruction[] bondInstructions;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -102,8 +82,8 @@ interface IInbox {
         uint48 lastFinalizedProposalId;
         /// @notice The hash of the last finalized claim.
         bytes32 lastFinalizedClaimHash;
-        /// @notice The hash of all bond operations.
-        bytes32 bondOperationsHash;
+        /// @notice The hash of all bond instructions.
+        bytes32 bondInstructionsHash;
     }
 
     // ---------------------------------------------------------------
@@ -123,9 +103,9 @@ interface IInbox {
     /// @param claimRecord The claim record containing the proof details.
     event Proved(Proposal proposal, ClaimRecord claimRecord);
 
-    /// @notice Emitted when a bond operation is instructed
-    /// @param bondOperation The bond operation that needs to be performed.
-    event BondRequest(LibBondOperation.BondOperation bondOperation);
+    /// @notice Emitted when bond instructions are issued
+    /// @param instructions The bond instructions that need to be performed.
+    event BondInstructed(LibBondInstruction.BondInstruction[] instructions);
 
     // ---------------------------------------------------------------
     // External Transactional Functions
