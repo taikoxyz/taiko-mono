@@ -39,45 +39,51 @@ abstract contract ShastaInboxTestBase is CommonTest {
     // -------------------------------------------------------------------
     // Contract Under Test
     // -------------------------------------------------------------------
-    
+
     /// @dev Main contract instance being tested, uses TestInbox which exposes internal functions
     TestInbox internal inbox;
 
     // -------------------------------------------------------------------
     // Mock Dependencies
     // -------------------------------------------------------------------
-    
+
     /// @dev Mock addresses for all external dependencies required by Inbox
-    address internal bondToken;         /// @dev ERC20 token used for bonds
-    address internal bondManager;       /// @dev Manages bond operations (debit/credit)
-    address internal syncedBlockManager; /// @dev Stores synced L2 block data
-    address internal forcedInclusionStore; /// @dev Handles forced inclusion requests
-    address internal proofVerifier;     /// @dev Verifies ZK/SGX proofs
-    address internal proposerChecker;   /// @dev Validates proposer eligibility
+    address internal bondToken;
+    /// @dev ERC20 token used for bonds
+    address internal bondManager;
+    /// @dev Manages bond operations (debit/credit)
+    address internal syncedBlockManager;
+    /// @dev Stores synced L2 block data
+    address internal forcedInclusionStore;
+    /// @dev Handles forced inclusion requests
+    address internal proofVerifier;
+    /// @dev Verifies ZK/SGX proofs
+    address internal proposerChecker;
+    /// @dev Validates proposer eligibility
 
     // -------------------------------------------------------------------
     // Test Configuration
     // -------------------------------------------------------------------
-    
+
     /// @dev Default configuration used across all tests unless overridden
     IInbox.Config internal defaultConfig;
 
     // -------------------------------------------------------------------
     // Test Constants
     // -------------------------------------------------------------------
-    
+
     /// @dev Ring buffer configuration
     uint256 internal constant DEFAULT_RING_BUFFER_SIZE = 100;
     uint256 internal constant DEFAULT_MAX_FINALIZATION_COUNT = 10;
-    
+
     /// @dev Timing windows for proving (in seconds)
     uint48 internal constant DEFAULT_PROVING_WINDOW = 1 hours;
     uint48 internal constant DEFAULT_EXTENDED_PROVING_WINDOW = 2 hours;
-    
+
     /// @dev Bond amounts (in gwei)
     uint48 internal constant DEFAULT_PROVABILITY_BOND = 1000 gwei;
     uint48 internal constant DEFAULT_LIVENESS_BOND = 500 gwei;
-    
+
     /// @dev Economic parameters
     uint8 internal constant DEFAULT_BASEFEE_SHARING_PCTG = 10;
     uint256 internal constant DEFAULT_MIN_BOND_BALANCE = 1 ether;
@@ -88,19 +94,19 @@ abstract contract ShastaInboxTestBase is CommonTest {
     // -------------------------------------------------------------------
     // Events (for testing event emissions)
     // -------------------------------------------------------------------
-    
+
     /// @dev Core state update event
     event CoreStateSet(IInbox.CoreState coreState);
-    
+
     /// @dev Proposal submission event
     event Proposed(IInbox.Proposal proposal, IInbox.CoreState coreState);
-    
+
     /// @dev Proof submission event
     event Proved(IInbox.Proposal proposal, IInbox.ClaimRecord claimRecord);
-    
+
     /// @dev Bond withdrawal event
     event BondWithdrawn(address indexed user, uint256 amount);
-    
+
     /// @dev Bond operation request event
     event BondRequest(LibBondOperation.BondOperation bondOperation);
 

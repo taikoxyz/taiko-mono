@@ -8,7 +8,8 @@ import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.s
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title InboxCoverageImprovement
-/// @notice Tests specifically designed to improve code coverage for InboxBase edge cases and error paths
+/// @notice Tests specifically designed to improve code coverage for InboxBase edge cases and error
+/// paths
 /// @dev These tests target previously uncovered code paths identified through coverage analysis:
 ///      - Bond withdrawal functionality
 ///      - Late proof submission scenarios

@@ -4,7 +4,8 @@ pragma solidity ^0.8.24;
 import "./ShastaInboxTestBase.sol";
 
 /// @title InboxFinalization
-/// @notice Tests for proposal finalization functionality including chain validation and state updates
+/// @notice Tests for proposal finalization functionality including chain validation and state
+/// updates
 /// @dev Tests cover finalization scenarios:
 ///      - Single proposal finalization
 ///      - Batch finalization of multiple proposals
