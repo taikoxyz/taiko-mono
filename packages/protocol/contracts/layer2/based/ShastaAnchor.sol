@@ -21,6 +21,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     struct State {
         bytes32 bondInstructionsHash; // Cumulative hash of all bond instructions processed so far
         uint48 anchorBlockNumber; // Latest L1 block number anchored
+        address designatedProver; // The designated prover for the current batch
     }
 
     struct ProverAuth {
@@ -46,6 +47,14 @@ abstract contract ShastaAnchor is PacayaAnchor {
     State public _state;
 
     uint256[48] private __gap;
+
+    // -------------------------------------------------------------------
+    // Events
+    // -------------------------------------------------------------------
+
+    /// @notice Emitted when a prover is designated for a proposal.
+    /// @param prover The address of the designated prover.
+    event ProverDesignated(address prover);
 
     // -------------------------------------------------------------------
     // Constructor
@@ -103,6 +112,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     ///
     /// @param _proposalId Unique identifier of the proposal being anchored
     /// @param _proposer Address of the entity that proposed this batch of blocks
+    /// @param _isLowBondProposal Boolean indicating if this is a 'low bond proposal'
     /// @param _proverAuth Encoded ProverAuth struct for prover designation (must be empty after
     /// block 0)
     /// @param _bondInstructionsHash Expected cumulative hash after processing this block's
@@ -117,6 +127,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Proposal level fields - define the overall batch
         uint48 _proposalId,
         address _proposer,
+        bool _isLowBondProposal,
         bytes calldata _proverAuth,
         bytes32 _bondInstructionsHash,
         LibBondInstruction.BondInstruction[] calldata _bondInstructions,
@@ -129,48 +140,29 @@ abstract contract ShastaAnchor is PacayaAnchor {
         external
         onlyGoldenTouch
         nonReentrant
+        returns (address designatedProver_)
     {
         // Ensure Shasta fork is active
         require(block.number >= shastaForkHeight, L2_FORK_ERROR());
 
-        // Keep track of the parent block hash for future reference, this logic also guarantees
-        // setState cannot be called twice for the same block.
-        uint256 parentId = block.number - 1;
-        require(_blockhashes[parentId] == 0, BlockHashAlreadySet());
-        _blockhashes[parentId] = blockhash(parentId);
+        // Track parent block hash to ensure setState is only called once per block
+        _trackParentBlockHash(block.number - 1);
 
-        // First block of proposal: initialize proposal state and verify prover
+        // Initialize proposal state on first block
         if (_blockIndex == 0) {
-            // Verify prover authentication and debit bonds if valid
-            _verifyProverAuth(_proposalId, _proposer, _proverAuth);
+            designatedProver_ =
+                _initializeProposal(_proposalId, _proposer, _isLowBondProposal, _proverAuth);
         }
 
-        // Process L1 anchor data if provided
+        // Process L1 anchor data if we have a new anchor block
         if (_anchorBlockNumber > _state.anchorBlockNumber) {
-            // Save the L1 block data for cross-chain verification
-            syncedBlockManager.saveSyncedBlock(
-                _anchorBlockNumber, _anchorBlockHash, _anchorStateRoot
+            _processAnchorData(
+                _anchorBlockNumber,
+                _anchorBlockHash,
+                _anchorStateRoot,
+                _bondInstructions,
+                _bondInstructionsHash
             );
-
-            // Process bond instructions incrementally
-            bytes32 bondInstructionsHash = _state.bondInstructionsHash;
-
-            for (uint256 i; i < _bondInstructions.length; ++i) {
-                LibBondInstruction.BondInstruction memory instruction = _bondInstructions[i];
-                uint48 bond = instruction.isLivenessBond ? livenessBondGwei : provabilityBondGwei;
-                // Credit the bond to the receiver
-                uint96 bondDebited = bondManager.debitBond(instruction.debitFrom, bond);
-                bondManager.creditBond(instruction.creditTo, bondDebited);
-
-                // Update cumulative hash
-                bondInstructionsHash =
-                    LibBondInstruction.aggregateBondInstruction(bondInstructionsHash, instruction);
-            }
-            // Verify the cumulative hash matches expected value
-            require(bondInstructionsHash == _bondInstructionsHash, BondInstructionsHashMismatch());
-
-            _state.bondInstructionsHash = bondInstructionsHash;
-            _state.anchorBlockNumber = _anchorBlockNumber;
         }
     }
 
@@ -183,6 +175,92 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
+
+    /// @dev Tracks the parent block hash to ensure setState is only called once per block.
+    /// @param _parentId The parent block ID (current block number - 1)
+    function _trackParentBlockHash(uint256 _parentId) private {
+        require(_blockhashes[_parentId] == 0, BlockHashAlreadySet());
+        _blockhashes[_parentId] = blockhash(_parentId);
+    }
+
+    /// @dev Initializes the proposal state for the first block.
+    /// @param _proposalId The proposal ID
+    /// @param _proposer The proposer address
+    /// @param _isLowBondProposal Whether this is a low bond proposal
+    /// @param _proverAuth The prover authentication data
+    /// @return designatedProver_ The designated prover address
+    function _initializeProposal(
+        uint48 _proposalId,
+        address _proposer,
+        bool _isLowBondProposal,
+        bytes calldata _proverAuth
+    )
+        private
+        returns (address designatedProver_)
+    {
+        if (_isLowBondProposal) {
+            designatedProver_ = _state.designatedProver;
+        } else {
+            designatedProver_ = _verifyProverAuth(_proposalId, _proposer, _proverAuth);
+            _state.designatedProver = designatedProver_;
+        }
+
+        emit ProverDesignated(designatedProver_);
+    }
+
+    /// @dev Processes bond instructions and updates the cumulative hash.
+    /// @param _bondInstructions The bond instructions to process
+    /// @param _expectedHash The expected cumulative hash after processing
+    /// @return newHash_ The new cumulative hash
+    function _processBondInstructions(
+        LibBondInstruction.BondInstruction[] calldata _bondInstructions,
+        bytes32 _expectedHash
+    )
+        private
+        returns (bytes32 newHash_)
+    {
+        newHash_ = _state.bondInstructionsHash;
+
+        for (uint256 i; i < _bondInstructions.length; ++i) {
+            LibBondInstruction.BondInstruction memory instruction = _bondInstructions[i];
+            uint48 bond = instruction.isLivenessBond ? livenessBondGwei : provabilityBondGwei;
+
+            // Credit the bond to the receiver
+            uint96 bondDebited = bondManager.debitBond(instruction.debitFrom, bond);
+            bondManager.creditBond(instruction.creditTo, bondDebited);
+
+            // Update cumulative hash
+            newHash_ = LibBondInstruction.aggregateBondInstruction(newHash_, instruction);
+        }
+
+        // Verify the cumulative hash matches expected value
+        require(newHash_ == _expectedHash, BondInstructionsHashMismatch());
+    }
+
+    /// @dev Processes L1 anchor data by saving synced block and processing bond instructions.
+    /// @param _anchorBlockNumber The L1 block number to anchor
+    /// @param _anchorBlockHash The L1 block hash
+    /// @param _anchorStateRoot The L1 state root
+    /// @param _bondInstructions The bond instructions to process
+    /// @param _bondInstructionsHash The expected bond instructions hash
+    function _processAnchorData(
+        uint48 _anchorBlockNumber,
+        bytes32 _anchorBlockHash,
+        bytes32 _anchorStateRoot,
+        LibBondInstruction.BondInstruction[] calldata _bondInstructions,
+        bytes32 _bondInstructionsHash
+    )
+        private
+    {
+        // Save the L1 block data for cross-chain verification
+        syncedBlockManager.saveSyncedBlock(_anchorBlockNumber, _anchorBlockHash, _anchorStateRoot);
+
+        // Process bond instructions and update state
+        bytes32 newBondHash = _processBondInstructions(_bondInstructions, _bondInstructionsHash);
+
+        _state.bondInstructionsHash = newBondHash;
+        _state.anchorBlockNumber = _anchorBlockNumber;
+    }
 
     /// @dev Verifies prover authorization and debits required bonds.
     /// The function checks if the proposer has designated themselves as a prover
@@ -199,8 +277,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         private
         returns (address)
     {
-        // Empty auth means no designated prover
-        if (_proverAuth.length == 0) return address(0);
+        if (_proverAuth.length == 0) return _proposer;
 
         ProverAuth memory proverAuth = abi.decode(_proverAuth, (ProverAuth));
 
@@ -211,21 +288,24 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
         // Verify the ECDSA signature
         bytes32 message = keccak256(abi.encode(proverAuth.proposalId, proverAuth.proposer));
-        address signer = ECDSA.recover(message, proverAuth.signature);
+        address designatedProver = ECDSA.recover(message, proverAuth.signature);
 
         // Ensure valid signature from the proposer (self-designation)
-        if (signer == address(0) || signer != _proposer) return _proposer;
+        if (designatedProver == address(0) || designatedProver == _proposer) return _proposer;
 
         // Check if signer has sufficient bond balance
-        if (!bondManager.hasSufficientBond(signer, proverAuth.provingFeeGwei)) {
+        if (
+            !bondManager.hasSufficientBond(_proposer, proverAuth.provingFeeGwei)
+                || !bondManager.hasSufficientBond(designatedProver, 0)
+        ) {
             return _proposer;
         }
 
         // Debit the required bonds from the designated prover
         uint96 bondDebited = bondManager.debitBond(_proposer, proverAuth.provingFeeGwei);
-        bondManager.creditBond(signer, bondDebited);
+        bondManager.creditBond(designatedProver, bondDebited);
 
-        return signer;
+        return designatedProver;
     }
 
     // ---------------------------------------------------------------
