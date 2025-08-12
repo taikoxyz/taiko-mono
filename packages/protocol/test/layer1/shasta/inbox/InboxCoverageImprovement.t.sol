@@ -8,7 +8,18 @@ import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.s
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title InboxCoverageImprovement
-/// @notice Tests to improve coverage for InboxBase uncovered code paths
+/// @notice Tests specifically designed to improve code coverage for InboxBase edge cases and error paths
+/// @dev These tests target previously uncovered code paths identified through coverage analysis:
+///      - Bond withdrawal functionality
+///      - Late proof submission scenarios
+///      - Error conditions in finalization
+///      - Proposal hash mismatch scenarios
+///      - L2 slash bond processing
+/// @dev Coverage targets:
+///      - InboxBase.withdrawBond() function
+///      - InboxBase._processBonds() with L2 slash scenarios
+///      - InboxBase._finalize() error paths
+///      - InboxBase._prove() validation failures
 /// @custom:security-contact security@taiko.xyz
 contract InboxCoverageImprovement is ShastaInboxTestBase {
     IInbox.CoreState internal coreState;
@@ -36,6 +47,12 @@ contract InboxCoverageImprovement is ShastaInboxTestBase {
     // Test: Bond withdrawal functionality
     // -------------------------------------------------------------------
 
+    /// @notice Test successful bond withdrawal when user has positive balance
+    /// @dev Tests the complete withdrawal flow:
+    ///      1. User has bond balance stored in contract
+    ///      2. Contract has sufficient token balance
+    ///      3. Withdrawal transfers tokens to user
+    ///      4. User's bond balance is reset to zero
     function test_withdrawBond_success() public {
         // Setup: Set bond balance for user
         address user = Alice;
@@ -60,6 +77,8 @@ contract InboxCoverageImprovement is ShastaInboxTestBase {
         assertEq(IERC20(bondToken).balanceOf(user) - initialBalance, bondAmount);
     }
 
+    /// @notice Test that withdrawal reverts when user has no bond balance
+    /// @dev Verifies NoBondToWithdraw error is thrown for zero balance
     function test_withdrawBond_no_bond_reverts() public {
         vm.prank(Bob);
         vm.expectRevert(InboxBase.NoBondToWithdraw.selector);
@@ -70,6 +89,11 @@ contract InboxCoverageImprovement is ShastaInboxTestBase {
     // Test: Late proof bond slashing scenarios
     // -------------------------------------------------------------------
 
+    /// @notice Test proof submission within extended window (late but allowed)
+    /// @dev Tests scenario where:
+    ///      - Proof is submitted after regular window but within extended window
+    ///      - Different designated vs actual prover (triggers bond decisions)
+    ///      - Verifies claim is stored with appropriate bond decision
     function test_prove_late_within_extended_window() public {
         // Create proposal
         IInbox.Proposal memory proposal =
@@ -100,6 +124,11 @@ contract InboxCoverageImprovement is ShastaInboxTestBase {
         assertTrue(claimRecordHash != bytes32(0));
     }
 
+    /// @notice Test proof submission after extended window expires (very late)
+    /// @dev Tests scenario where:
+    ///      - Proof is submitted after both regular and extended windows
+    ///      - Verifies that proof is still accepted (no time-based rejection)
+    ///      - Bond decisions are made based on lateness
     function test_prove_very_late_after_extended_window() public {
         // Create proposal
         IInbox.Proposal memory proposal =
@@ -132,10 +161,11 @@ contract InboxCoverageImprovement is ShastaInboxTestBase {
     // Test: Error conditions in finalization
     // -------------------------------------------------------------------
 
-    // NOTE: This test is commented out due to an issue with expectRevert and proxy contracts
-    // The error ClaimRecordNotProvided is correctly thrown but expectRevert doesn't catch it
-    // properly
-    // when going through the ERC1967Proxy delegatecall
+    /// @dev NOTE: The test_finalize_claim_record_not_provided_coverage test is commented out
+    ///      due to a known issue with Foundry's expectRevert and proxy contracts.
+    ///      The error ClaimRecordNotProvided is correctly thrown by the implementation
+    ///      but expectRevert doesn't catch it properly when going through the ERC1967Proxy
+    ///      delegatecall. The test logic is preserved for documentation purposes.
     /*
     function test_finalize_claim_record_not_provided_coverage() public {
         // This test covers the ClaimRecordNotProvided error path in finalization
@@ -193,6 +223,11 @@ contract InboxCoverageImprovement is ShastaInboxTestBase {
     }
     */
 
+    /// @notice Test finalization with mismatched claim record hash
+    /// @dev Tests that finalization fails when:
+    ///      - Provided claim record doesn't match the stored hash
+    ///      - ClaimRecordHashMismatch error is thrown
+    ///      - This ensures data integrity during finalization
     function test_finalize_invalid_claim_record_hash() public {
         // Create and prove a proposal
         IInbox.Proposal memory proposal =
@@ -228,6 +263,11 @@ contract InboxCoverageImprovement is ShastaInboxTestBase {
     // Test: Proposal hash mismatch in proving
     // -------------------------------------------------------------------
 
+    /// @notice Test proving with mismatched proposal hash in claim
+    /// @dev Verifies that proof submission fails when:
+    ///      - Claim contains incorrect proposal hash
+    ///      - ProposalHashMismatch error is thrown
+    ///      - Prevents proving incorrect proposals
     function test_prove_proposal_hash_mismatch_with_claim() public {
         // Create proposal
         IInbox.Proposal memory proposal =
@@ -246,6 +286,11 @@ contract InboxCoverageImprovement is ShastaInboxTestBase {
         inbox.prove(encodeProveData(proposals, claims), bytes("proof"));
     }
 
+    /// @notice Test proving when stored proposal hash doesn't match provided proposal
+    /// @dev Tests scenario where:
+    ///      - Storage contains different hash than the proposal being proved
+    ///      - ProposalHashMismatch error is thrown
+    ///      - This could happen if storage is corrupted or manipulated
     function test_prove_proposal_hash_mismatch_with_storage() public {
         // Create proposal
         IInbox.Proposal memory proposal =
@@ -276,6 +321,14 @@ contract InboxCoverageImprovement is ShastaInboxTestBase {
     // Test: Bond processing with L2 slash
     // -------------------------------------------------------------------
 
+    /// @notice Test bond processing when L2 slash occurs for liveness failure
+    /// @dev Tests the complex bond operation scenario where:
+    ///      - Designated prover fails to prove in time
+    ///      - Actual prover submits proof late (in extended window)
+    ///      - L2SlashLivenessRewardProver bond decision is applied
+    ///      - Liveness bond is slashed from designated prover
+    ///      - Half of slashed bond rewards actual prover
+    ///      - BondRequest event is emitted with correct parameters
     function test_processBonds_L2_slash_liveness() public {
         // Create proposal
         IInbox.Proposal memory proposal =

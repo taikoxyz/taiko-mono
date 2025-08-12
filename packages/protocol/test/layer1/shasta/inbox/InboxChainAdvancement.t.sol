@@ -6,11 +6,24 @@ import "./ShastaInboxTestBase.sol";
 /// @title InboxChainAdvancement
 /// @notice Comprehensive tests for chain advancement through multiple propose-prove-finalize cycles
 /// @dev Tests the full lifecycle of proposals advancing the chain state over multiple rounds
+/// @dev Key test scenarios:
+///      - Sequential chain advancement with multiple cycles
+///      - Fork handling with competing claims
+///      - Batch finalization across multiple proposals
+///      - State consistency through extended chains
+/// @dev Important considerations:
+///      - Ring buffer capacity limits affect finalization
+///      - Fork resolution depends on claim parent relationships
+///      - Chain advancement must maintain integrity across cycles
+/// @custom:security-contact security@taiko.xyz
 contract InboxChainAdvancement is ShastaInboxTestBase {
     /// @notice Test chain advancement through multiple complete cycles
     /// @dev Simulates realistic chain progression with multiple proposers and provers
     /// @dev Each proposal is proposed and proved by different addresses
     /// @dev Limited to stay within ring buffer capacity to avoid finalization complexity
+    /// @dev NOTE: Currently commented out pending resolution of ring buffer overflow handling
+    ///      The test logic is preserved for future implementation when finalization
+    ///      across ring buffer boundaries is properly handled
     /* function test_chain_advancement_multiple_cycles() public {
         // Configuration - stay well within ring buffer capacity (100)
         uint48 cyclesCount = 4;
@@ -100,6 +113,14 @@ contract InboxChainAdvancement is ShastaInboxTestBase {
 
     /// @notice Test chain advancement with competing claims (forks)
     /// @dev Simulates multiple provers submitting different claims for same proposals
+    /// @dev Fork scenarios tested:
+    ///      1. Multiple claims with same parent (creates fork)
+    ///      2. Claims building on different branches
+    ///      3. Resolution through finalization of one branch
+    /// @dev Verifies:
+    ///      - Multiple claims can coexist for same proposal
+    ///      - Each claim is stored with unique parent relationship
+    ///      - Fork resolution doesn't affect unfinalized branches
     function test_chain_advancement_with_forks() public {
         // Setup initial state
         uint48 numProposals = 3;

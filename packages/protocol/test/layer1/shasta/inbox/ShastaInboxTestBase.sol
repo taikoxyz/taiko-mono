@@ -23,45 +23,85 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 /// @dev Uses Foundry's testing features for mocking and stubbing dependencies
 /// @dev Test scenarios covered:
 ///      - Proposal submission workflows
-///      - Proving workflows
-///      - Finalization workflows
+///      - Proving workflows (including out-of-order proving)
+///      - Finalization workflows (including batch finalization)
 ///      - Event verification patterns
 ///      - State management helpers
+///      - Bond management operations
+/// @dev Architecture Notes:
+///      - Uses TestInbox contract with exposed internal functions for testing
+///      - Implements proxy pattern to test upgradeable contract initialization
+///      - Provides comprehensive mocking utilities for all external dependencies
+/// @custom:security-contact security@taiko.xyz
 abstract contract ShastaInboxTestBase is CommonTest {
     using LibDecoder for bytes;
 
-    // Main contract under test
+    // -------------------------------------------------------------------
+    // Contract Under Test
+    // -------------------------------------------------------------------
+    
+    /// @dev Main contract instance being tested, uses TestInbox which exposes internal functions
     TestInbox internal inbox;
 
-    // Mock addresses for dependencies
-    address internal bondToken;
-    address internal bondManager;
-    address internal syncedBlockManager;
-    address internal forcedInclusionStore;
-    address internal proofVerifier;
-    address internal proposerChecker;
+    // -------------------------------------------------------------------
+    // Mock Dependencies
+    // -------------------------------------------------------------------
+    
+    /// @dev Mock addresses for all external dependencies required by Inbox
+    address internal bondToken;         /// @dev ERC20 token used for bonds
+    address internal bondManager;       /// @dev Manages bond operations (debit/credit)
+    address internal syncedBlockManager; /// @dev Stores synced L2 block data
+    address internal forcedInclusionStore; /// @dev Handles forced inclusion requests
+    address internal proofVerifier;     /// @dev Verifies ZK/SGX proofs
+    address internal proposerChecker;   /// @dev Validates proposer eligibility
 
-    // Default test configuration
+    // -------------------------------------------------------------------
+    // Test Configuration
+    // -------------------------------------------------------------------
+    
+    /// @dev Default configuration used across all tests unless overridden
     IInbox.Config internal defaultConfig;
 
-    // Test constants
+    // -------------------------------------------------------------------
+    // Test Constants
+    // -------------------------------------------------------------------
+    
+    /// @dev Ring buffer configuration
     uint256 internal constant DEFAULT_RING_BUFFER_SIZE = 100;
     uint256 internal constant DEFAULT_MAX_FINALIZATION_COUNT = 10;
+    
+    /// @dev Timing windows for proving (in seconds)
     uint48 internal constant DEFAULT_PROVING_WINDOW = 1 hours;
     uint48 internal constant DEFAULT_EXTENDED_PROVING_WINDOW = 2 hours;
+    
+    /// @dev Bond amounts (in gwei)
     uint48 internal constant DEFAULT_PROVABILITY_BOND = 1000 gwei;
     uint48 internal constant DEFAULT_LIVENESS_BOND = 500 gwei;
+    
+    /// @dev Economic parameters
     uint8 internal constant DEFAULT_BASEFEE_SHARING_PCTG = 10;
     uint256 internal constant DEFAULT_MIN_BOND_BALANCE = 1 ether;
 
-    // Genesis block hash for testing
+    /// @dev Genesis block hash used for initialization
     bytes32 internal constant GENESIS_BLOCK_HASH = bytes32(uint256(1));
 
-    // Events to test
+    // -------------------------------------------------------------------
+    // Events (for testing event emissions)
+    // -------------------------------------------------------------------
+    
+    /// @dev Core state update event
     event CoreStateSet(IInbox.CoreState coreState);
+    
+    /// @dev Proposal submission event
     event Proposed(IInbox.Proposal proposal, IInbox.CoreState coreState);
+    
+    /// @dev Proof submission event
     event Proved(IInbox.Proposal proposal, IInbox.ClaimRecord claimRecord);
+    
+    /// @dev Bond withdrawal event
     event BondWithdrawn(address indexed user, uint256 amount);
+    
+    /// @dev Bond operation request event
     event BondRequest(LibBondOperation.BondOperation bondOperation);
 
     function setUp() public virtual override {

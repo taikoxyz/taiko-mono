@@ -4,8 +4,19 @@ pragma solidity ^0.8.24;
 import "./ShastaInboxTestBase.sol";
 
 /// @title InboxFinalization
-/// @notice Tests for proposal finalization functionality
-/// @dev Tests cover finalization chain validation, state updates, and bond processing
+/// @notice Tests for proposal finalization functionality including chain validation and state updates
+/// @dev Tests cover finalization scenarios:
+///      - Single proposal finalization
+///      - Batch finalization of multiple proposals
+///      - Chain validation (parent-child relationships)
+///      - Core state updates (lastFinalizedProposalId, lastFinalizedClaimHash)
+///      - Bond operation processing during finalization
+///      - Integration with SyncedBlockManager
+/// @dev Key invariants tested:
+///      - Proposals must be finalized in sequence
+///      - Parent claim hashes must match for chain continuity
+///      - Bond operations must be processed atomically
+/// @custom:security-contact security@taiko.xyz
 contract InboxFinalization is ShastaInboxTestBase {
     /// @notice Test finalizing a single proposal
     /// @dev Verifies that a proposal with a valid claim record can be finalized with:
