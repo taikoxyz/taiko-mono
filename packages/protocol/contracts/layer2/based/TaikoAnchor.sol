@@ -151,14 +151,12 @@ contract TaikoAnchor is EssentialContract, IBlockHashProvider, TaikoAnchorDeprec
         uint64 _anchorBlockId,
         bytes32 _anchorStateRoot,
         uint32 _parentGasUsed,
-        LibSharedData.BaseFeeConfig calldata _baseFeeConfig,
+        LibSharedData.BaseFeeConfig calldata,
         bytes32[] calldata _signalSlots
     )
         external
         nonZeroBytes32(_anchorStateRoot)
         nonZeroValue(_anchorBlockId)
-        nonZeroValue(_baseFeeConfig.gasIssuancePerSecond)
-        nonZeroValue(_baseFeeConfig.adjustmentQuotient)
         onlyGoldenTouch
         nonReentrant
     {
