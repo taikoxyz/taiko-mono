@@ -112,7 +112,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
     ///
     /// @param _proposalId Unique identifier of the proposal being anchored
     /// @param _proposer Address of the entity that proposed this batch of blocks
-    /// @param _isLowBondProposal Boolean indicating if this is a 'low bond proposal'
     /// @param _proverAuth Encoded ProverAuth struct for prover designation (must be empty after
     /// block 0)
     /// @param _bondInstructionsHash Expected cumulative hash after processing this block's
@@ -127,7 +126,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Proposal level fields - define the overall batch
         uint48 _proposalId,
         address _proposer,
-        bool _isLowBondProposal,
         bytes calldata _proverAuth,
         bytes32 _bondInstructionsHash,
         LibBonds.BondInstruction[] calldata _bondInstructions,
@@ -140,7 +138,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         external
         onlyGoldenTouch
         nonReentrant
-        returns (address designatedProver_)
+        returns (bool isLowBondProposal_, address designatedProver_)
     {
         // Ensure Shasta fork is active
         require(block.number >= shastaForkHeight, L2_FORK_ERROR());
@@ -148,21 +146,27 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Track parent block hash to ensure setState is only called once per block
         _trackParentBlockHash(block.number - 1);
 
-        // Initialize proposal state on first block
+        // Designate prover on first block
         if (_blockIndex == 0) {
-            designatedProver_ =
-                _initializeProposal(_proposalId, _proposer, _isLowBondProposal, _proverAuth);
+            (isLowBondProposal_, designatedProver_) =
+                _designateProver(_proposalId, _proposer, _proverAuth);
+
+            _state.designatedProver = designatedProver_;
+            emit ProverDesignated(designatedProver_);
         }
 
         // Process L1 anchor data if we have a new anchor block
         if (_anchorBlockNumber > _state.anchorBlockNumber) {
-            _processAnchorData(
-                _anchorBlockNumber,
-                _anchorBlockHash,
-                _anchorStateRoot,
-                _bondInstructions,
-                _bondInstructionsHash
+            // Save the L1 block data for cross-chain verification
+            syncedBlockManager.saveSyncedBlock(
+                _anchorBlockNumber, _anchorBlockHash, _anchorStateRoot
             );
+
+            // Process bond instructions and update state
+            bytes32 newBondHash = _processBondInstructions(_bondInstructions, _bondInstructionsHash);
+
+            _state.bondInstructionsHash = newBondHash;
+            _state.anchorBlockNumber = _anchorBlockNumber;
         }
     }
 
@@ -183,29 +187,77 @@ abstract contract ShastaAnchor is PacayaAnchor {
         _blockhashes[_parentId] = blockhash(_parentId);
     }
 
-    /// @dev Initializes the proposal state for the first block.
+    /// @dev Designates a prover for the proposal and determines if it's a low bond proposal.
     /// @param _proposalId The proposal ID
     /// @param _proposer The proposer address
-    /// @param _isLowBondProposal Whether this is a low bond proposal
     /// @param _proverAuth The prover authentication data
+    /// @return isLowBondProposal_ Whether this is a low bond proposal
     /// @return designatedProver_ The designated prover address
-    function _initializeProposal(
+    function _designateProver(
         uint48 _proposalId,
         address _proposer,
-        bool _isLowBondProposal,
         bytes calldata _proverAuth
     )
         private
-        returns (address designatedProver_)
+        view
+        returns (bool isLowBondProposal_, address designatedProver_)
     {
-        if (_isLowBondProposal) {
+        uint48 provingFeeGwei;
+        (designatedProver_, provingFeeGwei) = _proverAuth.length == 0
+            ? (_proposer, 0)
+            : _validateProverAuth(_proposalId, _proposer, _proverAuth);
+
+        isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFeeGwei);
+
+        if (isLowBondProposal_) {
             designatedProver_ = _state.designatedProver;
-        } else {
-            designatedProver_ = _verifyProverAuth(_proposalId, _proposer, _proverAuth);
-            _state.designatedProver = designatedProver_;
+        } else if (
+            designatedProver_ != _proposer && !bondManager.hasSufficientBond(designatedProver_, 0)
+        ) {
+            designatedProver_ = _proposer;
+        }
+    }
+
+    /// @dev Decodes ProverAuth from bytes. External pure function to enable try-catch.
+    /// @param _data The encoded ProverAuth data
+    /// @return The decoded ProverAuth struct
+    function decodeProverAuth(bytes calldata _data) external pure returns (ProverAuth memory) {
+        return abi.decode(_data, (ProverAuth));
+    }
+
+    function _validateProverAuth(
+        uint48 _proposalId,
+        address _proposer,
+        bytes calldata _proverAuth
+    )
+        private
+        view
+        returns (address signer_, uint48 provingFeeGwei_)
+    {
+        // Try to decode ProverAuth, return defaults on any failure
+        ProverAuth memory proverAuth;
+        try this.decodeProverAuth(_proverAuth) returns (ProverAuth memory decoded) {
+            proverAuth = decoded;
+        } catch {
+            return (_proposer, 0);
         }
 
-        emit ProverDesignated(designatedProver_);
+        // Validate proposal ID and proposer match
+        if (proverAuth.proposalId != _proposalId || proverAuth.proposer != _proposer) {
+            return (_proposer, 0);
+        }
+
+        // Verify the ECDSA signature using tryRecover which doesn't revert
+        bytes32 message = keccak256(abi.encode(proverAuth.proposalId, proverAuth.proposer));
+        (address recovered, ECDSA.RecoverError error) =
+            ECDSA.tryRecover(message, proverAuth.signature);
+
+        if (error == ECDSA.RecoverError.NoError && recovered != address(0)) {
+            signer_ = recovered;
+            provingFeeGwei_ = proverAuth.provingFeeGwei;
+        } else {
+            signer_ = _proposer;
+        }
     }
 
     /// @dev Processes bond instructions and updates the cumulative hash.
@@ -244,77 +296,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
         require(newHash_ == _expectedHash, BondInstructionsHashMismatch());
     }
 
-    /// @dev Processes L1 anchor data by saving synced block and processing bond instructions.
-    /// @param _anchorBlockNumber The L1 block number to anchor
-    /// @param _anchorBlockHash The L1 block hash
-    /// @param _anchorStateRoot The L1 state root
-    /// @param _bondInstructions The bond instructions to process
-    /// @param _bondInstructionsHash The expected bond instructions hash
-    function _processAnchorData(
-        uint48 _anchorBlockNumber,
-        bytes32 _anchorBlockHash,
-        bytes32 _anchorStateRoot,
-        LibBonds.BondInstruction[] calldata _bondInstructions,
-        bytes32 _bondInstructionsHash
-    )
-        private
-    {
-        // Save the L1 block data for cross-chain verification
-        syncedBlockManager.saveSyncedBlock(_anchorBlockNumber, _anchorBlockHash, _anchorStateRoot);
-
-        // Process bond instructions and update state
-        bytes32 newBondHash = _processBondInstructions(_bondInstructions, _bondInstructionsHash);
-
-        _state.bondInstructionsHash = newBondHash;
-        _state.anchorBlockNumber = _anchorBlockNumber;
-    }
-
-    /// @dev Verifies prover authorization and debits required bonds.
-    /// The function checks if the proposer has designated themselves as a prover
-    /// by providing a valid signature. If valid, it debits the required bonds.
-    /// @param _proposalId The proposal ID to verify against
-    /// @param _proposer The proposer's address to verify
-    /// @param _proverAuth Encoded ProverAuth containing signature
-    /// @return The designated prover's address if valid, address(0) if no prover or invalid
-    function _verifyProverAuth(
-        uint48 _proposalId,
-        address _proposer,
-        bytes calldata _proverAuth
-    )
-        private
-        returns (address)
-    {
-        if (_proverAuth.length == 0) return _proposer;
-
-        ProverAuth memory proverAuth = abi.decode(_proverAuth, (ProverAuth));
-
-        // Handle zero proposal ID case - all fields must be empty
-        if (proverAuth.proposalId != _proposalId) return _proposer;
-        if (proverAuth.proposer != _proposer) return _proposer;
-        if (proverAuth.signature.length == 0) return _proposer;
-
-        // Verify the ECDSA signature
-        bytes32 message = keccak256(abi.encode(proverAuth.proposalId, proverAuth.proposer));
-        address designatedProver = ECDSA.recover(message, proverAuth.signature);
-
-        // Ensure valid signature from the proposer (self-designation)
-        if (designatedProver == address(0) || designatedProver == _proposer) return _proposer;
-
-        // Check if signer has sufficient bond balance
-        if (
-            !bondManager.hasSufficientBond(_proposer, proverAuth.provingFeeGwei)
-                || !bondManager.hasSufficientBond(designatedProver, 0)
-        ) {
-            return _proposer;
-        }
-
-        // Debit the required bonds from the designated prover
-        uint96 bondDebited = bondManager.debitBond(_proposer, proverAuth.provingFeeGwei);
-        bondManager.creditBond(designatedProver, bondDebited);
-
-        return designatedProver;
-    }
-
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
@@ -328,4 +309,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
     error NonZeroAnchorStateRoot();
     error NonZeroBlockIndex();
     error ZeroBlockCount();
+    error ProposalIdMismatch();
+    error ProposerMismatch();
 }
