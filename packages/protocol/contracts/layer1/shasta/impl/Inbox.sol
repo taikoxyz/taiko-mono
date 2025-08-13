@@ -170,7 +170,7 @@ abstract contract Inbox is EssentialContract, IInbox {
                 claimRecords[i].claim.parentClaimHash,
                 keccak256(abi.encode(claimRecords[i]))
             );
-            emit Proved(proposals[i], claimRecords[i]);
+            emit Proved(claimRecords[i]);
         }
 
         bytes32 claimsHash = keccak256(abi.encode(claims));

@@ -95,10 +95,9 @@ interface IInbox {
     /// @param proposal The proposal that was proposed.
     event Proposed(Proposal proposal, CoreState coreState);
 
-    /// @notice Emitted when a proof is submitted for a proposal.
-    /// @param proposal The proposal that was proven.
+    /// @notice Emitted when a proof is submitted
     /// @param claimRecord The claim record containing the proof details.
-    event Proved(Proposal proposal, ClaimRecord claimRecord);
+    event Proved(ClaimRecord claimRecord);
 
     /// @notice Emitted when bond instructions are issued
     /// @param instructions The bond instructions that need to be performed.
