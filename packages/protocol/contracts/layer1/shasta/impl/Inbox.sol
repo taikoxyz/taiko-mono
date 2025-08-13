@@ -413,8 +413,9 @@ abstract contract Inbox is EssentialContract, IInbox {
                     bondType: LibBonds.BondType.NONE,
                     payer: _claim.designatedProver,
                     receiver: _claim.designatedProver //Non relevant - there's no bond to pay
-                });
-            } else if (block.timestamp <= _proposal.originTimestamp + _config.extendedProvingWindow) {
+                 });
+            } else if (block.timestamp <= _proposal.originTimestamp + _config.extendedProvingWindow)
+            {
                 // Late proof within extended window - transfer liveness bond
                 bondInstructions_[0] = LibBonds.BondInstruction({
                     proposalId: _proposal.id,
