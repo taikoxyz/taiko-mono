@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBondInstruction } from "src/shared/based/libs/LibBondInstruction.sol";
+import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title IInbox
 /// @notice Interface for the ShastaInbox contract
@@ -10,15 +10,12 @@ import { LibBondInstruction } from "src/shared/based/libs/LibBondInstruction.sol
 interface IInbox {
     /// @notice Configuration parameters for the Inbox contract
     struct Config {
-        uint48 forkActivationHeight;
         address bondToken;
         uint48 provingWindow;
         uint48 extendedProvingWindow;
-        uint256 minBondBalance;
         uint256 maxFinalizationCount;
         uint256 ringBufferSize;
         uint8 basefeeSharingPctg;
-        address bondManager;
         address syncedBlockManager;
         address proofVerifier;
         address proposerChecker;
@@ -66,12 +63,10 @@ interface IInbox {
     struct ClaimRecord {
         /// @notice The claim.
         Claim claim;
-        /// @notice The proposer, copied from the proposal.
-        address proposer;
-        /// @notice The next proposal ID.
-        uint48 nextProposalId;
+        /// @notice The span indicating how many proposals this claim record covers.
+        uint8 span;
         /// @notice The bond instructions.
-        LibBondInstruction.BondInstruction[] bondInstructions;
+        LibBonds.BondInstruction[] bondInstructions;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -105,7 +100,7 @@ interface IInbox {
 
     /// @notice Emitted when bond instructions are issued
     /// @param instructions The bond instructions that need to be performed.
-    event BondInstructed(LibBondInstruction.BondInstruction[] instructions);
+    event BondInstructed(LibBonds.BondInstruction[] instructions);
 
     // ---------------------------------------------------------------
     // External Transactional Functions

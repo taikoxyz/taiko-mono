@@ -10,7 +10,7 @@ import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBondInstruction } from "src/shared/based/libs/LibBondInstruction.sol";
+import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { LibDecoder } from "../libs/LibDecoder.sol";
 
 /// @title ShastaInbox
@@ -51,12 +51,6 @@ abstract contract Inbox is EssentialContract, IInbox {
         /// @dev Maps parent claim hashes to their corresponding claim record hashes
         mapping(bytes32 parentClaimHash => ExtendedClaimRecord claimRecordHash) claimHashLookup;
     }
-
-    // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
-
-    bytes32 private constant _DEFAULT_SLOT_HASH = bytes32(uint256(1));
 
     // ---------------------------------------------------------------
     // State Variables
@@ -115,14 +109,16 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @inheritdoc IInbox
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         Config memory config = getConfig();
-        require(_isForkActive(config), ForkNotActive());
         IProposerChecker(config.proposerChecker).checkProposer(msg.sender);
 
         (
+            uint64 deadline,
             CoreState memory coreState,
             LibBlobs.BlobReference memory blobReference,
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
+
+        require(deadline == 0 || block.timestamp <= deadline, DeadlineExceeded());
 
         bytes32 coreStateHash_ = keccak256(abi.encode(coreState));
         require(coreStateHash_ == coreStateHash, InvalidState());
@@ -165,21 +161,12 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(proposals.length == claims.length, InconsistentParams());
         require(proposals.length != 0, EmptyProposals());
 
-        uint48[] memory proposalIds = new uint48[](proposals.length);
-        ClaimRecord[] memory claimRecords = new ClaimRecord[](proposals.length);
+        ClaimRecord[] memory claimRecords = _buildClaimRecords(config, proposals, claims);
 
         for (uint256 i; i < proposals.length; ++i) {
-            proposalIds[i] = proposals[i].id;
-            claimRecords[i] = _buildClaimRecord(config, proposals[i], claims[i]);
-        }
-
-        // Aggregate claim records to reduce SSTORE operations.
-        (proposalIds, claimRecords) = _aggregateClaimRecords(proposalIds, claimRecords);
-
-        for (uint256 i; i < claimRecords.length; ++i) {
             _setClaimRecordHash(
                 config,
-                proposalIds[i],
+                proposals[i].id,
                 claimRecords[i].claim.parentClaimHash,
                 keccak256(abi.encode(claimRecords[i]))
             );
@@ -225,25 +212,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         returns (bytes32 claimRecordHash_)
     {
         Config memory config = getConfig();
-        uint256 bufferSlot = _proposalId % config.ringBufferSize;
-
-        ExtendedClaimRecord storage record =
-            proposalRingBuffer[bufferSlot].claimHashLookup[_DEFAULT_SLOT_HASH];
-
-        (uint48 proposalId, bytes32 partialParentClaimHash) =
-            _decodeSlotReuseMarker(record.slotReuseMarker);
-
-        // If the reusable slot's proposal ID does not match the given proposal ID, it indicates
-        // that there are no claims associated with this proposal at all.
-        if (proposalId != _proposalId) return bytes32(0);
-
-        // If there's a record in the default slot with matching parent claim hash, return it
-        if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
-            return record.claimRecordHash;
-        }
-
-        // Otherwise check the direct mapping
-        return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
+        return _getClaimRecordHash(config, _proposalId, _parentClaimHash);
     }
 
     /// @notice Gets the capacity for unfinalized proposals.
@@ -262,6 +231,58 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @dev Builds claim records for multiple proposals and claims.
+    /// @param _config The configuration parameters.
+    /// @param _proposals The proposals to prove.
+    /// @param _claims The claims containing the proof details.
+    /// @return claimRecords_ The built claim records.
+    function _buildClaimRecords(
+        Config memory _config,
+        Proposal[] memory _proposals,
+        Claim[] memory _claims
+    )
+        internal
+        view
+        virtual
+        returns (ClaimRecord[] memory claimRecords_)
+    {
+        claimRecords_ = new ClaimRecord[](_proposals.length);
+        for (uint256 i; i < _proposals.length; ++i) {
+            Proposal memory proposal = _proposals[i];
+            Claim memory claim = _claims[i];
+
+            _validateProposal(_config, proposal, claim);
+
+            LibBonds.BondInstruction[] memory bondInstructions =
+                _calculateBondInstructions(_config, proposal, claim);
+
+            claimRecords_[i] =
+                ClaimRecord({ claim: claim, span: 1, bondInstructions: bondInstructions });
+        }
+    }
+
+    /// @dev Validates that a proposal hash matches both the claim and storage.
+    /// @param _config The configuration parameters.
+    /// @param _proposal The proposal to validate.
+    /// @param _claim The claim to validate against.
+    function _validateProposal(
+        Config memory _config,
+        Proposal memory _proposal,
+        Claim memory _claim
+    )
+        internal
+        view
+    {
+        bytes32 proposalHash = keccak256(abi.encode(_proposal));
+        // Validate proposal hash matches claim and storage in one check
+        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
+
+        uint256 bufferSlot = _proposal.id % _config.ringBufferSize;
+        if (proposalHash != proposalRingBuffer[bufferSlot].proposalHash) {
+            revert ProposalHashMismatch();
+        }
+    }
 
     /// @dev Sets the hash of the core state.
     function _setCoreStateHash(bytes32 _coreStateHash) internal {
@@ -288,61 +309,11 @@ abstract contract Inbox is EssentialContract, IInbox {
         bytes32 _claimRecordHash
     )
         internal
+        virtual
     {
-        ProposalRecord storage proposalRecord =
-            proposalRingBuffer[_proposalId % _config.ringBufferSize];
-
-        ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
-
-        (uint48 proposalId, bytes32 partialParentClaimHash) =
-            _decodeSlotReuseMarker(record.slotReuseMarker);
-
-        // Check if we need to use the default slot
-        if (proposalId != _proposalId) {
-            // Different proposal ID, so we can use the default slot
-            record.claimRecordHash = _claimRecordHash;
-            record.slotReuseMarker = _encodeSlotReuseMarker(_proposalId, _parentClaimHash);
-        } else if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
-            // Same proposal ID and same parent claim hash (partial match), update the default slot
-            record.claimRecordHash = _claimRecordHash;
-        } else {
-            // Same proposal ID but different parent claim hash, use direct mapping
-            proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash = _claimRecordHash;
-        }
-    }
-
-    /// @dev Decodes a slot reuse marker into proposal ID and partial parent claim hash.
-    function _decodeSlotReuseMarker(uint256 _slotReuseMarker)
-        internal
-        pure
-        returns (uint48 proposalId_, bytes32 partialParentClaimHash_)
-    {
-        proposalId_ = uint48(_slotReuseMarker >> 208);
-        partialParentClaimHash_ = bytes32(_slotReuseMarker << 48);
-    }
-
-    /// @dev Encodes a proposal ID and parent claim hash into a slot reuse marker.
-    function _encodeSlotReuseMarker(
-        uint48 _proposalId,
-        bytes32 _parentClaimHash
-    )
-        internal
-        pure
-        returns (uint256 slotReuseMarker_)
-    {
-        slotReuseMarker_ = (uint256(_proposalId) << 208) | (uint256(_parentClaimHash) >> 48);
-    }
-
-    /// @dev Checks if two parent claim hashes match in their high 208 bits.
-    function _isPartialParentClaimHashMatch(
-        bytes32 _partialParentClaimHash,
-        bytes32 _parentClaimHash
-    )
-        internal
-        pure
-        returns (bool)
-    {
-        return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
+        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
+        proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash =
+            _claimRecordHash;
     }
 
     /// @dev Gets the capacity for unfinalized proposals.
@@ -363,45 +334,12 @@ abstract contract Inbox is EssentialContract, IInbox {
     )
         internal
         view
+        virtual
         returns (bytes32 claimRecordHash_)
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-
-        ExtendedClaimRecord storage record =
-            proposalRingBuffer[bufferSlot].claimHashLookup[_DEFAULT_SLOT_HASH];
-
-        (uint48 proposalId, bytes32 partialParentClaimHash) =
-            _decodeSlotReuseMarker(record.slotReuseMarker);
-
-        // If the reusable slot's proposal ID does not match the given proposal ID, it indicates
-        // that there are no claims associated with this proposal at all.
-        if (proposalId != _proposalId) return bytes32(0);
-
-        // If there's a record in the default slot with matching parent claim hash, return it
-        if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
-            return record.claimRecordHash;
-        }
-
-        // Otherwise check the direct mapping
-        return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
-    }
-
-    /// @dev Aggregates claim records into a smaller list to reduce SSTORE operations.
-    /// The default implementation returns the original list.
-    /// @param _proposalIds The proposal IDs to aggregate.
-    /// @param _claimRecords The claim records to aggregate.
-    /// @return proposalIds_  The list contains the proposal IDs of the aggregated claim records.
-    /// @return claimRecords_ The list contains the aggregated claim records.
-    function _aggregateClaimRecords(
-        uint48[] memory _proposalIds,
-        ClaimRecord[] memory _claimRecords
-    )
-        internal
-        pure
-        virtual
-        returns (uint48[] memory proposalIds_, ClaimRecord[] memory claimRecords_)
-    {
-        return (_proposalIds, _claimRecords);
+        claimRecordHash_ =
+            proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
     }
 
     // ---------------------------------------------------------------
@@ -445,45 +383,11 @@ abstract contract Inbox is EssentialContract, IInbox {
         return (_coreState, proposal_);
     }
 
-    /// @dev Builds a claim record for a single proposal.
-    /// @param _config The configuration parameters.
-    /// @param _proposal The proposal to prove.
-    /// @param _claim The claim containing the proof details.
-    function _buildClaimRecord(
-        Config memory _config,
-        Proposal memory _proposal,
-        Claim memory _claim
-    )
-        private
-        view
-        returns (ClaimRecord memory claimRecord_)
-    {
-        bytes32 proposalHash = keccak256(abi.encode(_proposal));
-        // Validate proposal hash matches claim and storage in one check
-        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
-
-        uint256 bufferSlot = _proposal.id % _config.ringBufferSize;
-        if (proposalHash != proposalRingBuffer[bufferSlot].proposalHash) {
-            revert ProposalHashMismatch();
-        }
-
-        LibBondInstruction.BondInstruction[] memory bondInstructions =
-            _calculateBondInstructions(_config, _proposal, _claim);
-
-        claimRecord_ = ClaimRecord({
-            claim: _claim,
-            proposer: _proposal.proposer,
-            nextProposalId: _proposal.id + 1,
-            bondInstructions: bondInstructions
-        });
-    }
-
-    /// @notice Calculates the bond instructions based on proof timing and prover identity
+    /// @dev Calculates the bond instructions based on proof timing and prover identity
     /// @dev Bond instructions determine how provability and liveness bonds are handled:
     /// - On-time proofs: Bonds may be refunded or remain unchanged
     /// - Late proofs: Liveness bonds may be slashed and redistributed
     /// - Very late proofs: Provability bonds may also be slashed and redistributed
-    /// The decision affects whether claim records can be aggregated
     /// @dev We always return a bond instruction, regardless if no bond should be slashed. This is
     /// so that we can reward provers for low-bond proposals.
     /// @param _config The configuration parameters.
@@ -495,35 +399,35 @@ abstract contract Inbox is EssentialContract, IInbox {
         Proposal memory _proposal,
         Claim memory _claim
     )
-        private
+        internal
         view
-        returns (LibBondInstruction.BondInstruction[] memory bondInstructions_)
+        returns (LibBonds.BondInstruction[] memory bondInstructions_)
     {
-        bondInstructions_ = new LibBondInstruction.BondInstruction[](1);
+        bondInstructions_ = new LibBonds.BondInstruction[](1);
 
         unchecked {
             if (block.timestamp <= _proposal.originTimestamp + _config.provingWindow) {
                 // Proof submitted within the designated proving window (on-time proof)
-                bondInstructions_[0] = LibBondInstruction.BondInstruction({
+                bondInstructions_[0] = LibBonds.BondInstruction({
                     proposalId: _proposal.id,
-                    bondType: LibBondInstruction.BondType.NONE,
-                    creditTo: _claim.actualProver,
-                    debitFrom: _claim.designatedProver
+                    bondType: LibBonds.BondType.NONE,
+                    payer: _claim.actualProver,
+                    receiver: _claim.designatedProver
                 });
             } else {
                 if (block.timestamp <= _proposal.originTimestamp + _config.extendedProvingWindow) {
-                    bondInstructions_[0] = LibBondInstruction.BondInstruction({
+                    bondInstructions_[0] = LibBonds.BondInstruction({
                         proposalId: _proposal.id,
-                        bondType: LibBondInstruction.BondType.LIVENESS,
-                        creditTo: _claim.actualProver,
-                        debitFrom: _claim.designatedProver
+                        bondType: LibBonds.BondType.LIVENESS,
+                        payer: _claim.actualProver,
+                        receiver: _claim.designatedProver
                     });
                 } else {
-                    bondInstructions_[0] = LibBondInstruction.BondInstruction({
+                    bondInstructions_[0] = LibBonds.BondInstruction({
                         proposalId: _proposal.id,
-                        bondType: LibBondInstruction.BondType.PROVABILITY,
-                        creditTo: _claim.actualProver,
-                        debitFrom: _proposal.proposer
+                        bondType: LibBonds.BondType.PROVABILITY,
+                        payer: _proposal.proposer,
+                        receiver: _claim.actualProver
                     });
                 }
             }
@@ -575,13 +479,20 @@ abstract contract Inbox is EssentialContract, IInbox {
             if (claimRecord.bondInstructions.length > 0) {
                 emit BondInstructed(claimRecord.bondInstructions);
                 for (uint256 j; j < claimRecord.bondInstructions.length; ++j) {
-                    _coreState.bondInstructionsHash = LibBondInstruction.aggregateBondInstruction(
+                    _coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
                         _coreState.bondInstructionsHash, claimRecord.bondInstructions[j]
                     );
                 }
             }
 
-            proposalId = _claimRecords[i].nextProposalId;
+            // Validate span is within bounds
+            require(_claimRecords[i].span > 0, InvalidSpan());
+            require(
+                proposalId + _claimRecords[i].span < _coreState.nextProposalId + 1,
+                SpanOutOfBounds()
+            );
+
+            proposalId = proposalId + _claimRecords[i].span;
             hasFinalized = true;
         }
 
@@ -595,11 +506,6 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         return _coreState;
     }
-
-    function _isForkActive(Config memory _cfg) internal pure returns (bool) {
-        // Fork is active if no specific activation height is set (0 means always active)
-        return _cfg.forkActivationHeight == 0;
-    }
 }
 
 // ---------------------------------------------------------------
@@ -608,6 +514,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
 error ClaimRecordHashMismatch();
 error ClaimRecordNotProvided();
+error DeadlineExceeded();
 error EmptyProposals();
 error ExceedsUnfinalizedProposalCapacity();
 error ForkNotActive();
@@ -619,4 +526,6 @@ error NoBondToWithdraw();
 error ProposalHashMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
+error InvalidSpan();
+error SpanOutOfBounds();
 error Unauthorized();

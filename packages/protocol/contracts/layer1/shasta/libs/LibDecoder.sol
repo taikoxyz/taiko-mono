@@ -17,6 +17,7 @@ library LibDecoder {
 
     /// @notice Decodes data into CoreState, BlobReference array, and ClaimRecord array
     /// @param _data The encoded data
+    /// @return deadline_ The decoded deadline
     /// @return coreState_ The decoded CoreState
     /// @return blobReference_ The decoded BlobReference
     /// @return claimRecords_ The decoded array of ClaimRecords
@@ -24,13 +25,15 @@ library LibDecoder {
         internal
         pure
         returns (
+            uint64 deadline_,
             IInbox.CoreState memory coreState_,
             LibBlobs.BlobReference memory blobReference_,
             IInbox.ClaimRecord[] memory claimRecords_
         )
     {
-        (coreState_, blobReference_, claimRecords_) =
-            abi.decode(_data, (IInbox.CoreState, LibBlobs.BlobReference, IInbox.ClaimRecord[]));
+        (deadline_, coreState_, blobReference_, claimRecords_) = abi.decode(
+            _data, (uint64, IInbox.CoreState, LibBlobs.BlobReference, IInbox.ClaimRecord[])
+        );
     }
 
     /// @notice Decodes data into Proposal array and Claim array
