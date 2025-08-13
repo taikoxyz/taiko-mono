@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./InboxTestScenarios.sol";
-import "./InboxTestUtils.sol";
+import "./InboxTest.sol";
 import { Inbox, ClaimRecordHashMismatch } from "contracts/layer1/shasta/impl/Inbox.sol";
 import "./InboxMockContracts.sol";
 
@@ -10,8 +9,8 @@ import "./InboxMockContracts.sol";
 /// @notice Tests for proposal finalization functionality including chain validation and state
 /// updates
 /// @dev Tests cover finalization scenarios without testing bond operations
-contract InboxFinalization is InboxTestScenarios {
-    using InboxTestUtils for *;
+contract InboxFinalization is InboxTest {
+    using InboxTestLib for *;
     // Override setupMockAddresses to use actual mock contracts instead of makeAddr
 
     function setupMockAddresses() internal override {
@@ -32,12 +31,12 @@ contract InboxFinalization is InboxTestScenarios {
         inbox.exposed_setProposalHash(proposalId, proposal.hashProposal());
 
         // Create initial core state
-        IInbox.CoreState memory coreState = InboxTestUtils.createCoreState(2, 0);
+        IInbox.CoreState memory coreState = InboxTestLib.createCoreState(2, 0);
 
         // Create and store a claim record
         IInbox.Claim memory claim =
-            InboxTestUtils.createClaim(proposal, coreState.lastFinalizedClaimHash, Alice);
-        IInbox.ClaimRecord memory claimRecord = InboxTestUtils.createClaimRecord(claim, 1);
+            InboxTestLib.createClaim(proposal, coreState.lastFinalizedClaimHash, Alice);
+        IInbox.ClaimRecord memory claimRecord = InboxTestLib.createClaimRecord(claim, 1);
 
         // Store the claim record
         inbox.exposed_setClaimRecordHash(
@@ -55,8 +54,8 @@ contract InboxFinalization is InboxTestScenarios {
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
         claimRecords[0] = claimRecord;
 
-        LibBlobs.BlobReference memory blobRef = InboxTestUtils.createBlobReference(1);
-        bytes memory data = InboxTestUtils.encodeProposalData(coreState, blobRef, claimRecords);
+        LibBlobs.BlobReference memory blobRef = InboxTestLib.createBlobReference(1);
+        bytes memory data = InboxTestLib.encodeProposalData(coreState, blobRef, claimRecords);
 
         // Set initial core state
         inbox.exposed_setCoreStateHash(coreState.hashCoreState());
@@ -71,11 +70,47 @@ contract InboxFinalization is InboxTestScenarios {
         setupBlobHashes();
         uint48 numProposals = 3;
 
-        // Use scenario builder to finalize multiple proposals
+        // Submit and prove proposals first
         bytes32 genesisHash = getGenesisClaimHash();
-        bytes32 finalClaimHash = finalizeProposalsBatch(1, numProposals, genesisHash);
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
+        IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
+        bytes32 currentParentHash = genesisHash;
 
-        // Verify the finalization succeeded
+        for (uint48 i = 1; i <= numProposals; i++) {
+            proposals[i - 1] = submitProposal(i, Alice);
+            claims[i - 1] = InboxTestLib.createClaim(proposals[i - 1], currentParentHash, Bob);
+            proveProposal(proposals[i - 1], Bob, currentParentHash);
+            currentParentHash = InboxTestLib.hashClaim(claims[i - 1]);
+        }
+
+        // Finalize all proposals in batch
+        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](numProposals);
+        for (uint48 i = 0; i < numProposals; i++) {
+            claimRecords[i] = InboxTestLib.createClaimRecord(claims[i], 1);
+        }
+
+        IInbox.CoreState memory coreState =
+            InboxTestLib.createCoreState(numProposals + 1, 0, genesisHash, bytes32(0));
+        inbox.exposed_setCoreStateHash(InboxTestLib.hashCoreState(coreState));
+
+        expectSyncedBlockSave(
+            claims[numProposals - 1].endBlockNumber,
+            claims[numProposals - 1].endBlockHash,
+            claims[numProposals - 1].endStateRoot
+        );
+
+        setupProposalMocks(Carol);
+        setupBlobHashes();
+        vm.prank(Carol);
+        inbox.propose(
+            bytes(""),
+            InboxTestLib.encodeProposalData(
+                coreState, InboxTestLib.createBlobReference(uint8(numProposals + 1)), claimRecords
+            )
+        );
+
+        // Verify finalization succeeded by checking final claim hash
+        bytes32 finalClaimHash = InboxTestLib.hashClaim(claims[numProposals - 1]);
         assertTrue(finalClaimHash != bytes32(0));
     }
 
@@ -92,7 +127,7 @@ contract InboxFinalization is InboxTestScenarios {
         IInbox.Proposal memory proposal1 = createValidProposal(1);
         inbox.exposed_setProposalHash(1, keccak256(abi.encode(proposal1)));
 
-        IInbox.Claim memory claim1 = createValidClaim(proposal1, parentClaimHash);
+        IInbox.Claim memory claim1 = InboxTestLib.createClaim(proposal1, parentClaimHash, Bob);
         IInbox.ClaimRecord memory claimRecord1 = IInbox.ClaimRecord({
             claim: claim1,
             span: 1,
@@ -106,7 +141,7 @@ contract InboxFinalization is InboxTestScenarios {
         // No claim record stored for proposal 2
 
         // Setup core state
-        IInbox.CoreState memory coreState = createCoreState(3, 0);
+        IInbox.CoreState memory coreState = InboxTestLib.createCoreState(3, 0);
         coreState.lastFinalizedClaimHash = parentClaimHash;
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
 
@@ -142,10 +177,11 @@ contract InboxFinalization is InboxTestScenarios {
         IInbox.Proposal memory proposal = createValidProposal(proposalId);
         inbox.exposed_setProposalHash(proposalId, keccak256(abi.encode(proposal)));
 
-        IInbox.CoreState memory coreState = createCoreState(2, 0);
+        IInbox.CoreState memory coreState = InboxTestLib.createCoreState(2, 0);
 
         // Store correct claim record
-        IInbox.Claim memory claim = createValidClaim(proposal, coreState.lastFinalizedClaimHash);
+        IInbox.Claim memory claim =
+            InboxTestLib.createClaim(proposal, coreState.lastFinalizedClaimHash, Bob);
         IInbox.ClaimRecord memory claimRecord = IInbox.ClaimRecord({
             claim: claim,
             span: 1,

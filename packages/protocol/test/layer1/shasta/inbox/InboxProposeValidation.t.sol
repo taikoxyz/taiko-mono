@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./InboxTestScenarios.sol";
-import "./InboxTestUtils.sol";
-import "./InboxTestBuilder.sol";
+import "./InboxTest.sol";
 import "./InboxMockContracts.sol";
 import {
     Inbox,
@@ -16,9 +14,8 @@ import {
 /// @notice Tests for proposal validation logic including deadlines, state checks, and constraints
 /// @dev Tests cover all validation aspects of the propose function
 /// @custom:security-contact security@taiko.xyz
-contract InboxProposeValidation is InboxTestScenarios {
-    using InboxTestUtils for *;
-    using InboxTestBuilder for *;
+contract InboxProposeValidation is InboxTest {
+    using InboxTestLib for *;
 
     // Override setupMockAddresses to use actual mock contracts
     function setupMockAddresses() internal override {
@@ -32,26 +29,24 @@ contract InboxProposeValidation is InboxTestScenarios {
     /// @notice Test proposal with valid deadline
     function test_propose_with_valid_deadline() public {
         setupBlobHashes();
-        
+
         // Setup core state with genesis
         bytes32 genesisHash = getGenesisClaimHash();
-        IInbox.CoreState memory coreState = InboxTestUtils.createCoreStateFull(1, 0, genesisHash, bytes32(0));
-        inbox.exposed_setCoreStateHash(InboxTestUtils.hashCoreState(coreState));
-        
+        IInbox.CoreState memory coreState =
+            InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
+        inbox.exposed_setCoreStateHash(InboxTestLib.hashCoreState(coreState));
+
         // Setup mocks and create proposal with future deadline
-        setupStandardProposalMocks(Alice);
+        setupProposalMocks(Alice);
         uint64 deadline = uint64(block.timestamp + 1 hours);
-        
-        bytes memory data = InboxTestUtils.encodeProposalDataWithDeadline(
-            deadline,
-            coreState,
-            createValidBlobReference(1),
-            new IInbox.ClaimRecord[](0)
+
+        bytes memory data = InboxTestLib.encodeProposalData(
+            deadline, coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
-        
+
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
-        
+
         // Verify proposal was created
         assertProposalStored(1);
     }
@@ -60,23 +55,21 @@ contract InboxProposeValidation is InboxTestScenarios {
     function test_propose_with_expired_deadline() public {
         setupBlobHashes();
         vm.warp(1000);
-        
+
         // Setup core state
         bytes32 genesisHash = getGenesisClaimHash();
-        IInbox.CoreState memory coreState = InboxTestUtils.createCoreStateFull(1, 0, genesisHash, bytes32(0));
-        inbox.exposed_setCoreStateHash(InboxTestUtils.hashCoreState(coreState));
-        
+        IInbox.CoreState memory coreState =
+            InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
+        inbox.exposed_setCoreStateHash(InboxTestLib.hashCoreState(coreState));
+
         // Create proposal with expired deadline
-        setupStandardProposalMocks(Alice);
+        setupProposalMocks(Alice);
         uint64 deadline = uint64(block.timestamp - 1);
-        
-        bytes memory data = InboxTestUtils.encodeProposalDataWithDeadline(
-            deadline,
-            coreState,
-            createValidBlobReference(1),
-            new IInbox.ClaimRecord[](0)
+
+        bytes memory data = InboxTestLib.encodeProposalData(
+            deadline, coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
-        
+
         vm.expectRevert(DeadlineExceeded.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
@@ -85,24 +78,23 @@ contract InboxProposeValidation is InboxTestScenarios {
     /// @notice Test proposal with zero deadline (no deadline)
     function test_propose_with_no_deadline() public {
         setupBlobHashes();
-        
+
         // Setup core state
         bytes32 genesisHash = getGenesisClaimHash();
-        IInbox.CoreState memory coreState = InboxTestUtils.createCoreStateFull(1, 0, genesisHash, bytes32(0));
-        inbox.exposed_setCoreStateHash(InboxTestUtils.hashCoreState(coreState));
-        
+        IInbox.CoreState memory coreState =
+            InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
+        inbox.exposed_setCoreStateHash(InboxTestLib.hashCoreState(coreState));
+
         // Create proposal with no deadline (deadline = 0)
-        setupStandardProposalMocks(Alice);
-        
-        bytes memory data = InboxTestUtils.encodeProposalData(
-            coreState,
-            createValidBlobReference(1),
-            new IInbox.ClaimRecord[](0)
+        setupProposalMocks(Alice);
+
+        bytes memory data = InboxTestLib.encodeProposalData(
+            coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
-        
+
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
-        
+
         // Should succeed with no deadline
         assertProposalStored(1);
     }
@@ -110,13 +102,15 @@ contract InboxProposeValidation is InboxTestScenarios {
     /// @notice Test proposal with invalid core state hash
     function test_propose_with_invalid_state_hash() public {
         bytes32 genesisHash = getGenesisClaimHash();
-        
+
         // Set correct core state in storage
-        IInbox.CoreState memory actualCoreState = InboxTestUtils.createCoreStateFull(1, 0, genesisHash, bytes32(0));
-        inbox.exposed_setCoreStateHash(InboxTestUtils.hashCoreState(actualCoreState));
-        
+        IInbox.CoreState memory actualCoreState =
+            InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
+        inbox.exposed_setCoreStateHash(InboxTestLib.hashCoreState(actualCoreState));
+
         // But provide different core state in proposal
-        IInbox.CoreState memory wrongCoreState = InboxTestUtils.createCoreStateFull(2, 0, genesisHash, bytes32(0)); // Wrong nextProposalId
+        IInbox.CoreState memory wrongCoreState =
+            InboxTestLib.createCoreState(2, 0, genesisHash, bytes32(0)); // Wrong nextProposalId
 
         mockProposerAllowed(Alice);
         mockForcedInclusionDue(false);

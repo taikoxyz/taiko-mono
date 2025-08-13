@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./InboxTestScenarios.sol";
-import "./InboxTestUtils.sol";
+import "./InboxTest.sol";
 import "./InboxMockContracts.sol";
 
 /// @title InboxOutOfOrderProving
 /// @notice Tests for out-of-order proving and eventual chain advancement
 /// @dev Verifies that proposals can be proven in any order but finalization respects sequence
-contract InboxOutOfOrderProving is InboxTestScenarios {
-    using InboxTestUtils for *;
+contract InboxOutOfOrderProving is InboxTest {
+    using InboxTestLib for *;
 
     // Override setupMockAddresses to use actual mock contracts
     function setupMockAddresses() internal override {
