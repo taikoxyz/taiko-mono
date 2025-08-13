@@ -66,11 +66,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
     State public _state;
 
-    // Proving incentive pool state
-    uint96 public provingFeePoolGwei;
     mapping(uint48 proposalId => bool isLowBond) public lowBondProposals;
 
-    uint256[46] private __gap;
+    uint256[47] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -204,18 +202,21 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // Private functions
     // ---------------------------------------------------------------
 
-    /// @dev Pays proving reward for low-bond proposals from the fee pool
+    /// @dev Pays proving reward for low-bond proposals from the anchor's bond balance
     /// @param _prover The address of the prover to reward
     function _payProvingReward(address _prover) private {
+        // Get the anchor's bond balance (the proving fee pool)
+        uint96 poolBalance = bondManager.getBondBalance(address(this));
+        
         // Calculate reward amount (minimum of pool balance and configured reward)
         uint96 reward = lowBondProvingRewardGwei;
-        if (provingFeePoolGwei < reward) {
-            reward = provingFeePoolGwei;
+        if (poolBalance < reward) {
+            reward = poolBalance;
         }
 
-        // Pay the reward if available
+        // Pay the reward if available by transferring from anchor to prover
         if (reward > 0) {
-            provingFeePoolGwei -= reward;
+            bondManager.debitBond(address(this), reward);
             bondManager.creditBond(_prover, reward);
         }
     }

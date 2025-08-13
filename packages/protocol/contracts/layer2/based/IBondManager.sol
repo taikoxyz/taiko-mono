@@ -34,6 +34,12 @@ interface IBondManager {
     /// @param amount The amount deposited in gwei
     event BondDeposited(address indexed account, uint96 amount);
 
+    /// @notice Emitted when a bond is deposited for another address
+    /// @param depositor The account that made the deposit
+    /// @param recipient The account that received the bond credit
+    /// @param amount The amount deposited in gwei
+    event BondDepositedFor(address indexed depositor, address indexed recipient, uint96 amount);
+
     /// @notice Emitted when a bond is withdrawn from the manager
     /// @param account The account that withdrew the bond
     /// @param amount The amount withdrawn in gwei
@@ -68,6 +74,11 @@ interface IBondManager {
     /// @notice Deposit ERC20 bond tokens into the manager.
     /// @param _amount The amount to deposit in gwei.
     function deposit(uint96 _amount) external;
+
+    /// @notice Deposit ERC20 bond tokens for another address.
+    /// @param _recipient The address to credit the bond to.
+    /// @param _amount The amount to deposit in gwei.
+    function depositTo(address _recipient, uint96 _amount) external;
 
     /// @notice Withdraw bond to a recipient.
     /// @dev On L1, withdrawal is subject to time-based security. On L2, withdrawals are
