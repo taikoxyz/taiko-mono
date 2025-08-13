@@ -11,9 +11,9 @@ import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
 /// ensures blocks are saved in strictly increasing order by block number.
 /// @custom:security-contact security@taiko.xyz
 contract SyncedBlockManager is EssentialContract, ISyncedBlockManager {
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // State Variables
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @notice The address of the authorized contract that can update the synced block
     address public immutable authorized;
@@ -36,9 +36,9 @@ contract SyncedBlockManager is EssentialContract, ISyncedBlockManager {
 
     uint256[48] private __gap;
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Constructor and Initializer
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @notice Initializes the SyncedBlockManager with the authorized address and ring buffer size
     /// @param _authorized The address of the authorized contract. On L1, this shall be the inbox,
@@ -58,9 +58,9 @@ contract SyncedBlockManager is EssentialContract, ISyncedBlockManager {
         __Essential_init(_owner);
     }
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // External Functions
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @inheritdoc ISyncedBlockManager
     function saveSyncedBlock(
@@ -139,9 +139,9 @@ contract SyncedBlockManager is EssentialContract, ISyncedBlockManager {
         return _stackSize;
     }
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     error IndexOutOfBounds();
     error InvalidAddress();
