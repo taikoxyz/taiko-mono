@@ -145,10 +145,16 @@ interface IInbox {
     // External View Functions
     // ---------------------------------------------------------------
 
-    /// @notice Retrieves the values of multiple settings to aid in synchronizing off-chain
+    /// @notice Fetches the values of specified settings to assist in aligning off-chain
     /// software configurations.
-    /// @param _names The identifiers of the settings to retrieve.
-    /// @return values_ The corresponding values of the specified settings.
+    /// @dev To minimize frequent queries for new values, these settings should only update at
+    /// specific time unit boundaries, such as daily at midnight GMT:
+    /// ```
+    /// require(itemChangeTimestamp % 86400 == 0);
+    /// return (block.timestamp >= itemChangeTimestamp) ? itemNewValue : itemOldValue;
+    /// ```
+    /// @param _names An array of identifiers for the settings to be fetched.
+    /// @return values_ An array containing the values corresponding to the specified settings.
     function getNamedSettings(bytes32[] memory _names)
         external
         view
