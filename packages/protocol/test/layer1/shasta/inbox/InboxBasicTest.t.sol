@@ -1,101 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/src/Test.sol";
-import "forge-std/src/console2.sol";
-import "test/shared/CommonTest.sol";
-import "contracts/layer1/shasta/impl/Inbox.sol";
-import "contracts/layer1/shasta/iface/IInbox.sol";
-import "contracts/layer1/shasta/libs/LibBlobs.sol";
-import "contracts/layer1/shasta/libs/LibDecoder.sol";
-import "contracts/shared/based/libs/LibBonds.sol";
-import "contracts/shared/based/iface/ISyncedBlockManager.sol";
-import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
-import "contracts/layer1/shasta/iface/IProofVerifier.sol";
-import "contracts/layer1/shasta/iface/IProposerChecker.sol";
+import "./InboxTestBase.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title InboxBasicTest
 /// @notice Basic tests for the Inbox contract without slot reuse functionality
-contract InboxBasicTest is CommonTest {
-    using LibDecoder for bytes;
-
-    // Test contract that exposes internal functions
-    TestInbox internal inbox;
-
-    // Mock dependencies
-    address internal bondToken;
-    address internal syncedBlockManager;
-    address internal forcedInclusionStore;
-    address internal proofVerifier;
-    address internal proposerChecker;
-
-    // Default configuration
-    IInbox.Config internal defaultConfig;
-
-    // Constants
-    uint256 internal constant DEFAULT_RING_BUFFER_SIZE = 100;
-    uint256 internal constant DEFAULT_MAX_FINALIZATION_COUNT = 10;
-    uint48 internal constant DEFAULT_PROVING_WINDOW = 1 hours;
-    uint48 internal constant DEFAULT_EXTENDED_PROVING_WINDOW = 2 hours;
-    uint8 internal constant DEFAULT_BASEFEE_SHARING_PCTG = 10;
-    bytes32 internal constant GENESIS_BLOCK_HASH = bytes32(uint256(1));
-
-    // Events
-    event CoreStateSet(IInbox.CoreState coreState);
-    event Proposed(IInbox.Proposal proposal, IInbox.CoreState coreState);
-    event Proved(IInbox.Proposal proposal, IInbox.ClaimRecord claimRecord);
-    event BondInstructed(LibBonds.BondInstruction[] instructions);
-
+contract InboxBasicTest is InboxTestBase {
     function setUp() public virtual override {
         super.setUp();
+    }
 
-        // Create mock addresses
+    // Override setupMockAddresses to use actual mock contracts instead of makeAddr
+    function setupMockAddresses() internal override {
         bondToken = address(new MockERC20());
         syncedBlockManager = address(new StubSyncedBlockManager());
         forcedInclusionStore = address(new StubForcedInclusionStore());
         proofVerifier = address(new StubProofVerifier());
         proposerChecker = address(new StubProposerChecker());
-
-        // Setup default configuration
-        defaultConfig = IInbox.Config({
-            bondToken: bondToken,
-            provingWindow: DEFAULT_PROVING_WINDOW,
-            extendedProvingWindow: DEFAULT_EXTENDED_PROVING_WINDOW,
-            maxFinalizationCount: DEFAULT_MAX_FINALIZATION_COUNT,
-            ringBufferSize: DEFAULT_RING_BUFFER_SIZE,
-            basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
-            syncedBlockManager: syncedBlockManager,
-            proofVerifier: proofVerifier,
-            proposerChecker: proposerChecker,
-            forcedInclusionStore: forcedInclusionStore
-        });
-
-        // Deploy and initialize inbox
-        TestInbox impl = new TestInbox();
-        bytes memory initData = abi.encodeWithSelector(
-            bytes4(keccak256("init(address,bytes32)")), 
-            address(this), 
-            GENESIS_BLOCK_HASH
-        );
-
-        // Create proxy
-        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        inbox = TestInbox(address(proxy));
-        inbox.setConfig(defaultConfig);
-
-        // Fund test accounts
-        vm.deal(Alice, 100 ether);
-        vm.deal(Bob, 100 ether);
-        vm.deal(Carol, 100 ether);
-
-        // Setup default blob hashes
-        setupDefaultBlobHashes();
     }
 
     /// @notice Test submitting a single valid proposal
     function test_propose_single_valid() public {
+        // Re-setup blob hashes right before test
+        bytes32[] memory hashes = new bytes32[](256);
+        for (uint256 i = 0; i < 256; i++) {
+            if (i < 10) {
+                hashes[i] = keccak256(abi.encode("blob", uint256(i)));
+            }
+        }
+        vm.blobhashes(hashes);
+
         // Setup initial core state
         IInbox.CoreState memory coreState = createCoreState(1, 0);
         bytes32 initialCoreStateHash = keccak256(abi.encode(coreState));
@@ -152,6 +87,7 @@ contract InboxBasicTest is CommonTest {
 
     /// @notice Test submitting multiple proposals sequentially
     function test_propose_multiple_sequential() public {
+        setupBlobHashes();
         uint48 numProposals = 5;
 
         for (uint48 i = 0; i < numProposals; i++) {
@@ -208,6 +144,11 @@ contract InboxBasicTest is CommonTest {
 
     /// @notice Test proposal with deadline exceeded reverts
     function test_propose_deadline_exceeded_reverts() public {
+        setupBlobHashes();
+
+        // Move time forward to ensure block.timestamp > 1
+        vm.warp(1000);
+
         // Setup core state
         IInbox.CoreState memory coreState = createCoreState(1, 0);
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
@@ -220,7 +161,8 @@ contract InboxBasicTest is CommonTest {
         uint64 deadline = uint64(block.timestamp - 1); // Expired deadline
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(1);
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
-        bytes memory data = encodeProposalDataWithDeadline(deadline, coreState, blobRef, claimRecords);
+        bytes memory data =
+            encodeProposalDataWithDeadline(deadline, coreState, blobRef, claimRecords);
 
         // Expect revert with DeadlineExceeded error
         vm.expectRevert(DeadlineExceeded.selector);
@@ -230,10 +172,11 @@ contract InboxBasicTest is CommonTest {
 
     /// @notice Test proving a claim
     function test_prove_single_claim() public {
+        setupBlobHashes();
         // First create a proposal
         IInbox.CoreState memory coreState = createCoreState(1, 0);
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
-        
+
         mockProposerAllowed(Alice);
         mockForcedInclusionDue(false);
 
@@ -249,15 +192,19 @@ contract InboxBasicTest is CommonTest {
 
         IInbox.Proposal memory proposal = createValidProposal(1);
         IInbox.Claim memory claim = createValidClaim(proposal, bytes32(0));
-        
-        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](0);
-        IInbox.ClaimRecord memory claimRecord = IInbox.ClaimRecord({
-            claim: claim,
-            span: 1,
-            bondInstructions: bondInstructions
-        });
 
-        bytes memory proveData = abi.encode(proposal, claimRecord);
+        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](0);
+        IInbox.ClaimRecord memory claimRecord =
+            IInbox.ClaimRecord({ claim: claim, span: 1, bondInstructions: bondInstructions });
+
+        // Prove expects arrays of proposals and claims
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = proposal;
+
+        IInbox.Claim[] memory claims = new IInbox.Claim[](1);
+        claims[0] = claim;
+
+        bytes memory proveData = abi.encode(proposals, claims);
 
         // Expect Proved event
         vm.expectEmit(true, true, true, true);
@@ -270,142 +217,6 @@ contract InboxBasicTest is CommonTest {
         // Verify claim is stored
         bytes32 claimHash = inbox.getClaimRecordHash(uint48(1), bytes32(0));
         assertTrue(claimHash != bytes32(0));
-    }
-
-    // Helper functions
-
-    function mockProposerAllowed(address _proposer) internal {
-        vm.mockCall(
-            proposerChecker,
-            abi.encodeWithSelector(IProposerChecker.checkProposer.selector, _proposer),
-            abi.encode()
-        );
-    }
-
-    function mockForcedInclusionDue(bool _isDue) internal {
-        vm.mockCall(
-            forcedInclusionStore,
-            abi.encodeWithSelector(IForcedInclusionStore.isOldestForcedInclusionDue.selector),
-            abi.encode(_isDue)
-        );
-    }
-
-    function mockProofVerification(bool _valid) internal {
-        if (_valid) {
-            vm.mockCall(
-                proofVerifier,
-                abi.encodeWithSelector(IProofVerifier.verifyProof.selector),
-                abi.encode()
-            );
-        } else {
-            vm.mockCallRevert(
-                proofVerifier,
-                abi.encodeWithSelector(IProofVerifier.verifyProof.selector),
-                abi.encode("Invalid proof")
-            );
-        }
-    }
-
-    function setupDefaultBlobHashes() internal {
-        bytes32[] memory hashes = new bytes32[](256);
-        for (uint256 i = 0; i < 256; i++) {
-            // Set non-zero hashes for all indices to avoid BlobNotFound errors
-            hashes[i] = keccak256(abi.encode("blob", i));
-        }
-        vm.blobhashes(hashes);
-    }
-
-    function createCoreState(
-        uint48 _nextProposalId,
-        uint48 _lastFinalizedProposalId
-    ) internal pure returns (IInbox.CoreState memory) {
-        return IInbox.CoreState({
-            nextProposalId: _nextProposalId,
-            lastFinalizedProposalId: _lastFinalizedProposalId,
-            lastFinalizedClaimHash: bytes32(0),
-            bondInstructionsHash: bytes32(0)
-        });
-    }
-
-    function createValidBlobReference(uint256 _seed) internal pure returns (LibBlobs.BlobReference memory) {
-        return LibBlobs.BlobReference({
-            blobStartIndex: uint48(_seed % 10),
-            numBlobs: 1,
-            offset: 0
-        });
-    }
-
-    function createValidProposal(uint48 _id) internal view returns (IInbox.Proposal memory) {
-        bytes32[] memory blobHashes = new bytes32[](1);
-        blobHashes[0] = keccak256(abi.encode("blob", uint256(_id)));
-
-        return IInbox.Proposal({
-            id: _id,
-            proposer: Alice,
-            originTimestamp: uint48(block.timestamp),
-            originBlockNumber: uint48(block.number),
-            isForcedInclusion: false,
-            basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: 0,
-                timestamp: uint48(block.timestamp)
-            })
-        });
-    }
-
-    function createValidClaim(
-        IInbox.Proposal memory _proposal,
-        bytes32 _parentClaimHash
-    ) internal pure returns (IInbox.Claim memory) {
-        return IInbox.Claim({
-            proposalHash: keccak256(abi.encode(_proposal)),
-            parentClaimHash: _parentClaimHash,
-            endBlockNumber: _proposal.id * 100,
-            endBlockHash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
-            endStateRoot: keccak256(abi.encode(_proposal.id, "stateRoot")),
-            designatedProver: _proposal.proposer,
-            actualProver: _proposal.proposer
-        });
-    }
-
-    function encodeProposalData(
-        IInbox.CoreState memory _coreState,
-        LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
-    ) internal pure returns (bytes memory) {
-        return abi.encode(uint64(0), _coreState, _blobRef, _claimRecords);
-    }
-
-    function encodeProposalDataWithDeadline(
-        uint64 _deadline,
-        IInbox.CoreState memory _coreState,
-        LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
-    ) internal pure returns (bytes memory) {
-        return abi.encode(_deadline, _coreState, _blobRef, _claimRecords);
-    }
-}
-
-// Test contract that exposes internal functions
-contract TestInbox is Inbox {
-    Config private testConfig;
-
-    function exposed_setCoreStateHash(bytes32 _hash) external {
-        coreStateHash = _hash;
-    }
-
-    function setConfig(Config memory _config) external {
-        testConfig = _config;
-    }
-
-    function getConfig() public view override returns (Config memory) {
-        // Always return the configured testConfig
-        return testConfig;
-    }
-
-    function getCoreStateHash() external view returns (bytes32) {
-        return coreStateHash;
     }
 }
 
@@ -432,9 +243,17 @@ contract MockERC20 is IERC20 {
         return true;
     }
 
-    function totalSupply() external pure returns (uint256) { return 0; }
-    function balanceOf(address) external pure returns (uint256) { return 0; }
-    function allowance(address, address) external pure returns (uint256) { return 0; }
+    function totalSupply() external pure returns (uint256) {
+        return 0;
+    }
+
+    function balanceOf(address) external pure returns (uint256) {
+        return 0;
+    }
+
+    function allowance(address, address) external pure returns (uint256) {
+        return 0;
+    }
 }
 
 contract StubSyncedBlockManager {
@@ -442,8 +261,15 @@ contract StubSyncedBlockManager {
 }
 
 contract StubForcedInclusionStore {
-    function isOldestForcedInclusionDue() external pure returns (bool) { return false; }
-    function consumeOldestForcedInclusion(address) external pure returns (IForcedInclusionStore.ForcedInclusion memory) { 
+    function isOldestForcedInclusionDue() external pure returns (bool) {
+        return false;
+    }
+
+    function consumeOldestForcedInclusion(address)
+        external
+        pure
+        returns (IForcedInclusionStore.ForcedInclusion memory)
+    {
         revert("Not implemented");
     }
 }
