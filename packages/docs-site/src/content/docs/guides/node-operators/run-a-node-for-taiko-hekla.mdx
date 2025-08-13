@@ -126,6 +126,12 @@ If you aren't, you can configure the ports and addresses so that the services ca
 
     This command assumes you've run the `taiko-geth` command as is, if you've changed ports please change them accordingly.
 
+    <Aside type="tip">
+    If you wish to enable a node without joining the preconfirmations p2p network, simply **remove all `p2p` and `preconfirmation` flags with the exception of `--p2p.sync` and `--p2p.checkPointSyncUrl`.**
+
+    Please note that your node's chainhead will not be up-to-date with the preconfed blocks if you do not join the p2p network.
+    </Aside>
+
     ```bash
         ./bin/taiko-client driver \
             --l1.ws ${L1_ENDPOINT_WS} \

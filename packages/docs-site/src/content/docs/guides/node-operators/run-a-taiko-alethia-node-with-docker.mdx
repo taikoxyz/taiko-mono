@@ -99,6 +99,14 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
 
     Note that if you include `prover`, the service will still be disabled if you do not set `ENABLE_PROVER=true` in your `.env` file.
 
+    <Aside type="tip">
+    The following steps 6-8 are only necessary if you wish to have your node receive preconfirmed blocks and keep up with the tip of the chain.
+
+    **To enable preconfs in your node**, please ensure that `ENABLE_PRECONFS_P2P` is set to `true` in your `.env` file.
+
+    If it is set to `false`, your node **will not receive preconfed blocks** and only update it's chainhead when the events are emitted on-chain.
+    </Aside>
+
 6. Set your node's external IP for p2p discovery
 
     This is an important config for based preconfirmations. Find your machine's external IP and set `PUBLIC_IP={EXTERNAL_IP}` in your `.env` file. You may choose to leave it blank, in which case our scripts will enable `p2p.nat` in your driver; this means that you will automatically enable NAT traversal with PMP/UPNP devices to learn external IP. This is not preferred, and we highly recommend you manually set the `PUBLIC_IP` for discovery.

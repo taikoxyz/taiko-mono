@@ -1,5 +1,5 @@
 ---
-title: Pacaya fork Taiko Alethia
+title: Pacaya Fork Taiko Alethia
 description: Taiko Alethia protocol page for the upcoming Pacaya fork.
 ---
 
@@ -47,7 +47,12 @@ The Pacaya upgrade marks the first step toward preconfirmation. Given the nature
 
 This initial phase of preconfirmation is not the full implementation: it uses a whitelist-based approach without integrating a lookahead contract or preconfer registry. A staking or restaking-based approach will be introduced and tested in the next phase, followed by slashing rules.
 
-The initial launching partners include [Nethermind](https://www.nethermind.io), [Gattaca](https://gattaca.com), and [Chainbound](https://chainbound.io). If you’re interested in joining the whitelist as a preconfer, feel free to reach out to us. However, we can only add you after discussions to ensure that your infrastructure meets some liveness requirements.
+The initial launching partners include [Nethermind](https://www.nethermind.io), [Gattaca](https://gattaca.com), and [Chainbound](https://chainbound.io). In a post-whitelist phase, the community will be able to run these solutions themselves as secured-by-stake preconfirmers.
+
+The solutions are fully opensource and can be found here:
+  - [Chainbound Sidecar](https://github.com/chainbound/taiko-mk1)
+  - [Gattaca Sidecar](https://github.com/gattaca-com/taiko-gateway)
+  - [Nethermind Sidecar](https://github.com/NethermindEth/Catalyst)
 
 While a whitelist-based approach is technically permissioned, it is a necessary step in testing preconfirmation, a complex feature that impacts nearly every aspect of Taiko’s Alethia codebase. Rolling it out incrementally allows us to validate the design, mitigate risks, and gather early feedback to refine future iterations. That said, Taiko remains committed to full permissionlessness, and this phased approach is simply a stepping stone toward that vision.
 
