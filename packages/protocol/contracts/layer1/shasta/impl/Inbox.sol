@@ -413,19 +413,23 @@ abstract contract Inbox is EssentialContract, IInbox {
                     new LibBonds.BondInstruction[](1);
 
                 if (block.timestamp <= _proposal.originTimestamp + _config.extendedProvingWindow) {
-                    bondInstructions[0] = LibBonds.BondInstruction({
-                        proposalId: _proposal.id,
-                        isLivenessBond: true,
-                        creditTo: _claim.actualProver,
-                        debitFrom: _claim.designatedProver
-                    });
+                    if (_claim.designatedProver != _claim.actualProver) {
+                        bondInstructions[0] = LibBonds.BondInstruction({
+                            proposalId: _proposal.id,
+                            bondType: LibBonds.BondType.LIVENESS,
+                            payer: _claim.designatedProver,
+                            receiver: _claim.actualProver
+                        });
+                    }
                 } else {
-                    bondInstructions[0] = LibBonds.BondInstruction({
-                        proposalId: _proposal.id,
-                        isLivenessBond: false,
-                        creditTo: _claim.actualProver,
-                        debitFrom: _proposal.proposer
-                    });
+                    if (_proposal.proposer != _claim.actualProver) {
+                        bondInstructions[0] = LibBonds.BondInstruction({
+                            proposalId: _proposal.id,
+                            bondType: LibBonds.BondType.PROVABILITY,
+                            payer: _proposal.proposer,
+                            receiver: _claim.actualProver
+                        });
+                    }
                 }
                 return bondInstructions;
             }

@@ -223,11 +223,18 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
         for (uint256 i; i < _bondInstructions.length; ++i) {
             LibBonds.BondInstruction memory instruction = _bondInstructions[i];
-            uint48 bond = instruction.isLivenessBond ? livenessBondGwei : provabilityBondGwei;
+            uint48 bond;
+            if (instruction.bondType == LibBonds.BondType.LIVENESS) {
+                bond = livenessBondGwei;
+            } else if (instruction.bondType == LibBonds.BondType.PROVABILITY) {
+                bond = provabilityBondGwei;
+            }
 
             // Credit the bond to the receiver
-            uint96 bondDebited = bondManager.debitBond(instruction.debitFrom, bond);
-            bondManager.creditBond(instruction.creditTo, bondDebited);
+            if (bond != 0) {
+                uint96 bondDebited = bondManager.debitBond(instruction.payer, bond);
+                bondManager.creditBond(instruction.receiver, bondDebited);
+            }
 
             // Update cumulative hash
             newHash_ = LibBonds.aggregateBondInstruction(newHash_, instruction);

@@ -6,14 +6,24 @@ pragma solidity ^0.8.24;
 /// @custom:security-contact security@taiko.xyz
 library LibBonds {
     // -------------------------------------------------------------------
+    // Enums
+    // -------------------------------------------------------------------
+
+    enum BondType {
+        NONE,
+        PROVABILITY,
+        LIVENESS
+    }
+
+    // -------------------------------------------------------------------
     // Structs
     // -------------------------------------------------------------------
 
     struct BondInstruction {
         uint48 proposalId;
-        bool isLivenessBond; // false for provability bond
-        address creditTo;
-        address debitFrom;
+        BondType bondType;
+        address payer;
+        address receiver;
     }
 
     // -------------------------------------------------------------------
@@ -28,7 +38,7 @@ library LibBonds {
         pure
         returns (bytes32)
     {
-        return _bondInstruction.proposalId == 0
+        return _bondInstruction.proposalId == 0 || _bondInstruction.bondType == BondType.NONE
             ? _bondInstructionsHash
             : keccak256(abi.encode(_bondInstructionsHash, _bondInstruction));
     }
