@@ -21,7 +21,6 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 ### Proposal-level Metadata
 
 | **Metadata Component**   | **Description**                                               |
-| **Metadata Component**   | **Description**                                               |
 |--------------------------|---------------------------------------------------------------|
 | **id**                   | A unique, sequential identifier for the proposal              |
 | **proposer**             | The address that proposed the proposal                        |
@@ -133,9 +132,9 @@ struct ProposalManifest {
 
 To maintain the integrity of the proposal process, the `proposer` address must pass specific validation checks, which include:
 - Confirming that the proposer holds a sufficient balance in the L2 BondManager contract.
-- Ensuring the proposer is not not waiting for exiting.
+- Ensuring the proposer is not waiting for exiting.
 
-Should any of these validation checks fail, `metadata.isLowBondProposal` will be set to `true`. Consequently, the extraction of the proposal's manifest will be skipped, and a default manifest will be used instead.
+Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposal's block array is replaced with a single block containing no transactions. Note that this does not use the default manifest; instead, it modifies only the blocks array while preserving other manifest data.
 
 
 
@@ -161,7 +160,7 @@ The `BlobSlice` struct represents binary data distributed across multiple blobs.
 1. **Blob Concatenation**: Concatenate blobs in the order specified by the `blobHashes` array
 2. **Version Extraction**: Extract the version number from bytes `[offset, offset+32)` (only version `0x1` is valid for Shasta)
 3. **Size Extraction**: Extract the data size from bytes `[offset+32, offset+64)`
-4. **Decompression**: Apply ZLIB decompression to the data slice
+4. **Decompression**: Apply ZLIB decompression to the extracted data slice (bytes `[offset+64, offset+64+size)`)
 5. **Decoding**: RLP decode the decompressed data into a `ProposalManifest` struct
 
 #### Default Manifest Conditions
@@ -175,7 +174,6 @@ A default manifest is returned when any of the following validation criteria fai
 - **Decompression failure**: ZLIB decompression fails
 - **Decoding failure**: RLP decoding fails
 - **Block count validation**: `manifest.blocks.length` exceeds `PROPOSAL_MAX_BLOCKS`
-- **Prover authentication**: Non-empty `proverAuthBytes` that cannot be ABI-decoded into a `ProverAuth` struct
 - **Transaction limit**: Any block contains more than `BLOCK_MAX_RAW_TRANSACTIONS` transactions
 
 The default manifest is one initialized as:
@@ -214,7 +212,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 
 #### `anchorBlockHash` and `anchorStateRoot` Validation
 
-The anchor hash and state root must maintain consistency with the anchor block number:
+The anchor hash and state root must maintain consistency with the anchor block number (enforced by the Taiko node/driver):
 
 - If `anchorBlockNumber == parent.metadata.anchorBlockNumber`: Both `anchorBlockHash` and `anchorStateRoot` must be zero
 - Otherwise: Both fields must accurately reflect the L1 block state at the specified `anchorBlockNumber`
@@ -240,14 +238,14 @@ function assignCoinbase() {
 
 #### `gasLimit` Validation
 
-Gas limit adjustments are constrained by `MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±0.1 basis points (±0.001%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
+Gas limit adjustments are constrained by `MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±10 basis points (±0.1%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
 
 **Calculation process**:
 
 1. **Define bounds**:
 
-   - `lowerBound = max(parent.metadata.gasLimit * (100000 - MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 100000, MIN_BLOCK_GAS_LIMIT)`
-   - `upperBound = parent.metadata.gasLimit * (100000 + MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 100000`
+   - `lowerBound = max(parent.metadata.gasLimit * (10000 - MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 10000, MIN_BLOCK_GAS_LIMIT)`
+   - `upperBound = parent.metadata.gasLimit * (10000 + MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 10000`
 
 2. **Apply constraints**:
    - If `manifest.blocks[i].gasLimit == 0`: Inherit parent value
@@ -259,7 +257,7 @@ Gas limit adjustments are constrained by `MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD` 
 
 For an L2 block with a higher anchor block number than its parent, bond instructions must be processed within its anchor transaction.
 
-To begin, locate a `CoreState` object in the L1 anchor block's world state whose keccak hash matches the `coreStateHash` from the inbox contract. Extract the `bondInstructionsHash` field from this object and set `metadata.bondInstructionsHash` to this value.
+To begin, obtain the `CoreState` from the L1 anchor block's world state through a storage Merkle proof, verifying that its keccak hash matches the `coreStateHash` stored in the inbox contract. Extract the `bondInstructionsHash` field from this verified `CoreState` and set `metadata.bondInstructionsHash` to this value.
 
 If `metadata.anchorBlockNumber` exceeds `parent.metadata.anchorBlockNumber`, collect all `BondInstructions` emitted from the Taiko inbox via `BondInstructed` events, occurring between blocks numbered `parent.metadata.anchorBlockNumber + 1` and `metadata.anchorBlockNumber`. Assign this collection to `metadata.bondInstructions`, which may be empty.
 
@@ -276,10 +274,10 @@ The `_validateProverAuth` function processes prover authentication data with the
 - **Signature Verification**: 
   - Validates minimum data length (161 bytes for a valid `ProverAuth` struct)
   - Decodes the `ProverAuth` containing: `proposalId`, `proposer`, `provingFeeGwei`, and ECDSA `signature`
-  - Verifies the signature against the message hash `keccak256(proposalId, proposer)`
+  - Verifies the signature against the message hash `keccak256(abi.encode(proposalId, proposer, provingFeeGwei))`
   - Returns the recovered signer address and proving fee
 
-- **Validation Failures**: If authentication fails (invalid signature, mismatched proposal data, or insufficient data), the system falls back to the proposer address with zero proving fee
+- **Validation Failures**: If authentication fails (insufficient data length < 161 bytes, ABI decode failure, invalid signature, or mismatched proposal/proposalId), the system falls back to the proposer address with zero proving fee. Invalid `proverAuthBytes` does NOT trigger a default manifest
 
 ##### 2. Bond Sufficiency Assessment
 
@@ -316,7 +314,7 @@ Low-bond proposals present a critical challenge: maintaining chain liveness when
 
 ##### Immediate Mitigations
 
-- **Empty Block Derivation**: Low-bond proposals generate only a single empty block, minimizing proving costs and disincentivizing spam
+- **Single Empty Block Replacement**: When `isLowBondProposal = true`, the blocks array is replaced with a single block containing no transactions (preserving other manifest data), minimizing proving costs and disincentivizing spam
 - **Prover Persistence**: The designated prover is never `address(0)`, ensuring someone is always responsible
 - **Inheritance Mechanism**: Low-bond proposals inherit their parent's designated prover, maintaining continuity
 
@@ -365,21 +363,21 @@ The validated metadata serves three critical functions in block construction:
 
 ### Pre-Execution Block Header
 
-Metadata encoding into L2 block header fields facilitates efficient peer validation and statistical analysis:
+Metadata encoding into L2 block header fields facilitates efficient peer validation and statistical analysis. The `withdrawalsRoot` field (32 bytes) is repurposed to store multiple metadata values through byte packing:
 
-| Metadata Component   | Type    | Header Field                  |
-| -------------------- | ------- | ----------------------------- |
-| `number`             | uint256 | `number`                      |
-| `timestamp`          | uint256 | `timestamp`                   |
-| `difficulty`         | uint256 | `difficulty`                  |
-| `gasLimit`           | uint256 | `gasLimit`                    |
-| `id`                 | uint48  | `withdrawalsRoot` (bytes TBD) |
-| `numBlocks`          | uint16  | `withdrawalsRoot` (bytes TBD) |
-| `isForcedInclusion`  | bool    | `withdrawalsRoot` (bytes TBD) |
-| `isLowBondProposal`  | bool    | `withdrawalsRoot` (bytes TBD) |
-| `index`              | uint16  | `withdrawalsRoot` (bytes TBD) |
-| `basefeeSharingPctg` | uint8   | First byte in `extraData`     |
-| `anchorBlockNumber ` | uint48  | Next 6 bytes in `extraData`   |
+| Metadata Component   | Type    | Header Field                       |
+| -------------------- | ------- | ---------------------------------- |
+| `number`             | uint256 | `number`                           |
+| `timestamp`          | uint256 | `timestamp`                        |
+| `difficulty`         | uint256 | `difficulty`                       |
+| `gasLimit`           | uint256 | `gasLimit`                         |
+| `id`                 | uint48  | `withdrawalsRoot` (bytes 0-5)      |
+| `numBlocks`          | uint16  | `withdrawalsRoot` (bytes 6-7)      |
+| `index`              | uint16  | `withdrawalsRoot` (bytes 8-9)      |
+| `isForcedInclusion`  | bool    | `withdrawalsRoot` (byte 10, bit 0) |
+| `isLowBondProposal`  | bool    | `withdrawalsRoot` (byte 10, bit 1) |
+| `basefeeSharingPctg` | uint8   | First byte in `extraData`          |
+| `anchorBlockNumber ` | uint48  | Next 6 bytes in `extraData`        |
 
 #### Additional Pre-Execution Block Header Fields
 
@@ -388,7 +386,7 @@ The following block header fields are also set before transaction execution but 
 | Header Field | Value                                                                                                                                                             |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `parentHash` | Hash of the previous L2 block                                                                                                                                     |
-| `mixHash`    | 0                                                                                                                                                                 |
+| `mixHash`    | TODO: Determine if this should be 0 or set to `prevRandao` as per EIP-4399                                                                                       |
 | `baseFee`    | Calculated using EIP-4396 from `parent.metadata.timestamp`, `parent.metadata.timestamp`,[how to break here ]and `metadata.timestamp` before transaction execution |
 
 Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed` are populated after transaction execution.
@@ -397,50 +395,52 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond instruction processing. It invokes the `updateState` function on the ShastaAnchor contract with precisely defined parameters:
 
-| Parameter            | Type              |
-|----------------------|-------------------|
-| proposalId           | uint48            |
-| proposer             | address           |
-| isLowBondProposal    | bool              |
-| proverAuth           | bytes             |
-| bondInstructionsHash | bytes32           |
-| bondInstructions     | BondInstruction[] |
-| blockIndex           | uint16            |
-| anchorBlockNumber    | uint48            |
-| anchorBlockHash      | bytes32           |
-| anchorStateRoot      | bytes32           |
+| Parameter            | Type              | Description                                                    |
+|----------------------|-------------------|----------------------------------------------------------------|
+| proposalId           | uint48            | Unique identifier of the proposal being anchored              |
+| proposer             | address           | Address of the entity that proposed this batch of blocks      |
+| proverAuth           | bytes             | Encoded ProverAuth for prover designation                     |
+| bondInstructionsHash | bytes32           | Expected cumulative hash after processing instructions        |
+| bondInstructions     | BondInstruction[] | Bond credit/debit instructions to process for this block      |
+| blockIndex           | uint16            | Current block index within the proposal (0-based)             |
+| anchorBlockNumber    | uint48            | L1 block number to anchor (0 to skip anchoring)               |
+| anchorBlockHash      | bytes32           | L1 block hash at anchorBlockNumber                            |
+| anchorStateRoot      | bytes32           | L1 state root at anchorBlockNumber                            |
+
+The function returns:
+- `isLowBondProposal` (bool): True if proposer has insufficient bonds
+- `designatedProver` (address): Address of the designated prover
 
 #### Transaction Execution Flow
 
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
-1. **Proposal initialization** (blockIndex == 0 only)
+1. **Fork validation and duplicate prevention**
+   - Verifies the current block number is at or after the Shasta fork height
+   - Tracks parent block hash to prevent duplicate `updateState` calls within the same block
 
-   - Initializes proposal state
-   - Validates prover authentication credentials
+2. **Proposal initialization** (blockIndex == 0 only)
+   - Designates the prover for the proposal
+   - Sets `isLowBondProposal` flag based on bond sufficiency
+   - Stores designated prover and low-bond status in contract state
+   - Emits `ProverDesignated` event
 
-2. **Bond instruction processing** (all blocks)
-
-   - Processes instructions incrementally
-   - Maintains cumulative hash for verification
-
-3. **L1 state anchoring** (when anchorBlockNumber > parent.metadata.anchorBlockNumber)
-
-   - Persists L1 block data
-   - Enables cross-chain verification
-
-4. **Parent block verification**
-   - Validates parent block hash
-   - Ensures chain continuity
+3. **L1 state anchoring and bond processing** (when anchorBlockNumber > previous anchorBlockNumber)
+   - Persists L1 block data via `syncedBlockManager.saveSyncedBlock`
+   - Processes bond instructions (NONE, LIVENESS, and PROVABILITY types) where NONE results in no transfer
+   - Maintains cumulative hash integrity by chaining: `keccak256(previousHash, instruction)` (skips if proposalId=0 or bondType=NONE)
+   - Updates anchor state atomically (bondInstructionsHash and anchorBlockNumber)
 
 **Execution constraints**:
 
-- Gas limit: Exactly 1,000,000 gas
+- Gas limit: Exactly 1,000,000 gas (enforced by the Taiko node software)
 - Caller restriction: Golden touch address (system account) only
 
 ### Transaction Execution
 
-TODO
+TODO:
+
+- `BLOCK_MAX_TRANSACTIONS` is applied
 
 ## Base Fee Calculation
 

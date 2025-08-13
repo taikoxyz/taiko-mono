@@ -267,7 +267,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         }
 
         // Verify ECDSA signature
-        bytes32 message = keccak256(abi.encode(proverAuth.proposalId, proverAuth.proposer));
+        bytes32 message = keccak256(abi.encode(proverAuth.proposalId, proverAuth.proposer, proverAuth.provingFeeGwei));
         (address recovered, ECDSA.RecoverError error) =
             ECDSA.tryRecover(message, proverAuth.signature);
 
