@@ -11,7 +11,7 @@ interface IBondManager {
 
     /// @notice Represents a bond for a given address.
     struct Bond {
-        uint96 balance; // Bond balance in gwei
+        uint256 balance; // Bond balance in wei
         uint48 withdrawalRequestedAt; // 0 = active, >0 = withdrawal requested timestamp
     }
 
@@ -21,29 +21,29 @@ interface IBondManager {
 
     /// @notice Emitted when a bond is debited from an address
     /// @param account The account from which the bond was debited
-    /// @param amount The amount debited in gwei
-    event BondDebited(address indexed account, uint96 amount);
+    /// @param amount The amount debited in wei
+    event BondDebited(address indexed account, uint256 amount);
 
     /// @notice Emitted when a bond is credited to an address
     /// @param account The account to which the bond was credited
-    /// @param amount The amount credited in gwei
-    event BondCredited(address indexed account, uint96 amount);
+    /// @param amount The amount credited in wei
+    event BondCredited(address indexed account, uint256 amount);
 
     /// @notice Emitted when a bond is deposited into the manager
     /// @param account The account that deposited the bond
-    /// @param amount The amount deposited in gwei
-    event BondDeposited(address indexed account, uint96 amount);
+    /// @param amount The amount deposited in wei
+    event BondDeposited(address indexed account, uint256 amount);
 
     /// @notice Emitted when a bond is deposited for another address
     /// @param depositor The account that made the deposit
     /// @param recipient The account that received the bond credit
-    /// @param amount The amount deposited in gwei
-    event BondDepositedFor(address indexed depositor, address indexed recipient, uint96 amount);
+    /// @param amount The amount deposited in wei
+    event BondDepositedFor(address indexed depositor, address indexed recipient, uint256 amount);
 
     /// @notice Emitted when a bond is withdrawn from the manager
     /// @param account The account that withdrew the bond
-    /// @param amount The amount withdrawn in gwei
-    event BondWithdrawn(address indexed account, uint96 amount);
+    /// @param amount The amount withdrawn in wei
+    event BondWithdrawn(address indexed account, uint256 amount);
 
     /// @notice Emitted when a withdrawal is requested
     event WithdrawalRequested(address indexed account, uint256 withdrawableAt);
@@ -58,35 +58,35 @@ interface IBondManager {
     /// @notice Debits a bond from an address with best effort
     /// @dev Best effort means that if `_bond` is greater than the balance, the entire balance is debited instead
     /// @param _address The address to debit the bond from
-    /// @param _bond The amount of bond to debit in gwei
-    /// @return amountDebited_ The actual amount debited in gwei
-    function debitBond(address _address, uint96 _bond) external returns (uint96 amountDebited_);
+    /// @param _bond The amount of bond to debit in wei
+    /// @return amountDebited_ The actual amount debited in wei
+    function debitBond(address _address, uint256 _bond) external returns (uint256 amountDebited_);
 
     /// @notice Credits a bond to an address
     /// @param _address The address to credit the bond to
-    /// @param _bond The amount of bond to credit in gwei
-    function creditBond(address _address, uint96 _bond) external;
+    /// @param _bond The amount of bond to credit in wei
+    function creditBond(address _address, uint256 _bond) external;
 
     /// @notice Gets the bond balance of an address
     /// @param _address The address to get the bond balance for
-    /// @return The bond balance of the address in gwei
-    function getBondBalance(address _address) external view returns (uint96);
+    /// @return The bond balance of the address in wei
+    function getBondBalance(address _address) external view returns (uint256);
 
     /// @notice Deposit ERC20 bond tokens into the manager.
-    /// @param _amount The amount to deposit in gwei.
-    function deposit(uint96 _amount) external;
+    /// @param _amount The amount to deposit.
+    function deposit(uint256 _amount) external;
 
     /// @notice Deposit ERC20 bond tokens for another address.
     /// @param _recipient The address to credit the bond to.
-    /// @param _amount The amount to deposit in gwei.
-    function depositTo(address _recipient, uint96 _amount) external;
+    /// @param _amount The amount to deposit.
+    function depositTo(address _recipient, uint256 _amount) external;
 
     /// @notice Withdraw bond to a recipient.
     /// @dev On L1, withdrawal is subject to time-based security. On L2, withdrawals are
     /// unrestricted.
     /// @param _to The recipient of withdrawn funds.
-    /// @param _amount The amount to withdraw in gwei.
-    function withdraw(address _to, uint96 _amount) external;
+    /// @param _amount The amount to withdraw in wei.
+    function withdraw(address _to, uint256 _amount) external;
 
     /// @notice Checks if an account has sufficient bond and hasn't requested withdrawal
     /// @param _address The address to check
@@ -95,7 +95,7 @@ interface IBondManager {
     /// @return True if the account has sufficient bond and is active
     function hasSufficientBond(
         address _address,
-        uint96 _additionalBond
+        uint256 _additionalBond
     )
         external
         view

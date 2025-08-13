@@ -35,7 +35,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     struct ProverAuth {
         uint48 proposalId; // The proposal ID this auth is for
         address proposer; // The original proposer address
-        uint48 provingFeeGwei; // Fee in Gwei that prover will receive
+        uint256 provingFee; // Fee that prover will receive
         bytes signature; // ECDSA signature from the designated prover
     }
 
@@ -46,11 +46,11 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @notice Gas limit for anchor transactions (must be enforced).
     uint64 public constant ANCHOR_GAS_LIMIT = 1_000_000;
 
-    /// @notice Bond amount in Gwei for liveness guarantees.
-    uint48 public immutable livenessBondGwei;
+    /// @notice Bond amount for liveness guarantees.
+    uint256 public immutable livenessBond;
 
-    /// @notice Bond amount in Gwei for provability guarantees.
-    uint48 public immutable provabilityBondGwei;
+    /// @notice Bond amount for provability guarantees.
+    uint256 public immutable provabilityBond;
 
     /// @notice Contract managing bond deposits, withdrawals, and transfers.
     IShastaBondManager public immutable bondManager;
@@ -58,7 +58,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @notice Contract managing synchronized L1 block data.
     ISyncedBlockManager public immutable syncedBlockManager;
 
-    uint48 public immutable lowBondProvingRewardGwei;
+    uint256 public immutable lowBondProvingReward;
 
     // ---------------------------------------------------------------
     // State variables
@@ -84,23 +84,23 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // ---------------------------------------------------------------
 
     /// @notice Initializes the ShastaAnchor contract.
-    /// @param _livenessBondGwei The liveness bond amount in Gwei.
-    /// @param _provabilityBondGwei The provability bond amount in Gwei.
+    /// @param _livenessBond The liveness bond amount.
+    /// @param _provabilityBond The provability bond amount.
     /// @param _signalService The address of the signal service.
     /// @param _pacayaForkHeight The block height at which the Pacaya fork is activated.
     /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
     /// @param _syncedBlockManager The address of the synced block manager.
     /// @param _bondManager The address of the bond manager.
-    /// @param _lowBondProvingRewardGwei The reward for proving low-bond proposals in Gwei.
+    /// @param _lowBondProvingReward The reward for proving low-bond proposals.
     constructor(
-        uint48 _livenessBondGwei,
-        uint48 _provabilityBondGwei,
+        uint256 _livenessBond,
+        uint256 _provabilityBond,
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
         ISyncedBlockManager _syncedBlockManager,
         IShastaBondManager _bondManager,
-        uint48 _lowBondProvingRewardGwei
+        uint256 _lowBondProvingReward
     )
         PacayaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
     {
@@ -108,11 +108,11 @@ abstract contract ShastaAnchor is PacayaAnchor {
             _shastaForkHeight == 0 || _shastaForkHeight > _pacayaForkHeight, InvalidForkHeight()
         );
 
-        livenessBondGwei = _livenessBondGwei;
-        provabilityBondGwei = _provabilityBondGwei;
+        livenessBond = _livenessBond;
+        provabilityBond = _provabilityBond;
         syncedBlockManager = _syncedBlockManager;
         bondManager = _bondManager;
-        lowBondProvingRewardGwei = _lowBondProvingRewardGwei;
+        lowBondProvingReward = _lowBondProvingReward;
     }
 
     // ---------------------------------------------------------------
@@ -205,9 +205,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @dev Transfers bond from one address to another
     /// @param _from The address to transfer from
     /// @param _to The address to transfer to  
-    /// @param _amount The amount to transfer in gwei
-    function _transferBond(address _from, address _to, uint96 _amount) private {
-        uint96 amountDebited = bondManager.debitBond(_from, _amount);
+    /// @param _amount The amount to transfer
+    function _transferBond(address _from, address _to, uint256 _amount) private {
+        uint256 amountDebited = bondManager.debitBond(_from, _amount);
         if (amountDebited > 0) {
             bondManager.creditBond(_to, amountDebited);
         }
@@ -215,12 +215,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
     /// @dev Returns the bond amount based on the bond type.
     /// @param _bondType The type of bond
-    /// @return The bond amount in Gwei, or 0 for NONE
-    function _getBondAmount(LibBonds.BondType _bondType) private view returns (uint48) {
+    /// @return The bond amount, or 0 for NONE
+    function _getBondAmount(LibBonds.BondType _bondType) private view returns (uint256) {
         if (_bondType == LibBonds.BondType.LIVENESS) {
-            return livenessBondGwei;
+            return livenessBond;
         } else if (_bondType == LibBonds.BondType.PROVABILITY) {
-            return provabilityBondGwei;
+            return provabilityBond;
         } else {
             // BondType.NONE
             return 0;
@@ -250,12 +250,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
         returns (bool isLowBondProposal_, address designatedProver_)
     {
         // Determine prover and fee
-        uint48 provingFeeGwei;
-        (designatedProver_, provingFeeGwei) =
+        uint256 provingFee;
+        (designatedProver_, provingFee) =
             _validateProverAuth(_proposalId, _proposer, _proverAuth);
 
         // Check bond sufficiency
-        isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFeeGwei);
+        isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFee);
 
         if (isLowBondProposal_) {
             // Low bond proposals are permisionless to prove and the reward is paid to whoever proves it
@@ -273,7 +273,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _proposer The proposer address to validate against.
     /// @param _proverAuth Encoded prover authentication data.
     /// @return signer_ The recovered signer address (proposer if validation fails).
-    /// @return provingFeeGwei_ The proving fee in Gwei (0 if validation fails).
+    /// @return provingFee_ The proving fee (0 if validation fails).
     function _validateProverAuth(
         uint48 _proposalId,
         address _proposer,
@@ -281,12 +281,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
     )
         private
         pure
-        returns (address signer_, uint48 provingFeeGwei_)
+        returns (address signer_, uint256 provingFee_)
     {
         // Check if _proverAuth has minimum required length for ProverAuth struct
-        // ProverAuth: uint48 (6) + address (20) + uint48 (6) + dynamic bytes offset (32) +
-        // bytes length (32) + minimum signature data (65) = 161 bytes minimum
-        if (_proverAuth.length < 161) {
+        // ProverAuth: uint48 (6) + address (20) + uint256 (32) + dynamic bytes offset (32) +
+        // bytes length (32) + minimum signature data (65) = 187 bytes minimum
+        if (_proverAuth.length < 187) {
             return (_proposer, 0);
         }
 
@@ -300,7 +300,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
         // Verify ECDSA signature
         bytes32 message = keccak256(
-            abi.encode(proverAuth.proposalId, proverAuth.proposer, proverAuth.provingFeeGwei)
+            abi.encode(proverAuth.proposalId, proverAuth.proposer, proverAuth.provingFee)
         );
         (address recovered, ECDSA.RecoverError error) =
             ECDSA.tryRecover(message, proverAuth.signature);
@@ -309,7 +309,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         if (error == ECDSA.RecoverError.NoError && recovered != address(0)) {
             signer_ = recovered;
             if (signer_ != _proposer) {
-                provingFeeGwei_ = proverAuth.provingFeeGwei;
+                provingFee_ = proverAuth.provingFee;
             }
         } else {
             signer_ = _proposer;
@@ -337,12 +337,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
             // Determine transfer amount and source
             address from;
-            uint96 amount;
+            uint256 amount;
             
             if (lowBondProposals[instruction.proposalId]) {
                 // For low-bond proposals, pay reward from anchor's pool
                 from = address(this);
-                amount = lowBondProvingRewardGwei;
+                amount = lowBondProvingReward;
             } else {
                 // For regular proposals, transfer bond from payer
                 from = instruction.payer;

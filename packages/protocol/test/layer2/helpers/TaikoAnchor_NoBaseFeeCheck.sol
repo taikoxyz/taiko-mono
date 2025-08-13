@@ -5,24 +5,24 @@ import "src/layer2/based/TaikoAnchor.sol";
 
 contract TaikoAnchor_NoBaseFeeCheck is TaikoAnchor {
     constructor(
-        uint48 _livenessBondGwei,
-        uint48 _provabilityBondGwei,
+        uint256 _livenessBond,
+        uint256 _provabilityBond,
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
         address _syncedBlockManager,
         address _bondManager,
-        uint48 _lowBondProvingRewardGwei
+        uint256 _lowBondProvingReward
     )
         TaikoAnchor(
-            _livenessBondGwei,
-            _provabilityBondGwei,
+            _livenessBond,
+            _provabilityBond,
             _signalService,
             _pacayaForkHeight,
             _shastaForkHeight,
             _syncedBlockManager,
             _bondManager,
-            _lowBondProvingRewardGwei
+            _lowBondProvingReward
         )
     { }
 
