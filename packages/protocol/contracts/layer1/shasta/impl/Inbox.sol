@@ -260,8 +260,19 @@ abstract contract Inbox is EssentialContract, IInbox {
         return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
     }
 
-    /// @notice Gets the capacity for unfinalized proposals.
-    /// @return _ The maximum number of unfinalized proposals that can exist.
+    /// @inheritdoc IInbox
+    function getNamedSettings(bytes32[] memory _names)
+        external
+        pure
+        returns (bytes32[] memory values_)
+    {
+        values_ = new bytes32[](_names.length);
+        for (uint256 i; i < _names.length; i++) {
+            values_[i] = _getNamedSetting(_names[i]);
+        }
+    }
+
+    /// @inheritdoc IInbox
     function getCapacity() public view returns (uint256) {
         Config memory config = getConfig();
         return _getCapacity(config);
@@ -417,6 +428,11 @@ abstract contract Inbox is EssentialContract, IInbox {
     {
         return (_proposalIds, _claimRecords);
     }
+
+    /// @dev Gets the value of a named setting.
+    /// @param _name The name of the setting.
+    /// @return value_ The value of the setting.
+    function _getNamedSetting(bytes32 _name) internal view virtual returns (bytes32 value_);
 
     // ---------------------------------------------------------------
     // Private Functions

@@ -140,4 +140,25 @@ interface IInbox {
     /// @param _data The data containing the proposals and claims to be proven.
     /// @param _proof Validity proof for the claims.
     function prove(bytes calldata _data, bytes calldata _proof) external;
+
+    // ---------------------------------------------------------------
+    // External View Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Retrieves the values of multiple settings to aid in synchronizing off-chain
+    /// software configurations.
+    /// @param _names The identifiers of the settings to retrieve.
+    /// @return values_ The corresponding values of the specified settings.
+    function getNamedSettings(bytes32[] memory _names)
+        external
+        view
+        returns (bytes32[] memory values_);
+
+    /// @notice Returns the capacity for unfinalized proposals.
+    /// @return _ The maximum number of unfinalized proposals that can exist.
+    function getCapacity() external view returns (uint256);
+
+    /// @notice Returns the configuration parameters for the Inbox contract.
+    /// @return config_ The configuration parameters.
+    function getConfig() external view returns (Config memory config_);
 }
