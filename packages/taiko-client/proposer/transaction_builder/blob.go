@@ -64,10 +64,15 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
+	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
+	to := &b.taikoWrapperAddress
+	if preconfRouterAddress != rpc.ZeroAddress {
+		to = &preconfRouterAddress
+	}
+
 	// ABI encode the TaikoWrapper.proposeBatch / ProverSet.proposeBatch parameters.
 	var (
-		to                    = &b.taikoWrapperAddress
 		proposer              = crypto.PubkeyToAddress(b.proposerPrivateKey.PublicKey)
 		data                  []byte
 		blobs                 []*eth.Blob
