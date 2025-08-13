@@ -9,7 +9,13 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title InboxInit
 /// @notice Tests for Inbox initialization functionality
-/// @dev Tests cover successful initialization, genesis block setup, and edge cases
+/// @dev This test suite covers inbox initialization scenarios:
+///      - Successful initialization with proper setup
+///      - Double initialization prevention and error handling
+///      - Proper ID initialization with starting values
+///      - Genesis configuration with different hashes
+///      - Owner validation and address verification
+/// @custom:security-contact security@taiko.xyz
 contract InboxInit is CommonTest {
     // Constants
     bytes32 internal constant GENESIS_BLOCK_HASH = bytes32(uint256(1));
@@ -18,6 +24,10 @@ contract InboxInit is CommonTest {
     event CoreStateSet(IInbox.CoreState coreState);
 
     /// @notice Test successful initialization with valid parameters
+    /// @dev Validates complete initialization process:
+    ///      1. Deploys fresh inbox implementation
+    ///      2. Initializes with valid owner and genesis hash
+    ///      3. Verifies proper core state setup and owner assignment
     function test_init_success() public {
         // Deploy a fresh inbox implementation
         TestInboxWithMockBlobs impl = new TestInboxWithMockBlobs();
@@ -55,6 +65,10 @@ contract InboxInit is CommonTest {
     }
 
     /// @notice Test that contract cannot be initialized twice
+    /// @dev Validates initialization protection mechanism:
+    ///      1. Deploys and initializes inbox once
+    ///      2. Attempts second initialization with different parameters
+    ///      3. Expects revert for double initialization protection
     function test_init_already_initialized() public {
         // Deploy and initialize an inbox
         TestInboxWithMockBlobs impl = new TestInboxWithMockBlobs();
@@ -71,6 +85,10 @@ contract InboxInit is CommonTest {
     }
 
     /// @notice Test initialization with zero address owner
+    /// @dev Validates owner validation handling:
+    ///      1. Attempts initialization with zero address as owner
+    ///      2. Verifies contract handles invalid owner gracefully
+    ///      3. Ensures owner is set to valid non-zero address
     function test_init_zero_address_owner() public {
         // Deploy a fresh inbox implementation
         TestInboxWithMockBlobs impl = new TestInboxWithMockBlobs();
@@ -89,6 +107,10 @@ contract InboxInit is CommonTest {
     }
 
     /// @notice Test initialization with different genesis block hashes
+    /// @dev Validates genesis configuration flexibility:
+    ///      1. Tests initialization with various genesis hashes (0, 1, keccak)
+    ///      2. Verifies each genesis hash is properly incorporated
+    ///      3. Ensures core state reflects correct genesis configuration
     function test_init_various_genesis_hashes() public {
         bytes32[3] memory testHashes = [bytes32(0), bytes32(uint256(1)), keccak256("genesis")];
 
@@ -122,6 +144,10 @@ contract InboxInit is CommonTest {
     }
 
     /// @notice Test that nextProposalId starts at 1
+    /// @dev Validates proper ID initialization:
+    ///      1. Initializes fresh inbox with genesis configuration
+    ///      2. Verifies nextProposalId starts at 1 (not 0)
+    ///      3. Ensures proper starting values for chain progression
     function test_init_next_proposal_id_starts_at_one() public {
         // Deploy a fresh inbox implementation
         TestInboxWithMockBlobs impl = new TestInboxWithMockBlobs();

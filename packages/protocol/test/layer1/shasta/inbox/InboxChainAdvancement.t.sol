@@ -6,7 +6,13 @@ import "./InboxMockContracts.sol";
 
 /// @title InboxChainAdvancement
 /// @notice Tests for chain advancement through finalization and state transitions
-/// @dev Tests cover finalization flow, chain continuity, and state progression
+/// @dev This test suite covers complex chain advancement scenarios:
+///      - Sequential proposal→prove→finalize flow for chain progression
+///      - Batch finalization operations for efficiency
+///      - Gap handling with missing proofs and partial finalization
+///      - Finalization count limits and bounded processing
+///      - Complex proof aggregation with bond instruction handling
+///      - Mixed processing patterns and finalization flexibility
 contract InboxChainAdvancement is InboxTest {
     using InboxTestLib for *;
 
@@ -24,51 +30,57 @@ contract InboxChainAdvancement is InboxTest {
     }
 
     /// @notice Test sequential chain advancement through finalization
+    /// @dev Validates complete end-to-end chain processing flow:
+    ///      1. Creates multiple proposals with sequential IDs
+    ///      2. Proves each proposal with proper parent claim linking
+    ///      3. Batch finalizes all proposals in one transaction
+    ///      4. Verifies state progression and claim record storage
     function test_sequential_chain_advancement() public {
+        // Setup: Prepare EIP-4844 blob environment for chain advancement
         setupBlobHashes();
         uint48 numProposals = 5;
 
-        // Get genesis hash
+        // Arrange: Get genesis claim hash as chain starting point
         IInbox.Claim memory genesisClaim;
         genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
         bytes32 genesisHash = InboxTestLib.hashClaim(genesisClaim);
 
-        // Create, prove, and finalize proposals sequentially
+        // Act: Create, prove, and prepare proposals for sequential chain advancement
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
         IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
         bytes32 currentParentHash = genesisHash;
 
         for (uint48 i = 1; i <= numProposals; i++) {
-            // Submit proposal
+            // Submit proposal with sequential ID
             proposals[i - 1] = submitProposal(i, Alice);
 
-            // Create and prove claim
+            // Create and prove claim with proper parent linking for chain continuity
             claims[i - 1] = InboxTestLib.createClaim(proposals[i - 1], currentParentHash, Bob);
             proveProposal(proposals[i - 1], Bob, currentParentHash);
 
-            // Update parent hash for next iteration
+            // Update parent hash for next iteration (chain progression)
             currentParentHash = InboxTestLib.hashClaim(claims[i - 1]);
         }
 
-        // Finalize all proposals in batch at the end (simpler approach)
+        // Act: Finalize all proposals in batch (efficient finalization approach)
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
             claimRecords[i] = InboxTestLib.createClaimRecord(claims[i], 1);
         }
 
-        // Setup core state for finalization
+        // Arrange: Setup core state for batch finalization
         IInbox.CoreState memory coreState =
             InboxTestLib.createCoreState(numProposals + 1, 0, genesisHash, bytes32(0));
         inbox.exposed_setCoreStateHash(InboxTestLib.hashCoreState(coreState));
 
-        // Expect final block update
+        // Expect: Final block update to synced block manager (chain progression)
         expectSyncedBlockSave(
             claims[numProposals - 1].endBlockNumber,
             claims[numProposals - 1].endBlockHash,
             claims[numProposals - 1].endStateRoot
         );
 
-        // Submit finalization
+        // Act: Submit finalization through new proposal with claim records
         setupProposalMocks(Carol);
         setupBlobHashes();
         vm.prank(Carol);
@@ -79,61 +91,67 @@ contract InboxChainAdvancement is InboxTest {
             )
         );
 
-        // Verify all proposals and claim records are stored
+        // Assert: Verify all proposals and claim records are stored correctly
         assertProposalsStored(1, numProposals);
         bytes32 expectedParent = genesisHash;
         for (uint48 i = 1; i <= numProposals; i++) {
             assertClaimRecordStored(i, expectedParent);
-            expectedParent = InboxTestLib.hashClaim(claims[i - 1]);
+            expectedParent = InboxTestLib.hashClaim(claims[i - 1]); // Chain progression validation
         }
     }
 
     /// @notice Test batch finalization of multiple proposals
+    /// @dev Validates efficient batch processing for multiple proven proposals:
+    ///      1. Submits and proves all proposals independently first
+    ///      2. Batch finalizes all proposals in one efficient transaction
+    ///      3. Verifies final state updates and block synchronization
+    ///      4. Demonstrates optimal finalization pattern for gas efficiency
     function test_batch_finalization() public {
+        // Setup: Prepare environment for batch finalization testing
         setupBlobHashes();
         uint48 numProposals = 5;
 
-        // Get genesis hash
+        // Arrange: Get genesis claim hash as chain foundation
         IInbox.Claim memory genesisClaim;
         genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
         bytes32 genesisHash = InboxTestLib.hashClaim(genesisClaim);
 
-        // Submit and prove all proposals first
+        // Act: Submit and prove all proposals independently (prepare for batch finalization)
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
         IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
         bytes32 currentParentHash = genesisHash;
 
         for (uint48 i = 1; i <= numProposals; i++) {
-            // Submit proposal
+            // Submit proposal with sequential ID
             proposals[i - 1] = submitProposal(i, Alice);
 
-            // Create and prove claim
+            // Create and prove claim with parent chaining
             claims[i - 1] = InboxTestLib.createClaim(proposals[i - 1], currentParentHash, Bob);
             proveProposal(proposals[i - 1], Bob, currentParentHash);
 
-            // Update parent hash for next iteration
+            // Update parent hash for chain continuity
             currentParentHash = InboxTestLib.hashClaim(claims[i - 1]);
         }
 
-        // Batch finalize all proposals in one transaction
+        // Act: Batch finalize all proposals in one efficient transaction
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
             claimRecords[i] = InboxTestLib.createClaimRecord(claims[i], 1);
         }
 
-        // Setup core state for batch finalization
+        // Arrange: Setup core state for efficient batch finalization
         IInbox.CoreState memory coreState =
             InboxTestLib.createCoreState(numProposals + 1, 0, genesisHash, bytes32(0));
         inbox.exposed_setCoreStateHash(InboxTestLib.hashCoreState(coreState));
 
-        // Expect final block update
+        // Expect: Final block update for batch completion
         expectSyncedBlockSave(
             claims[numProposals - 1].endBlockNumber,
             claims[numProposals - 1].endBlockHash,
             claims[numProposals - 1].endStateRoot
         );
 
-        // Submit batch finalization
+        // Act: Submit batch finalization proposal
         setupProposalMocks(Carol);
         setupBlobHashes();
         vm.prank(Carol);
@@ -146,13 +164,19 @@ contract InboxChainAdvancement is InboxTest {
     }
 
     /// @notice Test chain advancement with gaps (missing proofs)
+    /// @dev Validates partial finalization when proofs are missing:
+    ///      1. Creates 5 proposals but proves only 1,2,4,5 (skips 3)
+    ///      2. Attempts finalization and expects stopping at missing proof
+    ///      3. Verifies only proven consecutive proposals are finalized
+    ///      4. Demonstrates gap handling and partial chain advancement
     function test_chain_advancement_with_gaps() public {
+        // Setup: Prepare environment for gap handling testing
         setupBlobHashes();
         IInbox.Claim memory genesisClaim;
         genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
         bytes32 parentHash = keccak256(abi.encode(genesisClaim));
 
-        // Create 5 proposals
+        // Act: Create 5 proposals (will prove only 1,2,4,5 to create gap at 3)
         for (uint48 i = 1; i <= 5; i++) {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
@@ -228,7 +252,7 @@ contract InboxChainAdvancement is InboxTest {
             }
         }
 
-        // Try to finalize - should only finalize 1 and 2 (3 is missing)
+        // Act: Attempt finalization - should only finalize 1 and 2 (3 is missing, creates gap)
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](2);
         for (uint48 i = 0; i < 2; i++) {
             claimRecords[i] = IInbox.ClaimRecord({
@@ -260,7 +284,7 @@ contract InboxChainAdvancement is InboxTest {
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
 
-        // Proposals 1 and 2 should be finalized, 3-5 remain unfinalized
+        // Assert: Proposals 1 and 2 should be finalized, 3-5 remain unfinalized due to gap
     }
 
     /// @notice Test max finalization count limit
@@ -388,15 +412,21 @@ contract InboxChainAdvancement is InboxTest {
     }
 
     /// @notice Test that max finalization count is enforced
+    /// @dev Validates finalization count limits for DoS protection:
+    ///      1. Creates more proposals than maxFinalizationCount (15 > 10)
+    ///      2. Attempts to finalize all proposals in one transaction
+    ///      3. Verifies only maxFinalizationCount proposals are finalized
+    ///      4. Ensures bounded processing prevents excessive gas usage
     function test_max_finalization_count_limit() public {
+        // Setup: Prepare environment for finalization limit testing
         setupBlobHashes();
-        uint48 numProposals = 15; // More than maxFinalizationCount (10)
+        uint48 numProposals = 15; // More than maxFinalizationCount (10) to test limits
 
         IInbox.Claim memory genesisClaim;
         genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
         bytes32 parentHash = keccak256(abi.encode(genesisClaim));
 
-        // Create and prove all proposals
+        // Act: Create and prove all proposals (exceeds finalization limit)
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
         IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
 
@@ -405,7 +435,7 @@ contract InboxChainAdvancement is InboxTest {
             parentHash = keccak256(abi.encode(claims[i - 1]));
         }
 
-        // Try to finalize all at once (should only finalize up to maxFinalizationCount)
+        // Act: Try to finalize all at once (should only finalize up to maxFinalizationCount)
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
             claimRecords[i] = IInbox.ClaimRecord({
@@ -432,7 +462,7 @@ contract InboxChainAdvancement is InboxTest {
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
 
-        // Verify that only maxFinalizationCount proposals were finalized
+        // Assert: Verify that only maxFinalizationCount proposals were finalized
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: numProposals + 2,
             lastFinalizedProposalId: uint48(defaultConfig.maxFinalizationCount),

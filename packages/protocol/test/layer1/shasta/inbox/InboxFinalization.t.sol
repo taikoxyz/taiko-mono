@@ -8,7 +8,12 @@ import "./InboxMockContracts.sol";
 /// @title InboxFinalization
 /// @notice Tests for proposal finalization functionality including chain validation and state
 /// updates
-/// @dev Tests cover finalization scenarios without testing bond operations
+/// @dev This test suite covers proposal finalization scenarios:
+///      - Single proposal finalization with state updates
+///      - Multiple proposal batch finalization
+///      - Missing claim handling and partial finalization
+///      - Invalid claim hash rejection and error handling
+/// @custom:security-contact security@taiko.xyz
 contract InboxFinalization is InboxTest {
     using InboxTestLib for *;
     // Override setupMockAddresses to use actual mock contracts instead of makeAddr
@@ -21,6 +26,10 @@ contract InboxFinalization is InboxTest {
         proposerChecker = address(new StubProposerChecker());
     }
     /// @notice Test finalizing a single proposal
+    /// @dev Validates complete single proposal finalization flow:
+    ///      1. Creates and stores proposal with valid claim record
+    ///      2. Triggers finalization through new proposal submission
+    ///      3. Verifies synced block manager update and state progression
 
     function test_finalize_single_proposal() public {
         setupBlobHashes();
@@ -66,6 +75,10 @@ contract InboxFinalization is InboxTest {
     }
 
     /// @notice Test finalizing multiple proposals in sequence
+    /// @dev Validates batch finalization of multiple proposals:
+    ///      1. Submits and proves multiple proposals with linked claims
+    ///      2. Batch finalizes all proposals in one transaction
+    ///      3. Verifies final state consistency and claim hash progression
     function test_finalize_multiple_proposals() public {
         setupBlobHashes();
         uint48 numProposals = 3;
@@ -115,6 +128,10 @@ contract InboxFinalization is InboxTest {
     }
 
     /// @notice Test finalization stops at missing claim record
+    /// @dev Validates partial finalization when claim records are missing:
+    ///      1. Creates proposals with only first having claim record
+    ///      2. Attempts finalization and expects stopping at missing claim
+    ///      3. Verifies only proven consecutive proposals are finalized
     function test_finalize_stops_at_missing_claim() public {
         // Setup blobhashes for this specific test
         setupBlobHashes();
@@ -170,6 +187,10 @@ contract InboxFinalization is InboxTest {
     }
 
     /// @notice Test finalization with invalid claim record hash
+    /// @dev Validates claim record integrity protection:
+    ///      1. Stores correct claim record in contract storage
+    ///      2. Submits modified claim record for finalization
+    ///      3. Expects ClaimRecordHashMismatch error for security
     function test_finalize_invalid_claim_hash() public {
         setupBlobHashes();
         // Setup: Create and store a proposal with claim

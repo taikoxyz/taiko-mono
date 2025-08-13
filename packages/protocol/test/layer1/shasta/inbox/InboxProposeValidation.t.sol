@@ -12,7 +12,14 @@ import {
 
 /// @title InboxProposeValidation
 /// @notice Tests for proposal validation logic including deadlines, state checks, and constraints
-/// @dev Tests cover all validation aspects of the propose function
+/// @dev This test suite covers comprehensive proposal validation:
+///      - Deadline validation (valid, expired, none)
+///      - Core state hash validation and security
+///      - Proposer authorization and access control
+///      - Blob reference validation and bounds checking
+///      - Forced inclusion processing and special cases
+///      - Ring buffer capacity limits and enforcement
+///      - Error handling for all validation failures
 /// @custom:security-contact security@taiko.xyz
 contract InboxProposeValidation is InboxTest {
     using InboxTestLib for *;
@@ -27,88 +34,115 @@ contract InboxProposeValidation is InboxTest {
     }
 
     /// @notice Test proposal with valid deadline
+    /// @dev Validates successful proposal submission with future deadline:
+    ///      1. Sets up EIP-4844 blob environment
+    ///      2. Creates core state with genesis claim hash
+    ///      3. Submits proposal with deadline 1 hour in the future
+    ///      4. Verifies successful storage without time-based rejection
     function test_propose_with_valid_deadline() public {
+        // Setup: Prepare EIP-4844 blob environment for proposal submission
         setupBlobHashes();
 
-        // Setup core state with genesis
+        // Arrange: Setup core state with genesis claim hash for chain continuity
         bytes32 genesisHash = getGenesisClaimHash();
         IInbox.CoreState memory coreState =
             InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
         inbox.exposed_setCoreStateHash(InboxTestLib.hashCoreState(coreState));
 
-        // Setup mocks and create proposal with future deadline
+        // Arrange: Configure mocks and create proposal with valid future deadline
         setupProposalMocks(Alice);
-        uint64 deadline = uint64(block.timestamp + 1 hours);
+        uint64 deadline = uint64(block.timestamp + 1 hours); // Valid deadline (1 hour future)
 
         bytes memory data = InboxTestLib.encodeProposalData(
             deadline, coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
 
+        // Act: Submit proposal with valid deadline
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
 
-        // Verify proposal was created
+        // Assert: Verify proposal was accepted and stored successfully
         assertProposalStored(1);
     }
 
     /// @notice Test proposal with expired deadline
+    /// @dev Validates deadline enforcement mechanism for security:
+    ///      1. Advances blockchain time to create temporal context
+    ///      2. Creates proposal with past deadline (timestamp - 1)
+    ///      3. Expects DeadlineExceeded error for time-based protection
+    ///      4. Ensures stale proposals cannot be submitted maliciously
     function test_propose_with_expired_deadline() public {
+        // Setup: Prepare environment and advance time to create context
         setupBlobHashes();
-        vm.warp(1000);
+        vm.warp(1000); // Set block.timestamp = 1000
 
-        // Setup core state
+        // Arrange: Setup core state for proposal submission
         bytes32 genesisHash = getGenesisClaimHash();
         IInbox.CoreState memory coreState =
             InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
         inbox.exposed_setCoreStateHash(InboxTestLib.hashCoreState(coreState));
 
-        // Create proposal with expired deadline
+        // Arrange: Create proposal with expired deadline (security test)
         setupProposalMocks(Alice);
-        uint64 deadline = uint64(block.timestamp - 1);
+        uint64 deadline = uint64(block.timestamp - 1); // Expired by 1 second
 
         bytes memory data = InboxTestLib.encodeProposalData(
             deadline, coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
 
+        // Act & Assert: Submission should fail with DeadlineExceeded error
         vm.expectRevert(DeadlineExceeded.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }
 
     /// @notice Test proposal with zero deadline (no deadline)
+    /// @dev Validates optional deadline handling for flexibility:
+    ///      1. Creates proposal with deadline = 0 (no time constraint)
+    ///      2. Verifies that zero deadline bypasses time validation
+    ///      3. Ensures successful submission without temporal restrictions
+    ///      4. Tests the optional nature of deadline enforcement
     function test_propose_with_no_deadline() public {
+        // Setup: Prepare EIP-4844 blob environment
         setupBlobHashes();
 
-        // Setup core state
+        // Arrange: Setup core state for proposal submission
         bytes32 genesisHash = getGenesisClaimHash();
         IInbox.CoreState memory coreState =
             InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
         inbox.exposed_setCoreStateHash(InboxTestLib.hashCoreState(coreState));
 
-        // Create proposal with no deadline (deadline = 0)
+        // Arrange: Create proposal with no deadline (deadline = 0)
         setupProposalMocks(Alice);
 
         bytes memory data = InboxTestLib.encodeProposalData(
             coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
 
+        // Act: Submit proposal without deadline constraint
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
 
-        // Should succeed with no deadline
+        // Assert: Should succeed with no deadline validation
         assertProposalStored(1);
     }
 
     /// @notice Test proposal with invalid core state hash
+    /// @dev Validates core state integrity protection against attacks:
+    ///      1. Sets correct core state in contract storage
+    ///      2. Attempts submission with mismatched core state
+    ///      3. Expects InvalidState error for security protection
+    ///      4. Prevents state desynchronization and replay attacks
     function test_propose_with_invalid_state_hash() public {
+        // Setup: Establish baseline for state integrity testing
         bytes32 genesisHash = getGenesisClaimHash();
 
-        // Set correct core state in storage
+        // Arrange: Set correct core state in contract storage (nextProposalId=1)
         IInbox.CoreState memory actualCoreState =
             InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
         inbox.exposed_setCoreStateHash(InboxTestLib.hashCoreState(actualCoreState));
 
-        // But provide different core state in proposal
+        // Arrange: Create proposal with mismatched core state (attack simulation)
         IInbox.CoreState memory wrongCoreState =
             InboxTestLib.createCoreState(2, 0, genesisHash, bytes32(0)); // Wrong nextProposalId
 
@@ -119,13 +153,20 @@ contract InboxProposeValidation is InboxTest {
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
         bytes memory data = abi.encode(uint64(0), wrongCoreState, blobRef, claimRecords);
 
+        // Act & Assert: Invalid state should be rejected with InvalidState error
         vm.expectRevert(InvalidState.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }
 
     /// @notice Test proposal from unauthorized proposer
+    /// @dev Validates access control and authorization mechanism:
+    ///      1. Sets up valid proposal data and core state
+    ///      2. Configures mock to reject proposer (Bob) authorization
+    ///      3. Expects revert when unauthorized proposer attempts submission
+    ///      4. Ensures only authorized proposers can submit proposals
     function test_propose_unauthorized_proposer() public {
+        // Setup: Create valid genesis claim and core state structure
         IInbox.Claim memory genesisClaim;
         genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisClaim));
@@ -138,7 +179,7 @@ contract InboxProposeValidation is InboxTest {
         });
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
 
-        // Mock proposer not allowed
+        // Arrange: Mock proposer checker to reject Bob's authorization
         vm.mockCallRevert(
             proposerChecker,
             abi.encodeWithSelector(IProposerChecker.checkProposer.selector, Bob),
@@ -146,17 +187,25 @@ contract InboxProposeValidation is InboxTest {
         );
         mockForcedInclusionDue(false);
 
+        // Arrange: Create valid proposal data (everything valid except authorization)
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(1);
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
         bytes memory data = abi.encode(uint64(0), coreState, blobRef, claimRecords);
 
+        // Act & Assert: Unauthorized proposer should be rejected
         vm.expectRevert();
         vm.prank(Bob);
         inbox.propose(bytes(""), data);
     }
 
     /// @notice Test proposal with forced inclusion
+    /// @dev Validates forced inclusion mechanism for censorship resistance:
+    ///      1. Configures forced inclusion as due/required
+    ///      2. Mocks consumption of oldest forced inclusion with fee data
+    ///      3. Submits regular proposal triggering forced inclusion processing
+    ///      4. Verifies both forced and regular proposals are created correctly
     function test_propose_with_forced_inclusion() public {
+        // Setup: Prepare EIP-4844 blob environment for forced inclusion testing
         setupBlobHashes();
         IInbox.Claim memory genesisClaim;
         genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
@@ -170,18 +219,19 @@ contract InboxProposeValidation is InboxTest {
         });
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
 
+        // Arrange: Configure Alice as authorized proposer
         mockProposerAllowed(Alice);
 
-        // Mock forced inclusion is due
+        // Arrange: Mock that forced inclusion is due (censorship resistance trigger)
         mockForcedInclusionDue(true);
 
-        // Mock consuming forced inclusion
+        // Arrange: Mock consumption of oldest forced inclusion (fee-paying transaction)
         bytes32[] memory blobHashes = new bytes32[](1);
         blobHashes[0] = keccak256(abi.encode("forced_blob", 0));
 
         IForcedInclusionStore.ForcedInclusion memory forcedInclusion = IForcedInclusionStore
             .ForcedInclusion({
-            feeInGwei: 10,
+            feeInGwei: 10, // Fee paid for forced inclusion
             blobSlice: LibBlobs.BlobSlice({
                 blobHashes: blobHashes,
                 offset: 0,
@@ -197,12 +247,12 @@ contract InboxProposeValidation is InboxTest {
             abi.encode(forcedInclusion)
         );
 
-        // Regular proposal data
+        // Arrange: Create regular proposal data (will trigger forced inclusion processing)
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(2);
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
         bytes memory data = abi.encode(uint64(0), coreState, blobRef, claimRecords);
 
-        // Expect two Proposed events - one for forced, one for regular
+        // Expect: Two Proposed events - one for forced inclusion, one for regular proposal
         vm.expectEmit(false, false, false, false);
         emit Proposed(
             IInbox.Proposal({
@@ -210,36 +260,43 @@ contract InboxProposeValidation is InboxTest {
                 proposer: Alice,
                 originTimestamp: uint48(block.timestamp),
                 originBlockNumber: uint48(block.number),
-                isForcedInclusion: true,
+                isForcedInclusion: true, // Forced inclusion proposal
                 basefeeSharingPctg: defaultConfig.basefeeSharingPctg,
                 blobSlice: forcedInclusion.blobSlice
             }),
             coreState
         );
 
+        // Act: Submit proposal triggering forced inclusion processing
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
 
-        // Verify both proposals were created
-        bytes32 storedHash1 = inbox.getProposalHash(1);
-        bytes32 storedHash2 = inbox.getProposalHash(2);
+        // Assert: Verify both forced and regular proposals were created successfully
+        bytes32 storedHash1 = inbox.getProposalHash(1); // Forced inclusion proposal
+        bytes32 storedHash2 = inbox.getProposalHash(2); // Regular proposal
         assertTrue(storedHash1 != bytes32(0));
         assertTrue(storedHash2 != bytes32(0));
     }
 
     /// @notice Test proposal exceeding unfinalized capacity
+    /// @dev Validates ring buffer capacity enforcement for DoS protection:
+    ///      1. Configures small ring buffer size (capacity = 2)
+    ///      2. Fills capacity with valid proposals
+    ///      3. Attempts to exceed capacity with third proposal
+    ///      4. Expects ExceedsUnfinalizedProposalCapacity error for protection
     function test_propose_exceeds_capacity() public {
+        // Setup: Prepare environment with limited ring buffer capacity
         setupBlobHashes();
-        // Set small ring buffer size
+        // Configure small ring buffer size for capacity testing
         IInbox.Config memory config = defaultConfig;
-        config.ringBufferSize = 3; // Capacity = 2
+        config.ringBufferSize = 3; // Capacity = ringBufferSize - 1 = 2
         inbox.setTestConfig(config);
 
         IInbox.Claim memory genesisClaim;
         genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisClaim));
 
-        // Create 2 proposals (fills capacity)
+        // Act: Create 2 proposals to fill available capacity
         for (uint48 i = 1; i <= 2; i++) {
             IInbox.CoreState memory coreState = IInbox.CoreState({
                 nextProposalId: i,
@@ -260,7 +317,7 @@ contract InboxProposeValidation is InboxTest {
             inbox.propose(bytes(""), data);
         }
 
-        // Try to add 3rd proposal (exceeds capacity)
+        // Act & Assert: Attempt to add 3rd proposal (exceeds capacity)
         IInbox.CoreState memory coreState3 = IInbox.CoreState({
             nextProposalId: 3,
             lastFinalizedProposalId: 0,
@@ -276,13 +333,20 @@ contract InboxProposeValidation is InboxTest {
         IInbox.ClaimRecord[] memory claimRecords3 = new IInbox.ClaimRecord[](0);
         bytes memory data3 = abi.encode(uint64(0), coreState3, blobRef3, claimRecords3);
 
+        // Expect capacity exceeded error for DoS protection
         vm.expectRevert(ExceedsUnfinalizedProposalCapacity.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data3);
     }
 
     /// @notice Test proposal with invalid blob reference
+    /// @dev Validates blob reference validation for data integrity:
+    ///      1. Creates proposal with invalid blob reference (numBlobs = 0)
+    ///      2. Expects InvalidBlobReference error for malformed data
+    ///      3. Ensures only valid blob references are accepted
+    ///      4. Protects against invalid EIP-4844 blob data
     function test_propose_invalid_blob_reference() public {
+        // Setup: Create baseline state for blob reference validation
         IInbox.Claim memory genesisClaim;
         genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisClaim));
@@ -295,26 +359,34 @@ contract InboxProposeValidation is InboxTest {
         });
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
 
+        // Arrange: Configure valid authorization and forced inclusion state
         mockProposerAllowed(Alice);
         mockForcedInclusionDue(false);
 
-        // Invalid blob reference with numBlobs = 0
+        // Arrange: Create invalid blob reference (numBlobs = 0 violates EIP-4844)
         LibBlobs.BlobReference memory invalidBlobRef = LibBlobs.BlobReference({
             blobStartIndex: 0,
-            numBlobs: 0, // Invalid!
+            numBlobs: 0, // Invalid! Must be > 0 for valid blob reference
             offset: 0
         });
 
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
         bytes memory data = abi.encode(uint64(0), coreState, invalidBlobRef, claimRecords);
 
+        // Act & Assert: Invalid blob reference should be rejected
         vm.expectRevert(LibBlobs.InvalidBlobReference.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }
 
     /// @notice Test proposal with blob not found
+    /// @dev Validates blob existence checking for data availability:
+    ///      1. Creates proposal referencing non-existent blob (index 100)
+    ///      2. Expects BlobNotFound error for missing blob data
+    ///      3. Ensures blob data availability before proposal acceptance
+    ///      4. Protects against references to unavailable EIP-4844 blobs
     function test_propose_blob_not_found() public {
+        // Setup: Create baseline state for blob availability testing
         IInbox.Claim memory genesisClaim;
         genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisClaim));
@@ -327,12 +399,13 @@ contract InboxProposeValidation is InboxTest {
         });
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
 
+        // Arrange: Configure valid authorization (everything valid except blob availability)
         mockProposerAllowed(Alice);
         mockForcedInclusionDue(false);
 
-        // Reference a blob that doesn't exist (index 100)
+        // Arrange: Reference a blob that doesn't exist (index 100 is empty in our setup)
         LibBlobs.BlobReference memory blobRef = LibBlobs.BlobReference({
-            blobStartIndex: 100, // Doesn't exist in our setup
+            blobStartIndex: 100, // Intentionally empty in setupBlobHashes()
             numBlobs: 1,
             offset: 0
         });
@@ -340,21 +413,27 @@ contract InboxProposeValidation is InboxTest {
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
         bytes memory data = abi.encode(uint64(0), coreState, blobRef, claimRecords);
 
+        // Act & Assert: Missing blob should be rejected for data availability
         vm.expectRevert(LibBlobs.BlobNotFound.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }
 
-    // Override setupBlobHashes to support custom test cases
+    /// @dev Override setupBlobHashes to support custom test scenarios
+    /// @notice Configures EIP-4844 blob hashes for validation testing:
+    ///         - Indices 0-9: Valid blob hashes for normal testing
+    ///         - Index 100: Empty (bytes32(0)) for testing blob not found
+    ///         - Other indices: Uninitialized for boundary testing
     function setupBlobHashes() internal override {
         bytes32[] memory hashes = new bytes32[](256);
         for (uint256 i = 0; i < 256; i++) {
             if (i < 10) {
-                hashes[i] = keccak256(abi.encode("blob", i));
+                hashes[i] = keccak256(abi.encode("blob", i)); // Valid blob hashes for testing
             } else if (i == 100) {
-                // Leave index 100 empty for testing blob not found
+                // Intentionally leave index 100 empty for testing blob not found
                 hashes[i] = bytes32(0);
             }
+            // Other indices remain uninitialized (bytes32(0)) for boundary testing
         }
         vm.blobhashes(hashes);
     }

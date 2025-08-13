@@ -15,7 +15,13 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title InboxRingBuffer
 /// @notice Tests for ring buffer mechanics and capacity management
-/// @dev Tests cover ring buffer operations, wraparound behavior, and capacity constraints
+/// @dev This test suite covers ring buffer functionality for proposal storage:
+///      - Basic read/write operations and data integrity
+///      - Circular buffer wraparound behavior and slot reuse
+///      - Capacity calculations and boundary conditions
+///      - Modulo operations for indexing and overflow handling
+///      - Protection of unfinalized proposals from overwrite
+/// @custom:security-contact security@taiko.xyz
 contract InboxRingBuffer is CommonTest {
     TestInboxWithMockBlobs internal inbox;
 
@@ -69,6 +75,10 @@ contract InboxRingBuffer is CommonTest {
     }
 
     /// @notice Test basic ring buffer write and read operations
+    /// @dev Validates fundamental ring buffer data integrity:
+    ///      1. Writes multiple proposal hashes to sequential slots
+    ///      2. Reads back all stored hashes for verification
+    ///      3. Ensures data consistency and proper storage/retrieval
     function test_ring_buffer_write_read() public {
         uint48 numProposals = 10;
         bytes32[] memory proposalHashes = new bytes32[](numProposals);
@@ -88,6 +98,10 @@ contract InboxRingBuffer is CommonTest {
     }
 
     /// @notice Test ring buffer modulo arithmetic
+    /// @dev Validates modulo-based slot indexing for circular buffer:
+    ///      1. Configures small ring buffer (size 5) for testing
+    ///      2. Tests proposals mapping to same slot via modulo arithmetic
+    ///      3. Verifies slot overwriting behavior for ID collisions
     function test_ring_buffer_modulo() public {
         // Set small ring buffer size for testing
         IInbox.Config memory config = IInbox.Config({
@@ -130,6 +144,10 @@ contract InboxRingBuffer is CommonTest {
     }
 
     /// @notice Test ring buffer wraparound behavior
+    /// @dev Validates circular buffer wraparound and slot reuse:
+    ///      1. Fills entire ring buffer with initial proposals
+    ///      2. Adds new proposals causing wraparound to beginning
+    ///      3. Verifies old data is properly overwritten by new data
     function test_ring_buffer_wraparound() public {
         // Set small ring buffer size
         IInbox.Config memory config = IInbox.Config({
@@ -176,6 +194,10 @@ contract InboxRingBuffer is CommonTest {
     }
 
     /// @notice Test ring buffer capacity calculation
+    /// @dev Validates capacity calculation formula (bufferSize - 1):
+    ///      1. Tests various buffer sizes (10, 100, 1000, 5)
+    ///      2. Verifies capacity is always one less than buffer size
+    ///      3. Ensures consistent calculation across different sizes
     function test_ring_buffer_capacity_calculation() public {
         uint256[] memory bufferSizes = new uint256[](4);
         bufferSizes[0] = 10;
@@ -204,6 +226,10 @@ contract InboxRingBuffer is CommonTest {
     }
 
     /// @notice Test protection of unfinalized proposals from overwrite
+    /// @dev Validates capacity enforcement for data safety:
+    ///      1. Fills ring buffer capacity with unfinalized proposals
+    ///      2. Attempts to add beyond capacity limit
+    ///      3. Expects ExceedsUnfinalizedProposalCapacity error for protection
     function test_ring_buffer_protect_unfinalized() public {
         // Set small buffer
         IInbox.Config memory config = IInbox.Config({

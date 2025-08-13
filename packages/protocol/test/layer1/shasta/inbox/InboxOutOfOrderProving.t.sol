@@ -6,7 +6,11 @@ import "./InboxMockContracts.sol";
 
 /// @title InboxOutOfOrderProving
 /// @notice Tests for out-of-order proving and eventual chain advancement
-/// @dev Verifies that proposals can be proven in any order but finalization respects sequence
+/// @dev This test suite covers out-of-order proving scenarios:
+///      - Proving proposals in reverse order with eventual finalization
+///      - Finalization dependency on proof completeness
+///      - Chain continuity requirements and sequential validation
+/// @custom:security-contact security@taiko.xyz
 contract InboxOutOfOrderProving is InboxTest {
     using InboxTestLib for *;
 
@@ -24,6 +28,11 @@ contract InboxOutOfOrderProving is InboxTest {
     }
 
     /// @notice Test proving proposals out of order with eventual finalization
+    /// @dev Validates that proposals can be proven in any order but finalize sequentially:
+    ///      1. Creates multiple proposals in forward order (1,2,3)
+    ///      2. Proves proposals in reverse order (3,2,1)
+    ///      3. Finalizes all proposals in correct sequential order
+    ///      4. Verifies proper chain advancement despite out-of-order proving
     function test_prove_out_of_order_then_finalize() public {
         setupBlobHashes();
         uint48 numProposals = 3;
@@ -161,6 +170,11 @@ contract InboxOutOfOrderProving is InboxTest {
     }
 
     /// @notice Test that unproven proposals block finalization
+    /// @dev Validates finalization dependency on complete proof chain:
+    ///      1. Creates multiple proposals (1,2,3)
+    ///      2. Proves only some proposals (1,3) leaving gap at 2
+    ///      3. Attempts finalization and expects stopping at missing proof
+    ///      4. Verifies proof requirement enforcement for chain continuity
     function test_unproven_proposals_block_finalization() public {
         setupBlobHashes();
         // Create genesis claim
