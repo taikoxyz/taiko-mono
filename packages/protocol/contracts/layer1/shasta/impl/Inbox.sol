@@ -163,10 +163,10 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         ClaimRecord[] memory claimRecords = _buildClaimRecords(config, proposals, claims);
 
-        for (uint256 i; i < proposals.length; ++i) {
+        for (uint256 i; i < claimRecords.length; ++i) {
             _setClaimRecordHash(
                 config,
-                proposals[i].id,
+                claimRecords[i].claim.proposalId,
                 claimRecords[i].claim.parentClaimHash,
                 keccak256(abi.encode(claimRecords[i]))
             );
