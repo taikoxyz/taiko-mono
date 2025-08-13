@@ -76,14 +76,14 @@ struct Proposal {
 
 The following metadata fields are directly extracted from the `proposal` object:
 
-| Metadata Field              | Value Assignment                |
-| --------------------------- | ------------------------------- |
-| metadata.id                 | `= proposal.id`                 |
-| metadata.proposer           | `= proposal.proposer`           |
-| metadata.originTimestamp    | `= proposal.originTimestamp`    |
-| metadata.originBlockNumber  | `= proposal.originBlockNumber`  |
-| metadata.basefeeSharingPctg | `= proposal.basefeeSharingPctg` |
-| metadata.isForcedInclusion  | `= proposal.isForcedInclusion`  |
+| Metadata Field               | Value Assignment                 |
+|------------------------------|----------------------------------|
+| `metadata.id`                | `proposal.id`                    |
+| `metadata.proposer`          | `proposal.proposer`              |
+| `metadata.originTimestamp`   | `proposal.originTimestamp`       |
+| `metadata.originBlockNumber` | `proposal.originBlockNumber`     |
+| `metadata.basefeeSharingPctg`| `proposal.basefeeSharingPctg`    |
+| `metadata.isForcedInclusion` | `proposal.isForcedInclusion`     |
 
 The `blobSlice` field serves as the primary mechanism for locating and validating the proposal's manifest. The manifest structure is defined as follows:
 
@@ -204,9 +204,9 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 
 **Invalidation conditions** (sets `anchorBlockNumber` to `parent.metadata.anchorBlockNumber`):
 
-- Non-monotonic progression: `manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber`
-- Future reference: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber`
-- Excessive lag: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET`
+- **Non-monotonic progression**: `manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber`
+- **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber`
+- **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET`
 
 **Forced inclusion protection**: For non-forced proposals (`proposal.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire manifest is replaced with the default manifest, penalizing proposals that fail to provide proper L1 anchoring.
 
@@ -221,20 +221,9 @@ The anchor hash and state root must maintain consistency with the anchor block n
 
 The L2 coinbase address determination follows a hierarchical priority system:
 
-```solidity
-function assignCoinbase() {
-    if (metadata.isForcedInclusion) {
-        // Forced inclusions always reward the proposer
-        metadata.coinbase = proposal.proposer;
-    } else {
-        // Use manifest-specified coinbase, falling back to proposer
-        metadata.coinbase = manifest.blocks[i].coinbase;
-        if (metadata.coinbase == address(0)) {
-            metadata.coinbase = proposal.proposer;
-        }
-    }
-}
-```
+1. **Forced inclusions**: Always use `proposal.proposer`
+2. **Regular proposals**: Use `manifest.blocks[i].coinbase` if non-zero
+3. **Fallback**: Use `proposal.proposer` if manifest coinbase is `address(0)`
 
 #### `gasLimit` Validation
 
@@ -293,16 +282,16 @@ The system evaluates bond adequacy through multiple checks:
 
 The final prover assignment follows a hierarchical fallback mechanism:
 
-```
+```solidity
 if (isLowBondProposal) {
     // Inherit the parent block's designated prover
-    designatedProver = parent.metadata.designatedProver
+    designatedProver = parent.metadata.designatedProver;
 } else if (designatedProver != proposer && !hasSufficientBond(designatedProver)) {
     // Fallback to proposer if designated prover lacks bonds
-    designatedProver = proposer
+    designatedProver = proposer;
 } else {
     // Use the authenticated prover
-    designatedProver = authenticatedProver
+    designatedProver = authenticatedProver;
 }
 ```
 
@@ -338,18 +327,18 @@ Several enhancements are under consideration to address current limitations:
 - **Alternative Finality**: Explore mechanisms that ensure chain progress without overburdening individual provers
 
 
-#### Additional Metadata Fields
+### Additional Metadata Fields
 
 The remaining metadata fields follow straightforward assignment patterns:
 
 | Metadata Field             | Value Assignment                                                  |
-| -------------------------- | ----------------------------------------------------------------- |
-| `metadata.index`           | `parent.metadata.index + 1` (abbreviated as `i`)                  |
-| `metadata.number`          | `parent.metadata.number + 1`                                      |
+|----------------------------|-------------------------------------------------------------------|
+| `metadata.index`           | `parent.metadata.index + 1` (abbreviated as `i`)                 |
+| `metadata.number`          | `parent.metadata.number + 1`                                     |
 | `metadata.difficulty`      | `keccak(abi.encode(parent.metadata.difficulty, metadata.number))` |
-| `metadata.numBlocks`       | `manifest.blocks.length` (post-validation)                        |
-| `metadata.proverAuthBytes` | `manifest.proverAuthBytes`                                        |
-| `metadata.transactions`    | `manifest.blocks[i].transactions`                                 |
+| `metadata.numBlocks`       | `manifest.blocks.length` (post-validation)                       |
+| `metadata.proverAuthBytes` | `manifest.proverAuthBytes`                                       |
+| `metadata.transactions`    | `manifest.blocks[i].transactions`                                |
 
 **Important**: The `numBlocks` field must be assigned only after timestamp and anchor block validation completes, as these validations may reduce the effective block count.
 
@@ -383,11 +372,11 @@ Metadata encoding into L2 block header fields facilitates efficient peer validat
 
 The following block header fields are also set before transaction execution but are not derived from metadata:
 
-| Header Field | Value                                                                                                                                                             |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `parentHash` | Hash of the previous L2 block                                                                                                                                     |
-| `mixHash`    | TODO: Determine if this should be 0 or set to `prevRandao` as per EIP-4399                                                                                       |
-| `baseFee`    | Calculated using EIP-4396 from `parent.metadata.timestamp`, `parent.metadata.timestamp`,[how to break here ]and `metadata.timestamp` before transaction execution |
+| Header Field | Value                                                                                              |
+|--------------|----------------------------------------------------------------------------------------------------|
+| `parentHash` | Hash of the previous L2 block                                                                     |
+| `mixHash`    | TODO: Determine if this should be 0 or set to `prevRandao` as per EIP-4399                        |
+| `baseFee`    | Calculated using EIP-4396 from parent and current block timestamps before transaction execution   |
 
 Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed` are populated after transaction execution.
 
