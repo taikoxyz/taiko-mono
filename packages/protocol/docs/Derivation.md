@@ -263,12 +263,81 @@ To begin, locate a `CoreState` object in the L1 anchor block's world state whose
 
 If `metadata.anchorBlockNumber` exceeds `parent.metadata.anchorBlockNumber`, collect all `BondInstructions` emitted from the Taiko inbox via `BondInstructed` events, occurring between blocks numbered `parent.metadata.anchorBlockNumber + 1` and `metadata.anchorBlockNumber`. Assign this collection to `metadata.bondInstructions`, which may be empty.
 
-### Designated Prover Validation
+### Designated Prover System
 
-The `setState` function is responsible for assigning the designated prover address to `metadata.designatedProver`. In this function, if the `ProverAuth` object yields an address of `address(0)`, or if `proverAuthBytes` is not provided, the following logic applies:
+The designated prover system ensures every L2 block has a responsible prover, maintaining chain liveness even during adversarial conditions. The system operates through the `updateState` function in ShastaAnchor, which manages prover designation on the first block of each proposal (`blockIndex == 0`).
 
-- If `metadata.isLowBondProposal` is `true`, the designated prover for the current block defaults to `parent.metadata.designatedProver`.
-- Otherwise, the designated prover is set to `metadata.proposer`.
+#### Prover Designation Process
+
+##### 1. Authentication and Validation
+
+The `_validateProverAuth` function processes prover authentication data with the following steps:
+
+- **Signature Verification**: 
+  - Validates minimum data length (161 bytes for a valid `ProverAuth` struct)
+  - Decodes the `ProverAuth` containing: `proposalId`, `proposer`, `provingFeeGwei`, and ECDSA `signature`
+  - Verifies the signature against the message hash `keccak256(proposalId, proposer)`
+  - Returns the recovered signer address and proving fee
+
+- **Validation Failures**: If authentication fails (invalid signature, mismatched proposal data, or insufficient data), the system falls back to the proposer address with zero proving fee
+
+##### 2. Bond Sufficiency Assessment
+
+The system evaluates bond adequacy through multiple checks:
+
+- **Proposer Bond Check**: Verifies if the proposer maintains sufficient L2 bonds to cover the proving fee
+- **Low-Bond Detection**: Sets `metadata.isLowBondProposal = true` when:
+  - The proposer's bond balance falls below the protocol threshold
+  - The proposer is in the process of exiting the system
+- **Designated Prover Bond Check**: If a different prover is designated, verifies they have sufficient bonds
+
+##### 3. Prover Assignment Logic
+
+The final prover assignment follows a hierarchical fallback mechanism:
+
+```
+if (isLowBondProposal) {
+    // Inherit the parent block's designated prover
+    designatedProver = parent.metadata.designatedProver
+} else if (designatedProver != proposer && !hasSufficientBond(designatedProver)) {
+    // Fallback to proposer if designated prover lacks bonds
+    designatedProver = proposer
+} else {
+    // Use the authenticated prover
+    designatedProver = authenticatedProver
+}
+```
+
+The assigned prover is stored in contract state and emitted via `ProverDesignated` event.
+
+#### Low-Bond Proposal Handling
+
+Low-bond proposals present a critical challenge: maintaining chain liveness when proposers lack sufficient bonds. The system implements several mitigation strategies:
+
+##### Immediate Mitigations
+
+- **Empty Block Derivation**: Low-bond proposals generate only a single empty block, minimizing proving costs and disincentivizing spam
+- **Prover Persistence**: The designated prover is never `address(0)`, ensuring someone is always responsible
+- **Inheritance Mechanism**: Low-bond proposals inherit their parent's designated prover, maintaining continuity
+
+##### Economic Incentives and Penalties
+
+- **Unpaid Proving**: The inherited prover must prove low-bond proposals without earning fees
+- **Liveness Bonds**: Failure to prove results in liveness bond penalties
+- **Penalty Redistribution**: Forfeited bonds can incentivize other provers to step in
+
+##### System Implications
+
+The current design creates an asymmetric burden where the last legitimate designated prover may need to prove multiple low-bond proposals without compensation. This ensures chain liveness but raises fairness concerns during sustained attacks.
+
+#### Future Improvements
+
+Several enhancements are under consideration to address current limitations:
+
+- **Prover Rotation**: Distribute low-bond proving responsibility across multiple provers using round-robin or stake-weighted selection
+- **Reward Pool**: Establish a dedicated fund for compensating low-bond proposal proving
+- **Dynamic Thresholds**: Adjust bond requirements based on network conditions and attack patterns
+- **Alternative Finality**: Explore mechanisms that ensure chain progress without overburdening individual provers
 
 
 #### Additional Metadata Fields
