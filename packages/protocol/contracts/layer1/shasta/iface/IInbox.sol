@@ -154,7 +154,8 @@ interface IInbox {
     /// return (block.timestamp >= itemChangeTimestamp) ? itemNewValue : itemOldValue;
     /// ```
     /// @param _names An array of identifiers for the settings to be fetched.
-    /// @return values_ An array containing the values corresponding to the specified settings.
+    /// @return values_ An array containing the values corresponding to the specified settings. If a
+    /// name is invalid, bytes32(0) will be returned without reverting.
     function getNamedSettings(bytes32[] memory _names)
         external
         view
