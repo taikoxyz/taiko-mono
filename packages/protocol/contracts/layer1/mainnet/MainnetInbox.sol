@@ -11,6 +11,9 @@ import "./libs/LibFasterReentryLock.sol";
 /// @notice See the documentation in {TaikoL1}.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetInbox is TaikoInbox {
+    // Date and time (GMT): Thursday, August 28, 2025, 12:00 AM
+    uint256 public constant HANDOVER_SLOTS_MAINNET_CHANGE_TIMESTAMP = 1_756_339_200;
+
     constructor(
         address _wrapper,
         address _verifier,
@@ -19,6 +22,11 @@ contract MainnetInbox is TaikoInbox {
     )
         TaikoInbox(_wrapper, _verifier, _bondToken, _signalService)
     { }
+
+    /// @inheritdoc ITaikoInbox
+    function v4GetHandoverSlots() external view virtual override returns (uint256) {
+        return block.timestamp <= HANDOVER_SLOTS_MAINNET_CHANGE_TIMESTAMP ? 4 : 6;
+    }
 
     function _getConfig() internal pure virtual override returns (ITaikoInbox.Config memory) {
         // All hard-coded configurations:
