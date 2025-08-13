@@ -258,7 +258,6 @@ abstract contract Inbox is EssentialContract, IInbox {
 
             claimRecords_[i] = ClaimRecord({
                 claim: claim,
-                proposer: proposal.proposer,
                 nextProposalId: proposal.id + 1,
                 bondInstructions: bondInstructions
             });

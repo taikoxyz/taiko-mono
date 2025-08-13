@@ -63,8 +63,6 @@ interface IInbox {
     struct ClaimRecord {
         /// @notice The claim.
         Claim claim;
-        /// @notice The proposer, copied from the proposal.
-        address proposer;
         /// @notice The next proposal ID.
         uint48 nextProposalId;
         /// @notice The bond instructions.
