@@ -204,7 +204,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
     /// @dev Transfers bond from one address to another
     /// @param _from The address to transfer from
-    /// @param _to The address to transfer to  
+    /// @param _to The address to transfer to
     /// @param _amount The amount to transfer
     function _transferBond(address _from, address _to, uint256 _amount) private {
         uint256 amountDebited = bondManager.debitBond(_from, _amount);
@@ -251,14 +251,14 @@ abstract contract ShastaAnchor is PacayaAnchor {
     {
         // Determine prover and fee
         uint256 provingFee;
-        (designatedProver_, provingFee) =
-            _validateProverAuth(_proposalId, _proposer, _proverAuth);
+        (designatedProver_, provingFee) = _validateProverAuth(_proposalId, _proposer, _proverAuth);
 
         // Check bond sufficiency
         isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFee);
 
         if (isLowBondProposal_) {
-            // Low bond proposals are permisionless to prove and the reward is paid to whoever proves it
+            // Low bond proposals are permisionless to prove and the reward is paid to whoever
+            // proves it
             designatedProver_ = address(0);
         } else if (
             designatedProver_ != _proposer && !bondManager.hasSufficientBond(designatedProver_, 0)
@@ -299,9 +299,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
         }
 
         // Verify ECDSA signature
-        bytes32 message = keccak256(
-            abi.encode(proverAuth.proposalId, proverAuth.proposer, proverAuth.provingFee)
-        );
+        bytes32 message =
+            keccak256(abi.encode(proverAuth.proposalId, proverAuth.proposer, proverAuth.provingFee));
         (address recovered, ECDSA.RecoverError error) =
             ECDSA.tryRecover(message, proverAuth.signature);
 
@@ -338,7 +337,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
             // Determine transfer amount and source
             address from;
             uint256 amount;
-            
+
             if (lowBondProposals[instruction.proposalId]) {
                 // For low-bond proposals, pay reward from anchor's pool
                 from = address(this);

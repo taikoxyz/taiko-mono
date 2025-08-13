@@ -56,7 +56,8 @@ interface IBondManager {
     // ---------------------------------------------------------------
 
     /// @notice Debits a bond from an address with best effort
-    /// @dev Best effort means that if `_bond` is greater than the balance, the entire balance is debited instead
+    /// @dev Best effort means that if `_bond` is greater than the balance, the entire balance is
+    /// debited instead
     /// @param _address The address to debit the bond from
     /// @param _bond The amount of bond to debit in wei
     /// @return amountDebited_ The actual amount debited in wei
