@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import "contracts/layer1/shasta/impl/InboxWithClaimAggregation.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
 
-/// @title TestInboxWithMockBlobs
+/// @title TestInboxWithClaimAggregation
 /// @notice Test version of InboxWithClaimAggregation that exposes internal functions for testing
-contract TestInboxWithMockBlobs is InboxWithClaimAggregation {
+contract TestInboxWithClaimAggregation is InboxWithClaimAggregation {
     IInbox.Config private testConfig;
 
     function setTestConfig(IInbox.Config memory _config) external {

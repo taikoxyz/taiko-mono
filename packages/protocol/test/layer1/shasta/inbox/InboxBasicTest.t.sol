@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./InboxTestBase.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Inbox, InvalidState, DeadlineExceeded } from "contracts/layer1/shasta/impl/Inbox.sol";
 
 /// @title InboxBasicTest
 /// @notice Basic tests for the Inbox contract without slot reuse functionality

@@ -247,7 +247,7 @@ contract InboxOutOfOrderProving is CommonTest {
 
             bytes32[] memory blobHashes = new bytes32[](1);
             blobHashes[0] = keccak256(abi.encode("blob", i % 10));
-            
+
             IInbox.Proposal memory proposal = IInbox.Proposal({
                 id: i,
                 proposer: Alice,
@@ -296,9 +296,9 @@ contract InboxOutOfOrderProving is CommonTest {
         inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
 
         // Only provide claim record for proposal 1
-        bytes32 storedProposalHash = inbox.getProposalHash(1);
+        bytes32 storedProposalHashForClaim = inbox.getProposalHash(1);
         IInbox.Claim memory claim1 = IInbox.Claim({
-            proposalHash: storedProposalHash,
+            proposalHash: storedProposalHashForClaim,
             parentClaimHash: initialParentHash,
             endBlockNumber: 110,
             endBlockHash: keccak256(abi.encode(1, "endBlockHash")),

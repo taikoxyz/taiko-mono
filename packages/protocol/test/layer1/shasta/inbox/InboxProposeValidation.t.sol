@@ -5,7 +5,13 @@ import "forge-std/src/Test.sol";
 import "test/shared/CommonTest.sol";
 import "./TestInboxWithMockBlobs.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
-import "contracts/layer1/shasta/libs/LibBlobs.sol";
+import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
+import {
+    Inbox,
+    InvalidState,
+    DeadlineExceeded,
+    ExceedsUnfinalizedProposalCapacity
+} from "contracts/layer1/shasta/impl/Inbox.sol";
 import "contracts/shared/based/libs/LibBonds.sol";
 import "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import "contracts/layer1/shasta/iface/IProposerChecker.sol";
@@ -394,7 +400,7 @@ contract InboxProposeValidation is CommonTest {
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
         bytes memory data = abi.encode(uint64(0), coreState, invalidBlobRef, claimRecords);
 
-        vm.expectRevert(InvalidBlobReference.selector);
+        vm.expectRevert(LibBlobs.InvalidBlobReference.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }
@@ -426,7 +432,7 @@ contract InboxProposeValidation is CommonTest {
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
         bytes memory data = abi.encode(uint64(0), coreState, blobRef, claimRecords);
 
-        vm.expectRevert(BlobNotFound.selector);
+        vm.expectRevert(LibBlobs.BlobNotFound.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./InboxTestBase.sol";
+import { Inbox, ClaimRecordHashMismatch } from "contracts/layer1/shasta/impl/Inbox.sol";
 import "./InboxMockContracts.sol";
 
 /// @title InboxFinalization
@@ -18,6 +19,7 @@ contract InboxFinalization is InboxTestBase {
         proposerChecker = address(new StubProposerChecker());
     }
     /// @notice Test finalizing a single proposal
+
     function test_finalize_single_proposal() public {
         // Setup blobhashes for this specific test
         setupBlobHashes();
@@ -71,7 +73,6 @@ contract InboxFinalization is InboxTestBase {
         // Verify core state was updated by checking the hash
         // We can't directly get the core state from TestInboxWithMockBlobs,
         // but we can verify it was set correctly through the events or other means
-        bytes32 expectedClaimHash = keccak256(abi.encode(claim));
         // The test passes if propose succeeded without reverting
     }
 

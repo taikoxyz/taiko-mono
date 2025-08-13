@@ -5,6 +5,7 @@ import "forge-std/src/Test.sol";
 import "test/shared/CommonTest.sol";
 import "./TestInboxWithMockBlobs.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
+import { Inbox, ExceedsUnfinalizedProposalCapacity } from "contracts/layer1/shasta/impl/Inbox.sol";
 import "contracts/shared/based/iface/ISyncedBlockManager.sol";
 import "contracts/layer1/shasta/iface/IProposerChecker.sol";
 import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
