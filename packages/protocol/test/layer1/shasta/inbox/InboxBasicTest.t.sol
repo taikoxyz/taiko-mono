@@ -4,12 +4,14 @@ pragma solidity ^0.8.24;
 import "./InboxTestScenarios.sol";
 import "./InboxMockContracts.sol";
 import "./InboxTestUtils.sol";
+import "./InboxTestBuilder.sol";
 import { Inbox, InvalidState, DeadlineExceeded } from "contracts/layer1/shasta/impl/Inbox.sol";
 
 /// @title InboxBasicTest
 /// @notice Basic tests for the Inbox contract without slot reuse functionality
 contract InboxBasicTest is InboxTestScenarios {
     using InboxTestUtils for *;
+    using InboxTestBuilder for *;
 
     function setUp() public virtual override {
         super.setUp();
@@ -28,34 +30,27 @@ contract InboxBasicTest is InboxTestScenarios {
     function test_propose_single_valid() public {
         setupBlobHashes();
 
-        // Setup initial core state
-        IInbox.CoreState memory coreState = InboxTestUtils.createCoreState(1, 0);
+        // Setup initial state and expectations
+        IInbox.CoreState memory coreState = createCoreState(1, 0);
         inbox.exposed_setCoreStateHash(coreState.hashCoreState());
 
-        // Setup mocks
-        mockProposerAllowed(Alice);
-        mockForcedInclusionDue(false);
-
-        // Create proposal data
-        LibBlobs.BlobReference memory blobRef = InboxTestUtils.createBlobReference(1);
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
-        bytes memory data = InboxTestUtils.encodeProposalData(coreState, blobRef, claimRecords);
-
-        // Expected proposal and core state
-        IInbox.Proposal memory expectedProposal =
-            InboxTestUtils.createProposal(1, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
+        IInbox.Proposal memory expectedProposal = InboxTestUtils.createProposal(1, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
         IInbox.CoreState memory expectedCoreState = coreState;
         expectedCoreState.nextProposalId = 2;
 
-        // Expect Proposed event
+        // Expect event
         vm.expectEmit(true, true, true, true);
         emit Proposed(expectedProposal, expectedCoreState);
 
-        // Submit proposal
+        // Submit proposal with standard setup
+        setupStandardProposalMocks(Alice);
         vm.prank(Alice);
-        inbox.propose(bytes(""), data);
+        inbox.propose(
+            bytes(""),
+            InboxTestUtils.encodeProposalData(coreState, InboxTestUtils.createBlobReference(1), new IInbox.ClaimRecord[](0))
+        );
 
-        // Verify proposal and state
+        // Verify
         assertProposalStored(1);
         assertEq(inbox.getProposalHash(1), expectedProposal.hashProposal());
         assertEq(inbox.getCoreStateHash(), expectedCoreState.hashCoreState());
@@ -66,32 +61,31 @@ contract InboxBasicTest is InboxTestScenarios {
         setupBlobHashes();
         uint48 numProposals = 5;
 
+        // Submit proposals efficiently
         for (uint48 i = 1; i <= numProposals; i++) {
             submitProposal(i, Alice);
         }
 
-        // Verify all proposals are accessible
+        // Batch verification
         assertProposalsStored(1, numProposals);
     }
 
     /// @notice Test proposal with invalid state reverts
     function test_propose_invalid_state_reverts() public {
-        // Setup initial core state
-        IInbox.CoreState memory coreState = InboxTestUtils.createCoreState(1, 0);
+        // Setup correct state
+        IInbox.CoreState memory coreState = createCoreState(1, 0);
         inbox.exposed_setCoreStateHash(coreState.hashCoreState());
 
-        // Setup mocks
-        mockProposerAllowed(Alice);
-        mockForcedInclusionDue(false);
+        // Create proposal with wrong state
+        IInbox.CoreState memory wrongCoreState = createCoreState(2, 0); // Wrong nextProposalId
+        bytes memory data = InboxTestUtils.encodeProposalData(
+            wrongCoreState,
+            InboxTestUtils.createBlobReference(1),
+            new IInbox.ClaimRecord[](0)
+        );
 
-        // Create proposal data with wrong core state
-        IInbox.CoreState memory wrongCoreState = InboxTestUtils.createCoreState(2, 0); // Wrong
-            // nextProposalId
-        LibBlobs.BlobReference memory blobRef = InboxTestUtils.createBlobReference(1);
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
-        bytes memory data = InboxTestUtils.encodeProposalData(wrongCoreState, blobRef, claimRecords);
-
-        // Expect revert with InvalidState error
+        // Expect revert
+        setupStandardProposalMocks(Alice);
         vm.expectRevert(InvalidState.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
@@ -100,26 +94,22 @@ contract InboxBasicTest is InboxTestScenarios {
     /// @notice Test proposal with deadline exceeded reverts
     function test_propose_deadline_exceeded_reverts() public {
         setupBlobHashes();
-
-        // Move time forward to ensure block.timestamp > 1
         vm.warp(1000);
 
-        // Setup core state
+        // Setup state
         IInbox.CoreState memory coreState = createCoreState(1, 0);
-        inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
+        inbox.exposed_setCoreStateHash(coreState.hashCoreState());
 
-        // Setup mocks
-        mockProposerAllowed(Alice);
-        mockForcedInclusionDue(false);
+        // Create proposal with expired deadline
+        bytes memory data = InboxTestUtils.encodeProposalDataWithDeadline(
+            uint64(block.timestamp - 1),
+            coreState,
+            createValidBlobReference(1),
+            new IInbox.ClaimRecord[](0)
+        );
 
-        // Create proposal data with expired deadline
-        uint64 deadline = uint64(block.timestamp - 1); // Expired deadline
-        LibBlobs.BlobReference memory blobRef = createValidBlobReference(1);
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
-        bytes memory data =
-            encodeProposalDataWithDeadline(deadline, coreState, blobRef, claimRecords);
-
-        // Expect revert with DeadlineExceeded error
+        // Expect revert
+        setupStandardProposalMocks(Alice);
         vm.expectRevert(DeadlineExceeded.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
@@ -129,10 +119,10 @@ contract InboxBasicTest is InboxTestScenarios {
     function test_prove_single_claim() public {
         setupBlobHashes();
 
-        // Submit proposal and prove it
+        // Submit and prove efficiently
         submitAndProveProposal(1, Alice, Bob, bytes32(0));
 
-        // Verify claim is stored
+        // Verify
         assertClaimRecordStored(1, bytes32(0));
     }
 }

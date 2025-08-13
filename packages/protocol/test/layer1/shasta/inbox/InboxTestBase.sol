@@ -17,6 +17,7 @@ import "./InboxTestUtils.sol";
 
 /// @title InboxTestBase
 /// @notice Base contract for all inbox tests with common setup and helper functions
+/// @custom:security-contact security@taiko.xyz
 abstract contract InboxTestBase is CommonTest {
     using LibDecoder for bytes;
     using InboxTestUtils for *;
@@ -62,9 +63,6 @@ abstract contract InboxTestBase is CommonTest {
 
         // Fund test accounts
         fundTestAccounts();
-
-        // Setup blob hashes for testing
-        setupBlobHashes();
     }
 
     function setupMockAddresses() internal virtual {
@@ -110,7 +108,11 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     function setupBlobHashes() internal virtual {
-        bytes32[] memory hashes = InboxTestUtils.generateBlobHashes(256);
+        setupBlobHashesWithCount(256);
+    }
+
+    function setupBlobHashesWithCount(uint256 _count) internal virtual {
+        bytes32[] memory hashes = InboxTestUtils.generateBlobHashes(_count);
         vm.blobhashes(hashes);
     }
 
@@ -191,7 +193,20 @@ abstract contract InboxTestBase is CommonTest {
         );
     }
 
-    // Mock helper functions
+    // ---------------------------------------------------------------
+    // Mock Helper Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Sets up standard mocks for a valid proposal submission
+    function setupStandardProposalMocks(address _proposer) internal {
+        mockProposerAllowed(_proposer);
+        mockForcedInclusionDue(false);
+    }
+
+    /// @dev Sets up standard mocks for a valid proof submission
+    function setupStandardProofMocks(bool _valid) internal {
+        mockProofVerification(_valid);
+    }
 
     function mockProposerAllowed(address _proposer) internal {
         vm.mockCall(
@@ -238,5 +253,16 @@ abstract contract InboxTestBase is CommonTest {
                 ISyncedBlockManager.saveSyncedBlock.selector, _blockNumber, _blockHash, _stateRoot
             )
         );
+    }
+
+    /// @dev Batch setup for multiple synced block saves
+    function expectMultipleSyncedBlockSaves(IInbox.Claim[] memory _claims) internal {
+        for (uint256 i = 0; i < _claims.length; i++) {
+            expectSyncedBlockSave(
+                _claims[i].endBlockNumber,
+                _claims[i].endBlockHash,
+                _claims[i].endStateRoot
+            );
+        }
     }
 }

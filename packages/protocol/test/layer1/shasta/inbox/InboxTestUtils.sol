@@ -24,7 +24,8 @@ library InboxTestUtils {
         returns (IInbox.Proposal memory proposal_)
     {
         bytes32[] memory blobHashes = new bytes32[](1);
-        blobHashes[0] = keccak256(abi.encode("blob", uint256(_id)));
+        // Use consistent blob hash generation that matches test setup
+        blobHashes[0] = keccak256(abi.encode("blob", uint256(_id % 256)));
 
         proposal_ = IInbox.Proposal({
             id: _id,
@@ -205,6 +206,7 @@ library InboxTestUtils {
         pure
         returns (LibBlobs.BlobReference memory ref_)
     {
+        // Use _blobIndex for the actual blob position
         ref_ = LibBlobs.BlobReference({ blobStartIndex: _blobIndex, numBlobs: 1, offset: 0 });
     }
 

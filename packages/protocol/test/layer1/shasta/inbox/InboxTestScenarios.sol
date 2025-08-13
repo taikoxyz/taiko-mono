@@ -3,18 +3,20 @@ pragma solidity ^0.8.24;
 
 import "./InboxTestBase.sol";
 import "./InboxTestUtils.sol";
+import "./InboxTestBuilder.sol";
 
 /// @title InboxTestScenarios
 /// @notice Common test scenarios and builders for Inbox tests
 /// @custom:security-contact security@taiko.xyz
 abstract contract InboxTestScenarios is InboxTestBase {
     using InboxTestUtils for *;
+    using InboxTestBuilder for *;
 
     // ---------------------------------------------------------------
     // Proposal creation scenarios
     // ---------------------------------------------------------------
 
-    /// @dev Creates and submits a valid proposal
+    /// @dev Creates and submits a valid proposal (optimized)
     function submitProposal(
         uint48 _proposalId,
         address _proposer
@@ -22,27 +24,37 @@ abstract contract InboxTestScenarios is InboxTestBase {
         internal
         returns (IInbox.Proposal memory proposal_)
     {
+        return submitProposalWithState(_proposalId, _proposer, 0);
+    }
+
+    /// @dev Creates and submits a proposal with custom finalized state
+    function submitProposalWithState(
+        uint48 _proposalId,
+        address _proposer,
+        uint48 _lastFinalizedId
+    )
+        internal
+        returns (IInbox.Proposal memory proposal_)
+    {
         // Setup core state
-        IInbox.CoreState memory coreState = InboxTestUtils.createCoreState(_proposalId, 0);
+        IInbox.CoreState memory coreState = InboxTestUtils.createCoreState(_proposalId, _lastFinalizedId);
         inbox.exposed_setCoreStateHash(InboxTestUtils.hashCoreState(coreState));
 
-        // Setup mocks
-        mockProposerAllowed(_proposer);
-        mockForcedInclusionDue(false);
+        // Setup standard mocks
+        setupStandardProposalMocks(_proposer);
 
-        // Create proposal data
-        LibBlobs.BlobReference memory blobRef =
-            InboxTestUtils.createBlobReference(uint8(_proposalId));
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
-        bytes memory data = InboxTestUtils.encodeProposalData(coreState, blobRef, claimRecords);
+        // Create and submit proposal data
+        bytes memory data = InboxTestUtils.encodeProposalData(
+            coreState,
+            InboxTestUtils.createBlobReference(uint8(_proposalId)),
+            new IInbox.ClaimRecord[](0)
+        );
 
-        // Submit proposal
         vm.prank(_proposer);
         inbox.propose(bytes(""), data);
 
         // Return expected proposal
-        proposal_ =
-            InboxTestUtils.createProposal(_proposalId, _proposer, DEFAULT_BASEFEE_SHARING_PCTG);
+        proposal_ = InboxTestUtils.createProposal(_proposalId, _proposer, DEFAULT_BASEFEE_SHARING_PCTG);
     }
 
     /// @dev Creates, submits, and proves a proposal
@@ -95,7 +107,7 @@ abstract contract InboxTestScenarios is InboxTestBase {
         inbox.prove(proveData, bytes("proof"));
     }
 
-    /// @dev Proves multiple proposals in batch
+    /// @dev Proves multiple proposals in batch (optimized)
     function proveProposalsBatch(
         IInbox.Proposal[] memory _proposals,
         address _prover,
@@ -104,22 +116,13 @@ abstract contract InboxTestScenarios is InboxTestBase {
         internal
         returns (IInbox.Claim[] memory claims_)
     {
-        claims_ = new IInbox.Claim[](_proposals.length);
-        bytes32 parentHash = _initialParentHash;
+        // Create claim chain efficiently
+        claims_ = InboxTestBuilder.createClaimChain(_proposals, _initialParentHash, _prover);
 
-        // Create claims chain
-        for (uint256 i = 0; i < _proposals.length; i++) {
-            claims_[i] = InboxTestUtils.createClaim(_proposals[i], parentHash, _prover);
-            parentHash = InboxTestUtils.hashClaim(claims_[i]);
-        }
-
-        // Setup proof verification
-        mockProofVerification(true);
-
-        // Submit batch proof
-        bytes memory proveData = InboxTestUtils.encodeProveData(_proposals, claims_);
+        // Setup and submit proof
+        setupStandardProofMocks(true);
         vm.prank(_prover);
-        inbox.prove(proveData, bytes("proof"));
+        inbox.prove(InboxTestUtils.encodeProveData(_proposals, claims_), bytes("proof"));
     }
 
     // ---------------------------------------------------------------
@@ -169,7 +172,7 @@ abstract contract InboxTestScenarios is InboxTestBase {
         inbox.propose(bytes(""), data);
     }
 
-    /// @dev Finalizes multiple proposals in batch
+    /// @dev Finalizes multiple proposals in batch (optimized)
     function finalizeProposalsBatch(
         uint48 _startId,
         uint48 _count,
@@ -178,63 +181,63 @@ abstract contract InboxTestScenarios is InboxTestBase {
         internal
         returns (bytes32 finalClaimHash_)
     {
-        bytes32 parentHash = _initialParentHash;
+        // Initialize claim records array
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](_count);
-
-        // Setup proposals and claims
+        bytes32 parentHash = _initialParentHash;
+        
+        // Store proposals and claims
         for (uint48 i = 0; i < _count; i++) {
             uint48 proposalId = _startId + i;
-
-            // Create and store proposal
+            
+            // Store proposal
             IInbox.Proposal memory proposal = createValidProposal(proposalId);
-            bytes32 proposalHash = InboxTestUtils.hashProposal(proposal);
-            inbox.exposed_setProposalHash(proposalId, proposalHash);
-
-            // Create claim with chained parent
+            inbox.exposed_setProposalHash(proposalId, InboxTestUtils.hashProposal(proposal));
+            
+            // Create and store claim
             IInbox.Claim memory claim = InboxTestUtils.createClaim(proposal, parentHash, Alice);
-            IInbox.ClaimRecord memory claimRecord = InboxTestUtils.createClaimRecord(claim, 1);
-
-            // Store claim record
-            bytes32 claimRecordHash = InboxTestUtils.hashClaimRecord(claimRecord);
-            inbox.exposed_setClaimRecordHash(proposalId, parentHash, claimRecordHash);
-
-            claimRecords[i] = claimRecord;
+            claimRecords[i] = InboxTestUtils.createClaimRecord(claim, 1);
+            
+            // Store claim record hash
+            inbox.exposed_setClaimRecordHash(
+                proposalId, parentHash, InboxTestUtils.hashClaimRecord(claimRecords[i])
+            );
+            
             parentHash = InboxTestUtils.hashClaim(claim);
         }
-
+        
         finalClaimHash_ = parentHash;
-
-        // Setup core state
+        
+        // Setup finalization
         IInbox.CoreState memory coreState = InboxTestUtils.createCoreStateFull(
             _startId + _count, _startId - 1, _initialParentHash, bytes32(0)
         );
         inbox.exposed_setCoreStateHash(InboxTestUtils.hashCoreState(coreState));
-
-        // Setup mocks
-        mockProposerAllowed(Alice);
-        mockForcedInclusionDue(false);
-
-        // Expect final synced block save
-        IInbox.Claim memory lastClaim = claimRecords[_count - 1].claim;
+        
+        // Setup mocks and expectations
+        setupStandardProposalMocks(Alice);
         expectSyncedBlockSave(
-            lastClaim.endBlockNumber, lastClaim.endBlockHash, lastClaim.endStateRoot
+            claimRecords[_count - 1].claim.endBlockNumber,
+            claimRecords[_count - 1].claim.endBlockHash,
+            claimRecords[_count - 1].claim.endStateRoot
         );
-
-        // Create proposal data with all claim records
-        LibBlobs.BlobReference memory blobRef =
-            InboxTestUtils.createBlobReference(uint8(_startId + _count));
-        bytes memory data = InboxTestUtils.encodeProposalData(coreState, blobRef, claimRecords);
-
-        // Submit proposal (triggers batch finalization)
+        
+        // Submit finalization
         vm.prank(Alice);
-        inbox.propose(bytes(""), data);
+        inbox.propose(
+            bytes(""),
+            InboxTestUtils.encodeProposalData(
+                coreState,
+                InboxTestUtils.createBlobReference(uint8(_startId + _count)),
+                claimRecords
+            )
+        );
     }
 
     // ---------------------------------------------------------------
     // Chain advancement scenarios
     // ---------------------------------------------------------------
 
-    /// @dev Creates a chain of proven proposals
+    /// @dev Creates a chain of proven proposals (optimized)
     function createProvenChain(
         uint48 _startId,
         uint48 _count,
@@ -243,19 +246,19 @@ abstract contract InboxTestScenarios is InboxTestBase {
         internal
         returns (IInbox.Proposal[] memory proposals_, IInbox.Claim[] memory claims_)
     {
-        proposals_ = new IInbox.Proposal[](_count);
-        claims_ = new IInbox.Claim[](_count);
-        bytes32 parentHash = _initialParentHash;
-
+        // Create all proposals at once
+        proposals_ = InboxTestBuilder.createSequentialProposals(_startId, _count, Alice);
+        
+        // Submit all proposals
         for (uint48 i = 0; i < _count; i++) {
-            uint48 proposalId = _startId + i;
-
-            // Submit and prove proposal
-            (proposals_[i], claims_[i]) = submitAndProveProposal(proposalId, Alice, Bob, parentHash);
-
-            // Update parent hash for next iteration
-            parentHash = InboxTestUtils.hashClaim(claims_[i]);
+            submitProposal(_startId + i, Alice);
         }
+        
+        // Create and prove all claims at once
+        claims_ = InboxTestBuilder.createClaimChain(proposals_, _initialParentHash, Bob);
+        setupStandardProofMocks(true);
+        vm.prank(Bob);
+        inbox.prove(InboxTestUtils.encodeProveData(proposals_, claims_), bytes("proof"));
     }
 
     // ---------------------------------------------------------------

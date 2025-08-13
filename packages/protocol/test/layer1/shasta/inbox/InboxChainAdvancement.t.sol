@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./InboxTestScenarios.sol";
 import "./InboxTestUtils.sol";
+import "./InboxTestBuilder.sol";
 import "./InboxMockContracts.sol";
 
 /// @title InboxChainAdvancement
@@ -10,6 +11,7 @@ import "./InboxMockContracts.sol";
 /// @dev Tests cover finalization flow, chain continuity, and state progression
 contract InboxChainAdvancement is InboxTestScenarios {
     using InboxTestUtils for *;
+    using InboxTestBuilder for *;
 
     function setUp() public virtual override {
         super.setUp();
@@ -29,190 +31,117 @@ contract InboxChainAdvancement is InboxTestScenarios {
         setupBlobHashes();
         uint48 numProposals = 5;
 
-        // Get initial parent hash
+        // Get genesis hash
         IInbox.Claim memory genesisClaim;
         genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
-        bytes32 parentHash = keccak256(abi.encode(genesisClaim));
-
-        // Phase 1: Create and prove proposals sequentially
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
-        IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
-
-        for (uint48 i = 1; i <= numProposals; i++) {
-            // Create and prove proposal
-            (proposals[i - 1], claims[i - 1]) = createAndProveProposal(i, parentHash);
-
-            // Update parent hash for next iteration
-            parentHash = keccak256(abi.encode(claims[i - 1]));
-
-            // Finalize immediately by proposing next with claim record
-            if (i < numProposals) {
-                finalizeProposal(i, claims, genesisClaim);
-            }
+        bytes32 genesisHash = InboxTestUtils.hashClaim(genesisClaim);
+        
+        // Create and prove all proposals using existing methods
+        (IInbox.Proposal[] memory proposals, IInbox.Claim[] memory claims) = 
+            createProvenChain(1, numProposals, genesisHash);
+        
+        // Finalize each proposal immediately (except last)
+        for (uint48 i = 1; i < numProposals; i++) {
+            bytes32 lastFinalizedHash = i == 1 ? genesisHash : InboxTestUtils.hashClaim(claims[i - 2]);
+            finalizeProposalOptimized(i, claims[i - 1], lastFinalizedHash);
         }
 
-        // Verify all proposals were created and proven
+        // Batch verification
+        assertProposalsStored(1, numProposals);
         for (uint48 i = 1; i <= numProposals; i++) {
-            bytes32 storedHash = inbox.getProposalHash(i);
-            assertTrue(storedHash != bytes32(0));
-
-            // Verify claim records exist
-            bytes32 expectedParent =
-                i == 1 ? keccak256(abi.encode(genesisClaim)) : keccak256(abi.encode(claims[i - 2]));
-            bytes32 claimRecordHash = inbox.getClaimRecordHash(i, expectedParent);
-            assertTrue(claimRecordHash != bytes32(0));
+            bytes32 expectedParent = i == 1 ? genesisHash : InboxTestUtils.hashClaim(claims[i - 2]);
+            assertClaimRecordStored(i, expectedParent);
         }
     }
 
-    function finalizeProposal(
-        uint48 proposalId,
-        IInbox.Claim[] memory claims,
-        IInbox.Claim memory genesisClaim
+    function finalizeProposalOptimized(
+        uint48 _proposalId,
+        IInbox.Claim memory _claim,
+        bytes32 _lastFinalizedHash
     )
         internal
     {
-        bytes32 lastFinalizedHash;
-        if (proposalId == 1) {
-            lastFinalizedHash = keccak256(abi.encode(genesisClaim));
-        } else {
-            lastFinalizedHash = keccak256(abi.encode(claims[proposalId - 2]));
-        }
-
-        IInbox.CoreState memory finalizeCoreState = IInbox.CoreState({
-            nextProposalId: proposalId + 1,
-            lastFinalizedProposalId: proposalId - 1,
-            lastFinalizedClaimHash: lastFinalizedHash,
-            bondInstructionsHash: bytes32(0)
-        });
-        inbox.exposed_setCoreStateHash(keccak256(abi.encode(finalizeCoreState)));
-
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
-        claimRecords[0] = IInbox.ClaimRecord({
-            claim: claims[proposalId - 1],
-            span: 1,
-            bondInstructions: new LibBonds.BondInstruction[](0)
-        });
-
-        // Expect synced block save
-        expectSyncedBlockSave(
-            claims[proposalId - 1].endBlockNumber,
-            claims[proposalId - 1].endBlockHash,
-            claims[proposalId - 1].endStateRoot
+        // Setup core state for finalization
+        IInbox.CoreState memory coreState = InboxTestUtils.createCoreStateFull(
+            _proposalId + 1,
+            _proposalId - 1,
+            _lastFinalizedHash,
+            bytes32(0)
         );
+        inbox.exposed_setCoreStateHash(InboxTestUtils.hashCoreState(coreState));
 
-        LibBlobs.BlobReference memory nextBlobRef = createValidBlobReference(proposalId + 1);
-        bytes memory finalizeProposeData =
-            abi.encode(uint64(0), finalizeCoreState, nextBlobRef, claimRecords);
+        // Create claim record
+        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
+        claimRecords[0] = InboxTestUtils.createClaimRecord(_claim, 1);
 
-        mockProposerAllowed(Carol);
-        mockForcedInclusionDue(false);
+        // Setup expectations
+        expectSyncedBlockSave(_claim.endBlockNumber, _claim.endBlockHash, _claim.endStateRoot);
+
+        // Submit finalization
+        setupStandardProposalMocks(Carol);
         setupBlobHashes();
         vm.prank(Carol);
-        inbox.propose(bytes(""), finalizeProposeData);
+        inbox.propose(
+            bytes(""),
+            InboxTestUtils.encodeProposalData(coreState, InboxTestUtils.createBlobReference(uint8(_proposalId + 1)), claimRecords)
+        );
     }
 
     /// @notice Test batch finalization of multiple proposals
     function test_batch_finalization() public {
-        // Create and prove 5 proposals
+        setupBlobHashes();
         uint48 numProposals = 5;
 
+        // Get genesis hash
         IInbox.Claim memory genesisClaim;
         genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
-        bytes32 parentHash = keccak256(abi.encode(genesisClaim));
-
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
-        IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
-        bytes32[] memory claimHashes = new bytes32[](numProposals);
-
-        // Create all proposals first
+        bytes32 genesisHash = InboxTestUtils.hashClaim(genesisClaim);
+        
+        // Submit all proposals
         for (uint48 i = 1; i <= numProposals; i++) {
-            IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
-                nextProposalId: i,
-                lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: parentHash,
-                bondInstructionsHash: bytes32(0)
-            });
-            inbox.exposed_setCoreStateHash(keccak256(abi.encode(proposalCoreState)));
-
-            mockProposerAllowed(Alice);
-            mockForcedInclusionDue(false);
-
-            LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
-            bytes memory proposalData =
-                abi.encode(uint64(0), proposalCoreState, proposalBlobRef, emptyClaimRecords);
-
-            vm.startPrank(Alice);
-            setupBlobHashes();
-            inbox.propose(bytes(""), proposalData);
-            vm.stopPrank();
-
-            bytes32[] memory blobHashes = new bytes32[](1);
-            blobHashes[0] = keccak256(abi.encode("blob", i % 10));
-
-            proposals[i - 1] = IInbox.Proposal({
-                id: i,
-                proposer: Alice,
-                originTimestamp: uint48(block.timestamp),
-                originBlockNumber: uint48(block.number),
-                isForcedInclusion: false,
-                basefeeSharingPctg: defaultConfig.basefeeSharingPctg,
-                blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: blobHashes,
-                    offset: 0,
-                    timestamp: uint48(block.timestamp)
-                })
-            });
+            submitProposalWithState(i, Alice, 0);
         }
 
-        // Prove all proposals with correct parent chain
-        bytes32 currentParent = parentHash;
+        // Create proposals and claims
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
-            bytes32 storedProposalHash = inbox.getProposalHash(i + 1);
-
-            claims[i] = IInbox.Claim({
-                proposalHash: storedProposalHash,
-                parentClaimHash: currentParent,
-                endBlockNumber: uint48(100 + (i + 1) * 10),
-                endBlockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
-                endStateRoot: keccak256(abi.encode(i + 1, "stateRoot")),
-                designatedProver: Alice,
-                actualProver: Bob
-            });
-
-            claimHashes[i] = keccak256(abi.encode(claims[i]));
-
-            mockProofVerification(true);
-
-            IInbox.Proposal[] memory proveProposals = new IInbox.Proposal[](1);
-            proveProposals[0] = proposals[i];
-            IInbox.Claim[] memory proveClaims = new IInbox.Claim[](1);
-            proveClaims[0] = claims[i];
-
-            bytes memory proveData = abi.encode(proveProposals, proveClaims);
-            vm.prank(Bob);
-            inbox.prove(proveData, bytes("proof"));
-
-            currentParent = claimHashes[i];
+            proposals[i] = InboxTestUtils.createProposal(i + 1, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
         }
+        
+        // Create claim chain
+        IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
+        bytes32 currentParent = genesisHash;
+        for (uint48 i = 0; i < numProposals; i++) {
+            claims[i] = InboxTestUtils.createClaim(proposals[i], currentParent, Bob);
+            currentParent = InboxTestUtils.hashClaim(claims[i]);
+        }
+        
+        // Store all claim records
+        bytes32 parentHash = genesisHash;
+        for (uint48 i = 0; i < numProposals; i++) {
+            IInbox.ClaimRecord memory record = InboxTestUtils.createClaimRecord(claims[i], 1);
+            inbox.exposed_setClaimRecordHash(
+                i + 1, parentHash, InboxTestUtils.hashClaimRecord(record)
+            );
+            parentHash = InboxTestUtils.hashClaim(claims[i]);
+        }
+
+        // Prove all claims at once
+        setupStandardProofMocks(true);
+        vm.prank(Bob);
+        inbox.prove(InboxTestUtils.encodeProveData(proposals, claims), bytes("batch_proof"));
 
         // Batch finalize all proposals in one transaction
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
-            claimRecords[i] = IInbox.ClaimRecord({
-                claim: claims[i],
-                span: 1,
-                bondInstructions: new LibBonds.BondInstruction[](0)
-            });
+            claimRecords[i] = InboxTestUtils.createClaimRecord(claims[i], 1);
         }
 
-        IInbox.CoreState memory coreState = IInbox.CoreState({
-            nextProposalId: numProposals + 1,
-            lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: parentHash,
-            bondInstructionsHash: bytes32(0)
-        });
-        inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
+        // Setup core state for batch finalization
+        IInbox.CoreState memory coreState = InboxTestUtils.createCoreStateFull(
+            numProposals + 1, 0, genesisHash, bytes32(0)
+        );
+        inbox.exposed_setCoreStateHash(InboxTestUtils.hashCoreState(coreState));
 
         // Expect final block update
         expectSyncedBlockSave(
@@ -221,14 +150,14 @@ contract InboxChainAdvancement is InboxTestScenarios {
             claims[numProposals - 1].endStateRoot
         );
 
-        LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
-        bytes memory proposeData = abi.encode(uint64(0), coreState, blobRef, claimRecords);
-
-        mockProposerAllowed(Carol);
-        mockForcedInclusionDue(false);
+        // Submit batch finalization
+        setupStandardProposalMocks(Carol);
         setupBlobHashes();
         vm.prank(Carol);
-        inbox.propose(bytes(""), proposeData);
+        inbox.propose(
+            bytes(""),
+            InboxTestUtils.encodeProposalData(coreState, InboxTestUtils.createBlobReference(uint8(numProposals + 1)), claimRecords)
+        );
     }
 
     /// @notice Test chain advancement with gaps (missing proofs)
