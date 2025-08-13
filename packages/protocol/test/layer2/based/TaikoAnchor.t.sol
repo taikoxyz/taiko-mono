@@ -24,7 +24,6 @@ contract TestTaikoAnchor is Layer2Test {
         uint48 livenessBondGwei = 10_000_000;
         uint48 provabilityBondGwei = 10_000_000;
         uint48 lowBondProvingRewardGwei = 5_000_000;
-        uint48 poolThresholdGwei = 100_000_000;
         anchor = deployAnchor(
             address(
                 new TaikoAnchor_NoBaseFeeCheck(
@@ -35,8 +34,7 @@ contract TestTaikoAnchor is Layer2Test {
                     0,
                     address(0), // syncedBlockManager
                     address(0), // bondManager
-                    lowBondProvingRewardGwei,
-                    poolThresholdGwei
+                    lowBondProvingRewardGwei
                 )
             ),
             ethereumChainId

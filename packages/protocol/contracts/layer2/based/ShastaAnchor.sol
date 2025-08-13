@@ -59,7 +59,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
     ISyncedBlockManager public immutable syncedBlockManager;
 
     uint48 public immutable lowBondProvingRewardGwei;
-    uint48 public immutable poolThresholdGwei;
 
     // ---------------------------------------------------------------
     // State variables
@@ -95,7 +94,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _syncedBlockManager The address of the synced block manager.
     /// @param _bondManager The address of the bond manager.
     /// @param _lowBondProvingRewardGwei The reward for proving low-bond proposals in Gwei.
-    /// @param _poolThresholdGwei The threshold below which tax is collected in Gwei.
     constructor(
         uint48 _livenessBondGwei,
         uint48 _provabilityBondGwei,
@@ -104,8 +102,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint64 _shastaForkHeight,
         ISyncedBlockManager _syncedBlockManager,
         IShastaBondManager _bondManager,
-        uint48 _lowBondProvingRewardGwei,
-        uint48 _poolThresholdGwei
+        uint48 _lowBondProvingRewardGwei
     )
         PacayaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
     {
@@ -118,7 +115,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
         syncedBlockManager = _syncedBlockManager;
         bondManager = _bondManager;
         lowBondProvingRewardGwei = _lowBondProvingRewardGwei;
-        poolThresholdGwei = _poolThresholdGwei;
     }
 
     // ---------------------------------------------------------------

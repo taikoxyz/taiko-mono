@@ -12,8 +12,7 @@ contract TaikoAnchor_NoBaseFeeCheck is TaikoAnchor {
         uint64 _shastaForkHeight,
         address _syncedBlockManager,
         address _bondManager,
-        uint48 _lowBondProvingRewardGwei,
-        uint48 _poolThresholdGwei
+        uint48 _lowBondProvingRewardGwei
     )
         TaikoAnchor(
             _livenessBondGwei,
@@ -23,8 +22,7 @@ contract TaikoAnchor_NoBaseFeeCheck is TaikoAnchor {
             _shastaForkHeight,
             _syncedBlockManager,
             _bondManager,
-            _lowBondProvingRewardGwei,
-            _poolThresholdGwei
+            _lowBondProvingRewardGwei
         )
     { }
 
