@@ -207,6 +207,11 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _to The address to transfer to
     /// @param _amount The amount to transfer
     function _transferBond(address _from, address _to, uint256 _amount) private {
+        if (_from == _to) {
+            // If the two addresses are the same, avoid unnecsary accounting and emitting events
+            return;
+        }
+
         uint256 amountDebited = bondManager.debitBond(_from, _amount);
         if (amountDebited > 0) {
             bondManager.creditBond(_to, amountDebited);
