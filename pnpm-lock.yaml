@@ -349,7 +349,7 @@ importers:
         version: sp1-contracts#v5.0.0@https://codeload.github.com/succinctlabs/sp1-contracts/tar.gz/512b5e029abc27f6e46a3c7eba220dac83ecc306
       urc:
         specifier: github:eth-fabric/urc#main
-        version: urc#main@https://codeload.github.com/eth-fabric/urc/tar.gz/638dbcf06f1be26a6e1fbbcc2e344522bcec2b23
+        version: urc#main@https://codeload.github.com/eth-fabric/urc/tar.gz/132bc796a27721252984923a76760bed24643205
     devDependencies:
       '@types/node':
         specifier: ^20.11.30
@@ -11157,8 +11157,8 @@ packages:
   uqr@0.1.2:
     resolution: {integrity: sha512-MJu7ypHq6QasgF5YRTjqscSzQp/W11zoUk6kvmlH+fmWEs63Y0Eib13hYFwAzagRJcVY8WVnlV+eBDUGMJ5IbA==}
 
-  urc#main@https://codeload.github.com/eth-fabric/urc/tar.gz/638dbcf06f1be26a6e1fbbcc2e344522bcec2b23:
-    resolution: {tarball: https://codeload.github.com/eth-fabric/urc/tar.gz/638dbcf06f1be26a6e1fbbcc2e344522bcec2b23}
+  urc#main@https://codeload.github.com/eth-fabric/urc/tar.gz/132bc796a27721252984923a76760bed24643205:
+    resolution: {tarball: https://codeload.github.com/eth-fabric/urc/tar.gz/132bc796a27721252984923a76760bed24643205}
     version: 0.0.0
 
   uri-js@4.4.1:
@@ -27448,7 +27448,7 @@ snapshots:
 
   uqr@0.1.2: {}
 
-  urc#main@https://codeload.github.com/eth-fabric/urc/tar.gz/638dbcf06f1be26a6e1fbbcc2e344522bcec2b23: {}
+  urc#main@https://codeload.github.com/eth-fabric/urc/tar.gz/132bc796a27721252984923a76760bed24643205: {}
 
   uri-js@4.4.1:
     dependencies:
