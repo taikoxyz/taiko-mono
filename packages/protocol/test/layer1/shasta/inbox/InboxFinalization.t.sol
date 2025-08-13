@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./InboxTestBase.sol";
+import "./InboxTestScenarios.sol";
+import "./InboxTestUtils.sol";
 import { Inbox, ClaimRecordHashMismatch } from "contracts/layer1/shasta/impl/Inbox.sol";
 import "./InboxMockContracts.sol";
 
@@ -9,7 +10,8 @@ import "./InboxMockContracts.sol";
 /// @notice Tests for proposal finalization functionality including chain validation and state
 /// updates
 /// @dev Tests cover finalization scenarios without testing bond operations
-contract InboxFinalization is InboxTestBase {
+contract InboxFinalization is InboxTestScenarios {
+    using InboxTestUtils for *;
     // Override setupMockAddresses to use actual mock contracts instead of makeAddr
     function setupMockAddresses() internal override {
         bondToken = address(new MockERC20());
@@ -21,30 +23,23 @@ contract InboxFinalization is InboxTestBase {
     /// @notice Test finalizing a single proposal
 
     function test_finalize_single_proposal() public {
-        // Setup blobhashes for this specific test
         setupBlobHashes();
 
         // Setup: Create and store a proposal
         uint48 proposalId = 1;
         IInbox.Proposal memory proposal = createValidProposal(proposalId);
-        bytes32 proposalHash = keccak256(abi.encode(proposal));
-        inbox.exposed_setProposalHash(proposalId, proposalHash);
+        inbox.exposed_setProposalHash(proposalId, proposal.hashProposal());
 
         // Create initial core state
-        IInbox.CoreState memory coreState = createCoreState(2, 0);
+        IInbox.CoreState memory coreState = InboxTestUtils.createCoreState(2, 0);
 
         // Create and store a claim record
-        IInbox.Claim memory claim = createValidClaim(proposal, coreState.lastFinalizedClaimHash);
-        IInbox.ClaimRecord memory claimRecord = IInbox.ClaimRecord({
-            claim: claim,
-            span: 1,
-            bondInstructions: new LibBonds.BondInstruction[](0)
-        });
+        IInbox.Claim memory claim = InboxTestUtils.createClaim(proposal, coreState.lastFinalizedClaimHash, Alice);
+        IInbox.ClaimRecord memory claimRecord = InboxTestUtils.createClaimRecord(claim, 1);
 
         // Store the claim record
-        bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
         inbox.exposed_setClaimRecordHash(
-            proposalId, coreState.lastFinalizedClaimHash, claimRecordHash
+            proposalId, coreState.lastFinalizedClaimHash, claimRecord.hashClaimRecord()
         );
 
         // Setup mocks
@@ -58,86 +53,28 @@ contract InboxFinalization is InboxTestBase {
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
         claimRecords[0] = claimRecord;
 
-        // Use valid blob reference
-        LibBlobs.BlobReference memory blobRef =
-            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
-        bytes memory data = abi.encode(uint64(0), coreState, blobRef, claimRecords);
+        LibBlobs.BlobReference memory blobRef = InboxTestUtils.createBlobReference(1);
+        bytes memory data = InboxTestUtils.encodeProposalData(coreState, blobRef, claimRecords);
 
         // Set initial core state
-        inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
+        inbox.exposed_setCoreStateHash(coreState.hashCoreState());
 
         // Submit proposal (which triggers finalization)
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
-
-        // Verify core state was updated by checking the hash
-        // We can't directly get the core state from TestInboxWithMockBlobs,
-        // but we can verify it was set correctly through the events or other means
-        // The test passes if propose succeeded without reverting
     }
 
     /// @notice Test finalizing multiple proposals in sequence
     function test_finalize_multiple_proposals() public {
-        // Setup blobhashes for this specific test
         setupBlobHashes();
         uint48 numProposals = 3;
 
-        // Setup: Create and store multiple proposals with linked claims
-        IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
-        bytes32 parentClaimHash = keccak256(abi.encode(genesisClaim));
+        // Use scenario builder to finalize multiple proposals
+        bytes32 genesisHash = getGenesisClaimHash();
+        bytes32 finalClaimHash = finalizeProposalsBatch(1, numProposals, genesisHash);
 
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](numProposals);
-
-        for (uint48 i = 1; i <= numProposals; i++) {
-            // Create and store proposal
-            IInbox.Proposal memory proposal = createValidProposal(i);
-            bytes32 proposalHash = keccak256(abi.encode(proposal));
-            inbox.exposed_setProposalHash(i, proposalHash);
-
-            // Create claim with chained parent
-            IInbox.Claim memory claim = createValidClaim(proposal, parentClaimHash);
-            IInbox.ClaimRecord memory claimRecord = IInbox.ClaimRecord({
-                claim: claim,
-                span: 1,
-                bondInstructions: new LibBonds.BondInstruction[](0)
-            });
-
-            // Store claim record
-            bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
-            inbox.exposed_setClaimRecordHash(i, parentClaimHash, claimRecordHash);
-
-            claimRecords[i - 1] = claimRecord;
-            parentClaimHash = keccak256(abi.encode(claim));
-        }
-
-        // Setup initial core state
-        IInbox.CoreState memory coreState = createCoreState(numProposals + 1, 0);
-        coreState.lastFinalizedClaimHash = keccak256(abi.encode(genesisClaim));
-        inbox.exposed_setCoreStateHash(keccak256(abi.encode(coreState)));
-
-        // Setup mocks
-        mockProposerAllowed(Alice);
-        mockForcedInclusionDue(false);
-
-        // Expect final synced block save
-        IInbox.Claim memory lastClaim = claimRecords[numProposals - 1].claim;
-        expectSyncedBlockSave(
-            lastClaim.endBlockNumber, lastClaim.endBlockHash, lastClaim.endStateRoot
-        );
-
-        // Create proposal data with all claim records
-        LibBlobs.BlobReference memory blobRef =
-            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
-        bytes memory data = abi.encode(uint64(0), coreState, blobRef, claimRecords);
-
-        // Submit proposal (triggers finalization)
-        vm.prank(Alice);
-        inbox.propose(bytes(""), data);
-
-        // Verify all proposals were finalized
-        // The test passes if propose succeeded without reverting
-        // We expect all proposals to have been finalized
+        // Verify the finalization succeeded
+        assertTrue(finalClaimHash != bytes32(0));
     }
 
     /// @notice Test finalization stops at missing claim record

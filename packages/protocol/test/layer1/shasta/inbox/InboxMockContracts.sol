@@ -61,7 +61,7 @@ contract StubForcedInclusionStore {
 }
 
 contract StubProofVerifier {
-    function verifyProof(bytes32, bytes calldata) external pure { }
+    function verifyProof(bytes calldata, bytes calldata) external pure { }
 }
 
 contract StubProposerChecker {

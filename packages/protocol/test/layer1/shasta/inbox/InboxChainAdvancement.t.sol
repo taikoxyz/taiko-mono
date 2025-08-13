@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./InboxTestBase.sol";
+import "./InboxTestScenarios.sol";
+import "./InboxTestUtils.sol";
 import "./InboxMockContracts.sol";
 
 /// @title InboxChainAdvancement
 /// @notice Tests for chain advancement through finalization and state transitions
 /// @dev Tests cover finalization flow, chain continuity, and state progression
-contract InboxChainAdvancement is InboxTestBase {
+contract InboxChainAdvancement is InboxTestScenarios {
+    using InboxTestUtils for *;
     function setUp() public virtual override {
         super.setUp();
     }
@@ -538,67 +540,8 @@ contract InboxChainAdvancement is InboxTestBase {
         internal
         returns (IInbox.Proposal memory proposal, IInbox.Claim memory claim)
     {
-        // Create proposal
-        IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
-            nextProposalId: proposalId,
-            lastFinalizedProposalId: proposalId - 1,
-            lastFinalizedClaimHash: parentHash,
-            bondInstructionsHash: bytes32(0)
-        });
-        inbox.exposed_setCoreStateHash(keccak256(abi.encode(proposalCoreState)));
-
-        mockProposerAllowed(Alice);
-        mockForcedInclusionDue(false);
-
-        LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(proposalId);
-        IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
-        bytes memory proposalData =
-            abi.encode(uint64(0), proposalCoreState, proposalBlobRef, emptyClaimRecords);
-
-        vm.prank(Alice);
-        inbox.propose(bytes(""), proposalData);
-
-        // Store proposal
-        bytes32[] memory blobHashes = new bytes32[](1);
-        blobHashes[0] = keccak256(abi.encode("blob", proposalId % 10));
-
-        proposal = IInbox.Proposal({
-            id: proposalId,
-            proposer: Alice,
-            originTimestamp: uint48(block.timestamp),
-            originBlockNumber: uint48(block.number),
-            isForcedInclusion: false,
-            basefeeSharingPctg: defaultConfig.basefeeSharingPctg,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: proposalBlobRef.offset,
-                timestamp: uint48(block.timestamp)
-            })
-        });
-
-        // Prove proposal immediately
-        bytes32 storedProposalHash = inbox.getProposalHash(proposalId);
-
-        claim = IInbox.Claim({
-            proposalHash: storedProposalHash,
-            parentClaimHash: parentHash,
-            endBlockNumber: uint48(100 + proposalId * 10),
-            endBlockHash: keccak256(abi.encode(proposalId, "endBlockHash")),
-            endStateRoot: keccak256(abi.encode(proposalId, "stateRoot")),
-            designatedProver: Alice,
-            actualProver: Alice
-        });
-
-        mockProofVerification(true);
-
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = proposal;
-        IInbox.Claim[] memory claims = new IInbox.Claim[](1);
-        claims[0] = claim;
-
-        bytes memory proveData = abi.encode(proposals, claims);
-        vm.prank(Alice);
-        inbox.prove(proveData, bytes("proof"));
+        // Use scenario builder
+        (proposal, claim) = submitAndProveProposal(proposalId, Alice, Alice, parentHash);
     }
 
     /// @notice Test proving 3 consecutive proposals together with bond instruction aggregation

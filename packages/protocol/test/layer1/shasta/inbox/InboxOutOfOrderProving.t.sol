@@ -1,77 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/src/Test.sol";
-import "test/shared/CommonTest.sol";
-import "./TestInboxWithMockBlobs.sol";
+import "./InboxTestScenarios.sol";
+import "./InboxTestUtils.sol";
 import "./InboxMockContracts.sol";
-import "contracts/layer1/shasta/iface/IInbox.sol";
-import "contracts/layer1/shasta/libs/LibBlobs.sol";
-import "contracts/shared/based/libs/LibBonds.sol";
-import "contracts/layer1/shasta/iface/IProofVerifier.sol";
-import "contracts/layer1/shasta/iface/IProposerChecker.sol";
-import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
-import "contracts/shared/based/iface/ISyncedBlockManager.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title InboxOutOfOrderProving
 /// @notice Tests for out-of-order proving and eventual chain advancement
 /// @dev Verifies that proposals can be proven in any order but finalization respects sequence
-contract InboxOutOfOrderProving is CommonTest {
-    TestInboxWithMockBlobs internal inbox;
-    IInbox.Config internal defaultConfig;
+contract InboxOutOfOrderProving is InboxTestScenarios {
+    using InboxTestUtils for *;
 
-    // Mock dependencies
-    address internal bondToken;
-    address internal syncedBlockManager;
-    address internal forcedInclusionStore;
-    address internal proofVerifier;
-    address internal proposerChecker;
-
-    // Constants
-    bytes32 internal constant GENESIS_BLOCK_HASH = bytes32(uint256(1));
-
-    function setUp() public virtual override {
-        super.setUp();
-
-        // Deploy mock contracts
+    // Override setupMockAddresses to use actual mock contracts
+    function setupMockAddresses() internal override {
         bondToken = address(new MockERC20());
         syncedBlockManager = address(new StubSyncedBlockManager());
         forcedInclusionStore = address(new StubForcedInclusionStore());
         proofVerifier = address(new StubProofVerifier());
         proposerChecker = address(new StubProposerChecker());
+    }
 
-        // Deploy and initialize inbox
-        TestInboxWithMockBlobs impl = new TestInboxWithMockBlobs();
-        bytes memory initData = abi.encodeWithSelector(
-            bytes4(keccak256("init(address,bytes32)")), address(this), GENESIS_BLOCK_HASH
-        );
-
-        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        inbox = TestInboxWithMockBlobs(address(proxy));
-
-        // Set default config
-        defaultConfig = IInbox.Config({
-            bondToken: bondToken,
-            provingWindow: 1 hours,
-            extendedProvingWindow: 2 hours,
-            maxFinalizationCount: 10,
-            ringBufferSize: 100,
-            basefeeSharingPctg: 10,
-            syncedBlockManager: syncedBlockManager,
-            proofVerifier: proofVerifier,
-            proposerChecker: proposerChecker,
-            forcedInclusionStore: forcedInclusionStore
-        });
-        inbox.setTestConfig(defaultConfig);
-
-        // Fund test accounts
-        vm.deal(Alice, 100 ether);
-        vm.deal(Bob, 100 ether);
-        vm.deal(Carol, 100 ether);
-
-        // Setup blob hashes
-        setupBlobHashes();
+    function setUp() public virtual override {
+        super.setUp();
     }
 
     /// @notice Test proving proposals out of order with eventual finalization
@@ -117,7 +67,7 @@ contract InboxOutOfOrderProving is CommonTest {
                 originTimestamp: uint48(block.timestamp),
                 originBlockNumber: uint48(block.number),
                 isForcedInclusion: false,
-                basefeeSharingPctg: defaultConfig.basefeeSharingPctg,
+                basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
                 blobSlice: LibBlobs.BlobSlice({
                     blobHashes: blobHashes,
                     offset: proposalBlobRef.offset,
@@ -254,7 +204,7 @@ contract InboxOutOfOrderProving is CommonTest {
                 originTimestamp: uint48(block.timestamp),
                 originBlockNumber: uint48(block.number),
                 isForcedInclusion: false,
-                basefeeSharingPctg: defaultConfig.basefeeSharingPctg,
+                basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
                 blobSlice: LibBlobs.BlobSlice({
                     blobHashes: blobHashes,
                     offset: 0,
@@ -328,67 +278,5 @@ contract InboxOutOfOrderProving is CommonTest {
 
         // Proposal 1 should be finalized, but 2 and 3 should remain unfinalized
         // because 2 is missing its proof
-    }
-
-    // Helper functions
-
-    function createValidBlobReference(uint256 _seed)
-        internal
-        pure
-        returns (LibBlobs.BlobReference memory)
-    {
-        return
-            LibBlobs.BlobReference({ blobStartIndex: uint48(_seed % 10), numBlobs: 1, offset: 0 });
-    }
-
-    function mockProposerAllowed(address) internal {
-        // Stub contract always allows proposers, no need to mock
-    }
-
-    function mockForcedInclusionDue(bool _isDue) internal {
-        // Stub contract always returns false, only mock if true is needed
-        if (_isDue) {
-            vm.mockCall(
-                forcedInclusionStore,
-                abi.encodeWithSelector(IForcedInclusionStore.isOldestForcedInclusionDue.selector),
-                abi.encode(_isDue)
-            );
-        }
-    }
-
-    function mockProofVerification(bool _valid) internal {
-        // Stub contract always passes verification, no need to mock
-        if (!_valid) {
-            vm.mockCallRevert(
-                proofVerifier,
-                abi.encodeWithSelector(IProofVerifier.verifyProof.selector),
-                abi.encode("Invalid proof")
-            );
-        }
-    }
-
-    function expectSyncedBlockSave(
-        uint48 _blockNumber,
-        bytes32 _blockHash,
-        bytes32 _stateRoot
-    )
-        internal
-    {
-        vm.expectCall(
-            syncedBlockManager,
-            abi.encodeWithSelector(
-                ISyncedBlockManager.saveSyncedBlock.selector, _blockNumber, _blockHash, _stateRoot
-            )
-        );
-    }
-
-    function setupBlobHashes() internal {
-        bytes32[] memory hashes = new bytes32[](256);
-        for (uint256 i = 0; i < 256; i++) {
-            if (i < 10) {
-                hashes[i] = keccak256(abi.encode("blob", i));
-            }
-        }
-        vm.blobhashes(hashes);
     }
 }

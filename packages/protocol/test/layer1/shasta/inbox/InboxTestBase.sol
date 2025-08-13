@@ -13,11 +13,13 @@ import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
 import "contracts/shared/based/iface/ISyncedBlockManager.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./TestInboxWithMockBlobs.sol";
+import "./InboxTestUtils.sol";
 
 /// @title InboxTestBase
 /// @notice Base contract for all inbox tests with common setup and helper functions
 abstract contract InboxTestBase is CommonTest {
     using LibDecoder for bytes;
+    using InboxTestUtils for *;
 
     // Test inbox instance
     TestInboxWithMockBlobs internal inbox;
@@ -108,14 +110,11 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     function setupBlobHashes() internal virtual {
-        bytes32[] memory hashes = new bytes32[](256);
-        for (uint256 i = 0; i < 256; i++) {
-            hashes[i] = keccak256(abi.encode("blob", i));
-        }
+        bytes32[] memory hashes = InboxTestUtils.generateBlobHashes(256);
         vm.blobhashes(hashes);
     }
 
-    // Common helper functions
+    // Common helper functions - delegating to utility library
 
     function createCoreState(
         uint48 _nextProposalId,
@@ -125,12 +124,7 @@ abstract contract InboxTestBase is CommonTest {
         pure
         returns (IInbox.CoreState memory)
     {
-        return IInbox.CoreState({
-            nextProposalId: _nextProposalId,
-            lastFinalizedProposalId: _lastFinalizedProposalId,
-            lastFinalizedClaimHash: bytes32(0),
-            bondInstructionsHash: bytes32(0)
-        });
+        return InboxTestUtils.createCoreState(_nextProposalId, _lastFinalizedProposalId);
     }
 
     function createCoreState(
@@ -142,12 +136,12 @@ abstract contract InboxTestBase is CommonTest {
         pure
         returns (IInbox.CoreState memory)
     {
-        return IInbox.CoreState({
-            nextProposalId: _nextProposalId,
-            lastFinalizedProposalId: _lastFinalizedProposalId,
-            lastFinalizedClaimHash: _lastFinalizedClaimHash,
-            bondInstructionsHash: bytes32(0)
-        });
+        return InboxTestUtils.createCoreStateFull(
+            _nextProposalId,
+            _lastFinalizedProposalId,
+            _lastFinalizedClaimHash,
+            bytes32(0)
+        );
     }
 
     function createValidBlobReference(uint256 _seed)
@@ -155,27 +149,11 @@ abstract contract InboxTestBase is CommonTest {
         pure
         returns (LibBlobs.BlobReference memory)
     {
-        return
-            LibBlobs.BlobReference({ blobStartIndex: uint48(_seed % 10), numBlobs: 1, offset: 0 });
+        return InboxTestUtils.createBlobReference(uint48(_seed % 10));
     }
 
     function createValidProposal(uint48 _id) internal view returns (IInbox.Proposal memory) {
-        bytes32[] memory blobHashes = new bytes32[](1);
-        blobHashes[0] = keccak256(abi.encode("blob", uint256(_id)));
-
-        return IInbox.Proposal({
-            id: _id,
-            proposer: Alice,
-            originTimestamp: uint48(block.timestamp),
-            originBlockNumber: uint48(block.number),
-            isForcedInclusion: false,
-            basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: 0,
-                timestamp: uint48(block.timestamp)
-            })
-        });
+        return InboxTestUtils.createProposal(_id, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
     }
 
     function createValidClaim(
@@ -186,15 +164,7 @@ abstract contract InboxTestBase is CommonTest {
         pure
         returns (IInbox.Claim memory)
     {
-        return IInbox.Claim({
-            proposalHash: keccak256(abi.encode(_proposal)),
-            parentClaimHash: _parentClaimHash,
-            endBlockNumber: _proposal.id * 100,
-            endBlockHash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
-            endStateRoot: keccak256(abi.encode(_proposal.id, "stateRoot")),
-            designatedProver: _proposal.proposer,
-            actualProver: _proposal.proposer
-        });
+        return InboxTestUtils.createClaim(_proposal, _parentClaimHash, _proposal.proposer);
     }
 
     function encodeProposalData(
@@ -206,7 +176,7 @@ abstract contract InboxTestBase is CommonTest {
         pure
         returns (bytes memory)
     {
-        return abi.encode(uint64(0), _coreState, _blobRef, _claimRecords);
+        return InboxTestUtils.encodeProposalData(_coreState, _blobRef, _claimRecords);
     }
 
     function encodeProposalDataWithDeadline(
@@ -219,7 +189,12 @@ abstract contract InboxTestBase is CommonTest {
         pure
         returns (bytes memory)
     {
-        return abi.encode(_deadline, _coreState, _blobRef, _claimRecords);
+        return InboxTestUtils.encodeProposalDataWithDeadline(
+            _deadline,
+            _coreState,
+            _blobRef,
+            _claimRecords
+        );
     }
 
     // Mock helper functions

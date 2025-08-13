@@ -1,84 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/src/Test.sol";
-import "test/shared/CommonTest.sol";
-import "./TestInboxWithMockBlobs.sol";
-import "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
+import "./InboxTestScenarios.sol";
+import "./InboxTestUtils.sol";
+import "./InboxMockContracts.sol";
 import {
     Inbox,
     InvalidState,
     DeadlineExceeded,
     ExceedsUnfinalizedProposalCapacity
 } from "contracts/layer1/shasta/impl/Inbox.sol";
-import "contracts/shared/based/libs/LibBonds.sol";
-import "contracts/layer1/shasta/iface/IProofVerifier.sol";
-import "contracts/layer1/shasta/iface/IProposerChecker.sol";
-import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
-import "contracts/shared/based/iface/ISyncedBlockManager.sol";
-import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title InboxProposeValidation
 /// @notice Tests for proposal validation logic including deadlines, state checks, and constraints
 /// @dev Tests cover all validation aspects of the propose function
-contract InboxProposeValidation is CommonTest {
-    TestInboxWithMockBlobs internal inbox;
-    IInbox.Config internal defaultConfig;
+contract InboxProposeValidation is InboxTestScenarios {
+    using InboxTestUtils for *;
 
-    // Mock dependencies
-    address internal bondToken;
-    address internal syncedBlockManager;
-    address internal forcedInclusionStore;
-    address internal proofVerifier;
-    address internal proposerChecker;
-
-    // Constants
-    bytes32 internal constant GENESIS_BLOCK_HASH = bytes32(uint256(1));
-
-    // Events
-    event Proposed(IInbox.Proposal proposal, IInbox.CoreState coreState);
-
-    function setUp() public virtual override {
-        super.setUp();
-
-        // Create mock addresses
-        bondToken = makeAddr("bondToken");
-        syncedBlockManager = makeAddr("syncedBlockManager");
-        forcedInclusionStore = makeAddr("forcedInclusionStore");
-        proofVerifier = makeAddr("proofVerifier");
-        proposerChecker = makeAddr("proposerChecker");
-
-        // Deploy and initialize inbox
-        TestInboxWithMockBlobs impl = new TestInboxWithMockBlobs();
-        bytes memory initData = abi.encodeWithSelector(
-            bytes4(keccak256("init(address,bytes32)")), address(this), GENESIS_BLOCK_HASH
-        );
-
-        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
-        inbox = TestInboxWithMockBlobs(address(proxy));
-
-        // Set default config
-        defaultConfig = IInbox.Config({
-            bondToken: bondToken,
-            provingWindow: 1 hours,
-            extendedProvingWindow: 2 hours,
-            maxFinalizationCount: 10,
-            ringBufferSize: 100,
-            basefeeSharingPctg: 10,
-            syncedBlockManager: syncedBlockManager,
-            proofVerifier: proofVerifier,
-            proposerChecker: proposerChecker,
-            forcedInclusionStore: forcedInclusionStore
-        });
-        inbox.setTestConfig(defaultConfig);
-
-        // Fund test accounts
-        vm.deal(Alice, 100 ether);
-        vm.deal(Bob, 100 ether);
-
-        // Setup blob hashes
-        setupBlobHashes();
+    // Override setupMockAddresses to use actual mock contracts
+    function setupMockAddresses() internal override {
+        bondToken = address(new MockERC20());
+        syncedBlockManager = address(new StubSyncedBlockManager());
+        forcedInclusionStore = address(new StubForcedInclusionStore());
+        proofVerifier = address(new StubProofVerifier());
+        proposerChecker = address(new StubProposerChecker());
     }
 
     /// @notice Test proposal with valid deadline
@@ -437,34 +382,8 @@ contract InboxProposeValidation is CommonTest {
         inbox.propose(bytes(""), data);
     }
 
-    // Helper functions
-
-    function createValidBlobReference(uint256 _seed)
-        internal
-        pure
-        returns (LibBlobs.BlobReference memory)
-    {
-        return
-            LibBlobs.BlobReference({ blobStartIndex: uint48(_seed % 10), numBlobs: 1, offset: 0 });
-    }
-
-    function mockProposerAllowed(address _proposer) internal {
-        vm.mockCall(
-            proposerChecker,
-            abi.encodeWithSelector(IProposerChecker.checkProposer.selector, _proposer),
-            abi.encode()
-        );
-    }
-
-    function mockForcedInclusionDue(bool _isDue) internal {
-        vm.mockCall(
-            forcedInclusionStore,
-            abi.encodeWithSelector(IForcedInclusionStore.isOldestForcedInclusionDue.selector),
-            abi.encode(_isDue)
-        );
-    }
-
-    function setupBlobHashes() internal {
+    // Override setupBlobHashes to support custom test cases
+    function setupBlobHashes() internal override {
         bytes32[] memory hashes = new bytes32[](256);
         for (uint256 i = 0; i < 256; i++) {
             if (i < 10) {
@@ -477,7 +396,3 @@ contract InboxProposeValidation is CommonTest {
         vm.blobhashes(hashes);
     }
 }
-
-// Import errors
-error InvalidBlobReference();
-error BlobNotFound();
