@@ -243,6 +243,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         Claim[] memory _claims
     )
         internal
+        view
         virtual
         returns (ClaimRecord[] memory claimRecords_)
     {
@@ -399,7 +400,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         Proposal memory _proposal,
         Claim memory _claim
     )
-        private
+        internal
         view
         returns (LibBonds.BondInstruction[] memory bondInstructions_)
     {
