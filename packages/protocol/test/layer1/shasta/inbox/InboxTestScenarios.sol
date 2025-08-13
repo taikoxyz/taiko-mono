@@ -31,7 +31,8 @@ abstract contract InboxTestScenarios is InboxTestBase {
         mockForcedInclusionDue(false);
 
         // Create proposal data
-        LibBlobs.BlobReference memory blobRef = InboxTestUtils.createBlobReference(_proposalId);
+        LibBlobs.BlobReference memory blobRef =
+            InboxTestUtils.createBlobReference(uint8(_proposalId));
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
         bytes memory data = InboxTestUtils.encodeProposalData(coreState, blobRef, claimRecords);
 
@@ -40,7 +41,8 @@ abstract contract InboxTestScenarios is InboxTestBase {
         inbox.propose(bytes(""), data);
 
         // Return expected proposal
-        proposal_ = InboxTestUtils.createProposal(_proposalId, _proposer, DEFAULT_BASEFEE_SHARING_PCTG);
+        proposal_ =
+            InboxTestUtils.createProposal(_proposalId, _proposer, DEFAULT_BASEFEE_SHARING_PCTG);
     }
 
     /// @dev Creates, submits, and proves a proposal
@@ -143,10 +145,7 @@ abstract contract InboxTestScenarios is InboxTestBase {
 
         // Setup core state for finalization
         IInbox.CoreState memory coreState = InboxTestUtils.createCoreStateFull(
-            _proposalId + 1,
-            _proposalId - 1,
-            _parentClaimHash,
-            bytes32(0)
+            _proposalId + 1, _proposalId - 1, _parentClaimHash, bytes32(0)
         );
         inbox.exposed_setCoreStateHash(InboxTestUtils.hashCoreState(coreState));
 
@@ -161,7 +160,8 @@ abstract contract InboxTestScenarios is InboxTestBase {
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
         claimRecords[0] = claimRecord;
 
-        LibBlobs.BlobReference memory blobRef = InboxTestUtils.createBlobReference(_proposalId + 1);
+        LibBlobs.BlobReference memory blobRef =
+            InboxTestUtils.createBlobReference(uint8(_proposalId + 1));
         bytes memory data = InboxTestUtils.encodeProposalData(coreState, blobRef, claimRecords);
 
         // Submit proposal (triggers finalization)
@@ -206,10 +206,7 @@ abstract contract InboxTestScenarios is InboxTestBase {
 
         // Setup core state
         IInbox.CoreState memory coreState = InboxTestUtils.createCoreStateFull(
-            _startId + _count,
-            _startId - 1,
-            _initialParentHash,
-            bytes32(0)
+            _startId + _count, _startId - 1, _initialParentHash, bytes32(0)
         );
         inbox.exposed_setCoreStateHash(InboxTestUtils.hashCoreState(coreState));
 
@@ -219,10 +216,13 @@ abstract contract InboxTestScenarios is InboxTestBase {
 
         // Expect final synced block save
         IInbox.Claim memory lastClaim = claimRecords[_count - 1].claim;
-        expectSyncedBlockSave(lastClaim.endBlockNumber, lastClaim.endBlockHash, lastClaim.endStateRoot);
+        expectSyncedBlockSave(
+            lastClaim.endBlockNumber, lastClaim.endBlockHash, lastClaim.endStateRoot
+        );
 
         // Create proposal data with all claim records
-        LibBlobs.BlobReference memory blobRef = InboxTestUtils.createBlobReference(_startId + _count);
+        LibBlobs.BlobReference memory blobRef =
+            InboxTestUtils.createBlobReference(uint8(_startId + _count));
         bytes memory data = InboxTestUtils.encodeProposalData(coreState, blobRef, claimRecords);
 
         // Submit proposal (triggers batch finalization)
@@ -251,12 +251,7 @@ abstract contract InboxTestScenarios is InboxTestBase {
             uint48 proposalId = _startId + i;
 
             // Submit and prove proposal
-            (proposals_[i], claims_[i]) = submitAndProveProposal(
-                proposalId,
-                Alice,
-                Bob,
-                parentHash
-            );
+            (proposals_[i], claims_[i]) = submitAndProveProposal(proposalId, Alice, Bob, parentHash);
 
             // Update parent hash for next iteration
             parentHash = InboxTestUtils.hashClaim(claims_[i]);
@@ -308,10 +303,8 @@ abstract contract InboxTestScenarios is InboxTestBase {
         internal
         view
     {
-        IInbox.CoreState memory expected = InboxTestUtils.createCoreState(
-            _expectedNextProposalId,
-            _expectedLastFinalizedId
-        );
+        IInbox.CoreState memory expected =
+            InboxTestUtils.createCoreState(_expectedNextProposalId, _expectedLastFinalizedId);
         bytes32 expectedHash = InboxTestUtils.hashCoreState(expected);
         bytes32 actualHash = inbox.getCoreStateHash();
         assertEq(actualHash, expectedHash, "Core state mismatch");

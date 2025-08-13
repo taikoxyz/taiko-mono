@@ -10,6 +10,7 @@ import { Inbox, InvalidState, DeadlineExceeded } from "contracts/layer1/shasta/i
 /// @notice Basic tests for the Inbox contract without slot reuse functionality
 contract InboxBasicTest is InboxTestScenarios {
     using InboxTestUtils for *;
+
     function setUp() public virtual override {
         super.setUp();
     }
@@ -41,7 +42,8 @@ contract InboxBasicTest is InboxTestScenarios {
         bytes memory data = InboxTestUtils.encodeProposalData(coreState, blobRef, claimRecords);
 
         // Expected proposal and core state
-        IInbox.Proposal memory expectedProposal = InboxTestUtils.createProposal(1, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
+        IInbox.Proposal memory expectedProposal =
+            InboxTestUtils.createProposal(1, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
         IInbox.CoreState memory expectedCoreState = coreState;
         expectedCoreState.nextProposalId = 2;
 
@@ -83,7 +85,8 @@ contract InboxBasicTest is InboxTestScenarios {
         mockForcedInclusionDue(false);
 
         // Create proposal data with wrong core state
-        IInbox.CoreState memory wrongCoreState = InboxTestUtils.createCoreState(2, 0); // Wrong nextProposalId
+        IInbox.CoreState memory wrongCoreState = InboxTestUtils.createCoreState(2, 0); // Wrong
+            // nextProposalId
         LibBlobs.BlobReference memory blobRef = InboxTestUtils.createBlobReference(1);
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
         bytes memory data = InboxTestUtils.encodeProposalData(wrongCoreState, blobRef, claimRecords);
@@ -125,14 +128,9 @@ contract InboxBasicTest is InboxTestScenarios {
     /// @notice Test proving a claim
     function test_prove_single_claim() public {
         setupBlobHashes();
-        
+
         // Submit proposal and prove it
-        (IInbox.Proposal memory proposal, IInbox.Claim memory claim) = submitAndProveProposal(
-            1,
-            Alice,
-            Bob,
-            bytes32(0)
-        );
+        submitAndProveProposal(1, Alice, Bob, bytes32(0));
 
         // Verify claim is stored
         assertClaimRecordStored(1, bytes32(0));

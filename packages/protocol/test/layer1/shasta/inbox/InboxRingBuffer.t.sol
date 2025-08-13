@@ -279,8 +279,7 @@ contract InboxRingBuffer is CommonTest {
         pure
         returns (LibBlobs.BlobReference memory)
     {
-        return
-            LibBlobs.BlobReference({ blobStartIndex: uint48(_seed % 10), numBlobs: 1, offset: 0 });
+        return LibBlobs.BlobReference({ blobStartIndex: uint8(_seed % 10), numBlobs: 1, offset: 0 });
     }
 
     function mockProposerAllowed(address _proposer) internal {

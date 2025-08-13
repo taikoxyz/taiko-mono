@@ -10,6 +10,7 @@ import "./InboxMockContracts.sol";
 /// @dev Tests cover finalization flow, chain continuity, and state progression
 contract InboxChainAdvancement is InboxTestScenarios {
     using InboxTestUtils for *;
+
     function setUp() public virtual override {
         super.setUp();
     }

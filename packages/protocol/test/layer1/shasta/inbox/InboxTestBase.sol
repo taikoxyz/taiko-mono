@@ -137,10 +137,7 @@ abstract contract InboxTestBase is CommonTest {
         returns (IInbox.CoreState memory)
     {
         return InboxTestUtils.createCoreStateFull(
-            _nextProposalId,
-            _lastFinalizedProposalId,
-            _lastFinalizedClaimHash,
-            bytes32(0)
+            _nextProposalId, _lastFinalizedProposalId, _lastFinalizedClaimHash, bytes32(0)
         );
     }
 
@@ -149,7 +146,7 @@ abstract contract InboxTestBase is CommonTest {
         pure
         returns (LibBlobs.BlobReference memory)
     {
-        return InboxTestUtils.createBlobReference(uint48(_seed % 10));
+        return InboxTestUtils.createBlobReference(uint8(_seed % 10));
     }
 
     function createValidProposal(uint48 _id) internal view returns (IInbox.Proposal memory) {
@@ -190,10 +187,7 @@ abstract contract InboxTestBase is CommonTest {
         returns (bytes memory)
     {
         return InboxTestUtils.encodeProposalDataWithDeadline(
-            _deadline,
-            _coreState,
-            _blobRef,
-            _claimRecords
+            _deadline, _coreState, _blobRef, _claimRecords
         );
     }
 

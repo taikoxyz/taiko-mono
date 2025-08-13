@@ -13,6 +13,7 @@ import "./InboxMockContracts.sol";
 contract InboxFinalization is InboxTestScenarios {
     using InboxTestUtils for *;
     // Override setupMockAddresses to use actual mock contracts instead of makeAddr
+
     function setupMockAddresses() internal override {
         bondToken = address(new MockERC20());
         syncedBlockManager = address(new StubSyncedBlockManager());
@@ -34,7 +35,8 @@ contract InboxFinalization is InboxTestScenarios {
         IInbox.CoreState memory coreState = InboxTestUtils.createCoreState(2, 0);
 
         // Create and store a claim record
-        IInbox.Claim memory claim = InboxTestUtils.createClaim(proposal, coreState.lastFinalizedClaimHash, Alice);
+        IInbox.Claim memory claim =
+            InboxTestUtils.createClaim(proposal, coreState.lastFinalizedClaimHash, Alice);
         IInbox.ClaimRecord memory claimRecord = InboxTestUtils.createClaimRecord(claim, 1);
 
         // Store the claim record

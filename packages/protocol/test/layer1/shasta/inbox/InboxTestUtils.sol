@@ -200,23 +200,19 @@ library InboxTestUtils {
     // ---------------------------------------------------------------
 
     /// @dev Creates a blob reference with single blob
-    function createBlobReference(uint48 _blobIndex)
+    function createBlobReference(uint8 _blobIndex)
         internal
         pure
         returns (LibBlobs.BlobReference memory ref_)
     {
-        ref_ = LibBlobs.BlobReference({
-            blobStartIndex: _blobIndex,
-            numBlobs: 1,
-            offset: 0
-        });
+        ref_ = LibBlobs.BlobReference({ blobStartIndex: _blobIndex, numBlobs: 1, offset: 0 });
     }
 
     /// @dev Creates a blob reference with multiple blobs
     function createBlobReferenceMulti(
-        uint48 _blobStartIndex,
-        uint48 _numBlobs,
-        uint48 _offset
+        uint8 _blobStartIndex,
+        uint8 _numBlobs,
+        uint24 _offset
     )
         internal
         pure
@@ -224,8 +220,8 @@ library InboxTestUtils {
     {
         ref_ = LibBlobs.BlobReference({
             blobStartIndex: _blobStartIndex,
-            numBlobs: uint32(_numBlobs),
-            offset: uint24(_offset)
+            numBlobs: _numBlobs,
+            offset: _offset
         });
     }
 
@@ -277,11 +273,7 @@ library InboxTestUtils {
     // ---------------------------------------------------------------
 
     /// @dev Computes proposal hash
-    function hashProposal(IInbox.Proposal memory _proposal)
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
+    function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32 hash_) {
         hash_ = keccak256(abi.encode(_proposal));
     }
 
@@ -300,11 +292,7 @@ library InboxTestUtils {
     }
 
     /// @dev Computes core state hash
-    function hashCoreState(IInbox.CoreState memory _state)
-        internal
-        pure
-        returns (bytes32 hash_)
-    {
+    function hashCoreState(IInbox.CoreState memory _state) internal pure returns (bytes32 hash_) {
         hash_ = keccak256(abi.encode(_state));
     }
 
