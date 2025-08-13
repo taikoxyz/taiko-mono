@@ -3,15 +3,18 @@
 pragma solidity ^0.8.24;
 
 /// @title LibMerkleUtils
+/// @dev This library is used specifically for beacon state merkle proofs.
 /// @custom:security-contact security@taiko.xyz
 library LibMerkleUtils {
     uint256 internal constant CHUNKS_LENGTH = 8;
     uint256 internal constant TMP_LENGTH = 4;
 
     function hash(bytes32 a, bytes32 b) internal pure returns (bytes32) {
+        // TODO: reuse word with assembly
         return sha256(abi.encodePacked(a, b));
     }
 
+    // TODO: use calldata for chunks
     function merkleize(bytes32[CHUNKS_LENGTH] memory chunks) internal pure returns (bytes32) {
         bytes32[] memory tmp = new bytes32[](TMP_LENGTH);
 
