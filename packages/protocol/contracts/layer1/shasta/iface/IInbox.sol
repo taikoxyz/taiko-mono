@@ -63,8 +63,8 @@ interface IInbox {
     struct ClaimRecord {
         /// @notice The claim.
         Claim claim;
-        /// @notice The next proposal ID.
-        uint48 nextProposalId;
+        /// @notice The span indicating how many proposals this claim record covers.
+        uint8 span;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
     }

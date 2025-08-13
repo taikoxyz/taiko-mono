@@ -257,11 +257,8 @@ abstract contract Inbox is EssentialContract, IInbox {
             LibBonds.BondInstruction[] memory bondInstructions =
                 _calculateBondInstructions(_config, proposal, claim);
 
-            claimRecords_[i] = ClaimRecord({
-                claim: claim,
-                nextProposalId: proposal.id + 1,
-                bondInstructions: bondInstructions
-            });
+            claimRecords_[i] =
+                ClaimRecord({ claim: claim, span: 1, bondInstructions: bondInstructions });
         }
     }
 
@@ -487,7 +484,14 @@ abstract contract Inbox is EssentialContract, IInbox {
                 }
             }
 
-            proposalId = _claimRecords[i].nextProposalId;
+            // Validate span is within bounds
+            require(_claimRecords[i].span > 0, InvalidSpan());
+            require(
+                proposalId + _claimRecords[i].span < _coreState.nextProposalId + 1,
+                SpanOutOfBounds()
+            );
+
+            proposalId = proposalId + _claimRecords[i].span;
             hasFinalized = true;
         }
 
@@ -521,4 +525,6 @@ error NoBondToWithdraw();
 error ProposalHashMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
+error InvalidSpan();
+error SpanOutOfBounds();
 error Unauthorized();

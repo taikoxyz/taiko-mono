@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "./Inbox.sol";
+import { InboxWithSlotReuse } from "./InboxWithSlotReuse.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { LibDecoder } from "../libs/LibDecoder.sol";
 
@@ -9,8 +9,18 @@ import { LibDecoder } from "../libs/LibDecoder.sol";
 /// @notice Extends Inbox with optimized claim aggregation for continuous proposals
 /// @dev Aggregates continuous proposals into single claim records to optimize storage and gas usage
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxWithClaimAggregation is Inbox {
+abstract contract InboxWithClaimAggregation is InboxWithSlotReuse {
     using LibDecoder for bytes;
+
+    // ---------------------------------------------------------------
+    // Constructor
+    // ---------------------------------------------------------------
+
+    constructor() InboxWithSlotReuse() { }
+
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
 
     /// @dev Builds claim records for multiple proposals and claims with aggregation for continuous
     /// proposals
@@ -39,21 +49,21 @@ abstract contract InboxWithClaimAggregation is Inbox {
         LibBonds.BondInstruction[] memory currentInstructions =
             _calculateBondInstructions(_config, _proposals[0], _claims[0]);
 
-        claimRecords_[0] = ClaimRecord({
-            claim: _claims[0],
-            nextProposalId: _proposals[0].id + 1,
-            bondInstructions: currentInstructions
-        });
+        claimRecords_[0] =
+            ClaimRecord({ claim: _claims[0], span: 1, bondInstructions: currentInstructions });
 
         uint256 finalRecordCount = 1;
         uint256 currentRecordIndex;
+        uint48 currentGroupStartId = _proposals[0].id;
 
         // Process remaining proposals
         for (uint256 i = 1; i < _proposals.length; ++i) {
             _validateProposal(_config, _proposals[i], _claims[i]);
 
             // Check if current proposal can be aggregated with the previous group
-            if (_proposals[i].id == claimRecords_[currentRecordIndex].nextProposalId) {
+            // The next expected proposal ID is: start of current group + current span
+            uint48 nextExpectedId = currentGroupStartId + claimRecords_[currentRecordIndex].span;
+            if (_proposals[i].id == nextExpectedId) {
                 // Aggregate with current record
                 LibBonds.BondInstruction[] memory newInstructions =
                     _calculateBondInstructions(_config, _proposals[i], _claims[i]);
@@ -81,19 +91,17 @@ abstract contract InboxWithClaimAggregation is Inbox {
                     claimRecords_[currentRecordIndex].bondInstructions = aggregatedInstructions;
                 }
 
-                // Update nextProposalId to skip this aggregated proposal
-                claimRecords_[currentRecordIndex].nextProposalId = _proposals[i].id + 1;
+                // Increment span to include this aggregated proposal
+                claimRecords_[currentRecordIndex].span++;
             } else {
                 // Start a new record for non-continuous proposal
                 LibBonds.BondInstruction[] memory instructions =
                     _calculateBondInstructions(_config, _proposals[i], _claims[i]);
 
                 currentRecordIndex = finalRecordCount;
-                claimRecords_[currentRecordIndex] = ClaimRecord({
-                    claim: _claims[i],
-                    nextProposalId: _proposals[i].id + 1,
-                    bondInstructions: instructions
-                });
+                currentGroupStartId = _proposals[i].id;
+                claimRecords_[currentRecordIndex] =
+                    ClaimRecord({ claim: _claims[i], span: 1, bondInstructions: instructions });
                 finalRecordCount++;
             }
         }
