@@ -202,22 +202,14 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // Private functions
     // ---------------------------------------------------------------
 
-    /// @dev Pays proving reward for low-bond proposals from the anchor's bond balance
-    /// @param _prover The address of the prover to reward
-    function _payProvingReward(address _prover) private {
-        // Get the anchor's bond balance (the proving fee pool)
-        uint96 poolBalance = bondManager.getBondBalance(address(this));
-        
-        // Calculate reward amount (minimum of pool balance and configured reward)
-        uint96 reward = lowBondProvingRewardGwei;
-        if (poolBalance < reward) {
-            reward = poolBalance;
-        }
-
-        // Pay the reward if available by transferring from anchor to prover
-        if (reward > 0) {
-            bondManager.debitBond(address(this), reward);
-            bondManager.creditBond(_prover, reward);
+    /// @dev Transfers bond from one address to another
+    /// @param _from The address to transfer from
+    /// @param _to The address to transfer to  
+    /// @param _amount The amount to transfer in gwei
+    function _transferBond(address _from, address _to, uint96 _amount) private {
+        uint96 amountDebited = bondManager.debitBond(_from, _amount);
+        if (amountDebited > 0) {
+            bondManager.creditBond(_to, amountDebited);
         }
     }
 
@@ -343,23 +335,23 @@ abstract contract ShastaAnchor is PacayaAnchor {
         for (uint256 i; i < length; ++i) {
             LibBonds.BondInstruction memory instruction = _bondInstructions[i];
 
+            // Determine transfer amount and source
+            address from;
+            uint96 amount;
+            
             if (lowBondProposals[instruction.proposalId]) {
-                // For low-bond proposals, pay reward from the pool to the actual prover
-                _payProvingReward(instruction.receiver);
+                // For low-bond proposals, pay reward from anchor's pool
+                from = address(this);
+                amount = lowBondProvingRewardGwei;
             } else {
-                // Determine bond amount based on type
-                uint48 bond;
-                if (instruction.bondType == LibBonds.BondType.LIVENESS) {
-                    bond = livenessBondGwei;
-                } else if (instruction.bondType == LibBonds.BondType.PROVABILITY) {
-                    bond = provabilityBondGwei;
-                }
+                // For regular proposals, transfer bond from payer
+                from = instruction.payer;
+                amount = _getBondAmount(instruction.bondType);
+            }
 
-                // Transfer bond from payer to receiver
-                if (bond != 0) {
-                    uint96 bondDebited = bondManager.debitBond(instruction.payer, bond);
-                    bondManager.creditBond(instruction.receiver, bondDebited);
-                }
+            // Execute the transfer
+            if (amount > 0) {
+                _transferBond(from, instruction.receiver, amount);
             }
 
             // Update cumulative hash
