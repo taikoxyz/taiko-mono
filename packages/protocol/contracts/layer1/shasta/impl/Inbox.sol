@@ -252,7 +252,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             Proposal memory proposal = _proposals[i];
             Claim memory claim = _claims[i];
 
-            _validateProposal(_config, proposal, claim);
+            _validateClaim(_config, proposal, claim);
 
             LibBonds.BondInstruction[] memory bondInstructions =
                 _calculateBondInstructions(_config, proposal, claim);
@@ -262,11 +262,11 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Validates that a proposal hash matches both the claim and storage.
+    /// @dev Validates that a claim is valid for a given proposal.
     /// @param _config The configuration parameters.
     /// @param _proposal The proposal to validate.
-    /// @param _claim The claim to validate against.
-    function _validateProposal(
+    /// @param _claim The claim to validate.
+    function _validateClaim(
         Config memory _config,
         Proposal memory _proposal,
         Claim memory _claim
@@ -274,14 +274,14 @@ abstract contract Inbox is EssentialContract, IInbox {
         internal
         view
     {
+        if (_proposal.id != _claim.proposalId) revert ProposalIdMismatch();
+
         bytes32 proposalHash = keccak256(abi.encode(_proposal));
-        // Validate proposal hash matches claim and storage in one check
         if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
 
+        // Validate the proposal hash matches what's stored on-chain.
         uint256 bufferSlot = _proposal.id % _config.ringBufferSize;
-        if (proposalHash != proposalRingBuffer[bufferSlot].proposalHash) {
-            revert ProposalHashMismatch();
-        }
+        if (proposalHash != proposalRingBuffer[bufferSlot].proposalHash) revert ProposalHashMismatch();
     }
 
     /// @dev Sets the hash of the core state.
@@ -523,6 +523,7 @@ error InvalidForcedInclusion();
 error InvalidState();
 error NoBondToWithdraw();
 error ProposalHashMismatch();
+error ProposalIdMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
 error InvalidSpan();
