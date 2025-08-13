@@ -42,6 +42,8 @@ interface IInbox {
 
     /// @notice Represents a claim about the state transition of a proposal.
     struct Claim {
+        /// @notice The proposal's ID.
+        uint48 proposalId;
         /// @notice The proposal's hash.
         bytes32 proposalHash;
         /// @notice The parent claim's hash, this is used to link the claim to its parent claim to
