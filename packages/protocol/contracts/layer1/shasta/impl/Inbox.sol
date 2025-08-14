@@ -107,7 +107,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @inheritdoc IInbox
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         Config memory config = getConfig();
-        
+
         // Validate proposer
         IProposerChecker(config.proposerChecker).checkProposer(msg.sender);
 

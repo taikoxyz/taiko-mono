@@ -69,7 +69,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @notice Storage gap for upgrade safety.
     uint256[48] private __gap;
 
-
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
