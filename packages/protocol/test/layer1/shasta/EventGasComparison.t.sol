@@ -12,7 +12,7 @@ contract EventGasComparison is CommonTest {
     TestWithBytes testBytes;
     TestWithStructured testStructured;
     TestWithLibCodec testLibCodec;
-    
+
     // Storage for gas measurements
     uint256 proposedStructured;
     uint256 proposedAbiEncode;
@@ -126,17 +126,19 @@ contract EventGasComparison is CommonTest {
         provedAbiEncode = gasUsedBytes;
         provedLibCodec = gasUsedLibCodec;
     }
-    
+
     function test_printComparisonTable() public {
         // Run both tests to populate measurements
         test_compareProposedEventGas();
         test_compareProvedEventGas();
-        
+
         // Print markdown table
         console2.log("\n# Gas Comparison Table\n");
-        console2.log("| Event Type | Baseline (Structured) | Bytes(abi.encode) | Packed(LibCodec) |");
+        console2.log(
+            "| Event Type | Baseline (Structured) | Bytes(abi.encode) | Packed(LibCodec) |"
+        );
         console2.log("|------------|----------------------|------------------|-----------------|");
-        
+
         // Proposed event row
         console2.log(
             string.concat(
@@ -149,7 +151,7 @@ contract EventGasComparison is CommonTest {
                 " |"
             )
         );
-        
+
         // Proved event row
         console2.log(
             string.concat(
@@ -162,7 +164,7 @@ contract EventGasComparison is CommonTest {
                 " |"
             )
         );
-        
+
         // Calculate and display savings
         console2.log("\n## Gas Savings Analysis\n");
         console2.log("### Proposed Event:");
@@ -190,7 +192,7 @@ contract EventGasComparison is CommonTest {
                 )
             );
         }
-        
+
         console2.log("\n### Proved Event:");
         if (provedLibCodec < provedStructured) {
             uint256 saving = ((provedStructured - provedLibCodec) * 100) / provedStructured;
@@ -217,7 +219,7 @@ contract EventGasComparison is CommonTest {
             );
         }
     }
-    
+
     function _toString(uint256 value) private pure returns (string memory) {
         if (value == 0) {
             return "0";

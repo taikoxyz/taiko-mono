@@ -33,7 +33,7 @@ library LibCodec {
 
         encoded = new bytes(totalSize);
         uint256 offset = 0;
-        
+
         // Encode Proposal fields
         offset = _encodeUint48(encoded, offset, _proposal.id);
         offset = _encodeAddress(encoded, offset, _proposal.proposer);
@@ -41,31 +41,35 @@ library LibCodec {
         offset = _encodeUint48(encoded, offset, _proposal.originBlockNumber);
         encoded[offset++] = _proposal.isForcedInclusion ? bytes1(0x01) : bytes1(0x00);
         encoded[offset++] = bytes1(_proposal.basefeeSharingPctg);
-        
+
         // Encode blob hashes length
         encoded[offset++] = bytes1(uint8(blobHashesLen >> 8));
         encoded[offset++] = bytes1(uint8(blobHashesLen));
-        
+
         // Encode blob hashes
         for (uint256 i = 0; i < blobHashesLen; i++) {
             offset = _encodeBytes32(encoded, offset, _proposal.blobSlice.blobHashes[i]);
         }
-        
+
         // Encode blob slice fields
         offset = _encodeUint24(encoded, offset, _proposal.blobSlice.offset);
         offset = _encodeUint48(encoded, offset, _proposal.blobSlice.timestamp);
-        
+
         // Encode coreStateHash
         offset = _encodeBytes32(encoded, offset, _proposal.coreStateHash);
-        
+
         // Encode CoreState fields
         offset = _encodeUint48(encoded, offset, _coreState.nextProposalId);
         offset = _encodeUint48(encoded, offset, _coreState.lastFinalizedProposalId);
         offset = _encodeBytes32(encoded, offset, _coreState.lastFinalizedClaimHash);
         _encodeBytes32(encoded, offset, _coreState.bondInstructionsHash);
     }
-    
-    function _encodeUint48(bytes memory _data, uint256 _offset, uint48 _value)
+
+    function _encodeUint48(
+        bytes memory _data,
+        uint256 _offset,
+        uint48 _value
+    )
         private
         pure
         returns (uint256)
@@ -78,8 +82,12 @@ library LibCodec {
         _data[_offset + 5] = bytes1(uint8(_value));
         return _offset + 6;
     }
-    
-    function _encodeUint24(bytes memory _data, uint256 _offset, uint24 _value)
+
+    function _encodeUint24(
+        bytes memory _data,
+        uint256 _offset,
+        uint24 _value
+    )
         private
         pure
         returns (uint256)
@@ -89,8 +97,12 @@ library LibCodec {
         _data[_offset + 2] = bytes1(uint8(_value));
         return _offset + 3;
     }
-    
-    function _encodeAddress(bytes memory _data, uint256 _offset, address _value)
+
+    function _encodeAddress(
+        bytes memory _data,
+        uint256 _offset,
+        address _value
+    )
         private
         pure
         returns (uint256)
@@ -101,8 +113,12 @@ library LibCodec {
         }
         return _offset + 20;
     }
-    
-    function _encodeBytes32(bytes memory _data, uint256 _offset, bytes32 _value)
+
+    function _encodeBytes32(
+        bytes memory _data,
+        uint256 _offset,
+        bytes32 _value
+    )
         private
         pure
         returns (uint256)
@@ -130,23 +146,23 @@ library LibCodec {
         uint256 totalSize = 183 + (47 * bondInstructionsLen);
 
         encoded = new bytes(totalSize);
-        
+
         // Encode claim data
         uint256 offset = _encodeClaim(encoded, 0, _claimRecord.claim);
-        
+
         // Encode span
         encoded[offset] = bytes1(uint8(_claimRecord.span));
         offset += 1;
-        
+
         // Encode bond instructions length
         encoded[offset] = bytes1(uint8(bondInstructionsLen >> 8));
         encoded[offset + 1] = bytes1(uint8(bondInstructionsLen));
         offset += 2;
-        
+
         // Encode bond instructions
         _encodeBondInstructions(encoded, offset, _claimRecord.bondInstructions);
     }
-    
+
     /// @dev Helper function to encode a Claim into packed data
     function _encodeClaim(
         bytes memory _data,
@@ -167,7 +183,7 @@ library LibCodec {
         newOffset_ = _encodeAddress(_data, newOffset_, _claim.designatedProver);
         newOffset_ = _encodeAddress(_data, newOffset_, _claim.actualProver);
     }
-    
+
     /// @dev Helper function to encode bond instructions into packed data
     function _encodeBondInstructions(
         bytes memory _data,
@@ -197,62 +213,93 @@ library LibCodec {
         require(_data.length >= 182, "Invalid data length");
 
         uint256 offset = 0;
-        
+
         // Decode basic proposal fields
-        proposal_.id = uint48(uint256(uint8(_data[offset])) << 40 | uint256(uint8(_data[offset + 1])) << 32 | uint256(uint8(_data[offset + 2])) << 24 | uint256(uint8(_data[offset + 3])) << 16 | uint256(uint8(_data[offset + 4])) << 8 | uint256(uint8(_data[offset + 5])));
+        proposal_.id = uint48(
+            uint256(uint8(_data[offset])) << 40 | uint256(uint8(_data[offset + 1])) << 32
+                | uint256(uint8(_data[offset + 2])) << 24 | uint256(uint8(_data[offset + 3])) << 16
+                | uint256(uint8(_data[offset + 4])) << 8 | uint256(uint8(_data[offset + 5]))
+        );
         offset += 6;
-        
+
         proposal_.proposer = address(bytes20(_extractBytes(_data, offset, 20)));
         offset += 20;
-        
-        proposal_.originTimestamp = uint48(uint256(uint8(_data[offset])) << 40 | uint256(uint8(_data[offset + 1])) << 32 | uint256(uint8(_data[offset + 2])) << 24 | uint256(uint8(_data[offset + 3])) << 16 | uint256(uint8(_data[offset + 4])) << 8 | uint256(uint8(_data[offset + 5])));
+
+        proposal_.originTimestamp = uint48(
+            uint256(uint8(_data[offset])) << 40 | uint256(uint8(_data[offset + 1])) << 32
+                | uint256(uint8(_data[offset + 2])) << 24 | uint256(uint8(_data[offset + 3])) << 16
+                | uint256(uint8(_data[offset + 4])) << 8 | uint256(uint8(_data[offset + 5]))
+        );
         offset += 6;
-        
-        proposal_.originBlockNumber = uint48(uint256(uint8(_data[offset])) << 40 | uint256(uint8(_data[offset + 1])) << 32 | uint256(uint8(_data[offset + 2])) << 24 | uint256(uint8(_data[offset + 3])) << 16 | uint256(uint8(_data[offset + 4])) << 8 | uint256(uint8(_data[offset + 5])));
+
+        proposal_.originBlockNumber = uint48(
+            uint256(uint8(_data[offset])) << 40 | uint256(uint8(_data[offset + 1])) << 32
+                | uint256(uint8(_data[offset + 2])) << 24 | uint256(uint8(_data[offset + 3])) << 16
+                | uint256(uint8(_data[offset + 4])) << 8 | uint256(uint8(_data[offset + 5]))
+        );
         offset += 6;
-        
+
         proposal_.isForcedInclusion = _data[offset] != 0;
         offset += 1;
-        
+
         proposal_.basefeeSharingPctg = uint8(_data[offset]);
         offset += 1;
-        
+
         // Decode blob slice
         uint16 blobHashesLen = uint16(uint8(_data[offset]) << 8 | uint8(_data[offset + 1]));
         offset += 2;
-        
+
         bytes32[] memory blobHashes = new bytes32[](blobHashesLen);
         for (uint256 i = 0; i < blobHashesLen; i++) {
             blobHashes[i] = bytes32(_extractBytes(_data, offset, 32));
             offset += 32;
         }
-        
+
         proposal_.blobSlice.blobHashes = blobHashes;
-        proposal_.blobSlice.offset = uint24(uint256(uint8(_data[offset])) << 16 | uint256(uint8(_data[offset + 1])) << 8 | uint256(uint8(_data[offset + 2])));
+        proposal_.blobSlice.offset = uint24(
+            uint256(uint8(_data[offset])) << 16 | uint256(uint8(_data[offset + 1])) << 8
+                | uint256(uint8(_data[offset + 2]))
+        );
         offset += 3;
-        
-        proposal_.blobSlice.timestamp = uint48(uint256(uint8(_data[offset])) << 40 | uint256(uint8(_data[offset + 1])) << 32 | uint256(uint8(_data[offset + 2])) << 24 | uint256(uint8(_data[offset + 3])) << 16 | uint256(uint8(_data[offset + 4])) << 8 | uint256(uint8(_data[offset + 5])));
+
+        proposal_.blobSlice.timestamp = uint48(
+            uint256(uint8(_data[offset])) << 40 | uint256(uint8(_data[offset + 1])) << 32
+                | uint256(uint8(_data[offset + 2])) << 24 | uint256(uint8(_data[offset + 3])) << 16
+                | uint256(uint8(_data[offset + 4])) << 8 | uint256(uint8(_data[offset + 5]))
+        );
         offset += 6;
-        
+
         // Decode coreStateHash
         proposal_.coreStateHash = bytes32(_extractBytes(_data, offset, 32));
         offset += 32;
-        
+
         // Decode CoreState fields
-        coreState_.nextProposalId = uint48(uint256(uint8(_data[offset])) << 40 | uint256(uint8(_data[offset + 1])) << 32 | uint256(uint8(_data[offset + 2])) << 24 | uint256(uint8(_data[offset + 3])) << 16 | uint256(uint8(_data[offset + 4])) << 8 | uint256(uint8(_data[offset + 5])));
+        coreState_.nextProposalId = uint48(
+            uint256(uint8(_data[offset])) << 40 | uint256(uint8(_data[offset + 1])) << 32
+                | uint256(uint8(_data[offset + 2])) << 24 | uint256(uint8(_data[offset + 3])) << 16
+                | uint256(uint8(_data[offset + 4])) << 8 | uint256(uint8(_data[offset + 5]))
+        );
         offset += 6;
-        
-        coreState_.lastFinalizedProposalId = uint48(uint256(uint8(_data[offset])) << 40 | uint256(uint8(_data[offset + 1])) << 32 | uint256(uint8(_data[offset + 2])) << 24 | uint256(uint8(_data[offset + 3])) << 16 | uint256(uint8(_data[offset + 4])) << 8 | uint256(uint8(_data[offset + 5])));
+
+        coreState_.lastFinalizedProposalId = uint48(
+            uint256(uint8(_data[offset])) << 40 | uint256(uint8(_data[offset + 1])) << 32
+                | uint256(uint8(_data[offset + 2])) << 24 | uint256(uint8(_data[offset + 3])) << 16
+                | uint256(uint8(_data[offset + 4])) << 8 | uint256(uint8(_data[offset + 5]))
+        );
         offset += 6;
-        
+
         coreState_.lastFinalizedClaimHash = bytes32(_extractBytes(_data, offset, 32));
         offset += 32;
-        
+
         coreState_.bondInstructionsHash = bytes32(_extractBytes(_data, offset, 32));
     }
-    
+
     /// @dev Helper function to extract bytes from data
-    function _extractBytes(bytes memory _data, uint256 _start, uint256 _length)
+    function _extractBytes(
+        bytes memory _data,
+        uint256 _start,
+        uint256 _length
+    )
         private
         pure
         returns (bytes memory)
@@ -275,64 +322,77 @@ library LibCodec {
         require(_data.length >= 183, "Invalid data length");
 
         uint256 offset = 0;
-        
+
         // Decode claim
         (IInbox.Claim memory claim, uint256 newOffset) = _decodeClaim(_data, offset);
         claimRecord_.claim = claim;
         offset = newOffset;
-        
+
         // Decode span
         claimRecord_.span = uint8(_data[offset]);
         offset += 1;
-        
+
         // Decode bond instructions
         uint16 bondInstructionsLen = uint16(uint8(_data[offset]) << 8 | uint8(_data[offset + 1]));
         offset += 2;
-        
+
         claimRecord_.bondInstructions = _decodeBondInstructions(_data, offset, bondInstructionsLen);
     }
-    
+
     /// @dev Helper function to decode a Claim from packed data
-    function _decodeClaim(bytes memory _data, uint256 _offset)
+    function _decodeClaim(
+        bytes memory _data,
+        uint256 _offset
+    )
         private
         pure
         returns (IInbox.Claim memory claim_, uint256 newOffset_)
     {
         newOffset_ = _offset;
-        
+
         // Decode proposalId (6 bytes -> uint48)
-        claim_.proposalId = uint48(uint256(uint8(_data[newOffset_])) << 40 | uint256(uint8(_data[newOffset_ + 1])) << 32 | uint256(uint8(_data[newOffset_ + 2])) << 24 | uint256(uint8(_data[newOffset_ + 3])) << 16 | uint256(uint8(_data[newOffset_ + 4])) << 8 | uint256(uint8(_data[newOffset_ + 5])));
+        claim_.proposalId = uint48(
+            uint256(uint8(_data[newOffset_])) << 40 | uint256(uint8(_data[newOffset_ + 1])) << 32
+                | uint256(uint8(_data[newOffset_ + 2])) << 24
+                | uint256(uint8(_data[newOffset_ + 3])) << 16
+                | uint256(uint8(_data[newOffset_ + 4])) << 8 | uint256(uint8(_data[newOffset_ + 5]))
+        );
         newOffset_ += 6;
-        
+
         // Decode proposalHash
         claim_.proposalHash = bytes32(_extractBytes(_data, newOffset_, 32));
         newOffset_ += 32;
-        
+
         // Decode parentClaimHash
         claim_.parentClaimHash = bytes32(_extractBytes(_data, newOffset_, 32));
         newOffset_ += 32;
-        
+
         // Decode endBlockNumber (6 bytes -> uint48)
-        claim_.endBlockNumber = uint48(uint256(uint8(_data[newOffset_])) << 40 | uint256(uint8(_data[newOffset_ + 1])) << 32 | uint256(uint8(_data[newOffset_ + 2])) << 24 | uint256(uint8(_data[newOffset_ + 3])) << 16 | uint256(uint8(_data[newOffset_ + 4])) << 8 | uint256(uint8(_data[newOffset_ + 5])));
+        claim_.endBlockNumber = uint48(
+            uint256(uint8(_data[newOffset_])) << 40 | uint256(uint8(_data[newOffset_ + 1])) << 32
+                | uint256(uint8(_data[newOffset_ + 2])) << 24
+                | uint256(uint8(_data[newOffset_ + 3])) << 16
+                | uint256(uint8(_data[newOffset_ + 4])) << 8 | uint256(uint8(_data[newOffset_ + 5]))
+        );
         newOffset_ += 6;
-        
+
         // Decode endBlockHash
         claim_.endBlockHash = bytes32(_extractBytes(_data, newOffset_, 32));
         newOffset_ += 32;
-        
+
         // Decode endStateRoot
         claim_.endStateRoot = bytes32(_extractBytes(_data, newOffset_, 32));
         newOffset_ += 32;
-        
+
         // Decode designatedProver (20 bytes -> address)
         claim_.designatedProver = address(bytes20(_extractBytes(_data, newOffset_, 20)));
         newOffset_ += 20;
-        
+
         // Decode actualProver (20 bytes -> address)
         claim_.actualProver = address(bytes20(_extractBytes(_data, newOffset_, 20)));
         newOffset_ += 20;
     }
-    
+
     /// @dev Helper function to decode bond instructions from packed data
     function _decodeBondInstructions(
         bytes memory _data,
@@ -344,21 +404,26 @@ library LibCodec {
         returns (LibBonds.BondInstruction[] memory instructions_)
     {
         instructions_ = new LibBonds.BondInstruction[](_length);
-        
+
         for (uint256 i = 0; i < _length; i++) {
             // Decode proposalId (6 bytes -> uint48)
-            instructions_[i].proposalId = uint48(uint256(uint8(_data[_offset])) << 40 | uint256(uint8(_data[_offset + 1])) << 32 | uint256(uint8(_data[_offset + 2])) << 24 | uint256(uint8(_data[_offset + 3])) << 16 | uint256(uint8(_data[_offset + 4])) << 8 | uint256(uint8(_data[_offset + 5])));
+            instructions_[i].proposalId = uint48(
+                uint256(uint8(_data[_offset])) << 40 | uint256(uint8(_data[_offset + 1])) << 32
+                    | uint256(uint8(_data[_offset + 2])) << 24
+                    | uint256(uint8(_data[_offset + 3])) << 16 | uint256(uint8(_data[_offset + 4])) << 8
+                    | uint256(uint8(_data[_offset + 5]))
+            );
             _offset += 6;
-            
+
             // Decode bondType (1 byte -> uint8)
             instructions_[i].bondType = LibBonds.BondType(uint8(_data[_offset]));
             _offset += 1;
-            
+
             // Decode payer (20 bytes -> address)
             instructions_[i].payer = address(bytes20(_extractBytes(_data, _offset, 20)));
             _offset += 20;
-            
-            // Decode receiver (20 bytes -> address)  
+
+            // Decode receiver (20 bytes -> address)
             instructions_[i].receiver = address(bytes20(_extractBytes(_data, _offset, 20)));
             _offset += 20;
         }

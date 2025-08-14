@@ -141,7 +141,7 @@ abstract contract InboxOptimized is Inbox {
                     // Create new array with combined size
                     uint256 oldLen = currentInstructions.length;
                     uint256 newLen = oldLen + newInstructions.length;
-                    LibBonds.BondInstruction[] memory aggregatedInstructions = 
+                    LibBonds.BondInstruction[] memory aggregatedInstructions =
                         new LibBonds.BondInstruction[](newLen);
 
                     // Copy existing instructions
