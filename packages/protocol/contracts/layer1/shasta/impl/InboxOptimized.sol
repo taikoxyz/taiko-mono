@@ -28,7 +28,7 @@ abstract contract InboxOptimized is Inbox {
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @dev Decodes the proposed event data that was encoded using abi.encodePacked
+    /// @dev Decodes the proposed event data that was encoded
     /// @param _data The encoded data
     /// @return proposal_ The decoded proposal
     /// @return coreState_ The decoded core state
@@ -40,7 +40,7 @@ abstract contract InboxOptimized is Inbox {
         return LibCodec.decodeProposedEventData(_data);
     }
 
-    /// @dev Decodes the prove event data that was encoded using abi.encodePacked
+    /// @dev Decodes the prove event data that was encoded
     /// @param _data The encoded data
     /// @return claimRecord_ The decoded claim record
     function decodeProveEventData(bytes memory _data)
@@ -55,7 +55,7 @@ abstract contract InboxOptimized is Inbox {
     // Public Functions
     // ---------------------------------------------------------------
 
-    /// @dev Encodes the proposed event data using abi.encodePacked for gas optimization
+    /// @dev Encodes the proposed event data for gas optimization
     /// @param _proposal The proposal to encode
     /// @param _coreState The core state to encode
     /// @return The encoded data
@@ -71,7 +71,7 @@ abstract contract InboxOptimized is Inbox {
         return LibCodec.encodeProposedEventData(_proposal, _coreState);
     }
 
-    /// @dev Encodes the proved event data using abi.encodePacked for gas optimization
+    /// @dev Encodes the proved event data for gas optimization
     /// @param _claimRecord The claim record to encode
     /// @return The encoded data
     function encodeProveEventData(ClaimRecord memory _claimRecord)
