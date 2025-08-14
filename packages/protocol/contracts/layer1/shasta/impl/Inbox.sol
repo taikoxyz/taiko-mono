@@ -11,14 +11,12 @@ import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
-import { LibDecoder } from "../libs/LibDecoder.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
 /// @custom:security-contact security@taiko.xyz
 
 abstract contract Inbox is EssentialContract, IInbox {
-    using LibDecoder for bytes;
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
@@ -120,7 +118,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             Proposal[] memory proposals,
             LibBlobs.BlobReference memory blobReference,
             ClaimRecord[] memory claimRecords
-        ) = _data.decodeProposeData();
+        ) = decodeProposeData(_data);
 
         _validateProposeInputs(deadline, coreState, proposals);
 
@@ -142,62 +140,12 @@ abstract contract Inbox is EssentialContract, IInbox {
         _propose(config, coreState, blobSlice, false);
     }
 
-    /// @dev Validates the basic inputs for propose function
-    /// @param _deadline The deadline for the proposal.
-    /// @param _coreState The core state.
-    /// @param _proposals The proposals array.
-    function _validateProposeInputs(
-        uint64 _deadline,
-        CoreState memory _coreState,
-        Proposal[] memory _proposals
-    )
-        private
-        view
-    {
-        require(_deadline == 0 || block.timestamp <= _deadline, DeadlineExceeded());
-        require(_proposals.length > 0, EmptyProposals());
-        require(keccak256(abi.encode(_coreState)) == _proposals[0].coreStateHash, InvalidState());
-    }
-
-    /// @dev Verifies that new proposals won't exceed capacity
-    /// @param _config The configuration parameters.
-    /// @param _coreState The core state.
-    function _verifyCapacity(Config memory _config, CoreState memory _coreState) private pure {
-        require(
-            _coreState.nextProposalId <= _getCapacity(_config) + _coreState.lastFinalizedProposalId,
-            ExceedsUnfinalizedProposalCapacity()
-        );
-    }
-
-    /// @dev Processes forced inclusion if required
-    /// @param _config The configuration parameters.
-    /// @param _coreState The core state.
-    /// @return The updated core state.
-    function _processForcedInclusion(
-        Config memory _config,
-        CoreState memory _coreState
-    )
-        private
-        returns (CoreState memory)
-    {
-        IForcedInclusionStore store = IForcedInclusionStore(_config.forcedInclusionStore);
-
-        if (!store.isOldestForcedInclusionDue()) {
-            return _coreState;
-        }
-
-        IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
-            store.consumeOldestForcedInclusion(msg.sender);
-
-        return _propose(_config, _coreState, forcedInclusion.blobSlice, true);
-    }
-
     /// @inheritdoc IInbox
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         Config memory config = getConfig();
 
         // Decode and validate input
-        (Proposal[] memory proposals, Claim[] memory claims) = _data.decodeProveData();
+        (Proposal[] memory proposals, Claim[] memory claims) = decodeProveData(_data);
         _validateProveInputs(proposals, claims);
 
         // Build claim records with validation and bond calculations
@@ -208,42 +156,6 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Verify the proof
         IProofVerifier(config.proofVerifier).verifyProof(keccak256(abi.encode(claims)), _proof);
-    }
-
-    /// @dev Validates the inputs for prove function
-    /// @param _proposals The proposals to prove.
-    /// @param _claims The claims for the proposals.
-    function _validateProveInputs(
-        Proposal[] memory _proposals,
-        Claim[] memory _claims
-    )
-        private
-        pure
-    {
-        require(_proposals.length == _claims.length, InconsistentParams());
-        require(_proposals.length != 0, EmptyProposals());
-    }
-
-    /// @dev Stores claim records and emits events
-    /// @param _config The configuration parameters.
-    /// @param _proposals The proposals being proved.
-    /// @param _claimRecords The claim records to store.
-    function _storeClaimRecords(
-        Config memory _config,
-        Proposal[] memory _proposals,
-        ClaimRecord[] memory _claimRecords
-    )
-        private
-    {
-        for (uint256 i; i < _proposals.length; ++i) {
-            bytes32 claimRecordHash = keccak256(abi.encode(_claimRecords[i]));
-
-            _setClaimRecordHash(
-                _config, _proposals[i].id, _claimRecords[i].claim.parentClaimHash, claimRecordHash
-            );
-
-            emit Proved(_proposals[i], _claimRecords[i]);
-        }
     }
 
     /// @notice Withdraws bond balance for the caller.
@@ -297,6 +209,43 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// configuration
     /// @return _ The configuration struct
     function getConfig() public view virtual returns (Config memory);
+
+    /// @notice Decodes data into CoreState, BlobReference array, and ClaimRecord array
+    /// @param _data The encoded data
+    /// @return deadline_ The decoded deadline
+    /// @return coreState_ The decoded CoreState
+    /// @return proposals_ The decoded array of Proposals
+    /// @return blobReference_ The decoded BlobReference
+    /// @return claimRecords_ The decoded array of ClaimRecords
+    function decodeProposeData(bytes calldata _data)
+        public
+        pure
+        virtual
+        returns (
+            uint64 deadline_,
+            CoreState memory coreState_,
+            Proposal[] memory proposals_,
+            LibBlobs.BlobReference memory blobReference_,
+            ClaimRecord[] memory claimRecords_
+        )
+    {
+        (deadline_, coreState_, proposals_, blobReference_, claimRecords_) = abi.decode(
+            _data, (uint64, CoreState, Proposal[], LibBlobs.BlobReference, ClaimRecord[])
+        );
+    }
+
+    /// @notice Decodes data into Proposal array and Claim array
+    /// @param _data The encoded data
+    /// @return proposals_ The decoded array of Proposals
+    /// @return claims_ The decoded array of Claims
+    function decodeProveData(bytes calldata _data)
+        public
+        pure
+        virtual
+        returns (Proposal[] memory proposals_, Claim[] memory claims_)
+    {
+        (proposals_, claims_) = abi.decode(_data, (Proposal[], Claim[]));
+    }
 
     // ---------------------------------------------------------------
     // Internal Functions
@@ -489,6 +438,92 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
+
+    /// @dev Validates the basic inputs for propose function
+    /// @param _deadline The deadline for the proposal.
+    /// @param _coreState The core state.
+    /// @param _proposals The proposals array.
+    function _validateProposeInputs(
+        uint64 _deadline,
+        CoreState memory _coreState,
+        Proposal[] memory _proposals
+    )
+        private
+        view
+    {
+        require(_deadline == 0 || block.timestamp <= _deadline, DeadlineExceeded());
+        require(_proposals.length > 0, EmptyProposals());
+        require(keccak256(abi.encode(_coreState)) == _proposals[0].coreStateHash, InvalidState());
+    }
+
+    /// @dev Verifies that new proposals won't exceed capacity
+    /// @param _config The configuration parameters.
+    /// @param _coreState The core state.
+    function _verifyCapacity(Config memory _config, CoreState memory _coreState) private pure {
+        require(
+            _coreState.nextProposalId <= _getCapacity(_config) + _coreState.lastFinalizedProposalId,
+            ExceedsUnfinalizedProposalCapacity()
+        );
+    }
+
+    /// @dev Processes forced inclusion if required
+    /// @param _config The configuration parameters.
+    /// @param _coreState The core state.
+    /// @return The updated core state.
+    function _processForcedInclusion(
+        Config memory _config,
+        CoreState memory _coreState
+    )
+        private
+        returns (CoreState memory)
+    {
+        IForcedInclusionStore store = IForcedInclusionStore(_config.forcedInclusionStore);
+
+        if (!store.isOldestForcedInclusionDue()) {
+            return _coreState;
+        }
+
+        IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
+            store.consumeOldestForcedInclusion(msg.sender);
+
+        return _propose(_config, _coreState, forcedInclusion.blobSlice, true);
+    }
+
+    /// @dev Validates the inputs for prove function
+    /// @param _proposals The proposals to prove.
+    /// @param _claims The claims for the proposals.
+    function _validateProveInputs(
+        Proposal[] memory _proposals,
+        Claim[] memory _claims
+    )
+        private
+        pure
+    {
+        require(_proposals.length == _claims.length, InconsistentParams());
+        require(_proposals.length != 0, EmptyProposals());
+    }
+
+    /// @dev Stores claim records and emits events
+    /// @param _config The configuration parameters.
+    /// @param _proposals The proposals being proved.
+    /// @param _claimRecords The claim records to store.
+    function _storeClaimRecords(
+        Config memory _config,
+        Proposal[] memory _proposals,
+        ClaimRecord[] memory _claimRecords
+    )
+        private
+    {
+        for (uint256 i; i < _proposals.length; ++i) {
+            bytes32 claimRecordHash = keccak256(abi.encode(_claimRecords[i]));
+
+            _setClaimRecordHash(
+                _config, _proposals[i].id, _claimRecords[i].claim.parentClaimHash, claimRecordHash
+            );
+
+            emit Proved(_proposals[i], _claimRecords[i]);
+        }
+    }
 
     /// @dev Verifies the proposal is the last one proposed
     /// @param _config The configuration parameters.
