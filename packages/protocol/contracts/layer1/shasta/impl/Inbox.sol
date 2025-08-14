@@ -454,17 +454,17 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Reads a proposal record from the ring buffer at the specified proposal ID.
     /// @param _config The configuration parameters.
     /// @param _proposalId The proposal ID to read.
-    /// @return proposalRecord_ The proposal record at the calculated buffer slot.
+    /// @return _ The proposal record at the calculated buffer slot.
     function _proposalRecord(
         Config memory _config,
         uint48 _proposalId
     )
         internal
         view
-        returns (ProposalRecord storage proposalRecord_)
+        returns (ProposalRecord storage)
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        proposalRecord_ = _proposalRingBuffer[bufferSlot];
+        return _proposalRingBuffer[bufferSlot];
     }
 
     // ---------------------------------------------------------------
@@ -731,63 +731,51 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Computes the composite key for claim record lookups.
     /// @param _proposalId The proposal ID.
     /// @param _parentClaimHash The parent claim hash.
-    /// @return compositeKey_ The composite key for the mapping.
+    /// @return _ The composite key for the mapping.
     function _composeClaimKey(
         uint48 _proposalId,
         bytes32 _parentClaimHash
     )
         private
         pure
-        returns (bytes32 compositeKey_)
+        returns (bytes32)
     {
-        compositeKey_ = keccak256(abi.encode(_proposalId, _parentClaimHash));
+        return keccak256(abi.encode(_proposalId, _parentClaimHash));
     }
 
     /// @dev Hashes a Claim struct.
     /// @param _claim The claim to hash.
-    /// @return claimHash_ The hash of the claim.
-    function _hashClaim(Claim memory _claim) private pure returns (bytes32 claimHash_) {
-        claimHash_ = keccak256(abi.encode(_claim));
+    /// @return _ The hash of the claim.
+    function _hashClaim(Claim memory _claim) private pure returns (bytes32) {
+        return keccak256(abi.encode(_claim));
     }
 
     /// @dev Hashes a Proposal struct.
     /// @param _proposal The proposal to hash.
-    /// @return proposalHash_ The hash of the proposal.
-    function _hashProposal(Proposal memory _proposal)
-        private
-        pure
-        returns (bytes32 proposalHash_)
-    {
-        proposalHash_ = keccak256(abi.encode(_proposal));
+    /// @return _ The hash of the proposal.
+    function _hashProposal(Proposal memory _proposal) private pure returns (bytes32) {
+        return keccak256(abi.encode(_proposal));
     }
 
     /// @dev Hashes a CoreState struct.
     /// @param _coreState The core state to hash.
-    /// @return coreStateHash_ The hash of the core state.
-    function _hashCoreState(CoreState memory _coreState)
-        private
-        pure
-        returns (bytes32 coreStateHash_)
-    {
-        coreStateHash_ = keccak256(abi.encode(_coreState));
+    /// @return _ The hash of the core state.
+    function _hashCoreState(CoreState memory _coreState) private pure returns (bytes32) {
+        return keccak256(abi.encode(_coreState));
     }
 
     /// @dev Hashes a ClaimRecord struct.
     /// @param _claimRecord The claim record to hash.
-    /// @return claimRecordHash_ The hash of the claim record.
-    function _hashClaimRecord(ClaimRecord memory _claimRecord)
-        private
-        pure
-        returns (bytes32 claimRecordHash_)
-    {
-        claimRecordHash_ = keccak256(abi.encode(_claimRecord));
+    /// @return _ The hash of the claim record.
+    function _hashClaimRecord(ClaimRecord memory _claimRecord) private pure returns (bytes32) {
+        return keccak256(abi.encode(_claimRecord));
     }
 
     /// @dev Hashes an array of Claims.
     /// @param _claims The claims array to hash.
-    /// @return claimsHash_ The hash of the claims array.
-    function _hashClaimsArray(Claim[] memory _claims) private pure returns (bytes32 claimsHash_) {
-        claimsHash_ = keccak256(abi.encode(_claims));
+    /// @return _ The hash of the claims array.
+    function _hashClaimsArray(Claim[] memory _claims) private pure returns (bytes32) {
+        return keccak256(abi.encode(_claims));
     }
 }
 
