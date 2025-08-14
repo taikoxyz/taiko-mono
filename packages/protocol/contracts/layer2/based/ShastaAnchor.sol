@@ -314,7 +314,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
             // Transfer bond from payer to receiver
             if (bond != 0) {
-                uint96 bondDebited = uint96(bondManager.debitBond(instruction.payer, bond));
+                uint256 bondDebited = bondManager.debitBond(instruction.payer, bond);
                 bondManager.creditBond(instruction.receiver, bondDebited);
             }
 
