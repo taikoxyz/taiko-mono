@@ -298,7 +298,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             Proposal memory proposal = _proposals[i];
             Claim memory claim = _claims[i];
 
-            _validateClaim(_config, proposal, claim, proposal.id);
+            _validateClaim(_config, proposal, claim);
 
             LibBonds.BondInstruction[] memory bondInstructions =
                 _calculateBondInstructions(_config, proposal, claim);
@@ -316,7 +316,6 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _config The configuration parameters.
     /// @param _proposal The proposal to validate.
     /// @param _claim The claim to validate.
-    /// @param _proposalId The proposal ID from the claim record.
     function _validateClaim(
         Config memory _config,
         Proposal memory _proposal,
