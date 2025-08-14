@@ -67,6 +67,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     /// @notice Bond balance for each account used in Pacaya inbox.
     /// @dev This is not used in Shasta. It is kept so users can withdraw their bond.
+    /// @dev Bonds are now handled entirely on L2, by the `BondManager` contract.
     mapping(address account => uint256 bond) public bondBalance;
 
     // ---------------------------------------------------------------
