@@ -52,22 +52,26 @@ abstract contract Inbox is EssentialContract, IInbox {
     }
 
     // ---------------------------------------------------------------
-    // State Variables
+    // State Variables for compatibility with Pacaya inbox.
     // ---------------------------------------------------------------
 
-    // 5 slots are used by the State object defined in Pacaya inbox:
+    // 6 slots are used by the State object defined in Pacaya inbox:
     // mapping(uint256 batchId_mod_batchRingBufferSize => Batch batch) batches;
     // mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
     // mapping(uint256 batchId_mod_batchRingBufferSize => mapping(uint24 transitionId =>
     //         TransitionState ts)) transitions;
     // bytes32 __reserve1;
     // Stats1 stats1;
-    uint256[5] private __slotsUsedByPacaya;
+    // Stats2 stats2;
+    uint256[6] private __slotsUsedByPacaya;
 
-    // Reserved slot for future migration compatibility
-    uint256 private __reservedSlot;
-
+    /// @notice Bond balance for each account used in Pacaya inbox.
+    /// @dev This is not used in Shasta. It is kept so users can withdraw their bond.
     mapping(address account => uint256 bond) public bondBalance;
+
+    // ---------------------------------------------------------------
+    // State Variables for Shasta inbox.
+    // ---------------------------------------------------------------
 
     /// @dev Ring buffer for storing proposal records.
     mapping(uint256 bufferSlot => ProposalRecord proposalRecord) private _proposalRingBuffer;
