@@ -276,7 +276,7 @@ abstract contract Inbox is EssentialContract, IInbox {
                 _calculateBondInstructions(_config, proposal, claim);
 
             claimRecords_[i] =
-                ClaimRecord({ claim: claim, span: 1, bondInstructions: bondInstructions });
+                ClaimRecord({ proposalId: proposal.id, claim: claim, span: 1, bondInstructions: bondInstructions });
         }
     }
 
@@ -292,8 +292,6 @@ abstract contract Inbox is EssentialContract, IInbox {
         internal
         view
     {
-        require(_proposal.id == _claim.proposalId, ProposalIdMismatch());
-
         bytes32 proposalHash = _checkProposalHash(_config, _proposal);
         require(proposalHash == _claim.proposalHash, ProposalHashMismatchWithClaim());
     }
@@ -515,7 +513,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             bytes32 claimRecordHash = keccak256(abi.encode(_claimRecords[i]));
 
             ProposalRecord storage proposalRecord =
-                _proposalRecord(_config, _claimRecords[i].claim.proposalId);
+                _proposalRecord(_config, _claimRecords[i].proposalId);
             proposalRecord.claimHashLookup[_claimRecords[i].claim.parentClaimHash].claimRecordHash =
                 claimRecordHash;
 

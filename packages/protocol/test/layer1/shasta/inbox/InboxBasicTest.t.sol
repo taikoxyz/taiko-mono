@@ -91,12 +91,11 @@ contract InboxBasicTest is InboxTest {
         setupBlobHashes();
         vm.warp(1000); // Set block.timestamp = 1000
 
-        // Setup: Configure valid core state
-        IInbox.CoreState memory coreState = InboxTestLib.createCoreState(1, 0);
-        // Core state will be validated by the contract during propose()
-
+        // Setup: Configure valid core state - must match genesis
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        
         // Arrange: Create proposal with expired deadline (timestamp - 1 = 999)
-        bytes memory data = InboxTestLib.encodeProposalData(
+        bytes memory data = InboxTestLib.encodeProposalDataWithGenesis(
             uint64(block.timestamp - 1), // Expired deadline
             coreState,
             createValidBlobReference(1),

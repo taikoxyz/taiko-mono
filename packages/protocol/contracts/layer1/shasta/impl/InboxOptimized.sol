@@ -55,7 +55,7 @@ abstract contract InboxOptimized is Inbox {
             _calculateBondInstructions(_config, _proposals[0], _claims[0]);
 
         claimRecords_[0] =
-            ClaimRecord({ claim: _claims[0], span: 1, bondInstructions: currentInstructions });
+            ClaimRecord({ proposalId: _proposals[0].id, claim: _claims[0], span: 1, bondInstructions: currentInstructions });
 
         uint256 finalRecordCount = 1;
         uint256 currentRecordIndex;
@@ -106,7 +106,7 @@ abstract contract InboxOptimized is Inbox {
                 currentRecordIndex = finalRecordCount;
                 currentGroupStartId = _proposals[i].id;
                 claimRecords_[currentRecordIndex] =
-                    ClaimRecord({ claim: _claims[i], span: 1, bondInstructions: instructions });
+                    ClaimRecord({ proposalId: _proposals[i].id, claim: _claims[i], span: 1, bondInstructions: instructions });
                 finalRecordCount++;
             }
         }
