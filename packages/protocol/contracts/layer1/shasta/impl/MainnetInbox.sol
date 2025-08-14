@@ -1,32 +1,32 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxWithClaimAggregation } from "./InboxWithClaimAggregation.sol";
+import { InboxOptimized } from "./InboxOptimized.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
 
 /// @title MainnetInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
 /// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetInbox is InboxWithClaimAggregation {
+contract MainnetInbox is InboxOptimized {
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxWithClaimAggregation() { }
+    constructor() InboxOptimized() { }
 
     // ---------------------------------------------------------------
     // External/Public Functions
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the core state.
-    /// @param _coreState The core state.
-    function initCoreState(CoreState memory _coreState) external onlyOwner reinitializer(2) {
-        require(_coreState.nextProposalId != 0, InvalidCoreState());
+    // /// @notice Initializes the core state.
+    // /// @param _coreState The core state.
+    // function initCoreState(CoreState memory _coreState) external onlyOwner reinitializer(2) {
+    //     require(_coreState.nextProposalId != 0, InvalidCoreState());
 
-        coreStateHash = keccak256(abi.encode(_coreState));
-        emit CoreStateSet(_coreState);
-    }
+    //     coreStateHash = keccak256(abi.encode(_coreState));
+    //     emit CoreStateSet(_coreState);
+    // }
 
     /// @notice Gets the configuration for this Inbox contract
     /// @return _ The configuration struct with shasta-specific settings
