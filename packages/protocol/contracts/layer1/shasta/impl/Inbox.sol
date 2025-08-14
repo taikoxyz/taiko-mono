@@ -70,13 +70,10 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     mapping(address account => uint256 bond) public bondBalance;
 
-    /// @dev The hash of the core state.
-    bytes32 internal coreStateHash;
-
     /// @dev Ring buffer for storing proposal records.
     mapping(uint256 bufferSlot => ProposalRecord proposalRecord) internal proposalRingBuffer;
 
-    uint256[41] private __gap;
+    uint256[42] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -97,9 +94,13 @@ abstract contract Inbox is EssentialContract, IInbox {
         CoreState memory coreState;
         coreState.nextProposalId = 1;
         coreState.lastFinalizedClaimHash = keccak256(abi.encode(claim));
-        coreStateHash = keccak256(abi.encode(coreState));
 
-        emit CoreStateSet(coreState);
+        Proposal memory proposal;
+        proposal.coreStateHash = keccak256(abi.encode(coreState));
+
+        _setProposalHash(getConfig(), 0, keccak256(abi.encode(proposal)));
+
+        emit Proposed(proposal, coreState);
     }
 
     // ---------------------------------------------------------------
@@ -114,14 +115,39 @@ abstract contract Inbox is EssentialContract, IInbox {
         (
             uint64 deadline,
             CoreState memory coreState,
+            Proposal[] memory proposals,
             LibBlobs.BlobReference memory blobReference,
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
 
         require(deadline == 0 || block.timestamp <= deadline, DeadlineExceeded());
 
-        bytes32 coreStateHash_ = keccak256(abi.encode(coreState));
-        require(coreStateHash_ == coreStateHash, InvalidState());
+        // proposals[0] is the latest proposal
+        require(proposals.length > 0, EmptyProposals());
+
+        require(keccak256(abi.encode(coreState)) == proposals[0].coreStateHash, InvalidState());
+
+        // Check proposals[0] itself is valid
+        bytes32 storedProposalHash = _proposalRecord(config, proposals[0].id).proposalHash;
+        bytes32 proposalHash = keccak256(abi.encode(proposals[0]));
+        require(proposalHash == storedProposalHash, LastProposalHashMismatch());
+
+        // Check if lastProposal is indeed the last one
+        bytes32 storedNextProposalHash = _proposalRecord(config, proposals[0].id + 1).proposalHash;
+        if (storedNextProposalHash == bytes32(0)) {
+            require(proposals.length == 1, IncorrectProposalCount());
+        } else {
+            // Need to prove that the next slot is used by a smaller proposal id
+            require(proposals.length == 2, IncorrectProposalCount());
+            require(proposals[1].id < proposals[0].id, NextProposalIdSmallerThanLastProposalId());
+
+            bytes32 nextProposalHash = keccak256(abi.encode(proposals[1]));
+            require(nextProposalHash == storedNextProposalHash, NextProposalHashMismatch());
+        }
+
+        // Finalize proved proposals first to make room for new proposals. Otherwise, we may enter a
+        // deadlock.
+        coreState = _finalize(config, coreState, claimRecords);
 
         // Check if new proposals would exceed the unfinalized proposal capacity
         require(
@@ -129,28 +155,18 @@ abstract contract Inbox is EssentialContract, IInbox {
             ExceedsUnfinalizedProposalCapacity()
         );
 
-        Proposal memory proposal;
-
         // Handle forced inclusion if required
         if (IForcedInclusionStore(config.forcedInclusionStore).isOldestForcedInclusionDue()) {
             IForcedInclusionStore.ForcedInclusion memory forcedInclusion = IForcedInclusionStore(
                 config.forcedInclusionStore
             ).consumeOldestForcedInclusion(msg.sender);
 
-            (coreState, proposal) = _propose(config, coreState, forcedInclusion.blobSlice, true);
-            emit Proposed(proposal, coreState);
-            coreStateHash_ = keccak256(abi.encode(coreState));
+            coreState = _propose(config, coreState, forcedInclusion.blobSlice, true);
         }
 
         // Create regular proposal
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(blobReference);
-        (coreState, proposal) = _propose(config, coreState, blobSlice, false);
-        // Finalize proved proposals
-        coreState = _finalize(config, coreState, claimRecords);
-        emit Proposed(proposal, coreState);
-
-        // Update stored hash with final coreState
-        _setCoreStateHash(keccak256(abi.encode(coreState)));
+        _propose(config, coreState, blobSlice, false);
     }
 
     /// @inheritdoc IInbox
@@ -193,10 +209,10 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @notice Gets the proposal hash for a given proposal ID.
     /// @param _proposalId The proposal ID to look up.
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
-    function getProposalHash(uint48 _proposalId) public view returns (bytes32 proposalHash_) {
+    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_) {
         Config memory config = getConfig();
-        uint256 bufferSlot = _proposalId % config.ringBufferSize;
-        proposalHash_ = proposalRingBuffer[bufferSlot].proposalHash;
+        ProposalRecord storage proposalRecord = _proposalRecord(config, _proposalId);
+        proposalHash_ = proposalRecord.proposalHash;
     }
 
     /// @notice Gets the claim record hash for a given proposal and parent claim.
@@ -278,15 +294,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         // Validate proposal hash matches claim and storage in one check
         if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
 
-        uint256 bufferSlot = _proposal.id % _config.ringBufferSize;
-        if (proposalHash != proposalRingBuffer[bufferSlot].proposalHash) {
-            revert ProposalHashMismatch();
-        }
-    }
-
-    /// @dev Sets the hash of the core state.
-    function _setCoreStateHash(bytes32 _coreStateHash) internal {
-        coreStateHash = _coreStateHash;
+        require(
+            proposalHash == _proposalRecord(_config, _proposal.id).proposalHash,
+            ProposalHashMismatch()
+        );
     }
 
     /// @dev Sets the proposal hash for a given proposal ID.
@@ -297,8 +308,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     )
         internal
     {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        proposalRingBuffer[bufferSlot].proposalHash = _proposalHash;
+        _proposalRecord(_config, _proposalId).proposalHash = _proposalHash;
     }
 
     /// @dev Sets the claim record hash for a given proposal and parent claim.
@@ -311,9 +321,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         internal
         virtual
     {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash =
-            _claimRecordHash;
+        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
+        proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash = _claimRecordHash;
     }
 
     /// @dev Gets the capacity for unfinalized proposals.
@@ -324,6 +333,22 @@ abstract contract Inbox is EssentialContract, IInbox {
         unchecked {
             return _config.ringBufferSize - 1;
         }
+    }
+
+    /// @dev Reads a proposal record from the ring buffer at the specified proposal ID.
+    /// @param _config The configuration parameters.
+    /// @param _proposalId The proposal ID to read.
+    /// @return proposalRecord_ The proposal record at the calculated buffer slot.
+    function _proposalRecord(
+        Config memory _config,
+        uint48 _proposalId
+    )
+        internal
+        view
+        returns (ProposalRecord storage proposalRecord_)
+    {
+        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
+        proposalRecord_ = proposalRingBuffer[bufferSlot];
     }
 
     /// @dev Gets the claim record hash for a given proposal and parent claim.
@@ -337,9 +362,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         virtual
         returns (bytes32 claimRecordHash_)
     {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        claimRecordHash_ =
-            proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
+        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
+        claimRecordHash_ = proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash;
     }
 
     // ---------------------------------------------------------------
@@ -352,7 +376,6 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _blobSlice The blob slice of the proposal.
     /// @param _isForcedInclusion Whether the proposal is a forced inclusion.
     /// @return coreState_ The updated core state.
-    /// @return proposal_ The created proposal.
     function _propose(
         Config memory _config,
         CoreState memory _coreState,
@@ -360,27 +383,29 @@ abstract contract Inbox is EssentialContract, IInbox {
         bool _isForcedInclusion
     )
         private
-        returns (CoreState memory coreState_, Proposal memory proposal_)
+        returns (CoreState memory coreState_)
     {
         uint48 proposalId = _coreState.nextProposalId++;
         uint48 originTimestamp = uint48(block.timestamp);
         uint48 originBlockNumber = uint48(block.number);
 
-        proposal_ = Proposal({
+        Proposal memory proposal = Proposal({
             id: proposalId,
             proposer: msg.sender,
             originTimestamp: originTimestamp,
             originBlockNumber: originBlockNumber,
             isForcedInclusion: _isForcedInclusion,
             basefeeSharingPctg: _config.basefeeSharingPctg,
-            blobSlice: _blobSlice
+            blobSlice: _blobSlice,
+            coreStateHash: keccak256(abi.encode(_coreState))
         });
 
-        bytes32 proposalHash = keccak256(abi.encode(proposal_));
+        bytes32 proposalHash = keccak256(abi.encode(proposal));
 
         _setProposalHash(_config, proposalId, proposalHash);
+        emit Proposed(proposal, _coreState);
 
-        return (_coreState, proposal_);
+        return _coreState;
     }
 
     /// @dev Calculates the bond instructions based on proof timing and prover identity
@@ -517,14 +542,19 @@ error DeadlineExceeded();
 error EmptyProposals();
 error ExceedsUnfinalizedProposalCapacity();
 error ForkNotActive();
+error IncorrectProposalCount();
 error InconsistentParams();
 error InsufficientBond();
 error InvalidForcedInclusion();
+error InvalidSpan();
 error InvalidState();
+error LastProposalHashMismatch();
+error LastProposalProofNotEmpty();
+error NextProposalHashMismatch();
+error NextProposalIdSmallerThanLastProposalId();
 error NoBondToWithdraw();
 error ProposalHashMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
-error InvalidSpan();
 error SpanOutOfBounds();
 error Unauthorized();

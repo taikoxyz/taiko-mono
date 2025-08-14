@@ -38,6 +38,8 @@ interface IInbox {
         uint8 basefeeSharingPctg;
         /// @notice Blobs that contains the proposal's manifest data.
         LibBlobs.BlobSlice blobSlice;
+        /// @notice The current hash of coreState
+        bytes32 coreStateHash;
     }
 
     /// @notice Represents a claim about the state transition of a proposal.
@@ -84,10 +86,6 @@ interface IInbox {
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
-
-    /// @notice Emitted when the core state is set.
-    /// @param coreState The core state.
-    event CoreStateSet(CoreState coreState);
 
     /// @notice Emitted when a new proposal is proposed.
     /// @param proposal The proposal that was proposed.

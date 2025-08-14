@@ -19,6 +19,7 @@ library LibDecoder {
     /// @param _data The encoded data
     /// @return deadline_ The decoded deadline
     /// @return coreState_ The decoded CoreState
+    /// @return proposals_ The decoded array of Proposals
     /// @return blobReference_ The decoded BlobReference
     /// @return claimRecords_ The decoded array of ClaimRecords
     function decodeProposeData(bytes calldata _data)
@@ -27,12 +28,20 @@ library LibDecoder {
         returns (
             uint64 deadline_,
             IInbox.CoreState memory coreState_,
+            IInbox.Proposal[] memory proposals_,
             LibBlobs.BlobReference memory blobReference_,
             IInbox.ClaimRecord[] memory claimRecords_
         )
     {
-        (deadline_, coreState_, blobReference_, claimRecords_) = abi.decode(
-            _data, (uint64, IInbox.CoreState, LibBlobs.BlobReference, IInbox.ClaimRecord[])
+        (deadline_, coreState_, proposals_, blobReference_, claimRecords_) = abi.decode(
+            _data,
+            (
+                uint64,
+                IInbox.CoreState,
+                IInbox.Proposal[],
+                LibBlobs.BlobReference,
+                IInbox.ClaimRecord[]
+            )
         );
     }
 

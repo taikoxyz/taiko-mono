@@ -19,14 +19,14 @@ contract MainnetInbox is InboxWithClaimAggregation {
     // External/Public Functions
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the core state.
-    /// @param _coreState The core state.
-    function initCoreState(CoreState memory _coreState) external onlyOwner reinitializer(2) {
-        require(_coreState.nextProposalId != 0, InvalidCoreState());
+    // /// @notice Initializes the core state.
+    // /// @param _coreState The core state.
+    // function initCoreState(CoreState memory _coreState) external onlyOwner reinitializer(2) {
+    //     require(_coreState.nextProposalId != 0, InvalidCoreState());
 
-        coreStateHash = keccak256(abi.encode(_coreState));
-        emit CoreStateSet(_coreState);
-    }
+    //     coreStateHash = keccak256(abi.encode(_coreState));
+    //     emit CoreStateSet(_coreState);
+    // }
 
     /// @notice Gets the configuration for this Inbox contract
     /// @return _ The configuration struct with shasta-specific settings
