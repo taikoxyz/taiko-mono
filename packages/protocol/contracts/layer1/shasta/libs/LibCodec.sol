@@ -7,8 +7,10 @@ import "src/shared/based/libs/LibBonds.sol";
 
 /// @title LibCodec
 /// @notice Library for encoding and decoding event data for gas optimization using assembly
-/// @dev Array lengths are encoded as uint24 (3 bytes) to support up to 16,777,215 elements while maintaining gas efficiency.
-/// This provides a good balance between array size capacity and storage efficiency compared to uint16 (65,535 max) or uint32 (4 bytes).
+/// @dev Array lengths are encoded as uint24 (3 bytes) to support up to 16,777,215 elements while
+/// maintaining gas efficiency.
+/// This provides a good balance between array size capacity and storage efficiency compared to
+/// uint16 (65,535 max) or uint32 (4 bytes).
 /// @custom:security-contact security@taiko.xyz
 library LibCodec {
     // ---------------------------------------------------------------
@@ -132,7 +134,8 @@ library LibCodec {
             mstore(ptr3, or(shl(96, mload(add(claimPtr, 0xC0))), mload(add(claimPtr, 0xE0))))
             mstore(
                 add(ptr3, 0x20),
-                or(or(shl(248, mload(add(_claimRecord, 0x20))), shl(232, bondsLen)), 0) // bondsLen as uint24
+                or(or(shl(248, mload(add(_claimRecord, 0x20))), shl(232, bondsLen)), 0) // bondsLen
+                    // as uint24
             )
 
             // Fast bond instructions encoding - minimize operations
@@ -208,7 +211,8 @@ library LibCodec {
 
         // Decode blob slice - array length encoded as uint24 (3 bytes)
         uint24 blobHashesLen = uint24(
-            uint256(uint8(_data[offset])) << 16 | uint256(uint8(_data[offset + 1])) << 8 | uint256(uint8(_data[offset + 2]))
+            uint256(uint8(_data[offset])) << 16 | uint256(uint8(_data[offset + 1])) << 8
+                | uint256(uint8(_data[offset + 2]))
         );
         offset += 3;
 
@@ -302,7 +306,8 @@ library LibCodec {
 
         // Decode bond instructions - array length encoded as uint24 (3 bytes)
         uint24 bondInstructionsLen = uint24(
-            uint256(uint8(_data[offset])) << 16 | uint256(uint8(_data[offset + 1])) << 8 | uint256(uint8(_data[offset + 2]))
+            uint256(uint8(_data[offset])) << 16 | uint256(uint8(_data[offset + 1])) << 8
+                | uint256(uint8(_data[offset + 2]))
         );
         offset += 3;
 

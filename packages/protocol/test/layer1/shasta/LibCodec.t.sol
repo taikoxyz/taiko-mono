@@ -260,8 +260,7 @@ contract LibCodecTest is CommonTest {
         });
 
         bytes memory encoded = LibCodec.encodeProposedEventData(proposal, coreState);
-        (IInbox.Proposal memory decodedProposal,) =
-            LibCodec.decodeProposedEventData(encoded);
+        (IInbox.Proposal memory decodedProposal,) = LibCodec.decodeProposedEventData(encoded);
 
         assertEq(
             decodedProposal.blobSlice.blobHashes.length, 0, "Empty blob hashes should remain empty"
@@ -436,7 +435,8 @@ contract LibCodecTest is CommonTest {
     }
 
     function test_decodeProposedEventData_minimumLength() public pure {
-        // Create valid data with minimum length (183 bytes) - updated for uint24 array length encoding
+        // Create valid data with minimum length (183 bytes) - updated for uint24 array length
+        // encoding
         bytes memory minData = new bytes(183);
 
         // Set up valid structure - zero blob hashes length at offset 40 (3 bytes for uint24)
@@ -449,7 +449,8 @@ contract LibCodecTest is CommonTest {
     }
 
     function test_decodeProveEventData_minimumLength() public pure {
-        // Create valid data with minimum length (184 bytes) - updated for uint24 array length encoding
+        // Create valid data with minimum length (184 bytes) - updated for uint24 array length
+        // encoding
         bytes memory minData = new bytes(184);
 
         // Set up valid structure - zero bond instructions length at offset 181 (3 bytes for uint24)
