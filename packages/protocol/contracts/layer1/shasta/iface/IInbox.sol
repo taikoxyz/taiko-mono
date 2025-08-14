@@ -107,7 +107,8 @@ interface IInbox {
 
     /// @notice Proposes new proposals of L2 blocks.
     /// @param _lookahead The data to post a new lookahead (currently unused).
-    /// @param _data The encoded data containing: deadline (for tx timing protection), current core state
+    /// @param _data The encoded data containing: deadline (for tx timing protection), current core
+    /// state
     ///              (must match previous proposal's hash), previous proposal(s) for validation,
     ///              blob reference, and claim records for finalization.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
