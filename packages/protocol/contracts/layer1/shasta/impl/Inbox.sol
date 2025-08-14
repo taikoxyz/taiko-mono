@@ -127,9 +127,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(keccak256(abi.encode(coreState)) == proposals[0].coreStateHash, InvalidState());
 
         // Check proposals[0] itself is valid
-        bytes32 storedProposalHash = _proposalRecord(config, proposals[0].id).proposalHash;
-        bytes32 proposalHash = keccak256(abi.encode(proposals[0]));
-        require(proposalHash == storedProposalHash, LastProposalHashMismatch());
+        _checkProposalHash(config, proposals[0]);
 
         // Check if lastProposal is indeed the last one
         bytes32 storedNextProposalHash = _proposalRecord(config, proposals[0].id + 1).proposalHash;
@@ -140,8 +138,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             require(proposals.length == 2, IncorrectProposalCount());
             require(proposals[1].id < proposals[0].id, NextProposalIdSmallerThanLastProposalId());
 
-            bytes32 nextProposalHash = keccak256(abi.encode(proposals[1]));
-            require(nextProposalHash == storedNextProposalHash, NextProposalHashMismatch());
+            _checkProposalHash(config, proposals[1]);
         }
 
         // Finalize proved proposals first to make room for new proposals. Otherwise, we may enter a
@@ -289,10 +286,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         internal
         view
     {
-        bytes32 proposalHash = keccak256(abi.encode(_proposal));
-        require(proposalHash == _claim.proposalHash, ProposalHashMismatch());
-        bytes32 storedProposalHash = _proposalRecord(_config, _proposal.id).proposalHash;
-        require(proposalHash == storedProposalHash, ProposalHashMismatch());
+        bytes32 proposalHash = _checkProposalHash(_config, _proposal);
+        require(proposalHash == _claim.proposalHash, ProposalHashMismatchWithClaim());
     }
 
     /// @dev Calculates the bond instructions based on proof timing and prover identity
@@ -395,6 +390,23 @@ abstract contract Inbox is EssentialContract, IInbox {
         claimRecordHash_ = proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash;
     }
 
+    /// @dev Checks if a proposal matches the stored hash and reverts if not.
+    /// @param _config The configuration parameters.
+    /// @param _proposal The proposal to check.
+    function _checkProposalHash(
+        Config memory _config,
+        Proposal memory _proposal
+    )
+        internal
+        view
+        returns (bytes32)
+    {
+        bytes32 proposalHash = keccak256(abi.encode(_proposal));
+        bytes32 storedHash = _proposalRecord(_config, _proposal.id).proposalHash;
+        require(proposalHash == storedHash, ProposalHashMismatch());
+        return proposalHash;
+    }
+
     /// @dev Reads a proposal record from the ring buffer at the specified proposal ID.
     /// @param _config The configuration parameters.
     /// @param _proposalId The proposal ID to read.
@@ -430,24 +442,18 @@ abstract contract Inbox is EssentialContract, IInbox {
         private
         returns (CoreState memory coreState_)
     {
-        uint48 proposalId = _coreState.nextProposalId++;
-        uint48 originTimestamp = uint48(block.timestamp);
-        uint48 originBlockNumber = uint48(block.number);
-
         Proposal memory proposal = Proposal({
-            id: proposalId,
+            id: _coreState.nextProposalId++,
             proposer: msg.sender,
-            originTimestamp: originTimestamp,
-            originBlockNumber: originBlockNumber,
+            originTimestamp: uint48(block.timestamp),
+            originBlockNumber: uint48(block.number),
             isForcedInclusion: _isForcedInclusion,
             basefeeSharingPctg: _config.basefeeSharingPctg,
             blobSlice: _blobSlice,
             coreStateHash: keccak256(abi.encode(_coreState))
         });
 
-        bytes32 proposalHash = keccak256(abi.encode(proposal));
-
-        _setProposalHash(_config, proposalId, proposalHash);
+        _setProposalHash(_config, proposal.id, keccak256(abi.encode(proposal)));
         emit Proposed(proposal, _coreState);
 
         return _coreState;
@@ -490,7 +496,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             claimRecord = _claimRecords[i];
 
             bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
-            require(claimRecordHash == storedClaimRecordHash, ClaimRecordHashMismatch());
+            require(claimRecordHash == storedClaimRecordHash, ClaimRecordHashMismatchWithStorage());
 
             _coreState.lastFinalizedProposalId = proposalId;
             _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claimRecord.claim));
@@ -531,7 +537,9 @@ abstract contract Inbox is EssentialContract, IInbox {
 // Errors
 // ---------------------------------------------------------------
 
-error ClaimRecordHashMismatch();
+error ProposalHashMismatchWithClaim();
+error ProposalHashMismatchWithStorage();
+error ClaimRecordHashMismatchWithStorage();
 error ClaimRecordNotProvided();
 error DeadlineExceeded();
 error EmptyProposals();
