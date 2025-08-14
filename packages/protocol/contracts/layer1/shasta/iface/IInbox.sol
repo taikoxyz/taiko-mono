@@ -90,12 +90,12 @@ interface IInbox {
     // ---------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed.
-    /// @param proposal The proposal that was proposed.
-    event Proposed(Proposal proposal, CoreState coreState);
+    /// @param data The encoded (Proposal, CoreState)
+    event Proposed(bytes data);
 
     /// @notice Emitted when a proof is submitted
-    /// @param claimRecord The claim record containing the proof details.
-    event Proved(ClaimRecord claimRecord);
+    /// @param data The encoded ClaimRecord
+    event Proved(bytes data);
 
     /// @notice Emitted when bond instructions are issued
     /// @param instructions The bond instructions that need to be performed.

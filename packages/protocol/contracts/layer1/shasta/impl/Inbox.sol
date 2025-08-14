@@ -97,7 +97,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         proposal.coreStateHash = keccak256(abi.encode(coreState));
         _setProposalHash(getConfig(), 0, keccak256(abi.encode(proposal)));
 
-        emit Proposed(proposal, coreState);
+        emit Proposed(encodeProposedEventData(proposal, coreState));
     }
 
     // ---------------------------------------------------------------
@@ -246,6 +246,34 @@ abstract contract Inbox is EssentialContract, IInbox {
         (proposals_, claims_) = abi.decode(_data, (Proposal[], Claim[]));
     }
 
+    /// @dev Encodes the proposed event data
+    /// @param proposal The proposal to encode
+    /// @param coreState The core state to encode
+    /// @return The encoded data
+    function encodeProposedEventData(
+        Proposal memory proposal,
+        CoreState memory coreState
+    )
+        public
+        pure
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(proposal, coreState);
+    }
+
+    /// @dev Encodes the proved event data
+    /// @param claimRecord The claim record to encode
+    /// @return The encoded data
+    function encodeProveEventData(ClaimRecord memory claimRecord)
+        public
+        pure
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(claimRecord);
+    }
+
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
@@ -270,7 +298,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             Proposal memory proposal = _proposals[i];
             Claim memory claim = _claims[i];
 
-            _validateClaim(_config, proposal, claim);
+            _validateClaim(_config, proposal, claim, proposal.id);
 
             LibBonds.BondInstruction[] memory bondInstructions =
                 _calculateBondInstructions(_config, proposal, claim);
@@ -288,6 +316,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _config The configuration parameters.
     /// @param _proposal The proposal to validate.
     /// @param _claim The claim to validate.
+    /// @param _proposalId The proposal ID from the claim record.
     function _validateClaim(
         Config memory _config,
         Proposal memory _proposal,
@@ -523,7 +552,7 @@ abstract contract Inbox is EssentialContract, IInbox {
                 claimRecordHash
             );
 
-            emit Proved(_claimRecords[i]);
+            emit Proved(encodeProveEventData(_claimRecords[i]));
         }
     }
 
@@ -577,7 +606,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         });
 
         _setProposalHash(_config, proposal.id, keccak256(abi.encode(proposal)));
-        emit Proposed(proposal, _coreState);
+        emit Proposed(encodeProposedEventData(proposal, _coreState));
 
         return _coreState;
     }
