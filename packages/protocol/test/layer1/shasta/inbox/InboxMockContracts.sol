@@ -61,7 +61,17 @@ contract StubForcedInclusionStore {
 }
 
 contract StubProofVerifier {
-    function verifyProof(bytes calldata, bytes calldata) external pure { }
+    bool public shouldFail;
+
+    function setShouldFail(bool _shouldFail) external {
+        shouldFail = _shouldFail;
+    }
+
+    function verifyProof(bytes calldata, bytes calldata) external view {
+        if (shouldFail) {
+            revert("Invalid proof");
+        }
+    }
 }
 
 contract StubProposerChecker {

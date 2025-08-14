@@ -95,15 +95,6 @@ abstract contract InboxTest is CommonTest {
     uint256 internal constant INVALID_PROOF_SIZE = 0;
 
     // ---------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------
-
-    event CoreStateSet(IInbox.CoreState coreState);
-    event Proposed(IInbox.Proposal proposal, IInbox.CoreState coreState);
-    event Proved(IInbox.Proposal proposal, IInbox.ClaimRecord claimRecord);
-    event BondInstructed(LibBonds.BondInstruction[] instructions);
-
-    // ---------------------------------------------------------------
     // Setup
     // ---------------------------------------------------------------
 

@@ -5,10 +5,14 @@ import "contracts/layer1/shasta/impl/InboxOptimized.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
 
 /// @title TestInboxWithMockBlobs
-/// @notice Test version of InboxWithClaimAggregation that exposes internal functions for testing
+/// @notice Test version of InboxOptimized that exposes internal functions for testing
 contract TestInboxWithMockBlobs is InboxOptimized {
     IInbox.Config private testConfig;
     bool private configSet;
+
+    constructor() InboxOptimized() {
+        _disableInitializers();
+    }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;
