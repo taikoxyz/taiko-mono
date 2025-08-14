@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { EssentialContract } from "contracts/shared/common/EssentialContract.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
-import { LibAddress } from "contracts/shared/libs/LibAddress.sol";
+import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibMath } from "contracts/shared/libs/LibMath.sol";
+import { LibMath } from "src/shared/libs/LibMath.sol";
 
 /// @title ForcedInclusionStore
 /// @dev A contract for storing and managing forced inclusion requests. Forced inclusions allow

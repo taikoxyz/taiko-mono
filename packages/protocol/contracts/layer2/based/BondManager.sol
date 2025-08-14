@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IBondManager } from "../iface/IBondManager.sol";
+import { IBondManager } from "./IBondManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { EssentialContract } from "../../common/EssentialContract.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 
 /// @title BondManager
 /// @notice L1 implementation of BondManager with time-based withdrawal mechanism
@@ -87,10 +87,7 @@ contract BondManager is EssentialContract, IBondManager {
 
     /// @inheritdoc IBondManager
     function creditBond(address _address, uint96 _bond) external onlyFrom(authorized) {
-        uint96 amountCredited = _creditBond(_address, _bond);
-        if (amountCredited > 0) {
-            emit BondCredited(_address, amountCredited);
-        }
+        _creditBond(_address, _bond);
     }
 
     /// @inheritdoc IBondManager
@@ -162,25 +159,26 @@ contract BondManager is EssentialContract, IBondManager {
     /// @dev Internal implementation for debiting a bond
     /// @param _address The address to debit the bond from
     /// @param _bond The amount of bond to debit in gwei
-    /// @return The actual amount debited in gwei
-    function _debitBond(address _address, uint96 _bond) internal returns (uint96) {
+    /// @return bondDebited_ The actual amount debited in gwei
+    function _debitBond(address _address, uint96 _bond) internal returns (uint96 bondDebited_) {
         Bond storage bond_ = bond[_address];
 
-        require(bond_.balance >= _bond, InsufficientBond());
-
-        bond_.balance = bond_.balance - _bond;
-        return _bond;
+        if (bond_.balance <= _bond) {
+            bondDebited_ = bond_.balance;
+            bond_.balance = 0;
+        } else {
+            bondDebited_ = _bond;
+            bond_.balance = bond_.balance - _bond;
+        }
     }
 
     /// @dev Internal implementation for crediting a bond
     /// @param _address The address to credit the bond to
     /// @param _bond The amount of bond to credit in gwei
-    function _creditBond(address _address, uint96 _bond) internal returns (uint96) {
+    function _creditBond(address _address, uint96 _bond) internal {
         Bond storage bond_ = bond[_address];
-
         bond_.balance = bond_.balance + _bond;
-
-        return _bond;
+        emit BondCredited(_address, _bond);
     }
 
     /// @dev Internal implementation for withdrawing funds from a user's bond balance

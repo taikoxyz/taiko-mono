@@ -312,15 +312,13 @@
 |
 | __slotsUsedByPacaya         | uint256[5]                                      | 251  | 0      | 160   |
 |
-| _pacayaStats2               | struct Inbox.PacayaStats2                       | 256  | 0      | 32    |
+| __reservedSlot              | uint256                                         | 256  | 0      | 32    |
 |
 | bondBalance                 | mapping(address => uint256)                     | 257  | 0      | 32    |
 |
-| coreStateHash               | bytes32                                         | 258  | 0      | 32    |
+| proposalRingBuffer          | mapping(uint256 => struct Inbox.ProposalRecord) | 258  | 0      | 32    |
 |
-| proposalRingBuffer          | mapping(uint256 => struct Inbox.ProposalRecord) | 259  | 0      | 32    |
-|
-| __gap                       | uint256[41]                                     | 260  | 0      | 1312  |
+| __gap                       | uint256[42]                                     | 259  | 0      | 1344  |
 ╰-----------------------------+-------------------------------------------------+------+--------+-------+----------------------------------------------╯
 
 

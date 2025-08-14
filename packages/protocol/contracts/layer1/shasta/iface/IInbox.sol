@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.sol";
+import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title IInbox
 /// @notice Interface for the ShastaInbox contract
@@ -10,17 +10,12 @@ import { LibBondOperation } from "contracts/shared/based/libs/LibBondOperation.s
 interface IInbox {
     /// @notice Configuration parameters for the Inbox contract
     struct Config {
-        uint48 forkActivationHeight;
         address bondToken;
-        uint48 provabilityBondGwei;
-        uint48 livenessBondGwei;
         uint48 provingWindow;
         uint48 extendedProvingWindow;
-        uint256 minBondBalance;
         uint256 maxFinalizationCount;
         uint256 ringBufferSize;
         uint8 basefeeSharingPctg;
-        address bondManager;
         address syncedBlockManager;
         address proofVerifier;
         address proposerChecker;
@@ -41,26 +36,16 @@ interface IInbox {
         bool isForcedInclusion;
         /// @notice The percentage of base fee paid to coinbase.
         uint8 basefeeSharingPctg;
-        /// @notice Provability bond for the proposal.
-        uint48 provabilityBondGwei;
-        /// @notice Liveness bond for the proposal, paid by the designated prover.
-        uint48 livenessBondGwei;
         /// @notice Blobs that contains the proposal's manifest data.
         LibBlobs.BlobSlice blobSlice;
-    }
-
-    /// @notice Represents the bond decision based on proof submission timing and prover identity.
-    /// @dev Bond decisions determine how provability and liveness bonds are distributed based on
-    /// whether proofs are submitted on time and by the correct party.
-    enum BondDecision {
-        NoOp,
-        L1SlashLivenessRewardProver,
-        L1SlashProvabilityRewardProver,
-        L2SlashLivenessRewardProver
+        /// @notice The current hash of coreState
+        bytes32 coreStateHash;
     }
 
     /// @notice Represents a claim about the state transition of a proposal.
     struct Claim {
+        /// @notice The proposal's ID.
+        uint48 proposalId;
         /// @notice The proposal's hash.
         bytes32 proposalHash;
         /// @notice The parent claim's hash, this is used to link the claim to its parent claim to
@@ -82,16 +67,10 @@ interface IInbox {
     struct ClaimRecord {
         /// @notice The claim.
         Claim claim;
-        /// @notice The proposer, copied from the proposal.
-        address proposer;
-        /// @notice The liveness bond, copied from the proposal.
-        uint48 livenessBondGwei;
-        /// @notice The provability bond, copied from the proposal.
-        uint48 provabilityBondGwei;
-        /// @notice The next proposal ID.
-        uint48 nextProposalId;
-        /// @notice The proof timing.
-        BondDecision bondDecision;
+        /// @notice The span indicating how many proposals this claim record covers.
+        uint8 span;
+        /// @notice The bond instructions.
+        LibBonds.BondInstruction[] bondInstructions;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -102,30 +81,25 @@ interface IInbox {
         uint48 lastFinalizedProposalId;
         /// @notice The hash of the last finalized claim.
         bytes32 lastFinalizedClaimHash;
-        /// @notice The hash of all bond operations.
-        bytes32 bondOperationsHash;
+        /// @notice The hash of all bond instructions.
+        bytes32 bondInstructionsHash;
     }
 
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
 
-    /// @notice Emitted when the core state is set.
-    /// @param coreState The core state.
-    event CoreStateSet(CoreState coreState);
-
     /// @notice Emitted when a new proposal is proposed.
     /// @param proposal The proposal that was proposed.
     event Proposed(Proposal proposal, CoreState coreState);
 
-    /// @notice Emitted when a proof is submitted for a proposal.
-    /// @param proposal The proposal that was proven.
+    /// @notice Emitted when a proof is submitted
     /// @param claimRecord The claim record containing the proof details.
-    event Proved(Proposal proposal, ClaimRecord claimRecord);
+    event Proved(ClaimRecord claimRecord);
 
-    /// @notice Emitted when a bond operation is instructed
-    /// @param bondOperation The bond operation that needs to be performed.
-    event BondRequest(LibBondOperation.BondOperation bondOperation);
+    /// @notice Emitted when bond instructions are issued
+    /// @param instructions The bond instructions that need to be performed.
+    event BondInstructed(LibBonds.BondInstruction[] instructions);
 
     // ---------------------------------------------------------------
     // External Transactional Functions

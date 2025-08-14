@@ -20,9 +20,9 @@ library LibBlobs {
     /// in this transaction.
     struct BlobReference {
         /// @notice The starting index of the blob.
-        uint48 blobStartIndex;
+        uint16 blobStartIndex;
         /// @notice The number of blobs.
-        uint32 numBlobs;
+        uint16 numBlobs;
         /// @notice The field-element offset within the blob data.
         uint24 offset;
     }
