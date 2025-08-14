@@ -10,9 +10,7 @@ contract TestInboxWithMockBlobs is InboxOptimized {
     IInbox.Config private testConfig;
     bool private configSet;
 
-    constructor() InboxOptimized() {
-        _disableInitializers();
-    }
+    constructor() InboxOptimized() { }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;
@@ -47,6 +45,9 @@ contract TestInboxWithMockBlobs is InboxOptimized {
     function exposed_setProposalHash(uint48 _proposalId, bytes32 _hash) external {
         _setProposalHash(testConfig, _proposalId, _hash);
     }
+
+
+  
 
     function exposed_setClaimRecordHash(
         uint48 _proposalId,

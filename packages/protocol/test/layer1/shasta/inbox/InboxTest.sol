@@ -717,7 +717,7 @@ abstract contract InboxTest is CommonTest {
     function _performWarmupOperation() external {
         // Simple operation to warm up the contract
         setupProposalMocks(Alice);
-        bytes memory data = InboxTestLib.encodeProposalDataWithGenesis(
+        InboxTestLib.encodeProposalDataWithGenesis(
             createStandardCoreState(1), createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
         // Don't actually submit, just prepare the data
