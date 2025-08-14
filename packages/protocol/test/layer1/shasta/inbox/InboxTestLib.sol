@@ -1,0 +1,716 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import "contracts/layer1/shasta/iface/IInbox.sol";
+import "contracts/layer1/shasta/libs/LibBlobs.sol";
+import "contracts/shared/based/libs/LibBonds.sol";
+
+/// @title InboxTestLib
+/// @notice Consolidated test utility library for Inbox tests
+/// @dev Single source of truth for all test data creation and manipulation
+/// @custom:security-contact security@taiko.xyz
+library InboxTestLib {
+    // ---------------------------------------------------------------
+    // Data Structures
+    // ---------------------------------------------------------------
+
+    /// @dev Test context for managing test state
+    struct TestContext {
+        IInbox.CoreState coreState;
+        IInbox.Proposal[] proposals;
+        IInbox.Claim[] claims;
+        IInbox.ClaimRecord[] claimRecords;
+        bytes32 currentParentHash;
+        uint48 nextProposalId;
+        uint48 lastFinalizedId;
+    }
+
+    /// @dev Chain of proposals and claims for testing
+    struct ProposalChain {
+        IInbox.Proposal[] proposals;
+        IInbox.Claim[] claims;
+        bytes32 initialParentHash;
+        bytes32 finalClaimHash;
+    }
+
+    // ---------------------------------------------------------------
+    // Core State Management
+    // ---------------------------------------------------------------
+
+    /// @dev Creates a basic core state
+    function createCoreState(
+        uint48 _nextProposalId,
+        uint48 _lastFinalizedProposalId
+    )
+        internal
+        pure
+        returns (IInbox.CoreState memory)
+    {
+        return IInbox.CoreState({
+            nextProposalId: _nextProposalId,
+            lastFinalizedProposalId: _lastFinalizedProposalId,
+            lastFinalizedClaimHash: bytes32(0),
+            bondInstructionsHash: bytes32(0)
+        });
+    }
+
+    /// @dev Creates a complete core state with all fields
+    function createCoreState(
+        uint48 _nextProposalId,
+        uint48 _lastFinalizedProposalId,
+        bytes32 _lastFinalizedClaimHash,
+        bytes32 _bondInstructionsHash
+    )
+        internal
+        pure
+        returns (IInbox.CoreState memory)
+    {
+        return IInbox.CoreState({
+            nextProposalId: _nextProposalId,
+            lastFinalizedProposalId: _lastFinalizedProposalId,
+            lastFinalizedClaimHash: _lastFinalizedClaimHash,
+            bondInstructionsHash: _bondInstructionsHash
+        });
+    }
+
+    // ---------------------------------------------------------------
+    // Proposal Creation
+    // ---------------------------------------------------------------
+
+    /// @dev Creates a standard proposal
+    function createProposal(
+        uint48 _id,
+        address _proposer,
+        uint8 _basefeeSharingPctg
+    )
+        internal
+        view
+        returns (IInbox.Proposal memory)
+    {
+        bytes32[] memory blobHashes = new bytes32[](1);
+        blobHashes[0] = keccak256(abi.encode("blob", uint256(_id % 256)));
+
+        return IInbox.Proposal({
+            id: _id,
+            proposer: _proposer,
+            originTimestamp: uint48(block.timestamp),
+            originBlockNumber: uint48(block.number),
+            isForcedInclusion: false,
+            basefeeSharingPctg: _basefeeSharingPctg,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes,
+                offset: 0,
+                timestamp: uint48(block.timestamp)
+            }),
+            coreStateHash: bytes32(0)
+        });
+    }
+
+    /// @dev Creates a proposal with custom blob configuration
+    function createProposalWithBlobs(
+        uint48 _id,
+        address _proposer,
+        uint8 _basefeeSharingPctg,
+        bytes32[] memory _blobHashes
+    )
+        internal
+        view
+        returns (IInbox.Proposal memory)
+    {
+        return IInbox.Proposal({
+            id: _id,
+            proposer: _proposer,
+            originTimestamp: uint48(block.timestamp),
+            originBlockNumber: uint48(block.number),
+            isForcedInclusion: false,
+            basefeeSharingPctg: _basefeeSharingPctg,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: _blobHashes,
+                offset: 0,
+                timestamp: uint48(block.timestamp)
+            }),
+            coreStateHash: bytes32(0)
+        });
+    }
+
+    /// @dev Creates multiple proposals in batch
+    function createProposalBatch(
+        uint48 _startId,
+        uint48 _count,
+        address _proposer,
+        uint8 _basefeeSharingPctg
+    )
+        internal
+        view
+        returns (IInbox.Proposal[] memory proposals)
+    {
+        proposals = new IInbox.Proposal[](_count);
+        for (uint48 i = 0; i < _count; i++) {
+            proposals[i] = createProposal(_startId + i, _proposer, _basefeeSharingPctg);
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Claim Creation
+    // ---------------------------------------------------------------
+
+    /// @dev Creates a standard claim
+    function createClaim(
+        IInbox.Proposal memory _proposal,
+        bytes32 _parentClaimHash,
+        address _actualProver
+    )
+        internal
+        pure
+        returns (IInbox.Claim memory)
+    {
+        return IInbox.Claim({
+            proposalHash: hashProposal(_proposal),
+            parentClaimHash: _parentClaimHash,
+            endBlockNumber: _proposal.id * 100,
+            endBlockHash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
+            endStateRoot: keccak256(abi.encode(_proposal.id, "stateRoot")),
+            designatedProver: _proposal.proposer,
+            actualProver: _actualProver
+        });
+    }
+
+    /// @dev Creates a claim with custom block data
+    function createClaimWithBlock(
+        bytes32 _proposalHash,
+        bytes32 _parentClaimHash,
+        uint48 _endBlockNumber,
+        bytes32 _endBlockHash,
+        bytes32 _endStateRoot,
+        address _designatedProver,
+        address _actualProver
+    )
+        internal
+        pure
+        returns (IInbox.Claim memory)
+    {
+        return IInbox.Claim({
+            proposalHash: _proposalHash,
+            parentClaimHash: _parentClaimHash,
+            endBlockNumber: _endBlockNumber,
+            endBlockHash: _endBlockHash,
+            endStateRoot: _endStateRoot,
+            designatedProver: _designatedProver,
+            actualProver: _actualProver
+        });
+    }
+
+    /// @dev Creates a chain of claims with proper parent hashing
+    function createClaimChain(
+        IInbox.Proposal[] memory _proposals,
+        bytes32 _initialParentHash,
+        address _prover
+    )
+        internal
+        pure
+        returns (IInbox.Claim[] memory claims)
+    {
+        claims = new IInbox.Claim[](_proposals.length);
+        bytes32 parentHash = _initialParentHash;
+
+        for (uint256 i = 0; i < _proposals.length; i++) {
+            claims[i] = createClaim(_proposals[i], parentHash, _prover);
+            parentHash = hashClaim(claims[i]);
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // ClaimRecord Creation
+    // ---------------------------------------------------------------
+
+    /// @dev Creates a claim record without bond instructions
+    function createClaimRecord(
+        uint48 _proposalId,
+        IInbox.Claim memory _claim,
+        uint8 _span
+    )
+        internal
+        pure
+        returns (IInbox.ClaimRecord memory)
+    {
+        return IInbox.ClaimRecord({
+            proposalId: _proposalId,
+            claim: _claim,
+            span: _span,
+            bondInstructions: new LibBonds.BondInstruction[](0)
+        });
+    }
+
+    /// @dev Creates a claim record with bond instructions
+    function createClaimRecordWithBonds(
+        uint48 _proposalId,
+        IInbox.Claim memory _claim,
+        uint8 _span,
+        LibBonds.BondInstruction[] memory _bondInstructions
+    )
+        internal
+        pure
+        returns (IInbox.ClaimRecord memory)
+    {
+        return
+            IInbox.ClaimRecord({ proposalId: _proposalId, claim: _claim, span: _span, bondInstructions: _bondInstructions });
+    }
+
+    /// @dev Creates multiple claim records in batch
+    function createClaimRecordBatch(
+        uint48 _startProposalId,
+        IInbox.Claim[] memory _claims,
+        uint8 _span
+    )
+        internal
+        pure
+        returns (IInbox.ClaimRecord[] memory records)
+    {
+        records = new IInbox.ClaimRecord[](_claims.length);
+        for (uint256 i = 0; i < _claims.length; i++) {
+            records[i] = createClaimRecord(_startProposalId + uint48(i), _claims[i], _span);
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Blob Reference Creation
+    // ---------------------------------------------------------------
+
+    /// @dev Creates a blob reference with single blob
+    function createBlobReference(uint8 _blobIndex)
+        internal
+        pure
+        returns (LibBlobs.BlobReference memory)
+    {
+        return LibBlobs.BlobReference({ blobStartIndex: _blobIndex, numBlobs: 1, offset: 0 });
+    }
+
+    /// @dev Creates a blob reference with multiple blobs
+    function createBlobReference(
+        uint8 _blobStartIndex,
+        uint8 _numBlobs,
+        uint24 _offset
+    )
+        internal
+        pure
+        returns (LibBlobs.BlobReference memory)
+    {
+        return LibBlobs.BlobReference({
+            blobStartIndex: _blobStartIndex,
+            numBlobs: _numBlobs,
+            offset: _offset
+        });
+    }
+
+    // ---------------------------------------------------------------
+    // Data Encoding
+    // ---------------------------------------------------------------
+
+    /// @dev Encodes proposal data with default deadline (LEGACY - for tests that expect empty proposals array)
+    function encodeProposalData(
+        IInbox.CoreState memory _coreState,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        // Legacy function - uses empty proposals array (will cause tests to fail if actually used with propose())
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](0);
+        return abi.encode(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
+    }
+
+    /// @dev Encodes proposal data with custom deadline (LEGACY - for tests that expect empty proposals array)
+    function encodeProposalData(
+        uint64 _deadline,
+        IInbox.CoreState memory _coreState,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        // Legacy function - uses empty proposals array (will cause tests to fail if actually used with propose())
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](0);
+        return abi.encode(_deadline, _coreState, proposals, _blobRef, _claimRecords);
+    }
+
+    /// @dev Encodes proposal data with correct validation array for the first proposal (after genesis)
+    function encodeProposalDataWithGenesis(
+        IInbox.CoreState memory _coreState,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        // For the first proposal (id=1), include the genesis proposal for validation
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = createGenesisProposal(_coreState);
+        return abi.encode(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
+    }
+
+    /// @dev Encodes proposal data with custom deadline and correct validation array for the first proposal (after genesis)
+    function encodeProposalDataWithGenesis(
+        uint64 _deadline,
+        IInbox.CoreState memory _coreState,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        // For the first proposal (id=1), include the genesis proposal for validation
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = createGenesisProposal(_coreState);
+        return abi.encode(_deadline, _coreState, proposals, _blobRef, _claimRecords);
+    }
+
+    /// @dev Encodes proposal data with proposals being finalized
+    function encodeProposalDataWithProposals(
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal[] memory _proposals,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(uint64(0), _coreState, _proposals, _blobRef, _claimRecords);
+    }
+
+    /// @dev Encodes proposal data with deadline and proposals being finalized
+    function encodeProposalDataWithProposals(
+        uint64 _deadline,
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal[] memory _proposals,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(_deadline, _coreState, _proposals, _blobRef, _claimRecords);
+    }
+
+    /// @dev Encodes prove data
+    function encodeProveData(
+        IInbox.Proposal[] memory _proposals,
+        IInbox.Claim[] memory _claims
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(_proposals, _claims);
+    }
+
+    // ---------------------------------------------------------------
+    // Hashing Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Computes proposal hash
+    function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_proposal));
+    }
+
+    /// @dev Computes claim hash
+    function hashClaim(IInbox.Claim memory _claim) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_claim));
+    }
+
+    /// @dev Computes claim record hash
+    function hashClaimRecord(IInbox.ClaimRecord memory _record) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_record));
+    }
+
+    /// @dev Computes core state hash
+    function hashCoreState(IInbox.CoreState memory _state) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_state));
+    }
+
+    // ---------------------------------------------------------------
+    // Blob Hash Generation
+    // ---------------------------------------------------------------
+
+    /// @dev Generates standard blob hashes for testing
+    function generateBlobHashes(uint256 _count) internal pure returns (bytes32[] memory hashes) {
+        hashes = new bytes32[](_count);
+        for (uint256 i = 0; i < _count; i++) {
+            hashes[i] = keccak256(abi.encode("blob", i));
+        }
+    }
+
+    /// @dev Generates blob hashes with custom seed
+    function generateBlobHashes(
+        uint256 _count,
+        string memory _seed
+    )
+        internal
+        pure
+        returns (bytes32[] memory hashes)
+    {
+        hashes = new bytes32[](_count);
+        for (uint256 i = 0; i < _count; i++) {
+            hashes[i] = keccak256(abi.encode(_seed, i));
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // Genesis & Proposal Creation Utilities
+    // ---------------------------------------------------------------
+
+    /// @dev Creates the genesis proposal (proposal id=0) that gets stored during contract initialization
+    function createGenesisProposal(IInbox.CoreState memory) internal pure returns (IInbox.Proposal memory) {
+        // Recreate the exact genesis proposal as created in the contract's init() function
+        IInbox.Proposal memory proposal;
+        // Genesis proposal has all default values except coreStateHash
+        proposal.id = 0;
+        proposal.proposer = address(0);
+        proposal.originTimestamp = 0;
+        proposal.originBlockNumber = 0;
+        proposal.isForcedInclusion = false;
+        proposal.basefeeSharingPctg = 0;
+        // Empty/default blob slice
+        proposal.blobSlice = LibBlobs.BlobSlice({
+            blobHashes: new bytes32[](0),
+            offset: 0,
+            timestamp: 0
+        });
+        
+        // Recreate the exact core state as it was during initialization
+        // This is what was used to calculate the coreStateHash in the genesis proposal
+        IInbox.Claim memory genesisClaim;
+        genesisClaim.endBlockHash = bytes32(uint256(1)); // GENESIS_BLOCK_HASH from test
+        
+        IInbox.CoreState memory genesisCoreState;
+        genesisCoreState.nextProposalId = 1;
+        genesisCoreState.lastFinalizedProposalId = 0; // default value
+        genesisCoreState.lastFinalizedClaimHash = keccak256(abi.encode(genesisClaim));
+        genesisCoreState.bondInstructionsHash = bytes32(0); // default value
+        
+        proposal.coreStateHash = keccak256(abi.encode(genesisCoreState));
+        return proposal;
+    }
+
+    /// @dev Encodes proposal data for subsequent proposals (after the first one)
+    function encodeProposalDataForSubsequent(
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal memory _previousProposal,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        // For subsequent proposals, include the previous proposal for validation
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = _previousProposal;
+        return abi.encode(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
+    }
+
+    /// @dev Encodes proposal data for subsequent proposals with custom deadline
+    function encodeProposalDataForSubsequent(
+        uint64 _deadline,
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal memory _previousProposal,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        // For subsequent proposals, include the previous proposal for validation
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = _previousProposal;
+        return abi.encode(_deadline, _coreState, proposals, _blobRef, _claimRecords);
+    }
+
+    /// @dev Encodes proposal data when ring buffer wrapping occurs (need 2 proposals for validation)
+    function encodeProposalDataForWrapping(
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal memory _lastProposal,
+        IInbox.Proposal memory _nextSlotProposal,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        // When ring buffer wrapping occurs, need both proposals for validation
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](2);
+        proposals[0] = _lastProposal;      // The last proposal being validated
+        proposals[1] = _nextSlotProposal;  // The proposal in the next slot (should have smaller id)
+        return abi.encode(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
+    }
+
+    // ---------------------------------------------------------------
+    // Chain Building Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Creates a complete proposal chain with claims
+    function createProposalChain(
+        uint48 _startId,
+        uint48 _count,
+        address _proposer,
+        address _prover,
+        bytes32 _initialParentHash,
+        uint8 _basefeeSharingPctg
+    )
+        internal
+        view
+        returns (ProposalChain memory chain)
+    {
+        chain.proposals = createProposalBatch(_startId, _count, _proposer, _basefeeSharingPctg);
+        chain.claims = createClaimChain(chain.proposals, _initialParentHash, _prover);
+        chain.initialParentHash = _initialParentHash;
+
+        if (_count > 0) {
+            chain.finalClaimHash = hashClaim(chain.claims[_count - 1]);
+        } else {
+            chain.finalClaimHash = _initialParentHash;
+        }
+    }
+
+    /// @dev Creates a genesis claim
+    function createGenesisClaim(bytes32 _genesisBlockHash)
+        internal
+        pure
+        returns (IInbox.Claim memory)
+    {
+        return IInbox.Claim({
+            proposalHash: bytes32(0),
+            parentClaimHash: bytes32(0),
+            endBlockNumber: 0,
+            endBlockHash: _genesisBlockHash,
+            endStateRoot: bytes32(0),
+            designatedProver: address(0),
+            actualProver: address(0)
+        });
+    }
+
+    /// @dev Gets the genesis claim hash
+    function getGenesisClaimHash(bytes32 _genesisBlockHash) internal pure returns (bytes32) {
+        return hashClaim(createGenesisClaim(_genesisBlockHash));
+    }
+
+    // ---------------------------------------------------------------
+    // Proposal State Management for Tests
+    // ---------------------------------------------------------------
+
+    /// @dev Smart encoding function that determines which proposals to include based on the proposal ID
+    function encodeProposalDataSmart(
+        uint48 _proposalId,
+        IInbox.CoreState memory _coreState,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords,
+        IInbox.Proposal[] memory _allKnownProposals
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        if (_proposalId == 1) {
+            // First proposal after genesis, include genesis proposal for validation
+            IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+            proposals[0] = createGenesisProposal(_coreState);
+            return abi.encode(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
+        } else {
+            // Subsequent proposals, include the previous proposal
+            IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+            proposals[0] = _findProposalById(_allKnownProposals, _proposalId - 1);
+            return abi.encode(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
+        }
+    }
+
+    /// @dev Helper to find a proposal by ID from an array of known proposals
+    function _findProposalById(
+        IInbox.Proposal[] memory _proposals,
+        uint48 _targetId
+    )
+        internal
+        pure
+        returns (IInbox.Proposal memory)
+    {
+        for (uint256 i = 0; i < _proposals.length; i++) {
+            if (_proposals[i].id == _targetId) {
+                return _proposals[i];
+            }
+        }
+        // If not found, return a default proposal with the target ID
+        // This handles the case where we might not have stored all proposals
+        IInbox.Proposal memory defaultProposal;
+        defaultProposal.id = _targetId;
+        return defaultProposal;
+    }
+
+    // ---------------------------------------------------------------
+    // Test Context Management
+    // ---------------------------------------------------------------
+
+    /// @dev Creates a new test context
+    function createContext(
+        uint48 _nextProposalId,
+        uint48 _lastFinalizedId,
+        bytes32 _parentHash
+    )
+        internal
+        pure
+        returns (TestContext memory ctx)
+    {
+        ctx.coreState = createCoreState(_nextProposalId, _lastFinalizedId, _parentHash, bytes32(0));
+        ctx.proposals = new IInbox.Proposal[](0);
+        ctx.claims = new IInbox.Claim[](0);
+        ctx.claimRecords = new IInbox.ClaimRecord[](0);
+        ctx.currentParentHash = _parentHash;
+        ctx.nextProposalId = _nextProposalId;
+        ctx.lastFinalizedId = _lastFinalizedId;
+    }
+
+    /// @dev Adds a proposal to the context
+    function addProposal(
+        TestContext memory _ctx,
+        IInbox.Proposal memory _proposal
+    )
+        internal
+        pure
+        returns (TestContext memory)
+    {
+        IInbox.Proposal[] memory newProposals = new IInbox.Proposal[](_ctx.proposals.length + 1);
+        for (uint256 i = 0; i < _ctx.proposals.length; i++) {
+            newProposals[i] = _ctx.proposals[i];
+        }
+        newProposals[_ctx.proposals.length] = _proposal;
+        _ctx.proposals = newProposals;
+        _ctx.nextProposalId++;
+        return _ctx;
+    }
+
+    /// @dev Adds a claim to the context
+    function addClaim(
+        TestContext memory _ctx,
+        IInbox.Claim memory _claim
+    )
+        internal
+        pure
+        returns (TestContext memory)
+    {
+        IInbox.Claim[] memory newClaims = new IInbox.Claim[](_ctx.claims.length + 1);
+        for (uint256 i = 0; i < _ctx.claims.length; i++) {
+            newClaims[i] = _ctx.claims[i];
+        }
+        newClaims[_ctx.claims.length] = _claim;
+        _ctx.claims = newClaims;
+        _ctx.currentParentHash = hashClaim(_claim);
+        return _ctx;
+    }
+}
