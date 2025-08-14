@@ -139,8 +139,7 @@ contract InboxProposeValidation is InboxTest {
         bytes32 genesisHash = getGenesisClaimHash();
 
         // Arrange: Set correct core state in contract storage (nextProposalId=1)
-        IInbox.CoreState memory actualCoreState =
-            InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
+        InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
 
         // Arrange: Create proposal with mismatched core state (attack simulation)
         IInbox.CoreState memory wrongCoreState =

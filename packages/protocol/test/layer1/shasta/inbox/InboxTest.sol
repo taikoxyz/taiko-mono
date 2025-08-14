@@ -1257,8 +1257,7 @@ abstract contract InboxTest is CommonTest {
         // This assertion validates behavior through successful operations
 
         // Create expected core state for reference (used by test logic)
-        IInbox.CoreState memory expected =
-            InboxTestLib.createCoreState(_expectedNextProposalId, _expectedLastFinalizedId);
+        InboxTestLib.createCoreState(_expectedNextProposalId, _expectedLastFinalizedId);
 
         // Tests verify correct behavior through successful proposal submission/finalization
         // If operations succeed, core state is implicitly correct
@@ -1317,6 +1316,7 @@ abstract contract InboxTest is CommonTest {
         string memory _context
     )
         internal
+        pure
     {
         assertGasUsage(
             _metrics.totalGas,
@@ -1360,6 +1360,7 @@ abstract contract InboxTest is CommonTest {
         bytes32 _genesisHash
     )
         internal
+        pure
     {
         require(_proposals.length == _claims.length, "Array length mismatch");
 

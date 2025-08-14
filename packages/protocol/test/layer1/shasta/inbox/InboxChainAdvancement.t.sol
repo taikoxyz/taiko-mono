@@ -643,7 +643,7 @@ contract InboxChainAdvancement is InboxTest {
         inbox.propose(bytes(""), proposeData);
 
         // Assert: Verify that only maxFinalizationCount proposals were finalized
-        IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
+        IInbox.CoreState({
             nextProposalId: numProposals + 2,
             lastFinalizedProposalId: uint48(defaultConfig.maxFinalizationCount),
             lastFinalizedClaimHash: keccak256(

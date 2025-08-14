@@ -46,9 +46,6 @@ contract TestInboxWithMockBlobs is InboxOptimized {
         _setProposalHash(testConfig, _proposalId, _hash);
     }
 
-
-  
-
     function exposed_setClaimRecordHash(
         uint48 _proposalId,
         bytes32 _parentClaimHash,

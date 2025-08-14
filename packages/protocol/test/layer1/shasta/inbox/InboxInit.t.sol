@@ -23,7 +23,7 @@ contract InboxInit is InboxTest {
 
         // Create expected core state and proposal for event verification
         IInbox.CoreState memory expectedCoreState = _createExpectedGenesisCoreState();
-        IInbox.Proposal memory expectedProposal = _createExpectedGenesisProposal(expectedCoreState);
+        _createExpectedGenesisProposal(expectedCoreState);
 
         // Verify owner assignment
         assertEq(freshInbox.owner(), Alice, "Owner should be set correctly");
@@ -120,7 +120,7 @@ contract InboxInit is InboxTest {
             IInbox.Claim memory genesisClaim;
             genesisClaim.endBlockHash = testHashes[i];
 
-            IInbox.CoreState memory expectedCoreState = createCoreStateFromConfig(
+            createCoreStateFromConfig(
                 CoreStateConfig({
                     nextProposalId: 1,
                     lastFinalizedProposalId: 0,
