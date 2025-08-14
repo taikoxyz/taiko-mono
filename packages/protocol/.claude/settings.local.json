@@ -25,7 +25,8 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(pnpm compile:l2:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(forge test:*)"
     ],
     "deny": []
   }
