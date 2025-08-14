@@ -118,7 +118,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
 
-        require(deadline == 0 || block.timestamp <= deadline, DeadlineExceeded());
+        if (deadline != 0 && block.timestamp > deadline) revert DeadlineExceeded();
 
         bytes32 coreStateHash_ = keccak256(abi.encode(coreState));
         require(coreStateHash_ == coreStateHash, InvalidState());
@@ -163,13 +163,15 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         ClaimRecord[] memory claimRecords = _buildClaimRecords(config, proposals, claims);
 
-        for (uint256 i; i < proposals.length; ++i) {
+        uint48 proposalId = proposals[0].id;
+        for (uint256 i; i < claimRecords.length; ++i) {
             _setClaimRecordHash(
                 config,
-                proposals[i].id,
+                proposalId,
                 claimRecords[i].claim.parentClaimHash,
                 keccak256(abi.encode(claimRecords[i]))
             );
+            proposalId += claimRecords[i].span;
             emit Proved(proposals[i], claimRecords[i]);
         }
 
