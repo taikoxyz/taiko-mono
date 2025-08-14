@@ -135,18 +135,18 @@ abstract contract InboxOptimized is Inbox {
 
                 if (newInstructions.length > 0) {
                     // Get current instructions from the record
-                    LibBonds.BondInstruction[] memory currentInstructions =
+                    LibBonds.BondInstruction[] memory existingInstructions =
                         claimRecords_[currentRecordIndex].bondInstructions;
 
                     // Create new array with combined size
-                    uint256 oldLen = currentInstructions.length;
+                    uint256 oldLen = existingInstructions.length;
                     uint256 newLen = oldLen + newInstructions.length;
                     LibBonds.BondInstruction[] memory aggregatedInstructions =
                         new LibBonds.BondInstruction[](newLen);
 
                     // Copy existing instructions
                     for (uint256 j = 0; j < oldLen; ++j) {
-                        aggregatedInstructions[j] = currentInstructions[j];
+                        aggregatedInstructions[j] = existingInstructions[j];
                     }
 
                     // Copy new instructions

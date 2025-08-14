@@ -7,197 +7,157 @@ import "src/shared/based/libs/LibBonds.sol";
 
 /// @title LibCodec
 /// @notice Library for encoding and decoding event data for gas optimization using assembly
+/// @dev Array lengths are encoded as uint24 (3 bytes) to support up to 16,777,215 elements while maintaining gas efficiency.
+/// This provides a good balance between array size capacity and storage efficiency compared to uint16 (65,535 max) or uint32 (4 bytes).
 /// @custom:security-contact security@taiko.xyz
 library LibCodec {
-    /// @dev Encodes the proposed event data using abi.encodePacked for gas optimization
+    // ---------------------------------------------------------------
+    // Internal functions
+    // ---------------------------------------------------------------
+
+    /// @dev Encodes the proposed event data using super-optimized direct encoding
     /// @param _proposal The proposal to encode
     /// @param _coreState The core state to encode
-    /// @return encoded The encoded data
+    /// @return The encoded data as bytes
+    /// @dev Blob hashes array length is encoded as uint24 (3 bytes)
     function encodeProposedEventData(
         IInbox.Proposal memory _proposal,
         IInbox.CoreState memory _coreState
     )
         internal
         pure
-        returns (bytes memory encoded)
+        returns (bytes memory)
     {
-        uint256 blobHashesLen = _proposal.blobSlice.blobHashes.length;
+        // Inline encoding with minimal overhead - avoid intermediate variables
+        bytes32[] memory hashes = _proposal.blobSlice.blobHashes;
 
-        // Calculate total size:
-        // 6 (id) + 20 (proposer) + 6 (originTimestamp) + 6 (originBlockNumber) +
-        // 1 (isForcedInclusion) + 1 (basefeeSharingPctg) + 2 (blobHashes length) +
-        // 32 * blobHashesLen + 3 (offset) + 6 (timestamp) + 32 (coreStateHash) +
-        // 6 (nextProposalId) + 6 (lastFinalizedProposalId) + 32 (lastFinalizedClaimHash) +
-        // 32 (bondInstructionsHash)
-        uint256 totalSize = 182 + (32 * blobHashesLen);
+        // Direct encoding using concatenation to minimize gas
+        assembly {
+            let len := mload(hashes)
+            let totalSize := add(183, shl(5, len)) // 183 + len * 32
 
-        encoded = new bytes(totalSize);
-        uint256 offset = 0;
+            let result := mload(0x40)
+            mstore(result, totalSize)
+            mstore(0x40, add(add(result, 0x20), totalSize))
 
-        // Encode Proposal fields
-        offset = _encodeUint48(encoded, offset, _proposal.id);
-        offset = _encodeAddress(encoded, offset, _proposal.proposer);
-        offset = _encodeUint48(encoded, offset, _proposal.originTimestamp);
-        offset = _encodeUint48(encoded, offset, _proposal.originBlockNumber);
-        encoded[offset++] = _proposal.isForcedInclusion ? bytes1(0x01) : bytes1(0x00);
-        encoded[offset++] = bytes1(_proposal.basefeeSharingPctg);
+            let ptr := add(result, 0x20)
 
-        // Encode blob hashes length
-        encoded[offset++] = bytes1(uint8(blobHashesLen >> 8));
-        encoded[offset++] = bytes1(uint8(blobHashesLen));
+            // Use mstore to write 32-byte chunks efficiently
+            // Write fixed fields first (most gas efficient)
+            mstore(ptr, or(shl(208, mload(_proposal)), shl(88, mload(add(_proposal, 0x20)))))
 
-        // Encode blob hashes
-        for (uint256 i = 0; i < blobHashesLen; i++) {
-            offset = _encodeBytes32(encoded, offset, _proposal.blobSlice.blobHashes[i]);
+            let ptr2 := add(ptr, 0x20)
+            mstore(
+                ptr2,
+                or(
+                    or(shl(208, mload(add(_proposal, 0x40))), shl(160, mload(add(_proposal, 0x60)))),
+                    or(
+                        shl(152, mload(add(_proposal, 0x80))),
+                        or(shl(144, mload(add(_proposal, 0xA0))), shl(120, len)) // len as uint24
+                    )
+                )
+            )
+
+            // Copy blob hashes in one tight loop
+            let hashPtr := add(hashes, 0x20)
+            let destPtr := add(ptr, 0x40)
+            for { let i := 0 } lt(i, len) { i := add(i, 1) } {
+                mstore(add(destPtr, shl(5, i)), mload(add(hashPtr, shl(5, i))))
+            }
+
+            // Write remaining fields as words
+            let finalPtr := add(destPtr, shl(5, len))
+            let blobSlicePtr := add(_proposal, 0xC0)
+
+            mstore(
+                finalPtr,
+                or(
+                    shl(232, mload(add(blobSlicePtr, 0x20))),
+                    shl(184, mload(add(blobSlicePtr, 0x40)))
+                )
+            )
+            mstore(add(finalPtr, 0x20), mload(add(blobSlicePtr, 0x60))) // coreStateHash
+            mstore(add(finalPtr, 0x40), mload(_coreState))
+            mstore(add(finalPtr, 0x60), mload(add(_coreState, 0x20)))
+            mstore(add(finalPtr, 0x80), mload(add(_coreState, 0x40)))
+            mstore(add(finalPtr, 0xA0), mload(add(_coreState, 0x60)))
+
+            return(result, add(0x20, totalSize))
         }
-
-        // Encode blob slice fields
-        offset = _encodeUint24(encoded, offset, _proposal.blobSlice.offset);
-        offset = _encodeUint48(encoded, offset, _proposal.blobSlice.timestamp);
-
-        // Encode coreStateHash
-        offset = _encodeBytes32(encoded, offset, _proposal.coreStateHash);
-
-        // Encode CoreState fields
-        offset = _encodeUint48(encoded, offset, _coreState.nextProposalId);
-        offset = _encodeUint48(encoded, offset, _coreState.lastFinalizedProposalId);
-        offset = _encodeBytes32(encoded, offset, _coreState.lastFinalizedClaimHash);
-        _encodeBytes32(encoded, offset, _coreState.bondInstructionsHash);
     }
 
-    function _encodeUint48(
-        bytes memory _data,
-        uint256 _offset,
-        uint48 _value
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        _data[_offset] = bytes1(uint8(_value >> 40));
-        _data[_offset + 1] = bytes1(uint8(_value >> 32));
-        _data[_offset + 2] = bytes1(uint8(_value >> 24));
-        _data[_offset + 3] = bytes1(uint8(_value >> 16));
-        _data[_offset + 4] = bytes1(uint8(_value >> 8));
-        _data[_offset + 5] = bytes1(uint8(_value));
-        return _offset + 6;
-    }
-
-    function _encodeUint24(
-        bytes memory _data,
-        uint256 _offset,
-        uint24 _value
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        _data[_offset] = bytes1(uint8(_value >> 16));
-        _data[_offset + 1] = bytes1(uint8(_value >> 8));
-        _data[_offset + 2] = bytes1(uint8(_value));
-        return _offset + 3;
-    }
-
-    function _encodeAddress(
-        bytes memory _data,
-        uint256 _offset,
-        address _value
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        bytes20 addrBytes = bytes20(_value);
-        for (uint256 i = 0; i < 20; i++) {
-            _data[_offset + i] = addrBytes[i];
-        }
-        return _offset + 20;
-    }
-
-    function _encodeBytes32(
-        bytes memory _data,
-        uint256 _offset,
-        bytes32 _value
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        for (uint256 i = 0; i < 32; i++) {
-            _data[_offset + i] = _value[i];
-        }
-        return _offset + 32;
-    }
-
-    /// @dev Encodes the proved event data using abi.encodePacked for gas optimization
+    /// @dev Encodes the proved event data using super-optimized direct encoding
     /// @param _claimRecord The claim record to encode
-    /// @return encoded The encoded data
+    /// @return The encoded data as bytes
+    /// @dev Bond instructions array length is encoded as uint24 (3 bytes)
     function encodeProveEventData(IInbox.ClaimRecord memory _claimRecord)
         internal
         pure
-        returns (bytes memory encoded)
+        returns (bytes memory)
     {
-        uint256 bondInstructionsLen = _claimRecord.bondInstructions.length;
+        // Ultra-fast encoding: use only essential assembly operations
+        LibBonds.BondInstruction[] memory bonds = _claimRecord.bondInstructions;
 
-        // Calculate total size:
-        // 6 (proposalId) + 32 (proposalHash) + 32 (parentClaimHash) + 6 (endBlockNumber) +
-        // 32 (endBlockHash) + 32 (endStateRoot) + 20 (designatedProver) + 20 (actualProver) +
-        // 1 (span) + 2 (bondInstructions length) + 47 * bondInstructionsLen
-        uint256 totalSize = 183 + (47 * bondInstructionsLen);
+        assembly {
+            let bondsLen := mload(bonds)
+            let totalSize := add(184, mul(bondsLen, 47))
 
-        encoded = new bytes(totalSize);
+            let result := mload(0x40)
+            mstore(result, totalSize)
+            mstore(0x40, add(add(result, 0x20), totalSize))
 
-        // Encode claim data
-        uint256 offset = _encodeClaim(encoded, 0, _claimRecord.claim);
+            let ptr := add(result, 0x20)
+            let claimPtr := _claimRecord // Direct struct access
 
-        // Encode span
-        encoded[offset] = bytes1(uint8(_claimRecord.span));
-        offset += 1;
+            // Write claim fields directly as 32-byte words (most efficient)
+            // First word: proposalId + part of proposalHash
+            mstore(ptr, or(shl(208, mload(claimPtr)), shr(48, mload(add(claimPtr, 0x20)))))
 
-        // Encode bond instructions length
-        encoded[offset] = bytes1(uint8(bondInstructionsLen >> 8));
-        encoded[offset + 1] = bytes1(uint8(bondInstructionsLen));
-        offset += 2;
+            // Remaining claim fields in sequence
+            mstore(
+                add(ptr, 0x20),
+                or(shl(208, mload(add(claimPtr, 0x20))), shr(48, mload(add(claimPtr, 0x40))))
+            )
+            mstore(add(ptr, 0x40), mload(add(claimPtr, 0x40))) // parentClaimHash
 
-        // Encode bond instructions
-        _encodeBondInstructions(encoded, offset, _claimRecord.bondInstructions);
-    }
+            let ptr2 := add(ptr, 0x60)
+            mstore(
+                ptr2, or(shl(208, mload(add(claimPtr, 0x60))), shr(48, mload(add(claimPtr, 0x80))))
+            )
+            mstore(add(ptr2, 0x20), mload(add(claimPtr, 0x80))) // endBlockHash
+            mstore(add(ptr2, 0x40), mload(add(claimPtr, 0xA0))) // endStateRoot
 
-    /// @dev Helper function to encode a Claim into packed data
-    function _encodeClaim(
-        bytes memory _data,
-        uint256 _offset,
-        IInbox.Claim memory _claim
-    )
-        private
-        pure
-        returns (uint256 newOffset_)
-    {
-        newOffset_ = _offset;
-        newOffset_ = _encodeUint48(_data, newOffset_, _claim.proposalId);
-        newOffset_ = _encodeBytes32(_data, newOffset_, _claim.proposalHash);
-        newOffset_ = _encodeBytes32(_data, newOffset_, _claim.parentClaimHash);
-        newOffset_ = _encodeUint48(_data, newOffset_, _claim.endBlockNumber);
-        newOffset_ = _encodeBytes32(_data, newOffset_, _claim.endBlockHash);
-        newOffset_ = _encodeBytes32(_data, newOffset_, _claim.endStateRoot);
-        newOffset_ = _encodeAddress(_data, newOffset_, _claim.designatedProver);
-        newOffset_ = _encodeAddress(_data, newOffset_, _claim.actualProver);
-    }
+            let ptr3 := add(ptr2, 0x60)
+            // Addresses + span + bondsLen
+            mstore(ptr3, or(shl(96, mload(add(claimPtr, 0xC0))), mload(add(claimPtr, 0xE0))))
+            mstore(
+                add(ptr3, 0x20),
+                or(or(shl(248, mload(add(_claimRecord, 0x20))), shl(232, bondsLen)), 0) // bondsLen as uint24
+            )
 
-    /// @dev Helper function to encode bond instructions into packed data
-    function _encodeBondInstructions(
-        bytes memory _data,
-        uint256 _offset,
-        LibBonds.BondInstruction[] memory _instructions
-    )
-        private
-        pure
-    {
-        for (uint256 i = 0; i < _instructions.length; i++) {
-            _offset = _encodeUint48(_data, _offset, _instructions[i].proposalId);
-            _data[_offset++] = bytes1(uint8(_instructions[i].bondType));
-            _offset = _encodeAddress(_data, _offset, _instructions[i].payer);
-            _offset = _encodeAddress(_data, _offset, _instructions[i].receiver);
+            // Fast bond instructions encoding - minimize operations
+            let bondsPtr := add(bonds, 0x20)
+            let bondDest := add(ptr3, 0x40)
+
+            for { let i := 0 } lt(i, bondsLen) { i := add(i, 1) } {
+                let bondPtr := add(bondsPtr, mul(i, 0x80))
+                let destOffset := add(bondDest, mul(i, 47))
+
+                // Pack instruction in minimal operations
+                mstore(
+                    destOffset,
+                    or(
+                        or(shl(208, mload(bondPtr)), shl(200, mload(add(bondPtr, 0x20)))),
+                        shr(96, mload(add(bondPtr, 0x40)))
+                    )
+                )
+                mstore(
+                    add(destOffset, 0x20),
+                    or(shl(96, mload(add(bondPtr, 0x40))), mload(add(bondPtr, 0x60)))
+                )
+            }
+
+            return(result, add(0x20, totalSize))
         }
     }
 
@@ -205,12 +165,13 @@ library LibCodec {
     /// @param _data The encoded data
     /// @return proposal_ The decoded proposal
     /// @return coreState_ The decoded core state
+    /// @dev Blob hashes array length is decoded from uint24 (3 bytes)
     function decodeProposedEventData(bytes memory _data)
         internal
         pure
         returns (IInbox.Proposal memory proposal_, IInbox.CoreState memory coreState_)
     {
-        require(_data.length >= 182, "Invalid data length");
+        if (_data.length < 183) revert INVALID_DATA_LENGTH();
 
         uint256 offset = 0;
 
@@ -245,12 +206,14 @@ library LibCodec {
         proposal_.basefeeSharingPctg = uint8(_data[offset]);
         offset += 1;
 
-        // Decode blob slice
-        uint16 blobHashesLen = uint16(uint8(_data[offset]) << 8 | uint8(_data[offset + 1]));
-        offset += 2;
+        // Decode blob slice - array length encoded as uint24 (3 bytes)
+        uint24 blobHashesLen = uint24(
+            uint256(uint8(_data[offset])) << 16 | uint256(uint8(_data[offset + 1])) << 8 | uint256(uint8(_data[offset + 2]))
+        );
+        offset += 3;
 
         bytes32[] memory blobHashes = new bytes32[](blobHashesLen);
-        for (uint256 i = 0; i < blobHashesLen; i++) {
+        for (uint256 i; i < blobHashesLen; ++i) {
             blobHashes[i] = bytes32(_extractBytes(_data, offset, 32));
             offset += 32;
         }
@@ -294,6 +257,10 @@ library LibCodec {
         coreState_.bondInstructionsHash = bytes32(_extractBytes(_data, offset, 32));
     }
 
+    // ---------------------------------------------------------------
+    // Private functions
+    // ---------------------------------------------------------------
+
     /// @dev Helper function to extract bytes from data
     function _extractBytes(
         bytes memory _data,
@@ -305,7 +272,7 @@ library LibCodec {
         returns (bytes memory)
     {
         bytes memory result = new bytes(_length);
-        for (uint256 i = 0; i < _length; i++) {
+        for (uint256 i; i < _length; ++i) {
             result[i] = _data[_start + i];
         }
         return result;
@@ -314,12 +281,13 @@ library LibCodec {
     /// @dev Decodes the prove event data that was encoded using abi.encodePacked
     /// @param _data The encoded data
     /// @return claimRecord_ The decoded claim record
+    /// @dev Bond instructions array length is decoded from uint24 (3 bytes)
     function decodeProveEventData(bytes memory _data)
         internal
         pure
         returns (IInbox.ClaimRecord memory claimRecord_)
     {
-        require(_data.length >= 183, "Invalid data length");
+        if (_data.length < 184) revert INVALID_DATA_LENGTH();
 
         uint256 offset = 0;
 
@@ -332,9 +300,11 @@ library LibCodec {
         claimRecord_.span = uint8(_data[offset]);
         offset += 1;
 
-        // Decode bond instructions
-        uint16 bondInstructionsLen = uint16(uint8(_data[offset]) << 8 | uint8(_data[offset + 1]));
-        offset += 2;
+        // Decode bond instructions - array length encoded as uint24 (3 bytes)
+        uint24 bondInstructionsLen = uint24(
+            uint256(uint8(_data[offset])) << 16 | uint256(uint8(_data[offset + 1])) << 8 | uint256(uint8(_data[offset + 2]))
+        );
+        offset += 3;
 
         claimRecord_.bondInstructions = _decodeBondInstructions(_data, offset, bondInstructionsLen);
     }
@@ -405,7 +375,7 @@ library LibCodec {
     {
         instructions_ = new LibBonds.BondInstruction[](_length);
 
-        for (uint256 i = 0; i < _length; i++) {
+        for (uint256 i; i < _length; ++i) {
             // Decode proposalId (6 bytes -> uint48)
             instructions_[i].proposalId = uint48(
                 uint256(uint8(_data[_offset])) << 40 | uint256(uint8(_data[_offset + 1])) << 32
@@ -428,4 +398,10 @@ library LibCodec {
             _offset += 20;
         }
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error INVALID_DATA_LENGTH();
 }
