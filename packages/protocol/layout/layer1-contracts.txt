@@ -310,9 +310,7 @@
 |
 | __gap                       | uint256[49]                                     | 202  | 0      | 1568  |
 |
-| __slotsUsedByPacaya         | uint256[5]                                      | 251  | 0      | 160   |
-|
-| __reservedSlot              | uint256                                         | 256  | 0      | 32    |
+| __slotsUsedByPacaya         | uint256[6]                                      | 251  | 0      | 192   |
 |
 | bondBalance                 | mapping(address => uint256)                     | 257  | 0      | 32    |
 |
