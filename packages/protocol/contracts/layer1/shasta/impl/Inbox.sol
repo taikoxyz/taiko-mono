@@ -123,8 +123,9 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         _validateProposeInputs(deadline, coreState, proposals);
 
-        // Validate proposals against storage
+        // Validate that proposals[0] matches what is stored on-chain.
         _checkProposalHash(config, proposals[0]);
+        // Validates that proposals[0] is actually the last proposal on-chain.
         _verifyLastProposal(config, proposals);
 
         // Finalize proved proposals to make room for new ones
@@ -210,11 +211,20 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @return _ The configuration struct
     function getConfig() public view virtual returns (Config memory);
 
-    /// @notice Decodes data into CoreState, BlobReference array, and ClaimRecord array
+    /// @notice Decodes proposal data
     /// @param _data The encoded data
-    /// @return deadline_ The decoded deadline
-    /// @return coreState_ The decoded CoreState
-    /// @return proposals_ The decoded array of Proposals
+    /// @return deadline_ The decoded deadline timestamp. If non-zero, the transaction will revert if included after this time,
+    ///                   protecting proposers from their transactions landing on-chain later than intended
+    /// @return coreState_ The decoded CoreState representing the current state before the call to `propose`.
+    ///                    Must match the coreStateHash stored in the previous proposal (proposals_[0])
+    /// @return proposals_ The decoded array of existing Proposals. proposals_[0] is the last stored proposal,
+    ///                    used to validate the proposer has the correct chain state.
+    ///                    This array may hold one or two elements:
+    ///                    - If the next slot in the ring buffer is empty, only one proposal is expected.
+    ///                    - If the next slot is occupied, two proposals are expected:
+    ///                      - proposals_[0] is the last stored proposal.
+    ///                      - proposals_[1] is the proposal to prove.
+    ///                      - proposals_[1].id must be smaller than proposals_[0].id.
     /// @return blobReference_ The decoded BlobReference
     /// @return claimRecords_ The decoded array of ClaimRecords
     function decodeProposeData(bytes calldata _data)
@@ -472,9 +482,9 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
 
     /// @dev Validates the basic inputs for propose function
-    /// @param _deadline The deadline for the proposal.
-    /// @param _coreState The core state.
-    /// @param _proposals The proposals array.
+    /// @param _deadline The deadline timestamp for transaction inclusion (0 = no deadline).
+    /// @param _coreState The current core state before this proposal, which must match the previous proposal's stored hash.
+    /// @param _proposals The proposals array where proposals[0] is the last existing proposal on-chain.
     function _validateProposeInputs(
         uint64 _deadline,
         CoreState memory _coreState,
@@ -571,10 +581,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         bytes32 storedNextProposalHash = _proposalRecord(_config, _proposals[0].id + 1).proposalHash;
 
         if (storedNextProposalHash == bytes32(0)) {
-            // Next slot is empty, only one proposal expected
+            // Next slot in the ring buffer is empty, only one proposal expected
             require(_proposals.length == 1, IncorrectProposalCount());
         } else {
-            // Next slot is occupied, need to prove it contains a smaller proposal id
+            // Next slot in the ring buffer is occupied, need to prove it contains a smaller proposal id
             require(_proposals.length == 2, IncorrectProposalCount());
             require(_proposals[1].id < _proposals[0].id, NextProposalIdSmallerThanLastProposalId());
             _checkProposalHash(_config, _proposals[1]);
@@ -583,7 +593,8 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     /// @dev Proposes a new proposal of L2 blocks.
     /// @param _config The configuration parameters.
-    /// @param _coreState The core state of the inbox.
+    /// @param _coreState The core state of the inbox (potentially updated by finalization/forced inclusion).
+    ///                   This state's hash will be stored in the new proposal.
     /// @param _blobSlice The blob slice of the proposal.
     /// @param _isForcedInclusion Whether the proposal is a forced inclusion.
     /// @return  _ The updated core state.
