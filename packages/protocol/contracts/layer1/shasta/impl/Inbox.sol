@@ -98,7 +98,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         Proposal memory proposal;
         proposal.coreStateHash = keccak256(abi.encode(coreState));
         _setProposalHash(getConfig(), 0, keccak256(abi.encode(proposal)));
-        
+
         emit Proposed(proposal, coreState);
     }
 
@@ -150,7 +150,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Check if new proposals would exceed the unfinalized proposal capacity
         require(
-            coreState.nextProposalId - coreState.lastFinalizedProposalId <= _getCapacity(config),
+            coreState.nextProposalId <= _getCapacity(config) + coreState.lastFinalizedProposalId,
             ExceedsUnfinalizedProposalCapacity()
         );
 
@@ -290,121 +290,9 @@ abstract contract Inbox is EssentialContract, IInbox {
         view
     {
         bytes32 proposalHash = keccak256(abi.encode(_proposal));
-        // Validate proposal hash matches claim and storage in one check
-        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
-
-        require(
-            proposalHash == _proposalRecord(_config, _proposal.id).proposalHash,
-            ProposalHashMismatch()
-        );
-    }
-
-    /// @dev Sets the proposal hash for a given proposal ID.
-    function _setProposalHash(
-        Config memory _config,
-        uint48 _proposalId,
-        bytes32 _proposalHash
-    )
-        internal
-    {
-        _proposalRecord(_config, _proposalId).proposalHash = _proposalHash;
-    }
-
-    /// @dev Sets the claim record hash for a given proposal and parent claim.
-    function _setClaimRecordHash(
-        Config memory _config,
-        uint48 _proposalId,
-        bytes32 _parentClaimHash,
-        bytes32 _claimRecordHash
-    )
-        internal
-        virtual
-    {
-        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
-        proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash = _claimRecordHash;
-    }
-
-    /// @dev Gets the capacity for unfinalized proposals.
-    function _getCapacity(Config memory _config) internal pure returns (uint256) {
-        // The ring buffer can hold ringBufferSize proposals total, but we need to ensure
-        // unfinalized proposals are not overwritten. Therefore, the maximum number of
-        // unfinalized proposals is ringBufferSize - 1.
-        unchecked {
-            return _config.ringBufferSize - 1;
-        }
-    }
-
-    /// @dev Reads a proposal record from the ring buffer at the specified proposal ID.
-    /// @param _config The configuration parameters.
-    /// @param _proposalId The proposal ID to read.
-    /// @return proposalRecord_ The proposal record at the calculated buffer slot.
-    function _proposalRecord(
-        Config memory _config,
-        uint48 _proposalId
-    )
-        internal
-        view
-        returns (ProposalRecord storage proposalRecord_)
-    {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        proposalRecord_ = proposalRingBuffer[bufferSlot];
-    }
-
-    /// @dev Gets the claim record hash for a given proposal and parent claim.
-    function _getClaimRecordHash(
-        Config memory _config,
-        uint48 _proposalId,
-        bytes32 _parentClaimHash
-    )
-        internal
-        view
-        virtual
-        returns (bytes32 claimRecordHash_)
-    {
-        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
-        claimRecordHash_ = proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash;
-    }
-
-    // ---------------------------------------------------------------
-    // Private Functions
-    // ---------------------------------------------------------------
-
-    /// @dev Proposes a new proposal of L2 blocks.
-    /// @param _config The configuration parameters.
-    /// @param _coreState The core state of the inbox.
-    /// @param _blobSlice The blob slice of the proposal.
-    /// @param _isForcedInclusion Whether the proposal is a forced inclusion.
-    /// @return coreState_ The updated core state.
-    function _propose(
-        Config memory _config,
-        CoreState memory _coreState,
-        LibBlobs.BlobSlice memory _blobSlice,
-        bool _isForcedInclusion
-    )
-        private
-        returns (CoreState memory coreState_)
-    {
-        uint48 proposalId = _coreState.nextProposalId++;
-        uint48 originTimestamp = uint48(block.timestamp);
-        uint48 originBlockNumber = uint48(block.number);
-
-        Proposal memory proposal = Proposal({
-            id: proposalId,
-            proposer: msg.sender,
-            originTimestamp: originTimestamp,
-            originBlockNumber: originBlockNumber,
-            isForcedInclusion: _isForcedInclusion,
-            basefeeSharingPctg: _config.basefeeSharingPctg,
-            blobSlice: _blobSlice,
-            coreStateHash: keccak256(abi.encode(_coreState))
-        });
-
-        bytes32 proposalHash = keccak256(abi.encode(proposal));
-
-        _setProposalHash(_config, proposalId, proposalHash);
-        emit Proposed(proposal, _coreState);
-
-        return _coreState;
+        require(proposalHash == _claim.proposalHash, ProposalHashMismatch());
+        bytes32 storedProposalHash = _proposalRecord(_config, _proposal.id).proposalHash;
+        require(proposalHash == storedProposalHash, ProposalHashMismatch());
     }
 
     /// @dev Calculates the bond instructions based on proof timing and prover identity
@@ -455,6 +343,114 @@ abstract contract Inbox is EssentialContract, IInbox {
                 return bondInstructions;
             }
         }
+    }
+
+    /// @dev Sets the proposal hash for a given proposal ID.
+    function _setProposalHash(
+        Config memory _config,
+        uint48 _proposalId,
+        bytes32 _proposalHash
+    )
+        internal
+    {
+        _proposalRecord(_config, _proposalId).proposalHash = _proposalHash;
+    }
+
+    /// @dev Sets the claim record hash for a given proposal and parent claim.
+    function _setClaimRecordHash(
+        Config memory _config,
+        uint48 _proposalId,
+        bytes32 _parentClaimHash,
+        bytes32 _claimRecordHash
+    )
+        internal
+        virtual
+    {
+        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
+        proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash = _claimRecordHash;
+    }
+
+    /// @dev Gets the capacity for unfinalized proposals.
+    function _getCapacity(Config memory _config) internal pure returns (uint256) {
+        // The ring buffer can hold ringBufferSize proposals total, but we need to ensure
+        // unfinalized proposals are not overwritten. Therefore, the maximum number of
+        // unfinalized proposals is ringBufferSize - 1.
+        unchecked {
+            return _config.ringBufferSize - 1;
+        }
+    }
+
+    /// @dev Gets the claim record hash for a given proposal and parent claim.
+    function _getClaimRecordHash(
+        Config memory _config,
+        uint48 _proposalId,
+        bytes32 _parentClaimHash
+    )
+        internal
+        view
+        virtual
+        returns (bytes32 claimRecordHash_)
+    {
+        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
+        claimRecordHash_ = proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash;
+    }
+
+    /// @dev Reads a proposal record from the ring buffer at the specified proposal ID.
+    /// @param _config The configuration parameters.
+    /// @param _proposalId The proposal ID to read.
+    /// @return proposalRecord_ The proposal record at the calculated buffer slot.
+    function _proposalRecord(
+        Config memory _config,
+        uint48 _proposalId
+    )
+        internal
+        view
+        returns (ProposalRecord storage proposalRecord_)
+    {
+        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
+        proposalRecord_ = proposalRingBuffer[bufferSlot];
+    }
+
+    // ---------------------------------------------------------------
+    // Private Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Proposes a new proposal of L2 blocks.
+    /// @param _config The configuration parameters.
+    /// @param _coreState The core state of the inbox.
+    /// @param _blobSlice The blob slice of the proposal.
+    /// @param _isForcedInclusion Whether the proposal is a forced inclusion.
+    /// @return coreState_ The updated core state.
+    function _propose(
+        Config memory _config,
+        CoreState memory _coreState,
+        LibBlobs.BlobSlice memory _blobSlice,
+        bool _isForcedInclusion
+    )
+        private
+        returns (CoreState memory coreState_)
+    {
+        uint48 proposalId = _coreState.nextProposalId++;
+        uint48 originTimestamp = uint48(block.timestamp);
+        uint48 originBlockNumber = uint48(block.number);
+
+        Proposal memory proposal = Proposal({
+            id: proposalId,
+            proposer: msg.sender,
+            originTimestamp: originTimestamp,
+            originBlockNumber: originBlockNumber,
+            isForcedInclusion: _isForcedInclusion,
+            basefeeSharingPctg: _config.basefeeSharingPctg,
+            blobSlice: _blobSlice,
+            coreStateHash: keccak256(abi.encode(_coreState))
+        });
+
+        bytes32 proposalHash = keccak256(abi.encode(proposal));
+
+        _setProposalHash(_config, proposalId, proposalHash);
+        emit Proposed(proposal, _coreState);
+
+        return _coreState;
     }
 
     /// @dev Finalizes proposals by verifying claim records and updating state.
