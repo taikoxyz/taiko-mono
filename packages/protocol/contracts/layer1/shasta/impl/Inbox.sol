@@ -11,14 +11,12 @@ import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
-import { LibDecoder } from "../libs/LibDecoder.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
 /// @custom:security-contact security@taiko.xyz
 
 abstract contract Inbox is EssentialContract, IInbox {
-    using LibDecoder for bytes;
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
@@ -70,13 +68,10 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     mapping(address account => uint256 bond) public bondBalance;
 
-    /// @dev The hash of the core state.
-    bytes32 internal coreStateHash;
-
     /// @dev Ring buffer for storing proposal records.
     mapping(uint256 bufferSlot => ProposalRecord proposalRecord) internal proposalRingBuffer;
 
-    uint256[41] private __gap;
+    uint256[42] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -97,9 +92,12 @@ abstract contract Inbox is EssentialContract, IInbox {
         CoreState memory coreState;
         coreState.nextProposalId = 1;
         coreState.lastFinalizedClaimHash = keccak256(abi.encode(claim));
-        coreStateHash = keccak256(abi.encode(coreState));
 
-        emit CoreStateSet(coreState);
+        Proposal memory proposal;
+        proposal.coreStateHash = keccak256(abi.encode(coreState));
+        _setProposalHash(getConfig(), 0, keccak256(abi.encode(proposal)));
+
+        emit Proposed(encodeProposedEventData(proposal, coreState));
     }
 
     // ---------------------------------------------------------------
@@ -109,83 +107,65 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @inheritdoc IInbox
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         Config memory config = getConfig();
+        // Validate proposer
         IProposerChecker(config.proposerChecker).checkProposer(msg.sender);
 
+        // Decode and validate input data
         (
             uint64 deadline,
             CoreState memory coreState,
+            Proposal[] memory proposals,
             LibBlobs.BlobReference memory blobReference,
             ClaimRecord[] memory claimRecords
-        ) = _data.decodeProposeData();
+        ) = decodeProposeData(_data);
 
-        require(deadline == 0 || block.timestamp <= deadline, DeadlineExceeded());
+        _validateProposeInputs(deadline, coreState, proposals);
 
-        bytes32 coreStateHash_ = keccak256(abi.encode(coreState));
-        require(coreStateHash_ == coreStateHash, InvalidState());
+        // Validate proposals against storage
+        _checkProposalHash(config, proposals[0]);
+        _verifyLastProposal(config, proposals);
 
-        // Check if new proposals would exceed the unfinalized proposal capacity
-        require(
-            coreState.nextProposalId - coreState.lastFinalizedProposalId <= _getCapacity(config),
-            ExceedsUnfinalizedProposalCapacity()
-        );
+        // Finalize proved proposals to make room for new ones
+        coreState = _finalize(config, coreState, claimRecords);
 
-        Proposal memory proposal;
+        // Verify capacity for new proposals
+        _verifyCapacity(config, coreState);
 
-        // Handle forced inclusion if required
-        if (IForcedInclusionStore(config.forcedInclusionStore).isOldestForcedInclusionDue()) {
-            IForcedInclusionStore.ForcedInclusion memory forcedInclusion = IForcedInclusionStore(
-                config.forcedInclusionStore
-            ).consumeOldestForcedInclusion(msg.sender);
-
-            (coreState, proposal) = _propose(config, coreState, forcedInclusion.blobSlice, true);
-            emit Proposed(proposal, coreState);
-            coreStateHash_ = keccak256(abi.encode(coreState));
-        }
+        // Process forced inclusion if required
+        coreState = _processForcedInclusion(config, coreState);
 
         // Create regular proposal
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(blobReference);
-        (coreState, proposal) = _propose(config, coreState, blobSlice, false);
-        // Finalize proved proposals
-        coreState = _finalize(config, coreState, claimRecords);
-        emit Proposed(proposal, coreState);
-
-        // Update stored hash with final coreState
-        _setCoreStateHash(keccak256(abi.encode(coreState)));
+        _propose(config, coreState, blobSlice, false);
     }
 
     /// @inheritdoc IInbox
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         Config memory config = getConfig();
-        (Proposal[] memory proposals, Claim[] memory claims) = _data.decodeProveData();
 
-        require(proposals.length == claims.length, InconsistentParams());
-        require(proposals.length != 0, EmptyProposals());
+        // Decode and validate input
+        (Proposal[] memory proposals, Claim[] memory claims) = decodeProveData(_data);
+        _validateProveInputs(proposals, claims);
 
+        // Build claim records with validation and bond calculations
         ClaimRecord[] memory claimRecords = _buildClaimRecords(config, proposals, claims);
 
-        for (uint256 i; i < proposals.length; ++i) {
-            _setClaimRecordHash(
-                config,
-                proposals[i].id,
-                claimRecords[i].claim.parentClaimHash,
-                keccak256(abi.encode(claimRecords[i]))
-            );
-            emit Proved(proposals[i], claimRecords[i]);
-        }
-
-        bytes32 claimsHash = keccak256(abi.encode(claims));
-        IProofVerifier(config.proofVerifier).verifyProof(claimsHash, _proof);
+        // Store claim records and emit events
+        _storeClaimRecords(config, claimRecords);
+        // Verify the proof
+        IProofVerifier(config.proofVerifier).verifyProof(keccak256(abi.encode(claims)), _proof);
     }
 
-    /// @notice Withdraws bond balance for a given user.
-    /// @dev Anyone can call this function to withdraw bond for any user.
+    /// @notice Withdraws bond balance for the caller.
     function withdrawBond() external nonReentrant {
         uint256 amount = bondBalance[msg.sender];
         require(amount > 0, NoBondToWithdraw());
 
+        // Clear balance before transfer (checks-effects-interactions)
         bondBalance[msg.sender] = 0;
-        Config memory config = getConfig();
-        IERC20(config.bondToken).safeTransfer(msg.sender, amount);
+
+        // Transfer the bond
+        IERC20(getConfig().bondToken).safeTransfer(msg.sender, amount);
 
         emit BondWithdrawn(msg.sender, amount);
     }
@@ -193,10 +173,10 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @notice Gets the proposal hash for a given proposal ID.
     /// @param _proposalId The proposal ID to look up.
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
-    function getProposalHash(uint48 _proposalId) public view returns (bytes32 proposalHash_) {
+    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_) {
         Config memory config = getConfig();
-        uint256 bufferSlot = _proposalId % config.ringBufferSize;
-        proposalHash_ = proposalRingBuffer[bufferSlot].proposalHash;
+        ProposalRecord storage proposalRecord = _proposalRecord(config, _proposalId);
+        proposalHash_ = proposalRecord.proposalHash;
     }
 
     /// @notice Gets the claim record hash for a given proposal and parent claim.
@@ -228,6 +208,71 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @return _ The configuration struct
     function getConfig() public view virtual returns (Config memory);
 
+    /// @notice Decodes data into CoreState, BlobReference array, and ClaimRecord array
+    /// @param _data The encoded data
+    /// @return deadline_ The decoded deadline
+    /// @return coreState_ The decoded CoreState
+    /// @return proposals_ The decoded array of Proposals
+    /// @return blobReference_ The decoded BlobReference
+    /// @return claimRecords_ The decoded array of ClaimRecords
+    function decodeProposeData(bytes calldata _data)
+        public
+        pure
+        virtual
+        returns (
+            uint64 deadline_,
+            CoreState memory coreState_,
+            Proposal[] memory proposals_,
+            LibBlobs.BlobReference memory blobReference_,
+            ClaimRecord[] memory claimRecords_
+        )
+    {
+        (deadline_, coreState_, proposals_, blobReference_, claimRecords_) = abi.decode(
+            _data, (uint64, CoreState, Proposal[], LibBlobs.BlobReference, ClaimRecord[])
+        );
+    }
+
+    /// @notice Decodes data into Proposal array and Claim array
+    /// @param _data The encoded data
+    /// @return proposals_ The decoded array of Proposals
+    /// @return claims_ The decoded array of Claims
+    function decodeProveData(bytes calldata _data)
+        public
+        pure
+        virtual
+        returns (Proposal[] memory proposals_, Claim[] memory claims_)
+    {
+        (proposals_, claims_) = abi.decode(_data, (Proposal[], Claim[]));
+    }
+
+    /// @dev Encodes the proposed event data
+    /// @param proposal The proposal to encode
+    /// @param coreState The core state to encode
+    /// @return The encoded data
+    function encodeProposedEventData(
+        Proposal memory proposal,
+        CoreState memory coreState
+    )
+        public
+        pure
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(proposal, coreState);
+    }
+
+    /// @dev Encodes the proved event data
+    /// @param claimRecord The claim record to encode
+    /// @return The encoded data
+    function encodeProveEventData(ClaimRecord memory claimRecord)
+        public
+        pure
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(claimRecord);
+    }
+
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
@@ -252,41 +297,91 @@ abstract contract Inbox is EssentialContract, IInbox {
             Proposal memory proposal = _proposals[i];
             Claim memory claim = _claims[i];
 
-            _validateProposal(_config, proposal, claim);
+            _validateClaim(_config, proposal, claim, proposal.id);
 
             LibBonds.BondInstruction[] memory bondInstructions =
                 _calculateBondInstructions(_config, proposal, claim);
 
-            claimRecords_[i] =
-                ClaimRecord({ claim: claim, span: 1, bondInstructions: bondInstructions });
+            claimRecords_[i] = ClaimRecord({
+                proposalId: proposal.id,
+                claim: claim,
+                span: 1,
+                bondInstructions: bondInstructions
+            });
         }
     }
 
-    /// @dev Validates that a proposal hash matches both the claim and storage.
+    /// @dev Validates that a claim is valid for a given proposal.
     /// @param _config The configuration parameters.
     /// @param _proposal The proposal to validate.
-    /// @param _claim The claim to validate against.
-    function _validateProposal(
+    /// @param _claim The claim to validate.
+    /// @param _proposalId The proposal ID from the claim record.
+    function _validateClaim(
+        Config memory _config,
+        Proposal memory _proposal,
+        Claim memory _claim,
+        uint48 _proposalId
+    )
+        internal
+        view
+    {
+        require(_proposal.id == _proposalId, ProposalIdMismatch());
+
+        bytes32 proposalHash = _checkProposalHash(_config, _proposal);
+        require(proposalHash == _claim.proposalHash, ProposalHashMismatchWithClaim());
+    }
+
+    /// @dev Calculates the bond instructions based on proof timing and prover identity
+    /// @notice Bond instructions determine how provability and liveness bonds are handled:
+    /// - On-time proofs: Bonds may be refunded or remain unchanged
+    /// - Late proofs: Liveness bonds may be slashed and redistributed
+    /// - Very late proofs: Provability bonds may also be slashed and redistributed
+    /// @param _config The configuration parameters.
+    /// @param _proposal The proposal containing timing and proposer information
+    /// @param _claim The claim containing the proof details.
+    /// @return bondInstructions_ The bond instructions that affect aggregation eligibility
+    function _calculateBondInstructions(
         Config memory _config,
         Proposal memory _proposal,
         Claim memory _claim
     )
         internal
         view
+        returns (LibBonds.BondInstruction[] memory bondInstructions_)
     {
-        bytes32 proposalHash = keccak256(abi.encode(_proposal));
-        // Validate proposal hash matches claim and storage in one check
-        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
+        unchecked {
+            uint256 proofTimestamp = block.timestamp;
+            uint256 windowEnd = _proposal.originTimestamp + _config.provingWindow;
 
-        uint256 bufferSlot = _proposal.id % _config.ringBufferSize;
-        if (proposalHash != proposalRingBuffer[bufferSlot].proposalHash) {
-            revert ProposalHashMismatch();
+            // On-time proof - no bond instructions needed
+            if (proofTimestamp <= windowEnd) {
+                return new LibBonds.BondInstruction[](0);
+            }
+
+            // Late or very late proof - determine bond type and parties
+            uint256 extendedWindowEnd = _proposal.originTimestamp + _config.extendedProvingWindow;
+            bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
+
+            // Check if bond instruction is needed
+            bool needsBondInstruction = isWithinExtendedWindow
+                ? (_claim.designatedProver != _claim.actualProver)
+                : (_proposal.proposer != _claim.actualProver);
+
+            if (!needsBondInstruction) {
+                return new LibBonds.BondInstruction[](0);
+            }
+
+            // Create single bond instruction
+            bondInstructions_ = new LibBonds.BondInstruction[](1);
+            bondInstructions_[0] = LibBonds.BondInstruction({
+                proposalId: _proposal.id,
+                bondType: isWithinExtendedWindow
+                    ? LibBonds.BondType.LIVENESS
+                    : LibBonds.BondType.PROVABILITY,
+                payer: isWithinExtendedWindow ? _claim.designatedProver : _proposal.proposer,
+                receiver: _claim.actualProver
+            });
         }
-    }
-
-    /// @dev Sets the hash of the core state.
-    function _setCoreStateHash(bytes32 _coreStateHash) internal {
-        coreStateHash = _coreStateHash;
     }
 
     /// @dev Sets the proposal hash for a given proposal ID.
@@ -297,8 +392,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     )
         internal
     {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        proposalRingBuffer[bufferSlot].proposalHash = _proposalHash;
+        _proposalRecord(_config, _proposalId).proposalHash = _proposalHash;
     }
 
     /// @dev Sets the claim record hash for a given proposal and parent claim.
@@ -311,9 +405,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         internal
         virtual
     {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash =
-            _claimRecordHash;
+        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
+        proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash = _claimRecordHash;
     }
 
     /// @dev Gets the capacity for unfinalized proposals.
@@ -337,14 +430,154 @@ abstract contract Inbox is EssentialContract, IInbox {
         virtual
         returns (bytes32 claimRecordHash_)
     {
+        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
+        claimRecordHash_ = proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash;
+    }
+
+    /// @dev Checks if a proposal matches the stored hash and reverts if not.
+    /// @param _config The configuration parameters.
+    /// @param _proposal The proposal to check.
+    function _checkProposalHash(
+        Config memory _config,
+        Proposal memory _proposal
+    )
+        internal
+        view
+        returns (bytes32)
+    {
+        bytes32 proposalHash = keccak256(abi.encode(_proposal));
+        bytes32 storedHash = _proposalRecord(_config, _proposal.id).proposalHash;
+        require(proposalHash == storedHash, ProposalHashMismatch());
+        return proposalHash;
+    }
+
+    /// @dev Reads a proposal record from the ring buffer at the specified proposal ID.
+    /// @param _config The configuration parameters.
+    /// @param _proposalId The proposal ID to read.
+    /// @return proposalRecord_ The proposal record at the calculated buffer slot.
+    function _proposalRecord(
+        Config memory _config,
+        uint48 _proposalId
+    )
+        internal
+        view
+        returns (ProposalRecord storage proposalRecord_)
+    {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        claimRecordHash_ =
-            proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
+        proposalRecord_ = proposalRingBuffer[bufferSlot];
     }
 
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
+
+    /// @dev Validates the basic inputs for propose function
+    /// @param _deadline The deadline for the proposal.
+    /// @param _coreState The core state.
+    /// @param _proposals The proposals array.
+    function _validateProposeInputs(
+        uint64 _deadline,
+        CoreState memory _coreState,
+        Proposal[] memory _proposals
+    )
+        private
+        view
+    {
+        require(_deadline == 0 || block.timestamp <= _deadline, DeadlineExceeded());
+        require(_proposals.length > 0, EmptyProposals());
+        require(keccak256(abi.encode(_coreState)) == _proposals[0].coreStateHash, InvalidState());
+    }
+
+    /// @dev Verifies that new proposals won't exceed capacity
+    /// @param _config The configuration parameters.
+    /// @param _coreState The core state.
+    function _verifyCapacity(Config memory _config, CoreState memory _coreState) private pure {
+        require(
+            _coreState.nextProposalId <= _getCapacity(_config) + _coreState.lastFinalizedProposalId,
+            ExceedsUnfinalizedProposalCapacity()
+        );
+    }
+
+    /// @dev Processes forced inclusion if required
+    /// @param _config The configuration parameters.
+    /// @param _coreState The core state.
+    /// @return The updated core state.
+    function _processForcedInclusion(
+        Config memory _config,
+        CoreState memory _coreState
+    )
+        private
+        returns (CoreState memory)
+    {
+        IForcedInclusionStore store = IForcedInclusionStore(_config.forcedInclusionStore);
+
+        if (!store.isOldestForcedInclusionDue()) {
+            return _coreState;
+        }
+
+        IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
+            store.consumeOldestForcedInclusion(msg.sender);
+
+        return _propose(_config, _coreState, forcedInclusion.blobSlice, true);
+    }
+
+    /// @dev Validates the inputs for prove function
+    /// @param _proposals The proposals to prove.
+    /// @param _claims The claims for the proposals.
+    function _validateProveInputs(
+        Proposal[] memory _proposals,
+        Claim[] memory _claims
+    )
+        private
+        pure
+    {
+        require(_proposals.length == _claims.length, InconsistentParams());
+        require(_proposals.length != 0, EmptyProposals());
+    }
+
+    /// @dev Stores claim records and emits events
+    /// @param _config The configuration parameters.
+    /// @param _claimRecords The claim records to store.
+    function _storeClaimRecords(
+        Config memory _config,
+        ClaimRecord[] memory _claimRecords
+    )
+        private
+    {
+        for (uint256 i; i < _claimRecords.length; ++i) {
+            bytes32 claimRecordHash = keccak256(abi.encode(_claimRecords[i]));
+
+            ProposalRecord storage proposalRecord =
+                _proposalRecord(_config, _claimRecords[i].proposalId);
+            proposalRecord.claimHashLookup[_claimRecords[i].claim.parentClaimHash].claimRecordHash =
+                claimRecordHash;
+
+            emit Proved(encodeProveEventData(_claimRecords[i]));
+        }
+    }
+
+    /// @dev Verifies the proposal is the last one proposed
+    /// @param _config The configuration parameters.
+    /// @param _proposals The proposals array to verify.
+    function _verifyLastProposal(
+        Config memory _config,
+        Proposal[] memory _proposals
+    )
+        private
+        view
+    {
+        bytes32 storedNextProposalHash = _proposalRecord(_config, _proposals[0].id + 1).proposalHash;
+
+        if (storedNextProposalHash == bytes32(0)) {
+            // Next slot is empty, only one proposal expected
+            require(_proposals.length == 1, IncorrectProposalCount());
+        } else {
+            // Next slot is occupied, need to prove it contains a smaller proposal id
+            require(_proposals.length == 2, IncorrectProposalCount());
+            require(_proposals[1].id < _proposals[0].id, NextProposalIdSmallerThanLastProposalId());
+            _checkProposalHash(_config, _proposals[1]);
+        }
+    }
 
     /// @dev Proposes a new proposal of L2 blocks.
     /// @param _config The configuration parameters.
@@ -352,7 +585,6 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _blobSlice The blob slice of the proposal.
     /// @param _isForcedInclusion Whether the proposal is a forced inclusion.
     /// @return coreState_ The updated core state.
-    /// @return proposal_ The created proposal.
     function _propose(
         Config memory _config,
         CoreState memory _coreState,
@@ -360,79 +592,23 @@ abstract contract Inbox is EssentialContract, IInbox {
         bool _isForcedInclusion
     )
         private
-        returns (CoreState memory coreState_, Proposal memory proposal_)
+        returns (CoreState memory coreState_)
     {
-        uint48 proposalId = _coreState.nextProposalId++;
-        uint48 originTimestamp = uint48(block.timestamp);
-        uint48 originBlockNumber = uint48(block.number);
-
-        proposal_ = Proposal({
-            id: proposalId,
+        Proposal memory proposal = Proposal({
+            id: _coreState.nextProposalId++,
             proposer: msg.sender,
-            originTimestamp: originTimestamp,
-            originBlockNumber: originBlockNumber,
+            originTimestamp: uint48(block.timestamp),
+            originBlockNumber: uint48(block.number),
             isForcedInclusion: _isForcedInclusion,
             basefeeSharingPctg: _config.basefeeSharingPctg,
-            blobSlice: _blobSlice
+            blobSlice: _blobSlice,
+            coreStateHash: keccak256(abi.encode(_coreState))
         });
 
-        bytes32 proposalHash = keccak256(abi.encode(proposal_));
+        _setProposalHash(_config, proposal.id, keccak256(abi.encode(proposal)));
+        emit Proposed(encodeProposedEventData(proposal, _coreState));
 
-        _setProposalHash(_config, proposalId, proposalHash);
-
-        return (_coreState, proposal_);
-    }
-
-    /// @dev Calculates the bond instructions based on proof timing and prover identity
-    /// @dev Bond instructions determine how provability and liveness bonds are handled:
-    /// - On-time proofs: Bonds may be refunded or remain unchanged
-    /// - Late proofs: Liveness bonds may be slashed and redistributed
-    /// - Very late proofs: Provability bonds may also be slashed and redistributed
-    /// @dev We always return a bond instruction, regardless if no bond should be slashed. This is
-    /// so that we can reward provers for low-bond proposals.
-    /// @param _config The configuration parameters.
-    /// @param _proposal The proposal containing timing and proposer information
-    /// @param _claim The claim containing the proof details.
-    /// @return bondInstructions_ The bond instructions that affect aggregation eligibility
-    function _calculateBondInstructions(
-        Config memory _config,
-        Proposal memory _proposal,
-        Claim memory _claim
-    )
-        internal
-        view
-        returns (LibBonds.BondInstruction[] memory bondInstructions_)
-    {
-        bondInstructions_ = new LibBonds.BondInstruction[](1);
-
-        unchecked {
-            if (block.timestamp <= _proposal.originTimestamp + _config.provingWindow) {
-                // Proof submitted within the designated proving window (on-time proof)
-                bondInstructions_[0] = LibBonds.BondInstruction({
-                    proposalId: _proposal.id,
-                    bondType: LibBonds.BondType.NONE,
-                    payer: _claim.designatedProver,
-                    receiver: _claim.designatedProver //Non relevant - there's no bond to pay
-                 });
-            } else if (block.timestamp <= _proposal.originTimestamp + _config.extendedProvingWindow)
-            {
-                // Late proof within extended window - transfer liveness bond
-                bondInstructions_[0] = LibBonds.BondInstruction({
-                    proposalId: _proposal.id,
-                    bondType: LibBonds.BondType.LIVENESS,
-                    payer: _claim.designatedProver,
-                    receiver: _claim.actualProver
-                });
-            } else {
-                // Very late proof - transfer provability bond
-                bondInstructions_[0] = LibBonds.BondInstruction({
-                    proposalId: _proposal.id,
-                    bondType: LibBonds.BondType.PROVABILITY,
-                    payer: _proposal.proposer,
-                    receiver: _claim.actualProver
-                });
-            }
-        }
+        return _coreState;
     }
 
     /// @dev Finalizes proposals by verifying claim records and updating state.
@@ -448,64 +624,106 @@ abstract contract Inbox is EssentialContract, IInbox {
         private
         returns (CoreState memory coreState_)
     {
-        // The last finalized claim record.
-        ClaimRecord memory claimRecord;
-        bool hasFinalized;
-
-        uint48 proposalId = _coreState.lastFinalizedProposalId + 1;
+        ClaimRecord memory lastFinalizedRecord;
+        uint48 currentProposalId = _coreState.lastFinalizedProposalId + 1;
+        uint256 finalizedCount;
 
         for (uint256 i; i < _config.maxFinalizationCount; ++i) {
-            // Id for the next proposal to be finalized.
+            // Check if there are more proposals to finalize
+            if (currentProposalId >= _coreState.nextProposalId) break;
 
-            // There is no more unfinalized proposals
-            if (proposalId >= _coreState.nextProposalId) break;
-
-            bytes32 storedClaimRecordHash =
-                _getClaimRecordHash(_config, proposalId, _coreState.lastFinalizedClaimHash);
-
-            // The next proposal cannot be finalized as there is no claim record to link the chain
-            if (storedClaimRecordHash == 0) break;
-
-            // There is no claim record provided for the next proposal.
-            require(i < _claimRecords.length, ClaimRecordNotProvided());
-
-            claimRecord = _claimRecords[i];
-
-            bytes32 claimRecordHash = keccak256(abi.encode(claimRecord));
-            require(claimRecordHash == storedClaimRecordHash, ClaimRecordHashMismatch());
-
-            _coreState.lastFinalizedProposalId = proposalId;
-            _coreState.lastFinalizedClaimHash = keccak256(abi.encode(claimRecord.claim));
-
-            if (claimRecord.bondInstructions.length > 0) {
-                emit BondInstructed(claimRecord.bondInstructions);
-                for (uint256 j; j < claimRecord.bondInstructions.length; ++j) {
-                    _coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
-                        _coreState.bondInstructionsHash, claimRecord.bondInstructions[j]
-                    );
-                }
-            }
-
-            // Validate span is within bounds
-            require(_claimRecords[i].span > 0, InvalidSpan());
-            require(
-                proposalId + _claimRecords[i].span < _coreState.nextProposalId + 1,
-                SpanOutOfBounds()
+            // Try to finalize the current proposal
+            (bool finalized, uint48 nextProposalId) = _finalizeProposal(
+                _config,
+                _coreState,
+                currentProposalId,
+                i < _claimRecords.length ? _claimRecords[i] : lastFinalizedRecord,
+                i < _claimRecords.length
             );
 
-            proposalId = proposalId + _claimRecords[i].span;
-            hasFinalized = true;
+            if (!finalized) break;
+
+            // Update state for successful finalization
+            lastFinalizedRecord = _claimRecords[i];
+            currentProposalId = nextProposalId;
+            finalizedCount++;
         }
 
-        if (hasFinalized) {
+        // Update synced block if any proposals were finalized
+        if (finalizedCount > 0) {
             ISyncedBlockManager(_config.syncedBlockManager).saveSyncedBlock(
-                claimRecord.claim.endBlockNumber,
-                claimRecord.claim.endBlockHash,
-                claimRecord.claim.endStateRoot
+                lastFinalizedRecord.claim.endBlockNumber,
+                lastFinalizedRecord.claim.endBlockHash,
+                lastFinalizedRecord.claim.endStateRoot
             );
         }
 
         return _coreState;
+    }
+
+    /// @dev Attempts to finalize a single proposal
+    /// @param _config The configuration parameters.
+    /// @param _coreState The core state to update.
+    /// @param _proposalId The proposal ID to finalize.
+    /// @param _claimRecord The claim record for this proposal.
+    /// @param _hasClaimRecord Whether a claim record was provided.
+    /// @return finalized_ Whether the proposal was successfully finalized.
+    /// @return nextProposalId_ The next proposal ID to process.
+    function _finalizeProposal(
+        Config memory _config,
+        CoreState memory _coreState,
+        uint48 _proposalId,
+        ClaimRecord memory _claimRecord,
+        bool _hasClaimRecord
+    )
+        private
+        returns (bool finalized_, uint48 nextProposalId_)
+    {
+        // Check if claim record exists in storage
+        bytes32 storedHash =
+            _getClaimRecordHash(_config, _proposalId, _coreState.lastFinalizedClaimHash);
+
+        if (storedHash == 0) return (false, _proposalId);
+
+        // Verify claim record was provided
+        require(_hasClaimRecord, ClaimRecordNotProvided());
+
+        // Verify claim record hash matches
+        bytes32 claimRecordHash = keccak256(abi.encode(_claimRecord));
+        require(claimRecordHash == storedHash, ClaimRecordHashMismatchWithStorage());
+
+        // Update core state
+        _coreState.lastFinalizedProposalId = _proposalId;
+        _coreState.lastFinalizedClaimHash = keccak256(abi.encode(_claimRecord.claim));
+
+        // Process bond instructions
+        _processBondInstructions(_coreState, _claimRecord.bondInstructions);
+
+        // Validate and calculate next proposal ID
+        require(_claimRecord.span > 0, InvalidSpan());
+        nextProposalId_ = _proposalId + _claimRecord.span;
+        require(nextProposalId_ <= _coreState.nextProposalId, SpanOutOfBounds());
+
+        return (true, nextProposalId_);
+    }
+
+    /// @dev Processes bond instructions and updates core state
+    /// @param _coreState The core state to update.
+    /// @param _instructions The bond instructions to process.
+    function _processBondInstructions(
+        CoreState memory _coreState,
+        LibBonds.BondInstruction[] memory _instructions
+    )
+        private
+    {
+        if (_instructions.length == 0) return;
+
+        emit BondInstructed(_instructions);
+
+        for (uint256 i; i < _instructions.length; ++i) {
+            _coreState.bondInstructionsHash =
+                LibBonds.aggregateBondInstruction(_coreState.bondInstructionsHash, _instructions[i]);
+        }
     }
 }
 
@@ -513,20 +731,28 @@ abstract contract Inbox is EssentialContract, IInbox {
 // Errors
 // ---------------------------------------------------------------
 
-error ClaimRecordHashMismatch();
+error ProposalHashMismatchWithClaim();
+error ProposalHashMismatchWithStorage();
+error ClaimRecordHashMismatchWithStorage();
 error ClaimRecordNotProvided();
 error DeadlineExceeded();
 error EmptyProposals();
 error ExceedsUnfinalizedProposalCapacity();
 error ForkNotActive();
+error IncorrectProposalCount();
 error InconsistentParams();
 error InsufficientBond();
 error InvalidForcedInclusion();
+error InvalidSpan();
 error InvalidState();
+error LastProposalHashMismatch();
+error LastProposalProofNotEmpty();
+error NextProposalHashMismatch();
+error NextProposalIdSmallerThanLastProposalId();
 error NoBondToWithdraw();
 error ProposalHashMismatch();
+error ProposalIdMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
-error InvalidSpan();
 error SpanOutOfBounds();
 error Unauthorized();

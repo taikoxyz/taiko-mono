@@ -66,7 +66,7 @@ interface IBondManager {
     /// @notice Credits a bond to an address
     /// @param _address The address to credit the bond to
     /// @param _bond The amount of bond to credit
-    function creditBond(address _address, uint256 _bond) external;
+    function creditBond(address _address, uint96 _bond) external;
 
     /// @notice Gets the bond balance of an address
     /// @param _address The address to get the bond balance for

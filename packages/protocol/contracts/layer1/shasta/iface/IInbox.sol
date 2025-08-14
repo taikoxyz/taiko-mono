@@ -38,6 +38,8 @@ interface IInbox {
         uint8 basefeeSharingPctg;
         /// @notice Blobs that contains the proposal's manifest data.
         LibBlobs.BlobSlice blobSlice;
+        /// @notice The current hash of coreState
+        bytes32 coreStateHash;
     }
 
     /// @notice Represents a claim about the state transition of a proposal.
@@ -61,6 +63,8 @@ interface IInbox {
 
     /// @notice Represents a record of a claim with additional metadata.
     struct ClaimRecord {
+        /// @notice The proposal's ID.
+        uint48 proposalId;
         /// @notice The claim.
         Claim claim;
         /// @notice The span indicating how many proposals this claim record covers.
@@ -85,18 +89,13 @@ interface IInbox {
     // Events
     // ---------------------------------------------------------------
 
-    /// @notice Emitted when the core state is set.
-    /// @param coreState The core state.
-    event CoreStateSet(CoreState coreState);
-
     /// @notice Emitted when a new proposal is proposed.
-    /// @param proposal The proposal that was proposed.
-    event Proposed(Proposal proposal, CoreState coreState);
+    /// @param data The encoded (Proposal, CoreState)
+    event Proposed(bytes data);
 
-    /// @notice Emitted when a proof is submitted for a proposal.
-    /// @param proposal The proposal that was proven.
-    /// @param claimRecord The claim record containing the proof details.
-    event Proved(Proposal proposal, ClaimRecord claimRecord);
+    /// @notice Emitted when a proof is submitted
+    /// @param data The encoded ClaimRecord
+    event Proved(bytes data);
 
     /// @notice Emitted when bond instructions are issued
     /// @param instructions The bond instructions that need to be performed.
