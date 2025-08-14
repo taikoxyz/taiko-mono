@@ -110,7 +110,7 @@ abstract contract InboxOptimized is Inbox {
         if (_proposals.length == 0) return claimRecords_;
 
         // Validate first proposal and create initial claim record
-        _validateClaim(_config, _proposals[0], _claims[0], _proposals[0].id);
+        _validateClaim(_config, _proposals[0], _claims[0]);
         LibBonds.BondInstruction[] memory currentInstructions =
             _calculateBondInstructions(_config, _proposals[0], _claims[0]);
 
@@ -127,7 +127,7 @@ abstract contract InboxOptimized is Inbox {
 
         // Process remaining proposals
         for (uint256 i = 1; i < _proposals.length; ++i) {
-            _validateClaim(_config, _proposals[i], _claims[i], _proposals[i].id);
+            _validateClaim(_config, _proposals[i], _claims[i]);
 
             // Check if current proposal can be aggregated with the previous group
             // The next expected proposal ID is: start of current group + current span
@@ -203,10 +203,8 @@ abstract contract InboxOptimized is Inbox {
         override
         returns (bytes32 claimRecordHash_)
     {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-
-        ExtendedClaimRecord storage record =
-            proposalRingBuffer[bufferSlot].claimHashLookup[_DEFAULT_SLOT_HASH];
+        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
+        ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =
             _decodeSlotReuseMarker(record.slotReuseMarker);
@@ -221,7 +219,7 @@ abstract contract InboxOptimized is Inbox {
         }
 
         // Otherwise check the direct mapping
-        return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
+        return proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash;
     }
 
     /// @dev Sets the claim record hash for a given proposal and parent claim.
@@ -235,9 +233,7 @@ abstract contract InboxOptimized is Inbox {
         internal
         override
     {
-        ProposalRecord storage proposalRecord =
-            proposalRingBuffer[_proposalId % _config.ringBufferSize];
-
+        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
         ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =
