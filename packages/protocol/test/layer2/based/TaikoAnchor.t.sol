@@ -21,13 +21,14 @@ contract TestTaikoAnchor is Layer2Test {
             })
         );
 
-        uint48 livenessBondGwei = 10_000_000;
-        uint48 provabilityBondGwei = 10_000_000;
+        uint256 livenessBond = 10_000_000;
+        uint256 provabilityBond = 10_000_000;
+        // uint256 lowBondProvingReward = 5_000_000;
         anchor = deployAnchor(
             address(
                 new TaikoAnchor_NoBaseFeeCheck(
-                    livenessBondGwei,
-                    provabilityBondGwei,
+                    uint48(livenessBond / 1e9),
+                    uint48(provabilityBond / 1e9),
                     address(signalService),
                     0,
                     0,
