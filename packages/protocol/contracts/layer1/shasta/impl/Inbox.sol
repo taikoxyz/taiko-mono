@@ -97,9 +97,8 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         Proposal memory proposal;
         proposal.coreStateHash = keccak256(abi.encode(coreState));
-
         _setProposalHash(getConfig(), 0, keccak256(abi.encode(proposal)));
-
+        
         emit Proposed(proposal, coreState);
     }
 
