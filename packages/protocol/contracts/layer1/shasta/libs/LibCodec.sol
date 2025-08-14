@@ -120,7 +120,7 @@ library LibCodec {
         pure
         returns (IInbox.Proposal memory proposal_, IInbox.CoreState memory coreState_)
     {
-        if (_data.length < 183) revert INVALID_DATA_LENGTH();
+        if (_data.length < 160) revert INVALID_DATA_LENGTH();
 
         unchecked {
             uint256 offset = 0;

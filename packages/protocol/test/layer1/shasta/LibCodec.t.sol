@@ -443,8 +443,8 @@ contract LibCodecTest is CommonTest {
         // Test that the fix returns the correct size without extra bytes
         bytes memory encoded = LibCodec.encodeProposedEventData(proposal, coreState);
 
-        // Calculate expected size: 183 + (1 * 32) = 215 bytes
-        uint256 expectedSize = 183 + 32;
+        // Calculate expected size: 160 + (1 * 32) = 192 bytes
+        uint256 expectedSize = 160 + 32;
 
         // After the fix, we should get exactly the expected size, not 32 extra bytes
         assertEq(
@@ -473,9 +473,10 @@ contract LibCodecTest is CommonTest {
         // Create data that's too long with extra bytes to test robustness
         bytes memory validData = new bytes(200);
 
-        // Set up valid structure - zero blob hashes length at offset 40
+        // Set up valid structure - zero blob hashes length at offset 40 (3 bytes for uint24)
         validData[40] = 0x00; // blobHashesLen high byte
-        validData[41] = 0x00; // blobHashesLen low byte
+        validData[41] = 0x00; // blobHashesLen mid byte
+        validData[42] = 0x00; // blobHashesLen low byte
 
         // This should work despite extra bytes
         LibCodec.decodeProposedEventData(validData);
@@ -494,9 +495,9 @@ contract LibCodecTest is CommonTest {
     }
 
     function test_decodeProposedEventData_minimumLength() public pure {
-        // Create valid data with minimum length (183 bytes) - updated for uint24 array length
+        // Create valid data with minimum length (160 bytes) - updated for uint24 array length
         // encoding
-        bytes memory minData = new bytes(183);
+        bytes memory minData = new bytes(160);
 
         // Set up valid structure - zero blob hashes length at offset 40 (3 bytes for uint24)
         minData[40] = 0x00; // blobHashesLen high byte
