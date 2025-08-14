@@ -119,15 +119,15 @@ abstract contract Inbox is EssentialContract, IInbox {
         (
             uint64 deadline,
             CoreState memory coreState,
-            Proposal[] memory proposals,
+            Proposal[] memory parentProposals,
             LibBlobs.BlobReference memory blobReference,
             ClaimRecord[] memory claimRecords
         ) = decodeProposeData(_data);
 
-        _validateProposeInputs(deadline, coreState, proposals);
+        _validateProposeInputs(deadline, coreState, parentProposals);
 
-        // Verify proposals[0] is actually the last proposal stored on-chain.
-        _verifyChainTip(config, proposals);
+        // Verify parentProposals[0] is actually the last proposal stored on-chain.
+        _verifyChainTip(config, parentProposals);
 
         // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
         coreState = _finalize(config, coreState, claimRecords);
@@ -218,10 +218,10 @@ abstract contract Inbox is EssentialContract, IInbox {
     ///                   protecting proposers from their transactions landing on-chain later than intended
     /// @return coreState_ The decoded CoreState representing the current state before this new proposal.
     ///                    Its hash must match the coreStateHash stored in proposals_[0]
-    /// @return proposals_ The decoded array of existing proposals for validation. Always contains 1 or 2 elements:
-    ///                    - proposals_[0]: The last proposal on-chain (must match stored hash)
-    ///                    - proposals_[1]: Only present for ring buffer wraparound - when the next slot
-    ///                                     contains an older proposal (with smaller ID) that must be validated
+    /// @return parentProposals_ The decoded array of existing proposals for validation. Always contains 1 or 2 elements:
+    ///                         - parentProposals_[0]: The last proposal on-chain (must match stored hash)
+    ///                         - parentProposals_[1]: Only present for ring buffer wraparound - when the next slot
+    ///                                              contains an older proposal (with smaller ID) that must be validated
     /// @return blobReference_ The decoded BlobReference
     /// @return claimRecords_ The decoded array of ClaimRecords
     function decodeProposeData(bytes calldata _data)
@@ -231,12 +231,12 @@ abstract contract Inbox is EssentialContract, IInbox {
         returns (
             uint64 deadline_,
             CoreState memory coreState_,
-            Proposal[] memory proposals_,
+            Proposal[] memory parentProposals_,
             LibBlobs.BlobReference memory blobReference_,
             ClaimRecord[] memory claimRecords_
         )
     {
-        (deadline_, coreState_, proposals_, blobReference_, claimRecords_) = abi.decode(
+        (deadline_, coreState_, parentProposals_, blobReference_, claimRecords_) = abi.decode(
             _data, (uint64, CoreState, Proposal[], LibBlobs.BlobReference, ClaimRecord[])
         );
     }
@@ -481,19 +481,19 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Validates the basic inputs for propose function
     /// @param _deadline The deadline timestamp for transaction inclusion (0 = no deadline).
     /// @param _coreState The current core state before this proposal, which must match the previous proposal's stored hash.
-    /// @param _proposals Array of existing proposals for validation (1-2 elements).
-    ///                   proposals[0] is the last proposal, proposals[1] handles ring buffer wraparound.
+    /// @param _parentProposals Array of existing proposals for validation (1-2 elements).
+    ///                        parentProposals[0] is the last proposal, parentProposals[1] handles ring buffer wraparound.
     function _validateProposeInputs(
         uint64 _deadline,
         CoreState memory _coreState,
-        Proposal[] memory _proposals
+        Proposal[] memory _parentProposals
     )
         private
         view
     {
         require(_deadline == 0 || block.timestamp <= _deadline, DeadlineExceeded());
-        require(_proposals.length > 0, EmptyProposals());
-        require(_hashCoreState(_coreState) == _proposals[0].coreStateHash, InvalidState());
+        require(_parentProposals.length > 0, EmptyProposals());
+        require(_hashCoreState(_coreState) == _parentProposals[0].coreStateHash, InvalidState());
     }
 
     /// @dev Verifies that adding a new proposal won't exceed the maximum number of unfinalized proposals
@@ -566,30 +566,30 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Verifies that proposals[0] is the chain tip (last proposal)
+    /// @dev Verifies that parentProposals[0] is the chain tip (last proposal)
     /// @param _config The configuration parameters.
-    /// @param _proposals The proposals array to verify (1-2 elements).
+    /// @param _parentProposals The parent proposals array to verify (1-2 elements).
     function _verifyChainTip(
         Config memory _config,
-        Proposal[] memory _proposals
+        Proposal[] memory _parentProposals
     )
         private
         view
     {
-        // First verify proposals[0] matches what's stored on-chain
-        _checkProposalHash(_config, _proposals[0]);
+        // First verify parentProposals[0] matches what's stored on-chain
+        _checkProposalHash(_config, _parentProposals[0]);
         
         // Then verify it's actually the chain tip
-        bytes32 storedNextProposalHash = _proposalRecord(_config, _proposals[0].id + 1).proposalHash;
+        bytes32 storedNextProposalHash = _proposalRecord(_config, _parentProposals[0].id + 1).proposalHash;
 
         if (storedNextProposalHash == bytes32(0)) {
             // Next slot in the ring buffer is empty, only one proposal expected
-            require(_proposals.length == 1, IncorrectProposalCount());
+            require(_parentProposals.length == 1, IncorrectProposalCount());
         } else {
             // Next slot in the ring buffer is occupied, need to prove it contains a smaller proposal id
-            require(_proposals.length == 2, IncorrectProposalCount());
-            require(_proposals[1].id < _proposals[0].id, NextProposalIdSmallerThanLastProposalId());
-            _checkProposalHash(_config, _proposals[1]);
+            require(_parentProposals.length == 2, IncorrectProposalCount());
+            require(_parentProposals[1].id < _parentProposals[0].id, NextProposalIdSmallerThanLastProposalId());
+            _checkProposalHash(_config, _parentProposals[1]);
         }
     }
 
