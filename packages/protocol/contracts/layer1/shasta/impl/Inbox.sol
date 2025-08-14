@@ -614,9 +614,12 @@ abstract contract Inbox is EssentialContract, IInbox {
     }
 
     /// @dev Finalizes proposals by verifying claim records and updating state.
-    /// @dev This function enforces that proposers finalize the maximum possible number of proposals up to `maxFinalizationCount`.
-    /// The enforcement works by attempting to finalize one more proposal than claim records provided.
-    /// If that extra proposal can be finalized, the transaction reverts, forcing proposers to provide
+    /// @dev This function enforces that proposers finalize the maximum possible number of proposals
+    /// up to `maxFinalizationCount`.
+    /// The enforcement works by attempting to finalize one more proposal than claim records
+    /// provided.
+    /// If that extra proposal can be finalized, the transaction reverts, forcing proposers to
+    /// provide
     /// sufficient claim records.
     /// @param _config The configuration parameters.
     /// @param _coreState The current core state.
@@ -645,12 +648,8 @@ abstract contract Inbox is EssentialContract, IInbox {
 
             // Try to finalize with the provided claim record
             bool finalized;
-            (finalized, nextToFinalize) = _tryFinalize(
-                nextToFinalize,
-                _config,
-                _coreState,
-                _claimRecords[i]
-            );
+            (finalized, nextToFinalize) =
+                _tryFinalize(nextToFinalize, _config, _coreState, _claimRecords[i]);
 
             // If finalization failed, stop trying
             if (!finalized) break;
@@ -695,19 +694,18 @@ abstract contract Inbox is EssentialContract, IInbox {
     {
         // Not even all records were used. There's no more to finalize
         if (_finalizedCount < _providedClaimRecordsCount) return;
-        
+
         // Hit the max limit
         if (_finalizedCount >= _config.maxFinalizationCount) return;
-        
+
         // No more proposals exist - we're done
         if (_nextToFinalize >= _coreState.nextProposalId) return;
-        
+
         // We used all records, haven't hit max, and more proposals exist
         // Check if the next proposal has a finalizable claim
-        bytes32 nextClaimHash = _getClaimRecordHash(
-            _config, _nextToFinalize, _coreState.lastFinalizedClaimHash
-        );
-        
+        bytes32 nextClaimHash =
+            _getClaimRecordHash(_config, _nextToFinalize, _coreState.lastFinalizedClaimHash);
+
         // If a claim exists, proposer should have provided it
         require(nextClaimHash == 0, InsufficientClaimRecordsProvided());
     }
