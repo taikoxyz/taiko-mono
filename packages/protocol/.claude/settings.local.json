@@ -25,8 +25,28 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(pnpm compile:l2:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(forge test:*)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/InboxOptimized.t.sol --via-ir -vv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/InboxOptimized.t.sol)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/InboxOptimized.t.sol -vv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge build --via-ir)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge build --contracts contracts/layer1/shasta/impl/InboxOptimized.sol)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/InboxOptimized.t.sol --via-ir)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/gas/*.t.sol' --via-ir)",
+      "Bash(pnpm snapshot:l1:*)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_printComparisonTable -vv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_compareProposedEventGas -vvv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_compareProvedEventGas -vvv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/LibCodec.t.sol)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/LibCodec.t.sol --via-ir)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/LibCodec.t.sol --match-test test_decodeProposedEventData_invalidLength --via-ir -vvv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_memoryOverreadBug -vv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/LibCodec.t.sol --via-ir -vv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/based/InboxTest_ProposeAndProve.t.sol --via-ir -vv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/shasta/*.t.sol')"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }
