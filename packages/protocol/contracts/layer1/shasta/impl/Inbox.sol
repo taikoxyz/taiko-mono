@@ -152,8 +152,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         ClaimRecord[] memory claimRecords = _buildClaimRecords(config, proposals, claims);
 
         // Store claim records and emit events
-        _storeClaimRecords(config, proposals, claimRecords);
-
+        _storeClaimRecords(config, claimRecords);
         // Verify the proof
         IProofVerifier(config.proofVerifier).verifyProof(keccak256(abi.encode(claims)), _proof);
     }
@@ -271,7 +270,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             Proposal memory proposal = _proposals[i];
             Claim memory claim = _claims[i];
 
-            _validateProposal(_config, proposal, claim);
+            _validateClaim(_config, proposal, claim);
 
             LibBonds.BondInstruction[] memory bondInstructions =
                 _calculateBondInstructions(_config, proposal, claim);
@@ -281,11 +280,11 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Validates that a proposal hash matches both the claim and storage.
+    /// @dev Validates that a claim is valid for a given proposal.
     /// @param _config The configuration parameters.
     /// @param _proposal The proposal to validate.
-    /// @param _claim The claim to validate against.
-    function _validateProposal(
+    /// @param _claim The claim to validate.
+    function _validateClaim(
         Config memory _config,
         Proposal memory _proposal,
         Claim memory _claim
@@ -293,10 +292,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         internal
         view
     {
-        require(
-            _checkProposalHash(_config, _proposal) == _claim.proposalHash,
-            ProposalHashMismatchWithClaim()
-        );
+        require(_proposal.id == _claim.proposalId, ProposalIdMismatch());
+
+        bytes32 proposalHash = _checkProposalHash(_config, _proposal);
+        require(proposalHash == _claim.proposalHash, ProposalHashMismatchWithClaim());
     }
 
     /// @dev Calculates the bond instructions based on proof timing and prover identity
@@ -505,23 +504,22 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     /// @dev Stores claim records and emits events
     /// @param _config The configuration parameters.
-    /// @param _proposals The proposals being proved.
     /// @param _claimRecords The claim records to store.
     function _storeClaimRecords(
         Config memory _config,
-        Proposal[] memory _proposals,
         ClaimRecord[] memory _claimRecords
     )
         private
     {
-        for (uint256 i; i < _proposals.length; ++i) {
+        for (uint256 i; i < _claimRecords.length; ++i) {
             bytes32 claimRecordHash = keccak256(abi.encode(_claimRecords[i]));
 
-            _setClaimRecordHash(
-                _config, _proposals[i].id, _claimRecords[i].claim.parentClaimHash, claimRecordHash
-            );
+            ProposalRecord storage proposalRecord =
+                _proposalRecord(_config, _claimRecords[i].claim.proposalId);
+            proposalRecord.claimHashLookup[_claimRecords[i].claim.parentClaimHash].claimRecordHash =
+                claimRecordHash;
 
-            emit Proved(_proposals[i], _claimRecords[i]);
+            emit Proved(_claimRecords[i]);
         }
     }
 
@@ -720,6 +718,7 @@ error NextProposalHashMismatch();
 error NextProposalIdSmallerThanLastProposalId();
 error NoBondToWithdraw();
 error ProposalHashMismatch();
+error ProposalIdMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
 error SpanOutOfBounds();
