@@ -118,7 +118,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             ClaimRecord[] memory claimRecords
         ) = _data.decodeProposeData();
 
-        if (deadline != 0 && block.timestamp > deadline) revert DeadlineExceeded();
+        require(deadline == 0 || block.timestamp <= deadline, DeadlineExceeded());
 
         bytes32 coreStateHash_ = keccak256(abi.encode(coreState));
         require(coreStateHash_ == coreStateHash, InvalidState());
