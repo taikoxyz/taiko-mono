@@ -274,14 +274,13 @@ abstract contract Inbox is EssentialContract, IInbox {
         internal
         view
     {
-        if (_proposal.id != _claim.proposalId) revert ProposalIdMismatch();
+        require(_proposal.id == _claim.proposalId, ProposalIdMismatch());
 
         bytes32 proposalHash = keccak256(abi.encode(_proposal));
-        if (proposalHash != _claim.proposalHash) revert ProposalHashMismatch();
+        require(proposalHash == _claim.proposalHash, ProposalHashMismatch());
 
-        // Validate the proposal hash matches what's stored on-chain.
         uint256 bufferSlot = _proposal.id % _config.ringBufferSize;
-        if (proposalHash != proposalRingBuffer[bufferSlot].proposalHash) revert ProposalHashMismatch();
+        require(proposalHash == proposalRingBuffer[bufferSlot].proposalHash, ProposalHashMismatch());
     }
 
     /// @dev Sets the hash of the core state.

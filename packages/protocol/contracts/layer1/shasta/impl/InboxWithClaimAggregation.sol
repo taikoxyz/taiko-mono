@@ -45,7 +45,7 @@ abstract contract InboxWithClaimAggregation is InboxWithSlotReuse {
         if (_proposals.length == 0) return claimRecords_;
 
         // Validate first proposal and create initial claim record
-        _validateProposal(_config, _proposals[0], _claims[0]);
+        _validateClaim(_config, _proposals[0], _claims[0]);
         LibBonds.BondInstruction[] memory currentInstructions =
             _calculateBondInstructions(_config, _proposals[0], _claims[0]);
 
@@ -58,7 +58,7 @@ abstract contract InboxWithClaimAggregation is InboxWithSlotReuse {
 
         // Process remaining proposals
         for (uint256 i = 1; i < _proposals.length; ++i) {
-            _validateProposal(_config, _proposals[i], _claims[i]);
+            _validateClaim(_config, _proposals[i], _claims[i]);
 
             // Check if current proposal can be aggregated with the previous group
             // The next expected proposal ID is: start of current group + current span
