@@ -41,13 +41,14 @@ abstract contract Inbox is EssentialContract, IInbox {
     }
 
     /// @notice Stores proposal data and associated claim records.
-    /// @dev Each proposal can have multiple claims associated with it, indexed by parent claim
-    /// hash.
+    /// @dev Each proposal can have multiple claims associated with it, indexed by a composite key
+    /// of proposal ID and parent claim hash.
     struct ProposalRecord {
         /// @dev Hash of the proposal data
         bytes32 proposalHash;
-        /// @dev Maps parent claim hashes to their corresponding claim record hashes
-        mapping(bytes32 parentClaimHash => ExtendedClaimRecord claimRecordHash) claimHashLookup;
+        /// @dev Maps composite keys (keccak256(proposalId, parentClaimHash)) to their corresponding
+        /// claim record hashes
+        mapping(bytes32 compositeKey => ExtendedClaimRecord claimRecordHash) claimHashLookup;
     }
 
     // ---------------------------------------------------------------
@@ -69,7 +70,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     mapping(address account => uint256 bond) public bondBalance;
 
     /// @dev Ring buffer for storing proposal records.
-    mapping(uint256 bufferSlot => ProposalRecord proposalRecord) internal proposalRingBuffer;
+    mapping(uint256 bufferSlot => ProposalRecord proposalRecord) private _proposalRingBuffer;
 
     uint256[42] private __gap;
 
@@ -91,11 +92,11 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
-        coreState.lastFinalizedClaimHash = keccak256(abi.encode(claim));
+        coreState.lastFinalizedClaimHash = _hashClaim(claim);
 
         Proposal memory proposal;
-        proposal.coreStateHash = keccak256(abi.encode(coreState));
-        _setProposalHash(getConfig(), 0, keccak256(abi.encode(proposal)));
+        proposal.coreStateHash = _hashCoreState(coreState);
+        _setProposalHash(getConfig(), 0, _hashProposal(proposal));
 
         emit Proposed(encodeProposedEventData(proposal, coreState));
     }
@@ -154,7 +155,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         // Store claim records and emit events
         _storeClaimRecords(config, claimRecords);
         // Verify the proof
-        IProofVerifier(config.proofVerifier).verifyProof(keccak256(abi.encode(claims)), _proof);
+        IProofVerifier(config.proofVerifier).verifyProof(_hashClaimsArray(claims), _proof);
     }
 
     /// @notice Withdraws bond balance for the caller.
@@ -298,7 +299,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             Proposal memory proposal = _proposals[i];
             Claim memory claim = _claims[i];
 
-            _validateClaim(_config, proposal, claim, proposal.id);
+            _validateClaim(_config, proposal, claim);
 
             LibBonds.BondInstruction[] memory bondInstructions =
                 _calculateBondInstructions(_config, proposal, claim);
@@ -316,18 +317,14 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _config The configuration parameters.
     /// @param _proposal The proposal to validate.
     /// @param _claim The claim to validate.
-    /// @param _proposalId The proposal ID from the claim record.
     function _validateClaim(
         Config memory _config,
         Proposal memory _proposal,
-        Claim memory _claim,
-        uint48 _proposalId
+        Claim memory _claim
     )
         internal
         view
     {
-        require(_proposal.id == _proposalId, ProposalIdMismatch());
-
         bytes32 proposalHash = _checkProposalHash(_config, _proposal);
         require(proposalHash == _claim.proposalHash, ProposalHashMismatchWithClaim());
     }
@@ -407,7 +404,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         virtual
     {
         ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
-        proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash = _claimRecordHash;
+        bytes32 compositeKey = _composeClaimKey(_proposalId, _parentClaimHash);
+        proposalRecord.claimHashLookup[compositeKey].claimRecordHash = _claimRecordHash;
     }
 
     /// @dev Gets the capacity for unfinalized proposals.
@@ -432,7 +430,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         returns (bytes32 claimRecordHash_)
     {
         ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
-        claimRecordHash_ = proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash;
+        bytes32 compositeKey = _composeClaimKey(_proposalId, _parentClaimHash);
+        claimRecordHash_ = proposalRecord.claimHashLookup[compositeKey].claimRecordHash;
     }
 
     /// @dev Checks if a proposal matches the stored hash and reverts if not.
@@ -446,7 +445,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         view
         returns (bytes32)
     {
-        bytes32 proposalHash = keccak256(abi.encode(_proposal));
+        bytes32 proposalHash = _hashProposal(_proposal);
         bytes32 storedHash = _proposalRecord(_config, _proposal.id).proposalHash;
         require(proposalHash == storedHash, ProposalHashMismatch());
         return proposalHash;
@@ -455,17 +454,17 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Reads a proposal record from the ring buffer at the specified proposal ID.
     /// @param _config The configuration parameters.
     /// @param _proposalId The proposal ID to read.
-    /// @return proposalRecord_ The proposal record at the calculated buffer slot.
+    /// @return _ The proposal record at the calculated buffer slot.
     function _proposalRecord(
         Config memory _config,
         uint48 _proposalId
     )
         internal
         view
-        returns (ProposalRecord storage proposalRecord_)
+        returns (ProposalRecord storage)
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        proposalRecord_ = proposalRingBuffer[bufferSlot];
+        return _proposalRingBuffer[bufferSlot];
     }
 
     // ---------------------------------------------------------------
@@ -486,7 +485,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     {
         require(_deadline == 0 || block.timestamp <= _deadline, DeadlineExceeded());
         require(_proposals.length > 0, EmptyProposals());
-        require(keccak256(abi.encode(_coreState)) == _proposals[0].coreStateHash, InvalidState());
+        require(_hashCoreState(_coreState) == _proposals[0].coreStateHash, InvalidState());
     }
 
     /// @dev Verifies that new proposals won't exceed capacity
@@ -546,12 +545,14 @@ abstract contract Inbox is EssentialContract, IInbox {
         private
     {
         for (uint256 i; i < _claimRecords.length; ++i) {
-            bytes32 claimRecordHash = keccak256(abi.encode(_claimRecords[i]));
+            bytes32 claimRecordHash = _hashClaimRecord(_claimRecords[i]);
 
-            ProposalRecord storage proposalRecord =
-                _proposalRecord(_config, _claimRecords[i].proposalId);
-            proposalRecord.claimHashLookup[_claimRecords[i].claim.parentClaimHash].claimRecordHash =
-                claimRecordHash;
+            _setClaimRecordHash(
+                _config,
+                _claimRecords[i].proposalId,
+                _claimRecords[i].claim.parentClaimHash,
+                claimRecordHash
+            );
 
             emit Proved(encodeProveEventData(_claimRecords[i]));
         }
@@ -603,10 +604,10 @@ abstract contract Inbox is EssentialContract, IInbox {
             isForcedInclusion: _isForcedInclusion,
             basefeeSharingPctg: _config.basefeeSharingPctg,
             blobSlice: _blobSlice,
-            coreStateHash: keccak256(abi.encode(_coreState))
+            coreStateHash: _hashCoreState(_coreState)
         });
 
-        _setProposalHash(_config, proposal.id, keccak256(abi.encode(proposal)));
+        _setProposalHash(_config, proposal.id, _hashProposal(proposal));
         emit Proposed(encodeProposedEventData(proposal, _coreState));
 
         return _coreState;
@@ -690,12 +691,12 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(_hasClaimRecord, ClaimRecordNotProvided());
 
         // Verify claim record hash matches
-        bytes32 claimRecordHash = keccak256(abi.encode(_claimRecord));
+        bytes32 claimRecordHash = _hashClaimRecord(_claimRecord);
         require(claimRecordHash == storedHash, ClaimRecordHashMismatchWithStorage());
 
         // Update core state
         _coreState.lastFinalizedProposalId = _proposalId;
-        _coreState.lastFinalizedClaimHash = keccak256(abi.encode(_claimRecord.claim));
+        _coreState.lastFinalizedClaimHash = _hashClaim(_claimRecord.claim);
 
         // Process bond instructions
         _processBondInstructions(_coreState, _claimRecord.bondInstructions);
@@ -725,6 +726,56 @@ abstract contract Inbox is EssentialContract, IInbox {
             _coreState.bondInstructionsHash =
                 LibBonds.aggregateBondInstruction(_coreState.bondInstructionsHash, _instructions[i]);
         }
+    }
+
+    /// @dev Computes the composite key for claim record lookups.
+    /// @param _proposalId The proposal ID.
+    /// @param _parentClaimHash The parent claim hash.
+    /// @return _ The composite key for the mapping.
+    function _composeClaimKey(
+        uint48 _proposalId,
+        bytes32 _parentClaimHash
+    )
+        private
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(_proposalId, _parentClaimHash));
+    }
+
+    /// @dev Hashes a Claim struct.
+    /// @param _claim The claim to hash.
+    /// @return _ The hash of the claim.
+    function _hashClaim(Claim memory _claim) private pure returns (bytes32) {
+        return keccak256(abi.encode(_claim));
+    }
+
+    /// @dev Hashes a Proposal struct.
+    /// @param _proposal The proposal to hash.
+    /// @return _ The hash of the proposal.
+    function _hashProposal(Proposal memory _proposal) private pure returns (bytes32) {
+        return keccak256(abi.encode(_proposal));
+    }
+
+    /// @dev Hashes a CoreState struct.
+    /// @param _coreState The core state to hash.
+    /// @return _ The hash of the core state.
+    function _hashCoreState(CoreState memory _coreState) private pure returns (bytes32) {
+        return keccak256(abi.encode(_coreState));
+    }
+
+    /// @dev Hashes a ClaimRecord struct.
+    /// @param _claimRecord The claim record to hash.
+    /// @return _ The hash of the claim record.
+    function _hashClaimRecord(ClaimRecord memory _claimRecord) private pure returns (bytes32) {
+        return keccak256(abi.encode(_claimRecord));
+    }
+
+    /// @dev Hashes an array of Claims.
+    /// @param _claims The claims array to hash.
+    /// @return _ The hash of the claims array.
+    function _hashClaimsArray(Claim[] memory _claims) private pure returns (bytes32) {
+        return keccak256(abi.encode(_claims));
     }
 }
 

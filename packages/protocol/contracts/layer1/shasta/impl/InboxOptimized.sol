@@ -28,7 +28,7 @@ abstract contract InboxOptimized is Inbox {
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @dev Decodes the proposed event data that was encoded using abi.encodePacked
+    /// @dev Decodes the proposed event data that was encoded
     /// @param _data The encoded data
     /// @return proposal_ The decoded proposal
     /// @return coreState_ The decoded core state
@@ -40,7 +40,7 @@ abstract contract InboxOptimized is Inbox {
         return LibCodec.decodeProposedEventData(_data);
     }
 
-    /// @dev Decodes the prove event data that was encoded using abi.encodePacked
+    /// @dev Decodes the prove event data that was encoded
     /// @param _data The encoded data
     /// @return claimRecord_ The decoded claim record
     function decodeProveEventData(bytes memory _data)
@@ -55,7 +55,7 @@ abstract contract InboxOptimized is Inbox {
     // Public Functions
     // ---------------------------------------------------------------
 
-    /// @dev Encodes the proposed event data using abi.encodePacked for gas optimization
+    /// @dev Encodes the proposed event data for gas optimization
     /// @param _proposal The proposal to encode
     /// @param _coreState The core state to encode
     /// @return The encoded data
@@ -71,7 +71,7 @@ abstract contract InboxOptimized is Inbox {
         return LibCodec.encodeProposedEventData(_proposal, _coreState);
     }
 
-    /// @dev Encodes the proved event data using abi.encodePacked for gas optimization
+    /// @dev Encodes the proved event data for gas optimization
     /// @param _claimRecord The claim record to encode
     /// @return The encoded data
     function encodeProveEventData(ClaimRecord memory _claimRecord)
@@ -110,7 +110,7 @@ abstract contract InboxOptimized is Inbox {
         if (_proposals.length == 0) return claimRecords_;
 
         // Validate first proposal and create initial claim record
-        _validateClaim(_config, _proposals[0], _claims[0], _proposals[0].id);
+        _validateClaim(_config, _proposals[0], _claims[0]);
         LibBonds.BondInstruction[] memory currentInstructions =
             _calculateBondInstructions(_config, _proposals[0], _claims[0]);
 
@@ -127,7 +127,7 @@ abstract contract InboxOptimized is Inbox {
 
         // Process remaining proposals
         for (uint256 i = 1; i < _proposals.length; ++i) {
-            _validateClaim(_config, _proposals[i], _claims[i], _proposals[i].id);
+            _validateClaim(_config, _proposals[i], _claims[i]);
 
             // Check if current proposal can be aggregated with the previous group
             // The next expected proposal ID is: start of current group + current span
@@ -203,10 +203,8 @@ abstract contract InboxOptimized is Inbox {
         override
         returns (bytes32 claimRecordHash_)
     {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-
-        ExtendedClaimRecord storage record =
-            proposalRingBuffer[bufferSlot].claimHashLookup[_DEFAULT_SLOT_HASH];
+        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
+        ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =
             _decodeSlotReuseMarker(record.slotReuseMarker);
@@ -221,7 +219,7 @@ abstract contract InboxOptimized is Inbox {
         }
 
         // Otherwise check the direct mapping
-        return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
+        return proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash;
     }
 
     /// @dev Sets the claim record hash for a given proposal and parent claim.
@@ -235,9 +233,7 @@ abstract contract InboxOptimized is Inbox {
         internal
         override
     {
-        ProposalRecord storage proposalRecord =
-            proposalRingBuffer[_proposalId % _config.ringBufferSize];
-
+        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
         ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =
