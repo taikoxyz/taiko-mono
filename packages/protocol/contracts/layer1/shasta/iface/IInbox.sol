@@ -42,6 +42,8 @@ interface IInbox {
 
     /// @notice Represents a claim about the state transition of a proposal.
     struct Claim {
+        /// @notice The proposal's ID.
+        uint48 proposalId;
         /// @notice The proposal's hash.
         bytes32 proposalHash;
         /// @notice The parent claim's hash, this is used to link the claim to its parent claim to
@@ -93,10 +95,9 @@ interface IInbox {
     /// @param proposal The proposal that was proposed.
     event Proposed(Proposal proposal, CoreState coreState);
 
-    /// @notice Emitted when a proof is submitted for a proposal.
-    /// @param proposal The proposal that was proven.
+    /// @notice Emitted when a proof is submitted
     /// @param claimRecord The claim record containing the proof details.
-    event Proved(Proposal proposal, ClaimRecord claimRecord);
+    event Proved(ClaimRecord claimRecord);
 
     /// @notice Emitted when bond instructions are issued
     /// @param instructions The bond instructions that need to be performed.
