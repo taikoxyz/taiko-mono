@@ -106,6 +106,9 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IInbox
+    /// @dev This function handles both forced inclusions and regular proposals:
+    ///      - If a forced inclusion is due, it processes exactly one (the oldest) before the regular proposal
+    ///      - Forced inclusions are only processed when due, they cannot be processed early.
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         Config memory config = getConfig();
 
@@ -123,16 +126,14 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         _validateProposeInputs(deadline, coreState, proposals);
 
-        // Validate that proposals[0] matches what is stored on-chain.
-        _checkProposalHash(config, proposals[0]);
-        // Validates that proposals[0] is actually the last proposal on-chain.
-        _verifyLastProposal(config, proposals);
+        // Verify proposals[0] is actually the last proposal stored on-chain.
+        _verifyChainTip(config, proposals);
 
-        // Finalize proved proposals to make room for new ones
+        // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
         coreState = _finalize(config, coreState, claimRecords);
 
         // Verify capacity for new proposals
-        _verifyCapacity(config, coreState);
+        _verifyUnfinalizedCapacity(config, coreState);
 
         // Process forced inclusion if required
         coreState = _processForcedInclusion(config, coreState);
@@ -495,20 +496,20 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(_hashCoreState(_coreState) == _proposals[0].coreStateHash, InvalidState());
     }
 
-    /// @dev Verifies that new proposals won't exceed capacity
+    /// @dev Verifies that adding a new proposal won't exceed the maximum number of unfinalized proposals
     /// @param _config The configuration parameters.
     /// @param _coreState The core state.
-    function _verifyCapacity(Config memory _config, CoreState memory _coreState) private pure {
+    function _verifyUnfinalizedCapacity(Config memory _config, CoreState memory _coreState) private pure {
         require(
             _coreState.nextProposalId <= _getCapacity(_config) + _coreState.lastFinalizedProposalId,
             ExceedsUnfinalizedProposalCapacity()
         );
     }
 
-    /// @dev Processes forced inclusion if required
+    /// @dev Processes the oldest forced inclusion if it is due.
     /// @param _config The configuration parameters.
     /// @param _coreState The core state.
-    /// @return The updated core state.
+    /// @return  The updated core state or the same core state if no forced inclusion is due.
     function _processForcedInclusion(
         Config memory _config,
         CoreState memory _coreState
@@ -565,16 +566,20 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Verifies that proposals[0] is indeed the last proposal on-chain
+    /// @dev Verifies that proposals[0] is the chain tip (last proposal)
     /// @param _config The configuration parameters.
     /// @param _proposals The proposals array to verify (1-2 elements).
-    function _verifyLastProposal(
+    function _verifyChainTip(
         Config memory _config,
         Proposal[] memory _proposals
     )
         private
         view
     {
+        // First verify proposals[0] matches what's stored on-chain
+        _checkProposalHash(_config, _proposals[0]);
+        
+        // Then verify it's actually the chain tip
         bytes32 storedNextProposalHash = _proposalRecord(_config, _proposals[0].id + 1).proposalHash;
 
         if (storedNextProposalHash == bytes32(0)) {
@@ -594,7 +599,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     ///                   This state's hash will be stored in the new proposal.
     /// @param _blobSlice The blob slice of the proposal.
     /// @param _isForcedInclusion Whether the proposal is a forced inclusion.
-    /// @return  _ The updated core state.
+    /// @return The updated core state.
     function _propose(
         Config memory _config,
         CoreState memory _coreState,
