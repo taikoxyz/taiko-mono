@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./Inbox.sol";
+import "../libs/LibCodec.sol";
 
 /// @title InboxOptimized
 /// @notice Combines slot reuse and claim aggregation optimizations for the Inbox contract
@@ -22,6 +23,65 @@ abstract contract InboxOptimized is Inbox {
     // ---------------------------------------------------------------
 
     constructor() Inbox() { }
+
+    // ---------------------------------------------------------------
+    // External Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Decodes the proposed event data that was encoded using abi.encodePacked
+    /// @param _data The encoded data
+    /// @return proposal_ The decoded proposal
+    /// @return coreState_ The decoded core state
+    function decodeProposedEventData(bytes memory _data)
+        external
+        pure
+        returns (Proposal memory proposal_, CoreState memory coreState_)
+    {
+        return LibCodec.decodeProposedEventData(_data);
+    }
+
+    /// @dev Decodes the prove event data that was encoded using abi.encodePacked
+    /// @param _data The encoded data
+    /// @return claimRecord_ The decoded claim record
+    function decodeProveEventData(bytes memory _data)
+        external
+        pure
+        returns (ClaimRecord memory claimRecord_)
+    {
+        return LibCodec.decodeProveEventData(_data);
+    }
+
+    // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Encodes the proposed event data using abi.encodePacked for gas optimization
+    /// @param _proposal The proposal to encode
+    /// @param _coreState The core state to encode
+    /// @return The encoded data
+    function encodeProposedEventData(
+        Proposal memory _proposal,
+        CoreState memory _coreState
+    )
+        public
+        pure
+        override
+        returns (bytes memory)
+    {
+        return LibCodec.encodeProposedEventData(_proposal, _coreState);
+    }
+
+    /// @dev Encodes the proved event data using abi.encodePacked for gas optimization
+    /// @param _claimRecord The claim record to encode
+    /// @return The encoded data
+    function encodeProveEventData(ClaimRecord memory _claimRecord)
+        public
+        pure
+        override
+        returns (bytes memory)
+    {
+        return LibCodec.encodeProveEventData(_claimRecord);
+    }
 
     // ---------------------------------------------------------------
     // Internal Functions - Overrides
@@ -75,19 +135,21 @@ abstract contract InboxOptimized is Inbox {
 
                 if (newInstructions.length > 0) {
                     // Get current instructions from the record
-                    LibBonds.BondInstruction[] memory aggregatedInstructions =
+                    LibBonds.BondInstruction[] memory currentInstructions =
                         claimRecords_[currentRecordIndex].bondInstructions;
 
-                    // Resize and append using assembly
-                    uint256 oldLen = aggregatedInstructions.length;
+                    // Create new array with combined size
+                    uint256 oldLen = currentInstructions.length;
                     uint256 newLen = oldLen + newInstructions.length;
+                    LibBonds.BondInstruction[] memory aggregatedInstructions = 
+                        new LibBonds.BondInstruction[](newLen);
 
-                    assembly {
-                        // Update the length of aggregatedInstructions array
-                        mstore(aggregatedInstructions, newLen)
+                    // Copy existing instructions
+                    for (uint256 j = 0; j < oldLen; ++j) {
+                        aggregatedInstructions[j] = currentInstructions[j];
                     }
 
-                    // Copy new instructions to the resized array
+                    // Copy new instructions
                     for (uint256 j = 0; j < newInstructions.length; ++j) {
                         aggregatedInstructions[oldLen + j] = newInstructions[j];
                     }
@@ -111,9 +173,13 @@ abstract contract InboxOptimized is Inbox {
             }
         }
 
-        // Resize the claimRecords_ array to final size using assembly
-        assembly {
-            mstore(claimRecords_, finalRecordCount)
+        // Resize the claimRecords_ array to final size
+        if (finalRecordCount < claimRecords_.length) {
+            ClaimRecord[] memory resized = new ClaimRecord[](finalRecordCount);
+            for (uint256 i = 0; i < finalRecordCount; ++i) {
+                resized[i] = claimRecords_[i];
+            }
+            claimRecords_ = resized;
         }
     }
 

@@ -26,8 +26,16 @@
       "Bash(git commit:*)",
       "Bash(pnpm compile:l2:*)",
       "Bash(rm:*)",
-      "Bash(forge test:*)"
+      "Bash(forge test:*)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/InboxOptimized.t.sol --via-ir -vv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/InboxOptimized.t.sol)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/InboxOptimized.t.sol -vv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge build --via-ir)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge build --contracts contracts/layer1/shasta/impl/InboxOptimized.sol)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/InboxOptimized.t.sol --via-ir)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/gas/*.t.sol' --via-ir)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }
