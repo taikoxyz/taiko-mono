@@ -258,7 +258,8 @@ contract InboxProposeValidation is InboxTest {
         bytes memory data =
             InboxTestLib.encodeProposalDataWithGenesis(uint64(0), coreState, blobRef, claimRecords);
 
-        // Note: When forced inclusion is due, only the forced inclusion proposal is created
+        // Note: When forced inclusion is due, both forced inclusion and regular proposals are
+        // created
 
         // Act: Submit proposal triggering forced inclusion processing
         vm.prank(Alice);
@@ -266,14 +267,11 @@ contract InboxProposeValidation is InboxTest {
 
         // Assert: Verify forced inclusion proposal was created
         bytes32 storedHash1 = inbox.getProposalHash(1); // Forced inclusion proposal
-        assertTrue(storedHash1 != bytes32(0));
+        assertTrue(storedHash1 != bytes32(0), "Forced inclusion proposal should be created");
 
-        // Assert: Verify regular proposal was not created (current implementation behavior)
-        bytes32 storedHash2 = inbox.getProposalHash(2);
-        assertTrue(
-            storedHash2 == bytes32(0),
-            "Regular proposal should not be created when forced inclusion is due"
-        );
+        // Assert: Verify regular proposal was also created
+        bytes32 storedHash2 = inbox.getProposalHash(2); // Regular proposal
+        assertTrue(storedHash2 != bytes32(0), "Regular proposal should also be created");
     }
 
     /// @notice Test proposal exceeding unfinalized capacity

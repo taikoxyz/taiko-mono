@@ -586,7 +586,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _coreState The core state of the inbox.
     /// @param _blobSlice The blob slice of the proposal.
     /// @param _isForcedInclusion Whether the proposal is a forced inclusion.
-    /// @return coreState_ The updated core state.
+    /// @return  _ The updated core state.
     function _propose(
         Config memory _config,
         CoreState memory _coreState,
@@ -594,7 +594,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         bool _isForcedInclusion
     )
         private
-        returns (CoreState memory coreState_)
+        returns (CoreState memory)
     {
         Proposal memory proposal = Proposal({
             id: _coreState.nextProposalId++,

@@ -44,7 +44,8 @@
 //         });
 
 //         // Encode then decode
-//         bytes memory encoded = LibCodec.encodeProposedEventData(originalProposal, originalCoreState);
+//         bytes memory encoded = LibCodec.encodeProposedEventData(originalProposal,
+// originalCoreState);
 //         (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
 //             LibCodec.decodeProposedEventData(encoded);
 
@@ -248,7 +249,8 @@
 //             originBlockNumber: 1,
 //             isForcedInclusion: false,
 //             basefeeSharingPctg: 0,
-//             blobSlice: LibBlobs.BlobSlice({ blobHashes: emptyBlobHashes, offset: 0, timestamp: 1 }),
+//             blobSlice: LibBlobs.BlobSlice({ blobHashes: emptyBlobHashes, offset: 0, timestamp: 1
+// }),
 //             coreStateHash: bytes32(0)
 //         });
 
@@ -263,9 +265,11 @@
 //         (IInbox.Proposal memory decodedProposal,) = LibCodec.decodeProposedEventData(encoded);
 
 //         assertEq(
-//             decodedProposal.blobSlice.blobHashes.length, 0, "Empty blob hashes should remain empty"
+//             decodedProposal.blobSlice.blobHashes.length, 0, "Empty blob hashes should remain
+// empty"
 //         );
-//         assertEq(decodedProposal.id, proposal.id, "Proposal ID should match with empty blob hashes");
+//         assertEq(decodedProposal.id, proposal.id, "Proposal ID should match with empty blob
+// hashes");
 //     }
 
 //     function test_encodeDecodeProposedEventData_maxValues() public pure {
@@ -512,7 +516,8 @@
 //         // encoding
 //         bytes memory minData = new bytes(184);
 
-//         // Set up valid structure - zero bond instructions length at offset 181 (3 bytes for uint24)
+//         // Set up valid structure - zero bond instructions length at offset 181 (3 bytes for
+// uint24)
 //         minData[181] = 0x00; // bondInstructionsLen high byte
 //         minData[182] = 0x00; // bondInstructionsLen mid byte
 //         minData[183] = 0x00; // bondInstructionsLen low byte
