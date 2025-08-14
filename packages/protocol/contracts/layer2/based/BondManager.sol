@@ -22,7 +22,7 @@ contract BondManager is EssentialContract, IBondManager {
     /// @notice ERC20 token used as bond.
     IERC20 public immutable bondToken;
 
-    /// @notice Minimum bond required on L1 (in gwei)
+    /// @notice Minimum bond required on L1
     uint256 public immutable minBond;
 
     /// @notice Time delay required before withdrawal after request
@@ -32,7 +32,7 @@ contract BondManager is EssentialContract, IBondManager {
     ///      A safe value for this is `extendedProvingWindow` + buffer.
     uint48 public immutable withdrawalDelay;
 
-    /// @notice Per-account bond state (balances in gwei)
+    /// @notice Per-account bond state
     mapping(address account => Bond bond) public bond;
 
     uint256[49] private __gap;
@@ -44,7 +44,7 @@ contract BondManager is EssentialContract, IBondManager {
     /// @notice Constructor disables initializers for upgradeable pattern
     /// @param _authorized The address of the authorized contract (Inbox)
     /// @param _bondToken The ERC20 bond token address
-    /// @param _minBond The minimum bond required (in gwei)
+    /// @param _minBond The minimum bond required
     /// @param _withdrawalDelay The delay period for withdrawals (e.g., 7 days)
     constructor(
         address _authorized,
@@ -73,11 +73,11 @@ contract BondManager is EssentialContract, IBondManager {
     /// @inheritdoc IBondManager
     function debitBond(
         address _address,
-        uint96 _bond
+        uint256 _bond
     )
         external
         onlyFrom(authorized)
-        returns (uint96 amountDebited_)
+        returns (uint256 amountDebited_)
     {
         amountDebited_ = _debitBond(_address, _bond);
         if (amountDebited_ > 0) {
@@ -86,17 +86,17 @@ contract BondManager is EssentialContract, IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    function creditBond(address _address, uint96 _bond) external onlyFrom(authorized) {
+    function creditBond(address _address, uint256 _bond) external onlyFrom(authorized) {
         _creditBond(_address, _bond);
     }
 
     /// @inheritdoc IBondManager
-    function getBondBalance(address _address) external view returns (uint96) {
+    function getBondBalance(address _address) external view returns (uint256) {
         return _getBondBalance(_address);
     }
 
     /// @inheritdoc IBondManager
-    function deposit(uint96 _amount) external nonReentrant {
+    function deposit(uint256 _amount) external nonReentrant {
         bondToken.safeTransferFrom(msg.sender, address(this), _amount);
 
         _creditBond(msg.sender, _amount);
@@ -105,9 +105,20 @@ contract BondManager is EssentialContract, IBondManager {
     }
 
     /// @inheritdoc IBondManager
+    function depositTo(address _recipient, uint256 _amount) external nonReentrant {
+        require(_recipient != address(0), InvalidRecipient());
+
+        bondToken.safeTransferFrom(msg.sender, address(this), _amount);
+
+        _creditBond(_recipient, _amount);
+
+        emit BondDepositedFor(msg.sender, _recipient, _amount);
+    }
+
+    /// @inheritdoc IBondManager
     function hasSufficientBond(
         address _address,
-        uint96 _additionalBond
+        uint256 _additionalBond
     )
         external
         view
@@ -137,7 +148,7 @@ contract BondManager is EssentialContract, IBondManager {
     }
 
     /// @inheritdoc IBondManager
-    function withdraw(address _to, uint96 _amount) external nonReentrant {
+    function withdraw(address _to, uint256 _amount) external nonReentrant {
         Bond storage bond_ = bond[msg.sender];
 
         if (
@@ -160,7 +171,7 @@ contract BondManager is EssentialContract, IBondManager {
     /// @param _address The address to debit the bond from
     /// @param _bond The amount of bond to debit in gwei
     /// @return bondDebited_ The actual amount debited in gwei
-    function _debitBond(address _address, uint96 _bond) internal returns (uint96 bondDebited_) {
+    function _debitBond(address _address, uint256 _bond) internal returns (uint256 bondDebited_) {
         Bond storage bond_ = bond[_address];
 
         if (bond_.balance <= _bond) {
@@ -175,7 +186,7 @@ contract BondManager is EssentialContract, IBondManager {
     /// @dev Internal implementation for crediting a bond
     /// @param _address The address to credit the bond to
     /// @param _bond The amount of bond to credit in gwei
-    function _creditBond(address _address, uint96 _bond) internal {
+    function _creditBond(address _address, uint256 _bond) internal {
         Bond storage bond_ = bond[_address];
         bond_.balance = bond_.balance + _bond;
         emit BondCredited(_address, _bond);
@@ -184,8 +195,8 @@ contract BondManager is EssentialContract, IBondManager {
     /// @dev Internal implementation for withdrawing funds from a user's bond balance
     /// @param _from The address whose balance will be reduced
     /// @param _to The recipient address
-    /// @param _amount The amount to withdraw in gwei
-    function _withdraw(address _from, address _to, uint96 _amount) internal {
+    /// @param _amount The amount to withdraw
+    function _withdraw(address _from, address _to, uint256 _amount) internal {
         _debitBond(_from, _amount);
         bondToken.safeTransfer(_to, _amount);
         emit BondWithdrawn(_from, _amount);
@@ -193,8 +204,8 @@ contract BondManager is EssentialContract, IBondManager {
 
     /// @dev Internal implementation for getting the bond balance
     /// @param _address The address to get the bond balance for
-    /// @return The bond balance of the address in gwei
-    function _getBondBalance(address _address) internal view returns (uint96) {
+    /// @return The bond balance of the address
+    function _getBondBalance(address _address) internal view returns (uint256) {
         return bond[_address].balance;
     }
 
@@ -203,6 +214,7 @@ contract BondManager is EssentialContract, IBondManager {
     // ---------------------------------------------------------------
 
     error InsufficientBond();
+    error InvalidRecipient();
     error MustMaintainMinBond();
     error NoBondToWithdraw();
     error NoWithdrawalRequested();
