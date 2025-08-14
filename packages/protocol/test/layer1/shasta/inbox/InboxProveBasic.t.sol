@@ -21,104 +21,71 @@ contract InboxProveBasic is InboxTest {
     }
 
     /// @notice Test proving a single claim successfully
-    /// @dev Validates the complete proof submission flow:
-    ///      1. Submits a proposal to create provable content
-    ///      2. Generates proof with specific parent claim hash
-    ///      3. Verifies claim record storage for finalization
+    /// @dev Validates the complete proof submission flow
     function test_prove_single_claim() public {
-        // Setup: Prepare environment for proof operations
-        setupBlobHashes();
-
         // Arrange: Submit a proposal that can be proven
-        uint48 proposalId = 1;
-        IInbox.Proposal memory proposal = submitProposal(proposalId, Alice);
-
-        // Act: Submit proof with arbitrary parent claim hash (simulating chain state)
+        IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
         bytes32 parentClaimHash = bytes32(uint256(999));
+
+        // Act: Submit proof with parent claim hash
         proveProposal(proposal, Bob, parentClaimHash);
 
         // Assert: Verify claim record was stored with correct parent relationship
-        assertClaimRecordStored(proposalId, parentClaimHash);
+        assertClaimRecordStored(SINGLE_PROPOSAL, parentClaimHash);
     }
 
     /// @notice Test proving multiple claims in one transaction
-    /// @dev Validates batch proof submission capabilities:
-    ///      1. Creates multiple proposals with sequential IDs
-    ///      2. Proves each with different parent claim hashes
-    ///      3. Verifies independent storage of claim records
+    /// @dev Validates batch proof submission capabilities
     function test_prove_multiple_claims() public {
-        // Setup: Prepare environment for multiple proofs
-        setupBlobHashes();
-        uint48 numClaims = 3;
-
-        // Arrange: Submit all proposals first to create provable content
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numClaims);
-        for (uint48 i = 1; i <= numClaims; i++) {
+        // Arrange: Submit all proposals first
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](FEW_PROPOSALS);
+        for (uint48 i = 1; i <= FEW_PROPOSALS; i++) {
             proposals[i - 1] = submitProposal(i, Alice);
         }
 
-        // Act: Prove each proposal with different parent hashes (simulating different chain states)
-        for (uint48 i = 1; i <= numClaims; i++) {
+        // Act & Assert: Prove each proposal with different parent hashes
+        for (uint48 i = 1; i <= FEW_PROPOSALS; i++) {
             bytes32 parentClaimHash = bytes32(uint256(i * 100)); // 100, 200, 300
             proveProposal(proposals[i - 1], Bob, parentClaimHash);
-
-            // Assert: Verify each claim record is stored independently
             assertClaimRecordStored(i, parentClaimHash);
         }
     }
 
     /// @notice Test proving claims for sequential proposals
-    /// @dev Validates linked proof chain construction:
-    ///      1. Creates proposals with non-sequential starting ID
-    ///      2. Links each proof to previous claim (parent chaining)
-    ///      3. Verifies proper claim hash progression for chain integrity
+    /// @dev Validates linked proof chain construction
     function test_prove_sequential_proposals() public {
-        // Setup: Prepare environment for sequential proof chain
-        setupBlobHashes();
-        uint48 startId = 5; // Start with ID 5 to test non-zero starting
-        uint48 count = 4; // Create 4 proposals: IDs 5,6,7,8
-        bytes32 parentHash = bytes32(uint256(1000)); // Initial parent (simulating existing chain)
+        uint48 count = 4;
+        bytes32 parentHash = getGenesisClaimHash();
 
-        // Act & Assert: Create and prove proposals with linked parent relationships
+        // Submit all proposals first
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](count);
         for (uint48 i = 0; i < count; i++) {
-            // Submit proposal with current ID
-            IInbox.Proposal memory proposal = submitProposal(startId + i, Alice);
+            proposals[i] = submitProposal(i + 1, Alice);
+        }
 
+        // Prove sequentially with linked parent relationships
+        for (uint48 i = 0; i < count; i++) {
+            uint48 proposalId = i + 1;
+            
             // Prove with current parent hash
-            proveProposal(proposal, Bob, parentHash);
+            proveProposal(proposals[i], Bob, parentHash);
+            assertClaimRecordStored(proposalId, parentHash);
 
-            // Verify claim record storage
-            assertClaimRecordStored(startId + i, parentHash);
-
-            // Calculate next parent hash from current claim (chain progression)
-            IInbox.Claim memory claim = InboxTestLib.createClaim(proposal, parentHash, Bob);
+            // Update parent hash for chain progression
+            IInbox.Claim memory claim = InboxTestLib.createClaim(proposals[i], parentHash, Bob);
             parentHash = InboxTestLib.hashClaim(claim);
         }
     }
 
     /// @notice Test that proof verification is called with correct parameters
-    /// @dev Validates proof verifier integration and parameter passing:
-    ///      1. Creates verifiable proposal and claim data
-    ///      2. Calculates expected hash from claims array
-    ///      3. Expects exact mock call to verifier with correct parameters
-    ///      4. Verifies proper integration between Inbox and ProofVerifier
+    /// @dev Validates proof verifier integration and parameter passing
     function test_prove_verification_called() public {
-        // Setup: Prepare environment for proof verification testing
-        setupBlobHashes();
-
-        // Arrange: Create proposal and corresponding claim for verification
-        IInbox.Proposal memory proposal = submitProposal(1, Alice);
+        // Arrange: Create proposal and claim data
+        IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
         IInbox.Claim memory claim = InboxTestLib.createClaim(proposal, bytes32(0), Bob);
-
-        // Package data for proof submission
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = proposal;
-        IInbox.Claim[] memory claims = new IInbox.Claim[](1);
-        claims[0] = claim;
-
-        // Calculate expected parameters for verifier call
-        bytes32 expectedClaimsHash = keccak256(abi.encode(claims));
+        
         bytes memory proof = bytes("test_proof_data");
+        bytes32 expectedClaimsHash = keccak256(abi.encode(_toArray(claim)));
 
         // Expect: Verifier should be called with exact parameters
         vm.expectCall(
@@ -129,42 +96,48 @@ contract InboxProveBasic is InboxTest {
         // Act: Submit proof and trigger verifier call
         setupProofMocks(true);
         vm.prank(Bob);
-        inbox.prove(InboxTestLib.encodeProveData(proposals, claims), proof);
+        inbox.prove(
+            InboxTestLib.encodeProveData(_toArray(proposal), _toArray(claim)), 
+            proof
+        );
+    }
+    
+    /// @dev Helper to convert single item to array
+    function _toArray(IInbox.Proposal memory _item) private pure returns (IInbox.Proposal[] memory arr) {
+        arr = new IInbox.Proposal[](1);
+        arr[0] = _item;
+    }
+    
+    /// @dev Helper to convert single item to array
+    function _toArray(IInbox.Claim memory _item) private pure returns (IInbox.Claim[] memory arr) {
+        arr = new IInbox.Claim[](1);
+        arr[0] = _item;
     }
 
     /// @notice Test claim record storage and retrieval
-    /// @dev Validates persistent claim record storage with multiple proofs per proposal:
-    ///      1. Creates multiple proposals as base for proofs
-    ///      2. Submits multiple proofs per proposal with different parent hashes
-    ///      3. Verifies immediate storage after each proof submission
-    ///      4. Validates persistent retrieval of all stored records
+    /// @dev Validates persistent claim record storage with multiple proofs per proposal
     function test_prove_claim_record_storage() public {
-        // Setup: Prepare environment for complex storage testing
-        setupBlobHashes();
-        uint48 numProposals = 3;
+        uint48 numProposals = FEW_PROPOSALS;
+        uint256 proofsPerProposal = 2;
 
-        // Arrange: Submit all proposals first to create provable content
+        // Submit all proposals first
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
         for (uint48 i = 1; i <= numProposals; i++) {
             proposals[i - 1] = submitProposal(i, Alice);
         }
 
-        // Act: Prove each proposal multiple times with different parent hashes
-        // This tests the ability to store multiple claim records per proposal
+        // Prove each proposal multiple times with different parent hashes
         for (uint48 i = 1; i <= numProposals; i++) {
-            for (uint256 j = 0; j < 2; j++) {
-                bytes32 parentClaimHash = bytes32(uint256(i * 1000 + j)); // 1000,1001 2000,2001
-                    // 3000,3001
+            for (uint256 j = 0; j < proofsPerProposal; j++) {
+                bytes32 parentClaimHash = bytes32(uint256(i * 1000 + j));
                 proveProposal(proposals[i - 1], Bob, parentClaimHash);
-
-                // Assert: Verify immediate storage after each proof
                 assertClaimRecordStored(i, parentClaimHash);
             }
         }
 
-        // Assert: Verify all records remain accessible (persistent storage test)
+        // Verify persistent storage of all records
         for (uint48 i = 1; i <= numProposals; i++) {
-            for (uint256 j = 0; j < 2; j++) {
+            for (uint256 j = 0; j < proofsPerProposal; j++) {
                 bytes32 parentClaimHash = bytes32(uint256(i * 1000 + j));
                 assertClaimRecordStored(i, parentClaimHash);
             }
@@ -172,31 +145,21 @@ contract InboxProveBasic is InboxTest {
     }
 
     /// @notice Test proving with invalid proof reverts
-    /// @dev Validates error handling for proof verification failures:
-    ///      1. Creates valid proposal and claim data
-    ///      2. Configures mock verifier to reject proof
-    ///      3. Expects revert with appropriate error message
-    ///      4. Ensures security by preventing invalid proof acceptance
+    /// @dev Validates error handling for proof verification failures
     function test_prove_invalid_proof_reverts() public {
-        // Setup: Prepare environment for error condition testing
-        setupBlobHashes();
-
-        // Arrange: Create valid proposal and claim (data is valid, proof will be invalid)
-        IInbox.Proposal memory proposal = submitProposal(1, Alice);
+        // Arrange: Create valid proposal and claim data
+        IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
         IInbox.Claim memory claim = InboxTestLib.createClaim(proposal, bytes32(0), Bob);
 
-        // Package data for proof submission
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = proposal;
-        IInbox.Claim[] memory claims = new IInbox.Claim[](1);
-        claims[0] = claim;
-
-        // Configure: Mock proof verification to fail (simulating invalid cryptographic proof)
+        // Configure: Mock proof verification to fail
         setupProofMocks(false);
 
-        // Act & Assert: Invalid proof should be rejected with appropriate error
-        vm.expectRevert("Invalid proof");
+        // Act & Assert: Invalid proof should be rejected
+        expectRevertWithMessage("Invalid proof", "Invalid proof should be rejected");
         vm.prank(Bob);
-        inbox.prove(InboxTestLib.encodeProveData(proposals, claims), bytes("invalid_proof"));
+        inbox.prove(
+            InboxTestLib.encodeProveData(_toArray(proposal), _toArray(claim)), 
+            bytes("invalid_proof")
+        );
     }
 }

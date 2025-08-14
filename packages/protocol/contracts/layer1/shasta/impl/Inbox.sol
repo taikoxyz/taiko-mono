@@ -69,7 +69,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     mapping(address account => uint256 bond) public bondBalance;
 
     /// @dev Ring buffer for storing proposal records.
-    mapping(uint256 bufferSlot => ProposalRecord proposalRecord) internal proposalRingBuffer;
+    mapping(uint256 bufferSlot => ProposalRecord proposalRecord) private _proposalRingBuffer;
 
     uint256[42] private __gap;
 
@@ -429,7 +429,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         returns (ProposalRecord storage proposalRecord_)
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        proposalRecord_ = proposalRingBuffer[bufferSlot];
+        proposalRecord_ = _proposalRingBuffer[bufferSlot];
     }
 
     // ---------------------------------------------------------------
@@ -512,10 +512,12 @@ abstract contract Inbox is EssentialContract, IInbox {
         for (uint256 i; i < _claimRecords.length; ++i) {
             bytes32 claimRecordHash = keccak256(abi.encode(_claimRecords[i]));
 
-            ProposalRecord storage proposalRecord =
-                _proposalRecord(_config, _claimRecords[i].proposalId);
-            proposalRecord.claimHashLookup[_claimRecords[i].claim.parentClaimHash].claimRecordHash =
-                claimRecordHash;
+            _setClaimRecordHash(
+                _config,
+                _claimRecords[i].proposalId,
+                _claimRecords[i].claim.parentClaimHash,
+                claimRecordHash
+            );
 
             emit Proved(_claimRecords[i]);
         }

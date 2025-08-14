@@ -59,8 +59,21 @@ contract InboxOutOfOrderProving is InboxTest {
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
             IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
+            
+            // Include proposals array for validation
+            IInbox.Proposal[] memory validationProposals;
+            if (i == 1) {
+                // First proposal needs genesis for validation
+                validationProposals = new IInbox.Proposal[](1);
+                validationProposals[0] = InboxTestLib.createGenesisProposal(proposalCoreState);
+            } else {
+                // Subsequent proposals need the previous proposal for validation
+                validationProposals = new IInbox.Proposal[](1);
+                validationProposals[0] = proposals[i - 2]; // Previous proposal
+            }
+            
             bytes memory proposalData =
-                abi.encode(uint64(0), proposalCoreState, proposalBlobRef, emptyClaimRecords);
+                abi.encode(uint64(0), proposalCoreState, validationProposals, proposalBlobRef, emptyClaimRecords);
 
             vm.prank(Alice);
             inbox.propose(bytes(""), proposalData);
@@ -83,6 +96,14 @@ contract InboxOutOfOrderProving is InboxTest {
                 }),
                 coreStateHash: bytes32(0)
             });
+            
+            // Store proposal for use in next iteration's validation
+            proposals[i - 1].coreStateHash = keccak256(abi.encode(IInbox.CoreState({
+                nextProposalId: i + 1,
+                lastFinalizedProposalId: 0,
+                lastFinalizedClaimHash: initialParentHash,
+                bondInstructionsHash: bytes32(0)
+            })));
         }
 
         // Phase 2: Prove proposals in REVERSE order (3, 2, 1)
@@ -162,7 +183,12 @@ contract InboxOutOfOrderProving is InboxTest {
 
         // Submit new proposal that triggers finalization
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
-        bytes memory proposeData = abi.encode(uint64(0), coreState, blobRef, claimRecords);
+        
+        // Include the last proposal for validation
+        IInbox.Proposal[] memory finalValidationProposals = new IInbox.Proposal[](1);
+        finalValidationProposals[0] = proposals[numProposals - 1];
+        
+        bytes memory proposeData = abi.encode(uint64(0), coreState, finalValidationProposals, blobRef, claimRecords);
 
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
@@ -199,8 +225,30 @@ contract InboxOutOfOrderProving is InboxTest {
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
             IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
-            bytes memory proposalData =
-                abi.encode(uint64(0), proposalCoreState, proposalBlobRef, emptyClaimRecords);
+            
+            // Include proposals array for validation
+            bytes memory proposalData;
+            if (i == 1) {
+                // First proposal needs genesis for validation
+                proposalData = InboxTestLib.encodeProposalDataWithGenesis(
+                    uint64(0), proposalCoreState, proposalBlobRef, emptyClaimRecords
+                );
+            } else {
+                // For subsequent proposals, we need to create the previous proposal structure
+                IInbox.Proposal memory prevProposal = InboxTestLib.createProposal(
+                    i - 1, Alice, DEFAULT_BASEFEE_SHARING_PCTG
+                );
+                prevProposal.coreStateHash = keccak256(abi.encode(IInbox.CoreState({
+                    nextProposalId: i,
+                    lastFinalizedProposalId: 0,
+                    lastFinalizedClaimHash: initialParentHash,
+                    bondInstructionsHash: bytes32(0)
+                })));
+                
+                proposalData = InboxTestLib.encodeProposalDataForSubsequent(
+                    uint64(0), proposalCoreState, prevProposal, proposalBlobRef, emptyClaimRecords
+                );
+            }
 
             vm.prank(Alice);
             inbox.propose(bytes(""), proposalData);
@@ -213,6 +261,14 @@ contract InboxOutOfOrderProving is InboxTest {
             bytes32[] memory blobHashes = new bytes32[](1);
             blobHashes[0] = keccak256(abi.encode("blob", i % 10));
 
+            // Create proposal with correct coreStateHash that was stored during submission
+            IInbox.CoreState memory updatedCoreState = IInbox.CoreState({
+                nextProposalId: i + 1,
+                lastFinalizedProposalId: 0,
+                lastFinalizedClaimHash: initialParentHash,
+                bondInstructionsHash: bytes32(0)
+            });
+            
             IInbox.Proposal memory proposal = IInbox.Proposal({
                 id: i,
                 proposer: Alice,
@@ -225,7 +281,7 @@ contract InboxOutOfOrderProving is InboxTest {
                     offset: 0,
                     timestamp: uint48(block.timestamp)
                 }),
-                coreStateHash: bytes32(0)
+                coreStateHash: keccak256(abi.encode(updatedCoreState))
             });
 
             bytes32 parentHash = i == 1 ? initialParentHash : bytes32(uint256(999)); // Dummy parent
@@ -288,7 +344,19 @@ contract InboxOutOfOrderProving is InboxTest {
         expectSyncedBlockSave(claim1.endBlockNumber, claim1.endBlockHash, claim1.endStateRoot);
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(4);
-        bytes memory proposeData = abi.encode(uint64(0), coreState, blobRef, claimRecords);
+        
+        // Create the last proposal for validation
+        IInbox.Proposal memory lastProposal = InboxTestLib.createProposal(3, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
+        lastProposal.coreStateHash = keccak256(abi.encode(IInbox.CoreState({
+            nextProposalId: 4,
+            lastFinalizedProposalId: 0,
+            lastFinalizedClaimHash: initialParentHash,
+            bondInstructionsHash: bytes32(0)
+        })));
+        
+        bytes memory proposeData = InboxTestLib.encodeProposalDataForSubsequent(
+            uint64(0), coreState, lastProposal, blobRef, claimRecords
+        );
 
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);

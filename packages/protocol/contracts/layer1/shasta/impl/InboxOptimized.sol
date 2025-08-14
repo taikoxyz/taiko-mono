@@ -129,10 +129,8 @@ abstract contract InboxOptimized is Inbox {
         override
         returns (bytes32 claimRecordHash_)
     {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-
-        ExtendedClaimRecord storage record =
-            proposalRingBuffer[bufferSlot].claimHashLookup[_DEFAULT_SLOT_HASH];
+        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
+        ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =
             _decodeSlotReuseMarker(record.slotReuseMarker);
@@ -147,7 +145,7 @@ abstract contract InboxOptimized is Inbox {
         }
 
         // Otherwise check the direct mapping
-        return proposalRingBuffer[bufferSlot].claimHashLookup[_parentClaimHash].claimRecordHash;
+        return proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash;
     }
 
     /// @dev Sets the claim record hash for a given proposal and parent claim.
@@ -161,9 +159,7 @@ abstract contract InboxOptimized is Inbox {
         internal
         override
     {
-        ProposalRecord storage proposalRecord =
-            proposalRingBuffer[_proposalId % _config.ringBufferSize];
-
+        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
         ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =

@@ -303,10 +303,11 @@ library InboxTestLib {
     }
 
     // ---------------------------------------------------------------
-    // Data Encoding
+    // Data Encoding - Simplified Interface
     // ---------------------------------------------------------------
 
-    /// @dev Encodes proposal data with default deadline (LEGACY - for tests that expect empty proposals array)
+    /// @dev Encodes proposal data with default deadline and empty proposals array
+    /// @notice LEGACY: Kept for backward compatibility but may cause failures in actual propose() calls
     function encodeProposalData(
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
@@ -316,12 +317,11 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        // Legacy function - uses empty proposals array (will cause tests to fail if actually used with propose())
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](0);
-        return abi.encode(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
+        return _encodeProposalDataInternal(uint64(0), _coreState, new IInbox.Proposal[](0), _blobRef, _claimRecords);
     }
 
-    /// @dev Encodes proposal data with custom deadline (LEGACY - for tests that expect empty proposals array)
+    /// @dev Encodes proposal data with custom deadline and empty proposals array
+    /// @notice LEGACY: Kept for backward compatibility but may cause failures in actual propose() calls
     function encodeProposalData(
         uint64 _deadline,
         IInbox.CoreState memory _coreState,
@@ -332,71 +332,80 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        // Legacy function - uses empty proposals array (will cause tests to fail if actually used with propose())
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](0);
-        return abi.encode(_deadline, _coreState, proposals, _blobRef, _claimRecords);
+        return _encodeProposalDataInternal(_deadline, _coreState, new IInbox.Proposal[](0), _blobRef, _claimRecords);
     }
 
-    /// @dev Encodes proposal data with correct validation array for the first proposal (after genesis)
-    function encodeProposalDataWithGenesis(
-        IInbox.CoreState memory _coreState,
-        LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
-        // For the first proposal (id=1), include the genesis proposal for validation
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = createGenesisProposal(_coreState);
-        return abi.encode(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
-    }
-
-    /// @dev Encodes proposal data with custom deadline and correct validation array for the first proposal (after genesis)
-    function encodeProposalDataWithGenesis(
-        uint64 _deadline,
-        IInbox.CoreState memory _coreState,
-        LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
-        // For the first proposal (id=1), include the genesis proposal for validation
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = createGenesisProposal(_coreState);
-        return abi.encode(_deadline, _coreState, proposals, _blobRef, _claimRecords);
-    }
-
-    /// @dev Encodes proposal data with proposals being finalized
-    function encodeProposalDataWithProposals(
-        IInbox.CoreState memory _coreState,
-        IInbox.Proposal[] memory _proposals,
-        LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
-    )
-        internal
-        pure
-        returns (bytes memory)
-    {
-        return abi.encode(uint64(0), _coreState, _proposals, _blobRef, _claimRecords);
-    }
-
-    /// @dev Encodes proposal data with deadline and proposals being finalized
-    function encodeProposalDataWithProposals(
+    /// @dev Internal encoding function to reduce duplication
+    function _encodeProposalDataInternal(
         uint64 _deadline,
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
         IInbox.ClaimRecord[] memory _claimRecords
     )
-        internal
+        private
         pure
         returns (bytes memory)
     {
         return abi.encode(_deadline, _coreState, _proposals, _blobRef, _claimRecords);
+    }
+
+    /// @dev Encodes proposal data for the first proposal after genesis (with validation)
+    function encodeProposalDataWithGenesis(
+        IInbox.CoreState memory _coreState,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return encodeProposalDataWithGenesis(uint64(0), _coreState, _blobRef, _claimRecords);
+    }
+
+    /// @dev Encodes proposal data for the first proposal after genesis with custom deadline
+    function encodeProposalDataWithGenesis(
+        uint64 _deadline,
+        IInbox.CoreState memory _coreState,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = createGenesisProposal(_coreState);
+        return _encodeProposalDataInternal(_deadline, _coreState, proposals, _blobRef, _claimRecords);
+    }
+
+    /// @dev Encodes proposal data with specific proposals for validation
+    function encodeProposalDataWithProposals(
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal[] memory _proposals,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return _encodeProposalDataInternal(uint64(0), _coreState, _proposals, _blobRef, _claimRecords);
+    }
+
+    /// @dev Encodes proposal data with deadline and specific proposals for validation
+    function encodeProposalDataWithProposals(
+        uint64 _deadline,
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal[] memory _proposals,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return _encodeProposalDataInternal(_deadline, _coreState, _proposals, _blobRef, _claimRecords);
     }
 
     /// @dev Encodes prove data
@@ -436,15 +445,12 @@ library InboxTestLib {
     }
 
     // ---------------------------------------------------------------
-    // Blob Hash Generation
+    // Blob Hash Generation - Simplified
     // ---------------------------------------------------------------
 
     /// @dev Generates standard blob hashes for testing
-    function generateBlobHashes(uint256 _count) internal pure returns (bytes32[] memory hashes) {
-        hashes = new bytes32[](_count);
-        for (uint256 i = 0; i < _count; i++) {
-            hashes[i] = keccak256(abi.encode("blob", i));
-        }
+    function generateBlobHashes(uint256 _count) internal pure returns (bytes32[] memory) {
+        return generateBlobHashes(_count, "blob");
     }
 
     /// @dev Generates blob hashes with custom seed
@@ -460,6 +466,11 @@ library InboxTestLib {
         for (uint256 i = 0; i < _count; i++) {
             hashes[i] = keccak256(abi.encode(_seed, i));
         }
+    }
+
+    /// @dev Generates a single blob hash for convenience
+    function generateSingleBlobHash(uint256 _index) internal pure returns (bytes32) {
+        return keccak256(abi.encode("blob", _index));
     }
 
     // ---------------------------------------------------------------
@@ -510,10 +521,7 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        // For subsequent proposals, include the previous proposal for validation
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = _previousProposal;
-        return abi.encode(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
+        return encodeProposalDataForSubsequent(uint64(0), _coreState, _previousProposal, _blobRef, _claimRecords);
     }
 
     /// @dev Encodes proposal data for subsequent proposals with custom deadline
@@ -528,10 +536,9 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        // For subsequent proposals, include the previous proposal for validation
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = _previousProposal;
-        return abi.encode(_deadline, _coreState, proposals, _blobRef, _claimRecords);
+        return _encodeProposalDataInternal(_deadline, _coreState, proposals, _blobRef, _claimRecords);
     }
 
     /// @dev Encodes proposal data when ring buffer wrapping occurs (need 2 proposals for validation)
@@ -546,11 +553,10 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        // When ring buffer wrapping occurs, need both proposals for validation
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](2);
         proposals[0] = _lastProposal;      // The last proposal being validated
-        proposals[1] = _nextSlotProposal;  // The proposal in the next slot (should have smaller id)
-        return abi.encode(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
+        proposals[1] = _nextSlotProposal;  // The proposal in the next slot
+        return _encodeProposalDataInternal(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
     }
 
     // ---------------------------------------------------------------
@@ -620,15 +626,10 @@ library InboxTestLib {
         returns (bytes memory)
     {
         if (_proposalId == 1) {
-            // First proposal after genesis, include genesis proposal for validation
-            IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-            proposals[0] = createGenesisProposal(_coreState);
-            return abi.encode(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
+            return encodeProposalDataWithGenesis(_coreState, _blobRef, _claimRecords);
         } else {
-            // Subsequent proposals, include the previous proposal
-            IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-            proposals[0] = _findProposalById(_allKnownProposals, _proposalId - 1);
-            return abi.encode(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
+            IInbox.Proposal memory previousProposal = _findProposalById(_allKnownProposals, _proposalId - 1);
+            return encodeProposalDataForSubsequent(_coreState, previousProposal, _blobRef, _claimRecords);
         }
     }
 
@@ -657,7 +658,7 @@ library InboxTestLib {
     // Test Context Management
     // ---------------------------------------------------------------
 
-    /// @dev Creates a new test context
+    /// @dev Creates a new test context with default values
     function createContext(
         uint48 _nextProposalId,
         uint48 _lastFinalizedId,
@@ -668,12 +669,19 @@ library InboxTestLib {
         returns (TestContext memory ctx)
     {
         ctx.coreState = createCoreState(_nextProposalId, _lastFinalizedId, _parentHash, bytes32(0));
-        ctx.proposals = new IInbox.Proposal[](0);
-        ctx.claims = new IInbox.Claim[](0);
-        ctx.claimRecords = new IInbox.ClaimRecord[](0);
         ctx.currentParentHash = _parentHash;
         ctx.nextProposalId = _nextProposalId;
         ctx.lastFinalizedId = _lastFinalizedId;
+        // Arrays are initialized as empty by default
+    }
+
+    /// @dev Creates a minimal test context for simple scenarios
+    function createSimpleContext(uint48 _nextProposalId, bytes32 _parentHash)
+        internal
+        pure
+        returns (TestContext memory)
+    {
+        return createContext(_nextProposalId, 0, _parentHash);
     }
 
     /// @dev Adds a proposal to the context
