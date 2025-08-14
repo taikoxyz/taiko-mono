@@ -110,12 +110,16 @@ abstract contract InboxOptimized is Inbox {
         if (_proposals.length == 0) return claimRecords_;
 
         // Validate first proposal and create initial claim record
-        _validateClaim(_config, _proposals[0], _claims[0]);
+        _validateClaim(_config, _proposals[0], _claims[0], _proposals[0].id);
         LibBonds.BondInstruction[] memory currentInstructions =
             _calculateBondInstructions(_config, _proposals[0], _claims[0]);
 
-        claimRecords_[0] =
-            ClaimRecord({ claim: _claims[0], span: 1, bondInstructions: currentInstructions });
+        claimRecords_[0] = ClaimRecord({
+            proposalId: _proposals[0].id,
+            claim: _claims[0],
+            span: 1,
+            bondInstructions: currentInstructions
+        });
 
         uint256 finalRecordCount = 1;
         uint256 currentRecordIndex;
@@ -123,7 +127,7 @@ abstract contract InboxOptimized is Inbox {
 
         // Process remaining proposals
         for (uint256 i = 1; i < _proposals.length; ++i) {
-            _validateClaim(_config, _proposals[i], _claims[i]);
+            _validateClaim(_config, _proposals[i], _claims[i], _proposals[i].id);
 
             // Check if current proposal can be aggregated with the previous group
             // The next expected proposal ID is: start of current group + current span
@@ -167,8 +171,12 @@ abstract contract InboxOptimized is Inbox {
 
                 currentRecordIndex = finalRecordCount;
                 currentGroupStartId = _proposals[i].id;
-                claimRecords_[currentRecordIndex] =
-                    ClaimRecord({ claim: _claims[i], span: 1, bondInstructions: instructions });
+                claimRecords_[currentRecordIndex] = ClaimRecord({
+                    proposalId: _proposals[i].id,
+                    claim: _claims[i],
+                    span: 1,
+                    bondInstructions: instructions
+                });
                 finalRecordCount++;
             }
         }

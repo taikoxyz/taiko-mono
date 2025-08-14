@@ -92,8 +92,8 @@ contract EventGasComparison is CommonTest {
         });
 
         IInbox.ClaimRecord memory claimRecord = IInbox.ClaimRecord({
+            proposalId: 12_345,
             claim: IInbox.Claim({
-                proposalId: 12_345,
                 proposalHash: keccak256("proposalHash"),
                 parentClaimHash: keccak256("parentClaimHash"),
                 endBlockNumber: 999_999,
@@ -135,7 +135,7 @@ contract EventGasComparison is CommonTest {
         // Print markdown table
         console2.log("\n# Gas Comparison Table\n");
         console2.log(
-            "| Event Type | Baseline (Structured) | Bytes(abi.encode) | Packed(LibCodec) |"
+            "| Event Type | Baseline (Structured) | Bytes (abi.encode) | Bytes (LibCodec) |"
         );
         console2.log("|------------|----------------------|------------------|-----------------|");
 

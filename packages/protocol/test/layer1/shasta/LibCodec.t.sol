@@ -141,8 +141,8 @@ contract LibCodecTest is CommonTest {
         });
 
         IInbox.ClaimRecord memory originalClaimRecord = IInbox.ClaimRecord({
+            proposalId: 12_345,
             claim: IInbox.Claim({
-                proposalId: 12_345,
                 proposalHash: keccak256("proposalHash"),
                 parentClaimHash: keccak256("parentClaimHash"),
                 endBlockNumber: 999_999,
@@ -159,11 +159,11 @@ contract LibCodecTest is CommonTest {
         bytes memory encoded = LibCodec.encodeProveEventData(originalClaimRecord);
         IInbox.ClaimRecord memory decodedClaimRecord = LibCodec.decodeProveEventData(encoded);
 
-        // Verify claim fields
+        // Verify claim record fields
         assertEq(
-            decodedClaimRecord.claim.proposalId,
-            originalClaimRecord.claim.proposalId,
-            "Claim proposal ID mismatch"
+            decodedClaimRecord.proposalId,
+            originalClaimRecord.proposalId,
+            "Claim record proposal ID mismatch"
         );
         assertEq(
             decodedClaimRecord.claim.proposalHash,
@@ -260,8 +260,7 @@ contract LibCodecTest is CommonTest {
         });
 
         bytes memory encoded = LibCodec.encodeProposedEventData(proposal, coreState);
-        (IInbox.Proposal memory decodedProposal,) =
-            LibCodec.decodeProposedEventData(encoded);
+        (IInbox.Proposal memory decodedProposal,) = LibCodec.decodeProposedEventData(encoded);
 
         assertEq(
             decodedProposal.blobSlice.blobHashes.length, 0, "Empty blob hashes should remain empty"
@@ -321,8 +320,8 @@ contract LibCodecTest is CommonTest {
         LibBonds.BondInstruction[] memory emptyBonds = new LibBonds.BondInstruction[](0);
 
         IInbox.ClaimRecord memory claimRecord = IInbox.ClaimRecord({
+            proposalId: 1,
             claim: IInbox.Claim({
-                proposalId: 1,
                 proposalHash: keccak256("test"),
                 parentClaimHash: keccak256("parent"),
                 endBlockNumber: 100,
@@ -361,8 +360,8 @@ contract LibCodecTest is CommonTest {
         }
 
         IInbox.ClaimRecord memory claimRecord = IInbox.ClaimRecord({
+            proposalId: 999,
             claim: IInbox.Claim({
-                proposalId: 999,
                 proposalHash: keccak256("largeClaim"),
                 parentClaimHash: keccak256("largeParent"),
                 endBlockNumber: 999_999,
@@ -408,6 +407,65 @@ contract LibCodecTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
+    // Memory safety tests
+    // ---------------------------------------------------------------
+
+    function test_memoryOverreadBug() public pure {
+        // This test verifies the memory safety fix in LibCodec.encodeProposedEventData
+        // Previously buggy: return(result, add(0x20, totalSize)) returned 32 extra bytes
+        // Now fixed: return(add(result, 0x20), totalSize) returns correct size
+
+        bytes32[] memory blobHashes = new bytes32[](1);
+        blobHashes[0] = keccak256("test");
+
+        IInbox.Proposal memory proposal = IInbox.Proposal({
+            id: 12_345,
+            proposer: address(0x1234567890123456789012345678901234567890),
+            originTimestamp: 1_234_567_890,
+            originBlockNumber: 9_876_543,
+            isForcedInclusion: true,
+            basefeeSharingPctg: 75,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes,
+                offset: 123,
+                timestamp: 1_234_567_890
+            }),
+            coreStateHash: keccak256("coreStateHash")
+        });
+
+        IInbox.CoreState memory coreState = IInbox.CoreState({
+            nextProposalId: 12_346,
+            lastFinalizedProposalId: 12_344,
+            lastFinalizedClaimHash: keccak256("lastFinalizedClaimHash"),
+            bondInstructionsHash: keccak256("bondInstructionsHash")
+        });
+
+        // Test that the fix returns the correct size without extra bytes
+        bytes memory encoded = LibCodec.encodeProposedEventData(proposal, coreState);
+
+        // Calculate expected size: 183 + (1 * 32) = 215 bytes
+        uint256 expectedSize = 183 + 32;
+
+        // After the fix, we should get exactly the expected size, not 32 extra bytes
+        assertEq(
+            encoded.length,
+            expectedSize,
+            "Memory safety fix: returning correct size without extra bytes"
+        );
+
+        // Verify the encoded data can still be decoded properly
+        (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
+            LibCodec.decodeProposedEventData(encoded);
+
+        assertEq(decodedProposal.id, proposal.id, "Decoded proposal ID should match");
+        assertEq(
+            decodedCoreState.nextProposalId,
+            coreState.nextProposalId,
+            "Decoded core state should match"
+        );
+    }
+
+    // ---------------------------------------------------------------
     // Error cases tests
     // ---------------------------------------------------------------
 
@@ -436,7 +494,8 @@ contract LibCodecTest is CommonTest {
     }
 
     function test_decodeProposedEventData_minimumLength() public pure {
-        // Create valid data with minimum length (183 bytes) - updated for uint24 array length encoding
+        // Create valid data with minimum length (183 bytes) - updated for uint24 array length
+        // encoding
         bytes memory minData = new bytes(183);
 
         // Set up valid structure - zero blob hashes length at offset 40 (3 bytes for uint24)
@@ -449,7 +508,8 @@ contract LibCodecTest is CommonTest {
     }
 
     function test_decodeProveEventData_minimumLength() public pure {
-        // Create valid data with minimum length (184 bytes) - updated for uint24 array length encoding
+        // Create valid data with minimum length (184 bytes) - updated for uint24 array length
+        // encoding
         bytes memory minData = new bytes(184);
 
         // Set up valid structure - zero bond instructions length at offset 181 (3 bytes for uint24)
@@ -550,8 +610,8 @@ contract LibCodecTest is CommonTest {
         });
 
         IInbox.ClaimRecord memory claimRecord = IInbox.ClaimRecord({
+            proposalId: 12_345,
             claim: IInbox.Claim({
-                proposalId: 12_345,
                 proposalHash: keccak256("proposalHash"),
                 parentClaimHash: keccak256("parentClaimHash"),
                 endBlockNumber: 999_999,

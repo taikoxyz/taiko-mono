@@ -298,13 +298,17 @@ abstract contract Inbox is EssentialContract, IInbox {
             Proposal memory proposal = _proposals[i];
             Claim memory claim = _claims[i];
 
-            _validateClaim(_config, proposal, claim);
+            _validateClaim(_config, proposal, claim, proposal.id);
 
             LibBonds.BondInstruction[] memory bondInstructions =
                 _calculateBondInstructions(_config, proposal, claim);
 
-            claimRecords_[i] =
-                ClaimRecord({ claim: claim, span: 1, bondInstructions: bondInstructions });
+            claimRecords_[i] = ClaimRecord({
+                proposalId: proposal.id,
+                claim: claim,
+                span: 1,
+                bondInstructions: bondInstructions
+            });
         }
     }
 
@@ -312,15 +316,17 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _config The configuration parameters.
     /// @param _proposal The proposal to validate.
     /// @param _claim The claim to validate.
+    /// @param _proposalId The proposal ID from the claim record.
     function _validateClaim(
         Config memory _config,
         Proposal memory _proposal,
-        Claim memory _claim
+        Claim memory _claim,
+        uint48 _proposalId
     )
         internal
         view
     {
-        require(_proposal.id == _claim.proposalId, ProposalIdMismatch());
+        require(_proposal.id == _proposalId, ProposalIdMismatch());
 
         bytes32 proposalHash = _checkProposalHash(_config, _proposal);
         require(proposalHash == _claim.proposalHash, ProposalHashMismatchWithClaim());
@@ -543,7 +549,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             bytes32 claimRecordHash = keccak256(abi.encode(_claimRecords[i]));
 
             ProposalRecord storage proposalRecord =
-                _proposalRecord(_config, _claimRecords[i].claim.proposalId);
+                _proposalRecord(_config, _claimRecords[i].proposalId);
             proposalRecord.claimHashLookup[_claimRecords[i].claim.parentClaimHash].claimRecordHash =
                 claimRecordHash;
 

@@ -40,7 +40,11 @@
       "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_compareProvedEventGas -vvv)",
       "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/LibCodec.t.sol)",
       "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/LibCodec.t.sol --via-ir)",
-      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/LibCodec.t.sol --match-test test_decodeProposedEventData_invalidLength --via-ir -vvv)"
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/LibCodec.t.sol --match-test test_decodeProposedEventData_invalidLength --via-ir -vvv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-test test_memoryOverreadBug -vv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/shasta/LibCodec.t.sol --via-ir -vv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path test/layer1/based/InboxTest_ProposeAndProve.t.sol --via-ir -vv)",
+      "Bash(FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/shasta/*.t.sol')"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

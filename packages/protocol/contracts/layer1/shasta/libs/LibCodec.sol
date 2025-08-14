@@ -7,8 +7,10 @@ import "src/shared/based/libs/LibBonds.sol";
 
 /// @title LibCodec
 /// @notice Library for encoding and decoding event data for gas optimization using assembly
-/// @dev Array lengths are encoded as uint24 (3 bytes) to support up to 16,777,215 elements while maintaining gas efficiency.
-/// This provides a good balance between array size capacity and storage efficiency compared to uint16 (65,535 max) or uint32 (4 bytes).
+/// @dev Array lengths are encoded as uint24 (3 bytes) to support up to 16,777,215 elements while
+/// maintaining gas efficiency.
+/// This provides a good balance between array size capacity and storage efficiency compared to
+/// uint16 (65,535 max) or uint32 (4 bytes).
 /// @custom:security-contact security@taiko.xyz
 library LibCodec {
     // ---------------------------------------------------------------
@@ -82,7 +84,7 @@ library LibCodec {
             mstore(add(finalPtr, 0x80), mload(add(_coreState, 0x40)))
             mstore(add(finalPtr, 0xA0), mload(add(_coreState, 0x60)))
 
-            return(result, add(0x20, totalSize))
+            return(add(result, 0x20), totalSize)
         }
     }
 
@@ -107,32 +109,30 @@ library LibCodec {
             mstore(0x40, add(add(result, 0x20), totalSize))
 
             let ptr := add(result, 0x20)
-            let claimPtr := _claimRecord // Direct struct access
+            let claimRecordPtr := _claimRecord // Direct struct access
+            let claimPtr := add(claimRecordPtr, 0x20) // Claim is now second field after proposalId
 
-            // Write claim fields directly as 32-byte words (most efficient)
-            // First word: proposalId + part of proposalHash
-            mstore(ptr, or(shl(208, mload(claimPtr)), shr(48, mload(add(claimPtr, 0x20)))))
+            // Write claimRecord.proposalId (first 6 bytes) + part of claim.proposalHash
+            mstore(ptr, or(shl(208, mload(claimRecordPtr)), shr(48, mload(claimPtr))))
 
-            // Remaining claim fields in sequence
-            mstore(
-                add(ptr, 0x20),
-                or(shl(208, mload(add(claimPtr, 0x20))), shr(48, mload(add(claimPtr, 0x40))))
-            )
-            mstore(add(ptr, 0x40), mload(add(claimPtr, 0x40))) // parentClaimHash
+            // Remaining claim fields in sequence - proposalHash and parentClaimHash
+            mstore(add(ptr, 0x20), mload(claimPtr)) // proposalHash (full 32 bytes)
+            mstore(add(ptr, 0x40), mload(add(claimPtr, 0x20))) // parentClaimHash
 
             let ptr2 := add(ptr, 0x60)
             mstore(
-                ptr2, or(shl(208, mload(add(claimPtr, 0x60))), shr(48, mload(add(claimPtr, 0x80))))
+                ptr2, or(shl(208, mload(add(claimPtr, 0x40))), shr(48, mload(add(claimPtr, 0x60))))
             )
-            mstore(add(ptr2, 0x20), mload(add(claimPtr, 0x80))) // endBlockHash
-            mstore(add(ptr2, 0x40), mload(add(claimPtr, 0xA0))) // endStateRoot
+            mstore(add(ptr2, 0x20), mload(add(claimPtr, 0x60))) // endBlockHash
+            mstore(add(ptr2, 0x40), mload(add(claimPtr, 0x80))) // endStateRoot
 
             let ptr3 := add(ptr2, 0x60)
             // Addresses + span + bondsLen
-            mstore(ptr3, or(shl(96, mload(add(claimPtr, 0xC0))), mload(add(claimPtr, 0xE0))))
+            mstore(ptr3, or(shl(96, mload(add(claimPtr, 0xA0))), mload(add(claimPtr, 0xC0))))
             mstore(
                 add(ptr3, 0x20),
-                or(or(shl(248, mload(add(_claimRecord, 0x20))), shl(232, bondsLen)), 0) // bondsLen as uint24
+                or(or(shl(248, mload(add(claimRecordPtr, 0x40))), shl(232, bondsLen)), 0) // span is
+                    // now at offset 0x40 in ClaimRecord
             )
 
             // Fast bond instructions encoding - minimize operations
@@ -157,7 +157,7 @@ library LibCodec {
                 )
             }
 
-            return(result, add(0x20, totalSize))
+            return(add(result, 0x20), totalSize)
         }
     }
 
@@ -208,7 +208,8 @@ library LibCodec {
 
         // Decode blob slice - array length encoded as uint24 (3 bytes)
         uint24 blobHashesLen = uint24(
-            uint256(uint8(_data[offset])) << 16 | uint256(uint8(_data[offset + 1])) << 8 | uint256(uint8(_data[offset + 2]))
+            uint256(uint8(_data[offset])) << 16 | uint256(uint8(_data[offset + 1])) << 8
+                | uint256(uint8(_data[offset + 2]))
         );
         offset += 3;
 
@@ -291,6 +292,14 @@ library LibCodec {
 
         uint256 offset = 0;
 
+        // Decode proposalId (6 bytes -> uint48) - now in ClaimRecord
+        claimRecord_.proposalId = uint48(
+            uint256(uint8(_data[offset])) << 40 | uint256(uint8(_data[offset + 1])) << 32
+                | uint256(uint8(_data[offset + 2])) << 24 | uint256(uint8(_data[offset + 3])) << 16
+                | uint256(uint8(_data[offset + 4])) << 8 | uint256(uint8(_data[offset + 5]))
+        );
+        offset += 6;
+
         // Decode claim
         (IInbox.Claim memory claim, uint256 newOffset) = _decodeClaim(_data, offset);
         claimRecord_.claim = claim;
@@ -302,7 +311,8 @@ library LibCodec {
 
         // Decode bond instructions - array length encoded as uint24 (3 bytes)
         uint24 bondInstructionsLen = uint24(
-            uint256(uint8(_data[offset])) << 16 | uint256(uint8(_data[offset + 1])) << 8 | uint256(uint8(_data[offset + 2]))
+            uint256(uint8(_data[offset])) << 16 | uint256(uint8(_data[offset + 1])) << 8
+                | uint256(uint8(_data[offset + 2]))
         );
         offset += 3;
 
@@ -320,15 +330,7 @@ library LibCodec {
     {
         newOffset_ = _offset;
 
-        // Decode proposalId (6 bytes -> uint48)
-        claim_.proposalId = uint48(
-            uint256(uint8(_data[newOffset_])) << 40 | uint256(uint8(_data[newOffset_ + 1])) << 32
-                | uint256(uint8(_data[newOffset_ + 2])) << 24
-                | uint256(uint8(_data[newOffset_ + 3])) << 16
-                | uint256(uint8(_data[newOffset_ + 4])) << 8 | uint256(uint8(_data[newOffset_ + 5]))
-        );
-        newOffset_ += 6;
-
+        // proposalId is no longer in Claim, skip directly to proposalHash
         // Decode proposalHash
         claim_.proposalHash = bytes32(_extractBytes(_data, newOffset_, 32));
         newOffset_ += 32;
