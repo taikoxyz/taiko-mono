@@ -8,7 +8,7 @@ import { Inbox, InvalidState, DeadlineExceeded } from "contracts/layer1/shasta/i
 /// @notice Basic tests for the Inbox contract fundamental operations
 /// @dev This test suite covers:
 ///      - Single and multiple proposal submissions
-///      - Core state validation and updates  
+///      - Core state validation and updates
 ///      - Basic error conditions and validation
 ///      - Simple proof submission flow
 /// @custom:security-contact security@taiko.xyz
@@ -47,16 +47,14 @@ contract InboxBasicTest is InboxTest {
         // Arrange: Create proposal data with wrong core state (nextProposalId=2 instead of 1)
         IInbox.CoreState memory wrongCoreState = InboxTestLib.createCoreState(2, 0);
         bytes memory data = InboxTestLib.encodeProposalDataWithGenesis(
-            wrongCoreState, 
-            createValidBlobReference(1), 
-            new IInbox.ClaimRecord[](0)
+            wrongCoreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
 
         // Act & Assert: Invalid state should be rejected
         setupBlobHashes();
         setupProposalMocks(Alice);
         expectRevertWithReason(InvalidState.selector, "Wrong core state should be rejected");
-        
+
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }
@@ -66,23 +64,20 @@ contract InboxBasicTest is InboxTest {
     function test_propose_deadline_exceeded_reverts() public {
         // Setup: Advance time to create context
         vm.warp(1000);
-        
+
         // Arrange: Create proposal with expired deadline
         uint64 expiredDeadline = createDeadlineTestData(true);
         IInbox.CoreState memory coreState = _getGenesisCoreState();
-        
+
         bytes memory data = InboxTestLib.encodeProposalDataWithGenesis(
-            expiredDeadline,
-            coreState,
-            createValidBlobReference(1),
-            new IInbox.ClaimRecord[](0)
+            expiredDeadline, coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
 
         // Act & Assert: Expired deadline should be rejected
         setupBlobHashes();
         setupProposalMocks(Alice);
         expectRevertWithReason(DeadlineExceeded.selector, "Expired deadline should be rejected");
-        
+
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }
@@ -106,13 +101,13 @@ contract InboxBasicTest is InboxTest {
     function test_prove_multiple_claims() public {
         uint48 numProposals = 3;
         bytes32 genesisHash = getGenesisClaimHash();
-        
+
         // Submit proposals first
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
         for (uint48 i = 1; i <= numProposals; i++) {
             proposals[i - 1] = submitProposal(i, Alice);
         }
-        
+
         // Prove each proposal individually
         bytes32 currentParent = genesisHash;
         for (uint48 i = 0; i < numProposals; i++) {
@@ -121,7 +116,7 @@ contract InboxBasicTest is InboxTest {
             IInbox.Claim memory claim = InboxTestLib.createClaim(proposals[i], currentParent, Bob);
             currentParent = InboxTestLib.hashClaim(claim);
         }
-        
+
         // Verify all claim records stored
         currentParent = genesisHash;
         for (uint48 i = 0; i < numProposals; i++) {

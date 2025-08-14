@@ -27,7 +27,7 @@ contract TestInboxWithMockBlobs is InboxOptimized {
                 provingWindow: 1 hours,
                 extendedProvingWindow: 2 hours,
                 maxFinalizationCount: 10,
-                ringBufferSize: 100,  // Ensure this is not zero
+                ringBufferSize: 100, // Ensure this is not zero
                 basefeeSharingPctg: 10,
                 syncedBlockManager: address(0),
                 proofVerifier: address(0),

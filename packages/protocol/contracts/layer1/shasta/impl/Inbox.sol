@@ -275,8 +275,12 @@ abstract contract Inbox is EssentialContract, IInbox {
             LibBonds.BondInstruction[] memory bondInstructions =
                 _calculateBondInstructions(_config, proposal, claim);
 
-            claimRecords_[i] =
-                ClaimRecord({ proposalId: proposal.id, claim: claim, span: 1, bondInstructions: bondInstructions });
+            claimRecords_[i] = ClaimRecord({
+                proposalId: proposal.id,
+                claim: claim,
+                span: 1,
+                bondInstructions: bondInstructions
+            });
         }
     }
 

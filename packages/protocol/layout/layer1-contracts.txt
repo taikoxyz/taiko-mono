@@ -316,7 +316,7 @@
 |
 | bondBalance                 | mapping(address => uint256)                     | 257  | 0      | 32    |
 |
-| proposalRingBuffer          | mapping(uint256 => struct Inbox.ProposalRecord) | 258  | 0      | 32    |
+| _proposalRingBuffer         | mapping(uint256 => struct Inbox.ProposalRecord) | 258  | 0      | 32    |
 |
 | __gap                       | uint256[42]                                     | 259  | 0      | 1344  |
 ╰-----------------------------+-------------------------------------------------+------+--------+-------+----------------------------------------------╯

@@ -66,7 +66,7 @@ contract InboxProveBasic is InboxTest {
         // Prove sequentially with linked parent relationships
         for (uint48 i = 0; i < count; i++) {
             uint48 proposalId = i + 1;
-            
+
             // Prove with current parent hash
             proveProposal(proposals[i], Bob, parentHash);
             assertClaimRecordStored(proposalId, parentHash);
@@ -83,7 +83,7 @@ contract InboxProveBasic is InboxTest {
         // Arrange: Create proposal and claim data
         IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
         IInbox.Claim memory claim = InboxTestLib.createClaim(proposal, bytes32(0), Bob);
-        
+
         bytes memory proof = bytes("test_proof_data");
         bytes32 expectedClaimsHash = keccak256(abi.encode(_toArray(claim)));
 
@@ -96,18 +96,19 @@ contract InboxProveBasic is InboxTest {
         // Act: Submit proof and trigger verifier call
         setupProofMocks(true);
         vm.prank(Bob);
-        inbox.prove(
-            InboxTestLib.encodeProveData(_toArray(proposal), _toArray(claim)), 
-            proof
-        );
+        inbox.prove(InboxTestLib.encodeProveData(_toArray(proposal), _toArray(claim)), proof);
     }
-    
+
     /// @dev Helper to convert single item to array
-    function _toArray(IInbox.Proposal memory _item) private pure returns (IInbox.Proposal[] memory arr) {
+    function _toArray(IInbox.Proposal memory _item)
+        private
+        pure
+        returns (IInbox.Proposal[] memory arr)
+    {
         arr = new IInbox.Proposal[](1);
         arr[0] = _item;
     }
-    
+
     /// @dev Helper to convert single item to array
     function _toArray(IInbox.Claim memory _item) private pure returns (IInbox.Claim[] memory arr) {
         arr = new IInbox.Claim[](1);
@@ -158,7 +159,7 @@ contract InboxProveBasic is InboxTest {
         expectRevertWithMessage("Invalid proof", "Invalid proof should be rejected");
         vm.prank(Bob);
         inbox.prove(
-            InboxTestLib.encodeProveData(_toArray(proposal), _toArray(claim)), 
+            InboxTestLib.encodeProveData(_toArray(proposal), _toArray(claim)),
             bytes("invalid_proof")
         );
     }

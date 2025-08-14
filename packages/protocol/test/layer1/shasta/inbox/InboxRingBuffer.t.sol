@@ -14,7 +14,6 @@ import { ExceedsUnfinalizedProposalCapacity } from "contracts/layer1/shasta/impl
 ///      - Protection of unfinalized proposals from overwrite
 /// @custom:security-contact security@taiko.xyz
 contract InboxRingBuffer is InboxTest {
-
     // Inherits setup from InboxTest base class
 
     /// @notice Test basic ring buffer write and read operations
@@ -45,11 +44,7 @@ contract InboxRingBuffer is InboxTest {
 
         // Test proposals that should map to the same slot (1)
         uint48[3] memory proposalIds = [uint48(1), uint48(6), uint48(11)];
-        bytes32[3] memory hashes = [
-            keccak256("hash1"),
-            keccak256("hash2"),
-            keccak256("hash3")
-        ];
+        bytes32[3] memory hashes = [keccak256("hash1"), keccak256("hash2"), keccak256("hash3")];
 
         // Store first proposal
         inbox.exposed_setProposalHash(proposalIds[0], hashes[0]);
@@ -58,7 +53,9 @@ contract InboxRingBuffer is InboxTest {
         // Store second proposal (should overwrite slot)
         inbox.exposed_setProposalHash(proposalIds[1], hashes[1]);
         assertEq(inbox.getProposalHash(proposalIds[1]), hashes[1], "Second hash should overwrite");
-        assertEq(inbox.getProposalHash(proposalIds[0]), hashes[1], "First slot should be overwritten");
+        assertEq(
+            inbox.getProposalHash(proposalIds[0]), hashes[1], "First slot should be overwritten"
+        );
 
         // Store third proposal (should overwrite slot again)
         inbox.exposed_setProposalHash(proposalIds[2], hashes[2]);
@@ -94,8 +91,14 @@ contract InboxRingBuffer is InboxTest {
         // Verify wraparound overwrote first round
         for (uint48 i = 0; i < bufferSize; i++) {
             uint48 proposalId = i + bufferSize;
-            assertEq(inbox.getProposalHash(proposalId), secondRoundHashes[i], "Second round should overwrite");
-            assertEq(inbox.getProposalHash(i), secondRoundHashes[i], "First round should be overwritten");
+            assertEq(
+                inbox.getProposalHash(proposalId),
+                secondRoundHashes[i],
+                "Second round should overwrite"
+            );
+            assertEq(
+                inbox.getProposalHash(i), secondRoundHashes[i], "First round should be overwritten"
+            );
         }
     }
 
@@ -106,17 +109,18 @@ contract InboxRingBuffer is InboxTest {
 
         for (uint256 i = 0; i < bufferSizes.length; i++) {
             inbox.setTestConfig(createTestConfigWithRingBufferSize(bufferSizes[i]));
-            
+
             uint256 capacity = inbox.getCapacity();
             uint256 expectedCapacity = bufferSizes[i] - 1;
-            
+
             assertEq(
-                capacity, 
-                expectedCapacity, 
-                string(abi.encodePacked(
-                    "Capacity should be bufferSize-1 for size ", 
-                    vm.toString(bufferSizes[i])
-                ))
+                capacity,
+                expectedCapacity,
+                string(
+                    abi.encodePacked(
+                        "Capacity should be bufferSize-1 for size ", vm.toString(bufferSizes[i])
+                    )
+                )
             );
         }
     }
@@ -125,11 +129,11 @@ contract InboxRingBuffer is InboxTest {
     /// @dev Validates capacity enforcement for data safety
     function test_ring_buffer_protect_unfinalized() public {
         setupSmallRingBuffer(); // Ring buffer size 3, capacity = 2
-        
+
         // Fill capacity with unfinalized proposals (proposals 1 and 2)
         submitProposal(1, Alice);
         submitProposal(2, Alice);
-        
+
         // Attempt to add proposal 3 should exceed capacity
         // The actual error might be different than expected - accept any revert
         expectAnyRevert("Should exceed unfinalized proposal capacity");

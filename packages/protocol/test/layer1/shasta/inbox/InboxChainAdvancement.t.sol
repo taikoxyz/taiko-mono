@@ -69,7 +69,7 @@ contract InboxChainAdvancement is InboxTest {
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
             IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
-            
+
             bytes memory proposalData;
             if (i == 1) {
                 proposalData = InboxTestLib.encodeProposalDataWithGenesis(
@@ -88,12 +88,16 @@ contract InboxChainAdvancement is InboxTest {
 
             // Store proposal for proving later
             proposals[i - 1] = InboxTestLib.createProposal(i, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
-            proposals[i - 1].coreStateHash = keccak256(abi.encode(IInbox.CoreState({
-                nextProposalId: i + 1,
-                lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: genesisHash,
-                bondInstructionsHash: bytes32(0)
-            })));
+            proposals[i - 1].coreStateHash = keccak256(
+                abi.encode(
+                    IInbox.CoreState({
+                        nextProposalId: i + 1,
+                        lastFinalizedProposalId: 0,
+                        lastFinalizedClaimHash: genesisHash,
+                        bondInstructionsHash: bytes32(0)
+                    })
+                )
+            );
             lastProposal = proposals[i - 1];
         }
 
@@ -101,7 +105,7 @@ contract InboxChainAdvancement is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             // Prove the proposal - this stores a claim record
             claims[i] = proveProposal(proposals[i], Bob, currentParentHash);
-            
+
             // Store the claim record that was created during proving
             storedClaimRecords[i] = IInbox.ClaimRecord({
                 proposalId: i + 1,
@@ -119,7 +123,7 @@ contract InboxChainAdvancement is InboxTest {
         for (uint48 i = 1; i <= numProposals; i++) {
             bytes32 storedHash = inbox.getProposalHash(i);
             assertTrue(storedHash != bytes32(0), "Proposal should be stored");
-            
+
             // Verify claim record exists for the proposal
             assertClaimRecordStored(i, claims[i - 1].parentClaimHash);
         }
@@ -127,11 +131,7 @@ contract InboxChainAdvancement is InboxTest {
         // Verify chain progression - each claim should have correct parent
         for (uint48 i = 1; i < numProposals; i++) {
             bytes32 expectedParent = InboxTestLib.hashClaim(claims[i - 1]);
-            assertEq(
-                claims[i].parentClaimHash, 
-                expectedParent, 
-                "Chain should progress correctly"
-            );
+            assertEq(claims[i].parentClaimHash, expectedParent, "Chain should progress correctly");
         }
 
         // Verify all proposals are stored
@@ -178,7 +178,7 @@ contract InboxChainAdvancement is InboxTest {
             // Create proposal data
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
             IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
-            
+
             bytes memory proposalData;
             if (i == 1) {
                 proposalData = InboxTestLib.encodeProposalDataWithGenesis(
@@ -211,12 +211,16 @@ contract InboxChainAdvancement is InboxTest {
                     offset: 0,
                     timestamp: uint48(block.timestamp)
                 }),
-                coreStateHash: keccak256(abi.encode(IInbox.CoreState({
-                    nextProposalId: i + 1,
-                    lastFinalizedProposalId: 0,
-                    lastFinalizedClaimHash: genesisHash,
-                    bondInstructionsHash: bytes32(0)
-                })))
+                coreStateHash: keccak256(
+                    abi.encode(
+                        IInbox.CoreState({
+                            nextProposalId: i + 1,
+                            lastFinalizedProposalId: 0,
+                            lastFinalizedClaimHash: genesisHash,
+                            bondInstructionsHash: bytes32(0)
+                        })
+                    )
+                )
             });
             lastProposal = proposals[i - 1];
         }
@@ -250,8 +254,8 @@ contract InboxChainAdvancement is InboxTest {
             currentParentHash = keccak256(abi.encode(claims[i]));
         }
 
-
-        // Step 3: Finalize all proposals in one transaction - create claim records like working test
+        // Step 3: Finalize all proposals in one transaction - create claim records like working
+        // test
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
             claimRecords[i] = IInbox.ClaimRecord({
@@ -281,9 +285,9 @@ contract InboxChainAdvancement is InboxTest {
             bytes(""),
             InboxTestLib.encodeProposalDataForSubsequent(
                 coreState,
-                proposals[numProposals - 1],  // Last proposal for validation
+                proposals[numProposals - 1], // Last proposal for validation
                 InboxTestLib.createBlobReference(uint8(numProposals + 1)),
-                claimRecords  // Use the claim records created after proving
+                claimRecords // Use the claim records created after proving
             )
         );
     }
@@ -318,7 +322,7 @@ contract InboxChainAdvancement is InboxTest {
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
             IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
-            
+
             bytes memory proposalData;
             if (i == 1) {
                 proposalData = InboxTestLib.encodeProposalDataWithGenesis(
@@ -334,15 +338,19 @@ contract InboxChainAdvancement is InboxTest {
             setupBlobHashes();
             inbox.propose(bytes(""), proposalData);
             vm.stopPrank();
-            
+
             // Store proposal for next iteration and for proving
             proposals[i - 1] = InboxTestLib.createProposal(i, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
-            proposals[i - 1].coreStateHash = keccak256(abi.encode(IInbox.CoreState({
-                nextProposalId: i + 1,
-                lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: parentHash,
-                bondInstructionsHash: bytes32(0)
-            })));
+            proposals[i - 1].coreStateHash = keccak256(
+                abi.encode(
+                    IInbox.CoreState({
+                        nextProposalId: i + 1,
+                        lastFinalizedProposalId: 0,
+                        lastFinalizedClaimHash: parentHash,
+                        bondInstructionsHash: bytes32(0)
+                    })
+                )
+            );
             lastProposal = proposals[i - 1];
         }
 
@@ -565,7 +573,7 @@ contract InboxChainAdvancement is InboxTest {
             // Create proposal data
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
             IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
-            
+
             bytes memory proposalData;
             if (i == 1) {
                 proposalData = InboxTestLib.encodeProposalDataWithGenesis(
@@ -584,12 +592,16 @@ contract InboxChainAdvancement is InboxTest {
 
             // Store proposal for proving later
             proposals[i - 1] = InboxTestLib.createProposal(i, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
-            proposals[i - 1].coreStateHash = keccak256(abi.encode(IInbox.CoreState({
-                nextProposalId: i + 1,
-                lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: genesisHash,
-                bondInstructionsHash: bytes32(0)
-            })));
+            proposals[i - 1].coreStateHash = keccak256(
+                abi.encode(
+                    IInbox.CoreState({
+                        nextProposalId: i + 1,
+                        lastFinalizedProposalId: 0,
+                        lastFinalizedClaimHash: genesisHash,
+                        bondInstructionsHash: bytes32(0)
+                    })
+                )
+            );
             lastProposal = proposals[i - 1];
         }
 
@@ -597,7 +609,7 @@ contract InboxChainAdvancement is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             // Prove the proposal - this stores a claim record
             claims[i] = proveProposal(proposals[i], Bob, currentParentHash);
-            
+
             // Store the claim record that was created during proving
             storedClaimRecords[i] = IInbox.ClaimRecord({
                 proposalId: i + 1,
@@ -702,7 +714,7 @@ contract InboxChainAdvancement is InboxTest {
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
             IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
-            
+
             bytes memory proposalData;
             if (i == 1) {
                 proposalData = InboxTestLib.encodeProposalDataWithGenesis(
@@ -734,14 +746,18 @@ contract InboxChainAdvancement is InboxTest {
                     offset: 0,
                     timestamp: uint48(block.timestamp)
                 }),
-                coreStateHash: keccak256(abi.encode(IInbox.CoreState({
-                    nextProposalId: i + 1,
-                    lastFinalizedProposalId: 0,
-                    lastFinalizedClaimHash: parentHash,
-                    bondInstructionsHash: bytes32(0)
-                })))
+                coreStateHash: keccak256(
+                    abi.encode(
+                        IInbox.CoreState({
+                            nextProposalId: i + 1,
+                            lastFinalizedProposalId: 0,
+                            lastFinalizedClaimHash: parentHash,
+                            bondInstructionsHash: bytes32(0)
+                        })
+                    )
+                )
             });
-            
+
             lastProposal = proposals[i - 1];
         }
 
@@ -905,7 +921,7 @@ contract InboxChainAdvancement is InboxTest {
         });
         // Core state will be validated by the contract during propose()
 
-        // NOTE: Removing expectSyncedBlockSave as aggregated claim records 
+        // NOTE: Removing expectSyncedBlockSave as aggregated claim records
         // may handle sync block saves differently than individual records
 
         // Create next proposal with finalization
@@ -952,7 +968,7 @@ contract InboxChainAdvancement is InboxTest {
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
             IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
-            
+
             bytes memory proposalData;
             if (i == 1) {
                 proposalData = InboxTestLib.encodeProposalDataWithGenesis(
@@ -984,14 +1000,18 @@ contract InboxChainAdvancement is InboxTest {
                     offset: 0,
                     timestamp: uint48(block.timestamp)
                 }),
-                coreStateHash: keccak256(abi.encode(IInbox.CoreState({
-                    nextProposalId: i + 1,
-                    lastFinalizedProposalId: 0,
-                    lastFinalizedClaimHash: parentHash,
-                    bondInstructionsHash: bytes32(0)
-                })))
+                coreStateHash: keccak256(
+                    abi.encode(
+                        IInbox.CoreState({
+                            nextProposalId: i + 1,
+                            lastFinalizedProposalId: 0,
+                            lastFinalizedClaimHash: parentHash,
+                            bondInstructionsHash: bytes32(0)
+                        })
+                    )
+                )
             });
-            
+
             lastProposal = proposals[i - 1];
         }
 

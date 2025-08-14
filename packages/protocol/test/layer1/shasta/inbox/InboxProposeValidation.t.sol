@@ -151,7 +151,7 @@ contract InboxProposeValidation is InboxTest {
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(1);
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
-        
+
         // Use proper encoding - but with wrong core state
         bytes memory data = InboxTestLib.encodeProposalDataWithGenesis(
             uint64(0), wrongCoreState, blobRef, claimRecords
@@ -254,11 +254,10 @@ contract InboxProposeValidation is InboxTest {
         // Arrange: Create regular proposal data (will trigger forced inclusion processing)
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(2);
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
-        
+
         // Use proper encoding with proposals array
-        bytes memory data = InboxTestLib.encodeProposalDataWithGenesis(
-            uint64(0), coreState, blobRef, claimRecords
-        );
+        bytes memory data =
+            InboxTestLib.encodeProposalDataWithGenesis(uint64(0), coreState, blobRef, claimRecords);
 
         // Expect: Two Proposed events - one for forced inclusion, one for regular proposal
         vm.expectEmit(false, false, false, false);
@@ -316,15 +315,15 @@ contract InboxProposeValidation is InboxTest {
         // When ring buffer wraps around to slot 0 (which has genesis), need 2 proposals
         // Create the last proposal (id=2) that was just stored
         IInbox.Proposal memory lastProposal = _recreateStoredProposal(2);
-        
+
         // Get the genesis proposal that's in slot 0
         IInbox.Proposal memory genesisProposal = _recreateGenesisProposal();
-        
+
         // Include both proposals for ring buffer wraparound validation
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](2);
         proposals[0] = lastProposal;
         proposals[1] = genesisProposal;
-        
+
         bytes memory data3 = InboxTestLib.encodeProposalDataWithProposals(
             uint64(0),
             coreState3,
@@ -348,7 +347,7 @@ contract InboxProposeValidation is InboxTest {
     function test_propose_invalid_blob_reference() public {
         // Setup: Create baseline state for blob reference validation
         setupBlobHashes();
-        
+
         IInbox.Claim memory genesisClaim;
         genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisClaim));
@@ -372,7 +371,7 @@ contract InboxProposeValidation is InboxTest {
         });
 
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
-        
+
         // Use proper encoding with proposals array
         bytes memory data = InboxTestLib.encodeProposalDataWithGenesis(
             uint64(0), coreState, invalidBlobRef, claimRecords
@@ -393,7 +392,7 @@ contract InboxProposeValidation is InboxTest {
     function test_propose_blob_not_found() public {
         // Setup: Create baseline state for blob availability testing
         setupBlobHashes(); // Setup valid blob hashes first
-        
+
         IInbox.Claim memory genesisClaim;
         genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisClaim));
@@ -417,11 +416,10 @@ contract InboxProposeValidation is InboxTest {
         });
 
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
-        
+
         // Use the proper encoding function that includes the proposals array
-        bytes memory data = InboxTestLib.encodeProposalDataWithGenesis(
-            uint64(0), coreState, blobRef, claimRecords
-        );
+        bytes memory data =
+            InboxTestLib.encodeProposalDataWithGenesis(uint64(0), coreState, blobRef, claimRecords);
 
         // Act & Assert: Missing blob should be rejected for data availability
         vm.expectRevert(LibBlobs.BlobNotFound.selector);
