@@ -215,16 +215,12 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _data The encoded data
     /// @return deadline_ The decoded deadline timestamp. If non-zero, the transaction will revert if included after this time,
     ///                   protecting proposers from their transactions landing on-chain later than intended
-    /// @return coreState_ The decoded CoreState representing the current state before the call to `propose`.
-    ///                    Must match the coreStateHash stored in the previous proposal (proposals_[0])
-    /// @return proposals_ The decoded array of existing Proposals. proposals_[0] is the last stored proposal,
-    ///                    used to validate the proposer has the correct chain state.
-    ///                    This array may hold one or two elements:
-    ///                    - If the next slot in the ring buffer is empty, only one proposal is expected.
-    ///                    - If the next slot is occupied, two proposals are expected:
-    ///                      - proposals_[0] is the last stored proposal.
-    ///                      - proposals_[1] is the proposal to prove.
-    ///                      - proposals_[1].id must be smaller than proposals_[0].id.
+    /// @return coreState_ The decoded CoreState representing the current state before this new proposal.
+    ///                    Its hash must match the coreStateHash stored in proposals_[0]
+    /// @return proposals_ The decoded array of existing proposals for validation. Always contains 1 or 2 elements:
+    ///                    - proposals_[0]: The last proposal on-chain (must match stored hash)
+    ///                    - proposals_[1]: Only present for ring buffer wraparound - when the next slot
+    ///                                     contains an older proposal (with smaller ID) that must be validated
     /// @return blobReference_ The decoded BlobReference
     /// @return claimRecords_ The decoded array of ClaimRecords
     function decodeProposeData(bytes calldata _data)
@@ -484,7 +480,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Validates the basic inputs for propose function
     /// @param _deadline The deadline timestamp for transaction inclusion (0 = no deadline).
     /// @param _coreState The current core state before this proposal, which must match the previous proposal's stored hash.
-    /// @param _proposals The proposals array where proposals[0] is the last existing proposal on-chain.
+    /// @param _proposals Array of existing proposals for validation (1-2 elements).
+    ///                   proposals[0] is the last proposal, proposals[1] handles ring buffer wraparound.
     function _validateProposeInputs(
         uint64 _deadline,
         CoreState memory _coreState,
@@ -568,9 +565,9 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Verifies the proposal is the last one proposed
+    /// @dev Verifies that proposals[0] is indeed the last proposal on-chain
     /// @param _config The configuration parameters.
-    /// @param _proposals The proposals array to verify.
+    /// @param _proposals The proposals array to verify (1-2 elements).
     function _verifyLastProposal(
         Config memory _config,
         Proposal[] memory _proposals
