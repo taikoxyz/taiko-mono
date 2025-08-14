@@ -27,8 +27,8 @@ contract TestTaikoAnchor is Layer2Test {
         anchor = deployAnchor(
             address(
                 new TaikoAnchor_NoBaseFeeCheck(
-                    uint48(livenessBond),
-                    uint48(provabilityBond),
+                    uint48(livenessBond / 1e9),
+                    uint48(provabilityBond / 1e9),
                     address(signalService),
                     0,
                     0,
