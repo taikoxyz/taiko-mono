@@ -32,6 +32,7 @@ jobs:
             docs-site
             branding
             bridge-ui
+            ejector
             eventindexer
             fork-diff
             geth-rpc-gateway
