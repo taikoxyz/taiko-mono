@@ -133,38 +133,39 @@ library LibProposalCoreStateCodec {
         pure
         returns (IInbox.Proposal memory proposal_, IInbox.CoreState memory coreState_)
     {
-        if (_data.length < 176) revert INVALID_DATA_LENGTH();
+        if (_data.length < 158) revert INVALID_DATA_LENGTH();
 
         assembly {
             let ptr := add(_data, 0x20)
 
-            // Read first word and extract fields
-            let word1 := mload(ptr)
-            mstore(proposal_, shr(192, word1)) // id (top 8 bytes -> uint48)
-            mstore(add(proposal_, 0x20), and(shr(32, word1), 0xffffffffffffffffffffffffffffffffffffffff)) // proposer (20 bytes)
-            
-            // Read second word
-            let word2 := mload(add(ptr, 32))
-            // Combine timestamp from word1 (last 4 bytes) and word2 (first 4 bytes)
-            mstore(add(proposal_, 0x40), or(shl(32, and(word1, 0xffffffff)), shr(224, word2))) // originTimestamp
-            mstore(add(proposal_, 0x60), and(shr(160, word2), 0xffffffffffff)) // originBlockNumber
-            mstore(add(proposal_, 0x80), and(shr(152, word2), 0xff)) // isForcedInclusion
-            mstore(add(proposal_, 0xa0), and(shr(144, word2), 0xff)) // basefeeSharingPctg
+            // Read first word containing id and proposer
+            let word := mload(ptr)
+            mstore(proposal_, shr(208, word)) // id (6 bytes)
+            mstore(add(proposal_, 0x20), and(shr(48, word), 0xffffffffffffffffffffffffffffffffffffffff)) // proposer (20 bytes)
+
+            // Read timestamps and block number
+            word := mload(add(ptr, 26))
+            mstore(add(proposal_, 0x40), shr(208, word)) // originTimestamp (6 bytes)
+            mstore(add(proposal_, 0x60), and(shr(160, word), 0xffffffffffff)) // originBlockNumber (6 bytes)
+
+            // Read booleans
+            mstore(add(proposal_, 0x80), byte(0, mload(add(ptr, 38)))) // isForcedInclusion
+            mstore(add(proposal_, 0xa0), byte(0, mload(add(ptr, 39)))) // basefeeSharingPctg
 
             // Decode BlobSlice
             let blobSlice := mload(0x40)
             mstore(0x40, add(blobSlice, 0x60))
             mstore(add(proposal_, 0xc0), blobSlice)
 
-            // Read array length from word2
-            let arrayLen := and(shr(112, word2), 0xffffffff)
+            // Read array length (3 bytes)
+            let arrayLen := shr(232, mload(add(ptr, 40)))
             let hashArray := mload(0x40)
             mstore(hashArray, arrayLen)
             mstore(0x40, add(hashArray, mul(add(arrayLen, 1), 0x20)))
             mstore(blobSlice, hashArray)
 
             // Copy blob hashes efficiently
-            let src := add(ptr, 64)
+            let src := add(ptr, 43)
             let dst := add(hashArray, 0x20)
             for { let end := add(src, mul(arrayLen, 32)) } lt(src, end) { } {
                 mstore(dst, mload(src))
@@ -172,34 +173,24 @@ library LibProposalCoreStateCodec {
                 dst := add(dst, 0x20)
             }
 
-            // Continue decoding from after blob hashes
-            let nextPtr := add(add(ptr, 64), mul(arrayLen, 32))
-            let word3 := mload(nextPtr)
-            mstore(add(blobSlice, 0x20), shr(224, word3)) // offset (top 4 bytes -> uint24)
-            mstore(add(blobSlice, 0x40), and(shr(160, word3), 0xffffffffffff)) // timestamp (next 8 bytes -> uint48)
-            
-            // Start extracting coreStateHash (first 12 bytes from word3, rest from word4)
-            let word4 := mload(add(nextPtr, 32))
-            mstore(add(proposal_, 0xe0), or(shl(160, and(word3, 0xffffffffffffffffffffffff)), shr(96, word4))) // coreStateHash
+            // Read remaining BlobSlice fields
+            let nextPtr := add(add(ptr, 43), mul(arrayLen, 32))
+            word := mload(nextPtr)
+            mstore(add(blobSlice, 0x20), shr(232, word)) // offset (3 bytes)
+            mstore(add(blobSlice, 0x40), and(shr(184, word), 0xffffffffffff)) // timestamp (6 bytes)
+
+            // Read coreStateHash
+            mstore(add(proposal_, 0xe0), mload(add(nextPtr, 9)))
 
             // Decode CoreState
-            mstore(coreState_, and(shr(32, word4), 0xffffffffffff)) // nextProposalId
+            let finalPtr := add(nextPtr, 41)
+            word := mload(finalPtr)
+            mstore(coreState_, shr(208, word)) // nextProposalId (6 bytes)
+            mstore(add(coreState_, 0x20), and(shr(160, word), 0xffffffffffff)) // lastFinalizedProposalId (6 bytes)
             
-            // Get lastFinalizedProposalId from word4 (last 4 bytes) and word5 (first 4 bytes)
-            let word5 := mload(add(nextPtr, 64))
-            mstore(add(coreState_, 0x20), or(shl(32, and(word4, 0xffffffff)), shr(224, word5))) // lastFinalizedProposalId
-            
-            // Get lastFinalizedClaimHash from word5 (28 bytes) and word6 (4 bytes)
-            let word6 := mload(add(nextPtr, 96))
-            mstore(add(coreState_, 0x40), or(shl(32, and(word5, 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffff)), shr(224, word6))) // lastFinalizedClaimHash
-            
-            // Get bondInstructionsHash from word6 (28 bytes) and last 4 individual bytes
-            let hash := shl(32, and(word6, 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffff))
-            hash := or(hash, shl(24, byte(0, mload(add(nextPtr, 128)))))
-            hash := or(hash, shl(16, byte(0, mload(add(nextPtr, 129)))))
-            hash := or(hash, shl(8, byte(0, mload(add(nextPtr, 130)))))
-            hash := or(hash, byte(0, mload(add(nextPtr, 131))))
-            mstore(add(coreState_, 0x60), hash) // bondInstructionsHash
+            // Read hashes
+            mstore(add(coreState_, 0x40), mload(add(finalPtr, 12))) // lastFinalizedClaimHash
+            mstore(add(coreState_, 0x60), mload(add(finalPtr, 44))) // bondInstructionsHash
         }
 
         return (proposal_, coreState_);
