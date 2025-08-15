@@ -273,6 +273,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	if progress.IsSyncing() {
+		// If the L2 execution engine is syncing, we try to put the envelope into the cache.
 		s.tryPutEnvelopeIntoCache(msg, from)
 		return nil
 	}
@@ -726,6 +727,11 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		break
 	}
 
+	// If there is no payloads to import, return nil.
+	if len(payloadsToImport) == 0 {
+		return nil
+	}
+
 	log.Info(
 		"Found all missing ancient envelopes in the cache, start importing",
 		"count", len(payloadsToImport),
@@ -1031,7 +1037,8 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		parentInFork.Hash() != parentInCanonical.Hash()
 
 	if isOrphan {
-		log.Info("Block is building on an orphaned block",
+		log.Info(
+			"Block is building on an orphaned block",
 			"peer", from,
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -1044,7 +1051,6 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		// is not the same as the parentInCanonical. we are re-orging out the parent block here.
 		// this means we need to update the L1 Origin of the parent block, as the most recent one received
 		// will be cached, and it will fail a "isPreconfirmed" check later on.
-
 		rawTxsBytes, err := rlp.EncodeToBytes(parentInFork.Transactions())
 		if err != nil {
 			return false, fmt.Errorf("failed to encode transactions to bytes: %w", err)
@@ -1068,7 +1074,7 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		if msg.Signature != nil {
 			sig = *msg.Signature
 		}
-		// update L1 Origin if the parent block is in the fork chain, we are building
+		// Update L1 Origin if the parent block is in the fork chain, we are building
 		// on an orphaned block.
 		_, err = s.rpc.L2Engine.UpdateL1Origin(ctx, &rawdb.L1Origin{
 			BuildPayloadArgsID: payloadID,
@@ -1081,7 +1087,8 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 			return false, fmt.Errorf("failed to update L1 origin: %w", err)
 		}
 
-		log.Info("Updated L1 Origin for the parent block in the fork chain",
+		log.Info(
+			"Updated L1 Origin for the parent block in the fork chain",
 			"peer", from,
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
@@ -1089,35 +1096,23 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		)
 	}
 
-	if parentInFork == nil && (parentInCanonical == nil || parentInCanonical.Hash() != msg.ExecutionPayload.ParentHash) {
+	// Try to find all the missing ancients from the cache and import them.
+	if err := s.ImportMissingAncientsFromCache(ctx, &preconf.Envelope{
+		Payload:           msg.ExecutionPayload,
+		Signature:         msg.Signature,
+		IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
+	}, headL1Origin); err != nil {
 		log.Info(
-			"Parent block not in L2 canonical / fork chain",
+			"Unable to find all the missing ancients from the cache, cache the current payload",
 			"peer", from,
 			"blockID", uint64(msg.ExecutionPayload.BlockNumber),
 			"hash", msg.ExecutionPayload.BlockHash.Hex(),
-			"parentHash", msg.ExecutionPayload.ParentHash,
+			"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
+			"reason", err,
 		)
 
-		// Try to find all the missing ancients from the cache and import them.
-		if err := s.ImportMissingAncientsFromCache(ctx, &preconf.Envelope{
-			Payload:           msg.ExecutionPayload,
-			Signature:         msg.Signature,
-			IsForcedInclusion: msg.IsForcedInclusion != nil && *msg.IsForcedInclusion,
-		}, headL1Origin); err != nil {
-			log.Info(
-				"Unable to find all the missing ancients from the cache, cache the current payload",
-				"peer", from,
-				"blockID", uint64(msg.ExecutionPayload.BlockNumber),
-				"hash", msg.ExecutionPayload.BlockHash.Hex(),
-				"parentHash", msg.ExecutionPayload.ParentHash.Hex(),
-				"reason", err,
-			)
-
-			if !s.envelopesCache.has(uint64(msg.ExecutionPayload.BlockNumber), msg.ExecutionPayload.BlockHash) {
-				s.tryPutEnvelopeIntoCache(msg, from)
-			}
-			return true, nil
-		}
+		s.tryPutEnvelopeIntoCache(msg, from)
+		return true, nil
 	}
 
 	// Check if the block already exists in the canonical chain, if it does, we ignore the message.
@@ -1163,6 +1158,9 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	); err != nil {
 		return false, fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
+
+	// If the block is successfully inserted, we try to put the envelope into the cache.
+	s.tryPutEnvelopeIntoCache(msg, from)
 
 	// If the block number is greater than the highest unsafe L2 payload block ID,
 	// update the highest unsafe L2 payload block ID.
