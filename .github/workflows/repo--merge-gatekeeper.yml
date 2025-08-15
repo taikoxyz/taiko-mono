@@ -19,7 +19,7 @@ jobs:
       statuses: read
     steps:
       - name: Run Merge Gatekeeper
-        uses: upsidr/merge-gatekeeper@v1
+        uses: upsidr/merge-gatekeeper@v2
         with:
           timeout: 1800 
           interval: 60
