@@ -233,9 +233,9 @@
 
 - ens: `inbox_based.taiko.eth`
 - proxy: `0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a`
-- impl: `0xde813DD3b89702E5Eb186FeE6FBC5dCf02aE6319`
+- impl: `0xb4530aBee1Dd239C02266e73ca83Fe6617e77F2F`
 - oldFork: `0x904Da4C5bD76f932fE09fF32Ae5D7E3d2A5D2264` at commit `c80373d`
-- newFork: `0x80d888ce11738196CfCf27E3b18F65bD4a331CEC` at commit `3328024`
+- newFork: `0x257df77Ec059ca5CF9B7eD523f85B731A2eCdb82` at commit `c2a941e`
 - owner: `admin.taiko.eth`
 - logs:
   - deployed on May 1, 2024 @commit`56dddf2b6`
@@ -263,6 +263,7 @@
   - Upgrade to `0x5110634593Ccb8072d161A7d260A409A7E74D7Ca` @commit`9a89166` @tx`0x6368890b9aa2f87c6a6b727efdd8af0ea357a11460b546d8a7f3e19e38a34e41`
   - Upgrade to `0x4e030b19135869F6fd926614754B7F9c184E2B83` @commit`cf55838` @tx`0x78f766ae83ce94ef2293c9c7d81ae514e8fa0a79fbce1530c3c68d7624708795`
   - Upgrade to `0xde813DD3b89702E5Eb186FeE6FBC5dCf02aE6319` @commit`3328024` @tx`0xffedb70a513e71486c3a47079508d3ba87ae5362e7efb3300febac1be69276bc`
+  - Upgrade to `0xb4530aBee1Dd239C02266e73ca83Fe6617e77F2F` @commit`c2a941e` @tx`0x9e26e018d5dc07349ea34f907728a43cd47a8a62058467c30cf21df975e59090`
 
 #### tier_router
 
@@ -465,6 +466,8 @@
   - sgx_reth_verifier: `0x9e322fC59b8f4A29e6b25c3a166ac1892AA30136`
   - risc0_reth_verifier: `0x73Ee496dA20e5C65340c040B0D8c3C891C1f74AE`
   - sp1_reth_verifier: `0xbee1040D0Aab17AE19454384904525aE4A3602B9`
+  - preconf_whitelist: `0xFD019460881e6EeC632258222393d5821029b2ac`
+  - preconf_router: `0xD5AA0e20e8A6e9b04F080Cf8797410fafAa9688a`
 - logs:
   - deployed on May 15, 2025 @commit`cf55838b2` @tx `0x479a582b4bb2a262e395c94e009c996781cb5ef5c55478be6dd2f322b12ba156`
 
@@ -479,10 +482,41 @@
 ### taiko_wrapper
 
 - proxy : `0x9F9D2fC7abe74C79f86F0D1212107692430eef72`
-- impl : `0xAdBa78120E85Add0dBD2050dBA0548CEDA81A31b`
+- impl : `0xa2D216dD9c84cb2e738240aac0956BE98293be61`
 - owner : `admin.taiko.eth`
 - logs:
   - deployed on May 15, 2025 @commit `cf55838` @tx `0xe0c52c898ce19785fb139e822a9b5a088b374692820bc402eb31e7a6086664e7`
+  - upgraded to `0xa2D216dD9c84cb2e738240aac0956BE98293be61` @commit`31094a6` @tx`0x9e26e018d5dc07349ea34f907728a43cd47a8a62058467c30cf21df975e59090`
+
+### preconf_whitelist
+
+- proxy : `0xFD019460881e6EeC632258222393d5821029b2ac`
+- impl : `0x44eC275996BD69361EF062ed488882a58256CF11`
+- owner : `admin.taiko.eth`
+- enabled operators:
+  - taiko proposer `0x5F62d006C10C009ff50C878Cd6157aC861C99990`(sequencer `0x5F62d006C10C009ff50C878Cd6157aC861C99990`)
+  - gattaca proposer `0xe2dA8aC2E550cd141198a117520D4EDc8692AB74`(sequencer `0xe2dA8aC2E550cd141198a117520D4EDc8692AB74`)
+  - nethermind proposer `0xCbeB5d484b54498d3893A0c3Eb790331962e9e9d`(sequencer `0x2ABD9afD6D41d0c37b8d55df11BFc73B53c3ac61`)
+- ejectors:
+  - `0x45D4403351Bc34283CE6450D91c099f40D06dA4e`
+  - `0x0F026a3efE44E0Fe34B87375EFe69b16c05D0438`
+- logs:
+  - deployed on Jul 23, 2025 @commit `c2a941e` @tx `0x797256dc575734f2af55c2c2138aaf72aaed91e0909b6cd03d637b54b0c99bba`
+  - upgraded to `0x44eC275996BD69361EF062ed488882a58256CF11` @commit`31094a6` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
+  - added proposer `0x5F62d006C10C009ff50C878Cd6157aC861C99990` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
+  - added proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
+  - added proposer `0xe2dA8aC2E550cd141198a117520D4EDc8692AB74` @tx`0xb714b8a82f04f73f9c0581fe59fd1887abf3e3cd51e71ff5d5ba4bd13ac77e70`
+  - added proposer `0xCbeB5d484b54498d3893A0c3Eb790331962e9e9d` @tx`0x8e5968f459f817b986153d607fd44c279b613447557d51be390331135bccfafd`
+  - removed proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7` @tx`0xa11e6650c33072f4229773e6cbaac404ad66595485c3aed747a47de00d5dfc28`
+
+### preconf_router
+
+- proxy : `0xD5AA0e20e8A6e9b04F080Cf8797410fafAa9688a`
+- impl : `0xf571E2626E2CE68127852123A2cC6AA522C586A0`
+- owner : `admin.taiko.eth`
+- logs:
+  - deployed on Jul 23, 2025 @commit `c2a941e` @tx `0x5a309fa38d79de894c96e5082356b0e52e9653726b1400b1d8d72e181b50d5d8`
+  - upgraded to `0xf571E2626E2CE68127852123A2cC6AA522C586A0` @commit`31094a6` @tx`0xbfd772cb4571eb6275f23d4fd8c7eb1502462b55821ee59dae0d15ab3325fc22`
 
 ### proof_verifier
 
