@@ -18,7 +18,7 @@ abstract contract InboxOptimized is Inbox {
     // ---------------------------------------------------------------
 
     bytes32 private constant _DEFAULT_SLOT_HASH = bytes32(uint256(1));
-    uint private constant _MAX_BOND_INSTRUCTIONS_LENGTH = 127;
+    uint256 private constant _MAX_BOND_INSTRUCTIONS_LENGTH = 127;
 
     // ---------------------------------------------------------------
     // Constructor

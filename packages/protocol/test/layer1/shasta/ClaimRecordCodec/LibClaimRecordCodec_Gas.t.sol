@@ -13,12 +13,17 @@ import "forge-std/src/console2.sol";
 contract LibClaimRecordCodec_Gas is CommonTest {
     event GasReport(string operation, uint256 baseline, uint256 optimized, int256 difference);
 
-    function encodeBaseline(IInbox.ClaimRecord memory _claimRecord) private pure returns (bytes memory) {
+    function encodeBaseline(IInbox.ClaimRecord memory _claimRecord)
+        private
+        pure
+        returns (bytes memory)
+    {
         return abi.encode(_claimRecord);
     }
 
     function decodeBaseline(bytes memory _data)
-        private pure
+        private
+        pure
         returns (IInbox.ClaimRecord memory claimRecord_)
     {
         claimRecord_ = abi.decode(_data, (IInbox.ClaimRecord));
@@ -100,8 +105,8 @@ contract LibClaimRecordCodec_Gas is CommonTest {
                 "      | ",
                 optimizedEncodeGas > baselineEncodeGas ? "+" : "-",
                 vm.toString(
-                    optimizedEncodeGas > baselineEncodeGas 
-                        ? optimizedEncodeGas - baselineEncodeGas 
+                    optimizedEncodeGas > baselineEncodeGas
+                        ? optimizedEncodeGas - baselineEncodeGas
                         : baselineEncodeGas - optimizedEncodeGas
                 ),
                 "      |"
@@ -116,8 +121,8 @@ contract LibClaimRecordCodec_Gas is CommonTest {
                 "      | ",
                 optimizedDecodeGas > baselineDecodeGas ? "+" : "-",
                 vm.toString(
-                    optimizedDecodeGas > baselineDecodeGas 
-                        ? optimizedDecodeGas - baselineDecodeGas 
+                    optimizedDecodeGas > baselineDecodeGas
+                        ? optimizedDecodeGas - baselineDecodeGas
                         : baselineDecodeGas - optimizedDecodeGas
                 ),
                 "      |"
@@ -128,10 +133,29 @@ contract LibClaimRecordCodec_Gas is CommonTest {
         console2.log("Data size comparison:");
         console2.log(string.concat("Baseline: ", vm.toString(baselineEncoded.length), " bytes"));
         console2.log(string.concat("Optimized: ", vm.toString(optimizedEncoded.length), " bytes"));
-        console2.log(string.concat("Size reduction: ", vm.toString((baselineEncoded.length - optimizedEncoded.length) * 100 / baselineEncoded.length), "%"));
+        console2.log(
+            string.concat(
+                "Size reduction: ",
+                vm.toString(
+                    (baselineEncoded.length - optimizedEncoded.length) * 100
+                        / baselineEncoded.length
+                ),
+                "%"
+            )
+        );
 
-        emit GasReport("encode_standard", baselineEncodeGas, optimizedEncodeGas, int256(optimizedEncodeGas) - int256(baselineEncodeGas));
-        emit GasReport("decode_standard", baselineDecodeGas, optimizedDecodeGas, int256(optimizedDecodeGas) - int256(baselineDecodeGas));
+        emit GasReport(
+            "encode_standard",
+            baselineEncodeGas,
+            optimizedEncodeGas,
+            int256(optimizedEncodeGas) - int256(baselineEncodeGas)
+        );
+        emit GasReport(
+            "decode_standard",
+            baselineDecodeGas,
+            optimizedDecodeGas,
+            int256(optimizedDecodeGas) - int256(baselineDecodeGas)
+        );
     }
 
     function test_gasComparison_minimal() public {
@@ -190,8 +214,8 @@ contract LibClaimRecordCodec_Gas is CommonTest {
                 "      | ",
                 optimizedEncodeGas > baselineEncodeGas ? "+" : "-",
                 vm.toString(
-                    optimizedEncodeGas > baselineEncodeGas 
-                        ? optimizedEncodeGas - baselineEncodeGas 
+                    optimizedEncodeGas > baselineEncodeGas
+                        ? optimizedEncodeGas - baselineEncodeGas
                         : baselineEncodeGas - optimizedEncodeGas
                 ),
                 "      |"
@@ -206,8 +230,8 @@ contract LibClaimRecordCodec_Gas is CommonTest {
                 "      | ",
                 optimizedDecodeGas > baselineDecodeGas ? "+" : "-",
                 vm.toString(
-                    optimizedDecodeGas > baselineDecodeGas 
-                        ? optimizedDecodeGas - baselineDecodeGas 
+                    optimizedDecodeGas > baselineDecodeGas
+                        ? optimizedDecodeGas - baselineDecodeGas
                         : baselineDecodeGas - optimizedDecodeGas
                 ),
                 "      |"
@@ -218,10 +242,29 @@ contract LibClaimRecordCodec_Gas is CommonTest {
         console2.log("Data size comparison:");
         console2.log(string.concat("Baseline: ", vm.toString(baselineEncoded.length), " bytes"));
         console2.log(string.concat("Optimized: ", vm.toString(optimizedEncoded.length), " bytes"));
-        console2.log(string.concat("Size reduction: ", vm.toString((baselineEncoded.length - optimizedEncoded.length) * 100 / baselineEncoded.length), "%"));
+        console2.log(
+            string.concat(
+                "Size reduction: ",
+                vm.toString(
+                    (baselineEncoded.length - optimizedEncoded.length) * 100
+                        / baselineEncoded.length
+                ),
+                "%"
+            )
+        );
 
-        emit GasReport("encode_minimal", baselineEncodeGas, optimizedEncodeGas, int256(optimizedEncodeGas) - int256(baselineEncodeGas));
-        emit GasReport("decode_minimal", baselineDecodeGas, optimizedDecodeGas, int256(optimizedDecodeGas) - int256(baselineDecodeGas));
+        emit GasReport(
+            "encode_minimal",
+            baselineEncodeGas,
+            optimizedEncodeGas,
+            int256(optimizedEncodeGas) - int256(baselineEncodeGas)
+        );
+        emit GasReport(
+            "decode_minimal",
+            baselineDecodeGas,
+            optimizedDecodeGas,
+            int256(optimizedDecodeGas) - int256(baselineDecodeGas)
+        );
     }
 
     function test_gasComparison_maximum() public {
@@ -290,8 +333,8 @@ contract LibClaimRecordCodec_Gas is CommonTest {
                 "     | ",
                 optimizedEncodeGas > baselineEncodeGas ? "+" : "-",
                 vm.toString(
-                    optimizedEncodeGas > baselineEncodeGas 
-                        ? optimizedEncodeGas - baselineEncodeGas 
+                    optimizedEncodeGas > baselineEncodeGas
+                        ? optimizedEncodeGas - baselineEncodeGas
                         : baselineEncodeGas - optimizedEncodeGas
                 ),
                 "     |"
@@ -306,8 +349,8 @@ contract LibClaimRecordCodec_Gas is CommonTest {
                 "    | ",
                 optimizedDecodeGas > baselineDecodeGas ? "+" : "-",
                 vm.toString(
-                    optimizedDecodeGas > baselineDecodeGas 
-                        ? optimizedDecodeGas - baselineDecodeGas 
+                    optimizedDecodeGas > baselineDecodeGas
+                        ? optimizedDecodeGas - baselineDecodeGas
                         : baselineDecodeGas - optimizedDecodeGas
                 ),
                 "    |"
@@ -318,10 +361,29 @@ contract LibClaimRecordCodec_Gas is CommonTest {
         console2.log("Data size comparison:");
         console2.log(string.concat("Baseline: ", vm.toString(baselineEncoded.length), " bytes"));
         console2.log(string.concat("Optimized: ", vm.toString(optimizedEncoded.length), " bytes"));
-        console2.log(string.concat("Size reduction: ", vm.toString((baselineEncoded.length - optimizedEncoded.length) * 100 / baselineEncoded.length), "%"));
+        console2.log(
+            string.concat(
+                "Size reduction: ",
+                vm.toString(
+                    (baselineEncoded.length - optimizedEncoded.length) * 100
+                        / baselineEncoded.length
+                ),
+                "%"
+            )
+        );
 
-        emit GasReport("encode_maximum", baselineEncodeGas, optimizedEncodeGas, int256(optimizedEncodeGas) - int256(baselineEncodeGas));
-        emit GasReport("decode_maximum", baselineDecodeGas, optimizedDecodeGas, int256(optimizedDecodeGas) - int256(baselineDecodeGas));
+        emit GasReport(
+            "encode_maximum",
+            baselineEncodeGas,
+            optimizedEncodeGas,
+            int256(optimizedEncodeGas) - int256(baselineEncodeGas)
+        );
+        emit GasReport(
+            "decode_maximum",
+            baselineDecodeGas,
+            optimizedDecodeGas,
+            int256(optimizedDecodeGas) - int256(baselineDecodeGas)
+        );
     }
 
     function test_gasScaling() public {
@@ -334,13 +396,18 @@ contract LibClaimRecordCodec_Gas is CommonTest {
 
         console2.log("");
         console2.log("Gas Scaling with Bond Instructions:");
-        console2.log("| Bond Count | Baseline Encode | Optimized Encode | Baseline Decode | Optimized Decode |");
-        console2.log("|------------|-----------------|------------------|-----------------|------------------|");
+        console2.log(
+            "| Bond Count | Baseline Encode | Optimized Encode | Baseline Decode | Optimized Decode |"
+        );
+        console2.log(
+            "|------------|-----------------|------------------|-----------------|------------------|"
+        );
 
         for (uint256 j = 0; j < sizes.length; j++) {
             uint256 bondCount = sizes[j];
-            
-            LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](bondCount);
+
+            LibBonds.BondInstruction[] memory bondInstructions =
+                new LibBonds.BondInstruction[](bondCount);
             for (uint256 i = 0; i < bondCount; i++) {
                 bondInstructions[i] = LibBonds.BondInstruction({
                     proposalId: uint48(i),

@@ -21,10 +21,14 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
         address actualProver,
         uint8 span,
         uint8 bondCount
-    ) public view {
+    )
+        public
+        view
+    {
         bondCount = uint8(bound(bondCount, 0, 127));
-        
-        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](bondCount);
+
+        LibBonds.BondInstruction[] memory bondInstructions =
+            new LibBonds.BondInstruction[](bondCount);
         for (uint256 i = 0; i < bondCount; i++) {
             bondInstructions[i] = LibBonds.BondInstruction({
                 proposalId: uint48(i),
@@ -64,8 +68,13 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
         assertEq(decoded.bondInstructions.length, original.bondInstructions.length);
 
         for (uint256 i = 0; i < bondCount; i++) {
-            assertEq(decoded.bondInstructions[i].proposalId, original.bondInstructions[i].proposalId);
-            assertEq(uint8(decoded.bondInstructions[i].bondType), uint8(original.bondInstructions[i].bondType));
+            assertEq(
+                decoded.bondInstructions[i].proposalId, original.bondInstructions[i].proposalId
+            );
+            assertEq(
+                uint8(decoded.bondInstructions[i].bondType),
+                uint8(original.bondInstructions[i].bondType)
+            );
             assertEq(decoded.bondInstructions[i].payer, original.bondInstructions[i].payer);
             assertEq(decoded.bondInstructions[i].receiver, original.bondInstructions[i].receiver);
         }
@@ -75,13 +84,19 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
         uint48 proposalId,
         uint8 span,
         uint256 seed
-    ) public view {
+    )
+        public
+        view
+    {
         uint8 bondCount = uint8(seed % 128);
-        
-        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](bondCount);
+
+        LibBonds.BondInstruction[] memory bondInstructions =
+            new LibBonds.BondInstruction[](bondCount);
         for (uint256 i = 0; i < bondCount; i++) {
             bondInstructions[i] = LibBonds.BondInstruction({
-                proposalId: uint48(uint256(keccak256(abi.encode(seed, i, "proposalId"))) % type(uint48).max),
+                proposalId: uint48(
+                    uint256(keccak256(abi.encode(seed, i, "proposalId"))) % type(uint48).max
+                ),
                 bondType: LibBonds.BondType(uint256(keccak256(abi.encode(seed, i, "bondType"))) % 3),
                 payer: address(uint160(uint256(keccak256(abi.encode(seed, i, "payer"))))),
                 receiver: address(uint160(uint256(keccak256(abi.encode(seed, i, "receiver")))))
@@ -93,7 +108,9 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
             claim: IInbox.Claim({
                 proposalHash: keccak256(abi.encode(seed, "proposalHash")),
                 parentClaimHash: keccak256(abi.encode(seed, "parentClaimHash")),
-                endBlockNumber: uint48(uint256(keccak256(abi.encode(seed, "endBlockNumber"))) % type(uint48).max),
+                endBlockNumber: uint48(
+                    uint256(keccak256(abi.encode(seed, "endBlockNumber"))) % type(uint48).max
+                ),
                 endBlockHash: keccak256(abi.encode(seed, "endBlockHash")),
                 endStateRoot: keccak256(abi.encode(seed, "endStateRoot")),
                 designatedProver: address(uint160(uint256(keccak256(abi.encode(seed, "designatedProver"))))),
@@ -111,8 +128,13 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
         assertEq(decoded.bondInstructions.length, original.bondInstructions.length);
 
         for (uint256 i = 0; i < bondCount; i++) {
-            assertEq(decoded.bondInstructions[i].proposalId, original.bondInstructions[i].proposalId);
-            assertEq(uint8(decoded.bondInstructions[i].bondType), uint8(original.bondInstructions[i].bondType));
+            assertEq(
+                decoded.bondInstructions[i].proposalId, original.bondInstructions[i].proposalId
+            );
+            assertEq(
+                uint8(decoded.bondInstructions[i].bondType),
+                uint8(original.bondInstructions[i].bondType)
+            );
             assertEq(decoded.bondInstructions[i].payer, original.bondInstructions[i].payer);
             assertEq(decoded.bondInstructions[i].receiver, original.bondInstructions[i].receiver);
         }
@@ -123,8 +145,9 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
         uint48 endBlockNumber = useMax ? type(uint48).max : 0;
         uint8 span = useMax ? type(uint8).max : 0;
         uint8 bondCount = useMax ? 127 : 0;
-        
-        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](bondCount);
+
+        LibBonds.BondInstruction[] memory bondInstructions =
+            new LibBonds.BondInstruction[](bondCount);
         for (uint256 i = 0; i < bondCount; i++) {
             bondInstructions[i] = LibBonds.BondInstruction({
                 proposalId: useMax ? type(uint48).max : 0,
@@ -166,7 +189,7 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
 
     function testFuzz_hashCollisionResistance(uint256 seed1, uint256 seed2) public view {
         vm.assume(seed1 != seed2);
-        
+
         IInbox.ClaimRecord memory record1 = _createRandomClaimRecord(seed1);
         IInbox.ClaimRecord memory record2 = _createRandomClaimRecord(seed2);
 
@@ -183,10 +206,14 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
         bytes32 proposalHash,
         uint8 span,
         uint8 bondCount
-    ) public view {
+    )
+        public
+        view
+    {
         bondCount = uint8(bound(bondCount, 0, 10));
-        
-        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](bondCount);
+
+        LibBonds.BondInstruction[] memory bondInstructions =
+            new LibBonds.BondInstruction[](bondCount);
         for (uint256 i = 0; i < bondCount; i++) {
             bondInstructions[i] = LibBonds.BondInstruction({
                 proposalId: uint48(i),
@@ -215,7 +242,8 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
         IInbox.ClaimRecord memory optimizedDecoded = LibClaimRecordCodec.decode(optimizedEncoded);
 
         bytes memory baselineEncoded = abi.encode(original);
-        IInbox.ClaimRecord memory baselineDecoded = abi.decode(baselineEncoded, (IInbox.ClaimRecord));
+        IInbox.ClaimRecord memory baselineDecoded =
+            abi.decode(baselineEncoded, (IInbox.ClaimRecord));
 
         assertEq(optimizedDecoded.proposalId, baselineDecoded.proposalId);
         assertEq(optimizedDecoded.claim.proposalHash, baselineDecoded.claim.proposalHash);
@@ -223,13 +251,20 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
         assertEq(optimizedDecoded.bondInstructions.length, baselineDecoded.bondInstructions.length);
     }
 
-    function _createRandomClaimRecord(uint256 seed) private pure returns (IInbox.ClaimRecord memory) {
+    function _createRandomClaimRecord(uint256 seed)
+        private
+        pure
+        returns (IInbox.ClaimRecord memory)
+    {
         uint8 bondCount = uint8(uint256(keccak256(abi.encode(seed, "bondCount"))) % 10);
-        
-        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](bondCount);
+
+        LibBonds.BondInstruction[] memory bondInstructions =
+            new LibBonds.BondInstruction[](bondCount);
         for (uint256 i = 0; i < bondCount; i++) {
             bondInstructions[i] = LibBonds.BondInstruction({
-                proposalId: uint48(uint256(keccak256(abi.encode(seed, i, "proposalId"))) % type(uint48).max),
+                proposalId: uint48(
+                    uint256(keccak256(abi.encode(seed, i, "proposalId"))) % type(uint48).max
+                ),
                 bondType: LibBonds.BondType(uint256(keccak256(abi.encode(seed, i, "bondType"))) % 3),
                 payer: address(uint160(uint256(keccak256(abi.encode(seed, i, "payer"))))),
                 receiver: address(uint160(uint256(keccak256(abi.encode(seed, i, "receiver")))))
@@ -241,7 +276,9 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
             claim: IInbox.Claim({
                 proposalHash: keccak256(abi.encode(seed, "proposalHash")),
                 parentClaimHash: keccak256(abi.encode(seed, "parentClaimHash")),
-                endBlockNumber: uint48(uint256(keccak256(abi.encode(seed, "endBlockNumber"))) % type(uint48).max),
+                endBlockNumber: uint48(
+                    uint256(keccak256(abi.encode(seed, "endBlockNumber"))) % type(uint48).max
+                ),
                 endBlockHash: keccak256(abi.encode(seed, "endBlockHash")),
                 endStateRoot: keccak256(abi.encode(seed, "endStateRoot")),
                 designatedProver: address(uint160(uint256(keccak256(abi.encode(seed, "designatedProver"))))),

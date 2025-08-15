@@ -61,8 +61,13 @@ contract LibClaimRecordCodec_Core is CommonTest {
         assertEq(decoded.bondInstructions.length, claimRecord.bondInstructions.length);
 
         for (uint256 i = 0; i < claimRecord.bondInstructions.length; i++) {
-            assertEq(decoded.bondInstructions[i].proposalId, claimRecord.bondInstructions[i].proposalId);
-            assertEq(uint8(decoded.bondInstructions[i].bondType), uint8(claimRecord.bondInstructions[i].bondType));
+            assertEq(
+                decoded.bondInstructions[i].proposalId, claimRecord.bondInstructions[i].proposalId
+            );
+            assertEq(
+                uint8(decoded.bondInstructions[i].bondType),
+                uint8(claimRecord.bondInstructions[i].bondType)
+            );
             assertEq(decoded.bondInstructions[i].payer, claimRecord.bondInstructions[i].payer);
             assertEq(decoded.bondInstructions[i].receiver, claimRecord.bondInstructions[i].receiver);
         }
@@ -172,16 +177,16 @@ contract LibClaimRecordCodec_Core is CommonTest {
 
         bytes memory encoded1 = LibClaimRecordCodec.encode(claimRecord);
         IInbox.ClaimRecord memory decoded1 = LibClaimRecordCodec.decode(encoded1);
-        
+
         bytes memory encoded2 = LibClaimRecordCodec.encode(decoded1);
         IInbox.ClaimRecord memory decoded2 = LibClaimRecordCodec.decode(encoded2);
-        
+
         bytes memory encoded3 = LibClaimRecordCodec.encode(decoded2);
         IInbox.ClaimRecord memory decoded3 = LibClaimRecordCodec.decode(encoded3);
 
         assertEq(encoded1, encoded2);
         assertEq(encoded2, encoded3);
-        
+
         assertEq(decoded3.proposalId, claimRecord.proposalId);
         assertEq(decoded3.claim.proposalHash, claimRecord.claim.proposalHash);
         assertEq(decoded3.span, claimRecord.span);
@@ -220,7 +225,7 @@ contract LibClaimRecordCodec_Core is CommonTest {
 
     function test_decodeInvalidDataLength() public {
         bytes memory tooShort = new bytes(100);
-        
+
         vm.expectRevert(LibClaimRecordCodec.INVALID_DATA_LENGTH.selector);
         LibClaimRecordCodec.decode(tooShort);
     }
