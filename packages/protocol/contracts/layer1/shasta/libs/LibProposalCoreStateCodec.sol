@@ -71,16 +71,18 @@ library LibProposalCoreStateCodec {
             mstore(ptr, word)
 
             // Store timestamps and block number (6+6+6 bytes)
-            word := or(
-                shl(208, mload(add(p, 0x40))), // originTimestamp
-                or(shl(160, mload(add(p, 0x60))), shl(112, mload(add(p, 0x80)))) // originBlockNumber + isForcedInclusion start
-            )
+            word :=
+                or(
+                    shl(208, mload(add(p, 0x40))), // originTimestamp
+                    or(shl(160, mload(add(p, 0x60))), shl(112, mload(add(p, 0x80)))) // originBlockNumber
+                        // + isForcedInclusion start
+                )
             mstore(add(ptr, 26), word)
 
             // Store bools and array length
             mstore8(add(ptr, 38), mload(add(p, 0x80))) // isForcedInclusion
             mstore8(add(ptr, 39), mload(add(p, 0xa0))) // basefeeSharingPctg
-            
+
             // Store array length (3 bytes)
             let len := mload(mload(b))
             let lenWord := shl(232, len)
@@ -97,7 +99,8 @@ library LibProposalCoreStateCodec {
 
             // Store remaining BlobSlice fields
             let nextPtr := add(add(ptr, 43), mul(len, 32))
-            word := or(shl(232, mload(add(b, 0x20))), shl(184, mload(add(b, 0x40)))) // offset (3 bytes) + timestamp (6 bytes)
+            word := or(shl(232, mload(add(b, 0x20))), shl(184, mload(add(b, 0x40)))) // offset (3
+                // bytes) + timestamp (6 bytes)
             mstore(nextPtr, word)
 
             // Store coreStateHash
@@ -106,11 +109,11 @@ library LibProposalCoreStateCodec {
             // Store CoreState fields
             let c := _coreState
             let finalPtr := add(nextPtr, 41)
-            
+
             // Pack nextProposalId and lastFinalizedProposalId
             word := or(shl(208, mload(c)), shl(160, mload(add(c, 0x20))))
             mstore(finalPtr, word)
-            
+
             // Store hashes
             mstore(add(finalPtr, 12), mload(add(c, 0x40))) // lastFinalizedClaimHash
             mstore(add(finalPtr, 44), mload(add(c, 0x60))) // bondInstructionsHash
@@ -141,12 +144,15 @@ library LibProposalCoreStateCodec {
             // Read first word containing id and proposer
             let word := mload(ptr)
             mstore(proposal_, shr(208, word)) // id (6 bytes)
-            mstore(add(proposal_, 0x20), and(shr(48, word), 0xffffffffffffffffffffffffffffffffffffffff)) // proposer (20 bytes)
+            mstore(
+                add(proposal_, 0x20), and(shr(48, word), 0xffffffffffffffffffffffffffffffffffffffff)
+            ) // proposer (20 bytes)
 
             // Read timestamps and block number
             word := mload(add(ptr, 26))
             mstore(add(proposal_, 0x40), shr(208, word)) // originTimestamp (6 bytes)
-            mstore(add(proposal_, 0x60), and(shr(160, word), 0xffffffffffff)) // originBlockNumber (6 bytes)
+            mstore(add(proposal_, 0x60), and(shr(160, word), 0xffffffffffff)) // originBlockNumber
+                // (6 bytes)
 
             // Read booleans
             mstore(add(proposal_, 0x80), byte(0, mload(add(ptr, 38)))) // isForcedInclusion
@@ -186,8 +192,9 @@ library LibProposalCoreStateCodec {
             let finalPtr := add(nextPtr, 41)
             word := mload(finalPtr)
             mstore(coreState_, shr(208, word)) // nextProposalId (6 bytes)
-            mstore(add(coreState_, 0x20), and(shr(160, word), 0xffffffffffff)) // lastFinalizedProposalId (6 bytes)
-            
+            mstore(add(coreState_, 0x20), and(shr(160, word), 0xffffffffffff)) // lastFinalizedProposalId
+                // (6 bytes)
+
             // Read hashes
             mstore(add(coreState_, 0x40), mload(add(finalPtr, 12))) // lastFinalizedClaimHash
             mstore(add(coreState_, 0x60), mload(add(finalPtr, 44))) // bondInstructionsHash

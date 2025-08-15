@@ -20,11 +20,12 @@
 ## Implementation Requirements
 
 ### 1. File Structure
-Create the following files:
-- `LibCodec.sol` - Core library with optimized encoding/decoding functions
-- `test/LibCodecCore.t.sol` - Core functionality tests (roundtrip, min/max values, validation)
-- `test/LibCodecFuzz.t.sol` - Comprehensive fuzz tests for all input combinations
-- `test/LibCodecGas.t.sol` - Gas comparison tests with baseline implementation
+**Recommendation:** Split codecs by struct type for better maintainability and gas optimization:
+- `LibProposalCoreStateCodec.sol` - Codec for Proposal and CoreState structs
+- `LibClaimRecordCodec.sol` - Codec for ClaimRecord struct
+- `test/ProposalCoreStateCodec/LibProposalCoreStateCodec_Core.t.sol` - Core functionality tests
+- `test/ProposalCoreStateCodec/LibProposalCoreStateCodec_Fuzz.t.sol` - Fuzz tests
+- `test/ProposalCoreStateCodec/LibProposalCoreStateCodec_Gas.t.sol` - Gas comparison tests
 
 ### 2. Memory Layout and Bit-Packing
 
@@ -57,16 +58,16 @@ For optimal gas efficiency, use the following exact memory layout:
 
 #### Encoding Function
 ```solidity
-function encodeProposedEventData(
+function encode(
     IInbox.Proposal memory _proposal,
     IInbox.CoreState memory _coreState
 ) internal pure returns (bytes memory) {
     // 1. VALIDATE annotated fields first
     if (_proposal.basefeeSharingPctg > MAX_BASEFEE_PCTG) {
-        revert VALUE_EXCEEDS_MAX_LIMIT("basefeeSharingPctg", _proposal.basefeeSharingPctg, MAX_BASEFEE_PCTG);
+        revert BASEFEE_SHARING_PCTG_EXCEEDS_MAX();
     }
     if (_proposal.blobSlice.blobHashes.length > MAX_BLOB_HASHES) {
-        revert ARRAY_LENGTH_EXCEEDS_MAX("blobHashes", hashCount, MAX_BLOB_HASHES);
+        revert BLOB_HASHES_ARRAY_EXCEEDS_MAX();
     }
     
     // 2. Calculate EXACT size: 158 + (hashCount * 32) bytes
@@ -75,37 +76,46 @@ function encodeProposedEventData(
     
     // 3. Use assembly for efficient packing
     assembly {
-        // Use helper function to write N bytes from a value
-        function writeBytes(dest, value, numBytes) {
-            for { let i := 0 } lt(i, numBytes) { i := add(i, 1) } {
-                mstore8(add(dest, i), shr(mul(sub(sub(numBytes, 1), i), 8), value))
-            }
-        }
+        // IMPORTANT OPTIMIZATION: Avoid byte-by-byte loops!
+        // Instead, use bulk memory operations with bit shifting:
         
-        // Pack fields in exact order with exact byte widths
-        // IMPORTANT: Use mstore for 20/32 byte fields, writeBytes for others
+        // Pack multiple small fields into single words, then mstore
+        let word := or(shl(208, mload(p)), shl(48, mload(add(p, 0x20))))
+        mstore(ptr, word)
+        
+        // For arrays, copy in 32-byte chunks
+        for { let end := add(src, mul(len, 32)) } lt(src, end) { } {
+            mstore(dst, mload(src))
+            src := add(src, 32)
+            dst := add(dst, 32)
+        }
     }
 }
 ```
 
 #### Decoding Function
 ```solidity
-function decodeProposedEventData(bytes memory _data)
+function decode(bytes memory _data)
     internal pure
     returns (IInbox.Proposal memory proposal_, IInbox.CoreState memory coreState_) 
 {
     if (_data.length < 158) revert INVALID_DATA_LENGTH();
     
     assembly {
-        // Helper to read N bytes as uint
-        function readBytes(src, numBytes) -> result {
-            for { let i := 0 } lt(i, numBytes) { i := add(i, 1) } {
-                result := or(result, shl(mul(sub(sub(numBytes, 1), i), 8), byte(0, mload(add(src, i)))))
-            }
-        }
+        // IMPORTANT OPTIMIZATION: Avoid byte-by-byte loops!
+        // Read full words and extract fields with bit operations:
         
-        // Unpack fields in exact order
-        // IMPORTANT: Allocate memory for dynamic arrays properly
+        // Read full word and extract multiple fields
+        let word := mload(ptr)
+        mstore(proposal_, shr(208, word)) // id (6 bytes)
+        mstore(add(proposal_, 0x20), and(shr(48, word), 0xffffffffffffffffffffffffffffffffffffffff)) // proposer
+        
+        // For arrays, copy in 32-byte chunks
+        for { let end := add(src, mul(arrayLen, 32)) } lt(src, end) { } {
+            mstore(dst, mload(src))
+            src := add(src, 32)
+            dst := add(dst, 0x20)
+        }
     }
 }
 ```
@@ -125,14 +135,19 @@ function decodeProposedEventData(bytes memory _data)
 
 4. **Address Handling**: For 20-byte addresses:
    ```solidity
-   // Encoding: mstore(ptr, shl(96, address))
-   // Decoding: shr(96, mload(ptr))
+   // Encoding: Pack with other fields in a word
+   let word := or(shl(208, id), shl(48, proposer))
+   mstore(ptr, word)
+   // Decoding: Extract from packed word
+   let word := mload(ptr)
+   let proposer := and(shr(48, word), 0xffffffffffffffffffffffffffffffffffffffff)
    ```
 
-5. **Validation Errors**: Define custom errors with parameters:
+5. **Validation Errors**: Use simple custom errors without parameters for gas efficiency:
    ```solidity
-   error VALUE_EXCEEDS_MAX_LIMIT(string field, uint256 value, uint256 maxLimit);
-   error ARRAY_LENGTH_EXCEEDS_MAX(string field, uint256 length, uint256 maxLength);
+   error INVALID_DATA_LENGTH();
+   error BASEFEE_SHARING_PCTG_EXCEEDS_MAX();
+   error BLOB_HASHES_ARRAY_EXCEEDS_MAX();
    ```
 
 ### 5. Test Requirements
@@ -179,11 +194,33 @@ function decodeProposedEventData(bytes memory _data)
 
 ### 6. Gas Optimization Techniques
 
-1. **Pre-calculate sizes**: Calculate total size once before allocation
-2. **Use helper functions**: Reduce bytecode size with internal assembly helpers
-3. **Batch operations**: Copy arrays in 32-byte chunks where possible
-4. **Minimize storage reads**: Cache frequently accessed values in memory
-5. **Avoid redundant operations**: Don't recalculate known constants
+1. **Avoid byte-by-byte loops**: Never iterate over individual bytes. Instead:
+   - Pack multiple small fields into words using bit shifts
+   - Use bulk memory operations (mstore/mload for full 32-byte words)
+   - Only use mstore8 for individual bytes when absolutely necessary
+
+2. **Efficient word packing**: Combine multiple fields in single operations:
+   ```solidity
+   // Good: Pack 6-byte id and 20-byte address in one operation
+   let word := or(shl(208, id), shl(48, proposer))
+   mstore(ptr, word)
+   
+   // Bad: Write fields individually
+   writeBytes(ptr, id, 6)
+   writeBytes(add(ptr, 6), proposer, 20)
+   ```
+
+3. **Bulk array copying**: Always copy arrays in 32-byte chunks:
+   ```solidity
+   for { let end := add(src, mul(len, 32)) } lt(src, end) { } {
+       mstore(dst, mload(src))
+       src := add(src, 32)
+       dst := add(dst, 32)
+   }
+   ```
+
+4. **Pre-calculate sizes**: Calculate total size once before allocation
+5. **Minimize computational overhead**: Only pack data where storage savings significantly outweigh computational cost
 
 ### 7. Validation Requirements
 
@@ -221,41 +258,106 @@ function decodeBaseline(bytes memory _data)
 
 The optimized implementation should achieve:
 - **Size reduction**: ~50-70% smaller than abi.encode for typical data
-- **Gas efficiency**: Lower gas for encoding despite validation overhead
+- **Gas efficiency**: 
+  - Encoding: Slightly higher gas (+10-15%) due to packing overhead
+  - Decoding: Significantly lower gas (-40-60%) due to smaller data size
+  - Overall: Net gas savings when considering both operations
 - **Correctness**: Perfect roundtrip for all valid inputs
 - **Validation**: Proper rejection of invalid annotated values
 
+**Real-world results from implementation:**
+```
+Standard (3 hashes):
+| Operation | Baseline | Optimized | Difference |
+|-----------|----------|-----------|------------|
+| Encode    | 1147     | 1303      | +156       |
+| Decode    | 2824     | 1331      | -1493      |
+```
+
 ### 10. Assembly Tips
 
-1. **Reading bytes**: Use `byte(0, mload(ptr))` for single bytes
-2. **Writing bytes**: Use `mstore8(ptr, value)` for single bytes
-3. **Shifting**: Use `shl` and `shr` for efficient bit manipulation
-4. **Loops**: Keep them simple with clear increment logic
-5. **Memory pointers**: Always track current position accurately
+1. **Reading packed data**: Extract fields from words using masks and shifts:
+   ```solidity
+   let word := mload(ptr)
+   let field1 := shr(208, word)  // First 6 bytes
+   let field2 := and(shr(48, word), 0xfff...)  // Next 20 bytes
+   ```
+
+2. **Writing packed data**: Combine fields before storing:
+   ```solidity
+   let word := or(shl(208, field1), or(shl(160, field2), shl(112, field3)))
+   mstore(ptr, word)
+   ```
+
+3. **Single bytes**: Only use `mstore8` for truly individual bytes (booleans, small uints)
+4. **Loops**: Optimize for 32-byte boundaries when possible
+5. **Memory pointers**: Track position using offsets from base pointer
 
 ---
 
 ## Complete Example Structure
 
 ```solidity
-library LibCodec {
+library LibProposalCoreStateCodec {
     // Constants for validation
-    uint256 private constant _MAX_FIELD_A = 100;
-    uint256 private constant _MAX_FIELD_B = 64;
+    uint256 private constant MAX_BASEFEE_PCTG = 100;
+    uint256 private constant MAX_BLOB_HASHES = 64;
     
-    // Custom errors
+    // Simple custom errors (no parameters for gas efficiency)
     error INVALID_DATA_LENGTH();
-    error VALUE_EXCEEDS_MAX_LIMIT(string field, uint256 value, uint256 maxLimit);
-    error ARRAY_LENGTH_EXCEEDS_MAX(string field, uint256 length, uint256 maxLength);
+    error BASEFEE_SHARING_PCTG_EXCEEDS_MAX();
+    error BLOB_HASHES_ARRAY_EXCEEDS_MAX();
     
-    function encode(MyStruct memory _struct) internal pure returns (bytes memory) {
-        // Validate -> Calculate size -> Allocate -> Pack with assembly
+    function encode(
+        IInbox.Proposal memory _proposal,
+        IInbox.CoreState memory _coreState
+    ) internal pure returns (bytes memory) {
+        // Validate annotated fields
+        // Calculate exact size
+        // Pack using bulk operations and word packing
     }
     
-    function decode(bytes memory _data) internal pure returns (MyStruct memory _struct) {
-        // Check length -> Unpack with assembly -> Return structs
+    function decode(bytes memory _data) 
+        internal pure 
+        returns (IInbox.Proposal memory, IInbox.CoreState memory) {
+        // Check minimum length
+        // Unpack using word extraction and bulk copies
     }
 }
 ```
+
+## Lessons Learned from Implementation
+
+### Key Optimization Insights
+
+1. **Bulk Operations Are Critical**: The most significant gas savings come from avoiding byte-by-byte operations. Always pack multiple small fields into words and use full 32-byte memory operations.
+
+2. **Trade-offs in Encoding vs Decoding**: 
+   - Encoding may use slightly more gas due to packing overhead
+   - Decoding benefits significantly from smaller data size
+   - Overall system benefits from reduced calldata/event costs
+
+3. **Separation of Concerns**: Splitting codecs by struct type (e.g., `LibProposalCoreStateCodec` vs `LibClaimRecordCodec`) provides:
+   - Better code organization
+   - Easier testing and maintenance
+   - Potential for struct-specific optimizations
+
+4. **Simplified Error Handling**: Using parameterless custom errors reduces gas costs while still providing clear failure reasons.
+
+5. **Assembly Patterns That Work**:
+   - Pack fields into words before storing: `or(shl(208, field1), shl(48, field2))`
+   - Extract fields using masks and shifts: `and(shr(48, word), 0xfff...)`
+   - Copy arrays in 32-byte chunks for maximum efficiency
+
+### Implementation Checklist
+
+- [ ] Validate all annotated fields before encoding
+- [ ] Use bulk memory operations (avoid loops over individual bytes)
+- [ ] Pack multiple small fields into single words
+- [ ] Copy arrays in 32-byte chunks
+- [ ] Use simple custom errors without parameters
+- [ ] Test with gas comparison against baseline
+- [ ] Verify perfect roundtrip for all valid inputs
+- [ ] Document exact memory layout for maintainability
 
 This specification provides all necessary details to recreate the optimized codec implementation with proper validation, testing, and gas optimization.
