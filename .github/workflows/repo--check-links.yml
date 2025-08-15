@@ -15,6 +15,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check links
-        uses: lycheeverse/lychee-action@v2
+        uses: lycheeverse/lychee-action@v3
         with:
           args: --no-progress --verbose "**/README.md" --accept '429, 200'
