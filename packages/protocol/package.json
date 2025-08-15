@@ -46,7 +46,7 @@
     "eslint-plugin-promise": "^6.1.1",
     "ethers": "^5.7.2",
     "solc": "0.8.24",
-    "solhint": "^6.0.0",
+    "solhint": "^5.0.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.2.2"
   },
@@ -60,7 +60,7 @@
     "p256-verifier": "github:taikoxyz/p256-verifier#v0.1.0",
     "risc0-ethereum": "github:risc0/risc0-ethereum#v2.2.2",
     "solady": "github:Vectorized/solady#v0.0.231",
-    "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0",
-    "urc": "github:eth-fabric/urc#main"
+    "urc": "github:eth-fabric/urc#main",
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0"
   }
 }
