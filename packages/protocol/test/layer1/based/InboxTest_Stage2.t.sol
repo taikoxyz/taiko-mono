@@ -80,4 +80,31 @@ contract InboxTest_Stage2 is InboxTestBase {
         // Verification streak in storage is reset
         assertEq(inbox.getStats1().verificationStreakStartedAt, block.timestamp);
     }
+
+    function test_inbox_rollback_batches_is_allowed_when_verification_streak_is_broken()
+        external
+        transactBy(Alice)
+        WhenMultipleBatchesAreProposedWithDefaultParameters(5)
+    {
+        // 5 batches are proposed, only 1 (genesis batch) is verified
+        assertEq(inbox.getStats2().numBatches, 6);
+
+        uint256 verificationStreakStartedAt = inbox.getVerificationStreakStartedAt();
+
+        // Warp to just before the verification delay is exceeded
+        vm.warp(verificationStreakStartedAt + 7 days - 1);
+
+        // There is no rollback allowed yet
+        vm.expectRevert(ITaikoInbox.RollbackNotAllowed.selector);
+        inbox.rollbackBatches();
+
+        // Verification delay is exceeded
+        vm.warp(verificationStreakStartedAt + 7 days + 1);
+
+        // Attempt a rollback
+        inbox.rollbackBatches();
+
+        // The chain is rolled back to the last verified batch
+        assertEq(inbox.getStats2().numBatches, 1);
+    }
 }

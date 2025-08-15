@@ -310,6 +310,7 @@ interface ITaikoInbox {
     error NotFirstProposal();
     error NotInboxWrapper();
     error ParentMetaHashMismatch();
+    error RollbackNotAllowed();
     error SameTransition();
     error SignalNotSent();
     error TimestampSmallerThanParent();
@@ -346,6 +347,10 @@ interface ITaikoInbox {
     /// @notice Verifies a specified number of batches.
     /// @param _length The number of batches to verify.
     function verifyBatches(uint64 _length) external;
+
+    // Surge: enables permissionless rolling back of incase of a prover bug.
+    /// @notice Rolls back to the last verified batch.
+    function rollbackBatches() external;
 
     /// @notice Deposits TAIKO tokens into the contract to be used as liveness bond.
     /// @param _amount The amount of TAIKO tokens to deposit.

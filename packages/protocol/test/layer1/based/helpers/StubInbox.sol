@@ -22,6 +22,8 @@ contract StubInbox is ITaikoInbox {
 
     function withdrawBond(uint256 _amount) external virtual { }
 
+    function rollbackBatches() external { }
+
     function bondBalanceOf(address _user) external view returns (uint256) { }
 
     function bondToken() external pure returns (address) {

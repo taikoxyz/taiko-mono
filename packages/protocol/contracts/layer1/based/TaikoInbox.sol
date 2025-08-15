@@ -475,6 +475,26 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         }
     }
 
+    // Surge: enables permissionless rolling back of incase of a prover bug.
+    /// @inheritdoc ITaikoInbox
+    function rollbackBatches() external {
+        Config memory config = pacayaConfig();
+
+        // If the verification streak has been broken, likely due to a prover bug, we rollback to
+        // the last verified batch.
+        if (
+            block.timestamp
+                - state.batches[state.stats2.lastVerifiedBatchId % config.batchRingBufferSize]
+                    .lastBlockTimestamp > config.maxVerificationDelay
+        ) {
+            state.stats2.numBatches = state.stats2.lastVerifiedBatchId + 1;
+        } else {
+            revert RollbackNotAllowed();
+        }
+    }
+
+    // View functions --------------------------------------------------------------------------
+
     /// @inheritdoc ITaikoInbox
     function getStats1() external view returns (Stats1 memory) {
         return state.stats1;
