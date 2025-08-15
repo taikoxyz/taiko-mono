@@ -114,4 +114,32 @@ interface IInbox {
     /// @param _data The data containing the proposals and claims to be proven.
     /// @param _proof Validity proof for the claims.
     function prove(bytes calldata _data, bytes calldata _proof) external;
+
+    // ---------------------------------------------------------------
+    // External View Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Fetches the values of specified settings to assist in aligning off-chain
+    /// software configurations.
+    /// @dev To minimize frequent queries for new values, these settings should only update at
+    /// specific time unit boundaries, such as daily at midnight GMT:
+    /// ```
+    /// require(itemChangeTimestamp % 86400 == 0);
+    /// return (block.timestamp >= itemChangeTimestamp) ? itemNewValue : itemOldValue;
+    /// ```
+    /// @param _names An array of identifiers for the settings to be fetched.
+    /// @return values_ An array containing the values corresponding to the specified settings. If a
+    /// name is invalid, bytes32(0) will be returned without reverting.
+    function getNamedSettings(bytes32[] memory _names)
+        external
+        view
+        returns (bytes32[] memory values_);
+
+    /// @notice Returns the capacity for unfinalized proposals.
+    /// @return _ The maximum number of unfinalized proposals that can exist.
+    function getCapacity() external view returns (uint256);
+
+    /// @notice Returns the configuration parameters for the Inbox contract.
+    /// @return config_ The configuration parameters.
+    function getConfig() external view returns (Config memory config_);
 }

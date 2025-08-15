@@ -58,9 +58,15 @@ contract MainnetInbox is InboxOptimized {
         return LibFasterReentryLock.loadReentryLock();
     }
 
+    function _getNamedSetting(bytes32 _name) internal pure override returns (bytes32 value_) {
+        if (_name == bytes32("handover_slots")) {
+            value_ = bytes32(uint256(6));
+        }
+    }
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
 
     error InvalidCoreState();
+    error InvalidNamedSetting(bytes32 _name);
 }
