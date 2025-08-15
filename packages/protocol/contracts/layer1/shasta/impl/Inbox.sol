@@ -197,7 +197,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         uint48 _proposalId,
         bytes32 _parentClaimHash
     )
-        public
+        external
         view
         returns (bytes32 claimRecordHash_)
     {
@@ -207,8 +207,9 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     /// @notice Gets the capacity for unfinalized proposals.
     /// @return _ The maximum number of unfinalized proposals that can exist.
-    function getCapacity() public view returns (uint256) {
-        return _getCapacity(getConfig());
+    function getCapacity() external view returns (uint256) {
+        Config memory config = getConfig();
+        return _getCapacity(config);
     }
 
     /// @notice Gets the configuration for this Inbox contract
