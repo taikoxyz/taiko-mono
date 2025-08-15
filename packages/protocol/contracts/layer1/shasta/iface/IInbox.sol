@@ -70,6 +70,7 @@ interface IInbox {
         /// @notice The span indicating how many proposals this claim record covers.
         uint8 span;
         /// @notice The bond instructions.
+        // @maxLength=127
         LibBonds.BondInstruction[] bondInstructions;
     }
 

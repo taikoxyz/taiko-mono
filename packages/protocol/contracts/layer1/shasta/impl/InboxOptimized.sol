@@ -2,7 +2,8 @@
 pragma solidity ^0.8.24;
 
 import "./Inbox.sol";
-import "../libs/LibCodec.sol";
+import "../libs/LibProposalCoreStateCodec.sol";
+import "../libs/LibClaimRecordCodec.sol";
 
 /// @title InboxOptimized
 /// @notice Combines slot reuse and claim aggregation optimizations for the Inbox contract
@@ -17,6 +18,7 @@ abstract contract InboxOptimized is Inbox {
     // ---------------------------------------------------------------
 
     bytes32 private constant _DEFAULT_SLOT_HASH = bytes32(uint256(1));
+    uint private constant _MAX_BOND_INSTRUCTIONS_LENGTH = 127;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -37,7 +39,7 @@ abstract contract InboxOptimized is Inbox {
         pure
         returns (Proposal memory proposal_, CoreState memory coreState_)
     {
-        return LibCodec.decodeProposedEventData(_data);
+        return LibProposalCoreStateCodec.decode(_data);
     }
 
     /// @dev Decodes the prove event data that was encoded
@@ -48,7 +50,7 @@ abstract contract InboxOptimized is Inbox {
         pure
         returns (ClaimRecord memory claimRecord_)
     {
-        return LibCodec.decodeProveEventData(_data);
+        return LibClaimRecordCodec.decode(_data);
     }
 
     // ---------------------------------------------------------------
@@ -68,7 +70,7 @@ abstract contract InboxOptimized is Inbox {
         override
         returns (bytes memory)
     {
-        return LibCodec.encodeProposedEventData(_proposal, _coreState);
+        return LibProposalCoreStateCodec.encode(_proposal, _coreState);
     }
 
     /// @dev Encodes the proved event data for gas optimization
@@ -80,7 +82,7 @@ abstract contract InboxOptimized is Inbox {
         override
         returns (bytes memory)
     {
-        return LibCodec.encodeProveEventData(_claimRecord);
+        return LibClaimRecordCodec.encode(_claimRecord);
     }
 
     // ---------------------------------------------------------------

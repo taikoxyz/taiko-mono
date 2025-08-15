@@ -9,6 +9,7 @@ library LibBonds {
     // Enums
     // ---------------------------------------------------------------
 
+    /// @max=3
     enum BondType {
         NONE,
         PROVABILITY,
