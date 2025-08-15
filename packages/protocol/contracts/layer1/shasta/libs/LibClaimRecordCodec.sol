@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "../iface/IInbox.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title LibClaimRecordCodec
 /// @notice Optimized library for encoding/decoding claim record data with bit-packing

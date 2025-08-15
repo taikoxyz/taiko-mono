@@ -37,33 +37,77 @@ library LibCodecBenchmark {
     {
         // Only output the Gas Usage Comparison table for version control
         string memory report = "# Gas Usage Comparison\n\n";
-        report = string.concat(report, "| Test Case | Baseline Encode | Optimized Encode | Encode Savings | Baseline Decode | Optimized Decode | Decode Savings | Data Size (bytes) | Size Reduction |\n");
-        report = string.concat(report, "|-----------|----------------|------------------|----------------|-----------------|------------------|----------------|-------------------|----------------|\n");
-        
+        report = string.concat(
+            report,
+            "| Test Case | Baseline Encode | Optimized Encode | Encode Savings | Baseline Decode | Optimized Decode | Decode Savings | Data Size (bytes) | Size Reduction |\n"
+        );
+        report = string.concat(
+            report,
+            "|-----------|----------------|------------------|----------------|-----------------|------------------|----------------|-------------------|----------------|\n"
+        );
+
         for (uint256 i = 0; i < results.length; i++) {
             BenchmarkResult memory r = results[i];
-            
+
             // Calculate savings
             int256 encodeSavings = int256(r.baselineEncode) - int256(r.optimizedEncode);
             int256 decodeSavings = int256(r.baselineDecode) - int256(r.optimizedDecode);
             int256 sizeSavings = int256(r.baselineSize) - int256(r.optimizedSize);
-            
+
             string memory encodeSavingsStr = formatSavings(encodeSavings, r.baselineEncode);
             string memory decodeSavingsStr = formatSavings(decodeSavings, r.baselineDecode);
-            
+
             report = string.concat(report, "| ", config.testLabels[i], " | ");
-            report = string.concat(report, Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(r.baselineEncode), " | ");
-            report = string.concat(report, Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(r.optimizedEncode), " | ");
+            report = string.concat(
+                report,
+                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(
+                    r.baselineEncode
+                ),
+                " | "
+            );
+            report = string.concat(
+                report,
+                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(
+                    r.optimizedEncode
+                ),
+                " | "
+            );
             report = string.concat(report, encodeSavingsStr, " | ");
-            report = string.concat(report, Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(r.baselineDecode), " | ");
-            report = string.concat(report, Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(r.optimizedDecode), " | ");
+            report = string.concat(
+                report,
+                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(
+                    r.baselineDecode
+                ),
+                " | "
+            );
+            report = string.concat(
+                report,
+                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(
+                    r.optimizedDecode
+                ),
+                " | "
+            );
             report = string.concat(report, decodeSavingsStr, " | ");
-            report = string.concat(report, Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(r.optimizedSize), " | ");
-            report = string.concat(report, Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(uint256(sizeSavings)), " bytes |\n");
+            report = string.concat(
+                report,
+                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(
+                    r.optimizedSize
+                ),
+                " | "
+            );
+            report = string.concat(
+                report,
+                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(
+                    uint256(sizeSavings)
+                ),
+                " bytes |\n"
+            );
         }
-        
+
         // Write to file
-        Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).writeFile(config.outputFile, report);
+        Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).writeFile(
+            config.outputFile, report
+        );
         console2.log(string.concat("Benchmark report written to ", config.outputFile));
     }
 
@@ -83,7 +127,7 @@ library LibCodecBenchmark {
         bytes memory encoded = encodeFunc();
         result.optimizedEncode = gas - gasleft();
         result.optimizedSize = encoded.length;
-        
+
         // Measure decode
         gas = gasleft();
         decodeFunc(encoded);
@@ -95,20 +139,22 @@ library LibCodecBenchmark {
         if (savings >= 0) {
             uint256 percentage = baseline > 0 ? uint256(savings) * 100 / baseline : 0;
             return string.concat(
-                "-", 
-                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(uint256(savings)), 
-                " (", 
-                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(percentage), 
+                "-",
+                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(
+                    uint256(savings)
+                ),
+                " (",
+                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(percentage),
                 "%)"
             );
         } else {
             uint256 overhead = uint256(-savings);
             uint256 percentage = baseline > 0 ? overhead * 100 / baseline : 0;
             return string.concat(
-                "+", 
-                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(overhead), 
-                " (+", 
-                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(percentage), 
+                "+",
+                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(overhead),
+                " (+",
+                Vm(address(uint160(uint256(keccak256("hevm cheat code"))))).toString(percentage),
                 "%)"
             );
         }

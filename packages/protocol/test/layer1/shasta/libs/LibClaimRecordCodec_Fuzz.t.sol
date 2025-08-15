@@ -23,7 +23,7 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
         uint8 bondCount
     )
         public
-        view
+        pure
     {
         bondCount = uint8(bound(bondCount, 0, 127));
 
@@ -86,7 +86,7 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
         uint256 seed
     )
         public
-        view
+        pure
     {
         uint8 bondCount = uint8(seed % 128);
 
@@ -140,7 +140,7 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
         }
     }
 
-    function testFuzz_extremeValues(bool useMax) public view {
+    function testFuzz_extremeValues(bool useMax) public pure {
         uint48 proposalId = useMax ? type(uint48).max : 0;
         uint48 endBlockNumber = useMax ? type(uint48).max : 0;
         uint8 span = useMax ? type(uint8).max : 0;
@@ -187,7 +187,7 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
         assertEq(decoded.bondInstructions.length, original.bondInstructions.length);
     }
 
-    function testFuzz_hashCollisionResistance(uint256 seed1, uint256 seed2) public view {
+    function testFuzz_hashCollisionResistance(uint256 seed1, uint256 seed2) public pure {
         vm.assume(seed1 != seed2);
 
         IInbox.ClaimRecord memory record1 = _createRandomClaimRecord(seed1);
@@ -208,7 +208,7 @@ contract LibClaimRecordCodec_Fuzz is CommonTest {
         uint8 bondCount
     )
         public
-        view
+        pure
     {
         bondCount = uint8(bound(bondCount, 0, 10));
 

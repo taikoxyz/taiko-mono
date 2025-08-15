@@ -230,44 +230,45 @@ contract LibProposalCoreStateCodec_Gas is CommonTest {
         sizes[4] = 16;
         sizes[5] = 32;
         sizes[6] = 64;
-        
+
         // Prepare results and labels
-        LibCodecBenchmark.BenchmarkResult[] memory results = new LibCodecBenchmark.BenchmarkResult[](sizes.length);
+        LibCodecBenchmark.BenchmarkResult[] memory results =
+            new LibCodecBenchmark.BenchmarkResult[](sizes.length);
         string[] memory labels = new string[](sizes.length);
-        
+
         for (uint256 i = 0; i < sizes.length; i++) {
             bytes32[] memory hashes = new bytes32[](sizes[i]);
             for (uint256 j = 0; j < sizes[i]; j++) {
                 hashes[j] = keccak256(abi.encode(i, j));
             }
-            
+
             IInbox.Proposal memory testProposal = proposal;
             testProposal.blobSlice.blobHashes = hashes;
-            
+
             // Measure baseline
             uint256 gas = gasleft();
             bytes memory baselineData = encodeBaseline(testProposal, coreState);
             results[i].baselineEncode = gas - gasleft();
             results[i].baselineSize = baselineData.length;
-            
+
             gas = gasleft();
             decodeBaseline(baselineData);
             results[i].baselineDecode = gas - gasleft();
-            
+
             // Measure optimized
             gas = gasleft();
             bytes memory optimizedData = LibProposalCoreStateCodec.encode(testProposal, coreState);
             results[i].optimizedEncode = gas - gasleft();
             results[i].optimizedSize = optimizedData.length;
-            
+
             gas = gasleft();
             LibProposalCoreStateCodec.decode(optimizedData);
             results[i].optimizedDecode = gas - gasleft();
-            
+
             // Set label
             labels[i] = string.concat(vm.toString(sizes[i]), " hashes");
         }
-        
+
         // Configure report
         LibCodecBenchmark.BenchmarkConfig memory config = LibCodecBenchmark.BenchmarkConfig({
             reportTitle: "LibProposalCoreStateCodec Benchmark Report",
@@ -289,7 +290,7 @@ contract LibProposalCoreStateCodec_Gas is CommonTest {
             ),
             outputFile: "gas-reports/LibProposalCoreStateCodec_benchmark.md"
         });
-        
+
         // Generate report
         LibCodecBenchmark.generateReport(results, config);
     }

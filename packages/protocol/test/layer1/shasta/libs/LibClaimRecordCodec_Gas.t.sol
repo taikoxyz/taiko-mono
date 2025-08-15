@@ -387,7 +387,7 @@ contract LibClaimRecordCodec_Gas is CommonTest {
         );
     }
 
-    function test_gasScaling() public {
+    function test_gasScaling() public view {
         uint256[] memory sizes = new uint256[](5);
         sizes[0] = 1;
         sizes[1] = 10;
@@ -474,7 +474,7 @@ contract LibClaimRecordCodec_Gas is CommonTest {
         }
     }
 
-    function test_validationOverhead() public {
+    function test_validationOverhead() public view {
         LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](10);
         for (uint256 i = 0; i < 10; i++) {
             bondInstructions[i] = LibBonds.BondInstruction({
@@ -523,13 +523,15 @@ contract LibClaimRecordCodec_Gas is CommonTest {
         sizes[5] = 25;
         sizes[6] = 50;
         sizes[7] = 127; // Maximum allowed
-        
+
         // Prepare results and labels
-        LibCodecBenchmark.BenchmarkResult[] memory results = new LibCodecBenchmark.BenchmarkResult[](sizes.length);
+        LibCodecBenchmark.BenchmarkResult[] memory results =
+            new LibCodecBenchmark.BenchmarkResult[](sizes.length);
         string[] memory labels = new string[](sizes.length);
-        
+
         for (uint256 i = 0; i < sizes.length; i++) {
-            LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](sizes[i]);
+            LibBonds.BondInstruction[] memory bondInstructions =
+                new LibBonds.BondInstruction[](sizes[i]);
             for (uint256 j = 0; j < sizes[i]; j++) {
                 bondInstructions[j] = LibBonds.BondInstruction({
                     proposalId: uint48(j + 1000),
@@ -538,7 +540,7 @@ contract LibClaimRecordCodec_Gas is CommonTest {
                     receiver: address(uint160(j * 2 + 2))
                 });
             }
-            
+
             IInbox.ClaimRecord memory claimRecord = IInbox.ClaimRecord({
                 proposalId: 12_345,
                 claim: IInbox.Claim({
@@ -553,31 +555,31 @@ contract LibClaimRecordCodec_Gas is CommonTest {
                 span: uint8(5 + i % 10),
                 bondInstructions: bondInstructions
             });
-            
+
             // Measure baseline
             uint256 gas = gasleft();
             bytes memory baselineData = abi.encode(claimRecord);
             results[i].baselineEncode = gas - gasleft();
             results[i].baselineSize = baselineData.length;
-            
+
             gas = gasleft();
             abi.decode(baselineData, (IInbox.ClaimRecord));
             results[i].baselineDecode = gas - gasleft();
-            
+
             // Measure optimized
             gas = gasleft();
             bytes memory optimizedData = LibClaimRecordCodec.encode(claimRecord);
             results[i].optimizedEncode = gas - gasleft();
             results[i].optimizedSize = optimizedData.length;
-            
+
             gas = gasleft();
             LibClaimRecordCodec.decode(optimizedData);
             results[i].optimizedDecode = gas - gasleft();
-            
+
             // Set label
             labels[i] = string.concat(vm.toString(sizes[i]), " bonds");
         }
-        
+
         // Configure report
         LibCodecBenchmark.BenchmarkConfig memory config = LibCodecBenchmark.BenchmarkConfig({
             reportTitle: "LibClaimRecordCodec Benchmark Report",
@@ -599,7 +601,7 @@ contract LibClaimRecordCodec_Gas is CommonTest {
             ),
             outputFile: "gas-reports/LibClaimRecordCodec_benchmark.md"
         });
-        
+
         // Generate report
         LibCodecBenchmark.generateReport(results, config);
     }

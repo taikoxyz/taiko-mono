@@ -10,7 +10,7 @@ import { CommonTest } from "test/shared/CommonTest.sol";
 /// @notice Core functionality tests for LibClaimRecordCodec encoding/decoding
 /// @custom:security-contact security@taiko.xyz
 contract LibClaimRecordCodec_Core is CommonTest {
-    function test_basicRoundtrip() public view {
+    function test_basicRoundtrip() public pure {
         LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](3);
         bondInstructions[0] = LibBonds.BondInstruction({
             proposalId: 12_345,
@@ -73,7 +73,7 @@ contract LibClaimRecordCodec_Core is CommonTest {
         }
     }
 
-    function test_minimalValues() public view {
+    function test_minimalValues() public pure {
         IInbox.ClaimRecord memory minimal = IInbox.ClaimRecord({
             proposalId: 0,
             claim: IInbox.Claim({
@@ -104,7 +104,7 @@ contract LibClaimRecordCodec_Core is CommonTest {
         assertEq(decoded.bondInstructions.length, 0);
     }
 
-    function test_maximumValues() public view {
+    function test_maximumValues() public pure {
         LibBonds.BondInstruction[] memory maxBonds = new LibBonds.BondInstruction[](127);
         for (uint256 i = 0; i < 127; i++) {
             maxBonds[i] = LibBonds.BondInstruction({
@@ -145,7 +145,7 @@ contract LibClaimRecordCodec_Core is CommonTest {
         assertEq(decoded.bondInstructions.length, 127);
     }
 
-    function test_multipleRoundtrips() public view {
+    function test_multipleRoundtrips() public pure {
         LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](2);
         bondInstructions[0] = LibBonds.BondInstruction({
             proposalId: 100,
