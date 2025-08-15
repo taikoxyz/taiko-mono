@@ -27,33 +27,6 @@ abstract contract InboxOptimized is Inbox {
     constructor() Inbox() { }
 
     // ---------------------------------------------------------------
-    // External Functions
-    // ---------------------------------------------------------------
-
-    /// @dev Decodes the proposed event data that was encoded
-    /// @param _data The encoded data
-    /// @return proposal_ The decoded proposal
-    /// @return coreState_ The decoded core state
-    function decodeProposedEventData(bytes memory _data)
-        external
-        pure
-        returns (Proposal memory proposal_, CoreState memory coreState_)
-    {
-        return LibProposalCoreStateCodec.decode(_data);
-    }
-
-    /// @dev Decodes the prove event data that was encoded
-    /// @param _data The encoded data
-    /// @return claimRecord_ The decoded claim record
-    function decodeProveEventData(bytes memory _data)
-        external
-        pure
-        returns (ClaimRecord memory claimRecord_)
-    {
-        return LibClaimRecordCodec.decode(_data);
-    }
-
-    // ---------------------------------------------------------------
     // Public Functions
     // ---------------------------------------------------------------
 
@@ -71,18 +44,6 @@ abstract contract InboxOptimized is Inbox {
         returns (bytes memory)
     {
         return LibProposalCoreStateCodec.encode(_proposal, _coreState);
-    }
-
-    /// @dev Encodes the proved event data for gas optimization
-    /// @param _claimRecord The claim record to encode
-    /// @return The encoded data
-    function encodeProveEventData(ClaimRecord memory _claimRecord)
-        public
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibClaimRecordCodec.encode(_claimRecord);
     }
 
     // ---------------------------------------------------------------
