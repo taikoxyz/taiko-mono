@@ -495,7 +495,6 @@
 - owner : `admin.taiko.eth`
 - enabled operators:
   - taiko proposer `0x5F62d006C10C009ff50C878Cd6157aC861C99990`(sequencer `0x5F62d006C10C009ff50C878Cd6157aC861C99990`)
- <!--  - chainbound proposer `0x000cb000E880A92a8f383D69dA2142a969B93DE7`(sequencer `0x000cb000E880A92a8f383D69dA2142a969B93DE7`) -->
   - gattaca proposer `0xe2dA8aC2E550cd141198a117520D4EDc8692AB74`(sequencer `0xe2dA8aC2E550cd141198a117520D4EDc8692AB74`)
   - nethermind proposer `0xCbeB5d484b54498d3893A0c3Eb790331962e9e9d`(sequencer `0x2ABD9afD6D41d0c37b8d55df11BFc73B53c3ac61`)
 - ejectors:
