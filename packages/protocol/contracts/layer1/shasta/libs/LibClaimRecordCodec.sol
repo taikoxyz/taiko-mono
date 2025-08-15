@@ -53,7 +53,7 @@ library LibClaimRecordCodec {
             let cr := _claimRecord
 
             // Pack proposalId (6 bytes)
-            let proposalId := mload(cr)
+            let proposalId := and(mload(cr), 0xffffffffffff) // Mask to 48 bits
             mstore8(ptr, shr(40, proposalId))
             mstore8(add(ptr, 1), shr(32, proposalId))
             mstore8(add(ptr, 2), shr(24, proposalId))
@@ -71,7 +71,7 @@ library LibClaimRecordCodec {
             mstore(add(ptr, 38), mload(add(claim, 0x20)))
 
             // Pack endBlockNumber (6 bytes)
-            let endBlockNumber := mload(add(claim, 0x40))
+            let endBlockNumber := and(mload(add(claim, 0x40)), 0xffffffffffff) // Mask to 48 bits
             mstore8(add(ptr, 70), shr(40, endBlockNumber))
             mstore8(add(ptr, 71), shr(32, endBlockNumber))
             mstore8(add(ptr, 72), shr(24, endBlockNumber))
@@ -108,7 +108,7 @@ library LibClaimRecordCodec {
                 let bond := mload(add(bondData, mul(i, 0x20)))
 
                 // Pack proposalId (6 bytes)
-                let bProposalId := mload(bond)
+                let bProposalId := and(mload(bond), 0xffffffffffff) // Mask to 48 bits
                 mstore8(ptr, shr(40, bProposalId))
                 mstore8(add(ptr, 1), shr(32, bProposalId))
                 mstore8(add(ptr, 2), shr(24, bProposalId))
@@ -147,12 +147,12 @@ library LibClaimRecordCodec {
 
             // Decode proposalId (6 bytes)
             let proposalId := 0
-            proposalId := or(proposalId, shl(40, mload8(ptr)))
-            proposalId := or(proposalId, shl(32, mload8(add(ptr, 1))))
-            proposalId := or(proposalId, shl(24, mload8(add(ptr, 2))))
-            proposalId := or(proposalId, shl(16, mload8(add(ptr, 3))))
-            proposalId := or(proposalId, shl(8, mload8(add(ptr, 4))))
-            proposalId := or(proposalId, mload8(add(ptr, 5)))
+            proposalId := or(proposalId, shl(40, byte(0, mload(ptr))))
+            proposalId := or(proposalId, shl(32, byte(0, mload(add(ptr, 1)))))
+            proposalId := or(proposalId, shl(24, byte(0, mload(add(ptr, 2)))))
+            proposalId := or(proposalId, shl(16, byte(0, mload(add(ptr, 3)))))
+            proposalId := or(proposalId, shl(8, byte(0, mload(add(ptr, 4)))))
+            proposalId := or(proposalId, byte(0, mload(add(ptr, 5))))
             mstore(claimRecord_, proposalId)
 
             // Allocate claim struct
@@ -168,12 +168,12 @@ library LibClaimRecordCodec {
 
             // Decode endBlockNumber (6 bytes)
             let endBlockNumber := 0
-            endBlockNumber := or(endBlockNumber, shl(40, mload8(add(ptr, 70))))
-            endBlockNumber := or(endBlockNumber, shl(32, mload8(add(ptr, 71))))
-            endBlockNumber := or(endBlockNumber, shl(24, mload8(add(ptr, 72))))
-            endBlockNumber := or(endBlockNumber, shl(16, mload8(add(ptr, 73))))
-            endBlockNumber := or(endBlockNumber, shl(8, mload8(add(ptr, 74))))
-            endBlockNumber := or(endBlockNumber, mload8(add(ptr, 75)))
+            endBlockNumber := or(endBlockNumber, shl(40, byte(0, mload(add(ptr, 70)))))
+            endBlockNumber := or(endBlockNumber, shl(32, byte(0, mload(add(ptr, 71)))))
+            endBlockNumber := or(endBlockNumber, shl(24, byte(0, mload(add(ptr, 72)))))
+            endBlockNumber := or(endBlockNumber, shl(16, byte(0, mload(add(ptr, 73)))))
+            endBlockNumber := or(endBlockNumber, shl(8, byte(0, mload(add(ptr, 74)))))
+            endBlockNumber := or(endBlockNumber, byte(0, mload(add(ptr, 75))))
             mstore(add(claim, 0x40), endBlockNumber)
 
             // Decode endBlockHash (32 bytes)
@@ -189,10 +189,10 @@ library LibClaimRecordCodec {
             mstore(add(claim, 0xc0), shr(96, mload(add(ptr, 160))))
 
             // Decode span (1 byte)
-            mstore(add(claimRecord_, 0x40), mload8(add(ptr, 180)))
+            mstore(add(claimRecord_, 0x40), byte(0, mload(add(ptr, 180))))
 
             // Decode bondInstructions length (1 byte)
-            let bondCount := mload8(add(ptr, 181))
+            let bondCount := byte(0, mload(add(ptr, 181)))
 
             // Allocate bond instructions array
             let bondArray := mload(0x40)
@@ -211,16 +211,16 @@ library LibClaimRecordCodec {
 
                 // Decode proposalId (6 bytes)
                 let bProposalId := 0
-                bProposalId := or(bProposalId, shl(40, mload8(ptr)))
-                bProposalId := or(bProposalId, shl(32, mload8(add(ptr, 1))))
-                bProposalId := or(bProposalId, shl(24, mload8(add(ptr, 2))))
-                bProposalId := or(bProposalId, shl(16, mload8(add(ptr, 3))))
-                bProposalId := or(bProposalId, shl(8, mload8(add(ptr, 4))))
-                bProposalId := or(bProposalId, mload8(add(ptr, 5)))
+                bProposalId := or(bProposalId, shl(40, byte(0, mload(ptr))))
+                bProposalId := or(bProposalId, shl(32, byte(0, mload(add(ptr, 1)))))
+                bProposalId := or(bProposalId, shl(24, byte(0, mload(add(ptr, 2)))))
+                bProposalId := or(bProposalId, shl(16, byte(0, mload(add(ptr, 3)))))
+                bProposalId := or(bProposalId, shl(8, byte(0, mload(add(ptr, 4)))))
+                bProposalId := or(bProposalId, byte(0, mload(add(ptr, 5))))
                 mstore(bond, bProposalId)
 
                 // Decode bondType (1 byte)
-                mstore(add(bond, 0x20), mload8(add(ptr, 6)))
+                mstore(add(bond, 0x20), byte(0, mload(add(ptr, 6))))
 
                 // Decode payer (20 bytes)
                 mstore(add(bond, 0x40), shr(96, mload(add(ptr, 7))))
@@ -232,11 +232,6 @@ library LibClaimRecordCodec {
                 mstore(add(bondArrayData, mul(i, 0x20)), bond)
 
                 ptr := add(ptr, 47)
-            }
-
-            // Helper function for mload8
-            function mload8(addr) -> result {
-                result := and(mload(addr), 0xff)
             }
         }
     }

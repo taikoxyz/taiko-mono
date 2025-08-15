@@ -207,10 +207,9 @@ library LibProposalCoreStateCodec{
             mstore(hashArray, arrayLen)
             
             // Use bit shift for memory allocation
-            unchecked {
-                let newFreePtr := add(hashArray, shl(5, add(arrayLen, 1))) // bit shift for *32
-                mstore(0x40, newFreePtr)
-            }
+            let newFreePtr := add(hashArray, shl(5, add(arrayLen, 1))) // bit shift for *32
+            mstore(0x40, newFreePtr)
+
             mstore(blobSlice, hashArray)
 
             // Copy blob hashes with loop unrolling

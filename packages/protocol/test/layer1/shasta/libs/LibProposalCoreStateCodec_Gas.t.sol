@@ -6,6 +6,7 @@ import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
+import { LibCodecBenchmark } from "./LibCodecBenchmark.sol";
 import "forge-std/src/console2.sol";
 
 /// @title LibProposalCoreStateCodec_Gas
@@ -216,6 +217,81 @@ contract LibProposalCoreStateCodec_Gas is CommonTest {
 
         // Our optimized version should still be more efficient than baseline despite validation
         assertTrue(optimized.length <= baseline.length, "Optimized should use less or equal space");
+    }
+
+    /// @notice Generate comprehensive benchmark report
+    function test_generateBenchmarkReport() public {
+        // Test configurations
+        uint256[] memory sizes = new uint256[](7);
+        sizes[0] = 0;
+        sizes[1] = 1;
+        sizes[2] = 3;
+        sizes[3] = 8;
+        sizes[4] = 16;
+        sizes[5] = 32;
+        sizes[6] = 64;
+        
+        // Prepare results and labels
+        LibCodecBenchmark.BenchmarkResult[] memory results = new LibCodecBenchmark.BenchmarkResult[](sizes.length);
+        string[] memory labels = new string[](sizes.length);
+        
+        for (uint256 i = 0; i < sizes.length; i++) {
+            bytes32[] memory hashes = new bytes32[](sizes[i]);
+            for (uint256 j = 0; j < sizes[i]; j++) {
+                hashes[j] = keccak256(abi.encode(i, j));
+            }
+            
+            IInbox.Proposal memory testProposal = proposal;
+            testProposal.blobSlice.blobHashes = hashes;
+            
+            // Measure baseline
+            uint256 gas = gasleft();
+            bytes memory baselineData = encodeBaseline(testProposal, coreState);
+            results[i].baselineEncode = gas - gasleft();
+            results[i].baselineSize = baselineData.length;
+            
+            gas = gasleft();
+            decodeBaseline(baselineData);
+            results[i].baselineDecode = gas - gasleft();
+            
+            // Measure optimized
+            gas = gasleft();
+            bytes memory optimizedData = LibProposalCoreStateCodec.encode(testProposal, coreState);
+            results[i].optimizedEncode = gas - gasleft();
+            results[i].optimizedSize = optimizedData.length;
+            
+            gas = gasleft();
+            LibProposalCoreStateCodec.decode(optimizedData);
+            results[i].optimizedDecode = gas - gasleft();
+            
+            // Set label
+            labels[i] = string.concat(vm.toString(sizes[i]), " hashes");
+        }
+        
+        // Configure report
+        LibCodecBenchmark.BenchmarkConfig memory config = LibCodecBenchmark.BenchmarkConfig({
+            reportTitle: "LibProposalCoreStateCodec Benchmark Report",
+            summary: "Optimized codec implementation using bit-packing and assembly optimizations for Proposal and CoreState encoding/decoding.",
+            testLabels: labels,
+            keyFeatures: string.concat(
+                "- **Variable-size encoding**: Adapts to blob hash array size\n",
+                "- **Compact layout**: 158 bytes base + 32 bytes per blob hash\n",
+                "- **Max blob hashes**: 64 (validated)\n",
+                "- **Bit-packed fields**: 6-byte IDs and timestamps\n"
+            ),
+            optimizations: string.concat(
+                "- Bit-packing for compact storage\n",
+                "- Assembly-optimized memory operations\n",
+                "- Loop unrolling for small arrays (1-4 hashes)\n",
+                "- Cached memory pointers\n",
+                "- Minimal memory allocations\n",
+                "- Unchecked arithmetic blocks for safe operations\n"
+            ),
+            outputFile: "gas-reports/LibProposalCoreStateCodec_benchmark.md"
+        });
+        
+        // Generate report
+        LibCodecBenchmark.generateReport(results, config);
     }
 
     // ---------------------------------------------------------------

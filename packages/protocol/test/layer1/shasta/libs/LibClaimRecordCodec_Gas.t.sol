@@ -5,6 +5,7 @@ import { LibClaimRecordCodec } from "src/layer1/shasta/libs/LibClaimRecordCodec.
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
+import { LibCodecBenchmark } from "./LibCodecBenchmark.sol";
 import "forge-std/src/console2.sol";
 
 /// @title LibClaimRecordCodec_Gas
@@ -508,5 +509,98 @@ contract LibClaimRecordCodec_Gas is CommonTest {
         console2.log("Validation Overhead Test:");
         console2.log(string.concat("Gas with validation: ", vm.toString(gasWithValidation)));
         console2.log("Note: Validation includes checking bond instruction count and bond types");
+    }
+
+    /// @notice Generate comprehensive benchmark report
+    function test_generateBenchmarkReport() public {
+        // Test configurations for bond instruction counts
+        uint256[] memory sizes = new uint256[](8);
+        sizes[0] = 0;
+        sizes[1] = 1;
+        sizes[2] = 3;
+        sizes[3] = 5;
+        sizes[4] = 10;
+        sizes[5] = 25;
+        sizes[6] = 50;
+        sizes[7] = 127; // Maximum allowed
+        
+        // Prepare results and labels
+        LibCodecBenchmark.BenchmarkResult[] memory results = new LibCodecBenchmark.BenchmarkResult[](sizes.length);
+        string[] memory labels = new string[](sizes.length);
+        
+        for (uint256 i = 0; i < sizes.length; i++) {
+            LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](sizes[i]);
+            for (uint256 j = 0; j < sizes[i]; j++) {
+                bondInstructions[j] = LibBonds.BondInstruction({
+                    proposalId: uint48(j + 1000),
+                    bondType: LibBonds.BondType(j % 3),
+                    payer: address(uint160(j * 2 + 1)),
+                    receiver: address(uint160(j * 2 + 2))
+                });
+            }
+            
+            IInbox.ClaimRecord memory claimRecord = IInbox.ClaimRecord({
+                proposalId: 12_345,
+                claim: IInbox.Claim({
+                    proposalHash: keccak256(abi.encode("proposal", i)),
+                    parentClaimHash: keccak256(abi.encode("parent", i)),
+                    endBlockNumber: 999_999 + uint48(i),
+                    endBlockHash: keccak256(abi.encode("block", i)),
+                    endStateRoot: keccak256(abi.encode("state", i)),
+                    designatedProver: address(0x7777777777777777777777777777777777777777),
+                    actualProver: address(0x8888888888888888888888888888888888888888)
+                }),
+                span: uint8(5 + i % 10),
+                bondInstructions: bondInstructions
+            });
+            
+            // Measure baseline
+            uint256 gas = gasleft();
+            bytes memory baselineData = abi.encode(claimRecord);
+            results[i].baselineEncode = gas - gasleft();
+            results[i].baselineSize = baselineData.length;
+            
+            gas = gasleft();
+            abi.decode(baselineData, (IInbox.ClaimRecord));
+            results[i].baselineDecode = gas - gasleft();
+            
+            // Measure optimized
+            gas = gasleft();
+            bytes memory optimizedData = LibClaimRecordCodec.encode(claimRecord);
+            results[i].optimizedEncode = gas - gasleft();
+            results[i].optimizedSize = optimizedData.length;
+            
+            gas = gasleft();
+            LibClaimRecordCodec.decode(optimizedData);
+            results[i].optimizedDecode = gas - gasleft();
+            
+            // Set label
+            labels[i] = string.concat(vm.toString(sizes[i]), " bonds");
+        }
+        
+        // Configure report
+        LibCodecBenchmark.BenchmarkConfig memory config = LibCodecBenchmark.BenchmarkConfig({
+            reportTitle: "LibClaimRecordCodec Benchmark Report",
+            summary: "Optimized codec for ClaimRecord with efficient bit-packing for bond instructions, providing significant gas savings and data size reduction.",
+            testLabels: labels,
+            keyFeatures: string.concat(
+                "- **Fixed Layout**: 182 bytes base + 47 bytes per bond instruction\n",
+                "- **Max Bond Instructions**: 127 (validated)\n",
+                "- **Bit-packed Fields**: 6-byte proposalId, 6-byte endBlockNumber\n",
+                "- **Validation**: Bond instruction count and bond type limits\n",
+                "- **Efficient addresses**: 20-byte addresses packed directly\n"
+            ),
+            optimizations: string.concat(
+                "- Efficient byte-level packing using assembly\n",
+                "- Direct memory operations without intermediate allocations\n",
+                "- Optimized loop structures for bond instruction encoding/decoding\n",
+                "- Proper masking of 48-bit values to prevent data corruption\n",
+                "- Consistent byte extraction using byte() opcode\n"
+            ),
+            outputFile: "gas-reports/LibClaimRecordCodec_benchmark.md"
+        });
+        
+        // Generate report
+        LibCodecBenchmark.generateReport(results, config);
     }
 }
