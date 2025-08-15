@@ -407,6 +407,109 @@ Measure across:
 - Maximum case (largest valid input)
 - Scaling (how performance changes with size)
 
+### Benchmark Report Generation
+
+**IMPORTANT**: All new codec libraries MUST generate benchmark reports for version control and gas tracking.
+
+#### 1. Use the Shared Benchmark Utility
+
+Import and use `LibCodecBenchmark` from the test utilities:
+
+```solidity
+import { LibCodecBenchmark } from "test/layer1/shasta/libs/LibCodecBenchmark.sol";
+```
+
+#### 2. Create a Gas Test File
+
+Create a dedicated gas test file (`LibYourCodec_Gas.t.sol`) with a benchmark generation function:
+
+```solidity
+function test_generateBenchmarkReport() public {
+    // Test various sizes/configurations
+    uint256[] memory sizes = new uint256[](7);
+    sizes[0] = 0;   // Minimal
+    sizes[1] = 1;   // Single element
+    sizes[2] = 3;   // Small
+    sizes[3] = 8;   // Medium
+    sizes[4] = 16;  // Large
+    sizes[5] = 32;  // Very large
+    sizes[6] = 64;  // Maximum
+
+    // Prepare results
+    LibCodecBenchmark.BenchmarkResult[] memory results =
+        new LibCodecBenchmark.BenchmarkResult[](sizes.length);
+    string[] memory labels = new string[](sizes.length);
+
+    for (uint256 i = 0; i < sizes.length; i++) {
+        // Create test data with sizes[i] elements
+        YourStruct memory testData = createTestData(sizes[i]);
+
+        // Measure baseline (abi.encode/decode)
+        uint256 gas = gasleft();
+        bytes memory baselineData = abi.encode(testData);
+        results[i].baselineEncode = gas - gasleft();
+        results[i].baselineSize = baselineData.length;
+
+        gas = gasleft();
+        abi.decode(baselineData, (YourStruct));
+        results[i].baselineDecode = gas - gasleft();
+
+        // Measure optimized codec
+        gas = gasleft();
+        bytes memory optimizedData = LibYourCodec.encode(testData);
+        results[i].optimizedEncode = gas - gasleft();
+        results[i].optimizedSize = optimizedData.length;
+
+        gas = gasleft();
+        LibYourCodec.decode(optimizedData);
+        results[i].optimizedDecode = gas - gasleft();
+
+        // Set label for this test case
+        labels[i] = string.concat(vm.toString(sizes[i]), " elements");
+    }
+
+    // Generate report
+    LibCodecBenchmark.BenchmarkConfig memory config = LibCodecBenchmark.BenchmarkConfig({
+        reportTitle: "LibYourCodec Benchmark Report",
+        summary: "Description of your codec",
+        testLabels: labels,
+        keyFeatures: "...",  // Optional, can be empty string
+        optimizations: "...", // Optional, can be empty string
+        outputFile: "gas-reports/LibYourCodec_benchmark.md"
+    });
+
+    LibCodecBenchmark.generateReport(results, config);
+}
+```
+
+#### 3. Run the Benchmark Test
+
+```bash
+FOUNDRY_PROFILE=layer1 forge test --match-test test_generateBenchmarkReport \
+    --match-path 'test/layer1/shasta/libs/LibYourCodec_Gas.t.sol'
+```
+
+#### 4. Commit the Generated Report
+
+The report will be generated in `gas-reports/LibYourCodec_benchmark.md` containing only the gas comparison table for clean version control:
+
+```markdown
+# Gas Usage Comparison
+
+| Test Case  | Baseline Encode | Optimized Encode | Encode Savings | Baseline Decode | Optimized Decode | Decode Savings | Data Size (bytes) | Size Reduction |
+| ---------- | --------------- | ---------------- | -------------- | --------------- | ---------------- | -------------- | ----------------- | -------------- |
+| 0 elements | ...             | ...              | ...            | ...             | ...              | ...            | ...               | ...            |
+| 1 elements | ...             | ...              | ...            | ...             | ...              | ...            | ...               | ...            |
+
+...
+```
+
+This format is optimized for:
+
+- **Version control**: Only numerical data, no timestamps or metadata
+- **Comparison**: Easy to diff between commits
+- **CI/CD**: Can be parsed for regression detection
+
 ---
 
 ## Optimization Guidelines
