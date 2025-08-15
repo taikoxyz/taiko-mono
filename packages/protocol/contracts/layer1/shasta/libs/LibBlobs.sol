@@ -44,7 +44,7 @@ library LibBlobs {
 
     /// @dev Validates a blob locator and converts it to a blob slice.
     /// @param _blobReference The blob locator to validate.
-    /// @return _ The blob slice.
+    /// @return The blob slice.
     function validateBlobReference(BlobReference memory _blobReference)
         internal
         view
