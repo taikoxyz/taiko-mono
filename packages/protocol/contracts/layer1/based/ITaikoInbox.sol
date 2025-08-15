@@ -374,4 +374,8 @@ interface ITaikoInbox is IBondManager, IProveBatches {
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.
     function v4GetConfig() external view returns (Config memory);
+
+    /// @notice Retrieves the handover slots.
+    /// @return The number of handover slots.
+    function v4GetHandoverSlots() external view returns (uint256);
 }

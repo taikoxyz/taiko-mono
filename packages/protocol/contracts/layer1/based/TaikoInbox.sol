@@ -565,6 +565,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
         return _getConfig();
     }
 
+    /// @inheritdoc ITaikoInbox
+    function v4GetHandoverSlots() external view virtual returns (uint256) {
+        return 4;
+    }
+
     // Internal functions ----------------------------------------------------------------------
 
     function __Taiko_init(address _owner, bytes32 _genesisBlockHash) internal onlyInitializing {
