@@ -692,6 +692,7 @@ Before considering your codec complete:
   - [ ] Console output uses string.concat + vm.toString
   - [ ] Gas comparison includes baseline implementation
   - [ ] Tests pass with perfect roundtrip
+  - [ ] Benchmark report generated for version control
 
 - [ ] **Optimization**
   - [ ] No byte-by-byte loops where avoidable
