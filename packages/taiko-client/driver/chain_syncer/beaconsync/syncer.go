@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -91,12 +90,12 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 // getBlockPayload fetches the block's header, and converts it to an Engine API executable data,
 // which will be used to let the node start beacon syncing.
 func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.ExecutableData, error) {
-	header, err := s.rpc.L2CheckPoint.HeaderByNumber(s.ctx, new(big.Int).SetUint64(blockID))
+	block, err := s.rpc.L2CheckPoint.BlockByNumber(s.ctx, new(big.Int).SetUint64(blockID))
 	if err != nil {
 		return nil, err
 	}
 
-	log.Info("Block header to sync retrieved", "number", header.Number, "hash", header.Hash())
+	log.Info("Block to sync retrieved", "number", block.Number(), "hash", block.Hash())
 
-	return encoding.ToExecutableData(header), nil
+	return engine.BlockToExecutableData(block, nil, nil, nil).ExecutionPayload, nil
 }
