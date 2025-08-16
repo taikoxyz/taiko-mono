@@ -25,30 +25,30 @@ library LibProvedEventCodec {
         uint256 ptr = LibCodec.dataPtr(encoded_);
 
         // Encode proposalId (uint48)
-        ptr = LibCodec.packUint48(encoded_, ptr, _record.proposalId);
+        ptr = LibCodec.packUint48(ptr, _record.proposalId);
 
         // Encode Claim struct
-        ptr = LibCodec.packBytes32(encoded_, ptr, _record.claim.proposalHash);
-        ptr = LibCodec.packBytes32(encoded_, ptr, _record.claim.parentClaimHash);
-        ptr = LibCodec.packUint48(encoded_, ptr, _record.claim.endBlockNumber);
-        ptr = LibCodec.packBytes32(encoded_, ptr, _record.claim.endBlockHash);
-        ptr = LibCodec.packBytes32(encoded_, ptr, _record.claim.endStateRoot);
-        ptr = LibCodec.packAddress(encoded_, ptr, _record.claim.designatedProver);
-        ptr = LibCodec.packAddress(encoded_, ptr, _record.claim.actualProver);
+        ptr = LibCodec.packBytes32(ptr, _record.claim.proposalHash);
+        ptr = LibCodec.packBytes32(ptr, _record.claim.parentClaimHash);
+        ptr = LibCodec.packUint48(ptr, _record.claim.endBlockNumber);
+        ptr = LibCodec.packBytes32(ptr, _record.claim.endBlockHash);
+        ptr = LibCodec.packBytes32(ptr, _record.claim.endStateRoot);
+        ptr = LibCodec.packAddress(ptr, _record.claim.designatedProver);
+        ptr = LibCodec.packAddress(ptr, _record.claim.actualProver);
 
         // Encode span (uint8)
-        ptr = LibCodec.packUint8(encoded_, ptr, _record.span);
+        ptr = LibCodec.packUint8(ptr, _record.span);
 
         // Encode bond instructions array length (uint16)
         require(_record.bondInstructions.length <= type(uint16).max, "Too many bond instructions");
-        ptr = LibCodec.packUint16(encoded_, ptr, uint16(_record.bondInstructions.length));
+        ptr = LibCodec.packUint16(ptr, uint16(_record.bondInstructions.length));
 
         // Encode each bond instruction
         for (uint256 i = 0; i < _record.bondInstructions.length; i++) {
-            ptr = LibCodec.packUint48(encoded_, ptr, _record.bondInstructions[i].proposalId);
-            ptr = LibCodec.packUint8(encoded_, ptr, uint8(_record.bondInstructions[i].bondType));
-            ptr = LibCodec.packAddress(encoded_, ptr, _record.bondInstructions[i].payer);
-            ptr = LibCodec.packAddress(encoded_, ptr, _record.bondInstructions[i].receiver);
+            ptr = LibCodec.packUint48(ptr, _record.bondInstructions[i].proposalId);
+            ptr = LibCodec.packUint8(ptr, uint8(_record.bondInstructions[i].bondType));
+            ptr = LibCodec.packAddress(ptr, _record.bondInstructions[i].payer);
+            ptr = LibCodec.packAddress(ptr, _record.bondInstructions[i].receiver);
         }
     }
 
@@ -60,36 +60,36 @@ library LibProvedEventCodec {
         uint256 ptr = LibCodec.dataPtr(_data);
 
         // Decode proposalId (uint48)
-        (record_.proposalId, ptr) = LibCodec.unpackUint48(_data, ptr);
+        (record_.proposalId, ptr) = LibCodec.unpackUint48(ptr);
 
         // Decode Claim struct
-        (record_.claim.proposalHash, ptr) = LibCodec.unpackBytes32(_data, ptr);
-        (record_.claim.parentClaimHash, ptr) = LibCodec.unpackBytes32(_data, ptr);
-        (record_.claim.endBlockNumber, ptr) = LibCodec.unpackUint48(_data, ptr);
-        (record_.claim.endBlockHash, ptr) = LibCodec.unpackBytes32(_data, ptr);
-        (record_.claim.endStateRoot, ptr) = LibCodec.unpackBytes32(_data, ptr);
-        (record_.claim.designatedProver, ptr) = LibCodec.unpackAddress(_data, ptr);
-        (record_.claim.actualProver, ptr) = LibCodec.unpackAddress(_data, ptr);
+        (record_.claim.proposalHash, ptr) = LibCodec.unpackBytes32(ptr);
+        (record_.claim.parentClaimHash, ptr) = LibCodec.unpackBytes32(ptr);
+        (record_.claim.endBlockNumber, ptr) = LibCodec.unpackUint48(ptr);
+        (record_.claim.endBlockHash, ptr) = LibCodec.unpackBytes32(ptr);
+        (record_.claim.endStateRoot, ptr) = LibCodec.unpackBytes32(ptr);
+        (record_.claim.designatedProver, ptr) = LibCodec.unpackAddress(ptr);
+        (record_.claim.actualProver, ptr) = LibCodec.unpackAddress(ptr);
 
         // Decode span (uint8)
-        (record_.span, ptr) = LibCodec.unpackUint8(_data, ptr);
+        (record_.span, ptr) = LibCodec.unpackUint8(ptr);
 
         // Decode bond instructions array length (uint16)
         uint16 arrayLength;
-        (arrayLength, ptr) = LibCodec.unpackUint16(_data, ptr);
+        (arrayLength, ptr) = LibCodec.unpackUint16(ptr);
 
         // Decode bond instructions
         record_.bondInstructions = new LibBonds.BondInstruction[](arrayLength);
         for (uint256 i = 0; i < arrayLength; i++) {
-            (record_.bondInstructions[i].proposalId, ptr) = LibCodec.unpackUint48(_data, ptr);
+            (record_.bondInstructions[i].proposalId, ptr) = LibCodec.unpackUint48(ptr);
 
             uint8 bondTypeValue;
-            (bondTypeValue, ptr) = LibCodec.unpackUint8(_data, ptr);
+            (bondTypeValue, ptr) = LibCodec.unpackUint8(ptr);
             require(bondTypeValue <= uint8(LibBonds.BondType.LIVENESS), "Invalid bond type");
             record_.bondInstructions[i].bondType = LibBonds.BondType(bondTypeValue);
 
-            (record_.bondInstructions[i].payer, ptr) = LibCodec.unpackAddress(_data, ptr);
-            (record_.bondInstructions[i].receiver, ptr) = LibCodec.unpackAddress(_data, ptr);
+            (record_.bondInstructions[i].payer, ptr) = LibCodec.unpackAddress(ptr);
+            (record_.bondInstructions[i].receiver, ptr) = LibCodec.unpackAddress(ptr);
         }
     }
 }

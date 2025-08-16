@@ -25,8 +25,8 @@ pragma solidity ^0.8.24;
 /// ```solidity
 /// bytes memory buffer = new bytes(100);
 /// uint256 pos = LibCodec.dataPtr(buffer);
-/// pos = LibCodec.packUint32(buffer, pos, 12345);
-/// pos = LibCodec.packAddress(buffer, pos, msg.sender);
+/// pos = LibCodec.packUint32(pos, 12345);
+/// pos = LibCodec.packAddress(pos, msg.sender);
 /// ```
 /// @custom:security-contact security@taiko.xyz
 library LibCodec {
@@ -35,20 +35,11 @@ library LibCodec {
     // ---------------------------------------------------------------
 
     /// @notice Pack uint8 (1 byte) at position
-    /// @dev Writes a single byte to memory at the specified position. Buffer parameter is unused
-    /// but needed for memory context.
+    /// @dev Writes a single byte to memory at the specified position.
     /// @param _pos Absolute memory position to write at
     /// @param _value The uint8 value to pack (0-255)
     /// @return newPos_ Updated position after writing (pos + 1)
-    function packUint8(
-        bytes memory, // _buffer
-        uint256 _pos,
-        uint8 _value
-    )
-        internal
-        pure
-        returns (uint256 newPos_)
-    {
+    function packUint8(uint256 _pos, uint8 _value) internal pure returns (uint256 newPos_) {
         assembly {
             mstore8(_pos, _value)
             newPos_ := add(_pos, 1)
@@ -56,20 +47,11 @@ library LibCodec {
     }
 
     /// @notice Pack uint16 (2 bytes) at position using big-endian encoding
-    /// @dev Writes 2 bytes: high byte first, then low byte. Buffer parameter is unused but needed
-    /// for memory context.
+    /// @dev Writes 2 bytes: high byte first, then low byte.
     /// @param _pos Absolute memory position to write at
     /// @param _value The uint16 value to pack (0-65535)
     /// @return newPos_ Updated position after writing (pos + 2)
-    function packUint16(
-        bytes memory, // _buffer
-        uint256 _pos,
-        uint16 _value
-    )
-        internal
-        pure
-        returns (uint256 newPos_)
-    {
+    function packUint16(uint256 _pos, uint16 _value) internal pure returns (uint256 newPos_) {
         assembly {
             mstore8(_pos, shr(8, _value))
             mstore8(add(_pos, 1), _value)
@@ -78,20 +60,11 @@ library LibCodec {
     }
 
     /// @notice Pack uint32 (4 bytes) at position using big-endian encoding
-    /// @dev Writes 4 bytes in order: [byte3][byte2][byte1][byte0]. Buffer parameter is unused but
-    /// needed for memory context.
+    /// @dev Writes 4 bytes in order: [byte3][byte2][byte1][byte0].
     /// @param _pos Absolute memory position to write at
     /// @param _value The uint32 value to pack (0-4294967295)
     /// @return newPos_ Updated position after writing (pos + 4)
-    function packUint32(
-        bytes memory, // _buffer
-        uint256 _pos,
-        uint32 _value
-    )
-        internal
-        pure
-        returns (uint256 newPos_)
-    {
+    function packUint32(uint256 _pos, uint32 _value) internal pure returns (uint256 newPos_) {
         assembly {
             mstore8(_pos, shr(24, _value))
             mstore8(add(_pos, 1), shr(16, _value))
@@ -103,20 +76,11 @@ library LibCodec {
 
     /// @notice Pack uint48 (6 bytes) at position using big-endian encoding
     /// @dev Writes 6 bytes for compact timestamp/counter storage.
-    /// Common use case: block numbers that exceed uint32 range. Buffer parameter is unused but
-    /// needed for memory context.
+    /// Common use case: block numbers that exceed uint32 range.
     /// @param _pos Absolute memory position to write at
     /// @param _value The uint48 value to pack (0-281474976710655)
     /// @return newPos_ Updated position after writing (pos + 6)
-    function packUint48(
-        bytes memory, // _buffer
-        uint256 _pos,
-        uint48 _value
-    )
-        internal
-        pure
-        returns (uint256 newPos_)
-    {
+    function packUint48(uint256 _pos, uint48 _value) internal pure returns (uint256 newPos_) {
         assembly {
             mstore8(_pos, shr(40, _value))
             mstore8(add(_pos, 1), shr(32, _value))
@@ -129,20 +93,11 @@ library LibCodec {
     }
 
     /// @notice Pack uint256 (32 bytes) at position
-    /// @dev Uses single mstore for efficiency, writes full 32-byte word. Buffer parameter is unused
-    /// but needed for memory context.
+    /// @dev Uses single mstore for efficiency, writes full 32-byte word.
     /// @param _pos Absolute memory position to write at (best if 32-byte aligned)
     /// @param _value The uint256 value to pack
     /// @return newPos_ Updated position after writing (pos + 32)
-    function packUint256(
-        bytes memory, // _buffer
-        uint256 _pos,
-        uint256 _value
-    )
-        internal
-        pure
-        returns (uint256 newPos_)
-    {
+    function packUint256(uint256 _pos, uint256 _value) internal pure returns (uint256 newPos_) {
         assembly {
             mstore(_pos, _value)
             newPos_ := add(_pos, 32)
@@ -150,20 +105,11 @@ library LibCodec {
     }
 
     /// @notice Pack bytes32 at position
-    /// @dev Direct 32-byte write, commonly used for hashes and identifiers. Buffer parameter is
-    /// unused but needed for memory context.
+    /// @dev Direct 32-byte write, commonly used for hashes and identifiers.
     /// @param _pos Absolute memory position to write at (best if 32-byte aligned)
     /// @param _value The bytes32 value to pack (hash, identifier, etc.)
     /// @return newPos_ Updated position after writing (pos + 32)
-    function packBytes32(
-        bytes memory, // _buffer
-        uint256 _pos,
-        bytes32 _value
-    )
-        internal
-        pure
-        returns (uint256 newPos_)
-    {
+    function packBytes32(uint256 _pos, bytes32 _value) internal pure returns (uint256 newPos_) {
         assembly {
             mstore(_pos, _value)
             newPos_ := add(_pos, 32)
@@ -172,20 +118,11 @@ library LibCodec {
 
     /// @notice Pack address (20 bytes) at position
     /// @dev Writes 20 bytes byte-by-byte to handle unaligned positions correctly.
-    /// Masks address to ensure clean 20-byte value. Buffer parameter is unused but needed for
-    /// memory context.
+    /// Masks address to ensure clean 20-byte value.
     /// @param _pos Absolute memory position to write at
     /// @param _value The address to pack
     /// @return newPos_ Updated position after writing (pos + 20)
-    function packAddress(
-        bytes memory, // _buffer
-        uint256 _pos,
-        address _value
-    )
-        internal
-        pure
-        returns (uint256 newPos_)
-    {
+    function packAddress(uint256 _pos, address _value) internal pure returns (uint256 newPos_) {
         assembly {
             // Cast address to bytes20 and store
             let v := and(_value, 0xffffffffffffffffffffffffffffffffffffffff)
@@ -219,19 +156,11 @@ library LibCodec {
     // ---------------------------------------------------------------
 
     /// @notice Unpack uint8 (1 byte) from position
-    /// @dev Reads single byte from memory. No validation of data availability. Data parameter is
-    /// unused but needed for memory context.
+    /// @dev Reads single byte from memory. No validation of data availability.
     /// @param _pos Absolute memory position to read from
     /// @return value_ The unpacked uint8 value
     /// @return newPos_ Updated position after reading (pos + 1)
-    function unpackUint8(
-        bytes memory, // _data
-        uint256 _pos
-    )
-        internal
-        pure
-        returns (uint8 value_, uint256 newPos_)
-    {
+    function unpackUint8(uint256 _pos) internal pure returns (uint8 value_, uint256 newPos_) {
         assembly {
             value_ := byte(0, mload(_pos))
             newPos_ := add(_pos, 1)
@@ -239,19 +168,11 @@ library LibCodec {
     }
 
     /// @notice Unpack uint16 (2 bytes) from position using big-endian encoding
-    /// @dev Reads 2 bytes and combines: (byte0 << 8) | byte1. Data parameter is unused but needed
-    /// for memory context.
+    /// @dev Reads 2 bytes and combines: (byte0 << 8) | byte1.
     /// @param _pos Absolute memory position to read from
     /// @return value_ The unpacked uint16 value
     /// @return newPos_ Updated position after reading (pos + 2)
-    function unpackUint16(
-        bytes memory, // _data
-        uint256 _pos
-    )
-        internal
-        pure
-        returns (uint16 value_, uint256 newPos_)
-    {
+    function unpackUint16(uint256 _pos) internal pure returns (uint16 value_, uint256 newPos_) {
         assembly {
             value_ := or(shl(8, byte(0, mload(_pos))), byte(0, mload(add(_pos, 1))))
             newPos_ := add(_pos, 2)
@@ -259,19 +180,11 @@ library LibCodec {
     }
 
     /// @notice Unpack uint32 (4 bytes) from position using big-endian encoding
-    /// @dev Reads 4 bytes and reconstructs uint32 from big-endian format. Data parameter is unused
-    /// but needed for memory context.
+    /// @dev Reads 4 bytes and reconstructs uint32 from big-endian format.
     /// @param _pos Absolute memory position to read from
     /// @return value_ The unpacked uint32 value
     /// @return newPos_ Updated position after reading (pos + 4)
-    function unpackUint32(
-        bytes memory, // _data
-        uint256 _pos
-    )
-        internal
-        pure
-        returns (uint32 value_, uint256 newPos_)
-    {
+    function unpackUint32(uint256 _pos) internal pure returns (uint32 value_, uint256 newPos_) {
         assembly {
             value_ :=
                 or(
@@ -284,19 +197,11 @@ library LibCodec {
 
     /// @notice Unpack uint48 (6 bytes) from position using big-endian encoding
     /// @dev Reads 6 bytes for compact timestamp/counter values.
-    /// Reconstructs value from big-endian byte sequence. Data parameter is unused but needed for
-    /// memory context.
+    /// Reconstructs value from big-endian byte sequence.
     /// @param _pos Absolute memory position to read from
     /// @return value_ The unpacked uint48 value
     /// @return newPos_ Updated position after reading (pos + 6)
-    function unpackUint48(
-        bytes memory, // _data
-        uint256 _pos
-    )
-        internal
-        pure
-        returns (uint48 value_, uint256 newPos_)
-    {
+    function unpackUint48(uint256 _pos) internal pure returns (uint48 value_, uint256 newPos_) {
         assembly {
             value_ :=
                 or(
@@ -311,19 +216,11 @@ library LibCodec {
     }
 
     /// @notice Unpack uint256 (32 bytes) from position
-    /// @dev Single mload for efficiency. Reads full 32-byte word. Data parameter is unused but
-    /// needed for memory context.
+    /// @dev Single mload for efficiency. Reads full 32-byte word.
     /// @param _pos Absolute memory position to read from (best if 32-byte aligned)
     /// @return value_ The unpacked uint256 value
     /// @return newPos_ Updated position after reading (pos + 32)
-    function unpackUint256(
-        bytes memory, // _data
-        uint256 _pos
-    )
-        internal
-        pure
-        returns (uint256 value_, uint256 newPos_)
-    {
+    function unpackUint256(uint256 _pos) internal pure returns (uint256 value_, uint256 newPos_) {
         assembly {
             value_ := mload(_pos)
             newPos_ := add(_pos, 32)
@@ -331,19 +228,11 @@ library LibCodec {
     }
 
     /// @notice Unpack bytes32 from position
-    /// @dev Direct 32-byte read for hashes and identifiers. Data parameter is unused but needed for
-    /// memory context.
+    /// @dev Direct 32-byte read for hashes and identifiers.
     /// @param _pos Absolute memory position to read from (best if 32-byte aligned)
     /// @return value_ The unpacked bytes32 value
     /// @return newPos_ Updated position after reading (pos + 32)
-    function unpackBytes32(
-        bytes memory, // _data
-        uint256 _pos
-    )
-        internal
-        pure
-        returns (bytes32 value_, uint256 newPos_)
-    {
+    function unpackBytes32(uint256 _pos) internal pure returns (bytes32 value_, uint256 newPos_) {
         assembly {
             value_ := mload(_pos)
             newPos_ := add(_pos, 32)
@@ -352,19 +241,11 @@ library LibCodec {
 
     /// @notice Unpack address (20 bytes) from position
     /// @dev Reads 20 bytes byte-by-byte and reconstructs address.
-    /// Handles unaligned positions correctly. Data parameter is unused but needed for memory
-    /// context.
+    /// Handles unaligned positions correctly.
     /// @param _pos Absolute memory position to read from
     /// @return value_ The unpacked address
     /// @return newPos_ Updated position after reading (pos + 20)
-    function unpackAddress(
-        bytes memory, // _data
-        uint256 _pos
-    )
-        internal
-        pure
-        returns (address value_, uint256 newPos_)
-    {
+    function unpackAddress(uint256 _pos) internal pure returns (address value_, uint256 newPos_) {
         assembly {
             // Read 20 bytes as address
             value_ :=

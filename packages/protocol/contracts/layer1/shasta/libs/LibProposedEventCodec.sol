@@ -36,12 +36,12 @@ library LibProposedEventCodec {
         uint256 pos = LibCodec.dataPtr(buffer);
 
         // Encode Proposal
-        pos = LibCodec.packUint48(buffer, pos, _proposal.id);
-        pos = LibCodec.packAddress(buffer, pos, _proposal.proposer);
-        pos = LibCodec.packUint48(buffer, pos, _proposal.originTimestamp);
-        pos = LibCodec.packUint48(buffer, pos, _proposal.originBlockNumber);
-        pos = LibCodec.packUint8(buffer, pos, _proposal.isForcedInclusion ? 1 : 0);
-        pos = LibCodec.packUint8(buffer, pos, _proposal.basefeeSharingPctg);
+        pos = LibCodec.packUint48(pos, _proposal.id);
+        pos = LibCodec.packAddress(pos, _proposal.proposer);
+        pos = LibCodec.packUint48(pos, _proposal.originTimestamp);
+        pos = LibCodec.packUint48(pos, _proposal.originBlockNumber);
+        pos = LibCodec.packUint8(pos, _proposal.isForcedInclusion ? 1 : 0);
+        pos = LibCodec.packUint8(pos, _proposal.basefeeSharingPctg);
 
         // Encode BlobSlice
         // First encode the length of blobHashes array as uint24
@@ -50,19 +50,19 @@ library LibProposedEventCodec {
 
         // Encode each blob hash
         for (uint256 i; i < blobHashesLength; ++i) {
-            pos = LibCodec.packBytes32(buffer, pos, _proposal.blobSlice.blobHashes[i]);
+            pos = LibCodec.packBytes32(pos, _proposal.blobSlice.blobHashes[i]);
         }
 
         pos = packUint24(buffer, pos, _proposal.blobSlice.offset);
-        pos = LibCodec.packUint48(buffer, pos, _proposal.blobSlice.timestamp);
+        pos = LibCodec.packUint48(pos, _proposal.blobSlice.timestamp);
 
-        pos = LibCodec.packBytes32(buffer, pos, _proposal.coreStateHash);
+        pos = LibCodec.packBytes32(pos, _proposal.coreStateHash);
 
         // Encode CoreState
-        pos = LibCodec.packUint48(buffer, pos, _coreState.nextProposalId);
-        pos = LibCodec.packUint48(buffer, pos, _coreState.lastFinalizedProposalId);
-        pos = LibCodec.packBytes32(buffer, pos, _coreState.lastFinalizedClaimHash);
-        pos = LibCodec.packBytes32(buffer, pos, _coreState.bondInstructionsHash);
+        pos = LibCodec.packUint48(pos, _coreState.nextProposalId);
+        pos = LibCodec.packUint48(pos, _coreState.lastFinalizedProposalId);
+        pos = LibCodec.packBytes32(pos, _coreState.lastFinalizedClaimHash);
+        pos = LibCodec.packBytes32(pos, _coreState.bondInstructionsHash);
 
         return buffer;
     }
@@ -79,16 +79,16 @@ library LibProposedEventCodec {
         uint256 pos = LibCodec.dataPtr(_data);
 
         // Decode Proposal
-        (proposal_.id, pos) = LibCodec.unpackUint48(_data, pos);
-        (proposal_.proposer, pos) = LibCodec.unpackAddress(_data, pos);
-        (proposal_.originTimestamp, pos) = LibCodec.unpackUint48(_data, pos);
-        (proposal_.originBlockNumber, pos) = LibCodec.unpackUint48(_data, pos);
+        (proposal_.id, pos) = LibCodec.unpackUint48(pos);
+        (proposal_.proposer, pos) = LibCodec.unpackAddress(pos);
+        (proposal_.originTimestamp, pos) = LibCodec.unpackUint48(pos);
+        (proposal_.originBlockNumber, pos) = LibCodec.unpackUint48(pos);
 
         uint8 isForcedInclusion;
-        (isForcedInclusion, pos) = LibCodec.unpackUint8(_data, pos);
+        (isForcedInclusion, pos) = LibCodec.unpackUint8(pos);
         proposal_.isForcedInclusion = isForcedInclusion != 0;
 
-        (proposal_.basefeeSharingPctg, pos) = LibCodec.unpackUint8(_data, pos);
+        (proposal_.basefeeSharingPctg, pos) = LibCodec.unpackUint8(pos);
 
         // Decode BlobSlice
         uint24 blobHashesLength;
@@ -96,19 +96,19 @@ library LibProposedEventCodec {
 
         proposal_.blobSlice.blobHashes = new bytes32[](blobHashesLength);
         for (uint256 i; i < blobHashesLength; ++i) {
-            (proposal_.blobSlice.blobHashes[i], pos) = LibCodec.unpackBytes32(_data, pos);
+            (proposal_.blobSlice.blobHashes[i], pos) = LibCodec.unpackBytes32(pos);
         }
 
         (proposal_.blobSlice.offset, pos) = unpackUint24(_data, pos);
-        (proposal_.blobSlice.timestamp, pos) = LibCodec.unpackUint48(_data, pos);
+        (proposal_.blobSlice.timestamp, pos) = LibCodec.unpackUint48(pos);
 
-        (proposal_.coreStateHash, pos) = LibCodec.unpackBytes32(_data, pos);
+        (proposal_.coreStateHash, pos) = LibCodec.unpackBytes32(pos);
 
         // Decode CoreState
-        (coreState_.nextProposalId, pos) = LibCodec.unpackUint48(_data, pos);
-        (coreState_.lastFinalizedProposalId, pos) = LibCodec.unpackUint48(_data, pos);
-        (coreState_.lastFinalizedClaimHash, pos) = LibCodec.unpackBytes32(_data, pos);
-        (coreState_.bondInstructionsHash, pos) = LibCodec.unpackBytes32(_data, pos);
+        (coreState_.nextProposalId, pos) = LibCodec.unpackUint48(pos);
+        (coreState_.lastFinalizedProposalId, pos) = LibCodec.unpackUint48(pos);
+        (coreState_.lastFinalizedClaimHash, pos) = LibCodec.unpackBytes32(pos);
+        (coreState_.bondInstructionsHash, pos) = LibCodec.unpackBytes32(pos);
     }
 
     // ---------------------------------------------------------------

@@ -18,11 +18,11 @@ contract LibCodecTest is Test {
 
         // Pack value
         uint8 value = 0;
-        uint256 newPtr = LibCodec.packUint8(ptr, value);
+        uint256 newPtr = LibCodec.packUint8(buffer, ptr, value);
         assertEq(newPtr, ptr + 1);
 
         // Unpack value
-        (uint8 unpacked, uint256 readPtr) = LibCodec.unpackUint8(ptr);
+        (uint8 unpacked, uint256 readPtr) = LibCodec.unpackUint8(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 1);
     }
@@ -33,11 +33,11 @@ contract LibCodecTest is Test {
 
         // Pack value
         uint8 value = type(uint8).max;
-        uint256 newPtr = LibCodec.packUint8(ptr, value);
+        uint256 newPtr = LibCodec.packUint8(buffer, ptr, value);
         assertEq(newPtr, ptr + 1);
 
         // Unpack value
-        (uint8 unpacked, uint256 readPtr) = LibCodec.unpackUint8(ptr);
+        (uint8 unpacked, uint256 readPtr) = LibCodec.unpackUint8(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 1);
     }
@@ -55,10 +55,10 @@ contract LibCodecTest is Test {
 
         for (uint256 i = 0; i < testValues.length; i++) {
             uint256 writePtr = ptr + i;
-            uint256 newPtr = LibCodec.packUint8(writePtr, testValues[i]);
+            uint256 newPtr = LibCodec.packUint8(buffer, writePtr, testValues[i]);
             assertEq(newPtr, writePtr + 1);
 
-            (uint8 unpacked,) = LibCodec.unpackUint8(writePtr);
+            (uint8 unpacked,) = LibCodec.unpackUint8(buffer, writePtr);
             assertEq(unpacked, testValues[i]);
         }
     }
@@ -72,10 +72,10 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         uint16 value = 0;
-        uint256 newPtr = LibCodec.packUint16(ptr, value);
+        uint256 newPtr = LibCodec.packUint16(buffer, ptr, value);
         assertEq(newPtr, ptr + 2);
 
-        (uint16 unpacked, uint256 readPtr) = LibCodec.unpackUint16(ptr);
+        (uint16 unpacked, uint256 readPtr) = LibCodec.unpackUint16(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 2);
     }
@@ -85,10 +85,10 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         uint16 value = type(uint16).max;
-        uint256 newPtr = LibCodec.packUint16(ptr, value);
+        uint256 newPtr = LibCodec.packUint16(buffer, ptr, value);
         assertEq(newPtr, ptr + 2);
 
-        (uint16 unpacked, uint256 readPtr) = LibCodec.unpackUint16(ptr);
+        (uint16 unpacked, uint256 readPtr) = LibCodec.unpackUint16(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 2);
     }
@@ -98,13 +98,13 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         uint16 value = 0x1234; // Test big-endian encoding
-        LibCodec.packUint16(ptr, value);
+        LibCodec.packUint16(buffer, ptr, value);
 
         // Check raw bytes are big-endian
         assertEq(uint8(buffer[0]), 0x12);
         assertEq(uint8(buffer[1]), 0x34);
 
-        (uint16 unpacked,) = LibCodec.unpackUint16(ptr);
+        (uint16 unpacked,) = LibCodec.unpackUint16(buffer, ptr);
         assertEq(unpacked, value);
     }
 
@@ -117,10 +117,10 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         uint32 value = 0;
-        uint256 newPtr = LibCodec.packUint32(ptr, value);
+        uint256 newPtr = LibCodec.packUint32(buffer, ptr, value);
         assertEq(newPtr, ptr + 4);
 
-        (uint32 unpacked, uint256 readPtr) = LibCodec.unpackUint32(ptr);
+        (uint32 unpacked, uint256 readPtr) = LibCodec.unpackUint32(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 4);
     }
@@ -130,10 +130,10 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         uint32 value = type(uint32).max;
-        uint256 newPtr = LibCodec.packUint32(ptr, value);
+        uint256 newPtr = LibCodec.packUint32(buffer, ptr, value);
         assertEq(newPtr, ptr + 4);
 
-        (uint32 unpacked, uint256 readPtr) = LibCodec.unpackUint32(ptr);
+        (uint32 unpacked, uint256 readPtr) = LibCodec.unpackUint32(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 4);
     }
@@ -143,7 +143,7 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         uint32 value = 0x12345678;
-        LibCodec.packUint32(ptr, value);
+        LibCodec.packUint32(buffer, ptr, value);
 
         // Check raw bytes are big-endian
         assertEq(uint8(buffer[0]), 0x12);
@@ -151,7 +151,7 @@ contract LibCodecTest is Test {
         assertEq(uint8(buffer[2]), 0x56);
         assertEq(uint8(buffer[3]), 0x78);
 
-        (uint32 unpacked,) = LibCodec.unpackUint32(ptr);
+        (uint32 unpacked,) = LibCodec.unpackUint32(buffer, ptr);
         assertEq(unpacked, value);
     }
 
@@ -164,10 +164,10 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         uint48 value = 0;
-        uint256 newPtr = LibCodec.packUint48(ptr, value);
+        uint256 newPtr = LibCodec.packUint48(buffer, ptr, value);
         assertEq(newPtr, ptr + 6);
 
-        (uint48 unpacked, uint256 readPtr) = LibCodec.unpackUint48(ptr);
+        (uint48 unpacked, uint256 readPtr) = LibCodec.unpackUint48(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 6);
     }
@@ -177,10 +177,10 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         uint48 value = type(uint48).max;
-        uint256 newPtr = LibCodec.packUint48(ptr, value);
+        uint256 newPtr = LibCodec.packUint48(buffer, ptr, value);
         assertEq(newPtr, ptr + 6);
 
-        (uint48 unpacked, uint256 readPtr) = LibCodec.unpackUint48(ptr);
+        (uint48 unpacked, uint256 readPtr) = LibCodec.unpackUint48(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 6);
     }
@@ -190,7 +190,7 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         uint48 value = 0x123456789ABC;
-        LibCodec.packUint48(ptr, value);
+        LibCodec.packUint48(buffer, ptr, value);
 
         // Check raw bytes are big-endian
         assertEq(uint8(buffer[0]), 0x12);
@@ -200,7 +200,7 @@ contract LibCodecTest is Test {
         assertEq(uint8(buffer[4]), 0x9A);
         assertEq(uint8(buffer[5]), 0xBC);
 
-        (uint48 unpacked,) = LibCodec.unpackUint48(ptr);
+        (uint48 unpacked,) = LibCodec.unpackUint48(buffer, ptr);
         assertEq(unpacked, value);
     }
 
@@ -213,10 +213,10 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         uint256 value = 0;
-        uint256 newPtr = LibCodec.packUint256(ptr, value);
+        uint256 newPtr = LibCodec.packUint256(buffer, ptr, value);
         assertEq(newPtr, ptr + 32);
 
-        (uint256 unpacked, uint256 readPtr) = LibCodec.unpackUint256(ptr);
+        (uint256 unpacked, uint256 readPtr) = LibCodec.unpackUint256(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 32);
     }
@@ -226,10 +226,10 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         uint256 value = type(uint256).max;
-        uint256 newPtr = LibCodec.packUint256(ptr, value);
+        uint256 newPtr = LibCodec.packUint256(buffer, ptr, value);
         assertEq(newPtr, ptr + 32);
 
-        (uint256 unpacked, uint256 readPtr) = LibCodec.unpackUint256(ptr);
+        (uint256 unpacked, uint256 readPtr) = LibCodec.unpackUint256(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 32);
     }
@@ -245,10 +245,10 @@ contract LibCodecTest is Test {
 
         uint256 currentPtr = ptr;
         for (uint256 i = 0; i < testValues.length; i++) {
-            uint256 newPtr = LibCodec.packUint256(currentPtr, testValues[i]);
+            uint256 newPtr = LibCodec.packUint256(buffer, currentPtr, testValues[i]);
             assertEq(newPtr, currentPtr + 32);
 
-            (uint256 unpacked,) = LibCodec.unpackUint256(currentPtr);
+            (uint256 unpacked,) = LibCodec.unpackUint256(buffer, currentPtr);
             assertEq(unpacked, testValues[i]);
 
             currentPtr = newPtr;
@@ -264,10 +264,10 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         bytes32 value = bytes32(0);
-        uint256 newPtr = LibCodec.packBytes32(ptr, value);
+        uint256 newPtr = LibCodec.packBytes32(buffer, ptr, value);
         assertEq(newPtr, ptr + 32);
 
-        (bytes32 unpacked, uint256 readPtr) = LibCodec.unpackBytes32(ptr);
+        (bytes32 unpacked, uint256 readPtr) = LibCodec.unpackBytes32(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 32);
     }
@@ -277,10 +277,10 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         bytes32 value = bytes32(type(uint256).max);
-        uint256 newPtr = LibCodec.packBytes32(ptr, value);
+        uint256 newPtr = LibCodec.packBytes32(buffer, ptr, value);
         assertEq(newPtr, ptr + 32);
 
-        (bytes32 unpacked, uint256 readPtr) = LibCodec.unpackBytes32(ptr);
+        (bytes32 unpacked, uint256 readPtr) = LibCodec.unpackBytes32(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 32);
     }
@@ -290,10 +290,10 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         bytes32 value = keccak256("test data");
-        uint256 newPtr = LibCodec.packBytes32(ptr, value);
+        uint256 newPtr = LibCodec.packBytes32(buffer, ptr, value);
         assertEq(newPtr, ptr + 32);
 
-        (bytes32 unpacked, uint256 readPtr) = LibCodec.unpackBytes32(ptr);
+        (bytes32 unpacked, uint256 readPtr) = LibCodec.unpackBytes32(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 32);
     }
@@ -307,10 +307,10 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         address value = address(0);
-        uint256 newPtr = LibCodec.packAddress(ptr, value);
+        uint256 newPtr = LibCodec.packAddress(buffer, ptr, value);
         assertEq(newPtr, ptr + 20);
 
-        (address unpacked, uint256 readPtr) = LibCodec.unpackAddress(ptr);
+        (address unpacked, uint256 readPtr) = LibCodec.unpackAddress(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 20);
     }
@@ -320,10 +320,10 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         address value = address(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF);
-        uint256 newPtr = LibCodec.packAddress(ptr, value);
+        uint256 newPtr = LibCodec.packAddress(buffer, ptr, value);
         assertEq(newPtr, ptr + 20);
 
-        (address unpacked, uint256 readPtr) = LibCodec.unpackAddress(ptr);
+        (address unpacked, uint256 readPtr) = LibCodec.unpackAddress(buffer, ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 20);
     }
@@ -340,10 +340,10 @@ contract LibCodecTest is Test {
 
         uint256 currentPtr = ptr;
         for (uint256 i = 0; i < testAddresses.length; i++) {
-            uint256 newPtr = LibCodec.packAddress(currentPtr, testAddresses[i]);
+            uint256 newPtr = LibCodec.packAddress(buffer, currentPtr, testAddresses[i]);
             assertEq(newPtr, currentPtr + 20);
 
-            (address unpacked,) = LibCodec.unpackAddress(currentPtr);
+            (address unpacked,) = LibCodec.unpackAddress(buffer, currentPtr);
             assertEq(unpacked, testAddresses[i]);
 
             currentPtr = newPtr;
@@ -355,7 +355,7 @@ contract LibCodecTest is Test {
         uint256 ptr = LibCodec.dataPtr(buffer);
 
         address value = address(0x1234567890AbcdEF1234567890aBcdef12345678);
-        LibCodec.packAddress(ptr, value);
+        LibCodec.packAddress(buffer, ptr, value);
 
         // Check raw bytes are stored correctly
         assertEq(uint8(buffer[0]), 0x12);
@@ -379,7 +379,7 @@ contract LibCodecTest is Test {
         assertEq(uint8(buffer[18]), 0x56);
         assertEq(uint8(buffer[19]), 0x78);
 
-        (address unpacked,) = LibCodec.unpackAddress(ptr);
+        (address unpacked,) = LibCodec.unpackAddress(buffer, ptr);
         assertEq(unpacked, value);
     }
 
@@ -438,12 +438,12 @@ contract LibCodecTest is Test {
             uint16 val2 = 1234;
 
             uint256 writePtr = ptr;
-            writePtr = LibCodec.packUint8(writePtr, val1);
-            writePtr = LibCodec.packUint16(writePtr, val2);
+            writePtr = LibCodec.packUint8(buffer, writePtr, val1);
+            writePtr = LibCodec.packUint16(buffer, writePtr, val2);
 
             uint256 readPtr = ptr;
-            (uint8 read1, uint256 newPtr1) = LibCodec.unpackUint8(readPtr);
-            (uint16 read2, uint256 newPtr2) = LibCodec.unpackUint16(newPtr1);
+            (uint8 read1, uint256 newPtr1) = LibCodec.unpackUint8(buffer, readPtr);
+            (uint16 read2, uint256 newPtr2) = LibCodec.unpackUint16(buffer, newPtr1);
 
             assertEq(read1, val1);
             assertEq(read2, val2);
@@ -456,12 +456,12 @@ contract LibCodecTest is Test {
             uint48 val4 = 999_999_999_999;
 
             uint256 writePtr = ptr + 3; // offset past previous data
-            writePtr = LibCodec.packUint32(writePtr, val3);
-            writePtr = LibCodec.packUint48(writePtr, val4);
+            writePtr = LibCodec.packUint32(buffer, writePtr, val3);
+            writePtr = LibCodec.packUint48(buffer, writePtr, val4);
 
             uint256 readPtr = ptr + 3;
-            (uint32 read3, uint256 newPtr3) = LibCodec.unpackUint32(readPtr);
-            (uint48 read4, uint256 newPtr4) = LibCodec.unpackUint48(newPtr3);
+            (uint32 read3, uint256 newPtr3) = LibCodec.unpackUint32(buffer, readPtr);
+            (uint48 read4, uint256 newPtr4) = LibCodec.unpackUint48(buffer, newPtr3);
 
             assertEq(read3, val3);
             assertEq(read4, val4);
@@ -474,12 +474,12 @@ contract LibCodecTest is Test {
             bytes32 val6 = keccak256("test");
 
             uint256 writePtr = ptr + 13; // offset past previous data
-            writePtr = LibCodec.packAddress(writePtr, val5);
-            writePtr = LibCodec.packBytes32(writePtr, val6);
+            writePtr = LibCodec.packAddress(buffer, writePtr, val5);
+            writePtr = LibCodec.packBytes32(buffer, writePtr, val6);
 
             uint256 readPtr = ptr + 13;
-            (address read5, uint256 newPtr5) = LibCodec.unpackAddress(readPtr);
-            (bytes32 read6, uint256 newPtr6) = LibCodec.unpackBytes32(newPtr5);
+            (address read5, uint256 newPtr5) = LibCodec.unpackAddress(buffer, readPtr);
+            (bytes32 read6, uint256 newPtr6) = LibCodec.unpackBytes32(buffer, newPtr5);
 
             assertEq(read5, val5);
             assertEq(read6, val6);
@@ -495,8 +495,8 @@ contract LibCodecTest is Test {
         bytes memory buffer = new bytes(10);
         uint256 ptr = LibCodec.dataPtr(buffer);
 
-        LibCodec.packUint8(ptr, value);
-        (uint8 unpacked,) = LibCodec.unpackUint8(ptr);
+        LibCodec.packUint8(buffer, ptr, value);
+        (uint8 unpacked,) = LibCodec.unpackUint8(buffer, ptr);
         assertEq(unpacked, value);
     }
 
@@ -504,8 +504,8 @@ contract LibCodecTest is Test {
         bytes memory buffer = new bytes(10);
         uint256 ptr = LibCodec.dataPtr(buffer);
 
-        LibCodec.packUint16(ptr, value);
-        (uint16 unpacked,) = LibCodec.unpackUint16(ptr);
+        LibCodec.packUint16(buffer, ptr, value);
+        (uint16 unpacked,) = LibCodec.unpackUint16(buffer, ptr);
         assertEq(unpacked, value);
     }
 
@@ -513,8 +513,8 @@ contract LibCodecTest is Test {
         bytes memory buffer = new bytes(10);
         uint256 ptr = LibCodec.dataPtr(buffer);
 
-        LibCodec.packUint32(ptr, value);
-        (uint32 unpacked,) = LibCodec.unpackUint32(ptr);
+        LibCodec.packUint32(buffer, ptr, value);
+        (uint32 unpacked,) = LibCodec.unpackUint32(buffer, ptr);
         assertEq(unpacked, value);
     }
 
@@ -522,8 +522,8 @@ contract LibCodecTest is Test {
         bytes memory buffer = new bytes(10);
         uint256 ptr = LibCodec.dataPtr(buffer);
 
-        LibCodec.packUint48(ptr, value);
-        (uint48 unpacked,) = LibCodec.unpackUint48(ptr);
+        LibCodec.packUint48(buffer, ptr, value);
+        (uint48 unpacked,) = LibCodec.unpackUint48(buffer, ptr);
         assertEq(unpacked, value);
     }
 
@@ -531,8 +531,8 @@ contract LibCodecTest is Test {
         bytes memory buffer = new bytes(40);
         uint256 ptr = LibCodec.dataPtr(buffer);
 
-        LibCodec.packUint256(ptr, value);
-        (uint256 unpacked,) = LibCodec.unpackUint256(ptr);
+        LibCodec.packUint256(buffer, ptr, value);
+        (uint256 unpacked,) = LibCodec.unpackUint256(buffer, ptr);
         assertEq(unpacked, value);
     }
 
@@ -540,8 +540,8 @@ contract LibCodecTest is Test {
         bytes memory buffer = new bytes(40);
         uint256 ptr = LibCodec.dataPtr(buffer);
 
-        LibCodec.packBytes32(ptr, value);
-        (bytes32 unpacked,) = LibCodec.unpackBytes32(ptr);
+        LibCodec.packBytes32(buffer, ptr, value);
+        (bytes32 unpacked,) = LibCodec.unpackBytes32(buffer, ptr);
         assertEq(unpacked, value);
     }
 
@@ -549,8 +549,8 @@ contract LibCodecTest is Test {
         bytes memory buffer = new bytes(30);
         uint256 ptr = LibCodec.dataPtr(buffer);
 
-        LibCodec.packAddress(ptr, value);
-        (address unpacked,) = LibCodec.unpackAddress(ptr);
+        LibCodec.packAddress(buffer, ptr, value);
+        (address unpacked,) = LibCodec.unpackAddress(buffer, ptr);
         assertEq(unpacked, value);
     }
 }
