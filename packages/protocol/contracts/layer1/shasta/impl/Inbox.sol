@@ -271,7 +271,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         return abi.encode(proposal, coreState);
     }
 
-    /// @dev Encodes the proved event data using compact encoding
+    /// @dev Encodes the proved event data 
     /// @param claimRecord The claim record to encode
     /// @return The encoded data
     function encodeProveEventData(ClaimRecord memory claimRecord)
@@ -781,7 +781,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         return keccak256(abi.encode(_coreState));
     }
 
-    /// @dev Hashes a ClaimRecord struct using compact encoding.
+    /// @dev Hashes a ClaimRecord struct.
     /// @param _claimRecord The claim record to hash.
     /// @return _ The hash of the claim record.
     function _hashClaimRecord(ClaimRecord memory _claimRecord) private pure returns (bytes32) {
