@@ -11,6 +11,7 @@ import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibProvedEventDataCodec } from "../libs/LibProvedEventDataCodec.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
@@ -271,7 +272,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         return abi.encode(proposal, coreState);
     }
 
-    /// @dev Encodes the proved event data
+    /// @dev Encodes the proved event data using compact encoding
     /// @param claimRecord The claim record to encode
     /// @return The encoded data
     function encodeProveEventData(ClaimRecord memory claimRecord)
@@ -280,7 +281,19 @@ abstract contract Inbox is EssentialContract, IInbox {
         virtual
         returns (bytes memory)
     {
-        return abi.encode(claimRecord);
+        return LibProvedEventDataCodec.encode(claimRecord);
+    }
+
+    /// @dev Decodes the proved event data using compact encoding
+    /// @param _data The encoded data
+    /// @return claimRecord_ The decoded claim record
+    function decodeProveEventData(bytes memory _data)
+        public
+        pure
+        virtual
+        returns (ClaimRecord memory claimRecord_)
+    {
+        return LibProvedEventDataCodec.decode(_data);
     }
 
     // ---------------------------------------------------------------
@@ -781,11 +794,11 @@ abstract contract Inbox is EssentialContract, IInbox {
         return keccak256(abi.encode(_coreState));
     }
 
-    /// @dev Hashes a ClaimRecord struct.
+    /// @dev Hashes a ClaimRecord struct using compact encoding.
     /// @param _claimRecord The claim record to hash.
     /// @return _ The hash of the claim record.
     function _hashClaimRecord(ClaimRecord memory _claimRecord) private pure returns (bytes32) {
-        return keccak256(abi.encode(_claimRecord));
+        return keccak256(LibProvedEventDataCodec.encode(_claimRecord));
     }
 
     /// @dev Hashes an array of Claims.
