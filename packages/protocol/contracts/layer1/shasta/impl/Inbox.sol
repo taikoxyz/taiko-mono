@@ -271,7 +271,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         return abi.encode(proposal, coreState);
     }
 
-    /// @dev Encodes the proved event data 
+    /// @dev Encodes the proved event data
     /// @param claimRecord The claim record to encode
     /// @return The encoded data
     function encodeProveEventData(ClaimRecord memory claimRecord)
