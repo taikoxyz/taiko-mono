@@ -283,18 +283,6 @@ abstract contract Inbox is EssentialContract, IInbox {
         return abi.encode(claimRecord);
     }
 
-    /// @dev Decodes the proved event data using compact encoding
-    /// @param _data The encoded data
-    /// @return claimRecord_ The decoded claim record
-    function decodeProveEventData(bytes memory _data)
-        public
-        pure
-        virtual
-        returns (ClaimRecord memory claimRecord_)
-    {
-        return abi.decode(_data, (ClaimRecord));
-    }
-
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
