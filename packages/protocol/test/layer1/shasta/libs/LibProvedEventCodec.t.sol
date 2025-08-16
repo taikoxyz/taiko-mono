@@ -266,4 +266,334 @@ contract LibProvedEventCodecTest is Test {
             assertEq(decoded.bondInstructions[i].receiver, original.bondInstructions[i].receiver);
         }
     }
+
+    // ---------------------------------------------------------------
+    // Additional Fuzz Tests
+    // ---------------------------------------------------------------
+
+    /// @notice Fuzz test with large bond instructions arrays
+    function testFuzz_largeBondInstructionsArray(
+        uint48 proposalId,
+        bytes32[5] memory hashes,
+        uint48 endBlockNumber,
+        address[2] memory provers,
+        uint8 span
+    )
+        public
+        pure
+    {
+        // Test with maximum allowed bond instructions (up to uint16.max)
+        uint16 numInstructions = 100; // Test with 100 instructions
+
+        IInbox.ClaimRecord memory original;
+        original.proposalId = proposalId;
+        original.claim.proposalHash = hashes[0];
+        original.claim.parentClaimHash = hashes[1];
+        original.claim.endBlockNumber = endBlockNumber;
+        original.claim.endBlockHash = hashes[2];
+        original.claim.endStateRoot = hashes[3];
+        original.claim.designatedProver = provers[0];
+        original.claim.actualProver = provers[1];
+        original.span = span;
+
+        // Create large array of bond instructions
+        original.bondInstructions = new LibBonds.BondInstruction[](numInstructions);
+        for (uint256 i = 0; i < numInstructions; i++) {
+            original.bondInstructions[i] = LibBonds.BondInstruction({
+                proposalId: uint48(i),
+                bondType: LibBonds.BondType(uint8(i % 3)),
+                payer: address(uint160(uint256(keccak256(abi.encode(i, "payer", hashes[4]))))),
+                receiver: address(uint160(uint256(keccak256(abi.encode(i, "receiver", proposalId)))))
+            });
+        }
+
+        bytes memory encoded = LibProvedEventCodec.encode(original);
+        assertEq(encoded.length, 183 + numInstructions * 47);
+
+        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        assertEq(decoded.bondInstructions.length, numInstructions);
+        assertEq(decoded.proposalId, original.proposalId);
+    }
+
+    /// @notice Fuzz test for boundary values
+    function testFuzz_boundaryValues(
+        bool useMaxProposalId,
+        bool useMaxBlockNumber,
+        bool useZeroAddresses,
+        bool useMaxSpan,
+        uint8 bondInstructionCount
+    )
+        public
+        pure
+    {
+        bondInstructionCount = uint8(bound(bondInstructionCount, 0, 20));
+
+        IInbox.ClaimRecord memory original;
+        original.proposalId = useMaxProposalId ? type(uint48).max : 1;
+        original.claim.proposalHash = keccak256(abi.encode("hash", useMaxProposalId));
+        original.claim.parentClaimHash = keccak256(abi.encode("parent", useMaxBlockNumber));
+        original.claim.endBlockNumber = useMaxBlockNumber ? type(uint48).max : 1;
+        original.claim.endBlockHash = keccak256(abi.encode("block", useZeroAddresses));
+        original.claim.endStateRoot = keccak256(abi.encode("state", useMaxSpan));
+        original.claim.designatedProver = useZeroAddresses ? address(0) : address(0xdead);
+        original.claim.actualProver = useZeroAddresses ? address(0) : address(0xbeef);
+        original.span = useMaxSpan ? type(uint8).max : 0;
+
+        original.bondInstructions = new LibBonds.BondInstruction[](bondInstructionCount);
+        for (uint256 i = 0; i < bondInstructionCount; i++) {
+            original.bondInstructions[i] = LibBonds.BondInstruction({
+                proposalId: useMaxProposalId ? type(uint48).max - uint48(i) : uint48(i),
+                bondType: LibBonds.BondType(uint8(i % 3)),
+                payer: useZeroAddresses ? address(0) : address(uint160(i + 1)),
+                receiver: useZeroAddresses ? address(0) : address(uint160(i + 2))
+            });
+        }
+
+        bytes memory encoded = LibProvedEventCodec.encode(original);
+        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+
+        assertEq(decoded.proposalId, original.proposalId);
+        assertEq(decoded.claim.endBlockNumber, original.claim.endBlockNumber);
+        assertEq(decoded.span, original.span);
+        assertEq(decoded.bondInstructions.length, bondInstructionCount);
+    }
+
+    /// @notice Fuzz test for encoding size calculations
+    function testFuzz_encodingSizeCalculation(uint16 numBondInstructions) public pure {
+        numBondInstructions = uint16(bound(numBondInstructions, 0, 1000));
+
+        IInbox.ClaimRecord memory record;
+        record.proposalId = 12_345;
+        record.claim.proposalHash = keccak256("test");
+        record.claim.parentClaimHash = keccak256("parent");
+        record.claim.endBlockNumber = 999_999;
+        record.claim.endBlockHash = keccak256("block");
+        record.claim.endStateRoot = keccak256("state");
+        record.claim.designatedProver = address(0x1);
+        record.claim.actualProver = address(0x2);
+        record.span = 42;
+
+        record.bondInstructions = new LibBonds.BondInstruction[](numBondInstructions);
+        for (uint256 i = 0; i < numBondInstructions; i++) {
+            record.bondInstructions[i] = LibBonds.BondInstruction({
+                proposalId: uint48(i),
+                bondType: LibBonds.BondType.NONE,
+                payer: address(uint160(i + 100)),
+                receiver: address(uint160(i + 200))
+            });
+        }
+
+        bytes memory encoded = LibProvedEventCodec.encode(record);
+
+        // Verify size: base (183) + bond instructions (47 each)
+        uint256 expectedSize = 183 + uint256(numBondInstructions) * 47;
+        assertEq(encoded.length, expectedSize);
+
+        // Verify decode works correctly
+        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        assertEq(decoded.bondInstructions.length, numBondInstructions);
+    }
+
+    /// @notice Fuzz test for different bond type patterns
+    function testFuzz_bondTypePatterns(
+        uint8 pattern,
+        uint8 numInstructions,
+        uint48 baseProposalId
+    )
+        public
+        pure
+    {
+        numInstructions = uint8(bound(numInstructions, 1, 50));
+        pattern = uint8(bound(pattern, 0, 7));
+
+        IInbox.ClaimRecord memory original;
+        original.proposalId = baseProposalId;
+        original.claim.proposalHash = keccak256(abi.encode("hash", pattern));
+        original.claim.parentClaimHash = keccak256(abi.encode("parent", baseProposalId));
+        original.claim.endBlockNumber = 100_000;
+        original.claim.endBlockHash = keccak256(abi.encode("block", pattern));
+        original.claim.endStateRoot = keccak256(abi.encode("state", numInstructions));
+        original.claim.designatedProver = address(0xaa);
+        original.claim.actualProver = address(0xbb);
+        original.span = 10;
+
+        original.bondInstructions = new LibBonds.BondInstruction[](numInstructions);
+        for (uint256 i = 0; i < numInstructions; i++) {
+            LibBonds.BondType bondType;
+            if (pattern == 0) {
+                // All NONE
+                bondType = LibBonds.BondType.NONE;
+            } else if (pattern == 1) {
+                // All PROVABILITY
+                bondType = LibBonds.BondType.PROVABILITY;
+            } else if (pattern == 2) {
+                // All LIVENESS
+                bondType = LibBonds.BondType.LIVENESS;
+            } else if (pattern == 3) {
+                // Alternating NONE/PROVABILITY
+                bondType = i % 2 == 0 ? LibBonds.BondType.NONE : LibBonds.BondType.PROVABILITY;
+            } else if (pattern == 4) {
+                // Alternating PROVABILITY/LIVENESS
+                bondType = i % 2 == 0 ? LibBonds.BondType.PROVABILITY : LibBonds.BondType.LIVENESS;
+            } else if (pattern == 5) {
+                // Rotating through all three
+                bondType = LibBonds.BondType(uint8(i % 3));
+            } else if (pattern == 6) {
+                // Random based on hash
+                bondType = LibBonds.BondType(uint8(uint256(keccak256(abi.encode(i, pattern))) % 3));
+            } else {
+                // Pattern 7: mostly LIVENESS with occasional others
+                bondType = i % 5 == 0 ? LibBonds.BondType.NONE : LibBonds.BondType.LIVENESS;
+            }
+
+            original.bondInstructions[i] = LibBonds.BondInstruction({
+                proposalId: uint48(baseProposalId + i),
+                bondType: bondType,
+                payer: address(uint160(uint256(keccak256(abi.encode(i, "payer", pattern))))),
+                receiver: address(uint160(uint256(keccak256(abi.encode(i, "receiver", pattern)))))
+            });
+        }
+
+        bytes memory encoded = LibProvedEventCodec.encode(original);
+        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+
+        assertEq(decoded.bondInstructions.length, numInstructions);
+        for (uint256 i = 0; i < numInstructions; i++) {
+            assertEq(
+                uint8(decoded.bondInstructions[i].bondType),
+                uint8(original.bondInstructions[i].bondType)
+            );
+            assertEq(
+                decoded.bondInstructions[i].proposalId, original.bondInstructions[i].proposalId
+            );
+        }
+    }
+
+    /// @notice Fuzz test for various address combinations
+    function testFuzz_addressCombinations(
+        address[4] memory addresses,
+        bool[4] memory useZero,
+        uint8 numInstructions
+    )
+        public
+        pure
+    {
+        numInstructions = uint8(bound(numInstructions, 0, 30));
+
+        IInbox.ClaimRecord memory original;
+        original.proposalId = 54_321;
+        original.claim.proposalHash = keccak256(abi.encode(addresses[0]));
+        original.claim.parentClaimHash = keccak256(abi.encode(addresses[1]));
+        original.claim.endBlockNumber = 200_000;
+        original.claim.endBlockHash = keccak256(abi.encode(addresses[2]));
+        original.claim.endStateRoot = keccak256(abi.encode(addresses[3]));
+        original.claim.designatedProver = useZero[0] ? address(0) : addresses[0];
+        original.claim.actualProver = useZero[1] ? address(0) : addresses[1];
+        original.span = 25;
+
+        original.bondInstructions = new LibBonds.BondInstruction[](numInstructions);
+        for (uint256 i = 0; i < numInstructions; i++) {
+            // Mix and match addresses
+            address payer = useZero[2] && (i % 3 == 0) ? address(0) : addresses[i % 4];
+            address receiver = useZero[3] && (i % 5 == 0) ? address(0) : addresses[(i + 1) % 4];
+
+            // Special cases
+            if (i % 7 == 0) {
+                // Same payer and receiver
+                receiver = payer;
+            } else if (i % 11 == 0) {
+                // Use designated prover as payer
+                payer = original.claim.designatedProver;
+            } else if (i % 13 == 0) {
+                // Use actual prover as receiver
+                receiver = original.claim.actualProver;
+            }
+
+            original.bondInstructions[i] = LibBonds.BondInstruction({
+                proposalId: uint48(1000 + i),
+                bondType: LibBonds.BondType(uint8(i % 3)),
+                payer: payer,
+                receiver: receiver
+            });
+        }
+
+        bytes memory encoded = LibProvedEventCodec.encode(original);
+        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+
+        assertEq(decoded.claim.designatedProver, original.claim.designatedProver);
+        assertEq(decoded.claim.actualProver, original.claim.actualProver);
+        assertEq(decoded.bondInstructions.length, numInstructions);
+
+        for (uint256 i = 0; i < numInstructions; i++) {
+            assertEq(decoded.bondInstructions[i].payer, original.bondInstructions[i].payer);
+            assertEq(decoded.bondInstructions[i].receiver, original.bondInstructions[i].receiver);
+        }
+    }
+
+    /// @notice Comprehensive fuzz test with all parameters
+    function testFuzz_comprehensive(
+        uint48 proposalId,
+        bytes32[5] memory hashes,
+        uint48 endBlockNumber,
+        address[2] memory addresses,
+        uint8 span,
+        uint16 numBondInstructions
+    )
+        public
+        pure
+    {
+        // Bound the number of bond instructions
+        numBondInstructions = uint16(bound(numBondInstructions, 0, 100));
+
+        // Create the input record
+        IInbox.ClaimRecord memory inputRecord;
+        inputRecord.proposalId = proposalId;
+        inputRecord.claim.proposalHash = hashes[0];
+        inputRecord.claim.parentClaimHash = hashes[1];
+        inputRecord.claim.endBlockNumber = endBlockNumber;
+        inputRecord.claim.endBlockHash = hashes[2];
+        inputRecord.claim.endStateRoot = hashes[3];
+        inputRecord.claim.designatedProver = addresses[0];
+        inputRecord.claim.actualProver = addresses[1];
+        inputRecord.span = span;
+
+        // Create bond instructions array
+        inputRecord.bondInstructions = new LibBonds.BondInstruction[](numBondInstructions);
+        for (uint256 i = 0; i < numBondInstructions; i++) {
+            inputRecord.bondInstructions[i] = LibBonds.BondInstruction({
+                proposalId: uint48(uint256(keccak256(abi.encode(i, proposalId)))),
+                bondType: LibBonds.BondType(uint8(uint256(keccak256(abi.encode(i, "type"))) % 3)),
+                payer: address(uint160(uint256(keccak256(abi.encode(i, "payer", hashes[4]))))),
+                receiver: address(uint160(uint256(keccak256(abi.encode(i, "receiver", hashes[0])))))
+            });
+        }
+
+        // Encode and decode
+        bytes memory encoded = LibProvedEventCodec.encode(inputRecord);
+        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+
+        // Verify all fields
+        assertEq(decoded.proposalId, inputRecord.proposalId);
+        assertEq(decoded.claim.proposalHash, inputRecord.claim.proposalHash);
+        assertEq(decoded.claim.parentClaimHash, inputRecord.claim.parentClaimHash);
+        assertEq(decoded.claim.endBlockNumber, inputRecord.claim.endBlockNumber);
+        assertEq(decoded.claim.endBlockHash, inputRecord.claim.endBlockHash);
+        assertEq(decoded.claim.endStateRoot, inputRecord.claim.endStateRoot);
+        assertEq(decoded.claim.designatedProver, inputRecord.claim.designatedProver);
+        assertEq(decoded.claim.actualProver, inputRecord.claim.actualProver);
+        assertEq(decoded.span, inputRecord.span);
+        assertEq(decoded.bondInstructions.length, inputRecord.bondInstructions.length);
+
+        for (uint256 i = 0; i < inputRecord.bondInstructions.length; i++) {
+            assertEq(
+                decoded.bondInstructions[i].proposalId, inputRecord.bondInstructions[i].proposalId
+            );
+            assertEq(
+                uint8(decoded.bondInstructions[i].bondType),
+                uint8(inputRecord.bondInstructions[i].bondType)
+            );
+            assertEq(decoded.bondInstructions[i].payer, inputRecord.bondInstructions[i].payer);
+            assertEq(decoded.bondInstructions[i].receiver, inputRecord.bondInstructions[i].receiver);
+        }
+    }
 }
