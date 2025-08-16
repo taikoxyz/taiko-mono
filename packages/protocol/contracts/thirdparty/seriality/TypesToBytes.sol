@@ -37,12 +37,12 @@ contract TypesToBytes {
         internal
         pure
     {
-        uint256 stack_size = _input.length / 32;
-        if (_input.length % 32 > 0) stack_size++;
+        uint256 stackSize = _input.length / 32;
+        if (_input.length % 32 > 0) stackSize++;
 
         assembly {
-            stack_size := add(stack_size, 1) //adding because of 32 first bytes memory as the length
-            for { let index := 0 } lt(index, stack_size) { index := add(index, 1) } {
+            stackSize := add(stackSize, 1) //adding because of 32 first bytes memory as the length
+            for { let index := 0 } lt(index, stackSize) { index := add(index, 1) } {
                 mstore(add(_output, _offst), mload(add(_input, mul(index, 32))))
                 _offst := sub(_offst, 32)
             }
