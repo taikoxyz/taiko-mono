@@ -136,10 +136,13 @@ abstract contract Inbox is EssentialContract, IInbox {
         coreState = _finalize(config, coreState, claimRecords);
 
         // Verify capacity for new proposals
-        _verifyCapacity(config, coreState);
+        uint256 availableCapacity = _getAvailableCapacity(config, coreState);
+        require(availableCapacity > 0, ExceedsUnfinalizedProposalCapacity());
 
-        // Process forced inclusion if required
-        coreState = _processForcedInclusion(config, coreState);
+        if (availableCapacity > 1) {
+            // Process forced inclusion if required
+            coreState = _processForcedInclusion(config, coreState);
+        }
 
         // Create regular proposal
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(blobReference);
@@ -194,7 +197,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         uint48 _proposalId,
         bytes32 _parentClaimHash
     )
-        public
+        external
         view
         returns (bytes32 claimRecordHash_)
     {
@@ -204,7 +207,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     /// @notice Gets the capacity for unfinalized proposals.
     /// @return _ The maximum number of unfinalized proposals that can exist.
-    function getCapacity() public view returns (uint256) {
+    function getCapacity() external view returns (uint256) {
         Config memory config = getConfig();
         return _getCapacity(config);
     }
@@ -423,6 +426,25 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
+    /// @dev Gets the available capacity for new proposals.
+    /// @param _config The configuration parameters.
+    /// @param _coreState The core state.
+    /// @return _ The available capacity for new proposals.
+    function _getAvailableCapacity(
+        Config memory _config,
+        CoreState memory _coreState
+    )
+        private
+        pure
+        returns (uint256)
+    {
+        unchecked {
+            uint256 numUnfinalizedProposals =
+                _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
+            return _getCapacity(_config) - numUnfinalizedProposals;
+        }
+    }
+
     /// @dev Gets the claim record hash for a given proposal and parent claim.
     function _getClaimRecordHash(
         Config memory _config,
@@ -491,16 +513,6 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(_deadline == 0 || block.timestamp <= _deadline, DeadlineExceeded());
         require(_proposals.length > 0, EmptyProposals());
         require(_hashCoreState(_coreState) == _proposals[0].coreStateHash, InvalidState());
-    }
-
-    /// @dev Verifies that new proposals won't exceed capacity
-    /// @param _config The configuration parameters.
-    /// @param _coreState The core state.
-    function _verifyCapacity(Config memory _config, CoreState memory _coreState) private pure {
-        require(
-            _coreState.nextProposalId <= _getCapacity(_config) + _coreState.lastFinalizedProposalId,
-            ExceedsUnfinalizedProposalCapacity()
-        );
     }
 
     /// @dev Processes forced inclusion if required
