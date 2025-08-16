@@ -1,10 +1,33 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title LibPackCodec
-/// @notice Library providing fundamental packing/unpacking functions for compact encoding using
-/// assembly
-/// @dev All functions are optimized for gas efficiency and compact storage
+/// @title LibCodec
+/// @notice Library providing low-level packing/unpacking functions for compact binary encoding
+/// using inline assembly for maximum gas efficiency.
+/// @dev This library implements a trust-the-caller pattern with no bounds checking for optimal
+/// performance. Callers are responsible for:
+/// - Allocating sufficient memory for pack operations
+/// - Ensuring data has sufficient length for unpack operations
+/// - Tracking position offsets correctly
+///
+/// Memory Layout:
+/// - Pack functions write directly to memory at absolute positions
+/// - Unpack functions read from memory at absolute positions
+/// - All multi-byte integers use big-endian encoding
+/// - Position tracking is left to the caller
+///
+/// Safety Notes:
+/// - No overflow protection on position increments (caller's responsibility)
+/// - No bounds checking on memory access (gas-optimized design)
+/// - Suitable for controlled environments where input validation happens upstream
+///
+/// Usage Example:
+/// ```solidity
+/// bytes memory buffer = new bytes(100);
+/// uint256 pos = LibCodec.dataPtr(buffer);
+/// pos = LibCodec.packUint32(buffer, pos, 12345);
+/// pos = LibCodec.packAddress(buffer, pos, msg.sender);
+/// ```
 /// @custom:security-contact security@taiko.xyz
 library LibCodec {
     // ---------------------------------------------------------------
@@ -12,166 +35,182 @@ library LibCodec {
     // ---------------------------------------------------------------
 
     /// @notice Pack uint8 (1 byte) at position
-    /// @param pos Position in buffer (absolute memory position)
-    /// @param value Value to pack
-    /// @return newPos Position after writing
+    /// @dev Writes a single byte to memory at the specified position. Buffer parameter is unused
+    /// but needed for memory context.
+    /// @param _pos Absolute memory position to write at
+    /// @param _value The uint8 value to pack (0-255)
+    /// @return newPos_ Updated position after writing (pos + 1)
     function packUint8(
-        bytes memory, // buffer - unused but needed for memory context
-        uint256 pos,
-        uint8 value
+        bytes memory, // _buffer
+        uint256 _pos,
+        uint8 _value
     )
         internal
         pure
-        returns (uint256 newPos)
+        returns (uint256 newPos_)
     {
         assembly {
-            mstore8(pos, value)
-            newPos := add(pos, 1)
+            mstore8(_pos, _value)
+            newPos_ := add(_pos, 1)
         }
     }
 
-    /// @notice Pack uint16 (2 bytes) at position, big-endian
-    /// @param pos Position in buffer (absolute memory position)
-    /// @param value Value to pack
-    /// @return newPos Position after writing
+    /// @notice Pack uint16 (2 bytes) at position using big-endian encoding
+    /// @dev Writes 2 bytes: high byte first, then low byte. Buffer parameter is unused but needed
+    /// for memory context.
+    /// @param _pos Absolute memory position to write at
+    /// @param _value The uint16 value to pack (0-65535)
+    /// @return newPos_ Updated position after writing (pos + 2)
     function packUint16(
-        bytes memory, // buffer - unused but needed for memory context
-        uint256 pos,
-        uint16 value
+        bytes memory, // _buffer
+        uint256 _pos,
+        uint16 _value
     )
         internal
         pure
-        returns (uint256 newPos)
+        returns (uint256 newPos_)
     {
         assembly {
-            mstore8(pos, shr(8, value))
-            mstore8(add(pos, 1), value)
-            newPos := add(pos, 2)
+            mstore8(_pos, shr(8, _value))
+            mstore8(add(_pos, 1), _value)
+            newPos_ := add(_pos, 2)
         }
     }
 
-    /// @notice Pack uint32 (4 bytes) at position, big-endian
-    /// @param pos Position in buffer (absolute memory position)
-    /// @param value Value to pack
-    /// @return newPos Position after writing
+    /// @notice Pack uint32 (4 bytes) at position using big-endian encoding
+    /// @dev Writes 4 bytes in order: [byte3][byte2][byte1][byte0]. Buffer parameter is unused but
+    /// needed for memory context.
+    /// @param _pos Absolute memory position to write at
+    /// @param _value The uint32 value to pack (0-4294967295)
+    /// @return newPos_ Updated position after writing (pos + 4)
     function packUint32(
-        bytes memory, // buffer - unused but needed for memory context
-        uint256 pos,
-        uint32 value
+        bytes memory, // _buffer
+        uint256 _pos,
+        uint32 _value
     )
         internal
         pure
-        returns (uint256 newPos)
+        returns (uint256 newPos_)
     {
         assembly {
-            mstore8(pos, shr(24, value))
-            mstore8(add(pos, 1), shr(16, value))
-            mstore8(add(pos, 2), shr(8, value))
-            mstore8(add(pos, 3), value)
-            newPos := add(pos, 4)
+            mstore8(_pos, shr(24, _value))
+            mstore8(add(_pos, 1), shr(16, _value))
+            mstore8(add(_pos, 2), shr(8, _value))
+            mstore8(add(_pos, 3), _value)
+            newPos_ := add(_pos, 4)
         }
     }
 
-    /// @notice Pack uint48 (6 bytes) at position, big-endian
-    /// @param pos Position in buffer (absolute memory position)
-    /// @param value Value to pack
-    /// @return newPos Position after writing
+    /// @notice Pack uint48 (6 bytes) at position using big-endian encoding
+    /// @dev Writes 6 bytes for compact timestamp/counter storage.
+    /// Common use case: block numbers that exceed uint32 range. Buffer parameter is unused but
+    /// needed for memory context.
+    /// @param _pos Absolute memory position to write at
+    /// @param _value The uint48 value to pack (0-281474976710655)
+    /// @return newPos_ Updated position after writing (pos + 6)
     function packUint48(
-        bytes memory, // buffer - unused but needed for memory context
-        uint256 pos,
-        uint48 value
+        bytes memory, // _buffer
+        uint256 _pos,
+        uint48 _value
     )
         internal
         pure
-        returns (uint256 newPos)
+        returns (uint256 newPos_)
     {
         assembly {
-            mstore8(pos, shr(40, value))
-            mstore8(add(pos, 1), shr(32, value))
-            mstore8(add(pos, 2), shr(24, value))
-            mstore8(add(pos, 3), shr(16, value))
-            mstore8(add(pos, 4), shr(8, value))
-            mstore8(add(pos, 5), value)
-            newPos := add(pos, 6)
+            mstore8(_pos, shr(40, _value))
+            mstore8(add(_pos, 1), shr(32, _value))
+            mstore8(add(_pos, 2), shr(24, _value))
+            mstore8(add(_pos, 3), shr(16, _value))
+            mstore8(add(_pos, 4), shr(8, _value))
+            mstore8(add(_pos, 5), _value)
+            newPos_ := add(_pos, 6)
         }
     }
 
     /// @notice Pack uint256 (32 bytes) at position
-    /// @param pos Position in buffer (absolute memory position)
-    /// @param value Value to pack
-    /// @return newPos Position after writing
+    /// @dev Uses single mstore for efficiency, writes full 32-byte word. Buffer parameter is unused
+    /// but needed for memory context.
+    /// @param _pos Absolute memory position to write at (best if 32-byte aligned)
+    /// @param _value The uint256 value to pack
+    /// @return newPos_ Updated position after writing (pos + 32)
     function packUint256(
-        bytes memory, // buffer - unused but needed for memory context
-        uint256 pos,
-        uint256 value
+        bytes memory, // _buffer
+        uint256 _pos,
+        uint256 _value
     )
         internal
         pure
-        returns (uint256 newPos)
+        returns (uint256 newPos_)
     {
         assembly {
-            mstore(pos, value)
-            newPos := add(pos, 32)
+            mstore(_pos, _value)
+            newPos_ := add(_pos, 32)
         }
     }
 
     /// @notice Pack bytes32 at position
-    /// @param pos Position in buffer (absolute memory position)
-    /// @param value Value to pack
-    /// @return newPos Position after writing
+    /// @dev Direct 32-byte write, commonly used for hashes and identifiers. Buffer parameter is
+    /// unused but needed for memory context.
+    /// @param _pos Absolute memory position to write at (best if 32-byte aligned)
+    /// @param _value The bytes32 value to pack (hash, identifier, etc.)
+    /// @return newPos_ Updated position after writing (pos + 32)
     function packBytes32(
-        bytes memory, // buffer - unused but needed for memory context
-        uint256 pos,
-        bytes32 value
+        bytes memory, // _buffer
+        uint256 _pos,
+        bytes32 _value
     )
         internal
         pure
-        returns (uint256 newPos)
+        returns (uint256 newPos_)
     {
         assembly {
-            mstore(pos, value)
-            newPos := add(pos, 32)
+            mstore(_pos, _value)
+            newPos_ := add(_pos, 32)
         }
     }
 
     /// @notice Pack address (20 bytes) at position
-    /// @param pos Position in buffer (absolute memory position)
-    /// @param value Value to pack
-    /// @return newPos Position after writing
+    /// @dev Writes 20 bytes byte-by-byte to handle unaligned positions correctly.
+    /// Masks address to ensure clean 20-byte value. Buffer parameter is unused but needed for
+    /// memory context.
+    /// @param _pos Absolute memory position to write at
+    /// @param _value The address to pack
+    /// @return newPos_ Updated position after writing (pos + 20)
     function packAddress(
-        bytes memory, // buffer - unused but needed for memory context
-        uint256 pos,
-        address value
+        bytes memory, // _buffer
+        uint256 _pos,
+        address _value
     )
         internal
         pure
-        returns (uint256 newPos)
+        returns (uint256 newPos_)
     {
         assembly {
             // Cast address to bytes20 and store
-            let v := and(value, 0xffffffffffffffffffffffffffffffffffffffff)
+            let v := and(_value, 0xffffffffffffffffffffffffffffffffffffffff)
             // Store byte by byte to avoid alignment issues
-            mstore8(pos, shr(152, v))
-            mstore8(add(pos, 1), shr(144, v))
-            mstore8(add(pos, 2), shr(136, v))
-            mstore8(add(pos, 3), shr(128, v))
-            mstore8(add(pos, 4), shr(120, v))
-            mstore8(add(pos, 5), shr(112, v))
-            mstore8(add(pos, 6), shr(104, v))
-            mstore8(add(pos, 7), shr(96, v))
-            mstore8(add(pos, 8), shr(88, v))
-            mstore8(add(pos, 9), shr(80, v))
-            mstore8(add(pos, 10), shr(72, v))
-            mstore8(add(pos, 11), shr(64, v))
-            mstore8(add(pos, 12), shr(56, v))
-            mstore8(add(pos, 13), shr(48, v))
-            mstore8(add(pos, 14), shr(40, v))
-            mstore8(add(pos, 15), shr(32, v))
-            mstore8(add(pos, 16), shr(24, v))
-            mstore8(add(pos, 17), shr(16, v))
-            mstore8(add(pos, 18), shr(8, v))
-            mstore8(add(pos, 19), v)
-            newPos := add(pos, 20)
+            mstore8(_pos, shr(152, v))
+            mstore8(add(_pos, 1), shr(144, v))
+            mstore8(add(_pos, 2), shr(136, v))
+            mstore8(add(_pos, 3), shr(128, v))
+            mstore8(add(_pos, 4), shr(120, v))
+            mstore8(add(_pos, 5), shr(112, v))
+            mstore8(add(_pos, 6), shr(104, v))
+            mstore8(add(_pos, 7), shr(96, v))
+            mstore8(add(_pos, 8), shr(88, v))
+            mstore8(add(_pos, 9), shr(80, v))
+            mstore8(add(_pos, 10), shr(72, v))
+            mstore8(add(_pos, 11), shr(64, v))
+            mstore8(add(_pos, 12), shr(56, v))
+            mstore8(add(_pos, 13), shr(48, v))
+            mstore8(add(_pos, 14), shr(40, v))
+            mstore8(add(_pos, 15), shr(32, v))
+            mstore8(add(_pos, 16), shr(24, v))
+            mstore8(add(_pos, 17), shr(16, v))
+            mstore8(add(_pos, 18), shr(8, v))
+            mstore8(add(_pos, 19), v)
+            newPos_ := add(_pos, 20)
         }
     }
 
@@ -180,192 +219,208 @@ library LibCodec {
     // ---------------------------------------------------------------
 
     /// @notice Unpack uint8 (1 byte) from position
-    /// @param pos Position in data (absolute memory position)
-    /// @return value The unpacked value
-    /// @return newPos Position after reading
+    /// @dev Reads single byte from memory. No validation of data availability. Data parameter is
+    /// unused but needed for memory context.
+    /// @param _pos Absolute memory position to read from
+    /// @return value_ The unpacked uint8 value
+    /// @return newPos_ Updated position after reading (pos + 1)
     function unpackUint8(
-        bytes memory,
-        uint256 pos // data - unused but needed for memory context
+        bytes memory, // _data
+        uint256 _pos
     )
         internal
         pure
-        returns (uint8 value, uint256 newPos)
+        returns (uint8 value_, uint256 newPos_)
     {
         assembly {
-            value := byte(0, mload(pos))
-            newPos := add(pos, 1)
+            value_ := byte(0, mload(_pos))
+            newPos_ := add(_pos, 1)
         }
     }
 
-    /// @notice Unpack uint16 (2 bytes) from position, big-endian
-    /// @param pos Position in data (absolute memory position)
-    /// @return value The unpacked value
-    /// @return newPos Position after reading
+    /// @notice Unpack uint16 (2 bytes) from position using big-endian encoding
+    /// @dev Reads 2 bytes and combines: (byte0 << 8) | byte1. Data parameter is unused but needed
+    /// for memory context.
+    /// @param _pos Absolute memory position to read from
+    /// @return value_ The unpacked uint16 value
+    /// @return newPos_ Updated position after reading (pos + 2)
     function unpackUint16(
-        bytes memory,
-        uint256 pos // data - unused but needed for memory context
+        bytes memory, // _data
+        uint256 _pos
     )
         internal
         pure
-        returns (uint16 value, uint256 newPos)
+        returns (uint16 value_, uint256 newPos_)
     {
         assembly {
-            value := or(shl(8, byte(0, mload(pos))), byte(0, mload(add(pos, 1))))
-            newPos := add(pos, 2)
+            value_ := or(shl(8, byte(0, mload(_pos))), byte(0, mload(add(_pos, 1))))
+            newPos_ := add(_pos, 2)
         }
     }
 
-    /// @notice Unpack uint32 (4 bytes) from position, big-endian
-    /// @param pos Position in data (absolute memory position)
-    /// @return value The unpacked value
-    /// @return newPos Position after reading
+    /// @notice Unpack uint32 (4 bytes) from position using big-endian encoding
+    /// @dev Reads 4 bytes and reconstructs uint32 from big-endian format. Data parameter is unused
+    /// but needed for memory context.
+    /// @param _pos Absolute memory position to read from
+    /// @return value_ The unpacked uint32 value
+    /// @return newPos_ Updated position after reading (pos + 4)
     function unpackUint32(
-        bytes memory,
-        uint256 pos // data - unused but needed for memory context
+        bytes memory, // _data
+        uint256 _pos
     )
         internal
         pure
-        returns (uint32 value, uint256 newPos)
+        returns (uint32 value_, uint256 newPos_)
     {
         assembly {
-            value :=
+            value_ :=
                 or(
-                    or(shl(24, byte(0, mload(pos))), shl(16, byte(0, mload(add(pos, 1))))),
-                    or(shl(8, byte(0, mload(add(pos, 2)))), byte(0, mload(add(pos, 3))))
+                    or(shl(24, byte(0, mload(_pos))), shl(16, byte(0, mload(add(_pos, 1))))),
+                    or(shl(8, byte(0, mload(add(_pos, 2)))), byte(0, mload(add(_pos, 3))))
                 )
-            newPos := add(pos, 4)
+            newPos_ := add(_pos, 4)
         }
     }
 
-    /// @notice Unpack uint48 (6 bytes) from position, big-endian
-    /// @param pos Position in data (absolute memory position)
-    /// @return value The unpacked value
-    /// @return newPos Position after reading
+    /// @notice Unpack uint48 (6 bytes) from position using big-endian encoding
+    /// @dev Reads 6 bytes for compact timestamp/counter values.
+    /// Reconstructs value from big-endian byte sequence. Data parameter is unused but needed for
+    /// memory context.
+    /// @param _pos Absolute memory position to read from
+    /// @return value_ The unpacked uint48 value
+    /// @return newPos_ Updated position after reading (pos + 6)
     function unpackUint48(
-        bytes memory,
-        uint256 pos // data - unused but needed for memory context
+        bytes memory, // _data
+        uint256 _pos
     )
         internal
         pure
-        returns (uint48 value, uint256 newPos)
+        returns (uint48 value_, uint256 newPos_)
     {
         assembly {
-            value :=
+            value_ :=
                 or(
                     or(
-                        or(shl(40, byte(0, mload(pos))), shl(32, byte(0, mload(add(pos, 1))))),
-                        or(shl(24, byte(0, mload(add(pos, 2)))), shl(16, byte(0, mload(add(pos, 3)))))
+                        or(shl(40, byte(0, mload(_pos))), shl(32, byte(0, mload(add(_pos, 1))))),
+                        or(shl(24, byte(0, mload(add(_pos, 2)))), shl(16, byte(0, mload(add(_pos, 3)))))
                     ),
-                    or(shl(8, byte(0, mload(add(pos, 4)))), byte(0, mload(add(pos, 5))))
+                    or(shl(8, byte(0, mload(add(_pos, 4)))), byte(0, mload(add(_pos, 5))))
                 )
-            newPos := add(pos, 6)
+            newPos_ := add(_pos, 6)
         }
     }
 
     /// @notice Unpack uint256 (32 bytes) from position
-    /// @param pos Position in data (absolute memory position)
-    /// @return value The unpacked value
-    /// @return newPos Position after reading
+    /// @dev Single mload for efficiency. Reads full 32-byte word. Data parameter is unused but
+    /// needed for memory context.
+    /// @param _pos Absolute memory position to read from (best if 32-byte aligned)
+    /// @return value_ The unpacked uint256 value
+    /// @return newPos_ Updated position after reading (pos + 32)
     function unpackUint256(
-        bytes memory,
-        uint256 pos // data - unused but needed for memory context
+        bytes memory, // _data
+        uint256 _pos
     )
         internal
         pure
-        returns (uint256 value, uint256 newPos)
+        returns (uint256 value_, uint256 newPos_)
     {
         assembly {
-            value := mload(pos)
-            newPos := add(pos, 32)
+            value_ := mload(_pos)
+            newPos_ := add(_pos, 32)
         }
     }
 
     /// @notice Unpack bytes32 from position
-    /// @param pos Position in data (absolute memory position)
-    /// @return value The unpacked value
-    /// @return newPos Position after reading
+    /// @dev Direct 32-byte read for hashes and identifiers. Data parameter is unused but needed for
+    /// memory context.
+    /// @param _pos Absolute memory position to read from (best if 32-byte aligned)
+    /// @return value_ The unpacked bytes32 value
+    /// @return newPos_ Updated position after reading (pos + 32)
     function unpackBytes32(
-        bytes memory,
-        uint256 pos // data - unused but needed for memory context
+        bytes memory, // _data
+        uint256 _pos
     )
         internal
         pure
-        returns (bytes32 value, uint256 newPos)
+        returns (bytes32 value_, uint256 newPos_)
     {
         assembly {
-            value := mload(pos)
-            newPos := add(pos, 32)
+            value_ := mload(_pos)
+            newPos_ := add(_pos, 32)
         }
     }
 
     /// @notice Unpack address (20 bytes) from position
-    /// @param pos Position in data (absolute memory position)
-    /// @return value The unpacked value
-    /// @return newPos Position after reading
+    /// @dev Reads 20 bytes byte-by-byte and reconstructs address.
+    /// Handles unaligned positions correctly. Data parameter is unused but needed for memory
+    /// context.
+    /// @param _pos Absolute memory position to read from
+    /// @return value_ The unpacked address
+    /// @return newPos_ Updated position after reading (pos + 20)
     function unpackAddress(
-        bytes memory,
-        uint256 pos // data - unused but needed for memory context
+        bytes memory, // _data
+        uint256 _pos
     )
         internal
         pure
-        returns (address value, uint256 newPos)
+        returns (address value_, uint256 newPos_)
     {
         assembly {
             // Read 20 bytes as address
-            value :=
+            value_ :=
                 or(
                     or(
                         or(
-                            or(shl(152, byte(0, mload(pos))), shl(144, byte(0, mload(add(pos, 1))))),
+                            or(shl(152, byte(0, mload(_pos))), shl(144, byte(0, mload(add(_pos, 1))))),
                             or(
-                                shl(136, byte(0, mload(add(pos, 2)))),
-                                shl(128, byte(0, mload(add(pos, 3))))
+                                shl(136, byte(0, mload(add(_pos, 2)))),
+                                shl(128, byte(0, mload(add(_pos, 3))))
                             )
                         ),
                         or(
                             or(
-                                shl(120, byte(0, mload(add(pos, 4)))),
-                                shl(112, byte(0, mload(add(pos, 5))))
+                                shl(120, byte(0, mload(add(_pos, 4)))),
+                                shl(112, byte(0, mload(add(_pos, 5))))
                             ),
                             or(
-                                shl(104, byte(0, mload(add(pos, 6)))),
-                                shl(96, byte(0, mload(add(pos, 7))))
+                                shl(104, byte(0, mload(add(_pos, 6)))),
+                                shl(96, byte(0, mload(add(_pos, 7))))
                             )
                         )
                     ),
                     or(
                         or(
                             or(
-                                shl(88, byte(0, mload(add(pos, 8)))),
-                                shl(80, byte(0, mload(add(pos, 9))))
+                                shl(88, byte(0, mload(add(_pos, 8)))),
+                                shl(80, byte(0, mload(add(_pos, 9))))
                             ),
                             or(
-                                shl(72, byte(0, mload(add(pos, 10)))),
-                                shl(64, byte(0, mload(add(pos, 11))))
+                                shl(72, byte(0, mload(add(_pos, 10)))),
+                                shl(64, byte(0, mload(add(_pos, 11))))
                             )
                         ),
                         or(
                             or(
                                 or(
-                                    shl(56, byte(0, mload(add(pos, 12)))),
-                                    shl(48, byte(0, mload(add(pos, 13))))
+                                    shl(56, byte(0, mload(add(_pos, 12)))),
+                                    shl(48, byte(0, mload(add(_pos, 13))))
                                 ),
                                 or(
-                                    shl(40, byte(0, mload(add(pos, 14)))),
-                                    shl(32, byte(0, mload(add(pos, 15))))
+                                    shl(40, byte(0, mload(add(_pos, 14)))),
+                                    shl(32, byte(0, mload(add(_pos, 15))))
                                 )
                             ),
                             or(
                                 or(
-                                    shl(24, byte(0, mload(add(pos, 16)))),
-                                    shl(16, byte(0, mload(add(pos, 17))))
+                                    shl(24, byte(0, mload(add(_pos, 16)))),
+                                    shl(16, byte(0, mload(add(_pos, 17))))
                                 ),
-                                or(shl(8, byte(0, mload(add(pos, 18)))), byte(0, mload(add(pos, 19))))
+                                or(shl(8, byte(0, mload(add(_pos, 18)))), byte(0, mload(add(_pos, 19))))
                             )
                         )
                     )
                 )
-            newPos := add(pos, 20)
+            newPos_ := add(_pos, 20)
         }
     }
 
@@ -374,32 +429,52 @@ library LibCodec {
     // ---------------------------------------------------------------
 
     /// @notice Get the memory pointer to the data section of a bytes array
-    /// @param data The bytes array
-    /// @return ptr The pointer to the actual data (after length prefix)
-    function dataPtr(bytes memory data) internal pure returns (uint256 ptr) {
+    /// @dev Skips the 32-byte length prefix to point at actual data.
+    /// Essential for converting bytes memory to absolute position for pack/unpack operations.
+    /// @param _data The bytes array to get data pointer from
+    /// @return ptr_ The absolute memory pointer to the actual data (data location + 0x20)
+    function dataPtr(bytes memory _data) internal pure returns (uint256 ptr_) {
         assembly {
-            ptr := add(data, 0x20)
+            ptr_ := add(_data, 0x20)
         }
     }
 
-    /// @notice Calculate compact size for ClaimRecord encoding
-    /// @param bondInstructionsCount Number of bond instructions
-    /// @return size The total size needed
-    function calculateClaimRecordSize(uint256 bondInstructionsCount)
+    /// @notice Calculate the exact byte size needed for encoding a ClaimRecord
+    /// @dev Calculates fixed fields plus variable bond instructions array.
+    /// Used to pre-allocate exact buffer size for gas efficiency.
+    ///
+    /// Fixed size breakdown:
+    /// - proposalId: 6 bytes (uint48)
+    /// - Claim fields: 128 bytes (4 * bytes32)
+    /// - endBlockNumber: 6 bytes (uint48)
+    /// - Claim addresses: 40 bytes (2 * address)
+    /// - span: 1 byte (uint8)
+    /// - array length: 2 bytes (uint16, max 65535 instructions)
+    /// Total fixed: 183 bytes
+    ///
+    /// Variable size: 47 bytes per bond instruction
+    /// - proposalId: 6 bytes (uint48)
+    /// - bondType: 1 byte (uint8)
+    /// - payer: 20 bytes (address)
+    /// - receiver: 20 bytes (address)
+    ///
+    /// @param _bondInstructionsCount Number of bond instructions (max 65535 due to uint16 encoding)
+    /// @return size_ The total byte size needed for encoding
+    function calculateClaimRecordSize(uint256 _bondInstructionsCount)
         internal
         pure
-        returns (uint256 size)
+        returns (uint256 size_)
     {
         // Fixed size fields:
-        size = 6; // proposalId (uint48)
-        size += 32 * 4; // 4 bytes32 fields in Claim
-        size += 6; // endBlockNumber (uint48)
-        size += 20 * 2; // 2 addresses in Claim
-        size += 1; // span (uint8)
-        size += 2; // array length (uint16 - max 65535 bond instructions)
+        size_ = 6; // proposalId (uint48)
+        size_ += 32 * 4; // 4 bytes32 fields in Claim
+        size_ += 6; // endBlockNumber (uint48)
+        size_ += 20 * 2; // 2 addresses in Claim
+        size_ += 1; // span (uint8)
+        size_ += 2; // array length (uint16 - max 65535 bond instructions)
 
         // Variable size:
         // Each bond instruction: proposalId(6) + bondType(1) + payer(20) + receiver(20) = 47 bytes
-        size += bondInstructionsCount * 47;
+        size_ += _bondInstructionsCount * 47;
     }
 }

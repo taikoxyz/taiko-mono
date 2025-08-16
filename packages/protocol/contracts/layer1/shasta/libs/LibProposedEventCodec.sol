@@ -5,14 +5,14 @@ import "../iface/IInbox.sol";
 import "./LibBlobs.sol";
 import "src/shared/based/libs/LibBonds.sol";
 
-/// @title LibProposedEventDataCodec
+/// @title LibProposedEventCodec
 /// @notice Library for encoding and decoding event data for gas optimization using assembly
 /// @dev Array lengths are encoded as uint24 (3 bytes) to support up to 16,777,215 elements while
 /// maintaining gas efficiency.
 /// This provides a good balance between array size capacity and storage efficiency compared to
 /// uint16 (65,535 max) or uint32 (4 bytes).
 /// @custom:security-contact security@taiko.xyz
-library LibProposedEventDataCodec {
+library LibProposedEventCodec {
     // ---------------------------------------------------------------
     // Internal functions
     // ---------------------------------------------------------------
