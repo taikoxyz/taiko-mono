@@ -1,0 +1,152 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
+
+/// @title SyncedBlockManager
+/// @notice Contract for managing synced L2 blocks using a ring buffer
+/// @dev This contract implements a ring buffer to store the most recent synced blocks.
+/// When the buffer is full, new blocks overwrite the oldest entries. The contract
+/// ensures blocks are saved in strictly increasing order by block number.
+/// @custom:security-contact security@taiko.xyz
+contract SyncedBlockManager is EssentialContract, ISyncedBlockManager {
+    // ---------------------------------------------------------------
+    // State Variables
+    // ---------------------------------------------------------------
+
+    /// @notice The address of the authorized contract that can update the synced block
+    address public immutable authorized;
+
+    /// @notice The number of synced blocks to keep in the ring buffer
+    uint48 public immutable maxStackSize;
+
+    /// @notice The latest synced block number
+    uint48 private _latestSyncedBlockNumber;
+
+    /// @notice The current top of the stack (ring buffer index)
+    uint48 private _stackTop;
+
+    /// @notice The current number of items in the stack
+    uint48 private _stackSize;
+
+    /// @notice Ring buffer as a stack for storing synced blocks
+    /// @dev Maps slot indices (0 to maxStackSize-1) to synced block data
+    mapping(uint48 slot => SyncedBlock syncedBlock) private _syncedBlocks;
+
+    uint256[48] private __gap;
+
+    // ---------------------------------------------------------------
+    // Constructor and Initializer
+    // ---------------------------------------------------------------
+
+    /// @notice Initializes the SyncedBlockManager with the authorized address and ring buffer size
+    /// @param _authorized The address of the authorized contract. On L1, this shall be the inbox,
+    /// on L2, this shall be the anchor transactor.
+    /// @param _maxStackSize The size of the ring buffer
+    constructor(address _authorized, uint48 _maxStackSize) EssentialContract() {
+        require(_authorized != address(0), InvalidAddress());
+        require(_maxStackSize != 0, InvalidMaxStackSize());
+
+        authorized = _authorized;
+        maxStackSize = _maxStackSize;
+    }
+
+    /// @notice Initializes the contract.
+    /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
+
+    // ---------------------------------------------------------------
+    // External Functions
+    // ---------------------------------------------------------------
+
+    /// @inheritdoc ISyncedBlockManager
+    function saveSyncedBlock(
+        uint48 _blockNumber,
+        bytes32 _blockHash,
+        bytes32 _stateRoot
+    )
+        external
+        onlyFrom(authorized)
+    {
+        // Validate all fields
+        require(_stateRoot != 0, InvalidSyncedBlock());
+        require(_blockHash != 0, InvalidSyncedBlock());
+        require(_blockNumber > _latestSyncedBlockNumber, InvalidSyncedBlock());
+
+        SyncedBlock memory syncedBlock =
+            SyncedBlock({ blockNumber: _blockNumber, blockHash: _blockHash, stateRoot: _stateRoot });
+
+        unchecked {
+            // Ring buffer implementation:
+            // - _stackTop starts at 0 and cycles through 0 to (maxStackSize-1)
+            // - When we reach maxStackSize, it wraps back to 0
+            // - This ensures we always overwrite the oldest entry when buffer is full
+            _stackTop = (_stackTop + 1) % maxStackSize;
+            _syncedBlocks[_stackTop] = syncedBlock;
+
+            // Update stack size (capped at maxStackSize)
+            if (_stackSize < maxStackSize) {
+                ++_stackSize;
+            }
+        }
+        _latestSyncedBlockNumber = _blockNumber;
+
+        emit SyncedBlockSaved(_blockNumber, _blockHash, _stateRoot);
+    }
+
+    /// @inheritdoc ISyncedBlockManager
+    function getSyncedBlock(uint48 _offset)
+        external
+        view
+        returns (uint48 blockNumber_, bytes32 blockHash_, bytes32 stateRoot_)
+    {
+        require(_stackSize != 0, NoSyncedBlocks());
+        require(_offset < _stackSize, IndexOutOfBounds());
+
+        unchecked {
+            // Calculate the slot position for the requested offset:
+            // - offset 0 = most recent block (at _stackTop)
+            // - offset 1 = second most recent block
+            // - etc.
+            uint48 slot;
+            if (_stackTop >= _offset) {
+                // Simple case: we can subtract directly
+                slot = _stackTop - _offset;
+            } else {
+                // Wrap-around case: when offset goes past index 0
+                // Example: if _stackTop=1 and _offset=3, we need slot=(5+1-3)=3
+                // This correctly wraps to the end of the ring buffer
+                slot = maxStackSize + _stackTop - _offset;
+            }
+
+            SyncedBlock memory syncedBlock = _syncedBlocks[slot];
+            blockNumber_ = syncedBlock.blockNumber;
+            blockHash_ = syncedBlock.blockHash;
+            stateRoot_ = syncedBlock.stateRoot;
+        }
+    }
+
+    /// @inheritdoc ISyncedBlockManager
+    function getLatestSyncedBlockNumber() external view returns (uint48) {
+        return _latestSyncedBlockNumber;
+    }
+
+    /// @inheritdoc ISyncedBlockManager
+    function getNumberOfSyncedBlocks() external view returns (uint48) {
+        return _stackSize;
+    }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error IndexOutOfBounds();
+    error InvalidAddress();
+    error InvalidMaxStackSize();
+    error InvalidSyncedBlock();
+    error NoSyncedBlocks();
+    error Unauthorized();
+}
