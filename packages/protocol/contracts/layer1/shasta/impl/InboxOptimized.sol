@@ -29,33 +29,33 @@ abstract contract InboxOptimized is Inbox {
     // Public Functions
     // ---------------------------------------------------------------
 
-    /// @dev Encodes the proposed event data for gas optimization
-    /// @param _proposal The proposal to encode
-    /// @param _coreState The core state to encode
-    /// @return The encoded data
-    function encodeProposedEventData(
-        Proposal memory _proposal,
-        CoreState memory _coreState
-    )
-        public
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibProposedEventCodec.encode(_proposal, _coreState);
-    }
+    // /// @dev Encodes the proposed event data for gas optimization
+    // /// @param _proposal The proposal to encode
+    // /// @param _coreState The core state to encode
+    // /// @return The encoded data
+    // function encodeProposedEventData(
+    //     Proposal memory _proposal,
+    //     CoreState memory _coreState
+    // )
+    //     public
+    //     pure
+    //     override
+    //     returns (bytes memory)
+    // {
+    //     return LibProposedEventCodec.encode(_proposal, _coreState);
+    // }
 
-    /// @dev Encodes the proved event data for gas optimization using compact encoding
-    /// @param _claimRecord The claim record to encode
-    /// @return The encoded data
-    function encodeProveEventData(ClaimRecord memory _claimRecord)
-        public
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibProvedEventCodec.encode(_claimRecord);
-    }
+    // /// @dev Encodes the proved event data for gas optimization using compact encoding
+    // /// @param _claimRecord The claim record to encode
+    // /// @return The encoded data
+    // function encodeProveEventData(ClaimRecord memory _claimRecord)
+    //     public
+    //     pure
+    //     override
+    //     returns (bytes memory)
+    // {
+    //     return LibProvedEventCodec.encode(_claimRecord);
+    // }
 
     // ---------------------------------------------------------------
     // Internal Functions - Overrides

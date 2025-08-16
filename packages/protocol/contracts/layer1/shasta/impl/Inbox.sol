@@ -11,7 +11,6 @@ import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
-import { LibProvedEventCodec } from "../libs/LibProvedEventCodec.sol";
 
 /// @title ShastaInbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
@@ -281,7 +280,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         virtual
         returns (bytes memory)
     {
-        return LibProvedEventCodec.encode(claimRecord);
+        return abi.encode(claimRecord);
     }
 
     /// @dev Decodes the proved event data using compact encoding
@@ -293,7 +292,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         virtual
         returns (ClaimRecord memory claimRecord_)
     {
-        return LibProvedEventCodec.decode(_data);
+        return abi.decode(_data, (ClaimRecord));
     }
 
     // ---------------------------------------------------------------
@@ -798,7 +797,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _claimRecord The claim record to hash.
     /// @return _ The hash of the claim record.
     function _hashClaimRecord(ClaimRecord memory _claimRecord) private pure returns (bytes32) {
-        return keccak256(LibProvedEventCodec.encode(_claimRecord));
+        return keccak256(abi.encode(_claimRecord));
     }
 
     /// @dev Hashes an array of Claims.
