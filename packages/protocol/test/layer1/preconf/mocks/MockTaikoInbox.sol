@@ -37,7 +37,6 @@ contract MockTaikoInbox is EssentialContract {
             blobCreatedIn: 0,
             anchorBlockId: params.anchorBlockId,
             anchorBlockHash: bytes32(0), // Mock value
-            blocks: params.blocks,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
                 sharingPctg: 0,

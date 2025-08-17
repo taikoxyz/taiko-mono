@@ -159,7 +159,6 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 txsHash: bytes32(0), // to be initialised later
                 //
                 // Data to build L2 blocks
-                blocks: params.blocks,
                 blobHashes: new bytes32[](0), // to be initialised later
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
                 coinbase: params.coinbase,

@@ -65,7 +65,6 @@ interface ITaikoInbox {
     struct BatchInfo {
         bytes32 txsHash;
         // Data to build L2 blocks
-        BlockParams[] blocks;
         bytes32[] blobHashes;
         bytes32 extraData;
         address coinbase;
