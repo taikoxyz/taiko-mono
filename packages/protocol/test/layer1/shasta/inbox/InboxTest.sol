@@ -941,8 +941,9 @@ abstract contract InboxTest is CommonTest {
         returns (IInbox.CoreState memory coreState)
     {
         coreState = _getGenesisCoreState();
-        // nextProposalId should be the ID of the NEXT proposal after this one
-        coreState.nextProposalId = _proposalId + 1;
+        // This is the core state BEFORE processing the proposal
+        // The contract will increment nextProposalId when processing
+        coreState.nextProposalId = _proposalId;
     }
 
     /// @dev Helper function to encode proposal data with correct validation proposals
@@ -1061,9 +1062,10 @@ abstract contract InboxTest is CommonTest {
             timestamp: uint48(block.timestamp)
         });
 
-        // The contract sets this to the updated core state hash
+        // The contract increments nextProposalId during processing
+        // We need to simulate that here
         IInbox.CoreState memory updatedCoreState = _coreState;
-        updatedCoreState.nextProposalId = _proposalId + 1;
+        updatedCoreState.nextProposalId++;
         proposal.coreStateHash = keccak256(abi.encode(updatedCoreState));
 
         return proposal;
