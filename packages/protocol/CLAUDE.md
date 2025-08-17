@@ -46,9 +46,9 @@ packages/
 - Prefer straightforward custom errors over require strings and avoid natspec comments for errors, always put errors at the end of the implementation file, not in the interface.
 - For larger files, have clear separators between external & public, internal, private functions, and errors.
   ```
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------
   // Group label
-  // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------
   ```
 - Always make sure there is a "/// @custom:security-contact security@taiko.xyz" for solidity files (test not included), and ensure license is MIT (all solidity files)
 - Use `///` comments for natspec. Only external and public functions should have a `@notice`, while internal or private only have `@dev`
@@ -73,6 +73,11 @@ pnpm test:coverage      # Generate coverage report
 forge test --match-test <name>   # Test by name
 forge test --match-path <path>   # Test by file
 forge test -vvvv                # Debug with max verbosity
+forge test --match-path <path> --summary  # Test summary with gas usage
+
+# Performance testing
+forge test --gas-report         # Generate gas usage report
+forge test --match-path <path> --gas-limit <limit>  # Test with gas constraints
 
 # Gas & Storage
 pnpm snapshot:l1        # Generate gas report
@@ -100,9 +105,14 @@ pnpm fmt:sol            # Format Solidity code
 **Testing Standards:**
 
 - Tests mirror contract structure under `test/`
-- Inherit from `CommonTest`, `Layer1Test`, or `Layer2Test`
-- Use provided test accounts (Alice, Bob, Carol)
+- Inherit from appropriate base classes:
+  - `CommonTest` for shared functionality
+  - `Layer1Test` for L1-specific tests
+  - `Layer2Test` for L2-specific tests
+  - `InboxTest` for Inbox contract tests (advanced utilities)
+- Use provided test accounts (Alice, Bob, Carol, David, Emma)
 - Multi-chain testing with `onEthereum()`/`onTaiko()`
+- Follow structured test patterns with configuration objects
 
 **Before Submitting Changes:**
 
@@ -111,6 +121,9 @@ pnpm fmt:sol            # Format Solidity code
 3. Check coverage: `pnpm test:coverage`
 4. Verify storage layout: `pnpm layout` (compare before/after)
 5. Check gas impact: `pnpm snapshot:l1`
+6. Run performance benchmarks for critical contracts
+7. Validate test isolation and cleanup
+8. Review gas usage patterns and optimization opportunities
 
 ### Gas Considerations
 
@@ -186,9 +199,13 @@ pnpm clean && pnpm install
 ### Testing Requirements
 
 - All tests must pass before merging
-- Maintain test coverage above threshold
-- Include unit and integration tests
+- Maintain test coverage above threshold (aim for >95%)
+- Include unit, integration, and performance tests
 - Test edge cases and error conditions
+- Follow structured test patterns with proper isolation
+- Use performance benchmarking for gas-critical operations
+- Implement proper test data factories and reusable utilities
+- Document test scenarios and expected behaviors
 
 ### Code Review Guidelines
 
@@ -197,6 +214,10 @@ pnpm clean && pnpm install
 - Verify gas optimization for L1 contracts
 - Ensure code follows style guidelines
 - Look for potential race conditions in concurrent code
+- Validate test quality and coverage
+- Review performance implications and gas usage
+- Check test isolation and cleanup patterns
+- Ensure proper use of test utilities and factories
 
 ## Tool Usage
 
