@@ -129,7 +129,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
 
-        signalService.receiveSignals(_signalSlots);
+        // signalService.receiveSignals(_signalSlots);
     }
 
     /// @notice Withdraw token or Ether from this address.

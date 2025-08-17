@@ -78,9 +78,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
             _syncChainData(_anchorBlockId, _anchorStateRoot);
         }
 
-        if (_signalSlots.length != 0) {
-            signalService.receiveSignals(_signalSlots);
-        }
+        // if (_signalSlots.length != 0) {
+        //     signalService.receiveSignals(_signalSlots);
+        // }
 
         // We need to add one SSTORE from non-zero to non-zero (5000), one addition (3), and one
         // subtraction (3).

@@ -148,7 +148,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch {
             (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
                 params,
                 config.maxAnchorHeightOffset,
-                config.maxSignalsToReceive,
+                0, // config.maxSignalsToReceive,
                 config.maxBlocksPerBatch,
                 lastBatch
             );
