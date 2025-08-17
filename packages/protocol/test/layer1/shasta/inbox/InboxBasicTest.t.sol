@@ -18,13 +18,50 @@ contract InboxBasicTest is InboxTest {
     /// @notice Test submitting a single valid proposal
     /// @dev Validates the complete proposal submission flow
     function test_propose_single_valid() public {
+        // Debug: Log test environment
+        console.log("\n=== test_propose_single_valid START ===");
+        console.log("Block number:", block.number);
+        console.log("Block timestamp:", block.timestamp);
+        console.log("Chain ID:", block.chainid);
+        console.log("Foundry profile: %s", vm.envOr("FOUNDRY_PROFILE", string("default")));
+        
+        // Debug: Test if blobhash opcode is available
+        console.log("\n--- Testing blobhash opcode availability ---");
+        bytes32 testHash = blobhash(0);
+        console.log("blobhash(0) returns:", vm.toString(testHash));
+        if (testHash == bytes32(0)) {
+            console.log("WARNING: blobhash(0) returned 0 - opcode might not be working properly");
+            console.log("This could mean:");
+            console.log("  1. EVM version is not Cancun");
+            console.log("  2. Foundry version doesn't support blobs properly");
+            console.log("  3. vm.blobhashes() is not working as expected");
+        }
+        
+        // Debug: Check blob environment before setup
+        console.log("\n--- Checking blob environment before setup ---");
+        for (uint256 i = 0; i < 10; i++) {
+            bytes32 hash = blobhash(i);
+            if (hash != bytes32(0)) {
+                console.log("Pre-setup blobhash[", i, "] =", vm.toString(hash));
+            }
+        }
+        
         // Act: Submit a proposal with ID=1 from Alice
+        console.log("\n--- Submitting proposal ---");
+        console.log("Proposal ID: 1");
+        console.log("Proposer: Alice", Alice);
+        
         IInbox.Proposal memory proposal = submitProposal(1, Alice);
+        
+        console.log("\n--- Proposal submitted successfully ---");
+        console.log("Proposal hash:", vm.toString(InboxTestLib.hashProposal(proposal)));
 
         // Assert: Verify proposal was stored correctly
         assertProposalStored(1);
         assertProposalHashMatches(1, proposal);
         assertCoreState(2, 0);
+        
+        console.log("=== test_propose_single_valid END ===");
     }
 
     /// @notice Test submitting multiple proposals sequentially

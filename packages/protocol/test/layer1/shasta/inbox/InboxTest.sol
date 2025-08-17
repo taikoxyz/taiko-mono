@@ -538,8 +538,45 @@ abstract contract InboxTest is CommonTest {
     }
 
     function setupBlobHashes(uint256 _count) internal {
+        console.log("\n--- setupBlobHashes START ---");
+        console.log("Setting up", _count, "blob hashes");
+        console.log("Current Foundry profile:", vm.envOr("FOUNDRY_PROFILE", string("default")));
+        
         bytes32[] memory hashes = InboxTestLib.generateBlobHashes(_count);
+        console.log("Generated hashes, first few:");
+        for (uint256 i = 0; i < 5 && i < hashes.length; i++) {
+            console.log("  hash[", i, "] =", vm.toString(hashes[i]));
+        }
+        
+        console.log("\nCalling vm.blobhashes() with", _count, "hashes...");
         vm.blobhashes(hashes);
+        console.log("vm.blobhashes() completed");
+        
+        // Verify they were set
+        console.log("\nVerifying blob hashes after vm.blobhashes():" );
+        bool anyNonZero = false;
+        for (uint256 i = 0; i < 5; i++) {
+            bytes32 hash = blobhash(i);
+            console.log("  blobhash(", i, ") =", vm.toString(hash));
+            if (hash != bytes32(0)) {
+                anyNonZero = true;
+            }
+            if (i < _count && hash == bytes32(0)) {
+                console.log("  WARNING: Expected non-zero hash but got zero!");
+                console.log("  This indicates vm.blobhashes() is not working properly");
+            }
+        }
+        
+        if (!anyNonZero && _count > 0) {
+            console.log("\nCRITICAL: No blob hashes were set successfully!");
+            console.log("This will cause BlobNotFound errors during proposal submission.");
+            console.log("Possible causes:");
+            console.log("  1. Foundry version doesn't support vm.blobhashes() properly");
+            console.log("  2. EVM version is not set to 'cancun' in foundry.toml");
+            console.log("  3. Running environment doesn't support Cancun features");
+        }
+        
+        console.log("--- setupBlobHashes END ---\n");
     }
 
     // ---------------------------------------------------------------
@@ -911,22 +948,51 @@ abstract contract InboxTest is CommonTest {
         internal
         returns (IInbox.Proposal memory proposal)
     {
+        console.log("\n--- submitProposalWithClaimRecords START ---");
+        console.log("Proposal ID:", _proposalId);
+        console.log("Proposer:", _proposer);
+        
         IInbox.CoreState memory coreState = _buildCoreStateForProposal(_proposalId);
+        console.log("Core state - nextProposalId:", coreState.nextProposalId);
 
         setupProposalMocks(_proposer);
         setupBlobHashes();
+        
+        IInbox.BlobReference memory blobRef = InboxTestLib.createBlobReference(uint8(_proposalId));
+        console.log("\nBlob reference:");
+        console.log("  blobStartIndex:", blobRef.blobStartIndex);
+        console.log("  numBlobs:", blobRef.numBlobs);
 
         bytes memory data = _encodeProposalDataWithValidation(
             _proposalId,
             coreState,
-            InboxTestLib.createBlobReference(uint8(_proposalId)),
+            blobRef,
             _claimRecords
         );
+        console.log("Encoded proposal data length:", data.length);
 
+        console.log("\nCalling inbox.propose()...");
         vm.prank(_proposer);
-        inbox.propose(bytes(""), data);
+        try inbox.propose(bytes(""), data) {
+            console.log("inbox.propose() completed successfully");
+        } catch (bytes memory errorData) {
+            console.log("inbox.propose() failed with error");
+            if (errorData.length >= 4) {
+                bytes4 selector = bytes4(errorData);
+                console.log("Error selector:", vm.toString(selector));
+                if (selector == bytes4(keccak256("BlobNotFound()"))) {
+                    console.log("ERROR: BlobNotFound - blobs are not accessible");
+                    console.log("This confirms the issue is with blob availability in the test environment");
+                }
+            }
+            // Re-throw the error to maintain test behavior
+            assembly {
+                revert(add(errorData, 0x20), mload(errorData))
+            }
+        }
 
         proposal = _reconstructStoredProposal(_proposalId, _proposer, coreState);
+        console.log("--- submitProposalWithClaimRecords END ---\n");
     }
 
     /// @dev Builds core state for a given proposal ID
