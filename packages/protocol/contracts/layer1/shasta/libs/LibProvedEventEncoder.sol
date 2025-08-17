@@ -5,10 +5,10 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
-/// @title LibProvedEventCodec
+/// @title LibProvedEventEncoder
 /// @notice Library for encoding and decoding ClaimRecord structures using compact encoding
 /// @custom:security-contact security@taiko.xyz
-library LibProvedEventCodec {
+library LibProvedEventEncoder {
     /// @notice Encodes a ClaimRecord into bytes using compact encoding
     /// @param _record The ClaimRecord to encode
     /// @return encoded_ The encoded bytes

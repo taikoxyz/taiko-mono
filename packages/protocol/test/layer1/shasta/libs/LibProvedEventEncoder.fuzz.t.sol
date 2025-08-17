@@ -2,14 +2,14 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibProvedEventCodec } from "src/layer1/shasta/libs/LibProvedEventCodec.sol";
+import { LibProvedEventEncoder } from "src/layer1/shasta/libs/LibProvedEventEncoder.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
-/// @title LibProvedEventCodecFuzzTest
-/// @notice Comprehensive fuzz tests for LibProvedEventCodec
+/// @title LibProvedEventEncoderFuzzTest
+/// @notice Comprehensive fuzz tests for LibProvedEventEncoder
 /// @custom:security-contact security@taiko.xyz
-contract LibProvedEventCodecFuzzTest is Test {
+contract LibProvedEventEncoderFuzzTest is Test {
     uint256 constant MAX_BOND_INSTRUCTIONS = 100;
     uint48 constant MAX_UINT48 = type(uint48).max;
     uint16 constant MAX_UINT16 = type(uint16).max;
@@ -26,8 +26,8 @@ contract LibProvedEventCodecFuzzTest is Test {
         original.proposalId = _proposalId;
         original.span = _span;
 
-        bytes memory encoded = LibProvedEventCodec.encode(original);
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         assertEq(decoded.proposalId, original.proposalId);
         assertEq(decoded.span, original.span);
@@ -54,8 +54,8 @@ contract LibProvedEventCodecFuzzTest is Test {
         original.claim.designatedProver = _designatedProver;
         original.claim.actualProver = _actualProver;
 
-        bytes memory encoded = LibProvedEventCodec.encode(original);
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         assertEq(decoded.claim.proposalHash, original.claim.proposalHash);
         assertEq(decoded.claim.parentClaimHash, original.claim.parentClaimHash);
@@ -79,8 +79,8 @@ contract LibProvedEventCodecFuzzTest is Test {
             original.bondInstructions[i].receiver = address(uint160(i * 2000));
         }
 
-        bytes memory encoded = LibProvedEventCodec.encode(original);
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         assertEq(decoded.bondInstructions.length, _instructionCount);
 
@@ -135,12 +135,12 @@ contract LibProvedEventCodecFuzzTest is Test {
                 address(uint160(uint256(keccak256(abi.encode(_proposalHash, i, "receiver")))));
         }
 
-        bytes memory encoded = LibProvedEventCodec.encode(original);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
 
-        uint256 expectedSize = LibProvedEventCodec.calculateClaimRecordSize(_instructionCount);
+        uint256 expectedSize = LibProvedEventEncoder.calculateClaimRecordSize(_instructionCount);
         assertEq(encoded.length, expectedSize);
 
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         assertEq(decoded.proposalId, original.proposalId);
         assertEq(decoded.claim.proposalHash, original.claim.proposalHash);
@@ -170,7 +170,8 @@ contract LibProvedEventCodecFuzzTest is Test {
         vm.assume(_bondInstructionCount <= MAX_UINT16);
 
         uint256 expectedSize = 183 + (_bondInstructionCount * 47);
-        uint256 calculatedSize = LibProvedEventCodec.calculateClaimRecordSize(_bondInstructionCount);
+        uint256 calculatedSize =
+            LibProvedEventEncoder.calculateClaimRecordSize(_bondInstructionCount);
         assertEq(calculatedSize, expectedSize);
     }
 
@@ -183,8 +184,8 @@ contract LibProvedEventCodecFuzzTest is Test {
         original.bondInstructions[0].payer = address(1);
         original.bondInstructions[0].receiver = address(2);
 
-        bytes memory encoded = LibProvedEventCodec.encode(original);
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         assertEq(uint8(decoded.bondInstructions[0].bondType), _bondType);
     }
@@ -201,8 +202,8 @@ contract LibProvedEventCodecFuzzTest is Test {
         original.claim.actualProver = address(type(uint160).max);
         original.span = MAX_UINT8;
 
-        bytes memory encoded = LibProvedEventCodec.encode(original);
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         assertEq(decoded.proposalId, MAX_UINT48);
         assertEq(decoded.claim.proposalHash, bytes32(type(uint256).max));
@@ -218,8 +219,8 @@ contract LibProvedEventCodecFuzzTest is Test {
     function testFuzz_edgeCases_zeroValues() public pure {
         IInbox.ClaimRecord memory original;
 
-        bytes memory encoded = LibProvedEventCodec.encode(original);
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         assertEq(decoded.proposalId, 0);
         assertEq(decoded.claim.proposalHash, bytes32(0));
@@ -255,13 +256,13 @@ contract LibProvedEventCodecFuzzTest is Test {
             record.bondInstructions[i].receiver = address(uint160(i + 1000));
         }
 
-        bytes memory encoded1 = LibProvedEventCodec.encode(record);
-        bytes memory encoded2 = LibProvedEventCodec.encode(record);
+        bytes memory encoded1 = LibProvedEventEncoder.encode(record);
+        bytes memory encoded2 = LibProvedEventEncoder.encode(record);
 
         assertEq(keccak256(encoded1), keccak256(encoded2));
 
-        IInbox.ClaimRecord memory decoded1 = LibProvedEventCodec.decode(encoded1);
-        IInbox.ClaimRecord memory decoded2 = LibProvedEventCodec.decode(encoded2);
+        IInbox.ClaimRecord memory decoded1 = LibProvedEventEncoder.decode(encoded1);
+        IInbox.ClaimRecord memory decoded2 = LibProvedEventEncoder.decode(encoded2);
 
         assertEq(decoded1.proposalId, decoded2.proposalId);
         assertEq(decoded1.claim.designatedProver, decoded2.claim.designatedProver);
@@ -283,11 +284,11 @@ contract LibProvedEventCodecFuzzTest is Test {
                 address(uint160(uint256(keccak256(abi.encode(i, "receiver")))));
         }
 
-        bytes memory encoded = LibProvedEventCodec.encode(original);
-        uint256 expectedSize = LibProvedEventCodec.calculateClaimRecordSize(_count);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
+        uint256 expectedSize = LibProvedEventEncoder.calculateClaimRecordSize(_count);
         assertEq(encoded.length, expectedSize);
 
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
         assertEq(decoded.bondInstructions.length, _count);
 
         for (uint256 i = 0; i < _count; i++) {

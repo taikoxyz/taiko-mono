@@ -4,18 +4,18 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibProposedEventCodec } from "contracts/layer1/shasta/libs/LibProposedEventCodec.sol";
+import { LibProposedEventEncoder } from "contracts/layer1/shasta/libs/LibProposedEventEncoder.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 
-/// @title LibProposedEventCodecGas
-/// @notice Gas comparison between optimized LibCodec and abi.encode
+/// @title LibProposedEventEncoderGas
+/// @notice Gas comparison between optimized LibEncoder and abi.encode
 /// @custom:security-contact security@taiko.xyz
-contract LibProposedEventCodecGas is Test {
+contract LibProposedEventEncoderGas is Test {
     event Proposed(bytes data);
     event ProposedDirect(IInbox.Proposal proposal, IInbox.CoreState coreState);
 
     function test_gas_comparison_optimized() public {
-        console2.log("\nGas Comparison: abi.encode vs LibProposedEventCodec");
+        console2.log("\nGas Comparison: abi.encode vs LibProposedEventEncoder");
         console2.log("====================================================\n");
 
         uint256[] memory blobCounts = new uint256[](4);
@@ -36,26 +36,26 @@ contract LibProposedEventCodecGas is Test {
             emit Proposed(abiEncoded);
             uint256 abiEncodeGas = gasBefore - gasleft();
 
-            // 2. Optimized LibCodec
+            // 2. Optimized LibEncoder
             gasBefore = gasleft();
-            bytes memory encoded = LibProposedEventCodec.encode(proposal, coreState);
+            bytes memory encoded = LibProposedEventEncoder.encode(proposal, coreState);
             emit Proposed(encoded);
-            uint256 libCodecGas = gasBefore - gasleft();
+            uint256 libEncoderGas = gasBefore - gasleft();
 
-            // Calculate savings percentage (can be negative if LibCodec uses more gas)
+            // Calculate savings percentage (can be negative if LibEncoder uses more gas)
             int256 savingsPercent;
-            if (abiEncodeGas > libCodecGas) {
-                savingsPercent = int256(((abiEncodeGas - libCodecGas) * 100) / abiEncodeGas);
+            if (abiEncodeGas > libEncoderGas) {
+                savingsPercent = int256(((abiEncodeGas - libEncoderGas) * 100) / abiEncodeGas);
             } else {
-                savingsPercent = -int256(((libCodecGas - abiEncodeGas) * 100) / abiEncodeGas);
+                savingsPercent = -int256(((libEncoderGas - abiEncodeGas) * 100) / abiEncodeGas);
             }
 
             console2.log("  abi.encode + emit:", abiEncodeGas, "gas");
-            console2.log("  LibCodec + emit:  ", libCodecGas, "gas");
+            console2.log("  LibEncoder + emit:  ", libEncoderGas, "gas");
             if (savingsPercent >= 0) {
                 console2.log("  Savings:", uint256(savingsPercent), "%");
             } else {
-                console2.log("  Savings: -", uint256(-savingsPercent), "% (LibCodec uses more)");
+                console2.log("  Savings: -", uint256(-savingsPercent), "% (LibEncoder uses more)");
             }
             console2.log("");
         }
@@ -64,7 +64,7 @@ contract LibProposedEventCodecGas is Test {
     }
 
     function test_gas_decode_comparison() public view {
-        console2.log("\nDecode Gas Comparison: abi.decode vs LibProposedEventCodec");
+        console2.log("\nDecode Gas Comparison: abi.decode vs LibProposedEventEncoder");
         console2.log("==========================================================\n");
 
         uint256[] memory blobCounts = new uint256[](4);
@@ -79,11 +79,11 @@ contract LibProposedEventCodecGas is Test {
 
             // Prepare encoded data
             bytes memory abiEncoded = abi.encode(proposal, coreState);
-            bytes memory libEncoded = LibProposedEventCodec.encode(proposal, coreState);
+            bytes memory libEncoded = LibProposedEventEncoder.encode(proposal, coreState);
 
             console2.log("Blob hashes count:", blobCounts[i]);
             console2.log("  abi.encode size:", abiEncoded.length, "bytes");
-            console2.log("  LibCodec size:  ", libEncoded.length, "bytes");
+            console2.log("  LibEncoder size:  ", libEncoded.length, "bytes");
 
             // 1. abi.decode
             uint256 gasBefore = gasleft();
@@ -91,10 +91,10 @@ contract LibProposedEventCodecGas is Test {
                 abi.decode(abiEncoded, (IInbox.Proposal, IInbox.CoreState));
             uint256 abiDecodeGas = gasBefore - gasleft();
 
-            // 2. LibCodec decode
+            // 2. LibEncoder decode
             gasBefore = gasleft();
             (IInbox.Proposal memory decoded3, IInbox.CoreState memory decoded4) =
-                LibProposedEventCodec.decode(libEncoded);
+                LibProposedEventEncoder.decode(libEncoded);
             uint256 libDecodeGas = gasBefore - gasleft();
 
             // Calculate savings percentage
@@ -106,11 +106,11 @@ contract LibProposedEventCodecGas is Test {
             }
 
             console2.log("  abi.decode:", abiDecodeGas, "gas");
-            console2.log("  LibCodec decode:", libDecodeGas, "gas");
+            console2.log("  LibEncoder decode:", libDecodeGas, "gas");
             if (savingsPercent >= 0) {
                 console2.log("  Savings:", uint256(savingsPercent), "%");
             } else {
-                console2.log("  Savings: -", uint256(-savingsPercent), "% (LibCodec uses more)");
+                console2.log("  Savings: -", uint256(-savingsPercent), "% (LibEncoder uses more)");
             }
             console2.log("");
 
@@ -121,7 +121,7 @@ contract LibProposedEventCodecGas is Test {
     }
 
     function test_gas_size_comparison() public pure {
-        console2.log("\nSize Comparison: abi.encode vs LibProposedEventCodec");
+        console2.log("\nSize Comparison: abi.encode vs LibProposedEventEncoder");
         console2.log("=====================================================\n");
 
         uint256[] memory blobCounts = new uint256[](4);
@@ -135,23 +135,24 @@ contract LibProposedEventCodecGas is Test {
                 _createTestData(blobCounts[i]);
 
             bytes memory abiEncoded = abi.encode(proposal, coreState);
-            bytes memory libEncoded = LibProposedEventCodec.encode(proposal, coreState);
+            bytes memory libEncoded = LibProposedEventEncoder.encode(proposal, coreState);
 
             uint256 sizeSavings =
                 ((abiEncoded.length - libEncoded.length) * 100) / abiEncoded.length;
 
             console2.log("Blob hashes:", blobCounts[i]);
             console2.log("  abi.encode:", abiEncoded.length, "bytes");
-            console2.log("  LibCodec:  ", libEncoded.length, "bytes");
+            console2.log("  LibEncoder:  ", libEncoded.length, "bytes");
             console2.log("  Size reduction:", sizeSavings, "%");
             console2.log("");
         }
     }
 
     function _writeReport() private {
-        string memory report = "# LibProposedEventCodec Gas Report\n\n";
+        string memory report = "# LibProposedEventEncoder Gas Report\n\n";
         report = string.concat(report, "## Encoding + Emit Performance\n\n");
-        report = string.concat(report, "| Blobs | abi.encode | LibProposedEventCodec | Savings |\n");
+        report =
+            string.concat(report, "| Blobs | abi.encode | LibProposedEventEncoder | Savings |\n");
         report =
             string.concat(report, "|-------|------------|------------------------|---------|\n");
 
@@ -163,7 +164,7 @@ contract LibProposedEventCodecGas is Test {
 
         report = string.concat(report, "## Size Comparison\n\n");
         report =
-            string.concat(report, "| Blobs | abi.encode | LibProposedEventCodec | Reduction |\n");
+            string.concat(report, "| Blobs | abi.encode | LibProposedEventEncoder | Reduction |\n");
         report =
             string.concat(report, "|-------|------------|------------------------|-----------|\n");
         report = string.concat(report, "| 0 | 544 bytes | 160 bytes | 70% |\n");
@@ -173,7 +174,7 @@ contract LibProposedEventCodecGas is Test {
 
         report = string.concat(report, "**Note**: Gas measurements include event emission costs\n");
 
-        vm.writeFile("gas-reports/LibProposedEventCodec.md", report);
+        vm.writeFile("gas-reports/LibProposedEventEncoder.md", report);
     }
 
     function _createTestData(uint256 _blobHashCount)

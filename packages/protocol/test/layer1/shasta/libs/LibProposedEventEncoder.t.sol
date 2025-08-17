@@ -2,14 +2,14 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibProposedEventCodec } from "contracts/layer1/shasta/libs/LibProposedEventCodec.sol";
+import { LibProposedEventEncoder } from "contracts/layer1/shasta/libs/LibProposedEventEncoder.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 
-/// @title LibProposedEventCodecTest
-/// @notice Comprehensive tests for LibProposedEventCodec encoding/decoding
+/// @title LibProposedEventEncoderTest
+/// @notice Comprehensive tests for LibProposedEventEncoder encoding/decoding
 /// @custom:security-contact security@taiko.xyz
-contract LibProposedEventCodecTest is Test {
+contract LibProposedEventEncoderTest is Test {
     function test_encodeDecodeProposedEvent_minimal() public pure {
         // Create minimal proposed event (no blob hashes)
         IInbox.Proposal memory originalProposal;
@@ -31,7 +31,7 @@ contract LibProposedEventCodecTest is Test {
         originalCoreState.bondInstructionsHash = keccak256("bondInstructions");
 
         // Encode
-        bytes memory encoded = LibProposedEventCodec.encode(originalProposal, originalCoreState);
+        bytes memory encoded = LibProposedEventEncoder.encode(originalProposal, originalCoreState);
 
         // Verify size (128 bytes for minimal config)
         // Proposal: 6+20+6+6+1+1 = 40
@@ -43,7 +43,7 @@ contract LibProposedEventCodecTest is Test {
 
         // Decode
         (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
-            LibProposedEventCodec.decode(encoded);
+            LibProposedEventEncoder.decode(encoded);
 
         // Verify proposal fields
         assertEq(decodedProposal.id, originalProposal.id);
@@ -92,14 +92,14 @@ contract LibProposedEventCodecTest is Test {
         originalCoreState.bondInstructionsHash = keccak256("bondInstructionsHash");
 
         // Encode
-        bytes memory encoded = LibProposedEventCodec.encode(originalProposal, originalCoreState);
+        bytes memory encoded = LibProposedEventEncoder.encode(originalProposal, originalCoreState);
 
         // Verify size (160 + 3*32 = 256 bytes)
         assertEq(encoded.length, 256);
 
         // Decode
         (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
-            LibProposedEventCodec.decode(encoded);
+            LibProposedEventEncoder.decode(encoded);
 
         // Verify proposal fields
         assertEq(decodedProposal.id, originalProposal.id);
@@ -149,14 +149,14 @@ contract LibProposedEventCodecTest is Test {
         originalCoreState.bondInstructionsHash = bytes32(type(uint256).max);
 
         // Encode
-        bytes memory encoded = LibProposedEventCodec.encode(originalProposal, originalCoreState);
+        bytes memory encoded = LibProposedEventEncoder.encode(originalProposal, originalCoreState);
 
         // Verify size (160 + 1*32 = 192 bytes)
         assertEq(encoded.length, 192);
 
         // Decode
         (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
-            LibProposedEventCodec.decode(encoded);
+            LibProposedEventEncoder.decode(encoded);
 
         // Verify all max values are preserved
         assertEq(decodedProposal.id, type(uint48).max);
@@ -196,11 +196,11 @@ contract LibProposedEventCodecTest is Test {
         originalCoreState.bondInstructionsHash = bytes32(0);
 
         // Encode
-        bytes memory encoded = LibProposedEventCodec.encode(originalProposal, originalCoreState);
+        bytes memory encoded = LibProposedEventEncoder.encode(originalProposal, originalCoreState);
 
         // Decode
         (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
-            LibProposedEventCodec.decode(encoded);
+            LibProposedEventEncoder.decode(encoded);
 
         // Verify all zero values are preserved
         assertEq(decodedProposal.id, 0);
@@ -256,14 +256,14 @@ contract LibProposedEventCodecTest is Test {
         originalCoreState.bondInstructionsHash = keccak256(abi.encode("bonds", _proposalId));
 
         // Encode
-        bytes memory encoded = LibProposedEventCodec.encode(originalProposal, originalCoreState);
+        bytes memory encoded = LibProposedEventEncoder.encode(originalProposal, originalCoreState);
 
         // Verify expected size (160 + 32 = 192 bytes for 1 blob hash)
         assertEq(encoded.length, 192);
 
         // Decode
         (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
-            LibProposedEventCodec.decode(encoded);
+            LibProposedEventEncoder.decode(encoded);
 
         // Verify proposal fields
         assertEq(decodedProposal.id, originalProposal.id);
@@ -317,13 +317,13 @@ contract LibProposedEventCodecTest is Test {
         originalCoreState.bondInstructionsHash = _bondInstructionsHash;
 
         // Encode
-        bytes memory encoded = LibProposedEventCodec.encode(originalProposal, originalCoreState);
+        bytes memory encoded = LibProposedEventEncoder.encode(originalProposal, originalCoreState);
 
         // Verify expected size (160 bytes for 0 blob hashes)
         assertEq(encoded.length, 160);
 
         // Decode
-        (, IInbox.CoreState memory decodedCoreState) = LibProposedEventCodec.decode(encoded);
+        (, IInbox.CoreState memory decodedCoreState) = LibProposedEventEncoder.decode(encoded);
 
         // Verify core state fields
         assertEq(decodedCoreState.nextProposalId, originalCoreState.nextProposalId);
@@ -363,7 +363,7 @@ contract LibProposedEventCodecTest is Test {
 
         // Measure gas for LibCodec encode
         gasBefore = gasleft();
-        bytes memory libCodecEncoded = LibProposedEventCodec.encode(proposal, coreState);
+        bytes memory libCodecEncoded = LibProposedEventEncoder.encode(proposal, coreState);
         uint256 gasLibCodec = gasBefore - gasleft();
 
         // Log results for comparison

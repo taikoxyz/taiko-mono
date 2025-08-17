@@ -2,14 +2,14 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibProvedEventCodec } from "contracts/layer1/shasta/libs/LibProvedEventCodec.sol";
+import { LibProvedEventEncoder } from "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
-/// @title LibProvedEventCodecTest
-/// @notice End-to-end tests for LibProvedEventCodec encoding/decoding
+/// @title LibProvedEventEncoderTest
+/// @notice End-to-end tests for LibProvedEventEncoder encoding/decoding
 /// @custom:security-contact security@taiko.xyz
-contract LibProvedEventCodecTest is Test {
+contract LibProvedEventEncoderTest is Test {
     function test_encodeDecodeClaimRecord_empty() public pure {
         // Create empty claim record (no bond instructions)
         IInbox.ClaimRecord memory original;
@@ -25,13 +25,13 @@ contract LibProvedEventCodecTest is Test {
         original.bondInstructions = new LibBonds.BondInstruction[](0);
 
         // Encode
-        bytes memory encoded = LibProvedEventCodec.encode(original);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
 
         // Verify size (183 bytes for empty bond instructions)
         assertEq(encoded.length, 183);
 
         // Decode
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         // Verify all fields match
         assertEq(decoded.proposalId, original.proposalId);
@@ -81,13 +81,13 @@ contract LibProvedEventCodecTest is Test {
         });
 
         // Encode
-        bytes memory encoded = LibProvedEventCodec.encode(original);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
 
         // Verify size (183 + 3*47 = 324 bytes)
         assertEq(encoded.length, 324);
 
         // Decode
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         // Verify all fields match
         assertEq(decoded.proposalId, original.proposalId);
@@ -138,10 +138,10 @@ contract LibProvedEventCodecTest is Test {
         });
 
         // Encode
-        bytes memory encoded = LibProvedEventCodec.encode(original);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
 
         // Decode
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         // Verify all fields match
         assertEq(decoded.proposalId, original.proposalId);
@@ -178,10 +178,10 @@ contract LibProvedEventCodecTest is Test {
         original.bondInstructions = new LibBonds.BondInstruction[](0);
 
         // Encode
-        bytes memory encoded = LibProvedEventCodec.encode(original);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
 
         // Decode
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         // Verify all fields match
         assertEq(decoded.proposalId, 0);
@@ -239,8 +239,8 @@ contract LibProvedEventCodecTest is Test {
         }
 
         // Encode and decode
-        bytes memory encoded = LibProvedEventCodec.encode(original);
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         // Verify all fields match
         assertEq(decoded.proposalId, original.proposalId);
@@ -307,10 +307,10 @@ contract LibProvedEventCodecTest is Test {
             });
         }
 
-        bytes memory encoded = LibProvedEventCodec.encode(original);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
         assertEq(encoded.length, 183 + numInstructions * 47);
 
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
         assertEq(decoded.bondInstructions.length, numInstructions);
         assertEq(decoded.proposalId, original.proposalId);
     }
@@ -349,8 +349,8 @@ contract LibProvedEventCodecTest is Test {
             });
         }
 
-        bytes memory encoded = LibProvedEventCodec.encode(original);
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         assertEq(decoded.proposalId, original.proposalId);
         assertEq(decoded.claim.endBlockNumber, original.claim.endBlockNumber);
@@ -359,18 +359,18 @@ contract LibProvedEventCodecTest is Test {
     }
 
     function test_calculateClaimRecordSize_zero() public pure {
-        uint256 size = LibProvedEventCodec.calculateClaimRecordSize(0);
+        uint256 size = LibProvedEventEncoder.calculateClaimRecordSize(0);
         assertEq(size, 183); // Fixed size with no bond instructions
     }
 
     function test_calculateClaimRecordSize_withBondInstructions() public pure {
-        uint256 size1 = LibProvedEventCodec.calculateClaimRecordSize(1);
+        uint256 size1 = LibProvedEventEncoder.calculateClaimRecordSize(1);
         assertEq(size1, 183 + 47); // Fixed + 1 bond instruction
 
-        uint256 size10 = LibProvedEventCodec.calculateClaimRecordSize(10);
+        uint256 size10 = LibProvedEventEncoder.calculateClaimRecordSize(10);
         assertEq(size10, 183 + 470); // Fixed + 10 bond instructions
 
-        uint256 size100 = LibProvedEventCodec.calculateClaimRecordSize(100);
+        uint256 size100 = LibProvedEventEncoder.calculateClaimRecordSize(100);
         assertEq(size100, 183 + 4700); // Fixed + 100 bond instructions
     }
 
@@ -399,14 +399,14 @@ contract LibProvedEventCodecTest is Test {
             });
         }
 
-        bytes memory encoded = LibProvedEventCodec.encode(record);
+        bytes memory encoded = LibProvedEventEncoder.encode(record);
 
         // Verify size: base (183) + bond instructions (47 each)
         uint256 expectedSize = 183 + uint256(numBondInstructions) * 47;
         assertEq(encoded.length, expectedSize);
 
         // Verify decode works correctly
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
         assertEq(decoded.bondInstructions.length, numBondInstructions);
     }
 
@@ -470,8 +470,8 @@ contract LibProvedEventCodecTest is Test {
             });
         }
 
-        bytes memory encoded = LibProvedEventCodec.encode(original);
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         assertEq(decoded.bondInstructions.length, numInstructions);
         for (uint256 i = 0; i < numInstructions; i++) {
@@ -533,8 +533,8 @@ contract LibProvedEventCodecTest is Test {
             });
         }
 
-        bytes memory encoded = LibProvedEventCodec.encode(original);
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        bytes memory encoded = LibProvedEventEncoder.encode(original);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         assertEq(decoded.claim.designatedProver, original.claim.designatedProver);
         assertEq(decoded.claim.actualProver, original.claim.actualProver);
@@ -585,8 +585,8 @@ contract LibProvedEventCodecTest is Test {
         }
 
         // Encode and decode
-        bytes memory encoded = LibProvedEventCodec.encode(inputRecord);
-        IInbox.ClaimRecord memory decoded = LibProvedEventCodec.decode(encoded);
+        bytes memory encoded = LibProvedEventEncoder.encode(inputRecord);
+        IInbox.ClaimRecord memory decoded = LibProvedEventEncoder.decode(encoded);
 
         // Verify all fields
         assertEq(decoded.proposalId, inputRecord.proposalId);

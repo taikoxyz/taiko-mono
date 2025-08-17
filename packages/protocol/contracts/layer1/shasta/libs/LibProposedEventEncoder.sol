@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
-/// @title LibProposedEventCodec
+/// @title LibProposedEventEncoder
 /// @notice Library for encoding and decoding Proposal and CoreState structures using compact
 /// encoding
 /// @custom:security-contact security@taiko.xyz
-library LibProposedEventCodec {
+library LibProposedEventEncoder {
     /// @notice Encodes a Proposal and CoreState into bytes using compact encoding
     /// @param _proposal The proposal to encode
     /// @param _coreState The core state to encode
