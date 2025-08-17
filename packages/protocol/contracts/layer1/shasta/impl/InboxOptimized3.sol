@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./InboxOptimized2.sol";
 import "../libs/LibProposeDataDecoder.sol";
+import "../libs/LibProveDataDecoder.sol";
 
 /// @title InboxOptimized3
 /// @notice Inbox optimized, on top of InboxOptimized2, to lower calldata cost.
@@ -41,6 +42,6 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
         override
         returns (Proposal[] memory proposals_, Claim[] memory claims_)
     {
-        return super.decodeProveData(_data);
+        return LibProveDataDecoder.decode(_data);
     }
 }
