@@ -52,22 +52,27 @@ abstract contract Inbox is EssentialContract, IInbox {
     }
 
     // ---------------------------------------------------------------
-    // State Variables
+    // State Variables for compatibility with Pacaya inbox.
     // ---------------------------------------------------------------
 
-    // 5 slots are used by the State object defined in Pacaya inbox:
+    // 6 slots are used by the State object defined in Pacaya inbox:
     // mapping(uint256 batchId_mod_batchRingBufferSize => Batch batch) batches;
     // mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
     // mapping(uint256 batchId_mod_batchRingBufferSize => mapping(uint24 transitionId =>
     //         TransitionState ts)) transitions;
     // bytes32 __reserve1;
     // Stats1 stats1;
-    uint256[5] private __slotsUsedByPacaya;
+    // Stats2 stats2;
+    uint256[6] private __slotsUsedByPacaya;
 
-    // Reserved slot for future migration compatibility
-    uint256 private __reservedSlot;
-
+    /// @notice Bond balance for each account used in Pacaya inbox.
+    /// @dev This is not used in Shasta. It is kept so users can withdraw their bond.
+    /// @dev Bonds are now handled entirely on L2, by the `BondManager` contract.
     mapping(address account => uint256 bond) public bondBalance;
+
+    // ---------------------------------------------------------------
+    // State Variables for Shasta inbox.
+    // ---------------------------------------------------------------
 
     /// @dev Ring buffer for storing proposal records.
     mapping(uint256 bufferSlot => ProposalRecord proposalRecord) private _proposalRingBuffer;
@@ -134,10 +139,13 @@ abstract contract Inbox is EssentialContract, IInbox {
         coreState = _finalize(config, coreState, claimRecords);
 
         // Verify capacity for new proposals
-        _verifyUnfinalizedCapacity(config, coreState);
+        uint256 availableCapacity = _getAvailableCapacity(config, coreState);
+        require(availableCapacity > 0, ExceedsUnfinalizedProposalCapacity());
 
-        // Process forced inclusion if required
-        coreState = _processForcedInclusion(config, coreState);
+        if (availableCapacity > 1) {
+            // Process forced inclusion if required
+            coreState = _processForcedInclusion(config, coreState);
+        }
 
         // Create regular proposal
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(blobReference);
@@ -192,7 +200,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         uint48 _proposalId,
         bytes32 _parentClaimHash
     )
-        public
+        external
         view
         returns (bytes32 claimRecordHash_)
     {
@@ -202,7 +210,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     /// @notice Gets the capacity for unfinalized proposals.
     /// @return _ The maximum number of unfinalized proposals that can exist.
-    function getCapacity() public view returns (uint256) {
+    function getCapacity() external view returns (uint256) {
         Config memory config = getConfig();
         return _getCapacity(config);
     }
@@ -433,6 +441,25 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
+    /// @dev Gets the available capacity for new proposals.
+    /// @param _config The configuration parameters.
+    /// @param _coreState The core state.
+    /// @return _ The available capacity for new proposals.
+    function _getAvailableCapacity(
+        Config memory _config,
+        CoreState memory _coreState
+    )
+        private
+        pure
+        returns (uint256)
+    {
+        unchecked {
+            uint256 numUnfinalizedProposals =
+                _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
+            return _getCapacity(_config) - numUnfinalizedProposals;
+        }
+    }
+
     /// @dev Gets the claim record hash for a given proposal and parent claim.
     function _getClaimRecordHash(
         Config memory _config,
@@ -506,24 +533,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(_hashCoreState(_coreState) == _parentProposals[0].coreStateHash, InvalidState());
     }
 
-    /// @dev Verifies that adding a new proposal won't exceed the maximum number of unfinalized
-    /// proposals
-    /// @param _config The configuration parameters.
-    /// @param _coreState The core state.
-    function _verifyUnfinalizedCapacity(
-        Config memory _config,
-        CoreState memory _coreState
-    )
-        private
-        pure
-    {
-        require(
-            _coreState.nextProposalId <= _getCapacity(_config) + _coreState.lastFinalizedProposalId,
-            ExceedsUnfinalizedProposalCapacity()
-        );
-    }
-
-    /// @dev Processes the oldest forced inclusion if it is due.
+    /// @dev Processes forced inclusion if required
     /// @param _config The configuration parameters.
     /// @param _coreState The core state.
     /// @return  The updated core state or the same core state if no forced inclusion is due.
