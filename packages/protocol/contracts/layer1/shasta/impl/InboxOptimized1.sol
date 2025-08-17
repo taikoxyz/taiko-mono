@@ -2,17 +2,11 @@
 pragma solidity ^0.8.24;
 
 import "./Inbox.sol";
-import "../libs/LibProposedEventEncoder.sol";
-import "../libs/LibProvedEventEncoder.sol";
 
-/// @title InboxOptimized
-/// @notice Combines slot reuse and claim aggregation optimizations for the Inbox contract
-/// @dev This contract merges the optimizations from InboxWithSlotReuse and
-/// InboxWithClaimAggregation
-/// to provide both storage optimization through slot reuse and gas optimization through claim
-/// aggregation
+/// @title InboxOptimized1
+/// @notice Inbox optimized to allow slot reuse and claim aggregation.
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxOptimized is Inbox {
+abstract contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -24,65 +18,6 @@ abstract contract InboxOptimized is Inbox {
     // ---------------------------------------------------------------
 
     constructor() Inbox() { }
-
-    // ---------------------------------------------------------------
-    // External Functions
-    // ---------------------------------------------------------------
-
-    /// @dev Decodes the proposed event data that was encoded
-    /// @param _data The encoded data
-    /// @return proposal_ The decoded proposal
-    /// @return coreState_ The decoded core state
-    function decodeProposedEventData(bytes memory _data)
-        external
-        pure
-        returns (Proposal memory proposal_, CoreState memory coreState_)
-    {
-        return LibProposedEventEncoder.decode(_data);
-    }
-
-    /// @dev Decodes the prove event data that was encoded
-    /// @param _data The encoded data
-    /// @return claimRecord_ The decoded claim record
-    function decodeProveEventData(bytes memory _data)
-        external
-        pure
-        returns (ClaimRecord memory claimRecord_)
-    {
-        return LibProvedEventEncoder.decode(_data);
-    }
-
-    // ---------------------------------------------------------------
-    // Public Functions
-    // ---------------------------------------------------------------
-
-    /// @dev Encodes the proposed event data for gas optimization
-    /// @param _proposal The proposal to encode
-    /// @param _coreState The core state to encode
-    /// @return The encoded data
-    function encodeProposedEventData(
-        Proposal memory _proposal,
-        CoreState memory _coreState
-    )
-        public
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibProposedEventEncoder.encode(_proposal, _coreState);
-    }
-
-    /// @dev Encodes the proved event data for gas optimization using compact encoding
-    /// @param _claimRecord The claim record to encode
-    /// @return The encoded data
-    function encodeProveEventData(ClaimRecord memory _claimRecord)
-        public
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibProvedEventEncoder.encode(_claimRecord);
-    }
 
     // ---------------------------------------------------------------
     // Internal Functions - Overrides

@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "contracts/layer1/shasta/impl/InboxOptimized.sol";
+import "contracts/layer1/shasta/impl/InboxOptimized2.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
 
 /// @title TestInboxWithMockBlobs
 /// @notice Test version of InboxOptimized that exposes internal functions for testing
-contract TestInboxWithMockBlobs is InboxOptimized {
+contract TestInboxWithMockBlobs is InboxOptimized2 {
     IInbox.Config private testConfig;
     bool private configSet;
 
-    constructor() InboxOptimized() { }
+    constructor() InboxOptimized2() { }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;

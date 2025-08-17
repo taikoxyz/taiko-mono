@@ -164,77 +164,66 @@ library LibPackUnpack {
     // ---------------------------------------------------------------
 
     /// @notice Unpack uint8 (1 byte) from position
-    /// @dev Reads single byte from memory. No validation of data availability.
+    /// @dev Optimized to use shift operation instead of byte operation.
     /// @param _pos Absolute memory position to read from
     /// @return value_ The unpacked uint8 value
     /// @return newPos_ Updated position after reading (pos + 1)
     function unpackUint8(uint256 _pos) internal pure returns (uint8 value_, uint256 newPos_) {
         assembly {
-            value_ := byte(0, mload(_pos))
+            // Load full word and shift right by 248 bits (31 bytes) to get the 1 byte we need
+            value_ := shr(248, mload(_pos))
             newPos_ := add(_pos, 1)
         }
     }
 
     /// @notice Unpack uint16 (2 bytes) from position using big-endian encoding
-    /// @dev Reads 2 bytes and combines: (byte0 << 8) | byte1.
+    /// @dev Optimized to use 1 mload operation instead of 2 byte reads.
     /// @param _pos Absolute memory position to read from
     /// @return value_ The unpacked uint16 value
     /// @return newPos_ Updated position after reading (pos + 2)
     function unpackUint16(uint256 _pos) internal pure returns (uint16 value_, uint256 newPos_) {
         assembly {
-            value_ := or(shl(8, byte(0, mload(_pos))), byte(0, mload(add(_pos, 1))))
+            // Load full word and shift right by 240 bits (30 bytes) to get the 2 bytes we need
+            value_ := shr(240, mload(_pos))
             newPos_ := add(_pos, 2)
         }
     }
 
     /// @notice Unpack uint24 (3 bytes) from position using big-endian encoding
-    /// @dev Reads 3 bytes and reconstructs uint24 from big-endian format.
+    /// @dev Optimized to use 1 mload operation instead of 3 byte reads.
     /// @param _pos Absolute memory position to read from
     /// @return value_ The unpacked uint24 value
     /// @return newPos_ Updated position after reading (pos + 3)
     function unpackUint24(uint256 _pos) internal pure returns (uint24 value_, uint256 newPos_) {
         assembly {
-            value_ :=
-                or(
-                    or(shl(16, byte(0, mload(_pos))), shl(8, byte(0, mload(add(_pos, 1))))),
-                    byte(0, mload(add(_pos, 2)))
-                )
+            // Load full word and shift right by 232 bits (29 bytes) to get the 3 bytes we need
+            value_ := shr(232, mload(_pos))
             newPos_ := add(_pos, 3)
         }
     }
 
     /// @notice Unpack uint32 (4 bytes) from position using big-endian encoding
-    /// @dev Reads 4 bytes and reconstructs uint32 from big-endian format.
+    /// @dev Optimized to use 1 mload operation instead of 4 byte reads.
     /// @param _pos Absolute memory position to read from
     /// @return value_ The unpacked uint32 value
     /// @return newPos_ Updated position after reading (pos + 4)
     function unpackUint32(uint256 _pos) internal pure returns (uint32 value_, uint256 newPos_) {
         assembly {
-            value_ :=
-                or(
-                    or(shl(24, byte(0, mload(_pos))), shl(16, byte(0, mload(add(_pos, 1))))),
-                    or(shl(8, byte(0, mload(add(_pos, 2)))), byte(0, mload(add(_pos, 3))))
-                )
+            // Load full word and shift right by 224 bits (28 bytes) to get the 4 bytes we need
+            value_ := shr(224, mload(_pos))
             newPos_ := add(_pos, 4)
         }
     }
 
     /// @notice Unpack uint48 (6 bytes) from position using big-endian encoding
-    /// @dev Reads 6 bytes for compact timestamp/counter values.
-    /// Reconstructs value from big-endian byte sequence.
+    /// @dev Optimized to use 1 mload operation instead of 6 byte reads.
     /// @param _pos Absolute memory position to read from
     /// @return value_ The unpacked uint48 value
     /// @return newPos_ Updated position after reading (pos + 6)
     function unpackUint48(uint256 _pos) internal pure returns (uint48 value_, uint256 newPos_) {
         assembly {
-            value_ :=
-                or(
-                    or(
-                        or(shl(40, byte(0, mload(_pos))), shl(32, byte(0, mload(add(_pos, 1))))),
-                        or(shl(24, byte(0, mload(add(_pos, 2)))), shl(16, byte(0, mload(add(_pos, 3)))))
-                    ),
-                    or(shl(8, byte(0, mload(add(_pos, 4)))), byte(0, mload(add(_pos, 5))))
-                )
+            // Load full word and shift right by 208 bits (26 bytes) to get the 6 bytes we need
+            value_ := shr(208, mload(_pos))
             newPos_ := add(_pos, 6)
         }
     }
@@ -264,67 +253,18 @@ library LibPackUnpack {
     }
 
     /// @notice Unpack address (20 bytes) from position
-    /// @dev Reads 20 bytes byte-by-byte and reconstructs address.
-    /// Handles unaligned positions correctly.
+    /// @dev Optimized to use only 1 mload operation instead of 20 individual byte reads.
+    /// Reads one full word and shifts to extract the address bytes.
     /// @param _pos Absolute memory position to read from
     /// @return value_ The unpacked address
     /// @return newPos_ Updated position after reading (pos + 20)
     function unpackAddress(uint256 _pos) internal pure returns (address value_, uint256 newPos_) {
         assembly {
-            // Read 20 bytes as address
-            value_ :=
-                or(
-                    or(
-                        or(
-                            or(shl(152, byte(0, mload(_pos))), shl(144, byte(0, mload(add(_pos, 1))))),
-                            or(
-                                shl(136, byte(0, mload(add(_pos, 2)))),
-                                shl(128, byte(0, mload(add(_pos, 3))))
-                            )
-                        ),
-                        or(
-                            or(
-                                shl(120, byte(0, mload(add(_pos, 4)))),
-                                shl(112, byte(0, mload(add(_pos, 5))))
-                            ),
-                            or(
-                                shl(104, byte(0, mload(add(_pos, 6)))),
-                                shl(96, byte(0, mload(add(_pos, 7))))
-                            )
-                        )
-                    ),
-                    or(
-                        or(
-                            or(
-                                shl(88, byte(0, mload(add(_pos, 8)))),
-                                shl(80, byte(0, mload(add(_pos, 9))))
-                            ),
-                            or(
-                                shl(72, byte(0, mload(add(_pos, 10)))),
-                                shl(64, byte(0, mload(add(_pos, 11))))
-                            )
-                        ),
-                        or(
-                            or(
-                                or(
-                                    shl(56, byte(0, mload(add(_pos, 12)))),
-                                    shl(48, byte(0, mload(add(_pos, 13))))
-                                ),
-                                or(
-                                    shl(40, byte(0, mload(add(_pos, 14)))),
-                                    shl(32, byte(0, mload(add(_pos, 15))))
-                                )
-                            ),
-                            or(
-                                or(
-                                    shl(24, byte(0, mload(add(_pos, 16)))),
-                                    shl(16, byte(0, mload(add(_pos, 17))))
-                                ),
-                                or(shl(8, byte(0, mload(add(_pos, 18)))), byte(0, mload(add(_pos, 19))))
-                            )
-                        )
-                    )
-                )
+            // Load the full 32-byte word starting at _pos
+            let word := mload(_pos)
+            // Shift right by 96 bits (12 bytes) to align the 20-byte address to the right
+            // This removes the 12 trailing bytes and keeps the first 20 bytes
+            value_ := shr(96, word)
             newPos_ := add(_pos, 20)
         }
     }

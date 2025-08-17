@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxOptimized } from "./InboxOptimized.sol";
+import { InboxOptimized2 } from "./InboxOptimized2.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
 
 /// @title MainnetInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
 /// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetInbox is InboxOptimized {
+contract MainnetInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized() { }
+    constructor() InboxOptimized2() { }
 
     // ---------------------------------------------------------------
     // External/Public Functions

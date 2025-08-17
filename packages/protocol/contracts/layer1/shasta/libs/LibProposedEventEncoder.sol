@@ -43,7 +43,7 @@ library LibProposedEventEncoder {
         ptr = P.packUint24(ptr, uint24(blobHashesLength));
 
         // Encode each blob hash
-        for (uint256 i = 0; i < blobHashesLength; i++) {
+        for (uint256 i; i < blobHashesLength; ++i) {
             ptr = P.packBytes32(ptr, _proposal.blobSlice.blobHashes[i]);
         }
 
@@ -88,7 +88,7 @@ library LibProposedEventEncoder {
         (blobHashesLength, ptr) = P.unpackUint24(ptr);
 
         proposal_.blobSlice.blobHashes = new bytes32[](blobHashesLength);
-        for (uint256 i = 0; i < blobHashesLength; i++) {
+        for (uint256 i; i < blobHashesLength; ++i) {
             (proposal_.blobSlice.blobHashes[i], ptr) = P.unpackBytes32(ptr);
         }
 
