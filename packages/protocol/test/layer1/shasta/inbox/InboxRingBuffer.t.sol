@@ -127,11 +127,17 @@ contract InboxRingBuffer is InboxTest {
 
     /// @notice Test protection of unfinalized proposals from overwrite
     /// @dev Validates capacity enforcement for data safety
+    /// Ring buffer size 3 means slots 0, 1, 2:
+    /// - Slot 0: Genesis proposal (can only be overwritten if proposal 1 is finalized)
+    /// - Slot 1: Will hold proposal 1
+    /// - Slot 2: Will hold proposal 2
+    /// Capacity is 2, meaning max 2 unfinalized proposals
     function test_ring_buffer_protect_unfinalized() public {
         setupSmallRingBuffer(); // Ring buffer size 3, capacity = 2
 
-        // We'll submit proposals manually to avoid complex validation
-        // The key is to test that the third proposal fails due to capacity
+        // Test scenario: Try to submit 3 proposals without finalization
+        // Expected: 3rd proposal should fail because it would overwrite genesis
+        // but proposal 1 is not finalized
 
         // Submit proposal 1
         IInbox.CoreState memory coreState1 = IInbox.CoreState({
@@ -197,7 +203,9 @@ contract InboxRingBuffer is InboxTest {
 
         // Try to submit proposal 3 - should fail due to capacity
         // Proposal 3 would go to slot 0 (3 % 3 = 0), which has the genesis proposal
-        // So we need to provide both proposal 2 and the genesis proposal
+        // Genesis can only be overwritten if proposal 1 is finalized (which it's not)
+        // So this will fail with ExceedsUnfinalizedProposalCapacity
+        // We need to provide both proposal 2 (parent) and genesis (slot being overwritten)
 
         // Create the genesis proposal that was stored at initialization
         IInbox.Proposal memory genesisProposal;
