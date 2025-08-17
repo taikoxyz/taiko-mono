@@ -135,8 +135,7 @@ contract InboxRingBuffer is InboxTest {
         submitProposal(2, Alice);
 
         // Attempt to add proposal 3 should exceed capacity
-        // The actual error might be different than expected - accept any revert
-        expectAnyRevert("Should exceed unfinalized proposal capacity");
+        vm.expectRevert(ExceedsUnfinalizedProposalCapacity.selector);
         submitProposal(3, Alice);
     }
 

@@ -540,7 +540,7 @@ abstract contract InboxTest is CommonTest {
     function setupBlobHashes(uint256 _count) internal {
         bytes32[] memory hashes = InboxTestLib.generateBlobHashes(_count);
         vm.blobhashes(hashes);
-        
+
         // Also set up mock blob hashes for our test inbox
         for (uint256 i = 0; i < _count && i < 256; i++) {
             inbox.setMockBlobHash(i, hashes[i]);
@@ -919,7 +919,6 @@ abstract contract InboxTest is CommonTest {
         IInbox.CoreState memory coreState = _buildCoreStateForProposal(_proposalId);
 
         setupProposalMocks(_proposer);
-        setupBlobHashes();
 
         bytes memory data = _encodeProposalDataWithValidation(
             _proposalId,
@@ -928,6 +927,7 @@ abstract contract InboxTest is CommonTest {
             _claimRecords
         );
 
+        setupBlobHashes();
         vm.prank(_proposer);
         inbox.propose(bytes(""), data);
 
