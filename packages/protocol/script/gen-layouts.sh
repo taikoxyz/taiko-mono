@@ -52,7 +52,7 @@ contracts_layer2=(
 "contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/hekla/DelegateOwner.sol:DelegateOwner"
 "contracts/layer2/mainnet/DelegateController.sol:DelegateController"
-"contracts/layer2/based/anchor/TaikoAnchor.sol:TaikoAnchor"
+"contracts/layer2/based/TaikoAnchor.sol:TaikoAnchor"
 )
 
 profile=$1
