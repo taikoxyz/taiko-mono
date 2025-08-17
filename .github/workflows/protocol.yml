@@ -49,16 +49,17 @@ jobs:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.TAIKO_KITTY_TOKEN }}
 
-      # IMPORTANT: Using stable version with blob operation compatibility considerations
+      # IMPORTANT: Using nightly version for proper EIP-4844 blob support
       #
-      # Background: Tests using vm.blobhashes() and the blobhash() opcode may behave
-      # differently across Foundry versions. The stable version should have mature
-      # EIP-4844 blob support for the Cancun hardfork.
+      # Background: Tests using vm.blobhashes() and the blobhash() opcode require
+      # proper Cancun/EIP-4844 support. The stable version has issues with blob
+      # operations in test environments, causing BlobNotFound errors.
       #
-      # If tests fail with BlobNotFound errors, consider:
-      # 1. Using MockLibBlobs for test environments
-      # 2. Ensuring vm.blobhashes() is properly called in test setup
-      # 3. Verifying the Cancun hardfork is enabled in foundry.toml
+      # Using nightly ensures we get the latest blob handling improvements.
+      # If tests still fail, check:
+      # 1. The nightly date is recent enough for blob support
+      # 2. FOUNDRY_EVM_VERSION=cancun is set
+      # 3. foundry.toml has evm_version = "cancun" for layer1 profile
       #
       # Critical tests that depend on blob functionality:
       # - InboxOutOfOrderProving
@@ -67,7 +68,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.4.0
         with:
-          version: stable
+          version: nightly
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
@@ -86,7 +87,10 @@ jobs:
 
       - name: L1-Unit tests
         working-directory: ./packages/protocol
-        run: pnpm compile:shared && pnpm compile:l1 && pnpm snapshot:l1 && pnpm layout:l1
+        run: |
+          # Ensure Cancun hardfork is enabled for EIP-4844 blob support
+          export FOUNDRY_EVM_VERSION=cancun
+          pnpm compile:shared && pnpm compile:l1 && pnpm snapshot:l1 && pnpm layout:l1
 
       - name: Check for changes
         id: git_status
@@ -138,7 +142,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.4.0
         with:
-          version: stable
+          version: nightly
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
