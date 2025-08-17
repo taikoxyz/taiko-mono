@@ -9,7 +9,12 @@ echo "Installing Foundry version: $FOUNDRY_VERSION"
 if ! command -v foundryup &> /dev/null; then
     echo "Installing foundryup..."
     curl -L https://foundry.paradigm.xyz | bash
-    source ~/.bashrc || source ~/.zshrc
+    # Source the appropriate shell config
+    if [ -n "$ZSH_VERSION" ]; then
+        source ~/.zshrc
+    elif [ -n "$BASH_VERSION" ]; then
+        source ~/.bashrc
+    fi
 fi
 
 # Install the specific Foundry version
