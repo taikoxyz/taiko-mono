@@ -9,10 +9,29 @@ Before compiling the smart contracts, ensure the following are installed and up 
 - [Foundry](https://book.getfoundry.sh/)
 - [pnpm](https://pnpm.io/)
 
-To install dependencies:
+### Installing Foundry
+
+This project requires a specific version of Foundry to ensure consistency between local development and CI/CD. The required version is specified in the `.foundry-version` file.
+
+To install the correct Foundry version:
 
 ```bash
-foundryup -v stable && pnpm install
+# Install the exact Foundry version used by this project
+pnpm install:foundry
+```
+
+This command will:
+
+1. Read the version from `.foundry-version`
+2. Install foundryup if not already present
+3. Install the specific Foundry version
+
+### Installing Dependencies
+
+After installing Foundry, install the project dependencies:
+
+```bash
+pnpm install
 ```
 
 ## Compilation

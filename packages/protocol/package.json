@@ -3,6 +3,7 @@
   "version": "2.3.0",
   "private": true,
   "scripts": {
+    "install:foundry": "./scripts/install-foundry.sh",
     "buildMerkle": "ts-node ./utils/airdrop/buildMerkleTree.ts ./utils/airdrop/airdrop_db/example_claimList.json",
     "clean": "rm -rf out abis cache* && forge clean",
     "compile:l1": "FOUNDRY_PROFILE=layer1 forge build --build-info --extra-output storage-layout",

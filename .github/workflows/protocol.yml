@@ -49,10 +49,15 @@ jobs:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.TAIKO_KITTY_TOKEN }}
 
+      - name: Read Foundry version
+        id: foundry-version-main
+        working-directory: ./packages/protocol
+        run: echo "version=$(cat .foundry-version)" >> $GITHUB_OUTPUT
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.4.0
         with:
-          version: stable
+          version: ${{ steps.foundry-version-main.outputs.version }}
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
@@ -118,8 +123,15 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Read Foundry version
+        id: foundry-version-genesis
+        working-directory: ./packages/protocol
+        run: echo "version=$(cat .foundry-version)" >> $GITHUB_OUTPUT
+
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1.3.1
+        uses: foundry-rs/foundry-toolchain@v1.4.0
+        with:
+          version: ${{ steps.foundry-version-genesis.outputs.version }}
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
