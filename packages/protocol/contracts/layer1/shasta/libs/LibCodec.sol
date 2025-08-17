@@ -47,47 +47,70 @@ library LibCodec {
     }
 
     /// @notice Pack uint16 (2 bytes) at position using big-endian encoding
-    /// @dev Writes 2 bytes: high byte first, then low byte.
+    /// @dev Optimized to use mstore instead of 2 individual mstore8 operations.
     /// @param _pos Absolute memory position to write at
     /// @param _value The uint16 value to pack (0-65535)
     /// @return newPos_ Updated position after writing (pos + 2)
     function packUint16(uint256 _pos, uint16 _value) internal pure returns (uint256 newPos_) {
         assembly {
-            mstore8(_pos, shr(8, _value))
-            mstore8(add(_pos, 1), _value)
+            // Shift value left by 30 bytes (240 bits) to align at the start of a 32-byte word
+            let shifted := shl(240, _value)
+            
+            // Store the shifted value at position
+            mstore(_pos, shifted)
+            
             newPos_ := add(_pos, 2)
         }
     }
 
+    /// @notice Pack uint24 (3 bytes) at position using big-endian encoding
+    /// @dev Optimized to use mstore instead of 3 individual mstore8 operations.
+    /// @param _pos Absolute memory position to write at
+    /// @param _value The uint24 value to pack (0-16777215)
+    /// @return newPos_ Updated position after writing (pos + 3)
+    function packUint24(uint256 _pos, uint24 _value) internal pure returns (uint256 newPos_) {
+        assembly {
+            // Shift value left by 29 bytes (232 bits) to align at the start of a 32-byte word
+            let shifted := shl(232, _value)
+            
+            // Store the shifted value at position
+            mstore(_pos, shifted)
+            
+            newPos_ := add(_pos, 3)
+        }
+    }
+
     /// @notice Pack uint32 (4 bytes) at position using big-endian encoding
-    /// @dev Writes 4 bytes in order: [byte3][byte2][byte1][byte0].
+    /// @dev Optimized to use mstore instead of 4 individual mstore8 operations.
     /// @param _pos Absolute memory position to write at
     /// @param _value The uint32 value to pack (0-4294967295)
     /// @return newPos_ Updated position after writing (pos + 4)
     function packUint32(uint256 _pos, uint32 _value) internal pure returns (uint256 newPos_) {
         assembly {
-            mstore8(_pos, shr(24, _value))
-            mstore8(add(_pos, 1), shr(16, _value))
-            mstore8(add(_pos, 2), shr(8, _value))
-            mstore8(add(_pos, 3), _value)
+            // Shift value left by 28 bytes (224 bits) to align at the start of a 32-byte word
+            let shifted := shl(224, _value)
+            
+            // Store the shifted value at position
+            mstore(_pos, shifted)
+            
             newPos_ := add(_pos, 4)
         }
     }
 
     /// @notice Pack uint48 (6 bytes) at position using big-endian encoding
-    /// @dev Writes 6 bytes for compact timestamp/counter storage.
+    /// @dev Optimized to use mstore instead of 6 individual mstore8 operations.
     /// Common use case: block numbers that exceed uint32 range.
     /// @param _pos Absolute memory position to write at
     /// @param _value The uint48 value to pack (0-281474976710655)
     /// @return newPos_ Updated position after writing (pos + 6)
     function packUint48(uint256 _pos, uint48 _value) internal pure returns (uint256 newPos_) {
         assembly {
-            mstore8(_pos, shr(40, _value))
-            mstore8(add(_pos, 1), shr(32, _value))
-            mstore8(add(_pos, 2), shr(24, _value))
-            mstore8(add(_pos, 3), shr(16, _value))
-            mstore8(add(_pos, 4), shr(8, _value))
-            mstore8(add(_pos, 5), _value)
+            // Shift value left by 26 bytes (208 bits) to align at the start of a 32-byte word
+            let shifted := shl(208, _value)
+            
+            // Store the shifted value at position
+            mstore(_pos, shifted)
+            
             newPos_ := add(_pos, 6)
         }
     }
@@ -117,36 +140,21 @@ library LibCodec {
     }
 
     /// @notice Pack address (20 bytes) at position
-    /// @dev Writes 20 bytes byte-by-byte to handle unaligned positions correctly.
-    /// Masks address to ensure clean 20-byte value.
+    /// @dev Optimized to use mstore instead of 20 individual mstore8 operations.
+    /// Handles alignment by using a single mstore with proper shifting.
     /// @param _pos Absolute memory position to write at
     /// @param _value The address to pack
     /// @return newPos_ Updated position after writing (pos + 20)
     function packAddress(uint256 _pos, address _value) internal pure returns (uint256 newPos_) {
         assembly {
-            // Cast address to bytes20 and store
-            let v := and(_value, 0xffffffffffffffffffffffffffffffffffffffff)
-            // Store byte by byte to avoid alignment issues
-            mstore8(_pos, shr(152, v))
-            mstore8(add(_pos, 1), shr(144, v))
-            mstore8(add(_pos, 2), shr(136, v))
-            mstore8(add(_pos, 3), shr(128, v))
-            mstore8(add(_pos, 4), shr(120, v))
-            mstore8(add(_pos, 5), shr(112, v))
-            mstore8(add(_pos, 6), shr(104, v))
-            mstore8(add(_pos, 7), shr(96, v))
-            mstore8(add(_pos, 8), shr(88, v))
-            mstore8(add(_pos, 9), shr(80, v))
-            mstore8(add(_pos, 10), shr(72, v))
-            mstore8(add(_pos, 11), shr(64, v))
-            mstore8(add(_pos, 12), shr(56, v))
-            mstore8(add(_pos, 13), shr(48, v))
-            mstore8(add(_pos, 14), shr(40, v))
-            mstore8(add(_pos, 15), shr(32, v))
-            mstore8(add(_pos, 16), shr(24, v))
-            mstore8(add(_pos, 17), shr(16, v))
-            mstore8(add(_pos, 18), shr(8, v))
-            mstore8(add(_pos, 19), v)
+            // Shift address left by 12 bytes (96 bits) to align it properly in a 32-byte word
+            // This places the 20-byte address at the start of the word with 12 bytes of padding
+            let shifted := shl(96, _value)
+            
+            // Store the shifted address at position
+            // This writes 32 bytes, but we only care about the first 20
+            mstore(_pos, shifted)
+            
             newPos_ := add(_pos, 20)
         }
     }
@@ -176,6 +184,22 @@ library LibCodec {
         assembly {
             value_ := or(shl(8, byte(0, mload(_pos))), byte(0, mload(add(_pos, 1))))
             newPos_ := add(_pos, 2)
+        }
+    }
+
+    /// @notice Unpack uint24 (3 bytes) from position using big-endian encoding
+    /// @dev Reads 3 bytes and reconstructs uint24 from big-endian format.
+    /// @param _pos Absolute memory position to read from
+    /// @return value_ The unpacked uint24 value
+    /// @return newPos_ Updated position after reading (pos + 3)
+    function unpackUint24(uint256 _pos) internal pure returns (uint24 value_, uint256 newPos_) {
+        assembly {
+            value_ :=
+                or(
+                    or(shl(16, byte(0, mload(_pos))), shl(8, byte(0, mload(add(_pos, 1))))),
+                    byte(0, mload(add(_pos, 2)))
+                )
+            newPos_ := add(_pos, 3)
         }
     }
 
