@@ -40,7 +40,9 @@ library LibProvedEventCodec {
         ptr = P.packUint8(ptr, _record.span);
 
         // Encode bond instructions array length (uint16)
-        require(_record.bondInstructions.length <= type(uint16).max, BondInstructionsLengthExceeded());
+        require(
+            _record.bondInstructions.length <= type(uint16).max, BondInstructionsLengthExceeded()
+        );
         ptr = P.packUint16(ptr, uint16(_record.bondInstructions.length));
 
         // Encode each bond instruction
@@ -85,7 +87,7 @@ library LibProvedEventCodec {
 
             uint8 bondTypeValue;
             (bondTypeValue, ptr) = P.unpackUint8(ptr);
-            require (bondTypeValue <= uint8(LibBonds.BondType.LIVENESS), InvalidBondType());
+            require(bondTypeValue <= uint8(LibBonds.BondType.LIVENESS), InvalidBondType());
             record_.bondInstructions[i].bondType = LibBonds.BondType(bondTypeValue);
 
             (record_.bondInstructions[i].payer, ptr) = P.unpackAddress(ptr);
