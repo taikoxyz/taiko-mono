@@ -9,6 +9,8 @@ import "contracts/layer1/shasta/iface/IInbox.sol";
 contract TestInboxWithMockBlobs is InboxOptimized {
     IInbox.Config private testConfig;
     bool private configSet;
+    mapping(uint256 => bytes32) private mockBlobHashes;
+    bool private useMockBlobHashes;
 
     constructor() InboxOptimized() { }
 
@@ -17,8 +19,12 @@ contract TestInboxWithMockBlobs is InboxOptimized {
         configSet = true;
     }
 
-    function setMockBlobValidation(bool) external {
-        // No-op for compatibility
+    function setMockBlobValidation(bool _useMock) external {
+        useMockBlobHashes = _useMock;
+    }
+
+    function setMockBlobHash(uint256 _index, bytes32 _hash) external {
+        mockBlobHashes[_index] = _hash;
     }
 
     function getConfig() public view override returns (IInbox.Config memory) {
@@ -54,5 +60,19 @@ contract TestInboxWithMockBlobs is InboxOptimized {
         external
     {
         _setClaimRecordHash(testConfig, _proposalId, _parentClaimHash, _claimRecordHash);
+    }
+
+    /// @dev Override _getBlobHash to support mock blob hashes in tests
+    function _getBlobHash(uint256 _blobIndex) internal view override returns (bytes32) {
+        if (useMockBlobHashes) {
+            bytes32 mockHash = mockBlobHashes[_blobIndex];
+            if (mockHash != bytes32(0)) {
+                return mockHash;
+            }
+            // If no mock hash is set, generate a deterministic one for testing
+            return keccak256(abi.encode("blob", _blobIndex));
+        }
+        // Fall back to the real blobhash opcode
+        return super._getBlobHash(_blobIndex);
     }
 }
