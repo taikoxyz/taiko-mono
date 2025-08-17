@@ -8,7 +8,7 @@ import "../libs/LibProvedEventEncoder.sol";
 /// @title InboxOptimized
 /// @notice Inbox optimized, on top of InboxOptimized1, to lower event emission cost.
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxOptimized is InboxOptimized1 {
+abstract contract InboxOptimized2 is InboxOptimized1 {
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
@@ -73,6 +73,4 @@ abstract contract InboxOptimized is InboxOptimized1 {
     {
         return LibProvedEventEncoder.encode(_claimRecord);
     }
-
-   
 }

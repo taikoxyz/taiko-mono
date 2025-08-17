@@ -25,20 +25,13 @@ contract LibProposeDataDecoderTest is Test {
             originBlockNumber: 100,
             isForcedInclusion: false,
             basefeeSharingPctg: 50,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: new bytes32[](1),
-                offset: 0,
-                timestamp: 1000
-            }),
+            blobSlice: LibBlobs.BlobSlice({ blobHashes: new bytes32[](1), offset: 0, timestamp: 1000 }),
             coreStateHash: bytes32(0)
         });
         proposals[0].blobSlice.blobHashes[0] = bytes32(uint256(1));
 
-        LibBlobs.BlobReference memory blobRef = LibBlobs.BlobReference({
-            blobStartIndex: 0,
-            numBlobs: 1,
-            offset: 0
-        });
+        LibBlobs.BlobReference memory blobRef =
+            LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
 
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
         claimRecords[0] = IInbox.ClaimRecord({
@@ -56,25 +49,15 @@ contract LibProposeDataDecoderTest is Test {
             bondInstructions: new LibBonds.BondInstruction[](0)
         });
 
-        uint64 deadline = 2000000;
-        
+        uint64 deadline = 2_000_000;
+
         // Test with standard ABI encoding for baseline
-        bytes memory abiEncodedData = abi.encode(
-            deadline,
-            coreState,
-            proposals,
-            blobRef,
-            claimRecords
-        );
-        
+        bytes memory abiEncodedData =
+            abi.encode(deadline, coreState, proposals, blobRef, claimRecords);
+
         // Test with compact encoding
-        bytes memory compactEncodedData = LibProposeDataDecoder.encode(
-            deadline,
-            coreState,
-            proposals,
-            blobRef,
-            claimRecords
-        );
+        bytes memory compactEncodedData =
+            LibProposeDataDecoder.encode(deadline, coreState, proposals, blobRef, claimRecords);
 
         // Measure baseline gas (ABI decoding)
         uint256 gasStart = gasleft();
@@ -86,7 +69,13 @@ contract LibProposeDataDecoderTest is Test {
             IInbox.ClaimRecord[] memory claimRecords1
         ) = abi.decode(
             abiEncodedData,
-            (uint64, IInbox.CoreState, IInbox.Proposal[], LibBlobs.BlobReference, IInbox.ClaimRecord[])
+            (
+                uint64,
+                IInbox.CoreState,
+                IInbox.Proposal[],
+                LibBlobs.BlobReference,
+                IInbox.ClaimRecord[]
+            )
         );
         uint256 baselineGas = gasStart - gasleft();
 
@@ -112,11 +101,11 @@ contract LibProposeDataDecoderTest is Test {
         // Log gas usage
         emit log_named_uint("Simple case - Baseline ABI gas", baselineGas);
         emit log_named_uint("Simple case - Optimized compact gas", optimizedGas);
-        
+
         // Log data sizes
         emit log_named_uint("ABI encoded size", abiEncodedData.length);
         emit log_named_uint("Compact encoded size", compactEncodedData.length);
-        
+
         if (optimizedGas < baselineGas) {
             uint256 savings = ((baselineGas - optimizedGas) * 100) / baselineGas;
             emit log_named_uint("Gas savings %", savings);
@@ -142,14 +131,14 @@ contract LibProposeDataDecoderTest is Test {
         proposals[0] = IInbox.Proposal({
             id: 96,
             proposer: address(0x1234),
-            originTimestamp: 1000000,
-            originBlockNumber: 5000000,
+            originTimestamp: 1_000_000,
+            originBlockNumber: 5_000_000,
             isForcedInclusion: false,
             basefeeSharingPctg: 50,
             blobSlice: LibBlobs.BlobSlice({
                 blobHashes: new bytes32[](2),
                 offset: 1024,
-                timestamp: 1000001
+                timestamp: 1_000_001
             }),
             coreStateHash: keccak256("core_state_96")
         });
@@ -159,28 +148,25 @@ contract LibProposeDataDecoderTest is Test {
         proposals[1] = IInbox.Proposal({
             id: 97,
             proposer: address(0x5678),
-            originTimestamp: 1000010,
-            originBlockNumber: 5000010,
+            originTimestamp: 1_000_010,
+            originBlockNumber: 5_000_010,
             isForcedInclusion: true,
             basefeeSharingPctg: 75,
             blobSlice: LibBlobs.BlobSlice({
                 blobHashes: new bytes32[](1),
                 offset: 2048,
-                timestamp: 1000011
+                timestamp: 1_000_011
             }),
             coreStateHash: keccak256("core_state_97")
         });
         proposals[1].blobSlice.blobHashes[0] = keccak256("blob_hash_3");
 
-        LibBlobs.BlobReference memory blobRef = LibBlobs.BlobReference({
-            blobStartIndex: 1,
-            numBlobs: 3,
-            offset: 512
-        });
+        LibBlobs.BlobReference memory blobRef =
+            LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 3, offset: 512 });
 
         // Setup 2 claim records with bond instructions
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](2);
-        
+
         LibBonds.BondInstruction[] memory bondInstructions1 = new LibBonds.BondInstruction[](2);
         bondInstructions1[0] = LibBonds.BondInstruction({
             proposalId: 96,
@@ -200,7 +186,7 @@ contract LibProposeDataDecoderTest is Test {
             claim: IInbox.Claim({
                 proposalHash: keccak256("proposal_96"),
                 parentClaimHash: keccak256("parent_claim_96"),
-                endBlockNumber: 2000000,
+                endBlockNumber: 2_000_000,
                 endBlockHash: keccak256("end_block_96"),
                 endStateRoot: keccak256("end_state_96"),
                 designatedProver: address(0xaaaa),
@@ -223,7 +209,7 @@ contract LibProposeDataDecoderTest is Test {
             claim: IInbox.Claim({
                 proposalHash: keccak256("proposal_97"),
                 parentClaimHash: keccak256("parent_claim_97"),
-                endBlockNumber: 2000010,
+                endBlockNumber: 2_000_010,
                 endBlockHash: keccak256("end_block_97"),
                 endStateRoot: keccak256("end_state_97"),
                 designatedProver: address(0x1111),
@@ -233,25 +219,15 @@ contract LibProposeDataDecoderTest is Test {
             bondInstructions: bondInstructions2
         });
 
-        uint64 deadline = 2000000;
-        
+        uint64 deadline = 2_000_000;
+
         // Test with standard ABI encoding for baseline
-        bytes memory abiEncodedData = abi.encode(
-            deadline,
-            coreState,
-            proposals,
-            blobRef,
-            claimRecords
-        );
-        
+        bytes memory abiEncodedData =
+            abi.encode(deadline, coreState, proposals, blobRef, claimRecords);
+
         // Test with compact encoding
-        bytes memory compactEncodedData = LibProposeDataDecoder.encode(
-            deadline,
-            coreState,
-            proposals,
-            blobRef,
-            claimRecords
-        );
+        bytes memory compactEncodedData =
+            LibProposeDataDecoder.encode(deadline, coreState, proposals, blobRef, claimRecords);
 
         // Measure baseline gas (ABI decoding)
         uint256 gasStart = gasleft();
@@ -263,7 +239,13 @@ contract LibProposeDataDecoderTest is Test {
             IInbox.ClaimRecord[] memory claimRecords1
         ) = abi.decode(
             abiEncodedData,
-            (uint64, IInbox.CoreState, IInbox.Proposal[], LibBlobs.BlobReference, IInbox.ClaimRecord[])
+            (
+                uint64,
+                IInbox.CoreState,
+                IInbox.Proposal[],
+                LibBlobs.BlobReference,
+                IInbox.ClaimRecord[]
+            )
         );
         uint256 baselineGas = gasStart - gasleft();
 
@@ -293,11 +275,11 @@ contract LibProposeDataDecoderTest is Test {
         // Log gas usage
         emit log_named_uint("Complex case - Baseline ABI gas", baselineGas);
         emit log_named_uint("Complex case - Optimized compact gas", optimizedGas);
-        
+
         // Log data sizes
         emit log_named_uint("ABI encoded size", abiEncodedData.length);
         emit log_named_uint("Compact encoded size", compactEncodedData.length);
-        
+
         if (optimizedGas < baselineGas) {
             uint256 savings = ((baselineGas - optimizedGas) * 100) / baselineGas;
             emit log_named_uint("Gas savings %", savings);
@@ -322,40 +304,35 @@ contract LibProposeDataDecoderTest is Test {
         proposals[0] = IInbox.Proposal({
             id: 1,
             proposer: address(0xabcd),
-            originTimestamp: 999999,
-            originBlockNumber: 888888,
+            originTimestamp: 999_999,
+            originBlockNumber: 888_888,
             isForcedInclusion: true,
             basefeeSharingPctg: 100,
             blobSlice: LibBlobs.BlobSlice({
                 blobHashes: new bytes32[](3),
-                offset: 16777215, // max uint24
-                timestamp: 281474976710655 // max uint48
-            }),
+                offset: 16_777_215, // max uint24
+                timestamp: 281_474_976_710_655 // max uint48
+             }),
             coreStateHash: bytes32(uint256(0x123456))
         });
-        
+
         for (uint256 i = 0; i < 3; i++) {
             proposals[0].blobSlice.blobHashes[i] = bytes32(uint256(i + 1));
         }
 
         LibBlobs.BlobReference memory blobRef = LibBlobs.BlobReference({
-            blobStartIndex: 65535, // max uint16
-            numBlobs: 65535, // max uint16
-            offset: 16777215 // max uint24
-        });
+            blobStartIndex: 65_535, // max uint16
+            numBlobs: 65_535, // max uint16
+            offset: 16_777_215 // max uint24
+         });
 
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
 
-        uint64 deadline = 18446744073709551615; // max uint64
-        
+        uint64 deadline = 18_446_744_073_709_551_615; // max uint64
+
         // Encode using compact encoding
-        bytes memory compactEncodedData = LibProposeDataDecoder.encode(
-            deadline,
-            coreState,
-            proposals,
-            blobRef,
-            claimRecords
-        );
+        bytes memory compactEncodedData =
+            LibProposeDataDecoder.encode(deadline, coreState, proposals, blobRef, claimRecords);
 
         // Decode
         (
@@ -372,16 +349,16 @@ contract LibProposeDataDecoderTest is Test {
         assertEq(decodedCoreState.lastFinalizedProposalId, coreState.lastFinalizedProposalId);
         assertEq(decodedCoreState.lastFinalizedClaimHash, coreState.lastFinalizedClaimHash);
         assertEq(decodedCoreState.bondInstructionsHash, coreState.bondInstructionsHash);
-        
+
         assertEq(decodedProposals.length, 1);
         assertEq(decodedProposals[0].id, proposals[0].id);
         assertEq(decodedProposals[0].proposer, proposals[0].proposer);
         assertEq(decodedProposals[0].isForcedInclusion, proposals[0].isForcedInclusion);
-        
+
         assertEq(decodedBlobRef.blobStartIndex, blobRef.blobStartIndex);
         assertEq(decodedBlobRef.numBlobs, blobRef.numBlobs);
         assertEq(decodedBlobRef.offset, blobRef.offset);
-        
+
         assertEq(decodedClaimRecords.length, 0);
     }
 }

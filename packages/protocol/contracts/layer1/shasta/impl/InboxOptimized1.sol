@@ -19,7 +19,6 @@ abstract contract InboxOptimized1 is Inbox {
 
     constructor() Inbox() { }
 
-
     // ---------------------------------------------------------------
     // Internal Functions - Overrides
     // ---------------------------------------------------------------

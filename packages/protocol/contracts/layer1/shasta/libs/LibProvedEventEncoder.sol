@@ -82,7 +82,7 @@ library LibProvedEventEncoder {
 
         // Decode bond instructions
         record_.bondInstructions = new LibBonds.BondInstruction[](arrayLength);
-        for (uint256 i ; i < arrayLength; ++i) {
+        for (uint256 i; i < arrayLength; ++i) {
             (record_.bondInstructions[i].proposalId, ptr) = P.unpackUint48(ptr);
 
             uint8 bondTypeValue;

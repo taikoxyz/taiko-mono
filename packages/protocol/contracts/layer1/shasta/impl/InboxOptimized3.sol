@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./InboxOptimized.sol";
+import "./InboxOptimized2.sol";
 import "../libs/LibProposeDataDecoder.sol";
 
 /// @title InboxOptimized3
 /// @notice Inbox optimized, on top of InboxOptimized2, to lower calldata cost.
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxOptimized3 is InboxOptimized {
+abstract contract InboxOptimized3 is InboxOptimized2 {
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized() { }
+    constructor() InboxOptimized2() { }
 
     // ---------------------------------------------------------------
     // Public Functions

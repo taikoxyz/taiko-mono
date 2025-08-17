@@ -13,9 +13,6 @@ import { LibBonds } from "contracts/shared/based/libs/LibBonds.sol";
 /// @dev Measures both execution gas and calldata gas costs
 /// @custom:security-contact security@taiko.xyz
 contract LibProposeDataDecoderGas is Test {
-    
-    
-
     function test_gas_comparison_decoding() public view {
         console2.log("\nGas Comparison: abi.decode vs LibProposeDataDecoder.decode");
         console2.log("========================================================\n");
@@ -27,14 +24,15 @@ contract LibProposeDataDecoderGas is Test {
         _runDecodingTest(5, 5, 10, "Large: 5 proposals, 5 claims, 10 bonds");
     }
 
-
-
     function _runDecodingTest(
         uint256 _proposalCount,
         uint256 _claimCount,
         uint256 _totalBondInstructions,
         string memory _label
-    ) private view {
+    )
+        private
+        view
+    {
         (
             uint64 deadline,
             IInbox.CoreState memory coreState,
@@ -45,7 +43,8 @@ contract LibProposeDataDecoderGas is Test {
 
         // Prepare encoded data
         bytes memory abiEncoded = abi.encode(deadline, coreState, proposals, blobRef, claimRecords);
-        bytes memory libEncoded = LibProposeDataDecoder.encode(deadline, coreState, proposals, blobRef, claimRecords);
+        bytes memory libEncoded =
+            LibProposeDataDecoder.encode(deadline, coreState, proposals, blobRef, claimRecords);
 
         console2.log(_label);
 
@@ -55,33 +54,30 @@ contract LibProposeDataDecoderGas is Test {
         // gasValues[1] = libCalldataGas
         // gasValues[2] = abiDecodeGas
         // gasValues[3] = libDecodeGas
-        
+
         // Calculate calldata costs
         gasValues[0] = _calculateCalldataGas(abiEncoded);
         gasValues[1] = _calculateCalldataGas(libEncoded);
 
         // 1. abi.decode
         uint256 gasBefore = gasleft();
-        (
-            uint64 d1,
-            IInbox.CoreState memory cs1,
-            IInbox.Proposal[] memory p1,
-            LibBlobs.BlobReference memory br1,
-            IInbox.ClaimRecord[] memory cr1
-        ) = abi.decode(abiEncoded, (uint64, IInbox.CoreState, IInbox.Proposal[], LibBlobs.BlobReference, IInbox.ClaimRecord[]));
+        (uint64 d1, IInbox.CoreState memory cs1,,,) = abi.decode(
+            abiEncoded,
+            (
+                uint64,
+                IInbox.CoreState,
+                IInbox.Proposal[],
+                LibBlobs.BlobReference,
+                IInbox.ClaimRecord[]
+            )
+        );
         gasValues[2] = gasBefore - gasleft();
 
         // 2. LibProposeDataDecoder.decode
         gasBefore = gasleft();
-        (
-            uint64 d2,
-            IInbox.CoreState memory cs2,
-            IInbox.Proposal[] memory p2,
-            LibBlobs.BlobReference memory br2,
-            IInbox.ClaimRecord[] memory cr2
-        ) = LibProposeDataDecoder.decode(libEncoded);
+        (uint64 d2, IInbox.CoreState memory cs2,,,) = LibProposeDataDecoder.decode(libEncoded);
         gasValues[3] = gasBefore - gasleft();
-        
+
         // Prevent optimization
         require(d1 > 0 && d2 > 0 && cs1.nextProposalId > 0 && cs2.nextProposalId > 0, "decoded");
 
@@ -90,16 +86,16 @@ contract LibProposeDataDecoderGas is Test {
         console2.log("    Calldata gas:", gasValues[0]);
         console2.log("    Decode gas:", gasValues[2]);
         console2.log("    Total gas:", gasValues[0] + gasValues[2]);
-        
+
         console2.log("  LibProposeDataDecoder:");
         console2.log("    Calldata gas:", gasValues[1]);
         console2.log("    Decode gas:", gasValues[3]);
         console2.log("    Total gas:", gasValues[1] + gasValues[3]);
-        
+
         // Calculate savings
         uint256 abiTotal = gasValues[0] + gasValues[2];
         uint256 libTotal = gasValues[1] + gasValues[3];
-        
+
         if (abiTotal > libTotal) {
             uint256 savings = ((abiTotal - libTotal) * 100) / abiTotal;
             console2.log("  Total savings:", savings, "%");
@@ -110,15 +106,15 @@ contract LibProposeDataDecoderGas is Test {
         console2.log("");
     }
 
-
     /// @notice Calculate calldata gas cost based on EVM pricing rules
     /// @param _data The encoded data
-    /// @return gasUsed The total gas cost for calldata (4 gas per zero byte, 16 gas per non-zero byte)
+    /// @return gasUsed The total gas cost for calldata (4 gas per zero byte, 16 gas per non-zero
+    /// byte)
     function _calculateCalldataGas(bytes memory _data) private pure returns (uint256 gasUsed) {
         unchecked {
             for (uint256 i = 0; i < _data.length; i++) {
                 if (_data[i] == 0) {
-                    gasUsed += 4;  // Zero byte costs 4 gas
+                    gasUsed += 4; // Zero byte costs 4 gas
                 } else {
                     gasUsed += 16; // Non-zero byte costs 16 gas
                 }
@@ -126,14 +122,13 @@ contract LibProposeDataDecoderGas is Test {
         }
     }
 
-
     function _createTestData(
         uint256 _proposalCount,
         uint256 _claimCount,
         uint256 _totalBondInstructions
-    ) 
-        private 
-        pure 
+    )
+        private
+        pure
         returns (
             uint64 deadline,
             IInbox.CoreState memory coreState,
@@ -142,8 +137,8 @@ contract LibProposeDataDecoderGas is Test {
             IInbox.ClaimRecord[] memory claimRecords
         )
     {
-        deadline = 2000000;
-        
+        deadline = 2_000_000;
+
         coreState = IInbox.CoreState({
             nextProposalId: 100,
             lastFinalizedProposalId: 95,
@@ -156,18 +151,18 @@ contract LibProposeDataDecoderGas is Test {
             bytes32[] memory blobHashes = new bytes32[](2); // 2 blob hashes per proposal
             blobHashes[0] = keccak256(abi.encodePacked("blob", i, uint256(0)));
             blobHashes[1] = keccak256(abi.encodePacked("blob", i, uint256(1)));
-            
+
             proposals[i] = IInbox.Proposal({
                 id: uint48(96 + i),
                 proposer: address(uint160(0x1000 + i)),
-                originTimestamp: uint48(1000000 + i * 10),
-                originBlockNumber: uint48(5000000 + i * 10),
+                originTimestamp: uint48(1_000_000 + i * 10),
+                originBlockNumber: uint48(5_000_000 + i * 10),
                 isForcedInclusion: i % 2 == 0,
                 basefeeSharingPctg: uint8(50 + i * 10),
                 blobSlice: LibBlobs.BlobSlice({
                     blobHashes: blobHashes,
                     offset: uint24(1024 * (i + 1)),
-                    timestamp: uint48(1000001 + i * 10)
+                    timestamp: uint48(1_000_001 + i * 10)
                 }),
                 coreStateHash: keccak256(abi.encodePacked("core_state", i))
             });
@@ -190,8 +185,9 @@ contract LibProposeDataDecoderGas is Test {
                 // Last claim gets remaining bonds
                 bondsForThisClaim = _totalBondInstructions - bondIndex;
             }
-            
-            LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](bondsForThisClaim);
+
+            LibBonds.BondInstruction[] memory bondInstructions =
+                new LibBonds.BondInstruction[](bondsForThisClaim);
             for (uint256 j = 0; j < bondsForThisClaim; j++) {
                 bondInstructions[j] = LibBonds.BondInstruction({
                     proposalId: uint48(96 + i),
@@ -201,13 +197,13 @@ contract LibProposeDataDecoderGas is Test {
                 });
                 bondIndex++;
             }
-            
+
             claimRecords[i] = IInbox.ClaimRecord({
                 proposalId: uint48(96 + i),
                 claim: IInbox.Claim({
                     proposalHash: keccak256(abi.encodePacked("proposal", i)),
                     parentClaimHash: keccak256(abi.encodePacked("parent_claim", i)),
-                    endBlockNumber: uint48(2000000 + i * 10),
+                    endBlockNumber: uint48(2_000_000 + i * 10),
                     endBlockHash: keccak256(abi.encodePacked("end_block", i)),
                     endStateRoot: keccak256(abi.encodePacked("end_state", i)),
                     designatedProver: address(uint160(0x2000 + i)),
