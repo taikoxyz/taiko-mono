@@ -10,6 +10,12 @@ import "../libs/LibProveDataDecoder.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract InboxOptimized3 is InboxOptimized2 {
     // ---------------------------------------------------------------
+    // State Variables
+    // ---------------------------------------------------------------
+
+    uint256[50] private __gap;
+
+    // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 

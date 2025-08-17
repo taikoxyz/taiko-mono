@@ -10,6 +10,12 @@ import "../libs/LibProvedEventEncoder.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract InboxOptimized2 is InboxOptimized1 {
     // ---------------------------------------------------------------
+    // State Variables
+    // ---------------------------------------------------------------
+
+    uint256[50] private __gap;
+
+    // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
