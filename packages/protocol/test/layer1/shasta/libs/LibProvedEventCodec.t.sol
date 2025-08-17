@@ -358,6 +358,22 @@ contract LibProvedEventCodecTest is Test {
         assertEq(decoded.bondInstructions.length, bondInstructionCount);
     }
 
+    function test_calculateClaimRecordSize_zero() public pure {
+        uint256 size = LibProvedEventCodec.calculateClaimRecordSize(0);
+        assertEq(size, 183); // Fixed size with no bond instructions
+    }
+
+    function test_calculateClaimRecordSize_withBondInstructions() public pure {
+        uint256 size1 = LibProvedEventCodec.calculateClaimRecordSize(1);
+        assertEq(size1, 183 + 47); // Fixed + 1 bond instruction
+
+        uint256 size10 = LibProvedEventCodec.calculateClaimRecordSize(10);
+        assertEq(size10, 183 + 470); // Fixed + 10 bond instructions
+
+        uint256 size100 = LibProvedEventCodec.calculateClaimRecordSize(100);
+        assertEq(size100, 183 + 4700); // Fixed + 100 bond instructions
+    }
+
     /// @notice Fuzz test for encoding size calculations
     function testFuzz_encodingSizeCalculation(uint16 numBondInstructions) public pure {
         numBondInstructions = uint16(bound(numBondInstructions, 0, 1000));

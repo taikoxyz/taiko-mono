@@ -2,49 +2,49 @@
 pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
-import { LibCodec } from "contracts/layer1/shasta/libs/LibCodec.sol";
+import { LibPackUnpack } from "contracts/layer1/shasta/libs/LibPackUnpack.sol";
 
-/// @title LibCodecTest
-/// @notice Comprehensive tests for LibCodec functions
+/// @title LibPackUnpackTest
+/// @notice Comprehensive tests for LibPackUnpack functions
 /// @custom:security-contact security@taiko.xyz
-contract LibCodecTest is Test {
+contract LibPackUnpackTest is Test {
     // ---------------------------------------------------------------
     // Test packUint8 / unpackUint8
     // ---------------------------------------------------------------
 
     function test_packUnpackUint8_zero() public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         // Pack value
         uint8 value = 0;
-        uint256 newPtr = LibCodec.packUint8(ptr, value);
+        uint256 newPtr = LibPackUnpack.packUint8(ptr, value);
         assertEq(newPtr, ptr + 1);
 
         // Unpack value
-        (uint8 unpacked, uint256 readPtr) = LibCodec.unpackUint8(ptr);
+        (uint8 unpacked, uint256 readPtr) = LibPackUnpack.unpackUint8(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 1);
     }
 
     function test_packUnpackUint8_max() public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         // Pack value
         uint8 value = type(uint8).max;
-        uint256 newPtr = LibCodec.packUint8(ptr, value);
+        uint256 newPtr = LibPackUnpack.packUint8(ptr, value);
         assertEq(newPtr, ptr + 1);
 
         // Unpack value
-        (uint8 unpacked, uint256 readPtr) = LibCodec.unpackUint8(ptr);
+        (uint8 unpacked, uint256 readPtr) = LibPackUnpack.unpackUint8(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 1);
     }
 
     function test_packUnpackUint8_various() public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         uint8[] memory testValues = new uint8[](5);
         testValues[0] = 0;
@@ -55,10 +55,10 @@ contract LibCodecTest is Test {
 
         for (uint256 i = 0; i < testValues.length; i++) {
             uint256 writePtr = ptr + i;
-            uint256 newPtr = LibCodec.packUint8(writePtr, testValues[i]);
+            uint256 newPtr = LibPackUnpack.packUint8(writePtr, testValues[i]);
             assertEq(newPtr, writePtr + 1);
 
-            (uint8 unpacked,) = LibCodec.unpackUint8(writePtr);
+            (uint8 unpacked,) = LibPackUnpack.unpackUint8(writePtr);
             assertEq(unpacked, testValues[i]);
         }
     }
@@ -69,42 +69,42 @@ contract LibCodecTest is Test {
 
     function test_packUnpackUint16_zero() public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         uint16 value = 0;
-        uint256 newPtr = LibCodec.packUint16(ptr, value);
+        uint256 newPtr = LibPackUnpack.packUint16(ptr, value);
         assertEq(newPtr, ptr + 2);
 
-        (uint16 unpacked, uint256 readPtr) = LibCodec.unpackUint16(ptr);
+        (uint16 unpacked, uint256 readPtr) = LibPackUnpack.unpackUint16(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 2);
     }
 
     function test_packUnpackUint16_max() public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         uint16 value = type(uint16).max;
-        uint256 newPtr = LibCodec.packUint16(ptr, value);
+        uint256 newPtr = LibPackUnpack.packUint16(ptr, value);
         assertEq(newPtr, ptr + 2);
 
-        (uint16 unpacked, uint256 readPtr) = LibCodec.unpackUint16(ptr);
+        (uint16 unpacked, uint256 readPtr) = LibPackUnpack.unpackUint16(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 2);
     }
 
     function test_packUnpackUint16_bigEndian() public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         uint16 value = 0x1234; // Test big-endian encoding
-        LibCodec.packUint16(ptr, value);
+        LibPackUnpack.packUint16(ptr, value);
 
         // Check raw bytes are big-endian
         assertEq(uint8(buffer[0]), 0x12);
         assertEq(uint8(buffer[1]), 0x34);
 
-        (uint16 unpacked,) = LibCodec.unpackUint16(ptr);
+        (uint16 unpacked,) = LibPackUnpack.unpackUint16(ptr);
         assertEq(unpacked, value);
     }
 
@@ -114,36 +114,36 @@ contract LibCodecTest is Test {
 
     function test_packUnpackUint32_zero() public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         uint32 value = 0;
-        uint256 newPtr = LibCodec.packUint32(ptr, value);
+        uint256 newPtr = LibPackUnpack.packUint32(ptr, value);
         assertEq(newPtr, ptr + 4);
 
-        (uint32 unpacked, uint256 readPtr) = LibCodec.unpackUint32(ptr);
+        (uint32 unpacked, uint256 readPtr) = LibPackUnpack.unpackUint32(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 4);
     }
 
     function test_packUnpackUint32_max() public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         uint32 value = type(uint32).max;
-        uint256 newPtr = LibCodec.packUint32(ptr, value);
+        uint256 newPtr = LibPackUnpack.packUint32(ptr, value);
         assertEq(newPtr, ptr + 4);
 
-        (uint32 unpacked, uint256 readPtr) = LibCodec.unpackUint32(ptr);
+        (uint32 unpacked, uint256 readPtr) = LibPackUnpack.unpackUint32(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 4);
     }
 
     function test_packUnpackUint32_bigEndian() public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         uint32 value = 0x12345678;
-        LibCodec.packUint32(ptr, value);
+        LibPackUnpack.packUint32(ptr, value);
 
         // Check raw bytes are big-endian
         assertEq(uint8(buffer[0]), 0x12);
@@ -151,7 +151,7 @@ contract LibCodecTest is Test {
         assertEq(uint8(buffer[2]), 0x56);
         assertEq(uint8(buffer[3]), 0x78);
 
-        (uint32 unpacked,) = LibCodec.unpackUint32(ptr);
+        (uint32 unpacked,) = LibPackUnpack.unpackUint32(ptr);
         assertEq(unpacked, value);
     }
 
@@ -161,36 +161,36 @@ contract LibCodecTest is Test {
 
     function test_packUnpackUint48_zero() public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         uint48 value = 0;
-        uint256 newPtr = LibCodec.packUint48(ptr, value);
+        uint256 newPtr = LibPackUnpack.packUint48(ptr, value);
         assertEq(newPtr, ptr + 6);
 
-        (uint48 unpacked, uint256 readPtr) = LibCodec.unpackUint48(ptr);
+        (uint48 unpacked, uint256 readPtr) = LibPackUnpack.unpackUint48(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 6);
     }
 
     function test_packUnpackUint48_max() public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         uint48 value = type(uint48).max;
-        uint256 newPtr = LibCodec.packUint48(ptr, value);
+        uint256 newPtr = LibPackUnpack.packUint48(ptr, value);
         assertEq(newPtr, ptr + 6);
 
-        (uint48 unpacked, uint256 readPtr) = LibCodec.unpackUint48(ptr);
+        (uint48 unpacked, uint256 readPtr) = LibPackUnpack.unpackUint48(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 6);
     }
 
     function test_packUnpackUint48_bigEndian() public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         uint48 value = 0x123456789ABC;
-        LibCodec.packUint48(ptr, value);
+        LibPackUnpack.packUint48(ptr, value);
 
         // Check raw bytes are big-endian
         assertEq(uint8(buffer[0]), 0x12);
@@ -200,7 +200,7 @@ contract LibCodecTest is Test {
         assertEq(uint8(buffer[4]), 0x9A);
         assertEq(uint8(buffer[5]), 0xBC);
 
-        (uint48 unpacked,) = LibCodec.unpackUint48(ptr);
+        (uint48 unpacked,) = LibPackUnpack.unpackUint48(ptr);
         assertEq(unpacked, value);
     }
 
@@ -210,33 +210,33 @@ contract LibCodecTest is Test {
 
     function test_packUnpackUint256_zero() public pure {
         bytes memory buffer = new bytes(40);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         uint256 value = 0;
-        uint256 newPtr = LibCodec.packUint256(ptr, value);
+        uint256 newPtr = LibPackUnpack.packUint256(ptr, value);
         assertEq(newPtr, ptr + 32);
 
-        (uint256 unpacked, uint256 readPtr) = LibCodec.unpackUint256(ptr);
+        (uint256 unpacked, uint256 readPtr) = LibPackUnpack.unpackUint256(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 32);
     }
 
     function test_packUnpackUint256_max() public pure {
         bytes memory buffer = new bytes(40);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         uint256 value = type(uint256).max;
-        uint256 newPtr = LibCodec.packUint256(ptr, value);
+        uint256 newPtr = LibPackUnpack.packUint256(ptr, value);
         assertEq(newPtr, ptr + 32);
 
-        (uint256 unpacked, uint256 readPtr) = LibCodec.unpackUint256(ptr);
+        (uint256 unpacked, uint256 readPtr) = LibPackUnpack.unpackUint256(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 32);
     }
 
     function test_packUnpackUint256_various() public pure {
         bytes memory buffer = new bytes(100);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         uint256[] memory testValues = new uint256[](3);
         testValues[0] = 1;
@@ -245,10 +245,10 @@ contract LibCodecTest is Test {
 
         uint256 currentPtr = ptr;
         for (uint256 i = 0; i < testValues.length; i++) {
-            uint256 newPtr = LibCodec.packUint256(currentPtr, testValues[i]);
+            uint256 newPtr = LibPackUnpack.packUint256(currentPtr, testValues[i]);
             assertEq(newPtr, currentPtr + 32);
 
-            (uint256 unpacked,) = LibCodec.unpackUint256(currentPtr);
+            (uint256 unpacked,) = LibPackUnpack.unpackUint256(currentPtr);
             assertEq(unpacked, testValues[i]);
 
             currentPtr = newPtr;
@@ -261,39 +261,39 @@ contract LibCodecTest is Test {
 
     function test_packUnpackBytes32_zero() public pure {
         bytes memory buffer = new bytes(40);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         bytes32 value = bytes32(0);
-        uint256 newPtr = LibCodec.packBytes32(ptr, value);
+        uint256 newPtr = LibPackUnpack.packBytes32(ptr, value);
         assertEq(newPtr, ptr + 32);
 
-        (bytes32 unpacked, uint256 readPtr) = LibCodec.unpackBytes32(ptr);
+        (bytes32 unpacked, uint256 readPtr) = LibPackUnpack.unpackBytes32(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 32);
     }
 
     function test_packUnpackBytes32_max() public pure {
         bytes memory buffer = new bytes(40);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         bytes32 value = bytes32(type(uint256).max);
-        uint256 newPtr = LibCodec.packBytes32(ptr, value);
+        uint256 newPtr = LibPackUnpack.packBytes32(ptr, value);
         assertEq(newPtr, ptr + 32);
 
-        (bytes32 unpacked, uint256 readPtr) = LibCodec.unpackBytes32(ptr);
+        (bytes32 unpacked, uint256 readPtr) = LibPackUnpack.unpackBytes32(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 32);
     }
 
     function test_packUnpackBytes32_hash() public pure {
         bytes memory buffer = new bytes(40);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         bytes32 value = keccak256("test data");
-        uint256 newPtr = LibCodec.packBytes32(ptr, value);
+        uint256 newPtr = LibPackUnpack.packBytes32(ptr, value);
         assertEq(newPtr, ptr + 32);
 
-        (bytes32 unpacked, uint256 readPtr) = LibCodec.unpackBytes32(ptr);
+        (bytes32 unpacked, uint256 readPtr) = LibPackUnpack.unpackBytes32(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 32);
     }
@@ -304,33 +304,33 @@ contract LibCodecTest is Test {
 
     function test_packUnpackAddress_zero() public pure {
         bytes memory buffer = new bytes(30);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         address value = address(0);
-        uint256 newPtr = LibCodec.packAddress(ptr, value);
+        uint256 newPtr = LibPackUnpack.packAddress(ptr, value);
         assertEq(newPtr, ptr + 20);
 
-        (address unpacked, uint256 readPtr) = LibCodec.unpackAddress(ptr);
+        (address unpacked, uint256 readPtr) = LibPackUnpack.unpackAddress(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 20);
     }
 
     function test_packUnpackAddress_max() public pure {
         bytes memory buffer = new bytes(30);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         address value = address(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF);
-        uint256 newPtr = LibCodec.packAddress(ptr, value);
+        uint256 newPtr = LibPackUnpack.packAddress(ptr, value);
         assertEq(newPtr, ptr + 20);
 
-        (address unpacked, uint256 readPtr) = LibCodec.unpackAddress(ptr);
+        (address unpacked, uint256 readPtr) = LibPackUnpack.unpackAddress(ptr);
         assertEq(unpacked, value);
         assertEq(readPtr, ptr + 20);
     }
 
     function test_packUnpackAddress_various() public pure {
         bytes memory buffer = new bytes(100);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         address[] memory testAddresses = new address[](4);
         testAddresses[0] = address(0);
@@ -340,10 +340,10 @@ contract LibCodecTest is Test {
 
         uint256 currentPtr = ptr;
         for (uint256 i = 0; i < testAddresses.length; i++) {
-            uint256 newPtr = LibCodec.packAddress(currentPtr, testAddresses[i]);
+            uint256 newPtr = LibPackUnpack.packAddress(currentPtr, testAddresses[i]);
             assertEq(newPtr, currentPtr + 20);
 
-            (address unpacked,) = LibCodec.unpackAddress(currentPtr);
+            (address unpacked,) = LibPackUnpack.unpackAddress(currentPtr);
             assertEq(unpacked, testAddresses[i]);
 
             currentPtr = newPtr;
@@ -352,10 +352,10 @@ contract LibCodecTest is Test {
 
     function test_packUnpackAddress_bigEndian() public pure {
         bytes memory buffer = new bytes(30);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         address value = address(0x1234567890AbcdEF1234567890aBcdef12345678);
-        LibCodec.packAddress(ptr, value);
+        LibPackUnpack.packAddress(ptr, value);
 
         // Check raw bytes are stored correctly
         assertEq(uint8(buffer[0]), 0x12);
@@ -379,7 +379,7 @@ contract LibCodecTest is Test {
         assertEq(uint8(buffer[18]), 0x56);
         assertEq(uint8(buffer[19]), 0x78);
 
-        (address unpacked,) = LibCodec.unpackAddress(ptr);
+        (address unpacked,) = LibPackUnpack.unpackAddress(ptr);
         assertEq(unpacked, value);
     }
 
@@ -389,7 +389,7 @@ contract LibCodecTest is Test {
 
     function test_dataPtr() public pure {
         bytes memory data = new bytes(100);
-        uint256 ptr = LibCodec.dataPtr(data);
+        uint256 ptr = LibPackUnpack.dataPtr(data);
 
         // The pointer should be 32 bytes after the data memory location
         // This skips the length prefix
@@ -401,36 +401,13 @@ contract LibCodecTest is Test {
         }
     }
 
-    function test_calculateClaimRecordSize_zero() public pure {
-        uint256 size = LibCodec.calculateClaimRecordSize(0);
-
-        // Fixed size: 6 + 128 + 6 + 40 + 1 + 2 = 183 bytes
-        uint256 expectedSize = 6 + 32 * 4 + 6 + 20 * 2 + 1 + 2;
-        assertEq(size, expectedSize);
-        assertEq(size, 183);
-    }
-
-    function test_calculateClaimRecordSize_withBondInstructions() public pure {
-        uint256 size1 = LibCodec.calculateClaimRecordSize(1);
-        uint256 expectedSize1 = 183 + 47; // Fixed + 1 bond instruction
-        assertEq(size1, expectedSize1);
-
-        uint256 size10 = LibCodec.calculateClaimRecordSize(10);
-        uint256 expectedSize10 = 183 + 470; // Fixed + 10 bond instructions
-        assertEq(size10, expectedSize10);
-
-        uint256 size100 = LibCodec.calculateClaimRecordSize(100);
-        uint256 expectedSize100 = 183 + 4700; // Fixed + 100 bond instructions
-        assertEq(size100, expectedSize100);
-    }
-
     // ---------------------------------------------------------------
     // Test sequential packing/unpacking
     // ---------------------------------------------------------------
 
     function test_sequentialPackUnpack() public pure {
         bytes memory buffer = new bytes(100);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
         // Test uint8 + uint16
         {
@@ -438,12 +415,12 @@ contract LibCodecTest is Test {
             uint16 val2 = 1234;
 
             uint256 writePtr = ptr;
-            writePtr = LibCodec.packUint8(writePtr, val1);
-            writePtr = LibCodec.packUint16(writePtr, val2);
+            writePtr = LibPackUnpack.packUint8(writePtr, val1);
+            writePtr = LibPackUnpack.packUint16(writePtr, val2);
 
             uint256 readPtr = ptr;
-            (uint8 read1, uint256 newPtr1) = LibCodec.unpackUint8(readPtr);
-            (uint16 read2, uint256 newPtr2) = LibCodec.unpackUint16(newPtr1);
+            (uint8 read1, uint256 newPtr1) = LibPackUnpack.unpackUint8(readPtr);
+            (uint16 read2, uint256 newPtr2) = LibPackUnpack.unpackUint16(newPtr1);
 
             assertEq(read1, val1);
             assertEq(read2, val2);
@@ -456,12 +433,12 @@ contract LibCodecTest is Test {
             uint48 val4 = 999_999_999_999;
 
             uint256 writePtr = ptr + 3; // offset past previous data
-            writePtr = LibCodec.packUint32(writePtr, val3);
-            writePtr = LibCodec.packUint48(writePtr, val4);
+            writePtr = LibPackUnpack.packUint32(writePtr, val3);
+            writePtr = LibPackUnpack.packUint48(writePtr, val4);
 
             uint256 readPtr = ptr + 3;
-            (uint32 read3, uint256 newPtr3) = LibCodec.unpackUint32(readPtr);
-            (uint48 read4, uint256 newPtr4) = LibCodec.unpackUint48(newPtr3);
+            (uint32 read3, uint256 newPtr3) = LibPackUnpack.unpackUint32(readPtr);
+            (uint48 read4, uint256 newPtr4) = LibPackUnpack.unpackUint48(newPtr3);
 
             assertEq(read3, val3);
             assertEq(read4, val4);
@@ -474,12 +451,12 @@ contract LibCodecTest is Test {
             bytes32 val6 = keccak256("test");
 
             uint256 writePtr = ptr + 13; // offset past previous data
-            writePtr = LibCodec.packAddress(writePtr, val5);
-            writePtr = LibCodec.packBytes32(writePtr, val6);
+            writePtr = LibPackUnpack.packAddress(writePtr, val5);
+            writePtr = LibPackUnpack.packBytes32(writePtr, val6);
 
             uint256 readPtr = ptr + 13;
-            (address read5, uint256 newPtr5) = LibCodec.unpackAddress(readPtr);
-            (bytes32 read6, uint256 newPtr6) = LibCodec.unpackBytes32(newPtr5);
+            (address read5, uint256 newPtr5) = LibPackUnpack.unpackAddress(readPtr);
+            (bytes32 read6, uint256 newPtr6) = LibPackUnpack.unpackBytes32(newPtr5);
 
             assertEq(read5, val5);
             assertEq(read6, val6);
@@ -493,64 +470,64 @@ contract LibCodecTest is Test {
 
     function testFuzz_packUnpackUint8(uint8 value) public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
-        LibCodec.packUint8(ptr, value);
-        (uint8 unpacked,) = LibCodec.unpackUint8(ptr);
+        LibPackUnpack.packUint8(ptr, value);
+        (uint8 unpacked,) = LibPackUnpack.unpackUint8(ptr);
         assertEq(unpacked, value);
     }
 
     function testFuzz_packUnpackUint16(uint16 value) public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
-        LibCodec.packUint16(ptr, value);
-        (uint16 unpacked,) = LibCodec.unpackUint16(ptr);
+        LibPackUnpack.packUint16(ptr, value);
+        (uint16 unpacked,) = LibPackUnpack.unpackUint16(ptr);
         assertEq(unpacked, value);
     }
 
     function testFuzz_packUnpackUint32(uint32 value) public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
-        LibCodec.packUint32(ptr, value);
-        (uint32 unpacked,) = LibCodec.unpackUint32(ptr);
+        LibPackUnpack.packUint32(ptr, value);
+        (uint32 unpacked,) = LibPackUnpack.unpackUint32(ptr);
         assertEq(unpacked, value);
     }
 
     function testFuzz_packUnpackUint48(uint48 value) public pure {
         bytes memory buffer = new bytes(10);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
-        LibCodec.packUint48(ptr, value);
-        (uint48 unpacked,) = LibCodec.unpackUint48(ptr);
+        LibPackUnpack.packUint48(ptr, value);
+        (uint48 unpacked,) = LibPackUnpack.unpackUint48(ptr);
         assertEq(unpacked, value);
     }
 
     function testFuzz_packUnpackUint256(uint256 value) public pure {
         bytes memory buffer = new bytes(40);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
-        LibCodec.packUint256(ptr, value);
-        (uint256 unpacked,) = LibCodec.unpackUint256(ptr);
+        LibPackUnpack.packUint256(ptr, value);
+        (uint256 unpacked,) = LibPackUnpack.unpackUint256(ptr);
         assertEq(unpacked, value);
     }
 
     function testFuzz_packUnpackBytes32(bytes32 value) public pure {
         bytes memory buffer = new bytes(40);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
-        LibCodec.packBytes32(ptr, value);
-        (bytes32 unpacked,) = LibCodec.unpackBytes32(ptr);
+        LibPackUnpack.packBytes32(ptr, value);
+        (bytes32 unpacked,) = LibPackUnpack.unpackBytes32(ptr);
         assertEq(unpacked, value);
     }
 
     function testFuzz_packUnpackAddress(address value) public pure {
         bytes memory buffer = new bytes(30);
-        uint256 ptr = LibCodec.dataPtr(buffer);
+        uint256 ptr = LibPackUnpack.dataPtr(buffer);
 
-        LibCodec.packAddress(ptr, value);
-        (address unpacked,) = LibCodec.unpackAddress(ptr);
+        LibPackUnpack.packAddress(ptr, value);
+        (address unpacked,) = LibPackUnpack.unpackAddress(ptr);
         assertEq(unpacked, value);
     }
 }

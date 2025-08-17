@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibCodec } from "./LibCodec.sol";
+import { LibPackUnpack } from "./LibPackUnpack.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
@@ -18,37 +18,37 @@ library LibProvedEventCodec {
         returns (bytes memory encoded_)
     {
         // Calculate total size needed
-        uint256 bufferSize = LibCodec.calculateClaimRecordSize(_record.bondInstructions.length);
+        uint256 bufferSize = calculateClaimRecordSize(_record.bondInstructions.length);
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
-        uint256 ptr = LibCodec.dataPtr(encoded_);
+        uint256 ptr = LibPackUnpack.dataPtr(encoded_);
 
         // Encode proposalId (uint48)
-        ptr = LibCodec.packUint48(ptr, _record.proposalId);
+        ptr = LibPackUnpack.packUint48(ptr, _record.proposalId);
 
         // Encode Claim struct
-        ptr = LibCodec.packBytes32(ptr, _record.claim.proposalHash);
-        ptr = LibCodec.packBytes32(ptr, _record.claim.parentClaimHash);
-        ptr = LibCodec.packUint48(ptr, _record.claim.endBlockNumber);
-        ptr = LibCodec.packBytes32(ptr, _record.claim.endBlockHash);
-        ptr = LibCodec.packBytes32(ptr, _record.claim.endStateRoot);
-        ptr = LibCodec.packAddress(ptr, _record.claim.designatedProver);
-        ptr = LibCodec.packAddress(ptr, _record.claim.actualProver);
+        ptr = LibPackUnpack.packBytes32(ptr, _record.claim.proposalHash);
+        ptr = LibPackUnpack.packBytes32(ptr, _record.claim.parentClaimHash);
+        ptr = LibPackUnpack.packUint48(ptr, _record.claim.endBlockNumber);
+        ptr = LibPackUnpack.packBytes32(ptr, _record.claim.endBlockHash);
+        ptr = LibPackUnpack.packBytes32(ptr, _record.claim.endStateRoot);
+        ptr = LibPackUnpack.packAddress(ptr, _record.claim.designatedProver);
+        ptr = LibPackUnpack.packAddress(ptr, _record.claim.actualProver);
 
         // Encode span (uint8)
-        ptr = LibCodec.packUint8(ptr, _record.span);
+        ptr = LibPackUnpack.packUint8(ptr, _record.span);
 
         // Encode bond instructions array length (uint16)
-        require(_record.bondInstructions.length <= type(uint16).max, "Too many bond instructions");
-        ptr = LibCodec.packUint16(ptr, uint16(_record.bondInstructions.length));
+        require(_record.bondInstructions.length <= type(uint16).max);
+        ptr = LibPackUnpack.packUint16(ptr, uint16(_record.bondInstructions.length));
 
         // Encode each bond instruction
         for (uint256 i = 0; i < _record.bondInstructions.length; i++) {
-            ptr = LibCodec.packUint48(ptr, _record.bondInstructions[i].proposalId);
-            ptr = LibCodec.packUint8(ptr, uint8(_record.bondInstructions[i].bondType));
-            ptr = LibCodec.packAddress(ptr, _record.bondInstructions[i].payer);
-            ptr = LibCodec.packAddress(ptr, _record.bondInstructions[i].receiver);
+            ptr = LibPackUnpack.packUint48(ptr, _record.bondInstructions[i].proposalId);
+            ptr = LibPackUnpack.packUint8(ptr, uint8(_record.bondInstructions[i].bondType));
+            ptr = LibPackUnpack.packAddress(ptr, _record.bondInstructions[i].payer);
+            ptr = LibPackUnpack.packAddress(ptr, _record.bondInstructions[i].receiver);
         }
     }
 
@@ -57,39 +57,63 @@ library LibProvedEventCodec {
     /// @return record_ The decoded ClaimRecord
     function decode(bytes memory _data) internal pure returns (IInbox.ClaimRecord memory record_) {
         // Get pointer to data section (skip length prefix)
-        uint256 ptr = LibCodec.dataPtr(_data);
+        uint256 ptr = LibPackUnpack.dataPtr(_data);
 
         // Decode proposalId (uint48)
-        (record_.proposalId, ptr) = LibCodec.unpackUint48(ptr);
+        (record_.proposalId, ptr) = LibPackUnpack.unpackUint48(ptr);
 
         // Decode Claim struct
-        (record_.claim.proposalHash, ptr) = LibCodec.unpackBytes32(ptr);
-        (record_.claim.parentClaimHash, ptr) = LibCodec.unpackBytes32(ptr);
-        (record_.claim.endBlockNumber, ptr) = LibCodec.unpackUint48(ptr);
-        (record_.claim.endBlockHash, ptr) = LibCodec.unpackBytes32(ptr);
-        (record_.claim.endStateRoot, ptr) = LibCodec.unpackBytes32(ptr);
-        (record_.claim.designatedProver, ptr) = LibCodec.unpackAddress(ptr);
-        (record_.claim.actualProver, ptr) = LibCodec.unpackAddress(ptr);
+        (record_.claim.proposalHash, ptr) = LibPackUnpack.unpackBytes32(ptr);
+        (record_.claim.parentClaimHash, ptr) = LibPackUnpack.unpackBytes32(ptr);
+        (record_.claim.endBlockNumber, ptr) = LibPackUnpack.unpackUint48(ptr);
+        (record_.claim.endBlockHash, ptr) = LibPackUnpack.unpackBytes32(ptr);
+        (record_.claim.endStateRoot, ptr) = LibPackUnpack.unpackBytes32(ptr);
+        (record_.claim.designatedProver, ptr) = LibPackUnpack.unpackAddress(ptr);
+        (record_.claim.actualProver, ptr) = LibPackUnpack.unpackAddress(ptr);
 
         // Decode span (uint8)
-        (record_.span, ptr) = LibCodec.unpackUint8(ptr);
+        (record_.span, ptr) = LibPackUnpack.unpackUint8(ptr);
 
         // Decode bond instructions array length (uint16)
         uint16 arrayLength;
-        (arrayLength, ptr) = LibCodec.unpackUint16(ptr);
+        (arrayLength, ptr) = LibPackUnpack.unpackUint16(ptr);
 
         // Decode bond instructions
         record_.bondInstructions = new LibBonds.BondInstruction[](arrayLength);
         for (uint256 i = 0; i < arrayLength; i++) {
-            (record_.bondInstructions[i].proposalId, ptr) = LibCodec.unpackUint48(ptr);
+            (record_.bondInstructions[i].proposalId, ptr) = LibPackUnpack.unpackUint48(ptr);
 
             uint8 bondTypeValue;
-            (bondTypeValue, ptr) = LibCodec.unpackUint8(ptr);
-            require(bondTypeValue <= uint8(LibBonds.BondType.LIVENESS), "Invalid bond type");
+            (bondTypeValue, ptr) = LibPackUnpack.unpackUint8(ptr);
+            require(bondTypeValue <= uint8(LibBonds.BondType.LIVENESS));
             record_.bondInstructions[i].bondType = LibBonds.BondType(bondTypeValue);
 
-            (record_.bondInstructions[i].payer, ptr) = LibCodec.unpackAddress(ptr);
-            (record_.bondInstructions[i].receiver, ptr) = LibCodec.unpackAddress(ptr);
+            (record_.bondInstructions[i].payer, ptr) = LibPackUnpack.unpackAddress(ptr);
+            (record_.bondInstructions[i].receiver, ptr) = LibPackUnpack.unpackAddress(ptr);
+        }
+    }
+
+    /// @notice Calculate the exact byte size needed for encoding a ClaimRecord
+    /// @param _bondInstructionsCount Number of bond instructions (max 65535 due to uint16 encoding)
+    /// @return size_ The total byte size needed for encoding
+    function calculateClaimRecordSize(uint256 _bondInstructionsCount)
+        internal
+        pure
+        returns (uint256 size_)
+    {
+        unchecked {
+            // Fixed size: 183 bytes
+            // proposalId: 6
+            // Claim: proposalHash(32) + parentClaimHash(32) + endBlockHash(32) + endStateRoot(32) =
+            // 128
+            //        endBlockNumber(6) + designatedProver(20) + actualProver(20) = 46
+            // span: 1
+            // bondInstructions array length: 2
+            // Total fixed: 6 + 128 + 46 + 1 + 2 = 183
+
+            // Variable size: each bond instruction is 47 bytes
+            // proposalId(6) + bondType(1) + payer(20) + receiver(20) = 47
+            size_ = 183 + (_bondInstructionsCount * 47);
         }
     }
 }

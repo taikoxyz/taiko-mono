@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title LibCodec
+/// @title LibPackUnpack
 /// @notice Library providing low-level packing/unpacking functions for compact binary encoding
 /// using inline assembly for maximum gas efficiency.
 /// @dev This library implements a trust-the-caller pattern with no bounds checking for optimal
@@ -24,12 +24,12 @@ pragma solidity ^0.8.24;
 /// Usage Example:
 /// ```solidity
 /// bytes memory buffer = new bytes(100);
-/// uint256 pos = LibCodec.dataPtr(buffer);
-/// pos = LibCodec.packUint32(pos, 12345);
-/// pos = LibCodec.packAddress(pos, msg.sender);
+/// uint256 pos = LibPackUnpack.dataPtr(buffer);
+/// pos = LibPackUnpack.packUint32(pos, 12345);
+/// pos = LibPackUnpack.packAddress(pos, msg.sender);
 /// ```
 /// @custom:security-contact security@taiko.xyz
-library LibCodec {
+library LibPackUnpack {
     // ---------------------------------------------------------------
     // Pack Functions (write to buffer with compact encoding)
     // ---------------------------------------------------------------
@@ -55,10 +55,10 @@ library LibCodec {
         assembly {
             // Shift value left by 30 bytes (240 bits) to align at the start of a 32-byte word
             let shifted := shl(240, _value)
-            
+
             // Store the shifted value at position
             mstore(_pos, shifted)
-            
+
             newPos_ := add(_pos, 2)
         }
     }
@@ -72,10 +72,10 @@ library LibCodec {
         assembly {
             // Shift value left by 29 bytes (232 bits) to align at the start of a 32-byte word
             let shifted := shl(232, _value)
-            
+
             // Store the shifted value at position
             mstore(_pos, shifted)
-            
+
             newPos_ := add(_pos, 3)
         }
     }
@@ -89,10 +89,10 @@ library LibCodec {
         assembly {
             // Shift value left by 28 bytes (224 bits) to align at the start of a 32-byte word
             let shifted := shl(224, _value)
-            
+
             // Store the shifted value at position
             mstore(_pos, shifted)
-            
+
             newPos_ := add(_pos, 4)
         }
     }
@@ -107,10 +107,10 @@ library LibCodec {
         assembly {
             // Shift value left by 26 bytes (208 bits) to align at the start of a 32-byte word
             let shifted := shl(208, _value)
-            
+
             // Store the shifted value at position
             mstore(_pos, shifted)
-            
+
             newPos_ := add(_pos, 6)
         }
     }
@@ -150,11 +150,11 @@ library LibCodec {
             // Shift address left by 12 bytes (96 bits) to align it properly in a 32-byte word
             // This places the 20-byte address at the start of the word with 12 bytes of padding
             let shifted := shl(96, _value)
-            
+
             // Store the shifted address at position
             // This writes 32 bytes, but we only care about the first 20
             mstore(_pos, shifted)
-            
+
             newPos_ := add(_pos, 20)
         }
     }
@@ -342,44 +342,5 @@ library LibCodec {
         assembly {
             ptr_ := add(_data, 0x20)
         }
-    }
-
-    /// @notice Calculate the exact byte size needed for encoding a ClaimRecord
-    /// @dev Calculates fixed fields plus variable bond instructions array.
-    /// Used to pre-allocate exact buffer size for gas efficiency.
-    ///
-    /// Fixed size breakdown:
-    /// - proposalId: 6 bytes (uint48)
-    /// - Claim fields: 128 bytes (4 * bytes32)
-    /// - endBlockNumber: 6 bytes (uint48)
-    /// - Claim addresses: 40 bytes (2 * address)
-    /// - span: 1 byte (uint8)
-    /// - array length: 2 bytes (uint16, max 65535 instructions)
-    /// Total fixed: 183 bytes
-    ///
-    /// Variable size: 47 bytes per bond instruction
-    /// - proposalId: 6 bytes (uint48)
-    /// - bondType: 1 byte (uint8)
-    /// - payer: 20 bytes (address)
-    /// - receiver: 20 bytes (address)
-    ///
-    /// @param _bondInstructionsCount Number of bond instructions (max 65535 due to uint16 encoding)
-    /// @return size_ The total byte size needed for encoding
-    function calculateClaimRecordSize(uint256 _bondInstructionsCount)
-        internal
-        pure
-        returns (uint256 size_)
-    {
-        // Fixed size fields:
-        size_ = 6; // proposalId (uint48)
-        size_ += 32 * 4; // 4 bytes32 fields in Claim
-        size_ += 6; // endBlockNumber (uint48)
-        size_ += 20 * 2; // 2 addresses in Claim
-        size_ += 1; // span (uint8)
-        size_ += 2; // array length (uint16 - max 65535 bond instructions)
-
-        // Variable size:
-        // Each bond instruction: proposalId(6) + bondType(1) + payer(20) + receiver(20) = 47 bytes
-        size_ += _bondInstructionsCount * 47;
     }
 }
