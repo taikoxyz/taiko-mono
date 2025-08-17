@@ -36,7 +36,7 @@ contract LibProposedEventCodecFuzzTest is Test {
         original.coreStateHash = _coreStateHash;
 
         IInbox.CoreState memory coreState;
-        
+
         bytes memory encoded = LibProposedEventCodec.encode(original, coreState);
         (IInbox.Proposal memory decoded,) = LibProposedEventCodec.decode(encoded);
 
@@ -87,7 +87,7 @@ contract LibProposedEventCodecFuzzTest is Test {
         IInbox.Proposal memory original;
         original.blobSlice.offset = _offset;
         original.blobSlice.timestamp = _timestamp;
-        
+
         bytes32[] memory blobHashes = new bytes32[](_blobHashCount);
         for (uint256 i = 0; i < _blobHashCount; i++) {
             blobHashes[i] = keccak256(abi.encode("blob", i));
@@ -95,14 +95,14 @@ contract LibProposedEventCodecFuzzTest is Test {
         original.blobSlice.blobHashes = blobHashes;
 
         IInbox.CoreState memory coreState;
-        
+
         bytes memory encoded = LibProposedEventCodec.encode(original, coreState);
         (IInbox.Proposal memory decoded,) = LibProposedEventCodec.decode(encoded);
 
         assertEq(decoded.blobSlice.offset, original.blobSlice.offset);
         assertEq(decoded.blobSlice.timestamp, original.blobSlice.timestamp);
         assertEq(decoded.blobSlice.blobHashes.length, original.blobSlice.blobHashes.length);
-        
+
         for (uint256 i = 0; i < _blobHashCount; i++) {
             assertEq(decoded.blobSlice.blobHashes[i], original.blobSlice.blobHashes[i]);
         }
@@ -159,7 +159,7 @@ contract LibProposedEventCodecFuzzTest is Test {
         originalProposal.coreStateHash = _coreStateHash;
         originalProposal.blobSlice.offset = _blobOffset;
         originalProposal.blobSlice.timestamp = _blobTimestamp;
-        
+
         bytes32[] memory blobHashes = new bytes32[](_blobHashCount);
         for (uint256 i = 0; i < _blobHashCount; i++) {
             blobHashes[i] = keccak256(abi.encode(_coreStateHash, i));
@@ -173,31 +173,38 @@ contract LibProposedEventCodecFuzzTest is Test {
         originalCoreState.bondInstructionsHash = _bondInstructionsHash;
 
         bytes memory encoded = LibProposedEventCodec.encode(originalProposal, originalCoreState);
-        
+
         uint256 expectedSize = LibProposedEventCodec.calculateProposedEventSize(_blobHashCount);
         assertEq(encoded.length, expectedSize);
-        
-        (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) = 
+
+        (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
             LibProposedEventCodec.decode(encoded);
 
         assertEq(decodedProposal.coreStateHash, originalProposal.coreStateHash);
         assertEq(decodedProposal.blobSlice.offset, originalProposal.blobSlice.offset);
         assertEq(decodedProposal.blobSlice.timestamp, originalProposal.blobSlice.timestamp);
-        assertEq(decodedProposal.blobSlice.blobHashes.length, originalProposal.blobSlice.blobHashes.length);
-        
+        assertEq(
+            decodedProposal.blobSlice.blobHashes.length,
+            originalProposal.blobSlice.blobHashes.length
+        );
+
         for (uint256 i = 0; i < _blobHashCount; i++) {
-            assertEq(decodedProposal.blobSlice.blobHashes[i], originalProposal.blobSlice.blobHashes[i]);
+            assertEq(
+                decodedProposal.blobSlice.blobHashes[i], originalProposal.blobSlice.blobHashes[i]
+            );
         }
 
         assertEq(decodedCoreState.nextProposalId, originalCoreState.nextProposalId);
-        assertEq(decodedCoreState.lastFinalizedProposalId, originalCoreState.lastFinalizedProposalId);
+        assertEq(
+            decodedCoreState.lastFinalizedProposalId, originalCoreState.lastFinalizedProposalId
+        );
         assertEq(decodedCoreState.lastFinalizedClaimHash, originalCoreState.lastFinalizedClaimHash);
         assertEq(decodedCoreState.bondInstructionsHash, originalCoreState.bondInstructionsHash);
     }
 
     function testFuzz_calculateSize(uint256 _blobHashCount) public pure {
         vm.assume(_blobHashCount <= MAX_UINT24);
-        
+
         uint256 expectedSize = 160 + (_blobHashCount * 32);
         uint256 calculatedSize = LibProposedEventCodec.calculateProposedEventSize(_blobHashCount);
         assertEq(calculatedSize, expectedSize);
@@ -211,19 +218,19 @@ contract LibProposedEventCodecFuzzTest is Test {
         pure
     {
         vm.assume(_hashCount <= 10);
-        
+
         IInbox.Proposal memory original;
         bytes32[] memory blobHashes = new bytes32[](_hashCount);
         for (uint256 i = 0; i < _hashCount; i++) {
             blobHashes[i] = _randomHashes[i];
         }
         original.blobSlice.blobHashes = blobHashes;
-        
+
         IInbox.CoreState memory coreState;
-        
+
         bytes memory encoded = LibProposedEventCodec.encode(original, coreState);
         (IInbox.Proposal memory decoded,) = LibProposedEventCodec.decode(encoded);
-        
+
         assertEq(decoded.blobSlice.blobHashes.length, _hashCount);
         for (uint256 i = 0; i < _hashCount; i++) {
             assertEq(decoded.blobSlice.blobHashes[i], _randomHashes[i]);
@@ -239,20 +246,20 @@ contract LibProposedEventCodecFuzzTest is Test {
         original.isForcedInclusion = true;
         original.basefeeSharingPctg = MAX_UINT8;
         original.coreStateHash = bytes32(type(uint256).max);
-        
+
         original.blobSlice.offset = MAX_UINT24;
         original.blobSlice.timestamp = MAX_UINT48;
-        
+
         IInbox.CoreState memory coreState;
         coreState.nextProposalId = MAX_UINT48;
         coreState.lastFinalizedProposalId = MAX_UINT48;
         coreState.lastFinalizedClaimHash = bytes32(type(uint256).max);
         coreState.bondInstructionsHash = bytes32(type(uint256).max);
-        
+
         bytes memory encoded = LibProposedEventCodec.encode(original, coreState);
-        (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) = 
+        (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
             LibProposedEventCodec.decode(encoded);
-        
+
         assertEq(decodedProposal.id, MAX_UINT48);
         assertEq(decodedProposal.proposer, address(type(uint160).max));
         assertEq(decodedProposal.originTimestamp, MAX_UINT48);
@@ -262,7 +269,7 @@ contract LibProposedEventCodecFuzzTest is Test {
         assertEq(decodedProposal.coreStateHash, bytes32(type(uint256).max));
         assertEq(decodedProposal.blobSlice.offset, MAX_UINT24);
         assertEq(decodedProposal.blobSlice.timestamp, MAX_UINT48);
-        
+
         assertEq(decodedCoreState.nextProposalId, MAX_UINT48);
         assertEq(decodedCoreState.lastFinalizedProposalId, MAX_UINT48);
         assertEq(decodedCoreState.lastFinalizedClaimHash, bytes32(type(uint256).max));
@@ -272,11 +279,11 @@ contract LibProposedEventCodecFuzzTest is Test {
     function testFuzz_edgeCases_zeroValues() public pure {
         IInbox.Proposal memory original;
         IInbox.CoreState memory coreState;
-        
+
         bytes memory encoded = LibProposedEventCodec.encode(original, coreState);
-        (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) = 
+        (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
             LibProposedEventCodec.decode(encoded);
-        
+
         assertEq(decodedProposal.id, 0);
         assertEq(decodedProposal.proposer, address(0));
         assertEq(decodedProposal.originTimestamp, 0);
@@ -287,13 +294,12 @@ contract LibProposedEventCodecFuzzTest is Test {
         assertEq(decodedProposal.blobSlice.offset, 0);
         assertEq(decodedProposal.blobSlice.timestamp, 0);
         assertEq(decodedProposal.blobSlice.blobHashes.length, 0);
-        
+
         assertEq(decodedCoreState.nextProposalId, 0);
         assertEq(decodedCoreState.lastFinalizedProposalId, 0);
         assertEq(decodedCoreState.lastFinalizedClaimHash, bytes32(0));
         assertEq(decodedCoreState.bondInstructionsHash, bytes32(0));
     }
-
 
     function testFuzz_consistency_multipleEncodings(
         uint48 _id,
@@ -304,32 +310,32 @@ contract LibProposedEventCodecFuzzTest is Test {
         pure
     {
         vm.assume(_blobCount <= 10);
-        
+
         IInbox.Proposal memory proposal;
         proposal.id = _id;
         proposal.proposer = _proposer;
         proposal.blobSlice.blobHashes = new bytes32[](_blobCount);
-        
+
         for (uint256 i = 0; i < _blobCount; i++) {
             proposal.blobSlice.blobHashes[i] = keccak256(abi.encode(i));
         }
-        
+
         IInbox.CoreState memory coreState;
-        
+
         bytes memory encoded1 = LibProposedEventCodec.encode(proposal, coreState);
         bytes memory encoded2 = LibProposedEventCodec.encode(proposal, coreState);
-        
+
         assertEq(keccak256(encoded1), keccak256(encoded2));
-        
-        (IInbox.Proposal memory decoded1, IInbox.CoreState memory decodedState1) = 
+
+        (IInbox.Proposal memory decoded1, IInbox.CoreState memory decodedState1) =
             LibProposedEventCodec.decode(encoded1);
-        (IInbox.Proposal memory decoded2, IInbox.CoreState memory decodedState2) = 
+        (IInbox.Proposal memory decoded2, IInbox.CoreState memory decodedState2) =
             LibProposedEventCodec.decode(encoded2);
-        
+
         assertEq(decoded1.id, decoded2.id);
         assertEq(decoded1.proposer, decoded2.proposer);
         assertEq(decoded1.blobSlice.blobHashes.length, decoded2.blobSlice.blobHashes.length);
-        
+
         assertEq(decodedState1.nextProposalId, decodedState2.nextProposalId);
     }
 }
