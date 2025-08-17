@@ -12,7 +12,6 @@ import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 /// @dev Measures both execution gas and calldata gas costs
 /// @custom:security-contact security@taiko.xyz
 contract LibProveDataDecoderGas is Test {
-
     function test_gas_comparison_decoding() public {
         console2.log("\nGas Comparison: abi.decode vs LibProveDataDecoder.decode");
         console2.log("======================================================\n");
@@ -135,7 +134,6 @@ contract LibProveDataDecoderGas is Test {
             console2.log("  Total overhead:", overhead, "%");
         }
 
-
         // Data size comparison
         if (abiEncoded.length > libEncoded.length) {
             uint256 sizeSavings =
@@ -209,8 +207,12 @@ contract LibProveDataDecoderGas is Test {
     function _writeReport() private {
         string memory report = "# LibProveDataDecoder Gas Report\n\n";
         report = string.concat(report, "## Total Cost (Calldata + Decoding)\n\n");
-        report = string.concat(report, "| Scenario | abi.encode + abi.decode | LibProveDataDecoder | Savings |\n");
-        report = string.concat(report, "|----------|-------------------------|--------------------|---------|\n");
+        report = string.concat(
+            report, "| Scenario | abi.encode + abi.decode | LibProveDataDecoder | Savings |\n"
+        );
+        report = string.concat(
+            report, "|----------|-------------------------|--------------------|---------|\n"
+        );
 
         // Based on actual test results from test_gas_comparison_decoding
         report = string.concat(report, "| Simple (1P+C, 0B) | 8,623 gas | 5,918 gas | 31% |\n");
@@ -218,8 +220,12 @@ contract LibProveDataDecoderGas is Test {
         report = string.concat(report, "| Large (5P+C, 3B) | 46,534 gas | 39,079 gas | 16% |\n");
         report = string.concat(report, "| XLarge (10P+C, 4B) | 99,052 gas | 87,390 gas | 11% |\n\n");
 
-        report = string.concat(report, "**Note**: P = Proposals, C = Claims, B = Blob Hashes per proposal\n");
-        report = string.concat(report, "**Note**: Gas measurements include both calldata and decode costs\n");
+        report = string.concat(
+            report, "**Note**: P = Proposals, C = Claims, B = Blob Hashes per proposal\n"
+        );
+        report = string.concat(
+            report, "**Note**: Gas measurements include both calldata and decode costs\n"
+        );
 
         vm.writeFile("gas-reports/LibProveDataDecoder.md", report);
     }

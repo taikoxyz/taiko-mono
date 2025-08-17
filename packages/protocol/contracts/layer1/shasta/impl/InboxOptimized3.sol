@@ -15,7 +15,7 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
 
     constructor() InboxOptimized2() { }
 
-     // ---------------------------------------------------------------
+    // ---------------------------------------------------------------
     // External Functions
     // ---------------------------------------------------------------
 
@@ -38,11 +38,7 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
         returns (bytes memory)
     {
         return LibProposeDataDecoder.encode(
-            deadline_,
-            coreState_,
-            proposals_,
-            blobReference_,
-            claimRecords_
+            deadline_, coreState_, proposals_, blobReference_, claimRecords_
         );
     }
 
