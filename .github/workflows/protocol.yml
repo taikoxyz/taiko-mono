@@ -49,25 +49,20 @@ jobs:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.TAIKO_KITTY_TOKEN }}
 
-      # IMPORTANT: Using stable version with blob operation compatibility considerations
+      # IMPORTANT: Pin Foundry version to match local development environment
+      # This ensures consistent behavior for EIP-4844 blob operations (blobhash opcode)
+      # Local version: forge 1.2.3-stable (commit: a813a2cee7dd4926e7c56fd8a785b54f32e0d10f)
       #
-      # Background: Tests using vm.blobhashes() and the blobhash() opcode may behave
-      # differently across Foundry versions. The stable version should have mature
-      # EIP-4844 blob support for the Cancun hardfork.
+      # Background: Tests using vm.blobhashes() and the blobhash() opcode were failing
+      # with BlobNotFound errors in CI but passing locally due to version differences
+      # in how Foundry handles blob data in test environments.
       #
-      # If tests fail with BlobNotFound errors, consider:
-      # 1. Using MockLibBlobs for test environments
-      # 2. Ensuring vm.blobhashes() is properly called in test setup
-      # 3. Verifying the Cancun hardfork is enabled in foundry.toml
-      #
-      # Critical tests that depend on blob functionality:
-      # - InboxOutOfOrderProving
-      # - InboxProveBasic
-      # - InboxBasicTest
+      # TODO: Once Foundry stabilizes blob support, consider updating both local and CI
+      # to the latest stable version. Test thoroughly before updating.
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.4.0
         with:
-          version: stable
+          version: nightly-a813a2cee7dd4926e7c56fd8a785b54f32e0d10f
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
@@ -138,7 +133,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.4.0
         with:
-          version: stable
+          version: nightly-a813a2cee7dd4926e7c56fd8a785b54f32e0d10f
 
       - name: Install pnpm dependencies
         uses: ./.github/actions/install-pnpm-dependencies
