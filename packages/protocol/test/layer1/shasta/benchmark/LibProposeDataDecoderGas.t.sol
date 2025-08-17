@@ -10,6 +10,7 @@ import { LibBonds } from "contracts/shared/based/libs/LibBonds.sol";
 
 /// @title LibProposeDataDecoderGas
 /// @notice Gas comparison between optimized LibProposeDataDecoder and abi.encode/decode
+/// @dev Measures both execution gas and calldata gas costs
 /// @custom:security-contact security@taiko.xyz
 contract LibProposeDataDecoderGas is Test {
     
@@ -25,8 +26,8 @@ contract LibProposeDataDecoderGas is Test {
     }
 
     function test_gas_comparison_decoding() public {
-        console2.log("\nGas Comparison: abi.decode vs LibProposeDataDecoder.decodeMemory");
-        console2.log("===============================================================\n");
+        console2.log("\nGas Comparison: abi.decode vs LibProposeDataDecoder.decode");
+        console2.log("========================================================\n");
 
         // Test with different combinations
         _runDecodingTest(1, 0, 0, "Simple: 1 proposal, 0 claims, 0 bonds");
@@ -35,24 +36,13 @@ contract LibProposeDataDecoderGas is Test {
         _runDecodingTest(5, 5, 10, "Large: 5 proposals, 5 claims, 10 bonds");
     }
 
-    function test_gas_size_comparison() public {
-        console2.log("\nSize Comparison: abi.encode vs LibProposeDataDecoder.encode");
-        console2.log("==========================================================\n");
-
-        _runSizeComparison(1, 0, 0, "Simple: 1 proposal, 0 claims, 0 bonds");
-        _runSizeComparison(2, 1, 0, "Medium: 2 proposals, 1 claim, 0 bonds");
-        _runSizeComparison(3, 2, 2, "Complex: 3 proposals, 2 claims, 2 bonds");
-        _runSizeComparison(5, 5, 10, "Large: 5 proposals, 5 claims, 10 bonds");
-
-        _writeReport();
-    }
 
     function _runEncodingTest(
         uint256 _proposalCount,
         uint256 _claimCount,
         uint256 _totalBondInstructions,
         string memory _label
-    ) private {
+    ) private view {
         (
             uint64 deadline,
             IInbox.CoreState memory coreState,
@@ -63,30 +53,42 @@ contract LibProposeDataDecoderGas is Test {
 
         console2.log(_label);
 
-        // 1. abi.encode
+        // 1. abi.encode - measure execution gas
         uint256 gasBefore = gasleft();
         bytes memory abiEncoded = abi.encode(deadline, coreState, proposals, blobRef, claimRecords);
-        uint256 abiEncodeGas = gasBefore - gasleft();
+        uint256 abiExecutionGas = gasBefore - gasleft();
+        
+        // Calculate calldata gas for abi.encode
+        uint256 abiCalldataGas = _calculateCalldataGas(abiEncoded);
+        uint256 abiTotalGas = abiExecutionGas + abiCalldataGas;
 
-        // 2. LibProposeDataDecoder.encode
+        // 2. LibProposeDataDecoder.encode - measure execution gas
         gasBefore = gasleft();
         bytes memory libEncoded = LibProposeDataDecoder.encode(deadline, coreState, proposals, blobRef, claimRecords);
-        uint256 libEncodeGas = gasBefore - gasleft();
+        uint256 libExecutionGas = gasBefore - gasleft();
+        
+        // Calculate calldata gas for LibProposeDataDecoder
+        uint256 libCalldataGas = _calculateCalldataGas(libEncoded);
+        uint256 libTotalGas = libExecutionGas + libCalldataGas;
 
-        // Calculate savings
-        int256 savingsPercent;
-        if (abiEncodeGas > libEncodeGas) {
-            savingsPercent = int256(((abiEncodeGas - libEncodeGas) * 100) / abiEncodeGas);
+        // Display results
+        console2.log("  abi.encode:");
+        console2.log("    Execution gas:", abiExecutionGas);
+        console2.log("    Calldata gas:", abiCalldataGas);
+        console2.log("    Total gas:", abiTotalGas);
+        
+        console2.log("  LibProposeDataDecoder.encode:");
+        console2.log("    Execution gas:", libExecutionGas);
+        console2.log("    Calldata gas:", libCalldataGas);
+        console2.log("    Total gas:", libTotalGas);
+        
+        // Calculate total gas savings
+        if (abiTotalGas > libTotalGas) {
+            uint256 savings = ((abiTotalGas - libTotalGas) * 100) / abiTotalGas;
+            console2.log("  Total gas savings:", savings, "%");
         } else {
-            savingsPercent = -int256(((libEncodeGas - abiEncodeGas) * 100) / abiEncodeGas);
-        }
-
-        console2.log("  abi.encode:", abiEncodeGas, "gas");
-        console2.log("  LibEncoder:", libEncodeGas, "gas");
-        if (savingsPercent >= 0) {
-            console2.log("  Gas savings:", uint256(savingsPercent), "%");
-        } else {
-            console2.log("  Gas increase:", uint256(-savingsPercent), "%");
+            uint256 increase = ((libTotalGas - abiTotalGas) * 100) / abiTotalGas;
+            console2.log("  Total gas increase:", increase, "%");
         }
         console2.log("");
     }
@@ -110,8 +112,6 @@ contract LibProposeDataDecoderGas is Test {
         bytes memory libEncoded = LibProposeDataDecoder.encode(deadline, coreState, proposals, blobRef, claimRecords);
 
         console2.log(_label);
-        console2.log("  abi.encode size:", abiEncoded.length, "bytes");
-        console2.log("  LibEncoder size:", libEncoded.length, "bytes");
 
         // 1. abi.decode
         uint256 gasBefore = gasleft();
@@ -124,7 +124,7 @@ contract LibProposeDataDecoderGas is Test {
         ) = abi.decode(abiEncoded, (uint64, IInbox.CoreState, IInbox.Proposal[], LibBlobs.BlobReference, IInbox.ClaimRecord[]));
         uint256 abiDecodeGas = gasBefore - gasleft();
 
-        // 2. LibProposeDataDecoder.decodeMemory
+        // 2. LibProposeDataDecoder.decode
         gasBefore = gasleft();
         (
             uint64 d2,
@@ -132,23 +132,20 @@ contract LibProposeDataDecoderGas is Test {
             IInbox.Proposal[] memory p2,
             LibBlobs.BlobReference memory br2,
             IInbox.ClaimRecord[] memory cr2
-        ) = LibProposeDataDecoder.decodeMemory(libEncoded);
+        ) = LibProposeDataDecoder.decode(libEncoded);
         uint256 libDecodeGas = gasBefore - gasleft();
 
-        // Calculate savings
-        int256 savingsPercent;
-        if (abiDecodeGas > libDecodeGas) {
-            savingsPercent = int256(((abiDecodeGas - libDecodeGas) * 100) / abiDecodeGas);
-        } else {
-            savingsPercent = -int256(((libDecodeGas - abiDecodeGas) * 100) / abiDecodeGas);
-        }
-
+        // Display results
         console2.log("  abi.decode:", abiDecodeGas, "gas");
-        console2.log("  LibDecoder:", libDecodeGas, "gas");
-        if (savingsPercent >= 0) {
-            console2.log("  Gas savings:", uint256(savingsPercent), "%");
+        console2.log("  LibProposeDataDecoder.decode:", libDecodeGas, "gas");
+        
+        // Calculate overhead
+        if (libDecodeGas > abiDecodeGas) {
+            uint256 overhead = ((libDecodeGas - abiDecodeGas) * 100) / abiDecodeGas;
+            console2.log("  Overhead:", overhead, "%");
         } else {
-            console2.log("  Gas increase:", uint256(-savingsPercent), "%");
+            uint256 savings = ((abiDecodeGas - libDecodeGas) * 100) / abiDecodeGas;
+            console2.log("  Savings:", savings, "%");
         }
         console2.log("");
 
@@ -160,75 +157,22 @@ contract LibProposeDataDecoderGas is Test {
         require(cr1.length >= 0 && cr2.length >= 0, "decoded");
     }
 
-    function _runSizeComparison(
-        uint256 _proposalCount,
-        uint256 _claimCount,
-        uint256 _totalBondInstructions,
-        string memory _label
-    ) private pure {
-        (
-            uint64 deadline,
-            IInbox.CoreState memory coreState,
-            IInbox.Proposal[] memory proposals,
-            LibBlobs.BlobReference memory blobRef,
-            IInbox.ClaimRecord[] memory claimRecords
-        ) = _createTestData(_proposalCount, _claimCount, _totalBondInstructions);
 
-        bytes memory abiEncoded = abi.encode(deadline, coreState, proposals, blobRef, claimRecords);
-        bytes memory libEncoded = LibProposeDataDecoder.encode(deadline, coreState, proposals, blobRef, claimRecords);
-
-        uint256 sizeSavings = ((abiEncoded.length - libEncoded.length) * 100) / abiEncoded.length;
-
-        console2.log(_label);
-        console2.log("  abi.encode:", abiEncoded.length, "bytes");
-        console2.log("  LibEncoder:", libEncoded.length, "bytes");
-        console2.log("  Size reduction:", sizeSavings, "%");
-        console2.log("");
+    /// @notice Calculate calldata gas cost based on EVM pricing rules
+    /// @param _data The encoded data
+    /// @return gasUsed The total gas cost for calldata (4 gas per zero byte, 16 gas per non-zero byte)
+    function _calculateCalldataGas(bytes memory _data) private pure returns (uint256 gasUsed) {
+        unchecked {
+            for (uint256 i = 0; i < _data.length; i++) {
+                if (_data[i] == 0) {
+                    gasUsed += 4;  // Zero byte costs 4 gas
+                } else {
+                    gasUsed += 16; // Non-zero byte costs 16 gas
+                }
+            }
+        }
     }
 
-    function _writeReport() private {
-        string memory report = "# LibProposeDataDecoder Gas Report\n\n";
-        
-        report = string.concat(report, "## Overview\n\n");
-        report = string.concat(report, "LibProposeDataDecoder optimizes for **L1 calldata costs** by using compact binary encoding.\n");
-        report = string.concat(report, "While decoding gas increases, the significant reduction in data size provides net savings on L1.\n\n");
-        
-        report = string.concat(report, "## Size Comparison\n\n");
-        report = string.concat(report, "| Scenario | abi.encode | LibProposeDataDecoder | Reduction |\n");
-        report = string.concat(report, "|----------|------------|----------------------|-----------||\n");
-        report = string.concat(report, "| Simple (1P, 0C, 0B) | 1,216 bytes | 421 bytes | 65% |\n");
-        report = string.concat(report, "| Medium (2P, 1C, 0B) | 1,952 bytes | 712 bytes | 63% |\n");
-        report = string.concat(report, "| Complex (3P, 2C, 2B) | 2,976 bytes | 1,144 bytes | 61% |\n");
-        report = string.concat(report, "| Large (5P, 5C, 10B) | 5,600 bytes | 2,290 bytes | 59% |\n\n");
-        
-        report = string.concat(report, "## Decoding Gas Comparison\n\n");
-        report = string.concat(report, "| Scenario | abi.decode | LibProposeDataDecoder | Overhead |\n");
-        report = string.concat(report, "|----------|------------|----------------------|----------||\n");
-        report = string.concat(report, "| Simple (1P, 0C, 0B) | 5,254 gas | 7,924 gas | +51% |\n");
-        report = string.concat(report, "| Medium (2P, 1C, 0B) | 7,855 gas | 12,985 gas | +65% |\n");
-        report = string.concat(report, "| Complex (3P, 2C, 2B) | 11,256 gas | 21,485 gas | +91% |\n");
-        report = string.concat(report, "| Large (5P, 5C, 10B) | 22,354 gas | 44,125 gas | +97% |\n\n");
-        
-        report = string.concat(report, "## L1 Calldata Cost Analysis\n\n");
-        report = string.concat(report, "Assuming 16 gas per non-zero byte and 4 gas per zero byte:\n\n");
-        report = string.concat(report, "| Scenario | abi.encode Cost | Compact Cost | Savings |\n");
-        report = string.concat(report, "|----------|----------------|--------------|---------||\n");
-        report = string.concat(report, "| Simple | ~18,000 gas | ~6,300 gas | ~11,700 gas |\n");
-        report = string.concat(report, "| Medium | ~29,000 gas | ~10,700 gas | ~18,300 gas |\n");
-        report = string.concat(report, "| Complex | ~44,000 gas | ~17,200 gas | ~26,800 gas |\n");
-        report = string.concat(report, "| Large | ~84,000 gas | ~34,400 gas | ~49,600 gas |\n\n");
-        
-        report = string.concat(report, "## Key Findings\n\n");
-        report = string.concat(report, "- **Data size reduction**: 59-65% across all scenarios\n");
-        report = string.concat(report, "- **Decoding overhead**: 51-97% increase in gas for unpacking\n");
-        report = string.concat(report, "- **Net benefit on L1**: Significant savings due to reduced calldata costs\n");
-        report = string.concat(report, "- **Best for**: L1 transactions where calldata dominates gas costs\n\n");
-        
-        report = string.concat(report, "**Legend**: P = Proposals, C = ClaimRecords, B = BondInstructions\n");
-
-        vm.writeFile("gas-reports/LibProposeDataDecoder.md", report);
-        console2.log("\nReport written to gas-reports/LibProposeDataDecoder.md");
-    }
 
     function _createTestData(
         uint256 _proposalCount,

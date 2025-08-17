@@ -98,7 +98,7 @@ contract LibProposeDataDecoderTest is Test {
             IInbox.Proposal[] memory proposals2,
             LibBlobs.BlobReference memory blobRef2,
             IInbox.ClaimRecord[] memory claimRecords2
-        ) = LibProposeDataDecoder.decodeMemory(compactEncodedData);
+        ) = LibProposeDataDecoder.decode(compactEncodedData);
         uint256 optimizedGas = gasStart - gasleft();
 
         // Verify correctness
@@ -275,7 +275,7 @@ contract LibProposeDataDecoderTest is Test {
             IInbox.Proposal[] memory proposals2,
             LibBlobs.BlobReference memory blobRef2,
             IInbox.ClaimRecord[] memory claimRecords2
-        ) = LibProposeDataDecoder.decodeMemory(compactEncodedData);
+        ) = LibProposeDataDecoder.decode(compactEncodedData);
         uint256 optimizedGas = gasStart - gasleft();
 
         // Verify correctness
@@ -364,7 +364,7 @@ contract LibProposeDataDecoderTest is Test {
             IInbox.Proposal[] memory decodedProposals,
             LibBlobs.BlobReference memory decodedBlobRef,
             IInbox.ClaimRecord[] memory decodedClaimRecords
-        ) = LibProposeDataDecoder.decodeMemory(compactEncodedData);
+        ) = LibProposeDataDecoder.decode(compactEncodedData);
 
         // Verify all fields decoded correctly
         assertEq(decodedDeadline, deadline);

@@ -70,32 +70,7 @@ library LibProposeDataDecoder {
     /// @return proposals_ The decoded array of Proposals
     /// @return blobReference_ The decoded BlobReference
     /// @return claimRecords_ The decoded array of ClaimRecords
-    function decode(bytes calldata _data)
-        internal
-        pure
-        returns (
-            uint64 deadline_,
-            IInbox.CoreState memory coreState_,
-            IInbox.Proposal[] memory proposals_,
-            LibBlobs.BlobReference memory blobReference_,
-            IInbox.ClaimRecord[] memory claimRecords_
-        )
-    {
-        // For calldata, use ABI decoding as it's already optimized
-        return abi.decode(
-            _data, 
-            (uint64, IInbox.CoreState, IInbox.Proposal[], LibBlobs.BlobReference, IInbox.ClaimRecord[])
-        );
-    }
-
-    /// @notice Decodes propose data for memory input using LibPackUnpack
-    /// @param _data The encoded data
-    /// @return deadline_ The decoded deadline
-    /// @return coreState_ The decoded CoreState
-    /// @return proposals_ The decoded array of Proposals
-    /// @return blobReference_ The decoded BlobReference
-    /// @return claimRecords_ The decoded array of ClaimRecords
-    function decodeMemory(bytes memory _data)
+    function decode(bytes memory _data)
         internal
         pure
         returns (
@@ -295,21 +270,17 @@ library LibProposeDataDecoder {
             // Arrays lengths: 3 + 3 = 6 bytes
             size_ = 32 + 76 + 7 + 6;
             
-            // Proposals
+            // Proposals - each has fixed size + variable blob hashes
+            // Fixed proposal fields: 6 + 20 + 6 + 6 + 1 + 1 + 32 = 72
+            // BlobSlice fixed: 3 + 3 + 6 = 12
             for (uint256 i; i < _proposals.length; ++i) {
-                // Fixed proposal fields: 6 + 20 + 6 + 6 + 1 + 1 + 32 = 72
-                // BlobSlice fixed: 3 + 3 + 6 = 12
-                size_ += 84;
-                // Variable: blob hashes
-                size_ += _proposals[i].blobSlice.blobHashes.length * 32;
+                size_ += 84 + (_proposals[i].blobSlice.blobHashes.length * 32);
             }
             
-            // ClaimRecords
+            // ClaimRecords - each has fixed size + variable bond instructions
+            // Fixed: proposalId(6) + Claim(32+32+6+32+32+20+20) + span(1) + array length(3) = 184
             for (uint256 i; i < _claimRecords.length; ++i) {
-                // Fixed: proposalId(6) + Claim(32+32+6+32+32+20+20) + span(1) + array length(3) = 184
-                size_ += 184;
-                // Variable: bond instructions (each is 6 + 1 + 20 + 20 = 47 bytes)
-                size_ += _claimRecords[i].bondInstructions.length * 47;
+                size_ += 184 + (_claimRecords[i].bondInstructions.length * 47);
             }
         }
     }

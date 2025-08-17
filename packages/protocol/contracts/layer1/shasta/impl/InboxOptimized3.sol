@@ -4,14 +4,10 @@ pragma solidity ^0.8.24;
 import "./InboxOptimized.sol";
 import "../libs/LibProposeDataDecoder.sol";
 
-/// @title InboxOptimized
-/// @notice Combines slot reuse and claim aggregation optimizations for the Inbox contract
-/// @dev This contract merges the optimizations from InboxWithSlotReuse and
-/// InboxWithClaimAggregation
-/// to provide both storage optimization through slot reuse and gas optimization through claim
-/// aggregation
+/// @title InboxOptimized3
+/// @notice Inbox optimized, on top of InboxOptimized2, to lower calldata cost.
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxOptimizedInputs is InboxOptimized {
+abstract contract InboxOptimized3 is InboxOptimized {
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
