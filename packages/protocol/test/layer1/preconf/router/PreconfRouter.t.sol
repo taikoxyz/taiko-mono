@@ -149,10 +149,11 @@ contract PreconfRouterTest is PreconfRouterTestBase {
 
         vm.startSnapshotGas("ProposeAndProve", "proposeBatchWithRouter");
         vm.prank(Carol);
-        (, ITaikoInbox.BatchMetadata memory meta) = router.proposeBatch(wrappedParams, "");
+        ITaikoInbox.BatchMetadata memory meta = router.proposeBatch(wrappedParams, "");
         vm.stopSnapshotGas();
-
+        
         assertEq(meta.proposer, Carol);
+
     }
 
     function test_preconfRouter_proposeBatch_notOperator() external {

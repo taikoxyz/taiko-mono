@@ -82,7 +82,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         external
         onlyFrom(preconfRouter)
         nonReentrant
-        returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
+        returns (ITaikoInbox.BatchMetadata memory)
     {
         (bytes memory bytesX, bytes memory bytesY) = abi.decode(_params, (bytes, bytes));
         ITaikoInbox.BatchParams memory params = abi.decode(bytesY, (ITaikoInbox.BatchParams));
