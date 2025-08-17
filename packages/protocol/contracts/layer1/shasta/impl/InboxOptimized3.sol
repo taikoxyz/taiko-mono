@@ -15,6 +15,52 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
 
     constructor() InboxOptimized2() { }
 
+     // ---------------------------------------------------------------
+    // External Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Encodes the propose data into bytes format.
+    /// @param deadline_ The deadline for the proposal.
+    /// @param coreState_ The core state of the proposal.
+    /// @param proposals_ The array of proposals.
+    /// @param blobReference_ The blob reference associated with the proposal.
+    /// @param claimRecords_ The array of claim records.
+    /// @return Encoded bytes of the propose data.
+    function encodeProposeData(
+        uint64 deadline_,
+        CoreState memory coreState_,
+        Proposal[] memory proposals_,
+        LibBlobs.BlobReference memory blobReference_,
+        ClaimRecord[] memory claimRecords_
+    )
+        external
+        pure
+        returns (bytes memory)
+    {
+        return LibProposeDataDecoder.encode(
+            deadline_,
+            coreState_,
+            proposals_,
+            blobReference_,
+            claimRecords_
+        );
+    }
+
+    /// @notice Encodes the prove data into bytes format.
+    /// @param proposals_ The array of proposals.
+    /// @param claims_ The array of claims.
+    /// @return Encoded bytes of the prove data.
+    function encodeProveData(
+        Proposal[] memory proposals_,
+        Claim[] memory claims_
+    )
+        external
+        pure
+        returns (bytes memory)
+    {
+        return LibProveDataDecoder.encode(proposals_, claims_);
+    }
+
     // ---------------------------------------------------------------
     // Public Functions
     // ---------------------------------------------------------------
