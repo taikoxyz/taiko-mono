@@ -63,7 +63,7 @@ contract LibProvedEventCodecGas is Test {
         _writeReport();
     }
 
-    function test_gas_decode_comparison() public {
+    function test_gas_decode_comparison() public view {
         console2.log("\nDecode Gas Comparison: abi.decode vs LibProvedEventCodec");
         console2.log("========================================================\n");
 
@@ -117,7 +117,7 @@ contract LibProvedEventCodecGas is Test {
         }
     }
 
-    function test_gas_size_comparison() public view {
+    function test_gas_size_comparison() public pure {
         console2.log("\nSize Comparison: abi.encode vs LibProvedEventCodec");
         console2.log("===================================================\n");
 

@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "../iface/IInbox.sol";
-import "./LibBlobs.sol";
-import "./LibPackUnpack.sol";
-import "src/shared/based/libs/LibBonds.sol";
+import { IInbox } from "../iface/IInbox.sol";
+import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
 /// @title LibProposedEventCodec
 /// @notice Library for encoding and decoding Proposal and CoreState structures using compact
@@ -28,37 +26,37 @@ library LibProposedEventCodec {
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
-        uint256 ptr = LibPackUnpack.dataPtr(encoded_);
+        uint256 ptr = P.dataPtr(encoded_);
 
         // Encode Proposal
-        ptr = LibPackUnpack.packUint48(ptr, _proposal.id);
-        ptr = LibPackUnpack.packAddress(ptr, _proposal.proposer);
-        ptr = LibPackUnpack.packUint48(ptr, _proposal.originTimestamp);
-        ptr = LibPackUnpack.packUint48(ptr, _proposal.originBlockNumber);
-        ptr = LibPackUnpack.packUint8(ptr, _proposal.isForcedInclusion ? 1 : 0);
-        ptr = LibPackUnpack.packUint8(ptr, _proposal.basefeeSharingPctg);
+        ptr = P.packUint48(ptr, _proposal.id);
+        ptr = P.packAddress(ptr, _proposal.proposer);
+        ptr = P.packUint48(ptr, _proposal.originTimestamp);
+        ptr = P.packUint48(ptr, _proposal.originBlockNumber);
+        ptr = P.packUint8(ptr, _proposal.isForcedInclusion ? 1 : 0);
+        ptr = P.packUint8(ptr, _proposal.basefeeSharingPctg);
 
         // Encode BlobSlice
         // First encode the length of blobHashes array as uint24
         uint256 blobHashesLength = _proposal.blobSlice.blobHashes.length;
-        require(blobHashesLength <= type(uint24).max);
-        ptr = LibPackUnpack.packUint24(ptr, uint24(blobHashesLength));
+        require(blobHashesLength <= type(uint24).max, BlobHashesLengthExceeded());
+        ptr = P.packUint24(ptr, uint24(blobHashesLength));
 
         // Encode each blob hash
         for (uint256 i = 0; i < blobHashesLength; i++) {
-            ptr = LibPackUnpack.packBytes32(ptr, _proposal.blobSlice.blobHashes[i]);
+            ptr = P.packBytes32(ptr, _proposal.blobSlice.blobHashes[i]);
         }
 
-        ptr = LibPackUnpack.packUint24(ptr, _proposal.blobSlice.offset);
-        ptr = LibPackUnpack.packUint48(ptr, _proposal.blobSlice.timestamp);
+        ptr = P.packUint24(ptr, _proposal.blobSlice.offset);
+        ptr = P.packUint48(ptr, _proposal.blobSlice.timestamp);
 
-        ptr = LibPackUnpack.packBytes32(ptr, _proposal.coreStateHash);
+        ptr = P.packBytes32(ptr, _proposal.coreStateHash);
 
         // Encode CoreState
-        ptr = LibPackUnpack.packUint48(ptr, _coreState.nextProposalId);
-        ptr = LibPackUnpack.packUint48(ptr, _coreState.lastFinalizedProposalId);
-        ptr = LibPackUnpack.packBytes32(ptr, _coreState.lastFinalizedClaimHash);
-        ptr = LibPackUnpack.packBytes32(ptr, _coreState.bondInstructionsHash);
+        ptr = P.packUint48(ptr, _coreState.nextProposalId);
+        ptr = P.packUint48(ptr, _coreState.lastFinalizedProposalId);
+        ptr = P.packBytes32(ptr, _coreState.lastFinalizedClaimHash);
+        ptr = P.packBytes32(ptr, _coreState.bondInstructionsHash);
     }
 
     /// @notice Decodes bytes into a Proposal and CoreState using compact encoding
@@ -71,39 +69,39 @@ library LibProposedEventCodec {
         returns (IInbox.Proposal memory proposal_, IInbox.CoreState memory coreState_)
     {
         // Get pointer to data section (skip length prefix)
-        uint256 ptr = LibPackUnpack.dataPtr(_data);
+        uint256 ptr = P.dataPtr(_data);
 
         // Decode Proposal
-        (proposal_.id, ptr) = LibPackUnpack.unpackUint48(ptr);
-        (proposal_.proposer, ptr) = LibPackUnpack.unpackAddress(ptr);
-        (proposal_.originTimestamp, ptr) = LibPackUnpack.unpackUint48(ptr);
-        (proposal_.originBlockNumber, ptr) = LibPackUnpack.unpackUint48(ptr);
+        (proposal_.id, ptr) = P.unpackUint48(ptr);
+        (proposal_.proposer, ptr) = P.unpackAddress(ptr);
+        (proposal_.originTimestamp, ptr) = P.unpackUint48(ptr);
+        (proposal_.originBlockNumber, ptr) = P.unpackUint48(ptr);
 
         uint8 isForcedInclusion;
-        (isForcedInclusion, ptr) = LibPackUnpack.unpackUint8(ptr);
+        (isForcedInclusion, ptr) = P.unpackUint8(ptr);
         proposal_.isForcedInclusion = isForcedInclusion != 0;
 
-        (proposal_.basefeeSharingPctg, ptr) = LibPackUnpack.unpackUint8(ptr);
+        (proposal_.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
 
         // Decode BlobSlice
         uint24 blobHashesLength;
-        (blobHashesLength, ptr) = LibPackUnpack.unpackUint24(ptr);
+        (blobHashesLength, ptr) = P.unpackUint24(ptr);
 
         proposal_.blobSlice.blobHashes = new bytes32[](blobHashesLength);
         for (uint256 i = 0; i < blobHashesLength; i++) {
-            (proposal_.blobSlice.blobHashes[i], ptr) = LibPackUnpack.unpackBytes32(ptr);
+            (proposal_.blobSlice.blobHashes[i], ptr) = P.unpackBytes32(ptr);
         }
 
-        (proposal_.blobSlice.offset, ptr) = LibPackUnpack.unpackUint24(ptr);
-        (proposal_.blobSlice.timestamp, ptr) = LibPackUnpack.unpackUint48(ptr);
+        (proposal_.blobSlice.offset, ptr) = P.unpackUint24(ptr);
+        (proposal_.blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
 
-        (proposal_.coreStateHash, ptr) = LibPackUnpack.unpackBytes32(ptr);
+        (proposal_.coreStateHash, ptr) = P.unpackBytes32(ptr);
 
         // Decode CoreState
-        (coreState_.nextProposalId, ptr) = LibPackUnpack.unpackUint48(ptr);
-        (coreState_.lastFinalizedProposalId, ptr) = LibPackUnpack.unpackUint48(ptr);
-        (coreState_.lastFinalizedClaimHash, ptr) = LibPackUnpack.unpackBytes32(ptr);
-        (coreState_.bondInstructionsHash, ptr) = LibPackUnpack.unpackBytes32(ptr);
+        (coreState_.nextProposalId, ptr) = P.unpackUint48(ptr);
+        (coreState_.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
+        (coreState_.lastFinalizedClaimHash, ptr) = P.unpackBytes32(ptr);
+        (coreState_.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
     }
 
     /// @notice Calculate the exact byte size needed for encoding a ProposedEvent
@@ -128,4 +126,10 @@ library LibProposedEventCodec {
             size_ = 160 + (_blobHashesCount * 32);
         }
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error BlobHashesLengthExceeded();
 }

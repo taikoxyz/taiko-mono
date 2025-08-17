@@ -323,8 +323,7 @@ contract LibProposedEventCodecTest is Test {
         assertEq(encoded.length, 160);
 
         // Decode
-        (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
-            LibProposedEventCodec.decode(encoded);
+        (, IInbox.CoreState memory decodedCoreState) = LibProposedEventCodec.decode(encoded);
 
         // Verify core state fields
         assertEq(decodedCoreState.nextProposalId, originalCoreState.nextProposalId);
