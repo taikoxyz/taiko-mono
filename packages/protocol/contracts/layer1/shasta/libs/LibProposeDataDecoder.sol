@@ -47,7 +47,7 @@ library LibProposeDataDecoder {
         
         // 3. Encode Proposals array
         ptr = P.packUint24(ptr, uint24(_proposals.length));
-        for (uint256 i = 0; i < _proposals.length; i++) {
+        for (uint256 i; i < _proposals.length; ++i) {
             ptr = _encodeProposal(ptr, _proposals[i]);
         }
         
@@ -58,7 +58,7 @@ library LibProposeDataDecoder {
         
         // 5. Encode ClaimRecords array
         ptr = P.packUint24(ptr, uint24(_claimRecords.length));
-        for (uint256 i = 0; i < _claimRecords.length; i++) {
+        for (uint256 i; i < _claimRecords.length; ++i) {
             ptr = _encodeClaimRecord(ptr, _claimRecords[i]);
         }
     }
@@ -99,7 +99,7 @@ library LibProposeDataDecoder {
         uint24 proposalsLength;
         (proposalsLength, ptr) = P.unpackUint24(ptr);
         proposals_ = new IInbox.Proposal[](proposalsLength);
-        for (uint256 i = 0; i < proposalsLength; i++) {
+        for (uint256 i; i < proposalsLength; ++i) {
             (proposals_[i], ptr) = _decodeProposal(ptr);
         }
         
@@ -112,7 +112,7 @@ library LibProposeDataDecoder {
         uint24 claimRecordsLength;
         (claimRecordsLength, ptr) = P.unpackUint24(ptr);
         claimRecords_ = new IInbox.ClaimRecord[](claimRecordsLength);
-        for (uint256 i = 0; i < claimRecordsLength; i++) {
+        for (uint256 i; i < claimRecordsLength; ++i) {
             (claimRecords_[i], ptr) = _decodeClaimRecord(ptr);
         }
     }
@@ -132,7 +132,7 @@ library LibProposeDataDecoder {
         
         // Encode BlobSlice
         newPtr_ = P.packUint24(newPtr_, uint24(_proposal.blobSlice.blobHashes.length));
-        for (uint256 i = 0; i < _proposal.blobSlice.blobHashes.length; i++) {
+        for (uint256 i; i < _proposal.blobSlice.blobHashes.length; ++i) {
             newPtr_ = P.packBytes32(newPtr_, _proposal.blobSlice.blobHashes[i]);
         }
         newPtr_ = P.packUint24(newPtr_, _proposal.blobSlice.offset);
@@ -162,7 +162,7 @@ library LibProposeDataDecoder {
         uint24 blobHashesLength;
         (blobHashesLength, newPtr_) = P.unpackUint24(newPtr_);
         proposal_.blobSlice.blobHashes = new bytes32[](blobHashesLength);
-        for (uint256 i = 0; i < blobHashesLength; i++) {
+        for (uint256 i; i < blobHashesLength; ++i) {
             (proposal_.blobSlice.blobHashes[i], newPtr_) = P.unpackBytes32(newPtr_);
         }
         (proposal_.blobSlice.offset, newPtr_) = P.unpackUint24(newPtr_);
@@ -192,7 +192,7 @@ library LibProposeDataDecoder {
         
         // Encode BondInstructions array
         newPtr_ = P.packUint24(newPtr_, uint24(_claimRecord.bondInstructions.length));
-        for (uint256 i = 0; i < _claimRecord.bondInstructions.length; i++) {
+        for (uint256 i; i < _claimRecord.bondInstructions.length; ++i) {
             newPtr_ = _encodeBondInstruction(newPtr_, _claimRecord.bondInstructions[i]);
         }
     }
@@ -220,7 +220,7 @@ library LibProposeDataDecoder {
         uint24 bondInstructionsLength;
         (bondInstructionsLength, newPtr_) = P.unpackUint24(newPtr_);
         claimRecord_.bondInstructions = new LibBonds.BondInstruction[](bondInstructionsLength);
-        for (uint256 i = 0; i < bondInstructionsLength; i++) {
+        for (uint256 i; i < bondInstructionsLength; ++i) {
             (claimRecord_.bondInstructions[i], newPtr_) = _decodeBondInstruction(newPtr_);
         }
     }
