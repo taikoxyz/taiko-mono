@@ -31,6 +31,8 @@ jobs:
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
       contents: write
+    env:
+      FOUNDRY_DISABLE_NIGHTLY_WARNING: 1
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.12.1
@@ -112,6 +114,8 @@ jobs:
     permissions:
       # Give the necessary permissions for stefanzweifel/git-auto-commit-action.
       contents: write
+    env:
+      FOUNDRY_DISABLE_NIGHTLY_WARNING: 1
     steps:
       - name: Cancel previous runs
         uses: styfle/cancel-workflow-action@0.12.1
