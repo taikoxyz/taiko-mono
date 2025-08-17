@@ -18,11 +18,7 @@ contract InboxFinalization is InboxTest {
     // Override setupMockAddresses to use actual mock contracts instead of makeAddr
 
     function setupMockAddresses() internal override {
-        bondToken = address(new MockERC20());
-        syncedBlockManager = address(new StubSyncedBlockManager());
-        forcedInclusionStore = address(new StubForcedInclusionStore());
-        proofVerifier = address(new StubProofVerifier());
-        proposerChecker = address(new StubProposerChecker());
+        setupMockAddresses(true); // Use real mock contracts for finalization tests
     }
     /// @notice Test finalizing a single proposal
     /// @dev Validates complete single proposal finalization flow:

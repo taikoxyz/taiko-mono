@@ -22,11 +22,7 @@ contract InboxChainAdvancement is InboxTest {
 
     // Override setupMockAddresses to use actual mock contracts
     function setupMockAddresses() internal override {
-        bondToken = address(new MockERC20());
-        syncedBlockManager = address(new StubSyncedBlockManager());
-        forcedInclusionStore = address(new StubForcedInclusionStore());
-        proofVerifier = address(new StubProofVerifier());
-        proposerChecker = address(new StubProposerChecker());
+        setupMockAddresses(true); // Use real mock contracts for chain advancement tests
     }
 
     /// @notice Test sequential chain advancement through finalization
