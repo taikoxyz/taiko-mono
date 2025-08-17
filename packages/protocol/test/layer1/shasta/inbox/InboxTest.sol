@@ -958,7 +958,7 @@ abstract contract InboxTest is CommonTest {
         setupProposalMocks(_proposer);
         setupBlobHashes();
         
-        IInbox.BlobReference memory blobRef = InboxTestLib.createBlobReference(uint8(_proposalId));
+        LibBlobs.BlobReference memory blobRef = InboxTestLib.createBlobReference(uint8(_proposalId));
         console.log("\nBlob reference:");
         console.log("  blobStartIndex:", blobRef.blobStartIndex);
         console.log("  numBlobs:", blobRef.numBlobs);
