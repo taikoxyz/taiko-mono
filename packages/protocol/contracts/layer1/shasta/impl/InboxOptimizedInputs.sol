@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./InboxOptimized.sol";
+import "../libs/LibProposeDataDecoder.sol";
 
 /// @title InboxOptimized
 /// @notice Combines slot reuse and claim aggregation optimizations for the Inbox contract
@@ -34,7 +35,7 @@ abstract contract InboxOptimizedInputs is InboxOptimized {
             ClaimRecord[] memory claimRecords_
         )
     {
-        return super.decodeProposeData(_data);
+        return LibProposeDataDecoder.decode(_data);
     }
 
     /// @inheritdoc Inbox

@@ -46,7 +46,7 @@ library LibProvedEventEncoder {
         ptr = P.packUint16(ptr, uint16(_record.bondInstructions.length));
 
         // Encode each bond instruction
-        for (uint256 i = 0; i < _record.bondInstructions.length; i++) {
+        for (uint256 i; i < _record.bondInstructions.length; ++i) {
             ptr = P.packUint48(ptr, _record.bondInstructions[i].proposalId);
             ptr = P.packUint8(ptr, uint8(_record.bondInstructions[i].bondType));
             ptr = P.packAddress(ptr, _record.bondInstructions[i].payer);
@@ -82,7 +82,7 @@ library LibProvedEventEncoder {
 
         // Decode bond instructions
         record_.bondInstructions = new LibBonds.BondInstruction[](arrayLength);
-        for (uint256 i = 0; i < arrayLength; i++) {
+        for (uint256 i ; i < arrayLength; ++i) {
             (record_.bondInstructions[i].proposalId, ptr) = P.unpackUint48(ptr);
 
             uint8 bondTypeValue;
