@@ -268,7 +268,7 @@ library LibProposeDataDecoder {
             // CoreState: 6 + 6 + 32 + 32 = 76 bytes
             // BlobReference: 2 + 2 + 3 = 7 bytes
             // Arrays lengths: 3 + 3 = 6 bytes
-            size_ = 32 + 76 + 7 + 6;
+            size_ = 121;
             
             // Proposals - each has fixed size + variable blob hashes
             // Fixed proposal fields: 6 + 20 + 6 + 6 + 1 + 1 + 32 = 72
