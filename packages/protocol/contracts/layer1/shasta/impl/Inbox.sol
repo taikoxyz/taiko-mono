@@ -128,7 +128,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         _validateProposeInputs(deadline, coreState, parentProposals);
 
         // Verify parentProposals[0] is actually the last proposal stored on-chain.
-        _verifyChainTip(config, parentProposals);
+        _verifyChainHead(config, parentProposals);
 
         // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
         coreState = _finalize(config, coreState, claimRecords);
@@ -583,10 +583,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Verifies that parentProposals[0] is the chain tip (last proposal)
+    /// @dev Verifies that parentProposals[0] is the chain head (last proposal)
     /// @param _config The configuration parameters.
     /// @param _parentProposals The parent proposals array to verify (1-2 elements).
-    function _verifyChainTip(
+    function _verifyChainHead(
         Config memory _config,
         Proposal[] memory _parentProposals
     )
@@ -596,7 +596,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         // First verify parentProposals[0] matches what's stored on-chain
         _checkProposalHash(_config, _parentProposals[0]);
 
-        // Then verify it's actually the chain tip
+        // Then verify it's actually the chain head
         bytes32 storedNextProposalHash =
             _proposalRecord(_config, _parentProposals[0].id + 1).proposalHash;
 
