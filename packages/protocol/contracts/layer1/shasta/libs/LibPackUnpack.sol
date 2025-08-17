@@ -164,13 +164,14 @@ library LibPackUnpack {
     // ---------------------------------------------------------------
 
     /// @notice Unpack uint8 (1 byte) from position
-    /// @dev Reads single byte from memory. No validation of data availability.
+    /// @dev Optimized to use shift operation instead of byte operation.
     /// @param _pos Absolute memory position to read from
     /// @return value_ The unpacked uint8 value
     /// @return newPos_ Updated position after reading (pos + 1)
     function unpackUint8(uint256 _pos) internal pure returns (uint8 value_, uint256 newPos_) {
         assembly {
-            value_ := byte(0, mload(_pos))
+            // Load full word and shift right by 248 bits (31 bytes) to get the 1 byte we need
+            value_ := shr(248, mload(_pos))
             newPos_ := add(_pos, 1)
         }
     }
@@ -202,17 +203,14 @@ library LibPackUnpack {
     }
 
     /// @notice Unpack uint32 (4 bytes) from position using big-endian encoding
-    /// @dev Reads 4 bytes and reconstructs uint32 from big-endian format.
+    /// @dev Optimized to use 1 mload operation instead of 4 byte reads.
     /// @param _pos Absolute memory position to read from
     /// @return value_ The unpacked uint32 value
     /// @return newPos_ Updated position after reading (pos + 4)
     function unpackUint32(uint256 _pos) internal pure returns (uint32 value_, uint256 newPos_) {
         assembly {
-            value_ :=
-                or(
-                    or(shl(24, byte(0, mload(_pos))), shl(16, byte(0, mload(add(_pos, 1))))),
-                    or(shl(8, byte(0, mload(add(_pos, 2)))), byte(0, mload(add(_pos, 3))))
-                )
+            // Load full word and shift right by 224 bits (28 bytes) to get the 4 bytes we need
+            value_ := shr(224, mload(_pos))
             newPos_ := add(_pos, 4)
         }
     }
