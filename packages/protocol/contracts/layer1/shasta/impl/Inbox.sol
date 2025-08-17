@@ -52,22 +52,27 @@ abstract contract Inbox is EssentialContract, IInbox {
     }
 
     // ---------------------------------------------------------------
-    // State Variables
+    // State Variables for compatibility with Pacaya inbox.
     // ---------------------------------------------------------------
 
-    // 5 slots are used by the State object defined in Pacaya inbox:
+    // 6 slots are used by the State object defined in Pacaya inbox:
     // mapping(uint256 batchId_mod_batchRingBufferSize => Batch batch) batches;
     // mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
     // mapping(uint256 batchId_mod_batchRingBufferSize => mapping(uint24 transitionId =>
     //         TransitionState ts)) transitions;
     // bytes32 __reserve1;
     // Stats1 stats1;
-    uint256[5] private __slotsUsedByPacaya;
+    // Stats2 stats2;
+    uint256[6] private __slotsUsedByPacaya;
 
-    // Reserved slot for future migration compatibility
-    uint256 private __reservedSlot;
-
+    /// @notice Bond balance for each account used in Pacaya inbox.
+    /// @dev This is not used in Shasta. It is kept so users can withdraw their bond.
+    /// @dev Bonds are now handled entirely on L2, by the `BondManager` contract.
     mapping(address account => uint256 bond) public bondBalance;
+
+    // ---------------------------------------------------------------
+    // State Variables for Shasta inbox.
+    // ---------------------------------------------------------------
 
     /// @dev Ring buffer for storing proposal records.
     mapping(uint256 bufferSlot => ProposalRecord proposalRecord) private _proposalRingBuffer;
@@ -106,6 +111,10 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IInbox
+    /// @dev This function handles both forced inclusions and regular proposals:
+    ///      - If a forced inclusion is due, it processes exactly one (the oldest) before the
+    /// regular proposal
+    ///      - Forced inclusions are only processed when due, they cannot be processed early.
     function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         Config memory config = getConfig();
 
@@ -116,25 +125,27 @@ abstract contract Inbox is EssentialContract, IInbox {
         (
             uint64 deadline,
             CoreState memory coreState,
-            Proposal[] memory proposals,
+            Proposal[] memory parentProposals,
             LibBlobs.BlobReference memory blobReference,
             ClaimRecord[] memory claimRecords
         ) = decodeProposeData(_data);
 
-        _validateProposeInputs(deadline, coreState, proposals);
+        _validateProposeInputs(deadline, coreState, parentProposals);
 
-        // Validate proposals against storage
-        _checkProposalHash(config, proposals[0]);
-        _verifyLastProposal(config, proposals);
+        // Verify parentProposals[0] is actually the last proposal stored on-chain.
+        _verifyChainHead(config, parentProposals);
 
-        // Finalize proved proposals to make room for new ones
+        // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
         coreState = _finalize(config, coreState, claimRecords);
 
         // Verify capacity for new proposals
-        _verifyCapacity(config, coreState);
+        uint256 availableCapacity = _getAvailableCapacity(config, coreState);
+        require(availableCapacity > 0, ExceedsUnfinalizedProposalCapacity());
 
-        // Process forced inclusion if required
-        coreState = _processForcedInclusion(config, coreState);
+        if (availableCapacity > 1) {
+            // Process forced inclusion if required
+            coreState = _processForcedInclusion(config, coreState);
+        }
 
         // Create regular proposal
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(blobReference);
@@ -189,7 +200,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         uint48 _proposalId,
         bytes32 _parentClaimHash
     )
-        public
+        external
         view
         returns (bytes32 claimRecordHash_)
     {
@@ -199,7 +210,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     /// @notice Gets the capacity for unfinalized proposals.
     /// @return _ The maximum number of unfinalized proposals that can exist.
-    function getCapacity() public view returns (uint256) {
+    function getCapacity() external view returns (uint256) {
         Config memory config = getConfig();
         return _getCapacity(config);
     }
@@ -210,11 +221,23 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @return _ The configuration struct
     function getConfig() public view virtual returns (Config memory);
 
-    /// @notice Decodes data into CoreState, BlobReference array, and ClaimRecord array
+    /// @notice Decodes proposal data
     /// @param _data The encoded data
-    /// @return deadline_ The decoded deadline
-    /// @return coreState_ The decoded CoreState
-    /// @return proposals_ The decoded array of Proposals
+    /// @return deadline_ The decoded deadline timestamp. If non-zero, the transaction will revert
+    /// if included after this time,
+    ///                   protecting proposers from their transactions landing on-chain later than
+    /// intended
+    /// @return coreState_ The decoded CoreState representing the current state before this new
+    /// proposal.
+    ///                    Its hash must match the coreStateHash stored in proposals_[0]
+    /// @return parentProposals_ The decoded array of existing proposals for validation. Always
+    /// contains 1 or 2 elements:
+    ///                         - parentProposals_[0]: The last proposal on-chain (must match stored
+    /// hash)
+    ///                         - parentProposals_[1]: Only present for ring buffer wraparound -
+    /// when the next slot
+    ///                                              contains an older proposal (with smaller ID)
+    /// that must be validated
     /// @return blobReference_ The decoded BlobReference
     /// @return claimRecords_ The decoded array of ClaimRecords
     function decodeProposeData(bytes calldata _data)
@@ -224,12 +247,12 @@ abstract contract Inbox is EssentialContract, IInbox {
         returns (
             uint64 deadline_,
             CoreState memory coreState_,
-            Proposal[] memory proposals_,
+            Proposal[] memory parentProposals_,
             LibBlobs.BlobReference memory blobReference_,
             ClaimRecord[] memory claimRecords_
         )
     {
-        (deadline_, coreState_, proposals_, blobReference_, claimRecords_) = abi.decode(
+        (deadline_, coreState_, parentProposals_, blobReference_, claimRecords_) = abi.decode(
             _data, (uint64, CoreState, Proposal[], LibBlobs.BlobReference, ClaimRecord[])
         );
     }
@@ -418,6 +441,25 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
+    /// @dev Gets the available capacity for new proposals.
+    /// @param _config The configuration parameters.
+    /// @param _coreState The core state.
+    /// @return _ The available capacity for new proposals.
+    function _getAvailableCapacity(
+        Config memory _config,
+        CoreState memory _coreState
+    )
+        private
+        pure
+        returns (uint256)
+    {
+        unchecked {
+            uint256 numUnfinalizedProposals =
+                _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
+            return _getCapacity(_config) - numUnfinalizedProposals;
+        }
+    }
+
     /// @dev Gets the claim record hash for a given proposal and parent claim.
     function _getClaimRecordHash(
         Config memory _config,
@@ -472,36 +514,29 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
 
     /// @dev Validates the basic inputs for propose function
-    /// @param _deadline The deadline for the proposal.
-    /// @param _coreState The core state.
-    /// @param _proposals The proposals array.
+    /// @param _deadline The deadline timestamp for transaction inclusion (0 = no deadline).
+    /// @param _coreState The current core state before this proposal, which must match the previous
+    /// proposal's stored hash.
+    /// @param _parentProposals Array of existing proposals for validation (1-2 elements).
+    ///                        parentProposals[0] is the last proposal, parentProposals[1] handles
+    /// ring buffer wraparound.
     function _validateProposeInputs(
         uint64 _deadline,
         CoreState memory _coreState,
-        Proposal[] memory _proposals
+        Proposal[] memory _parentProposals
     )
         private
         view
     {
         require(_deadline == 0 || block.timestamp <= _deadline, DeadlineExceeded());
-        require(_proposals.length > 0, EmptyProposals());
-        require(_hashCoreState(_coreState) == _proposals[0].coreStateHash, InvalidState());
-    }
-
-    /// @dev Verifies that new proposals won't exceed capacity
-    /// @param _config The configuration parameters.
-    /// @param _coreState The core state.
-    function _verifyCapacity(Config memory _config, CoreState memory _coreState) private pure {
-        require(
-            _coreState.nextProposalId <= _getCapacity(_config) + _coreState.lastFinalizedProposalId,
-            ExceedsUnfinalizedProposalCapacity()
-        );
+        require(_parentProposals.length > 0, EmptyProposals());
+        require(_hashCoreState(_coreState) == _parentProposals[0].coreStateHash, InvalidState());
     }
 
     /// @dev Processes forced inclusion if required
     /// @param _config The configuration parameters.
     /// @param _coreState The core state.
-    /// @return The updated core state.
+    /// @return  The updated core state or the same core state if no forced inclusion is due.
     function _processForcedInclusion(
         Config memory _config,
         CoreState memory _coreState
@@ -558,35 +593,46 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Verifies the proposal is the last one proposed
+    /// @dev Verifies that parentProposals[0] is the chain head (last proposal)
     /// @param _config The configuration parameters.
-    /// @param _proposals The proposals array to verify.
-    function _verifyLastProposal(
+    /// @param _parentProposals The parent proposals array to verify (1-2 elements).
+    function _verifyChainHead(
         Config memory _config,
-        Proposal[] memory _proposals
+        Proposal[] memory _parentProposals
     )
         private
         view
     {
-        bytes32 storedNextProposalHash = _proposalRecord(_config, _proposals[0].id + 1).proposalHash;
+        // First verify parentProposals[0] matches what's stored on-chain
+        _checkProposalHash(_config, _parentProposals[0]);
+
+        // Then verify it's actually the chain head
+        bytes32 storedNextProposalHash =
+            _proposalRecord(_config, _parentProposals[0].id + 1).proposalHash;
 
         if (storedNextProposalHash == bytes32(0)) {
-            // Next slot is empty, only one proposal expected
-            require(_proposals.length == 1, IncorrectProposalCount());
+            // Next slot in the ring buffer is empty, only one proposal expected
+            require(_parentProposals.length == 1, IncorrectProposalCount());
         } else {
-            // Next slot is occupied, need to prove it contains a smaller proposal id
-            require(_proposals.length == 2, IncorrectProposalCount());
-            require(_proposals[1].id < _proposals[0].id, NextProposalIdSmallerThanLastProposalId());
-            _checkProposalHash(_config, _proposals[1]);
+            // Next slot in the ring buffer is occupied, need to prove it contains a smaller
+            // proposal id
+            require(_parentProposals.length == 2, IncorrectProposalCount());
+            require(
+                _parentProposals[1].id < _parentProposals[0].id,
+                NextProposalIdSmallerThanLastProposalId()
+            );
+            _checkProposalHash(_config, _parentProposals[1]);
         }
     }
 
     /// @dev Proposes a new proposal of L2 blocks.
     /// @param _config The configuration parameters.
-    /// @param _coreState The core state of the inbox.
+    /// @param _coreState The core state of the inbox (potentially updated by finalization/forced
+    /// inclusion).
+    ///                   This state's hash will be stored in the new proposal.
     /// @param _blobSlice The blob slice of the proposal.
     /// @param _isForcedInclusion Whether the proposal is a forced inclusion.
-    /// @return  _ The updated core state.
+    /// @return The updated core state.
     function _propose(
         Config memory _config,
         CoreState memory _coreState,
