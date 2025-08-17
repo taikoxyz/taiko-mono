@@ -941,9 +941,8 @@ abstract contract InboxTest is CommonTest {
         returns (IInbox.CoreState memory coreState)
     {
         coreState = _getGenesisCoreState();
-        if (_proposalId > 1) {
-            coreState.nextProposalId = _proposalId;
-        }
+        // nextProposalId should be the ID of the NEXT proposal after this one
+        coreState.nextProposalId = _proposalId + 1;
     }
 
     /// @dev Helper function to encode proposal data with correct validation proposals
