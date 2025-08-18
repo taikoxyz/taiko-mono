@@ -5,15 +5,15 @@ import "./CommonTest.sol";
 
 /// @title ForkTestBase
 /// @notice Base contract for fork testing
-/// @dev Each test gets a fresh copy of state after setUp(), so fork IDs 
+/// @dev Each test gets a fresh copy of state after setUp(), so fork IDs
 /// created in setUp() can be reused within a single test via selectFork()
 abstract contract ForkTestBase is CommonTest {
     // Fork IDs - created once in setUp() if needed
     uint256 internal mainnetFork;
-    
+
     // RPC URL environment variable name
     string constant MAINNET_RPC_KEY = "MAINNET_RPC_URL";
-    
+
     /// @notice Modifier to skip tests when mainnet RPC URL is not available
     modifier requiresMainnetFork() {
         try vm.envString(MAINNET_RPC_KEY) returns (string memory) {
@@ -23,7 +23,7 @@ abstract contract ForkTestBase is CommonTest {
             vm.skip(true);
         }
     }
-    
+
     /// @notice Create a mainnet fork at a specific block
     /// @dev Call this in setUp() if your tests need a mainnet fork
     /// @param blockNumber The block number to fork at
@@ -31,14 +31,14 @@ abstract contract ForkTestBase is CommonTest {
         string memory rpcUrl = vm.envString(MAINNET_RPC_KEY);
         mainnetFork = vm.createFork(rpcUrl, blockNumber);
     }
-    
+
     /// @notice Create a mainnet fork at latest block
     /// @dev Call this in setUp() if your tests need a mainnet fork
     function _createMainnetFork() internal requiresMainnetFork {
         string memory rpcUrl = vm.envString(MAINNET_RPC_KEY);
         mainnetFork = vm.createFork(rpcUrl);
     }
-    
+
     /// @notice Select the mainnet fork
     /// @dev Use this in tests to switch to the mainnet fork created in setUp()
     function _selectMainnetFork() internal {

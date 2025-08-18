@@ -52,7 +52,6 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         uint64[] memory batchIds =
             _proposeBatchesWithDefaultParameters({ numBatchesToPropose: 1, txList: txList });
 
-
         vm.prank(Alice);
         _proveBatchesWithCorrectTransitions(batchIds);
     }

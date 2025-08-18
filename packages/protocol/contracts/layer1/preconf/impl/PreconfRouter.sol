@@ -53,7 +53,6 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         return _proposeBatch(_params, _txList);
     }
 
-
     function _proposeBatch(
         bytes calldata _params,
         bytes calldata _txList

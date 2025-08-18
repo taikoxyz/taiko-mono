@@ -84,7 +84,8 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         nonReentrant
         returns (ITaikoInbox.BatchMetadata memory meta_)
     {
-        (bytes memory forcedInclusionBytes, bytes memory regularBatchBytes) = abi.decode(_params, (bytes, bytes));
+        (bytes memory forcedInclusionBytes, bytes memory regularBatchBytes) =
+            abi.decode(_params, (bytes, bytes));
 
         if (forcedInclusionBytes.length == 0) {
             require(!forcedInclusionStore.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
@@ -96,9 +97,12 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         meta_ = inbox.proposeBatch(regularBatchBytes, _txList);
 
         if (forcedInclusionBytes.length > 0) {
-            // we validate the forced inclusion params here since we now have access to the proposer of the regular batch
+            // we validate the forced inclusion params here since we now have access to the proposer
+            // of the regular batch
             // this way we avoid decoding the regular batch params here.
-            _validateForcedInclusionParams(forcedInclusionStore, forcedInclusionBytes, meta_.proposer);
+            _validateForcedInclusionParams(
+                forcedInclusionStore, forcedInclusionBytes, meta_.proposer
+            );
         }
     }
 
