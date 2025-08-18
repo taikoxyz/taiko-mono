@@ -233,7 +233,7 @@ contract InboxRingBuffer is InboxTest {
         parentProposals[1] = genesisProposal;
 
         setupProposalMocks(Alice);
-        bytes memory data3 = abi.encode(
+        bytes memory data3 = encodeProposalDataWithProposals(
             uint64(0), // deadline
             coreState3,
             parentProposals,
