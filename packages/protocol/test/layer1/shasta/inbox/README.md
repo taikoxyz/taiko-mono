@@ -244,7 +244,7 @@ pnpm snapshot:l1
 
 ### Expected Optimizations
 
-| Operation | Core → Opt1 | Core → Opt2 | Core → Opt3 |
+| Operation | Base → Opt1 | Base → Opt2 | Base → Opt3 |
 | --------- | ----------- | ----------- | ----------- |
 | Propose   | ~10-15%     | ~20-30%     | ~30-50%     |
 | Prove     | ~5-10%      | ~15-25%     | ~20-40%     |
@@ -284,12 +284,6 @@ INBOX=base FOUNDRY_PROFILE=layer1 forge test --debug test_name
 forge inspect Inbox storage-layout
 forge inspect InboxOptimized3 storage-layout
 ```
-
-## Additional Documentation
-
-- [Implementation Guide](./INBOX_IMPLEMENTATION_GUIDE.md) - Detailed behavior expectations
-- [Test Documentation](./INBOX_TEST_DOCUMENTATION.md) - Comprehensive test descriptions
-- [Refactoring Recommendations](./REFACTORING_RECOMMENDATIONS.md) - Future improvements
 
 ## Contributing
 

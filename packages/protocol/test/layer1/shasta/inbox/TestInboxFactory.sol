@@ -35,7 +35,7 @@ contract TestInboxFactory {
     {
         address impl;
 
-        if (_type == InboxType.Core) {
+        if (_type == InboxType.Base) {
             impl = address(new TestInboxCore());
         } else if (_type == InboxType.Optimized1) {
             impl = address(new TestInboxOptimized1());
@@ -61,6 +61,6 @@ contract TestInboxFactory {
         // Note: Solidity cannot directly read environment variables
         // Tests will need to handle this at the test level using vm.envOr
         // This function is here for documentation and can be overridden
-        return InboxType.Core;
+        return InboxType.Base;
     }
 }

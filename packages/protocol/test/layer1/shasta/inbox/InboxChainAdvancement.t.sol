@@ -653,7 +653,7 @@ contract InboxChainAdvancement is InboxTest {
     ///      Core implementation doesn't aggregate, so we skip it there.
     function test_prove_three_consecutive_and_finalize_all_aggregated() public {
         // Skip this test for Core implementation as it doesn't support aggregation
-        if (inboxType == TestInboxFactory.InboxType.Core) {
+        if (inboxType == TestInboxFactory.InboxType.Base) {
             vm.skip(true);
             return;
         }
@@ -902,7 +902,7 @@ contract InboxChainAdvancement is InboxTest {
     /// @dev Core Inbox stores each claim record separately even when proved together
     function test_prove_three_consecutive_core_no_aggregation() public {
         // This test is specifically for Core implementation behavior
-        if (inboxType != TestInboxFactory.InboxType.Core) {
+        if (inboxType != TestInboxFactory.InboxType.Base) {
             vm.skip(true);
             return;
         }

@@ -158,7 +158,7 @@ abstract contract InboxTest is CommonTest {
         string memory inboxTypeStr = vm.envOr("INBOX", string("base"));
 
         if (keccak256(bytes(inboxTypeStr)) == keccak256(bytes("base"))) {
-            return TestInboxFactory.InboxType.Core;
+            return TestInboxFactory.InboxType.Base;
         } else if (keccak256(bytes(inboxTypeStr)) == keccak256(bytes("opt1"))) {
             return TestInboxFactory.InboxType.Optimized1;
         } else if (keccak256(bytes(inboxTypeStr)) == keccak256(bytes("opt2"))) {
@@ -170,7 +170,7 @@ abstract contract InboxTest is CommonTest {
             emit log_string(
                 string(abi.encodePacked("Unknown INBOX: ", inboxTypeStr, ", defaulting to base"))
             );
-            return TestInboxFactory.InboxType.Core;
+            return TestInboxFactory.InboxType.Base;
         }
     }
 

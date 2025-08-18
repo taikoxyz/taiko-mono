@@ -150,8 +150,8 @@ library InboxTestAdapter {
         pure
         returns (string memory)
     {
-        if (_inboxType == TestInboxFactory.InboxType.Core) {
-            return "Inbox (Core)";
+        if (_inboxType == TestInboxFactory.InboxType.Base) {
+            return "Inbox (base)";
         } else if (_inboxType == TestInboxFactory.InboxType.Optimized1) {
             return "InboxOptimized1";
         } else if (_inboxType == TestInboxFactory.InboxType.Optimized2) {
