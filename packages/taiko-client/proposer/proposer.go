@@ -91,6 +91,9 @@ func (p *Proposer) InitFromConfig(
 	p.Config = cfg
 	p.lastProposedAt = time.Now()
 	p.checkProfitability = cfg.CheckProfitability
+	if p.checkProfitability {
+		log.Info("Profitability checking enabled - blocks proposed only if fees exceed costs", "checkProfitability", true)
+	}
 
 	// RPC clients
 	if p.rpc, err = rpc.NewClient(p.ctx, cfg.ClientConfig); err != nil {
@@ -278,7 +281,7 @@ func (p *Proposer) monitorBridgeMessages() {
 			log.Error("Subscription error", "error", err)
 			return
 		case txHash := <-pendingTxs:
-			log.Debug("New pending transaction detected", "hash", txHash.Hex())
+			log.Trace("New pending transaction detected", "hash", txHash.Hex())
 
 			// Skip if we already have this transaction
 			p.bridgeMsgMu.RLock()
@@ -298,20 +301,20 @@ func (p *Proposer) monitorBridgeMessages() {
 			// Skip if transaction is no longer pending (as in, has been mined already) because with the fast
 			// L1-to-L2 bridging, proposer will propose the sendMessage transactions as part of its block
 			if !isPending {
-				log.Debug("Transaction is no longer pending", "hash", txHash.Hex())
+				log.Trace("Transaction is no longer pending", "hash", txHash.Hex())
 				continue
 			}
 
 			// Check if transaction is to Bridge contract
 			if tx.To() == nil || *tx.To() != p.Config.ClientConfig.BridgeAddress {
-				log.Debug("Transaction is not to Bridge contract", "hash", txHash.Hex())
+				log.Trace("Transaction is not to Bridge contract", "hash", txHash.Hex())
 				continue
 			}
 
 			// Check if transaction data starts with sendMessage selector
 			if len(tx.Data()) < 4 || !bytes.Equal(tx.Data()[:4], sendMessageMethod.ID) {
-				log.Debug("Transaction data does not start with sendMessage selector", "hash", txHash.Hex())
-				log.Debug("Transaction data comparison",
+				log.Trace("Transaction data does not start with sendMessage selector", "hash", txHash.Hex())
+				log.Trace("Transaction data comparison",
 					"hash", txHash.Hex(),
 					"actual", common.BytesToHash(tx.Data()[:4]).Hex(),
 					"expected", common.BytesToHash(sendMessageMethod.ID).Hex())
