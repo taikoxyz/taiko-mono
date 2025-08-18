@@ -34,6 +34,7 @@ contracts_layer1=(
 "contracts/layer1/mainnet/multirollup/MainnetERC1155Vault.sol:MainnetERC1155Vault"
 "contracts/layer1/mainnet/multirollup/MainnetERC721Vault.sol:MainnetERC721Vault"
 "contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"
+"contracts/layer1/shasta/impl/ShastaInbox.sol:ShastaInbox"
 "contracts/layer1/team/TokenUnlock.sol:TokenUnlock"
 "contracts/layer1/provers/ProverSet.sol:ProverSet"
 "contracts/layer1/fork-router/ForkRouter.sol:ForkRouter"
@@ -52,7 +53,7 @@ contracts_layer2=(
 "contracts/layer2/token/BridgedTaikoToken.sol:BridgedTaikoToken"
 "contracts/layer2/hekla/DelegateOwner.sol:DelegateOwner"
 "contracts/layer2/mainnet/DelegateController.sol:DelegateController"
-"contracts/layer2/based/anchor/TaikoAnchor.sol:TaikoAnchor"
+"contracts/layer2/based/TaikoAnchor.sol:TaikoAnchor"
 )
 
 profile=$1

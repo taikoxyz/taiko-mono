@@ -2,16 +2,11 @@
 pragma solidity ^0.8.24;
 
 import "./Inbox.sol";
-import "../libs/LibCodec.sol";
 
-/// @title InboxOptimized
-/// @notice Combines slot reuse and claim aggregation optimizations for the Inbox contract
-/// @dev This contract merges the optimizations from InboxWithSlotReuse and
-/// InboxWithClaimAggregation
-/// to provide both storage optimization through slot reuse and gas optimization through claim
-/// aggregation
+/// @title InboxOptimized1
+/// @notice Inbox optimized to allow slot reuse and claim aggregation.
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxOptimized is Inbox {
+abstract contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -19,69 +14,16 @@ abstract contract InboxOptimized is Inbox {
     bytes32 private constant _DEFAULT_SLOT_HASH = bytes32(uint256(1));
 
     // ---------------------------------------------------------------
+    // State Variables
+    // ---------------------------------------------------------------
+
+    uint256[50] private __gap;
+
+    // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
     constructor() Inbox() { }
-
-    // ---------------------------------------------------------------
-    // External Functions
-    // ---------------------------------------------------------------
-
-    /// @dev Decodes the proposed event data that was encoded
-    /// @param _data The encoded data
-    /// @return proposal_ The decoded proposal
-    /// @return coreState_ The decoded core state
-    function decodeProposedEventData(bytes memory _data)
-        external
-        pure
-        returns (Proposal memory proposal_, CoreState memory coreState_)
-    {
-        return LibCodec.decodeProposedEventData(_data);
-    }
-
-    /// @dev Decodes the prove event data that was encoded
-    /// @param _data The encoded data
-    /// @return claimRecord_ The decoded claim record
-    function decodeProveEventData(bytes memory _data)
-        external
-        pure
-        returns (ClaimRecord memory claimRecord_)
-    {
-        return LibCodec.decodeProveEventData(_data);
-    }
-
-    // ---------------------------------------------------------------
-    // Public Functions
-    // ---------------------------------------------------------------
-
-    /// @dev Encodes the proposed event data for gas optimization
-    /// @param _proposal The proposal to encode
-    /// @param _coreState The core state to encode
-    /// @return The encoded data
-    function encodeProposedEventData(
-        Proposal memory _proposal,
-        CoreState memory _coreState
-    )
-        public
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibCodec.encodeProposedEventData(_proposal, _coreState);
-    }
-
-    /// @dev Encodes the proved event data for gas optimization
-    /// @param _claimRecord The claim record to encode
-    /// @return The encoded data
-    function encodeProveEventData(ClaimRecord memory _claimRecord)
-        public
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibCodec.encodeProveEventData(_claimRecord);
-    }
 
     // ---------------------------------------------------------------
     // Internal Functions - Overrides
@@ -127,6 +69,7 @@ abstract contract InboxOptimized is Inbox {
 
         // Process remaining proposals
         for (uint256 i = 1; i < _proposals.length; ++i) {
+            require(_claims[i].parentClaimHash != _DEFAULT_SLOT_HASH, InvalidParentClaimHash());
             _validateClaim(_config, _proposals[i], _claims[i]);
 
             // Check if current proposal can be aggregated with the previous group
@@ -203,8 +146,8 @@ abstract contract InboxOptimized is Inbox {
         override
         returns (bytes32 claimRecordHash_)
     {
-        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
-        ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
+        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
+        ExtendedClaimRecord storage record = _claimHashLookup[bufferSlot][_DEFAULT_SLOT_HASH];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =
             _decodeSlotReuseMarker(record.slotReuseMarker);
@@ -219,7 +162,7 @@ abstract contract InboxOptimized is Inbox {
         }
 
         // Otherwise check the direct mapping
-        return proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash;
+        return _claimHashLookup[bufferSlot][_parentClaimHash].claimRecordHash;
     }
 
     /// @dev Sets the claim record hash for a given proposal and parent claim.
@@ -233,8 +176,8 @@ abstract contract InboxOptimized is Inbox {
         internal
         override
     {
-        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
-        ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
+        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
+        ExtendedClaimRecord storage record = _claimHashLookup[bufferSlot][_DEFAULT_SLOT_HASH];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =
             _decodeSlotReuseMarker(record.slotReuseMarker);
@@ -249,7 +192,7 @@ abstract contract InboxOptimized is Inbox {
             record.claimRecordHash = _claimRecordHash;
         } else {
             // Same proposal ID but different parent claim hash, use direct mapping
-            proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash = _claimRecordHash;
+            _claimHashLookup[bufferSlot][_parentClaimHash].claimRecordHash = _claimRecordHash;
         }
     }
 
@@ -290,4 +233,10 @@ abstract contract InboxOptimized is Inbox {
     {
         return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error InvalidParentClaimHash();
 }
