@@ -33,7 +33,7 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
     /// @param claimRecords_ The array of claim records.
     /// @return Encoded bytes of the propose data.
     function encodeProposeData(
-        uint64 deadline_,
+        uint48 deadline_,
         CoreState memory coreState_,
         Proposal[] memory proposals_,
         LibBlobs.BlobReference memory blobReference_,
@@ -73,7 +73,7 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
         pure
         override
         returns (
-            uint64 deadline_,
+            uint48 deadline_,
             CoreState memory coreState_,
             Proposal[] memory proposals_,
             LibBlobs.BlobReference memory blobReference_,

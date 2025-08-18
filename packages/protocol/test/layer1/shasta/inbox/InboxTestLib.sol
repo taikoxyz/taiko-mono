@@ -372,7 +372,7 @@ library InboxTestLib {
         returns (bytes memory)
     {
         return _encodeProposalDataInternal(
-            uint64(0), _coreState, new IInbox.Proposal[](0), _blobRef, _claimRecords
+            uint48(0), _coreState, new IInbox.Proposal[](0), _blobRef, _claimRecords
         );
     }
 
@@ -419,7 +419,7 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        return encodeProposalDataWithGenesis(uint64(0), _coreState, _blobRef, _claimRecords);
+        return encodeProposalDataWithGenesis(uint48(0), _coreState, _blobRef, _claimRecords);
     }
 
     /// @dev Encodes proposal data for the first proposal after genesis with custom deadline
@@ -451,7 +451,7 @@ library InboxTestLib {
         returns (bytes memory)
     {
         return
-            _encodeProposalDataInternal(uint64(0), _coreState, _proposals, _blobRef, _claimRecords);
+            _encodeProposalDataInternal(uint48(0), _coreState, _proposals, _blobRef, _claimRecords);
     }
 
     /// @dev Encodes proposal data with deadline and specific proposals for validation
@@ -586,7 +586,7 @@ library InboxTestLib {
         returns (bytes memory)
     {
         return encodeProposalDataForSubsequent(
-            uint64(0), _coreState, _previousProposal, _blobRef, _claimRecords
+            uint48(0), _coreState, _previousProposal, _blobRef, _claimRecords
         );
     }
 
@@ -625,7 +625,7 @@ library InboxTestLib {
         proposals[0] = _lastProposal; // The last proposal being validated
         proposals[1] = _nextSlotProposal; // The proposal in the next slot
         return
-            _encodeProposalDataInternal(uint64(0), _coreState, proposals, _blobRef, _claimRecords);
+            _encodeProposalDataInternal(uint48(0), _coreState, proposals, _blobRef, _claimRecords);
     }
 
     // ---------------------------------------------------------------
