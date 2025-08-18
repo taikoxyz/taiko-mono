@@ -1,19 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxOptimized } from "./InboxOptimized.sol";
+import { InboxOptimized2 } from "./InboxOptimized2.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
 
-/// @title MainnetInbox
+/// @title ShastaInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
 /// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetInbox is InboxOptimized {
+contract ShastaInbox is InboxOptimized2 {
+    // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    /// @dev Ring buffer size for storing proposal hashes.
+    /// This value is inherited from the Pacaya fork as we are reusing the same slots.
+    uint64 private constant _RING_BUFFER_SIZE = 360_000;
+
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized() { }
+    constructor() InboxOptimized2() { }
 
     // ---------------------------------------------------------------
     // External/Public Functions
@@ -37,7 +45,7 @@ contract MainnetInbox is InboxOptimized {
             provingWindow: 2 hours,
             extendedProvingWindow: 4 hours,
             maxFinalizationCount: 16,
-            ringBufferSize: 2400,
+            ringBufferSize: _RING_BUFFER_SIZE,
             basefeeSharingPctg: 0,
             syncedBlockManager: address(0),
             proofVerifier: address(0),

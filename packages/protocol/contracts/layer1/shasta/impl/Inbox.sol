@@ -40,44 +40,35 @@ abstract contract Inbox is EssentialContract, IInbox {
         uint256 slotReuseMarker;
     }
 
-    /// @notice Stores proposal data and associated claim records.
-    /// @dev Each proposal can have multiple claims associated with it, indexed by a composite key
-    /// of proposal ID and parent claim hash.
-    struct ProposalRecord {
-        /// @dev Hash of the proposal data
-        bytes32 proposalHash;
-        /// @dev Maps composite keys (keccak256(proposalId, parentClaimHash)) to their corresponding
-        /// claim record hashes
-        mapping(bytes32 compositeKey => ExtendedClaimRecord claimRecordHash) claimHashLookup;
-    }
-
     // ---------------------------------------------------------------
-    // State Variables for compatibility with Pacaya inbox.
+    // State Variables
     // ---------------------------------------------------------------
 
-    // 6 slots are used by the State object defined in Pacaya inbox:
-    // mapping(uint256 batchId_mod_batchRingBufferSize => Batch batch) batches;
-    // mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId)) transitionIds;
-    // mapping(uint256 batchId_mod_batchRingBufferSize => mapping(uint24 transitionId =>
-    //         TransitionState ts)) transitions;
-    // bytes32 __reserve1;
-    // Stats1 stats1;
-    // Stats2 stats2;
-    uint256[6] private __slotsUsedByPacaya;
+    /// @dev Ring buffer for storing proposal hashes.
+    /// This variable reuse the `batches slot in pacaya fork.
+    mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
+
+    /// @dev This variable is no long used.
+    mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId)) private
+        __transitionIdsPacaya;
+
+    /// @dev Ring buffer for storing claim records.
+    /// This variable reuse the `transitions` slot in pacaya fork.
+    mapping(uint256 bufferSlot => mapping(bytes32 compositeKey => ExtendedClaimRecord record))
+        internal _claimHashLookup;
+
+    /// @dev Deprecated slots used by Pacaya inbox that contains:
+    /// - `__reserve1`
+    /// - `stats1`
+    /// - `stats2`
+    uint256[3] private __slotsUsedByPacaya;
 
     /// @notice Bond balance for each account used in Pacaya inbox.
     /// @dev This is not used in Shasta. It is kept so users can withdraw their bond.
     /// @dev Bonds are now handled entirely on L2, by the `BondManager` contract.
     mapping(address account => uint256 bond) public bondBalance;
 
-    // ---------------------------------------------------------------
-    // State Variables for Shasta inbox.
-    // ---------------------------------------------------------------
-
-    /// @dev Ring buffer for storing proposal records.
-    mapping(uint256 bufferSlot => ProposalRecord proposalRecord) private _proposalRingBuffer;
-
-    uint256[42] private __gap;
+    uint256[43] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -148,7 +139,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
 
         // Create regular proposal
-        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(blobReference);
+        LibBlobs.BlobSlice memory blobSlice =
+            LibBlobs.validateBlobReference(blobReference, _getBlobHash);
         _propose(config, coreState, blobSlice, false);
     }
 
@@ -188,8 +180,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
     function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_) {
         Config memory config = getConfig();
-        ProposalRecord storage proposalRecord = _proposalRecord(config, _proposalId);
-        proposalHash_ = proposalRecord.proposalHash;
+        uint256 bufferSlot = _proposalId % config.ringBufferSize;
+        proposalHash_ = _proposalHashes[bufferSlot];
     }
 
     /// @notice Gets the claim record hash for a given proposal and parent claim.
@@ -336,6 +328,15 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
+    /// @dev Gets the hash of a blob index.
+    /// @param _blobIndex The blob index to hash.
+    /// @return _ The hash of the blob index.
+    /// @dev This function is virtual so that it can be overridden by subcontracts to provide their
+    /// specific blob hash function.
+    function _getBlobHash(uint256 _blobIndex) internal view virtual returns (bytes32) {
+        return blobhash(_blobIndex);
+    }
+
     /// @dev Validates that a claim is valid for a given proposal.
     /// @param _config The configuration parameters.
     /// @param _proposal The proposal to validate.
@@ -413,7 +414,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     )
         internal
     {
-        _proposalRecord(_config, _proposalId).proposalHash = _proposalHash;
+        _proposalHashes[_proposalId % _config.ringBufferSize] = _proposalHash;
     }
 
     /// @dev Sets the claim record hash for a given proposal and parent claim.
@@ -426,9 +427,9 @@ abstract contract Inbox is EssentialContract, IInbox {
         internal
         virtual
     {
-        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
+        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         bytes32 compositeKey = _composeClaimKey(_proposalId, _parentClaimHash);
-        proposalRecord.claimHashLookup[compositeKey].claimRecordHash = _claimRecordHash;
+        _claimHashLookup[bufferSlot][compositeKey].claimRecordHash = _claimRecordHash;
     }
 
     /// @dev Gets the capacity for unfinalized proposals.
@@ -471,42 +472,26 @@ abstract contract Inbox is EssentialContract, IInbox {
         virtual
         returns (bytes32 claimRecordHash_)
     {
-        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
+        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         bytes32 compositeKey = _composeClaimKey(_proposalId, _parentClaimHash);
-        claimRecordHash_ = proposalRecord.claimHashLookup[compositeKey].claimRecordHash;
+        claimRecordHash_ = _claimHashLookup[bufferSlot][compositeKey].claimRecordHash;
     }
 
     /// @dev Checks if a proposal matches the stored hash and reverts if not.
     /// @param _config The configuration parameters.
     /// @param _proposal The proposal to check.
+    /// @return proposalHash_ The hash of the proposal.
     function _checkProposalHash(
         Config memory _config,
         Proposal memory _proposal
     )
         internal
         view
-        returns (bytes32)
+        returns (bytes32 proposalHash_)
     {
-        bytes32 proposalHash = _hashProposal(_proposal);
-        bytes32 storedHash = _proposalRecord(_config, _proposal.id).proposalHash;
-        require(proposalHash == storedHash, ProposalHashMismatch());
-        return proposalHash;
-    }
-
-    /// @dev Reads a proposal record from the ring buffer at the specified proposal ID.
-    /// @param _config The configuration parameters.
-    /// @param _proposalId The proposal ID to read.
-    /// @return _ The proposal record at the calculated buffer slot.
-    function _proposalRecord(
-        Config memory _config,
-        uint48 _proposalId
-    )
-        internal
-        view
-        returns (ProposalRecord storage)
-    {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        return _proposalRingBuffer[bufferSlot];
+        proposalHash_ = _hashProposal(_proposal);
+        bytes32 storedProposalHash = _proposalHashes[_proposal.id % _config.ringBufferSize];
+        require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
 
     // ---------------------------------------------------------------
@@ -607,8 +592,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         _checkProposalHash(_config, _parentProposals[0]);
 
         // Then verify it's actually the chain head
-        bytes32 storedNextProposalHash =
-            _proposalRecord(_config, _parentProposals[0].id + 1).proposalHash;
+        uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _config.ringBufferSize;
+        bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
 
         if (storedNextProposalHash == bytes32(0)) {
             // Next slot in the ring buffer is empty, only one proposal expected
