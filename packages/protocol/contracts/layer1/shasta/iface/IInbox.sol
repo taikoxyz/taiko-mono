@@ -117,4 +117,29 @@ interface IInbox {
     /// @param _data The data containing the proposals and claims to be proven.
     /// @param _proof Validity proof for the claims.
     function prove(bytes calldata _data, bytes calldata _proof) external;
+
+    // ---------------------------------------------------------------
+    // External View Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Returns the proposal hash for a given proposal ID.
+    /// @param _proposalId The proposal ID to look up.
+    /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
+    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
+
+    /// @notice Returns the claim record hash for a given proposal ID and parent claim hash.
+    /// @param _proposalId The proposal ID.
+    /// @param _parentClaimHash The parent claim hash.
+    /// @return claimRecordHash_ The hash of the claim record.
+    function getClaimRecordHash(
+        uint48 _proposalId,
+        bytes32 _parentClaimHash
+    )
+        external
+        view
+        returns (bytes32 claimRecordHash_);
+
+    /// @notice Gets the capacity for unfinalized proposals.
+    /// @return The maximum number of unfinalized proposals that can exist.
+    function getCapacity() external view returns (uint256);
 }
