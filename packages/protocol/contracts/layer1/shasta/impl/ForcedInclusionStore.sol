@@ -83,7 +83,8 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     {
         require(msg.value == feeInGwei * 1 gwei, IncorrectFee());
 
-        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_blobReference);
+        LibBlobs.BlobSlice memory blobSlice =
+            LibBlobs.validateBlobReference(_blobReference, _blobhash);
         ForcedInclusion memory inclusion =
             ForcedInclusion({ feeInGwei: feeInGwei, blobSlice: blobSlice });
 
@@ -133,6 +134,13 @@ contract ForcedInclusionStore is EssentialContract, IForcedInclusionStore {
         unchecked {
             return uint256(lastProcessedAt).max(inclusion.blobSlice.timestamp) + inclusionDelay;
         }
+    }
+
+    // -------------------------------------------------------------------
+    // Private Functions
+    // -------------------------------------------------------------------
+    function _blobhash(uint256 _blobIndex) private view returns (bytes32) {
+        return blobhash(_blobIndex);
     }
 
     // -------------------------------------------------------------------

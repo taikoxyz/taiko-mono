@@ -74,6 +74,55 @@ library InboxTestLib {
     }
 
     // ---------------------------------------------------------------
+    // Assertion Helpers
+    // ---------------------------------------------------------------
+
+    /// @dev Asserts that a chain of proposals and claims is valid
+    function assertChainIntegrity(ProposalChain memory _chain) internal pure {
+        require(_chain.proposals.length == _chain.claims.length, "Chain length mismatch");
+
+        bytes32 currentParent = _chain.initialParentHash;
+        for (uint256 i = 0; i < _chain.claims.length; i++) {
+            require(_chain.claims[i].parentClaimHash == currentParent, "Invalid parent chain");
+            currentParent = hashClaim(_chain.claims[i]);
+        }
+
+        require(currentParent == _chain.finalClaimHash, "Final claim hash mismatch");
+    }
+
+    /// @dev Asserts that finalization completed correctly
+    function assertFinalizationComplete(
+        IInbox.CoreState memory _expectedState,
+        IInbox.CoreState memory _actualState
+    )
+        internal
+        pure
+    {
+        require(
+            _actualState.lastFinalizedProposalId == _expectedState.lastFinalizedProposalId,
+            "Last finalized ID mismatch"
+        );
+        require(
+            _actualState.lastFinalizedClaimHash == _expectedState.lastFinalizedClaimHash,
+            "Last finalized claim hash mismatch"
+        );
+    }
+
+    /// @dev Asserts ring buffer state is as expected
+    function assertRingBufferState(
+        uint256 _expectedCapacity,
+        uint256 _actualCapacity,
+        uint48 _expectedUnfinalized,
+        uint48 _actualUnfinalized
+    )
+        internal
+        pure
+    {
+        require(_actualCapacity == _expectedCapacity, "Capacity mismatch");
+        require(_actualUnfinalized == _expectedUnfinalized, "Unfinalized count mismatch");
+    }
+
+    // ---------------------------------------------------------------
     // Proposal Creation
     // ---------------------------------------------------------------
 
