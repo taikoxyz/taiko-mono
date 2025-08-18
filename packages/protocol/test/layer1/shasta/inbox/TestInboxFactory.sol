@@ -14,7 +14,7 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 contract TestInboxFactory {
     /// @notice The type of Inbox implementation to deploy
     enum InboxType {
-        Core,
+        Base,
         Optimized1,
         Optimized2,
         Optimized3
