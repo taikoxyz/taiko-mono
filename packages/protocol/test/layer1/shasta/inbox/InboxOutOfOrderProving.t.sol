@@ -72,8 +72,8 @@ contract InboxOutOfOrderProving is InboxTest {
                 validationProposals[0] = proposals[i - 2]; // Previous proposal
             }
 
-            bytes memory proposalData = abi.encode(
-                uint64(0),
+            bytes memory proposalData = encodeProposalDataWithProposals(
+                uint48(0),
                 proposalCoreState,
                 validationProposals,
                 proposalBlobRef,
@@ -148,7 +148,7 @@ contract InboxOutOfOrderProving is InboxTest {
             IInbox.Claim[] memory proveClaims = new IInbox.Claim[](1);
             proveClaims[0] = claims[index];
 
-            bytes memory proveData = abi.encode(proveProposals, proveClaims);
+            bytes memory proveData = encodeProveData(proveProposals, proveClaims);
             bytes memory proof = bytes("valid_proof");
 
             vm.prank(Bob);
@@ -197,8 +197,9 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.Proposal[] memory finalValidationProposals = new IInbox.Proposal[](1);
         finalValidationProposals[0] = proposals[numProposals - 1];
 
-        bytes memory proposeData =
-            abi.encode(uint64(0), coreState, finalValidationProposals, blobRef, claimRecords);
+        bytes memory proposeData = encodeProposalDataWithProposals(
+            uint48(0), coreState, finalValidationProposals, blobRef, claimRecords
+        );
 
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
@@ -240,8 +241,8 @@ contract InboxOutOfOrderProving is InboxTest {
             bytes memory proposalData;
             if (i == 1) {
                 // First proposal needs genesis for validation
-                proposalData = InboxTestLib.encodeProposalDataWithGenesis(
-                    uint64(0), proposalCoreState, proposalBlobRef, emptyClaimRecords
+                proposalData = encodeProposalDataWithGenesis(
+                    uint48(0), proposalCoreState, proposalBlobRef, emptyClaimRecords
                 );
             } else {
                 // For subsequent proposals, we need to create the previous proposal structure
@@ -258,8 +259,8 @@ contract InboxOutOfOrderProving is InboxTest {
                     )
                 );
 
-                proposalData = InboxTestLib.encodeProposalDataForSubsequent(
-                    uint64(0), proposalCoreState, prevProposal, proposalBlobRef, emptyClaimRecords
+                proposalData = encodeProposalDataForSubsequent(
+                    uint48(0), proposalCoreState, prevProposal, proposalBlobRef, emptyClaimRecords
                 );
             }
 
@@ -316,7 +317,7 @@ contract InboxOutOfOrderProving is InboxTest {
             IInbox.Claim[] memory proveClaims = new IInbox.Claim[](1);
             proveClaims[0] = claim;
 
-            bytes memory proveData = abi.encode(proveProposals, proveClaims);
+            bytes memory proveData = encodeProveData(proveProposals, proveClaims);
             vm.prank(Bob);
             inbox.prove(proveData, bytes("proof"));
         }
@@ -372,8 +373,8 @@ contract InboxOutOfOrderProving is InboxTest {
             )
         );
 
-        bytes memory proposeData = InboxTestLib.encodeProposalDataForSubsequent(
-            uint64(0), coreState, lastProposal, blobRef, claimRecords
+        bytes memory proposeData = encodeProposalDataForSubsequent(
+            uint48(0), coreState, lastProposal, blobRef, claimRecords
         );
 
         vm.prank(Carol);

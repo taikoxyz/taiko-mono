@@ -4,11 +4,11 @@ pragma solidity ^0.8.24;
 import { InboxOptimized2 } from "./InboxOptimized2.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
 
-/// @title ShastaInbox
+/// @title MainnetShastaInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
 /// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract ShastaInbox is InboxOptimized2 {
+contract MainnetShastaInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
