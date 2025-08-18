@@ -81,6 +81,14 @@ interface IInbox {
         uint48 nextProposalId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
+        /// @notice Block in which the last proposal was proposed.
+        uint48 lastProposedIn;
+        /// @notice Timestamp at which the last proposal was proposed.
+        uint48 lastProposedAt;
+        /// @notice Block in which the last fanilization occurred.
+        uint48 lastFinalizedIn;
+        /// @notice Timestamp at which the last fanilization occurred.
+        uint48 lastFinalized;
         /// @notice The hash of the last finalized claim.
         bytes32 lastFinalizedClaimHash;
         /// @notice The hash of all bond instructions.
