@@ -69,6 +69,7 @@ abstract contract InboxOptimized1 is Inbox {
 
         // Process remaining proposals
         for (uint256 i = 1; i < _proposals.length; ++i) {
+            require(_claims[i].parentClaimHash != _DEFAULT_SLOT_HASH, InvalidParentClaimHash());
             _validateClaim(_config, _proposals[i], _claims[i]);
 
             // Check if current proposal can be aggregated with the previous group
@@ -145,8 +146,8 @@ abstract contract InboxOptimized1 is Inbox {
         override
         returns (bytes32 claimRecordHash_)
     {
-        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
-        ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
+        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
+        ExtendedClaimRecord storage record = _claimHashLookup[bufferSlot][_DEFAULT_SLOT_HASH];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =
             _decodeSlotReuseMarker(record.slotReuseMarker);
@@ -161,7 +162,7 @@ abstract contract InboxOptimized1 is Inbox {
         }
 
         // Otherwise check the direct mapping
-        return proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash;
+        return _claimHashLookup[bufferSlot][_parentClaimHash].claimRecordHash;
     }
 
     /// @dev Sets the claim record hash for a given proposal and parent claim.
@@ -175,8 +176,8 @@ abstract contract InboxOptimized1 is Inbox {
         internal
         override
     {
-        ProposalRecord storage proposalRecord = _proposalRecord(_config, _proposalId);
-        ExtendedClaimRecord storage record = proposalRecord.claimHashLookup[_DEFAULT_SLOT_HASH];
+        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
+        ExtendedClaimRecord storage record = _claimHashLookup[bufferSlot][_DEFAULT_SLOT_HASH];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =
             _decodeSlotReuseMarker(record.slotReuseMarker);
@@ -191,7 +192,7 @@ abstract contract InboxOptimized1 is Inbox {
             record.claimRecordHash = _claimRecordHash;
         } else {
             // Same proposal ID but different parent claim hash, use direct mapping
-            proposalRecord.claimHashLookup[_parentClaimHash].claimRecordHash = _claimRecordHash;
+            _claimHashLookup[bufferSlot][_parentClaimHash].claimRecordHash = _claimRecordHash;
         }
     }
 
@@ -232,4 +233,10 @@ abstract contract InboxOptimized1 is Inbox {
     {
         return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error InvalidParentClaimHash();
 }
