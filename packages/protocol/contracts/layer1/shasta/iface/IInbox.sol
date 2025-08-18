@@ -5,7 +5,7 @@ import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title IInbox
-/// @notice Interface for the ShastaInbox contract
+/// @notice Interface for the Shasta inbox contracts
 /// @custom:security-contact security@taiko.xyz
 interface IInbox {
     /// @notice Configuration parameters for the Inbox contract
