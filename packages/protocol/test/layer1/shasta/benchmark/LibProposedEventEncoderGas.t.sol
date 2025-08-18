@@ -192,6 +192,7 @@ contract LibProposedEventEncoderGas is Test {
             proposer: address(0x1234567890123456789012345678901234567890),
             originTimestamp: 1_700_000_000,
             originBlockNumber: 18_000_000,
+            originBlockHash: bytes32(uint256(18_000_000)),
             isForcedInclusion: false,
             basefeeSharingPctg: 75,
             blobSlice: LibBlobs.BlobSlice({

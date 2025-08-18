@@ -91,7 +91,8 @@ contract InboxOutOfOrderProving is InboxTest {
                 id: i,
                 proposer: Alice,
                 originTimestamp: uint48(block.timestamp),
-                originBlockNumber: uint48(block.number),
+                originBlockNumber: uint48(block.number - 1),
+                originBlockHash: blockhash(block.number - 1),
                 isForcedInclusion: false,
                 basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
                 blobSlice: LibBlobs.BlobSlice({
@@ -287,7 +288,8 @@ contract InboxOutOfOrderProving is InboxTest {
                 id: i,
                 proposer: Alice,
                 originTimestamp: uint48(block.timestamp),
-                originBlockNumber: uint48(block.number),
+                originBlockNumber: uint48(block.number - 1),
+                originBlockHash: blockhash(block.number - 1),
                 isForcedInclusion: false,
                 basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
                 blobSlice: LibBlobs.BlobSlice({

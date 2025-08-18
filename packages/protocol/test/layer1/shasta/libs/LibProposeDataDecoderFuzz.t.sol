@@ -79,6 +79,7 @@ contract LibProposeDataDecoderFuzz is Test {
             proposer: proposer,
             originTimestamp: originTimestamp,
             originBlockNumber: originBlockNumber,
+            originBlockHash: bytes32(uint256(originBlockNumber)),
             isForcedInclusion: isForcedInclusion,
             basefeeSharingPctg: basefeeSharingPctg,
             blobSlice: LibBlobs.BlobSlice({
@@ -213,6 +214,7 @@ contract LibProposeDataDecoderFuzz is Test {
                 proposer: address(uint160(0x1000 + i)),
                 originTimestamp: uint48(1_000_000 + i),
                 originBlockNumber: uint48(5_000_000 + i),
+                originBlockHash: bytes32(uint256(5_000_000 + i)),
                 isForcedInclusion: i % 2 == 0,
                 basefeeSharingPctg: uint8(50 + i),
                 blobSlice: LibBlobs.BlobSlice({
@@ -376,6 +378,7 @@ contract LibProposeDataDecoderFuzz is Test {
                 proposer: address(uint160(0x1000 + i)),
                 originTimestamp: uint48(1_000_000 + i * 10),
                 originBlockNumber: uint48(5_000_000 + i * 10),
+                originBlockHash: bytes32(uint256(5_000_000 + i * 10)),
                 isForcedInclusion: i % 2 == 0,
                 basefeeSharingPctg: uint8(50 + i * 10),
                 blobSlice: LibBlobs.BlobSlice({

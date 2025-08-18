@@ -106,7 +106,14 @@ abstract contract Inbox is EssentialContract, IInbox {
     ///      - If a forced inclusion is due, it processes exactly one (the oldest) before the
     /// regular proposal
     ///      - Forced inclusions are only processed when due, they cannot be processed early.
-    function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
+    function propose(
+        bytes calldata,
+        /*_lookahead*/
+        bytes calldata _data
+    )
+        external
+        nonReentrant
+    {
         Config memory config = getConfig();
 
         // Validate proposer
@@ -627,21 +634,26 @@ abstract contract Inbox is EssentialContract, IInbox {
         private
         returns (CoreState memory)
     {
-        Proposal memory proposal = Proposal({
-            id: _coreState.nextProposalId++,
-            proposer: msg.sender,
-            originTimestamp: uint48(block.timestamp),
-            originBlockNumber: uint48(block.number),
-            isForcedInclusion: _isForcedInclusion,
-            basefeeSharingPctg: _config.basefeeSharingPctg,
-            blobSlice: _blobSlice,
-            coreStateHash: _hashCoreState(_coreState)
-        });
+        unchecked {
+            uint256 parentBlockNumber = block.number - 1;
 
-        _setProposalHash(_config, proposal.id, _hashProposal(proposal));
-        emit Proposed(encodeProposedEventData(proposal, _coreState));
+            Proposal memory proposal = Proposal({
+                id: _coreState.nextProposalId++,
+                proposer: msg.sender,
+                originTimestamp: uint48(block.timestamp),
+                originBlockNumber: uint48(parentBlockNumber),
+                originBlockHash: blockhash(parentBlockNumber),
+                isForcedInclusion: _isForcedInclusion,
+                basefeeSharingPctg: _config.basefeeSharingPctg,
+                blobSlice: _blobSlice,
+                coreStateHash: _hashCoreState(_coreState)
+            });
 
-        return _coreState;
+            _setProposalHash(_config, proposal.id, _hashProposal(proposal));
+            emit Proposed(encodeProposedEventData(proposal, _coreState));
+
+            return _coreState;
+        }
     }
 
     /// @dev Finalizes proposals by verifying claim records and updating state.

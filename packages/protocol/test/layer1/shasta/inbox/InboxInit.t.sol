@@ -68,6 +68,7 @@ contract InboxInit is InboxTest {
             proposer: address(0),
             originTimestamp: 0,
             originBlockNumber: 0,
+            originBlockHash: bytes32(0),
             isForcedInclusion: false,
             basefeeSharingPctg: 0,
             blobSlice: LibBlobs.BlobSlice({ blobHashes: new bytes32[](0), offset: 0, timestamp: 0 }),

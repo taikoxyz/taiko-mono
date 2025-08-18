@@ -179,6 +179,7 @@ contract LibProveDataDecoderGas is Test {
                 proposer: address(uint160(0x1000 + i)),
                 originTimestamp: uint48(1_000_000 + i * 10),
                 originBlockNumber: uint48(5_000_000 + i * 10),
+                originBlockHash: bytes32(uint256(5_000_000 + i * 10)),
                 isForcedInclusion: i % 2 == 0,
                 basefeeSharingPctg: uint8(50 + i * 10),
                 blobSlice: LibBlobs.BlobSlice({

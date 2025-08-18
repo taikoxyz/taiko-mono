@@ -110,6 +110,10 @@ abstract contract InboxTest is CommonTest {
     function setUp() public virtual override {
         super.setUp();
 
+        // Advance block by 1 to ensure block.number > 0 for all inbox tests
+        // This avoids issues with blockhash(block.number - 1) returning 0
+        vm.roll(block.number + 1);
+
         setupMockAddresses();
         deployInbox();
         setupDefaultConfig();
@@ -310,6 +314,7 @@ abstract contract InboxTest is CommonTest {
             proposer: _builder.proposer,
             originTimestamp: uint48(block.timestamp),
             originBlockNumber: uint48(block.number),
+            originBlockHash: blockhash(block.number - 1),
             isForcedInclusion: _builder.isForcedInclusion,
             basefeeSharingPctg: _builder.basefeeSharingPctg,
             blobSlice: _builder.blobSlice,
@@ -517,6 +522,7 @@ abstract contract InboxTest is CommonTest {
             proposer: _config.proposer,
             originTimestamp: uint48(block.timestamp),
             originBlockNumber: uint48(block.number),
+            originBlockHash: blockhash(block.number - 1),
             isForcedInclusion: _config.isForcedInclusion,
             basefeeSharingPctg: _config.basefeeSharingPctg,
             blobSlice: LibBlobs.BlobSlice({
@@ -1303,7 +1309,9 @@ abstract contract InboxTest is CommonTest {
         proposal.id = _proposalId;
         proposal.proposer = Alice; // Default test proposer
         proposal.originTimestamp = uint48(block.timestamp);
-        proposal.originBlockNumber = uint48(block.number);
+        // The contract stores parentBlockNumber which is block.number - 1
+        proposal.originBlockNumber = uint48(block.number - 1);
+        proposal.originBlockHash = blockhash(block.number - 1);
         proposal.isForcedInclusion = false;
         proposal.basefeeSharingPctg = DEFAULT_BASEFEE_SHARING_PCTG;
 
@@ -1339,7 +1347,9 @@ abstract contract InboxTest is CommonTest {
         proposal.id = _proposalId;
         proposal.proposer = _proposer;
         proposal.originTimestamp = uint48(block.timestamp);
-        proposal.originBlockNumber = uint48(block.number);
+        // The contract stores parentBlockNumber which is block.number - 1
+        proposal.originBlockNumber = uint48(block.number - 1);
+        proposal.originBlockHash = blockhash(block.number - 1);
         proposal.isForcedInclusion = false;
         proposal.basefeeSharingPctg = DEFAULT_BASEFEE_SHARING_PCTG;
 

@@ -32,6 +32,8 @@ interface IInbox {
         uint48 originTimestamp;
         /// @notice The L1 block number when the proposal was accepted.
         uint48 originBlockNumber;
+        /// @notice The hash of the origin block.
+        bytes32 originBlockHash;
         /// @notice Whether the proposal is from a forced inclusion.
         bool isForcedInclusion;
         /// @notice The percentage of base fee paid to coinbase.

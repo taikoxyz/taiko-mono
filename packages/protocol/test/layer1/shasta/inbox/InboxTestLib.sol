@@ -143,7 +143,8 @@ library InboxTestLib {
             id: _id,
             proposer: _proposer,
             originTimestamp: uint48(block.timestamp),
-            originBlockNumber: uint48(block.number),
+            originBlockNumber: uint48(block.number - 1),
+            originBlockHash: blockhash(block.number - 1),
             isForcedInclusion: false,
             basefeeSharingPctg: _basefeeSharingPctg,
             blobSlice: LibBlobs.BlobSlice({
@@ -170,7 +171,8 @@ library InboxTestLib {
             id: _id,
             proposer: _proposer,
             originTimestamp: uint48(block.timestamp),
-            originBlockNumber: uint48(block.number),
+            originBlockNumber: uint48(block.number - 1),
+            originBlockHash: blockhash(block.number - 1),
             isForcedInclusion: false,
             basefeeSharingPctg: _basefeeSharingPctg,
             blobSlice: LibBlobs.BlobSlice({

@@ -23,6 +23,7 @@ contract LibProposeDataDecoderTest is Test {
             proposer: address(0x1),
             originTimestamp: 1000,
             originBlockNumber: 100,
+            originBlockHash: bytes32(uint256(100)),
             isForcedInclusion: false,
             basefeeSharingPctg: 50,
             blobSlice: LibBlobs.BlobSlice({ blobHashes: new bytes32[](1), offset: 0, timestamp: 1000 }),
@@ -133,6 +134,7 @@ contract LibProposeDataDecoderTest is Test {
             proposer: address(0x1234),
             originTimestamp: 1_000_000,
             originBlockNumber: 5_000_000,
+            originBlockHash: bytes32(uint256(5_000_000)),
             isForcedInclusion: false,
             basefeeSharingPctg: 50,
             blobSlice: LibBlobs.BlobSlice({
@@ -150,6 +152,7 @@ contract LibProposeDataDecoderTest is Test {
             proposer: address(0x5678),
             originTimestamp: 1_000_010,
             originBlockNumber: 5_000_010,
+            originBlockHash: bytes32(uint256(5_000_010)),
             isForcedInclusion: true,
             basefeeSharingPctg: 75,
             blobSlice: LibBlobs.BlobSlice({
@@ -306,6 +309,7 @@ contract LibProposeDataDecoderTest is Test {
             proposer: address(0xabcd),
             originTimestamp: 999_999,
             originBlockNumber: 888_888,
+            originBlockHash: bytes32(uint256(888_888)),
             isForcedInclusion: true,
             basefeeSharingPctg: 100,
             blobSlice: LibBlobs.BlobSlice({
