@@ -61,12 +61,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     /// @notice Proposes a batch of blocks.
-    /// @param _params ABI-encoded BlockParams.
+    /// @param _params BatchParams struct containing batch parameters.
     /// @param _txList Transaction list in calldata. If the txList is empty, blob will be used for
     /// data availability.
     /// @return meta_ Metadata of the proposed batch, which is used for proving the batch.
     function proposeBatch(
-        bytes calldata _params,
+        BatchParams calldata _params,
         bytes calldata _txList
     )
         public
@@ -84,29 +84,35 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 TooManyBatches()
             );
 
-            BatchParams memory params = abi.decode(_params, (BatchParams));
+            // Only create variables for fields that get modified
+            address proposer;
+            address coinbase;
+            uint64 blobCreatedIn = _params.blobParams.createdIn;
 
             {
                 if (inboxWrapper == address(0)) {
-                    require(params.proposer == address(0), CustomProposerNotAllowed());
-                    params.proposer = msg.sender;
+                    require(_params.proposer == address(0), CustomProposerNotAllowed());
+                    proposer = msg.sender;
 
                     // blob hashes are only accepted if the caller is trusted.
-                    require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
-                    require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                    require(_params.blobParams.blobHashes.length == 0, InvalidBlobParams());
+                    require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
                 } else {
-                    require(params.proposer != address(0), CustomProposerMissing());
+                    require(_params.proposer != address(0), CustomProposerMissing());
                     require(msg.sender == inboxWrapper, NotInboxWrapper());
+                    proposer = _params.proposer;
                 }
 
                 // In the upcoming Shasta fork, we might need to enforce the coinbase address as the
                 // preconfer address. This will allow us to implement preconfirmation features in L2
                 // anchor transactions.
-                if (params.coinbase == address(0)) {
-                    params.coinbase = params.proposer;
+                if (_params.coinbase == address(0)) {
+                    coinbase = proposer;
+                } else {
+                    coinbase = _params.coinbase;
                 }
 
-                if (params.revertIfNotFirstProposal) {
+                if (_params.revertIfNotFirstProposal) {
                     require(state.stats2.lastProposedIn != block.number, NotFirstProposal());
                 }
             }
@@ -115,22 +121,22 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
 
             if (calldataUsed) {
                 // calldata is used for data availability
-                require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
-                require(params.blobParams.numBlobs == 0, InvalidBlobParams());
-                require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
-            } else if (params.blobParams.blobHashes.length == 0) {
+                require(_params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+                require(_params.blobParams.numBlobs == 0, InvalidBlobParams());
+                require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                require(_params.blobParams.blobHashes.length == 0, InvalidBlobParams());
+            } else if (_params.blobParams.blobHashes.length == 0) {
                 // this is a normal batch, blobs are created and used in the current batches.
                 // firstBlobIndex can be non-zero.
-                require(params.blobParams.numBlobs != 0, BlobNotSpecified());
-                require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                params.blobParams.createdIn = uint64(block.number);
+                require(_params.blobParams.numBlobs != 0, BlobNotSpecified());
+                require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                blobCreatedIn = uint64(block.number);
             } else {
                 // this is a forced-inclusion batch, blobs were created in early blocks and are used
                 // in the current batches
-                require(params.blobParams.createdIn != 0, InvalidBlobCreatedIn());
-                require(params.blobParams.numBlobs == 0, InvalidBlobParams());
-                require(params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+                require(_params.blobParams.createdIn != 0, InvalidBlobCreatedIn());
+                require(_params.blobParams.numBlobs == 0, InvalidBlobParams());
+                require(_params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
             }
 
             // Keep track of last batch's information.
@@ -138,7 +144,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 state.batches[(stats2.numBatches - 1) % config.batchRingBufferSize];
 
             (uint64 anchorBlockId, uint64 lastBlockTimestamp) = _validateBatchParams(
-                params,
+                _params,
                 config.maxAnchorHeightOffset,
                 config.maxSignalsToReceive,
                 config.maxBlocksPerBatch,
@@ -161,11 +167,11 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // Data to build L2 blocks
                 blobHashes: new bytes32[](0), // to be initialised later
                 extraData: bytes32(uint256(config.baseFeeConfig.sharingPctg)),
-                coinbase: params.coinbase,
+                coinbase: coinbase,
                 proposedIn: uint64(block.number),
-                blobCreatedIn: params.blobParams.createdIn,
-                blobByteOffset: params.blobParams.byteOffset,
-                blobByteSize: params.blobParams.byteSize,
+                blobCreatedIn: blobCreatedIn,
+                blobByteOffset: _params.blobParams.byteOffset,
+                blobByteSize: _params.blobParams.byteSize,
                 gasLimit: config.blockMaxGasLimit,
                 lastBlockId: 0, // to be initialised later
                 lastBlockTimestamp: lastBlockTimestamp,
@@ -179,15 +185,24 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             require(info_.anchorBlockHash != 0, ZeroAnchorBlockHash());
 
             info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
-                ? stats2.numBatches + uint64(params.blocks.length) - 1
-                : lastBatch.lastBlockId + uint64(params.blocks.length);
+                ? stats2.numBatches + uint64(_params.blocks.length) - 1
+                : lastBatch.lastBlockId + uint64(_params.blocks.length);
 
+            BlobParams memory blobParams = BlobParams({
+                blobHashes: _params.blobParams.blobHashes,
+                firstBlobIndex: _params.blobParams.firstBlobIndex,
+                numBlobs: _params.blobParams.numBlobs,
+                byteOffset: _params.blobParams.byteOffset,
+                byteSize: _params.blobParams.byteSize,
+                createdIn: blobCreatedIn
+            });
+            
             (info_.txsHash, info_.blobHashes) =
-                _calculateTxsHash(keccak256(_txList), params.blobParams);
+                _calculateTxsHash(keccak256(_txList), blobParams);
 
             meta_ = BatchMetadata({
                 infoHash: keccak256(abi.encode(info_)),
-                proposer: params.proposer,
+                proposer: proposer,
                 batchId: stats2.numBatches,
                 proposedAt: uint64(block.timestamp)
             });
@@ -206,7 +221,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             batch.reserved4 = 0;
             // SSTORE }}
 
-            _debitBond(params.proposer, config.livenessBondBase);
+            _debitBond(proposer, config.livenessBondBase);
 
             // SSTORE #3 {{
             batch.lastBlockId = info_.lastBlockId;
@@ -751,7 +766,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     }
 
     function _validateBatchParams(
-        BatchParams memory _params,
+        BatchParams calldata _params,
         uint64 _maxAnchorHeightOffset,
         uint8 _maxSignalsToReceive,
         uint16 _maxBlocksPerBatch,

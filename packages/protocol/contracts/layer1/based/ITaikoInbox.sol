@@ -295,16 +295,16 @@ interface ITaikoInbox {
     error ZeroAnchorBlockHash();
 
     /// @notice Proposes a batch of blocks.
-    /// @param _params ABI-encoded parameters.
+    /// @param _params BatchParams struct containing batch parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
     /// @return meta_ The metadata of the proposed batch.
     function proposeBatch(
-        bytes calldata _params,
+        BatchParams calldata _params,
         bytes calldata _txList
     )
         external
-        returns (ITaikoInbox.BatchMetadata memory meta_);
+        returns (BatchMetadata memory meta_);
 
     /// @notice Proves state transitions for multiple batches with a single aggregated proof.
     /// @param _params ABI-encoded parameter containing:

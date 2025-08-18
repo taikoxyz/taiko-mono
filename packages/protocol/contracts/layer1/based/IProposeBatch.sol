@@ -9,12 +9,12 @@ import "./ITaikoInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 interface IProposeBatch {
     /// @notice Proposes a batch of blocks.
-    /// @param _params ABI-encoded parameters.
+    /// @param _params BatchParams struct containing batch parameters.
     /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
     /// for data availability.
     /// @return meta_ The metadata of the proposed batch.
     function proposeBatch(
-        bytes calldata _params,
+        ITaikoInbox.BatchParams calldata _params,
         bytes calldata _txList
     )
         external
