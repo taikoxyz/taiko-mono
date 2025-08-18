@@ -70,7 +70,7 @@ InboxTest_ProposeAndProve:test_inbox_reprove_the_same_batch_with_same_transition
 InboxTest_ProposeAndProve:test_inbox_ring_buffer_will_be_reused() (gas: 6103715)
 InboxTest_ProposeAndProve:test_proposeBatch_reverts_for_invalid_proposer_and_operator() (gas: 161161)
 InboxTest_StopBatch:test_inbox_num_batches_verified() (gas: 3652217)
-PreconfRouterForkTest:test_preconfRouter_proposeBatch_L1Calldata_forked() (gas: 10941932)
+PreconfRouterForkTest:setUp() (gas: 0)
 PreconfRouterTest:test_preconfRouter_proposeBatch() (gas: 951071)
 PreconfRouterTest:test_preconfRouter_proposeBatch_notOperator() (gas: 324470)
 PreconfRouterTest:test_preconfRouter_proposeBatch_proposerNotSender() (gas: 630554)
