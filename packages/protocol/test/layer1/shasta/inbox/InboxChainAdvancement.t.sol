@@ -68,11 +68,11 @@ contract InboxChainAdvancement is InboxTest {
 
             bytes memory proposalData;
             if (i == 1) {
-                proposalData = InboxTestLib.encodeProposalDataWithGenesis(
+                proposalData = encodeProposalDataWithGenesis(
                     proposalCoreState, proposalBlobRef, emptyClaimRecords
                 );
             } else {
-                proposalData = InboxTestLib.encodeProposalDataForSubsequent(
+                proposalData = encodeProposalDataForSubsequent(
                     proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
                 );
             }
@@ -177,11 +177,11 @@ contract InboxChainAdvancement is InboxTest {
 
             bytes memory proposalData;
             if (i == 1) {
-                proposalData = InboxTestLib.encodeProposalDataWithGenesis(
+                proposalData = encodeProposalDataWithGenesis(
                     proposalCoreState, proposalBlobRef, emptyClaimRecords
                 );
             } else {
-                proposalData = InboxTestLib.encodeProposalDataForSubsequent(
+                proposalData = encodeProposalDataForSubsequent(
                     proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
                 );
             }
@@ -228,7 +228,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.Claim[] memory singleClaim = new IInbox.Claim[](1);
             singleClaim[0] = claims[i];
 
-            bytes memory proveData = abi.encode(singleProposal, singleClaim);
+            bytes memory proveData = encodeProveData(singleProposal, singleClaim);
             vm.prank(Bob);
             inbox.prove(proveData, bytes("proof"));
 
@@ -265,7 +265,7 @@ contract InboxChainAdvancement is InboxTest {
         vm.prank(Carol);
         inbox.propose(
             bytes(""),
-            InboxTestLib.encodeProposalDataForSubsequent(
+            encodeProposalDataForSubsequent(
                 coreState,
                 proposals[numProposals - 1], // Last proposal for validation
                 InboxTestLib.createBlobReference(uint8(numProposals + 1)),
@@ -307,11 +307,11 @@ contract InboxChainAdvancement is InboxTest {
 
             bytes memory proposalData;
             if (i == 1) {
-                proposalData = InboxTestLib.encodeProposalDataWithGenesis(
+                proposalData = encodeProposalDataWithGenesis(
                     proposalCoreState, proposalBlobRef, emptyClaimRecords
                 );
             } else {
-                proposalData = InboxTestLib.encodeProposalDataForSubsequent(
+                proposalData = encodeProposalDataForSubsequent(
                     proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
                 );
             }
@@ -376,7 +376,7 @@ contract InboxChainAdvancement is InboxTest {
         );
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(6);
-        bytes memory proposeData = InboxTestLib.encodeProposalDataForSubsequent(
+        bytes memory proposeData = encodeProposalDataForSubsequent(
             coreState, lastProposal, blobRef, claimRecords
         );
 
@@ -454,7 +454,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.Claim[] memory proveClaims = new IInbox.Claim[](1);
             proveClaims[0] = claims[i - 1];
 
-            bytes memory proveData = abi.encode(proveProposals, proveClaims);
+            bytes memory proveData = encodeProveData(proveProposals, proveClaims);
             vm.prank(Bob);
             inbox.prove(proveData, bytes("proof"));
         }
@@ -544,11 +544,11 @@ contract InboxChainAdvancement is InboxTest {
 
             bytes memory proposalData;
             if (i == 1) {
-                proposalData = InboxTestLib.encodeProposalDataWithGenesis(
+                proposalData = encodeProposalDataWithGenesis(
                     proposalCoreState, proposalBlobRef, emptyClaimRecords
                 );
             } else {
-                proposalData = InboxTestLib.encodeProposalDataForSubsequent(
+                proposalData = encodeProposalDataForSubsequent(
                     proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
                 );
             }
@@ -600,7 +600,7 @@ contract InboxChainAdvancement is InboxTest {
         // Core state will be validated by the contract during propose()
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
-        bytes memory proposeData = InboxTestLib.encodeProposalDataForSubsequent(
+        bytes memory proposeData = encodeProposalDataForSubsequent(
             coreState, proposals[numProposals - 1], blobRef, storedClaimRecords
         );
 
@@ -646,7 +646,7 @@ contract InboxChainAdvancement is InboxTest {
         claims[0] = claim;
 
         vm.prank(Alice);
-        inbox.prove(InboxTestLib.encodeProveData(proposals, claims), bytes("proof"));
+        inbox.prove(InboxTestAdapter.encodeProveData(inboxType, proposals, claims), bytes("proof"));
     }
 
     /// @notice Test proving 3 consecutive proposals together with bond instruction aggregation
@@ -691,11 +691,11 @@ contract InboxChainAdvancement is InboxTest {
 
             bytes memory proposalData;
             if (i == 1) {
-                proposalData = InboxTestLib.encodeProposalDataWithGenesis(
+                proposalData = encodeProposalDataWithGenesis(
                     proposalCoreState, proposalBlobRef, emptyClaimRecords
                 );
             } else {
-                proposalData = InboxTestLib.encodeProposalDataForSubsequent(
+                proposalData = encodeProposalDataForSubsequent(
                     proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
                 );
             }
@@ -749,7 +749,7 @@ contract InboxChainAdvancement is InboxTest {
 
         // Prove all 3 proposals together - they will be aggregated
         mockProofVerification(true);
-        bytes memory proveData = abi.encode(proposals, claims);
+        bytes memory proveData = encodeProveData(proposals, claims);
 
         // Create expected aggregated bond instructions for verification
         LibBonds.BondInstruction[] memory expectedBondInstructions =
@@ -886,7 +886,7 @@ contract InboxChainAdvancement is InboxTest {
 
         // Create next proposal with finalization
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
-        bytes memory proposeData = InboxTestLib.encodeProposalDataForSubsequent(
+        bytes memory proposeData = encodeProposalDataForSubsequent(
             coreState, lastProposal, blobRef, claimRecords
         );
 
@@ -936,11 +936,11 @@ contract InboxChainAdvancement is InboxTest {
 
             bytes memory proposalData;
             if (i == 1) {
-                proposalData = InboxTestLib.encodeProposalDataWithGenesis(
+                proposalData = encodeProposalDataWithGenesis(
                     proposalCoreState, proposalBlobRef, emptyClaimRecords
                 );
             } else {
-                proposalData = InboxTestLib.encodeProposalDataForSubsequent(
+                proposalData = encodeProposalDataForSubsequent(
                     proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
                 );
             }
@@ -989,7 +989,7 @@ contract InboxChainAdvancement is InboxTest {
 
         // Prove all 3 together - Core will NOT aggregate them
         mockProofVerification(true);
-        bytes memory proveData = abi.encode(proposals, claims);
+        bytes memory proveData = encodeProveData(proposals, claims);
         vm.prank(David);
         inbox.prove(proveData, bytes("proof"));
 
@@ -1047,7 +1047,7 @@ contract InboxChainAdvancement is InboxTest {
         });
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
-        bytes memory proposeData = InboxTestLib.encodeProposalDataForSubsequent(
+        bytes memory proposeData = encodeProposalDataForSubsequent(
             coreState, lastProposal, blobRef, claimRecords
         );
 
@@ -1092,11 +1092,11 @@ contract InboxChainAdvancement is InboxTest {
 
             bytes memory proposalData;
             if (i == 1) {
-                proposalData = InboxTestLib.encodeProposalDataWithGenesis(
+                proposalData = encodeProposalDataWithGenesis(
                     proposalCoreState, proposalBlobRef, emptyClaimRecords
                 );
             } else {
-                proposalData = InboxTestLib.encodeProposalDataForSubsequent(
+                proposalData = encodeProposalDataForSubsequent(
                     proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
                 );
             }
@@ -1146,7 +1146,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.Claim[] memory singleClaim = new IInbox.Claim[](1);
             singleClaim[0] = claims[i];
 
-            bytes memory proveData = abi.encode(singleProposal, singleClaim);
+            bytes memory proveData = encodeProveData(singleProposal, singleClaim);
             vm.prank(Bob);
             inbox.prove(proveData, bytes("proof"));
 
@@ -1190,7 +1190,7 @@ contract InboxChainAdvancement is InboxTest {
 
         // Create next proposal with finalization of all 3
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
-        bytes memory proposeData = InboxTestLib.encodeProposalDataForSubsequent(
+        bytes memory proposeData = encodeProposalDataForSubsequent(
             coreState, lastProposal, blobRef, claimRecords
         );
 

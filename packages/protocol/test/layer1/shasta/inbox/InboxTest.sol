@@ -1118,6 +1118,127 @@ abstract contract InboxTest is CommonTest {
         );
     }
 
+    /// @dev Wrapper for encodeProposalDataWithProposals that uses the adapter
+    function encodeProposalDataWithProposals(
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal[] memory _proposals,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
+        return InboxTestAdapter.encodeProposalData(
+            inboxType, uint64(0), _coreState, _proposals, _blobRef, _claimRecords
+        );
+    }
+
+    /// @dev Wrapper for encodeProposalDataWithProposals with deadline
+    function encodeProposalDataWithProposals(
+        uint64 _deadline,
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal[] memory _proposals,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
+        return InboxTestAdapter.encodeProposalData(
+            inboxType, _deadline, _coreState, _proposals, _blobRef, _claimRecords
+        );
+    }
+
+    /// @dev Wrapper for encodeProposalDataWithGenesis that uses the adapter
+    function encodeProposalDataWithGenesis(
+        IInbox.CoreState memory _coreState,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = InboxTestLib.createGenesisProposal(_coreState);
+        
+        return InboxTestAdapter.encodeProposalData(
+            inboxType, uint64(0), _coreState, proposals, _blobRef, _claimRecords
+        );
+    }
+
+    /// @dev Wrapper for encodeProposalDataWithGenesis with deadline
+    function encodeProposalDataWithGenesis(
+        uint64 _deadline,
+        IInbox.CoreState memory _coreState,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = InboxTestLib.createGenesisProposal(_coreState);
+        
+        return InboxTestAdapter.encodeProposalData(
+            inboxType, _deadline, _coreState, proposals, _blobRef, _claimRecords
+        );
+    }
+
+    /// @dev Wrapper for encodeProposalDataForSubsequent that uses the adapter
+    function encodeProposalDataForSubsequent(
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal memory _previousProposal,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = _previousProposal;
+        
+        return InboxTestAdapter.encodeProposalData(
+            inboxType, uint64(0), _coreState, proposals, _blobRef, _claimRecords
+        );
+    }
+
+    /// @dev Wrapper for encodeProposalDataForSubsequent with deadline
+    function encodeProposalDataForSubsequent(
+        uint64 _deadline,
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal memory _previousProposal,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = _previousProposal;
+        
+        return InboxTestAdapter.encodeProposalData(
+            inboxType, _deadline, _coreState, proposals, _blobRef, _claimRecords
+        );
+    }
+
+    /// @dev Wrapper for encoding prove data that uses the adapter
+    function encodeProveData(
+        IInbox.Proposal[] memory _proposals,
+        IInbox.Claim[] memory _claims
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
+        return InboxTestAdapter.encodeProveData(inboxType, _proposals, _claims);
+    }
+
     /// @dev Gets the genesis core state that was created during contract initialization
     function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
         IInbox.CoreState memory genesisCoreState;

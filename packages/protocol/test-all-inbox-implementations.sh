@@ -22,17 +22,38 @@ declare -a RESULTS=()
 # Function to run tests for an implementation
 run_tests() {
     local impl=$1
+    local display_name=""
+    
+    # Map implementation codes to display names
+    case $impl in
+        "base")
+            display_name="Inbox.sol"
+            ;;
+        "opt1")
+            display_name="InboxOptimized1.sol"
+            ;;
+        "opt2")
+            display_name="InboxOptimized2.sol"
+            ;;
+        "opt3")
+            display_name="InboxOptimized3.sol"
+            ;;
+        *)
+            display_name=$impl
+            ;;
+    esac
+    
     echo ""
-    echo -e "${YELLOW}Testing Inbox Implementation: ${impl}${NC}"
+    echo -e "${YELLOW}Testing Inbox Implementation: ${display_name}${NC}"
     echo "----------------------------------------"
     
     if INBOX=$impl FOUNDRY_PROFILE=layer1 forge test --match-path "test/layer1/shasta/inbox/*.t.sol"; then
-        echo -e "${GREEN}✓ ${impl} tests passed${NC}"
-        RESULTS+=("${impl}: PASSED")
+        echo -e "${GREEN}✓ ${display_name} tests passed${NC}"
+        RESULTS+=("${display_name}: PASSED")
         return 0
     else
-        echo -e "${RED}✗ ${impl} tests failed${NC}"
-        RESULTS+=("${impl}: FAILED")
+        echo -e "${RED}✗ ${display_name} tests failed${NC}"
+        RESULTS+=("${display_name}: FAILED")
         return 1
     fi
 }

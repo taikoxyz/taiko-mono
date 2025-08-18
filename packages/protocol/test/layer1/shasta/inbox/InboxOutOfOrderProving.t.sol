@@ -148,7 +148,7 @@ contract InboxOutOfOrderProving is InboxTest {
             IInbox.Claim[] memory proveClaims = new IInbox.Claim[](1);
             proveClaims[0] = claims[index];
 
-            bytes memory proveData = abi.encode(proveProposals, proveClaims);
+            bytes memory proveData = encodeProveData(proveProposals, proveClaims);
             bytes memory proof = bytes("valid_proof");
 
             vm.prank(Bob);
@@ -240,7 +240,7 @@ contract InboxOutOfOrderProving is InboxTest {
             bytes memory proposalData;
             if (i == 1) {
                 // First proposal needs genesis for validation
-                proposalData = InboxTestLib.encodeProposalDataWithGenesis(
+                proposalData = encodeProposalDataWithGenesis(
                     uint64(0), proposalCoreState, proposalBlobRef, emptyClaimRecords
                 );
             } else {
@@ -258,7 +258,7 @@ contract InboxOutOfOrderProving is InboxTest {
                     )
                 );
 
-                proposalData = InboxTestLib.encodeProposalDataForSubsequent(
+                proposalData = encodeProposalDataForSubsequent(
                     uint64(0), proposalCoreState, prevProposal, proposalBlobRef, emptyClaimRecords
                 );
             }
@@ -316,7 +316,7 @@ contract InboxOutOfOrderProving is InboxTest {
             IInbox.Claim[] memory proveClaims = new IInbox.Claim[](1);
             proveClaims[0] = claim;
 
-            bytes memory proveData = abi.encode(proveProposals, proveClaims);
+            bytes memory proveData = encodeProveData(proveProposals, proveClaims);
             vm.prank(Bob);
             inbox.prove(proveData, bytes("proof"));
         }
@@ -372,7 +372,7 @@ contract InboxOutOfOrderProving is InboxTest {
             )
         );
 
-        bytes memory proposeData = InboxTestLib.encodeProposalDataForSubsequent(
+        bytes memory proposeData = encodeProposalDataForSubsequent(
             uint64(0), coreState, lastProposal, blobRef, claimRecords
         );
 

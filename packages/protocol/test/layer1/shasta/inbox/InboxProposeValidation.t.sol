@@ -53,7 +53,7 @@ contract InboxProposeValidation is InboxTest {
         setupProposalMocks(Alice);
         uint64 deadline = uint64(block.timestamp + 1 hours); // Valid deadline (1 hour future)
 
-        bytes memory data = InboxTestLib.encodeProposalDataWithGenesis(
+        bytes memory data = encodeProposalDataWithGenesis(
             deadline, coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
 
@@ -86,7 +86,7 @@ contract InboxProposeValidation is InboxTest {
         setupProposalMocks(Alice);
         uint64 deadline = uint64(block.timestamp - 1); // Expired by 1 second
 
-        bytes memory data = InboxTestLib.encodeProposalDataWithGenesis(
+        bytes memory data = encodeProposalDataWithGenesis(
             deadline, coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
 
@@ -115,7 +115,7 @@ contract InboxProposeValidation is InboxTest {
         // Arrange: Create proposal with no deadline (deadline = 0)
         setupProposalMocks(Alice);
 
-        bytes memory data = InboxTestLib.encodeProposalDataWithGenesis(
+        bytes memory data = encodeProposalDataWithGenesis(
             coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
 
@@ -152,7 +152,7 @@ contract InboxProposeValidation is InboxTest {
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
 
         // Use proper encoding - but with wrong core state
-        bytes memory data = InboxTestLib.encodeProposalDataWithGenesis(
+        bytes memory data = encodeProposalDataWithGenesis(
             uint64(0), wrongCoreState, blobRef, claimRecords
         );
 
@@ -256,7 +256,7 @@ contract InboxProposeValidation is InboxTest {
 
         // Use proper encoding with proposals array
         bytes memory data =
-            InboxTestLib.encodeProposalDataWithGenesis(uint64(0), coreState, blobRef, claimRecords);
+            encodeProposalDataWithGenesis(uint64(0), coreState, blobRef, claimRecords);
 
         // Note: When forced inclusion is due, both forced inclusion and regular proposals are
         // created
@@ -312,7 +312,7 @@ contract InboxProposeValidation is InboxTest {
         proposals[0] = lastProposal;
         proposals[1] = genesisProposal;
 
-        bytes memory data3 = InboxTestLib.encodeProposalDataWithProposals(
+        bytes memory data3 = encodeProposalDataWithProposals(
             uint64(0),
             coreState3,
             proposals,
@@ -361,7 +361,7 @@ contract InboxProposeValidation is InboxTest {
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
 
         // Use proper encoding with proposals array
-        bytes memory data = InboxTestLib.encodeProposalDataWithGenesis(
+        bytes memory data = encodeProposalDataWithGenesis(
             uint64(0), coreState, invalidBlobRef, claimRecords
         );
 
@@ -407,7 +407,7 @@ contract InboxProposeValidation is InboxTest {
 
         // Use the proper encoding function that includes the proposals array
         bytes memory data =
-            InboxTestLib.encodeProposalDataWithGenesis(uint64(0), coreState, blobRef, claimRecords);
+            encodeProposalDataWithGenesis(uint64(0), coreState, blobRef, claimRecords);
 
         // Act & Assert: Missing blob should be rejected for data availability
         vm.expectRevert(LibBlobs.BlobNotFound.selector);
