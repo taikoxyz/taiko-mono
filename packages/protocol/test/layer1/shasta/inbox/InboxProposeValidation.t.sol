@@ -152,9 +152,8 @@ contract InboxProposeValidation is InboxTest {
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
 
         // Use proper encoding - but with wrong core state
-        bytes memory data = encodeProposalDataWithGenesis(
-            uint64(0), wrongCoreState, blobRef, claimRecords
-        );
+        bytes memory data =
+            encodeProposalDataWithGenesis(uint64(0), wrongCoreState, blobRef, claimRecords);
 
         // Act & Assert: Invalid state should be rejected with InvalidState error
         vm.expectRevert(InvalidState.selector);
@@ -361,9 +360,8 @@ contract InboxProposeValidation is InboxTest {
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
 
         // Use proper encoding with proposals array
-        bytes memory data = encodeProposalDataWithGenesis(
-            uint64(0), coreState, invalidBlobRef, claimRecords
-        );
+        bytes memory data =
+            encodeProposalDataWithGenesis(uint64(0), coreState, invalidBlobRef, claimRecords);
 
         // Act & Assert: Invalid blob reference should be rejected
         vm.expectRevert(LibBlobs.InvalidBlobReference.selector);

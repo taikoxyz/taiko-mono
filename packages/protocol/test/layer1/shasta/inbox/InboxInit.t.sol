@@ -35,13 +35,7 @@ contract InboxInit is InboxTest {
     }
 
     /// @dev Helper to deploy fresh inbox with initialization
-    function _deployFreshInbox(
-        address _owner,
-        bytes32 _genesisHash
-    )
-        private
-        returns (ITestInbox)
-    {
+    function _deployFreshInbox(address _owner, bytes32 _genesisHash) private returns (ITestInbox) {
         // Use the factory to deploy the selected implementation
         TestInboxFactory localFactory = new TestInboxFactory();
         address inboxAddress = localFactory.deployInbox(inboxType, _owner, _genesisHash);
@@ -114,7 +108,11 @@ contract InboxInit is InboxTest {
             ITestInbox testInbox = _deployFreshInbox(Alice, testHashes[i]);
 
             // Verify successful initialization with each hash
-            assertEq(Ownable(address(testInbox)).owner(), Alice, "Owner should be set for each genesis hash");
+            assertEq(
+                Ownable(address(testInbox)).owner(),
+                Alice,
+                "Owner should be set for each genesis hash"
+            );
 
             // Create expected core state for verification
             IInbox.Claim memory genesisClaim;

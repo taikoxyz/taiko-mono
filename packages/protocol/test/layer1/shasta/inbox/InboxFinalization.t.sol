@@ -236,7 +236,8 @@ contract InboxFinalization is InboxTest {
 
         LibBlobs.BlobReference memory blobRef =
             LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
-        bytes memory data = encodeProposalDataWithProposals(uint64(0), coreState, proposals, blobRef, claimRecords);
+        bytes memory data =
+            encodeProposalDataWithProposals(uint64(0), coreState, proposals, blobRef, claimRecords);
 
         // Submit proposal
         vm.prank(Alice);

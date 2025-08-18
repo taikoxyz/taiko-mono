@@ -20,10 +20,6 @@ contract TestInboxFactory {
         Optimized3
     }
 
-
-
-
-
     /// @notice Deploy a specific Inbox implementation
     /// @param _type The type of Inbox to deploy
     /// @param _owner The owner of the deployed contract

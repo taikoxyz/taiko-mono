@@ -37,7 +37,9 @@ library InboxTestAdapter {
     {
         if (_inboxType == TestInboxFactory.InboxType.Optimized3) {
             // InboxOptimized3 uses custom encoding
-            return LibProposeDataDecoder.encode(_deadline, _coreState, _proposals, _blobRef, _claimRecords);
+            return LibProposeDataDecoder.encode(
+                _deadline, _coreState, _proposals, _blobRef, _claimRecords
+            );
         } else {
             // Core, Optimized1, and Optimized2 use standard abi.encode
             return abi.encode(_deadline, _coreState, _proposals, _blobRef, _claimRecords);
@@ -80,8 +82,10 @@ library InboxTestAdapter {
         pure
         returns (IInbox.Proposal memory proposal_, IInbox.CoreState memory coreState_)
     {
-        if (_inboxType == TestInboxFactory.InboxType.Optimized2 || 
-            _inboxType == TestInboxFactory.InboxType.Optimized3) {
+        if (
+            _inboxType == TestInboxFactory.InboxType.Optimized2
+                || _inboxType == TestInboxFactory.InboxType.Optimized3
+        ) {
             // InboxOptimized2 and InboxOptimized3 use custom event encoding
             return LibProposedEventEncoder.decode(_data);
         } else {
@@ -103,8 +107,10 @@ library InboxTestAdapter {
         pure
         returns (IInbox.ClaimRecord memory claimRecord_)
     {
-        if (_inboxType == TestInboxFactory.InboxType.Optimized2 || 
-            _inboxType == TestInboxFactory.InboxType.Optimized3) {
+        if (
+            _inboxType == TestInboxFactory.InboxType.Optimized2
+                || _inboxType == TestInboxFactory.InboxType.Optimized3
+        ) {
             // InboxOptimized2 and InboxOptimized3 use custom event encoding
             return LibProvedEventEncoder.decode(_data);
         } else {
@@ -132,8 +138,8 @@ library InboxTestAdapter {
         pure
         returns (bool)
     {
-        return _inboxType == TestInboxFactory.InboxType.Optimized2 || 
-               _inboxType == TestInboxFactory.InboxType.Optimized3;
+        return _inboxType == TestInboxFactory.InboxType.Optimized2
+            || _inboxType == TestInboxFactory.InboxType.Optimized3;
     }
 
     /// @dev Gets a string representation of the Inbox type for logging

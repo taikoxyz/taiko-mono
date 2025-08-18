@@ -26,5 +26,4 @@ interface ITestInbox is IInbox {
         bytes32 _claimRecordHash
     )
         external;
-
 }

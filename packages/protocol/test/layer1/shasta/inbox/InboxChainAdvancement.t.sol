@@ -376,9 +376,8 @@ contract InboxChainAdvancement is InboxTest {
         );
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(6);
-        bytes memory proposeData = encodeProposalDataForSubsequent(
-            coreState, lastProposal, blobRef, claimRecords
-        );
+        bytes memory proposeData =
+            encodeProposalDataForSubsequent(coreState, lastProposal, blobRef, claimRecords);
 
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
@@ -658,7 +657,7 @@ contract InboxChainAdvancement is InboxTest {
             vm.skip(true);
             return;
         }
-        
+
         // Test enabled - using new advanced test patterns
         setupBlobHashes();
 
@@ -886,9 +885,8 @@ contract InboxChainAdvancement is InboxTest {
 
         // Create next proposal with finalization
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
-        bytes memory proposeData = encodeProposalDataForSubsequent(
-            coreState, lastProposal, blobRef, claimRecords
-        );
+        bytes memory proposeData =
+            encodeProposalDataForSubsequent(coreState, lastProposal, blobRef, claimRecords);
 
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
@@ -899,7 +897,8 @@ contract InboxChainAdvancement is InboxTest {
         // All 3 proposals are now finalized with just 1 aggregated claim record!
     }
 
-    /// @notice Test proving 3 consecutive proposals together without aggregation (Core implementation)
+    /// @notice Test proving 3 consecutive proposals together without aggregation (Core
+    /// implementation)
     /// @dev Core Inbox stores each claim record separately even when proved together
     function test_prove_three_consecutive_core_no_aggregation() public {
         // This test is specifically for Core implementation behavior
@@ -907,7 +906,7 @@ contract InboxChainAdvancement is InboxTest {
             vm.skip(true);
             return;
         }
-        
+
         setupBlobHashes();
 
         // Setup genesis claim
@@ -949,7 +948,8 @@ contract InboxChainAdvancement is InboxTest {
             vm.prank(Alice);
             inbox.propose(bytes(""), proposalData);
 
-            proposals[i - 1] = InboxTestLib.createProposal(i, Alice, defaultConfig.basefeeSharingPctg);
+            proposals[i - 1] =
+                InboxTestLib.createProposal(i, Alice, defaultConfig.basefeeSharingPctg);
             proposals[i - 1].coreStateHash = keccak256(
                 abi.encode(
                     IInbox.CoreState({
@@ -982,7 +982,7 @@ contract InboxChainAdvancement is InboxTest {
                 endStateRoot: keccak256(abi.encode(i + 1, "stateRoot")),
                 designatedProver: designatedProvers[i],
                 actualProver: David // Same actual prover (late proof)
-            });
+             });
 
             currentParent = keccak256(abi.encode(claims[i]));
         }
@@ -999,7 +999,7 @@ contract InboxChainAdvancement is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             bytes32 claimRecordHash = inbox.getClaimRecordHash(i + 1, expectedParent);
             assertTrue(claimRecordHash != bytes32(0), "Claim record should exist");
-            
+
             // Verify it's a non-aggregated record (span=1)
             IInbox.ClaimRecord memory expectedRecord = IInbox.ClaimRecord({
                 proposalId: i + 1,
@@ -1007,7 +1007,7 @@ contract InboxChainAdvancement is InboxTest {
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](1)
             });
-            
+
             // Set up expected bond instruction for this individual claim
             expectedRecord.bondInstructions[0] = LibBonds.BondInstruction({
                 proposalId: i + 1,
@@ -1015,10 +1015,10 @@ contract InboxChainAdvancement is InboxTest {
                 payer: designatedProvers[i],
                 receiver: David
             });
-            
+
             bytes32 expectedHash = keccak256(abi.encode(expectedRecord));
             assertEq(claimRecordHash, expectedHash, "Core should store non-aggregated claim record");
-            
+
             expectedParent = keccak256(abi.encode(claims[i]));
         }
 
@@ -1047,9 +1047,8 @@ contract InboxChainAdvancement is InboxTest {
         });
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
-        bytes memory proposeData = encodeProposalDataForSubsequent(
-            coreState, lastProposal, blobRef, claimRecords
-        );
+        bytes memory proposeData =
+            encodeProposalDataForSubsequent(coreState, lastProposal, blobRef, claimRecords);
 
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
@@ -1190,9 +1189,8 @@ contract InboxChainAdvancement is InboxTest {
 
         // Create next proposal with finalization of all 3
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
-        bytes memory proposeData = encodeProposalDataForSubsequent(
-            coreState, lastProposal, blobRef, claimRecords
-        );
+        bytes memory proposeData =
+            encodeProposalDataForSubsequent(coreState, lastProposal, blobRef, claimRecords);
 
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
