@@ -6,7 +6,9 @@ import { IInbox } from "../iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title LibProvedEventEncoder
-/// @notice Library for encoding and decoding ClaimRecord structures using compact encoding
+/// @notice Library for encoding and decoding ClaimRecord structures using compact encoding.
+/// Fields are reordered during encoding to pack smaller fields together within 32-byte boundaries,
+/// minimizing the number of storage slots accessed and reducing gas costs.
 /// @custom:security-contact security@taiko.xyz
 library LibProvedEventEncoder {
     /// @notice Encodes a ClaimRecord into bytes using compact encoding
@@ -24,31 +26,33 @@ library LibProvedEventEncoder {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(encoded_);
 
-        // Encode proposalId (uint48)
+        // Pack small fields together: proposalId(6) + endBlockNumber(6) + span(1) + arrayLength(2)
+        // = 15 bytes
         ptr = P.packUint48(ptr, _record.proposalId);
-
-        // Encode Claim struct
-        ptr = P.packBytes32(ptr, _record.claim.proposalHash);
-        ptr = P.packBytes32(ptr, _record.claim.parentClaimHash);
         ptr = P.packUint48(ptr, _record.claim.endBlockNumber);
-        ptr = P.packBytes32(ptr, _record.claim.endBlockHash);
-        ptr = P.packBytes32(ptr, _record.claim.endStateRoot);
-        ptr = P.packAddress(ptr, _record.claim.designatedProver);
-        ptr = P.packAddress(ptr, _record.claim.actualProver);
-
-        // Encode span (uint8)
         ptr = P.packUint8(ptr, _record.span);
 
-        // Encode bond instructions array length (uint16)
         require(
             _record.bondInstructions.length <= type(uint16).max, BondInstructionsLengthExceeded()
         );
         ptr = P.packUint16(ptr, uint16(_record.bondInstructions.length));
 
-        // Encode each bond instruction
+        // Pack addresses together (20 + 20 = 40 bytes)
+        ptr = P.packAddress(ptr, _record.claim.designatedProver);
+        ptr = P.packAddress(ptr, _record.claim.actualProver);
+
+        // Pack bytes32 fields
+        ptr = P.packBytes32(ptr, _record.claim.proposalHash);
+        ptr = P.packBytes32(ptr, _record.claim.parentClaimHash);
+        ptr = P.packBytes32(ptr, _record.claim.endBlockHash);
+        ptr = P.packBytes32(ptr, _record.claim.endStateRoot);
+
+        // Encode each bond instruction with optimized field packing
         for (uint256 i; i < _record.bondInstructions.length; ++i) {
+            // Pack small fields: proposalId(6) + bondType(1) = 7 bytes
             ptr = P.packUint48(ptr, _record.bondInstructions[i].proposalId);
             ptr = P.packUint8(ptr, uint8(_record.bondInstructions[i].bondType));
+            // Pack addresses: payer(20) + receiver(20) = 40 bytes
             ptr = P.packAddress(ptr, _record.bondInstructions[i].payer);
             ptr = P.packAddress(ptr, _record.bondInstructions[i].receiver);
         }
@@ -61,28 +65,29 @@ library LibProvedEventEncoder {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
 
-        // Decode proposalId (uint48)
+        // Unpack small fields together: proposalId(6) + endBlockNumber(6) + span(1) +
+        // arrayLength(2) = 15 bytes
         (record_.proposalId, ptr) = P.unpackUint48(ptr);
-
-        // Decode Claim struct
-        (record_.claim.proposalHash, ptr) = P.unpackBytes32(ptr);
-        (record_.claim.parentClaimHash, ptr) = P.unpackBytes32(ptr);
         (record_.claim.endBlockNumber, ptr) = P.unpackUint48(ptr);
-        (record_.claim.endBlockHash, ptr) = P.unpackBytes32(ptr);
-        (record_.claim.endStateRoot, ptr) = P.unpackBytes32(ptr);
-        (record_.claim.designatedProver, ptr) = P.unpackAddress(ptr);
-        (record_.claim.actualProver, ptr) = P.unpackAddress(ptr);
-
-        // Decode span (uint8)
         (record_.span, ptr) = P.unpackUint8(ptr);
 
-        // Decode bond instructions array length (uint16)
         uint16 arrayLength;
         (arrayLength, ptr) = P.unpackUint16(ptr);
 
-        // Decode bond instructions
+        // Unpack addresses together (20 + 20 = 40 bytes)
+        (record_.claim.designatedProver, ptr) = P.unpackAddress(ptr);
+        (record_.claim.actualProver, ptr) = P.unpackAddress(ptr);
+
+        // Unpack bytes32 fields
+        (record_.claim.proposalHash, ptr) = P.unpackBytes32(ptr);
+        (record_.claim.parentClaimHash, ptr) = P.unpackBytes32(ptr);
+        (record_.claim.endBlockHash, ptr) = P.unpackBytes32(ptr);
+        (record_.claim.endStateRoot, ptr) = P.unpackBytes32(ptr);
+
+        // Decode bond instructions with optimized field unpacking
         record_.bondInstructions = new LibBonds.BondInstruction[](arrayLength);
         for (uint256 i; i < arrayLength; ++i) {
+            // Unpack small fields: proposalId(6) + bondType(1) = 7 bytes
             (record_.bondInstructions[i].proposalId, ptr) = P.unpackUint48(ptr);
 
             uint8 bondTypeValue;
@@ -90,6 +95,7 @@ library LibProvedEventEncoder {
             require(bondTypeValue <= uint8(LibBonds.BondType.LIVENESS), InvalidBondType());
             record_.bondInstructions[i].bondType = LibBonds.BondType(bondTypeValue);
 
+            // Unpack addresses: payer(20) + receiver(20) = 40 bytes
             (record_.bondInstructions[i].payer, ptr) = P.unpackAddress(ptr);
             (record_.bondInstructions[i].receiver, ptr) = P.unpackAddress(ptr);
         }
@@ -105,13 +111,11 @@ library LibProvedEventEncoder {
     {
         unchecked {
             // Fixed size: 183 bytes
-            // proposalId: 6
-            // Claim: proposalHash(32) + parentClaimHash(32) + endBlockHash(32) + endStateRoot(32) =
-            // 128
-            //        endBlockNumber(6) + designatedProver(20) + actualProver(20) = 46
-            // span: 1
-            // bondInstructions array length: 2
-            // Total fixed: 6 + 128 + 46 + 1 + 2 = 183
+            // Small fields: proposalId(6) + endBlockNumber(6) + span(1) + arrayLength(2) = 15
+            // Addresses: designatedProver(20) + actualProver(20) = 40
+            // Bytes32 fields: proposalHash(32) + parentClaimHash(32) + endBlockHash(32) +
+            // endStateRoot(32) = 128
+            // Total fixed: 15 + 40 + 128 = 183
 
             // Variable size: each bond instruction is 47 bytes
             // proposalId(6) + bondType(1) + payer(20) + receiver(20) = 47

@@ -7,7 +7,10 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
 /// @title LibProposeDataDecoder
-/// @notice Library for encoding and decoding propose data with gas optimization using LibPackUnpack
+/// @notice Library for encoding and decoding propose data with gas optimization using
+/// LibPackUnpack.
+/// Fields are reordered during encoding to pack smaller fields together within 32-byte boundaries,
+/// minimizing the number of storage slots accessed and reducing gas costs.
 /// @custom:security-contact security@taiko.xyz
 library LibProposeDataDecoder {
     /// @notice Encodes propose data using compact encoding
@@ -123,23 +126,31 @@ library LibProposeDataDecoder {
         pure
         returns (uint256 newPtr_)
     {
+        // Pack small fields together: id(6) + originTimestamp(6) + originBlockNumber(6) +
+        // isForcedInclusion(1) + basefeeSharingPctg(1) = 20 bytes
         newPtr_ = P.packUint48(_ptr, _proposal.id);
-        newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
         newPtr_ = P.packUint48(newPtr_, _proposal.originTimestamp);
         newPtr_ = P.packUint48(newPtr_, _proposal.originBlockNumber);
-        newPtr_ = P.packBytes32(newPtr_, _proposal.originBlockHash);
         newPtr_ = P.packUint8(newPtr_, _proposal.isForcedInclusion ? 1 : 0);
         newPtr_ = P.packUint8(newPtr_, _proposal.basefeeSharingPctg);
 
-        // Encode BlobSlice
+        // Pack address separately (20 bytes)
+        newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
+
+        // Pack bytes32 fields
+        newPtr_ = P.packBytes32(newPtr_, _proposal.originBlockHash);
+        newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
+
+        // Encode BlobSlice - pack small fields together: arrayLength(3) + offset(3) + timestamp(6)
+        // = 12 bytes
         newPtr_ = P.packUint24(newPtr_, uint24(_proposal.blobSlice.blobHashes.length));
-        for (uint256 i; i < _proposal.blobSlice.blobHashes.length; ++i) {
-            newPtr_ = P.packBytes32(newPtr_, _proposal.blobSlice.blobHashes[i]);
-        }
         newPtr_ = P.packUint24(newPtr_, _proposal.blobSlice.offset);
         newPtr_ = P.packUint48(newPtr_, _proposal.blobSlice.timestamp);
 
-        newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
+        // Pack blob hashes
+        for (uint256 i; i < _proposal.blobSlice.blobHashes.length; ++i) {
+            newPtr_ = P.packBytes32(newPtr_, _proposal.blobSlice.blobHashes[i]);
+        }
     }
 
     /// @notice Decode a single Proposal
@@ -148,11 +159,11 @@ library LibProposeDataDecoder {
         pure
         returns (IInbox.Proposal memory proposal_, uint256 newPtr_)
     {
+        // Unpack small fields together: id(6) + originTimestamp(6) + originBlockNumber(6) +
+        // isForcedInclusion(1) + basefeeSharingPctg(1) = 20 bytes
         (proposal_.id, newPtr_) = P.unpackUint48(_ptr);
-        (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
         (proposal_.originTimestamp, newPtr_) = P.unpackUint48(newPtr_);
         (proposal_.originBlockNumber, newPtr_) = P.unpackUint48(newPtr_);
-        (proposal_.originBlockHash, newPtr_) = P.unpackBytes32(newPtr_);
 
         uint8 isForcedInclusion;
         (isForcedInclusion, newPtr_) = P.unpackUint8(newPtr_);
@@ -160,17 +171,25 @@ library LibProposeDataDecoder {
 
         (proposal_.basefeeSharingPctg, newPtr_) = P.unpackUint8(newPtr_);
 
-        // Decode BlobSlice
+        // Unpack address separately (20 bytes)
+        (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
+
+        // Unpack bytes32 fields
+        (proposal_.originBlockHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
+
+        // Decode BlobSlice - unpack small fields together: arrayLength(3) + offset(3) +
+        // timestamp(6) = 12 bytes
         uint24 blobHashesLength;
         (blobHashesLength, newPtr_) = P.unpackUint24(newPtr_);
+        (proposal_.blobSlice.offset, newPtr_) = P.unpackUint24(newPtr_);
+        (proposal_.blobSlice.timestamp, newPtr_) = P.unpackUint48(newPtr_);
+
+        // Unpack blob hashes
         proposal_.blobSlice.blobHashes = new bytes32[](blobHashesLength);
         for (uint256 i; i < blobHashesLength; ++i) {
             (proposal_.blobSlice.blobHashes[i], newPtr_) = P.unpackBytes32(newPtr_);
         }
-        (proposal_.blobSlice.offset, newPtr_) = P.unpackUint24(newPtr_);
-        (proposal_.blobSlice.timestamp, newPtr_) = P.unpackUint48(newPtr_);
-
-        (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
     /// @notice Encode a single ClaimRecord
@@ -182,21 +201,24 @@ library LibProposeDataDecoder {
         pure
         returns (uint256 newPtr_)
     {
+        // Pack small fields together: proposalId(6) + endBlockNumber(6) + span(1) + arrayLength(3)
+        // = 16 bytes
         newPtr_ = P.packUint48(_ptr, _claimRecord.proposalId);
-
-        // Encode Claim
-        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claim.proposalHash);
-        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claim.parentClaimHash);
         newPtr_ = P.packUint48(newPtr_, _claimRecord.claim.endBlockNumber);
-        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claim.endBlockHash);
-        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claim.endStateRoot);
+        newPtr_ = P.packUint8(newPtr_, _claimRecord.span);
+        newPtr_ = P.packUint24(newPtr_, uint24(_claimRecord.bondInstructions.length));
+
+        // Pack addresses together (20 + 20 = 40 bytes)
         newPtr_ = P.packAddress(newPtr_, _claimRecord.claim.designatedProver);
         newPtr_ = P.packAddress(newPtr_, _claimRecord.claim.actualProver);
 
-        newPtr_ = P.packUint8(newPtr_, _claimRecord.span);
+        // Pack bytes32 fields
+        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claim.proposalHash);
+        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claim.parentClaimHash);
+        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claim.endBlockHash);
+        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claim.endStateRoot);
 
         // Encode BondInstructions array
-        newPtr_ = P.packUint24(newPtr_, uint24(_claimRecord.bondInstructions.length));
         for (uint256 i; i < _claimRecord.bondInstructions.length; ++i) {
             newPtr_ = _encodeBondInstruction(newPtr_, _claimRecord.bondInstructions[i]);
         }
@@ -208,22 +230,26 @@ library LibProposeDataDecoder {
         pure
         returns (IInbox.ClaimRecord memory claimRecord_, uint256 newPtr_)
     {
+        // Unpack small fields together: proposalId(6) + endBlockNumber(6) + span(1) +
+        // arrayLength(3) = 16 bytes
         (claimRecord_.proposalId, newPtr_) = P.unpackUint48(_ptr);
-
-        // Decode Claim
-        (claimRecord_.claim.proposalHash, newPtr_) = P.unpackBytes32(newPtr_);
-        (claimRecord_.claim.parentClaimHash, newPtr_) = P.unpackBytes32(newPtr_);
         (claimRecord_.claim.endBlockNumber, newPtr_) = P.unpackUint48(newPtr_);
-        (claimRecord_.claim.endBlockHash, newPtr_) = P.unpackBytes32(newPtr_);
-        (claimRecord_.claim.endStateRoot, newPtr_) = P.unpackBytes32(newPtr_);
+        (claimRecord_.span, newPtr_) = P.unpackUint8(newPtr_);
+
+        uint24 bondInstructionsLength;
+        (bondInstructionsLength, newPtr_) = P.unpackUint24(newPtr_);
+
+        // Unpack addresses together (20 + 20 = 40 bytes)
         (claimRecord_.claim.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
         (claimRecord_.claim.actualProver, newPtr_) = P.unpackAddress(newPtr_);
 
-        (claimRecord_.span, newPtr_) = P.unpackUint8(newPtr_);
+        // Unpack bytes32 fields
+        (claimRecord_.claim.proposalHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (claimRecord_.claim.parentClaimHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (claimRecord_.claim.endBlockHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (claimRecord_.claim.endStateRoot, newPtr_) = P.unpackBytes32(newPtr_);
 
         // Decode BondInstructions array
-        uint24 bondInstructionsLength;
-        (bondInstructionsLength, newPtr_) = P.unpackUint24(newPtr_);
         claimRecord_.bondInstructions = new LibBonds.BondInstruction[](bondInstructionsLength);
         for (uint256 i; i < bondInstructionsLength; ++i) {
             (claimRecord_.bondInstructions[i], newPtr_) = _decodeBondInstruction(newPtr_);
@@ -239,8 +265,11 @@ library LibProposeDataDecoder {
         pure
         returns (uint256 newPtr_)
     {
+        // Pack small fields together: proposalId(6) + bondType(1) = 7 bytes
         newPtr_ = P.packUint48(_ptr, _bondInstruction.proposalId);
         newPtr_ = P.packUint8(newPtr_, uint8(_bondInstruction.bondType));
+
+        // Pack addresses together (20 + 20 = 40 bytes)
         newPtr_ = P.packAddress(newPtr_, _bondInstruction.payer);
         newPtr_ = P.packAddress(newPtr_, _bondInstruction.receiver);
     }
@@ -251,12 +280,14 @@ library LibProposeDataDecoder {
         pure
         returns (LibBonds.BondInstruction memory bondInstruction_, uint256 newPtr_)
     {
+        // Unpack small fields together: proposalId(6) + bondType(1) = 7 bytes
         (bondInstruction_.proposalId, newPtr_) = P.unpackUint48(_ptr);
 
         uint8 bondType;
         (bondType, newPtr_) = P.unpackUint8(newPtr_);
         bondInstruction_.bondType = LibBonds.BondType(bondType);
 
+        // Unpack addresses together (20 + 20 = 40 bytes)
         (bondInstruction_.payer, newPtr_) = P.unpackAddress(newPtr_);
         (bondInstruction_.receiver, newPtr_) = P.unpackAddress(newPtr_);
     }
@@ -286,7 +317,8 @@ library LibProposeDataDecoder {
             }
 
             // ClaimRecords - each has fixed size + variable bond instructions
-            // Fixed: proposalId(6) + Claim(32+32+6+32+32+20+20) + span(1) + array length(3) = 184
+            // Fixed: proposalId(6) + endBlockNumber(6) + span(1) + array length(3) +
+            // addresses(20+20) + bytes32(32+32+32+32) = 184
             for (uint256 i; i < _claimRecords.length; ++i) {
                 size_ += 184 + (_claimRecords[i].bondInstructions.length * 47);
             }

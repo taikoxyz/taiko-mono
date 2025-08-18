@@ -6,7 +6,8 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
 /// @title LibProposedEventEncoder
 /// @notice Library for encoding and decoding Proposal and CoreState structures using compact
-/// encoding
+/// encoding. Fields are reordered during encoding to pack smaller fields together within
+/// 32-byte boundaries, minimizing the number of storage slots accessed and reducing gas costs.
 /// @custom:security-contact security@taiko.xyz
 library LibProposedEventEncoder {
     /// @notice Encodes a Proposal and CoreState into bytes using compact encoding
@@ -28,29 +29,32 @@ library LibProposedEventEncoder {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(encoded_);
 
-        // Encode Proposal
+        // Encode Proposal - pack small fields together: id(6) + originTimestamp(6) +
+        // originBlockNumber(6) + isForcedInclusion(1) + basefeeSharingPctg(1) = 20 bytes
         ptr = P.packUint48(ptr, _proposal.id);
-        ptr = P.packAddress(ptr, _proposal.proposer);
         ptr = P.packUint48(ptr, _proposal.originTimestamp);
         ptr = P.packUint48(ptr, _proposal.originBlockNumber);
         ptr = P.packUint8(ptr, _proposal.isForcedInclusion ? 1 : 0);
         ptr = P.packUint8(ptr, _proposal.basefeeSharingPctg);
 
-        // Encode BlobSlice
-        // First encode the length of blobHashes array as uint24
+        // Pack address separately (20 bytes)
+        ptr = P.packAddress(ptr, _proposal.proposer);
+
+        // Pack coreStateHash (bytes32)
+        ptr = P.packBytes32(ptr, _proposal.coreStateHash);
+
+        // Encode BlobSlice - pack small fields together
         uint256 blobHashesLength = _proposal.blobSlice.blobHashes.length;
         require(blobHashesLength <= type(uint24).max, BlobHashesLengthExceeded());
+        // Pack: arrayLength(3) + offset(3) + timestamp(6) = 12 bytes
         ptr = P.packUint24(ptr, uint24(blobHashesLength));
+        ptr = P.packUint24(ptr, _proposal.blobSlice.offset);
+        ptr = P.packUint48(ptr, _proposal.blobSlice.timestamp);
 
         // Encode each blob hash
         for (uint256 i; i < blobHashesLength; ++i) {
             ptr = P.packBytes32(ptr, _proposal.blobSlice.blobHashes[i]);
         }
-
-        ptr = P.packUint24(ptr, _proposal.blobSlice.offset);
-        ptr = P.packUint48(ptr, _proposal.blobSlice.timestamp);
-
-        ptr = P.packBytes32(ptr, _proposal.coreStateHash);
 
         // Encode CoreState
         ptr = P.packUint48(ptr, _coreState.nextProposalId);
@@ -71,9 +75,9 @@ library LibProposedEventEncoder {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
 
-        // Decode Proposal
+        // Decode Proposal - unpack small fields together: id(6) + originTimestamp(6) +
+        // originBlockNumber(6) + isForcedInclusion(1) + basefeeSharingPctg(1) = 20 bytes
         (proposal_.id, ptr) = P.unpackUint48(ptr);
-        (proposal_.proposer, ptr) = P.unpackAddress(ptr);
         (proposal_.originTimestamp, ptr) = P.unpackUint48(ptr);
         (proposal_.originBlockNumber, ptr) = P.unpackUint48(ptr);
 
@@ -83,19 +87,24 @@ library LibProposedEventEncoder {
 
         (proposal_.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
 
-        // Decode BlobSlice
+        // Unpack address separately (20 bytes)
+        (proposal_.proposer, ptr) = P.unpackAddress(ptr);
+
+        // Unpack coreStateHash (bytes32)
+        (proposal_.coreStateHash, ptr) = P.unpackBytes32(ptr);
+
+        // Decode BlobSlice - unpack small fields together: arrayLength(3) + offset(3) +
+        // timestamp(6) = 12 bytes
         uint24 blobHashesLength;
         (blobHashesLength, ptr) = P.unpackUint24(ptr);
+        (proposal_.blobSlice.offset, ptr) = P.unpackUint24(ptr);
+        (proposal_.blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
 
+        // Decode blob hashes
         proposal_.blobSlice.blobHashes = new bytes32[](blobHashesLength);
         for (uint256 i; i < blobHashesLength; ++i) {
             (proposal_.blobSlice.blobHashes[i], ptr) = P.unpackBytes32(ptr);
         }
-
-        (proposal_.blobSlice.offset, ptr) = P.unpackUint24(ptr);
-        (proposal_.blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
-
-        (proposal_.coreStateHash, ptr) = P.unpackBytes32(ptr);
 
         // Decode CoreState
         (coreState_.nextProposalId, ptr) = P.unpackUint48(ptr);
@@ -114,13 +123,13 @@ library LibProposedEventEncoder {
     {
         unchecked {
             // Fixed size: 160 bytes
-            // Proposal: id(6) + proposer(20) + originTimestamp(6) + originBlockNumber(6) +
-            //           isForcedInclusion(1) + basefeeSharingPctg(1) = 40
+            // Proposal: id(6) + originTimestamp(6) + originBlockNumber(6) + isForcedInclusion(1) +
+            // basefeeSharingPctg(1) = 20
+            //           proposer(20) + coreStateHash(32) = 52
             // BlobSlice: arrayLength(3) + offset(3) + timestamp(6) = 12
-            // coreStateHash: 32
             // CoreState: nextProposalId(6) + lastFinalizedProposalId(6) +
             //           lastFinalizedClaimHash(32) + bondInstructionsHash(32) = 76
-            // Total fixed: 40 + 12 + 32 + 76 = 160
+            // Total fixed: 20 + 52 + 12 + 76 = 160
 
             // Variable size: each blob hash is 32 bytes
             size_ = 160 + (_blobHashesCount * 32);

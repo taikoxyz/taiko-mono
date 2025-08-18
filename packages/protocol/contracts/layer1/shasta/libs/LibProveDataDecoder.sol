@@ -5,7 +5,9 @@ import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
 /// @title LibProveDataDecoder
-/// @notice Library for encoding and decoding prove data with gas optimization using LibPackUnpack
+/// @notice Library for encoding and decoding prove data with gas optimization using LibPackUnpack.
+/// Fields are reordered during encoding to pack smaller fields together within 32-byte boundaries,
+/// minimizing the number of storage slots accessed and reducing gas costs.
 /// @custom:security-contact security@taiko.xyz
 library LibProveDataDecoder {
     /// @notice Encodes prove data using compact encoding
@@ -81,23 +83,31 @@ library LibProveDataDecoder {
         pure
         returns (uint256 newPtr_)
     {
+        // Pack small fields together: id(6) + originTimestamp(6) + originBlockNumber(6) +
+        // isForcedInclusion(1) + basefeeSharingPctg(1) = 20 bytes
         newPtr_ = P.packUint48(_ptr, _proposal.id);
-        newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
         newPtr_ = P.packUint48(newPtr_, _proposal.originTimestamp);
         newPtr_ = P.packUint48(newPtr_, _proposal.originBlockNumber);
-        newPtr_ = P.packBytes32(newPtr_, _proposal.originBlockHash);
         newPtr_ = P.packUint8(newPtr_, _proposal.isForcedInclusion ? 1 : 0);
         newPtr_ = P.packUint8(newPtr_, _proposal.basefeeSharingPctg);
 
-        // Encode BlobSlice
+        // Pack address separately (20 bytes)
+        newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
+
+        // Pack bytes32 fields
+        newPtr_ = P.packBytes32(newPtr_, _proposal.originBlockHash);
+        newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
+
+        // Encode BlobSlice - pack small fields together: arrayLength(3) + offset(3) + timestamp(6)
+        // = 12 bytes
         newPtr_ = P.packUint24(newPtr_, uint24(_proposal.blobSlice.blobHashes.length));
-        for (uint256 i; i < _proposal.blobSlice.blobHashes.length; ++i) {
-            newPtr_ = P.packBytes32(newPtr_, _proposal.blobSlice.blobHashes[i]);
-        }
         newPtr_ = P.packUint24(newPtr_, _proposal.blobSlice.offset);
         newPtr_ = P.packUint48(newPtr_, _proposal.blobSlice.timestamp);
 
-        newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
+        // Pack blob hashes
+        for (uint256 i; i < _proposal.blobSlice.blobHashes.length; ++i) {
+            newPtr_ = P.packBytes32(newPtr_, _proposal.blobSlice.blobHashes[i]);
+        }
     }
 
     /// @notice Decode a single Proposal
@@ -106,11 +116,11 @@ library LibProveDataDecoder {
         pure
         returns (IInbox.Proposal memory proposal_, uint256 newPtr_)
     {
+        // Unpack small fields together: id(6) + originTimestamp(6) + originBlockNumber(6) +
+        // isForcedInclusion(1) + basefeeSharingPctg(1) = 20 bytes
         (proposal_.id, newPtr_) = P.unpackUint48(_ptr);
-        (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
         (proposal_.originTimestamp, newPtr_) = P.unpackUint48(newPtr_);
         (proposal_.originBlockNumber, newPtr_) = P.unpackUint48(newPtr_);
-        (proposal_.originBlockHash, newPtr_) = P.unpackBytes32(newPtr_);
 
         uint8 isForcedInclusion;
         (isForcedInclusion, newPtr_) = P.unpackUint8(newPtr_);
@@ -118,17 +128,25 @@ library LibProveDataDecoder {
 
         (proposal_.basefeeSharingPctg, newPtr_) = P.unpackUint8(newPtr_);
 
-        // Decode BlobSlice
+        // Unpack address separately (20 bytes)
+        (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
+
+        // Unpack bytes32 fields
+        (proposal_.originBlockHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
+
+        // Decode BlobSlice - unpack small fields together: arrayLength(3) + offset(3) +
+        // timestamp(6) = 12 bytes
         uint24 blobHashesLength;
         (blobHashesLength, newPtr_) = P.unpackUint24(newPtr_);
+        (proposal_.blobSlice.offset, newPtr_) = P.unpackUint24(newPtr_);
+        (proposal_.blobSlice.timestamp, newPtr_) = P.unpackUint48(newPtr_);
+
+        // Unpack blob hashes
         proposal_.blobSlice.blobHashes = new bytes32[](blobHashesLength);
         for (uint256 i; i < blobHashesLength; ++i) {
             (proposal_.blobSlice.blobHashes[i], newPtr_) = P.unpackBytes32(newPtr_);
         }
-        (proposal_.blobSlice.offset, newPtr_) = P.unpackUint24(newPtr_);
-        (proposal_.blobSlice.timestamp, newPtr_) = P.unpackUint48(newPtr_);
-
-        (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
     /// @notice Encode a single Claim
@@ -140,13 +158,18 @@ library LibProveDataDecoder {
         pure
         returns (uint256 newPtr_)
     {
-        newPtr_ = P.packBytes32(_ptr, _claim.proposalHash);
-        newPtr_ = P.packBytes32(newPtr_, _claim.parentClaimHash);
-        newPtr_ = P.packUint48(newPtr_, _claim.endBlockNumber);
-        newPtr_ = P.packBytes32(newPtr_, _claim.endBlockHash);
-        newPtr_ = P.packBytes32(newPtr_, _claim.endStateRoot);
+        // Pack endBlockNumber separately (6 bytes)
+        newPtr_ = P.packUint48(_ptr, _claim.endBlockNumber);
+
+        // Pack addresses together (20 + 20 = 40 bytes)
         newPtr_ = P.packAddress(newPtr_, _claim.designatedProver);
         newPtr_ = P.packAddress(newPtr_, _claim.actualProver);
+
+        // Pack bytes32 fields
+        newPtr_ = P.packBytes32(newPtr_, _claim.proposalHash);
+        newPtr_ = P.packBytes32(newPtr_, _claim.parentClaimHash);
+        newPtr_ = P.packBytes32(newPtr_, _claim.endBlockHash);
+        newPtr_ = P.packBytes32(newPtr_, _claim.endStateRoot);
     }
 
     /// @notice Decode a single Claim
@@ -155,13 +178,18 @@ library LibProveDataDecoder {
         pure
         returns (IInbox.Claim memory claim_, uint256 newPtr_)
     {
-        (claim_.proposalHash, newPtr_) = P.unpackBytes32(_ptr);
-        (claim_.parentClaimHash, newPtr_) = P.unpackBytes32(newPtr_);
-        (claim_.endBlockNumber, newPtr_) = P.unpackUint48(newPtr_);
-        (claim_.endBlockHash, newPtr_) = P.unpackBytes32(newPtr_);
-        (claim_.endStateRoot, newPtr_) = P.unpackBytes32(newPtr_);
+        // Unpack endBlockNumber separately (6 bytes)
+        (claim_.endBlockNumber, newPtr_) = P.unpackUint48(_ptr);
+
+        // Unpack addresses together (20 + 20 = 40 bytes)
         (claim_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
         (claim_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
+
+        // Unpack bytes32 fields
+        (claim_.proposalHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (claim_.parentClaimHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (claim_.endBlockHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (claim_.endStateRoot, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
     /// @notice Calculate the size needed for encoding
@@ -181,7 +209,8 @@ library LibProveDataDecoder {
                 size_ += 116 + (_proposals[i].blobSlice.blobHashes.length * 32);
             }
 
-            // Claims - each has fixed size: 32 + 32 + 6 + 32 + 32 + 20 + 20 = 174
+            // Claims - each has fixed size: endBlockNumber(6) + addresses(20+20) +
+            // bytes32(32+32+32+32) = 174
             size_ += _proposals.length * 174;
         }
     }
