@@ -10,6 +10,8 @@ import "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import "contracts/layer1/shasta/iface/IProposerChecker.sol";
 import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
 import "contracts/shared/based/iface/ISyncedBlockManager.sol";
+import "contracts/layer1/shasta/libs/LibBlobs.sol";
+import "src/shared/based/libs/LibBonds.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title InboxTest
@@ -65,7 +67,9 @@ abstract contract InboxTest is CommonTest {
     // Ring buffer sizes for different test scenarios
     uint256 internal constant TINY_RING_BUFFER_SIZE = 2;
     uint256 internal constant SMALL_RING_BUFFER_SIZE = 3;
+    uint256 internal constant RING_BUFFER_TEST_SIZE = 5; // Common test size
     uint256 internal constant MEDIUM_RING_BUFFER_SIZE = 10;
+    uint256 internal constant MAX_FINALIZATION_TEST_SIZE = 15; // For finalization limit tests
     uint256 internal constant STANDARD_RING_BUFFER_SIZE = 100;
     uint256 internal constant LARGE_RING_BUFFER_SIZE = 1000;
 
@@ -108,11 +112,23 @@ abstract contract InboxTest is CommonTest {
     }
 
     function setupMockAddresses() internal virtual {
-        bondToken = address(new MockERC20());
-        syncedBlockManager = address(new StubSyncedBlockManager());
-        forcedInclusionStore = address(new StubForcedInclusionStore());
-        proofVerifier = address(new StubProofVerifier());
-        proposerChecker = address(new StubProposerChecker());
+        setupMockAddresses(false);
+    }
+
+    function setupMockAddresses(bool useRealMocks) internal virtual {
+        if (useRealMocks) {
+            bondToken = address(new MockERC20());
+            syncedBlockManager = address(new StubSyncedBlockManager());
+            forcedInclusionStore = address(new StubForcedInclusionStore());
+            proofVerifier = address(new StubProofVerifier());
+            proposerChecker = address(new StubProposerChecker());
+        } else {
+            bondToken = makeAddr("bondToken");
+            syncedBlockManager = makeAddr("syncedBlockManager");
+            forcedInclusionStore = makeAddr("forcedInclusionStore");
+            proofVerifier = makeAddr("proofVerifier");
+            proposerChecker = makeAddr("proposerChecker");
+        }
     }
 
     function deployInbox() internal virtual {
@@ -163,6 +179,27 @@ abstract contract InboxTest is CommonTest {
         bytes32 bondInstructionsHash;
     }
 
+    /// @dev Builder pattern for creating proposals with fluent interface
+    struct ProposalBuilder {
+        uint48 id;
+        address proposer;
+        bool isForcedInclusion;
+        uint8 basefeeSharingPctg;
+        LibBlobs.BlobSlice blobSlice;
+        bytes32 coreStateHash;
+    }
+
+    /// @dev Builder pattern for creating claims
+    struct ClaimBuilder {
+        bytes32 proposalHash;
+        bytes32 parentClaimHash;
+        uint48 endBlockNumber;
+        bytes32 endBlockHash;
+        bytes32 endStateRoot;
+        address designatedProver;
+        address actualProver;
+    }
+
     /// @dev Configuration for creating test proposals
     struct ProposalConfig {
         uint48 id;
@@ -191,6 +228,73 @@ abstract contract InboxTest is CommonTest {
         uint48 proposalsToCreate;
         uint48 proposalsToFinalize;
         bool shouldWrapAround;
+    }
+
+    // ---------------------------------------------------------------
+    // Builder Pattern Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Start building a new proposal
+    function newProposal(uint48 _id) internal view returns (ProposalBuilder memory) {
+        bytes32[] memory blobHashes = new bytes32[](1);
+        blobHashes[0] = keccak256(abi.encode("blob", _id));
+
+        return ProposalBuilder({
+            id: _id,
+            proposer: Alice,
+            isForcedInclusion: false,
+            basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes,
+                offset: 0,
+                timestamp: uint48(100) // Default timestamp
+             }),
+            coreStateHash: bytes32(0)
+        });
+    }
+
+    /// @dev Start building a new claim
+    function newClaim() internal view returns (ClaimBuilder memory) {
+        return ClaimBuilder({
+            proposalHash: bytes32(0),
+            parentClaimHash: bytes32(0),
+            endBlockNumber: 100,
+            endBlockHash: keccak256("endBlockHash"),
+            endStateRoot: keccak256("stateRoot"),
+            designatedProver: Alice,
+            actualProver: Bob
+        });
+    }
+
+    /// @dev Build proposal from builder
+    function buildProposal(ProposalBuilder memory _builder)
+        internal
+        view
+        returns (IInbox.Proposal memory)
+    {
+        return IInbox.Proposal({
+            id: _builder.id,
+            proposer: _builder.proposer,
+            originTimestamp: uint48(block.timestamp),
+            originBlockNumber: uint48(block.number),
+            isForcedInclusion: _builder.isForcedInclusion,
+            basefeeSharingPctg: _builder.basefeeSharingPctg,
+            blobSlice: _builder.blobSlice,
+            coreStateHash: _builder.coreStateHash
+        });
+    }
+
+    /// @dev Build claim from builder
+    function buildClaim(ClaimBuilder memory _builder) internal pure returns (IInbox.Claim memory) {
+        return IInbox.Claim({
+            proposalHash: _builder.proposalHash,
+            parentClaimHash: _builder.parentClaimHash,
+            endBlockNumber: _builder.endBlockNumber,
+            endBlockHash: _builder.endBlockHash,
+            endStateRoot: _builder.endStateRoot,
+            designatedProver: _builder.designatedProver,
+            actualProver: _builder.actualProver
+        });
     }
 
     /// @dev Creates core state from config struct
@@ -540,6 +644,11 @@ abstract contract InboxTest is CommonTest {
     function setupBlobHashes(uint256 _count) internal {
         bytes32[] memory hashes = InboxTestLib.generateBlobHashes(_count);
         vm.blobhashes(hashes);
+
+        // Also set up mock blob hashes for our test inbox
+        for (uint256 i = 0; i < _count && i < 256; i++) {
+            inbox.setMockBlobHash(i, hashes[i]);
+        }
     }
 
     // ---------------------------------------------------------------
@@ -914,7 +1023,6 @@ abstract contract InboxTest is CommonTest {
         IInbox.CoreState memory coreState = _buildCoreStateForProposal(_proposalId);
 
         setupProposalMocks(_proposer);
-        setupBlobHashes();
 
         bytes memory data = _encodeProposalDataWithValidation(
             _proposalId,
@@ -923,6 +1031,7 @@ abstract contract InboxTest is CommonTest {
             _claimRecords
         );
 
+        setupBlobHashes();
         vm.prank(_proposer);
         inbox.propose(bytes(""), data);
 
@@ -936,9 +1045,9 @@ abstract contract InboxTest is CommonTest {
         returns (IInbox.CoreState memory coreState)
     {
         coreState = _getGenesisCoreState();
-        if (_proposalId > 1) {
-            coreState.nextProposalId = _proposalId;
-        }
+        // This is the core state BEFORE processing the proposal
+        // The contract will increment nextProposalId when processing
+        coreState.nextProposalId = _proposalId;
     }
 
     /// @dev Helper function to encode proposal data with correct validation proposals
@@ -1057,9 +1166,10 @@ abstract contract InboxTest is CommonTest {
             timestamp: uint48(block.timestamp)
         });
 
-        // The contract sets this to the updated core state hash
+        // The contract increments nextProposalId during processing
+        // We need to simulate that here
         IInbox.CoreState memory updatedCoreState = _coreState;
-        updatedCoreState.nextProposalId = _proposalId + 1;
+        updatedCoreState.nextProposalId++;
         proposal.coreStateHash = keccak256(abi.encode(updatedCoreState));
 
         return proposal;
