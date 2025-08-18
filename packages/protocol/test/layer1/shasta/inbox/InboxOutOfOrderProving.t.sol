@@ -72,7 +72,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 validationProposals[0] = proposals[i - 2]; // Previous proposal
             }
 
-            bytes memory proposalData = abi.encode(
+            bytes memory proposalData = encodeProposalDataWithProposals(
                 uint64(0),
                 proposalCoreState,
                 validationProposals,
@@ -197,8 +197,9 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.Proposal[] memory finalValidationProposals = new IInbox.Proposal[](1);
         finalValidationProposals[0] = proposals[numProposals - 1];
 
-        bytes memory proposeData =
-            abi.encode(uint64(0), coreState, finalValidationProposals, blobRef, claimRecords);
+        bytes memory proposeData = encodeProposalDataWithProposals(
+            uint64(0), coreState, finalValidationProposals, blobRef, claimRecords
+        );
 
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
