@@ -22,11 +22,7 @@ contract InboxChainAdvancement is InboxTest {
 
     // Override setupMockAddresses to use actual mock contracts
     function setupMockAddresses() internal override {
-        bondToken = address(new MockERC20());
-        syncedBlockManager = address(new StubSyncedBlockManager());
-        forcedInclusionStore = address(new StubForcedInclusionStore());
-        proofVerifier = address(new StubProofVerifier());
-        proposerChecker = address(new StubProposerChecker());
+        setupMockAddresses(true); // Use real mock contracts for chain advancement tests
     }
 
     /// @notice Test sequential chain advancement through finalization
@@ -82,8 +78,8 @@ contract InboxChainAdvancement is InboxTest {
             }
 
             // Submit proposal
-            vm.prank(Alice);
             setupBlobHashes();
+            vm.prank(Alice);
             inbox.propose(bytes(""), proposalData);
 
             // Store proposal for proving later
@@ -191,37 +187,23 @@ contract InboxChainAdvancement is InboxTest {
             }
 
             // Submit proposal
-            vm.prank(Alice);
             setupBlobHashes();
+            vm.prank(Alice);
             inbox.propose(bytes(""), proposalData);
 
-            // Store proposal for proving later
-            bytes32[] memory blobHashes = new bytes32[](1);
-            blobHashes[0] = keccak256(abi.encode("blob", i % 10));
-
-            proposals[i - 1] = IInbox.Proposal({
-                id: i,
-                proposer: Alice,
-                originTimestamp: uint48(block.timestamp),
-                originBlockNumber: uint48(block.number),
-                isForcedInclusion: false,
-                basefeeSharingPctg: defaultConfig.basefeeSharingPctg,
-                blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: blobHashes,
-                    offset: 0,
-                    timestamp: uint48(block.timestamp)
-                }),
-                coreStateHash: keccak256(
-                    abi.encode(
-                        IInbox.CoreState({
-                            nextProposalId: i + 1,
-                            lastFinalizedProposalId: 0,
-                            lastFinalizedClaimHash: genesisHash,
-                            bondInstructionsHash: bytes32(0)
-                        })
-                    )
+            // Store proposal for proving later - use helper to create proper proposal
+            proposals[i - 1] =
+                InboxTestLib.createProposal(i, Alice, defaultConfig.basefeeSharingPctg);
+            proposals[i - 1].coreStateHash = keccak256(
+                abi.encode(
+                    IInbox.CoreState({
+                        nextProposalId: i + 1,
+                        lastFinalizedProposalId: 0,
+                        lastFinalizedClaimHash: genesisHash,
+                        bondInstructionsHash: bytes32(0)
+                    })
                 )
-            });
+            );
             lastProposal = proposals[i - 1];
         }
 
@@ -450,23 +432,9 @@ contract InboxChainAdvancement is InboxTest {
             // Prove proposal
             bytes32 storedProposalHash = inbox.getProposalHash(i);
 
-            bytes32[] memory blobHashes = new bytes32[](1);
-            blobHashes[0] = keccak256(abi.encode("blob", i % 10));
-
-            IInbox.Proposal memory proposal = IInbox.Proposal({
-                id: i,
-                proposer: Alice,
-                originTimestamp: uint48(block.timestamp),
-                originBlockNumber: uint48(block.number),
-                isForcedInclusion: false,
-                basefeeSharingPctg: config.basefeeSharingPctg,
-                blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: blobHashes,
-                    offset: 0,
-                    timestamp: uint48(block.timestamp)
-                }),
-                coreStateHash: bytes32(0)
-            });
+            IInbox.Proposal memory proposal =
+                InboxTestLib.createProposal(i, Alice, config.basefeeSharingPctg);
+            proposal.coreStateHash = bytes32(0);
 
             bytes32 currentParent = i == 1 ? parentHash : keccak256(abi.encode(claims[i - 2]));
             claims[i - 1] = IInbox.Claim({
@@ -586,8 +554,8 @@ contract InboxChainAdvancement is InboxTest {
             }
 
             // Submit proposal
-            vm.prank(Alice);
             setupBlobHashes();
+            vm.prank(Alice);
             inbox.propose(bytes(""), proposalData);
 
             // Store proposal for proving later
@@ -726,37 +694,23 @@ contract InboxChainAdvancement is InboxTest {
                 );
             }
 
-            vm.prank(Alice);
             setupBlobHashes();
+            vm.prank(Alice);
             inbox.propose(bytes(""), proposalData);
 
-            // Store proposal for proving
-            bytes32[] memory blobHashes = new bytes32[](1);
-            blobHashes[0] = keccak256(abi.encode("blob", i % 10));
-
-            proposals[i - 1] = IInbox.Proposal({
-                id: i,
-                proposer: Alice,
-                originTimestamp: uint48(block.timestamp),
-                originBlockNumber: uint48(block.number),
-                isForcedInclusion: false,
-                basefeeSharingPctg: defaultConfig.basefeeSharingPctg,
-                blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: blobHashes,
-                    offset: 0,
-                    timestamp: uint48(block.timestamp)
-                }),
-                coreStateHash: keccak256(
-                    abi.encode(
-                        IInbox.CoreState({
-                            nextProposalId: i + 1,
-                            lastFinalizedProposalId: 0,
-                            lastFinalizedClaimHash: parentHash,
-                            bondInstructionsHash: bytes32(0)
-                        })
-                    )
+            // Store proposal for proving - use helper to create proper proposal
+            proposals[i - 1] =
+                InboxTestLib.createProposal(i, Alice, defaultConfig.basefeeSharingPctg);
+            proposals[i - 1].coreStateHash = keccak256(
+                abi.encode(
+                    IInbox.CoreState({
+                        nextProposalId: i + 1,
+                        lastFinalizedProposalId: 0,
+                        lastFinalizedClaimHash: parentHash,
+                        bondInstructionsHash: bytes32(0)
+                    })
                 )
-            });
+            );
 
             lastProposal = proposals[i - 1];
         }
@@ -980,37 +934,23 @@ contract InboxChainAdvancement is InboxTest {
                 );
             }
 
-            vm.prank(Alice);
             setupBlobHashes();
+            vm.prank(Alice);
             inbox.propose(bytes(""), proposalData);
 
-            // Store proposal for proving
-            bytes32[] memory blobHashes = new bytes32[](1);
-            blobHashes[0] = keccak256(abi.encode("blob", i % 10));
-
-            proposals[i - 1] = IInbox.Proposal({
-                id: i,
-                proposer: Alice,
-                originTimestamp: uint48(block.timestamp),
-                originBlockNumber: uint48(block.number),
-                isForcedInclusion: false,
-                basefeeSharingPctg: defaultConfig.basefeeSharingPctg,
-                blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: blobHashes,
-                    offset: 0,
-                    timestamp: uint48(block.timestamp)
-                }),
-                coreStateHash: keccak256(
-                    abi.encode(
-                        IInbox.CoreState({
-                            nextProposalId: i + 1,
-                            lastFinalizedProposalId: 0,
-                            lastFinalizedClaimHash: parentHash,
-                            bondInstructionsHash: bytes32(0)
-                        })
-                    )
+            // Store proposal for proving - use helper to create proper proposal
+            proposals[i - 1] =
+                InboxTestLib.createProposal(i, Alice, defaultConfig.basefeeSharingPctg);
+            proposals[i - 1].coreStateHash = keccak256(
+                abi.encode(
+                    IInbox.CoreState({
+                        nextProposalId: i + 1,
+                        lastFinalizedProposalId: 0,
+                        lastFinalizedClaimHash: parentHash,
+                        bondInstructionsHash: bytes32(0)
+                    })
                 )
-            });
+            );
 
             lastProposal = proposals[i - 1];
         }

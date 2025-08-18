@@ -127,17 +127,124 @@ contract InboxRingBuffer is InboxTest {
 
     /// @notice Test protection of unfinalized proposals from overwrite
     /// @dev Validates capacity enforcement for data safety
+    /// Ring buffer size 3 means slots 0, 1, 2:
+    /// - Slot 0: Genesis proposal (can only be overwritten if proposal 1 is finalized)
+    /// - Slot 1: Will hold proposal 1
+    /// - Slot 2: Will hold proposal 2
+    /// Capacity is 2, meaning max 2 unfinalized proposals
     function test_ring_buffer_protect_unfinalized() public {
         setupSmallRingBuffer(); // Ring buffer size 3, capacity = 2
 
-        // Fill capacity with unfinalized proposals (proposals 1 and 2)
-        submitProposal(1, Alice);
-        submitProposal(2, Alice);
+        // Test scenario: Try to submit 3 proposals without finalization
+        // Expected: 3rd proposal should fail because it would overwrite genesis
+        // but proposal 1 is not finalized
 
-        // Attempt to add proposal 3 should exceed capacity
-        // The actual error might be different than expected - accept any revert
-        expectAnyRevert("Should exceed unfinalized proposal capacity");
-        submitProposal(3, Alice);
+        // Submit proposal 1
+        IInbox.CoreState memory coreState1 = IInbox.CoreState({
+            nextProposalId: 1,
+            lastFinalizedProposalId: 0,
+            lastFinalizedClaimHash: getGenesisClaimHash(),
+            bondInstructionsHash: bytes32(0)
+        });
+
+        setupProposalMocks(Alice);
+        bytes memory data1 = InboxTestLib.encodeProposalDataWithGenesis(
+            coreState1, InboxTestLib.createBlobReference(1), new IInbox.ClaimRecord[](0)
+        );
+
+        setupBlobHashes();
+        vm.prank(Alice);
+        inbox.propose(bytes(""), data1);
+
+        // Get proposal 1 for use as parent
+        IInbox.Proposal memory proposal1 =
+            InboxTestLib.createProposal(1, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
+        proposal1.coreStateHash = keccak256(
+            abi.encode(
+                IInbox.CoreState({
+                    nextProposalId: 2,
+                    lastFinalizedProposalId: 0,
+                    lastFinalizedClaimHash: getGenesisClaimHash(),
+                    bondInstructionsHash: bytes32(0)
+                })
+            )
+        );
+
+        // Submit proposal 2
+        IInbox.CoreState memory coreState2 = IInbox.CoreState({
+            nextProposalId: 2,
+            lastFinalizedProposalId: 0,
+            lastFinalizedClaimHash: getGenesisClaimHash(),
+            bondInstructionsHash: bytes32(0)
+        });
+
+        setupProposalMocks(Alice);
+        bytes memory data2 = InboxTestLib.encodeProposalDataForSubsequent(
+            coreState2, proposal1, InboxTestLib.createBlobReference(2), new IInbox.ClaimRecord[](0)
+        );
+
+        setupBlobHashes();
+        vm.prank(Alice);
+        inbox.propose(bytes(""), data2);
+
+        // Get proposal 2 for use as parent
+        IInbox.Proposal memory proposal2 =
+            InboxTestLib.createProposal(2, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
+        proposal2.coreStateHash = keccak256(
+            abi.encode(
+                IInbox.CoreState({
+                    nextProposalId: 3,
+                    lastFinalizedProposalId: 0,
+                    lastFinalizedClaimHash: getGenesisClaimHash(),
+                    bondInstructionsHash: bytes32(0)
+                })
+            )
+        );
+
+        // Try to submit proposal 3 - should fail due to capacity
+        // Proposal 3 would go to slot 0 (3 % 3 = 0), which has the genesis proposal
+        // Genesis can only be overwritten if proposal 1 is finalized (which it's not)
+        // So this will fail with ExceedsUnfinalizedProposalCapacity
+        // We need to provide both proposal 2 (parent) and genesis (slot being overwritten)
+
+        // Create the genesis proposal that was stored at initialization
+        IInbox.Proposal memory genesisProposal;
+        genesisProposal.coreStateHash = keccak256(
+            abi.encode(
+                IInbox.CoreState({
+                    nextProposalId: 1,
+                    lastFinalizedProposalId: 0,
+                    lastFinalizedClaimHash: getGenesisClaimHash(),
+                    bondInstructionsHash: bytes32(0)
+                })
+            )
+        );
+
+        IInbox.CoreState memory coreState3 = IInbox.CoreState({
+            nextProposalId: 3,
+            lastFinalizedProposalId: 0,
+            lastFinalizedClaimHash: getGenesisClaimHash(),
+            bondInstructionsHash: bytes32(0)
+        });
+
+        // Create the proposal data with both parent proposals
+        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](2);
+        parentProposals[0] = proposal2;
+        parentProposals[1] = genesisProposal;
+
+        setupProposalMocks(Alice);
+        bytes memory data3 = abi.encode(
+            uint64(0), // deadline
+            coreState3,
+            parentProposals,
+            InboxTestLib.createBlobReference(3),
+            new IInbox.ClaimRecord[](0)
+        );
+
+        setupBlobHashes();
+        vm.expectRevert(ExceedsUnfinalizedProposalCapacity.selector);
+        vm.prank(Alice);
+        inbox.propose(bytes(""), data3);
     }
 
     // All helper functions are now inherited from InboxTest base class

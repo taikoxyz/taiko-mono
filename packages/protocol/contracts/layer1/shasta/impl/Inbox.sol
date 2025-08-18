@@ -148,7 +148,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
 
         // Create regular proposal
-        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(blobReference);
+        LibBlobs.BlobSlice memory blobSlice =
+            LibBlobs.validateBlobReference(blobReference, _getBlobHash);
         _propose(config, coreState, blobSlice, false);
     }
 
@@ -334,6 +335,15 @@ abstract contract Inbox is EssentialContract, IInbox {
                 bondInstructions: bondInstructions
             });
         }
+    }
+
+    /// @dev Gets the hash of a blob index.
+    /// @param _blobIndex The blob index to hash.
+    /// @return _ The hash of the blob index.
+    /// @dev This function is virtual so that it can be overridden by subcontracts to provide their
+    /// specific blob hash function.
+    function _getBlobHash(uint256 _blobIndex) internal view virtual returns (bytes32) {
+        return blobhash(_blobIndex);
     }
 
     /// @dev Validates that a claim is valid for a given proposal.

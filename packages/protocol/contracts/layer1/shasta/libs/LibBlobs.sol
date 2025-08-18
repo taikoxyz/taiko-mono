@@ -45,7 +45,10 @@ library LibBlobs {
     /// @dev Validates a blob locator and converts it to a blob slice.
     /// @param _blobReference The blob locator to validate.
     /// @return The blob slice.
-    function validateBlobReference(BlobReference memory _blobReference)
+    function validateBlobReference(
+        BlobReference memory _blobReference,
+        function(uint256) view returns (bytes32) _blobhash
+    )
         internal
         view
         returns (BlobSlice memory)
@@ -54,7 +57,7 @@ library LibBlobs {
 
         bytes32[] memory blobHashes = new bytes32[](_blobReference.numBlobs);
         for (uint256 i; i < _blobReference.numBlobs; ++i) {
-            blobHashes[i] = blobhash(_blobReference.blobStartIndex + i);
+            blobHashes[i] = _blobhash(_blobReference.blobStartIndex + i);
             if (blobHashes[i] == 0) revert BlobNotFound();
         }
 
