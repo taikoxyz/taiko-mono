@@ -123,6 +123,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 // this is a normal batch, blobs are created and used in the current batches.
                 // firstBlobIndex can be non-zero.
                 require(params.blobParams.numBlobs != 0, BlobNotSpecified());
+                require(params.blobParams.blobHashes.length == 0, InvalidBlobParams());
                 require(params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
                 params.blobParams.createdIn = uint64(block.number);
             } else {
