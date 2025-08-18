@@ -88,7 +88,7 @@ interface IInbox {
         /// @notice Block in which the last fanilization occurred.
         uint48 lastFinalizedIn;
         /// @notice Timestamp at which the last fanilization occurred.
-        uint48 lastFinalized;
+        uint48 lastFinalizedAt;
         /// @notice The hash of the last finalized claim.
         bytes32 lastFinalizedClaimHash;
         /// @notice The hash of all bond instructions.
