@@ -63,7 +63,13 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         returns (ITaikoInbox.BatchMetadata memory meta_)
     {
         (bytes memory delayedBatchParamsBytes, bytes memory regularBatchParamsBytes) = abi.decode(_params, (bytes, bytes));
-        ITaikoInbox.BatchParams memory delayedBatchParams = abi.decode(delayedBatchParamsBytes, (ITaikoInbox.BatchParams));
+        
+        ITaikoInbox.BatchParams memory delayedBatchParams;
+        if (delayedBatchParamsBytes.length > 0) {
+            // Only decode delayed params if not empty for backwards compatibility
+            delayedBatchParams = abi.decode(delayedBatchParamsBytes, (ITaikoInbox.BatchParams));
+        }
+        
         ITaikoInbox.BatchParams memory regularBatchParams = abi.decode(regularBatchParamsBytes, (ITaikoInbox.BatchParams));
 
         // This calls the TaikoWrapper contract.
