@@ -75,7 +75,11 @@ func (m *mockProofProducer) RequestProof(
 	}, nil
 }
 
-func (m *mockProofProducer) Aggregate(_ context.Context, items []*proofProducer.ProofResponse, _ time.Time) (*proofProducer.BatchProofs, error) {
+func (m *mockProofProducer) Aggregate(
+	_ context.Context,
+	items []*proofProducer.ProofResponse,
+	_ time.Time,
+) (*proofProducer.BatchProofs, error) {
 	return &proofProducer.BatchProofs{
 		ProofResponses: items,
 	}, nil
