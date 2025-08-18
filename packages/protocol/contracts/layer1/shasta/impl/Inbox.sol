@@ -12,7 +12,7 @@ import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
-/// @title ShastaInbox
+/// @title Inbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
 /// @custom:security-contact security@taiko.xyz
 
@@ -237,7 +237,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         pure
         virtual
         returns (
-            uint64 deadline_,
+            uint48 deadline_,
             CoreState memory coreState_,
             Proposal[] memory parentProposals_,
             LibBlobs.BlobReference memory blobReference_,
@@ -245,7 +245,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         )
     {
         (deadline_, coreState_, parentProposals_, blobReference_, claimRecords_) = abi.decode(
-            _data, (uint64, CoreState, Proposal[], LibBlobs.BlobReference, ClaimRecord[])
+            _data, (uint48, CoreState, Proposal[], LibBlobs.BlobReference, ClaimRecord[])
         );
     }
 

@@ -34,7 +34,7 @@ contract LibProposeDataDecoderGas is Test {
         view
     {
         (
-            uint64 deadline,
+            uint48 deadline,
             IInbox.CoreState memory coreState,
             IInbox.Proposal[] memory proposals,
             LibBlobs.BlobReference memory blobRef,
@@ -130,7 +130,7 @@ contract LibProposeDataDecoderGas is Test {
         private
         pure
         returns (
-            uint64 deadline,
+            uint48 deadline,
             IInbox.CoreState memory coreState,
             IInbox.Proposal[] memory proposals,
             LibBlobs.BlobReference memory blobRef,

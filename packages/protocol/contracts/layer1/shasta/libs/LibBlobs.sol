@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @title LibBlobs
-/// @notice Library for the ShastaInbox contract
+/// @notice Library for handling blobs.
 /// @custom:security-contact security@taiko.xyz
 library LibBlobs {
     // -------------------------------------------------------------------

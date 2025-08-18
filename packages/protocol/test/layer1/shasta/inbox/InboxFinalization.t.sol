@@ -93,7 +93,7 @@ contract InboxFinalization is InboxTest {
         IInbox.CoreState memory newCoreState = _getGenesisCoreState();
         newCoreState.nextProposalId = 2;
 
-        bytes memory data = InboxTestLib.encodeProposalDataWithProposals(
+        bytes memory data = encodeProposalDataWithProposals(
             newCoreState, proposals, InboxTestLib.createBlobReference(2), claimRecords
         );
 
@@ -167,7 +167,7 @@ contract InboxFinalization is InboxTest {
         vm.prank(Carol);
         inbox.propose(
             bytes(""),
-            InboxTestLib.encodeProposalDataForSubsequent(
+            encodeProposalDataForSubsequent(
                 coreState,
                 _lastProposal,
                 InboxTestLib.createBlobReference(uint8(_nextProposalId)),
@@ -236,7 +236,8 @@ contract InboxFinalization is InboxTest {
 
         LibBlobs.BlobReference memory blobRef =
             LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
-        bytes memory data = abi.encode(uint64(0), coreState, proposals, blobRef, claimRecords);
+        bytes memory data =
+            encodeProposalDataWithProposals(uint48(0), coreState, proposals, blobRef, claimRecords);
 
         // Submit proposal
         vm.prank(Alice);
@@ -285,7 +286,7 @@ contract InboxFinalization is InboxTest {
         vm.prank(Carol);
         inbox.propose(
             bytes(""),
-            InboxTestLib.encodeProposalDataForSubsequent(
+            encodeProposalDataForSubsequent(
                 coreState, proposal1, InboxTestLib.createBlobReference(2), claimRecords
             )
         );

@@ -90,7 +90,9 @@ contract InboxProveBasic is InboxTest {
         // Act: Submit proof with standard mocking
         setupProofMocks(true);
         vm.prank(Bob);
-        inbox.prove(InboxTestLib.encodeProveData(_toArray(proposal), _toArray(claim)), proof);
+        inbox.prove(
+            InboxTestAdapter.encodeProveData(inboxType, _toArray(proposal), _toArray(claim)), proof
+        );
 
         // Assert: Verify proof submission was successful
         assertClaimRecordStored(SINGLE_PROPOSAL, bytes32(0));
@@ -155,7 +157,8 @@ contract InboxProveBasic is InboxTest {
         // Act: Submit proof with mock verification
         vm.prank(Bob);
         inbox.prove(
-            InboxTestLib.encodeProveData(_toArray(proposal), _toArray(claim)), bytes("test_proof")
+            InboxTestAdapter.encodeProveData(inboxType, _toArray(proposal), _toArray(claim)),
+            bytes("test_proof")
         );
 
         // Assert: Verify claim record was stored successfully

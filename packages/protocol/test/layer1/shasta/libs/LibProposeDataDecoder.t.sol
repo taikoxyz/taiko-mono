@@ -49,7 +49,7 @@ contract LibProposeDataDecoderTest is Test {
             bondInstructions: new LibBonds.BondInstruction[](0)
         });
 
-        uint64 deadline = 2_000_000;
+        uint48 deadline = 2_000_000;
 
         // Test with standard ABI encoding for baseline
         bytes memory abiEncodedData =
@@ -62,7 +62,7 @@ contract LibProposeDataDecoderTest is Test {
         // Measure baseline gas (ABI decoding)
         uint256 gasStart = gasleft();
         (
-            uint64 deadline1,
+            uint48 deadline1,
             IInbox.CoreState memory coreState1,
             IInbox.Proposal[] memory proposals1,
             LibBlobs.BlobReference memory blobRef1,
@@ -70,7 +70,7 @@ contract LibProposeDataDecoderTest is Test {
         ) = abi.decode(
             abiEncodedData,
             (
-                uint64,
+                uint48,
                 IInbox.CoreState,
                 IInbox.Proposal[],
                 LibBlobs.BlobReference,
@@ -82,7 +82,7 @@ contract LibProposeDataDecoderTest is Test {
         // Measure optimized gas (compact decoding)
         gasStart = gasleft();
         (
-            uint64 deadline2,
+            uint48 deadline2,
             IInbox.CoreState memory coreState2,
             IInbox.Proposal[] memory proposals2,
             LibBlobs.BlobReference memory blobRef2,
@@ -219,7 +219,7 @@ contract LibProposeDataDecoderTest is Test {
             bondInstructions: bondInstructions2
         });
 
-        uint64 deadline = 2_000_000;
+        uint48 deadline = 2_000_000;
 
         // Test with standard ABI encoding for baseline
         bytes memory abiEncodedData =
@@ -232,7 +232,7 @@ contract LibProposeDataDecoderTest is Test {
         // Measure baseline gas (ABI decoding)
         uint256 gasStart = gasleft();
         (
-            uint64 deadline1,
+            uint48 deadline1,
             IInbox.CoreState memory coreState1,
             IInbox.Proposal[] memory proposals1,
             LibBlobs.BlobReference memory blobRef1,
@@ -240,7 +240,7 @@ contract LibProposeDataDecoderTest is Test {
         ) = abi.decode(
             abiEncodedData,
             (
-                uint64,
+                uint48,
                 IInbox.CoreState,
                 IInbox.Proposal[],
                 LibBlobs.BlobReference,
@@ -252,7 +252,7 @@ contract LibProposeDataDecoderTest is Test {
         // Measure optimized gas (compact decoding)
         gasStart = gasleft();
         (
-            uint64 deadline2,
+            uint48 deadline2,
             IInbox.CoreState memory coreState2,
             IInbox.Proposal[] memory proposals2,
             LibBlobs.BlobReference memory blobRef2,
@@ -328,7 +328,7 @@ contract LibProposeDataDecoderTest is Test {
 
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
 
-        uint64 deadline = 18_446_744_073_709_551_615; // max uint64
+        uint48 deadline = 281_474_976_710_655; // max uint48
 
         // Encode using compact encoding
         bytes memory compactEncodedData =
@@ -336,7 +336,7 @@ contract LibProposeDataDecoderTest is Test {
 
         // Decode
         (
-            uint64 decodedDeadline,
+            uint48 decodedDeadline,
             IInbox.CoreState memory decodedCoreState,
             IInbox.Proposal[] memory decodedProposals,
             LibBlobs.BlobReference memory decodedBlobRef,
