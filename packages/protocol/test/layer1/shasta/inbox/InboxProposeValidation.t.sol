@@ -176,6 +176,7 @@ contract InboxProposeValidation is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
         });
@@ -216,6 +217,7 @@ contract InboxProposeValidation is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
         });
@@ -342,6 +344,7 @@ contract InboxProposeValidation is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
         });
@@ -386,6 +389,7 @@ contract InboxProposeValidation is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
         });

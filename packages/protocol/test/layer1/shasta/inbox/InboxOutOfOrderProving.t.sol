@@ -49,6 +49,7 @@ contract InboxOutOfOrderProving is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: initialParentHash,
                 bondInstructionsHash: bytes32(0)
             });
@@ -108,6 +109,7 @@ contract InboxOutOfOrderProving is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
+                        lastFinalizedTimestamp: 0,
                         lastFinalizedClaimHash: initialParentHash,
                         bondInstructionsHash: bytes32(0)
                     })
@@ -176,6 +178,7 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
         });
@@ -226,6 +229,7 @@ contract InboxOutOfOrderProving is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: initialParentHash,
                 bondInstructionsHash: bytes32(0)
             });
@@ -253,6 +257,7 @@ contract InboxOutOfOrderProving is InboxTest {
                         IInbox.CoreState({
                             nextProposalId: i,
                             lastFinalizedProposalId: 0,
+                            lastFinalizedTimestamp: 0,
                             lastFinalizedClaimHash: initialParentHash,
                             bondInstructionsHash: bytes32(0)
                         })
@@ -279,6 +284,7 @@ contract InboxOutOfOrderProving is InboxTest {
             IInbox.CoreState memory updatedCoreState = IInbox.CoreState({
                 nextProposalId: i + 1,
                 lastFinalizedProposalId: 0,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: initialParentHash,
                 bondInstructionsHash: bytes32(0)
             });
@@ -326,6 +332,7 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 4,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
         });
@@ -367,6 +374,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 IInbox.CoreState({
                     nextProposalId: 4,
                     lastFinalizedProposalId: 0,
+                    lastFinalizedTimestamp: 0,
                     lastFinalizedClaimHash: initialParentHash,
                     bondInstructionsHash: bytes32(0)
                 })

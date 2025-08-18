@@ -13,6 +13,7 @@ contract LibProposeDataDecoderTest is Test {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 10,
             lastFinalizedProposalId: 9,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
         });
@@ -122,6 +123,7 @@ contract LibProposeDataDecoderTest is Test {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 100,
             lastFinalizedProposalId: 95,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
         });
@@ -296,6 +298,7 @@ contract LibProposeDataDecoderTest is Test {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: bytes32(uint256(0xdead)),
             bondInstructionsHash: bytes32(uint256(0xbeef))
         });

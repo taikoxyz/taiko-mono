@@ -143,6 +143,7 @@ contract InboxRingBuffer is InboxTest {
         IInbox.CoreState memory coreState1 = IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: getGenesisClaimHash(),
             bondInstructionsHash: bytes32(0)
         });
@@ -164,6 +165,7 @@ contract InboxRingBuffer is InboxTest {
                 IInbox.CoreState({
                     nextProposalId: 2,
                     lastFinalizedProposalId: 0,
+                    lastFinalizedTimestamp: 0,
                     lastFinalizedClaimHash: getGenesisClaimHash(),
                     bondInstructionsHash: bytes32(0)
                 })
@@ -174,6 +176,7 @@ contract InboxRingBuffer is InboxTest {
         IInbox.CoreState memory coreState2 = IInbox.CoreState({
             nextProposalId: 2,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: getGenesisClaimHash(),
             bondInstructionsHash: bytes32(0)
         });
@@ -195,6 +198,7 @@ contract InboxRingBuffer is InboxTest {
                 IInbox.CoreState({
                     nextProposalId: 3,
                     lastFinalizedProposalId: 0,
+                    lastFinalizedTimestamp: 0,
                     lastFinalizedClaimHash: getGenesisClaimHash(),
                     bondInstructionsHash: bytes32(0)
                 })
@@ -214,6 +218,7 @@ contract InboxRingBuffer is InboxTest {
                 IInbox.CoreState({
                     nextProposalId: 1,
                     lastFinalizedProposalId: 0,
+                    lastFinalizedTimestamp: 0,
                     lastFinalizedClaimHash: getGenesisClaimHash(),
                     bondInstructionsHash: bytes32(0)
                 })
@@ -223,6 +228,7 @@ contract InboxRingBuffer is InboxTest {
         IInbox.CoreState memory coreState3 = IInbox.CoreState({
             nextProposalId: 3,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: getGenesisClaimHash(),
             bondInstructionsHash: bytes32(0)
         });

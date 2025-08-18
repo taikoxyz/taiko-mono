@@ -339,6 +339,7 @@ abstract contract InboxTest is CommonTest {
         return IInbox.CoreState({
             nextProposalId: _config.nextProposalId,
             lastFinalizedProposalId: _config.lastFinalizedProposalId,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: _config.lastFinalizedClaimHash,
             bondInstructionsHash: _config.bondInstructionsHash
         });
@@ -1263,6 +1264,7 @@ abstract contract InboxTest is CommonTest {
         IInbox.CoreState memory genesisCoreState;
         genesisCoreState.nextProposalId = 1;
         genesisCoreState.lastFinalizedProposalId = 0;
+        genesisCoreState.lastFinalizedTimestamp = 1; // Default block.timestamp in Foundry tests
 
         // Genesis claim hash from initialization
         IInbox.Claim memory genesisClaim;

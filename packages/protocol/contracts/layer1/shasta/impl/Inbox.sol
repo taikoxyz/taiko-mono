@@ -213,8 +213,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @notice Gets the capacity for unfinalized proposals.
     /// @return _ The maximum number of unfinalized proposals that can exist.
     function getCapacity() external view returns (uint256) {
-        Config memory config = getConfig();
-        return _getCapacity(config);
+        return _getCapacity(getConfig());
     }
 
     /// @notice Gets the configuration for this Inbox contract

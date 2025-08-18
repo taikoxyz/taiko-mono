@@ -142,6 +142,7 @@ contract LibProposeDataDecoderGas is Test {
         coreState = IInbox.CoreState({
             nextProposalId: 100,
             lastFinalizedProposalId: 95,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
         });

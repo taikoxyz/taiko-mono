@@ -30,6 +30,7 @@ contract LibProposeDataDecoderFuzz is Test {
             IInbox.CoreState({
                 nextProposalId: nextProposalId,
                 lastFinalizedProposalId: lastFinalizedProposalId,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: lastFinalizedClaimHash,
                 bondInstructionsHash: bondInstructionsHash
             }),
@@ -95,6 +96,7 @@ contract LibProposeDataDecoderFuzz is Test {
             IInbox.CoreState({
                 nextProposalId: 100,
                 lastFinalizedProposalId: 95,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
             }),
@@ -157,6 +159,7 @@ contract LibProposeDataDecoderFuzz is Test {
             IInbox.CoreState({
                 nextProposalId: 100,
                 lastFinalizedProposalId: 95,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
             }),
@@ -193,6 +196,7 @@ contract LibProposeDataDecoderFuzz is Test {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 100,
             lastFinalizedProposalId: 95,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: keccak256("test"),
             bondInstructionsHash: keccak256("bonds")
         });
@@ -361,6 +365,7 @@ contract LibProposeDataDecoderFuzz is Test {
         coreState = IInbox.CoreState({
             nextProposalId: 100,
             lastFinalizedProposalId: 95,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
         });

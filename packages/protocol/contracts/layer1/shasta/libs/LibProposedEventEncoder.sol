@@ -55,6 +55,7 @@ library LibProposedEventEncoder {
         // Encode CoreState
         ptr = P.packUint48(ptr, _coreState.nextProposalId);
         ptr = P.packUint48(ptr, _coreState.lastFinalizedProposalId);
+        ptr = P.packUint48(ptr, _coreState.lastFinalizedTimestamp);
         ptr = P.packBytes32(ptr, _coreState.lastFinalizedClaimHash);
         ptr = P.packBytes32(ptr, _coreState.bondInstructionsHash);
     }
@@ -100,6 +101,7 @@ library LibProposedEventEncoder {
         // Decode CoreState
         (coreState_.nextProposalId, ptr) = P.unpackUint48(ptr);
         (coreState_.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
+        (coreState_.lastFinalizedTimestamp, ptr) = P.unpackUint48(ptr);
         (coreState_.lastFinalizedClaimHash, ptr) = P.unpackBytes32(ptr);
         (coreState_.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
     }
@@ -113,17 +115,18 @@ library LibProposedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 160 bytes
+            // Fixed size: 166 bytes
             // Proposal: id(6) + proposer(20) + originTimestamp(6) + originBlockNumber(6) +
             //           isForcedInclusion(1) + basefeeSharingPctg(1) = 40
             // BlobSlice: arrayLength(3) + offset(3) + timestamp(6) = 12
             // coreStateHash: 32
-            // CoreState: nextProposalId(6) + lastFinalizedProposalId(6) +
-            //           lastFinalizedClaimHash(32) + bondInstructionsHash(32) = 76
-            // Total fixed: 40 + 12 + 32 + 76 = 160
+            // CoreState: nextProposalId(6) + lastFinalizedProposalId(6) + lastFinalizedTimestamp(6)
+            // +
+            //           lastFinalizedClaimHash(32) + bondInstructionsHash(32) = 82
+            // Total fixed: 40 + 12 + 32 + 82 = 166
 
             // Variable size: each blob hash is 32 bytes
-            size_ = 160 + (_blobHashesCount * 32);
+            size_ = 166 + (_blobHashesCount * 32);
         }
     }
 

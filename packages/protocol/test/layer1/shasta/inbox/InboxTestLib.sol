@@ -49,6 +49,7 @@ library InboxTestLib {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
             lastFinalizedProposalId: _lastFinalizedProposalId,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
         });
@@ -68,6 +69,28 @@ library InboxTestLib {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
             lastFinalizedProposalId: _lastFinalizedProposalId,
+            lastFinalizedTimestamp: 0,
+            lastFinalizedClaimHash: _lastFinalizedClaimHash,
+            bondInstructionsHash: _bondInstructionsHash
+        });
+    }
+
+    /// @dev Creates a complete core state with all fields including timestamp
+    function createCoreState(
+        uint48 _nextProposalId,
+        uint48 _lastFinalizedProposalId,
+        uint48 _lastFinalizedTimestamp,
+        bytes32 _lastFinalizedClaimHash,
+        bytes32 _bondInstructionsHash
+    )
+        internal
+        pure
+        returns (IInbox.CoreState memory)
+    {
+        return IInbox.CoreState({
+            nextProposalId: _nextProposalId,
+            lastFinalizedProposalId: _lastFinalizedProposalId,
+            lastFinalizedTimestamp: _lastFinalizedTimestamp,
             lastFinalizedClaimHash: _lastFinalizedClaimHash,
             bondInstructionsHash: _bondInstructionsHash
         });
@@ -567,6 +590,7 @@ library InboxTestLib {
         IInbox.CoreState memory genesisCoreState;
         genesisCoreState.nextProposalId = 1;
         genesisCoreState.lastFinalizedProposalId = 0; // default value
+        genesisCoreState.lastFinalizedTimestamp = 1; // Default block.timestamp in Foundry tests
         genesisCoreState.lastFinalizedClaimHash = keccak256(abi.encode(genesisClaim));
         genesisCoreState.bondInstructionsHash = bytes32(0); // default value
 

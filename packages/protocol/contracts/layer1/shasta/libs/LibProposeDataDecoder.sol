@@ -41,6 +41,7 @@ library LibProposeDataDecoder {
         // 2. Encode CoreState
         ptr = P.packUint48(ptr, _coreState.nextProposalId);
         ptr = P.packUint48(ptr, _coreState.lastFinalizedProposalId);
+        ptr = P.packUint48(ptr, _coreState.lastFinalizedTimestamp);
         ptr = P.packBytes32(ptr, _coreState.lastFinalizedClaimHash);
         ptr = P.packBytes32(ptr, _coreState.bondInstructionsHash);
 
@@ -91,6 +92,7 @@ library LibProposeDataDecoder {
         // 2. Decode CoreState
         (coreState_.nextProposalId, ptr) = P.unpackUint48(ptr);
         (coreState_.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
+        (coreState_.lastFinalizedTimestamp, ptr) = P.unpackUint48(ptr);
         (coreState_.lastFinalizedClaimHash, ptr) = P.unpackBytes32(ptr);
         (coreState_.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
 
@@ -273,10 +275,10 @@ library LibProposeDataDecoder {
         unchecked {
             // Fixed sizes:
             // deadline: 32 bytes (using uint256 for simplicity)
-            // CoreState: 6 + 6 + 32 + 32 = 76 bytes
+            // CoreState: 6 + 6 + 6 + 32 + 32 = 82 bytes
             // BlobReference: 2 + 2 + 3 = 7 bytes
             // Arrays lengths: 3 + 3 = 6 bytes
-            size_ = 121;
+            size_ = 127;
 
             // Proposals - each has fixed size + variable blob hashes
             // Fixed proposal fields: 6 + 20 + 6 + 6 + 1 + 1 + 32 = 72

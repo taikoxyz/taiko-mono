@@ -55,6 +55,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: genesisHash,
                 bondInstructionsHash: bytes32(0)
             });
@@ -89,6 +90,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
+                        lastFinalizedTimestamp: 0,
                         lastFinalizedClaimHash: genesisHash,
                         bondInstructionsHash: bytes32(0)
                     })
@@ -163,6 +165,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: genesisHash,
                 bondInstructionsHash: bytes32(0)
             });
@@ -199,6 +202,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
+                        lastFinalizedTimestamp: 0,
                         lastFinalizedClaimHash: genesisHash,
                         bondInstructionsHash: bytes32(0)
                     })
@@ -294,6 +298,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: parentHash,
                 bondInstructionsHash: bytes32(0)
             });
@@ -328,6 +333,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
+                        lastFinalizedTimestamp: 0,
                         lastFinalizedClaimHash: parentHash,
                         bondInstructionsHash: bytes32(0)
                     })
@@ -365,6 +371,7 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 6,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: parentHash,
             bondInstructionsHash: bytes32(0)
         });
@@ -410,6 +417,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: parentHash,
                 bondInstructionsHash: bytes32(0)
             });
@@ -475,6 +483,7 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: parentHash,
             bondInstructionsHash: bytes32(0)
         });
@@ -529,6 +538,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: genesisHash,
                 bondInstructionsHash: bytes32(0)
             });
@@ -564,6 +574,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
+                        lastFinalizedTimestamp: 0,
                         lastFinalizedClaimHash: genesisHash,
                         bondInstructionsHash: bytes32(0)
                     })
@@ -593,6 +604,7 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: genesisHash,
             bondInstructionsHash: bytes32(0)
         });
@@ -613,6 +625,7 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.CoreState({
             nextProposalId: numProposals + 2,
             lastFinalizedProposalId: uint48(defaultConfig.maxFinalizationCount),
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: keccak256(
                 abi.encode(claims[defaultConfig.maxFinalizationCount - 1])
             ),
@@ -677,6 +690,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: parentHash,
                 bondInstructionsHash: bytes32(0)
             });
@@ -711,6 +725,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
+                        lastFinalizedTimestamp: 0,
                         lastFinalizedClaimHash: parentHash,
                         bondInstructionsHash: bytes32(0)
                     })
@@ -875,6 +890,7 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: parentHash,
             bondInstructionsHash: bytes32(0)
         });
@@ -923,6 +939,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: parentHash,
                 bondInstructionsHash: bytes32(0)
             });
@@ -955,6 +972,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
+                        lastFinalizedTimestamp: 0,
                         lastFinalizedClaimHash: parentHash,
                         bondInstructionsHash: bytes32(0)
                     })
@@ -1042,6 +1060,7 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: parentHash,
             bondInstructionsHash: bytes32(0)
         });
@@ -1078,6 +1097,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
+                lastFinalizedTimestamp: 0,
                 lastFinalizedClaimHash: parentHash,
                 bondInstructionsHash: bytes32(0)
             });
@@ -1112,6 +1132,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
+                        lastFinalizedTimestamp: 0,
                         lastFinalizedClaimHash: parentHash,
                         bondInstructionsHash: bytes32(0)
                     })
@@ -1175,6 +1196,7 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
             lastFinalizedProposalId: 0,
+            lastFinalizedTimestamp: 0,
             lastFinalizedClaimHash: parentHash,
             bondInstructionsHash: bytes32(0)
         });
