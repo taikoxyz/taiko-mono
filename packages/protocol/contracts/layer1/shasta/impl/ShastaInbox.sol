@@ -10,6 +10,14 @@ import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.so
 /// @custom:security-contact security@taiko.xyz
 contract ShastaInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    /// @dev Ring buffer size for storing proposal hashes.
+    /// This value is inherited from the Pacaya fork as we are reusing the same slots.
+    uint64 private constant _RING_BUFFER_SIZE = 360_000;
+
+    // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
@@ -37,7 +45,7 @@ contract ShastaInbox is InboxOptimized2 {
             provingWindow: 2 hours,
             extendedProvingWindow: 4 hours,
             maxFinalizationCount: 16,
-            ringBufferSize: 2400,
+            ringBufferSize: _RING_BUFFER_SIZE,
             basefeeSharingPctg: 0,
             syncedBlockManager: address(0),
             proofVerifier: address(0),
