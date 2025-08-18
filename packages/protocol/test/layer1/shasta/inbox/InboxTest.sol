@@ -339,7 +339,7 @@ abstract contract InboxTest is CommonTest {
         return IInbox.CoreState({
             nextProposalId: _config.nextProposalId,
             lastFinalizedProposalId: _config.lastFinalizedProposalId,
-            lastFinalizedTimestamp: 0,
+            lastFinalizedTimestamp: 1,
             lastFinalizedClaimHash: _config.lastFinalizedClaimHash,
             bondInstructionsHash: _config.bondInstructionsHash
         });

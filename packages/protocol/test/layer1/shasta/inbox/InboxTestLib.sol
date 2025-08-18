@@ -49,7 +49,7 @@ library InboxTestLib {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
             lastFinalizedProposalId: _lastFinalizedProposalId,
-            lastFinalizedTimestamp: 0,
+            lastFinalizedTimestamp: 1,
             lastFinalizedClaimHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
         });
@@ -69,7 +69,7 @@ library InboxTestLib {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
             lastFinalizedProposalId: _lastFinalizedProposalId,
-            lastFinalizedTimestamp: 0,
+            lastFinalizedTimestamp: 1,
             lastFinalizedClaimHash: _lastFinalizedClaimHash,
             bondInstructionsHash: _bondInstructionsHash
         });

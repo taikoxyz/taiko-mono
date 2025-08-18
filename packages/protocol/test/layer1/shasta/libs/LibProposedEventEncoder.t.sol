@@ -33,13 +33,13 @@ contract LibProposedEventEncoderTest is Test {
         // Encode
         bytes memory encoded = LibProposedEventEncoder.encode(originalProposal, originalCoreState);
 
-        // Verify size (128 bytes for minimal config)
+        // Verify size (166 bytes for minimal config)
         // Proposal: 6+20+6+6+1+1 = 40
         // BlobSlice: 3+0+3+6 = 12
         // coreStateHash: 32
-        // CoreState: 6+6+32+32 = 76
-        // Total: 40+12+32+76 = 160
-        assertEq(encoded.length, 160);
+        // CoreState: 6+6+6+32+32 = 82 (includes lastFinalizedTimestamp)
+        // Total: 40+12+32+82 = 166
+        assertEq(encoded.length, 166);
 
         // Decode
         (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
@@ -62,6 +62,7 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(
             decodedCoreState.lastFinalizedProposalId, originalCoreState.lastFinalizedProposalId
         );
+        assertEq(decodedCoreState.lastFinalizedTimestamp, originalCoreState.lastFinalizedTimestamp);
         assertEq(decodedCoreState.lastFinalizedClaimHash, originalCoreState.lastFinalizedClaimHash);
         assertEq(decodedCoreState.bondInstructionsHash, originalCoreState.bondInstructionsHash);
     }
@@ -94,8 +95,8 @@ contract LibProposedEventEncoderTest is Test {
         // Encode
         bytes memory encoded = LibProposedEventEncoder.encode(originalProposal, originalCoreState);
 
-        // Verify size (160 + 3*32 = 256 bytes)
-        assertEq(encoded.length, 256);
+        // Verify size (166 + 3*32 = 262 bytes)
+        assertEq(encoded.length, 262);
 
         // Decode
         (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
@@ -121,6 +122,7 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(
             decodedCoreState.lastFinalizedProposalId, originalCoreState.lastFinalizedProposalId
         );
+        assertEq(decodedCoreState.lastFinalizedTimestamp, originalCoreState.lastFinalizedTimestamp);
         assertEq(decodedCoreState.lastFinalizedClaimHash, originalCoreState.lastFinalizedClaimHash);
         assertEq(decodedCoreState.bondInstructionsHash, originalCoreState.bondInstructionsHash);
     }
@@ -145,14 +147,15 @@ contract LibProposedEventEncoderTest is Test {
         IInbox.CoreState memory originalCoreState;
         originalCoreState.nextProposalId = type(uint48).max;
         originalCoreState.lastFinalizedProposalId = type(uint48).max;
+        originalCoreState.lastFinalizedTimestamp = type(uint48).max;
         originalCoreState.lastFinalizedClaimHash = bytes32(type(uint256).max);
         originalCoreState.bondInstructionsHash = bytes32(type(uint256).max);
 
         // Encode
         bytes memory encoded = LibProposedEventEncoder.encode(originalProposal, originalCoreState);
 
-        // Verify size (160 + 1*32 = 192 bytes)
-        assertEq(encoded.length, 192);
+        // Verify size (166 + 1*32 = 198 bytes)
+        assertEq(encoded.length, 198);
 
         // Decode
         (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
@@ -171,6 +174,7 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decodedProposal.coreStateHash, bytes32(type(uint256).max));
         assertEq(decodedCoreState.nextProposalId, type(uint48).max);
         assertEq(decodedCoreState.lastFinalizedProposalId, type(uint48).max);
+        assertEq(decodedCoreState.lastFinalizedTimestamp, type(uint48).max);
         assertEq(decodedCoreState.lastFinalizedClaimHash, bytes32(type(uint256).max));
         assertEq(decodedCoreState.bondInstructionsHash, bytes32(type(uint256).max));
     }
@@ -215,6 +219,7 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decodedProposal.coreStateHash, bytes32(0));
         assertEq(decodedCoreState.nextProposalId, 0);
         assertEq(decodedCoreState.lastFinalizedProposalId, 0);
+        assertEq(decodedCoreState.lastFinalizedTimestamp, 0);
         assertEq(decodedCoreState.lastFinalizedClaimHash, bytes32(0));
         assertEq(decodedCoreState.bondInstructionsHash, bytes32(0));
     }
@@ -252,14 +257,15 @@ contract LibProposedEventEncoderTest is Test {
         originalCoreState.nextProposalId =
             _proposalId < type(uint48).max ? _proposalId + 1 : _proposalId;
         originalCoreState.lastFinalizedProposalId = _proposalId > 0 ? _proposalId - 1 : 0;
+        originalCoreState.lastFinalizedTimestamp = _originTimestamp > 0 ? _originTimestamp - 1 : 0;
         originalCoreState.lastFinalizedClaimHash = keccak256(abi.encode("claim", _proposalId));
         originalCoreState.bondInstructionsHash = keccak256(abi.encode("bonds", _proposalId));
 
         // Encode
         bytes memory encoded = LibProposedEventEncoder.encode(originalProposal, originalCoreState);
 
-        // Verify expected size (160 + 32 = 192 bytes for 1 blob hash)
-        assertEq(encoded.length, 192);
+        // Verify expected size (166 + 32 = 198 bytes for 1 blob hash)
+        assertEq(encoded.length, 198);
 
         // Decode
         (IInbox.Proposal memory decodedProposal, IInbox.CoreState memory decodedCoreState) =
@@ -283,6 +289,7 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(
             decodedCoreState.lastFinalizedProposalId, originalCoreState.lastFinalizedProposalId
         );
+        assertEq(decodedCoreState.lastFinalizedTimestamp, originalCoreState.lastFinalizedTimestamp);
         assertEq(decodedCoreState.lastFinalizedClaimHash, originalCoreState.lastFinalizedClaimHash);
         assertEq(decodedCoreState.bondInstructionsHash, originalCoreState.bondInstructionsHash);
     }
@@ -290,6 +297,7 @@ contract LibProposedEventEncoderTest is Test {
     function testFuzz_encodeDecodeProposedEvent_coreState(
         uint48 _nextProposalId,
         uint48 _lastFinalizedProposalId,
+        uint48 _lastFinalizedTimestamp,
         bytes32 _lastFinalizedClaimHash,
         bytes32 _bondInstructionsHash
     )
@@ -313,14 +321,15 @@ contract LibProposedEventEncoderTest is Test {
         IInbox.CoreState memory originalCoreState;
         originalCoreState.nextProposalId = _nextProposalId;
         originalCoreState.lastFinalizedProposalId = _lastFinalizedProposalId;
+        originalCoreState.lastFinalizedTimestamp = _lastFinalizedTimestamp;
         originalCoreState.lastFinalizedClaimHash = _lastFinalizedClaimHash;
         originalCoreState.bondInstructionsHash = _bondInstructionsHash;
 
         // Encode
         bytes memory encoded = LibProposedEventEncoder.encode(originalProposal, originalCoreState);
 
-        // Verify expected size (160 bytes for 0 blob hashes)
-        assertEq(encoded.length, 160);
+        // Verify expected size (166 bytes for 0 blob hashes)
+        assertEq(encoded.length, 166);
 
         // Decode
         (, IInbox.CoreState memory decodedCoreState) = LibProposedEventEncoder.decode(encoded);
@@ -330,6 +339,7 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(
             decodedCoreState.lastFinalizedProposalId, originalCoreState.lastFinalizedProposalId
         );
+        assertEq(decodedCoreState.lastFinalizedTimestamp, originalCoreState.lastFinalizedTimestamp);
         assertEq(decodedCoreState.lastFinalizedClaimHash, originalCoreState.lastFinalizedClaimHash);
         assertEq(decodedCoreState.bondInstructionsHash, originalCoreState.bondInstructionsHash);
     }

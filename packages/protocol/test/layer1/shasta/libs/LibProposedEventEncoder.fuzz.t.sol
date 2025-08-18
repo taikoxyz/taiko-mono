@@ -52,6 +52,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
     function testFuzz_encodeDecodeCoreState(
         uint48 _nextProposalId,
         uint48 _lastFinalizedProposalId,
+        uint48 _lastFinalizedTimestamp,
         bytes32 _lastFinalizedClaimHash,
         bytes32 _bondInstructionsHash
     )
@@ -62,6 +63,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         IInbox.CoreState memory original;
         original.nextProposalId = _nextProposalId;
         original.lastFinalizedProposalId = _lastFinalizedProposalId;
+        original.lastFinalizedTimestamp = _lastFinalizedTimestamp;
         original.lastFinalizedClaimHash = _lastFinalizedClaimHash;
         original.bondInstructionsHash = _bondInstructionsHash;
 
@@ -70,6 +72,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
 
         assertEq(decoded.nextProposalId, original.nextProposalId);
         assertEq(decoded.lastFinalizedProposalId, original.lastFinalizedProposalId);
+        assertEq(decoded.lastFinalizedTimestamp, original.lastFinalizedTimestamp);
         assertEq(decoded.lastFinalizedClaimHash, original.lastFinalizedClaimHash);
         assertEq(decoded.bondInstructionsHash, original.bondInstructionsHash);
     }
@@ -146,6 +149,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         bytes32 _coreStateHash,
         uint48 _nextProposalId,
         uint48 _lastFinalizedProposalId,
+        uint48 _lastFinalizedTimestamp,
         bytes32 _lastFinalizedClaimHash,
         bytes32 _bondInstructionsHash,
         uint8 _blobHashCount
@@ -169,6 +173,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         IInbox.CoreState memory originalCoreState;
         originalCoreState.nextProposalId = _nextProposalId;
         originalCoreState.lastFinalizedProposalId = _lastFinalizedProposalId;
+        originalCoreState.lastFinalizedTimestamp = _lastFinalizedTimestamp;
         originalCoreState.lastFinalizedClaimHash = _lastFinalizedClaimHash;
         originalCoreState.bondInstructionsHash = _bondInstructionsHash;
 
@@ -198,6 +203,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(
             decodedCoreState.lastFinalizedProposalId, originalCoreState.lastFinalizedProposalId
         );
+        assertEq(decodedCoreState.lastFinalizedTimestamp, originalCoreState.lastFinalizedTimestamp);
         assertEq(decodedCoreState.lastFinalizedClaimHash, originalCoreState.lastFinalizedClaimHash);
         assertEq(decodedCoreState.bondInstructionsHash, originalCoreState.bondInstructionsHash);
     }
@@ -205,7 +211,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
     function testFuzz_calculateSize(uint256 _blobHashCount) public pure {
         vm.assume(_blobHashCount <= MAX_UINT24);
 
-        uint256 expectedSize = 160 + (_blobHashCount * 32);
+        uint256 expectedSize = 166 + (_blobHashCount * 32);
         uint256 calculatedSize = LibProposedEventEncoder.calculateProposedEventSize(_blobHashCount);
         assertEq(calculatedSize, expectedSize);
     }
