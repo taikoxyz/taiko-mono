@@ -41,7 +41,7 @@ contract InboxTest_Params is InboxTestBase {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);
 
-        inbox.proposeBatch(params, "txList");
+        inbox.proposeBatch(abi.encode(params), "txList");
     }
 
     function test_validateParams_reverts_when_anchorBlockId_too_small()
@@ -59,7 +59,7 @@ contract InboxTest_Params is InboxTestBase {
         params.anchorBlockId = uint64(block.number - config.maxAnchorHeightOffset - 1);
 
         vm.expectRevert(ITaikoInbox.AnchorBlockIdTooSmall.selector);
-        inbox.proposeBatch(params, "txList");
+        inbox.proposeBatch(abi.encode(params), "txList");
     }
 
     function test_validateParams_reverts_when_anchorBlockId_too_large()
@@ -72,7 +72,7 @@ contract InboxTest_Params is InboxTestBase {
         params.anchorBlockId = uint64(block.number);
 
         vm.expectRevert(ITaikoInbox.AnchorBlockIdTooLarge.selector);
-        inbox.proposeBatch(params, "txList");
+        inbox.proposeBatch(abi.encode(params), "txList");
     }
 
     function test_validateParams_reverts_when_anchorBlockId_smaller_than_parent()
@@ -95,7 +95,7 @@ contract InboxTest_Params is InboxTestBase {
         params.anchorBlockId = parent.anchorBlockId - 1;
 
         vm.expectRevert(ITaikoInbox.AnchorBlockIdSmallerThanParent.selector);
-        inbox.proposeBatch(params, "txList");
+        inbox.proposeBatch(abi.encode(params), "txList");
     }
 
     function test_validateParams_when_anchorBlockId_is_not_zero() external transactBy(Alice) {
@@ -103,7 +103,7 @@ contract InboxTest_Params is InboxTestBase {
         params.blocks = new ITaikoInbox.BlockParams[](1);
         params.anchorBlockId = uint64(block.number - 1);
 
-        inbox.proposeBatch(params, "txList");
+        inbox.proposeBatch(abi.encode(params), "txList");
     }
 
     function test_validateParams_reverts_when_timestamp_too_large() external transactBy(Alice) {
@@ -112,7 +112,7 @@ contract InboxTest_Params is InboxTestBase {
         params.lastBlockTimestamp = uint64(block.timestamp + 1);
 
         vm.expectRevert(ITaikoInbox.TimestampTooLarge.selector);
-        inbox.proposeBatch(params, "txList");
+        inbox.proposeBatch(abi.encode(params), "txList");
     }
 
     function test_validateParams_reverts_when_first_block_time_shift_not_zero()
@@ -122,16 +122,16 @@ contract InboxTest_Params is InboxTestBase {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](1);
         params.lastBlockTimestamp = uint64(block.timestamp);
-        inbox.proposeBatch(params, "txList");
+        inbox.proposeBatch(abi.encode(params), "txList");
 
         params.lastBlockTimestamp = uint64(block.timestamp - 1);
         vm.expectRevert(ITaikoInbox.TimestampSmallerThanParent.selector);
-        inbox.proposeBatch(params, "txList");
+        inbox.proposeBatch(abi.encode(params), "txList");
 
         params.blocks[0].timeShift = 1;
         params.lastBlockTimestamp = uint64(block.timestamp);
         vm.expectRevert(ITaikoInbox.FirstBlockTimeShiftNotZero.selector);
-        inbox.proposeBatch(params, "txList");
+        inbox.proposeBatch(abi.encode(params), "txList");
     }
 
     function test_validateParams_reverts_when_timestamp_smaller_than_parent()
@@ -141,15 +141,15 @@ contract InboxTest_Params is InboxTestBase {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](2);
         params.lastBlockTimestamp = uint64(block.timestamp);
-        inbox.proposeBatch(params, "txList");
+        inbox.proposeBatch(abi.encode(params), "txList");
 
         params.lastBlockTimestamp = uint64(block.timestamp - 1);
         vm.expectRevert(ITaikoInbox.TimestampSmallerThanParent.selector);
-        inbox.proposeBatch(params, "txList");
+        inbox.proposeBatch(abi.encode(params), "txList");
 
         params.blocks[1].timeShift = 1;
         params.lastBlockTimestamp = uint64(block.timestamp);
         vm.expectRevert(ITaikoInbox.TimestampSmallerThanParent.selector);
-        inbox.proposeBatch(params, "txList");
+        inbox.proposeBatch(abi.encode(params), "txList");
     }
 }

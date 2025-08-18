@@ -2,10 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/based/ITaikoInbox.sol";
-import "src/layer1/based/IProposeBatch.sol";
 import "src/shared/common/EssentialContract.sol";
 
-contract MockTaikoInbox is EssentialContract, IProposeBatchV2 {
+contract MockTaikoInbox is EssentialContract {
     bytes32 internal metaHash;
 
     constructor(address _resolver) EssentialContract(_resolver) { }
@@ -15,14 +14,16 @@ contract MockTaikoInbox is EssentialContract, IProposeBatchV2 {
     }
 
     function proposeBatch(
-        ITaikoInbox.BatchParams calldata params,
+        bytes calldata _params,
         bytes calldata _txList
     )
         external
-        override
-        returns (ITaikoInbox.BatchMetadata memory meta_)
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
     {
-        ITaikoInbox.BatchInfo memory info_ = ITaikoInbox.BatchInfo({
+        // Decode the batch params
+        ITaikoInbox.BatchParams memory params = abi.decode(_params, (ITaikoInbox.BatchParams));
+
+        info_ = ITaikoInbox.BatchInfo({
             txsHash: keccak256(_txList),
             blobHashes: new bytes32[](0),
             blobByteOffset: 0,
@@ -36,6 +37,7 @@ contract MockTaikoInbox is EssentialContract, IProposeBatchV2 {
             blobCreatedIn: 0,
             anchorBlockId: params.anchorBlockId,
             anchorBlockHash: bytes32(0), // Mock value
+            blocks: params.blocks,
             baseFeeConfig: LibSharedData.BaseFeeConfig({
                 adjustmentQuotient: 0,
                 sharingPctg: 0,

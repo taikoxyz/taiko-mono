@@ -65,6 +65,7 @@ interface ITaikoInbox {
     struct BatchInfo {
         bytes32 txsHash;
         // Data to build L2 blocks
+        BlockParams[] blocks;
         bytes32[] blobHashes;
         bytes32 extraData;
         address coinbase;
@@ -293,6 +294,18 @@ interface ITaikoInbox {
     error TooManySignals();
     error TransitionNotFound();
     error ZeroAnchorBlockHash();
+
+    /// @notice Proposes a batch of blocks.
+    /// @param _params ABI-encoded parameters.
+    /// @param _txList The transaction list in calldata. If the txList is empty, blob will be used
+    /// for data availability.
+    /// @return meta_ The metadata of the proposed batch.
+    function proposeBatch(
+        bytes calldata _params,
+        bytes calldata _txList
+    )
+        external
+        returns (ITaikoInbox.BatchMetadata memory meta_);
 
     /// @notice Proves state transitions for multiple batches with a single aggregated proof.
     /// @param _params ABI-encoded parameter containing:

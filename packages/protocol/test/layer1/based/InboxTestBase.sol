@@ -7,7 +7,7 @@ import "test/layer1/based/helpers/Verifier_ToggleStub.sol";
 abstract contract InboxTestBase is Layer1Test {
     mapping(uint256 => bytes) private _batchMetadatas;
 
-    TaikoInbox internal inbox;
+    ITaikoInbox internal inbox;
     TaikoToken internal bondToken;
     SignalService internal signalService;
     uint256 genesisBlockProposedAt;
@@ -124,7 +124,7 @@ abstract contract InboxTestBase is Layer1Test {
         batchIds = new uint64[](numBatchesToPropose);
 
         for (uint256 i; i < numBatchesToPropose; ++i) {
-            ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(batchParams, txList);
+            ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(abi.encode(batchParams), txList);
             _saveMetadata(meta);
             batchIds[i] = meta.batchId;
         }

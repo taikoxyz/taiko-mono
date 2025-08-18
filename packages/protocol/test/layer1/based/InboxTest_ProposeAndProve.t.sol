@@ -547,7 +547,7 @@ contract InboxTest_ProposeAndProve is InboxTestBase {
         params.proposer = Alice;
 
         vm.expectRevert(ITaikoInbox.CustomProposerNotAllowed.selector);
-        inbox.proposeBatch(params, "txList");
+        inbox.proposeBatch(abi.encode(params), "txList");
 
         vm.startPrank(deployer);
         address operator = Bob;

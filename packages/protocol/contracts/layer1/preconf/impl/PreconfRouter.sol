@@ -8,7 +8,7 @@ import "../iface/IPreconfWhitelist.sol";
 /// @title PreconfRouter
 /// @custom:security-contact security@taiko.xyz
 contract PreconfRouter is EssentialContract, IPreconfRouter {
-    IProposeBatchV2WithForcedInclusion public immutable proposeBatchEntrypoint;
+    IProposeBatch public immutable proposeBatchEntrypoint;
     IPreconfWhitelist public immutable preconfWhitelist;
     address public immutable fallbackPreconfer;
 
@@ -26,7 +26,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
     }
 
     constructor(
-        address _proposeBatchEntrypoint, // TaikoWrapper
+        address _proposeBatchEntrypoint, // TaikoInbox or TaikoWrapper
         address _preconfWhitelist,
         address _fallbackPreconfer
     )
@@ -34,7 +34,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         nonZeroAddr(_preconfWhitelist)
         EssentialContract(address(0))
     {
-        proposeBatchEntrypoint = IProposeBatchV2WithForcedInclusion(_proposeBatchEntrypoint);
+        proposeBatchEntrypoint = IProposeBatch(_proposeBatchEntrypoint);
         preconfWhitelist = IPreconfWhitelist(_preconfWhitelist);
         fallbackPreconfer = _fallbackPreconfer;
     }
@@ -62,18 +62,8 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         onlyFromPreconferOrFallback
         returns (ITaikoInbox.BatchMetadata memory meta_)
     {
-        (bytes memory delayedBatchParamsBytes, bytes memory regularBatchParamsBytes) = abi.decode(_params, (bytes, bytes));
-        
-        ITaikoInbox.BatchParams memory delayedBatchParams;
-        if (delayedBatchParamsBytes.length > 0) {
-            // Only decode delayed params if not empty for backwards compatibility
-            delayedBatchParams = abi.decode(delayedBatchParamsBytes, (ITaikoInbox.BatchParams));
-        }
-        
-        ITaikoInbox.BatchParams memory regularBatchParams = abi.decode(regularBatchParamsBytes, (ITaikoInbox.BatchParams));
-
-        // This calls the TaikoWrapper contract.
-        meta_ = IProposeBatchV2WithForcedInclusion(proposeBatchEntrypoint).proposeBatch(delayedBatchParams, regularBatchParams, _txList);
+        // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
+        meta_ = IProposeBatch(proposeBatchEntrypoint).proposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotPreconfer());

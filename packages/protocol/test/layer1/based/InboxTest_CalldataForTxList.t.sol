@@ -71,7 +71,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         vm.prank(Alice);
         vm.expectRevert(ITaikoInbox.BlobNotSpecified.selector);
         // With empty txList
-        inbox.proposeBatch(params, "");
+        inbox.proposeBatch(abi.encode(params), "");
     }
 
     function test_propose_batch_with_empty_txlist_and_valid_blobindex() external {
@@ -89,7 +89,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         vm.prank(Alice);
 
         // With empty txList
-        ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(params, "");
+        ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(abi.encode(params), "");
         _saveMetadata(meta);
 
         vm.prank(Alice);

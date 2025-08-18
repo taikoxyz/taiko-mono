@@ -2,17 +2,15 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/based/ITaikoInbox.sol";
-import "src/layer1/based/IProposeBatch.sol";
 
 /// @title StubInbox
 /// @custom:security-contact security@taiko.xyz
-contract StubInbox is ITaikoInbox, IProposeBatchV2 {
+contract StubInbox is ITaikoInbox {
     function proposeBatch(
-        ITaikoInbox.BatchParams calldata _params,
+        bytes calldata _params,
         bytes calldata _txList
     )
         external
-        override
         returns (ITaikoInbox.BatchMetadata memory meta_)
     { }
 
