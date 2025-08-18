@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../mocks/MockURC.sol";
+import "../mocks/MockOverseer.sol";
 import "test/shared/CommonTest.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "src/layer1/preconf/impl/LookaheadStore.sol";
@@ -24,6 +25,7 @@ contract LookaheadStoreBase is CommonTest {
     }
 
     MockURC internal urc;
+    MockOverseer internal overseer;
     LookaheadStore internal lookaheadStore;
 
     uint256 internal constant NUM_OPERATORS = 10;
@@ -38,7 +40,10 @@ contract LookaheadStoreBase is CommonTest {
 
     function setUpOnEthereum() internal virtual override {
         urc = new MockURC();
-        lookaheadStore = new LookaheadStore(address(urc), protector, preconfSlasher, preconfRouter);
+        overseer = new MockOverseer();
+        lookaheadStore = new LookaheadStore(
+            address(urc), protector, preconfSlasher, preconfRouter, address(overseer)
+        );
 
         // Wrap time to the beginning of an arbitrary epoch
         vm.warp(EPOCH_START);
@@ -180,6 +185,20 @@ contract LookaheadStoreBase is CommonTest {
             LibPreconfConstants.ETHEREUM_MAINNET_BEACON_GENESIS,
             _operator.collateralWei
         );
+    }
+
+    /// @notice Helper function to set blacklist status for operators in tests
+    /// @param _registrationRoot The operator registration root
+    /// @param _blacklistedAt Timestamp when blacklisted (0 means never blacklisted)
+    /// @param _unblacklistedAt Timestamp when unblacklisted (0 means never unblacklisted)
+    function _setOperatorBlacklistStatus(
+        bytes32 _registrationRoot,
+        uint48 _blacklistedAt,
+        uint48 _unblacklistedAt
+    )
+        internal
+    {
+        overseer.setBlacklistTimestamps(_registrationRoot, _blacklistedAt, _unblacklistedAt);
     }
 
     function _validateLookaheadSlots(

@@ -56,6 +56,7 @@ interface ILookaheadSlasher is ISlasher {
     error InvalidLookaheadSlotsIndex();
     error InvalidRegistrationProofValidator();
     error LookaheadHashMismatch();
+    error OperatorHasBeenBlacklisted();
     error OperatorHasBeenSlashed();
     error OperatorHasInsufficientCollateral();
     error OperatorHasNotOptedIn();

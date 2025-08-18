@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/preconf/iface/ILookaheadSlasher.sol";
+import "src/layer1/preconf/iface/IOverseer.sol";
 import "src/layer1/preconf/libs/LibEIP4788.sol";
 import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/layer1/preconf/libs/LibPreconfConstants.sol";
@@ -18,6 +19,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     address public immutable urc;
     address public immutable lookaheadStore;
     address public immutable preconfSlasher;
+    address public immutable overseer;
     uint256 public immutable slashAmount;
 
     uint256[50] private __gap;
@@ -26,6 +28,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         address _urc,
         address _lookaheadStore,
         address _preconfSlasher,
+        address _overseer,
         uint256 _slashAmount
     )
         EssentialContract()
@@ -33,6 +36,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         urc = _urc;
         lookaheadStore = _lookaheadStore;
         preconfSlasher = _preconfSlasher;
+        overseer = _overseer;
         slashAmount = _slashAmount;
     }
 
@@ -275,7 +279,15 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             OperatorHasInsufficientCollateral()
         );
 
-        // Todo: Check validity in overseer
+        IOverseer.BlacklistTimestamps memory blacklistTimestamps =
+            IOverseer(overseer).getBlacklist(registrationProof.registrationRoot);
+
+        // Verify that the operator was not blacklisted at the reference timestamp
+        bool notBlacklisted = blacklistTimestamps.blacklistedAt == 0
+            || blacklistTimestamps.blacklistedAt > referenceTimestamp;
+        bool unblacklisted = blacklistTimestamps.unBlacklistedAt != 0
+            && blacklistTimestamps.unBlacklistedAt < referenceTimestamp;
+        require(notBlacklisted || unblacklisted, OperatorHasBeenBlacklisted());
     }
 
     // Internal helpers

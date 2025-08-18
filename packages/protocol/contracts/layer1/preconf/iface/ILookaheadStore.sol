@@ -44,6 +44,7 @@ interface ILookaheadStore {
     error InvalidValidatorLeafIndex();
     error LookaheadNotRequired();
     error NotProtectorOrPreconfRouter();
+    error OperatorHasBeenBlacklisted();
     error OperatorHasBeenSlashed();
     error OperatorHasInsufficientCollateral();
     error OperatorHasNotOptedIn();
