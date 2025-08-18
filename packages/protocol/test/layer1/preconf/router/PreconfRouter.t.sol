@@ -7,10 +7,10 @@ import "src/layer1/based/ITaikoInbox.sol";
 import "src/layer1/mainnet/MainnetInbox.sol";
 import "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
+import "test/shared/ForkTestBase.sol";
 
-// Separate contract for fork tests to avoid setUp() conflicts
-contract PreconfRouterForkTest is Test {
-    // Mainnet contract addresses (Taiko mainnet)
+contract PreconfRouterForkTest is ForkTestBase {
+    // Mainnet contract addresses
     address constant MAINNET_ROUTER = 0xD5AA0e20e8A6e9b04F080Cf8797410fafAa9688a;
     address constant MAINNET_INBOX = 0x06a9Ab27c7e2255df1815E6CC0168d7755Feb19a;
     address constant MAINNET_WRAPPER = 0x9F9D2fC7abe74C79f86F0D1212107692430eef72;
@@ -27,25 +27,13 @@ contract PreconfRouterForkTest is Test {
     uint256 constant FORK_BLOCK = 23147260; // Block before tx 0x2c65e26d179f301c8d5367e0e80c9f281bc208bdf77fb05677aace4f8b7bf3ee
     string constant TX_HASH = "0x2c65e26d179f301c8d5367e0e80c9f281bc208bdf77fb05677aace4f8b7bf3ee";
     
-    function _getRpcUrl() internal view returns (string memory) {
-        try vm.envString("MAINNET_RPC_URL") returns (string memory rpcUrl) {
-            return rpcUrl;
-        } catch {
-            revert("MAINNET_RPC_URL not set. Please set it in .env file.");
-        }
+    function setUp() public override {
+        _createMainnetFork(FORK_BLOCK);
+        super.setUp();
     }
     
-    function _readCalldataFromFile(string memory filename) internal view returns (bytes memory) {
-        string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/test/layer1/preconf/router/testdata/", filename);
-        string memory fileContent = vm.readFile(path);
-        return vm.parseBytes(fileContent);
-    }
-    
-    function test_preconfRouter_proposeBatch_L1Calldata_forked() external {
-        // Fork mainnet at block before the transaction to get pre-execution state
-        string memory rpcUrl = _getRpcUrl();
-        vm.createSelectFork(rpcUrl, FORK_BLOCK);
+    function test_preconfRouter_proposeBatch_L1Calldata_forked() external requiresMainnetFork {
+        _selectMainnetFork();
         
         // Verify fork block
         assertEq(block.number, FORK_BLOCK, "Fork not at expected block");
@@ -53,16 +41,6 @@ contract PreconfRouterForkTest is Test {
         // Read calldata from file (named after the transaction hash)
         bytes memory realCalldata = _readCalldataFromFile(string.concat(TX_HASH, ".txt"));
         (bytes memory params, bytes memory txList) = abi.decode(realCalldata, (bytes, bytes));
-        
-        // Check the last batch timestamp before our transaction
-        ITaikoInbox inbox = ITaikoInbox(MAINNET_INBOX);
-        ITaikoInbox.Stats2 memory stats2 = inbox.getStats2();
-        console2.log("numBatches before:", stats2.numBatches);
-        
-        if (stats2.numBatches > 0) {
-            ITaikoInbox.Batch memory lastBatch = inbox.getBatch(stats2.numBatches - 1);
-            console2.log("Last batch timestamp:", lastBatch.lastBlockTimestamp);
-        }
         
         // Setup blob hashes (2 blobs for this transaction)
         bytes32[] memory blobHashes = new bytes32[](2);
@@ -97,6 +75,13 @@ contract PreconfRouterForkTest is Test {
         require(success, "proposeBatch failed");
         
         vm.stopSnapshotGas();
+    }
+
+    function _readCalldataFromFile(string memory filename) internal view returns (bytes memory) {
+        string memory root = vm.projectRoot();
+        string memory path = string.concat(root, "/test/layer1/preconf/router/testdata/", filename);
+        string memory fileContent = vm.readFile(path);
+        return vm.parseBytes(fileContent);
     }
 }
 
