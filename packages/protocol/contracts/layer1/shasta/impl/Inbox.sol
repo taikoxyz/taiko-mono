@@ -88,13 +88,23 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
+        coreState.lastFinalizedTimestamp = uint48(block.timestamp);
         coreState.lastFinalizedClaimHash = _hashClaim(claim);
 
         Proposal memory proposal;
         proposal.coreStateHash = _hashCoreState(coreState);
         _setProposalHash(getConfig(), 0, _hashProposal(proposal));
 
-        emit Proposed(encodeProposedEventData(proposal, coreState));
+        emit Proposed(encodeProposalCoreState(proposal, coreState));
+
+        ClaimRecord memory claimRecord = ClaimRecord({
+            proposalId: 0,
+            claim: claim,
+            span: 1,
+            bondInstructions: new LibBonds.BondInstruction[](0)
+        });
+
+        emit Finalized(encodeClaimRecord(claimRecord));
     }
 
     // ---------------------------------------------------------------
@@ -266,7 +276,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param proposal The proposal to encode
     /// @param coreState The core state to encode
     /// @return The encoded data
-    function encodeProposedEventData(
+    function encodeProposalCoreState(
         Proposal memory proposal,
         CoreState memory coreState
     )
@@ -281,7 +291,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Encodes the proved event data
     /// @param claimRecord The claim record to encode
     /// @return The encoded data
-    function encodeProveEventData(ClaimRecord memory claimRecord)
+    function encodeClaimRecord(ClaimRecord memory claimRecord)
         public
         pure
         virtual
@@ -574,7 +584,7 @@ abstract contract Inbox is EssentialContract, IInbox {
                 claimRecordHash
             );
 
-            emit Proved(encodeProveEventData(_claimRecords[i]));
+            emit Proved(encodeClaimRecord(_claimRecords[i]));
         }
     }
 
@@ -639,7 +649,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         });
 
         _setProposalHash(_config, proposal.id, _hashProposal(proposal));
-        emit Proposed(encodeProposedEventData(proposal, _coreState));
+        emit Proposed(encodeProposalCoreState(proposal, _coreState));
 
         return _coreState;
     }
@@ -689,6 +699,10 @@ abstract contract Inbox is EssentialContract, IInbox {
                 lastFinalizedRecord.claim.endBlockHash,
                 lastFinalizedRecord.claim.endStateRoot
             );
+
+            emit Finalized(encodeClaimRecord(lastFinalizedRecord));
+
+            _coreState.lastFinalizedTimestamp = uint48(block.timestamp);
         }
 
         return _coreState;

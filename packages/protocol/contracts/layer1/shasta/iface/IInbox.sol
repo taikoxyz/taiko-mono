@@ -79,6 +79,8 @@ interface IInbox {
         uint48 nextProposalId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
+        /// @notice The timestamp of the last finalized proposal.
+        uint48 lastFinalizedTimestamp;
         /// @notice The hash of the last finalized claim.
         bytes32 lastFinalizedClaimHash;
         /// @notice The hash of all bond instructions.
@@ -88,6 +90,10 @@ interface IInbox {
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
+
+    /// @notice Emitted when a proposal is finalized.
+    /// @param data The encoded ClaimRecord
+    event Finalized(bytes data);
 
     /// @notice Emitted when a new proposal is proposed.
     /// @param data The encoded (Proposal, CoreState)

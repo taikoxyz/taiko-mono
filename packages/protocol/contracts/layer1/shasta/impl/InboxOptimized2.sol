@@ -56,7 +56,7 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
     /// @param _proposal The proposal to encode
     /// @param _coreState The core state to encode
     /// @return The encoded data
-    function encodeProposedEventData(
+    function encodeProposalCoreState(
         Proposal memory _proposal,
         CoreState memory _coreState
     )
@@ -71,7 +71,7 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
     /// @dev Encodes the proved event data for gas optimization using compact encoding
     /// @param _claimRecord The claim record to encode
     /// @return The encoded data
-    function encodeProveEventData(ClaimRecord memory _claimRecord)
+    function encodeClaimRecord(ClaimRecord memory _claimRecord)
         public
         pure
         override
