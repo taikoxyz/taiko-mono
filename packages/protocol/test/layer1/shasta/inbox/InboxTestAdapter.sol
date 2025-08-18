@@ -41,7 +41,7 @@ library InboxTestAdapter {
                 _deadline, _coreState, _proposals, _blobRef, _claimRecords
             );
         } else {
-            // Core, Optimized1, and Optimized2 use standard abi.encode
+            // Base, Optimized1, and Optimized2 use standard abi.encode
             return abi.encode(_deadline, _coreState, _proposals, _blobRef, _claimRecords);
         }
     }
@@ -64,7 +64,7 @@ library InboxTestAdapter {
             // InboxOptimized3 uses custom encoding
             return LibProveDataDecoder.encode(_proposals, _claims);
         } else {
-            // Core, Optimized1, and Optimized2 use standard abi.encode
+            // Base, Optimized1, and Optimized2 use standard abi.encode
             return abi.encode(_proposals, _claims);
         }
     }
@@ -89,7 +89,7 @@ library InboxTestAdapter {
             // InboxOptimized2 and InboxOptimized3 use custom event encoding
             return LibProposedEventEncoder.decode(_data);
         } else {
-            // Core and Optimized1 emit the standard structs
+            // Base and Optimized1 emit the standard structs
             // The event data would be the encoded structs
             (proposal_, coreState_) = abi.decode(_data, (IInbox.Proposal, IInbox.CoreState));
         }
@@ -114,7 +114,7 @@ library InboxTestAdapter {
             // InboxOptimized2 and InboxOptimized3 use custom event encoding
             return LibProvedEventEncoder.decode(_data);
         } else {
-            // Core and Optimized1 emit the standard struct
+            // Base and Optimized1 emit the standard struct
             claimRecord_ = abi.decode(_data, (IInbox.ClaimRecord));
         }
     }
