@@ -8,7 +8,7 @@ import "../iface/IPreconfWhitelist.sol";
 /// @title PreconfRouter
 /// @custom:security-contact security@taiko.xyz
 contract PreconfRouter is EssentialContract, IPreconfRouter {
-    IProposeBatch public immutable proposeBatchEntrypoint;
+    IProposeBatchV2WithForcedInclusion public immutable proposeBatchEntrypoint;
     IPreconfWhitelist public immutable preconfWhitelist;
     address public immutable fallbackPreconfer;
 
@@ -26,7 +26,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
     }
 
     constructor(
-        address _proposeBatchEntrypoint, // TaikoInbox or TaikoWrapper
+        address _proposeBatchEntrypoint, // TaikoWrapper
         address _preconfWhitelist,
         address _fallbackPreconfer
     )
@@ -34,7 +34,7 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         nonZeroAddr(_preconfWhitelist)
         EssentialContract(address(0))
     {
-        proposeBatchEntrypoint = IProposeBatch(_proposeBatchEntrypoint);
+        proposeBatchEntrypoint = IProposeBatchV2WithForcedInclusion(_proposeBatchEntrypoint);
         preconfWhitelist = IPreconfWhitelist(_preconfWhitelist);
         fallbackPreconfer = _fallbackPreconfer;
     }
@@ -62,8 +62,12 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         onlyFromPreconferOrFallback
         returns (ITaikoInbox.BatchMetadata memory meta_)
     {
-        // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
-        meta_ = IProposeBatch(proposeBatchEntrypoint).proposeBatch(_params, _txList);
+        (bytes memory delayedBatchParamsBytes, bytes memory regularBatchParamsBytes) = abi.decode(_params, (bytes, bytes));
+        ITaikoInbox.BatchParams memory delayedBatchParams = abi.decode(delayedBatchParamsBytes, (ITaikoInbox.BatchParams));
+        ITaikoInbox.BatchParams memory regularBatchParams = abi.decode(regularBatchParamsBytes, (ITaikoInbox.BatchParams));
+
+        // This calls the TaikoWrapper contract.
+        meta_ = IProposeBatchV2WithForcedInclusion(proposeBatchEntrypoint).proposeBatch(delayedBatchParams, regularBatchParams, _txList);
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotPreconfer());

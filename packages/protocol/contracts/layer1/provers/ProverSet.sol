@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 import "./ProverSetBase.sol";
 import "../based/IProposeBatch.sol";
 
+/// @title ProverSet
+/// @notice DEPRECATED: Use `PreconfRouter` directlyinstead.
 contract ProverSet is ProverSetBase, IProposeBatch {
     using Address for address;
 
@@ -34,7 +36,11 @@ contract ProverSet is ProverSetBase, IProposeBatch {
         onlyProver
         returns (ITaikoInbox.BatchMetadata memory)
     {
-        return IProposeBatch(entrypoint).proposeBatch(_params, _txList);
+        (bytes memory delayedBatchParamsBytes, bytes memory regularBatchParamsBytes) = abi.decode(_params, (bytes, bytes));
+        ITaikoInbox.BatchParams memory delayedBatchParams = abi.decode(delayedBatchParamsBytes, (ITaikoInbox.BatchParams));
+        ITaikoInbox.BatchParams memory regularBatchParams = abi.decode(regularBatchParamsBytes, (ITaikoInbox.BatchParams));
+
+        return IProposeBatchV2WithForcedInclusion(entrypoint).proposeBatch(delayedBatchParams, regularBatchParams, _txList);
     }
 
     /// @notice Proves multiple Taiko batches.

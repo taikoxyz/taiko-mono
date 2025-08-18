@@ -26,7 +26,7 @@ import "./IProposeBatch.sol";
 ///
 /// @dev Registered in the address resolver as "taiko".
 /// @custom:security-contact security@taiko.xyz
-abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, ITaiko {
+abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatchV2, ITaiko {
     using LibMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -70,7 +70,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         bytes calldata _txList
     )
         public
-        override(ITaikoInbox, IProposeBatch)
+        override
         nonReentrant
         returns (BatchMetadata memory meta_)
     {
@@ -117,26 +117,28 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 }
             }
 
-            bool calldataUsed = _txList.length != 0;
+            {
+                bool calldataUsed = _txList.length != 0;
 
-            if (calldataUsed) {
-                // calldata is used for data availability
-                require(_params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
-                require(_params.blobParams.numBlobs == 0, InvalidBlobParams());
-                require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                require(_params.blobParams.blobHashes.length == 0, InvalidBlobParams());
-            } else if (_params.blobParams.blobHashes.length == 0) {
-                // this is a normal batch, blobs are created and used in the current batches.
-                // firstBlobIndex can be non-zero.
-                require(_params.blobParams.numBlobs != 0, BlobNotSpecified());
-                require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
-                blobCreatedIn = uint64(block.number);
-            } else {
-                // this is a forced-inclusion batch, blobs were created in early blocks and are used
-                // in the current batches
-                require(_params.blobParams.createdIn != 0, InvalidBlobCreatedIn());
-                require(_params.blobParams.numBlobs == 0, InvalidBlobParams());
-                require(_params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+                if (calldataUsed) {
+                    // calldata is used for data availability
+                    require(_params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+                    require(_params.blobParams.numBlobs == 0, InvalidBlobParams());
+                    require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                    require(_params.blobParams.blobHashes.length == 0, InvalidBlobParams());
+                } else if (_params.blobParams.blobHashes.length == 0) {
+                    // this is a normal batch, blobs are created and used in the current batches.
+                    // firstBlobIndex can be non-zero.
+                    require(_params.blobParams.numBlobs != 0, BlobNotSpecified());
+                    require(_params.blobParams.createdIn == 0, InvalidBlobCreatedIn());
+                    blobCreatedIn = uint64(block.number);
+                } else {
+                    // this is a forced-inclusion batch, blobs were created in early blocks and are used
+                    // in the current batches
+                    require(_params.blobParams.createdIn != 0, InvalidBlobCreatedIn());
+                    require(_params.blobParams.numBlobs == 0, InvalidBlobParams());
+                    require(_params.blobParams.firstBlobIndex == 0, InvalidBlobParams());
+                }
             }
 
             // Keep track of last batch's information.
@@ -207,27 +209,29 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 proposedAt: uint64(block.timestamp)
             });
 
-            Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
+            {
+                Batch storage batch = state.batches[stats2.numBatches % config.batchRingBufferSize];
 
-            // SSTORE #1
-            batch.metaHash = keccak256(abi.encode(meta_));
+                // SSTORE #1
+                batch.metaHash = keccak256(abi.encode(meta_));
 
-            // SSTORE #2 {{
-            batch.batchId = stats2.numBatches;
-            batch.lastBlockTimestamp = lastBlockTimestamp;
-            batch.anchorBlockId = anchorBlockId;
-            batch.nextTransitionId = 1;
-            batch.verifiedTransitionId = 0;
-            batch.reserved4 = 0;
-            // SSTORE }}
+                // SSTORE #2 {{
+                batch.batchId = stats2.numBatches;
+                batch.lastBlockTimestamp = lastBlockTimestamp;
+                batch.anchorBlockId = anchorBlockId;
+                batch.nextTransitionId = 1;
+                batch.verifiedTransitionId = 0;
+                batch.reserved4 = 0;
+                // SSTORE }}
 
-            _debitBond(proposer, config.livenessBondBase);
+                _debitBond(proposer, config.livenessBondBase);
 
-            // SSTORE #3 {{
-            batch.lastBlockId = info_.lastBlockId;
-            batch.reserved3 = 0;
-            batch.livenessBond = config.livenessBondBase;
-            // SSTORE }}
+                // SSTORE #3 {{
+                batch.lastBlockId = info_.lastBlockId;
+                batch.reserved3 = 0;
+                batch.livenessBond = config.livenessBondBase;
+                // SSTORE }}
+            }
 
             stats2.numBatches += 1;
             require(
