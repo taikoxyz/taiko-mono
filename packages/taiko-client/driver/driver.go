@@ -371,7 +371,7 @@ func (d *Driver) cacheLookaheadLoop() {
 	var (
 		seenBlockNumber uint64 = 0
 		lastSlot        uint64 = 0
-		opWin                  = preconfBlocks.NewOpWindow(d.PreconfHandoverSkipSlots, d.rpc.L1Beacon.SlotsPerEpoch)
+		opWin                  = preconfBlocks.NewOpWindow(d.rpc.L1Beacon.SlotsPerEpoch)
 		wasSequencer           = false
 	)
 

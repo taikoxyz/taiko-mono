@@ -41,17 +41,16 @@ func mergeRanges(r []SlotRange) []SlotRange {
 
 // opWindow holds the last three epochs’ operator addresses.
 type opWindow struct {
-	epochs            [3]uint64
-	currOps           [3]common.Address
-	nextOps           [3]common.Address
-	valid             [3]bool
-	handoverSkipSlots uint64
-	slotsPerEpoch     uint64
+	epochs        [3]uint64
+	currOps       [3]common.Address
+	nextOps       [3]common.Address
+	valid         [3]bool
+	slotsPerEpoch uint64
 }
 
 // NewOpWindow creates a new opWindow instance.
-func NewOpWindow(handoverSkipSlots, slotsPerEpoch uint64) *opWindow {
-	return &opWindow{handoverSkipSlots: handoverSkipSlots, slotsPerEpoch: slotsPerEpoch}
+func NewOpWindow(slotsPerEpoch uint64) *opWindow {
+	return &opWindow{slotsPerEpoch: slotsPerEpoch}
 }
 
 // Push records the operator pair for one epoch into the ring.
