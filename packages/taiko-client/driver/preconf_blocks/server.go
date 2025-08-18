@@ -223,6 +223,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	defer func() {
 		elapsed := float64(time.Since(start).Milliseconds())
 		metrics.DriverPreconfOnUnsafeL2PayloadDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2Payload completed", "elapsed", elapsed)
 	}()
 
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
@@ -321,6 +322,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	defer func() {
 		elapsed := float64(time.Since(start).Milliseconds())
 		metrics.DriverPreconfOnL2UnsafeResponseDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2Response completed", "elapsed", elapsed)
 	}()
 
 	// add responses seen to cache.
@@ -415,6 +417,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	defer func() {
 		elapsed := float64(time.Since(start).Milliseconds())
 		metrics.DriverPreconfOnL2UnsafeRequestDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2Request completed", "elapsed", elapsed)
 	}()
 
 	// Ignore the message if it is from the current P2P node.
@@ -554,6 +557,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 	defer func() {
 		elapsed := float64(time.Since(start).Milliseconds())
 		metrics.DriverPreconfOnEndOfSequencingRequestDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2EndOfSequencingRequest completed", "elapsed", elapsed)
 	}()
 
 	// Ignore the message if it is from the current P2P node.
@@ -824,7 +828,7 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	if payload.GasLimit == 0 {
 		return errors.New("non-zero gas limit is required")
 	}
-	var u256BaseFee = uint256.Int(payload.BaseFeePerGas)
+	u256BaseFee := uint256.Int(payload.BaseFeePerGas)
 	if u256BaseFee.ToBig().Cmp(common.Big0) == 0 {
 		return errors.New("non-zero base fee per gas is required")
 	}
