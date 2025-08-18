@@ -73,7 +73,7 @@ contract InboxOutOfOrderProving is InboxTest {
             }
 
             bytes memory proposalData = encodeProposalDataWithProposals(
-                uint64(0),
+                uint48(0),
                 proposalCoreState,
                 validationProposals,
                 proposalBlobRef,
@@ -198,7 +198,7 @@ contract InboxOutOfOrderProving is InboxTest {
         finalValidationProposals[0] = proposals[numProposals - 1];
 
         bytes memory proposeData = encodeProposalDataWithProposals(
-            uint64(0), coreState, finalValidationProposals, blobRef, claimRecords
+            uint48(0), coreState, finalValidationProposals, blobRef, claimRecords
         );
 
         vm.prank(Carol);
@@ -242,7 +242,7 @@ contract InboxOutOfOrderProving is InboxTest {
             if (i == 1) {
                 // First proposal needs genesis for validation
                 proposalData = encodeProposalDataWithGenesis(
-                    uint64(0), proposalCoreState, proposalBlobRef, emptyClaimRecords
+                    uint48(0), proposalCoreState, proposalBlobRef, emptyClaimRecords
                 );
             } else {
                 // For subsequent proposals, we need to create the previous proposal structure
@@ -260,7 +260,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 );
 
                 proposalData = encodeProposalDataForSubsequent(
-                    uint64(0), proposalCoreState, prevProposal, proposalBlobRef, emptyClaimRecords
+                    uint48(0), proposalCoreState, prevProposal, proposalBlobRef, emptyClaimRecords
                 );
             }
 
@@ -374,7 +374,7 @@ contract InboxOutOfOrderProving is InboxTest {
         );
 
         bytes memory proposeData = encodeProposalDataForSubsequent(
-            uint64(0), coreState, lastProposal, blobRef, claimRecords
+            uint48(0), coreState, lastProposal, blobRef, claimRecords
         );
 
         vm.prank(Carol);

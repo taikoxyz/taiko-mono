@@ -66,7 +66,7 @@ contract InboxBasicTest is InboxTest {
         vm.warp(1000);
 
         // Arrange: Create proposal with expired deadline
-        uint64 expiredDeadline = createDeadlineTestData(true);
+        uint48 expiredDeadline = createDeadlineTestData(true);
         IInbox.CoreState memory coreState = _getGenesisCoreState();
 
         bytes memory data = encodeProposalDataWithGenesis(
