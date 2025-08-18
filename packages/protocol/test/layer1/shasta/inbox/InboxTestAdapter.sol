@@ -25,7 +25,7 @@ library InboxTestAdapter {
     /// @return Encoded proposal data
     function encodeProposalData(
         TestInboxFactory.InboxType _inboxType,
-        uint64 _deadline,
+        uint48 _deadline,
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,

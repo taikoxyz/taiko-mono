@@ -429,7 +429,7 @@ contract InboxChainAdvancement is InboxTest {
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
             IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
             bytes memory proposalData =
-                abi.encode(uint64(0), proposalCoreState, proposalBlobRef, emptyClaimRecords);
+                abi.encode(uint48(0), proposalCoreState, proposalBlobRef, emptyClaimRecords);
 
             vm.startPrank(Alice);
             setupBlobHashes();
@@ -498,7 +498,7 @@ contract InboxChainAdvancement is InboxTest {
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
 
-        bytes memory proposeData = abi.encode(uint64(0), coreState, blobRef, claimRecords);
+        bytes memory proposeData = abi.encode(uint48(0), coreState, blobRef, claimRecords);
 
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);

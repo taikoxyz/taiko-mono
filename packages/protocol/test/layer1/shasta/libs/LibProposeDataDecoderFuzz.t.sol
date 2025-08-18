@@ -13,7 +13,7 @@ import { LibProposeDataDecoder } from "src/layer1/shasta/libs/LibProposeDataDeco
 contract LibProposeDataDecoderFuzz is Test {
     /// @notice Fuzz test for basic encode/decode with simple types
     function testFuzz_encodeDecodeBasicTypes(
-        uint64 deadline,
+        uint48 deadline,
         uint48 nextProposalId,
         uint48 lastFinalizedProposalId,
         bytes32 lastFinalizedClaimHash,
@@ -44,7 +44,7 @@ contract LibProposeDataDecoderFuzz is Test {
         );
 
         (
-            uint64 decodedDeadline,
+            uint48 decodedDeadline,
             IInbox.CoreState memory decodedCoreState,
             ,
             LibBlobs.BlobReference memory decodedBlobRef,
@@ -264,7 +264,7 @@ contract LibProposeDataDecoderFuzz is Test {
 
         // Decode
         (
-            uint64 decodedDeadline,
+            uint48 decodedDeadline,
             ,
             IInbox.Proposal[] memory decodedProposals,
             ,
@@ -310,7 +310,7 @@ contract LibProposeDataDecoderFuzz is Test {
 
         // Create test data
         (
-            uint64 deadline,
+            uint48 deadline,
             IInbox.CoreState memory coreState,
             IInbox.Proposal[] memory proposals,
             LibBlobs.BlobReference memory blobRef,
@@ -331,7 +331,7 @@ contract LibProposeDataDecoderFuzz is Test {
 
         // Verify decode produces identical results
         (
-            uint64 decodedDeadline,
+            uint48 decodedDeadline,
             IInbox.CoreState memory decodedCoreState,
             IInbox.Proposal[] memory decodedProposals,
             ,
@@ -353,7 +353,7 @@ contract LibProposeDataDecoderFuzz is Test {
         private
         pure
         returns (
-            uint64 deadline,
+            uint48 deadline,
             IInbox.CoreState memory coreState,
             IInbox.Proposal[] memory proposals,
             LibBlobs.BlobReference memory blobRef,

@@ -246,7 +246,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         pure
         virtual
         returns (
-            uint64 deadline_,
+            uint48 deadline_,
             CoreState memory coreState_,
             Proposal[] memory parentProposals_,
             LibBlobs.BlobReference memory blobReference_,
@@ -254,7 +254,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         )
     {
         (deadline_, coreState_, parentProposals_, blobReference_, claimRecords_) = abi.decode(
-            _data, (uint64, CoreState, Proposal[], LibBlobs.BlobReference, ClaimRecord[])
+            _data, (uint48, CoreState, Proposal[], LibBlobs.BlobReference, ClaimRecord[])
         );
     }
 

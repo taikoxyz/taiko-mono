@@ -240,7 +240,7 @@ contract InboxRingBuffer is InboxTest {
 
         setupProposalMocks(Alice);
         bytes memory data3 = encodeProposalDataWithProposals(
-            uint64(0), // deadline
+            uint48(0), // deadline
             coreState3,
             parentProposals,
             InboxTestLib.createBlobReference(3),

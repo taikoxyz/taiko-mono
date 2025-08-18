@@ -51,7 +51,7 @@ contract InboxProposeValidation is InboxTest {
 
         // Arrange: Configure mocks and create proposal with valid future deadline
         setupProposalMocks(Alice);
-        uint64 deadline = uint64(block.timestamp + 1 hours); // Valid deadline (1 hour future)
+        uint48 deadline = uint48(block.timestamp + 1 hours); // Valid deadline (1 hour future)
 
         bytes memory data = encodeProposalDataWithGenesis(
             deadline, coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
@@ -84,7 +84,7 @@ contract InboxProposeValidation is InboxTest {
 
         // Arrange: Create proposal with expired deadline (security test)
         setupProposalMocks(Alice);
-        uint64 deadline = uint64(block.timestamp - 1); // Expired by 1 second
+        uint48 deadline = uint48(block.timestamp - 1); // Expired by 1 second
 
         bytes memory data = encodeProposalDataWithGenesis(
             deadline, coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
@@ -153,7 +153,7 @@ contract InboxProposeValidation is InboxTest {
 
         // Use proper encoding - but with wrong core state
         bytes memory data =
-            encodeProposalDataWithGenesis(uint64(0), wrongCoreState, blobRef, claimRecords);
+            encodeProposalDataWithGenesis(uint48(0), wrongCoreState, blobRef, claimRecords);
 
         // Act & Assert: Invalid state should be rejected with InvalidState error
         vm.expectRevert(InvalidState.selector);
@@ -193,7 +193,7 @@ contract InboxProposeValidation is InboxTest {
         // Arrange: Create valid proposal data (everything valid except authorization)
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(1);
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
-        bytes memory data = abi.encode(uint64(0), coreState, blobRef, claimRecords);
+        bytes memory data = abi.encode(uint48(0), coreState, blobRef, claimRecords);
 
         // Act & Assert: Unauthorized proposer should be rejected
         vm.expectRevert();
@@ -257,7 +257,7 @@ contract InboxProposeValidation is InboxTest {
 
         // Use proper encoding with proposals array
         bytes memory data =
-            encodeProposalDataWithGenesis(uint64(0), coreState, blobRef, claimRecords);
+            encodeProposalDataWithGenesis(uint48(0), coreState, blobRef, claimRecords);
 
         // Note: When forced inclusion is due, both forced inclusion and regular proposals are
         // created
@@ -314,7 +314,7 @@ contract InboxProposeValidation is InboxTest {
         proposals[1] = genesisProposal;
 
         bytes memory data3 = encodeProposalDataWithProposals(
-            uint64(0),
+            uint48(0),
             coreState3,
             proposals,
             InboxTestLib.createBlobReference(3),
@@ -364,7 +364,7 @@ contract InboxProposeValidation is InboxTest {
 
         // Use proper encoding with proposals array
         bytes memory data =
-            encodeProposalDataWithGenesis(uint64(0), coreState, invalidBlobRef, claimRecords);
+            encodeProposalDataWithGenesis(uint48(0), coreState, invalidBlobRef, claimRecords);
 
         // Act & Assert: Invalid blob reference should be rejected
         vm.expectRevert(LibBlobs.InvalidBlobReference.selector);
@@ -409,7 +409,7 @@ contract InboxProposeValidation is InboxTest {
 
         // Use the proper encoding function that includes the proposals array
         bytes memory data =
-            encodeProposalDataWithGenesis(uint64(0), coreState, blobRef, claimRecords);
+            encodeProposalDataWithGenesis(uint48(0), coreState, blobRef, claimRecords);
 
         // Act & Assert: Missing blob should be rejected for data availability
         vm.expectRevert(LibBlobs.BlobNotFound.selector);

@@ -18,7 +18,7 @@ library LibProposeDataDecoder {
     /// @param _claimRecords The array of ClaimRecords
     /// @return encoded_ The encoded data
     function encode(
-        uint64 _deadline,
+        uint48 _deadline,
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobReference,
@@ -35,8 +35,8 @@ library LibProposeDataDecoder {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(encoded_);
 
-        // 1. Encode deadline (using full 8 bytes for uint64)
-        ptr = P.packUint256(ptr, uint256(_deadline));
+        // 1. Encode deadline
+        ptr = P.packUint48(ptr, _deadline);
 
         // 2. Encode CoreState
         ptr = P.packUint48(ptr, _coreState.nextProposalId);
@@ -74,7 +74,7 @@ library LibProposeDataDecoder {
         internal
         pure
         returns (
-            uint64 deadline_,
+            uint48 deadline_,
             IInbox.CoreState memory coreState_,
             IInbox.Proposal[] memory proposals_,
             LibBlobs.BlobReference memory blobReference_,
@@ -84,10 +84,8 @@ library LibProposeDataDecoder {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
 
-        // 1. Decode deadline (stored as uint256 for simplicity)
-        uint256 deadlineTemp;
-        (deadlineTemp, ptr) = P.unpackUint256(ptr);
-        deadline_ = uint64(deadlineTemp);
+        // 1. Decode deadline
+        (deadline_, ptr) = P.unpackUint48(ptr);
 
         // 2. Decode CoreState
         (coreState_.nextProposalId, ptr) = P.unpackUint48(ptr);
@@ -274,11 +272,11 @@ library LibProposeDataDecoder {
     {
         unchecked {
             // Fixed sizes:
-            // deadline: 32 bytes (using uint256 for simplicity)
-            // CoreState: 6 + 6 + 6 + 32 + 32 = 82 bytes
+            // deadline: 6 bytes (uint48)
+            // CoreState: 6 + 6 + 32 + 32 = 76 bytes
             // BlobReference: 2 + 2 + 3 = 7 bytes
             // Arrays lengths: 3 + 3 = 6 bytes
-            size_ = 127;
+            size_ = 95;
 
             // Proposals - each has fixed size + variable blob hashes
             // Fixed proposal fields: 6 + 20 + 6 + 6 + 1 + 1 + 32 = 72
