@@ -305,7 +305,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             claimRecord.bondInstructions = _calculateBondInstructions(_config, proposal, claim);
             claimRecord.parentClaimHash = claim.parentClaimHash;
             claimRecord.claimHash = _hashClaim(claim);
-            claimRecord.endBlockMiniHeaderHash = keccak256(abi.encode(claim.endBlockMiniHeader));
+            claimRecord.endBlockMiniHeaderHash = _hashBlockMiniHeader(claim.endBlockMiniHeader);
 
             // Pass claim and claimRecord to _setClaimRecordHash which will emit the event
             _setClaimRecordHash(_config, proposal.id, claim, claimRecord);
@@ -437,25 +437,6 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Gets the available capacity for new proposals.
-    /// @param _config The configuration parameters.
-    /// @param _coreState The core state.
-    /// @return _ The available capacity for new proposals.
-    function _getAvailableCapacity(
-        Config memory _config,
-        CoreState memory _coreState
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        unchecked {
-            uint256 numUnfinalizedProposals =
-                _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
-            return _getCapacity(_config) - numUnfinalizedProposals;
-        }
-    }
-
     /// @dev Gets the claim record hash for a given proposal and parent claim.
     function _getClaimRecordHash(
         Config memory _config,
@@ -489,9 +470,49 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
 
+    /// @dev Hashes a Claim struct.
+    /// @param _claim The claim to hash.
+    /// @return _ The hash of the claim.
+    function _hashClaim(Claim memory _claim) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_claim));
+    }
+
+    /// @dev Hashes a ClaimRecord struct.
+    /// @param _claimRecord The claim record to hash.
+    /// @return _ The hash of the claim record.
+    function _hashClaimRecord(ClaimRecord memory _claimRecord) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_claimRecord));
+    }
+
+    /// @dev Hashes a BlockMiniHeader struct.
+    /// @param _header The block mini header to hash.
+    /// @return _ The hash of the block mini header.
+    function _hashBlockMiniHeader(BlockMiniHeader memory _header) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_header));
+    }
+
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
+
+    /// @dev Gets the available capacity for new proposals.
+    /// @param _config The configuration parameters.
+    /// @param _coreState The core state.
+    /// @return _ The available capacity for new proposals.
+    function _getAvailableCapacity(
+        Config memory _config,
+        CoreState memory _coreState
+    )
+        private
+        pure
+        returns (uint256)
+    {
+        unchecked {
+            uint256 numUnfinalizedProposals =
+                _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
+            return _getCapacity(_config) - numUnfinalizedProposals;
+        }
+    }
 
     /// @dev Validates the basic inputs for propose function
     /// @param _deadline The deadline timestamp for transaction inclusion (0 = no deadline).
@@ -659,7 +680,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Update synced block if any proposals were finalized
         if (finalizedCount > 0) {
-            bytes32 endBlockMiniHeaderHash = keccak256(abi.encode(_endBlockMiniHeader));
+            bytes32 endBlockMiniHeaderHash = _hashBlockMiniHeader(_endBlockMiniHeader);
             require(
                 endBlockMiniHeaderHash == lastFinalizedRecord.endBlockMiniHeaderHash,
                 EndBlockMiniHeaderMismatch()
@@ -756,13 +777,6 @@ abstract contract Inbox is EssentialContract, IInbox {
         return keccak256(abi.encode(_proposalId, _parentClaimHash));
     }
 
-    /// @dev Hashes a Claim struct.
-    /// @param _claim The claim to hash.
-    /// @return _ The hash of the claim.
-    function _hashClaim(Claim memory _claim) internal pure returns (bytes32) {
-        return keccak256(abi.encode(_claim));
-    }
-
     /// @dev Hashes a Proposal struct.
     /// @param _proposal The proposal to hash.
     /// @return _ The hash of the proposal.
@@ -775,13 +789,6 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @return _ The hash of the core state.
     function _hashCoreState(CoreState memory _coreState) private pure returns (bytes32) {
         return keccak256(abi.encode(_coreState));
-    }
-
-    /// @dev Hashes a ClaimRecord struct.
-    /// @param _claimRecord The claim record to hash.
-    /// @return _ The hash of the claim record.
-    function _hashClaimRecord(ClaimRecord memory _claimRecord) internal pure returns (bytes32) {
-        return keccak256(abi.encode(_claimRecord));
     }
 
     /// @dev Hashes a Derivation struct.

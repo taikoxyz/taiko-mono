@@ -52,7 +52,7 @@ abstract contract InboxOptimized1 is Inbox {
             bondInstructions: _calculateBondInstructions(_config, _proposals[0], _claims[0]),
             parentClaimHash: _claims[0].parentClaimHash,
             claimHash: _hashClaim(_claims[0]),
-            endBlockMiniHeaderHash: keccak256(abi.encode(_claims[0].endBlockMiniHeader))
+            endBlockMiniHeaderHash: _hashBlockMiniHeader(_claims[0].endBlockMiniHeader)
         });
 
         uint48 currentGroupStartId = _proposals[0].id;
@@ -77,7 +77,7 @@ abstract contract InboxOptimized1 is Inbox {
                 // Update the claim hash and end block mini header hash for the aggregated record
                 currentRecord.claimHash = _hashClaim(_claims[i]);
                 currentRecord.endBlockMiniHeaderHash =
-                    keccak256(abi.encode(_claims[i].endBlockMiniHeader));
+                    _hashBlockMiniHeader(_claims[i].endBlockMiniHeader);
 
                 // Increment span to include this aggregated proposal
                 currentRecord.span++;
@@ -94,7 +94,7 @@ abstract contract InboxOptimized1 is Inbox {
                     bondInstructions: _calculateBondInstructions(_config, _proposals[i], _claims[i]),
                     parentClaimHash: _claims[i].parentClaimHash,
                     claimHash: _hashClaim(_claims[i]),
-                    endBlockMiniHeaderHash: keccak256(abi.encode(_claims[i].endBlockMiniHeader))
+                    endBlockMiniHeaderHash: _hashBlockMiniHeader(_claims[i].endBlockMiniHeader)
                 });
             }
         }
