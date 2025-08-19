@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./InboxOptimized1.sol";
-import "../libs/LibProposedEventEncoder.sol";
-import "../libs/LibProvedEventEncoder.sol";
+import { InboxOptimized1 } from "./InboxOptimized1.sol";
+import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
+import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
 /// @title InboxOptimized
 /// @notice Inbox optimized, on top of InboxOptimized1, to lower event emission cost.

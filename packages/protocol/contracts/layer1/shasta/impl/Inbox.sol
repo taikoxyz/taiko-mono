@@ -48,8 +48,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// This variable reuse the `batches slot in pacaya fork.
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
-    /// @dev This variable is no long used.
-    mapping(uint256 batchId => mapping(bytes32 parentHash => uint24 transitionId)) private
+    /// @dev This variable is no longer used.
+    mapping(uint256 bufferSlot => mapping(bytes32 parentHash => uint24 transitionId)) private
         __transitionIdsPacaya;
 
     /// @dev Ring buffer for storing claim records.
@@ -274,33 +274,33 @@ abstract contract Inbox is EssentialContract, IInbox {
     }
 
     /// @dev Encodes the proposed event data
-    /// @param proposal The proposal to encode
-    /// @param derivation The derivation data to encode
-    /// @param coreState The core state to encode
+    /// @param _proposal The proposal to encode
+    /// @param _derivation The derivation data to encode
+    /// @param _coreState The core state to encode
     /// @return The encoded data
     function encodeProposedEventData(
-        Proposal memory proposal,
-        Derivation memory derivation,
-        CoreState memory coreState
+        Proposal memory _proposal,
+        Derivation memory _derivation,
+        CoreState memory _coreState
     )
         public
         pure
         virtual
         returns (bytes memory)
     {
-        return abi.encode(proposal, derivation, coreState);
+        return abi.encode(_proposal, _derivation, _coreState);
     }
 
     /// @dev Encodes the proved event data
-    /// @param claimRecord The claim record to encode
+    /// @param _claimRecord The claim record to encode
     /// @return The encoded data
-    function encodeProveEventData(ClaimRecord memory claimRecord)
+    function encodeProveEventData(ClaimRecord memory _claimRecord)
         public
         pure
         virtual
         returns (bytes memory)
     {
-        return abi.encode(claimRecord);
+        return abi.encode(_claimRecord);
     }
 
     // ---------------------------------------------------------------
@@ -828,7 +828,6 @@ abstract contract Inbox is EssentialContract, IInbox {
 // ---------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------
-
 error ProposalHashMismatchWithClaim();
 error ProposalHashMismatchWithStorage();
 error ClaimRecordHashMismatchWithStorage();
