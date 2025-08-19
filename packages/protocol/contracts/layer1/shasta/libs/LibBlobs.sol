@@ -12,6 +12,8 @@ library LibBlobs {
     uint256 internal constant BLOB_FIELD_ELEMENTS = 4096;
     uint256 internal constant BLOB_BYTES = BLOB_FIELD_ELEMENTS * FIELD_ELEMENT_BYTES;
 
+    uint256 internal constant MAX_BLOBS = type(uint8).max;
+
     // -------------------------------------------------------------------
     // Structs
     // -------------------------------------------------------------------
@@ -53,7 +55,8 @@ library LibBlobs {
         view
         returns (BlobSlice memory)
     {
-        if (_blobReference.numBlobs == 0) revert InvalidBlobReference();
+        require(_blobReference.numBlobs > 0, NoBlobs());
+        require(_blobReference.blobStartIndex <= MAX_BLOBS, TwoManyBlobs());
 
         bytes32[] memory blobHashes = new bytes32[](_blobReference.numBlobs);
         for (uint256 i; i < _blobReference.numBlobs; ++i) {
@@ -73,5 +76,6 @@ library LibBlobs {
     // -------------------------------------------------------------------
 
     error BlobNotFound();
-    error InvalidBlobReference();
+    error NoBlobs();
+    error TwoManyBlobs();
 }

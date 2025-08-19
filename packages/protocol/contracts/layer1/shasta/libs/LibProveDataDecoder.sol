@@ -20,7 +20,7 @@ library LibProveDataDecoder {
         pure
         returns (bytes memory encoded_)
     {
-        require(_proposals.length == _claims.length, ProposalClaimLengthMismatch());
+        if (_proposals.length != _claims.length) revert ProposalClaimLengthMismatch();
 
         // Calculate total size needed
         uint256 bufferSize = _calculateProveDataSize(_proposals);
@@ -65,7 +65,7 @@ library LibProveDataDecoder {
         // 2. Decode Claims array
         uint24 claimsLength;
         (claimsLength, ptr) = P.unpackUint24(ptr);
-        require(claimsLength == proposalsLength, ProposalClaimLengthMismatch());
+        if (claimsLength != proposalsLength) revert ProposalClaimLengthMismatch();
         claims_ = new IInbox.Claim[](claimsLength);
         for (uint256 i; i < claimsLength; ++i) {
             (claims_[i], ptr) = _decodeClaim(ptr);
