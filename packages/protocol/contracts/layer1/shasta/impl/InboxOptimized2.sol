@@ -27,22 +27,22 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
 
     /// @dev Decodes the proposed event data that was encoded
     /// @param _data The encoded data
-    /// @return payload_ The decoded proposed event payload
+    /// @return _ The decoded proposed event payload
     function decodeProposedEventData(bytes memory _data)
         external
         pure
-        returns (ProposedEventPayload memory payload_)
+        returns (ProposedEventPayload memory)
     {
         return LibProposedEventEncoder.decode(_data);
     }
 
     /// @dev Decodes the prove event data that was encoded
     /// @param _data The encoded data
-    /// @return payload_ The decoded proved event payload
+    /// @return _ The decoded proved event payload
     function decodeProvedEventData(bytes memory _data)
         external
         pure
-        returns (ProvedEventPayload memory payload_)
+        returns (ProvedEventPayload memory)
     {
         return LibProvedEventEncoder.decode(_data);
     }
@@ -51,42 +51,29 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
     // Public Functions
     // ---------------------------------------------------------------
 
-    /// @dev Encodes the proposed event data for gas optimization
-    /// @param _proposal The proposal to encode
-    /// @param _derivation The derivation data to encode
-    /// @param _coreState The core state to encode
+    /// @dev Encodes the proposed event data
+    /// @param _payload The ProposedEventPayload object
     /// @return The encoded data
-    function encodeProposedEventData(
-        Proposal memory _proposal,
-        Derivation memory _derivation,
-        CoreState memory _coreState
-    )
+    function encodeProposedEventData(ProposedEventPayload memory _payload)
         public
         pure
+        virtual
         override
         returns (bytes memory)
     {
-        ProposedEventPayload memory payload = ProposedEventPayload({
-            proposal: _proposal,
-            derivation: _derivation,
-            coreState: _coreState
-        });
-        return LibProposedEventEncoder.encode(payload);
+        return LibProposedEventEncoder.encode(_payload);
     }
 
-    /// @dev Encodes the proved event data for gas optimization using compact encoding
-    /// @param _claimRecord The claim record to encode
+    /// @dev Encodes the proved event data
+    /// @param _paylaod The ProvedEventPayload object
     /// @return The encoded data
-    function encodeProveEventData(ClaimRecord memory _claimRecord)
+    function encodeProvedEventData(ProvedEventPayload memory _paylaod)
         public
         pure
+        virtual
         override
         returns (bytes memory)
     {
-        // Note: ProvedEventPayload requires proposalId and claim data which are not available
-        // in this context. This function signature is inherited from the base Inbox contract
-        // which only passes ClaimRecord. The base implementation uses abi.encode.
-        // For full optimization, the base contract would need to be modified.
-        return abi.encode(_claimRecord);
+        return LibProvedEventEncoder.encode(_paylaod);
     }
 }

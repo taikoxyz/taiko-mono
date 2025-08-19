@@ -150,11 +150,11 @@ interface IInbox {
     // ---------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed.
-    /// @param data The encoded (Proposal, Derivation, CoreState)
+    /// @param data The encoded ProposedEventPayload
     event Proposed(bytes data);
 
     /// @notice Emitted when a proof is submitted
-    /// @param data The encoded (ClaimRecord, BlockMiniHeader)
+    /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
 
     /// @notice Emitted when bond instructions are issued

@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {EssentialContract} from "src/shared/common/EssentialContract.sol";
-import {ISyncedBlockManager} from "src/shared/based/iface/ISyncedBlockManager.sol";
-import {IForcedInclusionStore} from "../iface/IForcedInclusionStore.sol";
-import {IInbox} from "../iface/IInbox.sol";
-import {IProofVerifier} from "../iface/IProofVerifier.sol";
-import {IProposerChecker} from "../iface/IProposerChecker.sol";
-import {LibBlobs} from "../libs/LibBlobs.sol";
-import {LibBonds} from "src/shared/based/libs/LibBonds.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { ISyncedBlockManager } from "src/shared/based/iface/ISyncedBlockManager.sol";
+import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
+import { IInbox } from "../iface/IInbox.sol";
+import { IProofVerifier } from "../iface/IProofVerifier.sol";
+import { IProposerChecker } from "../iface/IProposerChecker.sol";
+import { LibBlobs } from "../libs/LibBlobs.sol";
+import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title Inbox
 /// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
@@ -46,12 +46,11 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     /// @dev Ring buffer for storing proposal hashes.
     /// This variable reuse the `batches slot in pacaya fork.
-    mapping(uint256 bufferSlot => bytes32 proposalHash)
-        internal _proposalHashes;
+    mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
     /// @dev This variable is no longer used.
-    mapping(uint256 bufferSlot => mapping(bytes32 parentHash => uint24 transitionId))
-        private __transitionIdsPacaya;
+    mapping(uint256 bufferSlot => mapping(bytes32 parentHash => uint24 transitionId)) private
+        __transitionIdsPacaya;
 
     /// @dev Ring buffer for storing claim records.
     /// This variable reuse the `transitions` slot in pacaya fork.
@@ -76,15 +75,12 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
 
     /// @notice Initializes the Inbox contract
-    constructor() EssentialContract() {}
+    constructor() EssentialContract() { }
 
     /// @notice Initializes the Inbox contract with genesis block
     /// @param _owner The owner of this contract
     /// @param _genesisBlockHash The hash of the genesis block
-    function init(
-        address _owner,
-        bytes32 _genesisBlockHash
-    ) external initializer {
+    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
         __Essential_init(_owner);
 
         Claim memory claim;
@@ -101,7 +97,15 @@ abstract contract Inbox is EssentialContract, IInbox {
         proposal.derivationHash = _hashDerivation(derivation);
 
         _setProposalHash(getConfig(), 0, _hashProposal(proposal));
-        emit Proposed(encodeProposedEventData(proposal, derivation, coreState));
+        emit Proposed(
+            encodeProposedEventData(
+                ProposedEventPayload({
+                    proposal: proposal,
+                    derivation: derivation,
+                    coreState: coreState
+                })
+            )
+        );
     }
 
     // ---------------------------------------------------------------
@@ -117,7 +121,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         bytes calldata,
         /*_lookahead*/
         bytes calldata _data
-    ) external nonReentrant {
+    )
+        external
+        nonReentrant
+    {
         Config memory config = getConfig();
 
         // Validate proposer
@@ -126,22 +133,14 @@ abstract contract Inbox is EssentialContract, IInbox {
         // Decode and validate input data
         ProposeInput memory input = decodeProposeInput(_data);
 
-        _validateProposeInputs(
-            input.deadline,
-            input.coreState,
-            input.parentProposals
-        );
+        _validateProposeInputs(input.deadline, input.coreState, input.parentProposals);
 
         // Verify parentProposals[0] is actually the last proposal stored on-chain.
         _verifyChainHead(config, input.parentProposals);
 
         // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
-        CoreState memory coreState = _finalize(
-            config,
-            input.coreState,
-            input.claimRecords,
-            input.endBlockMiniHeader
-        );
+        CoreState memory coreState =
+            _finalize(config, input.coreState, input.claimRecords, input.endBlockMiniHeader);
 
         // Verify capacity for new proposals
         uint256 availableCapacity = _getAvailableCapacity(config, coreState);
@@ -153,36 +152,25 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
 
         // Create regular proposal
-        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(
-            input.blobReference,
-            _getBlobHash
-        );
+        LibBlobs.BlobSlice memory blobSlice =
+            LibBlobs.validateBlobReference(input.blobReference, _getBlobHash);
         _propose(config, coreState, blobSlice, false);
     }
 
     /// @inheritdoc IInbox
-    function prove(
-        bytes calldata _data,
-        bytes calldata _proof
-    ) external nonReentrant {
+    function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         Config memory config = getConfig();
 
         // Decode and validate input
         ProveInput memory input = decodeProveInput(_data);
         require(input.proposals.length != 0, EmptyProposals());
-        require(
-            input.proposals.length == input.claims.length,
-            InconsistentParams()
-        );
+        require(input.proposals.length == input.claims.length, InconsistentParams());
 
         // Build claim records with validation and bond calculations
         _buildAndSaveClaimRecords(config, input.proposals, input.claims);
 
         // Verify the proof
-        IProofVerifier(config.proofVerifier).verifyProof(
-            _hashClaimsArray(input.claims),
-            _proof
-        );
+        IProofVerifier(config.proofVerifier).verifyProof(_hashClaimsArray(input.claims), _proof);
     }
 
     /// @notice Withdraws bond balance for the caller.
@@ -202,9 +190,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @notice Gets the proposal hash for a given proposal ID.
     /// @param _proposalId The proposal ID to look up.
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
-    function getProposalHash(
-        uint48 _proposalId
-    ) external view returns (bytes32 proposalHash_) {
+    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_) {
         Config memory config = getConfig();
         uint256 bufferSlot = _proposalId % config.ringBufferSize;
         proposalHash_ = _proposalHashes[bufferSlot];
@@ -217,7 +203,11 @@ abstract contract Inbox is EssentialContract, IInbox {
     function getClaimRecordHash(
         uint48 _proposalId,
         bytes32 _parentClaimHash
-    ) external view returns (bytes32 claimRecordHash_) {
+    )
+        external
+        view
+        returns (bytes32 claimRecordHash_)
+    {
         Config memory config = getConfig();
         return _getClaimRecordHash(config, _proposalId, _parentClaimHash);
     }
@@ -238,41 +228,49 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @notice Decodes proposal input data
     /// @param _data The encoded data
     /// @return input_ The decoded ProposeInput struct containing all proposal data
-    function decodeProposeInput(
-        bytes calldata _data
-    ) public pure virtual returns (ProposeInput memory input_) {
+    function decodeProposeInput(bytes calldata _data)
+        public
+        pure
+        virtual
+        returns (ProposeInput memory input_)
+    {
         input_ = abi.decode(_data, (ProposeInput));
     }
 
     /// @notice Decodes prove input data
     /// @param _data The encoded data
     /// @return _ The decoded ProveInput struct containing proposals and claims
-    function decodeProveInput(
-        bytes calldata _data
-    ) public pure virtual returns (ProveInput memory) {
+    function decodeProveInput(bytes calldata _data)
+        public
+        pure
+        virtual
+        returns (ProveInput memory)
+    {
         return abi.decode(_data, (ProveInput));
     }
 
     /// @dev Encodes the proposed event data
-    /// @param _proposal The proposal to encode
-    /// @param _derivation The derivation data to encode
-    /// @param _coreState The core state to encode
+    /// @param _payload The ProposedEventPayload object
     /// @return The encoded data
-    function encodeProposedEventData(
-        Proposal memory _proposal,
-        Derivation memory _derivation,
-        CoreState memory _coreState
-    ) public pure virtual returns (bytes memory) {
-        return abi.encode(_proposal, _derivation, _coreState);
+    function encodeProposedEventData(ProposedEventPayload memory _payload)
+        public
+        pure
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(_payload);
     }
 
     /// @dev Encodes the proved event data
-    /// @param _claimRecord The claim record to encode
+    /// @param _paylaod The ProvedEventPayload object
     /// @return The encoded data
-    function encodeProveEventData(
-        ClaimRecord memory _claimRecord
-    ) public pure virtual returns (bytes memory) {
-        return abi.encode(_claimRecord);
+    function encodeProvedEventData(ProvedEventPayload memory _paylaod)
+        public
+        pure
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(_paylaod);
     }
 
     // ---------------------------------------------------------------
@@ -287,7 +285,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         Config memory _config,
         Proposal[] memory _proposals,
         Claim[] memory _claims
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         ClaimRecord memory claimRecord;
         for (uint256 i; i < _proposals.length; ++i) {
             Proposal memory proposal = _proposals[i];
@@ -295,33 +296,30 @@ abstract contract Inbox is EssentialContract, IInbox {
 
             _validateClaim(_config, proposal, claim);
 
-            LibBonds.BondInstruction[]
-                memory bondInstructions = _calculateBondInstructions(
-                    _config,
-                    proposal,
-                    claim
-                );
+            LibBonds.BondInstruction[] memory bondInstructions =
+                _calculateBondInstructions(_config, proposal, claim);
 
             claimRecord = ClaimRecord({
                 span: 1,
                 bondInstructions: bondInstructions,
                 parentClaimHash: claim.parentClaimHash,
                 claimHash: _hashClaim(claim),
-                endBlockMiniHeaderHash: keccak256(
-                    abi.encode(claim.endBlockMiniHeader)
-                )
+                endBlockMiniHeaderHash: keccak256(abi.encode(claim.endBlockMiniHeader))
             });
 
             bytes32 claimRecordHash = _hashClaimRecord(claimRecord);
 
-            _setClaimRecordHash(
-                _config,
-                proposal.id,
-                claim.parentClaimHash,
-                claimRecordHash
-            );
+            _setClaimRecordHash(_config, proposal.id, claim.parentClaimHash, claimRecordHash);
 
-            emit Proved(encodeProveEventData(claimRecord));
+            emit Proved(
+                encodeProvedEventData(
+                    ProvedEventPayload({
+                        proposalId: proposal.id,
+                        claim: claim,
+                        claimRecord: claimRecord
+                    })
+                )
+            );
         }
     }
 
@@ -330,9 +328,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @return _ The hash of the blob index.
     /// @dev This function is virtual so that it can be overridden by subcontracts to provide their
     /// specific blob hash function.
-    function _getBlobHash(
-        uint256 _blobIndex
-    ) internal view virtual returns (bytes32) {
+    function _getBlobHash(uint256 _blobIndex) internal view virtual returns (bytes32) {
         return blobhash(_blobIndex);
     }
 
@@ -344,12 +340,12 @@ abstract contract Inbox is EssentialContract, IInbox {
         Config memory _config,
         Proposal memory _proposal,
         Claim memory _claim
-    ) internal view {
+    )
+        internal
+        view
+    {
         bytes32 proposalHash = _checkProposalHash(_config, _proposal);
-        require(
-            proposalHash == _claim.proposalHash,
-            ProposalHashMismatchWithClaim()
-        );
+        require(proposalHash == _claim.proposalHash, ProposalHashMismatchWithClaim());
     }
 
     /// @dev Calculates the bond instructions based on proof timing and prover identity
@@ -380,8 +376,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             }
 
             // Late or very late proof - determine bond type and parties
-            uint256 extendedWindowEnd = _proposal.timestamp +
-                _config.extendedProvingWindow;
+            uint256 extendedWindowEnd = _proposal.timestamp + _config.extendedProvingWindow;
             bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
 
             // Check if bond instruction is needed
@@ -400,9 +395,7 @@ abstract contract Inbox is EssentialContract, IInbox {
                 bondType: isWithinExtendedWindow
                     ? LibBonds.BondType.LIVENESS
                     : LibBonds.BondType.PROVABILITY,
-                payer: isWithinExtendedWindow
-                    ? _claim.designatedProver
-                    : _proposal.proposer,
+                payer: isWithinExtendedWindow ? _claim.designatedProver : _proposal.proposer,
                 receiver: _claim.actualProver
             });
         }
@@ -413,7 +406,9 @@ abstract contract Inbox is EssentialContract, IInbox {
         Config memory _config,
         uint48 _proposalId,
         bytes32 _proposalHash
-    ) internal {
+    )
+        internal
+    {
         _proposalHashes[_proposalId % _config.ringBufferSize] = _proposalHash;
     }
 
@@ -423,17 +418,17 @@ abstract contract Inbox is EssentialContract, IInbox {
         uint48 _proposalId,
         bytes32 _parentClaimHash,
         bytes32 _claimRecordHash
-    ) internal virtual {
+    )
+        internal
+        virtual
+    {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         bytes32 compositeKey = _composeClaimKey(_proposalId, _parentClaimHash);
-        _claimHashLookup[bufferSlot][compositeKey]
-            .claimRecordHash = _claimRecordHash;
+        _claimHashLookup[bufferSlot][compositeKey].claimRecordHash = _claimRecordHash;
     }
 
     /// @dev Gets the capacity for unfinalized proposals.
-    function _getCapacity(
-        Config memory _config
-    ) internal pure returns (uint256) {
+    function _getCapacity(Config memory _config) internal pure returns (uint256) {
         // The ring buffer can hold ringBufferSize proposals total, but we need to ensure
         // unfinalized proposals are not overwritten. Therefore, the maximum number of
         // unfinalized proposals is ringBufferSize - 1.
@@ -449,11 +444,14 @@ abstract contract Inbox is EssentialContract, IInbox {
     function _getAvailableCapacity(
         Config memory _config,
         CoreState memory _coreState
-    ) private pure returns (uint256) {
+    )
+        private
+        pure
+        returns (uint256)
+    {
         unchecked {
-            uint256 numUnfinalizedProposals = _coreState.nextProposalId -
-                _coreState.lastFinalizedProposalId -
-                1;
+            uint256 numUnfinalizedProposals =
+                _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
             return _getCapacity(_config) - numUnfinalizedProposals;
         }
     }
@@ -463,11 +461,15 @@ abstract contract Inbox is EssentialContract, IInbox {
         Config memory _config,
         uint48 _proposalId,
         bytes32 _parentClaimHash
-    ) internal view virtual returns (bytes32 claimRecordHash_) {
+    )
+        internal
+        view
+        virtual
+        returns (bytes32 claimRecordHash_)
+    {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         bytes32 compositeKey = _composeClaimKey(_proposalId, _parentClaimHash);
-        claimRecordHash_ = _claimHashLookup[bufferSlot][compositeKey]
-            .claimRecordHash;
+        claimRecordHash_ = _claimHashLookup[bufferSlot][compositeKey].claimRecordHash;
     }
 
     /// @dev Checks if a proposal matches the stored hash and reverts if not.
@@ -477,11 +479,13 @@ abstract contract Inbox is EssentialContract, IInbox {
     function _checkProposalHash(
         Config memory _config,
         Proposal memory _proposal
-    ) internal view returns (bytes32 proposalHash_) {
+    )
+        internal
+        view
+        returns (bytes32 proposalHash_)
+    {
         proposalHash_ = _hashProposal(_proposal);
-        bytes32 storedProposalHash = _proposalHashes[
-            _proposal.id % _config.ringBufferSize
-        ];
+        bytes32 storedProposalHash = _proposalHashes[_proposal.id % _config.ringBufferSize];
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
 
@@ -500,16 +504,13 @@ abstract contract Inbox is EssentialContract, IInbox {
         uint64 _deadline,
         CoreState memory _coreState,
         Proposal[] memory _parentProposals
-    ) private view {
-        require(
-            _deadline == 0 || block.timestamp <= _deadline,
-            DeadlineExceeded()
-        );
+    )
+        private
+        view
+    {
+        require(_deadline == 0 || block.timestamp <= _deadline, DeadlineExceeded());
         require(_parentProposals.length > 0, EmptyProposals());
-        require(
-            _hashCoreState(_coreState) == _parentProposals[0].coreStateHash,
-            InvalidState()
-        );
+        require(_hashCoreState(_coreState) == _parentProposals[0].coreStateHash, InvalidState());
     }
 
     /// @dev Processes forced inclusion if required
@@ -519,17 +520,18 @@ abstract contract Inbox is EssentialContract, IInbox {
     function _processForcedInclusion(
         Config memory _config,
         CoreState memory _coreState
-    ) private returns (CoreState memory) {
-        IForcedInclusionStore store = IForcedInclusionStore(
-            _config.forcedInclusionStore
-        );
+    )
+        private
+        returns (CoreState memory)
+    {
+        IForcedInclusionStore store = IForcedInclusionStore(_config.forcedInclusionStore);
 
         if (!store.isOldestForcedInclusionDue()) {
             return _coreState;
         }
 
-        IForcedInclusionStore.ForcedInclusion memory forcedInclusion = store
-            .consumeOldestForcedInclusion(msg.sender);
+        IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
+            store.consumeOldestForcedInclusion(msg.sender);
 
         return _propose(_config, _coreState, forcedInclusion.blobSlice, true);
     }
@@ -540,13 +542,15 @@ abstract contract Inbox is EssentialContract, IInbox {
     function _verifyChainHead(
         Config memory _config,
         Proposal[] memory _parentProposals
-    ) private view {
+    )
+        private
+        view
+    {
         // First verify parentProposals[0] matches what's stored on-chain
         _checkProposalHash(_config, _parentProposals[0]);
 
         // Then verify it's actually the chain head
-        uint256 nextBufferSlot = (_parentProposals[0].id + 1) %
-            _config.ringBufferSize;
+        uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _config.ringBufferSize;
         bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
 
         if (storedNextProposalHash == bytes32(0)) {
@@ -577,7 +581,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         CoreState memory _coreState,
         LibBlobs.BlobSlice memory _blobSlice,
         bool _isForcedInclusion
-    ) private returns (CoreState memory) {
+    )
+        private
+        returns (CoreState memory)
+    {
         unchecked {
             uint256 parentBlockNumber = block.number - 1;
 
@@ -599,7 +606,13 @@ abstract contract Inbox is EssentialContract, IInbox {
 
             _setProposalHash(_config, proposal.id, _hashProposal(proposal));
             emit Proposed(
-                encodeProposedEventData(proposal, derivation, _coreState)
+                encodeProposedEventData(
+                    ProposedEventPayload({
+                        proposal: proposal,
+                        derivation: derivation,
+                        coreState: _coreState
+                    })
+                )
             );
 
             return _coreState;
@@ -616,7 +629,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         CoreState memory _coreState,
         ClaimRecord[] memory _claimRecords,
         BlockMiniHeader memory _endBlockMiniHeader
-    ) private returns (CoreState memory) {
+    )
+        private
+        returns (CoreState memory)
+    {
         ClaimRecord memory lastFinalizedRecord;
         uint48 proposalId = _coreState.lastFinalizedProposalId + 1;
         uint256 finalizedCount;
@@ -631,9 +647,7 @@ abstract contract Inbox is EssentialContract, IInbox {
                 _config,
                 _coreState,
                 proposalId,
-                i < _claimRecords.length
-                    ? _claimRecords[i]
-                    : lastFinalizedRecord,
+                i < _claimRecords.length ? _claimRecords[i] : lastFinalizedRecord,
                 i < _claimRecords.length
             );
 
@@ -646,18 +660,13 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Update synced block if any proposals were finalized
         if (finalizedCount > 0) {
-            bytes32 endBlockMiniHeaderHash = keccak256(
-                abi.encode(_endBlockMiniHeader)
-            );
+            bytes32 endBlockMiniHeaderHash = keccak256(abi.encode(_endBlockMiniHeader));
             require(
-                endBlockMiniHeaderHash ==
-                    lastFinalizedRecord.endBlockMiniHeaderHash,
+                endBlockMiniHeaderHash == lastFinalizedRecord.endBlockMiniHeaderHash,
                 EndBlockMiniHeaderMismatch()
             );
             ISyncedBlockManager(_config.syncedBlockManager).saveSyncedBlock(
-                _endBlockMiniHeader.number,
-                _endBlockMiniHeader.hash,
-                _endBlockMiniHeader.stateRoot
+                _endBlockMiniHeader.number, _endBlockMiniHeader.hash, _endBlockMiniHeader.stateRoot
             );
         }
 
@@ -678,13 +687,13 @@ abstract contract Inbox is EssentialContract, IInbox {
         uint48 _proposalId,
         ClaimRecord memory _claimRecord,
         bool _hasClaimRecord
-    ) private returns (bool finalized_, uint48 nextProposalId_) {
+    )
+        private
+        returns (bool finalized_, uint48 nextProposalId_)
+    {
         // Check if claim record exists in storage
-        bytes32 storedHash = _getClaimRecordHash(
-            _config,
-            _proposalId,
-            _coreState.lastFinalizedClaimHash
-        );
+        bytes32 storedHash =
+            _getClaimRecordHash(_config, _proposalId, _coreState.lastFinalizedClaimHash);
 
         if (storedHash == 0) return (false, _proposalId);
 
@@ -693,10 +702,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Verify claim record hash matches
         bytes32 claimRecordHash = _hashClaimRecord(_claimRecord);
-        require(
-            claimRecordHash == storedHash,
-            ClaimRecordHashMismatchWithStorage()
-        );
+        require(claimRecordHash == storedHash, ClaimRecordHashMismatchWithStorage());
 
         // Update core state
         _coreState.lastFinalizedProposalId = _proposalId;
@@ -712,10 +718,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         // Validate and calculate next proposal ID
         require(_claimRecord.span > 0, InvalidSpan());
         nextProposalId_ = _proposalId + _claimRecord.span;
-        require(
-            nextProposalId_ <= _coreState.nextProposalId,
-            SpanOutOfBounds()
-        );
+        require(nextProposalId_ <= _coreState.nextProposalId, SpanOutOfBounds());
 
         return (true, nextProposalId_);
     }
@@ -726,16 +729,16 @@ abstract contract Inbox is EssentialContract, IInbox {
     function _processBondInstructions(
         CoreState memory _coreState,
         LibBonds.BondInstruction[] memory _instructions
-    ) private {
+    )
+        private
+    {
         if (_instructions.length == 0) return;
 
         emit BondInstructed(_instructions);
 
         for (uint256 i; i < _instructions.length; ++i) {
-            _coreState.bondInstructionsHash = LibBonds.aggregateBondInstruction(
-                _coreState.bondInstructionsHash,
-                _instructions[i]
-            );
+            _coreState.bondInstructionsHash =
+                LibBonds.aggregateBondInstruction(_coreState.bondInstructionsHash, _instructions[i]);
         }
     }
 
@@ -746,7 +749,11 @@ abstract contract Inbox is EssentialContract, IInbox {
     function _composeClaimKey(
         uint48 _proposalId,
         bytes32 _parentClaimHash
-    ) private pure returns (bytes32) {
+    )
+        private
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encode(_proposalId, _parentClaimHash));
     }
 
@@ -760,45 +767,35 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Hashes a Proposal struct.
     /// @param _proposal The proposal to hash.
     /// @return _ The hash of the proposal.
-    function _hashProposal(
-        Proposal memory _proposal
-    ) private pure returns (bytes32) {
+    function _hashProposal(Proposal memory _proposal) private pure returns (bytes32) {
         return keccak256(abi.encode(_proposal));
     }
 
     /// @dev Hashes a CoreState struct.
     /// @param _coreState The core state to hash.
     /// @return _ The hash of the core state.
-    function _hashCoreState(
-        CoreState memory _coreState
-    ) private pure returns (bytes32) {
+    function _hashCoreState(CoreState memory _coreState) private pure returns (bytes32) {
         return keccak256(abi.encode(_coreState));
     }
 
     /// @dev Hashes a ClaimRecord struct.
     /// @param _claimRecord The claim record to hash.
     /// @return _ The hash of the claim record.
-    function _hashClaimRecord(
-        ClaimRecord memory _claimRecord
-    ) private pure returns (bytes32) {
+    function _hashClaimRecord(ClaimRecord memory _claimRecord) private pure returns (bytes32) {
         return keccak256(abi.encode(_claimRecord));
     }
 
     /// @dev Hashes a Derivation struct.
     /// @param _derivation The derivation to hash.
     /// @return _ The hash of the derivation.
-    function _hashDerivation(
-        Derivation memory _derivation
-    ) private pure returns (bytes32) {
+    function _hashDerivation(Derivation memory _derivation) private pure returns (bytes32) {
         return keccak256(abi.encode(_derivation));
     }
 
     /// @dev Hashes an array of Claims.
     /// @param _claims The claims array to hash.
     /// @return _ The hash of the claims array.
-    function _hashClaimsArray(
-        Claim[] memory _claims
-    ) private pure returns (bytes32) {
+    function _hashClaimsArray(Claim[] memory _claims) private pure returns (bytes32) {
         return keccak256(abi.encode(_claims));
     }
 }
