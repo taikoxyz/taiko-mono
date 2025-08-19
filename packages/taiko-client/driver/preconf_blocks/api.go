@@ -148,7 +148,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	log.Info(
-		"🏗️New preconfirmation block building request",
+		"🏗️ New preconfirmation block building request",
 		"blockID", reqBody.ExecutableData.Number,
 		"coinbase", reqBody.ExecutableData.FeeRecipient.Hex(),
 		"timestamp", reqBody.ExecutableData.Timestamp,
