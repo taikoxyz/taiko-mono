@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxOptimized2 } from "./InboxOptimized2.sol";
-import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
+import {InboxOptimized2} from "./InboxOptimized3.sol";
+import {LibFasterReentryLock} from "../../mainnet/libs/LibFasterReentryLock.sol";
 
 /// @title MainnetShastaInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
 /// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetShastaInbox is InboxOptimized2 {
+contract MainnetShastaInbox is InboxOptimized3 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -21,7 +21,7 @@ contract MainnetShastaInbox is InboxOptimized2 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized2() { }
+    constructor() InboxOptimized3() {}
 
     // ---------------------------------------------------------------
     // External/Public Functions
@@ -40,18 +40,19 @@ contract MainnetShastaInbox is InboxOptimized2 {
     /// @return _ The configuration struct with shasta-specific settings
     // TODO: figure out these values
     function getConfig() public pure override returns (Config memory) {
-        return Config({
-            bondToken: address(0),
-            provingWindow: 2 hours,
-            extendedProvingWindow: 4 hours,
-            maxFinalizationCount: 16,
-            ringBufferSize: _RING_BUFFER_SIZE,
-            basefeeSharingPctg: 0,
-            syncedBlockManager: address(0),
-            proofVerifier: address(0),
-            proposerChecker: address(0),
-            forcedInclusionStore: address(0)
-        });
+        return
+            Config({
+                bondToken: address(0),
+                provingWindow: 2 hours,
+                extendedProvingWindow: 4 hours,
+                maxFinalizationCount: 16,
+                ringBufferSize: _RING_BUFFER_SIZE,
+                basefeeSharingPctg: 0,
+                syncedBlockManager: address(0),
+                proofVerifier: address(0),
+                proposerChecker: address(0),
+                forcedInclusionStore: address(0)
+            });
     }
 
     // ---------------------------------------------------------------
