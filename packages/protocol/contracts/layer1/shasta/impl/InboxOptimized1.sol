@@ -30,12 +30,9 @@ abstract contract InboxOptimized1 is Inbox {
     // Internal Functions - Overrides
     // ---------------------------------------------------------------
 
+    /// @inheritdoc Inbox
     /// @dev Builds then saves claim records for multiple proposals and claims with aggregation for
-    /// continuous
-    /// proposals
-    /// @param _config The configuration parameters.
-    /// @param _proposals The proposals to prove.
-    /// @param _claims The claims containing the proof details.
+    /// continuous proposals
     function _buildAndSaveClaimRecords(
         Config memory _config,
         Proposal[] memory _proposals,
