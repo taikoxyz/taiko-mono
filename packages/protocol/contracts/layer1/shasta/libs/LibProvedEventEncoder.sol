@@ -6,110 +6,107 @@ import { IInbox } from "../iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title LibProvedEventEncoder
-/// @notice Library for encoding and decoding ProvedEvent data structures using compact encoding
+/// @notice Library for encoding and decoding ProvedEventPayload structures using compact encoding
 /// @custom:security-contact security@taiko.xyz
 library LibProvedEventEncoder {
-    /// @notice Structure representing a proved event
-    struct ProvedEvent {
-        uint48 proposalId;
-        IInbox.Claim claim;
-        IInbox.ClaimRecord claimRecord;
-    }
-
-    /// @notice Encodes a ProvedEvent into bytes using compact encoding
-    /// @param _event The ProvedEvent to encode
+    /// @notice Encodes a ProvedEventPayload into bytes using compact encoding
+    /// @param _payload The ProvedEventPayload to encode
     /// @return encoded_ The encoded bytes
-    function encode(ProvedEvent memory _event)
+    function encode(IInbox.ProvedEventPayload memory _payload)
         internal
         pure
         returns (bytes memory encoded_)
     {
         // Calculate total size needed
-        uint256 bufferSize = calculateProvedEventSize(_event.claimRecord.bondInstructions.length);
+        uint256 bufferSize = calculateProvedEventSize(_payload.claimRecord.bondInstructions.length);
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(encoded_);
 
         // Encode proposalId (uint48)
-        ptr = P.packUint48(ptr, _event.proposalId);
+        ptr = P.packUint48(ptr, _payload.proposalId);
 
         // Encode Claim struct
-        ptr = P.packBytes32(ptr, _event.claim.proposalHash);
-        ptr = P.packBytes32(ptr, _event.claim.parentClaimHash);
+        ptr = P.packBytes32(ptr, _payload.claim.proposalHash);
+        ptr = P.packBytes32(ptr, _payload.claim.parentClaimHash);
         // Encode BlockMiniHeader
-        ptr = P.packUint48(ptr, _event.claim.endBlockMiniHeader.number);
-        ptr = P.packBytes32(ptr, _event.claim.endBlockMiniHeader.hash);
-        ptr = P.packBytes32(ptr, _event.claim.endBlockMiniHeader.stateRoot);
-        ptr = P.packAddress(ptr, _event.claim.designatedProver);
-        ptr = P.packAddress(ptr, _event.claim.actualProver);
+        ptr = P.packUint48(ptr, _payload.claim.endBlockMiniHeader.number);
+        ptr = P.packBytes32(ptr, _payload.claim.endBlockMiniHeader.hash);
+        ptr = P.packBytes32(ptr, _payload.claim.endBlockMiniHeader.stateRoot);
+        ptr = P.packAddress(ptr, _payload.claim.designatedProver);
+        ptr = P.packAddress(ptr, _payload.claim.actualProver);
 
         // Encode ClaimRecord
-        ptr = P.packUint8(ptr, _event.claimRecord.span);
-        ptr = P.packBytes32(ptr, _event.claimRecord.parentClaimHash);
-        ptr = P.packBytes32(ptr, _event.claimRecord.endBlockMiniHeaderHash);
+        ptr = P.packUint8(ptr, _payload.claimRecord.span);
+        ptr = P.packBytes32(ptr, _payload.claimRecord.parentClaimHash);
+        ptr = P.packBytes32(ptr, _payload.claimRecord.endBlockMiniHeaderHash);
 
         // Encode bond instructions array length (uint16)
         require(
-            _event.claimRecord.bondInstructions.length <= type(uint16).max, 
+            _payload.claimRecord.bondInstructions.length <= type(uint16).max,
             BondInstructionsLengthExceeded()
         );
-        ptr = P.packUint16(ptr, uint16(_event.claimRecord.bondInstructions.length));
+        ptr = P.packUint16(ptr, uint16(_payload.claimRecord.bondInstructions.length));
 
         // Encode each bond instruction
-        for (uint256 i; i < _event.claimRecord.bondInstructions.length; ++i) {
-            ptr = P.packUint48(ptr, _event.claimRecord.bondInstructions[i].proposalId);
-            ptr = P.packUint8(ptr, uint8(_event.claimRecord.bondInstructions[i].bondType));
-            ptr = P.packAddress(ptr, _event.claimRecord.bondInstructions[i].payer);
-            ptr = P.packAddress(ptr, _event.claimRecord.bondInstructions[i].receiver);
+        for (uint256 i; i < _payload.claimRecord.bondInstructions.length; ++i) {
+            ptr = P.packUint48(ptr, _payload.claimRecord.bondInstructions[i].proposalId);
+            ptr = P.packUint8(ptr, uint8(_payload.claimRecord.bondInstructions[i].bondType));
+            ptr = P.packAddress(ptr, _payload.claimRecord.bondInstructions[i].payer);
+            ptr = P.packAddress(ptr, _payload.claimRecord.bondInstructions[i].receiver);
         }
     }
 
-    /// @notice Decodes bytes into a ProvedEvent using compact encoding
+    /// @notice Decodes bytes into a ProvedEventPayload using compact encoding
     /// @param _data The bytes to decode
-    /// @return event_ The decoded ProvedEvent
-    function decode(bytes memory _data) internal pure returns (ProvedEvent memory event_) {
+    /// @return payload_ The decoded ProvedEventPayload
+    function decode(bytes memory _data)
+        internal
+        pure
+        returns (IInbox.ProvedEventPayload memory payload_)
+    {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
 
         // Decode proposalId (uint48)
-        (event_.proposalId, ptr) = P.unpackUint48(ptr);
+        (payload_.proposalId, ptr) = P.unpackUint48(ptr);
 
         // Decode Claim struct
-        (event_.claim.proposalHash, ptr) = P.unpackBytes32(ptr);
-        (event_.claim.parentClaimHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.claim.proposalHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.claim.parentClaimHash, ptr) = P.unpackBytes32(ptr);
         // Decode BlockMiniHeader
-        (event_.claim.endBlockMiniHeader.number, ptr) = P.unpackUint48(ptr);
-        (event_.claim.endBlockMiniHeader.hash, ptr) = P.unpackBytes32(ptr);
-        (event_.claim.endBlockMiniHeader.stateRoot, ptr) = P.unpackBytes32(ptr);
-        (event_.claim.designatedProver, ptr) = P.unpackAddress(ptr);
-        (event_.claim.actualProver, ptr) = P.unpackAddress(ptr);
+        (payload_.claim.endBlockMiniHeader.number, ptr) = P.unpackUint48(ptr);
+        (payload_.claim.endBlockMiniHeader.hash, ptr) = P.unpackBytes32(ptr);
+        (payload_.claim.endBlockMiniHeader.stateRoot, ptr) = P.unpackBytes32(ptr);
+        (payload_.claim.designatedProver, ptr) = P.unpackAddress(ptr);
+        (payload_.claim.actualProver, ptr) = P.unpackAddress(ptr);
 
         // Decode ClaimRecord
-        (event_.claimRecord.span, ptr) = P.unpackUint8(ptr);
-        (event_.claimRecord.parentClaimHash, ptr) = P.unpackBytes32(ptr);
-        (event_.claimRecord.endBlockMiniHeaderHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.claimRecord.span, ptr) = P.unpackUint8(ptr);
+        (payload_.claimRecord.parentClaimHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.claimRecord.endBlockMiniHeaderHash, ptr) = P.unpackBytes32(ptr);
 
         // Decode bond instructions array length (uint16)
         uint16 arrayLength;
         (arrayLength, ptr) = P.unpackUint16(ptr);
 
         // Decode bond instructions
-        event_.claimRecord.bondInstructions = new LibBonds.BondInstruction[](arrayLength);
+        payload_.claimRecord.bondInstructions = new LibBonds.BondInstruction[](arrayLength);
         for (uint256 i; i < arrayLength; ++i) {
-            (event_.claimRecord.bondInstructions[i].proposalId, ptr) = P.unpackUint48(ptr);
+            (payload_.claimRecord.bondInstructions[i].proposalId, ptr) = P.unpackUint48(ptr);
 
             uint8 bondTypeValue;
             (bondTypeValue, ptr) = P.unpackUint8(ptr);
             require(bondTypeValue <= uint8(LibBonds.BondType.LIVENESS), InvalidBondType());
-            event_.claimRecord.bondInstructions[i].bondType = LibBonds.BondType(bondTypeValue);
+            payload_.claimRecord.bondInstructions[i].bondType = LibBonds.BondType(bondTypeValue);
 
-            (event_.claimRecord.bondInstructions[i].payer, ptr) = P.unpackAddress(ptr);
-            (event_.claimRecord.bondInstructions[i].receiver, ptr) = P.unpackAddress(ptr);
+            (payload_.claimRecord.bondInstructions[i].payer, ptr) = P.unpackAddress(ptr);
+            (payload_.claimRecord.bondInstructions[i].receiver, ptr) = P.unpackAddress(ptr);
         }
     }
 
-    /// @notice Calculate the exact byte size needed for encoding a ProvedEvent
+    /// @notice Calculate the exact byte size needed for encoding a ProvedEventPayload
     /// @param _bondInstructionsCount Number of bond instructions (max 65535 due to uint16 encoding)
     /// @return size_ The total byte size needed for encoding
     function calculateProvedEventSize(uint256 _bondInstructionsCount)

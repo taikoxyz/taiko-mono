@@ -5,7 +5,8 @@ import { IInbox } from "../iface/IInbox.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
 /// @title LibProveInputDecoder
-/// @notice Library for encoding and decoding prove input data with gas optimization using LibPackUnpack
+/// @notice Library for encoding and decoding prove input data with gas optimization using
+/// LibPackUnpack
 /// @custom:security-contact security@taiko.xyz
 library LibProveInputDecoder {
     /// @notice Encodes prove input data using compact encoding
@@ -135,7 +136,7 @@ library LibProveInputDecoder {
         returns (uint256 size_)
     {
         if (_proposals.length != _claims.length) revert ProposalClaimLengthMismatch();
-        
+
         unchecked {
             // Array lengths: 3 + 3 = 6 bytes
             size_ = 6;
@@ -147,7 +148,7 @@ library LibProveInputDecoder {
                 size_ += 96;
             }
 
-            // Claims - each has fixed size: proposalHash(32) + parentClaimHash(32) + 
+            // Claims - each has fixed size: proposalHash(32) + parentClaimHash(32) +
             // BlockMiniHeader(6 + 32 + 32) + designatedProver(20) + actualProver(20) = 174
             size_ += _proposals.length * 174;
         }
