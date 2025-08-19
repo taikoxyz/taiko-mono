@@ -217,6 +217,7 @@ contract InboxFinalization is InboxTest {
             span: 1,
             bondInstructions: new LibBonds.BondInstruction[](0),
             parentClaimHash: claim1.parentClaimHash,
+            claimHash: InboxTestLib.hashClaim(claim1),
             endBlockMiniHeaderHash: keccak256(abi.encode(claim1.endBlockMiniHeader))
         });
         inbox.exposed_setClaimRecordHash(1, parentClaimHash, keccak256(abi.encode(claimRecord1)));
@@ -291,6 +292,7 @@ contract InboxFinalization is InboxTest {
             span: 2, // Modified field - wrong span value
             bondInstructions: new LibBonds.BondInstruction[](0),
             parentClaimHash: claim1.parentClaimHash,
+            claimHash: InboxTestLib.hashClaim(claim1),
             endBlockMiniHeaderHash: keccak256(abi.encode(claim1.endBlockMiniHeader))
         });
 

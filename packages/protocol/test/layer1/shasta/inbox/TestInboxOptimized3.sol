@@ -13,6 +13,8 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
     bool private configSet;
     mapping(uint256 => bytes32) private mockBlobHashes;
     bool private useMockBlobHashes;
+    // Storage to track endBlockMiniHeader for test purposes
+    mapping(uint48 => IInbox.BlockMiniHeader) public testEndBlockMiniHeaders;
 
     constructor() InboxOptimized3() { }
 
@@ -74,5 +76,15 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
         external
     {
         _setClaimRecordHash(testConfig, _proposalId, _parentClaimHash, _claimRecordHash);
+    }
+
+    // Function to store endBlockMiniHeader for test purposes
+    function storeEndBlockMiniHeader(uint48 _proposalId, IInbox.BlockMiniHeader memory _header) external {
+        testEndBlockMiniHeaders[_proposalId] = _header;
+    }
+    
+    // Helper function to get the stored endBlockMiniHeader
+    function getStoredEndBlockMiniHeader(uint48 _proposalId) external view returns (IInbox.BlockMiniHeader memory) {
+        return testEndBlockMiniHeaders[_proposalId];
     }
 }

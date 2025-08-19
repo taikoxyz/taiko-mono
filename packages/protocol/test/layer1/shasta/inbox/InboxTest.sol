@@ -689,13 +689,23 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = InboxTestLib.createGenesisProposal(coreState);
 
-        bytes memory data = InboxTestAdapter.encodeProposeInput(
+        // Get the endBlockMiniHeader from the last proposal that was proven
+        // This should match what was used when the claim was created
+        uint48 lastProposalId = uint48(_claimRecords.length);
+        IInbox.BlockMiniHeader memory endBlockMiniHeader = IInbox.BlockMiniHeader({
+            number: lastProposalId * 100,
+            hash: keccak256(abi.encode(lastProposalId, "endBlockHash")),
+            stateRoot: keccak256(abi.encode(lastProposalId, "stateRoot"))
+        });
+
+        bytes memory data = InboxTestAdapter.encodeProposeInputWithEndBlock(
             inboxType,
             uint48(0),
             coreState,
             proposals,
             createValidBlobReference(nextProposalId),
-            _claimRecords
+            _claimRecords,
+            endBlockMiniHeader
         );
 
         vm.prank(_finalizer != address(0) ? _finalizer : Alice);
@@ -1391,6 +1401,8 @@ abstract contract InboxTest is CommonTest {
     {
         claim = InboxTestLib.createClaim(_proposal, _parentClaimHash, _prover);
         _submitProof(_proposal, claim, _prover);
+        // Store the endBlockMiniHeader for test purposes
+        inbox.storeEndBlockMiniHeader(_proposal.id, claim.endBlockMiniHeader);
     }
 
     /// @dev Proves multiple proposals in batch
@@ -1408,6 +1420,11 @@ abstract contract InboxTest is CommonTest {
         bytes memory proveData = InboxTestAdapter.encodeProveInput(inboxType, _proposals, _claims);
         vm.prank(_prover);
         inbox.prove(proveData, bytes("proof"));
+        
+        // Store the endBlockMiniHeaders for test purposes
+        for (uint256 i = 0; i < _proposals.length; i++) {
+            inbox.storeEndBlockMiniHeader(_proposals[i].id, _claims[i].endBlockMiniHeader);
+        }
     }
 
     /// @dev Internal helper to submit a single proof

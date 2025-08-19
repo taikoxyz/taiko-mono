@@ -26,4 +26,10 @@ interface ITestInbox is IInbox {
         bytes32 _claimRecordHash
     )
         external;
+
+    /// @notice Store endBlockMiniHeader for test purposes
+    function storeEndBlockMiniHeader(uint48 _proposalId, IInbox.BlockMiniHeader memory _header) external;
+
+    /// @notice Get stored endBlockMiniHeader for test purposes  
+    function getStoredEndBlockMiniHeader(uint48 _proposalId) external view returns (IInbox.BlockMiniHeader memory);
 }

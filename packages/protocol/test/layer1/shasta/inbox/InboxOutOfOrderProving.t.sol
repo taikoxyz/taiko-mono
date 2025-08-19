@@ -175,6 +175,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 parentClaimHash: claims[i].parentClaimHash,
+                claimHash: InboxTestLib.hashClaim(claims[i]),
                 endBlockMiniHeaderHash: keccak256(abi.encode(claims[i].endBlockMiniHeader))
             });
         }
@@ -204,8 +205,15 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.Proposal[] memory finalValidationProposals = new IInbox.Proposal[](1);
         finalValidationProposals[0] = proposals[numProposals - 1];
 
-        bytes memory proposeData = encodeProposeInputWithProposals(
-            uint48(0), coreState, finalValidationProposals, blobRef, claimRecords
+        // When finalizing, we need to provide the endBlockMiniHeader from the last claim
+        bytes memory proposeData = InboxTestAdapter.encodeProposeInputWithEndBlock(
+            inboxType,
+            uint48(0),
+            coreState,
+            finalValidationProposals,
+            blobRef,
+            claimRecords,
+            lastClaim.endBlockMiniHeader
         );
 
         vm.prank(Carol);
@@ -364,6 +372,7 @@ contract InboxOutOfOrderProving is InboxTest {
             span: 1,
             bondInstructions: new LibBonds.BondInstruction[](0),
             parentClaimHash: claim1.parentClaimHash,
+            claimHash: InboxTestLib.hashClaim(claim1),
             endBlockMiniHeaderHash: keccak256(abi.encode(claim1.endBlockMiniHeader))
         });
 
@@ -389,8 +398,18 @@ contract InboxOutOfOrderProving is InboxTest {
             )
         );
 
-        bytes memory proposeData = encodeProposeInputForSubsequent(
-            uint48(0), coreState, lastProposal, blobRef, claimRecords
+        // When finalizing, we need to provide the endBlockMiniHeader
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = lastProposal;
+        
+        bytes memory proposeData = InboxTestAdapter.encodeProposeInputWithEndBlock(
+            inboxType,
+            uint48(0),
+            coreState,
+            proposals,
+            blobRef,
+            claimRecords,
+            claim1.endBlockMiniHeader  // Use the header from the claim being finalized
         );
 
         vm.prank(Carol);

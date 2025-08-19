@@ -306,6 +306,7 @@ abstract contract Inbox is EssentialContract, IInbox {
                 span: 1,
                 bondInstructions: bondInstructions,
                 parentClaimHash: claim.parentClaimHash,
+                claimHash: _hashClaim(claim),
                 endBlockMiniHeaderHash: keccak256(
                     abi.encode(claim.endBlockMiniHeader)
                 )
@@ -316,7 +317,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             _setClaimRecordHash(
                 _config,
                 proposal.id,
-                claimRecord.parentClaimHash,
+                claim.parentClaimHash,
                 claimRecordHash
             );
 
@@ -703,7 +704,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         // Reconstruct the BlockMiniHeader from the claim record hash
         // Note: We need to decode the endBlockMiniHeaderHash to get the actual header
         // For finalization, we create a claim with empty block header since we only have the hash
-        _coreState.lastFinalizedClaimHash = _claimRecord.endBlockMiniHeaderHash;
+        _coreState.lastFinalizedClaimHash = _claimRecord.claimHash;
 
         // Process bond instructions
         _processBondInstructions(_coreState, _claimRecord.bondInstructions);
@@ -752,7 +753,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Hashes a Claim struct.
     /// @param _claim The claim to hash.
     /// @return _ The hash of the claim.
-    function _hashClaim(Claim memory _claim) private pure returns (bytes32) {
+    function _hashClaim(Claim memory _claim) internal pure returns (bytes32) {
         return keccak256(abi.encode(_claim));
     }
 
