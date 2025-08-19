@@ -30,7 +30,8 @@ abstract contract InboxOptimized1 is Inbox {
     // Internal Functions - Overrides
     // ---------------------------------------------------------------
 
-    /// @dev Builds then saves claim records for multiple proposals and claims with aggregation for continuous
+    /// @dev Builds then saves claim records for multiple proposals and claims with aggregation for
+    /// continuous
     /// proposals
     /// @param _config The configuration parameters.
     /// @param _proposals The proposals to prove.
@@ -103,8 +104,9 @@ abstract contract InboxOptimized1 is Inbox {
                 }
 
                 // Update the end block mini header hash for the aggregated record
-                claimRecords[currentRecordIndex].endBlockMiniHeaderHash = keccak256(abi.encode(_claims[i].endBlockMiniHeader));
-                
+                claimRecords[currentRecordIndex].endBlockMiniHeaderHash =
+                    keccak256(abi.encode(_claims[i].endBlockMiniHeader));
+
                 // Increment span to include this aggregated proposal
                 claimRecords[currentRecordIndex].span++;
             } else {
@@ -129,10 +131,10 @@ abstract contract InboxOptimized1 is Inbox {
         for (uint256 i = 0; i < finalRecordCount; ++i) {
             ClaimRecord memory record = claimRecords[i];
             bytes32 claimRecordHash = keccak256(abi.encode(record));
-            
+
             _setClaimRecordHash(_config, proposalId, record.parentClaimHash, claimRecordHash);
             emit Proved(encodeProveEventData(record));
-            
+
             // Move to next proposal group
             proposalId += record.span;
         }
