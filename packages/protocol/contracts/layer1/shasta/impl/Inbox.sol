@@ -545,14 +545,19 @@ abstract contract Inbox is EssentialContract, IInbox {
         private
         returns (CoreState memory)
     {
-        IForcedInclusionStore store = IForcedInclusionStore(_config.forcedInclusionStore);
+        // Use low-level call to handle potential errors gracefully
+        (bool success, bytes memory returnData) = _config.forcedInclusionStore.call(
+            abi.encodeCall(IForcedInclusionStore.consumeOldestForcedInclusion, (msg.sender))
+        );
 
-        if (!store.isOldestForcedInclusionDue()) {
+        // If the call fails, return _coreState as is
+        if (!success) {
             return _coreState;
         }
 
+        // Decode the returned ForcedInclusion struct
         IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
-            store.consumeOldestForcedInclusion(msg.sender);
+            abi.decode(returnData, (IForcedInclusionStore.ForcedInclusion));
 
         return _propose(_config, _coreState, forcedInclusion.blobSlice, true);
     }
