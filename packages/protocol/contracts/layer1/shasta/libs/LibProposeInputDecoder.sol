@@ -52,10 +52,21 @@ library LibProposeInputDecoder {
             ptr = _encodeClaimRecord(ptr, _input.claimRecords[i]);
         }
 
-        // 6. Encode BlockMiniHeader
-        ptr = P.packUint48(ptr, _input.endBlockMiniHeader.number);
-        ptr = P.packBytes32(ptr, _input.endBlockMiniHeader.hash);
-        ptr = P.packBytes32(ptr, _input.endBlockMiniHeader.stateRoot);
+        // 6. Encode BlockMiniHeader with optimization for empty header
+        // Check if endBlockMiniHeader is empty (all fields are zero)
+        bool isEmpty = _input.endBlockMiniHeader.number == 0
+            && _input.endBlockMiniHeader.hash == bytes32(0)
+            && _input.endBlockMiniHeader.stateRoot == bytes32(0);
+
+        // Write flag byte: 0 for empty, 1 for non-empty
+        ptr = P.packUint8(ptr, isEmpty ? 0 : 1);
+
+        // Only encode the full header if it's not empty
+        if (!isEmpty) {
+            ptr = P.packUint48(ptr, _input.endBlockMiniHeader.number);
+            ptr = P.packBytes32(ptr, _input.endBlockMiniHeader.hash);
+            ptr = P.packBytes32(ptr, _input.endBlockMiniHeader.stateRoot);
+        }
     }
 
     /// @notice Decodes propose data using optimized operations with LibPackUnpack
@@ -95,10 +106,18 @@ library LibProposeInputDecoder {
             (input_.claimRecords[i], ptr) = _decodeClaimRecord(ptr);
         }
 
-        // 6. Decode BlockMiniHeader
-        (input_.endBlockMiniHeader.number, ptr) = P.unpackUint48(ptr);
-        (input_.endBlockMiniHeader.hash, ptr) = P.unpackBytes32(ptr);
-        (input_.endBlockMiniHeader.stateRoot, ptr) = P.unpackBytes32(ptr);
+        // 6. Decode BlockMiniHeader with optimization for empty header
+        uint8 headerFlag;
+        (headerFlag, ptr) = P.unpackUint8(ptr);
+
+        // If flag is 0, the header is empty, leave it as default (all zeros)
+        // If flag is 1, decode the full header
+        if (headerFlag == 1) {
+            (input_.endBlockMiniHeader.number, ptr) = P.unpackUint48(ptr);
+            (input_.endBlockMiniHeader.hash, ptr) = P.unpackBytes32(ptr);
+            (input_.endBlockMiniHeader.stateRoot, ptr) = P.unpackBytes32(ptr);
+        }
+        // else: endBlockMiniHeader remains as default (all zeros)
     }
 
     /// @notice Encode a single Proposal
@@ -214,7 +233,7 @@ library LibProposeInputDecoder {
     function _calculateProposeDataSize(
         IInbox.Proposal[] memory _proposals,
         IInbox.ClaimRecord[] memory _claimRecords,
-        IInbox.BlockMiniHeader memory
+        IInbox.BlockMiniHeader memory _endBlockMiniHeader
     )
         private
         pure
@@ -226,8 +245,17 @@ library LibProposeInputDecoder {
             // CoreState: 6 + 6 + 32 + 32 = 76 bytes
             // BlobReference: 2 + 2 + 3 = 7 bytes
             // Arrays lengths: 3 + 3 = 6 bytes
-            // BlockMiniHeader: 6 + 32 + 32 = 70 bytes
-            size_ = 165;
+            // BlockMiniHeader flag: 1 byte
+            size_ = 96;
+
+            // Add BlockMiniHeader size if not empty
+            bool isEmpty = _endBlockMiniHeader.number == 0 && _endBlockMiniHeader.hash == bytes32(0)
+                && _endBlockMiniHeader.stateRoot == bytes32(0);
+
+            if (!isEmpty) {
+                // BlockMiniHeader when not empty: 6 + 32 + 32 = 70 bytes
+                size_ += 70;
+            }
 
             // Proposals - each has fixed size
             // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) + coreStateHash(32) +
