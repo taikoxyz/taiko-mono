@@ -45,52 +45,33 @@ abstract contract InboxOptimized1 is Inbox {
 
         // Validate first proposal and create initial claim record
         _validateClaim(_config, _proposals[0], _claims[0]);
-        LibBonds.BondInstruction[] memory currentInstructions =
-            _calculateBondInstructions(_config, _proposals[0], _claims[0]);
 
         // Initialize current aggregation state
         ClaimRecord memory currentRecord = ClaimRecord({
             span: 1,
-            bondInstructions: currentInstructions,
+            bondInstructions: _calculateBondInstructions(_config, _proposals[0], _claims[0]),
             parentClaimHash: _claims[0].parentClaimHash,
             claimHash: _hashClaim(_claims[0]),
             endBlockMiniHeaderHash: keccak256(abi.encode(_claims[0].endBlockMiniHeader))
         });
 
         uint48 currentGroupStartId = _proposals[0].id;
+        Claim memory firstClaimInGroup = _claims[0];
 
         // Process remaining proposals
         for (uint256 i = 1; i < _proposals.length; ++i) {
-            require(_claims[i].parentClaimHash != _DEFAULT_SLOT_HASH, InvalidParentClaimHash());
             _validateClaim(_config, _proposals[i], _claims[i]);
 
             // Check if current proposal can be aggregated with the previous group
-            // The next expected proposal ID is: start of current group + current span
-            uint48 nextExpectedId = currentGroupStartId + currentRecord.span;
-            if (_proposals[i].id == nextExpectedId) {
+            if (_proposals[i].id == currentGroupStartId + currentRecord.span) {
                 // Aggregate with current record
                 LibBonds.BondInstruction[] memory newInstructions =
                     _calculateBondInstructions(_config, _proposals[i], _claims[i]);
 
                 if (newInstructions.length > 0) {
-                    // Create new array with combined size
-                    uint256 oldLen = currentRecord.bondInstructions.length;
-                    uint256 newLen = oldLen + newInstructions.length;
-                    LibBonds.BondInstruction[] memory aggregatedInstructions =
-                        new LibBonds.BondInstruction[](newLen);
-
-                    // Copy existing instructions
-                    for (uint256 j = 0; j < oldLen; ++j) {
-                        aggregatedInstructions[j] = currentRecord.bondInstructions[j];
-                    }
-
-                    // Copy new instructions
-                    for (uint256 j = 0; j < newInstructions.length; ++j) {
-                        aggregatedInstructions[oldLen + j] = newInstructions[j];
-                    }
-
-                    // Update the bond instructions in the current record
-                    currentRecord.bondInstructions = aggregatedInstructions;
+                    // Merge bond instructions
+                    currentRecord.bondInstructions =
+                        _mergeBondInstructions(currentRecord.bondInstructions, newInstructions);
                 }
 
                 // Update the claim hash and end block mini header hash for the aggregated record
@@ -102,33 +83,15 @@ abstract contract InboxOptimized1 is Inbox {
                 currentRecord.span++;
             } else {
                 // Save the current aggregated record before starting a new one
-                bytes32 recordHash = keccak256(abi.encode(currentRecord));
-                _setClaimRecordHash(
-                    _config, currentGroupStartId, currentRecord.parentClaimHash, recordHash
-                );
-                // For aggregated records spanning multiple proposals, emit with the first
-                // proposal's data
-                // Note: This is an aggregated record, so proposalId refers to the start of the
-                // group
-                emit Proved(
-                    encodeProvedEventData(
-                        ProvedEventPayload({
-                            proposalId: currentGroupStartId,
-                            claim: _claims[i - currentRecord.span], // First claim in the aggregated
-                                // group
-                            claimRecord: currentRecord
-                        })
-                    )
-                );
+                _setClaimRecordHash(_config, currentGroupStartId, firstClaimInGroup, currentRecord);
 
                 // Start a new record for non-continuous proposal
-                LibBonds.BondInstruction[] memory instructions =
-                    _calculateBondInstructions(_config, _proposals[i], _claims[i]);
-
                 currentGroupStartId = _proposals[i].id;
+                firstClaimInGroup = _claims[i];
+
                 currentRecord = ClaimRecord({
                     span: 1,
-                    bondInstructions: instructions,
+                    bondInstructions: _calculateBondInstructions(_config, _proposals[i], _claims[i]),
                     parentClaimHash: _claims[i].parentClaimHash,
                     claimHash: _hashClaim(_claims[i]),
                     endBlockMiniHeaderHash: keccak256(abi.encode(_claims[i].endBlockMiniHeader))
@@ -137,22 +100,7 @@ abstract contract InboxOptimized1 is Inbox {
         }
 
         // Save the final aggregated record
-        bytes32 claimRecordHash = keccak256(abi.encode(currentRecord));
-        _setClaimRecordHash(
-            _config, currentGroupStartId, currentRecord.parentClaimHash, claimRecordHash
-        );
-        // For aggregated records spanning multiple proposals, emit with the first proposal's data
-        // Note: This is an aggregated record, so proposalId refers to the start of the group
-        emit Proved(
-            encodeProvedEventData(
-                ProvedEventPayload({
-                    proposalId: currentGroupStartId,
-                    claim: _claims[_claims.length - currentRecord.span], // First claim in the final
-                        // aggregated group
-                    claimRecord: currentRecord
-                })
-            )
-        );
+        _setClaimRecordHash(_config, currentGroupStartId, firstClaimInGroup, currentRecord);
     }
 
     /// @dev Gets the claim record hash for a given proposal and parent claim.
@@ -186,18 +134,19 @@ abstract contract InboxOptimized1 is Inbox {
         return _claimHashLookup[bufferSlot][_parentClaimHash].claimRecordHash;
     }
 
-    /// @dev Sets the claim record hash for a given proposal and parent claim.
-    /// @notice This implementation tries to reuse a default slot to save gas.
+    /// @dev Sets the claim record hash for a given proposal and parent claim, and emits the Proved
+    /// event. This implementation tries to reuse a default slot to save gas.
     function _setClaimRecordHash(
         Config memory _config,
         uint48 _proposalId,
-        bytes32 _parentClaimHash,
-        bytes32 _claimRecordHash
+        Claim memory _claim,
+        ClaimRecord memory _claimRecord
     )
         internal
         override
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
+        bytes32 claimRecordHash = _hashClaimRecord(_claimRecord);
         ExtendedClaimRecord storage record = _claimHashLookup[bufferSlot][_DEFAULT_SLOT_HASH];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =
@@ -206,14 +155,50 @@ abstract contract InboxOptimized1 is Inbox {
         // Check if we need to use the default slot
         if (proposalId != _proposalId) {
             // Different proposal ID, so we can use the default slot
-            record.claimRecordHash = _claimRecordHash;
-            record.slotReuseMarker = _encodeSlotReuseMarker(_proposalId, _parentClaimHash);
-        } else if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
+            record.claimRecordHash = claimRecordHash;
+            record.slotReuseMarker = _encodeSlotReuseMarker(_proposalId, _claim.parentClaimHash);
+        } else if (_isPartialParentClaimHashMatch(partialParentClaimHash, _claim.parentClaimHash)) {
             // Same proposal ID and same parent claim hash (partial match), update the default slot
-            record.claimRecordHash = _claimRecordHash;
+            record.claimRecordHash = claimRecordHash;
         } else {
             // Same proposal ID but different parent claim hash, use direct mapping
-            _claimHashLookup[bufferSlot][_parentClaimHash].claimRecordHash = _claimRecordHash;
+            _claimHashLookup[bufferSlot][_claim.parentClaimHash].claimRecordHash = claimRecordHash;
+        }
+
+        bytes memory paylaod = encodeProvedEventData(
+            ProvedEventPayload({ proposalId: _proposalId, claim: _claim, claimRecord: _claimRecord })
+        );
+        emit Proved(paylaod);
+    }
+
+    // ---------------------------------------------------------------
+    // Private Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Merges two arrays of bond instructions into a single array
+    /// @param _existing The existing bond instructions
+    /// @param _new The new bond instructions to append
+    /// @return merged_ The merged array of bond instructions
+    function _mergeBondInstructions(
+        LibBonds.BondInstruction[] memory _existing,
+        LibBonds.BondInstruction[] memory _new
+    )
+        private
+        pure
+        returns (LibBonds.BondInstruction[] memory merged_)
+    {
+        uint256 oldLen = _existing.length;
+        uint256 newLen = _new.length;
+        merged_ = new LibBonds.BondInstruction[](oldLen + newLen);
+
+        // Copy existing instructions
+        for (uint256 i = 0; i < oldLen; ++i) {
+            merged_[i] = _existing[i];
+        }
+
+        // Copy new instructions
+        for (uint256 i = 0; i < newLen; ++i) {
+            merged_[oldLen + i] = _new[i];
         }
     }
 
@@ -254,10 +239,4 @@ abstract contract InboxOptimized1 is Inbox {
     {
         return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
-
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error InvalidParentClaimHash();
 }

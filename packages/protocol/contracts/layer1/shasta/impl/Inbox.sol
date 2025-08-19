@@ -289,37 +289,26 @@ abstract contract Inbox is EssentialContract, IInbox {
         internal
         virtual
     {
+        // Declare struct instances outside the loop to avoid repeated memory allocations
         ClaimRecord memory claimRecord;
+        Proposal memory proposal;
+        Claim memory claim;
+        claimRecord.span = 1;
+
         for (uint256 i; i < _proposals.length; ++i) {
-            Proposal memory proposal = _proposals[i];
-            Claim memory claim = _claims[i];
+            proposal = _proposals[i];
+            claim = _claims[i];
 
             _validateClaim(_config, proposal, claim);
 
-            LibBonds.BondInstruction[] memory bondInstructions =
-                _calculateBondInstructions(_config, proposal, claim);
+            // Reuse the same memory location for the claimRecord struct
+            claimRecord.bondInstructions = _calculateBondInstructions(_config, proposal, claim);
+            claimRecord.parentClaimHash = claim.parentClaimHash;
+            claimRecord.claimHash = _hashClaim(claim);
+            claimRecord.endBlockMiniHeaderHash = keccak256(abi.encode(claim.endBlockMiniHeader));
 
-            claimRecord = ClaimRecord({
-                span: 1,
-                bondInstructions: bondInstructions,
-                parentClaimHash: claim.parentClaimHash,
-                claimHash: _hashClaim(claim),
-                endBlockMiniHeaderHash: keccak256(abi.encode(claim.endBlockMiniHeader))
-            });
-
-            bytes32 claimRecordHash = _hashClaimRecord(claimRecord);
-
-            _setClaimRecordHash(_config, proposal.id, claim.parentClaimHash, claimRecordHash);
-
-            emit Proved(
-                encodeProvedEventData(
-                    ProvedEventPayload({
-                        proposalId: proposal.id,
-                        claim: claim,
-                        claimRecord: claimRecord
-                    })
-                )
-            );
+            // Pass claim and claimRecord to _setClaimRecordHash which will emit the event
+            _setClaimRecordHash(_config, proposal.id, claim, claimRecord);
         }
     }
 
@@ -412,19 +401,30 @@ abstract contract Inbox is EssentialContract, IInbox {
         _proposalHashes[_proposalId % _config.ringBufferSize] = _proposalHash;
     }
 
-    /// @dev Sets the claim record hash for a given proposal and parent claim.
+    /// @dev Sets the claim record hash for a given proposal and parent claim, and emits the Proved
+    /// event.
+    /// @param _config The configuration parameters.
+    /// @param _proposalId The proposal ID.
+    /// @param _claim The claim data for the event.
+    /// @param _claimRecord The claim record data for the event.
     function _setClaimRecordHash(
         Config memory _config,
         uint48 _proposalId,
-        bytes32 _parentClaimHash,
-        bytes32 _claimRecordHash
+        Claim memory _claim,
+        ClaimRecord memory _claimRecord
     )
         internal
         virtual
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        bytes32 compositeKey = _composeClaimKey(_proposalId, _parentClaimHash);
-        _claimHashLookup[bufferSlot][compositeKey].claimRecordHash = _claimRecordHash;
+        bytes32 compositeKey = _composeClaimKey(_proposalId, _claim.parentClaimHash);
+        bytes32 claimRecordHash = _hashClaimRecord(_claimRecord);
+        _claimHashLookup[bufferSlot][compositeKey].claimRecordHash = claimRecordHash;
+
+        bytes memory paylaod = encodeProvedEventData(
+            ProvedEventPayload({ proposalId: _proposalId, claim: _claim, claimRecord: _claimRecord })
+        );
+        emit Proved(paylaod);
     }
 
     /// @dev Gets the capacity for unfinalized proposals.
@@ -605,15 +605,14 @@ abstract contract Inbox is EssentialContract, IInbox {
             });
 
             _setProposalHash(_config, proposal.id, _hashProposal(proposal));
-            emit Proposed(
-                encodeProposedEventData(
-                    ProposedEventPayload({
-                        proposal: proposal,
-                        derivation: derivation,
-                        coreState: _coreState
-                    })
-                )
+            bytes memory payload = encodeProposedEventData(
+                ProposedEventPayload({
+                    proposal: proposal,
+                    derivation: derivation,
+                    coreState: _coreState
+                })
             );
+            emit Proposed(payload);
 
             return _coreState;
         }
@@ -781,7 +780,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Hashes a ClaimRecord struct.
     /// @param _claimRecord The claim record to hash.
     /// @return _ The hash of the claim record.
-    function _hashClaimRecord(ClaimRecord memory _claimRecord) private pure returns (bytes32) {
+    function _hashClaimRecord(ClaimRecord memory _claimRecord) internal pure returns (bytes32) {
         return keccak256(abi.encode(_claimRecord));
     }
 
