@@ -87,19 +87,24 @@ contract InboxOutOfOrderProving is InboxTest {
             bytes32[] memory blobHashes = new bytes32[](1);
             blobHashes[0] = keccak256(abi.encode("blob", proposalBlobRef.blobStartIndex));
 
-            proposals[i - 1] = IInbox.Proposal({
-                id: i,
-                proposer: Alice,
-                originTimestamp: uint48(block.timestamp),
-                originBlockNumber: uint48(block.number),
+            IInbox.Derivation memory derivation = IInbox.Derivation({
+                originBlockNumber: uint48(block.number - 1),
+                originBlockHash: blockhash(block.number - 1),
                 isForcedInclusion: false,
                 basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
                 blobSlice: LibBlobs.BlobSlice({
                     blobHashes: blobHashes,
                     offset: proposalBlobRef.offset,
                     timestamp: uint48(block.timestamp)
-                }),
-                coreStateHash: bytes32(0)
+                })
+            });
+
+            proposals[i - 1] = IInbox.Proposal({
+                id: i,
+                proposer: Alice,
+                timestamp: uint48(block.timestamp),
+                coreStateHash: bytes32(0),
+                derivationHash: keccak256(abi.encode(derivation))
             });
 
             // Store proposal for use in next iteration's validation
@@ -246,7 +251,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 );
             } else {
                 // For subsequent proposals, we need to create the previous proposal structure
-                IInbox.Proposal memory prevProposal =
+                (IInbox.Proposal memory prevProposal,) =
                     InboxTestLib.createProposal(i - 1, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
                 prevProposal.coreStateHash = keccak256(
                     abi.encode(
@@ -283,19 +288,24 @@ contract InboxOutOfOrderProving is InboxTest {
                 bondInstructionsHash: bytes32(0)
             });
 
-            IInbox.Proposal memory proposal = IInbox.Proposal({
-                id: i,
-                proposer: Alice,
-                originTimestamp: uint48(block.timestamp),
-                originBlockNumber: uint48(block.number),
+            IInbox.Derivation memory derivation = IInbox.Derivation({
+                originBlockNumber: uint48(block.number - 1),
+                originBlockHash: blockhash(block.number - 1),
                 isForcedInclusion: false,
                 basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
                 blobSlice: LibBlobs.BlobSlice({
                     blobHashes: blobHashes,
                     offset: 0,
                     timestamp: uint48(block.timestamp)
-                }),
-                coreStateHash: keccak256(abi.encode(updatedCoreState))
+                })
+            });
+
+            IInbox.Proposal memory proposal = IInbox.Proposal({
+                id: i,
+                proposer: Alice,
+                timestamp: uint48(block.timestamp),
+                coreStateHash: keccak256(abi.encode(updatedCoreState)),
+                derivationHash: keccak256(abi.encode(derivation))
             });
 
             bytes32 parentHash = i == 1 ? initialParentHash : bytes32(uint256(999)); // Dummy parent
@@ -360,7 +370,7 @@ contract InboxOutOfOrderProving is InboxTest {
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(4);
 
         // Create the last proposal for validation
-        IInbox.Proposal memory lastProposal =
+        (IInbox.Proposal memory lastProposal,) =
             InboxTestLib.createProposal(3, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
         lastProposal.coreStateHash = keccak256(
             abi.encode(

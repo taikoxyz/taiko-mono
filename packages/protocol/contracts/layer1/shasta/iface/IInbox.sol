@@ -22,6 +22,21 @@ interface IInbox {
         address forcedInclusionStore;
     }
 
+    /// @notice Contains derivation data for a proposal that is not needed during proving.
+    /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
+    struct Derivation {
+        /// @notice The L1 block number when the proposal was accepted.
+        uint48 originBlockNumber;
+        /// @notice The hash of the origin block.
+        bytes32 originBlockHash;
+        /// @notice Whether the proposal is from a forced inclusion.
+        bool isForcedInclusion;
+        /// @notice The percentage of base fee paid to coinbase.
+        uint8 basefeeSharingPctg;
+        /// @notice Blobs that contains the proposal's manifest data.
+        LibBlobs.BlobSlice blobSlice;
+    }
+
     /// @notice Represents a proposal for L2 blocks.
     struct Proposal {
         /// @notice Unique identifier for the proposal.
@@ -29,17 +44,11 @@ interface IInbox {
         /// @notice Address of the proposer.
         address proposer;
         /// @notice The L1 block timestamp when the proposal was accepted.
-        uint48 originTimestamp;
-        /// @notice The L1 block number when the proposal was accepted.
-        uint48 originBlockNumber;
-        /// @notice Whether the proposal is from a forced inclusion.
-        bool isForcedInclusion;
-        /// @notice The percentage of base fee paid to coinbase.
-        uint8 basefeeSharingPctg;
-        /// @notice Blobs that contains the proposal's manifest data.
-        LibBlobs.BlobSlice blobSlice;
+        uint48 timestamp;
         /// @notice The current hash of coreState
         bytes32 coreStateHash;
+        /// @notice Hash of the Derivation struct containing additional proposal data.
+        bytes32 derivationHash;
     }
 
     /// @notice Represents a claim about the state transition of a proposal.
@@ -90,7 +99,7 @@ interface IInbox {
     // ---------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed.
-    /// @param data The encoded (Proposal, CoreState)
+    /// @param data The encoded (Proposal, Derivation, CoreState)
     event Proposed(bytes data);
 
     /// @notice Emitted when a proof is submitted

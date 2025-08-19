@@ -224,11 +224,7 @@ contract MockForcedInclusionStore is IForcedInclusionStore {
         return _isDue && !_consumed;
     }
 
-    function consumeOldestForcedInclusion(address)
-        external
-        override
-        returns (ForcedInclusion memory)
-    {
+    function consumeOldestForcedInclusion(address) external returns (ForcedInclusion memory) {
         require(_isDue && !_consumed, "No forced inclusion due");
         _consumed = true;
         return _forcedInclusion;

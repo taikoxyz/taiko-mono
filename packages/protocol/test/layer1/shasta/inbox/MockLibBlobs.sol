@@ -12,7 +12,7 @@ library MockLibBlobs {
         pure
         returns (LibBlobs.BlobSlice memory)
     {
-        if (_blobReference.numBlobs == 0) revert LibBlobs.InvalidBlobReference();
+        if (_blobReference.numBlobs == 0) revert LibBlobs.NoBlobs();
 
         bytes32[] memory blobHashes = new bytes32[](_blobReference.numBlobs);
         for (uint256 i; i < _blobReference.numBlobs; ++i) {

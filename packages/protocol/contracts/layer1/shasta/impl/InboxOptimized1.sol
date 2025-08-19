@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./Inbox.sol";
+import { Inbox } from "./Inbox.sol";
+import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title InboxOptimized1
 /// @notice Inbox optimized to allow slot reuse and claim aggregation.

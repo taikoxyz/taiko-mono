@@ -157,7 +157,7 @@ contract InboxRingBuffer is InboxTest {
         inbox.propose(bytes(""), data1);
 
         // Get proposal 1 for use as parent
-        IInbox.Proposal memory proposal1 =
+        (IInbox.Proposal memory proposal1,) =
             InboxTestLib.createProposal(1, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
         proposal1.coreStateHash = keccak256(
             abi.encode(
@@ -188,7 +188,7 @@ contract InboxRingBuffer is InboxTest {
         inbox.propose(bytes(""), data2);
 
         // Get proposal 2 for use as parent
-        IInbox.Proposal memory proposal2 =
+        (IInbox.Proposal memory proposal2,) =
             InboxTestLib.createProposal(2, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
         proposal2.coreStateHash = keccak256(
             abi.encode(
@@ -208,17 +208,9 @@ contract InboxRingBuffer is InboxTest {
         // We need to provide both proposal 2 (parent) and genesis (slot being overwritten)
 
         // Create the genesis proposal that was stored at initialization
-        IInbox.Proposal memory genesisProposal;
-        genesisProposal.coreStateHash = keccak256(
-            abi.encode(
-                IInbox.CoreState({
-                    nextProposalId: 1,
-                    lastFinalizedProposalId: 0,
-                    lastFinalizedClaimHash: getGenesisClaimHash(),
-                    bondInstructionsHash: bytes32(0)
-                })
-            )
-        );
+        // Use the library function to correctly recreate the genesis proposal
+        IInbox.CoreState memory dummyState; // Not used by createGenesisProposal
+        IInbox.Proposal memory genesisProposal = InboxTestLib.createGenesisProposal(dummyState);
 
         IInbox.CoreState memory coreState3 = IInbox.CoreState({
             nextProposalId: 3,

@@ -83,7 +83,8 @@ contract InboxChainAdvancement is InboxTest {
             inbox.propose(bytes(""), proposalData);
 
             // Store proposal for proving later
-            proposals[i - 1] = InboxTestLib.createProposal(i, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
+            (proposals[i - 1],) =
+                InboxTestLib.createProposal(i, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
             proposals[i - 1].coreStateHash = keccak256(
                 abi.encode(
                     IInbox.CoreState({
@@ -192,7 +193,7 @@ contract InboxChainAdvancement is InboxTest {
             inbox.propose(bytes(""), proposalData);
 
             // Store proposal for proving later - use helper to create proper proposal
-            proposals[i - 1] =
+            (proposals[i - 1],) =
                 InboxTestLib.createProposal(i, Alice, defaultConfig.basefeeSharingPctg);
             proposals[i - 1].coreStateHash = keccak256(
                 abi.encode(
@@ -322,7 +323,8 @@ contract InboxChainAdvancement is InboxTest {
             vm.stopPrank();
 
             // Store proposal for next iteration and for proving
-            proposals[i - 1] = InboxTestLib.createProposal(i, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
+            (proposals[i - 1],) =
+                InboxTestLib.createProposal(i, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
             proposals[i - 1].coreStateHash = keccak256(
                 abi.encode(
                     IInbox.CoreState({
@@ -431,7 +433,7 @@ contract InboxChainAdvancement is InboxTest {
             // Prove proposal
             bytes32 storedProposalHash = inbox.getProposalHash(i);
 
-            IInbox.Proposal memory proposal =
+            (IInbox.Proposal memory proposal,) =
                 InboxTestLib.createProposal(i, Alice, config.basefeeSharingPctg);
             proposal.coreStateHash = bytes32(0);
 
@@ -558,7 +560,8 @@ contract InboxChainAdvancement is InboxTest {
             inbox.propose(bytes(""), proposalData);
 
             // Store proposal for proving later
-            proposals[i - 1] = InboxTestLib.createProposal(i, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
+            (proposals[i - 1],) =
+                InboxTestLib.createProposal(i, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
             proposals[i - 1].coreStateHash = keccak256(
                 abi.encode(
                     IInbox.CoreState({
@@ -704,7 +707,7 @@ contract InboxChainAdvancement is InboxTest {
             inbox.propose(bytes(""), proposalData);
 
             // Store proposal for proving - use helper to create proper proposal
-            proposals[i - 1] =
+            (proposals[i - 1],) =
                 InboxTestLib.createProposal(i, Alice, defaultConfig.basefeeSharingPctg);
             proposals[i - 1].coreStateHash = keccak256(
                 abi.encode(
@@ -948,7 +951,7 @@ contract InboxChainAdvancement is InboxTest {
             vm.prank(Alice);
             inbox.propose(bytes(""), proposalData);
 
-            proposals[i - 1] =
+            (proposals[i - 1],) =
                 InboxTestLib.createProposal(i, Alice, defaultConfig.basefeeSharingPctg);
             proposals[i - 1].coreStateHash = keccak256(
                 abi.encode(
@@ -1105,7 +1108,7 @@ contract InboxChainAdvancement is InboxTest {
             inbox.propose(bytes(""), proposalData);
 
             // Store proposal for proving - use helper to create proper proposal
-            proposals[i - 1] =
+            (proposals[i - 1],) =
                 InboxTestLib.createProposal(i, Alice, defaultConfig.basefeeSharingPctg);
             proposals[i - 1].coreStateHash = keccak256(
                 abi.encode(
