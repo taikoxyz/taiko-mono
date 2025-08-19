@@ -99,6 +99,30 @@ interface IInbox {
         bytes32 bondInstructionsHash;
     }
 
+    /// @notice Input data for the propose function
+    struct ProposeInput {
+        /// @notice The deadline timestamp for transaction inclusion (0 = no deadline).
+        uint48 deadline;
+        /// @notice The current core state before this proposal.
+        CoreState coreState;
+        /// @notice Array of existing proposals for validation (1-2 elements).
+        Proposal[] parentProposals;
+        /// @notice Blob reference for proposal data.
+        LibBlobs.BlobReference blobReference;
+        /// @notice Array of claim records for finalization.
+        ClaimRecord[] claimRecords;
+        /// @notice The end block mini header for finalization.
+        BlockMiniHeader endBlockMiniHeader;
+    }
+
+    /// @notice Input data for the prove function
+    struct ProveInput {
+        /// @notice Array of proposals to prove.
+        Proposal[] proposals;
+        /// @notice Array of claims containing proof details.
+        Claim[] claims;
+    }
+
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------

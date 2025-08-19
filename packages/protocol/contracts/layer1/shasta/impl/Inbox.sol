@@ -123,22 +123,16 @@ abstract contract Inbox is EssentialContract, IInbox {
         IProposerChecker(config.proposerChecker).checkProposer(msg.sender);
 
         // Decode and validate input data
-        (
-            uint64 deadline,
-            CoreState memory coreState,
-            Proposal[] memory parentProposals,
-            LibBlobs.BlobReference memory blobReference,
-            ClaimRecord[] memory claimRecords,
-            BlockMiniHeader memory endBlockMiniHeader
-        ) = decodeProposeData(_data);
+        ProposeInput memory input = decodeProposeInput(_data);
 
-        _validateProposeInputs(deadline, coreState, parentProposals);
+        _validateProposeInputs(input.deadline, input.coreState, input.parentProposals);
 
         // Verify parentProposals[0] is actually the last proposal stored on-chain.
-        _verifyChainHead(config, parentProposals);
+        _verifyChainHead(config, input.parentProposals);
 
         // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
-        coreState = _finalize(config, coreState, claimRecords, endBlockMiniHeader);
+        CoreState memory coreState =
+            _finalize(config, input.coreState, input.claimRecords, input.endBlockMiniHeader);
 
         // Verify capacity for new proposals
         uint256 availableCapacity = _getAvailableCapacity(config, coreState);
@@ -151,7 +145,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Create regular proposal
         LibBlobs.BlobSlice memory blobSlice =
-            LibBlobs.validateBlobReference(blobReference, _getBlobHash);
+            LibBlobs.validateBlobReference(input.blobReference, _getBlobHash);
         _propose(config, coreState, blobSlice, false);
     }
 
@@ -160,15 +154,15 @@ abstract contract Inbox is EssentialContract, IInbox {
         Config memory config = getConfig();
 
         // Decode and validate input
-        (Proposal[] memory proposals, Claim[] memory claims) = decodeProveData(_data);
-        require(proposals.length != 0, EmptyProposals());
-        require(proposals.length == claims.length, InconsistentParams());
+        ProveInput memory input = decodeProveInput(_data);
+        require(input.proposals.length != 0, EmptyProposals());
+        require(input.proposals.length == input.claims.length, InconsistentParams());
 
         // Build claim records with validation and bond calculations
-        _buildAndSaveClaimRecords(config, proposals, claims);
+        _buildAndSaveClaimRecords(config, input.proposals, input.claims);
 
         // Verify the proof
-        IProofVerifier(config.proofVerifier).verifyProof(_hashClaimsArray(claims), _proof);
+        IProofVerifier(config.proofVerifier).verifyProof(_hashClaimsArray(input.claims), _proof);
     }
 
     /// @notice Withdraws bond balance for the caller.
@@ -223,62 +217,28 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @return _ The configuration struct
     function getConfig() public view virtual returns (Config memory);
 
-    /// @notice Decodes proposal data
+    /// @notice Decodes proposal input data
     /// @param _data The encoded data
-    /// @return deadline_ The decoded deadline timestamp. If non-zero, the transaction will revert
-    /// if included after this time,
-    ///                   protecting proposers from their transactions landing on-chain later than
-    /// intended
-    /// @return coreState_ The decoded CoreState representing the current state before this new
-    /// proposal.
-    ///                    Its hash must match the coreStateHash stored in proposals_[0]
-    /// @return parentProposals_ The decoded array of existing proposals for validation. Always
-    /// contains 1 or 2 elements:
-    ///                         - parentProposals_[0]: The last proposal on-chain (must match stored
-    /// hash)
-    ///                         - parentProposals_[1]: Only present for ring buffer wraparound -
-    /// when the next slot
-    ///                                              contains an older proposal (with smaller ID)
-    /// that must be validated
-    /// @return blobReference_ The decoded BlobReference
-    /// @return claimRecords_ The decoded array of ClaimRecords
-    function decodeProposeData(bytes calldata _data)
+    /// @return input_ The decoded ProposeInput struct containing all proposal data
+    function decodeProposeInput(bytes calldata _data)
         public
         pure
         virtual
-        returns (
-            uint48 deadline_,
-            CoreState memory coreState_,
-            Proposal[] memory parentProposals_,
-            LibBlobs.BlobReference memory blobReference_,
-            ClaimRecord[] memory claimRecords_,
-            BlockMiniHeader memory endBlockMiniHeader_
-        )
+        returns (ProposeInput memory input_)
     {
-        (
-            deadline_,
-            coreState_,
-            parentProposals_,
-            blobReference_,
-            claimRecords_,
-            endBlockMiniHeader_
-        ) = abi.decode(
-            _data,
-            (uint48, CoreState, Proposal[], LibBlobs.BlobReference, ClaimRecord[], BlockMiniHeader)
-        );
+        input_ = abi.decode(_data, (ProposeInput));
     }
 
-    /// @notice Decodes data into Proposal array and Claim array
+    /// @notice Decodes prove input data
     /// @param _data The encoded data
-    /// @return proposals_ The decoded array of Proposals
-    /// @return claims_ The decoded array of Claims
-    function decodeProveData(bytes calldata _data)
+    /// @return _ The decoded ProveInput struct containing proposals and claims
+    function decodeProveInput(bytes calldata _data)
         public
         pure
         virtual
-        returns (Proposal[] memory proposals_, Claim[] memory claims_)
+        returns (ProveInput memory)
     {
-        (proposals_, claims_) = abi.decode(_data, (Proposal[], Claim[]));
+        return abi.decode(_data, (ProveInput));
     }
 
     /// @dev Encodes the proposed event data
