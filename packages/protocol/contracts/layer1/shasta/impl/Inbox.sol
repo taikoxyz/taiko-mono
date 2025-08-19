@@ -165,10 +165,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(proposals.length == claims.length, InconsistentParams());
 
         // Build claim records with validation and bond calculations
-        ClaimRecord[] memory claimRecords = _buildClaimRecords(config, proposals, claims);
+        _buildAndSaveClaimRecords(config, proposals, claims);
 
-        // Store claim records and emit events
-        _storeClaimRecords(config, claimRecords);
         // Verify the proof
         IProofVerifier(config.proofVerifier).verifyProof(_hashClaimsArray(claims), _proof);
     }
@@ -317,22 +315,19 @@ abstract contract Inbox is EssentialContract, IInbox {
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @dev Builds claim records for multiple proposals and claims.
+    /// @dev Builds then saves claim records for multiple proposals and claims.
     /// @param _config The configuration parameters.
     /// @param _proposals The proposals to prove.
     /// @param _claims The claims containing the proof details.
-    /// @return claimRecords_ The built claim records.
-    function _buildClaimRecords(
+    function _buildAndSaveClaimRecords(
         Config memory _config,
         Proposal[] memory _proposals,
         Claim[] memory _claims
     )
         internal
-        view
         virtual
-        returns (ClaimRecord[] memory claimRecords_)
     {
-        claimRecords_ = new ClaimRecord[](_proposals.length);
+        ClaimRecord memory claimRecord;
         for (uint256 i; i < _proposals.length; ++i) {
             Proposal memory proposal = _proposals[i];
             Claim memory claim = _claims[i];
@@ -342,13 +337,18 @@ abstract contract Inbox is EssentialContract, IInbox {
             LibBonds.BondInstruction[] memory bondInstructions =
                 _calculateBondInstructions(_config, proposal, claim);
 
-            claimRecords_[i] = ClaimRecord({
-                proposalId: proposal.id,
+            claimRecord = ClaimRecord({
                 span: 1,
                 bondInstructions: bondInstructions,
                 parentClaimHash: claim.parentClaimHash,
                 endBlockMiniHeaderHash: keccak256(abi.encode(claim.endBlockMiniHeader))
             });
+
+            bytes32 claimRecordHash = _hashClaimRecord(claimRecord);
+
+            _setClaimRecordHash(_config, proposal.id, claimRecord.parentClaimHash, claimRecordHash);
+
+            emit Proved(encodeProveEventData(claimRecord));
         }
     }
 
@@ -563,29 +563,6 @@ abstract contract Inbox is EssentialContract, IInbox {
             store.consumeOldestForcedInclusion(msg.sender);
 
         return _propose(_config, _coreState, forcedInclusion.blobSlice, true);
-    }
-
-    /// @dev Stores claim records and emits events
-    /// @param _config The configuration parameters.
-    /// @param _claimRecords The claim records to store.
-    function _storeClaimRecords(
-        Config memory _config,
-        ClaimRecord[] memory _claimRecords
-    )
-        private
-    {
-        for (uint256 i; i < _claimRecords.length; ++i) {
-            bytes32 claimRecordHash = _hashClaimRecord(_claimRecords[i]);
-
-            _setClaimRecordHash(
-                _config,
-                _claimRecords[i].proposalId,
-                _claimRecords[i].parentClaimHash,
-                claimRecordHash
-            );
-
-            emit Proved(encodeProveEventData(_claimRecords[i]));
-        }
     }
 
     /// @dev Verifies that parentProposals[0] is the chain head (last proposal)

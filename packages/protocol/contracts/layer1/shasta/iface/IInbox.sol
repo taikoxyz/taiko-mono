@@ -76,8 +76,6 @@ interface IInbox {
 
     /// @notice Represents a record of a claim with additional metadata.
     struct ClaimRecord {
-        /// @notice The proposal's ID.
-        uint48 proposalId;
         /// @notice The span indicating how many proposals this claim record covers.
         uint8 span;
         /// @notice The bond instructions.
