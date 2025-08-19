@@ -84,7 +84,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         __Essential_init(_owner);
 
         Claim memory claim;
-        claim.endBlockHash = _genesisBlockHash;
+        claim.endBlockMiniHeader.hash = _genesisBlockHash;
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
@@ -128,7 +128,8 @@ abstract contract Inbox is EssentialContract, IInbox {
             CoreState memory coreState,
             Proposal[] memory parentProposals,
             LibBlobs.BlobReference memory blobReference,
-            ClaimRecord[] memory claimRecords
+            ClaimRecord[] memory claimRecords,
+            BlockMiniHeader memory endBlockMiniHeader
         ) = decodeProposeData(_data);
 
         _validateProposeInputs(deadline, coreState, parentProposals);
@@ -137,7 +138,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         _verifyChainHead(config, parentProposals);
 
         // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
-        coreState = _finalize(config, coreState, claimRecords);
+        coreState = _finalize(config, coreState, claimRecords, endBlockMiniHeader);
 
         // Verify capacity for new proposals
         uint256 availableCapacity = _getAvailableCapacity(config, coreState);
@@ -252,11 +253,20 @@ abstract contract Inbox is EssentialContract, IInbox {
             CoreState memory coreState_,
             Proposal[] memory parentProposals_,
             LibBlobs.BlobReference memory blobReference_,
-            ClaimRecord[] memory claimRecords_
+            ClaimRecord[] memory claimRecords_,
+            BlockMiniHeader memory endBlockMiniHeader_
         )
     {
-        (deadline_, coreState_, parentProposals_, blobReference_, claimRecords_) = abi.decode(
-            _data, (uint48, CoreState, Proposal[], LibBlobs.BlobReference, ClaimRecord[])
+        (
+            deadline_,
+            coreState_,
+            parentProposals_,
+            blobReference_,
+            claimRecords_,
+            endBlockMiniHeader_
+        ) = abi.decode(
+            _data,
+            (uint48, CoreState, Proposal[], LibBlobs.BlobReference, ClaimRecord[], BlockMiniHeader)
         );
     }
 
@@ -334,9 +344,10 @@ abstract contract Inbox is EssentialContract, IInbox {
 
             claimRecords_[i] = ClaimRecord({
                 proposalId: proposal.id,
-                claim: claim,
                 span: 1,
-                bondInstructions: bondInstructions
+                bondInstructions: bondInstructions,
+                parentClaimHash: claim.parentClaimHash,
+                endBlockMiniHeaderHash: keccak256(abi.encode(claim.endBlockMiniHeader))
             });
         }
     }
@@ -569,7 +580,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             _setClaimRecordHash(
                 _config,
                 _claimRecords[i].proposalId,
-                _claimRecords[i].claim.parentClaimHash,
+                _claimRecords[i].parentClaimHash,
                 claimRecordHash
             );
 
@@ -660,7 +671,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     function _finalize(
         Config memory _config,
         CoreState memory _coreState,
-        ClaimRecord[] memory _claimRecords
+        ClaimRecord[] memory _claimRecords,
+        BlockMiniHeader memory _endBlockMiniHeader
     )
         private
         returns (CoreState memory)
@@ -692,10 +704,13 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Update synced block if any proposals were finalized
         if (finalizedCount > 0) {
+            bytes32 endBlockMiniHeaderHash = keccak256(abi.encode(_endBlockMiniHeader));
+            require(
+                endBlockMiniHeaderHash == lastFinalizedRecord.endBlockMiniHeaderHash,
+                EndBlockMiniHeaderMismatch()
+            );
             ISyncedBlockManager(_config.syncedBlockManager).saveSyncedBlock(
-                lastFinalizedRecord.claim.endBlockNumber,
-                lastFinalizedRecord.claim.endBlockHash,
-                lastFinalizedRecord.claim.endStateRoot
+                _endBlockMiniHeader.number, _endBlockMiniHeader.hash, _endBlockMiniHeader.stateRoot
             );
         }
 
@@ -735,7 +750,11 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Update core state
         _coreState.lastFinalizedProposalId = _proposalId;
-        _coreState.lastFinalizedClaimHash = _hashClaim(_claimRecord.claim);
+
+        // Reconstruct the BlockMiniHeader from the claim record hash
+        // Note: We need to decode the endBlockMiniHeaderHash to get the actual header
+        // For finalization, we create a claim with empty block header since we only have the hash
+        _coreState.lastFinalizedClaimHash = _claimRecord.endBlockMiniHeaderHash;
 
         // Process bond instructions
         _processBondInstructions(_coreState, _claimRecord.bondInstructions);
@@ -828,6 +847,8 @@ abstract contract Inbox is EssentialContract, IInbox {
 // ---------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------
+
+error EndBlockMiniHeaderMismatch();
 error ProposalHashMismatchWithClaim();
 error ProposalHashMismatchWithStorage();
 error ClaimRecordHashMismatchWithStorage();

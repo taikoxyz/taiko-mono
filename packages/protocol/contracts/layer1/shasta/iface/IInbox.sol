@@ -51,6 +51,14 @@ interface IInbox {
         bytes32 derivationHash;
     }
 
+    struct BlockMiniHeader {
+        uint48 number;
+        /// @notice The block hash for the end (last) L2 block in this proposal.
+        bytes32 hash;
+        /// @notice The state root for the end (last) L2 block in this proposal.
+        bytes32 stateRoot;
+    }
+
     /// @notice Represents a claim about the state transition of a proposal.
     struct Claim {
         /// @notice The proposal's hash.
@@ -58,12 +66,8 @@ interface IInbox {
         /// @notice The parent claim's hash, this is used to link the claim to its parent claim to
         /// finalize the corresponding proposal.
         bytes32 parentClaimHash;
-        /// @notice The block number for the end (last) L2 block in this proposal.
-        uint48 endBlockNumber;
-        /// @notice The block hash for the end (last) L2 block in this proposal.
-        bytes32 endBlockHash;
-        /// @notice The state root for the end (last) L2 block in this proposal.
-        bytes32 endStateRoot;
+        /// @notice The end block header containing number, hash, and state root.
+        BlockMiniHeader endBlockMiniHeader;
         /// @notice The designated prover.
         address designatedProver;
         /// @notice The actual prover.
@@ -74,12 +78,15 @@ interface IInbox {
     struct ClaimRecord {
         /// @notice The proposal's ID.
         uint48 proposalId;
-        /// @notice The claim.
-        Claim claim;
         /// @notice The span indicating how many proposals this claim record covers.
         uint8 span;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
+        /// @notice The parent claim's hash, this is used to link the claim to its parent claim to
+        /// finalize the corresponding proposal.
+        bytes32 parentClaimHash;
+        /// @notice The hash of the end block mini header.
+        bytes32 endBlockMiniHeaderHash;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -103,7 +110,7 @@ interface IInbox {
     event Proposed(bytes data);
 
     /// @notice Emitted when a proof is submitted
-    /// @param data The encoded ClaimRecord
+    /// @param data The encoded (ClaimRecord, BlockMiniHeader)
     event Proved(bytes data);
 
     /// @notice Emitted when bond instructions are issued
