@@ -2,6 +2,7 @@ package processor
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -106,7 +107,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	if len(hopSignalServiceAddresses) != len(hopTaikoAddresses) ||
 		len(hopSignalServiceAddresses) != len(hopRPCUrls) ||
 		len(hopTaikoAddresses) != len(hopRPCUrls) {
-		return nil, fmt.Errorf("all hop parameters must be of same length")
+		return nil, errors.New("all hop parameters must be of same length")
 	}
 
 	hopConfigs := []hopConfig{}

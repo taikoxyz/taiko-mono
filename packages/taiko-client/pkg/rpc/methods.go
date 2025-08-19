@@ -197,7 +197,7 @@ func (c *Client) filterGenesisBlockVerified(
 		return common.Hash{}, iter.Error()
 	}
 
-	return common.Hash{}, fmt.Errorf("failed to find genesis block verified event")
+	return common.Hash{}, errors.New("failed to find genesis block verified event")
 }
 
 // WaitTillL2ExecutionEngineSynced keeps waiting until the L2 execution engine is fully synced.

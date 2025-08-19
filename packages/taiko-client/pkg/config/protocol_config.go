@@ -1,7 +1,7 @@
 package config
 
 import (
-	"fmt"
+	"errors"
 	"math/big"
 	"time"
 
@@ -99,7 +99,7 @@ func (c *OntakeProtocolConfigs) MaxProposals() uint64 {
 
 // ProvingWindow implements the ProtocolConfigs interface.
 func (c *OntakeProtocolConfigs) ProvingWindow() (time.Duration, error) {
-	return 0, fmt.Errorf("proving window is not supported in Ontake protocol configs")
+	return 0, errors.New("proving window is not supported in Ontake protocol configs")
 }
 
 // MaxBlocksPerBatch implements the ProtocolConfigs interface.

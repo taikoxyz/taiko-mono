@@ -73,7 +73,7 @@ func (i *BlocksInserterPacaya) InsertBlocks(
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsPacaya() {
-		return fmt.Errorf("metadata is not for Pacaya fork")
+		return errors.New("metadata is not for Pacaya fork")
 	}
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
@@ -369,7 +369,7 @@ func (i *BlocksInserterPacaya) insertPreconfBlockFromEnvelope(
 	}
 
 	if len(envelope.Payload.Transactions) == 0 {
-		return nil, fmt.Errorf("no transactions data in the payload")
+		return nil, errors.New("no transactions data in the payload")
 	}
 
 	// Decompress the transactions list.
