@@ -656,28 +656,29 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _config The configuration parameters.
     /// @param _coreState The current core state.
     /// @param _claimRecords The claim records to finalize.
-    /// @return coreState_ The updated core state
+    /// @return _ The updated core state
     function _finalize(
         Config memory _config,
         CoreState memory _coreState,
         ClaimRecord[] memory _claimRecords
     )
         private
-        returns (CoreState memory coreState_)
+        returns (CoreState memory)
     {
         ClaimRecord memory lastFinalizedRecord;
-        uint48 currentProposalId = _coreState.lastFinalizedProposalId + 1;
+        uint48 proposalId = _coreState.lastFinalizedProposalId + 1;
         uint256 finalizedCount;
 
         for (uint256 i; i < _config.maxFinalizationCount; ++i) {
             // Check if there are more proposals to finalize
-            if (currentProposalId >= _coreState.nextProposalId) break;
+            if (proposalId >= _coreState.nextProposalId) break;
 
             // Try to finalize the current proposal
-            (bool finalized, uint48 nextProposalId) = _finalizeProposal(
+            bool finalized;
+            (finalized, proposalId) = _finalizeProposal(
                 _config,
                 _coreState,
-                currentProposalId,
+                proposalId,
                 i < _claimRecords.length ? _claimRecords[i] : lastFinalizedRecord,
                 i < _claimRecords.length
             );
@@ -686,7 +687,6 @@ abstract contract Inbox is EssentialContract, IInbox {
 
             // Update state for successful finalization
             lastFinalizedRecord = _claimRecords[i];
-            currentProposalId = nextProposalId;
             finalizedCount++;
         }
 
