@@ -25,20 +25,23 @@ contract LibProposedEventEncoderGas is Test {
         blobCounts[3] = 10;
 
         for (uint256 i = 0; i < blobCounts.length; i++) {
-            (IInbox.Proposal memory proposal, IInbox.CoreState memory coreState) =
-                _createTestData(blobCounts[i]);
+            (
+                IInbox.Proposal memory proposal,
+                IInbox.Derivation memory derivation,
+                IInbox.CoreState memory coreState
+            ) = _createTestData(blobCounts[i]);
 
             console2.log("Blob hashes count:", blobCounts[i]);
 
             // 1. abi.encode + emit
             uint256 gasBefore = gasleft();
-            bytes memory abiEncoded = abi.encode(proposal, coreState);
+            bytes memory abiEncoded = abi.encode(proposal, derivation, coreState);
             emit Proposed(abiEncoded);
             uint256 abiEncodeGas = gasBefore - gasleft();
 
             // 2. Optimized LibEncoder
             gasBefore = gasleft();
-            bytes memory encoded = LibProposedEventEncoder.encode(proposal, coreState);
+            bytes memory encoded = LibProposedEventEncoder.encode(proposal, derivation, coreState);
             emit Proposed(encoded);
             uint256 libEncoderGas = gasBefore - gasleft();
 
@@ -74,12 +77,16 @@ contract LibProposedEventEncoderGas is Test {
         blobCounts[3] = 10;
 
         for (uint256 i = 0; i < blobCounts.length; i++) {
-            (IInbox.Proposal memory proposal, IInbox.CoreState memory coreState) =
-                _createTestData(blobCounts[i]);
+            (
+                IInbox.Proposal memory proposal,
+                IInbox.Derivation memory derivation,
+                IInbox.CoreState memory coreState
+            ) = _createTestData(blobCounts[i]);
 
             // Prepare encoded data
-            bytes memory abiEncoded = abi.encode(proposal, coreState);
-            bytes memory libEncoded = LibProposedEventEncoder.encode(proposal, coreState);
+            bytes memory abiEncoded = abi.encode(proposal, derivation, coreState);
+            bytes memory libEncoded =
+                LibProposedEventEncoder.encode(proposal, derivation, coreState);
 
             console2.log("Blob hashes count:", blobCounts[i]);
             console2.log("  abi.encode size:", abiEncoded.length, "bytes");
@@ -87,13 +94,13 @@ contract LibProposedEventEncoderGas is Test {
 
             // 1. abi.decode
             uint256 gasBefore = gasleft();
-            (IInbox.Proposal memory decoded1, IInbox.CoreState memory decoded2) =
-                abi.decode(abiEncoded, (IInbox.Proposal, IInbox.CoreState));
+            (IInbox.Proposal memory decoded1,, IInbox.CoreState memory decoded2) =
+                abi.decode(abiEncoded, (IInbox.Proposal, IInbox.Derivation, IInbox.CoreState));
             uint256 abiDecodeGas = gasBefore - gasleft();
 
             // 2. LibEncoder decode
             gasBefore = gasleft();
-            (IInbox.Proposal memory decoded3, IInbox.CoreState memory decoded4) =
+            (IInbox.Proposal memory decoded3,, IInbox.CoreState memory decoded4) =
                 LibProposedEventEncoder.decode(libEncoded);
             uint256 libDecodeGas = gasBefore - gasleft();
 
@@ -131,11 +138,15 @@ contract LibProposedEventEncoderGas is Test {
         blobCounts[3] = 10;
 
         for (uint256 i = 0; i < blobCounts.length; i++) {
-            (IInbox.Proposal memory proposal, IInbox.CoreState memory coreState) =
-                _createTestData(blobCounts[i]);
+            (
+                IInbox.Proposal memory proposal,
+                IInbox.Derivation memory derivation,
+                IInbox.CoreState memory coreState
+            ) = _createTestData(blobCounts[i]);
 
-            bytes memory abiEncoded = abi.encode(proposal, coreState);
-            bytes memory libEncoded = LibProposedEventEncoder.encode(proposal, coreState);
+            bytes memory abiEncoded = abi.encode(proposal, derivation, coreState);
+            bytes memory libEncoded =
+                LibProposedEventEncoder.encode(proposal, derivation, coreState);
 
             uint256 sizeSavings =
                 ((abiEncoded.length - libEncoded.length) * 100) / abiEncoded.length;
@@ -180,7 +191,11 @@ contract LibProposedEventEncoderGas is Test {
     function _createTestData(uint256 _blobHashCount)
         private
         pure
-        returns (IInbox.Proposal memory proposal_, IInbox.CoreState memory coreState_)
+        returns (
+            IInbox.Proposal memory proposal_,
+            IInbox.Derivation memory derivation_,
+            IInbox.CoreState memory coreState_
+        )
     {
         bytes32[] memory blobHashes = new bytes32[](_blobHashCount);
         for (uint256 i = 0; i < _blobHashCount; i++) {
@@ -190,16 +205,21 @@ contract LibProposedEventEncoderGas is Test {
         proposal_ = IInbox.Proposal({
             id: 12_345,
             proposer: address(0x1234567890123456789012345678901234567890),
-            originTimestamp: 1_700_000_000,
+            timestamp: 1_700_000_000,
+            coreStateHash: keccak256("coreState"),
+            derivationHash: keccak256("derivation")
+        });
+
+        derivation_ = IInbox.Derivation({
             originBlockNumber: 18_000_000,
+            originBlockHash: bytes32(uint256(18_000_000)),
             isForcedInclusion: false,
             basefeeSharingPctg: 75,
             blobSlice: LibBlobs.BlobSlice({
                 blobHashes: blobHashes,
                 offset: 100,
                 timestamp: 1_700_000_100
-            }),
-            coreStateHash: keccak256("coreState")
+            })
         });
 
         coreState_ = IInbox.CoreState({

@@ -87,11 +87,13 @@ library InboxTestAdapter {
                 || _inboxType == TestInboxFactory.InboxType.Optimized3
         ) {
             // InboxOptimized2 and InboxOptimized3 use custom event encoding
-            return LibProposedEventEncoder.decode(_data);
+            (proposal_,, coreState_) = LibProposedEventEncoder.decode(_data);
         } else {
             // Base and Optimized1 emit the standard structs
             // The event data would be the encoded structs
-            (proposal_, coreState_) = abi.decode(_data, (IInbox.Proposal, IInbox.CoreState));
+            IInbox.Derivation memory derivation;
+            (proposal_, derivation, coreState_) =
+                abi.decode(_data, (IInbox.Proposal, IInbox.Derivation, IInbox.CoreState));
         }
     }
 

@@ -59,34 +59,20 @@ contract LibProposeDataDecoderFuzz is Test {
     function testFuzz_encodeDecodeSingleProposal(
         uint48 proposalId,
         address proposer,
-        uint48 originTimestamp,
-        uint48 originBlockNumber,
-        bool isForcedInclusion,
-        uint8 basefeeSharingPctg,
-        uint24 blobOffset,
-        uint48 blobTimestamp
+        uint48 timestamp,
+        bytes32 coreStateHash,
+        bytes32 derivationHash
     )
         public
         pure
     {
-        bytes32[] memory blobHashes = new bytes32[](2);
-        blobHashes[0] = keccak256("blob1");
-        blobHashes[1] = keccak256("blob2");
-
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = IInbox.Proposal({
             id: proposalId,
             proposer: proposer,
-            originTimestamp: originTimestamp,
-            originBlockNumber: originBlockNumber,
-            isForcedInclusion: isForcedInclusion,
-            basefeeSharingPctg: basefeeSharingPctg,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: blobOffset,
-                timestamp: blobTimestamp
-            }),
-            coreStateHash: keccak256("coreState")
+            timestamp: timestamp,
+            coreStateHash: coreStateHash,
+            derivationHash: derivationHash
         });
 
         // Encode and decode
@@ -177,7 +163,6 @@ contract LibProposeDataDecoderFuzz is Test {
     function testFuzz_encodeDecodeVariableLengths(
         uint8 proposalCount,
         uint8 claimCount,
-        uint8 blobHashCount,
         uint8 bondInstructionCount
     )
         public
@@ -186,7 +171,6 @@ contract LibProposeDataDecoderFuzz is Test {
         // Bound the inputs to reasonable values
         proposalCount = uint8(bound(proposalCount, 0, 10));
         claimCount = uint8(bound(claimCount, 0, 10));
-        blobHashCount = uint8(bound(blobHashCount, 0, 5));
         bondInstructionCount = uint8(bound(bondInstructionCount, 0, 5));
 
         // Create test data
@@ -203,24 +187,12 @@ contract LibProposeDataDecoderFuzz is Test {
         // Create proposals
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](proposalCount);
         for (uint256 i = 0; i < proposalCount; i++) {
-            bytes32[] memory blobHashes = new bytes32[](blobHashCount);
-            for (uint256 j = 0; j < blobHashCount; j++) {
-                blobHashes[j] = keccak256(abi.encodePacked("blob", i, j));
-            }
-
             proposals[i] = IInbox.Proposal({
                 id: uint48(i + 1),
                 proposer: address(uint160(0x1000 + i)),
-                originTimestamp: uint48(1_000_000 + i),
-                originBlockNumber: uint48(5_000_000 + i),
-                isForcedInclusion: i % 2 == 0,
-                basefeeSharingPctg: uint8(50 + i),
-                blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: blobHashes,
-                    offset: uint24(1024 * i),
-                    timestamp: uint48(1_000_001 + i)
-                }),
-                coreStateHash: keccak256(abi.encodePacked("state", i))
+                timestamp: uint48(1_000_000 + i),
+                coreStateHash: keccak256(abi.encodePacked("state", i)),
+                derivationHash: keccak256(abi.encodePacked("derivation", i))
             });
         }
 
@@ -276,10 +248,16 @@ contract LibProposeDataDecoderFuzz is Test {
         for (uint256 i = 0; i < proposalCount; i++) {
             assertEq(decodedProposals[i].id, proposals[i].id, "Proposal id mismatch");
             assertEq(decodedProposals[i].proposer, proposals[i].proposer, "Proposer mismatch");
+            assertEq(decodedProposals[i].timestamp, proposals[i].timestamp, "Timestamp mismatch");
             assertEq(
-                decodedProposals[i].blobSlice.blobHashes.length,
-                blobHashCount,
-                "Blob hash count mismatch"
+                decodedProposals[i].coreStateHash,
+                proposals[i].coreStateHash,
+                "Core state hash mismatch"
+            );
+            assertEq(
+                decodedProposals[i].derivationHash,
+                proposals[i].derivationHash,
+                "Derivation hash mismatch"
             );
         }
 
@@ -367,23 +345,12 @@ contract LibProposeDataDecoderFuzz is Test {
 
         proposals = new IInbox.Proposal[](_proposalCount);
         for (uint256 i = 0; i < _proposalCount; i++) {
-            bytes32[] memory blobHashes = new bytes32[](2);
-            blobHashes[0] = keccak256(abi.encodePacked("blob", i, uint256(0)));
-            blobHashes[1] = keccak256(abi.encodePacked("blob", i, uint256(1)));
-
             proposals[i] = IInbox.Proposal({
                 id: uint48(96 + i),
                 proposer: address(uint160(0x1000 + i)),
-                originTimestamp: uint48(1_000_000 + i * 10),
-                originBlockNumber: uint48(5_000_000 + i * 10),
-                isForcedInclusion: i % 2 == 0,
-                basefeeSharingPctg: uint8(50 + i * 10),
-                blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: blobHashes,
-                    offset: uint24(1024 * (i + 1)),
-                    timestamp: uint48(1_000_001 + i * 10)
-                }),
-                coreStateHash: keccak256(abi.encodePacked("core_state", i))
+                timestamp: uint48(1_000_000 + i * 10),
+                coreStateHash: keccak256(abi.encodePacked("core_state", i)),
+                derivationHash: keccak256(abi.encodePacked("derivation", i))
             });
         }
 

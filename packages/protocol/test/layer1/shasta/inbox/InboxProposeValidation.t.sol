@@ -364,7 +364,7 @@ contract InboxProposeValidation is InboxTest {
             encodeProposalDataWithGenesis(uint48(0), coreState, invalidBlobRef, claimRecords);
 
         // Act & Assert: Invalid blob reference should be rejected
-        vm.expectRevert(LibBlobs.InvalidBlobReference.selector);
+        vm.expectRevert(LibBlobs.NoBlobs.selector);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }

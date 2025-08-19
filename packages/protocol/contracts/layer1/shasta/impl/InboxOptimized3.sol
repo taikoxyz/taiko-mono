@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./InboxOptimized2.sol";
-import "../libs/LibProposeDataDecoder.sol";
-import "../libs/LibProveDataDecoder.sol";
+import { Inbox } from "./Inbox.sol";
+import { InboxOptimized2 } from "./InboxOptimized2.sol";
+import { LibProposeDataDecoder } from "../libs/LibProposeDataDecoder.sol";
+import { LibProveDataDecoder } from "../libs/LibProveDataDecoder.sol";
+import { LibBlobs } from "../libs/LibBlobs.sol";
 
 /// @title InboxOptimized3
 /// @notice Inbox optimized, on top of InboxOptimized2, to lower calldata cost.
@@ -26,41 +28,41 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
     // ---------------------------------------------------------------
 
     /// @notice Encodes the propose data into bytes format.
-    /// @param deadline_ The deadline for the proposal.
-    /// @param coreState_ The core state of the proposal.
-    /// @param proposals_ The array of proposals.
-    /// @param blobReference_ The blob reference associated with the proposal.
-    /// @param claimRecords_ The array of claim records.
+    /// @param _deadline The deadline for the proposal.
+    /// @param _coreState The core state of the proposal.
+    /// @param _proposals The array of proposals.
+    /// @param _blobReference The blob reference associated with the proposal.
+    /// @param _claimRecords The array of claim records.
     /// @return Encoded bytes of the propose data.
     function encodeProposeData(
-        uint48 deadline_,
-        CoreState memory coreState_,
-        Proposal[] memory proposals_,
-        LibBlobs.BlobReference memory blobReference_,
-        ClaimRecord[] memory claimRecords_
+        uint48 _deadline,
+        CoreState memory _coreState,
+        Proposal[] memory _proposals,
+        LibBlobs.BlobReference memory _blobReference,
+        ClaimRecord[] memory _claimRecords
     )
         external
         pure
         returns (bytes memory)
     {
         return LibProposeDataDecoder.encode(
-            deadline_, coreState_, proposals_, blobReference_, claimRecords_
+            _deadline, _coreState, _proposals, _blobReference, _claimRecords
         );
     }
 
     /// @notice Encodes the prove data into bytes format.
-    /// @param proposals_ The array of proposals.
-    /// @param claims_ The array of claims.
+    /// @param _proposals The array of proposals.
+    /// @param _claims The array of claims.
     /// @return Encoded bytes of the prove data.
     function encodeProveData(
-        Proposal[] memory proposals_,
-        Claim[] memory claims_
+        Proposal[] memory _proposals,
+        Claim[] memory _claims
     )
         external
         pure
         returns (bytes memory)
     {
-        return LibProveDataDecoder.encode(proposals_, claims_);
+        return LibProveDataDecoder.encode(_proposals, _claims);
     }
 
     // ---------------------------------------------------------------
