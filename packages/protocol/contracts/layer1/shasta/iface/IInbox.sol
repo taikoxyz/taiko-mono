@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import {LibBlobs} from "../libs/LibBlobs.sol";
+import {LibBonds} from "src/shared/based/libs/LibBonds.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -145,14 +145,11 @@ interface IInbox {
 
     /// @notice Proposes new proposals of L2 blocks.
     /// @param _lookahead The data to post a new lookahead (currently unused).
-    /// @param _data The encoded data containing: deadline (for tx timing protection), current core
-    /// state
-    ///              (must match previous proposal's hash), previous proposal(s) for validation,
-    ///              blob reference, and claim records for finalization.
+    /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
     /// @notice Proves a claim about some properties of a proposal, including its state transition.
-    /// @param _data The data containing the proposals and claims to be proven.
+    /// @param _data The encoded ProveInput struct.
     /// @param _proof Validity proof for the claims.
     function prove(bytes calldata _data, bytes calldata _proof) external;
 
@@ -163,7 +160,9 @@ interface IInbox {
     /// @notice Returns the proposal hash for a given proposal ID.
     /// @param _proposalId The proposal ID to look up.
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
-    function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
+    function getProposalHash(
+        uint48 _proposalId
+    ) external view returns (bytes32 proposalHash_);
 
     /// @notice Returns the claim record hash for a given proposal ID and parent claim hash.
     /// @param _proposalId The proposal ID.
@@ -172,10 +171,7 @@ interface IInbox {
     function getClaimRecordHash(
         uint48 _proposalId,
         bytes32 _parentClaimHash
-    )
-        external
-        view
-        returns (bytes32 claimRecordHash_);
+    ) external view returns (bytes32 claimRecordHash_);
 
     /// @notice Gets the capacity for unfinalized proposals.
     /// @return The maximum number of unfinalized proposals that can exist.
