@@ -653,6 +653,13 @@ abstract contract Inbox is EssentialContract, IInbox {
     }
 
     /// @dev Finalizes proposals by verifying claim records and updating state.
+    /// @dev This function enforces that proposers finalize the maximum possible number of proposals
+    /// up to `maxFinalizationCount`.
+    /// The enforcement works by attempting to finalize one more proposal than claim records
+    /// provided.
+    /// If that extra proposal can be finalized, the transaction reverts, forcing proposers to
+    /// provide
+    /// sufficient claim records.
     /// @param _config The configuration parameters.
     /// @param _coreState The current core state.
     /// @param _claimRecords The claim records to finalize.
@@ -665,30 +672,36 @@ abstract contract Inbox is EssentialContract, IInbox {
         private
         returns (CoreState memory)
     {
-        ClaimRecord memory lastFinalizedRecord;
-        uint48 proposalId = _coreState.lastFinalizedProposalId + 1;
+        uint48 nextToFinalize = _coreState.lastFinalizedProposalId + 1;
         uint256 finalizedCount;
+        ClaimRecord memory lastFinalizedRecord;
 
-        for (uint256 i; i < _config.maxFinalizationCount; ++i) {
-            // Check if there are more proposals to finalize
-            if (proposalId >= _coreState.nextProposalId) break;
+        // Process all provided claim records up to `maxFinalizationCount`
+        uint256 recordsToProcess = _claimRecords.length < _config.maxFinalizationCount
+            ? _claimRecords.length
+            : _config.maxFinalizationCount;
 
-            // Try to finalize the current proposal
+        for (uint256 i; i < recordsToProcess; ++i) {
+            // Stop if no more proposals to finalize
+            if (nextToFinalize >= _coreState.nextProposalId) break;
+
+            // Try to finalize with the provided claim record
             bool finalized;
-            (finalized, proposalId) = _finalizeProposal(
-                _config,
-                _coreState,
-                proposalId,
-                i < _claimRecords.length ? _claimRecords[i] : lastFinalizedRecord,
-                i < _claimRecords.length
-            );
+            (finalized, nextToFinalize) =
+                _tryFinalize(nextToFinalize, _config, _coreState, _claimRecords[i]);
 
+            // If finalization failed, stop trying
             if (!finalized) break;
 
             // Update state for successful finalization
             lastFinalizedRecord = _claimRecords[i];
             finalizedCount++;
         }
+
+        // Make sure we are not finalizing less proposals than possible.
+        _enforceMaximumFinalization(
+            _config, _coreState, _claimRecords.length, finalizedCount, nextToFinalize
+        );
 
         // Update synced block if any proposals were finalized
         if (finalizedCount > 0) {
@@ -702,20 +715,52 @@ abstract contract Inbox is EssentialContract, IInbox {
         return _coreState;
     }
 
-    /// @dev Attempts to finalize a single proposal
+    /// @dev Enforces that proposers provide all available claim records.
     /// @param _config The configuration parameters.
-    /// @param _coreState The core state, passed by reference, to update.
-    /// @param _proposalId The proposal ID to finalize.
-    /// @param _claimRecord The claim record for this proposal.
-    /// @param _hasClaimRecord Whether a claim record was provided.
-    /// @return finalized_ Whether the proposal was successfully finalized.
-    /// @return nextProposalId_ The next proposal ID to process.
-    function _finalizeProposal(
+    /// @param _coreState The core state.
+    /// @param _providedClaimRecordsCount Number of claim records provided.
+    /// @param _finalizedCount Number of proposals finalized.
+    /// @param _nextToFinalize Next proposal ID to finalize.
+    function _enforceMaximumFinalization(
         Config memory _config,
         CoreState memory _coreState,
+        uint256 _providedClaimRecordsCount,
+        uint256 _finalizedCount,
+        uint48 _nextToFinalize
+    )
+        private
+        view
+    {
+        // Not even all records were used. There's no more to finalize
+        if (_finalizedCount < _providedClaimRecordsCount) return;
+
+        // Hit the max limit
+        if (_finalizedCount >= _config.maxFinalizationCount) return;
+
+        // No more proposals exist - we're done
+        if (_nextToFinalize >= _coreState.nextProposalId) return;
+
+        // We used all records, haven't hit max, and more proposals exist
+        // Check if the next proposal has a finalizable claim
+        bytes32 nextClaimHash =
+            _getClaimRecordHash(_config, _nextToFinalize, _coreState.lastFinalizedClaimHash);
+
+        // If a claim exists, proposer should have provided it
+        require(nextClaimHash == 0, InsufficientClaimRecordsProvided());
+    }
+
+    /// @dev Attempts to finalize a single proposal
+    /// @param _proposalId The proposal ID to finalize.
+    /// @param _config The configuration parameters.
+    /// @param _coreState The core state to update.
+    /// @param _claimRecord The claim record for this proposal.
+    /// @return finalized_ Whether the proposal was successfully finalized.
+    /// @return nextProposalId_ The next proposal ID to process.
+    function _tryFinalize(
         uint48 _proposalId,
-        ClaimRecord memory _claimRecord,
-        bool _hasClaimRecord
+        Config memory _config,
+        CoreState memory _coreState,
+        ClaimRecord memory _claimRecord
     )
         private
         returns (bool finalized_, uint48 nextProposalId_)
@@ -724,12 +769,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         bytes32 storedHash =
             _getClaimRecordHash(_config, _proposalId, _coreState.lastFinalizedClaimHash);
 
+        // No claim exists for this proposal - cannot finalize
         if (storedHash == 0) return (false, _proposalId);
 
-        // Verify claim record was provided
-        require(_hasClaimRecord, ClaimRecordNotProvided());
-
-        // Verify claim record hash matches
+        // Verify the provided claim record matches what's stored
         bytes32 claimRecordHash = _hashClaimRecord(_claimRecord);
         require(claimRecordHash == storedHash, ClaimRecordHashMismatchWithStorage());
 
@@ -740,9 +783,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         // Process bond instructions
         _processBondInstructions(_coreState, _claimRecord.bondInstructions);
 
-        // Validate and calculate next proposal ID
+        // This should never happen, but we check just in case
         require(_claimRecord.span > 0, InvalidSpan());
         nextProposalId_ = _proposalId + _claimRecord.span;
+        // This should never happen, but we check just in case
         require(nextProposalId_ <= _coreState.nextProposalId, SpanOutOfBounds());
 
         return (true, nextProposalId_);
@@ -831,7 +875,6 @@ abstract contract Inbox is EssentialContract, IInbox {
 error ProposalHashMismatchWithClaim();
 error ProposalHashMismatchWithStorage();
 error ClaimRecordHashMismatchWithStorage();
-error ClaimRecordNotProvided();
 error DeadlineExceeded();
 error EmptyProposals();
 error ExceedsUnfinalizedProposalCapacity();
@@ -839,6 +882,8 @@ error ForkNotActive();
 error IncorrectProposalCount();
 error InconsistentParams();
 error InsufficientBond();
+error InsufficientClaimRecordsProvided();
+error InvalidForcedInclusion();
 error InvalidSpan();
 error InvalidState();
 error LastProposalHashMismatch();
