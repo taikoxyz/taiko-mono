@@ -81,8 +81,16 @@ library InboxTestAdapter {
             return LibProposeInputDecoder.encode(input);
         } else {
             // Base, Optimized1, and Optimized2 use standard abi.encode
-            // For these implementations, endBlockMiniHeader is the 6th parameter
-            return abi.encode(_deadline, _coreState, _proposals, _blobRef, _claimRecords, _endBlockMiniHeader);
+            // Create ProposeInput struct for proper encoding
+            IInbox.ProposeInput memory input = IInbox.ProposeInput({
+                deadline: _deadline,
+                coreState: _coreState,
+                parentProposals: _proposals,
+                blobReference: _blobRef,
+                claimRecords: _claimRecords,
+                endBlockMiniHeader: _endBlockMiniHeader
+            });
+            return abi.encode(input);
         }
     }
 
@@ -110,7 +118,12 @@ library InboxTestAdapter {
             return LibProveInputDecoder.encode(input);
         } else {
             // Base, Optimized1, and Optimized2 use standard abi.encode
-            return abi.encode(_proposals, _claims);
+            // Create ProveInput struct for proper encoding
+            IInbox.ProveInput memory input = IInbox.ProveInput({
+                proposals: _proposals,
+                claims: _claims
+            });
+            return abi.encode(input);
         }
     }
 
