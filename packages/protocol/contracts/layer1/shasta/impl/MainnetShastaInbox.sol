@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {InboxOptimized2} from "./InboxOptimized3.sol";
+import {InboxOptimized3} from "./InboxOptimized3.sol";
 import {LibFasterReentryLock} from "../../mainnet/libs/LibFasterReentryLock.sol";
 
 /// @title MainnetShastaInbox

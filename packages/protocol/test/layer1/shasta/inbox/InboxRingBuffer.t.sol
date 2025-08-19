@@ -148,7 +148,7 @@ contract InboxRingBuffer is InboxTest {
         });
 
         setupProposalMocks(Alice);
-        bytes memory data1 = encodeProposalDataWithGenesis(
+        bytes memory data1 = encodeProposeInputWithGenesis(
             coreState1, InboxTestLib.createBlobReference(1), new IInbox.ClaimRecord[](0)
         );
 
@@ -179,7 +179,7 @@ contract InboxRingBuffer is InboxTest {
         });
 
         setupProposalMocks(Alice);
-        bytes memory data2 = encodeProposalDataForSubsequent(
+        bytes memory data2 = encodeProposeInputForSubsequent(
             coreState2, proposal1, InboxTestLib.createBlobReference(2), new IInbox.ClaimRecord[](0)
         );
 
@@ -225,7 +225,7 @@ contract InboxRingBuffer is InboxTest {
         parentProposals[1] = genesisProposal;
 
         setupProposalMocks(Alice);
-        bytes memory data3 = encodeProposalDataWithProposals(
+        bytes memory data3 = encodeProposeInputWithProposals(
             uint48(0), // deadline
             coreState3,
             parentProposals,

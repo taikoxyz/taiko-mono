@@ -332,9 +332,11 @@ abstract contract InboxTest is CommonTest {
         return IInbox.Claim({
             proposalHash: _builder.proposalHash,
             parentClaimHash: _builder.parentClaimHash,
-            endBlockNumber: _builder.endBlockNumber,
-            endBlockHash: _builder.endBlockHash,
-            endStateRoot: _builder.endStateRoot,
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: _builder.endBlockNumber,
+                hash: _builder.endBlockHash,
+                stateRoot: _builder.endStateRoot
+            }),
             designatedProver: _builder.designatedProver,
             actualProver: _builder.actualProver
         });
@@ -553,9 +555,11 @@ abstract contract InboxTest is CommonTest {
         return IInbox.Claim({
             proposalHash: _config.proposalHash,
             parentClaimHash: _config.parentClaimHash,
-            endBlockNumber: _config.endBlockNumber,
-            endBlockHash: _config.endBlockHash,
-            endStateRoot: _config.endStateRoot,
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: _config.endBlockNumber,
+                hash: _config.endBlockHash,
+                stateRoot: _config.endStateRoot
+            }),
             designatedProver: _config.designatedProver,
             actualProver: _config.actualProver
         });
@@ -651,7 +655,7 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = InboxTestLib.createGenesisProposal(coreState);
 
-        bytes memory data = InboxTestAdapter.encodeProposalData(
+        bytes memory data = InboxTestAdapter.encodeProposeInput(
             inboxType,
             _deadline,
             coreState,
@@ -685,7 +689,7 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = InboxTestLib.createGenesisProposal(coreState);
 
-        bytes memory data = InboxTestAdapter.encodeProposalData(
+        bytes memory data = InboxTestAdapter.encodeProposeInput(
             inboxType,
             uint48(0),
             coreState,
@@ -895,7 +899,7 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = InboxTestLib.createGenesisProposal(state);
 
-        InboxTestAdapter.encodeProposalData(
+        InboxTestAdapter.encodeProposeInput(
             inboxType,
             uint48(0),
             state,
@@ -1098,7 +1102,7 @@ abstract contract InboxTest is CommonTest {
 
         setupProposalMocks(_proposer);
 
-        bytes memory data = _encodeProposalDataWithValidation(
+        bytes memory data = _encodeProposeInputWithValidation(
             _proposalId,
             coreState,
             InboxTestLib.createBlobReference(uint8(_proposalId)),
@@ -1125,7 +1129,7 @@ abstract contract InboxTest is CommonTest {
     }
 
     /// @dev Helper function to encode proposal data with correct validation proposals
-    function _encodeProposalDataWithValidation(
+    function _encodeProposeInputWithValidation(
         uint48 _proposalId,
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
@@ -1148,13 +1152,13 @@ abstract contract InboxTest is CommonTest {
         }
 
         // Use adapter to handle encoding based on inbox type
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, uint48(0), _coreState, proposals, _blobRef, _claimRecords
         );
     }
 
-    /// @dev Wrapper for encodeProposalDataWithProposals that uses the adapter
-    function encodeProposalDataWithProposals(
+    /// @dev Wrapper for encodeProposeInputWithProposals that uses the adapter
+    function encodeProposeInputWithProposals(
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
@@ -1164,13 +1168,13 @@ abstract contract InboxTest is CommonTest {
         view
         returns (bytes memory)
     {
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, uint48(0), _coreState, _proposals, _blobRef, _claimRecords
         );
     }
 
-    /// @dev Wrapper for encodeProposalDataWithProposals with deadline
-    function encodeProposalDataWithProposals(
+    /// @dev Wrapper for encodeProposeInputWithProposals with deadline
+    function encodeProposeInputWithProposals(
         uint48 _deadline,
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
@@ -1181,13 +1185,13 @@ abstract contract InboxTest is CommonTest {
         view
         returns (bytes memory)
     {
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, _deadline, _coreState, _proposals, _blobRef, _claimRecords
         );
     }
 
-    /// @dev Wrapper for encodeProposalDataWithGenesis that uses the adapter
-    function encodeProposalDataWithGenesis(
+    /// @dev Wrapper for encodeProposeInputWithGenesis that uses the adapter
+    function encodeProposeInputWithGenesis(
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
         IInbox.ClaimRecord[] memory _claimRecords
@@ -1199,13 +1203,13 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = InboxTestLib.createGenesisProposal(_coreState);
 
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, uint48(0), _coreState, proposals, _blobRef, _claimRecords
         );
     }
 
-    /// @dev Wrapper for encodeProposalDataWithGenesis with deadline
-    function encodeProposalDataWithGenesis(
+    /// @dev Wrapper for encodeProposeInputWithGenesis with deadline
+    function encodeProposeInputWithGenesis(
         uint48 _deadline,
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
@@ -1218,13 +1222,13 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = InboxTestLib.createGenesisProposal(_coreState);
 
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, _deadline, _coreState, proposals, _blobRef, _claimRecords
         );
     }
 
-    /// @dev Wrapper for encodeProposalDataForSubsequent that uses the adapter
-    function encodeProposalDataForSubsequent(
+    /// @dev Wrapper for encodeProposeInputForSubsequent that uses the adapter
+    function encodeProposeInputForSubsequent(
         IInbox.CoreState memory _coreState,
         IInbox.Proposal memory _previousProposal,
         LibBlobs.BlobReference memory _blobRef,
@@ -1237,13 +1241,13 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = _previousProposal;
 
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, uint48(0), _coreState, proposals, _blobRef, _claimRecords
         );
     }
 
-    /// @dev Wrapper for encodeProposalDataForSubsequent with deadline
-    function encodeProposalDataForSubsequent(
+    /// @dev Wrapper for encodeProposeInputForSubsequent with deadline
+    function encodeProposeInputForSubsequent(
         uint48 _deadline,
         IInbox.CoreState memory _coreState,
         IInbox.Proposal memory _previousProposal,
@@ -1257,13 +1261,13 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = _previousProposal;
 
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, _deadline, _coreState, proposals, _blobRef, _claimRecords
         );
     }
 
     /// @dev Wrapper for encoding prove data that uses the adapter
-    function encodeProveData(
+    function encodeProveInput(
         IInbox.Proposal[] memory _proposals,
         IInbox.Claim[] memory _claims
     )
@@ -1271,7 +1275,7 @@ abstract contract InboxTest is CommonTest {
         view
         returns (bytes memory)
     {
-        return InboxTestAdapter.encodeProveData(inboxType, _proposals, _claims);
+        return InboxTestAdapter.encodeProveInput(inboxType, _proposals, _claims);
     }
 
     /// @dev Gets the genesis core state that was created during contract initialization
@@ -1282,7 +1286,7 @@ abstract contract InboxTest is CommonTest {
 
         // Genesis claim hash from initialization
         IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
+        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
         genesisCoreState.lastFinalizedClaimHash = keccak256(abi.encode(genesisClaim));
         genesisCoreState.bondInstructionsHash = bytes32(0);
 
@@ -1403,7 +1407,7 @@ abstract contract InboxTest is CommonTest {
 
         setupProofMocks(true);
 
-        bytes memory proveData = InboxTestAdapter.encodeProveData(inboxType, _proposals, _claims);
+        bytes memory proveData = InboxTestAdapter.encodeProveInput(inboxType, _proposals, _claims);
         vm.prank(_prover);
         inbox.prove(proveData, bytes("proof"));
     }
@@ -1424,7 +1428,7 @@ abstract contract InboxTest is CommonTest {
         claims[0] = _claim;
 
         vm.prank(_prover);
-        inbox.prove(InboxTestAdapter.encodeProveData(inboxType, proposals, claims), bytes("proof"));
+        inbox.prove(InboxTestAdapter.encodeProveInput(inboxType, proposals, claims), bytes("proof"));
     }
 
     /// @dev Creates and proves a chain of proposals

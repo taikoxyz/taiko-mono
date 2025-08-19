@@ -91,7 +91,7 @@ contract InboxProveBasic is InboxTest {
         setupProofMocks(true);
         vm.prank(Bob);
         inbox.prove(
-            InboxTestAdapter.encodeProveData(inboxType, _toArray(proposal), _toArray(claim)), proof
+            InboxTestAdapter.encodeProveInput(inboxType, _toArray(proposal), _toArray(claim)), proof
         );
 
         // Assert: Verify proof submission was successful
@@ -157,7 +157,7 @@ contract InboxProveBasic is InboxTest {
         // Act: Submit proof with mock verification
         vm.prank(Bob);
         inbox.prove(
-            InboxTestAdapter.encodeProveData(inboxType, _toArray(proposal), _toArray(claim)),
+            InboxTestAdapter.encodeProveInput(inboxType, _toArray(proposal), _toArray(claim)),
             bytes("test_proof")
         );
 

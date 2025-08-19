@@ -46,7 +46,7 @@ contract InboxBasicTest is InboxTest {
     function test_propose_invalid_state_reverts() public {
         // Arrange: Create proposal data with wrong core state (nextProposalId=2 instead of 1)
         IInbox.CoreState memory wrongCoreState = InboxTestLib.createCoreState(2, 0);
-        bytes memory data = encodeProposalDataWithGenesis(
+        bytes memory data = encodeProposeInputWithGenesis(
             wrongCoreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
 
@@ -69,7 +69,7 @@ contract InboxBasicTest is InboxTest {
         uint48 expiredDeadline = createDeadlineTestData(true);
         IInbox.CoreState memory coreState = _getGenesisCoreState();
 
-        bytes memory data = encodeProposalDataWithGenesis(
+        bytes memory data = encodeProposeInputWithGenesis(
             expiredDeadline, coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
         );
 
