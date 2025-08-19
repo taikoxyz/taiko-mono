@@ -39,7 +39,7 @@ library LibProvedEventEncoder {
 
         // Encode ClaimRecord
         ptr = P.packUint8(ptr, _payload.claimRecord.span);
-        ptr = P.packBytes32(ptr, _payload.claimRecord.parentClaimHash);
+        ptr = P.packBytes32(ptr, _payload.claimRecord.claimHash);
         ptr = P.packBytes32(ptr, _payload.claimRecord.endBlockMiniHeaderHash);
 
         // Encode bond instructions array length (uint16)
@@ -84,7 +84,7 @@ library LibProvedEventEncoder {
 
         // Decode ClaimRecord
         (payload_.claimRecord.span, ptr) = P.unpackUint8(ptr);
-        (payload_.claimRecord.parentClaimHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.claimRecord.claimHash, ptr) = P.unpackBytes32(ptr);
         (payload_.claimRecord.endBlockMiniHeaderHash, ptr) = P.unpackBytes32(ptr);
 
         // Decode bond instructions array length (uint16)
@@ -120,7 +120,7 @@ library LibProvedEventEncoder {
             // Claim: proposalHash(32) + parentClaimHash(32) = 64
             //        BlockMiniHeader: number(6) + hash(32) + stateRoot(32) = 70
             //        designatedProver(20) + actualProver(20) = 40
-            // ClaimRecord: span(1) + parentClaimHash(32) + endBlockMiniHeaderHash(32) = 65
+            // ClaimRecord: span(1) + claimHash(32) + endBlockMiniHeaderHash(32) = 65
             // bondInstructions array length: 2
             // Total fixed: 6 + 64 + 70 + 40 + 65 + 2 = 247
 

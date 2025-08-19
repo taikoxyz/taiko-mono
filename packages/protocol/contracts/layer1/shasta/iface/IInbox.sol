@@ -80,9 +80,6 @@ interface IInbox {
         uint8 span;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
-        /// @notice The parent claim's hash, this is used to link the claim to its parent claim to
-        /// finalize the corresponding proposal.
-        bytes32 parentClaimHash; // TODO (danielw) REMOVE
         /// @notice The claim's hash
         bytes32 claimHash;
         /// @notice The hash of the end block mini header.

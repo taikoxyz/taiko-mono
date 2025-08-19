@@ -50,7 +50,6 @@ abstract contract InboxOptimized1 is Inbox {
         ClaimRecord memory currentRecord = ClaimRecord({
             span: 1,
             bondInstructions: _calculateBondInstructions(_config, _proposals[0], _claims[0]),
-            parentClaimHash: _claims[0].parentClaimHash,
             claimHash: _hashClaim(_claims[0]),
             endBlockMiniHeaderHash: _hashBlockMiniHeader(_claims[0].endBlockMiniHeader)
         });
@@ -92,7 +91,6 @@ abstract contract InboxOptimized1 is Inbox {
                 currentRecord = ClaimRecord({
                     span: 1,
                     bondInstructions: _calculateBondInstructions(_config, _proposals[i], _claims[i]),
-                    parentClaimHash: _claims[i].parentClaimHash,
                     claimHash: _hashClaim(_claims[i]),
                     endBlockMiniHeaderHash: _hashBlockMiniHeader(_claims[i].endBlockMiniHeader)
                 });

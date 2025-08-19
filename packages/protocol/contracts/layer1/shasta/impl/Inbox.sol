@@ -303,7 +303,6 @@ abstract contract Inbox is EssentialContract, IInbox {
 
             // Reuse the same memory location for the claimRecord struct
             claimRecord.bondInstructions = _calculateBondInstructions(_config, proposal, claim);
-            claimRecord.parentClaimHash = claim.parentClaimHash;
             claimRecord.claimHash = _hashClaim(claim);
             claimRecord.endBlockMiniHeaderHash = _hashBlockMiniHeader(claim.endBlockMiniHeader);
 

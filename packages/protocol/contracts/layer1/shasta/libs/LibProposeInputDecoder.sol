@@ -161,8 +161,8 @@ library LibProposeInputDecoder {
         // Encode span
         newPtr_ = P.packUint8(_ptr, _claimRecord.span);
 
-        // Encode parentClaimHash
-        newPtr_ = P.packBytes32(newPtr_, _claimRecord.parentClaimHash);
+        // Encode claimHash
+        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claimHash);
 
         // Encode endBlockMiniHeaderHash
         newPtr_ = P.packBytes32(newPtr_, _claimRecord.endBlockMiniHeaderHash);
@@ -183,8 +183,8 @@ library LibProposeInputDecoder {
         // Decode span
         (claimRecord_.span, newPtr_) = P.unpackUint8(_ptr);
 
-        // Decode parentClaimHash
-        (claimRecord_.parentClaimHash, newPtr_) = P.unpackBytes32(newPtr_);
+        // Decode claimHash
+        (claimRecord_.claimHash, newPtr_) = P.unpackBytes32(newPtr_);
 
         // Decode endBlockMiniHeaderHash
         (claimRecord_.endBlockMiniHeaderHash, newPtr_) = P.unpackBytes32(newPtr_);
@@ -265,7 +265,7 @@ library LibProposeInputDecoder {
             }
 
             // ClaimRecords - each has fixed size + variable bond instructions
-            // Fixed: span(1) + parentClaimHash(32) + endBlockMiniHeaderHash(32) + array length(3) =
+            // Fixed: span(1) + claimHash(32) + endBlockMiniHeaderHash(32) + array length(3) =
             // 68
             for (uint256 i; i < _claimRecords.length; ++i) {
                 size_ += 68 + (_claimRecords[i].bondInstructions.length * 47);
