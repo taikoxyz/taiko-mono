@@ -77,6 +77,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         uint256 basefee
     );
 
+    error SAME_SLOT_SIGNALS_NO_LONG_SUPPORTED();
     error L2_BASEFEE_MISMATCH();
     error L2_FORK_ERROR();
     error L2_INVALID_L1_CHAIN_ID();
@@ -128,6 +129,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         onlyGoldenTouch
         nonReentrant
     {
+        require(_signalSlots.length == 0, SAME_SLOT_SIGNALS_NO_LONG_SUPPORTED());
         require(block.number >= pacayaForkHeight, L2_FORK_ERROR());
         require(shastaForkHeight == 0 || block.number < shastaForkHeight, L2_FORK_ERROR());
 
@@ -137,7 +139,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         _syncChainData(_anchorBlockId, _anchorStateRoot);
         _updateParentHashAndTimestamp(parentId);
 
-        signalService.receiveSignals(_signalSlots);
+        // signalService.receiveSignals(_signalSlots);
     }
 
     /// @notice Withdraw token or Ether from this address.
