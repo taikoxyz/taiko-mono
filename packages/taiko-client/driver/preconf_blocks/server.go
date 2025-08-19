@@ -218,6 +218,14 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 ) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfOnUnsafeL2PayloadDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2Payload completed", "elapsed", elapsed)
+	}()
+
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
@@ -310,6 +318,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfOnL2UnsafeResponseDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2Response completed", "elapsed", elapsed)
+	}()
+
 	// add responses seen to cache.
 	s.responseSeenCache.Add(msg.ExecutionPayload.BlockHash, time.Now().UTC())
 
@@ -397,6 +412,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 ) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfOnL2UnsafeRequestDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2Request completed", "elapsed", elapsed)
+	}()
 
 	// Ignore the message if it is from the current P2P node.
 	if from != "" && s.p2pNode.Host().ID() == from {
@@ -530,6 +552,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 ) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfOnEndOfSequencingRequestDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2EndOfSequencingRequest completed", "elapsed", elapsed)
+	}()
 
 	// Ignore the message if it is from the current P2P node.
 	if from != "" && s.p2pNode.Host().ID() == from {
@@ -799,7 +828,7 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	if payload.GasLimit == 0 {
 		return errors.New("non-zero gas limit is required")
 	}
-	var u256BaseFee = uint256.Int(payload.BaseFeePerGas)
+	u256BaseFee := uint256.Int(payload.BaseFeePerGas)
 	if u256BaseFee.ToBig().Cmp(common.Big0) == 0 {
 		return errors.New("non-zero base fee per gas is required")
 	}
