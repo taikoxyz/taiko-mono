@@ -76,11 +76,11 @@ jobs:
             echo "changes=false" >> $GITHUB_ENV
           fi
 
-      - name: Commit contract layout table
-        if: env.changes == 'true'
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "forge fmt & update contract layout tables"
+      # - name: Commit contract layout table
+      #   if: env.changes == 'true'
+      #   uses: stefanzweifel/git-auto-commit-action@v5
+      #   with:
+      #     commit_message: "forge fmt & update contract layout tables"
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol

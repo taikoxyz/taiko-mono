@@ -43,32 +43,14 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
         __Essential_init(_owner);
     }
 
-    /// @inheritdoc IProposeBatch
     function proposeBatch(
         bytes calldata _params,
         bytes calldata _txList
     )
         external
-        returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
+        returns (ITaikoInbox.BatchMetadata memory meta_)
     {
         return _proposeBatch(_params, _txList);
-    }
-
-    function proposeBatchWithExpectedLastBlockId(
-        bytes calldata _params,
-        bytes calldata _txList,
-        uint96 _expectedLastBlockId
-    )
-        external
-        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
-    {
-        (info_, meta_) = _proposeBatch(_params, _txList);
-
-        // Verify that the last block id is as expected
-        require(
-            info_.lastBlockId == _expectedLastBlockId,
-            InvalidLastBlockId(info_.lastBlockId, _expectedLastBlockId)
-        );
     }
 
     function _proposeBatch(
@@ -77,10 +59,10 @@ contract PreconfRouter is EssentialContract, IPreconfRouter {
     )
         internal
         onlyFromPreconferOrFallback
-        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
+        returns (ITaikoInbox.BatchMetadata memory meta_)
     {
         // Both TaikoInbox and TaikoWrapper implement the same ABI for proposeBatch.
-        (info_, meta_) = IProposeBatch(proposeBatchEntrypoint).proposeBatch(_params, _txList);
+        meta_ = IProposeBatch(proposeBatchEntrypoint).proposeBatch(_params, _txList);
 
         // Verify that the sender had set itself as the proposer
         require(meta_.proposer == msg.sender, ProposerIsNotPreconfer());
