@@ -704,7 +704,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     /// @dev Attempts to finalize a single proposal
     /// @param _config The configuration parameters.
-    /// @param _coreState The core state to update.
+    /// @param _coreState The core state, passed by reference, to update.
     /// @param _proposalId The proposal ID to finalize.
     /// @param _claimRecord The claim record for this proposal.
     /// @param _hasClaimRecord Whether a claim record was provided.
