@@ -90,11 +90,14 @@ abstract contract Inbox is EssentialContract, IInbox {
         coreState.nextProposalId = 1;
         coreState.lastFinalizedClaimHash = _hashClaim(claim);
 
+        Derivation memory derivation;
+
         Proposal memory proposal;
         proposal.coreStateHash = _hashCoreState(coreState);
+        proposal.derivationHash = _hashDerivation(derivation);
         _setProposalHash(getConfig(), 0, _hashProposal(proposal));
 
-        emit Proposed(encodeProposedEventData(proposal, coreState));
+        emit Proposed(encodeProposedEventData(proposal, derivation, coreState));
     }
 
     // ---------------------------------------------------------------
@@ -157,7 +160,8 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Decode and validate input
         (Proposal[] memory proposals, Claim[] memory claims) = decodeProveData(_data);
-        _validateProveInputs(proposals, claims);
+        require(proposals.length != 0, EmptyProposals());
+        require(proposals.length == claims.length, InconsistentParams());
 
         // Build claim records with validation and bond calculations
         ClaimRecord[] memory claimRecords = _buildClaimRecords(config, proposals, claims);
@@ -271,10 +275,12 @@ abstract contract Inbox is EssentialContract, IInbox {
 
     /// @dev Encodes the proposed event data
     /// @param proposal The proposal to encode
+    /// @param derivation The derivation data to encode
     /// @param coreState The core state to encode
     /// @return The encoded data
     function encodeProposedEventData(
         Proposal memory proposal,
+        Derivation memory derivation,
         CoreState memory coreState
     )
         public
@@ -282,7 +288,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         virtual
         returns (bytes memory)
     {
-        return abi.encode(proposal, coreState);
+        return abi.encode(proposal, derivation, coreState);
     }
 
     /// @dev Encodes the proved event data
@@ -380,7 +386,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     {
         unchecked {
             uint256 proofTimestamp = block.timestamp;
-            uint256 windowEnd = _proposal.originTimestamp + _config.provingWindow;
+            uint256 windowEnd = _proposal.timestamp + _config.provingWindow;
 
             // On-time proof - no bond instructions needed
             if (proofTimestamp <= windowEnd) {
@@ -388,7 +394,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             }
 
             // Late or very late proof - determine bond type and parties
-            uint256 extendedWindowEnd = _proposal.originTimestamp + _config.extendedProvingWindow;
+            uint256 extendedWindowEnd = _proposal.timestamp + _config.extendedProvingWindow;
             bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
 
             // Check if bond instruction is needed
@@ -548,20 +554,6 @@ abstract contract Inbox is EssentialContract, IInbox {
         return _propose(_config, _coreState, forcedInclusion.blobSlice, true);
     }
 
-    /// @dev Validates the inputs for prove function
-    /// @param _proposals The proposals to prove.
-    /// @param _claims The claims for the proposals.
-    function _validateProveInputs(
-        Proposal[] memory _proposals,
-        Claim[] memory _claims
-    )
-        private
-        pure
-    {
-        require(_proposals.length == _claims.length, InconsistentParams());
-        require(_proposals.length != 0, EmptyProposals());
-    }
-
     /// @dev Stores claim records and emits events
     /// @param _config The configuration parameters.
     /// @param _claimRecords The claim records to store.
@@ -637,20 +629,24 @@ abstract contract Inbox is EssentialContract, IInbox {
         unchecked {
             uint256 parentBlockNumber = block.number - 1;
 
-            Proposal memory proposal = Proposal({
-                id: _coreState.nextProposalId++,
-                proposer: msg.sender,
-                originTimestamp: uint48(block.timestamp),
+            Derivation memory derivation = Derivation({
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
                 isForcedInclusion: _isForcedInclusion,
                 basefeeSharingPctg: _config.basefeeSharingPctg,
-                blobSlice: _blobSlice,
-                coreStateHash: _hashCoreState(_coreState)
+                blobSlice: _blobSlice
+            });
+
+            Proposal memory proposal = Proposal({
+                id: _coreState.nextProposalId++,
+                proposer: msg.sender,
+                timestamp: uint48(block.timestamp),
+                coreStateHash: _hashCoreState(_coreState),
+                derivationHash: _hashDerivation(derivation)
             });
 
             _setProposalHash(_config, proposal.id, _hashProposal(proposal));
-            emit Proposed(encodeProposedEventData(proposal, _coreState));
+            emit Proposed(encodeProposedEventData(proposal, derivation, _coreState));
 
             return _coreState;
         }
@@ -814,6 +810,13 @@ abstract contract Inbox is EssentialContract, IInbox {
         return keccak256(abi.encode(_claimRecord));
     }
 
+    /// @dev Hashes a Derivation struct.
+    /// @param _derivation The derivation to hash.
+    /// @return _ The hash of the derivation.
+    function _hashDerivation(Derivation memory _derivation) private pure returns (bytes32) {
+        return keccak256(abi.encode(_derivation));
+    }
+
     /// @dev Hashes an array of Claims.
     /// @param _claims The claims array to hash.
     /// @return _ The hash of the claims array.
@@ -837,7 +840,6 @@ error ForkNotActive();
 error IncorrectProposalCount();
 error InconsistentParams();
 error InsufficientBond();
-error InvalidForcedInclusion();
 error InvalidSpan();
 error InvalidState();
 error LastProposalHashMismatch();

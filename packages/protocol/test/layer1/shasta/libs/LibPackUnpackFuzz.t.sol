@@ -49,7 +49,7 @@ contract LibPackUnpackFuzzTest is Test {
     struct ProposalStruct {
         uint48 proposalId;
         address proposer;
-        uint32 originTimestamp;
+        uint32 timestamp;
         uint32 originBlockNumber;
         bool isForcedInclusion;
         uint8 basefeeSharingPctg;
@@ -219,7 +219,7 @@ contract LibPackUnpackFuzzTest is Test {
     {
         newPos_ = LibPackUnpack.packUint48(_pos, _struct.proposalId);
         newPos_ = LibPackUnpack.packAddress(newPos_, _struct.proposer);
-        newPos_ = LibPackUnpack.packUint32(newPos_, _struct.originTimestamp);
+        newPos_ = LibPackUnpack.packUint32(newPos_, _struct.timestamp);
         newPos_ = LibPackUnpack.packUint32(newPos_, _struct.originBlockNumber);
         newPos_ = LibPackUnpack.packUint8(newPos_, _struct.isForcedInclusion ? 1 : 0);
         newPos_ = LibPackUnpack.packUint8(newPos_, _struct.basefeeSharingPctg);
@@ -237,7 +237,7 @@ contract LibPackUnpackFuzzTest is Test {
         uint8 forcedInclusionByte;
         (struct_.proposalId, newPos_) = LibPackUnpack.unpackUint48(_pos);
         (struct_.proposer, newPos_) = LibPackUnpack.unpackAddress(newPos_);
-        (struct_.originTimestamp, newPos_) = LibPackUnpack.unpackUint32(newPos_);
+        (struct_.timestamp, newPos_) = LibPackUnpack.unpackUint32(newPos_);
         (struct_.originBlockNumber, newPos_) = LibPackUnpack.unpackUint32(newPos_);
         (forcedInclusionByte, newPos_) = LibPackUnpack.unpackUint8(newPos_);
         struct_.isForcedInclusion = forcedInclusionByte == 1;
@@ -401,7 +401,7 @@ contract LibPackUnpackFuzzTest is Test {
     function testFuzz_proposalStruct(
         uint48 proposalId,
         address proposer,
-        uint32 originTimestamp,
+        uint32 timestamp,
         uint32 originBlockNumber,
         bool isForcedInclusion,
         uint8 basefeeSharingPctg,
@@ -416,7 +416,7 @@ contract LibPackUnpackFuzzTest is Test {
         ProposalStruct memory original = ProposalStruct({
             proposalId: proposalId,
             proposer: proposer,
-            originTimestamp: originTimestamp,
+            timestamp: timestamp,
             originBlockNumber: originBlockNumber,
             isForcedInclusion: isForcedInclusion,
             basefeeSharingPctg: basefeeSharingPctg,
@@ -434,7 +434,7 @@ contract LibPackUnpackFuzzTest is Test {
 
         assertEq(unpacked.proposalId, original.proposalId);
         assertEq(unpacked.proposer, original.proposer);
-        assertEq(unpacked.originTimestamp, original.originTimestamp);
+        assertEq(unpacked.timestamp, original.timestamp);
         assertEq(unpacked.originBlockNumber, original.originBlockNumber);
         assertEq(unpacked.isForcedInclusion, original.isForcedInclusion);
         assertEq(unpacked.basefeeSharingPctg, original.basefeeSharingPctg);

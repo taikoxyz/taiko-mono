@@ -23,7 +23,7 @@ contract LibProveDataDecoderFuzz is Test {
         public
         pure
     {
-        uint48 originTimestamp = 1000;
+        uint48 timestamp = 1000;
         uint48 originBlockNumber = 100;
         uint24 blobOffset = 512;
         uint48 blobTimestamp = 1001;
@@ -38,7 +38,7 @@ contract LibProveDataDecoderFuzz is Test {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0].id = proposalId;
         proposals[0].proposer = proposer;
-        proposals[0].originTimestamp = originTimestamp;
+        proposals[0].timestamp = timestamp;
         proposals[0].originBlockNumber = originBlockNumber;
         proposals[0].isForcedInclusion = isForcedInclusion;
         proposals[0].basefeeSharingPctg = basefeeSharingPctg;
@@ -65,7 +65,7 @@ contract LibProveDataDecoderFuzz is Test {
         assertEq(decodedProposals.length, 1);
         assertEq(decodedProposals[0].id, proposalId);
         assertEq(decodedProposals[0].proposer, proposer);
-        assertEq(decodedProposals[0].originTimestamp, originTimestamp);
+        assertEq(decodedProposals[0].timestamp, timestamp);
         assertEq(decodedProposals[0].originBlockNumber, originBlockNumber);
         assertEq(decodedProposals[0].isForcedInclusion, isForcedInclusion);
         assertEq(decodedProposals[0].basefeeSharingPctg, basefeeSharingPctg);
@@ -107,7 +107,7 @@ contract LibProveDataDecoderFuzz is Test {
             proposals[i] = IInbox.Proposal({
                 id: uint48(i + 1),
                 proposer: address(uint160(0x1000 + i)),
-                originTimestamp: uint48(1_000_000 + i),
+                timestamp: uint48(1_000_000 + i),
                 originBlockNumber: uint48(5_000_000 + i),
                 isForcedInclusion: i % 2 == 0,
                 basefeeSharingPctg: uint8(50 + i),
@@ -150,8 +150,8 @@ contract LibProveDataDecoderFuzz is Test {
             assertEq(decodedProposals[i].id, proposals[i].id, "Proposal id mismatch");
             assertEq(decodedProposals[i].proposer, proposals[i].proposer, "Proposer mismatch");
             assertEq(
-                decodedProposals[i].originTimestamp,
-                proposals[i].originTimestamp,
+                decodedProposals[i].timestamp,
+                proposals[i].timestamp,
                 "Origin timestamp mismatch"
             );
             assertEq(
@@ -314,7 +314,7 @@ contract LibProveDataDecoderFuzz is Test {
             proposals[i] = IInbox.Proposal({
                 id: id,
                 proposer: proposer,
-                originTimestamp: timestamp,
+                timestamp: timestamp,
                 originBlockNumber: timestamp,
                 isForcedInclusion: useMaxValues ? true : (useMinValues ? false : i % 2 == 0),
                 basefeeSharingPctg: basefeeSharingPctg,
@@ -390,7 +390,7 @@ contract LibProveDataDecoderFuzz is Test {
             proposals[i] = IInbox.Proposal({
                 id: uint48(96 + i),
                 proposer: address(uint160(0x1000 + i)),
-                originTimestamp: uint48(1_000_000 + i * 10),
+                timestamp: uint48(1_000_000 + i * 10),
                 originBlockNumber: uint48(5_000_000 + i * 10),
                 isForcedInclusion: i % 2 == 0,
                 basefeeSharingPctg: uint8(50 + i * 10),

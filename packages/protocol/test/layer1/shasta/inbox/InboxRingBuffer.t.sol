@@ -157,7 +157,7 @@ contract InboxRingBuffer is InboxTest {
         inbox.propose(bytes(""), data1);
 
         // Get proposal 1 for use as parent
-        IInbox.Proposal memory proposal1 =
+        (IInbox.Proposal memory proposal1,) =
             InboxTestLib.createProposal(1, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
         proposal1.coreStateHash = keccak256(
             abi.encode(
@@ -188,7 +188,7 @@ contract InboxRingBuffer is InboxTest {
         inbox.propose(bytes(""), data2);
 
         // Get proposal 2 for use as parent
-        IInbox.Proposal memory proposal2 =
+        (IInbox.Proposal memory proposal2,) =
             InboxTestLib.createProposal(2, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
         proposal2.coreStateHash = keccak256(
             abi.encode(

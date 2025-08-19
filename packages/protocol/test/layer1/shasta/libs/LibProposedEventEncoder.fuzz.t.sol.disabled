@@ -17,7 +17,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
     function testFuzz_encodeDecodeProposal_basicFields(
         uint48 _id,
         address _proposer,
-        uint48 _originTimestamp,
+        uint48 _timestamp,
         uint48 _originBlockNumber,
         bool _isForcedInclusion,
         uint8 _basefeeSharingPctg,
@@ -29,7 +29,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         IInbox.Proposal memory original;
         original.id = _id;
         original.proposer = _proposer;
-        original.originTimestamp = _originTimestamp;
+        original.timestamp = _timestamp;
         original.originBlockNumber = _originBlockNumber;
         original.isForcedInclusion = _isForcedInclusion;
         original.basefeeSharingPctg = _basefeeSharingPctg;
@@ -42,7 +42,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
 
         assertEq(decoded.id, original.id);
         assertEq(decoded.proposer, original.proposer);
-        assertEq(decoded.originTimestamp, original.originTimestamp);
+        assertEq(decoded.timestamp, original.timestamp);
         assertEq(decoded.originBlockNumber, original.originBlockNumber);
         assertEq(decoded.isForcedInclusion, original.isForcedInclusion);
         assertEq(decoded.basefeeSharingPctg, original.basefeeSharingPctg);
@@ -111,7 +111,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
     function testFuzz_completeEncodeDecode_part1(
         uint48 _id,
         address _proposer,
-        uint48 _originTimestamp,
+        uint48 _timestamp,
         uint48 _originBlockNumber,
         bool _isForcedInclusion,
         uint8 _basefeeSharingPctg
@@ -122,7 +122,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         IInbox.Proposal memory originalProposal;
         originalProposal.id = _id;
         originalProposal.proposer = _proposer;
-        originalProposal.originTimestamp = _originTimestamp;
+        originalProposal.timestamp = _timestamp;
         originalProposal.originBlockNumber = _originBlockNumber;
         originalProposal.isForcedInclusion = _isForcedInclusion;
         originalProposal.basefeeSharingPctg = _basefeeSharingPctg;
@@ -134,7 +134,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
 
         assertEq(decodedProposal.id, originalProposal.id);
         assertEq(decodedProposal.proposer, originalProposal.proposer);
-        assertEq(decodedProposal.originTimestamp, originalProposal.originTimestamp);
+        assertEq(decodedProposal.timestamp, originalProposal.timestamp);
         assertEq(decodedProposal.originBlockNumber, originalProposal.originBlockNumber);
         assertEq(decodedProposal.isForcedInclusion, originalProposal.isForcedInclusion);
         assertEq(decodedProposal.basefeeSharingPctg, originalProposal.basefeeSharingPctg);
@@ -241,7 +241,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         IInbox.Proposal memory original;
         original.id = MAX_UINT48;
         original.proposer = address(type(uint160).max);
-        original.originTimestamp = MAX_UINT48;
+        original.timestamp = MAX_UINT48;
         original.originBlockNumber = MAX_UINT48;
         original.isForcedInclusion = true;
         original.basefeeSharingPctg = MAX_UINT8;
@@ -262,7 +262,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
 
         assertEq(decodedProposal.id, MAX_UINT48);
         assertEq(decodedProposal.proposer, address(type(uint160).max));
-        assertEq(decodedProposal.originTimestamp, MAX_UINT48);
+        assertEq(decodedProposal.timestamp, MAX_UINT48);
         assertEq(decodedProposal.originBlockNumber, MAX_UINT48);
         assertEq(decodedProposal.isForcedInclusion, true);
         assertEq(decodedProposal.basefeeSharingPctg, MAX_UINT8);
@@ -286,7 +286,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
 
         assertEq(decodedProposal.id, 0);
         assertEq(decodedProposal.proposer, address(0));
-        assertEq(decodedProposal.originTimestamp, 0);
+        assertEq(decodedProposal.timestamp, 0);
         assertEq(decodedProposal.originBlockNumber, 0);
         assertEq(decodedProposal.isForcedInclusion, false);
         assertEq(decodedProposal.basefeeSharingPctg, 0);

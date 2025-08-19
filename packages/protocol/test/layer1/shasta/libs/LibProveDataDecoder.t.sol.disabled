@@ -13,7 +13,7 @@ contract LibProveDataDecoderTest is Test {
         proposals[0] = IInbox.Proposal({
             id: 10,
             proposer: address(0x1),
-            originTimestamp: 1000,
+            timestamp: 1000,
             originBlockNumber: 100,
             originBlockHash: bytes32(uint256(100)),
             isForcedInclusion: false,
@@ -88,7 +88,7 @@ contract LibProveDataDecoderTest is Test {
         proposals[0] = IInbox.Proposal({
             id: 96,
             proposer: address(0x1234),
-            originTimestamp: 1_000_000,
+            timestamp: 1_000_000,
             originBlockNumber: 5_000_000,
             originBlockHash: bytes32(uint256(5_000_000)),
             isForcedInclusion: false,
@@ -107,7 +107,7 @@ contract LibProveDataDecoderTest is Test {
         proposals[1] = IInbox.Proposal({
             id: 97,
             proposer: address(0x5678),
-            originTimestamp: 1_000_010,
+            timestamp: 1_000_010,
             originBlockNumber: 5_000_010,
             originBlockHash: bytes32(uint256(5_000_010)),
             isForcedInclusion: true,
@@ -125,7 +125,7 @@ contract LibProveDataDecoderTest is Test {
         proposals[2] = IInbox.Proposal({
             id: 98,
             proposer: address(0x9abc),
-            originTimestamp: 1_000_020,
+            timestamp: 1_000_020,
             originBlockNumber: 5_000_020,
             originBlockHash: bytes32(uint256(5_000_020)),
             isForcedInclusion: false,
@@ -197,7 +197,7 @@ contract LibProveDataDecoderTest is Test {
         for (uint256 i = 0; i < proposals1.length; i++) {
             assertEq(proposals1[i].id, proposals2[i].id);
             assertEq(proposals1[i].proposer, proposals2[i].proposer);
-            assertEq(proposals1[i].originTimestamp, proposals2[i].originTimestamp);
+            assertEq(proposals1[i].timestamp, proposals2[i].timestamp);
             assertEq(proposals1[i].originBlockNumber, proposals2[i].originBlockNumber);
             assertEq(proposals1[i].isForcedInclusion, proposals2[i].isForcedInclusion);
             assertEq(proposals1[i].basefeeSharingPctg, proposals2[i].basefeeSharingPctg);
@@ -249,7 +249,7 @@ contract LibProveDataDecoderTest is Test {
         proposals[0] = IInbox.Proposal({
             id: 281_474_976_710_655, // max uint48
             proposer: address(0xabcd),
-            originTimestamp: 999_999,
+            timestamp: 999_999,
             originBlockNumber: 888_888,
             originBlockHash: bytes32(uint256(888_888)),
             isForcedInclusion: true,
@@ -288,7 +288,7 @@ contract LibProveDataDecoderTest is Test {
         assertEq(decodedProposals.length, 1);
         assertEq(decodedProposals[0].id, proposals[0].id);
         assertEq(decodedProposals[0].proposer, proposals[0].proposer);
-        assertEq(decodedProposals[0].originTimestamp, proposals[0].originTimestamp);
+        assertEq(decodedProposals[0].timestamp, proposals[0].timestamp);
         assertEq(decodedProposals[0].originBlockNumber, proposals[0].originBlockNumber);
         assertEq(decodedProposals[0].isForcedInclusion, proposals[0].isForcedInclusion);
         assertEq(decodedProposals[0].basefeeSharingPctg, proposals[0].basefeeSharingPctg);

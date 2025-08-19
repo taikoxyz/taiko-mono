@@ -83,21 +83,9 @@ library LibProveDataDecoder {
     {
         newPtr_ = P.packUint48(_ptr, _proposal.id);
         newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
-        newPtr_ = P.packUint48(newPtr_, _proposal.originTimestamp);
-        newPtr_ = P.packUint48(newPtr_, _proposal.originBlockNumber);
-        newPtr_ = P.packBytes32(newPtr_, _proposal.originBlockHash);
-        newPtr_ = P.packUint8(newPtr_, _proposal.isForcedInclusion ? 1 : 0);
-        newPtr_ = P.packUint8(newPtr_, _proposal.basefeeSharingPctg);
-
-        // Encode BlobSlice
-        newPtr_ = P.packUint24(newPtr_, uint24(_proposal.blobSlice.blobHashes.length));
-        for (uint256 i; i < _proposal.blobSlice.blobHashes.length; ++i) {
-            newPtr_ = P.packBytes32(newPtr_, _proposal.blobSlice.blobHashes[i]);
-        }
-        newPtr_ = P.packUint24(newPtr_, _proposal.blobSlice.offset);
-        newPtr_ = P.packUint48(newPtr_, _proposal.blobSlice.timestamp);
-
+        newPtr_ = P.packUint48(newPtr_, _proposal.timestamp);
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
+        newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
     }
 
     /// @notice Decode a single Proposal
@@ -108,27 +96,9 @@ library LibProveDataDecoder {
     {
         (proposal_.id, newPtr_) = P.unpackUint48(_ptr);
         (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
-        (proposal_.originTimestamp, newPtr_) = P.unpackUint48(newPtr_);
-        (proposal_.originBlockNumber, newPtr_) = P.unpackUint48(newPtr_);
-        (proposal_.originBlockHash, newPtr_) = P.unpackBytes32(newPtr_);
-
-        uint8 isForcedInclusion;
-        (isForcedInclusion, newPtr_) = P.unpackUint8(newPtr_);
-        proposal_.isForcedInclusion = isForcedInclusion != 0;
-
-        (proposal_.basefeeSharingPctg, newPtr_) = P.unpackUint8(newPtr_);
-
-        // Decode BlobSlice
-        uint24 blobHashesLength;
-        (blobHashesLength, newPtr_) = P.unpackUint24(newPtr_);
-        proposal_.blobSlice.blobHashes = new bytes32[](blobHashesLength);
-        for (uint256 i; i < blobHashesLength; ++i) {
-            (proposal_.blobSlice.blobHashes[i], newPtr_) = P.unpackBytes32(newPtr_);
-        }
-        (proposal_.blobSlice.offset, newPtr_) = P.unpackUint24(newPtr_);
-        (proposal_.blobSlice.timestamp, newPtr_) = P.unpackUint48(newPtr_);
-
+        (proposal_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
         (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
     /// @notice Encode a single Claim
@@ -174,11 +144,11 @@ library LibProveDataDecoder {
             // Array lengths: 3 + 3 = 6 bytes
             size_ = 6;
 
-            // Proposals - each has fixed size + variable blob hashes
-            // Fixed proposal fields: 6 + 20 + 6 + 6 + 32 + 1 + 1 + 32 = 104
-            // BlobSlice fixed: 3 + 3 + 6 = 12
+            // Proposals - each has fixed size
+            // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) + coreStateHash(32) +
+            // derivationHash(32) = 96
             for (uint256 i; i < _proposals.length; ++i) {
-                size_ += 116 + (_proposals[i].blobSlice.blobHashes.length * 32);
+                size_ += 96;
             }
 
             // Claims - each has fixed size: 32 + 32 + 6 + 32 + 32 + 20 + 20 = 174

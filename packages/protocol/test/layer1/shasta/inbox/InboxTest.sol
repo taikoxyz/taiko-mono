@@ -309,16 +309,21 @@ abstract contract InboxTest is CommonTest {
         view
         returns (IInbox.Proposal memory)
     {
-        return IInbox.Proposal({
-            id: _builder.id,
-            proposer: _builder.proposer,
-            originTimestamp: uint48(block.timestamp),
+        // Create derivation for hash calculation
+        IInbox.Derivation memory derivation = IInbox.Derivation({
             originBlockNumber: uint48(block.number),
             originBlockHash: blockhash(block.number - 1),
             isForcedInclusion: _builder.isForcedInclusion,
             basefeeSharingPctg: _builder.basefeeSharingPctg,
-            blobSlice: _builder.blobSlice,
-            coreStateHash: _builder.coreStateHash
+            blobSlice: _builder.blobSlice
+        });
+
+        return IInbox.Proposal({
+            id: _builder.id,
+            proposer: _builder.proposer,
+            timestamp: uint48(block.timestamp),
+            coreStateHash: _builder.coreStateHash,
+            derivationHash: keccak256(abi.encode(derivation))
         });
     }
 
@@ -517,10 +522,8 @@ abstract contract InboxTest is CommonTest {
             blobHashes[i] = keccak256(abi.encode("blob", _config.blobStartIndex + i));
         }
 
-        return IInbox.Proposal({
-            id: _config.id,
-            proposer: _config.proposer,
-            originTimestamp: uint48(block.timestamp),
+        // Create derivation for hash calculation
+        IInbox.Derivation memory derivation = IInbox.Derivation({
             originBlockNumber: uint48(block.number),
             originBlockHash: blockhash(block.number - 1),
             isForcedInclusion: _config.isForcedInclusion,
@@ -529,9 +532,16 @@ abstract contract InboxTest is CommonTest {
                 blobHashes: blobHashes,
                 offset: 0,
                 timestamp: uint48(block.timestamp)
-            }),
-            coreStateHash: bytes32(0) // Will be set later
-         });
+            })
+        });
+
+        return IInbox.Proposal({
+            id: _config.id,
+            proposer: _config.proposer,
+            timestamp: uint48(block.timestamp),
+            coreStateHash: bytes32(0), // Will be set later
+            derivationHash: keccak256(abi.encode(derivation))
+        });
     }
 
     /// @dev Creates claim from detailed configuration
@@ -1285,15 +1295,9 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal memory genesisProposal;
         genesisProposal.id = 0;
         genesisProposal.proposer = address(0);
-        genesisProposal.originTimestamp = 0;
-        genesisProposal.originBlockNumber = 0;
-        genesisProposal.isForcedInclusion = false;
-        genesisProposal.basefeeSharingPctg = 0;
-        genesisProposal.blobSlice =
-            LibBlobs.BlobSlice({ blobHashes: new bytes32[](0), offset: 0, timestamp: 0 });
-
-        // Use the genesis core state to compute the hash
+        genesisProposal.timestamp = 0;
         genesisProposal.coreStateHash = keccak256(abi.encode(_getGenesisCoreState()));
+        genesisProposal.derivationHash = bytes32(0);
         return genesisProposal;
     }
 
@@ -1305,24 +1309,28 @@ abstract contract InboxTest is CommonTest {
     {
         // For test purposes, recreate the proposal as it would have been stored
         // This assumes all proposals follow the same pattern as submitProposal()
+
+        // Recreate derivation
+        bytes32[] memory blobHashes = new bytes32[](1);
+        blobHashes[0] = keccak256(abi.encode("blob", uint256(_proposalId % 256)));
+
+        IInbox.Derivation memory derivation = IInbox.Derivation({
+            originBlockNumber: uint48(block.number - 1),
+            originBlockHash: blockhash(block.number - 1),
+            isForcedInclusion: false,
+            basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes,
+                offset: 0,
+                timestamp: uint48(block.timestamp)
+            })
+        });
+
         IInbox.Proposal memory proposal;
         proposal.id = _proposalId;
         proposal.proposer = Alice; // Default test proposer
-        proposal.originTimestamp = uint48(block.timestamp);
-        // The contract stores parentBlockNumber which is block.number - 1
-        proposal.originBlockNumber = uint48(block.number - 1);
-        proposal.originBlockHash = blockhash(block.number - 1);
-        proposal.isForcedInclusion = false;
-        proposal.basefeeSharingPctg = DEFAULT_BASEFEE_SHARING_PCTG;
-
-        // Recreate blob slice
-        bytes32[] memory blobHashes = new bytes32[](1);
-        blobHashes[0] = keccak256(abi.encode("blob", uint256(_proposalId % 256)));
-        proposal.blobSlice = LibBlobs.BlobSlice({
-            blobHashes: blobHashes,
-            offset: 0,
-            timestamp: uint48(block.timestamp)
-        });
+        proposal.timestamp = uint48(block.timestamp);
+        proposal.derivationHash = keccak256(abi.encode(derivation));
 
         // The coreStateHash would have been set by the contract during submission
         // For test purposes, recreate the expected core state (AFTER the proposal is processed)
@@ -1344,23 +1352,27 @@ abstract contract InboxTest is CommonTest {
         view
         returns (IInbox.Proposal memory proposal)
     {
-        proposal.id = _proposalId;
-        proposal.proposer = _proposer;
-        proposal.originTimestamp = uint48(block.timestamp);
-        // The contract stores parentBlockNumber which is block.number - 1
-        proposal.originBlockNumber = uint48(block.number - 1);
-        proposal.originBlockHash = blockhash(block.number - 1);
-        proposal.isForcedInclusion = false;
-        proposal.basefeeSharingPctg = DEFAULT_BASEFEE_SHARING_PCTG;
-
         // Recreate the blob slice exactly as it was created
         bytes32[] memory blobHashes = new bytes32[](1);
         blobHashes[0] = keccak256(abi.encode("blob", uint256(_proposalId % 256)));
-        proposal.blobSlice = LibBlobs.BlobSlice({
-            blobHashes: blobHashes,
-            offset: 0,
-            timestamp: uint48(block.timestamp)
+
+        // Create derivation for hash calculation
+        IInbox.Derivation memory derivation = IInbox.Derivation({
+            originBlockNumber: uint48(block.number - 1),
+            originBlockHash: blockhash(block.number - 1),
+            isForcedInclusion: false,
+            basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes,
+                offset: 0,
+                timestamp: uint48(block.timestamp)
+            })
         });
+
+        proposal.id = _proposalId;
+        proposal.proposer = _proposer;
+        proposal.timestamp = uint48(block.timestamp);
+        proposal.derivationHash = keccak256(abi.encode(derivation));
 
         // The contract increments nextProposalId during processing
         // We need to simulate that here
@@ -1724,7 +1736,9 @@ abstract contract InboxTest is CommonTest {
     }
 
     function createValidProposal(uint48 _id) internal view returns (IInbox.Proposal memory) {
-        return InboxTestLib.createProposal(_id, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
+        (IInbox.Proposal memory proposal,) =
+            InboxTestLib.createProposal(_id, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
+        return proposal;
     }
 
     function createValidBlobReference(uint256 _seed)

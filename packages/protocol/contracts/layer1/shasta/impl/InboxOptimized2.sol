@@ -28,11 +28,16 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
     /// @dev Decodes the proposed event data that was encoded
     /// @param _data The encoded data
     /// @return proposal_ The decoded proposal
+    /// @return derivation_ The decoded derivation
     /// @return coreState_ The decoded core state
     function decodeProposedEventData(bytes memory _data)
         external
         pure
-        returns (Proposal memory proposal_, CoreState memory coreState_)
+        returns (
+            Proposal memory proposal_,
+            Derivation memory derivation_,
+            CoreState memory coreState_
+        )
     {
         return LibProposedEventEncoder.decode(_data);
     }
@@ -54,10 +59,12 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
 
     /// @dev Encodes the proposed event data for gas optimization
     /// @param _proposal The proposal to encode
+    /// @param _derivation The derivation data to encode
     /// @param _coreState The core state to encode
     /// @return The encoded data
     function encodeProposedEventData(
         Proposal memory _proposal,
+        Derivation memory _derivation,
         CoreState memory _coreState
     )
         public
@@ -65,7 +72,7 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
         override
         returns (bytes memory)
     {
-        return LibProposedEventEncoder.encode(_proposal, _coreState);
+        return LibProposedEventEncoder.encode(_proposal, _derivation, _coreState);
     }
 
     /// @dev Encodes the proved event data for gas optimization using compact encoding

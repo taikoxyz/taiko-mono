@@ -21,12 +21,12 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 ### Proposal-level Metadata
 
 | **Metadata Component**   | **Description**                                               |
-|--------------------------|---------------------------------------------------------------|
+| ------------------------ | ------------------------------------------------------------- |
 | **id**                   | A unique, sequential identifier for the proposal              |
 | **proposer**             | The address that proposed the proposal                        |
 | **isLowBondProposal**    | Indicates if the proposer has insufficient bond or is exiting |
 | **designatedProver**     | The prover responsible for proving the block                  |
-| **originTimestamp**      | The timestamp when the proposal was accepted on L1            |
+| **timestamp**            | The timestamp when the proposal was accepted on L1            |
 | **originBlockNumber**    | The L1 block number in which the proposal was accepted        |
 | **proverAuthBytes**      | An ABI-encoded ProverAuth object                              |
 | **numBlocks**            | The total number of blocks in this proposal                   |
@@ -38,7 +38,7 @@ Throughout this document, metadata references follow the notation `metadata.fiel
 ### Block-level Metadata
 
 | **Metadata Component** | **Description**                                       |
-|------------------------|-------------------------------------------------------|
+| ---------------------- | ----------------------------------------------------- |
 | **number**             | The block number                                      |
 | **difficulty**         | A random number seed                                  |
 | **index**              | The zero-based index of the block within the proposal |
@@ -62,7 +62,7 @@ struct Proposal {
   /// @notice Address of the proposer.
   address proposer;
   /// @notice The L1 block timestamp when the proposal was accepted.
-  uint48 originTimestamp;
+  uint48 timestamp;
   /// @notice The L1 block number when the proposal was accepted.
   uint48 originBlockNumber;
   /// @notice Whether the proposal is from a forced inclusion.
@@ -76,14 +76,14 @@ struct Proposal {
 
 The following metadata fields are directly extracted from the `proposal` object:
 
-| Metadata Field               | Value Assignment                 |
-|------------------------------|----------------------------------|
-| `metadata.id`                | `proposal.id`                    |
-| `metadata.proposer`          | `proposal.proposer`              |
-| `metadata.originTimestamp`   | `proposal.originTimestamp`       |
-| `metadata.originBlockNumber` | `proposal.originBlockNumber`     |
-| `metadata.basefeeSharingPctg`| `proposal.basefeeSharingPctg`    |
-| `metadata.isForcedInclusion` | `proposal.isForcedInclusion`     |
+| Metadata Field                | Value Assignment              |
+| ----------------------------- | ----------------------------- |
+| `metadata.id`                 | `proposal.id`                 |
+| `metadata.proposer`           | `proposal.proposer`           |
+| `metadata.timestamp`          | `proposal.timestamp`          |
+| `metadata.originBlockNumber`  | `proposal.originBlockNumber`  |
+| `metadata.basefeeSharingPctg` | `proposal.basefeeSharingPctg` |
+| `metadata.isForcedInclusion`  | `proposal.isForcedInclusion`  |
 
 The `blobSlice` field serves as the primary mechanism for locating and validating the proposal's manifest. The manifest structure is defined as follows:
 
@@ -131,12 +131,11 @@ struct ProposalManifest {
 ### Proposer and `isLowBondProposal` Validation
 
 To maintain the integrity of the proposal process, the `proposer` address must pass specific validation checks, which include:
+
 - Confirming that the proposer holds a sufficient balance in the L2 BondManager contract.
 - Ensuring the proposer is not waiting for exiting.
 
 Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposal's block array is replaced with a single block containing no transactions. Note that this does not use the default manifest; instead, it modifies only the blocks array while preserving other manifest data.
-
-
 
 ### Manifest Extraction
 
@@ -193,10 +192,10 @@ With the extracted manifest, metadata computation proceeds using both the manife
 
 Timestamp validation is performed collectively across all blocks and may result in block count reduction:
 
-1. **Upper bound enforcement**: If `metadata.timestamp > proposal.originTimestamp`, set `metadata.timestamp = proposal.originTimestamp`
-2. **Lower bound calculation**: `lowerBound = max(parent.metadata.timestamp + 1, proposal.originTimestamp - TIMESTAMP_MAX_OFFSET)`
+1. **Upper bound enforcement**: If `metadata.timestamp > proposal.timestamp`, set `metadata.timestamp = proposal.timestamp`
+2. **Lower bound calculation**: `lowerBound = max(parent.metadata.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)`
 3. **Lower bound enforcement**: If `metadata.timestamp < lowerBound`, set `metadata.timestamp = lowerBound`
-4. **Block pruning**: If `metadata.timestamp > proposal.originTimestamp` after adjustments, discard this and all subsequent blocks
+4. **Block pruning**: If `metadata.timestamp > proposal.timestamp` after adjustments, discard this and all subsequent blocks
 
 #### `anchorBlockNumber` Validation
 
@@ -260,7 +259,8 @@ The designated prover system ensures every L2 block has a responsible prover, ma
 
 The `_validateProverAuth` function processes prover authentication data with the following steps:
 
-- **Signature Verification**: 
+- **Signature Verification**:
+
   - Validates minimum data length (161 bytes for a valid `ProverAuth` struct)
   - Decodes the `ProverAuth` containing: `proposalId`, `proposer`, `provingFeeGwei`, and ECDSA `signature`
   - Verifies the signature against the message hash `keccak256(abi.encode(proposalId, proposer, provingFeeGwei))`
@@ -326,19 +326,18 @@ Several enhancements are under consideration to address current limitations:
 - **Dynamic Thresholds**: Adjust bond requirements based on network conditions and attack patterns
 - **Alternative Finality**: Explore mechanisms that ensure chain progress without overburdening individual provers
 
-
 ### Additional Metadata Fields
 
 The remaining metadata fields follow straightforward assignment patterns:
 
 | Metadata Field             | Value Assignment                                                  |
-|----------------------------|-------------------------------------------------------------------|
-| `metadata.index`           | `parent.metadata.index + 1` (abbreviated as `i`)                 |
-| `metadata.number`          | `parent.metadata.number + 1`                                     |
+| -------------------------- | ----------------------------------------------------------------- |
+| `metadata.index`           | `parent.metadata.index + 1` (abbreviated as `i`)                  |
+| `metadata.number`          | `parent.metadata.number + 1`                                      |
 | `metadata.difficulty`      | `keccak(abi.encode(parent.metadata.difficulty, metadata.number))` |
-| `metadata.numBlocks`       | `manifest.blocks.length` (post-validation)                       |
-| `metadata.proverAuthBytes` | `manifest.proverAuthBytes`                                       |
-| `metadata.transactions`    | `manifest.blocks[i].transactions`                                |
+| `metadata.numBlocks`       | `manifest.blocks.length` (post-validation)                        |
+| `metadata.proverAuthBytes` | `manifest.proverAuthBytes`                                        |
+| `metadata.transactions`    | `manifest.blocks[i].transactions`                                 |
 
 **Important**: The `numBlocks` field must be assigned only after timestamp and anchor block validation completes, as these validations may reduce the effective block count.
 
@@ -372,11 +371,11 @@ Metadata encoding into L2 block header fields facilitates efficient peer validat
 
 The following block header fields are also set before transaction execution but are not derived from metadata:
 
-| Header Field | Value                                                                                              |
-|--------------|----------------------------------------------------------------------------------------------------|
-| `parentHash` | Hash of the previous L2 block                                                                     |
-| `mixHash`    | TODO: Determine if this should be 0 or set to `prevRandao` as per EIP-4399                        |
-| `baseFee`    | Calculated using EIP-4396 from parent and current block timestamps before transaction execution   |
+| Header Field | Value                                                                                           |
+| ------------ | ----------------------------------------------------------------------------------------------- |
+| `parentHash` | Hash of the previous L2 block                                                                   |
+| `mixHash`    | TODO: Determine if this should be 0 or set to `prevRandao` as per EIP-4399                      |
+| `baseFee`    | Calculated using EIP-4396 from parent and current block timestamps before transaction execution |
 
 Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed` are populated after transaction execution.
 
@@ -384,19 +383,20 @@ Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, 
 
 The anchor transaction serves as a privileged system transaction responsible for L1 state synchronization and bond instruction processing. It invokes the `updateState` function on the ShastaAnchor contract with precisely defined parameters:
 
-| Parameter            | Type              | Description                                                    |
-|----------------------|-------------------|----------------------------------------------------------------|
-| proposalId           | uint48            | Unique identifier of the proposal being anchored              |
-| proposer             | address           | Address of the entity that proposed this batch of blocks      |
-| proverAuth           | bytes             | Encoded ProverAuth for prover designation                     |
-| bondInstructionsHash | bytes32           | Expected cumulative hash after processing instructions        |
-| bondInstructions     | BondInstruction[] | Bond credit/debit instructions to process for this block      |
-| blockIndex           | uint16            | Current block index within the proposal (0-based)             |
-| anchorBlockNumber    | uint48            | L1 block number to anchor (0 to skip anchoring)               |
-| anchorBlockHash      | bytes32           | L1 block hash at anchorBlockNumber                            |
-| anchorStateRoot      | bytes32           | L1 state root at anchorBlockNumber                            |
+| Parameter            | Type              | Description                                              |
+| -------------------- | ----------------- | -------------------------------------------------------- |
+| proposalId           | uint48            | Unique identifier of the proposal being anchored         |
+| proposer             | address           | Address of the entity that proposed this batch of blocks |
+| proverAuth           | bytes             | Encoded ProverAuth for prover designation                |
+| bondInstructionsHash | bytes32           | Expected cumulative hash after processing instructions   |
+| bondInstructions     | BondInstruction[] | Bond credit/debit instructions to process for this block |
+| blockIndex           | uint16            | Current block index within the proposal (0-based)        |
+| anchorBlockNumber    | uint48            | L1 block number to anchor (0 to skip anchoring)          |
+| anchorBlockHash      | bytes32           | L1 block hash at anchorBlockNumber                       |
+| anchorStateRoot      | bytes32           | L1 state root at anchorBlockNumber                       |
 
 The function returns:
+
 - `isLowBondProposal` (bool): True if proposer has insufficient bonds
 - `designatedProver` (address): Address of the designated prover
 
@@ -405,10 +405,12 @@ The function returns:
 The anchor transaction executes a carefully orchestrated sequence of operations:
 
 1. **Fork validation and duplicate prevention**
+
    - Verifies the current block number is at or after the Shasta fork height
    - Tracks parent block hash to prevent duplicate `updateState` calls within the same block
 
 2. **Proposal initialization** (blockIndex == 0 only)
+
    - Designates the prover for the proposal
    - Sets `isLowBondProposal` flag based on bond sufficiency
    - Stores designated prover and low-bond status in contract state

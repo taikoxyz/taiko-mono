@@ -9,12 +9,14 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 /// encoding
 /// @custom:security-contact security@taiko.xyz
 library LibProposedEventEncoder {
-    /// @notice Encodes a Proposal and CoreState into bytes using compact encoding
+    /// @notice Encodes a Proposal, Derivation and CoreState into bytes using compact encoding
     /// @param _proposal The proposal to encode
+    /// @param _derivation The derivation data to encode
     /// @param _coreState The core state to encode
     /// @return encoded_ The encoded bytes
     function encode(
         IInbox.Proposal memory _proposal,
+        IInbox.Derivation memory _derivation,
         IInbox.CoreState memory _coreState
     )
         internal
@@ -22,7 +24,7 @@ library LibProposedEventEncoder {
         returns (bytes memory encoded_)
     {
         // Calculate total size needed
-        uint256 bufferSize = calculateProposedEventSize(_proposal.blobSlice.blobHashes.length);
+        uint256 bufferSize = calculateProposedEventSize(_derivation.blobSlice.blobHashes.length);
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
@@ -31,24 +33,24 @@ library LibProposedEventEncoder {
         // Encode Proposal
         ptr = P.packUint48(ptr, _proposal.id);
         ptr = P.packAddress(ptr, _proposal.proposer);
-        ptr = P.packUint48(ptr, _proposal.originTimestamp);
-        ptr = P.packUint48(ptr, _proposal.originBlockNumber);
-        ptr = P.packUint8(ptr, _proposal.isForcedInclusion ? 1 : 0);
-        ptr = P.packUint8(ptr, _proposal.basefeeSharingPctg);
+        ptr = P.packUint48(ptr, _proposal.timestamp);
+        ptr = P.packUint48(ptr, _derivation.originBlockNumber);
+        ptr = P.packUint8(ptr, _derivation.isForcedInclusion ? 1 : 0);
+        ptr = P.packUint8(ptr, _derivation.basefeeSharingPctg);
 
         // Encode BlobSlice
         // First encode the length of blobHashes array as uint24
-        uint256 blobHashesLength = _proposal.blobSlice.blobHashes.length;
+        uint256 blobHashesLength = _derivation.blobSlice.blobHashes.length;
         require(blobHashesLength <= type(uint24).max, BlobHashesLengthExceeded());
         ptr = P.packUint24(ptr, uint24(blobHashesLength));
 
         // Encode each blob hash
         for (uint256 i; i < blobHashesLength; ++i) {
-            ptr = P.packBytes32(ptr, _proposal.blobSlice.blobHashes[i]);
+            ptr = P.packBytes32(ptr, _derivation.blobSlice.blobHashes[i]);
         }
 
-        ptr = P.packUint24(ptr, _proposal.blobSlice.offset);
-        ptr = P.packUint48(ptr, _proposal.blobSlice.timestamp);
+        ptr = P.packUint24(ptr, _derivation.blobSlice.offset);
+        ptr = P.packUint48(ptr, _derivation.blobSlice.timestamp);
 
         ptr = P.packBytes32(ptr, _proposal.coreStateHash);
 
@@ -59,14 +61,19 @@ library LibProposedEventEncoder {
         ptr = P.packBytes32(ptr, _coreState.bondInstructionsHash);
     }
 
-    /// @notice Decodes bytes into a Proposal and CoreState using compact encoding
+    /// @notice Decodes bytes into a Proposal, Derivation and CoreState using compact encoding
     /// @param _data The encoded data
     /// @return proposal_ The decoded proposal
+    /// @return derivation_ The decoded derivation
     /// @return coreState_ The decoded core state
     function decode(bytes memory _data)
         internal
         pure
-        returns (IInbox.Proposal memory proposal_, IInbox.CoreState memory coreState_)
+        returns (
+            IInbox.Proposal memory proposal_,
+            IInbox.Derivation memory derivation_,
+            IInbox.CoreState memory coreState_
+        )
     {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
@@ -74,26 +81,28 @@ library LibProposedEventEncoder {
         // Decode Proposal
         (proposal_.id, ptr) = P.unpackUint48(ptr);
         (proposal_.proposer, ptr) = P.unpackAddress(ptr);
-        (proposal_.originTimestamp, ptr) = P.unpackUint48(ptr);
-        (proposal_.originBlockNumber, ptr) = P.unpackUint48(ptr);
+        (proposal_.timestamp, ptr) = P.unpackUint48(ptr);
+
+        // Decode Derivation fields
+        (derivation_.originBlockNumber, ptr) = P.unpackUint48(ptr);
 
         uint8 isForcedInclusion;
         (isForcedInclusion, ptr) = P.unpackUint8(ptr);
-        proposal_.isForcedInclusion = isForcedInclusion != 0;
+        derivation_.isForcedInclusion = isForcedInclusion != 0;
 
-        (proposal_.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
+        (derivation_.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
 
         // Decode BlobSlice
         uint24 blobHashesLength;
         (blobHashesLength, ptr) = P.unpackUint24(ptr);
 
-        proposal_.blobSlice.blobHashes = new bytes32[](blobHashesLength);
+        derivation_.blobSlice.blobHashes = new bytes32[](blobHashesLength);
         for (uint256 i; i < blobHashesLength; ++i) {
-            (proposal_.blobSlice.blobHashes[i], ptr) = P.unpackBytes32(ptr);
+            (derivation_.blobSlice.blobHashes[i], ptr) = P.unpackBytes32(ptr);
         }
 
-        (proposal_.blobSlice.offset, ptr) = P.unpackUint24(ptr);
-        (proposal_.blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
+        (derivation_.blobSlice.offset, ptr) = P.unpackUint24(ptr);
+        (derivation_.blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
 
         (proposal_.coreStateHash, ptr) = P.unpackBytes32(ptr);
 
@@ -114,7 +123,7 @@ library LibProposedEventEncoder {
     {
         unchecked {
             // Fixed size: 160 bytes
-            // Proposal: id(6) + proposer(20) + originTimestamp(6) + originBlockNumber(6) +
+            // Proposal: id(6) + proposer(20) + timestamp(6) + originBlockNumber(6) +
             //           isForcedInclusion(1) + basefeeSharingPctg(1) = 40
             // BlobSlice: arrayLength(3) + offset(3) + timestamp(6) = 12
             // coreStateHash: 32

@@ -134,15 +134,12 @@ library InboxTestLib {
     )
         internal
         view
-        returns (IInbox.Proposal memory)
+        returns (IInbox.Proposal memory, IInbox.Derivation memory)
     {
         bytes32[] memory blobHashes = new bytes32[](1);
         blobHashes[0] = keccak256(abi.encode("blob", uint256(_id % 256)));
 
-        return IInbox.Proposal({
-            id: _id,
-            proposer: _proposer,
-            originTimestamp: uint48(block.timestamp),
+        IInbox.Derivation memory derivation = IInbox.Derivation({
             originBlockNumber: uint48(block.number - 1),
             originBlockHash: blockhash(block.number - 1),
             isForcedInclusion: false,
@@ -151,9 +148,18 @@ library InboxTestLib {
                 blobHashes: blobHashes,
                 offset: 0,
                 timestamp: uint48(block.timestamp)
-            }),
-            coreStateHash: bytes32(0)
+            })
         });
+
+        IInbox.Proposal memory proposal = IInbox.Proposal({
+            id: _id,
+            proposer: _proposer,
+            timestamp: uint48(block.timestamp),
+            coreStateHash: bytes32(0),
+            derivationHash: keccak256(abi.encode(derivation))
+        });
+
+        return (proposal, derivation);
     }
 
     /// @dev Creates a proposal with custom blob configuration
@@ -165,12 +171,9 @@ library InboxTestLib {
     )
         internal
         view
-        returns (IInbox.Proposal memory)
+        returns (IInbox.Proposal memory, IInbox.Derivation memory)
     {
-        return IInbox.Proposal({
-            id: _id,
-            proposer: _proposer,
-            originTimestamp: uint48(block.timestamp),
+        IInbox.Derivation memory derivation = IInbox.Derivation({
             originBlockNumber: uint48(block.number - 1),
             originBlockHash: blockhash(block.number - 1),
             isForcedInclusion: false,
@@ -179,9 +182,18 @@ library InboxTestLib {
                 blobHashes: _blobHashes,
                 offset: 0,
                 timestamp: uint48(block.timestamp)
-            }),
-            coreStateHash: bytes32(0)
+            })
         });
+
+        IInbox.Proposal memory proposal = IInbox.Proposal({
+            id: _id,
+            proposer: _proposer,
+            timestamp: uint48(block.timestamp),
+            coreStateHash: bytes32(0),
+            derivationHash: keccak256(abi.encode(derivation))
+        });
+
+        return (proposal, derivation);
     }
 
     /// @dev Creates multiple proposals in batch
@@ -197,7 +209,7 @@ library InboxTestLib {
     {
         proposals = new IInbox.Proposal[](_count);
         for (uint48 i = 0; i < _count; i++) {
-            proposals[i] = createProposal(_startId + i, _proposer, _basefeeSharingPctg);
+            (proposals[i],) = createProposal(_startId + i, _proposer, _basefeeSharingPctg);
         }
     }
 
@@ -553,13 +565,9 @@ library InboxTestLib {
         // Genesis proposal has all default values except coreStateHash
         proposal.id = 0;
         proposal.proposer = address(0);
-        proposal.originTimestamp = 0;
-        proposal.originBlockNumber = 0;
-        proposal.isForcedInclusion = false;
-        proposal.basefeeSharingPctg = 0;
-        // Empty/default blob slice
-        proposal.blobSlice =
-            LibBlobs.BlobSlice({ blobHashes: new bytes32[](0), offset: 0, timestamp: 0 });
+        proposal.timestamp = 0;
+        proposal.coreStateHash = bytes32(0);
+        proposal.derivationHash = bytes32(0);
 
         // Recreate the exact core state as it was during initialization
         // This is what was used to calculate the coreStateHash in the genesis proposal

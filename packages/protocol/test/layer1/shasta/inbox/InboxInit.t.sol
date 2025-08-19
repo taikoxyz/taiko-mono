@@ -66,13 +66,9 @@ contract InboxInit is InboxTest {
         return IInbox.Proposal({
             id: 0,
             proposer: address(0),
-            originTimestamp: 0,
-            originBlockNumber: 0,
-            originBlockHash: bytes32(0),
-            isForcedInclusion: false,
-            basefeeSharingPctg: 0,
-            blobSlice: LibBlobs.BlobSlice({ blobHashes: new bytes32[](0), offset: 0, timestamp: 0 }),
-            coreStateHash: keccak256(abi.encode(_coreState))
+            timestamp: 0,
+            coreStateHash: keccak256(abi.encode(_coreState)),
+            derivationHash: bytes32(0)
         });
     }
 

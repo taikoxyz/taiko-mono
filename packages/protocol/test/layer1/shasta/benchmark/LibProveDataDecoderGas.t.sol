@@ -177,17 +177,9 @@ contract LibProveDataDecoderGas is Test {
             proposals[i] = IInbox.Proposal({
                 id: uint48(96 + i),
                 proposer: address(uint160(0x1000 + i)),
-                originTimestamp: uint48(1_000_000 + i * 10),
-                originBlockNumber: uint48(5_000_000 + i * 10),
-                originBlockHash: bytes32(uint256(5_000_000 + i * 10)),
-                isForcedInclusion: i % 2 == 0,
-                basefeeSharingPctg: uint8(50 + i * 10),
-                blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: blobHashes,
-                    offset: uint24(1024 * (i + 1)),
-                    timestamp: uint48(1_000_001 + i * 10)
-                }),
-                coreStateHash: keccak256(abi.encodePacked("core_state", i))
+                timestamp: uint48(1_000_000 + i * 10),
+                coreStateHash: keccak256(abi.encodePacked("core_state", i)),
+                derivationHash: keccak256(abi.encodePacked("derivation", i))
             });
         }
 

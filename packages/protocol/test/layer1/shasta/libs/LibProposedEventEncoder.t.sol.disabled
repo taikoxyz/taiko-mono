@@ -15,7 +15,7 @@ contract LibProposedEventEncoderTest is Test {
         IInbox.Proposal memory originalProposal;
         originalProposal.id = 1;
         originalProposal.proposer = address(0x1234567890123456789012345678901234567890);
-        originalProposal.originTimestamp = 1000;
+        originalProposal.timestamp = 1000;
         originalProposal.originBlockNumber = 2000;
         originalProposal.isForcedInclusion = false;
         originalProposal.basefeeSharingPctg = 50;
@@ -48,7 +48,7 @@ contract LibProposedEventEncoderTest is Test {
         // Verify proposal fields
         assertEq(decodedProposal.id, originalProposal.id);
         assertEq(decodedProposal.proposer, originalProposal.proposer);
-        assertEq(decodedProposal.originTimestamp, originalProposal.originTimestamp);
+        assertEq(decodedProposal.timestamp, originalProposal.timestamp);
         assertEq(decodedProposal.originBlockNumber, originalProposal.originBlockNumber);
         assertEq(decodedProposal.isForcedInclusion, originalProposal.isForcedInclusion);
         assertEq(decodedProposal.basefeeSharingPctg, originalProposal.basefeeSharingPctg);
@@ -71,7 +71,7 @@ contract LibProposedEventEncoderTest is Test {
         IInbox.Proposal memory originalProposal;
         originalProposal.id = 12_345;
         originalProposal.proposer = address(0xabCDEF1234567890ABcDEF1234567890aBCDeF12);
-        originalProposal.originTimestamp = 999_999;
+        originalProposal.timestamp = 999_999;
         originalProposal.originBlockNumber = 888_888;
         originalProposal.isForcedInclusion = true;
         originalProposal.basefeeSharingPctg = 75;
@@ -104,7 +104,7 @@ contract LibProposedEventEncoderTest is Test {
         // Verify proposal fields
         assertEq(decodedProposal.id, originalProposal.id);
         assertEq(decodedProposal.proposer, originalProposal.proposer);
-        assertEq(decodedProposal.originTimestamp, originalProposal.originTimestamp);
+        assertEq(decodedProposal.timestamp, originalProposal.timestamp);
         assertEq(decodedProposal.originBlockNumber, originalProposal.originBlockNumber);
         assertEq(decodedProposal.isForcedInclusion, originalProposal.isForcedInclusion);
         assertEq(decodedProposal.basefeeSharingPctg, originalProposal.basefeeSharingPctg);
@@ -130,7 +130,7 @@ contract LibProposedEventEncoderTest is Test {
         IInbox.Proposal memory originalProposal;
         originalProposal.id = type(uint48).max;
         originalProposal.proposer = address(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF);
-        originalProposal.originTimestamp = type(uint48).max;
+        originalProposal.timestamp = type(uint48).max;
         originalProposal.originBlockNumber = type(uint48).max;
         originalProposal.isForcedInclusion = true;
         originalProposal.basefeeSharingPctg = type(uint8).max;
@@ -161,7 +161,7 @@ contract LibProposedEventEncoderTest is Test {
         // Verify all max values are preserved
         assertEq(decodedProposal.id, type(uint48).max);
         assertEq(decodedProposal.proposer, address(0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF));
-        assertEq(decodedProposal.originTimestamp, type(uint48).max);
+        assertEq(decodedProposal.timestamp, type(uint48).max);
         assertEq(decodedProposal.originBlockNumber, type(uint48).max);
         assertEq(decodedProposal.isForcedInclusion, true);
         assertEq(decodedProposal.basefeeSharingPctg, type(uint8).max);
@@ -180,7 +180,7 @@ contract LibProposedEventEncoderTest is Test {
         IInbox.Proposal memory originalProposal;
         originalProposal.id = 0;
         originalProposal.proposer = address(0);
-        originalProposal.originTimestamp = 0;
+        originalProposal.timestamp = 0;
         originalProposal.originBlockNumber = 0;
         originalProposal.isForcedInclusion = false;
         originalProposal.basefeeSharingPctg = 0;
@@ -205,7 +205,7 @@ contract LibProposedEventEncoderTest is Test {
         // Verify all zero values are preserved
         assertEq(decodedProposal.id, 0);
         assertEq(decodedProposal.proposer, address(0));
-        assertEq(decodedProposal.originTimestamp, 0);
+        assertEq(decodedProposal.timestamp, 0);
         assertEq(decodedProposal.originBlockNumber, 0);
         assertEq(decodedProposal.isForcedInclusion, false);
         assertEq(decodedProposal.basefeeSharingPctg, 0);
@@ -222,7 +222,7 @@ contract LibProposedEventEncoderTest is Test {
     function testFuzz_encodeDecodeProposedEvent_proposal(
         uint48 _proposalId,
         address _proposer,
-        uint48 _originTimestamp,
+        uint48 _timestamp,
         uint48 _originBlockNumber,
         bool _isForcedInclusion,
         uint8 _basefeeSharingPctg,
@@ -237,7 +237,7 @@ contract LibProposedEventEncoderTest is Test {
         IInbox.Proposal memory originalProposal;
         originalProposal.id = _proposalId;
         originalProposal.proposer = _proposer;
-        originalProposal.originTimestamp = _originTimestamp;
+        originalProposal.timestamp = _timestamp;
         originalProposal.originBlockNumber = _originBlockNumber;
         originalProposal.isForcedInclusion = _isForcedInclusion;
         originalProposal.basefeeSharingPctg = _basefeeSharingPctg;
@@ -268,7 +268,7 @@ contract LibProposedEventEncoderTest is Test {
         // Verify proposal fields
         assertEq(decodedProposal.id, originalProposal.id);
         assertEq(decodedProposal.proposer, originalProposal.proposer);
-        assertEq(decodedProposal.originTimestamp, originalProposal.originTimestamp);
+        assertEq(decodedProposal.timestamp, originalProposal.timestamp);
         assertEq(decodedProposal.originBlockNumber, originalProposal.originBlockNumber);
         assertEq(decodedProposal.isForcedInclusion, originalProposal.isForcedInclusion);
         assertEq(decodedProposal.basefeeSharingPctg, originalProposal.basefeeSharingPctg);
@@ -300,7 +300,7 @@ contract LibProposedEventEncoderTest is Test {
         IInbox.Proposal memory originalProposal;
         originalProposal.id = 100;
         originalProposal.proposer = address(0x1234567890123456789012345678901234567890);
-        originalProposal.originTimestamp = 1000;
+        originalProposal.timestamp = 1000;
         originalProposal.originBlockNumber = 2000;
         originalProposal.isForcedInclusion = false;
         originalProposal.basefeeSharingPctg = 50;
@@ -339,7 +339,7 @@ contract LibProposedEventEncoderTest is Test {
         IInbox.Proposal memory proposal;
         proposal.id = 12_345;
         proposal.proposer = address(0x1234567890123456789012345678901234567890);
-        proposal.originTimestamp = 999_999;
+        proposal.timestamp = 999_999;
         proposal.originBlockNumber = 888_888;
         proposal.isForcedInclusion = true;
         proposal.basefeeSharingPctg = 75;
