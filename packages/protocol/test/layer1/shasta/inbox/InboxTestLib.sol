@@ -562,12 +562,10 @@ library InboxTestLib {
     {
         // Recreate the exact genesis proposal as created in the contract's init() function
         IInbox.Proposal memory proposal;
-        // Genesis proposal has all default values except coreStateHash
+        // Genesis proposal has all default values except coreStateHash and derivationHash
         proposal.id = 0;
         proposal.proposer = address(0);
         proposal.timestamp = 0;
-        proposal.coreStateHash = bytes32(0);
-        proposal.derivationHash = bytes32(0);
 
         // Recreate the exact core state as it was during initialization
         // This is what was used to calculate the coreStateHash in the genesis proposal
@@ -581,6 +579,11 @@ library InboxTestLib {
         genesisCoreState.bondInstructionsHash = bytes32(0); // default value
 
         proposal.coreStateHash = keccak256(abi.encode(genesisCoreState));
+
+        // Hash of empty derivation (matching what init() does)
+        IInbox.Derivation memory emptyDerivation;
+        proposal.derivationHash = keccak256(abi.encode(emptyDerivation));
+
         return proposal;
     }
 

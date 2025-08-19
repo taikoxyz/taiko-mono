@@ -208,17 +208,9 @@ contract InboxRingBuffer is InboxTest {
         // We need to provide both proposal 2 (parent) and genesis (slot being overwritten)
 
         // Create the genesis proposal that was stored at initialization
-        IInbox.Proposal memory genesisProposal;
-        genesisProposal.coreStateHash = keccak256(
-            abi.encode(
-                IInbox.CoreState({
-                    nextProposalId: 1,
-                    lastFinalizedProposalId: 0,
-                    lastFinalizedClaimHash: getGenesisClaimHash(),
-                    bondInstructionsHash: bytes32(0)
-                })
-            )
-        );
+        // Use the library function to correctly recreate the genesis proposal
+        IInbox.CoreState memory dummyState; // Not used by createGenesisProposal
+        IInbox.Proposal memory genesisProposal = InboxTestLib.createGenesisProposal(dummyState);
 
         IInbox.CoreState memory coreState3 = IInbox.CoreState({
             nextProposalId: 3,

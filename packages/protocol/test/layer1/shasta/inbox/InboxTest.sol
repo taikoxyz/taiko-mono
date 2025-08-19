@@ -1291,14 +1291,9 @@ abstract contract InboxTest is CommonTest {
 
     /// @dev Recreates the genesis proposal that was stored during contract initialization
     function _recreateGenesisProposal() internal pure returns (IInbox.Proposal memory) {
-        // The genesis proposal has default values with a computed coreStateHash
-        IInbox.Proposal memory genesisProposal;
-        genesisProposal.id = 0;
-        genesisProposal.proposer = address(0);
-        genesisProposal.timestamp = 0;
-        genesisProposal.coreStateHash = keccak256(abi.encode(_getGenesisCoreState()));
-        genesisProposal.derivationHash = bytes32(0);
-        return genesisProposal;
+        // Use the library function that correctly recreates the genesis proposal
+        IInbox.CoreState memory dummyState; // Not used by createGenesisProposal
+        return InboxTestLib.createGenesisProposal(dummyState);
     }
 
     /// @dev Recreates a stored proposal based on the pattern used in tests
