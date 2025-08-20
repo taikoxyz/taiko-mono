@@ -5,7 +5,7 @@ import { InboxOptimized1 } from "./InboxOptimized1.sol";
 import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
-/// @title InboxOptimized
+/// @title InboxOptimized2
 /// @notice Inbox optimized, on top of InboxOptimized1, to lower event emission cost.
 /// @custom:security-contact security@taiko.xyz
 abstract contract InboxOptimized2 is InboxOptimized1 {
@@ -27,28 +27,22 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
 
     /// @dev Decodes the proposed event data that was encoded
     /// @param _data The encoded data
-    /// @return proposal_ The decoded proposal
-    /// @return derivation_ The decoded derivation
-    /// @return coreState_ The decoded core state
+    /// @return _ The decoded proposed event payload
     function decodeProposedEventData(bytes memory _data)
         external
         pure
-        returns (
-            Proposal memory proposal_,
-            Derivation memory derivation_,
-            CoreState memory coreState_
-        )
+        returns (ProposedEventPayload memory)
     {
         return LibProposedEventEncoder.decode(_data);
     }
 
     /// @dev Decodes the prove event data that was encoded
     /// @param _data The encoded data
-    /// @return claimRecord_ The decoded claim record
-    function decodeProveEventData(bytes memory _data)
+    /// @return _ The decoded proved event payload
+    function decodeProvedEventData(bytes memory _data)
         external
         pure
-        returns (ClaimRecord memory claimRecord_)
+        returns (ProvedEventPayload memory)
     {
         return LibProvedEventEncoder.decode(_data);
     }
@@ -57,33 +51,29 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
     // Public Functions
     // ---------------------------------------------------------------
 
-    /// @dev Encodes the proposed event data for gas optimization
-    /// @param _proposal The proposal to encode
-    /// @param _derivation The derivation data to encode
-    /// @param _coreState The core state to encode
+    /// @dev Encodes the proposed event data
+    /// @param _payload The ProposedEventPayload object
     /// @return The encoded data
-    function encodeProposedEventData(
-        Proposal memory _proposal,
-        Derivation memory _derivation,
-        CoreState memory _coreState
-    )
+    function encodeProposedEventData(ProposedEventPayload memory _payload)
         public
         pure
+        virtual
         override
         returns (bytes memory)
     {
-        return LibProposedEventEncoder.encode(_proposal, _derivation, _coreState);
+        return LibProposedEventEncoder.encode(_payload);
     }
 
-    /// @dev Encodes the proved event data for gas optimization using compact encoding
-    /// @param _claimRecord The claim record to encode
+    /// @dev Encodes the proved event data
+    /// @param _payload The ProvedEventPayload object
     /// @return The encoded data
-    function encodeProveEventData(ClaimRecord memory _claimRecord)
+    function encodeProvedEventData(ProvedEventPayload memory _payload)
         public
         pure
+        virtual
         override
         returns (bytes memory)
     {
-        return LibProvedEventEncoder.encode(_claimRecord);
+        return LibProvedEventEncoder.encode(_payload);
     }
 }

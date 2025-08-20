@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "contracts/layer1/shasta/impl/InboxOptimized3.sol";
+import "contracts/layer1/shasta/impl/InboxOptimized1.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
 import "./ITestInbox.sol";
 
-/// @title TestInboxOptimized3
-/// @notice Concrete implementation of InboxOptimized3 for testing
+/// @title TestInboxOptimized1
+/// @notice Concrete implementation of InboxOptimized1 for testing
 /// @custom:security-contact security@taiko.xyz
-contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
+contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
     IInbox.Config private testConfig;
     bool private configSet;
     mapping(uint256 => bytes32) private mockBlobHashes;
     bool private useMockBlobHashes;
+    // Storage to track endBlockMiniHeader for test purposes
+    mapping(uint48 => IInbox.BlockMiniHeader) public testEndBlockMiniHeaders;
 
-    constructor() InboxOptimized3() { }
+    constructor() InboxOptimized1() { }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;
@@ -68,11 +70,30 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
 
     function exposed_setClaimRecordHash(
         uint48 _proposalId,
-        bytes32 _parentClaimHash,
-        bytes32 _claimRecordHash
+        IInbox.Claim memory _claim,
+        IInbox.ClaimRecord memory _claimRecord
     )
         external
     {
-        _setClaimRecordHash(testConfig, _proposalId, _parentClaimHash, _claimRecordHash);
+        _setClaimRecordHash(testConfig, _proposalId, _claim, _claimRecord);
+    }
+
+    // Function to store endBlockMiniHeader for test purposes
+    function storeEndBlockMiniHeader(
+        uint48 _proposalId,
+        IInbox.BlockMiniHeader memory _header
+    )
+        external
+    {
+        testEndBlockMiniHeaders[_proposalId] = _header;
+    }
+
+    // Helper function to get the stored endBlockMiniHeader
+    function getStoredEndBlockMiniHeader(uint48 _proposalId)
+        external
+        view
+        returns (IInbox.BlockMiniHeader memory)
+    {
+        return testEndBlockMiniHeaders[_proposalId];
     }
 }

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "./Inbox.sol";
 import { InboxOptimized2 } from "./InboxOptimized2.sol";
-import { LibProposeDataDecoder } from "../libs/LibProposeDataDecoder.sol";
-import { LibProveDataDecoder } from "../libs/LibProveDataDecoder.sol";
-import { LibBlobs } from "../libs/LibBlobs.sol";
+import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
+import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
+import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
+import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
 /// @title InboxOptimized3
 /// @notice Inbox optimized, on top of InboxOptimized2, to lower calldata cost.
@@ -27,71 +27,63 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes the propose data into bytes format.
-    /// @param _deadline The deadline for the proposal.
-    /// @param _coreState The core state of the proposal.
-    /// @param _proposals The array of proposals.
-    /// @param _blobReference The blob reference associated with the proposal.
-    /// @param _claimRecords The array of claim records.
-    /// @return Encoded bytes of the propose data.
-    function encodeProposeData(
-        uint48 _deadline,
-        CoreState memory _coreState,
-        Proposal[] memory _proposals,
-        LibBlobs.BlobReference memory _blobReference,
-        ClaimRecord[] memory _claimRecords
-    )
+    /// @notice Encodes ProposeInput into a byte array
+    /// @param _input The decoded ProposeInput struct containing all proposal data
+    function encodeProposeInput(ProposeInput memory _input) external pure returns (bytes memory) {
+        return LibProposeInputDecoder.encode(_input);
+    }
+
+    /// @notice Encodes ProveInput into a byte array
+    /// @param _input The decoded ProveInput struct containing proposals and claims
+    function encodeProveInput(ProveInput memory _input) external pure returns (bytes memory) {
+        return LibProveInputDecoder.encode(_input);
+    }
+
+    /// @notice Encodes ProposedEventPayload into a byte array
+    /// @param _payload The decoded ProposedEventPayload struct
+    function encodeProposedEventPayload(ProposedEventPayload memory _payload)
         external
         pure
         returns (bytes memory)
     {
-        return LibProposeDataDecoder.encode(
-            _deadline, _coreState, _proposals, _blobReference, _claimRecords
-        );
+        return LibProposedEventEncoder.encode(_payload);
     }
 
-    /// @notice Encodes the prove data into bytes format.
-    /// @param _proposals The array of proposals.
-    /// @param _claims The array of claims.
-    /// @return Encoded bytes of the prove data.
-    function encodeProveData(
-        Proposal[] memory _proposals,
-        Claim[] memory _claims
-    )
+    /// @notice Encodes ProvedEventPayload into a byte array
+    /// @param _payload The decoded ProvedEventPayload struct
+    function encodeProvedEventPayload(ProvedEventPayload memory _payload)
         external
         pure
         returns (bytes memory)
     {
-        return LibProveDataDecoder.encode(_proposals, _claims);
+        return LibProvedEventEncoder.encode(_payload);
     }
 
     // ---------------------------------------------------------------
-    // Public Functions
+    // Public Functions - Overrides
     // ---------------------------------------------------------------
 
-    /// @inheritdoc Inbox
-    function decodeProposeData(bytes calldata _data)
+    /// @notice Decodes proposal input data using optimized decoder
+    /// @param _data The encoded data
+    /// @return _ The decoded ProposeInput struct containing all proposal data
+    function decodeProposeInput(bytes calldata _data)
         public
         pure
         override
-        returns (
-            uint48 deadline_,
-            CoreState memory coreState_,
-            Proposal[] memory proposals_,
-            LibBlobs.BlobReference memory blobReference_,
-            ClaimRecord[] memory claimRecords_
-        )
+        returns (ProposeInput memory)
     {
-        return LibProposeDataDecoder.decode(_data);
+        return LibProposeInputDecoder.decode(_data);
     }
 
-    /// @inheritdoc Inbox
-    function decodeProveData(bytes calldata _data)
+    /// @notice Decodes prove input data using optimized decoder
+    /// @param _data The encoded data
+    /// @return The decoded ProveInput struct containing proposals and claims
+    function decodeProveInput(bytes calldata _data)
         public
         pure
         override
-        returns (Proposal[] memory proposals_, Claim[] memory claims_)
+        returns (ProveInput memory)
     {
-        return LibProveDataDecoder.decode(_data);
+        return LibProveInputDecoder.decode(_data);
     }
 }

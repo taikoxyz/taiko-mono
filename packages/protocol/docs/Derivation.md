@@ -195,7 +195,6 @@ Timestamp validation is performed collectively across all blocks and may result 
 1. **Upper bound enforcement**: If `metadata.timestamp > proposal.timestamp`, set `metadata.timestamp = proposal.timestamp`
 2. **Lower bound calculation**: `lowerBound = max(parent.metadata.timestamp + 1, proposal.timestamp - TIMESTAMP_MAX_OFFSET)`
 3. **Lower bound enforcement**: If `metadata.timestamp < lowerBound`, set `metadata.timestamp = lowerBound`
-4. **Block pruning**: If `metadata.timestamp > proposal.timestamp` after adjustments, discard this and all subsequent blocks
 
 #### `anchorBlockNumber` Validation
 

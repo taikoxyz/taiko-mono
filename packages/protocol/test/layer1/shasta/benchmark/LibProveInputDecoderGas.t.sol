@@ -4,16 +4,16 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibProveDataDecoder } from "contracts/layer1/shasta/libs/LibProveDataDecoder.sol";
+import { LibProveInputDecoder } from "contracts/layer1/shasta/libs/LibProveInputDecoder.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 
-/// @title LibProveDataDecoderGas
-/// @notice Gas comparison between optimized LibProveDataDecoder and abi.encode/decode
+/// @title LibProveInputDecoderGas
+/// @notice Gas comparison between optimized LibProveInputDecoder and abi.encode/decode
 /// @dev Measures both execution gas and calldata gas costs
 /// @custom:security-contact security@taiko.xyz
-contract LibProveDataDecoderGas is Test {
+contract LibProveInputDecoderGas is Test {
     function test_gas_comparison_decoding() public {
-        console2.log("\nGas Comparison: abi.decode vs LibProveDataDecoder.decode");
+        console2.log("\nGas Comparison: abi.decode vs LibProveInputDecoder.decode");
         console2.log("======================================================\n");
 
         // Test with different combinations
@@ -27,36 +27,36 @@ contract LibProveDataDecoderGas is Test {
 
     function test_gas_snapshots() public view {
         // Test 1: Simple case
-        (IInbox.Proposal[] memory proposals1, IInbox.Claim[] memory claims1) = _createTestData(1, 0);
+        IInbox.ProveInput memory input1 = _createTestData(1, 0);
 
         uint256 gasStart = gasleft();
-        bytes memory encoded1 = LibProveDataDecoder.encode(proposals1, claims1);
+        bytes memory encoded1 = LibProveInputDecoder.encode(input1);
         uint256 encodeGas1 = gasStart - gasleft();
 
         gasStart = gasleft();
-        LibProveDataDecoder.decode(encoded1);
+        LibProveInputDecoder.decode(encoded1);
         uint256 decodeGas1 = gasStart - gasleft();
 
         // Test 3: Medium case
-        (IInbox.Proposal[] memory proposals3, IInbox.Claim[] memory claims3) = _createTestData(3, 2);
+        IInbox.ProveInput memory input3 = _createTestData(3, 2);
 
         gasStart = gasleft();
-        bytes memory encoded3 = LibProveDataDecoder.encode(proposals3, claims3);
+        bytes memory encoded3 = LibProveInputDecoder.encode(input3);
         uint256 encodeGas3 = gasStart - gasleft();
 
         gasStart = gasleft();
-        LibProveDataDecoder.decode(encoded3);
+        LibProveInputDecoder.decode(encoded3);
         uint256 decodeGas3 = gasStart - gasleft();
 
         // Test 5: Large case
-        (IInbox.Proposal[] memory proposals5, IInbox.Claim[] memory claims5) = _createTestData(5, 3);
+        IInbox.ProveInput memory input5 = _createTestData(5, 3);
 
         gasStart = gasleft();
-        bytes memory encoded5 = LibProveDataDecoder.encode(proposals5, claims5);
+        bytes memory encoded5 = LibProveInputDecoder.encode(input5);
         uint256 encodeGas5 = gasStart - gasleft();
 
         gasStart = gasleft();
-        LibProveDataDecoder.decode(encoded5);
+        LibProveInputDecoder.decode(encoded5);
         uint256 decodeGas5 = gasStart - gasleft();
 
         // Manual gas logging instead of snapshots for library functions
@@ -73,12 +73,11 @@ contract LibProveDataDecoderGas is Test {
         uint256 blobHashCount =
             _proposalCount == 1 ? 0 : (_proposalCount <= 3 ? 2 : (_proposalCount <= 5 ? 3 : 4));
 
-        (IInbox.Proposal[] memory proposals, IInbox.Claim[] memory claims) =
-            _createTestData(_proposalCount, blobHashCount);
+        IInbox.ProveInput memory input = _createTestData(_proposalCount, blobHashCount);
 
         // Prepare encoded data
-        bytes memory abiEncoded = abi.encode(proposals, claims);
-        bytes memory libEncoded = LibProveDataDecoder.encode(proposals, claims);
+        bytes memory abiEncoded = abi.encode(input);
+        bytes memory libEncoded = LibProveInputDecoder.encode(input);
 
         console2.log(_label);
 
@@ -95,18 +94,20 @@ contract LibProveDataDecoderGas is Test {
 
         // 1. abi.decode
         uint256 gasBefore = gasleft();
-        (IInbox.Proposal[] memory p1, IInbox.Claim[] memory c1) =
-            abi.decode(abiEncoded, (IInbox.Proposal[], IInbox.Claim[]));
+        IInbox.ProveInput memory decoded1 = abi.decode(abiEncoded, (IInbox.ProveInput));
         gasValues[2] = gasBefore - gasleft();
 
-        // 2. LibProveDataDecoder.decode
+        // 2. LibProveInputDecoder.decode
         gasBefore = gasleft();
-        (IInbox.Proposal[] memory p2, IInbox.Claim[] memory c2) =
-            LibProveDataDecoder.decode(libEncoded);
+        IInbox.ProveInput memory decoded2 = LibProveInputDecoder.decode(libEncoded);
         gasValues[3] = gasBefore - gasleft();
 
         // Prevent optimization
-        require(p1.length > 0 && p2.length > 0 && c1.length > 0 && c2.length > 0, "decoded");
+        require(
+            decoded1.proposals.length > 0 && decoded2.proposals.length > 0
+                && decoded1.claims.length > 0 && decoded2.claims.length > 0,
+            "decoded"
+        );
 
         // Display results
         console2.log("  abi.encode + abi.decode:");
@@ -115,7 +116,7 @@ contract LibProveDataDecoderGas is Test {
         console2.log("    Total gas:", gasValues[0] + gasValues[2]);
         console2.log("    Data size:", abiEncoded.length, "bytes");
 
-        console2.log("  LibProveDataDecoder:");
+        console2.log("  LibProveInputDecoder:");
         console2.log("    Calldata gas:", gasValues[1]);
         console2.log("    Decode gas:", gasValues[3]);
         console2.log("    Total gas:", gasValues[1] + gasValues[3]);
@@ -165,16 +166,16 @@ contract LibProveDataDecoderGas is Test {
     )
         private
         pure
-        returns (IInbox.Proposal[] memory proposals, IInbox.Claim[] memory claims)
+        returns (IInbox.ProveInput memory input)
     {
-        proposals = new IInbox.Proposal[](_proposalCount);
+        input.proposals = new IInbox.Proposal[](_proposalCount);
         for (uint256 i = 0; i < _proposalCount; i++) {
             bytes32[] memory blobHashes = new bytes32[](_blobHashCount);
             for (uint256 j = 0; j < _blobHashCount; j++) {
                 blobHashes[j] = keccak256(abi.encodePacked("blob", i, j));
             }
 
-            proposals[i] = IInbox.Proposal({
+            input.proposals[i] = IInbox.Proposal({
                 id: uint48(96 + i),
                 proposer: address(uint160(0x1000 + i)),
                 timestamp: uint48(1_000_000 + i * 10),
@@ -183,14 +184,16 @@ contract LibProveDataDecoderGas is Test {
             });
         }
 
-        claims = new IInbox.Claim[](_proposalCount);
+        input.claims = new IInbox.Claim[](_proposalCount);
         for (uint256 i = 0; i < _proposalCount; i++) {
-            claims[i] = IInbox.Claim({
+            input.claims[i] = IInbox.Claim({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
                 parentClaimHash: keccak256(abi.encodePacked("parent_claim", i)),
-                endBlockNumber: uint48(2_000_000 + i * 10),
-                endBlockHash: keccak256(abi.encodePacked("end_block", i)),
-                endStateRoot: keccak256(abi.encodePacked("end_state", i)),
+                endBlockMiniHeader: IInbox.BlockMiniHeader({
+                    number: uint48(2_000_000 + i * 10),
+                    hash: keccak256(abi.encodePacked("end_block", i)),
+                    stateRoot: keccak256(abi.encodePacked("end_state", i))
+                }),
                 designatedProver: address(uint160(0x2000 + i)),
                 actualProver: address(uint160(0x3000 + i))
             });
@@ -198,10 +201,10 @@ contract LibProveDataDecoderGas is Test {
     }
 
     function _writeReport() private {
-        string memory report = "# LibProveDataDecoder Gas Report\n\n";
+        string memory report = "# LibProveInputDecoder Gas Report\n\n";
         report = string.concat(report, "## Total Cost (Calldata + Decoding)\n\n");
         report = string.concat(
-            report, "| Scenario | abi.encode + abi.decode | LibProveDataDecoder | Savings |\n"
+            report, "| Scenario | abi.encode + abi.decode | LibProveInputDecoder | Savings |\n"
         );
         report = string.concat(
             report, "|----------|-------------------------|--------------------|---------|\n"
@@ -220,6 +223,6 @@ contract LibProveDataDecoderGas is Test {
             report, "**Note**: Gas measurements include both calldata and decode costs\n"
         );
 
-        vm.writeFile("gas-reports/LibProveDataDecoder.md", report);
+        vm.writeFile("gas-reports/LibProveInputDecoder.md", report);
     }
 }

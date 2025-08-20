@@ -12,332 +12,271 @@ import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 contract LibProposedEventEncoderTest is Test {
     function test_encodeDecodeProposedEvent_minimal() public pure {
         // Create minimal proposed event
-        IInbox.Proposal memory originalProposal;
-        originalProposal.id = 1;
-        originalProposal.proposer = address(0x1234567890123456789012345678901234567890);
-        originalProposal.timestamp = 1000;
-        originalProposal.coreStateHash = keccak256("coreState");
-        originalProposal.derivationHash = keccak256("derivation");
+        IInbox.ProposedEventPayload memory original;
 
-        IInbox.Derivation memory originalDerivation;
-        originalDerivation.originBlockNumber = 2000;
-        originalDerivation.originBlockHash = bytes32(uint256(2000));
-        originalDerivation.isForcedInclusion = false;
-        originalDerivation.basefeeSharingPctg = 50;
-        originalDerivation.blobSlice.blobHashes = new bytes32[](0);
-        originalDerivation.blobSlice.offset = 100;
-        originalDerivation.blobSlice.timestamp = 3000;
+        original.proposal.id = 1;
+        original.proposal.proposer = address(0x1234567890123456789012345678901234567890);
+        original.proposal.timestamp = 1000;
+        original.proposal.coreStateHash = keccak256("coreState");
+        original.proposal.derivationHash = keccak256("derivation");
 
-        IInbox.CoreState memory originalCoreState;
-        originalCoreState.nextProposalId = 2;
-        originalCoreState.lastFinalizedProposalId = 0;
-        originalCoreState.lastFinalizedClaimHash = keccak256("lastClaim");
-        originalCoreState.bondInstructionsHash = keccak256("bondInstructions");
+        original.derivation.originBlockNumber = 2000;
+        original.derivation.originBlockHash = bytes32(uint256(2000));
+        original.derivation.isForcedInclusion = false;
+        original.derivation.basefeeSharingPctg = 50;
+        original.derivation.blobSlice.blobHashes = new bytes32[](0);
+        original.derivation.blobSlice.offset = 100;
+        original.derivation.blobSlice.timestamp = 3000;
+
+        original.coreState.nextProposalId = 2;
+        original.coreState.lastFinalizedProposalId = 0;
+        original.coreState.lastFinalizedClaimHash = keccak256("lastClaim");
+        original.coreState.bondInstructionsHash = keccak256("bondInstructions");
 
         // Encode
-        bytes memory encoded =
-            LibProposedEventEncoder.encode(originalProposal, originalDerivation, originalCoreState);
+        bytes memory encoded = LibProposedEventEncoder.encode(original);
 
         // Verify size calculation is correct
         uint256 expectedSize = LibProposedEventEncoder.calculateProposedEventSize(0);
         assertEq(encoded.length, expectedSize);
 
         // Decode
-        (
-            IInbox.Proposal memory decodedProposal,
-            IInbox.Derivation memory decodedDerivation,
-            IInbox.CoreState memory decodedCoreState
-        ) = LibProposedEventEncoder.decode(encoded);
+        IInbox.ProposedEventPayload memory decoded = LibProposedEventEncoder.decode(encoded);
 
         // Verify proposal fields
-        assertEq(decodedProposal.id, originalProposal.id);
-        assertEq(decodedProposal.proposer, originalProposal.proposer);
-        assertEq(decodedProposal.timestamp, originalProposal.timestamp);
-        assertEq(decodedProposal.coreStateHash, originalProposal.coreStateHash);
+        assertEq(decoded.proposal.id, original.proposal.id);
+        assertEq(decoded.proposal.proposer, original.proposal.proposer);
+        assertEq(decoded.proposal.timestamp, original.proposal.timestamp);
+        assertEq(decoded.proposal.coreStateHash, original.proposal.coreStateHash);
         // Note: derivationHash is not preserved by the encoder
 
         // Verify derivation fields
-        assertEq(decodedDerivation.originBlockNumber, originalDerivation.originBlockNumber);
+        assertEq(decoded.derivation.originBlockNumber, original.derivation.originBlockNumber);
         // originBlockHash is not preserved by encoder
-        assertEq(decodedDerivation.isForcedInclusion, originalDerivation.isForcedInclusion);
-        assertEq(decodedDerivation.basefeeSharingPctg, originalDerivation.basefeeSharingPctg);
-        assertEq(decodedDerivation.blobSlice.blobHashes.length, 0);
-        assertEq(decodedDerivation.blobSlice.offset, originalDerivation.blobSlice.offset);
-        assertEq(decodedDerivation.blobSlice.timestamp, originalDerivation.blobSlice.timestamp);
+        assertEq(decoded.derivation.isForcedInclusion, original.derivation.isForcedInclusion);
+        assertEq(decoded.derivation.basefeeSharingPctg, original.derivation.basefeeSharingPctg);
+        assertEq(decoded.derivation.blobSlice.blobHashes.length, 0);
+        assertEq(decoded.derivation.blobSlice.offset, original.derivation.blobSlice.offset);
+        assertEq(decoded.derivation.blobSlice.timestamp, original.derivation.blobSlice.timestamp);
 
         // Verify core state fields
-        assertEq(decodedCoreState.nextProposalId, originalCoreState.nextProposalId);
+        assertEq(decoded.coreState.nextProposalId, original.coreState.nextProposalId);
         assertEq(
-            decodedCoreState.lastFinalizedProposalId, originalCoreState.lastFinalizedProposalId
+            decoded.coreState.lastFinalizedProposalId, original.coreState.lastFinalizedProposalId
         );
-        assertEq(decodedCoreState.lastFinalizedClaimHash, originalCoreState.lastFinalizedClaimHash);
-        assertEq(decodedCoreState.bondInstructionsHash, originalCoreState.bondInstructionsHash);
+        assertEq(
+            decoded.coreState.lastFinalizedClaimHash, original.coreState.lastFinalizedClaimHash
+        );
+        assertEq(decoded.coreState.bondInstructionsHash, original.coreState.bondInstructionsHash);
     }
 
     function test_encodeDecodeProposedEvent_withBlobHashes() public pure {
         // Create proposed event with blob hashes
-        IInbox.Proposal memory originalProposal;
-        originalProposal.id = 12_345;
-        originalProposal.proposer = address(0xabCDEF1234567890ABcDEF1234567890aBCDeF12);
-        originalProposal.timestamp = 999_999;
-        originalProposal.coreStateHash = keccak256("coreStateHash");
-        originalProposal.derivationHash = keccak256("derivationHash");
+        IInbox.ProposedEventPayload memory original;
 
-        IInbox.Derivation memory originalDerivation;
-        originalDerivation.originBlockNumber = 888_888;
-        originalDerivation.originBlockHash = bytes32(uint256(888_888));
-        originalDerivation.isForcedInclusion = true;
-        originalDerivation.basefeeSharingPctg = 75;
+        original.proposal.id = 12_345;
+        original.proposal.proposer = address(0xabCDEF1234567890ABcDEF1234567890aBCDeF12);
+        original.proposal.timestamp = 999_999;
+        original.proposal.coreStateHash = keccak256("coreStateHash");
+        original.proposal.derivationHash = keccak256("derivationHash");
+
+        original.derivation.originBlockNumber = 888_888;
+        original.derivation.originBlockHash = bytes32(uint256(888_888));
+        original.derivation.isForcedInclusion = true;
+        original.derivation.basefeeSharingPctg = 75;
 
         // Add 3 blob hashes
-        originalDerivation.blobSlice.blobHashes = new bytes32[](3);
-        originalDerivation.blobSlice.blobHashes[0] = keccak256("blob1");
-        originalDerivation.blobSlice.blobHashes[1] = keccak256("blob2");
-        originalDerivation.blobSlice.blobHashes[2] = keccak256("blob3");
-        originalDerivation.blobSlice.offset = 65_535; // Max uint24 - 1
-        originalDerivation.blobSlice.timestamp = 777_777;
+        original.derivation.blobSlice.blobHashes = new bytes32[](3);
+        original.derivation.blobSlice.blobHashes[0] = keccak256("blob1");
+        original.derivation.blobSlice.blobHashes[1] = keccak256("blob2");
+        original.derivation.blobSlice.blobHashes[2] = keccak256("blob3");
+        original.derivation.blobSlice.offset = 65_535; // Max uint24 - 1
+        original.derivation.blobSlice.timestamp = 777_777;
 
-        IInbox.CoreState memory originalCoreState;
-        originalCoreState.nextProposalId = 54_321;
-        originalCoreState.lastFinalizedProposalId = 54_320;
-        originalCoreState.lastFinalizedClaimHash = keccak256("finalizedClaim");
-        originalCoreState.bondInstructionsHash = keccak256("bondInstructionsHash");
+        original.coreState.nextProposalId = 54_321;
+        original.coreState.lastFinalizedProposalId = 54_320;
+        original.coreState.lastFinalizedClaimHash = keccak256("finalizedClaim");
+        original.coreState.bondInstructionsHash = keccak256("bondInstructionsHash");
 
         // Encode
-        bytes memory encoded =
-            LibProposedEventEncoder.encode(originalProposal, originalDerivation, originalCoreState);
+        bytes memory encoded = LibProposedEventEncoder.encode(original);
 
         // Verify size calculation is correct
         uint256 expectedSize = LibProposedEventEncoder.calculateProposedEventSize(3);
         assertEq(encoded.length, expectedSize);
 
         // Decode
-        (
-            IInbox.Proposal memory decodedProposal,
-            IInbox.Derivation memory decodedDerivation,
-            IInbox.CoreState memory decodedCoreState
-        ) = LibProposedEventEncoder.decode(encoded);
+        IInbox.ProposedEventPayload memory decoded = LibProposedEventEncoder.decode(encoded);
 
         // Verify proposal fields
-        assertEq(decodedProposal.id, originalProposal.id);
-        assertEq(decodedProposal.proposer, originalProposal.proposer);
-        assertEq(decodedProposal.timestamp, originalProposal.timestamp);
-        assertEq(decodedProposal.coreStateHash, originalProposal.coreStateHash);
+        assertEq(decoded.proposal.id, original.proposal.id);
+        assertEq(decoded.proposal.proposer, original.proposal.proposer);
+        assertEq(decoded.proposal.timestamp, original.proposal.timestamp);
+        assertEq(decoded.proposal.coreStateHash, original.proposal.coreStateHash);
         // Note: derivationHash is not preserved by the encoder
 
         // Verify derivation fields
-        assertEq(decodedDerivation.originBlockNumber, originalDerivation.originBlockNumber);
+        assertEq(decoded.derivation.originBlockNumber, original.derivation.originBlockNumber);
         // originBlockHash is not preserved by encoder
-        assertEq(decodedDerivation.isForcedInclusion, originalDerivation.isForcedInclusion);
-        assertEq(decodedDerivation.basefeeSharingPctg, originalDerivation.basefeeSharingPctg);
-        assertEq(decodedDerivation.blobSlice.blobHashes.length, 3);
+        assertEq(decoded.derivation.isForcedInclusion, original.derivation.isForcedInclusion);
+        assertEq(decoded.derivation.basefeeSharingPctg, original.derivation.basefeeSharingPctg);
+        assertEq(decoded.derivation.blobSlice.blobHashes.length, 3);
         assertEq(
-            decodedDerivation.blobSlice.blobHashes[0], originalDerivation.blobSlice.blobHashes[0]
+            decoded.derivation.blobSlice.blobHashes[0], original.derivation.blobSlice.blobHashes[0]
         );
         assertEq(
-            decodedDerivation.blobSlice.blobHashes[1], originalDerivation.blobSlice.blobHashes[1]
+            decoded.derivation.blobSlice.blobHashes[1], original.derivation.blobSlice.blobHashes[1]
         );
         assertEq(
-            decodedDerivation.blobSlice.blobHashes[2], originalDerivation.blobSlice.blobHashes[2]
+            decoded.derivation.blobSlice.blobHashes[2], original.derivation.blobSlice.blobHashes[2]
         );
-        assertEq(decodedDerivation.blobSlice.offset, originalDerivation.blobSlice.offset);
-        assertEq(decodedDerivation.blobSlice.timestamp, originalDerivation.blobSlice.timestamp);
+        assertEq(decoded.derivation.blobSlice.offset, original.derivation.blobSlice.offset);
+        assertEq(decoded.derivation.blobSlice.timestamp, original.derivation.blobSlice.timestamp);
 
         // Verify core state fields
-        assertEq(decodedCoreState.nextProposalId, originalCoreState.nextProposalId);
+        assertEq(decoded.coreState.nextProposalId, original.coreState.nextProposalId);
         assertEq(
-            decodedCoreState.lastFinalizedProposalId, originalCoreState.lastFinalizedProposalId
+            decoded.coreState.lastFinalizedProposalId, original.coreState.lastFinalizedProposalId
         );
-        assertEq(decodedCoreState.lastFinalizedClaimHash, originalCoreState.lastFinalizedClaimHash);
-        assertEq(decodedCoreState.bondInstructionsHash, originalCoreState.bondInstructionsHash);
+        assertEq(
+            decoded.coreState.lastFinalizedClaimHash, original.coreState.lastFinalizedClaimHash
+        );
+        assertEq(decoded.coreState.bondInstructionsHash, original.coreState.bondInstructionsHash);
     }
 
     function test_encodeDecodeProposedEvent_maxValues() public pure {
-        // Test with maximum values for all uint types
-        IInbox.Proposal memory originalProposal;
-        originalProposal.id = type(uint48).max;
-        originalProposal.proposer = address(type(uint160).max);
-        originalProposal.timestamp = type(uint48).max;
-        originalProposal.coreStateHash = bytes32(type(uint256).max);
-        originalProposal.derivationHash = bytes32(type(uint256).max);
+        // Test with maximum values for various fields
+        IInbox.ProposedEventPayload memory original;
 
-        IInbox.Derivation memory originalDerivation;
-        originalDerivation.originBlockNumber = type(uint48).max;
-        originalDerivation.originBlockHash = bytes32(type(uint256).max);
-        originalDerivation.isForcedInclusion = true;
-        originalDerivation.basefeeSharingPctg = type(uint8).max;
-        originalDerivation.blobSlice.blobHashes = new bytes32[](0);
-        originalDerivation.blobSlice.offset = type(uint24).max;
-        originalDerivation.blobSlice.timestamp = type(uint48).max;
+        original.proposal.id = type(uint48).max;
+        original.proposal.proposer = address(type(uint160).max);
+        original.proposal.timestamp = type(uint48).max;
+        original.proposal.coreStateHash = bytes32(type(uint256).max);
+        original.proposal.derivationHash = bytes32(type(uint256).max);
 
-        IInbox.CoreState memory originalCoreState;
-        originalCoreState.nextProposalId = type(uint48).max;
-        originalCoreState.lastFinalizedProposalId = type(uint48).max;
-        originalCoreState.lastFinalizedClaimHash = bytes32(type(uint256).max);
-        originalCoreState.bondInstructionsHash = bytes32(type(uint256).max);
+        original.derivation.originBlockNumber = type(uint48).max;
+        original.derivation.originBlockHash = bytes32(type(uint256).max);
+        original.derivation.isForcedInclusion = true;
+        original.derivation.basefeeSharingPctg = type(uint8).max;
 
-        // Encode
-        bytes memory encoded =
-            LibProposedEventEncoder.encode(originalProposal, originalDerivation, originalCoreState);
+        // Add blob hashes
+        original.derivation.blobSlice.blobHashes = new bytes32[](1);
+        original.derivation.blobSlice.blobHashes[0] = bytes32(type(uint256).max);
+        original.derivation.blobSlice.offset = type(uint24).max;
+        original.derivation.blobSlice.timestamp = type(uint48).max;
 
-        // Decode
-        (
-            IInbox.Proposal memory decodedProposal,
-            IInbox.Derivation memory decodedDerivation,
-            IInbox.CoreState memory decodedCoreState
-        ) = LibProposedEventEncoder.decode(encoded);
-
-        // Verify all max values are preserved
-        assertEq(decodedProposal.id, type(uint48).max);
-        assertEq(decodedProposal.proposer, address(type(uint160).max));
-        assertEq(decodedProposal.timestamp, type(uint48).max);
-        assertEq(decodedProposal.coreStateHash, bytes32(type(uint256).max));
-        // derivationHash is not preserved
-        assertEq(decodedDerivation.originBlockNumber, type(uint48).max);
-        // originBlockHash is not preserved by encoder
-        assertEq(decodedDerivation.isForcedInclusion, true);
-        assertEq(decodedDerivation.basefeeSharingPctg, type(uint8).max);
-        assertEq(decodedDerivation.blobSlice.offset, type(uint24).max);
-        assertEq(decodedDerivation.blobSlice.timestamp, type(uint48).max);
-        assertEq(decodedCoreState.nextProposalId, type(uint48).max);
-        assertEq(decodedCoreState.lastFinalizedProposalId, type(uint48).max);
-        assertEq(decodedCoreState.lastFinalizedClaimHash, bytes32(type(uint256).max));
-        assertEq(decodedCoreState.bondInstructionsHash, bytes32(type(uint256).max));
-    }
-
-    function test_calculateProposedEventSize() public pure {
-        // Test size calculation for different blob hash counts
-        uint256 sizeWith0Hashes = LibProposedEventEncoder.calculateProposedEventSize(0);
-        uint256 sizeWith1Hash = LibProposedEventEncoder.calculateProposedEventSize(1);
-        uint256 sizeWith10Hashes = LibProposedEventEncoder.calculateProposedEventSize(10);
-
-        // Each blob hash is 32 bytes
-        assertEq(sizeWith1Hash - sizeWith0Hashes, 32);
-        assertEq(sizeWith10Hashes - sizeWith0Hashes, 320);
-
-        // Verify actual encoding matches calculated size
-        for (uint256 i = 0; i <= 5; i++) {
-            IInbox.Proposal memory proposal;
-            IInbox.Derivation memory derivation;
-            derivation.blobSlice.blobHashes = new bytes32[](i);
-            for (uint256 j = 0; j < i; j++) {
-                derivation.blobSlice.blobHashes[j] = keccak256(abi.encode(j));
-            }
-            IInbox.CoreState memory coreState;
-
-            bytes memory encoded = LibProposedEventEncoder.encode(proposal, derivation, coreState);
-            uint256 expectedSize = LibProposedEventEncoder.calculateProposedEventSize(i);
-
-            assertEq(encoded.length, expectedSize);
-        }
-    }
-
-    function test_encodeDecodeProposedEvent_largeBlobArray() public pure {
-        // Test with a large blob array (50 blobs)
-        uint256 blobCount = 50;
-
-        IInbox.Proposal memory originalProposal;
-        originalProposal.id = 999;
-        originalProposal.proposer = address(0x123);
-        originalProposal.timestamp = 12_345;
-        originalProposal.coreStateHash = keccak256("core");
-        originalProposal.derivationHash = keccak256("deriv");
-
-        IInbox.Derivation memory originalDerivation;
-        originalDerivation.originBlockNumber = 5000;
-        originalDerivation.originBlockHash = bytes32(uint256(5000));
-        originalDerivation.isForcedInclusion = false;
-        originalDerivation.basefeeSharingPctg = 10;
-        originalDerivation.blobSlice.blobHashes = new bytes32[](blobCount);
-        for (uint256 i = 0; i < blobCount; i++) {
-            originalDerivation.blobSlice.blobHashes[i] = keccak256(abi.encode("blob", i));
-        }
-        originalDerivation.blobSlice.offset = 2048;
-        originalDerivation.blobSlice.timestamp = 67_890;
-
-        IInbox.CoreState memory originalCoreState;
-        originalCoreState.nextProposalId = 1000;
-        originalCoreState.lastFinalizedProposalId = 998;
-        originalCoreState.lastFinalizedClaimHash = keccak256("lastFinalized");
-        originalCoreState.bondInstructionsHash = keccak256("bonds");
-
-        // Encode
-        bytes memory encoded =
-            LibProposedEventEncoder.encode(originalProposal, originalDerivation, originalCoreState);
-
-        // Verify size
-        uint256 expectedSize = LibProposedEventEncoder.calculateProposedEventSize(blobCount);
-        assertEq(encoded.length, expectedSize);
-
-        // Decode
-        (, IInbox.Derivation memory decodedDerivation,) = LibProposedEventEncoder.decode(encoded);
-
-        // Verify all blob hashes
-        assertEq(decodedDerivation.blobSlice.blobHashes.length, blobCount);
-        for (uint256 i = 0; i < blobCount; i++) {
-            assertEq(
-                decodedDerivation.blobSlice.blobHashes[i],
-                originalDerivation.blobSlice.blobHashes[i]
-            );
-        }
-    }
-
-    function test_encodeDecodeProposedEvent_zeroAddress() public pure {
-        // Test with zero address proposer
-        IInbox.Proposal memory originalProposal;
-        originalProposal.proposer = address(0);
-
-        IInbox.Derivation memory originalDerivation;
-        originalDerivation.blobSlice.blobHashes = new bytes32[](0);
-
-        IInbox.CoreState memory originalCoreState;
+        original.coreState.nextProposalId = type(uint48).max;
+        original.coreState.lastFinalizedProposalId = type(uint48).max;
+        original.coreState.lastFinalizedClaimHash = bytes32(type(uint256).max);
+        original.coreState.bondInstructionsHash = bytes32(type(uint256).max);
 
         // Encode and decode
-        bytes memory encoded =
-            LibProposedEventEncoder.encode(originalProposal, originalDerivation, originalCoreState);
-        (IInbox.Proposal memory decodedProposal,,) = LibProposedEventEncoder.decode(encoded);
+        bytes memory encoded = LibProposedEventEncoder.encode(original);
+        IInbox.ProposedEventPayload memory decoded = LibProposedEventEncoder.decode(encoded);
 
-        // Verify zero address is preserved
-        assertEq(decodedProposal.proposer, address(0));
+        // Verify all max values are preserved
+        assertEq(decoded.proposal.id, type(uint48).max);
+        assertEq(decoded.proposal.proposer, address(type(uint160).max));
+        assertEq(decoded.proposal.timestamp, type(uint48).max);
+        assertEq(decoded.proposal.coreStateHash, bytes32(type(uint256).max));
+        assertEq(decoded.derivation.originBlockNumber, type(uint48).max);
+        assertEq(decoded.derivation.isForcedInclusion, true);
+        assertEq(decoded.derivation.basefeeSharingPctg, type(uint8).max);
+        assertEq(decoded.derivation.blobSlice.blobHashes[0], bytes32(type(uint256).max));
+        assertEq(decoded.derivation.blobSlice.offset, type(uint24).max);
+        assertEq(decoded.derivation.blobSlice.timestamp, type(uint48).max);
+        assertEq(decoded.coreState.nextProposalId, type(uint48).max);
+        assertEq(decoded.coreState.lastFinalizedProposalId, type(uint48).max);
+        assertEq(decoded.coreState.lastFinalizedClaimHash, bytes32(type(uint256).max));
+        assertEq(decoded.coreState.bondInstructionsHash, bytes32(type(uint256).max));
     }
 
-    function test_encodeDecodeProposedEvent_differentFieldCombinations() public pure {
-        // Test various field combinations
+    function test_encodeDecodeProposedEvent_zeroValues() public pure {
+        // Test with zero/minimum values
+        IInbox.ProposedEventPayload memory original;
 
-        // Case 1: Zero proposal ID with max core state
-        IInbox.Proposal memory proposal1;
-        proposal1.id = 0;
+        original.proposal.id = 0;
+        original.proposal.proposer = address(0);
+        original.proposal.timestamp = 0;
+        original.proposal.coreStateHash = bytes32(0);
+        original.proposal.derivationHash = bytes32(0);
 
-        IInbox.Derivation memory derivation1;
-        derivation1.blobSlice.blobHashes = new bytes32[](0);
+        original.derivation.originBlockNumber = 0;
+        original.derivation.originBlockHash = bytes32(0);
+        original.derivation.isForcedInclusion = false;
+        original.derivation.basefeeSharingPctg = 0;
+        original.derivation.blobSlice.blobHashes = new bytes32[](0);
+        original.derivation.blobSlice.offset = 0;
+        original.derivation.blobSlice.timestamp = 0;
 
-        IInbox.CoreState memory coreState1;
-        coreState1.nextProposalId = type(uint48).max;
-        coreState1.lastFinalizedProposalId = type(uint48).max;
+        original.coreState.nextProposalId = 0;
+        original.coreState.lastFinalizedProposalId = 0;
+        original.coreState.lastFinalizedClaimHash = bytes32(0);
+        original.coreState.bondInstructionsHash = bytes32(0);
 
-        bytes memory encoded1 = LibProposedEventEncoder.encode(proposal1, derivation1, coreState1);
-        (IInbox.Proposal memory decoded1,, IInbox.CoreState memory decodedCS1) =
-            LibProposedEventEncoder.decode(encoded1);
+        // Encode and decode
+        bytes memory encoded = LibProposedEventEncoder.encode(original);
+        IInbox.ProposedEventPayload memory decoded = LibProposedEventEncoder.decode(encoded);
 
-        assertEq(decoded1.id, 0);
-        assertEq(decodedCS1.nextProposalId, type(uint48).max);
-        assertEq(decodedCS1.lastFinalizedProposalId, type(uint48).max);
+        // Verify all zero values are preserved
+        assertEq(decoded.proposal.id, 0);
+        assertEq(decoded.proposal.proposer, address(0));
+        assertEq(decoded.proposal.timestamp, 0);
+        assertEq(decoded.proposal.coreStateHash, bytes32(0));
+        assertEq(decoded.derivation.originBlockNumber, 0);
+        assertEq(decoded.derivation.isForcedInclusion, false);
+        assertEq(decoded.derivation.basefeeSharingPctg, 0);
+        assertEq(decoded.derivation.blobSlice.blobHashes.length, 0);
+        assertEq(decoded.derivation.blobSlice.offset, 0);
+        assertEq(decoded.derivation.blobSlice.timestamp, 0);
+        assertEq(decoded.coreState.nextProposalId, 0);
+        assertEq(decoded.coreState.lastFinalizedProposalId, 0);
+        assertEq(decoded.coreState.lastFinalizedClaimHash, bytes32(0));
+        assertEq(decoded.coreState.bondInstructionsHash, bytes32(0));
+    }
 
-        // Case 2: Max proposal ID with zero core state
-        IInbox.Proposal memory proposal2;
-        proposal2.id = type(uint48).max;
+    function test_encodeProposedEvent_gasEfficiency() public {
+        // Compare gas usage with ABI encoding
+        IInbox.ProposedEventPayload memory payload;
 
-        IInbox.Derivation memory derivation2;
-        derivation2.blobSlice.blobHashes = new bytes32[](0);
+        payload.proposal.id = 123;
+        payload.proposal.proposer = address(0x1234);
+        payload.proposal.timestamp = 1_000_000;
+        payload.proposal.coreStateHash = keccak256("core");
+        payload.proposal.derivationHash = keccak256("deriv");
 
-        IInbox.CoreState memory coreState2;
+        payload.derivation.originBlockNumber = 5_000_000;
+        payload.derivation.originBlockHash = keccak256("origin");
+        payload.derivation.isForcedInclusion = false;
+        payload.derivation.basefeeSharingPctg = 50;
+        payload.derivation.blobSlice.blobHashes = new bytes32[](2);
+        payload.derivation.blobSlice.blobHashes[0] = keccak256("blob1");
+        payload.derivation.blobSlice.blobHashes[1] = keccak256("blob2");
+        payload.derivation.blobSlice.offset = 1024;
+        payload.derivation.blobSlice.timestamp = 1_000_001;
 
-        bytes memory encoded2 = LibProposedEventEncoder.encode(proposal2, derivation2, coreState2);
-        (IInbox.Proposal memory decoded2,, IInbox.CoreState memory decodedCS2) =
-            LibProposedEventEncoder.decode(encoded2);
+        payload.coreState.nextProposalId = 124;
+        payload.coreState.lastFinalizedProposalId = 120;
+        payload.coreState.lastFinalizedClaimHash = keccak256("finalized");
+        payload.coreState.bondInstructionsHash = keccak256("bonds");
 
-        assertEq(decoded2.id, type(uint48).max);
-        assertEq(decodedCS2.nextProposalId, 0);
-        assertEq(decodedCS2.lastFinalizedProposalId, 0);
+        // Measure encoding gas
+        uint256 gasStart = gasleft();
+        bytes memory encoded = LibProposedEventEncoder.encode(payload);
+        uint256 compactGas = gasStart - gasleft();
+
+        // Measure ABI encoding gas
+        gasStart = gasleft();
+        bytes memory abiEncoded = abi.encode(payload);
+        uint256 abiGas = gasStart - gasleft();
+
+        // Log results
+        emit log_named_uint("Compact encoding gas", compactGas);
+        emit log_named_uint("ABI encoding gas", abiGas);
+        emit log_named_uint("Compact encoded size", encoded.length);
+        emit log_named_uint("ABI encoded size", abiEncoded.length);
+
+        // Compact encoding should be more efficient in size
+        assertLt(encoded.length, abiEncoded.length);
     }
 }

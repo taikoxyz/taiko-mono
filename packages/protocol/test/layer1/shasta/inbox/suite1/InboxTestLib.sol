@@ -230,9 +230,11 @@ library InboxTestLib {
         return IInbox.Claim({
             proposalHash: hashProposal(_proposal),
             parentClaimHash: _parentClaimHash,
-            endBlockNumber: _proposal.id * 100,
-            endBlockHash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
-            endStateRoot: keccak256(abi.encode(_proposal.id, "stateRoot")),
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: _proposal.id * 100,
+                hash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
+                stateRoot: keccak256(abi.encode(_proposal.id, "stateRoot"))
+            }),
             designatedProver: _proposal.proposer,
             actualProver: _actualProver
         });
@@ -255,9 +257,11 @@ library InboxTestLib {
         return IInbox.Claim({
             proposalHash: _proposalHash,
             parentClaimHash: _parentClaimHash,
-            endBlockNumber: _endBlockNumber,
-            endBlockHash: _endBlockHash,
-            endStateRoot: _endStateRoot,
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: _endBlockNumber,
+                hash: _endBlockHash,
+                stateRoot: _endStateRoot
+            }),
             designatedProver: _designatedProver,
             actualProver: _actualProver
         });
@@ -288,7 +292,6 @@ library InboxTestLib {
 
     /// @dev Creates a claim record without bond instructions
     function createClaimRecord(
-        uint48 _proposalId,
         IInbox.Claim memory _claim,
         uint8 _span
     )
@@ -297,16 +300,15 @@ library InboxTestLib {
         returns (IInbox.ClaimRecord memory)
     {
         return IInbox.ClaimRecord({
-            proposalId: _proposalId,
-            claim: _claim,
             span: _span,
-            bondInstructions: new LibBonds.BondInstruction[](0)
+            bondInstructions: new LibBonds.BondInstruction[](0),
+            claimHash: hashClaim(_claim),
+            endBlockMiniHeaderHash: keccak256(abi.encode(_claim.endBlockMiniHeader))
         });
     }
 
     /// @dev Creates a claim record with bond instructions
     function createClaimRecordWithBonds(
-        uint48 _proposalId,
         IInbox.Claim memory _claim,
         uint8 _span,
         LibBonds.BondInstruction[] memory _bondInstructions
@@ -316,16 +318,15 @@ library InboxTestLib {
         returns (IInbox.ClaimRecord memory)
     {
         return IInbox.ClaimRecord({
-            proposalId: _proposalId,
-            claim: _claim,
             span: _span,
-            bondInstructions: _bondInstructions
+            bondInstructions: _bondInstructions,
+            claimHash: hashClaim(_claim),
+            endBlockMiniHeaderHash: keccak256(abi.encode(_claim.endBlockMiniHeader))
         });
     }
 
     /// @dev Creates multiple claim records in batch
     function createClaimRecordBatch(
-        uint48 _startProposalId,
         IInbox.Claim[] memory _claims,
         uint8 _span
     )
@@ -335,7 +336,7 @@ library InboxTestLib {
     {
         records = new IInbox.ClaimRecord[](_claims.length);
         for (uint256 i = 0; i < _claims.length; i++) {
-            records[i] = createClaimRecord(_startProposalId + uint48(i), _claims[i], _span);
+            records[i] = createClaimRecord(_claims[i], _span);
         }
     }
 
@@ -373,10 +374,10 @@ library InboxTestLib {
     // Data Encoding - Simplified Interface
     // ---------------------------------------------------------------
 
-    /// @dev Encodes proposal data with default deadline and empty proposals array
+    /// @dev Encodes propose input with default deadline and empty proposals array
     /// @notice LEGACY: Kept for backward compatibility but may cause failures in actual propose()
     /// calls
-    function encodeProposalData(
+    function encodeProposeInput(
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
         IInbox.ClaimRecord[] memory _claimRecords
@@ -385,15 +386,15 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        return _encodeProposalDataInternal(
+        return _encodeProposeInputInternal(
             uint48(0), _coreState, new IInbox.Proposal[](0), _blobRef, _claimRecords
         );
     }
 
-    /// @dev Encodes proposal data with custom deadline and empty proposals array
+    /// @dev Encodes propose input with custom deadline and empty proposals array
     /// @notice LEGACY: Kept for backward compatibility but may cause failures in actual propose()
     /// calls
-    function encodeProposalData(
+    function encodeProposeInput(
         uint64 _deadline,
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
@@ -403,13 +404,13 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        return _encodeProposalDataInternal(
+        return _encodeProposeInputInternal(
             _deadline, _coreState, new IInbox.Proposal[](0), _blobRef, _claimRecords
         );
     }
 
     /// @dev Internal encoding function to reduce duplication
-    function _encodeProposalDataInternal(
+    function _encodeProposeInputInternal(
         uint64 _deadline,
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
@@ -423,8 +424,8 @@ library InboxTestLib {
         return abi.encode(_deadline, _coreState, _proposals, _blobRef, _claimRecords);
     }
 
-    /// @dev Encodes proposal data for the first proposal after genesis (with validation)
-    function encodeProposalDataWithGenesis(
+    /// @dev Encodes propose input for the first proposal after genesis (with validation)
+    function encodeProposeInputWithGenesis(
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
         IInbox.ClaimRecord[] memory _claimRecords
@@ -433,11 +434,11 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        return encodeProposalDataWithGenesis(uint48(0), _coreState, _blobRef, _claimRecords);
+        return encodeProposeInputWithGenesis(uint48(0), _coreState, _blobRef, _claimRecords);
     }
 
-    /// @dev Encodes proposal data for the first proposal after genesis with custom deadline
-    function encodeProposalDataWithGenesis(
+    /// @dev Encodes propose input for the first proposal after genesis with custom deadline
+    function encodeProposeInputWithGenesis(
         uint64 _deadline,
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
@@ -450,11 +451,11 @@ library InboxTestLib {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = createGenesisProposal(_coreState);
         return
-            _encodeProposalDataInternal(_deadline, _coreState, proposals, _blobRef, _claimRecords);
+            _encodeProposeInputInternal(_deadline, _coreState, proposals, _blobRef, _claimRecords);
     }
 
-    /// @dev Encodes proposal data with specific proposals for validation
-    function encodeProposalDataWithProposals(
+    /// @dev Encodes propose input with specific proposals for validation
+    function encodeProposeInputWithProposals(
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
@@ -465,11 +466,11 @@ library InboxTestLib {
         returns (bytes memory)
     {
         return
-            _encodeProposalDataInternal(uint48(0), _coreState, _proposals, _blobRef, _claimRecords);
+            _encodeProposeInputInternal(uint48(0), _coreState, _proposals, _blobRef, _claimRecords);
     }
 
-    /// @dev Encodes proposal data with deadline and specific proposals for validation
-    function encodeProposalDataWithProposals(
+    /// @dev Encodes propose input with deadline and specific proposals for validation
+    function encodeProposeInputWithProposals(
         uint64 _deadline,
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
@@ -481,11 +482,11 @@ library InboxTestLib {
         returns (bytes memory)
     {
         return
-            _encodeProposalDataInternal(_deadline, _coreState, _proposals, _blobRef, _claimRecords);
+            _encodeProposeInputInternal(_deadline, _coreState, _proposals, _blobRef, _claimRecords);
     }
 
-    /// @dev Encodes prove data
-    function encodeProveData(
+    /// @dev Encodes prove input
+    function encodeProveInput(
         IInbox.Proposal[] memory _proposals,
         IInbox.Claim[] memory _claims
     )
@@ -555,7 +556,7 @@ library InboxTestLib {
 
     /// @dev Creates the genesis proposal (proposal id=0) that gets stored during contract
     /// initialization
-    function createGenesisProposal(IInbox.CoreState memory)
+    function createGenesisProposal(IInbox.CoreState memory _coreState)
         internal
         pure
         returns (IInbox.Proposal memory)
@@ -567,18 +568,8 @@ library InboxTestLib {
         proposal.proposer = address(0);
         proposal.timestamp = 0;
 
-        // Recreate the exact core state as it was during initialization
-        // This is what was used to calculate the coreStateHash in the genesis proposal
-        IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockHash = bytes32(uint256(1)); // GENESIS_BLOCK_HASH from test
-
-        IInbox.CoreState memory genesisCoreState;
-        genesisCoreState.nextProposalId = 1;
-        genesisCoreState.lastFinalizedProposalId = 0; // default value
-        genesisCoreState.lastFinalizedClaimHash = keccak256(abi.encode(genesisClaim));
-        genesisCoreState.bondInstructionsHash = bytes32(0); // default value
-
-        proposal.coreStateHash = keccak256(abi.encode(genesisCoreState));
+        // Use the passed core state to calculate the coreStateHash
+        proposal.coreStateHash = keccak256(abi.encode(_coreState));
 
         // Hash of empty derivation (matching what init() does)
         IInbox.Derivation memory emptyDerivation;
@@ -587,8 +578,8 @@ library InboxTestLib {
         return proposal;
     }
 
-    /// @dev Encodes proposal data for subsequent proposals (after the first one)
-    function encodeProposalDataForSubsequent(
+    /// @dev Encodes propose input for subsequent proposals (after the first one)
+    function encodeProposeInputForSubsequent(
         IInbox.CoreState memory _coreState,
         IInbox.Proposal memory _previousProposal,
         LibBlobs.BlobReference memory _blobRef,
@@ -598,13 +589,13 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        return encodeProposalDataForSubsequent(
+        return encodeProposeInputForSubsequent(
             uint48(0), _coreState, _previousProposal, _blobRef, _claimRecords
         );
     }
 
-    /// @dev Encodes proposal data for subsequent proposals with custom deadline
-    function encodeProposalDataForSubsequent(
+    /// @dev Encodes propose input for subsequent proposals with custom deadline
+    function encodeProposeInputForSubsequent(
         uint64 _deadline,
         IInbox.CoreState memory _coreState,
         IInbox.Proposal memory _previousProposal,
@@ -618,12 +609,12 @@ library InboxTestLib {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = _previousProposal;
         return
-            _encodeProposalDataInternal(_deadline, _coreState, proposals, _blobRef, _claimRecords);
+            _encodeProposeInputInternal(_deadline, _coreState, proposals, _blobRef, _claimRecords);
     }
 
-    /// @dev Encodes proposal data when ring buffer wrapping occurs (need 2 proposals for
+    /// @dev Encodes propose input when ring buffer wrapping occurs (need 2 proposals for
     /// validation)
-    function encodeProposalDataForWrapping(
+    function encodeProposeInputForWrapping(
         IInbox.CoreState memory _coreState,
         IInbox.Proposal memory _lastProposal,
         IInbox.Proposal memory _nextSlotProposal,
@@ -638,7 +629,7 @@ library InboxTestLib {
         proposals[0] = _lastProposal; // The last proposal being validated
         proposals[1] = _nextSlotProposal; // The proposal in the next slot
         return
-            _encodeProposalDataInternal(uint48(0), _coreState, proposals, _blobRef, _claimRecords);
+            _encodeProposeInputInternal(uint48(0), _coreState, proposals, _blobRef, _claimRecords);
     }
 
     // ---------------------------------------------------------------
@@ -678,9 +669,11 @@ library InboxTestLib {
         return IInbox.Claim({
             proposalHash: bytes32(0),
             parentClaimHash: bytes32(0),
-            endBlockNumber: 0,
-            endBlockHash: _genesisBlockHash,
-            endStateRoot: bytes32(0),
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: 0,
+                hash: _genesisBlockHash,
+                stateRoot: bytes32(0)
+            }),
             designatedProver: address(0),
             actualProver: address(0)
         });
@@ -697,7 +690,7 @@ library InboxTestLib {
 
     /// @dev Smart encoding function that determines which proposals to include based on the
     /// proposal ID
-    function encodeProposalDataSmart(
+    function encodeProposeInputSmart(
         uint48 _proposalId,
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
@@ -709,11 +702,11 @@ library InboxTestLib {
         returns (bytes memory)
     {
         if (_proposalId == 1) {
-            return encodeProposalDataWithGenesis(_coreState, _blobRef, _claimRecords);
+            return encodeProposeInputWithGenesis(_coreState, _blobRef, _claimRecords);
         } else {
             IInbox.Proposal memory previousProposal =
                 _findProposalById(_allKnownProposals, _proposalId - 1);
-            return encodeProposalDataForSubsequent(
+            return encodeProposeInputForSubsequent(
                 _coreState, previousProposal, _blobRef, _claimRecords
             );
         }

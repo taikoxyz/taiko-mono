@@ -5,8 +5,8 @@ import "./TestInboxFactory.sol";
 import "./InboxTestLib.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
 import "contracts/layer1/shasta/libs/LibBlobs.sol";
-import "contracts/layer1/shasta/libs/LibProposeDataDecoder.sol";
-import "contracts/layer1/shasta/libs/LibProveDataDecoder.sol";
+import "contracts/layer1/shasta/libs/LibProposeInputDecoder.sol";
+import "contracts/layer1/shasta/libs/LibProveInputDecoder.sol";
 import "contracts/layer1/shasta/libs/LibProposedEventEncoder.sol";
 import "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
 
@@ -15,15 +15,15 @@ import "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
 /// @dev Provides unified interface for test data encoding across all Inbox variants
 /// @custom:security-contact security@taiko.xyz
 library InboxTestAdapter {
-    /// @dev Encodes proposal data based on the Inbox implementation type
+    /// @dev Encodes propose input based on the Inbox implementation type
     /// @param _inboxType The type of Inbox implementation
     /// @param _deadline The deadline for the proposal
     /// @param _coreState The core state
     /// @param _proposals The validation proposals
     /// @param _blobRef The blob reference
     /// @param _claimRecords The claim records for finalization
-    /// @return Encoded proposal data
-    function encodeProposalData(
+    /// @return Encoded propose input
+    function encodeProposeInput(
         TestInboxFactory.InboxType _inboxType,
         uint48 _deadline,
         IInbox.CoreState memory _coreState,
@@ -35,23 +35,68 @@ library InboxTestAdapter {
         pure
         returns (bytes memory)
     {
+        // Default endBlockMiniHeader - will be overridden by the other function if needed
+        IInbox.BlockMiniHeader memory endBlockMiniHeader =
+            IInbox.BlockMiniHeader({ number: 0, hash: bytes32(0), stateRoot: bytes32(0) });
+
+        return encodeProposeInputWithEndBlock(
+            _inboxType,
+            _deadline,
+            _coreState,
+            _proposals,
+            _blobRef,
+            _claimRecords,
+            endBlockMiniHeader
+        );
+    }
+
+    /// @dev Encodes propose input with explicit endBlockMiniHeader
+    function encodeProposeInputWithEndBlock(
+        TestInboxFactory.InboxType _inboxType,
+        uint48 _deadline,
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal[] memory _proposals,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.ClaimRecord[] memory _claimRecords,
+        IInbox.BlockMiniHeader memory _endBlockMiniHeader
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
         if (_inboxType == TestInboxFactory.InboxType.Optimized3) {
             // InboxOptimized3 uses custom encoding
-            return LibProposeDataDecoder.encode(
-                _deadline, _coreState, _proposals, _blobRef, _claimRecords
-            );
+            // Create ProposeInput struct
+            IInbox.ProposeInput memory input = IInbox.ProposeInput({
+                deadline: _deadline,
+                coreState: _coreState,
+                parentProposals: _proposals,
+                blobReference: _blobRef,
+                claimRecords: _claimRecords,
+                endBlockMiniHeader: _endBlockMiniHeader
+            });
+            return LibProposeInputDecoder.encode(input);
         } else {
             // Base, Optimized1, and Optimized2 use standard abi.encode
-            return abi.encode(_deadline, _coreState, _proposals, _blobRef, _claimRecords);
+            // Create ProposeInput struct for proper encoding
+            IInbox.ProposeInput memory input = IInbox.ProposeInput({
+                deadline: _deadline,
+                coreState: _coreState,
+                parentProposals: _proposals,
+                blobReference: _blobRef,
+                claimRecords: _claimRecords,
+                endBlockMiniHeader: _endBlockMiniHeader
+            });
+            return abi.encode(input);
         }
     }
 
-    /// @dev Encodes prove data based on the Inbox implementation type
+    /// @dev Encodes prove input based on the Inbox implementation type
     /// @param _inboxType The type of Inbox implementation
     /// @param _proposals The proposals to prove
     /// @param _claims The claims with proof details
-    /// @return Encoded prove data
-    function encodeProveData(
+    /// @return Encoded prove input
+    function encodeProveInput(
         TestInboxFactory.InboxType _inboxType,
         IInbox.Proposal[] memory _proposals,
         IInbox.Claim[] memory _claims
@@ -62,10 +107,16 @@ library InboxTestAdapter {
     {
         if (_inboxType == TestInboxFactory.InboxType.Optimized3) {
             // InboxOptimized3 uses custom encoding
-            return LibProveDataDecoder.encode(_proposals, _claims);
+            // Create ProveInput struct
+            IInbox.ProveInput memory input =
+                IInbox.ProveInput({ proposals: _proposals, claims: _claims });
+            return LibProveInputDecoder.encode(input);
         } else {
             // Base, Optimized1, and Optimized2 use standard abi.encode
-            return abi.encode(_proposals, _claims);
+            // Create ProveInput struct for proper encoding
+            IInbox.ProveInput memory input =
+                IInbox.ProveInput({ proposals: _proposals, claims: _claims });
+            return abi.encode(input);
         }
     }
 
@@ -87,7 +138,9 @@ library InboxTestAdapter {
                 || _inboxType == TestInboxFactory.InboxType.Optimized3
         ) {
             // InboxOptimized2 and InboxOptimized3 use custom event encoding
-            (proposal_,, coreState_) = LibProposedEventEncoder.decode(_data);
+            IInbox.ProposedEventPayload memory payload = LibProposedEventEncoder.decode(_data);
+            proposal_ = payload.proposal;
+            coreState_ = payload.coreState;
         } else {
             // Base and Optimized1 emit the standard structs
             // The event data would be the encoded structs
@@ -114,7 +167,8 @@ library InboxTestAdapter {
                 || _inboxType == TestInboxFactory.InboxType.Optimized3
         ) {
             // InboxOptimized2 and InboxOptimized3 use custom event encoding
-            return LibProvedEventEncoder.decode(_data);
+            IInbox.ProvedEventPayload memory payload = LibProvedEventEncoder.decode(_data);
+            return payload.claimRecord;
         } else {
             // Base and Optimized1 emit the standard struct
             claimRecord_ = abi.decode(_data, (IInbox.ClaimRecord));

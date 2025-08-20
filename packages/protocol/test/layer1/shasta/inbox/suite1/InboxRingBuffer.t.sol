@@ -148,7 +148,7 @@ contract InboxRingBuffer is InboxTest {
         });
 
         setupProposalMocks(Alice);
-        bytes memory data1 = encodeProposalDataWithGenesis(
+        bytes memory data1 = encodeProposeInputWithGenesis(
             coreState1, InboxTestLib.createBlobReference(1), new IInbox.ClaimRecord[](0)
         );
 
@@ -179,7 +179,7 @@ contract InboxRingBuffer is InboxTest {
         });
 
         setupProposalMocks(Alice);
-        bytes memory data2 = encodeProposalDataForSubsequent(
+        bytes memory data2 = encodeProposeInputForSubsequent(
             coreState2, proposal1, InboxTestLib.createBlobReference(2), new IInbox.ClaimRecord[](0)
         );
 
@@ -208,9 +208,15 @@ contract InboxRingBuffer is InboxTest {
         // We need to provide both proposal 2 (parent) and genesis (slot being overwritten)
 
         // Create the genesis proposal that was stored at initialization
-        // Use the library function to correctly recreate the genesis proposal
-        IInbox.CoreState memory dummyState; // Not used by createGenesisProposal
-        IInbox.Proposal memory genesisProposal = InboxTestLib.createGenesisProposal(dummyState);
+        // The genesis proposal has a specific coreStateHash based on nextProposalId=1
+        IInbox.CoreState memory genesisCoreState = IInbox.CoreState({
+            nextProposalId: 1,
+            lastFinalizedProposalId: 0,
+            lastFinalizedClaimHash: getGenesisClaimHash(),
+            bondInstructionsHash: bytes32(0)
+        });
+        IInbox.Proposal memory genesisProposal =
+            InboxTestLib.createGenesisProposal(genesisCoreState);
 
         IInbox.CoreState memory coreState3 = IInbox.CoreState({
             nextProposalId: 3,
@@ -225,7 +231,7 @@ contract InboxRingBuffer is InboxTest {
         parentProposals[1] = genesisProposal;
 
         setupProposalMocks(Alice);
-        bytes memory data3 = encodeProposalDataWithProposals(
+        bytes memory data3 = encodeProposeInputWithProposals(
             uint48(0), // deadline
             coreState3,
             parentProposals,

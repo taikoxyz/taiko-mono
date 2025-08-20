@@ -2,116 +2,124 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
-import { LibBlobs } from "./LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 
-/// @title LibProposeDataDecoder
+/// @title LibProposeInputDecoder
 /// @notice Library for encoding and decoding propose data with gas optimization using LibPackUnpack
 /// @custom:security-contact security@taiko.xyz
-library LibProposeDataDecoder {
+library LibProposeInputDecoder {
     /// @notice Encodes propose data using compact encoding
-    /// @param _deadline The deadline
-    /// @param _coreState The CoreState
-    /// @param _proposals The array of Proposals
-    /// @param _blobReference The BlobReference
-    /// @param _claimRecords The array of ClaimRecords
+    /// @param _input The ProposeInput to encode
     /// @return encoded_ The encoded data
-    function encode(
-        uint48 _deadline,
-        IInbox.CoreState memory _coreState,
-        IInbox.Proposal[] memory _proposals,
-        LibBlobs.BlobReference memory _blobReference,
-        IInbox.ClaimRecord[] memory _claimRecords
-    )
+    function encode(IInbox.ProposeInput memory _input)
         internal
         pure
         returns (bytes memory encoded_)
     {
         // Calculate total size needed
-        uint256 bufferSize = _calculateProposeDataSize(_proposals, _claimRecords);
+        uint256 bufferSize = _calculateProposeDataSize(
+            _input.parentProposals, _input.claimRecords, _input.endBlockMiniHeader
+        );
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(encoded_);
 
         // 1. Encode deadline
-        ptr = P.packUint48(ptr, _deadline);
+        ptr = P.packUint48(ptr, _input.deadline);
 
         // 2. Encode CoreState
-        ptr = P.packUint48(ptr, _coreState.nextProposalId);
-        ptr = P.packUint48(ptr, _coreState.lastFinalizedProposalId);
-        ptr = P.packBytes32(ptr, _coreState.lastFinalizedClaimHash);
-        ptr = P.packBytes32(ptr, _coreState.bondInstructionsHash);
+        ptr = P.packUint48(ptr, _input.coreState.nextProposalId);
+        ptr = P.packUint48(ptr, _input.coreState.lastFinalizedProposalId);
+        ptr = P.packBytes32(ptr, _input.coreState.lastFinalizedClaimHash);
+        ptr = P.packBytes32(ptr, _input.coreState.bondInstructionsHash);
 
-        // 3. Encode Proposals array
-        ptr = P.packUint24(ptr, uint24(_proposals.length));
-        for (uint256 i; i < _proposals.length; ++i) {
-            ptr = _encodeProposal(ptr, _proposals[i]);
+        // 3. Encode parent proposals array
+        P.checkArrayLength(_input.parentProposals.length);
+        ptr = P.packUint24(ptr, uint24(_input.parentProposals.length));
+        for (uint256 i; i < _input.parentProposals.length; ++i) {
+            ptr = _encodeProposal(ptr, _input.parentProposals[i]);
         }
 
         // 4. Encode BlobReference
-        ptr = P.packUint16(ptr, _blobReference.blobStartIndex);
-        ptr = P.packUint16(ptr, _blobReference.numBlobs);
-        ptr = P.packUint24(ptr, _blobReference.offset);
+        ptr = P.packUint16(ptr, _input.blobReference.blobStartIndex);
+        ptr = P.packUint16(ptr, _input.blobReference.numBlobs);
+        ptr = P.packUint24(ptr, _input.blobReference.offset);
 
         // 5. Encode ClaimRecords array
-        ptr = P.packUint24(ptr, uint24(_claimRecords.length));
-        for (uint256 i; i < _claimRecords.length; ++i) {
-            ptr = _encodeClaimRecord(ptr, _claimRecords[i]);
+        P.checkArrayLength(_input.claimRecords.length);
+        ptr = P.packUint24(ptr, uint24(_input.claimRecords.length));
+        for (uint256 i; i < _input.claimRecords.length; ++i) {
+            ptr = _encodeClaimRecord(ptr, _input.claimRecords[i]);
+        }
+
+        // 6. Encode BlockMiniHeader with optimization for empty header
+        // Check if endBlockMiniHeader is empty (all fields are zero)
+        bool isEmpty = _input.endBlockMiniHeader.number == 0
+            && _input.endBlockMiniHeader.hash == bytes32(0)
+            && _input.endBlockMiniHeader.stateRoot == bytes32(0);
+
+        // Write flag byte: 0 for empty, 1 for non-empty
+        ptr = P.packUint8(ptr, isEmpty ? 0 : 1);
+
+        // Only encode the full header if it's not empty
+        if (!isEmpty) {
+            ptr = P.packUint48(ptr, _input.endBlockMiniHeader.number);
+            ptr = P.packBytes32(ptr, _input.endBlockMiniHeader.hash);
+            ptr = P.packBytes32(ptr, _input.endBlockMiniHeader.stateRoot);
         }
     }
 
     /// @notice Decodes propose data using optimized operations with LibPackUnpack
     /// @param _data The encoded data
-    /// @return deadline_ The decoded deadline
-    /// @return coreState_ The decoded CoreState
-    /// @return proposals_ The decoded array of Proposals
-    /// @return blobReference_ The decoded BlobReference
-    /// @return claimRecords_ The decoded array of ClaimRecords
-    function decode(bytes memory _data)
-        internal
-        pure
-        returns (
-            uint48 deadline_,
-            IInbox.CoreState memory coreState_,
-            IInbox.Proposal[] memory proposals_,
-            LibBlobs.BlobReference memory blobReference_,
-            IInbox.ClaimRecord[] memory claimRecords_
-        )
-    {
+    /// @return input_ The decoded ProposeInput
+    function decode(bytes memory _data) internal pure returns (IInbox.ProposeInput memory input_) {
         // Get pointer to data section (skip length prefix)
         uint256 ptr = P.dataPtr(_data);
 
         // 1. Decode deadline
-        (deadline_, ptr) = P.unpackUint48(ptr);
+        (input_.deadline, ptr) = P.unpackUint48(ptr);
 
         // 2. Decode CoreState
-        (coreState_.nextProposalId, ptr) = P.unpackUint48(ptr);
-        (coreState_.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
-        (coreState_.lastFinalizedClaimHash, ptr) = P.unpackBytes32(ptr);
-        (coreState_.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
+        (input_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
+        (input_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
+        (input_.coreState.lastFinalizedClaimHash, ptr) = P.unpackBytes32(ptr);
+        (input_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
 
-        // 3. Decode Proposals array
+        // 3. Decode parent proposals array
         uint24 proposalsLength;
         (proposalsLength, ptr) = P.unpackUint24(ptr);
-        proposals_ = new IInbox.Proposal[](proposalsLength);
+        input_.parentProposals = new IInbox.Proposal[](proposalsLength);
         for (uint256 i; i < proposalsLength; ++i) {
-            (proposals_[i], ptr) = _decodeProposal(ptr);
+            (input_.parentProposals[i], ptr) = _decodeProposal(ptr);
         }
 
         // 4. Decode BlobReference
-        (blobReference_.blobStartIndex, ptr) = P.unpackUint16(ptr);
-        (blobReference_.numBlobs, ptr) = P.unpackUint16(ptr);
-        (blobReference_.offset, ptr) = P.unpackUint24(ptr);
+        (input_.blobReference.blobStartIndex, ptr) = P.unpackUint16(ptr);
+        (input_.blobReference.numBlobs, ptr) = P.unpackUint16(ptr);
+        (input_.blobReference.offset, ptr) = P.unpackUint24(ptr);
 
         // 5. Decode ClaimRecords array
         uint24 claimRecordsLength;
         (claimRecordsLength, ptr) = P.unpackUint24(ptr);
-        claimRecords_ = new IInbox.ClaimRecord[](claimRecordsLength);
+        input_.claimRecords = new IInbox.ClaimRecord[](claimRecordsLength);
         for (uint256 i; i < claimRecordsLength; ++i) {
-            (claimRecords_[i], ptr) = _decodeClaimRecord(ptr);
+            (input_.claimRecords[i], ptr) = _decodeClaimRecord(ptr);
         }
+
+        // 6. Decode BlockMiniHeader with optimization for empty header
+        uint8 headerFlag;
+        (headerFlag, ptr) = P.unpackUint8(ptr);
+
+        // If flag is 0, the header is empty, leave it as default (all zeros)
+        // If flag is 1, decode the full header
+        if (headerFlag == 1) {
+            (input_.endBlockMiniHeader.number, ptr) = P.unpackUint48(ptr);
+            (input_.endBlockMiniHeader.hash, ptr) = P.unpackBytes32(ptr);
+            (input_.endBlockMiniHeader.stateRoot, ptr) = P.unpackBytes32(ptr);
+        }
+        // else: endBlockMiniHeader remains as default (all zeros)
     }
 
     /// @notice Encode a single Proposal
@@ -152,20 +160,17 @@ library LibProposeDataDecoder {
         pure
         returns (uint256 newPtr_)
     {
-        newPtr_ = P.packUint48(_ptr, _claimRecord.proposalId);
+        // Encode span
+        newPtr_ = P.packUint8(_ptr, _claimRecord.span);
 
-        // Encode Claim
-        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claim.proposalHash);
-        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claim.parentClaimHash);
-        newPtr_ = P.packUint48(newPtr_, _claimRecord.claim.endBlockNumber);
-        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claim.endBlockHash);
-        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claim.endStateRoot);
-        newPtr_ = P.packAddress(newPtr_, _claimRecord.claim.designatedProver);
-        newPtr_ = P.packAddress(newPtr_, _claimRecord.claim.actualProver);
+        // Encode claimHash
+        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claimHash);
 
-        newPtr_ = P.packUint8(newPtr_, _claimRecord.span);
+        // Encode endBlockMiniHeaderHash
+        newPtr_ = P.packBytes32(newPtr_, _claimRecord.endBlockMiniHeaderHash);
 
         // Encode BondInstructions array
+        P.checkArrayLength(_claimRecord.bondInstructions.length);
         newPtr_ = P.packUint24(newPtr_, uint24(_claimRecord.bondInstructions.length));
         for (uint256 i; i < _claimRecord.bondInstructions.length; ++i) {
             newPtr_ = _encodeBondInstruction(newPtr_, _claimRecord.bondInstructions[i]);
@@ -178,18 +183,14 @@ library LibProposeDataDecoder {
         pure
         returns (IInbox.ClaimRecord memory claimRecord_, uint256 newPtr_)
     {
-        (claimRecord_.proposalId, newPtr_) = P.unpackUint48(_ptr);
+        // Decode span
+        (claimRecord_.span, newPtr_) = P.unpackUint8(_ptr);
 
-        // Decode Claim
-        (claimRecord_.claim.proposalHash, newPtr_) = P.unpackBytes32(newPtr_);
-        (claimRecord_.claim.parentClaimHash, newPtr_) = P.unpackBytes32(newPtr_);
-        (claimRecord_.claim.endBlockNumber, newPtr_) = P.unpackUint48(newPtr_);
-        (claimRecord_.claim.endBlockHash, newPtr_) = P.unpackBytes32(newPtr_);
-        (claimRecord_.claim.endStateRoot, newPtr_) = P.unpackBytes32(newPtr_);
-        (claimRecord_.claim.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
-        (claimRecord_.claim.actualProver, newPtr_) = P.unpackAddress(newPtr_);
+        // Decode claimHash
+        (claimRecord_.claimHash, newPtr_) = P.unpackBytes32(newPtr_);
 
-        (claimRecord_.span, newPtr_) = P.unpackUint8(newPtr_);
+        // Decode endBlockMiniHeaderHash
+        (claimRecord_.endBlockMiniHeaderHash, newPtr_) = P.unpackBytes32(newPtr_);
 
         // Decode BondInstructions array
         uint24 bondInstructionsLength;
@@ -234,7 +235,8 @@ library LibProposeDataDecoder {
     /// @notice Calculate the size needed for encoding
     function _calculateProposeDataSize(
         IInbox.Proposal[] memory _proposals,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.ClaimRecord[] memory _claimRecords,
+        IInbox.BlockMiniHeader memory _endBlockMiniHeader
     )
         private
         pure
@@ -246,19 +248,28 @@ library LibProposeDataDecoder {
             // CoreState: 6 + 6 + 32 + 32 = 76 bytes
             // BlobReference: 2 + 2 + 3 = 7 bytes
             // Arrays lengths: 3 + 3 = 6 bytes
-            size_ = 95;
+            // BlockMiniHeader flag: 1 byte
+            size_ = 96;
+
+            // Add BlockMiniHeader size if not empty
+            bool isEmpty = _endBlockMiniHeader.number == 0 && _endBlockMiniHeader.hash == bytes32(0)
+                && _endBlockMiniHeader.stateRoot == bytes32(0);
+
+            if (!isEmpty) {
+                // BlockMiniHeader when not empty: 6 + 32 + 32 = 70 bytes
+                size_ += 70;
+            }
 
             // Proposals - each has fixed size
             // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) + coreStateHash(32) +
             // derivationHash(32) = 96
-            for (uint256 i; i < _proposals.length; ++i) {
-                size_ += 96;
-            }
+            size_ += _proposals.length * 96;
 
             // ClaimRecords - each has fixed size + variable bond instructions
-            // Fixed: proposalId(6) + Claim(32+32+6+32+32+20+20) + span(1) + array length(3) = 184
+            // Fixed: span(1) + claimHash(32) + endBlockMiniHeaderHash(32) + array length(3) =
+            // 68
             for (uint256 i; i < _claimRecords.length; ++i) {
-                size_ += 184 + (_claimRecords[i].bondInstructions.length * 47);
+                size_ += 68 + (_claimRecords[i].bondInstructions.length * 47);
             }
         }
     }

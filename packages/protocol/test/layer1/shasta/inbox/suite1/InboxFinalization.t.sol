@@ -38,10 +38,14 @@ contract InboxFinalization is InboxTest {
             _createStoredClaimRecord(proposalId, claim, coreState.lastFinalizedClaimHash);
 
         // Setup expectations
-        expectSyncedBlockSave(claim.endBlockNumber, claim.endBlockHash, claim.endStateRoot);
+        expectSyncedBlockSave(
+            claim.endBlockMiniHeader.number,
+            claim.endBlockMiniHeader.hash,
+            claim.endBlockMiniHeader.stateRoot
+        );
 
-        // Act: Submit proposal that triggers finalization
-        _submitFinalizationProposal(proposal, claimRecord);
+        // Act: Submit proposal that triggers finalization with the claim's endBlockMiniHeader
+        _submitFinalizationProposal(proposal, claimRecord, claim.endBlockMiniHeader);
     }
 
     /// @dev Helper to create and store a proposal for testing
@@ -69,16 +73,18 @@ contract InboxFinalization is InboxTest {
         private
         returns (IInbox.ClaimRecord memory claimRecord)
     {
-        claimRecord = InboxTestLib.createClaimRecord(_proposalId, _claim, 1);
-        inbox.exposed_setClaimRecordHash(
-            _proposalId, _parentClaimHash, InboxTestLib.hashClaimRecord(claimRecord)
-        );
+        claimRecord = InboxTestLib.createClaimRecord(_claim, 1);
+        // Create a parent claim with the parentClaimHash for the function call
+        IInbox.Claim memory parentClaim;
+        parentClaim.parentClaimHash = _parentClaimHash;
+        inbox.exposed_setClaimRecordHash(_proposalId, parentClaim, claimRecord);
     }
 
     /// @dev Helper to submit a finalization proposal
     function _submitFinalizationProposal(
         IInbox.Proposal memory _proposalToValidate,
-        IInbox.ClaimRecord memory _claimRecord
+        IInbox.ClaimRecord memory _claimRecord,
+        IInbox.BlockMiniHeader memory _endBlockMiniHeader
     )
         private
     {
@@ -93,8 +99,15 @@ contract InboxFinalization is InboxTest {
         IInbox.CoreState memory newCoreState = _getGenesisCoreState();
         newCoreState.nextProposalId = 2;
 
-        bytes memory data = encodeProposalDataWithProposals(
-            newCoreState, proposals, InboxTestLib.createBlobReference(2), claimRecords
+        // Use the adapter with explicit endBlockMiniHeader
+        bytes memory data = InboxTestAdapter.encodeProposeInputWithEndBlock(
+            inboxType,
+            uint48(0),
+            newCoreState,
+            proposals,
+            InboxTestLib.createBlobReference(2),
+            claimRecords,
+            _endBlockMiniHeader
         );
 
         setupBlobHashes();
@@ -130,19 +143,22 @@ contract InboxFinalization is InboxTest {
         // Create claim records for finalization
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
-            claimRecords[i] = InboxTestLib.createClaimRecord(i + 1, claims[i], 1);
+            claimRecords[i] = InboxTestLib.createClaimRecord(claims[i], 1);
         }
 
         // Setup expectations for finalization
         expectSyncedBlockSave(
-            claims[numProposals - 1].endBlockNumber,
-            claims[numProposals - 1].endBlockHash,
-            claims[numProposals - 1].endStateRoot
+            claims[numProposals - 1].endBlockMiniHeader.number,
+            claims[numProposals - 1].endBlockMiniHeader.hash,
+            claims[numProposals - 1].endBlockMiniHeader.stateRoot
         );
 
-        // Act: Submit finalization proposal
+        // Act: Submit finalization proposal with the last claim's endBlockMiniHeader
         _submitBatchFinalizationProposal(
-            proposals[numProposals - 1], claimRecords, numProposals + 1
+            proposals[numProposals - 1],
+            claimRecords,
+            numProposals + 1,
+            claims[numProposals - 1].endBlockMiniHeader
         );
 
         // Assert: Verify finalization completed
@@ -154,7 +170,8 @@ contract InboxFinalization is InboxTest {
     function _submitBatchFinalizationProposal(
         IInbox.Proposal memory _lastProposal,
         IInbox.ClaimRecord[] memory _claimRecords,
-        uint48 _nextProposalId
+        uint48 _nextProposalId,
+        IInbox.BlockMiniHeader memory _endBlockMiniHeader
     )
         private
     {
@@ -164,14 +181,20 @@ contract InboxFinalization is InboxTest {
         setupProposalMocks(Carol);
         setupBlobHashes();
 
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = _lastProposal;
+
         vm.prank(Carol);
         inbox.propose(
             bytes(""),
-            encodeProposalDataForSubsequent(
+            InboxTestAdapter.encodeProposeInputWithEndBlock(
+                inboxType,
+                uint48(0),
                 coreState,
-                _lastProposal,
+                proposals,
                 InboxTestLib.createBlobReference(uint8(_nextProposalId)),
-                _claimRecords
+                _claimRecords,
+                _endBlockMiniHeader
             )
         );
     }
@@ -186,7 +209,7 @@ contract InboxFinalization is InboxTest {
         setupBlobHashes();
         // Create genesis claim
         IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
+        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
         bytes32 parentClaimHash = keccak256(abi.encode(genesisClaim));
 
         // Store proposal 1 with claim
@@ -199,12 +222,15 @@ contract InboxFinalization is InboxTest {
 
         IInbox.Claim memory claim1 = InboxTestLib.createClaim(proposal1, parentClaimHash, Bob);
         IInbox.ClaimRecord memory claimRecord1 = IInbox.ClaimRecord({
-            proposalId: 1,
-            claim: claim1,
             span: 1,
-            bondInstructions: new LibBonds.BondInstruction[](0)
+            bondInstructions: new LibBonds.BondInstruction[](0),
+            claimHash: InboxTestLib.hashClaim(claim1),
+            endBlockMiniHeaderHash: keccak256(abi.encode(claim1.endBlockMiniHeader))
         });
-        inbox.exposed_setClaimRecordHash(1, parentClaimHash, keccak256(abi.encode(claimRecord1)));
+        // Create a parent claim struct for the function call
+        IInbox.Claim memory parentClaim;
+        parentClaim.parentClaimHash = parentClaimHash;
+        inbox.exposed_setClaimRecordHash(1, parentClaim, claimRecord1);
 
         // Store proposal 2 WITHOUT claim (gap in chain)
         IInbox.CoreState memory coreState2 = _getGenesisCoreState();
@@ -224,7 +250,11 @@ contract InboxFinalization is InboxTest {
         mockForcedInclusionDue(false);
 
         // Only expect first proposal to be finalized
-        expectSyncedBlockSave(claim1.endBlockNumber, claim1.endBlockHash, claim1.endStateRoot);
+        expectSyncedBlockSave(
+            claim1.endBlockMiniHeader.number,
+            claim1.endBlockMiniHeader.hash,
+            claim1.endBlockMiniHeader.stateRoot
+        );
 
         // Create proposal data with only claimRecord1
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
@@ -236,8 +266,14 @@ contract InboxFinalization is InboxTest {
 
         LibBlobs.BlobReference memory blobRef =
             LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
-        bytes memory data =
-            encodeProposalDataWithProposals(uint48(0), coreState, proposals, blobRef, claimRecords);
+
+        // Use the adapter with the endBlockMiniHeader from claim1 since that's what we're
+        // finalizing
+        // Extract to local variable to avoid stack too deep
+        IInbox.BlockMiniHeader memory endBlockHeader = claim1.endBlockMiniHeader;
+        bytes memory data = InboxTestAdapter.encodeProposeInputWithEndBlock(
+            inboxType, uint48(0), coreState, proposals, blobRef, claimRecords, endBlockHeader
+        );
 
         // Submit proposal
         vm.prank(Alice);
@@ -264,10 +300,10 @@ contract InboxFinalization is InboxTest {
 
         // Now try to finalize with a WRONG claim record
         IInbox.ClaimRecord memory wrongClaimRecord = IInbox.ClaimRecord({
-            proposalId: 1,
-            claim: claim1,
             span: 2, // Modified field - wrong span value
-            bondInstructions: new LibBonds.BondInstruction[](0)
+            bondInstructions: new LibBonds.BondInstruction[](0),
+            claimHash: InboxTestLib.hashClaim(claim1),
+            endBlockMiniHeaderHash: keccak256(abi.encode(claim1.endBlockMiniHeader))
         });
 
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
@@ -281,13 +317,22 @@ contract InboxFinalization is InboxTest {
         setupProposalMocks(Carol);
         setupBlobHashes();
 
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
+        proposals[0] = proposal1;
+
         // Expect revert due to mismatched claim record hash
         vm.expectRevert(ClaimRecordHashMismatchWithStorage.selector);
         vm.prank(Carol);
         inbox.propose(
             bytes(""),
-            encodeProposalDataForSubsequent(
-                coreState, proposal1, InboxTestLib.createBlobReference(2), claimRecords
+            InboxTestAdapter.encodeProposeInputWithEndBlock(
+                inboxType,
+                uint48(0),
+                coreState,
+                proposals,
+                InboxTestLib.createBlobReference(2),
+                claimRecords,
+                claim1.endBlockMiniHeader // Use the actual claim's endBlockMiniHeader
             )
         );
     }

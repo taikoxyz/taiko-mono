@@ -30,109 +30,90 @@ abstract contract InboxOptimized1 is Inbox {
     // Internal Functions - Overrides
     // ---------------------------------------------------------------
 
-    /// @dev Builds claim records for multiple proposals and claims with aggregation for continuous
-    /// proposals
-    /// @param _config The configuration parameters.
-    /// @param _proposals The proposals to prove.
-    /// @param _claims The claims containing the proof details.
-    /// @return claimRecords_ The built claim records with aggregated bond instructions for
-    /// continuous proposals.
-    function _buildClaimRecords(
+    /// @inheritdoc Inbox
+    /// @dev Builds then saves claim records for multiple proposals and claims with aggregation for
+    /// continuous proposals. Optimized to reduce memory allocations during bond instruction
+    /// merging.
+    function _buildAndSaveClaimRecords(
         Config memory _config,
         Proposal[] memory _proposals,
         Claim[] memory _claims
     )
         internal
-        view
         override
-        returns (ClaimRecord[] memory claimRecords_)
     {
-        // Start with array sized for all proposals
-        claimRecords_ = new ClaimRecord[](_proposals.length);
+        if (_proposals.length == 0) return;
 
-        if (_proposals.length == 0) return claimRecords_;
+        // Validate first proposal
 
-        // Validate first proposal and create initial claim record
         _validateClaim(_config, _proposals[0], _claims[0]);
-        LibBonds.BondInstruction[] memory currentInstructions =
-            _calculateBondInstructions(_config, _proposals[0], _claims[0]);
 
-        claimRecords_[0] = ClaimRecord({
-            proposalId: _proposals[0].id,
-            claim: _claims[0],
+        // Initialize current aggregation state
+        ClaimRecord memory currentRecord = ClaimRecord({
             span: 1,
-            bondInstructions: currentInstructions
+            bondInstructions: _calculateBondInstructions(_config, _proposals[0], _claims[0]),
+            claimHash: _hashClaim(_claims[0]),
+            endBlockMiniHeaderHash: _hashBlockMiniHeader(_claims[0].endBlockMiniHeader)
         });
 
-        uint256 finalRecordCount = 1;
-        uint256 currentRecordIndex;
         uint48 currentGroupStartId = _proposals[0].id;
+        Claim memory firstClaimInGroup = _claims[0];
 
         // Process remaining proposals
         for (uint256 i = 1; i < _proposals.length; ++i) {
-            require(_claims[i].parentClaimHash != _DEFAULT_SLOT_HASH, InvalidParentClaimHash());
             _validateClaim(_config, _proposals[i], _claims[i]);
 
             // Check if current proposal can be aggregated with the previous group
-            // The next expected proposal ID is: start of current group + current span
-            uint48 nextExpectedId = currentGroupStartId + claimRecords_[currentRecordIndex].span;
-            if (_proposals[i].id == nextExpectedId) {
+            if (_proposals[i].id == currentGroupStartId + currentRecord.span) {
                 // Aggregate with current record
                 LibBonds.BondInstruction[] memory newInstructions =
                     _calculateBondInstructions(_config, _proposals[i], _claims[i]);
 
                 if (newInstructions.length > 0) {
-                    // Get current instructions from the record
-                    LibBonds.BondInstruction[] memory existingInstructions =
-                        claimRecords_[currentRecordIndex].bondInstructions;
-
-                    // Create new array with combined size
-                    uint256 oldLen = existingInstructions.length;
-                    uint256 newLen = oldLen + newInstructions.length;
-                    LibBonds.BondInstruction[] memory aggregatedInstructions =
-                        new LibBonds.BondInstruction[](newLen);
+                    // Inline merge to avoid separate function call and reduce stack depth
+                    uint256 oldLen = currentRecord.bondInstructions.length;
+                    uint256 newLen = newInstructions.length;
+                    LibBonds.BondInstruction[] memory merged =
+                        new LibBonds.BondInstruction[](oldLen + newLen);
 
                     // Copy existing instructions
-                    for (uint256 j = 0; j < oldLen; ++j) {
-                        aggregatedInstructions[j] = existingInstructions[j];
+                    for (uint256 j; j < oldLen; ++j) {
+                        merged[j] = currentRecord.bondInstructions[j];
                     }
 
                     // Copy new instructions
-                    for (uint256 j = 0; j < newInstructions.length; ++j) {
-                        aggregatedInstructions[oldLen + j] = newInstructions[j];
+                    for (uint256 j; j < newLen; ++j) {
+                        merged[oldLen + j] = newInstructions[j];
                     }
-
-                    // Update the bond instructions in the current record
-                    claimRecords_[currentRecordIndex].bondInstructions = aggregatedInstructions;
+                    currentRecord.bondInstructions = merged;
                 }
 
+                // Update the claim hash and end block mini header hash for the aggregated record
+                currentRecord.claimHash = _hashClaim(_claims[i]);
+                currentRecord.endBlockMiniHeaderHash =
+                    _hashBlockMiniHeader(_claims[i].endBlockMiniHeader);
+
                 // Increment span to include this aggregated proposal
-                claimRecords_[currentRecordIndex].span++;
+                currentRecord.span++;
             } else {
+                // Save the current aggregated record before starting a new one
+                _setClaimRecordHash(_config, currentGroupStartId, firstClaimInGroup, currentRecord);
+
                 // Start a new record for non-continuous proposal
-                LibBonds.BondInstruction[] memory instructions =
-                    _calculateBondInstructions(_config, _proposals[i], _claims[i]);
-
-                currentRecordIndex = finalRecordCount;
                 currentGroupStartId = _proposals[i].id;
-                claimRecords_[currentRecordIndex] = ClaimRecord({
-                    proposalId: _proposals[i].id,
-                    claim: _claims[i],
+                firstClaimInGroup = _claims[i];
+
+                currentRecord = ClaimRecord({
                     span: 1,
-                    bondInstructions: instructions
+                    bondInstructions: _calculateBondInstructions(_config, _proposals[i], _claims[i]),
+                    claimHash: _hashClaim(_claims[i]),
+                    endBlockMiniHeaderHash: _hashBlockMiniHeader(_claims[i].endBlockMiniHeader)
                 });
-                finalRecordCount++;
             }
         }
 
-        // Resize the claimRecords_ array to final size
-        if (finalRecordCount < claimRecords_.length) {
-            ClaimRecord[] memory resized = new ClaimRecord[](finalRecordCount);
-            for (uint256 i = 0; i < finalRecordCount; ++i) {
-                resized[i] = claimRecords_[i];
-            }
-            claimRecords_ = resized;
-        }
+        // Save the final aggregated record
+        _setClaimRecordHash(_config, currentGroupStartId, firstClaimInGroup, currentRecord);
     }
 
     /// @dev Gets the claim record hash for a given proposal and parent claim.
@@ -166,18 +147,19 @@ abstract contract InboxOptimized1 is Inbox {
         return _claimHashLookup[bufferSlot][_parentClaimHash].claimRecordHash;
     }
 
-    /// @dev Sets the claim record hash for a given proposal and parent claim.
-    /// @notice This implementation tries to reuse a default slot to save gas.
+    /// @dev Sets the claim record hash for a given proposal and parent claim, and emits the Proved
+    /// event. This implementation tries to reuse a default slot to save gas.
     function _setClaimRecordHash(
         Config memory _config,
         uint48 _proposalId,
-        bytes32 _parentClaimHash,
-        bytes32 _claimRecordHash
+        Claim memory _claim,
+        ClaimRecord memory _claimRecord
     )
         internal
         override
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
+        bytes32 claimRecordHash = _hashClaimRecord(_claimRecord);
         ExtendedClaimRecord storage record = _claimHashLookup[bufferSlot][_DEFAULT_SLOT_HASH];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =
@@ -186,19 +168,42 @@ abstract contract InboxOptimized1 is Inbox {
         // Check if we need to use the default slot
         if (proposalId != _proposalId) {
             // Different proposal ID, so we can use the default slot
-            record.claimRecordHash = _claimRecordHash;
-            record.slotReuseMarker = _encodeSlotReuseMarker(_proposalId, _parentClaimHash);
-        } else if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
+            record.claimRecordHash = claimRecordHash;
+            record.slotReuseMarker = _encodeSlotReuseMarker(_proposalId, _claim.parentClaimHash);
+        } else if (_isPartialParentClaimHashMatch(partialParentClaimHash, _claim.parentClaimHash)) {
             // Same proposal ID and same parent claim hash (partial match), update the default slot
-            record.claimRecordHash = _claimRecordHash;
+            record.claimRecordHash = claimRecordHash;
         } else {
             // Same proposal ID but different parent claim hash, use direct mapping
-            _claimHashLookup[bufferSlot][_parentClaimHash].claimRecordHash = _claimRecordHash;
+            _claimHashLookup[bufferSlot][_claim.parentClaimHash].claimRecordHash = claimRecordHash;
         }
+
+        bytes memory payload = encodeProvedEventData(
+            ProvedEventPayload({ proposalId: _proposalId, claim: _claim, claimRecord: _claimRecord })
+        );
+        emit Proved(payload);
+    }
+
+    /// @dev Validates that a claim is valid for a given proposal.
+    /// @param _config The configuration parameters.
+    /// @param _proposal The proposal to validate.
+    /// @param _claim The claim to validate.
+    function _validateClaim(
+        Config memory _config,
+        Proposal memory _proposal,
+        Claim memory _claim
+    )
+        internal
+        view
+        virtual
+        override
+    {
+        require(_claim.parentClaimHash != _DEFAULT_SLOT_HASH, InvalidParentClaimHash());
+        super._validateClaim(_config, _proposal, _claim);
     }
 
     // ---------------------------------------------------------------
-    // Private Functions - Slot Reuse Helpers
+    // Private Functions
     // ---------------------------------------------------------------
 
     /// @dev Decodes a slot reuse marker into proposal ID and partial parent claim hash.

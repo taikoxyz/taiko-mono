@@ -26,7 +26,7 @@ contract InboxProveBasic is InboxTest {
     function test_prove_single_claim() public {
         // Arrange: Submit a proposal that can be proven
         IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
-        bytes32 parentClaimHash = bytes32(uint256(999));
+        bytes32 parentClaimHash = getGenesisClaimHash();
 
         // Act: Submit proof with parent claim hash
         proveProposal(proposal, Bob, parentClaimHash);
@@ -44,11 +44,15 @@ contract InboxProveBasic is InboxTest {
             proposals[i - 1] = submitProposal(i, Alice);
         }
 
-        // Act & Assert: Prove each proposal with different parent hashes
+        // Act & Assert: Prove each proposal with chained parent hashes
+        bytes32 parentClaimHash = getGenesisClaimHash();
         for (uint48 i = 1; i <= FEW_PROPOSALS; i++) {
-            bytes32 parentClaimHash = bytes32(uint256(i * 100)); // 100, 200, 300
             proveProposal(proposals[i - 1], Bob, parentClaimHash);
             assertClaimRecordStored(i, parentClaimHash);
+            // Update parent hash for next iteration
+            IInbox.Claim memory claim =
+                InboxTestLib.createClaim(proposals[i - 1], parentClaimHash, Bob);
+            parentClaimHash = InboxTestLib.hashClaim(claim);
         }
     }
 
@@ -83,7 +87,8 @@ contract InboxProveBasic is InboxTest {
     function test_prove_submission_flow() public {
         // Arrange: Create proposal and claim data
         IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
-        IInbox.Claim memory claim = InboxTestLib.createClaim(proposal, bytes32(0), Bob);
+        bytes32 parentClaimHash = getGenesisClaimHash();
+        IInbox.Claim memory claim = InboxTestLib.createClaim(proposal, parentClaimHash, Bob);
 
         bytes memory proof = bytes("test_proof_data");
 
@@ -91,11 +96,11 @@ contract InboxProveBasic is InboxTest {
         setupProofMocks(true);
         vm.prank(Bob);
         inbox.prove(
-            InboxTestAdapter.encodeProveData(inboxType, _toArray(proposal), _toArray(claim)), proof
+            InboxTestAdapter.encodeProveInput(inboxType, _toArray(proposal), _toArray(claim)), proof
         );
 
         // Assert: Verify proof submission was successful
-        assertClaimRecordStored(SINGLE_PROPOSAL, bytes32(0));
+        assertClaimRecordStored(SINGLE_PROPOSAL, parentClaimHash);
     }
 
     /// @dev Helper to convert single item to array
@@ -127,9 +132,12 @@ contract InboxProveBasic is InboxTest {
         }
 
         // Prove each proposal multiple times with different parent hashes
+        // For testing multiple proofs per proposal, we use genesis as parent for first proof,
+        // and a custom parent for second proof
         for (uint48 i = 1; i <= numProposals; i++) {
             for (uint256 j = 0; j < proofsPerProposal; j++) {
-                bytes32 parentClaimHash = bytes32(uint256(i * 1000 + j));
+                bytes32 parentClaimHash =
+                    j == 0 ? getGenesisClaimHash() : keccak256(abi.encode("parent", i, j));
                 proveProposal(proposals[i - 1], Bob, parentClaimHash);
                 assertClaimRecordStored(i, parentClaimHash);
             }
@@ -138,7 +146,8 @@ contract InboxProveBasic is InboxTest {
         // Verify persistent storage of all records
         for (uint48 i = 1; i <= numProposals; i++) {
             for (uint256 j = 0; j < proofsPerProposal; j++) {
-                bytes32 parentClaimHash = bytes32(uint256(i * 1000 + j));
+                bytes32 parentClaimHash =
+                    j == 0 ? getGenesisClaimHash() : keccak256(abi.encode("parent", i, j));
                 assertClaimRecordStored(i, parentClaimHash);
             }
         }
@@ -149,7 +158,8 @@ contract InboxProveBasic is InboxTest {
     function test_prove_with_mock_verification() public {
         // Arrange: Create valid proposal and claim data
         IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
-        IInbox.Claim memory claim = InboxTestLib.createClaim(proposal, bytes32(0), Bob);
+        bytes32 parentClaimHash = getGenesisClaimHash();
+        IInbox.Claim memory claim = InboxTestLib.createClaim(proposal, parentClaimHash, Bob);
 
         // Configure: Set up mock to succeed
         setupProofMocks(true);
@@ -157,11 +167,11 @@ contract InboxProveBasic is InboxTest {
         // Act: Submit proof with mock verification
         vm.prank(Bob);
         inbox.prove(
-            InboxTestAdapter.encodeProveData(inboxType, _toArray(proposal), _toArray(claim)),
+            InboxTestAdapter.encodeProveInput(inboxType, _toArray(proposal), _toArray(claim)),
             bytes("test_proof")
         );
 
         // Assert: Verify claim record was stored successfully
-        assertClaimRecordStored(SINGLE_PROPOSAL, bytes32(0));
+        assertClaimRecordStored(SINGLE_PROPOSAL, parentClaimHash);
     }
 }

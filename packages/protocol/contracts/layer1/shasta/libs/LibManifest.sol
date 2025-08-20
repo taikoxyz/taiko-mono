@@ -18,10 +18,11 @@ library LibManifest {
     /// small as one second, 384 blocks will cover an Ethereum epoch.
     uint256 internal constant PROPOSAL_MAX_BLOCKS = 384;
 
-    /// @notice The maximum number of transactions allowed in a block in the manifest.
+    /// @notice Maximum number of transactions allowed in proposal's manifest data. This cap ensures
+    /// the cost of a worst-case prover attack is bounded.
     uint256 internal constant BLOCK_MAX_RAW_TRANSACTIONS = 4096 * 2;
 
-    /// @notice The maximum number of transactions allowed in the actual L2 block.
+    /// @notice Maximum number of transactions that can be included in an actual L2 block.
     uint256 internal constant BLOCK_MAX_TRANSACTIONS = 4096;
 
     /// @notice The maximum anchor block number offset from the proposal origin block number.
@@ -30,8 +31,8 @@ library LibManifest {
     /// @notice The maximum number timestamp offset from the proposal origin timestamp.
     uint256 internal constant TIMESTAMP_MAX_OFFSET = 12 * 32;
 
-    /// @notice The maximum block gas limit change per block in permyriad (1/10,000).
-    /// @dev E.g., 10 = 0.1 basis points = 0.001% = 10/100,000
+    /// @notice The maximum block gas limit change per block, in millionths (1/1,000,000).
+    /// @dev For example, 10 = 10 / 1,000,000 = 0.001%.
     uint256 internal constant MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD = 10;
 
     /// @notice The minimum block gas limit.

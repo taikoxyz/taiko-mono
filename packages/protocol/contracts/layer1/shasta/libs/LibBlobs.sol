@@ -61,7 +61,7 @@ library LibBlobs {
         bytes32[] memory blobHashes = new bytes32[](_blobReference.numBlobs);
         for (uint256 i; i < _blobReference.numBlobs; ++i) {
             blobHashes[i] = _blobhash(_blobReference.blobStartIndex + i);
-            if (blobHashes[i] == 0) revert BlobNotFound();
+            require(blobHashes[i] != 0, BlobNotFound());
         }
 
         return BlobSlice({

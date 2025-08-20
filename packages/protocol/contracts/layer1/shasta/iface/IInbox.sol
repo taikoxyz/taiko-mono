@@ -51,6 +51,14 @@ interface IInbox {
         bytes32 derivationHash;
     }
 
+    struct BlockMiniHeader {
+        uint48 number;
+        /// @notice The block hash for the end (last) L2 block in this proposal.
+        bytes32 hash;
+        /// @notice The state root for the end (last) L2 block in this proposal.
+        bytes32 stateRoot;
+    }
+
     /// @notice Represents a claim about the state transition of a proposal.
     struct Claim {
         /// @notice The proposal's hash.
@@ -58,12 +66,8 @@ interface IInbox {
         /// @notice The parent claim's hash, this is used to link the claim to its parent claim to
         /// finalize the corresponding proposal.
         bytes32 parentClaimHash;
-        /// @notice The block number for the end (last) L2 block in this proposal.
-        uint48 endBlockNumber;
-        /// @notice The block hash for the end (last) L2 block in this proposal.
-        bytes32 endBlockHash;
-        /// @notice The state root for the end (last) L2 block in this proposal.
-        bytes32 endStateRoot;
+        /// @notice The end block header containing number, hash, and state root.
+        BlockMiniHeader endBlockMiniHeader;
         /// @notice The designated prover.
         address designatedProver;
         /// @notice The actual prover.
@@ -72,14 +76,14 @@ interface IInbox {
 
     /// @notice Represents a record of a claim with additional metadata.
     struct ClaimRecord {
-        /// @notice The proposal's ID.
-        uint48 proposalId;
-        /// @notice The claim.
-        Claim claim;
         /// @notice The span indicating how many proposals this claim record covers.
         uint8 span;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
+        /// @notice The claim's hash
+        bytes32 claimHash;
+        /// @notice The hash of the end block mini header.
+        bytes32 endBlockMiniHeaderHash;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -94,16 +98,60 @@ interface IInbox {
         bytes32 bondInstructionsHash;
     }
 
+    /// @notice Input data for the propose function
+    struct ProposeInput {
+        /// @notice The deadline timestamp for transaction inclusion (0 = no deadline).
+        uint48 deadline;
+        /// @notice The current core state before this proposal.
+        CoreState coreState;
+        /// @notice Array of existing proposals for validation (1-2 elements).
+        Proposal[] parentProposals;
+        /// @notice Blob reference for proposal data.
+        LibBlobs.BlobReference blobReference;
+        /// @notice Array of claim records for finalization.
+        ClaimRecord[] claimRecords;
+        /// @notice The end block mini header for finalization.
+        BlockMiniHeader endBlockMiniHeader;
+    }
+
+    /// @notice Input data for the prove function
+    struct ProveInput {
+        /// @notice Array of proposals to prove.
+        Proposal[] proposals;
+        /// @notice Array of claims containing proof details.
+        Claim[] claims;
+    }
+
+    /// @notice Payload data emitted in the Proposed event
+    struct ProposedEventPayload {
+        /// @notice The proposal that was created.
+        Proposal proposal;
+        /// @notice The derivation data for the proposal.
+        Derivation derivation;
+        /// @notice The core state after the proposal.
+        CoreState coreState;
+    }
+
+    /// @notice Payload data emitted in the Proved event
+    struct ProvedEventPayload {
+        /// @notice The proposal ID that was proven.
+        uint48 proposalId;
+        /// @notice The claim that was proven.
+        Claim claim;
+        /// @notice The claim record containing additional metadata.
+        ClaimRecord claimRecord;
+    }
+
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
 
     /// @notice Emitted when a new proposal is proposed.
-    /// @param data The encoded (Proposal, Derivation, CoreState)
+    /// @param data The encoded ProposedEventPayload
     event Proposed(bytes data);
 
     /// @notice Emitted when a proof is submitted
-    /// @param data The encoded ClaimRecord
+    /// @param data The encoded ProvedEventPayload
     event Proved(bytes data);
 
     /// @notice Emitted when bond instructions are issued
@@ -116,14 +164,11 @@ interface IInbox {
 
     /// @notice Proposes new proposals of L2 blocks.
     /// @param _lookahead The data to post a new lookahead (currently unused).
-    /// @param _data The encoded data containing: deadline (for tx timing protection), current core
-    /// state
-    ///              (must match previous proposal's hash), previous proposal(s) for validation,
-    ///              blob reference, and claim records for finalization.
+    /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
     /// @notice Proves a claim about some properties of a proposal, including its state transition.
-    /// @param _data The data containing the proposals and claims to be proven.
+    /// @param _data The encoded ProveInput struct.
     /// @param _proof Validity proof for the claims.
     function prove(bytes calldata _data, bytes calldata _proof) external;
 

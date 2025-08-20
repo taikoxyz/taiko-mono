@@ -4,24 +4,30 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibProposeDataDecoder } from "contracts/layer1/shasta/libs/LibProposeDataDecoder.sol";
+import { LibProposeInputDecoder } from "contracts/layer1/shasta/libs/LibProposeInputDecoder.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 import { LibBonds } from "contracts/shared/based/libs/LibBonds.sol";
 
-/// @title LibProposeDataDecoderGas
-/// @notice Gas comparison between optimized LibProposeDataDecoder and abi.encode/decode
+/// @title LibProposeInputDecoderGas
+/// @notice Gas comparison between optimized LibProposeInputDecoder and abi.encode/decode
 /// @dev Measures both execution gas and calldata gas costs
 /// @custom:security-contact security@taiko.xyz
-contract LibProposeDataDecoderGas is Test {
+contract LibProposeInputDecoderGas is Test {
+    // Storage for gas values to write to report
+    uint256[4] private simpleGas;
+    uint256[4] private mediumGas;
+    uint256[4] private complexGas;
+    uint256[4] private largeGas;
+
     function test_gas_comparison_decoding() public {
-        console2.log("\nGas Comparison: abi.decode vs LibProposeDataDecoder.decode");
+        console2.log("\nGas Comparison: abi.decode vs LibProposeInputDecoder.decode");
         console2.log("========================================================\n");
 
         // Test with different combinations
-        _runDecodingTest(1, 0, 0, "Simple: 1 proposal, 0 claims, 0 bonds");
-        _runDecodingTest(2, 1, 0, "Medium: 2 proposals, 1 claim, 0 bonds");
-        _runDecodingTest(3, 2, 2, "Complex: 3 proposals, 2 claims, 2 bonds");
-        _runDecodingTest(5, 5, 10, "Large: 5 proposals, 5 claims, 10 bonds");
+        _runDecodingTest(1, 0, 0, "Simple: 1 proposal, 0 claims, 0 bonds", simpleGas);
+        _runDecodingTest(2, 1, 0, "Medium: 2 proposals, 1 claim, 0 bonds", mediumGas);
+        _runDecodingTest(3, 2, 2, "Complex: 3 proposals, 2 claims, 2 bonds", complexGas);
+        _runDecodingTest(5, 5, 10, "Large: 5 proposals, 5 claims, 10 bonds", largeGas);
 
         _writeReport();
     }
@@ -30,23 +36,17 @@ contract LibProposeDataDecoderGas is Test {
         uint256 _proposalCount,
         uint256 _claimCount,
         uint256 _totalBondInstructions,
-        string memory _label
+        string memory _label,
+        uint256[4] storage _gasStorage
     )
         private
-        view
     {
-        (
-            uint48 deadline,
-            IInbox.CoreState memory coreState,
-            IInbox.Proposal[] memory proposals,
-            LibBlobs.BlobReference memory blobRef,
-            IInbox.ClaimRecord[] memory claimRecords
-        ) = _createTestData(_proposalCount, _claimCount, _totalBondInstructions);
+        IInbox.ProposeInput memory input =
+            _createTestData(_proposalCount, _claimCount, _totalBondInstructions);
 
         // Prepare encoded data
-        bytes memory abiEncoded = abi.encode(deadline, coreState, proposals, blobRef, claimRecords);
-        bytes memory libEncoded =
-            LibProposeDataDecoder.encode(deadline, coreState, proposals, blobRef, claimRecords);
+        bytes memory abiEncoded = abi.encode(input);
+        bytes memory libEncoded = LibProposeInputDecoder.encode(input);
 
         console2.log(_label);
 
@@ -63,25 +63,20 @@ contract LibProposeDataDecoderGas is Test {
 
         // 1. abi.decode
         uint256 gasBefore = gasleft();
-        (uint64 d1, IInbox.CoreState memory cs1,,,) = abi.decode(
-            abiEncoded,
-            (
-                uint64,
-                IInbox.CoreState,
-                IInbox.Proposal[],
-                LibBlobs.BlobReference,
-                IInbox.ClaimRecord[]
-            )
-        );
+        IInbox.ProposeInput memory decoded1 = abi.decode(abiEncoded, (IInbox.ProposeInput));
         gasValues[2] = gasBefore - gasleft();
 
-        // 2. LibProposeDataDecoder.decode
+        // 2. LibProposeInputDecoder.decode
         gasBefore = gasleft();
-        (uint64 d2, IInbox.CoreState memory cs2,,,) = LibProposeDataDecoder.decode(libEncoded);
+        IInbox.ProposeInput memory decoded2 = LibProposeInputDecoder.decode(libEncoded);
         gasValues[3] = gasBefore - gasleft();
 
         // Prevent optimization
-        require(d1 > 0 && d2 > 0 && cs1.nextProposalId > 0 && cs2.nextProposalId > 0, "decoded");
+        require(
+            decoded1.deadline > 0 && decoded2.deadline > 0 && decoded1.coreState.nextProposalId > 0
+                && decoded2.coreState.nextProposalId > 0,
+            "decoded"
+        );
 
         // Display results
         console2.log("  abi.encode + abi.decode:");
@@ -89,7 +84,7 @@ contract LibProposeDataDecoderGas is Test {
         console2.log("    Decode gas:", gasValues[2]);
         console2.log("    Total gas:", gasValues[0] + gasValues[2]);
 
-        console2.log("  LibProposeDataDecoder:");
+        console2.log("  LibProposeInputDecoder:");
         console2.log("    Calldata gas:", gasValues[1]);
         console2.log("    Decode gas:", gasValues[3]);
         console2.log("    Total gas:", gasValues[1] + gasValues[3]);
@@ -106,6 +101,12 @@ contract LibProposeDataDecoderGas is Test {
             console2.log("  Total overhead:", overhead, "%");
         }
         console2.log("");
+
+        // Store gas values for report
+        _gasStorage[0] = abiTotal;
+        _gasStorage[1] = libTotal;
+        _gasStorage[2] = abiTotal > libTotal ? ((abiTotal - libTotal) * 100) / abiTotal : 0;
+        _gasStorage[3] = abiTotal <= libTotal ? ((libTotal - abiTotal) * 100) / abiTotal : 0;
     }
 
     /// @notice Calculate calldata gas cost based on EVM pricing rules
@@ -131,30 +132,20 @@ contract LibProposeDataDecoderGas is Test {
     )
         private
         pure
-        returns (
-            uint48 deadline,
-            IInbox.CoreState memory coreState,
-            IInbox.Proposal[] memory proposals,
-            LibBlobs.BlobReference memory blobRef,
-            IInbox.ClaimRecord[] memory claimRecords
-        )
+        returns (IInbox.ProposeInput memory input)
     {
-        deadline = 2_000_000;
+        input.deadline = 2_000_000;
 
-        coreState = IInbox.CoreState({
+        input.coreState = IInbox.CoreState({
             nextProposalId: 100,
             lastFinalizedProposalId: 95,
             lastFinalizedClaimHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
         });
 
-        proposals = new IInbox.Proposal[](_proposalCount);
+        input.parentProposals = new IInbox.Proposal[](_proposalCount);
         for (uint256 i = 0; i < _proposalCount; i++) {
-            bytes32[] memory blobHashes = new bytes32[](2); // 2 blob hashes per proposal
-            blobHashes[0] = keccak256(abi.encodePacked("blob", i, uint256(0)));
-            blobHashes[1] = keccak256(abi.encodePacked("blob", i, uint256(1)));
-
-            proposals[i] = IInbox.Proposal({
+            input.parentProposals[i] = IInbox.Proposal({
                 id: uint48(96 + i),
                 proposer: address(uint160(0x1000 + i)),
                 timestamp: uint48(1_000_000 + i * 10),
@@ -163,13 +154,13 @@ contract LibProposeDataDecoderGas is Test {
             });
         }
 
-        blobRef = LibBlobs.BlobReference({
+        input.blobReference = LibBlobs.BlobReference({
             blobStartIndex: 1,
             numBlobs: uint16(_proposalCount * 2),
             offset: 512
         });
 
-        claimRecords = new IInbox.ClaimRecord[](_claimCount);
+        input.claimRecords = new IInbox.ClaimRecord[](_claimCount);
         uint256 bondIndex = 0;
         for (uint256 i = 0; i < _claimCount; i++) {
             // Distribute bond instructions across claim records
@@ -193,40 +184,93 @@ contract LibProposeDataDecoderGas is Test {
                 bondIndex++;
             }
 
-            claimRecords[i] = IInbox.ClaimRecord({
-                proposalId: uint48(96 + i),
-                claim: IInbox.Claim({
-                    proposalHash: keccak256(abi.encodePacked("proposal", i)),
-                    parentClaimHash: keccak256(abi.encodePacked("parent_claim", i)),
-                    endBlockNumber: uint48(2_000_000 + i * 10),
-                    endBlockHash: keccak256(abi.encodePacked("end_block", i)),
-                    endStateRoot: keccak256(abi.encodePacked("end_state", i)),
-                    designatedProver: address(uint160(0x2000 + i)),
-                    actualProver: address(uint160(0x3000 + i))
-                }),
+            input.claimRecords[i] = IInbox.ClaimRecord({
                 span: uint8(1 + (i % 3)),
+                claimHash: keccak256(abi.encodePacked("claim", i)),
+                endBlockMiniHeaderHash: keccak256(abi.encodePacked("end_header", i)),
                 bondInstructions: bondInstructions
             });
         }
+
+        // Add endBlockMiniHeader if needed
+        input.endBlockMiniHeader =
+            IInbox.BlockMiniHeader({ number: 0, hash: bytes32(0), stateRoot: bytes32(0) });
     }
 
     function _writeReport() private {
-        string memory report = "# LibProposeDataDecoder Gas Report\n\n";
+        string memory report = "# LibProposeInputDecoder Gas Report\n\n";
         report = string.concat(report, "## Total Cost (Calldata + Decoding)\n\n");
         report = string.concat(
-            report, "| Scenario | abi.encode + abi.decode | LibProposeDataDecoder | Savings |\n"
+            report, "| Scenario | abi.encode + abi.decode | LibProposeInputDecoder | Savings |\n"
         );
         report = string.concat(
             report, "|----------|-------------------------|----------------------|---------|\n"
         );
 
-        // Based on actual test results from test_gas_comparison_decoding
-        report = string.concat(report, "| Simple (1P, 0C, 0B) | 9,787 gas | 6,029 gas | 38% |\n");
-        report = string.concat(report, "| Medium (2P, 1C, 0B) | 19,912 gas | 13,755 gas | 30% |\n");
-        report = string.concat(report, "| Complex (3P, 2C, 2B) | 32,513 gas | 23,734 gas | 27% |\n");
-        report =
-            string.concat(report, "| Large (5P, 5C, 10B) | 67,642 gas | 52,623 gas | 22% |\n\n");
+        // Format gas values with commas for readability
+        report = string.concat(
+            report,
+            "| Simple (1P, 0C, 0B) | ",
+            _formatGas(simpleGas[0]),
+            " gas | ",
+            _formatGas(simpleGas[1]),
+            " gas | ",
+            vm.toString(simpleGas[2]),
+            "% |\n"
+        );
+        report = string.concat(
+            report,
+            "| Medium (2P, 1C, 0B) | ",
+            _formatGas(mediumGas[0]),
+            " gas | ",
+            _formatGas(mediumGas[1]),
+            " gas | ",
+            vm.toString(mediumGas[2]),
+            "% |\n"
+        );
+        report = string.concat(
+            report,
+            "| Complex (3P, 2C, 2B) | ",
+            _formatGas(complexGas[0]),
+            " gas | ",
+            _formatGas(complexGas[1]),
+            " gas | ",
+            vm.toString(complexGas[2]),
+            "% |\n"
+        );
+        report = string.concat(
+            report,
+            "| Large (5P, 5C, 10B) | ",
+            _formatGas(largeGas[0]),
+            " gas | ",
+            _formatGas(largeGas[1]),
+            " gas | ",
+            vm.toString(largeGas[2]),
+            "% |\n\n"
+        );
 
-        vm.writeFile("gas-reports/LibProposeDataDecoder.md", report);
+        report = string.concat(
+            report, "**Note**: P = Proposals, C = Claim Records, B = Bond Instructions\n"
+        );
+        report = string.concat(
+            report, "**Note**: Gas measurements include both calldata and decode costs\n"
+        );
+
+        vm.writeFile("gas-reports/LibProposeInputDecoder.md", report);
+    }
+
+    function _formatGas(uint256 _gas) private pure returns (string memory) {
+        if (_gas >= 1000) {
+            uint256 thousands = _gas / 1000;
+            uint256 remainder = _gas % 1000;
+            if (remainder < 10) {
+                return string.concat(vm.toString(thousands), ",00", vm.toString(remainder));
+            } else if (remainder < 100) {
+                return string.concat(vm.toString(thousands), ",0", vm.toString(remainder));
+            } else {
+                return string.concat(vm.toString(thousands), ",", vm.toString(remainder));
+            }
+        }
+        return vm.toString(_gas);
     }
 }

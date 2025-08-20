@@ -45,7 +45,7 @@ contract InboxInit is InboxTest {
     /// @dev Creates expected genesis core state
     function _createExpectedGenesisCoreState() private pure returns (IInbox.CoreState memory) {
         IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
+        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
 
         return createCoreStateFromConfig(
             CoreStateConfig({
@@ -113,7 +113,7 @@ contract InboxInit is InboxTest {
 
             // Create expected core state for verification
             IInbox.Claim memory genesisClaim;
-            genesisClaim.endBlockHash = testHashes[i];
+            genesisClaim.endBlockMiniHeader.hash = testHashes[i];
 
             createCoreStateFromConfig(
                 CoreStateConfig({

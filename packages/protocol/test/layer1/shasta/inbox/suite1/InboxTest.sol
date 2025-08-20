@@ -13,6 +13,7 @@ import "contracts/layer1/shasta/iface/IProposerChecker.sol";
 import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
 import "contracts/shared/based/iface/ISyncedBlockManager.sol";
 import "contracts/layer1/shasta/libs/LibBlobs.sol";
+import "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
 import "src/shared/based/libs/LibBonds.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -121,7 +122,7 @@ abstract contract InboxTest is CommonTest {
     }
 
     function setupMockAddresses() internal virtual {
-        setupMockAddresses(false);
+        setupMockAddresses(true);
     }
 
     function setupMockAddresses(bool useRealMocks) internal virtual {
@@ -332,9 +333,11 @@ abstract contract InboxTest is CommonTest {
         return IInbox.Claim({
             proposalHash: _builder.proposalHash,
             parentClaimHash: _builder.parentClaimHash,
-            endBlockNumber: _builder.endBlockNumber,
-            endBlockHash: _builder.endBlockHash,
-            endStateRoot: _builder.endStateRoot,
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: _builder.endBlockNumber,
+                hash: _builder.endBlockHash,
+                stateRoot: _builder.endStateRoot
+            }),
             designatedProver: _builder.designatedProver,
             actualProver: _builder.actualProver
         });
@@ -393,7 +396,11 @@ abstract contract InboxTest is CommonTest {
     /// @dev Creates a test scenario with N proposals, all proven but not finalized
     function createUnfinalizedProposalScenario(uint48 _count)
         internal
-        returns (IInbox.Proposal[] memory proposals, IInbox.Claim[] memory claims)
+        returns (
+            IInbox.Proposal[] memory proposals,
+            IInbox.Claim[] memory claims,
+            IInbox.ClaimRecord[] memory claimRecords
+        )
     {
         bytes32 genesisHash = getGenesisClaimHash();
         return createProvenChain(1, _count, genesisHash);
@@ -463,12 +470,14 @@ abstract contract InboxTest is CommonTest {
             uint256 proveGasStart = gasleft();
             bytes32 currentParent = _config.initialParentHash;
 
+            // Create all claims first
             for (uint48 i = 0; i < _config.proposalCount; i++) {
                 claims[i] = InboxTestLib.createClaim(proposals[i], currentParent, _config.prover);
-                proveProposal(proposals[i], _config.prover, currentParent);
-                claimRecords[i] = InboxTestLib.createClaimRecord(i + 1, claims[i], 1);
                 currentParent = InboxTestLib.hashClaim(claims[i]);
             }
+
+            // Prove all at once and get claim records from events
+            claimRecords = proveProposalBatch(proposals, claims, _config.prover);
             metrics.proveGas = proveGasStart - gasleft();
         }
 
@@ -553,9 +562,11 @@ abstract contract InboxTest is CommonTest {
         return IInbox.Claim({
             proposalHash: _config.proposalHash,
             parentClaimHash: _config.parentClaimHash,
-            endBlockNumber: _config.endBlockNumber,
-            endBlockHash: _config.endBlockHash,
-            endStateRoot: _config.endStateRoot,
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: _config.endBlockNumber,
+                hash: _config.endBlockHash,
+                stateRoot: _config.endStateRoot
+            }),
             designatedProver: _config.designatedProver,
             actualProver: _config.actualProver
         });
@@ -651,7 +662,7 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = InboxTestLib.createGenesisProposal(coreState);
 
-        bytes memory data = InboxTestAdapter.encodeProposalData(
+        bytes memory data = InboxTestAdapter.encodeProposeInput(
             inboxType,
             _deadline,
             coreState,
@@ -685,13 +696,23 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = InboxTestLib.createGenesisProposal(coreState);
 
-        bytes memory data = InboxTestAdapter.encodeProposalData(
+        // Get the endBlockMiniHeader from the last proposal that was proven
+        // This should match what was used when the claim was created
+        uint48 lastProposalId = uint48(_claimRecords.length);
+        IInbox.BlockMiniHeader memory endBlockMiniHeader = IInbox.BlockMiniHeader({
+            number: lastProposalId * 100,
+            hash: keccak256(abi.encode(lastProposalId, "endBlockHash")),
+            stateRoot: keccak256(abi.encode(lastProposalId, "stateRoot"))
+        });
+
+        bytes memory data = InboxTestAdapter.encodeProposeInputWithEndBlock(
             inboxType,
             uint48(0),
             coreState,
             proposals,
             createValidBlobReference(nextProposalId),
-            _claimRecords
+            _claimRecords,
+            endBlockMiniHeader
         );
 
         vm.prank(_finalizer != address(0) ? _finalizer : Alice);
@@ -895,7 +916,7 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = InboxTestLib.createGenesisProposal(state);
 
-        InboxTestAdapter.encodeProposalData(
+        InboxTestAdapter.encodeProposeInput(
             inboxType,
             uint48(0),
             state,
@@ -1098,7 +1119,7 @@ abstract contract InboxTest is CommonTest {
 
         setupProposalMocks(_proposer);
 
-        bytes memory data = _encodeProposalDataWithValidation(
+        bytes memory data = _encodeProposeInputWithValidation(
             _proposalId,
             coreState,
             InboxTestLib.createBlobReference(uint8(_proposalId)),
@@ -1106,10 +1127,18 @@ abstract contract InboxTest is CommonTest {
         );
 
         setupBlobHashes();
+
+        // Store current block context to reconstruct proposal correctly
+        uint256 currentBlock = block.number;
+        uint256 currentTimestamp = block.timestamp;
+
         vm.prank(_proposer);
         inbox.propose(bytes(""), data);
 
-        proposal = _reconstructStoredProposal(_proposalId, _proposer, coreState);
+        // Reconstruct proposal using the actual block context from when it was created
+        proposal = _reconstructStoredProposalAt(
+            _proposalId, _proposer, coreState, currentBlock, currentTimestamp
+        );
     }
 
     /// @dev Builds core state for a given proposal ID
@@ -1125,7 +1154,7 @@ abstract contract InboxTest is CommonTest {
     }
 
     /// @dev Helper function to encode proposal data with correct validation proposals
-    function _encodeProposalDataWithValidation(
+    function _encodeProposeInputWithValidation(
         uint48 _proposalId,
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
@@ -1148,13 +1177,13 @@ abstract contract InboxTest is CommonTest {
         }
 
         // Use adapter to handle encoding based on inbox type
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, uint48(0), _coreState, proposals, _blobRef, _claimRecords
         );
     }
 
-    /// @dev Wrapper for encodeProposalDataWithProposals that uses the adapter
-    function encodeProposalDataWithProposals(
+    /// @dev Wrapper for encodeProposeInputWithProposals that uses the adapter
+    function encodeProposeInputWithProposals(
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
@@ -1164,13 +1193,13 @@ abstract contract InboxTest is CommonTest {
         view
         returns (bytes memory)
     {
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, uint48(0), _coreState, _proposals, _blobRef, _claimRecords
         );
     }
 
-    /// @dev Wrapper for encodeProposalDataWithProposals with deadline
-    function encodeProposalDataWithProposals(
+    /// @dev Wrapper for encodeProposeInputWithProposals with deadline
+    function encodeProposeInputWithProposals(
         uint48 _deadline,
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
@@ -1181,13 +1210,13 @@ abstract contract InboxTest is CommonTest {
         view
         returns (bytes memory)
     {
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, _deadline, _coreState, _proposals, _blobRef, _claimRecords
         );
     }
 
-    /// @dev Wrapper for encodeProposalDataWithGenesis that uses the adapter
-    function encodeProposalDataWithGenesis(
+    /// @dev Wrapper for encodeProposeInputWithGenesis that uses the adapter
+    function encodeProposeInputWithGenesis(
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
         IInbox.ClaimRecord[] memory _claimRecords
@@ -1199,13 +1228,13 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = InboxTestLib.createGenesisProposal(_coreState);
 
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, uint48(0), _coreState, proposals, _blobRef, _claimRecords
         );
     }
 
-    /// @dev Wrapper for encodeProposalDataWithGenesis with deadline
-    function encodeProposalDataWithGenesis(
+    /// @dev Wrapper for encodeProposeInputWithGenesis with deadline
+    function encodeProposeInputWithGenesis(
         uint48 _deadline,
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
@@ -1218,13 +1247,13 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = InboxTestLib.createGenesisProposal(_coreState);
 
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, _deadline, _coreState, proposals, _blobRef, _claimRecords
         );
     }
 
-    /// @dev Wrapper for encodeProposalDataForSubsequent that uses the adapter
-    function encodeProposalDataForSubsequent(
+    /// @dev Wrapper for encodeProposeInputForSubsequent that uses the adapter
+    function encodeProposeInputForSubsequent(
         IInbox.CoreState memory _coreState,
         IInbox.Proposal memory _previousProposal,
         LibBlobs.BlobReference memory _blobRef,
@@ -1237,13 +1266,13 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = _previousProposal;
 
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, uint48(0), _coreState, proposals, _blobRef, _claimRecords
         );
     }
 
-    /// @dev Wrapper for encodeProposalDataForSubsequent with deadline
-    function encodeProposalDataForSubsequent(
+    /// @dev Wrapper for encodeProposeInputForSubsequent with deadline
+    function encodeProposeInputForSubsequent(
         uint48 _deadline,
         IInbox.CoreState memory _coreState,
         IInbox.Proposal memory _previousProposal,
@@ -1257,13 +1286,13 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = _previousProposal;
 
-        return InboxTestAdapter.encodeProposalData(
+        return InboxTestAdapter.encodeProposeInput(
             inboxType, _deadline, _coreState, proposals, _blobRef, _claimRecords
         );
     }
 
     /// @dev Wrapper for encoding prove data that uses the adapter
-    function encodeProveData(
+    function encodeProveInput(
         IInbox.Proposal[] memory _proposals,
         IInbox.Claim[] memory _claims
     )
@@ -1271,7 +1300,7 @@ abstract contract InboxTest is CommonTest {
         view
         returns (bytes memory)
     {
-        return InboxTestAdapter.encodeProveData(inboxType, _proposals, _claims);
+        return InboxTestAdapter.encodeProveInput(inboxType, _proposals, _claims);
     }
 
     /// @dev Gets the genesis core state that was created during contract initialization
@@ -1282,7 +1311,7 @@ abstract contract InboxTest is CommonTest {
 
         // Genesis claim hash from initialization
         IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockHash = GENESIS_BLOCK_HASH;
+        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
         genesisCoreState.lastFinalizedClaimHash = keccak256(abi.encode(genesisClaim));
         genesisCoreState.bondInstructionsHash = bytes32(0);
 
@@ -1292,8 +1321,8 @@ abstract contract InboxTest is CommonTest {
     /// @dev Recreates the genesis proposal that was stored during contract initialization
     function _recreateGenesisProposal() internal pure returns (IInbox.Proposal memory) {
         // Use the library function that correctly recreates the genesis proposal
-        IInbox.CoreState memory dummyState; // Not used by createGenesisProposal
-        return InboxTestLib.createGenesisProposal(dummyState);
+        IInbox.CoreState memory genesisCoreState = _getGenesisCoreState();
+        return InboxTestLib.createGenesisProposal(genesisCoreState);
     }
 
     /// @dev Recreates a stored proposal based on the pattern used in tests
@@ -1302,39 +1331,23 @@ abstract contract InboxTest is CommonTest {
         view
         returns (IInbox.Proposal memory)
     {
-        // For test purposes, recreate the proposal as it would have been stored
-        // This assumes all proposals follow the same pattern as submitProposal()
+        // For test purposes, use fixed deterministic values
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
 
-        // Recreate derivation
-        bytes32[] memory blobHashes = new bytes32[](1);
-        blobHashes[0] = keccak256(abi.encode("blob", uint256(_proposalId % 256)));
+        // For the genesis proposal (ID 0), keep the genesis core state (nextProposalId = 1)
+        // For other proposals, the core state shows what was present WHEN that proposal was created
+        if (_proposalId > 0) {
+            // When proposal ID X was created, the incoming core state had nextProposalId = X
+            // The proposal stores this state's hash, then increments nextProposalId
+            coreState.nextProposalId = _proposalId;
+            coreState.lastFinalizedProposalId = 0; // Keep as 0 for test simplicity
+        }
 
-        IInbox.Derivation memory derivation = IInbox.Derivation({
-            originBlockNumber: uint48(block.number - 1),
-            originBlockHash: blockhash(block.number - 1),
-            isForcedInclusion: false,
-            basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: 0,
-                timestamp: uint48(block.timestamp)
-            })
-        });
-
-        IInbox.Proposal memory proposal;
-        proposal.id = _proposalId;
-        proposal.proposer = Alice; // Default test proposer
-        proposal.timestamp = uint48(block.timestamp);
-        proposal.derivationHash = keccak256(abi.encode(derivation));
-
-        // The coreStateHash would have been set by the contract during submission
-        // For test purposes, recreate the expected core state (AFTER the proposal is processed)
-        IInbox.CoreState memory expectedCoreState = _getGenesisCoreState();
-        expectedCoreState.nextProposalId = _proposalId + 1; // Contract increments this after
-            // processing
-        proposal.coreStateHash = keccak256(abi.encode(expectedCoreState));
-
-        return proposal;
+        // Use the same fixed block context as submitProposal
+        // Note: block.number is 2 in tests after setUp rolls to block 2
+        return _reconstructStoredProposalAt(
+            _proposalId, Alice, coreState, block.number, block.timestamp
+        );
     }
 
     /// @dev Reconstructs the proposal as it was actually stored by the contract
@@ -1347,26 +1360,46 @@ abstract contract InboxTest is CommonTest {
         view
         returns (IInbox.Proposal memory proposal)
     {
+        // Use current block context for accurate reconstruction
+        // The contract uses block.number and block.timestamp when creating proposals
+        return _reconstructStoredProposalAt(
+            _proposalId, _proposer, _coreState, block.number, block.timestamp
+        );
+    }
+
+    /// @dev Reconstructs proposal with specific block context
+    function _reconstructStoredProposalAt(
+        uint48 _proposalId,
+        address _proposer,
+        IInbox.CoreState memory _coreState,
+        uint256 _blockNumber,
+        uint256 _timestamp
+    )
+        internal
+        view
+        returns (IInbox.Proposal memory proposal)
+    {
         // Recreate the blob slice exactly as it was created
         bytes32[] memory blobHashes = new bytes32[](1);
         blobHashes[0] = keccak256(abi.encode("blob", uint256(_proposalId % 256)));
 
-        // Create derivation for hash calculation
+        // Create derivation for hash calculation with specific block context
+        // The contract uses blockhash(block.number - 1) for originBlockHash
         IInbox.Derivation memory derivation = IInbox.Derivation({
-            originBlockNumber: uint48(block.number - 1),
-            originBlockHash: blockhash(block.number - 1),
+            originBlockNumber: uint48(_blockNumber - 1),
+            originBlockHash: blockhash(_blockNumber - 1), // Use actual blockhash
             isForcedInclusion: false,
             basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
             blobSlice: LibBlobs.BlobSlice({
                 blobHashes: blobHashes,
                 offset: 0,
-                timestamp: uint48(block.timestamp)
+                timestamp: uint48(_timestamp)
             })
         });
 
         proposal.id = _proposalId;
         proposal.proposer = _proposer;
-        proposal.timestamp = uint48(block.timestamp);
+        proposal.timestamp = uint48(_timestamp);
         proposal.derivationHash = keccak256(abi.encode(derivation));
 
         // The contract increments nextProposalId during processing
@@ -1389,23 +1422,38 @@ abstract contract InboxTest is CommonTest {
     {
         claim = InboxTestLib.createClaim(_proposal, _parentClaimHash, _prover);
         _submitProof(_proposal, claim, _prover);
+        // Store the endBlockMiniHeader for test purposes
+        inbox.storeEndBlockMiniHeader(_proposal.id, claim.endBlockMiniHeader);
     }
 
-    /// @dev Proves multiple proposals in batch
+    /// @dev Proves multiple proposals in batch and returns claim records from events
     function proveProposalBatch(
         IInbox.Proposal[] memory _proposals,
         IInbox.Claim[] memory _claims,
         address _prover
     )
         internal
+        returns (IInbox.ClaimRecord[] memory claimRecords)
     {
         require(_proposals.length == _claims.length, "Array length mismatch");
 
         setupProofMocks(true);
 
-        bytes memory proveData = InboxTestAdapter.encodeProveData(inboxType, _proposals, _claims);
+        bytes memory proveData = InboxTestAdapter.encodeProveInput(inboxType, _proposals, _claims);
+
+        // Record events to extract claim records
+        vm.recordLogs();
         vm.prank(_prover);
         inbox.prove(proveData, bytes("proof"));
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // Extract claim records from Proved events
+        claimRecords = extractClaimRecordsFromProvedEvents(logs);
+
+        // Store the endBlockMiniHeaders for test purposes
+        for (uint256 i = 0; i < _proposals.length; i++) {
+            inbox.storeEndBlockMiniHeader(_proposals[i].id, _claims[i].endBlockMiniHeader);
+        }
     }
 
     /// @dev Internal helper to submit a single proof
@@ -1424,7 +1472,7 @@ abstract contract InboxTest is CommonTest {
         claims[0] = _claim;
 
         vm.prank(_prover);
-        inbox.prove(InboxTestAdapter.encodeProveData(inboxType, proposals, claims), bytes("proof"));
+        inbox.prove(InboxTestAdapter.encodeProveInput(inboxType, proposals, claims), bytes("proof"));
     }
 
     /// @dev Creates and proves a chain of proposals
@@ -1434,7 +1482,11 @@ abstract contract InboxTest is CommonTest {
         bytes32 _initialParentHash
     )
         internal
-        returns (IInbox.Proposal[] memory proposals, IInbox.Claim[] memory claims)
+        returns (
+            IInbox.Proposal[] memory proposals,
+            IInbox.Claim[] memory claims,
+            IInbox.ClaimRecord[] memory claimRecords
+        )
     {
         return createProvenChainWithCustomProver(_startId, _count, _initialParentHash, Alice, Bob);
     }
@@ -1448,7 +1500,11 @@ abstract contract InboxTest is CommonTest {
         address _prover
     )
         internal
-        returns (IInbox.Proposal[] memory proposals, IInbox.Claim[] memory claims)
+        returns (
+            IInbox.Proposal[] memory proposals,
+            IInbox.Claim[] memory claims,
+            IInbox.ClaimRecord[] memory claimRecords
+        )
     {
         InboxTestLib.ProposalChain memory chain = InboxTestLib.createProposalChain(
             _startId, _count, _proposer, _prover, _initialParentHash, DEFAULT_BASEFEE_SHARING_PCTG
@@ -1462,8 +1518,8 @@ abstract contract InboxTest is CommonTest {
             submitProposal(_startId + i, _proposer);
         }
 
-        // Prove all at once
-        proveProposalBatch(proposals, claims, _prover);
+        // Prove all at once and get claim records from events
+        claimRecords = proveProposalBatch(proposals, claims, _prover);
     }
 
     /// @dev Creates a simple finalization scenario with N proposals
@@ -1476,14 +1532,55 @@ abstract contract InboxTest is CommonTest {
         )
     {
         bytes32 genesisHash = getGenesisClaimHash();
-        (proposals, claims) = createProvenChain(1, _numProposals, genesisHash);
+        (proposals, claims, claimRecords) = createProvenChain(1, _numProposals, genesisHash);
+    }
 
-        claimRecords = new IInbox.ClaimRecord[](_numProposals);
-        bytes32 currentParent = genesisHash;
+    // ---------------------------------------------------------------
+    // Event Extraction Helpers
+    // ---------------------------------------------------------------
 
-        for (uint48 i = 0; i < _numProposals; i++) {
-            claimRecords[i] = InboxTestLib.createClaimRecord(i + 1, claims[i], 1);
-            currentParent = InboxTestLib.hashClaim(claims[i]);
+    /// @dev Extracts claim records from Proved events emitted during prove operations
+    function extractClaimRecordsFromProvedEvents(Vm.Log[] memory logs)
+        internal
+        view
+        returns (IInbox.ClaimRecord[] memory claimRecords)
+    {
+        // Count Proved events
+        uint256 provedEventCount = 0;
+        bytes32 provedEventSig = keccak256("Proved(bytes)");
+
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == provedEventSig) {
+                provedEventCount++;
+            }
+        }
+
+        claimRecords = new IInbox.ClaimRecord[](provedEventCount);
+        uint256 recordIndex = 0;
+
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == provedEventSig) {
+                // Decode the event data based on inbox type
+                bytes memory eventData = logs[i].data;
+
+                if (
+                    inboxType == TestInboxFactory.InboxType.Base
+                        || inboxType == TestInboxFactory.InboxType.Optimized1
+                ) {
+                    // For base and opt1, use abi.decode
+                    bytes memory payload = abi.decode(eventData, (bytes));
+                    IInbox.ProvedEventPayload memory provedPayload =
+                        abi.decode(payload, (IInbox.ProvedEventPayload));
+                    claimRecords[recordIndex] = provedPayload.claimRecord;
+                } else {
+                    // For opt2 and opt3, use LibProvedEventEncoder.decode
+                    bytes memory payload = abi.decode(eventData, (bytes));
+                    IInbox.ProvedEventPayload memory provedPayload =
+                        LibProvedEventEncoder.decode(payload);
+                    claimRecords[recordIndex] = provedPayload.claimRecord;
+                }
+                recordIndex++;
+            }
         }
     }
 

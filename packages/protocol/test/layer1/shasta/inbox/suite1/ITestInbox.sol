@@ -22,8 +22,21 @@ interface ITestInbox is IInbox {
     /// @notice Expose internal function for testing - set claim record hash
     function exposed_setClaimRecordHash(
         uint48 _proposalId,
-        bytes32 _parentClaimHash,
-        bytes32 _claimRecordHash
+        IInbox.Claim memory _claim,
+        IInbox.ClaimRecord memory _claimRecord
     )
         external;
+
+    /// @notice Store endBlockMiniHeader for test purposes
+    function storeEndBlockMiniHeader(
+        uint48 _proposalId,
+        IInbox.BlockMiniHeader memory _header
+    )
+        external;
+
+    /// @notice Get stored endBlockMiniHeader for test purposes
+    function getStoredEndBlockMiniHeader(uint48 _proposalId)
+        external
+        view
+        returns (IInbox.BlockMiniHeader memory);
 }
