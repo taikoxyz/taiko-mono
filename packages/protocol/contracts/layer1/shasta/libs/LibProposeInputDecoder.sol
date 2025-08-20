@@ -263,9 +263,7 @@ library LibProposeInputDecoder {
             // Proposals - each has fixed size
             // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) + coreStateHash(32) +
             // derivationHash(32) = 96
-            for (uint256 i; i < _proposals.length; ++i) {
-                size_ += 96;
-            }
+            size_ += _proposals.length * 96;
 
             // ClaimRecords - each has fixed size + variable bond instructions
             // Fixed: span(1) + claimHash(32) + endBlockMiniHeaderHash(32) + array length(3) =
