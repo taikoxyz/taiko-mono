@@ -457,7 +457,7 @@
 ### taikoAnchor
 
 - proxy: `0x1670090000000000000000000000000000010001`
-- impl: `0x31EeCdD5c2Bf737BbCf8Bac6F45e4b4b30D53b01`
+- impl: `0x76390e768C769D06c2e339fA75b6d068a3bA6C05`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -467,6 +467,7 @@
   - upgraded on Mar 24, 2025 at commit `80baf41`
   - upgraded on Apr 3, 2025 at commit `2879728`
   - upgraded on Jun 28, 2025 at commit `c663e2e`
+  - upgraded on Aug 14, 2025 at commit `d6d33eb`
 
 ### rollup_address_manager
 

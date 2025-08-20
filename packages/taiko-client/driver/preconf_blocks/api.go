@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -70,6 +71,13 @@ type BuildPreconfBlockResponseBody struct {
 func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfBuildPreconfBlockDuration.Observe(elapsed)
+		log.Debug("BuildPreconfBlock completed", "elapsed", elapsed)
+	}()
 
 	// make a new context, we don't want to cancel the request if the caller times out.
 	ctx := context.Background()
@@ -140,7 +148,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	log.Info(
-		"New preconfirmation block building request",
+		"🏗️ New preconfirmation block building request",
 		"blockID", reqBody.ExecutableData.Number,
 		"coinbase", reqBody.ExecutableData.FeeRecipient.Hex(),
 		"timestamp", reqBody.ExecutableData.Timestamp,
