@@ -333,6 +333,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     )
         internal
         view
+        virtual
     {
         bytes32 proposalHash = _checkProposalHash(_config, _proposal);
         require(proposalHash == _claim.proposalHash, ProposalHashMismatchWithClaim());

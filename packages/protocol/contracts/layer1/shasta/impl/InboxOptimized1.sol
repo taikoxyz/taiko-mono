@@ -45,6 +45,7 @@ abstract contract InboxOptimized1 is Inbox {
         if (_proposals.length == 0) return;
 
         // Validate first proposal
+
         _validateClaim(_config, _proposals[0], _claims[0]);
 
         // Initialize current aggregation state
@@ -183,12 +184,26 @@ abstract contract InboxOptimized1 is Inbox {
         emit Proved(payload);
     }
 
-    // ---------------------------------------------------------------
-    // Private Functions
-    // ---------------------------------------------------------------
+    /// @dev Validates that a claim is valid for a given proposal.
+    /// @param _config The configuration parameters.
+    /// @param _proposal The proposal to validate.
+    /// @param _claim The claim to validate.
+    function _validateClaim(
+        Config memory _config,
+        Proposal memory _proposal,
+        Claim memory _claim
+    )
+        internal
+        view
+        virtual
+        override
+    {
+        require(_claim.parentClaimHash != _DEFAULT_SLOT_HASH, InvalidParentClaimHash());
+        super._validateClaim(_config, _proposal, _claim);
+    }
 
     // ---------------------------------------------------------------
-    // Private Functions - Slot Reuse Helpers
+    // Private Functions
     // ---------------------------------------------------------------
 
     /// @dev Decodes a slot reuse marker into proposal ID and partial parent claim hash.
@@ -224,4 +239,10 @@ abstract contract InboxOptimized1 is Inbox {
     {
         return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error InvalidParentClaimHash();
 }
