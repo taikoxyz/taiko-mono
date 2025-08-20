@@ -9,12 +9,6 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
-
-    bytes32 private constant _DEFAULT_SLOT_HASH = bytes32(uint256(1));
-
-    // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
@@ -36,38 +30,37 @@ abstract contract InboxOptimized1 is Inbox {
     /// merging.
     function _buildAndSaveClaimRecords(
         Config memory _config,
-        Proposal[] memory _proposals,
-        Claim[] memory _claims
+        ProveInput memory _input
     )
         internal
         override
     {
-        if (_proposals.length == 0) return;
+        if (_input.proposals.length == 0) return;
 
         // Validate first proposal
 
-        _validateClaim(_config, _proposals[0], _claims[0]);
+        _validateClaim(_config, _input.proposals[0], _input.claims[0]);
 
         // Initialize current aggregation state
         ClaimRecord memory currentRecord = ClaimRecord({
             span: 1,
-            bondInstructions: _calculateBondInstructions(_config, _proposals[0], _claims[0]),
-            claimHash: _hashClaim(_claims[0]),
-            endBlockMiniHeaderHash: _hashBlockMiniHeader(_claims[0].endBlockMiniHeader)
+            bondInstructions: _calculateBondInstructions(_config, _input.proposals[0], _input.claims[0]),
+            claimHash: _hashClaim(_input.claims[0]),
+            endBlockMiniHeaderHash: _hashBlockMiniHeader(_input.claims[0].endBlockMiniHeader)
         });
 
-        uint48 currentGroupStartId = _proposals[0].id;
-        Claim memory firstClaimInGroup = _claims[0];
+        uint48 currentGroupStartId = _input.proposals[0].id;
+        Claim memory firstClaimInGroup = _input.claims[0];
 
         // Process remaining proposals
-        for (uint256 i = 1; i < _proposals.length; ++i) {
-            _validateClaim(_config, _proposals[i], _claims[i]);
+        for (uint256 i = 1; i < _input.proposals.length; ++i) {
+            _validateClaim(_config, _input.proposals[i], _input.claims[i]);
 
             // Check if current proposal can be aggregated with the previous group
-            if (_proposals[i].id == currentGroupStartId + currentRecord.span) {
+            if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
                 // Aggregate with current record
                 LibBonds.BondInstruction[] memory newInstructions =
-                    _calculateBondInstructions(_config, _proposals[i], _claims[i]);
+                    _calculateBondInstructions(_config, _input.proposals[i], _input.claims[i]);
 
                 if (newInstructions.length > 0) {
                     // Inline merge to avoid separate function call and reduce stack depth
@@ -89,9 +82,9 @@ abstract contract InboxOptimized1 is Inbox {
                 }
 
                 // Update the claim hash and end block mini header hash for the aggregated record
-                currentRecord.claimHash = _hashClaim(_claims[i]);
+                currentRecord.claimHash = _hashClaim(_input.claims[i]);
                 currentRecord.endBlockMiniHeaderHash =
-                    _hashBlockMiniHeader(_claims[i].endBlockMiniHeader);
+                    _hashBlockMiniHeader(_input.claims[i].endBlockMiniHeader);
 
                 // Increment span to include this aggregated proposal
                 currentRecord.span++;
@@ -100,14 +93,16 @@ abstract contract InboxOptimized1 is Inbox {
                 _setClaimRecordHash(_config, currentGroupStartId, firstClaimInGroup, currentRecord);
 
                 // Start a new record for non-continuous proposal
-                currentGroupStartId = _proposals[i].id;
-                firstClaimInGroup = _claims[i];
+                currentGroupStartId = _input.proposals[i].id;
+                firstClaimInGroup = _input.claims[i];
 
                 currentRecord = ClaimRecord({
                     span: 1,
-                    bondInstructions: _calculateBondInstructions(_config, _proposals[i], _claims[i]),
-                    claimHash: _hashClaim(_claims[i]),
-                    endBlockMiniHeaderHash: _hashBlockMiniHeader(_claims[i].endBlockMiniHeader)
+                    bondInstructions: _calculateBondInstructions(
+                        _config, _input.proposals[i], _input.claims[i]
+                    ),
+                    claimHash: _hashClaim(_input.claims[i]),
+                    endBlockMiniHeaderHash: _hashBlockMiniHeader(_input.claims[i].endBlockMiniHeader)
                 });
             }
         }
@@ -129,22 +124,19 @@ abstract contract InboxOptimized1 is Inbox {
         returns (bytes32 claimRecordHash_)
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        ExtendedClaimRecord storage record = _claimHashLookup[bufferSlot][_DEFAULT_SLOT_HASH];
+        ReuseableClaimRecord storage record = _reuseableClaimRecords[bufferSlot];
 
-        (uint48 proposalId, bytes32 partialParentClaimHash) =
-            _decodeSlotReuseMarker(record.slotReuseMarker);
-
-        // If the reusable slot's proposal ID does not match the given proposal ID, it indicates
-        // that there are no claims associated with this proposal at all.
-        if (proposalId != _proposalId) return bytes32(0);
-
-        // If there's a record in the default slot with matching parent claim hash, return it
-        if (_isPartialParentClaimHashMatch(partialParentClaimHash, _parentClaimHash)) {
-            return record.claimRecordHash;
+        // Check if this is the default record for this proposal
+        if (record.proposalId == _proposalId) {
+            // Check if parent claim hash matches (partial match)
+            if (_isPartialParentClaimHashMatch(record.partialParentClaimHash, _parentClaimHash)) {
+                return record.claimRecordHash;
+            }
         }
 
         // Otherwise check the direct mapping
-        return _claimHashLookup[bufferSlot][_parentClaimHash].claimRecordHash;
+        bytes32 compositeKey = _composeClaimKey(_proposalId, _parentClaimHash);
+        return _claimRecordHashes[bufferSlot][compositeKey];
     }
 
     /// @dev Sets the claim record hash for a given proposal and parent claim, and emits the Proved
@@ -160,22 +152,23 @@ abstract contract InboxOptimized1 is Inbox {
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         bytes32 claimRecordHash = _hashClaimRecord(_claimRecord);
-        ExtendedClaimRecord storage record = _claimHashLookup[bufferSlot][_DEFAULT_SLOT_HASH];
+        ReuseableClaimRecord storage record = _reuseableClaimRecords[bufferSlot];
 
-        (uint48 proposalId, bytes32 partialParentClaimHash) =
-            _decodeSlotReuseMarker(record.slotReuseMarker);
-
-        // Check if we need to use the default slot
-        if (proposalId != _proposalId) {
+        // Check if we can use the default slot
+        if (record.proposalId != _proposalId) {
             // Different proposal ID, so we can use the default slot
             record.claimRecordHash = claimRecordHash;
-            record.slotReuseMarker = _encodeSlotReuseMarker(_proposalId, _claim.parentClaimHash);
-        } else if (_isPartialParentClaimHashMatch(partialParentClaimHash, _claim.parentClaimHash)) {
+            record.proposalId = _proposalId;
+            record.partialParentClaimHash = bytes26(_claim.parentClaimHash);
+        } else if (
+            _isPartialParentClaimHashMatch(record.partialParentClaimHash, _claim.parentClaimHash)
+        ) {
             // Same proposal ID and same parent claim hash (partial match), update the default slot
             record.claimRecordHash = claimRecordHash;
         } else {
             // Same proposal ID but different parent claim hash, use direct mapping
-            _claimHashLookup[bufferSlot][_claim.parentClaimHash].claimRecordHash = claimRecordHash;
+            bytes32 compositeKey = _composeClaimKey(_proposalId, _claim.parentClaimHash);
+            _claimRecordHashes[bufferSlot][compositeKey] = claimRecordHash;
         }
 
         bytes memory payload = encodeProvedEventData(
@@ -184,65 +177,19 @@ abstract contract InboxOptimized1 is Inbox {
         emit Proved(payload);
     }
 
-    /// @dev Validates that a claim is valid for a given proposal.
-    /// @param _config The configuration parameters.
-    /// @param _proposal The proposal to validate.
-    /// @param _claim The claim to validate.
-    function _validateClaim(
-        Config memory _config,
-        Proposal memory _proposal,
-        Claim memory _claim
-    )
-        internal
-        view
-        virtual
-        override
-    {
-        require(_claim.parentClaimHash != _DEFAULT_SLOT_HASH, InvalidParentClaimHash());
-        super._validateClaim(_config, _proposal, _claim);
-    }
-
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Decodes a slot reuse marker into proposal ID and partial parent claim hash.
-    function _decodeSlotReuseMarker(uint256 _slotReuseMarker)
-        private
-        pure
-        returns (uint48 proposalId_, bytes32 partialParentClaimHash_)
-    {
-        proposalId_ = uint48(_slotReuseMarker >> 208);
-        partialParentClaimHash_ = bytes32(_slotReuseMarker << 48);
-    }
-
-    /// @dev Encodes a proposal ID and parent claim hash into a slot reuse marker.
-    function _encodeSlotReuseMarker(
-        uint48 _proposalId,
-        bytes32 _parentClaimHash
-    )
-        private
-        pure
-        returns (uint256 slotReuseMarker_)
-    {
-        slotReuseMarker_ = (uint256(_proposalId) << 208) | (uint256(_parentClaimHash) >> 48);
-    }
-
-    /// @dev Checks if two parent claim hashes match in their high 208 bits.
+    /// @dev Checks if the partial parent claim hash matches the full parent claim hash.
     function _isPartialParentClaimHashMatch(
-        bytes32 _partialParentClaimHash,
+        bytes26 _partialParentClaimHash,
         bytes32 _parentClaimHash
     )
         private
         pure
         returns (bool)
     {
-        return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
+        return _partialParentClaimHash == bytes26(_parentClaimHash);
     }
-
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error InvalidParentClaimHash();
 }
