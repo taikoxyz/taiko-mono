@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import "contracts/layer1/shasta/impl/InboxOptimized1.sol";
+import "contracts/layer1/shasta/iface/IInbox.sol";
+import "./ITestInbox.sol";
+
+/// @title TestInboxOptimized1
+/// @notice Concrete implementation of InboxOptimized1 for testing
+/// @custom:security-contact security@taiko.xyz
+contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
+    IInbox.Config private testConfig;
+    bool private configSet;
+    mapping(uint256 => bytes32) private mockBlobHashes;
+    bool private useMockBlobHashes;
+    // Storage to track endBlockMiniHeader for test purposes
+    mapping(uint48 => IInbox.BlockMiniHeader) public testEndBlockMiniHeaders;
+
+    constructor() InboxOptimized1() { }
+
+    function setTestConfig(IInbox.Config memory _config) external {
+        testConfig = _config;
+        configSet = true;
+    }
+
+    function setMockBlobValidation(bool _useMock) external {
+        useMockBlobHashes = _useMock;
+    }
+
+    function setMockBlobHash(uint256 _index, bytes32 _hash) external {
+        mockBlobHashes[_index] = _hash;
+    }
+
+    function getConfig() public view override returns (IInbox.Config memory) {
+        if (!configSet) {
+            return IInbox.Config({
+                bondToken: address(0),
+                provingWindow: 1 hours,
+                extendedProvingWindow: 2 hours,
+                maxFinalizationCount: 10,
+                ringBufferSize: 100,
+                basefeeSharingPctg: 10,
+                syncedBlockManager: address(0),
+                proofVerifier: address(0),
+                proposerChecker: address(0),
+                forcedInclusionStore: address(0)
+            });
+        }
+        return testConfig;
+    }
+
+    function _getBlobHash(uint256 _blobIndex) internal view override returns (bytes32) {
+        if (useMockBlobHashes) {
+            bytes32 mockHash = mockBlobHashes[_blobIndex];
+            if (mockHash != bytes32(0)) {
+                return mockHash;
+            }
+            if (_blobIndex == 100) {
+                return bytes32(0);
+            }
+            return keccak256(abi.encode("blob", _blobIndex));
+        }
+        return blobhash(_blobIndex);
+    }
+
+    // Expose internal functions for testing
+    function exposed_setProposalHash(uint48 _proposalId, bytes32 _hash) external {
+        _setProposalHash(testConfig, _proposalId, _hash);
+    }
+
+    function exposed_setClaimRecordHash(
+        uint48 _proposalId,
+        IInbox.Claim memory _claim,
+        IInbox.ClaimRecord memory _claimRecord
+    )
+        external
+    {
+        _setClaimRecordHash(testConfig, _proposalId, _claim, _claimRecord);
+    }
+
+    // Function to store endBlockMiniHeader for test purposes
+    function storeEndBlockMiniHeader(
+        uint48 _proposalId,
+        IInbox.BlockMiniHeader memory _header
+    )
+        external
+    {
+        testEndBlockMiniHeaders[_proposalId] = _header;
+    }
+
+    // Helper function to get the stored endBlockMiniHeader
+    function getStoredEndBlockMiniHeader(uint48 _proposalId)
+        external
+        view
+        returns (IInbox.BlockMiniHeader memory)
+    {
+        return testEndBlockMiniHeaders[_proposalId];
+    }
+}
