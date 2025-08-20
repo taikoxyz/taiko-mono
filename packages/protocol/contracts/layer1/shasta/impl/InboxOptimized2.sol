@@ -65,15 +65,15 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
     }
 
     /// @dev Encodes the proved event data
-    /// @param _paylaod The ProvedEventPayload object
+    /// @param _payload The ProvedEventPayload object
     /// @return The encoded data
-    function encodeProvedEventData(ProvedEventPayload memory _paylaod)
+    function encodeProvedEventData(ProvedEventPayload memory _payload)
         public
         pure
         virtual
         override
         returns (bytes memory)
     {
-        return LibProvedEventEncoder.encode(_paylaod);
+        return LibProvedEventEncoder.encode(_payload);
     }
 }

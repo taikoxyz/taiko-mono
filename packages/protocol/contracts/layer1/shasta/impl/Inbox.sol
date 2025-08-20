@@ -262,15 +262,15 @@ abstract contract Inbox is EssentialContract, IInbox {
     }
 
     /// @dev Encodes the proved event data
-    /// @param _paylaod The ProvedEventPayload object
+    /// @param _payload The ProvedEventPayload object
     /// @return The encoded data
-    function encodeProvedEventData(ProvedEventPayload memory _paylaod)
+    function encodeProvedEventData(ProvedEventPayload memory _payload)
         public
         pure
         virtual
         returns (bytes memory)
     {
-        return abi.encode(_paylaod);
+        return abi.encode(_payload);
     }
 
     // ---------------------------------------------------------------
