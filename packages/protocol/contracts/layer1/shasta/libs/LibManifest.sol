@@ -31,8 +31,8 @@ library LibManifest {
     /// @notice The maximum number timestamp offset from the proposal origin timestamp.
     uint256 internal constant TIMESTAMP_MAX_OFFSET = 12 * 32;
 
-    /// @notice The maximum block gas limit change per block in permyriad (1/10,000).
-    /// @dev E.g., 10 = 0.1 basis points = 0.001% = 10/100,000
+    /// @notice The maximum block gas limit change per block, in millionths (1/1,000,000).
+    /// @dev For example, 10 = 10 / 1,000,000 = 0.001%.
     uint256 internal constant MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD = 10;
 
     /// @notice The minimum block gas limit.
