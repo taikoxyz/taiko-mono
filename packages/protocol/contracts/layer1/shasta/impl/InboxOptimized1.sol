@@ -163,10 +163,10 @@ abstract contract InboxOptimized1 is Inbox {
             _claimHashLookup[bufferSlot][_claim.parentClaimHash].claimRecordHash = claimRecordHash;
         }
 
-        bytes memory paylaod = encodeProvedEventData(
+        bytes memory payload = encodeProvedEventData(
             ProvedEventPayload({ proposalId: _proposalId, claim: _claim, claimRecord: _claimRecord })
         );
-        emit Proved(paylaod);
+        emit Proved(payload);
     }
 
     // ---------------------------------------------------------------

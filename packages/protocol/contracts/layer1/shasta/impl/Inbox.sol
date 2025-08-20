@@ -420,10 +420,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         bytes32 claimRecordHash = _hashClaimRecord(_claimRecord);
         _claimHashLookup[bufferSlot][compositeKey].claimRecordHash = claimRecordHash;
 
-        bytes memory paylaod = encodeProvedEventData(
+        bytes memory payload = encodeProvedEventData(
             ProvedEventPayload({ proposalId: _proposalId, claim: _claim, claimRecord: _claimRecord })
         );
-        emit Proved(paylaod);
+        emit Proved(payload);
     }
 
     /// @dev Gets the capacity for unfinalized proposals.
