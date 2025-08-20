@@ -9,12 +9,6 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 /// @custom:security-contact security@taiko.xyz
 abstract contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
-    // Constants
-    // ---------------------------------------------------------------
-
-    bytes32 private constant _DEFAULT_SLOT_HASH = bytes32(uint256(1));
-
-    // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
@@ -129,7 +123,7 @@ abstract contract InboxOptimized1 is Inbox {
         returns (bytes32 claimRecordHash_)
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        ExtendedClaimRecord storage record = _claimHashLookup[bufferSlot][_DEFAULT_SLOT_HASH];
+        ExtendedClaimRecord storage record = _defaultRecords[bufferSlot];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =
             _decodeSlotReuseMarker(record.slotReuseMarker);
@@ -144,7 +138,8 @@ abstract contract InboxOptimized1 is Inbox {
         }
 
         // Otherwise check the direct mapping
-        return _claimHashLookup[bufferSlot][_parentClaimHash].claimRecordHash;
+        bytes32 compositeKey = _composeClaimKey(_proposalId, _parentClaimHash);
+        return _claimHashLookup[bufferSlot][compositeKey].claimRecordHash;
     }
 
     /// @dev Sets the claim record hash for a given proposal and parent claim, and emits the Proved
@@ -160,7 +155,7 @@ abstract contract InboxOptimized1 is Inbox {
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         bytes32 claimRecordHash = _hashClaimRecord(_claimRecord);
-        ExtendedClaimRecord storage record = _claimHashLookup[bufferSlot][_DEFAULT_SLOT_HASH];
+        ExtendedClaimRecord storage record = _defaultRecords[bufferSlot];
 
         (uint48 proposalId, bytes32 partialParentClaimHash) =
             _decodeSlotReuseMarker(record.slotReuseMarker);
@@ -175,7 +170,8 @@ abstract contract InboxOptimized1 is Inbox {
             record.claimRecordHash = claimRecordHash;
         } else {
             // Same proposal ID but different parent claim hash, use direct mapping
-            _claimHashLookup[bufferSlot][_claim.parentClaimHash].claimRecordHash = claimRecordHash;
+            bytes32 compositeKey = _composeClaimKey(_proposalId, _claim.parentClaimHash);
+            _claimHashLookup[bufferSlot][compositeKey].claimRecordHash = claimRecordHash;
         }
 
         bytes memory payload = encodeProvedEventData(
@@ -198,13 +194,27 @@ abstract contract InboxOptimized1 is Inbox {
         virtual
         override
     {
-        require(_claim.parentClaimHash != _DEFAULT_SLOT_HASH, InvalidParentClaimHash());
         super._validateClaim(_config, _proposal, _claim);
     }
 
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
+
+    /// @dev Computes the composite key for claim record lookups.
+    /// @param _proposalId The proposal ID.
+    /// @param _parentClaimHash The parent claim hash.
+    /// @return _ The composite key for the mapping.
+    function _composeClaimKey(
+        uint48 _proposalId,
+        bytes32 _parentClaimHash
+    )
+        private
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(_proposalId, _parentClaimHash));
+    }
 
     /// @dev Decodes a slot reuse marker into proposal ID and partial parent claim hash.
     function _decodeSlotReuseMarker(uint256 _slotReuseMarker)
@@ -240,9 +250,4 @@ abstract contract InboxOptimized1 is Inbox {
         return _partialParentClaimHash >> 48 == bytes32(uint256(_parentClaimHash) >> 48);
     }
 
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error InvalidParentClaimHash();
 }

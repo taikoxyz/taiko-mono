@@ -48,9 +48,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// This variable reuse the `batches slot in pacaya fork.
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
-    /// @dev This variable is no longer used.
-    mapping(uint256 bufferSlot => mapping(bytes32 parentHash => uint24 transitionId)) private
-        __transitionIdsPacaya;
+    /// @dev The default records to be reused by the very first claim
+    mapping(uint256 bufferSlot => ExtendedClaimRecord defaultRecord) internal _defaultRecords;
 
     /// @dev Ring buffer for storing claim records.
     /// This variable reuse the `transitions` slot in pacaya fork.
