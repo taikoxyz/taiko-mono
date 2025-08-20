@@ -13,9 +13,15 @@ import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title Inbox
-/// @notice Manages L2 proposals, proofs, and verification for a based rollup architecture.
+/// @notice Core contract for managing L2 proposals, proofs, and verification in Taiko's based
+/// rollup architecture.
+/// @dev This abstract contract implements the fundamental inbox logic including:
+///      - Proposal submission with forced inclusion support
+///      - Proof verification with claim record management
+///      - Ring buffer storage for efficient state management
+///      - Bond instruction processing for economic security
+///      - Finalization of proven proposals
 /// @custom:security-contact security@taiko.xyz
-
 abstract contract Inbox is EssentialContract, IInbox {
     using SafeERC20 for IERC20;
 
@@ -29,29 +35,24 @@ abstract contract Inbox is EssentialContract, IInbox {
     event BondWithdrawn(address indexed user, uint256 amount);
 
     // ---------------------------------------------------------------
-    // Structs
-    // ---------------------------------------------------------------
-
-    /// @notice A struct to be reused for storing the first claim records.
-    struct ReuseableClaimRecord {
-        bytes32 claimRecordHash;
-        uint48 proposalId;
-        bytes26 partialParentClaimHash;
-    }
-
-    // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @dev Ring buffer for storing proposal hashes.
-    /// This variable reuse the `batches slot in pacaya fork.
+    /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
+    /// @notice Reuses the `batches` slot from Pacaya fork for storage efficiency
+    /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
+    /// - proposalHash: The keccak256 hash of the Proposal struct
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
-    /// @dev Reuseable default claim records
-    mapping(uint256 bufferSlot => ReuseableClaimRecord reuseableClaimRecord) internal
-        _reuseableClaimRecords;
+    /// @dev This variable is no longer used.
+    mapping(uint256 bufferSlot => mapping(bytes32 parentHash => uint24 transitionId)) private
+        __transitionIdsPacaya;
 
-    /// @dev Ring buffer for storing claim records.
+    /// @dev Ring buffer for storing claim record hashes with composite key indexing
+    /// @notice Stores claim records for proposals with different parent claims
+    /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
+    /// - compositeKey: Keccak256 hash of (proposalId, parentClaimHash)
+    /// - claimRecordHash: The hash of the ClaimRecord struct
     mapping(uint256 bufferSlot => mapping(bytes32 compositeKey => bytes32 claimRecordHash)) internal
         _claimRecordHashes;
 
@@ -111,10 +112,17 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IInbox
-    /// @dev This function handles both forced inclusions and regular proposals:
-    ///      - If a forced inclusion is due, it processes exactly one (the oldest) before the
-    /// regular proposal
-    ///      - Forced inclusions are only processed when due, they cannot be processed early.
+    /// @notice Proposes new L2 blocks to the rollup
+    /// @dev Key behaviors:
+    ///      1. Validates proposer authorization via ProposerChecker
+    ///      2. Finalizes eligible proposals to free ring buffer space
+    ///      3. Processes forced inclusions if due (oldest first)
+    ///      4. Submits regular proposal if capacity available
+    ///      5. Updates core state and emits Proposed event
+    /// @dev Forced inclusion processing:
+    ///      - Processes exactly one (oldest) forced inclusion per call
+    ///      - Only processed when due, cannot be processed early
+    ///      - Takes priority over regular proposals
     function propose(
         bytes calldata,
         /*_lookahead*/
@@ -157,6 +165,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     }
 
     /// @inheritdoc IInbox
+    /// @notice Proves the validity of proposed L2 blocks
+    /// @dev Validates claims, calculates bond instructions, and verifies proofs
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         Config memory config = getConfig();
 
@@ -172,9 +182,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         IProofVerifier(config.proofVerifier).verifyProof(_hashClaimsArray(input.claims), _proof);
     }
 
-    /// @notice Withdraws bond balance to `_address`.
-    /// @dev This function allows deposits that were made on Pacaya to be withdrawn.
-    /// @param _address The address to withdraw the bond to
+    /// @notice Withdraws bond balance to specified address
+    /// @dev Legacy function for withdrawing bonds from Pacaya fork
+    /// @dev Bonds are now managed on L2 by the BondManager contract
+    /// @param _address The recipient address for the bond withdrawal
     function withdrawBond(address _address) external nonReentrant {
         uint256 amount = bondBalance[_address];
         require(amount > 0, NoBondToWithdraw());
@@ -185,19 +196,19 @@ abstract contract Inbox is EssentialContract, IInbox {
         emit BondWithdrawn(_address, amount);
     }
 
-    /// @notice Gets the proposal hash for a given proposal ID.
-    /// @param _proposalId The proposal ID to look up.
-    /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
+    /// @notice Retrieves the proposal hash for a given proposal ID
+    /// @param _proposalId The ID of the proposal to query
+    /// @return proposalHash_ The keccak256 hash of the Proposal struct at the ring buffer slot
     function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_) {
         Config memory config = getConfig();
         uint256 bufferSlot = _proposalId % config.ringBufferSize;
         proposalHash_ = _proposalHashes[bufferSlot];
     }
 
-    /// @notice Gets the claim record hash for a given proposal and parent claim.
-    /// @param _proposalId The proposal ID to look up.
-    /// @param _parentClaimHash The parent claim hash to look up.
-    /// @return claimRecordHash_ The claim record hash, or bytes32(0) if not found.
+    /// @notice Retrieves the claim record hash for a specific proposal and parent claim
+    /// @param _proposalId The ID of the proposal containing the claim
+    /// @param _parentClaimHash The hash of the parent claim in the proof chain
+    /// @return claimRecordHash_ The keccak256 hash of the ClaimRecord, or bytes32(0) if not found
     function getClaimRecordHash(
         uint48 _proposalId,
         bytes32 _parentClaimHash
@@ -210,17 +221,17 @@ abstract contract Inbox is EssentialContract, IInbox {
         return _getClaimRecordHash(config, _proposalId, _parentClaimHash);
     }
 
-    /// @notice Gets the capacity for unfinalized proposals.
-    /// @return _ The maximum number of unfinalized proposals that can exist.
+    /// @notice Returns the maximum capacity for unfinalized proposals
+    /// @dev Capacity is ringBufferSize - 1 to prevent overwriting unfinalized proposals
+    /// @return _ The maximum number of unfinalized proposals allowed
     function getCapacity() external view returns (uint256) {
         Config memory config = getConfig();
         return _getCapacity(config);
     }
 
-    /// @notice Gets the configuration for this Inbox contract
-    /// @dev This function must be overridden by subcontracts to provide their specific
-    /// configuration
-    /// @return _ The configuration struct
+    /// @notice Returns the configuration parameters for this Inbox instance
+    /// @dev Must be overridden by concrete implementations to provide specific configuration
+    /// @return _ The Config struct containing all configuration parameters
     function getConfig() public view virtual returns (Config memory);
 
     /// @notice Decodes proposal input data
@@ -275,9 +286,11 @@ abstract contract Inbox is EssentialContract, IInbox {
     // Internal Functions
     // ---------------------------------------------------------------
 
-    /// @dev Builds then saves claim records for multiple proposals and claims.
-    /// @param _config The configuration parameters.
-    /// @param _input The ProveInput struct containing proposals and claims.
+    /// @dev Builds and persists claim records for batch proof submissions
+    /// @notice Validates claims, calculates bond instructions, and stores records
+    /// @dev Virtual function that can be overridden for optimization (e.g., claim aggregation)
+    /// @param _config The configuration parameters for validation and storage
+    /// @param _input The ProveInput containing arrays of proposals and corresponding claims
     function _buildAndSaveClaimRecords(
         Config memory _config,
         ProveInput memory _input
@@ -285,41 +298,39 @@ abstract contract Inbox is EssentialContract, IInbox {
         internal
         virtual
     {
-        // Declare struct instances outside the loop to avoid repeated memory allocations
+        // Declare struct instance outside the loop to avoid repeated memory allocations
         ClaimRecord memory claimRecord;
-        Proposal memory proposal;
-        Claim memory claim;
         claimRecord.span = 1;
 
         for (uint256 i; i < _input.proposals.length; ++i) {
-            proposal = _input.proposals[i];
-            claim = _input.claims[i];
-
-            _validateClaim(_config, proposal, claim);
+            _validateClaim(_config, _input.proposals[i], _input.claims[i]);
 
             // Reuse the same memory location for the claimRecord struct
-            claimRecord.bondInstructions = _calculateBondInstructions(_config, proposal, claim);
-            claimRecord.claimHash = _hashClaim(claim);
-            claimRecord.endBlockMiniHeaderHash = _hashBlockMiniHeader(claim.endBlockMiniHeader);
+            claimRecord.bondInstructions =
+                _calculateBondInstructions(_config, _input.proposals[i], _input.claims[i]);
+            claimRecord.claimHash = _hashClaim(_input.claims[i]);
+            claimRecord.endBlockMiniHeaderHash =
+                _hashBlockMiniHeader(_input.claims[i].endBlockMiniHeader);
 
             // Pass claim and claimRecord to _setClaimRecordHash which will emit the event
-            _setClaimRecordHash(_config, proposal.id, claim, claimRecord);
+            _setClaimRecordHash(_config, _input.proposals[i].id, _input.claims[i], claimRecord);
         }
     }
 
-    /// @dev Gets the hash of a blob index.
-    /// @param _blobIndex The blob index to hash.
-    /// @return _ The hash of the blob index.
-    /// @dev This function is virtual so that it can be overridden by subcontracts to provide their
-    /// specific blob hash function.
+    /// @dev Retrieves the hash of a blob at the specified index
+    /// @notice Uses EIP-4844 blobhash opcode to access blob data
+    /// @dev Virtual to allow test contracts to mock blob hash retrieval
+    /// @param _blobIndex The index of the blob in the transaction
+    /// @return _ The versioned hash of the blob
     function _getBlobHash(uint256 _blobIndex) internal view virtual returns (bytes32) {
         return blobhash(_blobIndex);
     }
 
-    /// @dev Validates that a claim is valid for a given proposal.
-    /// @param _config The configuration parameters.
-    /// @param _proposal The proposal to validate.
-    /// @param _claim The claim to validate.
+    /// @dev Validates claim consistency with its corresponding proposal
+    /// @notice Ensures the claim references the correct proposal hash
+    /// @param _config The configuration parameters for validation
+    /// @param _proposal The proposal being proven
+    /// @param _claim The claim to validate against the proposal
     function _validateClaim(
         Config memory _config,
         Proposal memory _proposal,
@@ -332,15 +343,20 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(proposalHash == _claim.proposalHash, ProposalHashMismatchWithClaim());
     }
 
-    /// @dev Calculates the bond instructions based on proof timing and prover identity
-    /// @notice Bond instructions determine how provability and liveness bonds are handled:
-    /// - On-time proofs: Bonds may be refunded or remain unchanged
-    /// - Late proofs: Liveness bonds may be slashed and redistributed
-    /// - Very late proofs: Provability bonds may also be slashed and redistributed
-    /// @param _config The configuration parameters.
-    /// @param _proposal The proposal containing timing and proposer information
-    /// @param _claim The claim containing the proof details.
-    /// @return bondInstructions_ The bond instructions that affect aggregation eligibility
+    /// @dev Calculates bond instructions based on proof timing and prover identity
+    /// @notice Bond instruction rules:
+    ///         - On-time (within provingWindow): No bond changes
+    ///         - Late (within extendedProvingWindow): Liveness bond transfer if prover differs from
+    /// designated
+    ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
+    /// differs from proposer
+    /// @dev Bond instructions affect claim aggregation eligibility - claims with instructions
+    /// cannot be aggregated
+    /// @param _config Configuration containing timing windows
+    /// @param _proposal Proposal with timestamp and proposer address
+    /// @param _claim Claim with designated and actual prover addresses
+    /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
+    /// prover)
     function _calculateBondInstructions(
         Config memory _config,
         Proposal memory _proposal,
@@ -385,7 +401,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Sets the proposal hash for a given proposal ID.
+    /// @dev Stores a proposal hash in the ring buffer
+    /// @notice Overwrites any existing hash at the calculated buffer slot
     function _setProposalHash(
         Config memory _config,
         uint48 _proposalId,
@@ -396,12 +413,13 @@ abstract contract Inbox is EssentialContract, IInbox {
         _proposalHashes[_proposalId % _config.ringBufferSize] = _proposalHash;
     }
 
-    /// @dev Sets the claim record hash for a given proposal and parent claim, and emits the Proved
-    /// event.
-    /// @param _config The configuration parameters.
-    /// @param _proposalId The proposal ID.
-    /// @param _claim The claim data for the event.
-    /// @param _claimRecord The claim record data for the event.
+    /// @dev Stores claim record hash and emits Proved event
+    /// @notice Virtual function to allow optimization in derived contracts
+    /// @dev Calculates composite key for unique claim identification
+    /// @param _config Configuration containing ring buffer size
+    /// @param _proposalId The ID of the proposal being proven
+    /// @param _claim The claim data to include in the event
+    /// @param _claimRecord The claim record to hash and store
     function _setClaimRecordHash(
         Config memory _config,
         uint48 _proposalId,
@@ -422,7 +440,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         emit Proved(payload);
     }
 
-    /// @dev Gets the capacity for unfinalized proposals.
+    /// @dev Calculates the maximum number of unfinalized proposals
+    /// @notice Returns ringBufferSize - 1 to ensure one slot always remains free
     function _getCapacity(Config memory _config) internal pure returns (uint256) {
         // The ring buffer can hold ringBufferSize proposals total, but we need to ensure
         // unfinalized proposals are not overwritten. Therefore, the maximum number of
@@ -432,7 +451,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Gets the claim record hash for a given proposal and parent claim.
+    /// @dev Retrieves claim record hash from storage
+    /// @notice Virtual to allow optimization strategies in derived contracts
     function _getClaimRecordHash(
         Config memory _config,
         uint48 _proposalId,
@@ -448,10 +468,11 @@ abstract contract Inbox is EssentialContract, IInbox {
         claimRecordHash_ = _claimRecordHashes[bufferSlot][compositeKey];
     }
 
-    /// @dev Checks if a proposal matches the stored hash and reverts if not.
-    /// @param _config The configuration parameters.
-    /// @param _proposal The proposal to check.
-    /// @return proposalHash_ The hash of the proposal.
+    /// @dev Validates proposal hash against stored value
+    /// @notice Reverts with ProposalHashMismatch if hashes don't match
+    /// @param _config Configuration containing ring buffer size
+    /// @param _proposal The proposal to validate
+    /// @return proposalHash_ The computed hash of the proposal
     function _checkProposalHash(
         Config memory _config,
         Proposal memory _proposal
@@ -490,10 +511,11 @@ abstract contract Inbox is EssentialContract, IInbox {
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Gets the available capacity for new proposals.
-    /// @param _config The configuration parameters.
-    /// @param _coreState The core state.
-    /// @return _ The available capacity for new proposals.
+    /// @dev Calculates remaining capacity for new proposals
+    /// @notice Subtracts unfinalized proposals from total capacity
+    /// @param _config Configuration containing ring buffer size
+    /// @param _coreState Current state with proposal counters
+    /// @return _ Number of additional proposals that can be submitted
     function _getAvailableCapacity(
         Config memory _config,
         CoreState memory _coreState
@@ -509,8 +531,9 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Validates the basic inputs for propose function
-    /// @param _input The ProposeInput struct containing all input data
+    /// @dev Validates propose function inputs
+    /// @notice Checks deadline, proposal array, and state consistency
+    /// @param _input The ProposeInput to validate
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
         require(_input.parentProposals.length > 0, EmptyProposals());
@@ -520,12 +543,12 @@ abstract contract Inbox is EssentialContract, IInbox {
         );
     }
 
-    /// @dev Processes forced inclusion if required
-    /// @param _config The configuration parameters.
-    /// @param _coreState The core state.
-    /// @return coreState_ The updated core state or the same core state if no forced inclusion is
-    /// due.
-    /// @return forcedInclusionProcessed_ True if a forced inclusion is processed.
+    /// @dev Attempts to process a forced inclusion from the ForcedInclusionStore
+    /// @notice Uses low-level call to handle potential failures gracefully
+    /// @param _config Configuration containing forced inclusion store address
+    /// @param _coreState Current core state to update if inclusion processed
+    /// @return coreState_ Updated state if forced inclusion processed, unchanged otherwise
+    /// @return forcedInclusionProcessed_ True if a forced inclusion was successfully processed
     function _processForcedInclusion(
         Config memory _config,
         CoreState memory _coreState
@@ -550,9 +573,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         coreState_ = _propose(_config, _coreState, forcedInclusion.blobSlice, true);
     }
 
-    /// @dev Verifies that parentProposals[0] is the chain head (last proposal)
-    /// @param _config The configuration parameters.
-    /// @param _parentProposals The parent proposals array to verify (1-2 elements).
+    /// @dev Verifies that parentProposals[0] is the current chain head
+    /// @notice Requires 1 element if next slot empty, 2 if occupied with older proposal
+    /// @param _config Configuration containing ring buffer size
+    /// @param _parentProposals Array of 1-2 proposals to verify chain head
     function _verifyChainHead(
         Config memory _config,
         Proposal[] memory _parentProposals
@@ -585,14 +609,13 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Proposes a new proposal of L2 blocks.
-    /// @param _config The configuration parameters.
-    /// @param _coreState The core state of the inbox (potentially updated by finalization/forced
-    /// inclusion).
-    ///                   This state's hash will be stored in the new proposal.
-    /// @param _blobSlice The blob slice of the proposal.
-    /// @param _isForcedInclusion Whether the proposal is a forced inclusion.
-    /// @return The updated core state.
+    /// @dev Creates and stores a new proposal
+    /// @notice Increments nextProposalId and emits Proposed event
+    /// @param _config Configuration with basefee sharing percentage
+    /// @param _coreState Current state whose hash is stored in the proposal
+    /// @param _blobSlice Blob data slice containing L2 transactions
+    /// @param _isForcedInclusion True if this is a forced inclusion proposal
+    /// @return Updated core state with incremented nextProposalId
     function _propose(
         Config memory _config,
         CoreState memory _coreState,
@@ -635,10 +658,12 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Finalizes proposals by verifying claim records and updating state.
-    /// @param _config The configuration parameters.
-    /// @param _input The ProposeInput struct containing all input data.
-    /// @return _ The updated core state
+    /// @dev Finalizes proven proposals and updates synced block
+    /// @notice Processes up to maxFinalizationCount proposals in sequence
+    /// @dev Stops at first missing claim record or span boundary
+    /// @param _config Configuration with finalization parameters
+    /// @param _input Input containing claim records and end block header
+    /// @return _ Core state with updated finalization counters
     function _finalize(
         Config memory _config,
         ProposeInput memory _input
@@ -690,13 +715,14 @@ abstract contract Inbox is EssentialContract, IInbox {
     }
 
     /// @dev Attempts to finalize a single proposal
-    /// @param _config The configuration parameters.
-    /// @param _coreState The core state, passed by reference, to update.
-    /// @param _proposalId The proposal ID to finalize.
-    /// @param _claimRecord The claim record for this proposal.
-    /// @param _hasClaimRecord Whether a claim record was provided.
-    /// @return finalized_ Whether the proposal was successfully finalized.
-    /// @return nextProposalId_ The next proposal ID to process.
+    /// @notice Updates core state and processes bond instructions if successful
+    /// @param _config Configuration for claim record retrieval
+    /// @param _coreState Core state to update (passed by reference)
+    /// @param _proposalId The ID of the proposal to finalize
+    /// @param _claimRecord The expected claim record for verification
+    /// @param _hasClaimRecord Whether a claim record was provided in input
+    /// @return finalized_ True if proposal was successfully finalized
+    /// @return nextProposalId_ Next proposal ID to process (current + span)
     function _finalizeProposal(
         Config memory _config,
         CoreState memory _coreState,
@@ -739,9 +765,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         return (true, nextProposalId_);
     }
 
-    /// @dev Processes bond instructions and updates core state
-    /// @param _coreState The core state to update.
-    /// @param _instructions The bond instructions to process.
+    /// @dev Processes bond instructions and updates aggregated hash
+    /// @notice Emits BondInstructed event for L2 bond manager processing
+    /// @param _coreState Core state with bond instructions hash to update
+    /// @param _instructions Array of bond transfer instructions to aggregate
     function _processBondInstructions(
         CoreState memory _coreState,
         LibBonds.BondInstruction[] memory _instructions
@@ -758,10 +785,11 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Computes the composite key for claim record lookups.
-    /// @param _proposalId The proposal ID.
-    /// @param _parentClaimHash The parent claim hash.
-    /// @return _ The composite key for the mapping.
+    /// @dev Computes composite key for claim record storage
+    /// @notice Creates unique identifier for proposal-parent claim pairs
+    /// @param _proposalId The ID of the proposal
+    /// @param _parentClaimHash Hash of the parent claim
+    /// @return _ Keccak256 hash of encoded parameters
     function _composeClaimKey(
         uint48 _proposalId,
         bytes32 _parentClaimHash

@@ -5,14 +5,39 @@ import { Inbox } from "./Inbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title InboxOptimized1
-/// @notice Inbox optimized to allow slot reuse and claim aggregation.
+/// @notice First optimization layer for the Inbox contract focusing on storage efficiency and claim
+/// aggregation
+/// @dev Key optimizations:
+///      - Reuseable claim record slots to reduce storage operations
+///      - Claim aggregation for consecutive proposals to minimize gas costs
+///      - Partial parent claim hash matching (26 bytes) for storage optimization
+///      - Inline bond instruction merging to reduce function calls
 /// @custom:security-contact security@taiko.xyz
 abstract contract InboxOptimized1 is Inbox {
+    // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
+
+    /// @notice Optimized storage for frequently accessed claim records
+    /// @dev Stores the first claim record for each proposal to reduce gas costs
+    struct ReuseableClaimRecord {
+        bytes32 claimRecordHash;
+        uint48 proposalId;
+        bytes26 partialParentClaimHash;
+    }
+
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
-    uint256[50] private __gap;
+    /// @dev Storage for default claim records to optimize gas usage
+    /// @notice Stores the most common claim record for each buffer slot
+    /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
+    /// - reuseableClaimRecord: The default claim record for quick access
+    mapping(uint256 bufferSlot => ReuseableClaimRecord reuseableClaimRecord) internal
+        _reuseableClaimRecords;
+
+    uint256[49] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -25,9 +50,15 @@ abstract contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
-    /// @dev Builds then saves claim records for multiple proposals and claims with aggregation for
-    /// continuous proposals. Optimized to reduce memory allocations during bond instruction
-    /// merging.
+    /// @notice Optimized claim record building with automatic aggregation
+    /// @dev Aggregation strategy:
+    ///      - Groups consecutive proposal IDs into single claim records
+    ///      - Merges bond instructions for aggregated claims
+    ///      - Updates end block header for each aggregation
+    ///      - Saves aggregated records with increased span value
+    /// @dev Memory optimizations:
+    ///      - Inline bond instruction merging
+    ///      - Reuses memory allocations across iterations
     function _buildAndSaveClaimRecords(
         Config memory _config,
         ProveInput memory _input
@@ -111,8 +142,13 @@ abstract contract InboxOptimized1 is Inbox {
         _setClaimRecordHash(_config, currentGroupStartId, firstClaimInGroup, currentRecord);
     }
 
-    /// @dev Gets the claim record hash for a given proposal and parent claim.
-    /// @notice This implementation tries to reuse a default slot to save gas.
+    /// @inheritdoc Inbox
+    /// @dev Retrieves claim record hash with storage optimization
+    /// @notice Gas optimization strategy:
+    ///         1. First checks reuseable slot for matching proposal ID
+    ///         2. Performs partial parent claim hash comparison (26 bytes)
+    ///         3. Falls back to composite key mapping if no match
+    /// @dev Reduces storage reads by ~50% for common case (single claim per proposal)
     function _getClaimRecordHash(
         Config memory _config,
         uint48 _proposalId,
@@ -139,8 +175,13 @@ abstract contract InboxOptimized1 is Inbox {
         return _claimRecordHashes[bufferSlot][compositeKey];
     }
 
-    /// @dev Sets the claim record hash for a given proposal and parent claim, and emits the Proved
-    /// event. This implementation tries to reuse a default slot to save gas.
+    /// @inheritdoc Inbox
+    /// @dev Stores claim record hash with optimized slot reuse
+    /// @notice Storage strategy:
+    ///         1. New proposal ID: Overwrites reuseable slot
+    ///         2. Same ID, same parent: Updates reuseable slot
+    ///         3. Same ID, different parent: Uses composite key mapping
+    /// @dev Saves ~20,000 gas for common case by avoiding mapping writes
     function _setClaimRecordHash(
         Config memory _config,
         uint48 _proposalId,
@@ -181,7 +222,9 @@ abstract contract InboxOptimized1 is Inbox {
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Checks if the partial parent claim hash matches the full parent claim hash.
+    /// @dev Compares partial (26 bytes) with full (32 bytes) parent claim hash
+    /// @notice Used for storage optimization - stores only 26 bytes in reuseable slot
+    /// @dev Collision probability negligible for practical use (2^-208)
     function _isPartialParentClaimHashMatch(
         bytes26 _partialParentClaimHash,
         bytes32 _parentClaimHash
