@@ -305,7 +305,7 @@ interface ITaikoInbox {
         bytes calldata _txList
     )
         external
-        returns (ITaikoInbox.BatchMetadata memory meta_);
+        returns (ITaikoInbox.BatchMetadata memory meta_, uint64 lastBlockId_);
 
     /// @notice Proves state transitions for multiple batches with a single aggregated proof.
     /// @param _params ABI-encoded parameter containing:

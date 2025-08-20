@@ -72,7 +72,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
         public
         override(ITaikoInbox, IProposeBatch)
         nonReentrant
-        returns (BatchMetadata memory meta_)
+        returns (BatchMetadata memory meta_, uint64 lastBlockId_)
     {
         Stats2 memory stats2 = state.stats2;
         Config memory config = pacayaConfig();
@@ -182,6 +182,7 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
             info_.lastBlockId = stats2.numBatches == config.forkHeights.pacaya
                 ? stats2.numBatches + uint64(params.blocks.length) - 1
                 : lastBatch.lastBlockId + uint64(params.blocks.length);
+            lastBlockId_ = info_.lastBlockId;
 
             (info_.txsHash, info_.blobHashes) =
                 _calculateTxsHash(keccak256(_txList), params.blobParams);

@@ -82,7 +82,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         external
         onlyFrom(preconfRouter)
         nonReentrant
-        returns (ITaikoInbox.BatchMetadata memory meta_)
+        returns (ITaikoInbox.BatchMetadata memory meta_, uint64 lastBlockId_)
     {
         (bytes memory forcedInclusionBytes, bytes memory regularBatchBytes) =
             abi.decode(_params, (bytes, bytes));
@@ -94,7 +94,7 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         }
 
         // Propose the normal batch after the potential forced inclusion batch.
-        meta_ = inbox.proposeBatch(regularBatchBytes, _txList);
+        (meta_, lastBlockId_) = inbox.proposeBatch(regularBatchBytes, _txList);
 
         if (forcedInclusionBytes.length > 0) {
             // we validate the forced inclusion params here since we now have access to the proposer
