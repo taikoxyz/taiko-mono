@@ -47,14 +47,29 @@ var (
 	DriverPreconfOnL2UnsafeRequestCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "driver_on_l2_unsafe_request",
 	})
+	DriverPreconfOnL2UnsafeRequestDuration = factory.NewHistogram(prometheus.HistogramOpts{
+		Name: "driver_on_l2_unsafe_request_duration",
+	})
 	DriverPreconfOnL2UnsafeResponseCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "driver_on_l2_unsafe_response",
+	})
+	DriverPreconfOnL2UnsafeResponseDuration = factory.NewHistogram(prometheus.HistogramOpts{
+		Name: "driver_on_l2_unsafe_response_duration",
+	})
+	DriverPreconfOnUnsafeL2PayloadDuration = factory.NewHistogram(prometheus.HistogramOpts{
+		Name: "driver_on_unsafe_l2_payload_duration",
 	})
 	DriverPreconfOnEndOfSequencingRequestCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "driver_on_end_of_sequencing_request",
 	})
+	DriverPreconfOnEndOfSequencingRequestDuration = factory.NewHistogram(prometheus.HistogramOpts{
+		Name: "driver_on_end_of_sequencing_request_duration",
+	})
 	DriverImportedPreconBlocksFromCacheCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "driver_imported_preconf_blocks_from_cache",
+	})
+	DriverPreconfBuildPreconfBlockDuration = factory.NewHistogram(prometheus.HistogramOpts{
+		Name: "driver_preconf_build_preconf_block_duration",
 	})
 
 	// Proposer
