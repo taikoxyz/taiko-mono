@@ -67,7 +67,8 @@ contract InboxForceInclusion is InboxTest {
     }
 
     /// @notice Test force inclusion processing with available capacity
-    /// @dev Verifies that force inclusion is only processed when there's sufficient capacity
+    /// @dev Verifies that when capacity is 1, forced inclusion is processed instead of regular
+    /// proposal
     function test_force_inclusion_with_available_capacity() public {
         // Arrange: Submit 1 proposal, leaving room for one more
         submitProposal(1, Alice);
@@ -79,18 +80,17 @@ contract InboxForceInclusion is InboxTest {
         );
 
         // Act: Submit another proposal
-        // With availableCapacity = 1, force inclusion is NOT processed (needs > 1)
-        // Regular proposal should succeed
+        // With availableCapacity = 1, force inclusion IS processed and regular proposal is skipped
         submitProposal(2, Bob);
 
-        // Assert: Verify regular proposal was created
-        assertProposalStored(2);
-
-        // Verify force inclusion is still pending (was not processed)
-        assertTrue(
+        // Assert: Verify forced inclusion was processed (consumed)
+        assertFalse(
             mockForcedInclusionStore.isOldestForcedInclusionDue(),
-            "Force inclusion should still be due"
+            "Force inclusion should have been consumed"
         );
+
+        // Verify that proposal 2 was created from the forced inclusion
+        assertProposalStored(2);
     }
 
     /// @notice Test ring buffer wraparound behavior with force inclusion

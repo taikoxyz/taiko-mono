@@ -146,16 +146,17 @@ abstract contract Inbox is EssentialContract, IInbox {
         uint256 availableCapacity = _getAvailableCapacity(config, coreState);
         require(availableCapacity > 0, ExceedsUnfinalizedProposalCapacity());
 
-        if (availableCapacity > 1) {
-            // Process forced inclusion if required
-            coreState = _processForcedInclusion(config, coreState);
-        }
+        // Process forced inclusion if required
+        bool forcedInclusionProcessed;
+        (coreState, forcedInclusionProcessed) = _processForcedInclusion(config, coreState);
 
-        // Propose the normal proposal after the potential forced inclusion to match the behavior in
-        // Shasta fork.
-        LibBlobs.BlobSlice memory blobSlice =
-            LibBlobs.validateBlobReference(input.blobReference, _getBlobHash);
-        _propose(config, coreState, blobSlice, false);
+        if (!forcedInclusionProcessed || availableCapacity > 1) {
+            // Propose the normal proposal after the potential forced inclusion to match the
+            // behavior in Shasta fork.
+            LibBlobs.BlobSlice memory blobSlice =
+                LibBlobs.validateBlobReference(input.blobReference, _getBlobHash);
+            _propose(config, coreState, blobSlice, false);
+        }
     }
 
     /// @inheritdoc IInbox
@@ -537,13 +538,15 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Processes forced inclusion if required
     /// @param _config The configuration parameters.
     /// @param _coreState The core state.
-    /// @return  The updated core state or the same core state if no forced inclusion is due.
+    /// @return coreState_ The updated core state or the same core state if no forced inclusion is
+    /// due.
+    /// @return forcedInclusionProcessed_ True if a forced inclusion is processed.
     function _processForcedInclusion(
         Config memory _config,
         CoreState memory _coreState
     )
         private
-        returns (CoreState memory)
+        returns (CoreState memory coreState_, bool forcedInclusionProcessed_)
     {
         // Use low-level call to handle potential errors gracefully
         (bool success, bytes memory returnData) = _config.forcedInclusionStore.call(
@@ -552,14 +555,14 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // If the call fails, return _coreState as is
         if (!success) {
-            return _coreState;
+            return (_coreState, false);
         }
 
         // Decode the returned ForcedInclusion struct
         IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
             abi.decode(returnData, (IForcedInclusionStore.ForcedInclusion));
 
-        return _propose(_config, _coreState, forcedInclusion.blobSlice, true);
+        coreState_ = _propose(_config, _coreState, forcedInclusion.blobSlice, true);
     }
 
     /// @dev Verifies that parentProposals[0] is the chain head (last proposal)
