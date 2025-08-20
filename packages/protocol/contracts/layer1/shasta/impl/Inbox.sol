@@ -583,14 +583,17 @@ abstract contract Inbox is EssentialContract, IInbox {
             // Next slot in the ring buffer is empty, only one proposal expected
             require(_parentProposals.length == 1, IncorrectProposalCount());
         } else {
-            // Next slot in the ring buffer is occupied, need to prove it contains a smaller
-            // proposal id
+            // Next slot in the ring buffer is occupied, need to prove it contains a
+            // proposal with a smaller id
             require(_parentProposals.length == 2, IncorrectProposalCount());
             require(
                 _parentProposals[1].id < _parentProposals[0].id,
                 NextProposalIdSmallerThanLastProposalId()
             );
-            _checkProposalHash(_config, _parentProposals[1]);
+            require(
+                storedNextProposalHash == _hashProposal(_parentProposals[1]),
+                NextProposalHashMismatch()
+            );
         }
     }
 
@@ -815,17 +818,15 @@ abstract contract Inbox is EssentialContract, IInbox {
 // Errors
 // ---------------------------------------------------------------
 
-error EndBlockMiniHeaderMismatch();
-error ProposalHashMismatchWithClaim();
-error ProposalHashMismatchWithStorage();
 error ClaimRecordHashMismatchWithStorage();
 error ClaimRecordNotProvided();
 error DeadlineExceeded();
 error EmptyProposals();
+error EndBlockMiniHeaderMismatch();
 error ExceedsUnfinalizedProposalCapacity();
 error ForkNotActive();
-error IncorrectProposalCount();
 error InconsistentParams();
+error IncorrectProposalCount();
 error InsufficientBond();
 error InvalidSpan();
 error InvalidState();
@@ -835,6 +836,8 @@ error NextProposalHashMismatch();
 error NextProposalIdSmallerThanLastProposalId();
 error NoBondToWithdraw();
 error ProposalHashMismatch();
+error ProposalHashMismatchWithClaim();
+error ProposalHashMismatchWithStorage();
 error ProposalIdMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
