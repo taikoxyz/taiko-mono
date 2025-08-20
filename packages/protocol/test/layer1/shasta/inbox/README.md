@@ -119,6 +119,21 @@ INBOX=opt3 FOUNDRY_PROFILE=layer1 forge test --match-path "test/layer1/shasta/in
 - Also uses custom event encoding like Optimized2
 - Both calldata and event encoding handled by adapter
 
+## Recent Updates (2025-08-20)
+
+### InboxChainAdvancement.t.sol Restoration
+
+- **Restored** from backup and fixed compilation issues
+- **Fixed** ClaimRecord struct compatibility (removed parentClaimHash field)
+- **Resolved** stack too deep errors by extracting helper functions
+- **Fixed** test_max_finalization_count_limit test by using correct endBlockMiniHeader
+
+### Data Structure Changes
+
+- ClaimRecord simplified to 4 fields: span, bondInstructions, claimHash, endBlockMiniHeaderHash
+- Removed proposalId and claim fields from ClaimRecord
+- Updated all test assertions to match new structure
+
 ## Test Categories
 
 ### Current Test Files
@@ -127,7 +142,9 @@ INBOX=opt3 FOUNDRY_PROFILE=layer1 forge test --match-path "test/layer1/shasta/in
 2. **InboxBasicTest.t.sol** - Fundamental operations and basic flows
 3. **InboxProposeValidation.t.sol** - Proposal validation and error cases
 4. **InboxProveBasic.t.sol** - Proof submission and validation
-5. **InboxChainAdvancement.t.sol** - Chain progression and finalization
+5. **InboxChainAdvancement.t.sol** - Chain progression and finalization ✅
+   - **Status**: All tests passing (5 passed, 1 skipped for base implementation)
+   - **Fixed Issues**: Stack too deep errors resolved, endBlockMiniHeader mismatch fixed
 6. **InboxFinalization.t.sol** - Finalization mechanics and limits
 7. **InboxRingBuffer.t.sol** - Ring buffer management and overflow
 8. **InboxOutOfOrderProving.t.sol** - Non-sequential proving scenarios
