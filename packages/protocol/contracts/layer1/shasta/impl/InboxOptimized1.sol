@@ -32,7 +32,8 @@ abstract contract InboxOptimized1 is Inbox {
 
     /// @inheritdoc Inbox
     /// @dev Builds then saves claim records for multiple proposals and claims with aggregation for
-    /// continuous proposals
+    /// continuous proposals. Optimized to reduce memory allocations during bond instruction
+    /// merging.
     function _buildAndSaveClaimRecords(
         Config memory _config,
         Proposal[] memory _proposals,
@@ -43,7 +44,7 @@ abstract contract InboxOptimized1 is Inbox {
     {
         if (_proposals.length == 0) return;
 
-        // Validate first proposal and create initial claim record
+        // Validate first proposal
         _validateClaim(_config, _proposals[0], _claims[0]);
 
         // Initialize current aggregation state
@@ -68,9 +69,22 @@ abstract contract InboxOptimized1 is Inbox {
                     _calculateBondInstructions(_config, _proposals[i], _claims[i]);
 
                 if (newInstructions.length > 0) {
-                    // Merge bond instructions
-                    currentRecord.bondInstructions =
-                        _mergeBondInstructions(currentRecord.bondInstructions, newInstructions);
+                    // Inline merge to avoid separate function call and reduce stack depth
+                    uint256 oldLen = currentRecord.bondInstructions.length;
+                    uint256 newLen = newInstructions.length;
+                    LibBonds.BondInstruction[] memory merged = new LibBonds.BondInstruction[](oldLen + newLen);
+                    
+                    // Copy existing instructions
+                    for (uint256 j = 0; j < oldLen; ++j) {
+                        merged[j] = currentRecord.bondInstructions[j];
+                    }
+                    
+                    // Copy new instructions
+                    for (uint256 j = 0; j < newLen; ++j) {
+                        merged[oldLen + j] = newInstructions[j];
+                    }
+                    
+                    currentRecord.bondInstructions = merged;
                 }
 
                 // Update the claim hash and end block mini header hash for the aggregated record
@@ -172,33 +186,6 @@ abstract contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
-
-    /// @dev Merges two arrays of bond instructions into a single array
-    /// @param _existing The existing bond instructions
-    /// @param _new The new bond instructions to append
-    /// @return merged_ The merged array of bond instructions
-    function _mergeBondInstructions(
-        LibBonds.BondInstruction[] memory _existing,
-        LibBonds.BondInstruction[] memory _new
-    )
-        private
-        pure
-        returns (LibBonds.BondInstruction[] memory merged_)
-    {
-        uint256 oldLen = _existing.length;
-        uint256 newLen = _new.length;
-        merged_ = new LibBonds.BondInstruction[](oldLen + newLen);
-
-        // Copy existing instructions
-        for (uint256 i = 0; i < oldLen; ++i) {
-            merged_[i] = _existing[i];
-        }
-
-        // Copy new instructions
-        for (uint256 i = 0; i < newLen; ++i) {
-            merged_[oldLen + i] = _new[i];
-        }
-    }
 
     // ---------------------------------------------------------------
     // Private Functions - Slot Reuse Helpers
