@@ -151,7 +151,8 @@ abstract contract Inbox is EssentialContract, IInbox {
             coreState = _processForcedInclusion(config, coreState);
         }
 
-        // Create regular proposal
+        // Propose the normal proposal after the potential forced inclusion to match the behavior in
+        // Shasta fork.
         LibBlobs.BlobSlice memory blobSlice =
             LibBlobs.validateBlobReference(input.blobReference, _getBlobHash);
         _propose(config, coreState, blobSlice, false);
