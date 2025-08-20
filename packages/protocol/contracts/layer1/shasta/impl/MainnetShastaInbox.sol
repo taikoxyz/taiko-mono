@@ -14,8 +14,8 @@ contract MainnetShastaInbox is InboxOptimized2 {
     // ---------------------------------------------------------------
 
     /// @dev Ring buffer size for storing proposal hashes.
-    /// This value is inherited from the Pacaya fork as we are reusing the same slots.
-    uint64 private constant _RING_BUFFER_SIZE = 360_000;
+    /// Sized for ~38 hours of proposals (1 per epoch, 225 epochs/day + buffer).
+    uint64 private constant _RING_BUFFER_SIZE = 360;
 
     // ---------------------------------------------------------------
     // Constructor

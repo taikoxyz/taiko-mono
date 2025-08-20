@@ -41,6 +41,14 @@ abstract contract Inbox is EssentialContract, IInbox {
     }
 
     // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+    /// @dev Empty slot marker to distinguish uninitialized slots from actual proposal hashes.
+    /// keccak256("EMPTY_PROPOSAL_SLOT_V1")
+    bytes32 private constant _EMPTY_SLOT_MARKER =
+        0x8159ea2f8547d3aac786e3dd5558567ed0f292248b867bfd642489b7ec86aea9;
+
+    // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
@@ -82,6 +90,7 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _genesisBlockHash The hash of the genesis block
     function init(address _owner, bytes32 _genesisBlockHash) external initializer {
         __Essential_init(_owner);
+        Config memory config = getConfig();
 
         Claim memory claim;
         claim.endBlockHash = _genesisBlockHash;
@@ -95,7 +104,15 @@ abstract contract Inbox is EssentialContract, IInbox {
         Proposal memory proposal;
         proposal.coreStateHash = _hashCoreState(coreState);
         proposal.derivationHash = _hashDerivation(derivation);
-        _setProposalHash(getConfig(), 0, _hashProposal(proposal));
+
+        // Set the genesis proposal at slot 0
+        _setProposalHash(config, 0, _hashProposal(proposal));
+
+        // Initialize remaining ring buffer slots with empty marker to distinguish them
+        // from data from previous fork's storage. This is a one-time cost during deployment.
+        for (uint256 i = 1; i < config.ringBufferSize; ++i) {
+            _proposalHashes[i] = _EMPTY_SLOT_MARKER;
+        }
 
         emit Proposed(encodeProposedEventData(proposal, derivation, coreState));
     }
@@ -580,6 +597,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Verifies that parentProposals[0] is the chain head (last proposal)
     /// @param _config The configuration parameters.
     /// @param _parentProposals The parent proposals array to verify (1-2 elements).
+    /// parentProposals[0] is the last proposal stored on-chain and parentProposals[1](if present)
+    /// is the previous proposal stored in the ring buffer.
     function _verifyChainHead(
         Config memory _config,
         Proposal[] memory _parentProposals
@@ -594,13 +613,9 @@ abstract contract Inbox is EssentialContract, IInbox {
         uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _config.ringBufferSize;
         bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
 
-        if (storedNextProposalHash == bytes32(0)) {
-            // Next slot in the ring buffer is empty, only one proposal expected
-            require(_parentProposals.length == 1, IncorrectProposalCount());
-        } else {
-            // Next slot in the ring buffer is occupied, need to prove it contains a smaller
-            // proposal id
-            require(_parentProposals.length == 2, IncorrectProposalCount());
+        if (storedNextProposalHash != _EMPTY_SLOT_MARKER) {
+            // Next slot in the ring buffer is occupied (after wraparound), need to prove
+            // it contains an older proposal (smaller proposal id)
             require(
                 _parentProposals[1].id < _parentProposals[0].id,
                 NextProposalIdSmallerThanLastProposalId()
@@ -879,7 +894,6 @@ error DeadlineExceeded();
 error EmptyProposals();
 error ExceedsUnfinalizedProposalCapacity();
 error ForkNotActive();
-error IncorrectProposalCount();
 error InconsistentParams();
 error InsufficientBond();
 error InsufficientClaimRecordsProvided();
