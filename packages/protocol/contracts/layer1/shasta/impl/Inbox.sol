@@ -175,18 +175,17 @@ abstract contract Inbox is EssentialContract, IInbox {
         IProofVerifier(config.proofVerifier).verifyProof(_hashClaimsArray(input.claims), _proof);
     }
 
-    /// @notice Withdraws bond balance for the caller.
-    function withdrawBond() external nonReentrant {
-        uint256 amount = bondBalance[msg.sender];
+    /// @notice Withdraws bond balance to `_address`.
+    /// @dev This function allows deposits that were made on Pacaya to be withdrawn.
+    /// @param _address The address to withdraw the bond to
+    function withdrawBond(address _address) external nonReentrant {
+        uint256 amount = bondBalance[_address];
         require(amount > 0, NoBondToWithdraw());
-
         // Clear balance before transfer (checks-effects-interactions)
-        bondBalance[msg.sender] = 0;
-
+        bondBalance[_address] = 0;
         // Transfer the bond
-        IERC20(getConfig().bondToken).safeTransfer(msg.sender, amount);
-
-        emit BondWithdrawn(msg.sender, amount);
+        IERC20(getConfig().bondToken).safeTransfer(_address, amount);
+        emit BondWithdrawn(_address, amount);
     }
 
     /// @notice Gets the proposal hash for a given proposal ID.
