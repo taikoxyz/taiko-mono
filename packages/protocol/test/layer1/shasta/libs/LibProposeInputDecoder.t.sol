@@ -42,68 +42,53 @@ contract LibProposeInputDecoderTest is Test {
 
         IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
         claimRecords[0] = IInbox.ClaimRecord({
-            proposalId: 10,
-            claim: IInbox.Claim({
-                proposalHash: bytes32(0),
-                parentClaimHash: bytes32(0),
-                endBlockNumber: 200,
-                endBlockHash: bytes32(0),
-                endStateRoot: bytes32(0),
-                designatedProver: address(0x2),
-                actualProver: address(0x3)
-            }),
             span: 1,
-            bondInstructions: new LibBonds.BondInstruction[](0)
+            bondInstructions: new LibBonds.BondInstruction[](0),
+            claimHash: bytes32(0),
+            endBlockMiniHeaderHash: bytes32(0)
         });
 
         uint48 deadline = 2_000_000;
 
+        // Create ProposeInput struct
+        IInbox.ProposeInput memory proposeInput = IInbox.ProposeInput({
+            deadline: deadline,
+            coreState: coreState,
+            parentProposals: proposals,
+            blobReference: blobRef,
+            claimRecords: claimRecords,
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: 0,
+                hash: bytes32(0),
+                stateRoot: bytes32(0)
+            })
+        });
+
         // Test with standard ABI encoding for baseline
-        bytes memory abiEncodedData =
-            abi.encode(deadline, coreState, proposals, blobRef, claimRecords);
+        bytes memory abiEncodedData = abi.encode(proposeInput);
 
         // Test with compact encoding
-        bytes memory compactEncodedData =
-            LibProposeInputDecoder.encode(deadline, coreState, proposals, blobRef, claimRecords);
+        bytes memory compactEncodedData = LibProposeInputDecoder.encode(proposeInput);
 
         // Measure baseline gas (ABI decoding)
         uint256 gasStart = gasleft();
-        (
-            uint48 deadline1,
-            IInbox.CoreState memory coreState1,
-            IInbox.Proposal[] memory proposals1,
-            LibBlobs.BlobReference memory blobRef1,
-            IInbox.ClaimRecord[] memory claimRecords1
-        ) = abi.decode(
-            abiEncodedData,
-            (
-                uint48,
-                IInbox.CoreState,
-                IInbox.Proposal[],
-                LibBlobs.BlobReference,
-                IInbox.ClaimRecord[]
-            )
-        );
+        IInbox.ProposeInput memory decoded1 = abi.decode(abiEncodedData, (IInbox.ProposeInput));
         uint256 baselineGas = gasStart - gasleft();
 
         // Measure optimized gas (compact decoding)
         gasStart = gasleft();
-        (
-            uint48 deadline2,
-            IInbox.CoreState memory coreState2,
-            IInbox.Proposal[] memory proposals2,
-            LibBlobs.BlobReference memory blobRef2,
-            IInbox.ClaimRecord[] memory claimRecords2
-        ) = LibProposeInputDecoder.decode(compactEncodedData);
+        IInbox.ProposeInput memory decoded2 = LibProposeInputDecoder.decode(compactEncodedData);
         uint256 optimizedGas = gasStart - gasleft();
 
         // Verify correctness
-        assertEq(deadline1, deadline2);
-        assertEq(coreState1.nextProposalId, coreState2.nextProposalId);
-        assertEq(coreState1.lastFinalizedProposalId, coreState2.lastFinalizedProposalId);
-        assertEq(proposals1.length, proposals2.length);
-        assertEq(blobRef1.numBlobs, blobRef2.numBlobs);
-        assertEq(claimRecords1.length, claimRecords2.length);
+        assertEq(decoded1.deadline, decoded2.deadline);
+        assertEq(decoded1.coreState.nextProposalId, decoded2.coreState.nextProposalId);
+        assertEq(
+            decoded1.coreState.lastFinalizedProposalId, decoded2.coreState.lastFinalizedProposalId
+        );
+        assertEq(decoded1.parentProposals.length, decoded2.parentProposals.length);
+        assertEq(decoded1.blobReference.numBlobs, decoded2.blobReference.numBlobs);
+        assertEq(decoded1.claimRecords.length, decoded2.claimRecords.length);
 
         // Log gas usage
         emit log_named_uint("Simple case - Baseline ABI gas", baselineGas);
@@ -201,18 +186,10 @@ contract LibProposeInputDecoderTest is Test {
         });
 
         claimRecords[0] = IInbox.ClaimRecord({
-            proposalId: 96,
-            claim: IInbox.Claim({
-                proposalHash: keccak256("proposal_96"),
-                parentClaimHash: keccak256("parent_claim_96"),
-                endBlockNumber: 2_000_000,
-                endBlockHash: keccak256("end_block_96"),
-                endStateRoot: keccak256("end_state_96"),
-                designatedProver: address(0xaaaa),
-                actualProver: address(0xbbbb)
-            }),
             span: 1,
-            bondInstructions: bondInstructions1
+            bondInstructions: bondInstructions1,
+            claimHash: keccak256("claim_96"),
+            endBlockMiniHeaderHash: keccak256("end_block_96")
         });
 
         LibBonds.BondInstruction[] memory bondInstructions2 = new LibBonds.BondInstruction[](1);
@@ -224,72 +201,59 @@ contract LibProposeInputDecoderTest is Test {
         });
 
         claimRecords[1] = IInbox.ClaimRecord({
-            proposalId: 97,
-            claim: IInbox.Claim({
-                proposalHash: keccak256("proposal_97"),
-                parentClaimHash: keccak256("parent_claim_97"),
-                endBlockNumber: 2_000_010,
-                endBlockHash: keccak256("end_block_97"),
-                endStateRoot: keccak256("end_state_97"),
-                designatedProver: address(0x1111),
-                actualProver: address(0x2222)
-            }),
             span: 2,
-            bondInstructions: bondInstructions2
+            bondInstructions: bondInstructions2,
+            claimHash: keccak256("claim_97"),
+            endBlockMiniHeaderHash: keccak256("end_block_97")
         });
 
         uint48 deadline = 2_000_000;
 
+        // Create ProposeInput struct
+        IInbox.ProposeInput memory proposeInput = IInbox.ProposeInput({
+            deadline: deadline,
+            coreState: coreState,
+            parentProposals: proposals,
+            blobReference: blobRef,
+            claimRecords: claimRecords,
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: 2_000_010,
+                hash: keccak256("end_block"),
+                stateRoot: keccak256("end_state")
+            })
+        });
+
         // Test with standard ABI encoding for baseline
-        bytes memory abiEncodedData =
-            abi.encode(deadline, coreState, proposals, blobRef, claimRecords);
+        bytes memory abiEncodedData = abi.encode(proposeInput);
 
         // Test with compact encoding
-        bytes memory compactEncodedData =
-            LibProposeInputDecoder.encode(deadline, coreState, proposals, blobRef, claimRecords);
+        bytes memory compactEncodedData = LibProposeInputDecoder.encode(proposeInput);
 
         // Measure baseline gas (ABI decoding)
         uint256 gasStart = gasleft();
-        (
-            uint48 deadline1,
-            IInbox.CoreState memory coreState1,
-            IInbox.Proposal[] memory proposals1,
-            LibBlobs.BlobReference memory blobRef1,
-            IInbox.ClaimRecord[] memory claimRecords1
-        ) = abi.decode(
-            abiEncodedData,
-            (
-                uint48,
-                IInbox.CoreState,
-                IInbox.Proposal[],
-                LibBlobs.BlobReference,
-                IInbox.ClaimRecord[]
-            )
-        );
+        IInbox.ProposeInput memory decoded1 = abi.decode(abiEncodedData, (IInbox.ProposeInput));
         uint256 baselineGas = gasStart - gasleft();
 
         // Measure optimized gas (compact decoding)
         gasStart = gasleft();
-        (
-            uint48 deadline2,
-            IInbox.CoreState memory coreState2,
-            IInbox.Proposal[] memory proposals2,
-            LibBlobs.BlobReference memory blobRef2,
-            IInbox.ClaimRecord[] memory claimRecords2
-        ) = LibProposeInputDecoder.decode(compactEncodedData);
+        IInbox.ProposeInput memory decoded2 = LibProposeInputDecoder.decode(compactEncodedData);
         uint256 optimizedGas = gasStart - gasleft();
 
         // Verify correctness
-        assertEq(deadline1, deadline2);
-        assertEq(coreState1.nextProposalId, coreState2.nextProposalId);
-        assertEq(coreState1.lastFinalizedProposalId, coreState2.lastFinalizedProposalId);
-        assertEq(coreState1.lastFinalizedClaimHash, coreState2.lastFinalizedClaimHash);
-        assertEq(coreState1.bondInstructionsHash, coreState2.bondInstructionsHash);
-        assertEq(proposals1.length, proposals2.length);
-        assertEq(blobRef1.blobStartIndex, blobRef2.blobStartIndex);
-        assertEq(blobRef1.numBlobs, blobRef2.numBlobs);
-        assertEq(blobRef1.offset, blobRef2.offset);
-        assertEq(claimRecords1.length, claimRecords2.length);
+        assertEq(decoded1.deadline, decoded2.deadline);
+        assertEq(decoded1.coreState.nextProposalId, decoded2.coreState.nextProposalId);
+        assertEq(
+            decoded1.coreState.lastFinalizedProposalId, decoded2.coreState.lastFinalizedProposalId
+        );
+        assertEq(
+            decoded1.coreState.lastFinalizedClaimHash, decoded2.coreState.lastFinalizedClaimHash
+        );
+        assertEq(decoded1.coreState.bondInstructionsHash, decoded2.coreState.bondInstructionsHash);
+        assertEq(decoded1.parentProposals.length, decoded2.parentProposals.length);
+        assertEq(decoded1.blobReference.blobStartIndex, decoded2.blobReference.blobStartIndex);
+        assertEq(decoded1.blobReference.numBlobs, decoded2.blobReference.numBlobs);
+        assertEq(decoded1.blobReference.offset, decoded2.blobReference.offset);
+        assertEq(decoded1.claimRecords.length, decoded2.claimRecords.length);
 
         // Log gas usage
         emit log_named_uint("Complex case - Baseline ABI gas", baselineGas);
@@ -356,36 +320,45 @@ contract LibProposeInputDecoderTest is Test {
 
         uint48 deadline = 281_474_976_710_655; // max uint48
 
+        // Create ProposeInput struct
+        IInbox.ProposeInput memory proposeInput = IInbox.ProposeInput({
+            deadline: deadline,
+            coreState: coreState,
+            parentProposals: proposals,
+            blobReference: blobRef,
+            claimRecords: claimRecords,
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: 999_999,
+                hash: bytes32(uint256(0xabcdef)),
+                stateRoot: bytes32(uint256(0xfedcba))
+            })
+        });
+
         // Encode using compact encoding
-        bytes memory compactEncodedData =
-            LibProposeInputDecoder.encode(deadline, coreState, proposals, blobRef, claimRecords);
+        bytes memory compactEncodedData = LibProposeInputDecoder.encode(proposeInput);
 
         // Decode
-        (
-            uint48 decodedDeadline,
-            IInbox.CoreState memory decodedCoreState,
-            IInbox.Proposal[] memory decodedProposals,
-            LibBlobs.BlobReference memory decodedBlobRef,
-            IInbox.ClaimRecord[] memory decodedClaimRecords
-        ) = LibProposeInputDecoder.decode(compactEncodedData);
+        IInbox.ProposeInput memory decodedInput = LibProposeInputDecoder.decode(compactEncodedData);
 
         // Verify all fields decoded correctly
-        assertEq(decodedDeadline, deadline);
-        assertEq(decodedCoreState.nextProposalId, coreState.nextProposalId);
-        assertEq(decodedCoreState.lastFinalizedProposalId, coreState.lastFinalizedProposalId);
-        assertEq(decodedCoreState.lastFinalizedClaimHash, coreState.lastFinalizedClaimHash);
-        assertEq(decodedCoreState.bondInstructionsHash, coreState.bondInstructionsHash);
+        assertEq(decodedInput.deadline, deadline);
+        assertEq(decodedInput.coreState.nextProposalId, coreState.nextProposalId);
+        assertEq(decodedInput.coreState.lastFinalizedProposalId, coreState.lastFinalizedProposalId);
+        assertEq(decodedInput.coreState.lastFinalizedClaimHash, coreState.lastFinalizedClaimHash);
+        assertEq(decodedInput.coreState.bondInstructionsHash, coreState.bondInstructionsHash);
 
-        assertEq(decodedProposals.length, 1);
-        assertEq(decodedProposals[0].id, proposals[0].id);
-        assertEq(decodedProposals[0].proposer, proposals[0].proposer);
-        // TODO: Fix this assertion after updating LibProposeInputDecoder to handle Derivation
-        // assertEq(decodedProposals[0].isForcedInclusion, proposals[0].isForcedInclusion);
+        assertEq(decodedInput.parentProposals.length, 1);
+        assertEq(decodedInput.parentProposals[0].id, proposals[0].id);
+        assertEq(decodedInput.parentProposals[0].proposer, proposals[0].proposer);
 
-        assertEq(decodedBlobRef.blobStartIndex, blobRef.blobStartIndex);
-        assertEq(decodedBlobRef.numBlobs, blobRef.numBlobs);
-        assertEq(decodedBlobRef.offset, blobRef.offset);
+        assertEq(decodedInput.blobReference.blobStartIndex, blobRef.blobStartIndex);
+        assertEq(decodedInput.blobReference.numBlobs, blobRef.numBlobs);
+        assertEq(decodedInput.blobReference.offset, blobRef.offset);
 
-        assertEq(decodedClaimRecords.length, 0);
+        assertEq(decodedInput.claimRecords.length, 0);
+
+        assertEq(decodedInput.endBlockMiniHeader.number, 999_999);
+        assertEq(decodedInput.endBlockMiniHeader.hash, bytes32(uint256(0xabcdef)));
+        assertEq(decodedInput.endBlockMiniHeader.stateRoot, bytes32(uint256(0xfedcba)));
     }
 }

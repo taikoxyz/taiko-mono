@@ -863,7 +863,7 @@ contract InboxChainAdvancement is InboxTest {
             span: 3,
             bondInstructions: expectedBondInstructions,
             claimHash: InboxTestLib.hashClaim(claims[2]), // Last claim in the aggregated group
-            endBlockMiniHeaderHash: keccak256(abi.encode(claims[0].endBlockMiniHeader))
+            endBlockMiniHeaderHash: keccak256(abi.encode(claims[2].endBlockMiniHeader))
         });
 
         // Now prove - this should aggregate all 3 proposals with their bond instructions

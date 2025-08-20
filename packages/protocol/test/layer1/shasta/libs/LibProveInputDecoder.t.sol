@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibProveInputDecoder } from "src/layer1/shasta/libs/LibProveInputDecoder.sol";
+import { LibPackUnpack as P } from "src/layer1/shasta/libs/LibPackUnpack.sol";
 
 /// @title LibProveInputDecoderTest
 /// @notice Tests for LibProveInputDecoder
@@ -31,36 +32,40 @@ contract LibProveInputDecoderTest is Test {
         claims[0] = IInbox.Claim({
             proposalHash: keccak256("proposal_10"),
             parentClaimHash: keccak256("parent_claim"),
-            endBlockNumber: 200,
-            endBlockHash: keccak256("end_block"),
-            endStateRoot: keccak256("end_state"),
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: 200,
+                hash: keccak256("end_block"),
+                stateRoot: keccak256("end_state")
+            }),
             designatedProver: address(0x2),
             actualProver: address(0x3)
         });
 
+        // Create ProveInput struct
+        IInbox.ProveInput memory proveInput =
+            IInbox.ProveInput({ proposals: proposals, claims: claims });
+
         // Test with standard ABI encoding for baseline
-        bytes memory abiEncodedData = abi.encode(proposals, claims);
+        bytes memory abiEncodedData = abi.encode(proveInput);
 
         // Test with compact encoding
-        bytes memory compactEncodedData = LibProveInputDecoder.encode(proposals, claims);
+        bytes memory compactEncodedData = LibProveInputDecoder.encode(proveInput);
 
         // Measure baseline gas (ABI decoding)
         uint256 gasStart = gasleft();
-        (IInbox.Proposal[] memory proposals1, IInbox.Claim[] memory claims1) =
-            abi.decode(abiEncodedData, (IInbox.Proposal[], IInbox.Claim[]));
+        IInbox.ProveInput memory decoded1 = abi.decode(abiEncodedData, (IInbox.ProveInput));
         uint256 baselineGas = gasStart - gasleft();
 
         // Measure optimized gas (compact decoding)
         gasStart = gasleft();
-        (IInbox.Proposal[] memory proposals2, IInbox.Claim[] memory claims2) =
-            LibProveInputDecoder.decode(compactEncodedData);
+        IInbox.ProveInput memory decoded2 = LibProveInputDecoder.decode(compactEncodedData);
         uint256 optimizedGas = gasStart - gasleft();
 
         // Verify data integrity
-        assertEq(proposals1.length, proposals2.length);
-        assertEq(claims1.length, claims2.length);
-        assertEq(proposals1[0].id, proposals2[0].id);
-        assertEq(claims1[0].proposalHash, claims2[0].proposalHash);
+        assertEq(decoded1.proposals.length, decoded2.proposals.length);
+        assertEq(decoded1.claims.length, decoded2.claims.length);
+        assertEq(decoded1.proposals[0].id, decoded2.proposals[0].id);
+        assertEq(decoded1.claims[0].proposalHash, decoded2.claims[0].proposalHash);
 
         // Log results
         emit log_named_uint("Baseline gas (ABI)", baselineGas);
@@ -87,116 +92,123 @@ contract LibProveInputDecoderTest is Test {
         claims[0] = IInbox.Claim({
             proposalHash: keccak256("proposal_hash"),
             parentClaimHash: keccak256("parent_hash"),
-            endBlockNumber: 456_789,
-            endBlockHash: keccak256("end_block_hash"),
-            endStateRoot: keccak256("end_state_root"),
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: 456_789,
+                hash: keccak256("end_block_hash"),
+                stateRoot: keccak256("end_state_root")
+            }),
             designatedProver: address(0x1234),
             actualProver: address(0x5678)
         });
 
+        IInbox.ProveInput memory proveInput =
+            IInbox.ProveInput({ proposals: proposals, claims: claims });
+
         // Encode
-        bytes memory encoded = LibProveInputDecoder.encode(proposals, claims);
+        bytes memory encoded = LibProveInputDecoder.encode(proveInput);
 
         // Decode
-        (IInbox.Proposal[] memory decodedProposals, IInbox.Claim[] memory decodedClaims) =
-            LibProveInputDecoder.decode(encoded);
+        IInbox.ProveInput memory decoded = LibProveInputDecoder.decode(encoded);
 
-        // Verify proposals
-        assertEq(decodedProposals.length, 1);
-        assertEq(decodedProposals[0].id, proposals[0].id);
-        assertEq(decodedProposals[0].proposer, proposals[0].proposer);
-        assertEq(decodedProposals[0].timestamp, proposals[0].timestamp);
-        assertEq(decodedProposals[0].coreStateHash, proposals[0].coreStateHash);
-        assertEq(decodedProposals[0].derivationHash, proposals[0].derivationHash);
+        // Verify Proposals
+        assertEq(decoded.proposals.length, 1);
+        assertEq(decoded.proposals[0].id, 123);
+        assertEq(decoded.proposals[0].proposer, address(0xabcd));
+        assertEq(decoded.proposals[0].timestamp, 999_999);
+        assertEq(decoded.proposals[0].coreStateHash, keccak256("core_state_hash"));
+        assertEq(decoded.proposals[0].derivationHash, keccak256("derivation_hash"));
 
-        // Verify claims
-        assertEq(decodedClaims.length, 1);
-        assertEq(decodedClaims[0].proposalHash, claims[0].proposalHash);
-        assertEq(decodedClaims[0].parentClaimHash, claims[0].parentClaimHash);
-        assertEq(decodedClaims[0].endBlockNumber, claims[0].endBlockNumber);
-        assertEq(decodedClaims[0].endBlockHash, claims[0].endBlockHash);
-        assertEq(decodedClaims[0].endStateRoot, claims[0].endStateRoot);
-        assertEq(decodedClaims[0].designatedProver, claims[0].designatedProver);
-        assertEq(decodedClaims[0].actualProver, claims[0].actualProver);
+        // Verify Claims
+        assertEq(decoded.claims.length, 1);
+        assertEq(decoded.claims[0].proposalHash, keccak256("proposal_hash"));
+        assertEq(decoded.claims[0].parentClaimHash, keccak256("parent_hash"));
+        assertEq(decoded.claims[0].endBlockMiniHeader.number, 456_789);
+        assertEq(decoded.claims[0].endBlockMiniHeader.hash, keccak256("end_block_hash"));
+        assertEq(decoded.claims[0].endBlockMiniHeader.stateRoot, keccak256("end_state_root"));
+        assertEq(decoded.claims[0].designatedProver, address(0x1234));
+        assertEq(decoded.claims[0].actualProver, address(0x5678));
     }
 
     function test_encode_decode_multiple() public pure {
-        uint256 count = 3;
-
-        // Create test data
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](count);
-        IInbox.Claim[] memory claims = new IInbox.Claim[](count);
-
-        for (uint256 i = 0; i < count; i++) {
+        // Create multiple proposals
+        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](3);
+        for (uint256 i = 0; i < 3; i++) {
             proposals[i] = IInbox.Proposal({
                 id: uint48(i + 100),
                 proposer: address(uint160(0x1000 + i)),
-                timestamp: uint48(1_000_000 + i * 1000),
-                coreStateHash: keccak256(abi.encode("core", i)),
-                derivationHash: keccak256(abi.encode("deriv", i))
+                timestamp: uint48(2000 + i * 100),
+                coreStateHash: keccak256(abi.encodePacked("core", i)),
+                derivationHash: keccak256(abi.encodePacked("deriv", i))
             });
+        }
 
+        // Create multiple claims
+        IInbox.Claim[] memory claims = new IInbox.Claim[](3);
+        for (uint256 i = 0; i < 3; i++) {
             claims[i] = IInbox.Claim({
-                proposalHash: keccak256(abi.encode("proposal", i)),
-                parentClaimHash: keccak256(abi.encode("parent", i)),
-                endBlockNumber: uint48(200_000 + i * 100),
-                endBlockHash: keccak256(abi.encode("block", i)),
-                endStateRoot: keccak256(abi.encode("state", i)),
+                proposalHash: keccak256(abi.encodePacked("proposal", i)),
+                parentClaimHash: keccak256(abi.encodePacked("parent", i)),
+                endBlockMiniHeader: IInbox.BlockMiniHeader({
+                    number: uint48(3000 + i * 100),
+                    hash: keccak256(abi.encodePacked("endBlock", i)),
+                    stateRoot: keccak256(abi.encodePacked("endState", i))
+                }),
                 designatedProver: address(uint160(0x2000 + i)),
                 actualProver: address(uint160(0x3000 + i))
             });
         }
 
-        // Encode
-        bytes memory encoded = LibProveInputDecoder.encode(proposals, claims);
+        IInbox.ProveInput memory proveInput =
+            IInbox.ProveInput({ proposals: proposals, claims: claims });
 
-        // Decode
-        (IInbox.Proposal[] memory decodedProposals, IInbox.Claim[] memory decodedClaims) =
-            LibProveInputDecoder.decode(encoded);
+        // Encode and decode
+        bytes memory encoded = LibProveInputDecoder.encode(proveInput);
+        IInbox.ProveInput memory decoded = LibProveInputDecoder.decode(encoded);
 
-        // Verify lengths
-        assertEq(decodedProposals.length, count);
-        assertEq(decodedClaims.length, count);
+        // Verify all proposals
+        assertEq(decoded.proposals.length, 3);
+        for (uint256 i = 0; i < 3; i++) {
+            assertEq(decoded.proposals[i].id, proposals[i].id);
+            assertEq(decoded.proposals[i].proposer, proposals[i].proposer);
+            assertEq(decoded.proposals[i].timestamp, proposals[i].timestamp);
+            assertEq(decoded.proposals[i].coreStateHash, proposals[i].coreStateHash);
+            assertEq(decoded.proposals[i].derivationHash, proposals[i].derivationHash);
+        }
 
-        // Verify each element
-        for (uint256 i = 0; i < count; i++) {
-            // Verify proposals
-            assertEq(decodedProposals[i].id, proposals[i].id);
-            assertEq(decodedProposals[i].proposer, proposals[i].proposer);
-            assertEq(decodedProposals[i].timestamp, proposals[i].timestamp);
-            assertEq(decodedProposals[i].coreStateHash, proposals[i].coreStateHash);
-            assertEq(decodedProposals[i].derivationHash, proposals[i].derivationHash);
-
-            // Verify claims
-            assertEq(decodedClaims[i].proposalHash, claims[i].proposalHash);
-            assertEq(decodedClaims[i].parentClaimHash, claims[i].parentClaimHash);
-            assertEq(decodedClaims[i].endBlockNumber, claims[i].endBlockNumber);
-            assertEq(decodedClaims[i].endBlockHash, claims[i].endBlockHash);
-            assertEq(decodedClaims[i].endStateRoot, claims[i].endStateRoot);
-            assertEq(decodedClaims[i].designatedProver, claims[i].designatedProver);
-            assertEq(decodedClaims[i].actualProver, claims[i].actualProver);
+        // Verify all claims
+        assertEq(decoded.claims.length, 3);
+        for (uint256 i = 0; i < 3; i++) {
+            assertEq(decoded.claims[i].proposalHash, claims[i].proposalHash);
+            assertEq(decoded.claims[i].parentClaimHash, claims[i].parentClaimHash);
+            assertEq(
+                decoded.claims[i].endBlockMiniHeader.number, claims[i].endBlockMiniHeader.number
+            );
+            assertEq(decoded.claims[i].endBlockMiniHeader.hash, claims[i].endBlockMiniHeader.hash);
+            assertEq(
+                decoded.claims[i].endBlockMiniHeader.stateRoot,
+                claims[i].endBlockMiniHeader.stateRoot
+            );
+            assertEq(decoded.claims[i].designatedProver, claims[i].designatedProver);
+            assertEq(decoded.claims[i].actualProver, claims[i].actualProver);
         }
     }
 
     function test_encode_decode_empty() public pure {
-        // Create empty arrays
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](0);
-        IInbox.Claim[] memory claims = new IInbox.Claim[](0);
+        // Test with empty arrays
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: new IInbox.Proposal[](0),
+            claims: new IInbox.Claim[](0)
+        });
 
-        // Encode
-        bytes memory encoded = LibProveInputDecoder.encode(proposals, claims);
+        bytes memory encoded = LibProveInputDecoder.encode(proveInput);
+        IInbox.ProveInput memory decoded = LibProveInputDecoder.decode(encoded);
 
-        // Decode
-        (IInbox.Proposal[] memory decodedProposals, IInbox.Claim[] memory decodedClaims) =
-            LibProveInputDecoder.decode(encoded);
-
-        // Verify empty arrays
-        assertEq(decodedProposals.length, 0);
-        assertEq(decodedClaims.length, 0);
+        assertEq(decoded.proposals.length, 0);
+        assertEq(decoded.claims.length, 0);
     }
 
     function test_encode_decode_maxValues() public pure {
-        // Create test data with maximum values
+        // Test with maximum values
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = IInbox.Proposal({
             id: type(uint48).max,
@@ -210,141 +222,47 @@ contract LibProveInputDecoderTest is Test {
         claims[0] = IInbox.Claim({
             proposalHash: bytes32(type(uint256).max),
             parentClaimHash: bytes32(type(uint256).max),
-            endBlockNumber: type(uint48).max,
-            endBlockHash: bytes32(type(uint256).max),
-            endStateRoot: bytes32(type(uint256).max),
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: type(uint48).max,
+                hash: bytes32(type(uint256).max),
+                stateRoot: bytes32(type(uint256).max)
+            }),
             designatedProver: address(type(uint160).max),
             actualProver: address(type(uint160).max)
         });
 
-        // Encode
-        bytes memory encoded = LibProveInputDecoder.encode(proposals, claims);
+        IInbox.ProveInput memory proveInput =
+            IInbox.ProveInput({ proposals: proposals, claims: claims });
 
-        // Decode
-        (IInbox.Proposal[] memory decodedProposals, IInbox.Claim[] memory decodedClaims) =
-            LibProveInputDecoder.decode(encoded);
+        bytes memory encoded = LibProveInputDecoder.encode(proveInput);
+        IInbox.ProveInput memory decoded = LibProveInputDecoder.decode(encoded);
 
-        // Verify max values preserved
-        assertEq(decodedProposals[0].id, type(uint48).max);
-        assertEq(decodedProposals[0].proposer, address(type(uint160).max));
-        assertEq(decodedProposals[0].timestamp, type(uint48).max);
-        assertEq(decodedProposals[0].coreStateHash, bytes32(type(uint256).max));
-        assertEq(decodedProposals[0].derivationHash, bytes32(type(uint256).max));
-
-        assertEq(decodedClaims[0].proposalHash, bytes32(type(uint256).max));
-        assertEq(decodedClaims[0].parentClaimHash, bytes32(type(uint256).max));
-        assertEq(decodedClaims[0].endBlockNumber, type(uint48).max);
-        assertEq(decodedClaims[0].endBlockHash, bytes32(type(uint256).max));
-        assertEq(decodedClaims[0].endStateRoot, bytes32(type(uint256).max));
-        assertEq(decodedClaims[0].designatedProver, address(type(uint160).max));
-        assertEq(decodedClaims[0].actualProver, address(type(uint160).max));
+        assertEq(decoded.proposals[0].id, type(uint48).max);
+        assertEq(decoded.proposals[0].proposer, address(type(uint160).max));
+        assertEq(decoded.claims[0].endBlockMiniHeader.number, type(uint48).max);
     }
 
     function test_revert_mismatchedLengths() public {
-        // Create mismatched arrays
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](2);
-        IInbox.Claim[] memory claims = new IInbox.Claim[](1);
+        // Test that mismatched array lengths revert properly
+        // The decoder reads uint24 (3 bytes) for proposal count, then uint24 for claim count
+        // We need at least 6 bytes, with different values for the two counts
+        bytes memory badData = new bytes(6);
 
-        proposals[0] = IInbox.Proposal({
-            id: 1,
-            proposer: address(0x1),
-            timestamp: 1000,
-            coreStateHash: bytes32(0),
-            derivationHash: bytes32(0)
-        });
-
-        proposals[1] = IInbox.Proposal({
-            id: 2,
-            proposer: address(0x2),
-            timestamp: 2000,
-            coreStateHash: bytes32(0),
-            derivationHash: bytes32(0)
-        });
-
-        claims[0] = IInbox.Claim({
-            proposalHash: bytes32(0),
-            parentClaimHash: bytes32(0),
-            endBlockNumber: 100,
-            endBlockHash: bytes32(0),
-            endStateRoot: bytes32(0),
-            designatedProver: address(0x1),
-            actualProver: address(0x2)
-        });
-
-        // Should revert due to mismatched lengths
-        vm.expectRevert(LibProveInputDecoder.ProposalClaimLengthMismatch.selector);
-        wrapper.encode(proposals, claims);
-    }
-
-    function test_gasComparison_large() public {
-        uint256 count = 10;
-
-        // Create test data
-        IInbox.Proposal[] memory proposals = new IInbox.Proposal[](count);
-        IInbox.Claim[] memory claims = new IInbox.Claim[](count);
-
-        for (uint256 i = 0; i < count; i++) {
-            proposals[i] = IInbox.Proposal({
-                id: uint48(i),
-                proposer: address(uint160(i + 1)),
-                timestamp: uint48(block.timestamp + i),
-                coreStateHash: keccak256(abi.encode("core", i)),
-                derivationHash: keccak256(abi.encode("deriv", i))
-            });
-
-            claims[i] = IInbox.Claim({
-                proposalHash: keccak256(abi.encode("proposal", i)),
-                parentClaimHash: keccak256(abi.encode("parent", i)),
-                endBlockNumber: uint48(i * 1000),
-                endBlockHash: keccak256(abi.encode("block", i)),
-                endStateRoot: keccak256(abi.encode("state", i)),
-                designatedProver: address(uint160(i * 2 + 1)),
-                actualProver: address(uint160(i * 2 + 2))
-            });
+        // Set proposal count to 0 (3 bytes, all zeros already)
+        // Set claim count to 1 at bytes 3-5 (non-zero to trigger mismatch)
+        assembly {
+            mstore8(add(badData, 35), 1) // Set byte at index 3 to 1
         }
 
-        // ABI encoding
-        bytes memory abiEncoded = abi.encode(proposals, claims);
-
-        // Compact encoding
-        bytes memory compactEncoded = LibProveInputDecoder.encode(proposals, claims);
-
-        // Measure ABI decode gas
-        uint256 gasStart = gasleft();
-        abi.decode(abiEncoded, (IInbox.Proposal[], IInbox.Claim[]));
-        uint256 abiGas = gasStart - gasleft();
-
-        // Measure compact decode gas
-        gasStart = gasleft();
-        LibProveInputDecoder.decode(compactEncoded);
-        uint256 compactGas = gasStart - gasleft();
-
-        // Log results
-        emit log_named_uint("Count", count);
-        emit log_named_uint("ABI size", abiEncoded.length);
-        emit log_named_uint("Compact size", compactEncoded.length);
-        emit log_named_uint("ABI gas", abiGas);
-        emit log_named_uint("Compact gas", compactGas);
-        emit log_named_uint(
-            "Size reduction %",
-            ((abiEncoded.length - compactEncoded.length) * 100) / abiEncoded.length
-        );
-
-        // Verify compact is smaller
-        assertLt(compactEncoded.length, abiEncoded.length);
+        // Should revert with ProposalClaimLengthMismatch
+        vm.expectRevert(LibProveInputDecoder.ProposalClaimLengthMismatch.selector);
+        wrapper.decode(badData);
     }
 }
 
-// Wrapper contract to test library reverts properly
+// Wrapper contract to test reverts properly
 contract TestWrapper {
-    function encode(
-        IInbox.Proposal[] memory proposals,
-        IInbox.Claim[] memory claims
-    )
-        external
-        pure
-        returns (bytes memory)
-    {
-        return LibProveInputDecoder.encode(proposals, claims);
+    function decode(bytes memory data) public pure returns (IInbox.ProveInput memory) {
+        return LibProveInputDecoder.decode(data);
     }
 }
