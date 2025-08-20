@@ -36,6 +36,7 @@ library LibProposeInputDecoder {
         ptr = P.packBytes32(ptr, _input.coreState.bondInstructionsHash);
 
         // 3. Encode parent proposals array
+        P.checkArrayLength(_input.parentProposals.length);
         ptr = P.packUint24(ptr, uint24(_input.parentProposals.length));
         for (uint256 i; i < _input.parentProposals.length; ++i) {
             ptr = _encodeProposal(ptr, _input.parentProposals[i]);
@@ -47,6 +48,7 @@ library LibProposeInputDecoder {
         ptr = P.packUint24(ptr, _input.blobReference.offset);
 
         // 5. Encode ClaimRecords array
+        P.checkArrayLength(_input.claimRecords.length);
         ptr = P.packUint24(ptr, uint24(_input.claimRecords.length));
         for (uint256 i; i < _input.claimRecords.length; ++i) {
             ptr = _encodeClaimRecord(ptr, _input.claimRecords[i]);
@@ -168,6 +170,7 @@ library LibProposeInputDecoder {
         newPtr_ = P.packBytes32(newPtr_, _claimRecord.endBlockMiniHeaderHash);
 
         // Encode BondInstructions array
+        P.checkArrayLength(_claimRecord.bondInstructions.length);
         newPtr_ = P.packUint24(newPtr_, uint24(_claimRecord.bondInstructions.length));
         for (uint256 i; i < _claimRecord.bondInstructions.length; ++i) {
             newPtr_ = _encodeBondInstruction(newPtr_, _claimRecord.bondInstructions[i]);

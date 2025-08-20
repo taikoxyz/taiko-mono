@@ -25,12 +25,14 @@ library LibProveInputDecoder {
         uint256 ptr = P.dataPtr(encoded_);
 
         // 1. Encode Proposals array
+        P.checkArrayLength(_input.proposals.length);
         ptr = P.packUint24(ptr, uint24(_input.proposals.length));
         for (uint256 i; i < _input.proposals.length; ++i) {
             ptr = _encodeProposal(ptr, _input.proposals[i]);
         }
 
         // 2. Encode Claims array
+        P.checkArrayLength(_input.claims.length);
         ptr = P.packUint24(ptr, uint24(_input.claims.length));
         for (uint256 i; i < _input.claims.length; ++i) {
             ptr = _encodeClaim(ptr, _input.claims[i]);
@@ -55,7 +57,7 @@ library LibProveInputDecoder {
         // 2. Decode Claims array
         uint24 claimsLength;
         (claimsLength, ptr) = P.unpackUint24(ptr);
-        if (claimsLength != proposalsLength) revert ProposalClaimLengthMismatch();
+        require(claimsLength == proposalsLength, ProposalClaimLengthMismatch());
         input_.claims = new IInbox.Claim[](claimsLength);
         for (uint256 i; i < claimsLength; ++i) {
             (input_.claims[i], ptr) = _decodeClaim(ptr);
@@ -135,7 +137,7 @@ library LibProveInputDecoder {
         pure
         returns (uint256 size_)
     {
-        if (_proposals.length != _claims.length) revert ProposalClaimLengthMismatch();
+        require(_proposals.length == _claims.length, ProposalClaimLengthMismatch());
 
         unchecked {
             // Array lengths: 3 + 3 = 6 bytes
@@ -144,9 +146,7 @@ library LibProveInputDecoder {
             // Proposals - each has fixed size
             // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) + coreStateHash(32) +
             // derivationHash(32) = 96
-            for (uint256 i; i < _proposals.length; ++i) {
-                size_ += 96;
-            }
+            size_ += _proposals.length * 96;
 
             // Claims - each has fixed size: proposalHash(32) + parentClaimHash(32) +
             // BlockMiniHeader(6 + 32 + 32) + designatedProver(20) + actualProver(20) = 174

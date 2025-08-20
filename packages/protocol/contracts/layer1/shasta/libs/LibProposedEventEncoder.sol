@@ -36,7 +36,7 @@ library LibProposedEventEncoder {
         // Encode BlobSlice
         // First encode the length of blobHashes array as uint24
         uint256 blobHashesLength = _payload.derivation.blobSlice.blobHashes.length;
-        require(blobHashesLength <= type(uint24).max, BlobHashesLengthExceeded());
+        P.checkArrayLength(blobHashesLength);
         ptr = P.packUint24(ptr, uint24(blobHashesLength));
 
         // Encode each blob hash
@@ -124,10 +124,4 @@ library LibProposedEventEncoder {
             size_ = 160 + (_blobHashesCount * 32);
         }
     }
-
-    // ---------------------------------------------------------------
-    // Errors
-    // ---------------------------------------------------------------
-
-    error BlobHashesLengthExceeded();
 }
