@@ -146,11 +146,11 @@ library LibProveInputDecoder {
             // Proposals - each has fixed size
             // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) + coreStateHash(32) +
             // derivationHash(32) = 96
-            size_ += _proposals.length * 96;
-
+            //
             // Claims - each has fixed size: proposalHash(32) + parentClaimHash(32) +
             // BlockMiniHeader(6 + 32 + 32) + designatedProver(20) + actualProver(20) = 174
-            size_ += _proposals.length * 174;
+            //
+            size_ += _proposals.length * 270;
         }
     }
 
