@@ -72,18 +72,18 @@ abstract contract InboxOptimized1 is Inbox {
                     // Inline merge to avoid separate function call and reduce stack depth
                     uint256 oldLen = currentRecord.bondInstructions.length;
                     uint256 newLen = newInstructions.length;
-                    LibBonds.BondInstruction[] memory merged = new LibBonds.BondInstruction[](oldLen + newLen);
-                    
+                    LibBonds.BondInstruction[] memory merged =
+                        new LibBonds.BondInstruction[](oldLen + newLen);
+
                     // Copy existing instructions
-                    for (uint256 j = 0; j < oldLen; ++j) {
+                    for (uint256 j; j < oldLen; ++j) {
                         merged[j] = currentRecord.bondInstructions[j];
                     }
-                    
+
                     // Copy new instructions
-                    for (uint256 j = 0; j < newLen; ++j) {
+                    for (uint256 j; j < newLen; ++j) {
                         merged[oldLen + j] = newInstructions[j];
                     }
-                    
                     currentRecord.bondInstructions = merged;
                 }
 
