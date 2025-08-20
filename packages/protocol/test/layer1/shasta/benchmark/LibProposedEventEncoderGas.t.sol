@@ -12,7 +12,7 @@ import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 /// @custom:security-contact security@taiko.xyz
 contract LibProposedEventEncoderGas is Test {
     event Proposed(bytes data);
-    event ProposedDirect(IInbox.Proposal proposal, IInbox.CoreState coreState);
+    event ProposedDirect(IInbox.ProposedEventPayload payload);
 
     function test_gas_comparison_optimized() public {
         console2.log("\nGas Comparison: abi.encode vs LibProposedEventEncoder");
@@ -25,23 +25,19 @@ contract LibProposedEventEncoderGas is Test {
         blobCounts[3] = 10;
 
         for (uint256 i = 0; i < blobCounts.length; i++) {
-            (
-                IInbox.Proposal memory proposal,
-                IInbox.Derivation memory derivation,
-                IInbox.CoreState memory coreState
-            ) = _createTestData(blobCounts[i]);
+            IInbox.ProposedEventPayload memory payload = _createTestData(blobCounts[i]);
 
             console2.log("Blob hashes count:", blobCounts[i]);
 
             // 1. abi.encode + emit
             uint256 gasBefore = gasleft();
-            bytes memory abiEncoded = abi.encode(proposal, derivation, coreState);
+            bytes memory abiEncoded = abi.encode(payload);
             emit Proposed(abiEncoded);
             uint256 abiEncodeGas = gasBefore - gasleft();
 
             // 2. Optimized LibEncoder
             gasBefore = gasleft();
-            bytes memory encoded = LibProposedEventEncoder.encode(proposal, derivation, coreState);
+            bytes memory encoded = LibProposedEventEncoder.encode(payload);
             emit Proposed(encoded);
             uint256 libEncoderGas = gasBefore - gasleft();
 
@@ -77,16 +73,11 @@ contract LibProposedEventEncoderGas is Test {
         blobCounts[3] = 10;
 
         for (uint256 i = 0; i < blobCounts.length; i++) {
-            (
-                IInbox.Proposal memory proposal,
-                IInbox.Derivation memory derivation,
-                IInbox.CoreState memory coreState
-            ) = _createTestData(blobCounts[i]);
+            IInbox.ProposedEventPayload memory payload = _createTestData(blobCounts[i]);
 
             // Prepare encoded data
-            bytes memory abiEncoded = abi.encode(proposal, derivation, coreState);
-            bytes memory libEncoded =
-                LibProposedEventEncoder.encode(proposal, derivation, coreState);
+            bytes memory abiEncoded = abi.encode(payload);
+            bytes memory libEncoded = LibProposedEventEncoder.encode(payload);
 
             console2.log("Blob hashes count:", blobCounts[i]);
             console2.log("  abi.encode size:", abiEncoded.length, "bytes");
@@ -94,14 +85,13 @@ contract LibProposedEventEncoderGas is Test {
 
             // 1. abi.decode
             uint256 gasBefore = gasleft();
-            (IInbox.Proposal memory decoded1,, IInbox.CoreState memory decoded2) =
-                abi.decode(abiEncoded, (IInbox.Proposal, IInbox.Derivation, IInbox.CoreState));
+            IInbox.ProposedEventPayload memory decoded1 =
+                abi.decode(abiEncoded, (IInbox.ProposedEventPayload));
             uint256 abiDecodeGas = gasBefore - gasleft();
 
             // 2. LibEncoder decode
             gasBefore = gasleft();
-            (IInbox.Proposal memory decoded3,, IInbox.CoreState memory decoded4) =
-                LibProposedEventEncoder.decode(libEncoded);
+            IInbox.ProposedEventPayload memory decoded2 = LibProposedEventEncoder.decode(libEncoded);
             uint256 libDecodeGas = gasBefore - gasleft();
 
             // Calculate savings percentage
@@ -122,8 +112,11 @@ contract LibProposedEventEncoderGas is Test {
             console2.log("");
 
             // Prevent optimization
-            require(decoded1.id > 0 && decoded3.id > 0, "decoded");
-            require(decoded2.nextProposalId > 0 && decoded4.nextProposalId > 0, "decoded");
+            require(decoded1.proposal.id > 0 && decoded2.proposal.id > 0, "decoded");
+            require(
+                decoded1.coreState.nextProposalId > 0 && decoded2.coreState.nextProposalId > 0,
+                "decoded"
+            );
         }
     }
 
@@ -138,15 +131,10 @@ contract LibProposedEventEncoderGas is Test {
         blobCounts[3] = 10;
 
         for (uint256 i = 0; i < blobCounts.length; i++) {
-            (
-                IInbox.Proposal memory proposal,
-                IInbox.Derivation memory derivation,
-                IInbox.CoreState memory coreState
-            ) = _createTestData(blobCounts[i]);
+            IInbox.ProposedEventPayload memory payload = _createTestData(blobCounts[i]);
 
-            bytes memory abiEncoded = abi.encode(proposal, derivation, coreState);
-            bytes memory libEncoded =
-                LibProposedEventEncoder.encode(proposal, derivation, coreState);
+            bytes memory abiEncoded = abi.encode(payload);
+            bytes memory libEncoded = LibProposedEventEncoder.encode(payload);
 
             uint256 sizeSavings =
                 ((abiEncoded.length - libEncoded.length) * 100) / abiEncoded.length;
@@ -173,36 +161,20 @@ contract LibProposedEventEncoderGas is Test {
         report = string.concat(report, "| 6 | 8,963 gas | 6,154 gas | 31% |\n");
         report = string.concat(report, "| 10 | 10,431 gas | 7,810 gas | 25% |\n\n");
 
-        report = string.concat(report, "## Size Comparison\n\n");
-        report =
-            string.concat(report, "| Blobs | abi.encode | LibProposedEventEncoder | Reduction |\n");
-        report =
-            string.concat(report, "|-------|------------|------------------------|-----------|\n");
-        report = string.concat(report, "| 0 | 544 bytes | 160 bytes | 70% |\n");
-        report = string.concat(report, "| 3 | 640 bytes | 256 bytes | 60% |\n");
-        report = string.concat(report, "| 6 | 736 bytes | 352 bytes | 52% |\n");
-        report = string.concat(report, "| 10 | 864 bytes | 480 bytes | 44% |\n\n");
-
-        report = string.concat(report, "**Note**: Gas measurements include event emission costs\n");
-
         vm.writeFile("gas-reports/LibProposedEventEncoder.md", report);
     }
 
     function _createTestData(uint256 _blobHashCount)
         private
         pure
-        returns (
-            IInbox.Proposal memory proposal_,
-            IInbox.Derivation memory derivation_,
-            IInbox.CoreState memory coreState_
-        )
+        returns (IInbox.ProposedEventPayload memory payload_)
     {
         bytes32[] memory blobHashes = new bytes32[](_blobHashCount);
         for (uint256 i = 0; i < _blobHashCount; i++) {
             blobHashes[i] = keccak256(abi.encodePacked("blob", i));
         }
 
-        proposal_ = IInbox.Proposal({
+        payload_.proposal = IInbox.Proposal({
             id: 12_345,
             proposer: address(0x1234567890123456789012345678901234567890),
             timestamp: 1_700_000_000,
@@ -210,7 +182,7 @@ contract LibProposedEventEncoderGas is Test {
             derivationHash: keccak256("derivation")
         });
 
-        derivation_ = IInbox.Derivation({
+        payload_.derivation = IInbox.Derivation({
             originBlockNumber: 18_000_000,
             originBlockHash: bytes32(uint256(18_000_000)),
             isForcedInclusion: false,
@@ -222,7 +194,7 @@ contract LibProposedEventEncoderGas is Test {
             })
         });
 
-        coreState_ = IInbox.CoreState({
+        payload_.coreState = IInbox.CoreState({
             nextProposalId: 12_346,
             lastFinalizedProposalId: 12_340,
             lastFinalizedClaimHash: keccak256("lastClaim"),

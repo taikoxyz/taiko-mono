@@ -12,7 +12,7 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 /// @custom:security-contact security@taiko.xyz
 contract LibProvedEventEncoderGas is Test {
     event Proved(bytes data);
-    event ProvedDirect(IInbox.ClaimRecord record);
+    event ProvedDirect(IInbox.ProvedEventPayload payload);
 
     function test_gas_comparison_optimized() public {
         console2.log("\nGas Comparison: abi.encode vs LibProvedEventEncoder");
@@ -26,19 +26,19 @@ contract LibProvedEventEncoderGas is Test {
         bondCounts[4] = 10;
 
         for (uint256 i = 0; i < bondCounts.length; i++) {
-            IInbox.ClaimRecord memory record = _createTestData(bondCounts[i]);
+            IInbox.ProvedEventPayload memory payload = _createTestData(bondCounts[i]);
 
             console2.log("Bond instructions count:", bondCounts[i]);
 
             // 1. abi.encode + emit
             uint256 gasBefore = gasleft();
-            bytes memory abiEncoded = abi.encode(record);
+            bytes memory abiEncoded = abi.encode(payload);
             emit Proved(abiEncoded);
             uint256 abiEncodeGas = gasBefore - gasleft();
 
             // 2. Optimized LibEncoder
             gasBefore = gasleft();
-            bytes memory encoded = LibProvedEventEncoder.encode(record);
+            bytes memory encoded = LibProvedEventEncoder.encode(payload);
             emit Proved(encoded);
             uint256 libEncoderGas = gasBefore - gasleft();
 
@@ -75,11 +75,11 @@ contract LibProvedEventEncoderGas is Test {
         bondCounts[4] = 10;
 
         for (uint256 i = 0; i < bondCounts.length; i++) {
-            IInbox.ClaimRecord memory record = _createTestData(bondCounts[i]);
+            IInbox.ProvedEventPayload memory payload = _createTestData(bondCounts[i]);
 
             // Prepare encoded data
-            bytes memory abiEncoded = abi.encode(record);
-            bytes memory libEncoded = LibProvedEventEncoder.encode(record);
+            bytes memory abiEncoded = abi.encode(payload);
+            bytes memory libEncoded = LibProvedEventEncoder.encode(payload);
 
             console2.log("Bond instructions count:", bondCounts[i]);
             console2.log("  abi.encode size:", abiEncoded.length, "bytes");
@@ -87,12 +87,13 @@ contract LibProvedEventEncoderGas is Test {
 
             // 1. abi.decode
             uint256 gasBefore = gasleft();
-            IInbox.ClaimRecord memory decoded1 = abi.decode(abiEncoded, (IInbox.ClaimRecord));
+            IInbox.ProvedEventPayload memory decoded1 =
+                abi.decode(abiEncoded, (IInbox.ProvedEventPayload));
             uint256 abiDecodeGas = gasBefore - gasleft();
 
             // 2. LibEncoder decode
             gasBefore = gasleft();
-            IInbox.ClaimRecord memory decoded2 = LibProvedEventEncoder.decode(libEncoded);
+            IInbox.ProvedEventPayload memory decoded2 = LibProvedEventEncoder.decode(libEncoded);
             uint256 libDecodeGas = gasBefore - gasleft();
 
             // Calculate savings percentage
@@ -129,10 +130,10 @@ contract LibProvedEventEncoderGas is Test {
         bondCounts[4] = 10;
 
         for (uint256 i = 0; i < bondCounts.length; i++) {
-            IInbox.ClaimRecord memory record = _createTestData(bondCounts[i]);
+            IInbox.ProvedEventPayload memory payload = _createTestData(bondCounts[i]);
 
-            bytes memory abiEncoded = abi.encode(record);
-            bytes memory libEncoded = LibProvedEventEncoder.encode(record);
+            bytes memory abiEncoded = abi.encode(payload);
+            bytes memory libEncoded = LibProvedEventEncoder.encode(payload);
 
             uint256 sizeSavings =
                 ((abiEncoded.length - libEncoded.length) * 100) / abiEncoded.length;
@@ -148,21 +149,27 @@ contract LibProvedEventEncoderGas is Test {
     function _createTestData(uint256 _bondInstructionsCount)
         private
         pure
-        returns (IInbox.ClaimRecord memory record_)
+        returns (IInbox.ProvedEventPayload memory payload_)
     {
-        record_.proposalId = 12_345;
-        record_.claim.proposalHash = keccak256("proposal");
-        record_.claim.parentClaimHash = keccak256("parent");
-        record_.claim.endBlockNumber = 999_999;
-        record_.claim.endBlockHash = keccak256("block");
-        record_.claim.endStateRoot = keccak256("state");
-        record_.claim.designatedProver = address(0x1234567890123456789012345678901234567890);
-        record_.claim.actualProver = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
-        record_.span = 42;
+        payload_.proposalId = 12_345;
+        payload_.claim.proposalHash = keccak256("proposal");
+        payload_.claim.parentClaimHash = keccak256("parent");
+        payload_.claim.endBlockMiniHeader = IInbox.BlockMiniHeader({
+            number: 999_999,
+            hash: keccak256("block"),
+            stateRoot: keccak256("state")
+        });
+        payload_.claim.designatedProver = address(0x1234567890123456789012345678901234567890);
+        payload_.claim.actualProver = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
 
-        record_.bondInstructions = new LibBonds.BondInstruction[](_bondInstructionsCount);
+        payload_.claimRecord.span = 42;
+        payload_.claimRecord.claimHash = keccak256("claim");
+        payload_.claimRecord.endBlockMiniHeaderHash = keccak256("header");
+        payload_.claimRecord.bondInstructions =
+            new LibBonds.BondInstruction[](_bondInstructionsCount);
+
         for (uint256 i = 0; i < _bondInstructionsCount; i++) {
-            record_.bondInstructions[i] = LibBonds.BondInstruction({
+            payload_.claimRecord.bondInstructions[i] = LibBonds.BondInstruction({
                 proposalId: uint48(100 + i),
                 bondType: LibBonds.BondType(i % 3),
                 payer: address(uint160(0x2222222222222222222222222222222222222222) + uint160(i)),
@@ -183,19 +190,6 @@ contract LibProvedEventEncoderGas is Test {
         report = string.concat(report, "| 3 | 9,242 gas | 6,701 gas | 27% |\n");
         report = string.concat(report, "| 5 | 11,933 gas | 8,565 gas | 28% |\n");
         report = string.concat(report, "| 10 | 18,661 gas | 13,094 gas | 29% |\n\n");
-
-        report = string.concat(report, "## Size Comparison\n\n");
-        report =
-            string.concat(report, "| Bonds | abi.encode | LibProvedEventEncoder | Reduction |\n");
-        report =
-            string.concat(report, "|-------|------------|----------------------|-----------|\n");
-        report = string.concat(report, "| 0 | 384 bytes | 183 bytes | 52% |\n");
-        report = string.concat(report, "| 1 | 512 bytes | 230 bytes | 55% |\n");
-        report = string.concat(report, "| 3 | 768 bytes | 324 bytes | 57% |\n");
-        report = string.concat(report, "| 5 | 1,024 bytes | 418 bytes | 59% |\n");
-        report = string.concat(report, "| 10 | 1,664 bytes | 653 bytes | 60% |\n\n");
-
-        report = string.concat(report, "**Note**: Gas measurements include event emission costs\n");
 
         vm.writeFile("gas-reports/LibProvedEventEncoder.md", report);
     }
