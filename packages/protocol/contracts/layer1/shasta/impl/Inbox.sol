@@ -63,7 +63,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - proposalHash: The keccak256 hash of the Proposal struct
-    /// @dev This variable does not reuse pacaya slots for storage safety, since we do buffer wrap around checks in the contract.
+    /// @dev This variable does not reuse pacaya slots for storage safety, since we do buffer wrap
+    /// around checks in the contract.
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
     uint256[42] private __gap;
