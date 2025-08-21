@@ -38,36 +38,35 @@ abstract contract Inbox is EssentialContract, IInbox {
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
-    /// @notice Reuses the `batches` slot from Pacaya fork for storage efficiency
-    /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
-    /// - proposalHash: The keccak256 hash of the Proposal struct
-    mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
-
-    /// @dev This variable is no longer used.
-    mapping(uint256 bufferSlot => mapping(bytes32 parentHash => uint24 transitionId)) private
-        __transitionIdsPacaya;
-
     /// @dev Ring buffer for storing claim record hashes with composite key indexing
-    /// @notice Stores claim records for proposals with different parent claims
+    /// @dev Stores claim records for proposals with different parent claims
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - compositeKey: Keccak256 hash of (proposalId, parentClaimHash)
     /// - claimRecordHash: The hash of the ClaimRecord struct
+    /// @dev Reuses the `batches` slot from Pacaya fork for storage efficiency
     mapping(uint256 bufferSlot => mapping(bytes32 compositeKey => bytes32 claimRecordHash)) internal
         _claimRecordHashes;
 
     /// @dev Deprecated slots used by Pacaya inbox that contains:
+    /// - `transitionIds`
+    /// - `transitions`
     /// - `__reserve1`
     /// - `stats1`
     /// - `stats2`
-    uint256[3] private __slotsUsedByPacaya;
+    uint256[5] private __slotsUsedByPacaya;
 
     /// @notice Bond balance for each account used in Pacaya inbox.
     /// @dev This is not used in Shasta. It is kept so users can withdraw their bond.
     /// @dev Bonds are now handled entirely on L2, by the `BondManager` contract.
     mapping(address account => uint256 bond) public bondBalance;
 
-    uint256[43] private __gap;
+    /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
+    /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
+    /// - proposalHash: The keccak256 hash of the Proposal struct
+    /// @dev This variable does not reuse pacaya slots for storage safety, since we do buffer wrap around checks in the contract.
+    mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
+
+    uint256[42] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
