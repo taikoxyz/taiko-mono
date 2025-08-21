@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import "src/shared/based/ITaiko.sol";
 import "src/shared/libs/LibAddress.sol";
 import "src/shared/libs/LibMath.sol";
 import "src/shared/signal/ISignalService.sol";
@@ -15,7 +14,7 @@ import "./OntakeAnchor.sol";
 /// @title PacayaAnchor
 /// @notice Anchoring functions for the Pacaya fork.
 /// @custom:security-contact security@taiko.xyz
-abstract contract PacayaAnchor is OntakeAnchor, ITaiko {
+abstract contract PacayaAnchor is OntakeAnchor {
     using LibAddress for address;
     using LibMath for uint256;
     using SafeERC20 for IERC20;
@@ -24,7 +23,7 @@ abstract contract PacayaAnchor is OntakeAnchor, ITaiko {
 
     /// @notice Golden touch address is the only address that can do the anchor transaction.
     address public constant GOLDEN_TOUCH_ADDRESS = 0x0000777735367b36bC9B61C50022d9D0700dB4Ec;
-    uint256 public constant BASEFEE_MIN_VALUE = 100_000_000; // 0.1 gwei
+    uint256 public constant BASEFEE_MIN_VALUE = 25_000_000; //  0.025 gwei
 
     ISignalService public immutable signalService;
     uint64 public immutable pacayaForkHeight;
@@ -206,11 +205,6 @@ abstract contract PacayaAnchor is OntakeAnchor, ITaiko {
         if (_blockId >= block.number) return 0;
         if (_blockId + 256 >= block.number) return blockhash(_blockId);
         return _blockhashes[_blockId];
-    }
-
-    /// @inheritdoc ITaiko
-    function v4IsInbox() external pure returns (bool) {
-        return false;
     }
 
     /// @notice Tells if we need to validate basefee (for simulation).

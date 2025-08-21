@@ -19,10 +19,10 @@ description: Taiko Alethia protocol page for "ComposeVerifier.sol".
 
 Verifies an SGX proof for a **single block state transition**.
 
-| Input Parameter  | Type      | Description                    |
-| ---------------- | --------- | ------------------------------ |
-| `_ctxs`          | `bytes32` | Contexts of the proof.         |
-| `_proof`         | `bytes`   | All bytes of all subproofs.    |
+| Input Parameter | Type      | Description                 |
+| --------------- | --------- | --------------------------- |
+| `_ctxs`         | `bytes32` | Contexts of the proof.      |
+| `_proof`        | `bytes`   | All bytes of all subproofs. |
 
 **Mechanism**:
 

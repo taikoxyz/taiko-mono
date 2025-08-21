@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -71,6 +72,13 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfBuildPreconfBlockDuration.Observe(elapsed)
+		log.Debug("BuildPreconfBlock completed", "elapsed", elapsed)
+	}()
+
 	// make a new context, we don't want to cancel the request if the caller times out.
 	ctx := context.Background()
 
@@ -88,6 +96,15 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 				errors.New("preconfirmation is disabled via taikoWrapper"),
 			)
 		}
+	}
+
+	// Check if the L2 execution engine is syncing from L1.
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
+	if err != nil {
+		return s.returnError(c, http.StatusBadRequest, err)
+	}
+	if progress.IsSyncing() {
+		return s.returnError(c, http.StatusBadRequest, errors.New("l2 execution engine is syncing"))
 	}
 
 	// Parse the request body.
@@ -131,7 +148,7 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 	}
 
 	log.Info(
-		"New preconfirmation block building request",
+		"🏗️ New preconfirmation block building request",
 		"blockID", reqBody.ExecutableData.Number,
 		"coinbase", reqBody.ExecutableData.FeeRecipient.Hex(),
 		"timestamp", reqBody.ExecutableData.Timestamp,
@@ -173,15 +190,6 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	if err := s.ValidateExecutionPayload(executablePayload); err != nil {
 		return s.returnError(c, http.StatusBadRequest, err)
-	}
-
-	// Check if the L2 execution engine is syncing from L1.
-	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
-	if err != nil {
-		return s.returnError(c, http.StatusBadRequest, err)
-	}
-	if progress.IsSyncing() {
-		return s.returnError(c, http.StatusBadRequest, errors.New("l2 execution engine is syncing"))
 	}
 
 	// Insert the preconfirmation block.

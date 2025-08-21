@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.30.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.6...docs-site-v1.30.0) (2025-08-13)
+
+
+### Features
+
+* **docs-site:** update docs for based preconfs, node running, removal of proverset ([#19928](https://github.com/taikoxyz/taiko-mono/issues/19928)) ([1a4b568](https://github.com/taikoxyz/taiko-mono/commit/1a4b5680e9a78f9e4feb3ffb686a8d8aab2e16e0))
+
+
+### Bug Fixes
+
+* **docs-site:** fix astro.config.ts ([#19929](https://github.com/taikoxyz/taiko-mono/issues/19929)) ([dd854a7](https://github.com/taikoxyz/taiko-mono/commit/dd854a79b77f81bcc1c38b5a26273e4fd6fe3937))
+
+## [1.29.6](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.5...docs-site-v1.29.6) (2025-08-06)
+
+
+### Bug Fixes
+
+* **docs-site:** minor identifier mismatch ([#19876](https://github.com/taikoxyz/taiko-mono/issues/19876)) ([288ab83](https://github.com/taikoxyz/taiko-mono/commit/288ab8368601ca2c5fafbd8b6e73f45092e61ff7))
+
+## [1.29.5](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.4...docs-site-v1.29.5) (2025-07-31)
+
+
+### Chores
+
+* **docs-site:** missed config ([#19853](https://github.com/taikoxyz/taiko-mono/issues/19853)) ([89f14c3](https://github.com/taikoxyz/taiko-mono/commit/89f14c3bf19e816ee4630b31a38f15cdaa7716e6))
+
+## [1.29.4](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.3...docs-site-v1.29.4) (2025-07-31)
+
+
+### Chores
+
+* **docs-site:** add rpc, oracle and aa providers ([#19835](https://github.com/taikoxyz/taiko-mono/issues/19835)) ([bd6fe92](https://github.com/taikoxyz/taiko-mono/commit/bd6fe925bd65b8c320e048d4cc425b6cd153161f))
+* **docs-site:** update guides for based preconfs upgrade ([#19790](https://github.com/taikoxyz/taiko-mono/issues/19790)) ([4900ed9](https://github.com/taikoxyz/taiko-mono/commit/4900ed9f7311899a228e90ecb8a84610accb989f))
+
 ## [1.29.3](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.2...docs-site-v1.29.3) (2025-07-29)
 
 

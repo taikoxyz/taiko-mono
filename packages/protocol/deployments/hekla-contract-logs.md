@@ -188,7 +188,7 @@
 ### prover_set
 
 - proxy: `0xD3f681bD6B49887A48cC9C9953720903967E9DC0`
-- impl: `0x3C8D6D4F6fDda77c1d86b4C5F0712C07B150A87c.`
+- impl: `0x4a81e58f3a9c108979Cc6eE87715938A07c34eFc`
 - owner: `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Jun 17, 2024 at commit `b7e12e3`
@@ -196,6 +196,7 @@
   - upgraded on Sep 20, 2024 at commit `fd1c039`
   - upgraded on Oct 29, 2024 at commit `3d12cb2`
   - upgraded on Mar 21, 2025 at commit `80baf41`
+  - upgraded on Aug 1, 2025 at commit `6751487`
 
 ### prover_set_contester
 
@@ -295,19 +296,23 @@
 ### preconf_whitelist
 
 - proxy : `0x4aA38A15109eAbbf09b7967009A2e00D2D15cb84`
-- impl : `0xcfc9A0b7a9f123D1Cd78034CC8F06F4646588483`
+- impl : `0x5D6Ce55F3300ac2b78726372066280674774ab25`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
+- ejectors:
+  - `0x166c5Ac627B2dE22095e93b7c2dCB86506c6C2B2`
 - logs:
   - deployed on May 29, 2025 at commit `baeaba9`
   - upgraded on Jun 19, 2025 at commit `edf2041`
+  - upgraded on Aug 7, 2025 at commit `31094a6`
 
 ### preconf_router
 
 - proxy : `0xce04A91Db63aDBe26c83c761f99933CE5f09cf6C`
-- impl : `0x797ad2F5Ee4cB9A626636b7a05686BA9690860Ba`
+- impl : `0xA05780F864B512ddFA3773D7b869550AE3f60d7B`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on May 29, 2025 at commit `baeaba9`
+  - upgraded on Aug 7, 2025 at commit `31094a6`
 
 ### taiko_wrapper
 
@@ -452,7 +457,7 @@
 ### taikoAnchor
 
 - proxy: `0x1670090000000000000000000000000000010001`
-- impl: `0x31EeCdD5c2Bf737BbCf8Bac6F45e4b4b30D53b01`
+- impl: `0x76390e768C769D06c2e339fA75b6d068a3bA6C05`
 - owner: `0x95F6077C7786a58FA070D98043b16DF2B1593D2b`
 - logs:
   - upgraded on May 10, 2024 at commit `4903bec`
@@ -462,6 +467,7 @@
   - upgraded on Mar 24, 2025 at commit `80baf41`
   - upgraded on Apr 3, 2025 at commit `2879728`
   - upgraded on Jun 28, 2025 at commit `c663e2e`
+  - upgraded on Aug 14, 2025 at commit `d6d33eb`
 
 ### rollup_address_manager
 

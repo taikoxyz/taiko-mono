@@ -32,28 +32,24 @@ A based rollup is an L2 that delegates block sequencing to L1 validators, meanin
 ## Why Based Rollups Are Superior
 
 1. **Decentralization at the Root Level**
-
    - Based rollups eliminate single points of failure by relying solely on Ethereum validators.
    - Unlike rollups with centralized sequencers, there’s no risk of operator downtime, misbehavior, or cartelization.
 
 <br/>
 
 2. **Security Through L1 Alignment**
-
    - Ethereum validators naturally include rollup transactions, ensuring that rollup security is directly tied to Ethereum’s own security.
    - This eliminates the risk of sequencer reorgs, censorship, or bribery attacks that centralized sequencers can be prone to.
 
 <br/>
 
 3. **L1-Level Censorship Resistance**
-
    - Based rollups inherit Ethereum’s censorship resistance guarantees.
    - Transactions cannot be censored by any external party since L1 validators are already highly decentralized and economically incentivized to include all transactions.
 
 <br/>
 
 4. **Simplicity & Cost-Efficiency**
-
    - No need for extra sequencer infrastructure, complex fallback mechanisms, or governance layers.
    - **No additional gas overhead**—transactions are simply included in Ethereum blocks, making based rollups more efficient and cheaper for users.
 

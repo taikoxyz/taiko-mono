@@ -3,6 +3,7 @@ package flags
 import (
 	"crypto/ecdsa"
 
+	opsigner "github.com/ethereum-optimism/optimism/op-service/signer"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -27,5 +28,6 @@ func InitTxmgrConfigsFromCli(l1Endpoint string, privateKey *ecdsa.PrivateKey, c 
 		ReceiptQueryInterval:      c.Duration(flags.ReceiptQueryInterval.Name),
 		TxSendTimeout:             c.Duration(flags.TxSendTimeout.Name),
 		TxNotInMempoolTimeout:     c.Duration(flags.TxNotInMempoolTimeout.Name),
+		SignerCLIConfig:           opsigner.ReadCLIConfig(c),
 	}
 }

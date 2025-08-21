@@ -95,11 +95,43 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
 
 5. Set the profiles you want to run
 
-    In your `.env`, please set `COMPOSE_PROFILES` to whichever set of services you'd like to run in a comma separated list (i.e., `l2_execution_engine,proposer,prover` or any combination of the three).
+    In your `.env`, please set `COMPOSE_PROFILES` to whichever set of services you'd like to run in a comma separated list (i.e., `l2_execution_engine,prover` or any combination of the three).
 
-    Note that if you include `proposer` or `prover`, the services will still be disabled if you do not set `ENABLE_PROPOSER=true` or `ENABLE_PROVER=true` respectively.
+    Note that if you include `prover`, the service will still be disabled if you do not set `ENABLE_PROVER=true` in your `.env` file.
 
-6. Start the node
+    <Aside type="tip">
+    The following steps 6-8 are only necessary if you wish to have your node receive preconfirmed blocks and keep up with the tip of the chain.
+
+    **To enable preconfs in your node**, please ensure that `ENABLE_PRECONFS_P2P` is set to `true` in your `.env` file.
+
+    If it is set to `false`, your node **will not receive preconfed blocks** and only update it's chainhead when the events are emitted on-chain.
+    </Aside>
+
+6. Set your node's external IP for p2p discovery
+
+    This is an important config for based preconfirmations. Find your machine's external IP and set `PUBLIC_IP={EXTERNAL_IP}` in your `.env` file. You may choose to leave it blank, in which case our scripts will enable `p2p.nat` in your driver; this means that you will automatically enable NAT traversal with PMP/UPNP devices to learn external IP. This is not preferred, and we highly recommend you manually set the `PUBLIC_IP` for discovery.
+
+    <Aside type="danger">
+    `YOUR_EXTERNAL_IP` should be **publicly accessible** from the internet, at the UDP and TCP ports you advertise from. If it is not, your node will not join the P2P network correctly.
+    </Aside>
+
+7. Ensure that the relevant ports are open on your machine **at the external IP you set.**
+
+    Whether you are running the node on a personal machine or a cloud provider's machine, you should ensure your the following ports on your machine are **open and visible to the internet at your external IP:**
+      - TCP `4001` OR whichever port you set `P2P_TCP_PORT` to in your `.env`.
+      - UDP `30303` OR whichever port you set `P2P_UDP_PORT` to in your `.env`.
+
+    These ports **are required for p2p gossiping preconfirmed blocks**, so if it is not set you will only subscribe to the events that are emitted on chain. You may need to add additional port-forwarding rules in your firewall/router to enable discovery from the internet.
+
+8. Set a private key for your P2P id
+
+    Another important config for based preconfirmations, your node needs a private key set to acquire a stable peer ID. This private key should be unique to each node: if you are running multiple, please use different ones for each node. **This private key does not need to hold eth or any valuables, it is simply to persist an identity.**
+
+    You may either set `PRIV_RAW` in your `.env`, or `PRIV_FILE`:
+      - `PRIV_RAW` is the hexstring private key in plaintext
+      - `PRIV_FILE` is the name of your txt file that consists entirely of a private key with no newlines IN YOUR `/script/` DIRECTORY.
+
+9. Start the node
 
     <Aside title="Info">
     Make sure Docker is running and then run the following command to start the node (you may need to use `sudo docker compose up -d` if your user is not in the `docker` group):
@@ -111,7 +143,17 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
     docker compose up -d
     ```
 
-7. Verify node is running
+10. Verify that your node has joined the P2P network
+
+    To ensure that your node is actually configured correctly and has joined the P2P network for preconfirmations, please use `grep` to find logs regarding `peer tick`. You should find something that resembles the following:
+
+    ```
+    INFO [07-30|18:37:38.168] Peer tick                                peersLen=6 peers="[...]" addrInfo="[...]" id=... advertisedUDP=52700 advertisedTCP=4001 advertisedIP=...
+    ```
+
+    As long as `connected=X` is greater than or equal to 6, your node should have joined the P2P network correctly! If it is below that, please reach out to us on Discord for troubleshooting help.
+
+11. Verify node is running
 
     #### Option 1: Check with the node dashboard
 
@@ -122,7 +164,6 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
     #### Option 2: Check with curl commands
 
     <Steps>
-
     1. Check if the Execution Layer client is connected to Taiko L2:
 
         ```bash
@@ -154,9 +195,7 @@ This guide will help you start up a Taiko Alethia RPC node using [simple-taiko-n
         ```
 
         > Note: You may need to use `sudo docker compose logs -f` if you are not in the `docker` group.
-
     </Steps>
-
 </Steps>
 
 ## Video tutorial

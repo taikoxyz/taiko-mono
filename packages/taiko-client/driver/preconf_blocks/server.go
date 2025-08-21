@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -43,6 +44,8 @@ var (
 	wsUpgrader             = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 )
 
+const requestSyncMargin = uint64(128) // Margin for requesting sync, to avoid requesting very old blocks.
+
 // preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
 type preconfBlockChainSyncer interface {
 	InsertPreconfBlocksFromEnvelopes(context.Context, []*preconf.Envelope, bool) ([]*types.Header, error)
@@ -77,6 +80,7 @@ type PreconfBlockAPIServer struct {
 	envelopesCache               *envelopeQueue
 	blockRequestsCache           *lru.Cache[common.Hash, struct{}]
 	sequencingEndedForEpochCache *lru.Cache[uint64, common.Hash]
+	responseSeenCache            *lru.Cache[common.Hash, time.Time]
 	// ConfigureRoutes
 	preconfOperatorAddress common.Address
 	// Last seen proposal
@@ -111,6 +115,10 @@ func New(
 	if err != nil {
 		return nil, err
 	}
+	responseSeenCache, err := lru.New[common.Hash, time.Time](maxTrackedPayloads)
+	if err != nil {
+		return nil, err
+	}
 
 	head, err := cli.L2.BlockByNumber(context.Background(), nil)
 	if err != nil {
@@ -130,6 +138,7 @@ func New(
 		blockRequestsCache:            blockRequestsCache,
 		sequencingEndedForEpochCache:  endOfSequencingCache,
 		latestSeenProposalCh:          latestSeenProposalCh,
+		responseSeenCache:             responseSeenCache,
 		highestUnsafeL2PayloadBlockID: head.NumberU64(),
 	}
 
@@ -209,6 +218,14 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 ) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfOnUnsafeL2PayloadDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2Payload completed", "elapsed", elapsed)
+	}()
+
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
@@ -301,6 +318,16 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfOnL2UnsafeResponseDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2Response completed", "elapsed", elapsed)
+	}()
+
+	// add responses seen to cache.
+	s.responseSeenCache.Add(msg.ExecutionPayload.BlockHash, time.Now().UTC())
+
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
@@ -386,6 +413,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfOnL2UnsafeRequestDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2Request completed", "elapsed", elapsed)
+	}()
+
 	// Ignore the message if it is from the current P2P node.
 	if from != "" && s.p2pNode.Host().ID() == from {
 		log.Debug("Ignore the message from the current P2P node", "peer", from)
@@ -414,7 +448,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	}
 
 	if headL1Origin != nil && block.NumberU64() <= headL1Origin.BlockID.Uint64() {
-		log.Warn(
+		log.Debug(
 			"Ignore the message for outdated block",
 			"peer", from,
 			"blockID", block.NumberU64(),
@@ -461,6 +495,22 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		return err
 	}
 
+	// we have the block, now wait a deterministic jitter before responding.
+	// this will reduce "response storms" when many nodes receive the request for the block.
+	wait := deterministicJitter(s.p2pNode.Host().ID(), hash, 1*time.Second)
+	timer := time.NewTimer(wait)
+	select {
+	case <-timer.C:
+		// If any response for this hash was seen recently, skip ours.
+		if ts, ok := s.responseSeenCache.Get(hash); ok && time.Since(ts) < 10*time.Second {
+			log.Debug("Skip responding; recent response already seen",
+				"peer", from, "hash", hash.Hex())
+			return nil
+		}
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
 	endOfSequencing := false
 	for epoch := range s.sequencingEndedForEpochCache.Keys() {
 		if hash, ok := s.sequencingEndedForEpochCache.Get(uint64(epoch)); ok && hash == block.Hash() {
@@ -489,6 +539,8 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 		)
 	}
 
+	s.responseSeenCache.Add(hash, time.Now().UTC())
+
 	return nil
 }
 
@@ -500,6 +552,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 ) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfOnEndOfSequencingRequestDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2EndOfSequencingRequest completed", "elapsed", elapsed)
+	}()
 
 	// Ignore the message if it is from the current P2P node.
 	if from != "" && s.p2pNode.Host().ID() == from {
@@ -610,7 +669,8 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 			break
 		}
 
-		parentPayload := s.envelopesCache.get(uint64(currentPayload.Payload.BlockNumber)-1, currentPayload.Payload.ParentHash)
+		parentNum := uint64(currentPayload.Payload.BlockNumber - 1)
+		parentPayload := s.envelopesCache.get(parentNum, currentPayload.Payload.ParentHash)
 		if parentPayload == nil {
 			// If the parent payload is not found in the cache and chain is not syncing,
 			// we publish a request to the P2P network.
@@ -625,21 +685,34 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 					return nil
 				}
 
-				log.Info(
-					"Publish preconfirmation block request",
-					"blockID", uint64(currentPayload.Payload.BlockNumber-1),
-					"hash", currentPayload.Payload.ParentHash.Hex(),
-				)
+				publishRequest := func() {
+					log.Info(
+						"Publishing preconfirmation block request",
+						"blockID", parentNum,
+						"hash", currentPayload.Payload.ParentHash.Hex(),
+					)
 
-				if err := s.p2pNode.GossipOut().PublishL2Request(ctx, currentPayload.Payload.ParentHash); err != nil {
-					log.Warn(
-						"Failed to publish preconfirmation block request",
-						"blockID", uint64(currentPayload.Payload.BlockNumber-1),
-						"hash", currentPayload.Payload.BlockHash.Hex(),
-						"error", err,
+					if err := s.p2pNode.GossipOut().PublishL2Request(ctx, currentPayload.Payload.ParentHash); err != nil {
+						log.Warn(
+							"Failed to publish preconfirmation block request",
+							"blockID", parentNum,
+							"hash", currentPayload.Payload.BlockHash.Hex(),
+							"error", err,
+						)
+					} else {
+						s.blockRequestsCache.Add(currentPayload.Payload.ParentHash, struct{}{})
+					}
+				}
+
+				tip := progress.HighestOriginBlockID.Uint64()
+
+				if tip >= requestSyncMargin && parentNum <= tip-requestSyncMargin {
+					log.Debug("Skipping request for very old block",
+						"tip", tip,
+						"margin", requestSyncMargin,
 					)
 				} else {
-					s.blockRequestsCache.Add(currentPayload.Payload.ParentHash, struct{}{})
+					publishRequest()
 				}
 			}
 
@@ -755,7 +828,7 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	if payload.GasLimit == 0 {
 		return errors.New("non-zero gas limit is required")
 	}
-	var u256BaseFee = uint256.Int(payload.BaseFeePerGas)
+	u256BaseFee := uint256.Int(payload.BaseFeePerGas)
 	if u256BaseFee.ToBig().Cmp(common.Big0) == 0 {
 		return errors.New("non-zero base fee per gas is required")
 	}
