@@ -110,10 +110,4 @@ library LibEIP4788 {
             BeaconStateProofVerificationFailed()
         );
     }
-
-    function _compressValidatorPubKey(BLS.G1Point memory _validatorPubKey)
-        internal
-        pure
-        returns (bytes memory)
-    { }
 }
