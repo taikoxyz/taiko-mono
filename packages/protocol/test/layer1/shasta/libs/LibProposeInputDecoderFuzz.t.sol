@@ -16,7 +16,7 @@ contract LibProposeInputDecoderFuzz is Test {
         uint48 deadline,
         uint48 nextProposalId,
         uint48 lastFinalizedProposalId,
-        bytes32 lastFinalizedClaimHash,
+        bytes32 lastFinalizedTransitionHash,
         bytes32 bondInstructionsHash,
         uint16 blobStartIndex,
         uint16 numBlobs,
@@ -30,7 +30,7 @@ contract LibProposeInputDecoderFuzz is Test {
             coreState: IInbox.CoreState({
                 nextProposalId: nextProposalId,
                 lastFinalizedProposalId: lastFinalizedProposalId,
-                lastFinalizedClaimHash: lastFinalizedClaimHash,
+                lastFinalizedTransitionHash: lastFinalizedTransitionHash,
                 bondInstructionsHash: bondInstructionsHash
             }),
             parentProposals: new IInbox.Proposal[](0),
@@ -39,7 +39,7 @@ contract LibProposeInputDecoderFuzz is Test {
                 numBlobs: numBlobs,
                 offset: offset
             }),
-            claimRecords: new IInbox.ClaimRecord[](0),
+            transitionRecords: new IInbox.TransitionRecord[](0),
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: 0,
                 hash: bytes32(0),
@@ -81,12 +81,12 @@ contract LibProposeInputDecoderFuzz is Test {
             coreState: IInbox.CoreState({
                 nextProposalId: 100,
                 lastFinalizedProposalId: 95,
-                lastFinalizedClaimHash: keccak256("test"),
+                lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
             }),
             parentProposals: proposals,
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
-            claimRecords: new IInbox.ClaimRecord[](0),
+            transitionRecords: new IInbox.TransitionRecord[](0),
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: 0,
                 hash: bytes32(0),
@@ -106,7 +106,7 @@ contract LibProposeInputDecoderFuzz is Test {
 
     /// @notice Fuzz test for claim records with bond instructions
     function testFuzz_encodeDecodeClaimRecord(
-        bytes32 claimHash,
+        bytes32 transitionHash,
         bytes32 endBlockMiniHeaderHash,
         uint8 span
     )
@@ -123,11 +123,11 @@ contract LibProposeInputDecoderFuzz is Test {
             receiver: address(0x2222)
         });
 
-        IInbox.ClaimRecord[] memory claims = new IInbox.ClaimRecord[](1);
-        claims[0] = IInbox.ClaimRecord({
+        IInbox.TransitionRecord[] memory claims = new IInbox.TransitionRecord[](1);
+        claims[0] = IInbox.TransitionRecord({
             span: span,
             bondInstructions: bonds,
-            claimHash: claimHash,
+            transitionHash: transitionHash,
             endBlockMiniHeaderHash: endBlockMiniHeaderHash
         });
 
@@ -136,12 +136,12 @@ contract LibProposeInputDecoderFuzz is Test {
             coreState: IInbox.CoreState({
                 nextProposalId: 100,
                 lastFinalizedProposalId: 95,
-                lastFinalizedClaimHash: keccak256("test"),
+                lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
             }),
             parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
-            claimRecords: claims,
+            transitionRecords: claims,
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: 100,
                 hash: keccak256("block"),
@@ -153,10 +153,10 @@ contract LibProposeInputDecoderFuzz is Test {
         IInbox.ProposeInput memory decoded = LibProposeInputDecoder.decode(encoded);
 
         // Verify
-        assertEq(decoded.claimRecords.length, 1);
-        assertEq(decoded.claimRecords[0].span, span);
-        assertEq(decoded.claimRecords[0].claimHash, claimHash);
-        assertEq(decoded.claimRecords[0].endBlockMiniHeaderHash, endBlockMiniHeaderHash);
+        assertEq(decoded.transitionRecords.length, 1);
+        assertEq(decoded.transitionRecords[0].span, span);
+        assertEq(decoded.transitionRecords[0].transitionHash, transitionHash);
+        assertEq(decoded.transitionRecords[0].endBlockMiniHeaderHash, endBlockMiniHeaderHash);
     }
 
     /// @notice Fuzz test with variable array lengths
@@ -177,7 +177,7 @@ contract LibProposeInputDecoderFuzz is Test {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 100,
             lastFinalizedProposalId: 95,
-            lastFinalizedClaimHash: keccak256("test"),
+            lastFinalizedTransitionHash: keccak256("test"),
             bondInstructionsHash: keccak256("bonds")
         });
 
@@ -197,7 +197,7 @@ contract LibProposeInputDecoderFuzz is Test {
         }
 
         // Create claim records
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](claimCount);
+        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](claimCount);
         for (uint256 i = 0; i < claimCount; i++) {
             LibBonds.BondInstruction[] memory bondInstructions =
                 new LibBonds.BondInstruction[](bondInstructionCount);
@@ -210,10 +210,10 @@ contract LibProposeInputDecoderFuzz is Test {
                 });
             }
 
-            claimRecords[i] = IInbox.ClaimRecord({
+            transitionRecords[i] = IInbox.TransitionRecord({
                 span: uint8(1 + i % 3),
                 bondInstructions: bondInstructions,
-                claimHash: keccak256(abi.encodePacked("claim", i)),
+                transitionHash: keccak256(abi.encodePacked("claim", i)),
                 endBlockMiniHeaderHash: keccak256(abi.encodePacked("endBlock", i))
             });
         }
@@ -223,7 +223,7 @@ contract LibProposeInputDecoderFuzz is Test {
             coreState: coreState,
             parentProposals: proposals,
             blobReference: blobRef,
-            claimRecords: claimRecords,
+            transitionRecords: transitionRecords,
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: 2_000_000,
                 hash: keccak256("endBlock"),
@@ -240,7 +240,7 @@ contract LibProposeInputDecoderFuzz is Test {
         // Verify basic properties
         assertEq(decoded.deadline, 999_999, "Deadline mismatch");
         assertEq(decoded.parentProposals.length, proposalCount, "Proposals length mismatch");
-        assertEq(decoded.claimRecords.length, claimCount, "ClaimRecords length mismatch");
+        assertEq(decoded.transitionRecords.length, claimCount, "ClaimRecords length mismatch");
 
         // Verify proposal details
         for (uint256 i = 0; i < proposalCount; i++) {
@@ -266,10 +266,10 @@ contract LibProposeInputDecoderFuzz is Test {
         // Verify claim record details
         for (uint256 i = 0; i < claimCount; i++) {
             assertEq(
-                decoded.claimRecords[i].span, claimRecords[i].span, "ClaimRecord span mismatch"
+                decoded.transitionRecords[i].span, transitionRecords[i].span, "ClaimRecord span mismatch"
             );
             assertEq(
-                decoded.claimRecords[i].bondInstructions.length,
+                decoded.transitionRecords[i].bondInstructions.length,
                 bondInstructionCount,
                 "Bond instruction count mismatch"
             );
@@ -310,7 +310,7 @@ contract LibProposeInputDecoderFuzz is Test {
             "Proposals length mismatch"
         );
         assertEq(
-            decoded.claimRecords.length, input.claimRecords.length, "ClaimRecords length mismatch"
+            decoded.transitionRecords.length, input.transitionRecords.length, "ClaimRecords length mismatch"
         );
     }
 
@@ -329,7 +329,7 @@ contract LibProposeInputDecoderFuzz is Test {
         input.coreState = IInbox.CoreState({
             nextProposalId: 100,
             lastFinalizedProposalId: 95,
-            lastFinalizedClaimHash: keccak256("last_finalized"),
+            lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
         });
 
@@ -350,7 +350,7 @@ contract LibProposeInputDecoderFuzz is Test {
             offset: 512
         });
 
-        input.claimRecords = new IInbox.ClaimRecord[](_claimCount);
+        input.transitionRecords = new IInbox.TransitionRecord[](_claimCount);
         uint256 bondIndex = 0;
         for (uint256 i = 0; i < _claimCount; i++) {
             uint256 bondsForThisClaim = 0;
@@ -372,10 +372,10 @@ contract LibProposeInputDecoderFuzz is Test {
                 bondIndex++;
             }
 
-            input.claimRecords[i] = IInbox.ClaimRecord({
+            input.transitionRecords[i] = IInbox.TransitionRecord({
                 span: uint8(1 + i % 3),
                 bondInstructions: bondInstructions,
-                claimHash: keccak256(abi.encodePacked("claim", i)),
+                transitionHash: keccak256(abi.encodePacked("claim", i)),
                 endBlockMiniHeaderHash: keccak256(abi.encodePacked("endBlock", i))
             });
         }

@@ -152,24 +152,24 @@ contract LibProvedEventEncoderGas is Test {
         returns (IInbox.ProvedEventPayload memory payload_)
     {
         payload_.proposalId = 12_345;
-        payload_.claim.proposalHash = keccak256("proposal");
-        payload_.claim.parentClaimHash = keccak256("parent");
-        payload_.claim.endBlockMiniHeader = IInbox.BlockMiniHeader({
+        payload_.transition.proposalHash = keccak256("proposal");
+        payload_.transition.parentTransitionHash = keccak256("parent");
+        payload_.transition.endBlockMiniHeader = IInbox.BlockMiniHeader({
             number: 999_999,
             hash: keccak256("block"),
             stateRoot: keccak256("state")
         });
-        payload_.claim.designatedProver = address(0x1234567890123456789012345678901234567890);
-        payload_.claim.actualProver = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
+        payload_.transition.designatedProver = address(0x1234567890123456789012345678901234567890);
+        payload_.transition.actualProver = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
 
-        payload_.claimRecord.span = 42;
-        payload_.claimRecord.claimHash = keccak256("claim");
-        payload_.claimRecord.endBlockMiniHeaderHash = keccak256("header");
-        payload_.claimRecord.bondInstructions =
+        payload_.transitionRecord.span = 42;
+        payload_.transitionRecord.transitionHash = keccak256("claim");
+        payload_.transitionRecord.endBlockMiniHeaderHash = keccak256("header");
+        payload_.transitionRecord.bondInstructions =
             new LibBonds.BondInstruction[](_bondInstructionsCount);
 
         for (uint256 i = 0; i < _bondInstructionsCount; i++) {
-            payload_.claimRecord.bondInstructions[i] = LibBonds.BondInstruction({
+            payload_.transitionRecord.bondInstructions[i] = LibBonds.BondInstruction({
                 proposalId: uint48(100 + i),
                 bondType: LibBonds.BondType(i % 3),
                 payer: address(uint160(0x2222222222222222222222222222222222222222) + uint160(i)),

@@ -18,8 +18,8 @@ library InboxTestLib {
     struct TestContext {
         IInbox.CoreState coreState;
         IInbox.Proposal[] proposals;
-        IInbox.Claim[] claims;
-        IInbox.ClaimRecord[] claimRecords;
+        IInbox.Transition[] transitions;
+        IInbox.TransitionRecord[] claimRecords;
         bytes32 currentParentHash;
         uint48 nextProposalId;
         uint48 lastFinalizedId;
@@ -28,9 +28,9 @@ library InboxTestLib {
     /// @dev Chain of proposals and claims for testing
     struct ProposalChain {
         IInbox.Proposal[] proposals;
-        IInbox.Claim[] claims;
+        IInbox.Transition[] transitions;
         bytes32 initialParentHash;
-        bytes32 finalClaimHash;
+        bytes32 finalTransitionHash;
     }
 
     // ---------------------------------------------------------------
@@ -49,7 +49,7 @@ library InboxTestLib {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
             lastFinalizedProposalId: _lastFinalizedProposalId,
-            lastFinalizedClaimHash: bytes32(0),
+            lastFinalizedTransitionHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
         });
     }
@@ -58,7 +58,7 @@ library InboxTestLib {
     function createCoreState(
         uint48 _nextProposalId,
         uint48 _lastFinalizedProposalId,
-        bytes32 _lastFinalizedClaimHash,
+        bytes32 _lastFinalizedTransitionHash,
         bytes32 _bondInstructionsHash
     )
         internal
@@ -68,7 +68,7 @@ library InboxTestLib {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
             lastFinalizedProposalId: _lastFinalizedProposalId,
-            lastFinalizedClaimHash: _lastFinalizedClaimHash,
+            lastFinalizedTransitionHash: _lastFinalizedTransitionHash,
             bondInstructionsHash: _bondInstructionsHash
         });
     }
@@ -79,15 +79,15 @@ library InboxTestLib {
 
     /// @dev Asserts that a chain of proposals and claims is valid
     function assertChainIntegrity(ProposalChain memory _chain) internal pure {
-        require(_chain.proposals.length == _chain.claims.length, "Chain length mismatch");
+        require(_chain.proposals.length == _chain.transitions.length, "Chain length mismatch");
 
         bytes32 currentParent = _chain.initialParentHash;
-        for (uint256 i = 0; i < _chain.claims.length; i++) {
-            require(_chain.claims[i].parentClaimHash == currentParent, "Invalid parent chain");
-            currentParent = hashClaim(_chain.claims[i]);
+        for (uint256 i = 0; i < _chain.transitions.length; i++) {
+            require(_chain.transitions[i].parentTransitionHash == currentParent, "Invalid parent chain");
+            currentParent = hashTransition(_chain.transitions[i]);
         }
 
-        require(currentParent == _chain.finalClaimHash, "Final claim hash mismatch");
+        require(currentParent == _chain.finalTransitionHash, "Final claim hash mismatch");
     }
 
     /// @dev Asserts that finalization completed correctly
@@ -103,7 +103,7 @@ library InboxTestLib {
             "Last finalized ID mismatch"
         );
         require(
-            _actualState.lastFinalizedClaimHash == _expectedState.lastFinalizedClaimHash,
+            _actualState.lastFinalizedTransitionHash == _expectedState.lastFinalizedTransitionHash,
             "Last finalized claim hash mismatch"
         );
     }
@@ -214,22 +214,22 @@ library InboxTestLib {
     }
 
     // ---------------------------------------------------------------
-    // Claim Creation
+    // Transition Creation
     // ---------------------------------------------------------------
 
-    /// @dev Creates a standard claim
-    function createClaim(
+    /// @dev Creates a standard transition
+    function createTransition(
         IInbox.Proposal memory _proposal,
-        bytes32 _parentClaimHash,
+        bytes32 _parentTransitionHash,
         address _actualProver
     )
         internal
         pure
-        returns (IInbox.Claim memory)
+        returns (IInbox.Transition memory)
     {
-        return IInbox.Claim({
+        return IInbox.Transition({
             proposalHash: hashProposal(_proposal),
-            parentClaimHash: _parentClaimHash,
+            parentTransitionHash: _parentTransitionHash,
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: _proposal.id * 100,
                 hash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
@@ -240,10 +240,10 @@ library InboxTestLib {
         });
     }
 
-    /// @dev Creates a claim with custom block data
-    function createClaimWithBlock(
+    /// @dev Creates a transition with custom block data
+    function createTransitionWithBlock(
         bytes32 _proposalHash,
-        bytes32 _parentClaimHash,
+        bytes32 _parentTransitionHash,
         uint48 _endBlockNumber,
         bytes32 _endBlockHash,
         bytes32 _endStateRoot,
@@ -252,11 +252,11 @@ library InboxTestLib {
     )
         internal
         pure
-        returns (IInbox.Claim memory)
+        returns (IInbox.Transition memory)
     {
-        return IInbox.Claim({
+        return IInbox.Transition({
             proposalHash: _proposalHash,
-            parentClaimHash: _parentClaimHash,
+            parentTransitionHash: _parentTransitionHash,
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: _endBlockNumber,
                 hash: _endBlockHash,
@@ -267,76 +267,76 @@ library InboxTestLib {
         });
     }
 
-    /// @dev Creates a chain of claims with proper parent hashing
-    function createClaimChain(
+    /// @dev Creates a chain of transitions with proper parent hashing
+    function createTransitionChain(
         IInbox.Proposal[] memory _proposals,
         bytes32 _initialParentHash,
         address _prover
     )
         internal
         pure
-        returns (IInbox.Claim[] memory claims)
+        returns (IInbox.Transition[] memory claims)
     {
-        claims = new IInbox.Claim[](_proposals.length);
+        claims = new IInbox.Transition[](_proposals.length);
         bytes32 parentHash = _initialParentHash;
 
         for (uint256 i = 0; i < _proposals.length; i++) {
-            claims[i] = createClaim(_proposals[i], parentHash, _prover);
-            parentHash = hashClaim(claims[i]);
+            claims[i] = createTransition(_proposals[i], parentHash, _prover);
+            parentHash = hashTransition(claims[i]);
         }
     }
 
     // ---------------------------------------------------------------
-    // ClaimRecord Creation
+    // TransitionRecord Creation
     // ---------------------------------------------------------------
 
-    /// @dev Creates a claim record without bond instructions
-    function createClaimRecord(
-        IInbox.Claim memory _claim,
+    /// @dev Creates a transition record without bond instructions
+    function createTransitionRecord(
+        IInbox.Transition memory _transition,
         uint8 _span
     )
         internal
         pure
-        returns (IInbox.ClaimRecord memory)
+        returns (IInbox.TransitionRecord memory)
     {
-        return IInbox.ClaimRecord({
+        return IInbox.TransitionRecord({
             span: _span,
             bondInstructions: new LibBonds.BondInstruction[](0),
-            claimHash: hashClaim(_claim),
-            endBlockMiniHeaderHash: keccak256(abi.encode(_claim.endBlockMiniHeader))
+            transitionHash: hashTransition(_transition),
+            endBlockMiniHeaderHash: keccak256(abi.encode(_transition.endBlockMiniHeader))
         });
     }
 
-    /// @dev Creates a claim record with bond instructions
-    function createClaimRecordWithBonds(
-        IInbox.Claim memory _claim,
+    /// @dev Creates a transition record with bond instructions
+    function createTransitionRecordWithBonds(
+        IInbox.Transition memory _transition,
         uint8 _span,
         LibBonds.BondInstruction[] memory _bondInstructions
     )
         internal
         pure
-        returns (IInbox.ClaimRecord memory)
+        returns (IInbox.TransitionRecord memory)
     {
-        return IInbox.ClaimRecord({
+        return IInbox.TransitionRecord({
             span: _span,
             bondInstructions: _bondInstructions,
-            claimHash: hashClaim(_claim),
-            endBlockMiniHeaderHash: keccak256(abi.encode(_claim.endBlockMiniHeader))
+            transitionHash: hashTransition(_transition),
+            endBlockMiniHeaderHash: keccak256(abi.encode(_transition.endBlockMiniHeader))
         });
     }
 
-    /// @dev Creates multiple claim records in batch
-    function createClaimRecordBatch(
-        IInbox.Claim[] memory _claims,
+    /// @dev Creates multiple transition records in batch
+    function createTransitionRecordBatch(
+        IInbox.Transition[] memory _transitions,
         uint8 _span
     )
         internal
         pure
-        returns (IInbox.ClaimRecord[] memory records)
+        returns (IInbox.TransitionRecord[] memory records)
     {
-        records = new IInbox.ClaimRecord[](_claims.length);
-        for (uint256 i = 0; i < _claims.length; i++) {
-            records[i] = createClaimRecord(_claims[i], _span);
+        records = new IInbox.TransitionRecord[](_transitions.length);
+        for (uint256 i = 0; i < _transitions.length; i++) {
+            records[i] = createTransitionRecord(_transitions[i], _span);
         }
     }
 
@@ -380,14 +380,14 @@ library InboxTestLib {
     function encodeProposeInput(
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         pure
         returns (bytes memory)
     {
         return _encodeProposeInputInternal(
-            uint48(0), _coreState, new IInbox.Proposal[](0), _blobRef, _claimRecords
+            uint48(0), _coreState, new IInbox.Proposal[](0), _blobRef, _transitionRecords
         );
     }
 
@@ -398,14 +398,14 @@ library InboxTestLib {
         uint64 _deadline,
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         pure
         returns (bytes memory)
     {
         return _encodeProposeInputInternal(
-            _deadline, _coreState, new IInbox.Proposal[](0), _blobRef, _claimRecords
+            _deadline, _coreState, new IInbox.Proposal[](0), _blobRef, _transitionRecords
         );
     }
 
@@ -415,26 +415,26 @@ library InboxTestLib {
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         private
         pure
         returns (bytes memory)
     {
-        return abi.encode(_deadline, _coreState, _proposals, _blobRef, _claimRecords);
+        return abi.encode(_deadline, _coreState, _proposals, _blobRef, _transitionRecords);
     }
 
     /// @dev Encodes propose input for the first proposal after genesis (with validation)
     function encodeProposeInputWithGenesis(
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         pure
         returns (bytes memory)
     {
-        return encodeProposeInputWithGenesis(uint48(0), _coreState, _blobRef, _claimRecords);
+        return encodeProposeInputWithGenesis(uint48(0), _coreState, _blobRef, _transitionRecords);
     }
 
     /// @dev Encodes propose input for the first proposal after genesis with custom deadline
@@ -442,7 +442,7 @@ library InboxTestLib {
         uint64 _deadline,
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         pure
@@ -451,7 +451,7 @@ library InboxTestLib {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = createGenesisProposal(_coreState);
         return
-            _encodeProposeInputInternal(_deadline, _coreState, proposals, _blobRef, _claimRecords);
+            _encodeProposeInputInternal(_deadline, _coreState, proposals, _blobRef, _transitionRecords);
     }
 
     /// @dev Encodes propose input with specific proposals for validation
@@ -459,14 +459,14 @@ library InboxTestLib {
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         pure
         returns (bytes memory)
     {
         return
-            _encodeProposeInputInternal(uint48(0), _coreState, _proposals, _blobRef, _claimRecords);
+            _encodeProposeInputInternal(uint48(0), _coreState, _proposals, _blobRef, _transitionRecords);
     }
 
     /// @dev Encodes propose input with deadline and specific proposals for validation
@@ -475,26 +475,26 @@ library InboxTestLib {
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         pure
         returns (bytes memory)
     {
         return
-            _encodeProposeInputInternal(_deadline, _coreState, _proposals, _blobRef, _claimRecords);
+            _encodeProposeInputInternal(_deadline, _coreState, _proposals, _blobRef, _transitionRecords);
     }
 
     /// @dev Encodes prove input
     function encodeProveInput(
         IInbox.Proposal[] memory _proposals,
-        IInbox.Claim[] memory _claims
+        IInbox.Transition[] memory _transitions
     )
         internal
         pure
         returns (bytes memory)
     {
-        return abi.encode(_proposals, _claims);
+        return abi.encode(_proposals, _transitions);
     }
 
     // ---------------------------------------------------------------
@@ -507,12 +507,12 @@ library InboxTestLib {
     }
 
     /// @dev Computes claim hash
-    function hashClaim(IInbox.Claim memory _claim) internal pure returns (bytes32) {
-        return keccak256(abi.encode(_claim));
+    function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_transition));
     }
 
     /// @dev Computes claim record hash
-    function hashClaimRecord(IInbox.ClaimRecord memory _record) internal pure returns (bytes32) {
+    function hashTransitionRecord(IInbox.TransitionRecord memory _record) internal pure returns (bytes32) {
         return keccak256(abi.encode(_record));
     }
 
@@ -583,14 +583,14 @@ library InboxTestLib {
         IInbox.CoreState memory _coreState,
         IInbox.Proposal memory _previousProposal,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         pure
         returns (bytes memory)
     {
         return encodeProposeInputForSubsequent(
-            uint48(0), _coreState, _previousProposal, _blobRef, _claimRecords
+            uint48(0), _coreState, _previousProposal, _blobRef, _transitionRecords
         );
     }
 
@@ -600,7 +600,7 @@ library InboxTestLib {
         IInbox.CoreState memory _coreState,
         IInbox.Proposal memory _previousProposal,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         pure
@@ -609,7 +609,7 @@ library InboxTestLib {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = _previousProposal;
         return
-            _encodeProposeInputInternal(_deadline, _coreState, proposals, _blobRef, _claimRecords);
+            _encodeProposeInputInternal(_deadline, _coreState, proposals, _blobRef, _transitionRecords);
     }
 
     /// @dev Encodes propose input when ring buffer wrapping occurs (need 2 proposals for
@@ -619,7 +619,7 @@ library InboxTestLib {
         IInbox.Proposal memory _lastProposal,
         IInbox.Proposal memory _nextSlotProposal,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         pure
@@ -629,7 +629,7 @@ library InboxTestLib {
         proposals[0] = _lastProposal; // The last proposal being validated
         proposals[1] = _nextSlotProposal; // The proposal in the next slot
         return
-            _encodeProposeInputInternal(uint48(0), _coreState, proposals, _blobRef, _claimRecords);
+            _encodeProposeInputInternal(uint48(0), _coreState, proposals, _blobRef, _transitionRecords);
     }
 
     // ---------------------------------------------------------------
@@ -650,13 +650,13 @@ library InboxTestLib {
         returns (ProposalChain memory chain)
     {
         chain.proposals = createProposalBatch(_startId, _count, _proposer, _basefeeSharingPctg);
-        chain.claims = createClaimChain(chain.proposals, _initialParentHash, _prover);
+        chain.transitions = createTransitionChain(chain.proposals, _initialParentHash, _prover);
         chain.initialParentHash = _initialParentHash;
 
         if (_count > 0) {
-            chain.finalClaimHash = hashClaim(chain.claims[_count - 1]);
+            chain.finalTransitionHash = hashTransition(chain.transitions[_count - 1]);
         } else {
-            chain.finalClaimHash = _initialParentHash;
+            chain.finalTransitionHash = _initialParentHash;
         }
     }
 
@@ -664,11 +664,11 @@ library InboxTestLib {
     function createGenesisClaim(bytes32 _genesisBlockHash)
         internal
         pure
-        returns (IInbox.Claim memory)
+        returns (IInbox.Transition memory)
     {
-        return IInbox.Claim({
+        return IInbox.Transition({
             proposalHash: bytes32(0),
-            parentClaimHash: bytes32(0),
+            parentTransitionHash: bytes32(0),
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: 0,
                 hash: _genesisBlockHash,
@@ -680,8 +680,8 @@ library InboxTestLib {
     }
 
     /// @dev Gets the genesis claim hash
-    function getGenesisClaimHash(bytes32 _genesisBlockHash) internal pure returns (bytes32) {
-        return hashClaim(createGenesisClaim(_genesisBlockHash));
+    function getGenesisTransitionHash(bytes32 _genesisBlockHash) internal pure returns (bytes32) {
+        return hashTransition(createGenesisClaim(_genesisBlockHash));
     }
 
     // ---------------------------------------------------------------
@@ -694,7 +694,7 @@ library InboxTestLib {
         uint48 _proposalId,
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords,
+        IInbox.TransitionRecord[] memory _transitionRecords,
         IInbox.Proposal[] memory _allKnownProposals
     )
         internal
@@ -702,12 +702,12 @@ library InboxTestLib {
         returns (bytes memory)
     {
         if (_proposalId == 1) {
-            return encodeProposeInputWithGenesis(_coreState, _blobRef, _claimRecords);
+            return encodeProposeInputWithGenesis(_coreState, _blobRef, _transitionRecords);
         } else {
             IInbox.Proposal memory previousProposal =
                 _findProposalById(_allKnownProposals, _proposalId - 1);
             return encodeProposeInputForSubsequent(
-                _coreState, previousProposal, _blobRef, _claimRecords
+                _coreState, previousProposal, _blobRef, _transitionRecords
             );
         }
     }
@@ -788,19 +788,19 @@ library InboxTestLib {
     /// @dev Adds a claim to the context
     function addClaim(
         TestContext memory _ctx,
-        IInbox.Claim memory _claim
+        IInbox.Transition memory _transition
     )
         internal
         pure
         returns (TestContext memory)
     {
-        IInbox.Claim[] memory newClaims = new IInbox.Claim[](_ctx.claims.length + 1);
-        for (uint256 i = 0; i < _ctx.claims.length; i++) {
-            newClaims[i] = _ctx.claims[i];
+        IInbox.Transition[] memory newClaims = new IInbox.Transition[](_ctx.transitions.length + 1);
+        for (uint256 i = 0; i < _ctx.transitions.length; i++) {
+            newClaims[i] = _ctx.transitions[i];
         }
-        newClaims[_ctx.claims.length] = _claim;
-        _ctx.claims = newClaims;
-        _ctx.currentParentHash = hashClaim(_claim);
+        newClaims[_ctx.transitions.length] = _transition;
+        _ctx.transitions = newClaims;
+        _ctx.currentParentHash = hashTransition(_transition);
         return _ctx;
     }
 }

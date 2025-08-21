@@ -92,7 +92,7 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
     /// @notice Decodes custom-encoded prove input data
     /// @dev Overrides base implementation to use LibProveInputDecoder
     /// @param _data The custom-encoded prove input data
-    /// @return The decoded ProveInput struct with proposals and claims arrays
+    /// @return The decoded ProveInput struct with proposals and transitions arrays
     function decodeProveInput(bytes calldata _data)
         public
         pure

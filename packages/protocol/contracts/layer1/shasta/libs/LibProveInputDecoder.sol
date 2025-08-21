@@ -18,7 +18,7 @@ library LibProveInputDecoder {
         returns (bytes memory encoded_)
     {
         // Calculate total size needed
-        uint256 bufferSize = _calculateProveDataSize(_input.proposals, _input.claims);
+        uint256 bufferSize = _calculateProveDataSize(_input.proposals, _input.transitions);
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
@@ -31,11 +31,11 @@ library LibProveInputDecoder {
             ptr = _encodeProposal(ptr, _input.proposals[i]);
         }
 
-        // 2. Encode Claims array
-        P.checkArrayLength(_input.claims.length);
-        ptr = P.packUint24(ptr, uint24(_input.claims.length));
-        for (uint256 i; i < _input.claims.length; ++i) {
-            ptr = _encodeClaim(ptr, _input.claims[i]);
+        // 2. Encode Transitions array
+        P.checkArrayLength(_input.transitions.length);
+        ptr = P.packUint24(ptr, uint24(_input.transitions.length));
+        for (uint256 i; i < _input.transitions.length; ++i) {
+            ptr = _encodeTransition(ptr, _input.transitions[i]);
         }
     }
 
@@ -54,13 +54,13 @@ library LibProveInputDecoder {
             (input_.proposals[i], ptr) = _decodeProposal(ptr);
         }
 
-        // 2. Decode Claims array
-        uint24 claimsLength;
-        (claimsLength, ptr) = P.unpackUint24(ptr);
-        require(claimsLength == proposalsLength, ProposalClaimLengthMismatch());
-        input_.claims = new IInbox.Claim[](claimsLength);
-        for (uint256 i; i < claimsLength; ++i) {
-            (input_.claims[i], ptr) = _decodeClaim(ptr);
+        // 2. Decode Transitions array
+        uint24 transitionsLength;
+        (transitionsLength, ptr) = P.unpackUint24(ptr);
+        require(transitionsLength == proposalsLength, ProposalTransitionLengthMismatch());
+        input_.transitions = new IInbox.Transition[](transitionsLength);
+        for (uint256 i; i < transitionsLength; ++i) {
+            (input_.transitions[i], ptr) = _decodeTransition(ptr);
         }
     }
 
@@ -93,51 +93,51 @@ library LibProveInputDecoder {
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
-    /// @notice Encode a single Claim
-    function _encodeClaim(
+    /// @notice Encode a single Transition
+    function _encodeTransition(
         uint256 _ptr,
-        IInbox.Claim memory _claim
+        IInbox.Transition memory _transition
     )
         private
         pure
         returns (uint256 newPtr_)
     {
-        newPtr_ = P.packBytes32(_ptr, _claim.proposalHash);
-        newPtr_ = P.packBytes32(newPtr_, _claim.parentClaimHash);
+        newPtr_ = P.packBytes32(_ptr, _transition.proposalHash);
+        newPtr_ = P.packBytes32(newPtr_, _transition.parentTransitionHash);
         // Encode BlockMiniHeader
-        newPtr_ = P.packUint48(newPtr_, _claim.endBlockMiniHeader.number);
-        newPtr_ = P.packBytes32(newPtr_, _claim.endBlockMiniHeader.hash);
-        newPtr_ = P.packBytes32(newPtr_, _claim.endBlockMiniHeader.stateRoot);
-        newPtr_ = P.packAddress(newPtr_, _claim.designatedProver);
-        newPtr_ = P.packAddress(newPtr_, _claim.actualProver);
+        newPtr_ = P.packUint48(newPtr_, _transition.endBlockMiniHeader.number);
+        newPtr_ = P.packBytes32(newPtr_, _transition.endBlockMiniHeader.hash);
+        newPtr_ = P.packBytes32(newPtr_, _transition.endBlockMiniHeader.stateRoot);
+        newPtr_ = P.packAddress(newPtr_, _transition.designatedProver);
+        newPtr_ = P.packAddress(newPtr_, _transition.actualProver);
     }
 
-    /// @notice Decode a single Claim
-    function _decodeClaim(uint256 _ptr)
+    /// @notice Decode a single Transition
+    function _decodeTransition(uint256 _ptr)
         private
         pure
-        returns (IInbox.Claim memory claim_, uint256 newPtr_)
+        returns (IInbox.Transition memory transition_, uint256 newPtr_)
     {
-        (claim_.proposalHash, newPtr_) = P.unpackBytes32(_ptr);
-        (claim_.parentClaimHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (transition_.proposalHash, newPtr_) = P.unpackBytes32(_ptr);
+        (transition_.parentTransitionHash, newPtr_) = P.unpackBytes32(newPtr_);
         // Decode BlockMiniHeader
-        (claim_.endBlockMiniHeader.number, newPtr_) = P.unpackUint48(newPtr_);
-        (claim_.endBlockMiniHeader.hash, newPtr_) = P.unpackBytes32(newPtr_);
-        (claim_.endBlockMiniHeader.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
-        (claim_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
-        (claim_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
+        (transition_.endBlockMiniHeader.number, newPtr_) = P.unpackUint48(newPtr_);
+        (transition_.endBlockMiniHeader.hash, newPtr_) = P.unpackBytes32(newPtr_);
+        (transition_.endBlockMiniHeader.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
+        (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
+        (transition_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
     }
 
     /// @notice Calculate the size needed for encoding
     function _calculateProveDataSize(
         IInbox.Proposal[] memory _proposals,
-        IInbox.Claim[] memory _claims
+        IInbox.Transition[] memory _transitions
     )
         private
         pure
         returns (uint256 size_)
     {
-        require(_proposals.length == _claims.length, ProposalClaimLengthMismatch());
+        require(_proposals.length == _transitions.length, ProposalTransitionLengthMismatch());
 
         unchecked {
             // Array lengths: 3 + 3 = 6 bytes
@@ -147,7 +147,7 @@ library LibProveInputDecoder {
             // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) + coreStateHash(32) +
             // derivationHash(32) = 96
             //
-            // Claims - each has fixed size: proposalHash(32) + parentClaimHash(32) +
+            // Transitions - each has fixed size: proposalHash(32) + parentTransitionHash(32) +
             // BlockMiniHeader(6 + 32 + 32) + designatedProver(20) + actualProver(20) = 174
             //
             size_ += _proposals.length * 270;
@@ -158,5 +158,5 @@ library LibProveInputDecoder {
     // Errors
     // ---------------------------------------------------------------
 
-    error ProposalClaimLengthMismatch();
+    error ProposalTransitionLengthMismatch();
 }

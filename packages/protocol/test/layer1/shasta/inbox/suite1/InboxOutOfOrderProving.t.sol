@@ -38,7 +38,7 @@ contract InboxOutOfOrderProving is InboxTest {
         uint48 numProposals = 3;
 
         // Get initial parent hash
-        IInbox.Claim memory genesisClaim;
+        IInbox.Transition memory genesisClaim;
         genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisClaim));
 
@@ -49,7 +49,7 @@ contract InboxOutOfOrderProving is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: initialParentHash,
+                lastFinalizedTransitionHash: initialParentHash,
                 bondInstructionsHash: bytes32(0)
             });
             // Core state will be validated by the contract during propose()
@@ -58,7 +58,7 @@ contract InboxOutOfOrderProving is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
+            IInbox.TransitionRecord[] memory emptyClaimRecords = new IInbox.TransitionRecord[](0);
 
             // Include proposals array for validation
             IInbox.Proposal[] memory validationProposals;
@@ -113,7 +113,7 @@ contract InboxOutOfOrderProving is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
-                        lastFinalizedClaimHash: initialParentHash,
+                        lastFinalizedTransitionHash: initialParentHash,
                         bondInstructionsHash: bytes32(0)
                     })
                 )
@@ -121,17 +121,17 @@ contract InboxOutOfOrderProving is InboxTest {
         }
 
         // Phase 2: Prove proposals in REVERSE order (3, 2, 1)
-        bytes32[] memory claimHashes = new bytes32[](numProposals);
-        IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
+        bytes32[] memory transitionHashes = new bytes32[](numProposals);
+        IInbox.Transition[] memory claims = new IInbox.Transition[](numProposals);
 
         // First, calculate all claim hashes in forward order (for parent relationships)
         bytes32 parentHash = initialParentHash;
         for (uint48 i = 0; i < numProposals; i++) {
             bytes32 storedProposalHash = inbox.getProposalHash(i + 1);
 
-            claims[i] = IInbox.Claim({
+            claims[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
-                parentClaimHash: parentHash,
+                parentTransitionHash: parentHash,
                 endBlockMiniHeader: IInbox.BlockMiniHeader({
                     number: uint48(100 + i * 10),
                     hash: keccak256(abi.encode(proposals[i].id, "endBlockHash")),
@@ -140,8 +140,8 @@ contract InboxOutOfOrderProving is InboxTest {
                 designatedProver: Alice,
                 actualProver: Alice
             });
-            claimHashes[i] = keccak256(abi.encode(claims[i]));
-            parentHash = claimHashes[i];
+            transitionHashes[i] = keccak256(abi.encode(claims[i]));
+            parentHash = transitionHashes[i];
         }
 
         // Now prove them in reverse order
@@ -152,7 +152,7 @@ contract InboxOutOfOrderProving is InboxTest {
 
             IInbox.Proposal[] memory proveProposals = new IInbox.Proposal[](1);
             proveProposals[0] = proposals[index];
-            IInbox.Claim[] memory proveClaims = new IInbox.Claim[](1);
+            IInbox.Transition[] memory proveClaims = new IInbox.Transition[](1);
             proveClaims[0] = claims[index];
 
             bytes memory proveData = encodeProveInput(proveProposals, proveClaims);
@@ -162,19 +162,19 @@ contract InboxOutOfOrderProving is InboxTest {
             inbox.prove(proveData, proof);
 
             // Verify claim record was stored with correct parent
-            bytes32 claimParentHash = index == 0 ? initialParentHash : claimHashes[index - 1];
-            bytes32 storedClaimHash = inbox.getClaimRecordHash(proposals[index].id, claimParentHash);
-            assertTrue(storedClaimHash != bytes32(0));
+            bytes32 claimParentHash = index == 0 ? initialParentHash : transitionHashes[index - 1];
+            bytes32 storedTransitionHash = inbox.getTransitionRecordHash(proposals[index].id, claimParentHash);
+            assertTrue(storedTransitionHash != bytes32(0));
         }
 
         // Phase 3: Attempt finalization - should finalize all in correct order
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](numProposals);
+        IInbox.TransitionRecord[] memory claimRecords = new IInbox.TransitionRecord[](numProposals);
 
         for (uint48 i = 0; i < numProposals; i++) {
-            claimRecords[i] = IInbox.ClaimRecord({
+            claimRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                claimHash: InboxTestLib.hashClaim(claims[i]),
+                transitionHash: InboxTestLib.hashTransition(claims[i]),
                 endBlockMiniHeaderHash: keccak256(abi.encode(claims[i].endBlockMiniHeader))
             });
         }
@@ -183,7 +183,7 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: initialParentHash,
+            lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
         });
         // Core state will be validated by the contract during propose()
@@ -192,7 +192,7 @@ contract InboxOutOfOrderProving is InboxTest {
         mockForcedInclusionDue(false);
 
         // Expect final block update
-        IInbox.Claim memory lastClaim = claims[numProposals - 1];
+        IInbox.Transition memory lastClaim = claims[numProposals - 1];
         expectSyncedBlockSave(
             lastClaim.endBlockMiniHeader.number,
             lastClaim.endBlockMiniHeader.hash,
@@ -233,7 +233,7 @@ contract InboxOutOfOrderProving is InboxTest {
     function test_unproven_proposals_block_finalization() public {
         setupBlobHashes();
         // Create genesis claim
-        IInbox.Claim memory genesisClaim;
+        IInbox.Transition memory genesisClaim;
         genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisClaim));
 
@@ -242,7 +242,7 @@ contract InboxOutOfOrderProving is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: initialParentHash,
+                lastFinalizedTransitionHash: initialParentHash,
                 bondInstructionsHash: bytes32(0)
             });
             // Core state will be validated by the contract during propose()
@@ -251,7 +251,7 @@ contract InboxOutOfOrderProving is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
+            IInbox.TransitionRecord[] memory emptyClaimRecords = new IInbox.TransitionRecord[](0);
 
             // Include proposals array for validation
             bytes memory proposalData;
@@ -269,7 +269,7 @@ contract InboxOutOfOrderProving is InboxTest {
                         IInbox.CoreState({
                             nextProposalId: i,
                             lastFinalizedProposalId: 0,
-                            lastFinalizedClaimHash: initialParentHash,
+                            lastFinalizedTransitionHash: initialParentHash,
                             bondInstructionsHash: bytes32(0)
                         })
                     )
@@ -295,7 +295,7 @@ contract InboxOutOfOrderProving is InboxTest {
             IInbox.CoreState memory updatedCoreState = IInbox.CoreState({
                 nextProposalId: i + 1,
                 lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: initialParentHash,
+                lastFinalizedTransitionHash: initialParentHash,
                 bondInstructionsHash: bytes32(0)
             });
 
@@ -321,9 +321,9 @@ contract InboxOutOfOrderProving is InboxTest {
 
             bytes32 parentHash = i == 1 ? initialParentHash : bytes32(uint256(999)); // Dummy parent
                 // for 3
-            IInbox.Claim memory claim = IInbox.Claim({
+            IInbox.Transition memory claim = IInbox.Transition({
                 proposalHash: storedProposalHash,
-                parentClaimHash: parentHash,
+                parentTransitionHash: parentHash,
                 endBlockMiniHeader: IInbox.BlockMiniHeader({
                     number: uint48(100 + i * 10),
                     hash: keccak256(abi.encode(i, "endBlockHash")),
@@ -337,7 +337,7 @@ contract InboxOutOfOrderProving is InboxTest {
 
             IInbox.Proposal[] memory proveProposals = new IInbox.Proposal[](1);
             proveProposals[0] = proposal;
-            IInbox.Claim[] memory proveClaims = new IInbox.Claim[](1);
+            IInbox.Transition[] memory proveClaims = new IInbox.Transition[](1);
             proveClaims[0] = claim;
 
             bytes memory proveData = encodeProveInput(proveProposals, proveClaims);
@@ -349,16 +349,16 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 4,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: initialParentHash,
+            lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
         });
         // Core state will be validated by the contract during propose()
 
         // Only provide claim record for proposal 1
         bytes32 storedProposalHashForClaim = inbox.getProposalHash(1);
-        IInbox.Claim memory claim1 = IInbox.Claim({
+        IInbox.Transition memory claim1 = IInbox.Transition({
             proposalHash: storedProposalHashForClaim,
-            parentClaimHash: initialParentHash,
+            parentTransitionHash: initialParentHash,
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: 110,
                 hash: keccak256(abi.encode(1, "endBlockHash")),
@@ -368,11 +368,11 @@ contract InboxOutOfOrderProving is InboxTest {
             actualProver: Alice
         });
 
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
-        claimRecords[0] = IInbox.ClaimRecord({
+        IInbox.TransitionRecord[] memory claimRecords = new IInbox.TransitionRecord[](1);
+        claimRecords[0] = IInbox.TransitionRecord({
             span: 1,
             bondInstructions: new LibBonds.BondInstruction[](0),
-            claimHash: InboxTestLib.hashClaim(claim1),
+            transitionHash: InboxTestLib.hashTransition(claim1),
             endBlockMiniHeaderHash: keccak256(abi.encode(claim1.endBlockMiniHeader))
         });
 
@@ -396,7 +396,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 IInbox.CoreState({
                     nextProposalId: 4,
                     lastFinalizedProposalId: 0,
-                    lastFinalizedClaimHash: initialParentHash,
+                    lastFinalizedTransitionHash: initialParentHash,
                     bondInstructionsHash: bytes32(0)
                 })
             )

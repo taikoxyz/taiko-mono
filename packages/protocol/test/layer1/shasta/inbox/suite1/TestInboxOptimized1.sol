@@ -68,14 +68,14 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
         _setProposalHash(testConfig, _proposalId, _hash);
     }
 
-    function exposed_setClaimRecordHash(
+    function exposed_setTransitionRecordHash(
         uint48 _proposalId,
-        IInbox.Claim memory _claim,
-        IInbox.ClaimRecord memory _claimRecord
+        IInbox.Transition memory _transition,
+        IInbox.TransitionRecord memory _transitionRecord
     )
         external
     {
-        _setClaimRecordHash(testConfig, _proposalId, _claim, _claimRecord);
+        _setTransitionRecordHash(testConfig, _proposalId, _transition, _transitionRecord);
     }
 
     // Function to store endBlockMiniHeader for test purposes

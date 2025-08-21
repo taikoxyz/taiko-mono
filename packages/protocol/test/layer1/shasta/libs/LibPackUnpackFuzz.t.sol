@@ -72,11 +72,11 @@ contract LibPackUnpackFuzzTest is Test {
         uint256 dataHash;
     }
 
-    /// @dev Claim record struct
-    struct ClaimStruct {
+    /// @dev Transition record struct
+    struct TransitionStruct {
         uint48 proposalId;
         bytes32 proposalHash;
-        bytes32 parentClaimHash;
+        bytes32 parentTransitionHash;
         uint48 endBlockNumber;
         bytes32 endBlockHash;
         bytes32 endStateRoot;

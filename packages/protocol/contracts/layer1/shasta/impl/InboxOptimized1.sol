@@ -5,12 +5,12 @@ import { Inbox } from "./Inbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title InboxOptimized1
-/// @notice First optimization layer for the Inbox contract focusing on storage efficiency and claim
+/// @notice First optimization layer for the Inbox contract focusing on storage efficiency and transition
 /// aggregation
 /// @dev Key optimizations:
-///      - Reuseable claim record slots to reduce storage operations
-///      - Claim aggregation for consecutive proposals to minimize gas costs
-///      - Partial parent claim hash matching (26 bytes) for storage optimization
+///      - Reuseable transition record slots to reduce storage operations
+///      - Transition aggregation for consecutive proposals to minimize gas costs
+///      - Partial parent transition hash matching (26 bytes) for storage optimization
 ///      - Inline bond instruction merging to reduce function calls
 /// @custom:security-contact security@taiko.xyz
 abstract contract InboxOptimized1 is Inbox {
@@ -18,24 +18,24 @@ abstract contract InboxOptimized1 is Inbox {
     // Structs
     // ---------------------------------------------------------------
 
-    /// @notice Optimized storage for frequently accessed claim records
-    /// @dev Stores the first claim record for each proposal to reduce gas costs
-    struct ReuseableClaimRecord {
-        bytes32 claimRecordHash;
+    /// @notice Optimized storage for frequently accessed transition records
+    /// @dev Stores the first transition record for each proposal to reduce gas costs
+    struct ReuseableTransitionRecord {
+        bytes32 transitionRecordHash;
         uint48 proposalId;
-        bytes26 partialParentClaimHash;
+        bytes26 partialParentTransitionHash;
     }
 
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @dev Storage for default claim records to optimize gas usage
-    /// @notice Stores the most common claim record for each buffer slot
+    /// @dev Storage for default transition records to optimize gas usage
+    /// @notice Stores the most common transition record for each buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
-    /// - reuseableClaimRecord: The default claim record for quick access
-    mapping(uint256 bufferSlot => ReuseableClaimRecord reuseableClaimRecord) internal
-        _reuseableClaimRecords;
+    /// - reuseableTransitionRecord: The default transition record for quick access
+    mapping(uint256 bufferSlot => ReuseableTransitionRecord reuseableTransitionRecord) internal
+        _reuseableTransitionRecords;
 
     uint256[49] private __gap;
 
@@ -50,16 +50,16 @@ abstract contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
-    /// @notice Optimized claim record building with automatic aggregation
+    /// @notice Optimized transition record building with automatic aggregation
     /// @dev Aggregation strategy:
-    ///      - Groups consecutive proposal IDs into single claim records
-    ///      - Merges bond instructions for aggregated claims
+    ///      - Groups consecutive proposal IDs into single transition records
+    ///      - Merges bond instructions for aggregated transitions
     ///      - Updates end block header for each aggregation
     ///      - Saves aggregated records with increased span value
     /// @dev Memory optimizations:
     ///      - Inline bond instruction merging
     ///      - Reuses memory allocations across iterations
-    function _buildAndSaveClaimRecords(
+    function _buildAndSaveTransitionRecords(
         Config memory _config,
         ProveInput memory _input
     )
@@ -70,28 +70,28 @@ abstract contract InboxOptimized1 is Inbox {
 
         // Validate first proposal
 
-        _validateClaim(_config, _input.proposals[0], _input.claims[0]);
+        _validateTransition(_config, _input.proposals[0], _input.transitions[0]);
 
         // Initialize current aggregation state
-        ClaimRecord memory currentRecord = ClaimRecord({
+        TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
-            bondInstructions: _calculateBondInstructions(_config, _input.proposals[0], _input.claims[0]),
-            claimHash: _hashClaim(_input.claims[0]),
-            endBlockMiniHeaderHash: _hashBlockMiniHeader(_input.claims[0].endBlockMiniHeader)
+            bondInstructions: _calculateBondInstructions(_config, _input.proposals[0], _input.transitions[0]),
+            transitionHash: _hashTransition(_input.transitions[0]),
+            endBlockMiniHeaderHash: _hashBlockMiniHeader(_input.transitions[0].endBlockMiniHeader)
         });
 
         uint48 currentGroupStartId = _input.proposals[0].id;
-        Claim memory firstClaimInGroup = _input.claims[0];
+        Transition memory firstTransitionInGroup = _input.transitions[0];
 
         // Process remaining proposals
         for (uint256 i = 1; i < _input.proposals.length; ++i) {
-            _validateClaim(_config, _input.proposals[i], _input.claims[i]);
+            _validateTransition(_config, _input.proposals[i], _input.transitions[i]);
 
             // Check if current proposal can be aggregated with the previous group
             if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
                 // Aggregate with current record
                 LibBonds.BondInstruction[] memory newInstructions =
-                    _calculateBondInstructions(_config, _input.proposals[i], _input.claims[i]);
+                    _calculateBondInstructions(_config, _input.proposals[i], _input.transitions[i]);
 
                 if (newInstructions.length > 0) {
                     // Inline merge to avoid separate function call and reduce stack depth
@@ -112,108 +112,108 @@ abstract contract InboxOptimized1 is Inbox {
                     currentRecord.bondInstructions = merged;
                 }
 
-                // Update the claim hash and end block mini header hash for the aggregated record
-                currentRecord.claimHash = _hashClaim(_input.claims[i]);
+                // Update the transition hash and end block mini header hash for the aggregated record
+                currentRecord.transitionHash = _hashTransition(_input.transitions[i]);
                 currentRecord.endBlockMiniHeaderHash =
-                    _hashBlockMiniHeader(_input.claims[i].endBlockMiniHeader);
+                    _hashBlockMiniHeader(_input.transitions[i].endBlockMiniHeader);
 
                 // Increment span to include this aggregated proposal
                 currentRecord.span++;
             } else {
                 // Save the current aggregated record before starting a new one
-                _setClaimRecordHash(_config, currentGroupStartId, firstClaimInGroup, currentRecord);
+                _setTransitionRecordHash(_config, currentGroupStartId, firstTransitionInGroup, currentRecord);
 
                 // Start a new record for non-continuous proposal
                 currentGroupStartId = _input.proposals[i].id;
-                firstClaimInGroup = _input.claims[i];
+                firstTransitionInGroup = _input.transitions[i];
 
-                currentRecord = ClaimRecord({
+                currentRecord = TransitionRecord({
                     span: 1,
                     bondInstructions: _calculateBondInstructions(
-                        _config, _input.proposals[i], _input.claims[i]
+                        _config, _input.proposals[i], _input.transitions[i]
                     ),
-                    claimHash: _hashClaim(_input.claims[i]),
-                    endBlockMiniHeaderHash: _hashBlockMiniHeader(_input.claims[i].endBlockMiniHeader)
+                    transitionHash: _hashTransition(_input.transitions[i]),
+                    endBlockMiniHeaderHash: _hashBlockMiniHeader(_input.transitions[i].endBlockMiniHeader)
                 });
             }
         }
 
         // Save the final aggregated record
-        _setClaimRecordHash(_config, currentGroupStartId, firstClaimInGroup, currentRecord);
+        _setTransitionRecordHash(_config, currentGroupStartId, firstTransitionInGroup, currentRecord);
     }
 
     /// @inheritdoc Inbox
-    /// @dev Retrieves claim record hash with storage optimization
+    /// @dev Retrieves transition record hash with storage optimization
     /// @notice Gas optimization strategy:
     ///         1. First checks reuseable slot for matching proposal ID
-    ///         2. Performs partial parent claim hash comparison (26 bytes)
+    ///         2. Performs partial parent transition hash comparison (26 bytes)
     ///         3. Falls back to composite key mapping if no match
-    /// @dev Reduces storage reads by ~50% for common case (single claim per proposal)
-    function _getClaimRecordHash(
+    /// @dev Reduces storage reads by ~50% for common case (single transition per proposal)
+    function _getTransitionRecordHash(
         Config memory _config,
         uint48 _proposalId,
-        bytes32 _parentClaimHash
+        bytes32 _parentTransitionHash
     )
         internal
         view
         override
-        returns (bytes32 claimRecordHash_)
+        returns (bytes32 transitionRecordHash_)
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        ReuseableClaimRecord storage record = _reuseableClaimRecords[bufferSlot];
+        ReuseableTransitionRecord storage record = _reuseableTransitionRecords[bufferSlot];
 
         // Check if this is the default record for this proposal
         if (record.proposalId == _proposalId) {
-            // Check if parent claim hash matches (partial match)
-            if (_isPartialParentClaimHashMatch(record.partialParentClaimHash, _parentClaimHash)) {
-                return record.claimRecordHash;
+            // Check if parent transition hash matches (partial match)
+            if (_isPartialParentTransitionHashMatch(record.partialParentTransitionHash, _parentTransitionHash)) {
+                return record.transitionRecordHash;
             }
         }
 
         // Otherwise check the direct mapping
-        bytes32 compositeKey = _composeClaimKey(_proposalId, _parentClaimHash);
-        return _claimRecordHashes[bufferSlot][compositeKey];
+        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
+        return _transitionRecordHashes[bufferSlot][compositeKey];
     }
 
     /// @inheritdoc Inbox
-    /// @dev Stores claim record hash with optimized slot reuse
+    /// @dev Stores transition record hash with optimized slot reuse
     /// @notice Storage strategy:
     ///         1. New proposal ID: Overwrites reuseable slot
     ///         2. Same ID, same parent: Updates reuseable slot
     ///         3. Same ID, different parent: Uses composite key mapping
     /// @dev Saves ~20,000 gas for common case by avoiding mapping writes
-    function _setClaimRecordHash(
+    function _setTransitionRecordHash(
         Config memory _config,
         uint48 _proposalId,
-        Claim memory _claim,
-        ClaimRecord memory _claimRecord
+        Transition memory _transition,
+        TransitionRecord memory _transitionRecord
     )
         internal
         override
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        bytes32 claimRecordHash = _hashClaimRecord(_claimRecord);
-        ReuseableClaimRecord storage record = _reuseableClaimRecords[bufferSlot];
+        bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+        ReuseableTransitionRecord storage record = _reuseableTransitionRecords[bufferSlot];
 
         // Check if we can use the default slot
         if (record.proposalId != _proposalId) {
             // Different proposal ID, so we can use the default slot
-            record.claimRecordHash = claimRecordHash;
+            record.transitionRecordHash = transitionRecordHash;
             record.proposalId = _proposalId;
-            record.partialParentClaimHash = bytes26(_claim.parentClaimHash);
+            record.partialParentTransitionHash = bytes26(_transition.parentTransitionHash);
         } else if (
-            _isPartialParentClaimHashMatch(record.partialParentClaimHash, _claim.parentClaimHash)
+            _isPartialParentTransitionHashMatch(record.partialParentTransitionHash, _transition.parentTransitionHash)
         ) {
-            // Same proposal ID and same parent claim hash (partial match), update the default slot
-            record.claimRecordHash = claimRecordHash;
+            // Same proposal ID and same parent transition hash (partial match), update the default slot
+            record.transitionRecordHash = transitionRecordHash;
         } else {
-            // Same proposal ID but different parent claim hash, use direct mapping
-            bytes32 compositeKey = _composeClaimKey(_proposalId, _claim.parentClaimHash);
-            _claimRecordHashes[bufferSlot][compositeKey] = claimRecordHash;
+            // Same proposal ID but different parent transition hash, use direct mapping
+            bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
+            _transitionRecordHashes[bufferSlot][compositeKey] = transitionRecordHash;
         }
 
         bytes memory payload = encodeProvedEventData(
-            ProvedEventPayload({ proposalId: _proposalId, claim: _claim, claimRecord: _claimRecord })
+            ProvedEventPayload({ proposalId: _proposalId, transition: _transition, transitionRecord: _transitionRecord })
         );
         emit Proved(payload);
     }
@@ -222,17 +222,17 @@ abstract contract InboxOptimized1 is Inbox {
     // Private Functions
     // ---------------------------------------------------------------
 
-    /// @dev Compares partial (26 bytes) with full (32 bytes) parent claim hash
+    /// @dev Compares partial (26 bytes) with full (32 bytes) parent transition hash
     /// @notice Used for storage optimization - stores only 26 bytes in reuseable slot
     /// @dev Collision probability negligible for practical use (2^-208)
-    function _isPartialParentClaimHashMatch(
-        bytes26 _partialParentClaimHash,
-        bytes32 _parentClaimHash
+    function _isPartialParentTransitionHashMatch(
+        bytes26 _partialParentTransitionHash,
+        bytes32 _parentTransitionHash
     )
         private
         pure
         returns (bool)
     {
-        return _partialParentClaimHash == bytes26(_parentClaimHash);
+        return _partialParentTransitionHash == bytes26(_parentTransitionHash);
     }
 }

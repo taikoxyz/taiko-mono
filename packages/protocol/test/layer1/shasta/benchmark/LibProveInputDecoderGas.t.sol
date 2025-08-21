@@ -105,7 +105,7 @@ contract LibProveInputDecoderGas is Test {
         // Prevent optimization
         require(
             decoded1.proposals.length > 0 && decoded2.proposals.length > 0
-                && decoded1.claims.length > 0 && decoded2.claims.length > 0,
+                && decoded1.transitions.length > 0 && decoded2.transitions.length > 0,
             "decoded"
         );
 
@@ -184,11 +184,11 @@ contract LibProveInputDecoderGas is Test {
             });
         }
 
-        input.claims = new IInbox.Claim[](_proposalCount);
+        input.transitions = new IInbox.Transition[](_proposalCount);
         for (uint256 i = 0; i < _proposalCount; i++) {
-            input.claims[i] = IInbox.Claim({
+            input.transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
-                parentClaimHash: keccak256(abi.encodePacked("parent_claim", i)),
+                parentTransitionHash: keccak256(abi.encodePacked("parent_claim", i)),
                 endBlockMiniHeader: IInbox.BlockMiniHeader({
                     number: uint48(2_000_000 + i * 10),
                     hash: keccak256(abi.encodePacked("end_block", i)),

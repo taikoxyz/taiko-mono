@@ -7,7 +7,7 @@ pragma solidity ^0.8.24;
 interface IProofVerifier {
     /// @notice Verifies a validity proof for a state transition
     /// @dev This function must revert if the proof is invalid
-    /// @param _claimsHash The hash of the claims to verify
-    /// @param _proof The proof data for the claims
-    function verifyProof(bytes32 _claimsHash, bytes calldata _proof) external view;
+    /// @param _transitionsHash The hash of the transitions to verify
+    /// @param _proof The proof data for the transitions
+    function verifyProof(bytes32 _transitionsHash, bytes calldata _proof) external view;
 }

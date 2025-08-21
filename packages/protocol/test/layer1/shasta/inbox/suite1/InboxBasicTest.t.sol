@@ -48,7 +48,7 @@ contract InboxBasicTest is InboxTest {
         IInbox.CoreState memory genesisCoreState = IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: getGenesisClaimHash(),
+            lastFinalizedTransitionHash: getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
         IInbox.Proposal memory genesisProposal =
@@ -65,7 +65,7 @@ contract InboxBasicTest is InboxTest {
             wrongCoreState,
             proposals,
             createValidBlobReference(1),
-            new IInbox.ClaimRecord[](0)
+            new IInbox.TransitionRecord[](0)
         );
 
         // Act & Assert: Invalid state should be rejected
@@ -88,7 +88,7 @@ contract InboxBasicTest is InboxTest {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
 
         bytes memory data = encodeProposeInputWithGenesis(
-            expiredDeadline, coreState, createValidBlobReference(1), new IInbox.ClaimRecord[](0)
+            expiredDeadline, coreState, createValidBlobReference(1), new IInbox.TransitionRecord[](0)
         );
 
         // Act & Assert: Expired deadline should be rejected
@@ -107,18 +107,18 @@ contract InboxBasicTest is InboxTest {
         IInbox.Proposal memory proposal = submitProposal(1, Alice);
 
         // Act: Submit proof for the proposal with genesis parent
-        bytes32 genesisClaimHash = getGenesisClaimHash();
-        proveProposal(proposal, Bob, genesisClaimHash);
+        bytes32 genesisTransitionHash = getGenesisTransitionHash();
+        proveProposal(proposal, Bob, genesisTransitionHash);
 
         // Assert: Verify claim record was stored for later finalization
-        assertClaimRecordStored(1, genesisClaimHash);
+        assertTransitionRecordStored(1, genesisTransitionHash);
     }
 
     /// @notice Test proving multiple claims individually
     /// @dev Validates individual proof submission for multiple proposals
     function test_prove_multiple_claims() public {
         uint48 numProposals = 3;
-        bytes32 genesisHash = getGenesisClaimHash();
+        bytes32 genesisHash = getGenesisTransitionHash();
 
         // Submit proposals first
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
@@ -131,16 +131,16 @@ contract InboxBasicTest is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             proveProposal(proposals[i], Bob, currentParent);
             // Update parent for next iteration
-            IInbox.Claim memory claim = InboxTestLib.createClaim(proposals[i], currentParent, Bob);
-            currentParent = InboxTestLib.hashClaim(claim);
+            IInbox.Transition memory claim = InboxTestLib.createTransition(proposals[i], currentParent, Bob);
+            currentParent = InboxTestLib.hashTransition(claim);
         }
 
         // Verify all claim records stored
         currentParent = genesisHash;
         for (uint48 i = 0; i < numProposals; i++) {
-            assertClaimRecordStored(i + 1, currentParent);
-            IInbox.Claim memory claim = InboxTestLib.createClaim(proposals[i], currentParent, Bob);
-            currentParent = InboxTestLib.hashClaim(claim);
+            assertTransitionRecordStored(i + 1, currentParent);
+            IInbox.Transition memory claim = InboxTestLib.createTransition(proposals[i], currentParent, Bob);
+            currentParent = InboxTestLib.hashTransition(claim);
         }
     }
 }

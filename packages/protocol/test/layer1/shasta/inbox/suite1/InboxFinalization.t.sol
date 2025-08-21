@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./InboxTest.sol";
-import { Inbox, ClaimRecordHashMismatchWithStorage } from "contracts/layer1/shasta/impl/Inbox.sol";
+import { Inbox, TransitionRecordHashMismatchWithStorage } from "contracts/layer1/shasta/impl/Inbox.sol";
 import "./InboxMockContracts.sol";
 
 /// @title InboxFinalization
@@ -32,10 +32,10 @@ contract InboxFinalization is InboxTest {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
 
         IInbox.Proposal memory proposal = _createStoredProposal(proposalId, coreState);
-        IInbox.Claim memory claim =
-            InboxTestLib.createClaim(proposal, coreState.lastFinalizedClaimHash, Alice);
-        IInbox.ClaimRecord memory claimRecord =
-            _createStoredClaimRecord(proposalId, claim, coreState.lastFinalizedClaimHash);
+        IInbox.Transition memory claim =
+            InboxTestLib.createTransition(proposal, coreState.lastFinalizedTransitionHash, Alice);
+        IInbox.TransitionRecord memory claimRecord =
+            _createStoredTransitionRecord(proposalId, claim, coreState.lastFinalizedTransitionHash);
 
         // Setup expectations
         expectSyncedBlockSave(
@@ -65,32 +65,32 @@ contract InboxFinalization is InboxTest {
     }
 
     /// @dev Helper to create and store a claim record for testing
-    function _createStoredClaimRecord(
+    function _createStoredTransitionRecord(
         uint48 _proposalId,
-        IInbox.Claim memory _claim,
-        bytes32 _parentClaimHash
+        IInbox.Transition memory _claim,
+        bytes32 _parentTransitionHash
     )
         private
-        returns (IInbox.ClaimRecord memory claimRecord)
+        returns (IInbox.TransitionRecord memory claimRecord)
     {
-        claimRecord = InboxTestLib.createClaimRecord(_claim, 1);
-        // Create a parent claim with the parentClaimHash for the function call
-        IInbox.Claim memory parentClaim;
-        parentClaim.parentClaimHash = _parentClaimHash;
-        inbox.exposed_setClaimRecordHash(_proposalId, parentClaim, claimRecord);
+        claimRecord = InboxTestLib.createTransitionRecord(_claim, 1);
+        // Create a parent claim with the parentTransitionHash for the function call
+        IInbox.Transition memory parentClaim;
+        parentClaim.parentTransitionHash = _parentTransitionHash;
+        inbox.exposed_setTransitionRecordHash(_proposalId, parentClaim, claimRecord);
     }
 
     /// @dev Helper to submit a finalization proposal
     function _submitFinalizationProposal(
         IInbox.Proposal memory _proposalToValidate,
-        IInbox.ClaimRecord memory _claimRecord,
+        IInbox.TransitionRecord memory _claimRecord,
         IInbox.BlockMiniHeader memory _endBlockMiniHeader
     )
         private
     {
         setupProposalMocks(Alice);
 
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
+        IInbox.TransitionRecord[] memory claimRecords = new IInbox.TransitionRecord[](1);
         claimRecords[0] = _claimRecord;
 
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
@@ -122,7 +122,7 @@ contract InboxFinalization is InboxTest {
     ///      3. Verifies final state consistency and claim hash progression
     function test_finalize_multiple_proposals() public {
         uint48 numProposals = 3;
-        bytes32 genesisHash = getGenesisClaimHash();
+        bytes32 genesisHash = getGenesisTransitionHash();
 
         // Submit all proposals first
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
@@ -131,19 +131,19 @@ contract InboxFinalization is InboxTest {
         }
 
         // Then prove them all
-        IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
+        IInbox.Transition[] memory claims = new IInbox.Transition[](numProposals);
         bytes32 currentParentHash = genesisHash;
 
         for (uint48 i = 0; i < numProposals; i++) {
-            claims[i] = InboxTestLib.createClaim(proposals[i], currentParentHash, Bob);
+            claims[i] = InboxTestLib.createTransition(proposals[i], currentParentHash, Bob);
             proveProposal(proposals[i], Bob, currentParentHash);
-            currentParentHash = InboxTestLib.hashClaim(claims[i]);
+            currentParentHash = InboxTestLib.hashTransition(claims[i]);
         }
 
         // Create claim records for finalization
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](numProposals);
+        IInbox.TransitionRecord[] memory claimRecords = new IInbox.TransitionRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
-            claimRecords[i] = InboxTestLib.createClaimRecord(claims[i], 1);
+            claimRecords[i] = InboxTestLib.createTransitionRecord(claims[i], 1);
         }
 
         // Setup expectations for finalization
@@ -162,21 +162,21 @@ contract InboxFinalization is InboxTest {
         );
 
         // Assert: Verify finalization completed
-        bytes32 finalClaimHash = InboxTestLib.hashClaim(claims[numProposals - 1]);
-        assertFinalizationCompleted(numProposals, finalClaimHash);
+        bytes32 finalTransitionHash = InboxTestLib.hashTransition(claims[numProposals - 1]);
+        assertFinalizationCompleted(numProposals, finalTransitionHash);
     }
 
     /// @dev Helper to submit a batch finalization proposal
     function _submitBatchFinalizationProposal(
         IInbox.Proposal memory _lastProposal,
-        IInbox.ClaimRecord[] memory _claimRecords,
+        IInbox.TransitionRecord[] memory _claimRecords,
         uint48 _nextProposalId,
         IInbox.BlockMiniHeader memory _endBlockMiniHeader
     )
         private
     {
         IInbox.CoreState memory coreState =
-            InboxTestLib.createCoreState(_nextProposalId, 0, getGenesisClaimHash(), bytes32(0));
+            InboxTestLib.createCoreState(_nextProposalId, 0, getGenesisTransitionHash(), bytes32(0));
 
         setupProposalMocks(Carol);
         setupBlobHashes();
@@ -208,9 +208,9 @@ contract InboxFinalization is InboxTest {
         // Setup blobhashes for this specific test
         setupBlobHashes();
         // Create genesis claim
-        IInbox.Claim memory genesisClaim;
+        IInbox.Transition memory genesisClaim;
         genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 parentClaimHash = keccak256(abi.encode(genesisClaim));
+        bytes32 parentTransitionHash = keccak256(abi.encode(genesisClaim));
 
         // Store proposal 1 with claim
         IInbox.CoreState memory coreState1 = _getGenesisCoreState();
@@ -220,17 +220,17 @@ contract InboxFinalization is InboxTest {
         proposal1.coreStateHash = keccak256(abi.encode(coreState1));
         inbox.exposed_setProposalHash(1, keccak256(abi.encode(proposal1)));
 
-        IInbox.Claim memory claim1 = InboxTestLib.createClaim(proposal1, parentClaimHash, Bob);
-        IInbox.ClaimRecord memory claimRecord1 = IInbox.ClaimRecord({
+        IInbox.Transition memory claim1 = InboxTestLib.createTransition(proposal1, parentTransitionHash, Bob);
+        IInbox.TransitionRecord memory claimRecord1 = IInbox.TransitionRecord({
             span: 1,
             bondInstructions: new LibBonds.BondInstruction[](0),
-            claimHash: InboxTestLib.hashClaim(claim1),
+            transitionHash: InboxTestLib.hashTransition(claim1),
             endBlockMiniHeaderHash: keccak256(abi.encode(claim1.endBlockMiniHeader))
         });
         // Create a parent claim struct for the function call
-        IInbox.Claim memory parentClaim;
-        parentClaim.parentClaimHash = parentClaimHash;
-        inbox.exposed_setClaimRecordHash(1, parentClaim, claimRecord1);
+        IInbox.Transition memory parentClaim;
+        parentClaim.parentTransitionHash = parentTransitionHash;
+        inbox.exposed_setTransitionRecordHash(1, parentClaim, claimRecord1);
 
         // Store proposal 2 WITHOUT claim (gap in chain)
         IInbox.CoreState memory coreState2 = _getGenesisCoreState();
@@ -243,7 +243,7 @@ contract InboxFinalization is InboxTest {
 
         // Setup core state for new proposal
         IInbox.CoreState memory coreState = InboxTestLib.createCoreState(3, 0);
-        coreState.lastFinalizedClaimHash = parentClaimHash;
+        coreState.lastFinalizedTransitionHash = parentTransitionHash;
 
         // Setup mocks
         mockProposerAllowed(Alice);
@@ -257,7 +257,7 @@ contract InboxFinalization is InboxTest {
         );
 
         // Create proposal data with only claimRecord1
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
+        IInbox.TransitionRecord[] memory claimRecords = new IInbox.TransitionRecord[](1);
         claimRecords[0] = claimRecord1;
 
         // Include proposal 2 for validation (as the last proposal)
@@ -288,30 +288,30 @@ contract InboxFinalization is InboxTest {
     /// @dev Validates claim record integrity protection:
     ///      1. Stores correct claim record in contract storage
     ///      2. Submits modified claim record for finalization
-    ///      3. Expects ClaimRecordHashMismatchWithStorage error for security
+    ///      3. Expects TransitionRecordHashMismatchWithStorage error for security
     function test_finalize_invalid_claim_hash() public {
         setupBlobHashes();
 
         // Submit and prove proposal 1 correctly first
         IInbox.Proposal memory proposal1 = submitProposal(1, Alice);
-        bytes32 parentClaimHash = getGenesisClaimHash();
-        IInbox.Claim memory claim1 = InboxTestLib.createClaim(proposal1, parentClaimHash, Bob);
-        proveProposal(proposal1, Bob, parentClaimHash);
+        bytes32 parentTransitionHash = getGenesisTransitionHash();
+        IInbox.Transition memory claim1 = InboxTestLib.createTransition(proposal1, parentTransitionHash, Bob);
+        proveProposal(proposal1, Bob, parentTransitionHash);
 
         // Now try to finalize with a WRONG claim record
-        IInbox.ClaimRecord memory wrongClaimRecord = IInbox.ClaimRecord({
+        IInbox.TransitionRecord memory wrongTransitionRecord = IInbox.TransitionRecord({
             span: 2, // Modified field - wrong span value
             bondInstructions: new LibBonds.BondInstruction[](0),
-            claimHash: InboxTestLib.hashClaim(claim1),
+            transitionHash: InboxTestLib.hashTransition(claim1),
             endBlockMiniHeaderHash: keccak256(abi.encode(claim1.endBlockMiniHeader))
         });
 
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
-        claimRecords[0] = wrongClaimRecord;
+        IInbox.TransitionRecord[] memory claimRecords = new IInbox.TransitionRecord[](1);
+        claimRecords[0] = wrongTransitionRecord;
 
         // Create core state for next proposal
         IInbox.CoreState memory coreState =
-            InboxTestLib.createCoreState(2, 0, parentClaimHash, bytes32(0));
+            InboxTestLib.createCoreState(2, 0, parentTransitionHash, bytes32(0));
 
         // Setup mocks for new proposal
         setupProposalMocks(Carol);
@@ -321,7 +321,7 @@ contract InboxFinalization is InboxTest {
         proposals[0] = proposal1;
 
         // Expect revert due to mismatched claim record hash
-        vm.expectRevert(ClaimRecordHashMismatchWithStorage.selector);
+        vm.expectRevert(TransitionRecordHashMismatchWithStorage.selector);
         vm.prank(Carol);
         inbox.propose(
             bytes(""),

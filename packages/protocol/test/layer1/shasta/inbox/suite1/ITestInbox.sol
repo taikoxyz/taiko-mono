@@ -20,10 +20,10 @@ interface ITestInbox is IInbox {
     function exposed_setProposalHash(uint48 _proposalId, bytes32 _hash) external;
 
     /// @notice Expose internal function for testing - set claim record hash
-    function exposed_setClaimRecordHash(
+    function exposed_setTransitionRecordHash(
         uint48 _proposalId,
-        IInbox.Claim memory _claim,
-        IInbox.ClaimRecord memory _claimRecord
+        IInbox.Transition memory _transition,
+        IInbox.TransitionRecord memory _transitionRecord
     )
         external;
 
