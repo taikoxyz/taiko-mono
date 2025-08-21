@@ -67,9 +67,9 @@ func (w *opWindow) Push(epoch uint64, curr, next common.Address) {
 }
 
 // SequencingWindowSplit creates a slot range for either the current or the next operator
-func (w *opWindow) SequencingWindowSplit(operator common.Address, curr bool) []SlotRange {
+func (w *opWindow) SequencingWindowSplit(operator common.Address, curr bool, handoverSkipSlots uint64) []SlotRange {
 	var ranges []SlotRange
-	threshold := w.slotsPerEpoch - w.handoverSkipSlots
+	threshold := w.slotsPerEpoch - handoverSkipSlots
 
 	for i := 0; i < 3; i++ {
 		if !w.valid[i] {

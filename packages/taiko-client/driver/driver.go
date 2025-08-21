@@ -28,9 +28,10 @@ import (
 )
 
 const (
-	protocolStatusReportInterval     = 30 * time.Second
-	exchangeTransitionConfigInterval = 1 * time.Minute
-	peerLoopReportInterval           = 30 * time.Second
+	protocolStatusReportInterval            = 30 * time.Second
+	exchangeTransitionConfigInterval        = 1 * time.Minute
+	peerLoopReportInterval                  = 30 * time.Second
+	defaultHandoverSkipSlots         uint64 = 4
 )
 
 // Driver keeps the L2 execution engine's local block chain in sync with the TaikoInbox
@@ -369,10 +370,11 @@ func (d *Driver) cacheLookaheadLoop() {
 	}()
 
 	var (
-		seenBlockNumber uint64 = 0
-		lastSlot        uint64 = 0
-		opWin                  = preconfBlocks.NewOpWindow(d.rpc.L1Beacon.SlotsPerEpoch)
-		wasSequencer           = false
+		seenBlockNumber   uint64 = 0
+		lastSlot          uint64 = 0
+		opWin                    = preconfBlocks.NewOpWindow(d.rpc.L1Beacon.SlotsPerEpoch)
+		wasSequencer             = false
+		handoverSkipSlots        = defaultHandoverSkipSlots
 	)
 
 	// Check if the operator is transitioning to being the sequencer, if so, will check
@@ -421,6 +423,13 @@ func (d *Driver) cacheLookaheadLoop() {
 			log.Error("Failed to fetch the latest L1 head for lookahead", "error", err)
 
 			return err
+		}
+
+		routerConfig, err := d.rpc.GetPreconfRouterConfig(&bind.CallOpts{Context: d.ctx})
+		if err != nil {
+			log.Warn("Failed to fetch preconf router config, use defaultHandoverSkipSlots instead", "error", err)
+		} else {
+			handoverSkipSlots = routerConfig.HandOverSlots.Uint64()
 		}
 
 		if latestSeenBlockNumber == seenBlockNumber {
@@ -513,8 +522,8 @@ func (d *Driver) cacheLookaheadLoop() {
 			}
 
 			var (
-				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
-				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
+				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true, handoverSkipSlots)
+				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false, handoverSkipSlots)
 			)
 			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
 				CurrOperator:     currOp,
@@ -542,8 +551,8 @@ func (d *Driver) cacheLookaheadLoop() {
 
 		// Otherwise, just log out lookahead information.
 		var (
-			currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
-			nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
+			currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true, handoverSkipSlots)
+			nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false, handoverSkipSlots)
 		)
 
 		log.Info(

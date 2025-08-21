@@ -117,14 +117,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, err
 	}
 
-	if rpc.L1Beacon != nil && preconfHandoverSkipSlots > rpc.L1Beacon.SlotsPerEpoch {
-		return nil, fmt.Errorf(
-			"preconfirmation handover skip slots %d is greater than slots per epoch %d",
-			preconfHandoverSkipSlots,
-			rpc.L1Beacon.SlotsPerEpoch,
-		)
-	}
-
 	var preconfOperatorAddress common.Address
 	if c.IsSet(p2pFlags.SequencerP2PKeyName) {
 		sequencerP2PKey, err := crypto.ToECDSA(common.FromHex(c.String(p2pFlags.SequencerP2PKeyName)))
