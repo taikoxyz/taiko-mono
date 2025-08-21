@@ -128,7 +128,7 @@ contract InboxTest_BondMechanics is InboxTestBase {
         ITaikoInbox.BatchParams memory params;
         params.blocks = new ITaikoInbox.BlockParams[](2);
 
-        (, ITaikoInbox.BatchMetadata memory meta) = inbox.proposeBatch(abi.encode(params), "txList");
+        (ITaikoInbox.BatchMetadata memory meta,) = inbox.proposeBatch(abi.encode(params), "txList");
 
         ITaikoInbox.Batch memory batch = inbox.getBatch(meta.batchId);
 

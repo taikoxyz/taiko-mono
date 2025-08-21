@@ -82,23 +82,28 @@ contract TaikoWrapper is EssentialContract, IProposeBatch {
         external
         onlyFrom(preconfRouter)
         nonReentrant
-        returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
+        returns (ITaikoInbox.BatchMetadata memory meta_, uint64 lastBlockId_)
     {
-        (bytes memory bytesX, bytes memory bytesY) = abi.decode(_params, (bytes, bytes));
-        ITaikoInbox.BatchParams memory params = abi.decode(bytesY, (ITaikoInbox.BatchParams));
+        (bytes memory forcedInclusionBytes, bytes memory regularBatchBytes) =
+            abi.decode(_params, (bytes, bytes));
 
-        if (bytesX.length == 0) {
+        if (forcedInclusionBytes.length == 0) {
             require(!forcedInclusionStore.isOldestForcedInclusionDue(), OldestForcedInclusionDue());
         } else {
-            address proposer = params.proposer;
-            _validateForcedInclusionParams(forcedInclusionStore, bytesX, proposer);
-            inbox.proposeBatch(bytesX, "");
+            inbox.proposeBatch(forcedInclusionBytes, "");
         }
 
         // Propose the normal batch after the potential forced inclusion batch.
-        require(params.blobParams.blobHashes.length == 0, ITaikoInbox.InvalidBlobParams());
-        require(params.blobParams.createdIn == 0, ITaikoInbox.InvalidBlobCreatedIn());
-        return inbox.proposeBatch(bytesY, _txList);
+        (meta_, lastBlockId_) = inbox.proposeBatch(regularBatchBytes, _txList);
+
+        if (forcedInclusionBytes.length > 0) {
+            // we validate the forced inclusion params here since we now have access to the proposer
+            // of the regular batch
+            // this way we avoid decoding the regular batch params here.
+            _validateForcedInclusionParams(
+                forcedInclusionStore, forcedInclusionBytes, meta_.proposer
+            );
+        }
     }
 
     /// @dev Validates the forced inclusion params and consumes the oldest forced inclusion.

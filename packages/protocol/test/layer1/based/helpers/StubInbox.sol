@@ -11,7 +11,7 @@ contract StubInbox is ITaikoInbox {
         bytes calldata _txList
     )
         external
-        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
+        returns (ITaikoInbox.BatchMetadata memory meta_, uint64 lastBlockId_)
     { }
 
     function proveBatches(bytes calldata _params, bytes calldata _proof) external { }

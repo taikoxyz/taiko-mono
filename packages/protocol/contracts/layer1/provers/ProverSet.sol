@@ -32,7 +32,7 @@ contract ProverSet is ProverSetBase, IProposeBatch {
     )
         external
         onlyProver
-        returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
+        returns (ITaikoInbox.BatchMetadata memory meta_, uint64 lastBlockId_)
     {
         return IProposeBatch(entrypoint).proposeBatch(_params, _txList);
     }
