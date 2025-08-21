@@ -1411,7 +1411,7 @@ abstract contract InboxTest is CommonTest {
         return proposal;
     }
 
-    /// @dev Proves a proposal and returns the claim
+    /// @dev Proves a proposal and returns the transition
     function proveProposal(
         IInbox.Proposal memory _proposal,
         address _prover,

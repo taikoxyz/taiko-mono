@@ -16,7 +16,7 @@ contract LibProveInputDecoderFuzz is Test {
         wrapper = new TestWrapperFuzz();
     }
 
-    /// @notice Fuzz test for single proposal and claim
+    /// @notice Fuzz test for single proposal and transition
     function testFuzz_encodeDecodeSingleProposal(
         uint48 proposalId,
         address proposer,
@@ -45,8 +45,8 @@ contract LibProveInputDecoderFuzz is Test {
             derivationHash: derivationHash
         });
 
-        IInbox.Transition[] memory claims = new IInbox.Transition[](1);
-        claims[0] = IInbox.Transition({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
             endBlockMiniHeader: IInbox.BlockMiniHeader({
@@ -59,7 +59,7 @@ contract LibProveInputDecoderFuzz is Test {
         });
 
         IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: claims });
+            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
 
         // Encode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -78,25 +78,25 @@ contract LibProveInputDecoderFuzz is Test {
         assertEq(decoded.proposals[0].coreStateHash, proposals[0].coreStateHash);
         assertEq(decoded.proposals[0].derivationHash, proposals[0].derivationHash);
 
-        // Verify claim fields
-        assertEq(decoded.transitions[0].proposalHash, claims[0].proposalHash);
-        assertEq(decoded.transitions[0].parentTransitionHash, claims[0].parentTransitionHash);
-        assertEq(decoded.transitions[0].endBlockMiniHeader.number, claims[0].endBlockMiniHeader.number);
-        assertEq(decoded.transitions[0].endBlockMiniHeader.hash, claims[0].endBlockMiniHeader.hash);
+        // Verify transition fields
+        assertEq(decoded.transitions[0].proposalHash, transitions[0].proposalHash);
+        assertEq(decoded.transitions[0].parentTransitionHash, transitions[0].parentTransitionHash);
+        assertEq(decoded.transitions[0].endBlockMiniHeader.number, transitions[0].endBlockMiniHeader.number);
+        assertEq(decoded.transitions[0].endBlockMiniHeader.hash, transitions[0].endBlockMiniHeader.hash);
         assertEq(
-            decoded.transitions[0].endBlockMiniHeader.stateRoot, claims[0].endBlockMiniHeader.stateRoot
+            decoded.transitions[0].endBlockMiniHeader.stateRoot, transitions[0].endBlockMiniHeader.stateRoot
         );
-        assertEq(decoded.transitions[0].designatedProver, claims[0].designatedProver);
-        assertEq(decoded.transitions[0].actualProver, claims[0].actualProver);
+        assertEq(decoded.transitions[0].designatedProver, transitions[0].designatedProver);
+        assertEq(decoded.transitions[0].actualProver, transitions[0].actualProver);
     }
 
-    /// @notice Fuzz test for multiple proposals and claims
+    /// @notice Fuzz test for multiple proposals and transitions
     function testFuzz_encodeDecodeMultiple(uint8 count) public pure {
         // Bound count to reasonable values
         count = uint8(bound(count, 1, 20));
 
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](count);
-        IInbox.Transition[] memory claims = new IInbox.Transition[](count);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](count);
 
         for (uint256 i = 0; i < count; i++) {
             proposals[i] = IInbox.Proposal({
@@ -107,7 +107,7 @@ contract LibProveInputDecoderFuzz is Test {
                 derivationHash: keccak256(abi.encodePacked("derivation", i))
             });
 
-            claims[i] = IInbox.Transition({
+            transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
                 parentTransitionHash: keccak256(abi.encodePacked("parent", i)),
                 endBlockMiniHeader: IInbox.BlockMiniHeader({
@@ -121,7 +121,7 @@ contract LibProveInputDecoderFuzz is Test {
         }
 
         IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: claims });
+            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
 
         // Encode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -137,20 +137,20 @@ contract LibProveInputDecoderFuzz is Test {
         for (uint256 i = 0; i < count; i++) {
             assertEq(decoded.proposals[i].id, proposals[i].id);
             assertEq(decoded.proposals[i].proposer, proposals[i].proposer);
-            assertEq(decoded.transitions[i].proposalHash, claims[i].proposalHash);
+            assertEq(decoded.transitions[i].proposalHash, transitions[i].proposalHash);
             assertEq(
-                decoded.transitions[i].endBlockMiniHeader.number, claims[i].endBlockMiniHeader.number
+                decoded.transitions[i].endBlockMiniHeader.number, transitions[i].endBlockMiniHeader.number
             );
         }
     }
 
     /// @notice Fuzz test for size efficiency
-    function testFuzz_sizeEfficiency(uint8 proposalCount, uint8 claimCount) public pure {
-        // Bound counts - proposals and claims must be equal per the library requirement
+    function testFuzz_sizeEfficiency(uint8 proposalCount, uint8 transitionCount) public pure {
+        // Bound counts - proposals and transitions must be equal per the library requirement
         proposalCount = uint8(bound(proposalCount, 1, 10));
-        claimCount = proposalCount; // Ensure equal counts
+        transitionCount = proposalCount; // Ensure equal counts
 
-        (IInbox.ProveInput memory proveInput) = _createTestData(proposalCount, claimCount);
+        (IInbox.ProveInput memory proveInput) = _createTestData(proposalCount, transitionCount);
 
         // Compare sizes
         bytes memory abiEncoded = abi.encode(proveInput);
@@ -188,8 +188,8 @@ contract LibProveInputDecoderFuzz is Test {
             derivationHash: keccak256(abi.encode("deriv2"))
         });
 
-        IInbox.Transition[] memory claims = new IInbox.Transition[](2);
-        claims[0] = IInbox.Transition({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](2);
+        transitions[0] = IInbox.Transition({
             proposalHash: keccak256(abi.encode(id1)),
             parentTransitionHash: keccak256(abi.encode("parent1")),
             endBlockMiniHeader: IInbox.BlockMiniHeader({
@@ -200,7 +200,7 @@ contract LibProveInputDecoderFuzz is Test {
             designatedProver: proposer1,
             actualProver: proposer2
         });
-        claims[1] = IInbox.Transition({
+        transitions[1] = IInbox.Transition({
             proposalHash: keccak256(abi.encode(id2)),
             parentTransitionHash: keccak256(abi.encode("parent2")),
             endBlockMiniHeader: IInbox.BlockMiniHeader({
@@ -213,7 +213,7 @@ contract LibProveInputDecoderFuzz is Test {
         });
 
         IInbox.ProveInput memory original =
-            IInbox.ProveInput({ proposals: proposals, transitions: claims });
+            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
 
         // First round trip
         bytes memory encoded1 = LibProveInputDecoder.encode(original);
@@ -242,8 +242,8 @@ contract LibProveInputDecoderFuzz is Test {
             derivationHash: bytes32(type(uint256).max)
         });
 
-        IInbox.Transition[] memory claims = new IInbox.Transition[](1);
-        claims[0] = IInbox.Transition({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposalHash: bytes32(type(uint256).max),
             parentTransitionHash: bytes32(type(uint256).max),
             endBlockMiniHeader: IInbox.BlockMiniHeader({
@@ -256,7 +256,7 @@ contract LibProveInputDecoderFuzz is Test {
         });
 
         IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: claims });
+            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
 
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
         IInbox.ProveInput memory decoded = LibProveInputDecoder.decode(encoded);
@@ -268,7 +268,7 @@ contract LibProveInputDecoderFuzz is Test {
     /// @notice Helper function to create test data
     function _createTestData(
         uint256 proposalCount,
-        uint256 claimCount
+        uint256 transitionCount
     )
         private
         pure
@@ -285,8 +285,8 @@ contract LibProveInputDecoderFuzz is Test {
             });
         }
 
-        proveInput.transitions = new IInbox.Transition[](claimCount);
-        for (uint256 i = 0; i < claimCount; i++) {
+        proveInput.transitions = new IInbox.Transition[](transitionCount);
+        for (uint256 i = 0; i < transitionCount; i++) {
             proveInput.transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
                 parentTransitionHash: keccak256(abi.encodePacked("parent", i)),
@@ -302,7 +302,7 @@ contract LibProveInputDecoderFuzz is Test {
     }
 
     /// @notice Test invalid data handling
-    function testFuzz_invalidData(bytes memory randomData) public {
+    function testFuzz_invalidData(bytes memory randomData) public view {
         // Bound data size to avoid excessive gas usage
         vm.assume(randomData.length < 1000);
         vm.assume(randomData.length > 0);

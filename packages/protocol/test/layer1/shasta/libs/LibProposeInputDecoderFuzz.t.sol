@@ -104,8 +104,8 @@ contract LibProposeInputDecoderFuzz is Test {
         assertEq(decoded.parentProposals[0].proposer, proposer);
     }
 
-    /// @notice Fuzz test for claim records with bond instructions
-    function testFuzz_encodeDecodeClaimRecord(
+    /// @notice Fuzz test for transition records with bond instructions
+    function testFuzz_encodeDecodeTransitionRecord(
         bytes32 transitionHash,
         bytes32 endBlockMiniHeaderHash,
         uint8 span
@@ -123,8 +123,8 @@ contract LibProposeInputDecoderFuzz is Test {
             receiver: address(0x2222)
         });
 
-        IInbox.TransitionRecord[] memory claims = new IInbox.TransitionRecord[](1);
-        claims[0] = IInbox.TransitionRecord({
+        IInbox.TransitionRecord[] memory transitions = new IInbox.TransitionRecord[](1);
+        transitions[0] = IInbox.TransitionRecord({
             span: span,
             bondInstructions: bonds,
             transitionHash: transitionHash,
@@ -141,7 +141,7 @@ contract LibProposeInputDecoderFuzz is Test {
             }),
             parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
-            transitionRecords: claims,
+            transitionRecords: transitions,
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: 100,
                 hash: keccak256("block"),
@@ -162,7 +162,7 @@ contract LibProposeInputDecoderFuzz is Test {
     /// @notice Fuzz test with variable array lengths
     function testFuzz_encodeDecodeVariableLengths(
         uint8 proposalCount,
-        uint8 claimCount,
+        uint8 transitionCount,
         uint8 bondInstructionCount
     )
         public
@@ -170,7 +170,7 @@ contract LibProposeInputDecoderFuzz is Test {
     {
         // Bound the inputs to reasonable values
         proposalCount = uint8(bound(proposalCount, 0, 10));
-        claimCount = uint8(bound(claimCount, 0, 10));
+        transitionCount = uint8(bound(transitionCount, 0, 10));
         bondInstructionCount = uint8(bound(bondInstructionCount, 0, 5));
 
         // Create test data
@@ -196,9 +196,9 @@ contract LibProposeInputDecoderFuzz is Test {
             });
         }
 
-        // Create claim records
-        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](claimCount);
-        for (uint256 i = 0; i < claimCount; i++) {
+        // Create transition records
+        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](transitionCount);
+        for (uint256 i = 0; i < transitionCount; i++) {
             LibBonds.BondInstruction[] memory bondInstructions =
                 new LibBonds.BondInstruction[](bondInstructionCount);
             for (uint256 j = 0; j < bondInstructionCount; j++) {
@@ -213,7 +213,7 @@ contract LibProposeInputDecoderFuzz is Test {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: uint8(1 + i % 3),
                 bondInstructions: bondInstructions,
-                transitionHash: keccak256(abi.encodePacked("claim", i)),
+                transitionHash: keccak256(abi.encodePacked("transition", i)),
                 endBlockMiniHeaderHash: keccak256(abi.encodePacked("endBlock", i))
             });
         }
@@ -240,7 +240,7 @@ contract LibProposeInputDecoderFuzz is Test {
         // Verify basic properties
         assertEq(decoded.deadline, 999_999, "Deadline mismatch");
         assertEq(decoded.parentProposals.length, proposalCount, "Proposals length mismatch");
-        assertEq(decoded.transitionRecords.length, claimCount, "ClaimRecords length mismatch");
+        assertEq(decoded.transitionRecords.length, transitionCount, "TransitionRecords length mismatch");
 
         // Verify proposal details
         for (uint256 i = 0; i < proposalCount; i++) {
@@ -263,10 +263,10 @@ contract LibProposeInputDecoderFuzz is Test {
             );
         }
 
-        // Verify claim record details
-        for (uint256 i = 0; i < claimCount; i++) {
+        // Verify transition record details
+        for (uint256 i = 0; i < transitionCount; i++) {
             assertEq(
-                decoded.transitionRecords[i].span, transitionRecords[i].span, "ClaimRecord span mismatch"
+                decoded.transitionRecords[i].span, transitionRecords[i].span, "TransitionRecord span mismatch"
             );
             assertEq(
                 decoded.transitionRecords[i].bondInstructions.length,
@@ -277,14 +277,14 @@ contract LibProposeInputDecoderFuzz is Test {
     }
 
     /// @notice Fuzz test to ensure encoded size is always smaller than abi.encode
-    function testFuzz_encodedSizeComparison(uint8 proposalCount, uint8 claimCount) public pure {
+    function testFuzz_encodedSizeComparison(uint8 proposalCount, uint8 transitionCount) public pure {
         // Bound the inputs
         proposalCount = uint8(bound(proposalCount, 1, 10));
-        claimCount = uint8(bound(claimCount, 1, 10));
+        transitionCount = uint8(bound(transitionCount, 1, 10));
 
         // Create test data
         IInbox.ProposeInput memory input =
-            _createTestData(proposalCount, claimCount, proposalCount * 2);
+            _createTestData(proposalCount, transitionCount, proposalCount * 2);
 
         // Encode with both methods
         bytes memory abiEncoded = abi.encode(input);
@@ -310,14 +310,14 @@ contract LibProposeInputDecoderFuzz is Test {
             "Proposals length mismatch"
         );
         assertEq(
-            decoded.transitionRecords.length, input.transitionRecords.length, "ClaimRecords length mismatch"
+            decoded.transitionRecords.length, input.transitionRecords.length, "TransitionRecords length mismatch"
         );
     }
 
     /// @notice Helper function to create test data
     function _createTestData(
         uint256 _proposalCount,
-        uint256 _claimCount,
+        uint256 _transitionCount,
         uint256 _totalBondInstructions
     )
         private
@@ -350,19 +350,19 @@ contract LibProposeInputDecoderFuzz is Test {
             offset: 512
         });
 
-        input.transitionRecords = new IInbox.TransitionRecord[](_claimCount);
+        input.transitionRecords = new IInbox.TransitionRecord[](_transitionCount);
         uint256 bondIndex = 0;
-        for (uint256 i = 0; i < _claimCount; i++) {
-            uint256 bondsForThisClaim = 0;
-            if (i < _claimCount - 1) {
-                bondsForThisClaim = _totalBondInstructions / _claimCount;
+        for (uint256 i = 0; i < _transitionCount; i++) {
+            uint256 bondsForThisTransition = 0;
+            if (i < _transitionCount - 1) {
+                bondsForThisTransition = _totalBondInstructions / _transitionCount;
             } else {
-                bondsForThisClaim = _totalBondInstructions - bondIndex;
+                bondsForThisTransition = _totalBondInstructions - bondIndex;
             }
 
             LibBonds.BondInstruction[] memory bondInstructions =
-                new LibBonds.BondInstruction[](bondsForThisClaim);
-            for (uint256 j = 0; j < bondsForThisClaim; j++) {
+                new LibBonds.BondInstruction[](bondsForThisTransition);
+            for (uint256 j = 0; j < bondsForThisTransition; j++) {
                 bondInstructions[j] = LibBonds.BondInstruction({
                     proposalId: uint48(96 + i),
                     bondType: j % 2 == 0 ? LibBonds.BondType.LIVENESS : LibBonds.BondType.PROVABILITY,
@@ -375,7 +375,7 @@ contract LibProposeInputDecoderFuzz is Test {
             input.transitionRecords[i] = IInbox.TransitionRecord({
                 span: uint8(1 + i % 3),
                 bondInstructions: bondInstructions,
-                transitionHash: keccak256(abi.encodePacked("claim", i)),
+                transitionHash: keccak256(abi.encodePacked("transition", i)),
                 endBlockMiniHeaderHash: keccak256(abi.encodePacked("endBlock", i))
             });
         }

@@ -36,14 +36,14 @@ contract InboxProposeValidation is InboxTest {
     /// @notice Test proposal with valid deadline
     /// @dev Validates successful proposal submission with future deadline:
     ///      1. Sets up EIP-4844 blob environment
-    ///      2. Creates core state with genesis claim hash
+    ///      2. Creates core state with genesis transition hash
     ///      3. Submits proposal with deadline 1 hour in the future
     ///      4. Verifies successful storage without time-based rejection
     function test_propose_with_valid_deadline() public {
         // Setup: Prepare EIP-4844 blob environment for proposal submission
         setupBlobHashes();
 
-        // Arrange: Setup core state with genesis claim hash for chain continuity
+        // Arrange: Setup core state with genesis transition hash for chain continuity
         bytes32 genesisHash = getGenesisTransitionHash();
         IInbox.CoreState memory coreState =
             InboxTestLib.createCoreState(1, 0, genesisHash, bytes32(0));
@@ -156,7 +156,7 @@ contract InboxProposeValidation is InboxTest {
         mockForcedInclusionDue(false);
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(1);
-        IInbox.TransitionRecord[] memory claimRecords = new IInbox.TransitionRecord[](0);
+        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](0);
 
         // Create proposal array with the correct genesis proposal
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
@@ -164,7 +164,7 @@ contract InboxProposeValidation is InboxTest {
 
         // Use proper encoding - but with wrong core state
         bytes memory data = InboxTestAdapter.encodeProposeInput(
-            inboxType, uint48(0), wrongCoreState, proposals, blobRef, claimRecords
+            inboxType, uint48(0), wrongCoreState, proposals, blobRef, transitionRecords
         );
 
         // Act & Assert: Invalid state should be rejected with InvalidState error
@@ -180,10 +180,10 @@ contract InboxProposeValidation is InboxTest {
     ///      3. Expects revert when unauthorized proposer attempts submission
     ///      4. Ensures only authorized proposers can submit proposals
     function test_propose_unauthorized_proposer() public {
-        // Setup: Create valid genesis claim and core state structure
-        IInbox.Transition memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 initialParentHash = keccak256(abi.encode(genesisClaim));
+        // Setup: Create valid genesis transition and core state structure
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
@@ -203,8 +203,8 @@ contract InboxProposeValidation is InboxTest {
 
         // Arrange: Create valid proposal data (everything valid except authorization)
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(1);
-        IInbox.TransitionRecord[] memory claimRecords = new IInbox.TransitionRecord[](0);
-        bytes memory data = abi.encode(uint48(0), coreState, blobRef, claimRecords);
+        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](0);
+        bytes memory data = abi.encode(uint48(0), coreState, blobRef, transitionRecords);
 
         // Act & Assert: Unauthorized proposer should be rejected
         vm.expectRevert();
@@ -221,9 +221,9 @@ contract InboxProposeValidation is InboxTest {
     function test_propose_with_forced_inclusion() public {
         // Setup: Prepare EIP-4844 blob environment for forced inclusion testing
         setupBlobHashes();
-        IInbox.Transition memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 initialParentHash = keccak256(abi.encode(genesisClaim));
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
@@ -263,11 +263,11 @@ contract InboxProposeValidation is InboxTest {
 
         // Arrange: Create regular proposal data (will trigger forced inclusion processing)
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(2);
-        IInbox.TransitionRecord[] memory claimRecords = new IInbox.TransitionRecord[](0);
+        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](0);
 
         // Use proper encoding with proposals array
         bytes memory data =
-            encodeProposeInputWithGenesis(uint48(0), coreState, blobRef, claimRecords);
+            encodeProposeInputWithGenesis(uint48(0), coreState, blobRef, transitionRecords);
 
         // Note: When forced inclusion is due, both forced inclusion and regular proposals are
         // created
@@ -347,9 +347,9 @@ contract InboxProposeValidation is InboxTest {
         // Setup: Create baseline state for blob reference validation
         setupBlobHashes();
 
-        IInbox.Transition memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 initialParentHash = keccak256(abi.encode(genesisClaim));
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
@@ -369,11 +369,11 @@ contract InboxProposeValidation is InboxTest {
             offset: 0
         });
 
-        IInbox.TransitionRecord[] memory claimRecords = new IInbox.TransitionRecord[](0);
+        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](0);
 
         // Use proper encoding with proposals array
         bytes memory data =
-            encodeProposeInputWithGenesis(uint48(0), coreState, invalidBlobRef, claimRecords);
+            encodeProposeInputWithGenesis(uint48(0), coreState, invalidBlobRef, transitionRecords);
 
         // Act & Assert: Invalid blob reference should be rejected
         vm.expectRevert(LibBlobs.NoBlobs.selector);
@@ -391,9 +391,9 @@ contract InboxProposeValidation is InboxTest {
         // Setup: Create baseline state for blob availability testing
         setupBlobHashes(); // Setup valid blob hashes first
 
-        IInbox.Transition memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 initialParentHash = keccak256(abi.encode(genesisClaim));
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
@@ -413,11 +413,11 @@ contract InboxProposeValidation is InboxTest {
             offset: 0
         });
 
-        IInbox.TransitionRecord[] memory claimRecords = new IInbox.TransitionRecord[](0);
+        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](0);
 
         // Use the proper encoding function that includes the proposals array
         bytes memory data =
-            encodeProposeInputWithGenesis(uint48(0), coreState, blobRef, claimRecords);
+            encodeProposeInputWithGenesis(uint48(0), coreState, blobRef, transitionRecords);
 
         // Act & Assert: Missing blob should be rejected for data availability
         vm.expectRevert(LibBlobs.BlobNotFound.selector);

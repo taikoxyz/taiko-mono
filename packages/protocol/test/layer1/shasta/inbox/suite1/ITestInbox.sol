@@ -19,7 +19,7 @@ interface ITestInbox is IInbox {
     /// @notice Expose internal function for testing - set proposal hash
     function exposed_setProposalHash(uint48 _proposalId, bytes32 _hash) external;
 
-    /// @notice Expose internal function for testing - set claim record hash
+    /// @notice Expose internal function for testing - set transition record hash
     function exposed_setTransitionRecordHash(
         uint48 _proposalId,
         IInbox.Transition memory _transition,

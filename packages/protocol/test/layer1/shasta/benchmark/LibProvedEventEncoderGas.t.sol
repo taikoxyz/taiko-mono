@@ -163,7 +163,7 @@ contract LibProvedEventEncoderGas is Test {
         payload_.transition.actualProver = address(0xdAC17F958D2ee523a2206206994597C13D831ec7);
 
         payload_.transitionRecord.span = 42;
-        payload_.transitionRecord.transitionHash = keccak256("claim");
+        payload_.transitionRecord.transitionHash = keccak256("transition");
         payload_.transitionRecord.endBlockMiniHeaderHash = keccak256("header");
         payload_.transitionRecord.bondInstructions =
             new LibBonds.BondInstruction[](_bondInstructionsCount);

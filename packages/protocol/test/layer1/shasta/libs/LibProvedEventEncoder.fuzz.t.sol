@@ -42,7 +42,7 @@ contract LibProvedEventEncoderFuzzTest is Test {
         );
     }
 
-    function testFuzz_encodeDecodeClaim(
+    function testFuzz_encodeDecodeTransition(
         bytes32 _proposalHash,
         bytes32 _parentTransitionHash,
         uint48 _endBlockNumber,
@@ -143,7 +143,7 @@ contract LibProvedEventEncoderFuzzTest is Test {
         original.transition.designatedProver = _designatedProver;
         original.transition.actualProver = address(uint160(_designatedProver) + 1);
 
-        // Create ClaimRecord with derived values
+        // Create TransitionRecord with derived values
         original.transitionRecord.span = uint8(uint256(keccak256(abi.encode(_proposalId))) % 10 + 1);
         original.transitionRecord.transitionHash = keccak256(abi.encode("transitionHash", _proposalId));
         original.transitionRecord.endBlockMiniHeaderHash =

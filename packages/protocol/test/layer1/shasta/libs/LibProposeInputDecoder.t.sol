@@ -168,7 +168,7 @@ contract LibProposeInputDecoderTest is Test {
         LibBlobs.BlobReference memory blobRef =
             LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 3, offset: 512 });
 
-        // Setup 2 claim records with bond instructions
+        // Setup 2 transition records with bond instructions
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](2);
 
         LibBonds.BondInstruction[] memory bondInstructions1 = new LibBonds.BondInstruction[](2);
@@ -188,7 +188,7 @@ contract LibProposeInputDecoderTest is Test {
         transitionRecords[0] = IInbox.TransitionRecord({
             span: 1,
             bondInstructions: bondInstructions1,
-            transitionHash: keccak256("claim_96"),
+            transitionHash: keccak256("transition_96"),
             endBlockMiniHeaderHash: keccak256("end_block_96")
         });
 
@@ -203,7 +203,7 @@ contract LibProposeInputDecoderTest is Test {
         transitionRecords[1] = IInbox.TransitionRecord({
             span: 2,
             bondInstructions: bondInstructions2,
-            transitionHash: keccak256("claim_97"),
+            transitionHash: keccak256("transition_97"),
             endBlockMiniHeaderHash: keccak256("end_block_97")
         });
 

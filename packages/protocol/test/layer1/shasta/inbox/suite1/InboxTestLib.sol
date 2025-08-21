@@ -19,13 +19,13 @@ library InboxTestLib {
         IInbox.CoreState coreState;
         IInbox.Proposal[] proposals;
         IInbox.Transition[] transitions;
-        IInbox.TransitionRecord[] claimRecords;
+        IInbox.TransitionRecord[] transitionRecords;
         bytes32 currentParentHash;
         uint48 nextProposalId;
         uint48 lastFinalizedId;
     }
 
-    /// @dev Chain of proposals and claims for testing
+    /// @dev Chain of proposals and transitions for testing
     struct ProposalChain {
         IInbox.Proposal[] proposals;
         IInbox.Transition[] transitions;
@@ -77,7 +77,7 @@ library InboxTestLib {
     // Assertion Helpers
     // ---------------------------------------------------------------
 
-    /// @dev Asserts that a chain of proposals and claims is valid
+    /// @dev Asserts that a chain of proposals and transitions is valid
     function assertChainIntegrity(ProposalChain memory _chain) internal pure {
         require(_chain.proposals.length == _chain.transitions.length, "Chain length mismatch");
 
@@ -87,7 +87,7 @@ library InboxTestLib {
             currentParent = hashTransition(_chain.transitions[i]);
         }
 
-        require(currentParent == _chain.finalTransitionHash, "Final claim hash mismatch");
+        require(currentParent == _chain.finalTransitionHash, "Final transition hash mismatch");
     }
 
     /// @dev Asserts that finalization completed correctly
@@ -104,7 +104,7 @@ library InboxTestLib {
         );
         require(
             _actualState.lastFinalizedTransitionHash == _expectedState.lastFinalizedTransitionHash,
-            "Last finalized claim hash mismatch"
+            "Last finalized transition hash mismatch"
         );
     }
 
@@ -275,14 +275,14 @@ library InboxTestLib {
     )
         internal
         pure
-        returns (IInbox.Transition[] memory claims)
+        returns (IInbox.Transition[] memory transitions)
     {
-        claims = new IInbox.Transition[](_proposals.length);
+        transitions = new IInbox.Transition[](_proposals.length);
         bytes32 parentHash = _initialParentHash;
 
         for (uint256 i = 0; i < _proposals.length; i++) {
-            claims[i] = createTransition(_proposals[i], parentHash, _prover);
-            parentHash = hashTransition(claims[i]);
+            transitions[i] = createTransition(_proposals[i], parentHash, _prover);
+            parentHash = hashTransition(transitions[i]);
         }
     }
 
@@ -506,12 +506,12 @@ library InboxTestLib {
         return keccak256(abi.encode(_proposal));
     }
 
-    /// @dev Computes claim hash
+    /// @dev Computes transition hash
     function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
         return keccak256(abi.encode(_transition));
     }
 
-    /// @dev Computes claim record hash
+    /// @dev Computes transition record hash
     function hashTransitionRecord(IInbox.TransitionRecord memory _record) internal pure returns (bytes32) {
         return keccak256(abi.encode(_record));
     }
@@ -636,7 +636,7 @@ library InboxTestLib {
     // Chain Building Functions
     // ---------------------------------------------------------------
 
-    /// @dev Creates a complete proposal chain with claims
+    /// @dev Creates a complete proposal chain with transitions
     function createProposalChain(
         uint48 _startId,
         uint48 _count,
@@ -660,8 +660,8 @@ library InboxTestLib {
         }
     }
 
-    /// @dev Creates a genesis claim
-    function createGenesisClaim(bytes32 _genesisBlockHash)
+    /// @dev Creates a genesis transition
+    function createGenesisTransition(bytes32 _genesisBlockHash)
         internal
         pure
         returns (IInbox.Transition memory)
@@ -679,9 +679,9 @@ library InboxTestLib {
         });
     }
 
-    /// @dev Gets the genesis claim hash
+    /// @dev Gets the genesis transition hash
     function getGenesisTransitionHash(bytes32 _genesisBlockHash) internal pure returns (bytes32) {
-        return hashTransition(createGenesisClaim(_genesisBlockHash));
+        return hashTransition(createGenesisTransition(_genesisBlockHash));
     }
 
     // ---------------------------------------------------------------
@@ -785,8 +785,8 @@ library InboxTestLib {
         return _ctx;
     }
 
-    /// @dev Adds a claim to the context
-    function addClaim(
+    /// @dev Adds a transition to the context
+    function addTransition(
         TestContext memory _ctx,
         IInbox.Transition memory _transition
     )
@@ -794,12 +794,12 @@ library InboxTestLib {
         pure
         returns (TestContext memory)
     {
-        IInbox.Transition[] memory newClaims = new IInbox.Transition[](_ctx.transitions.length + 1);
+        IInbox.Transition[] memory newTransitions = new IInbox.Transition[](_ctx.transitions.length + 1);
         for (uint256 i = 0; i < _ctx.transitions.length; i++) {
-            newClaims[i] = _ctx.transitions[i];
+            newTransitions[i] = _ctx.transitions[i];
         }
-        newClaims[_ctx.transitions.length] = _transition;
-        _ctx.transitions = newClaims;
+        newTransitions[_ctx.transitions.length] = _transition;
+        _ctx.transitions = newTransitions;
         _ctx.currentParentHash = hashTransition(_transition);
         return _ctx;
     }

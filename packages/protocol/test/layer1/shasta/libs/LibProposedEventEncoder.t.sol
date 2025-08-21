@@ -30,7 +30,7 @@ contract LibProposedEventEncoderTest is Test {
 
         original.coreState.nextProposalId = 2;
         original.coreState.lastFinalizedProposalId = 0;
-        original.coreState.lastFinalizedTransitionHash = keccak256("lastClaim");
+        original.coreState.lastFinalizedTransitionHash = keccak256("lastTransition");
         original.coreState.bondInstructionsHash = keccak256("bondInstructions");
 
         // Encode
@@ -95,7 +95,7 @@ contract LibProposedEventEncoderTest is Test {
 
         original.coreState.nextProposalId = 54_321;
         original.coreState.lastFinalizedProposalId = 54_320;
-        original.coreState.lastFinalizedTransitionHash = keccak256("finalizedClaim");
+        original.coreState.lastFinalizedTransitionHash = keccak256("finalizedTransition");
         original.coreState.bondInstructionsHash = keccak256("bondInstructionsHash");
 
         // Encode

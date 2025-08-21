@@ -100,9 +100,9 @@ contract InboxBasicTest is InboxTest {
         inbox.propose(bytes(""), data);
     }
 
-    /// @notice Test proving a claim
+    /// @notice Test proving a transition
     /// @dev Validates basic proof submission flow
-    function test_prove_single_claim() public {
+    function test_prove_single_transition() public {
         // Arrange: Submit a proposal that can be proven
         IInbox.Proposal memory proposal = submitProposal(1, Alice);
 
@@ -110,13 +110,13 @@ contract InboxBasicTest is InboxTest {
         bytes32 genesisTransitionHash = getGenesisTransitionHash();
         proveProposal(proposal, Bob, genesisTransitionHash);
 
-        // Assert: Verify claim record was stored for later finalization
+        // Assert: Verify transition record was stored for later finalization
         assertTransitionRecordStored(1, genesisTransitionHash);
     }
 
-    /// @notice Test proving multiple claims individually
+    /// @notice Test proving multiple transitions individually
     /// @dev Validates individual proof submission for multiple proposals
-    function test_prove_multiple_claims() public {
+    function test_prove_multiple_transitions() public {
         uint48 numProposals = 3;
         bytes32 genesisHash = getGenesisTransitionHash();
 
@@ -131,16 +131,16 @@ contract InboxBasicTest is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             proveProposal(proposals[i], Bob, currentParent);
             // Update parent for next iteration
-            IInbox.Transition memory claim = InboxTestLib.createTransition(proposals[i], currentParent, Bob);
-            currentParent = InboxTestLib.hashTransition(claim);
+            IInbox.Transition memory transition = InboxTestLib.createTransition(proposals[i], currentParent, Bob);
+            currentParent = InboxTestLib.hashTransition(transition);
         }
 
-        // Verify all claim records stored
+        // Verify all transition records stored
         currentParent = genesisHash;
         for (uint48 i = 0; i < numProposals; i++) {
             assertTransitionRecordStored(i + 1, currentParent);
-            IInbox.Transition memory claim = InboxTestLib.createTransition(proposals[i], currentParent, Bob);
-            currentParent = InboxTestLib.hashTransition(claim);
+            IInbox.Transition memory transition = InboxTestLib.createTransition(proposals[i], currentParent, Bob);
+            currentParent = InboxTestLib.hashTransition(transition);
         }
     }
 }

@@ -17,10 +17,10 @@ contract LibProveInputDecoderGas is Test {
         console2.log("======================================================\n");
 
         // Test with different combinations
-        _runDecodingTest(1, "Simple: 1 proposal + claim, 0 blob hashes");
-        _runDecodingTest(3, "Medium: 3 proposals + claims, 2 blob hashes each");
-        _runDecodingTest(5, "Large: 5 proposals + claims, 3 blob hashes each");
-        _runDecodingTest(10, "XLarge: 10 proposals + claims, 4 blob hashes each");
+        _runDecodingTest(1, "Simple: 1 proposal + transition, 0 blob hashes");
+        _runDecodingTest(3, "Medium: 3 proposals + transitions, 2 blob hashes each");
+        _runDecodingTest(5, "Large: 5 proposals + transitions, 3 blob hashes each");
+        _runDecodingTest(10, "XLarge: 10 proposals + transitions, 4 blob hashes each");
 
         _writeReport();
     }
@@ -188,7 +188,7 @@ contract LibProveInputDecoderGas is Test {
         for (uint256 i = 0; i < _proposalCount; i++) {
             input.transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
-                parentTransitionHash: keccak256(abi.encodePacked("parent_claim", i)),
+                parentTransitionHash: keccak256(abi.encodePacked("parent_transition", i)),
                 endBlockMiniHeader: IInbox.BlockMiniHeader({
                     number: uint48(2_000_000 + i * 10),
                     hash: keccak256(abi.encodePacked("end_block", i)),
@@ -217,7 +217,7 @@ contract LibProveInputDecoderGas is Test {
         report = string.concat(report, "| XLarge (10P+C, 4B) | 99,052 gas | 87,390 gas | 11% |\n\n");
 
         report = string.concat(
-            report, "**Note**: P = Proposals, C = Claims, B = Blob Hashes per proposal\n"
+            report, "**Note**: P = Proposals, T = Transitions, B = Blob Hashes per proposal\n"
         );
         report = string.concat(
             report, "**Note**: Gas measurements include both calldata and decode costs\n"

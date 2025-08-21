@@ -9,5 +9,5 @@
 | Large (5P+C, 3B) | 46,534 gas | 39,079 gas | 16% |
 | XLarge (10P+C, 4B) | 99,052 gas | 87,390 gas | 11% |
 
-**Note**: P = Proposals, C = Claims, B = Blob Hashes per proposal
+**Note**: P = Proposals, T = Transitions, B = Blob Hashes per proposal
 **Note**: Gas measurements include both calldata and decode costs
