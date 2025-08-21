@@ -84,7 +84,10 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(
             decoded.coreState.lastFinalizedProposalId, payload.coreState.lastFinalizedProposalId
         );
-        assertEq(decoded.coreState.lastFinalizedTransitionHash, payload.coreState.lastFinalizedTransitionHash);
+        assertEq(
+            decoded.coreState.lastFinalizedTransitionHash,
+            payload.coreState.lastFinalizedTransitionHash
+        );
         assertEq(decoded.coreState.bondInstructionsHash, payload.coreState.bondInstructionsHash);
     }
 
@@ -200,7 +203,10 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(
             decoded.coreState.lastFinalizedProposalId, payload.coreState.lastFinalizedProposalId
         );
-        assertEq(decoded.coreState.lastFinalizedTransitionHash, payload.coreState.lastFinalizedTransitionHash);
+        assertEq(
+            decoded.coreState.lastFinalizedTransitionHash,
+            payload.coreState.lastFinalizedTransitionHash
+        );
         assertEq(decoded.coreState.bondInstructionsHash, payload.coreState.bondInstructionsHash);
     }
 

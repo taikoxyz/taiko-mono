@@ -180,7 +180,10 @@ contract InboxRingBuffer is InboxTest {
 
         setupProposalMocks(Alice);
         bytes memory data2 = encodeProposeInputForSubsequent(
-            coreState2, proposal1, InboxTestLib.createBlobReference(2), new IInbox.TransitionRecord[](0)
+            coreState2,
+            proposal1,
+            InboxTestLib.createBlobReference(2),
+            new IInbox.TransitionRecord[](0)
         );
 
         setupBlobHashes();

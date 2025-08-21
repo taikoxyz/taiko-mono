@@ -63,7 +63,8 @@ interface IInbox {
     struct Transition {
         /// @notice The proposal's hash.
         bytes32 proposalHash;
-        /// @notice The parent transition's hash, this is used to link the transition to its parent transition to
+        /// @notice The parent transition's hash, this is used to link the transition to its parent
+        /// transition to
         /// finalize the corresponding proposal.
         bytes32 parentTransitionHash;
         /// @notice The end block header containing number, hash, and state root.
@@ -167,7 +168,8 @@ interface IInbox {
     /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
-    /// @notice Proves a transition about some properties of a proposal, including its state transition.
+    /// @notice Proves a transition about some properties of a proposal, including its state
+    /// transition.
     /// @param _data The encoded ProveInput struct.
     /// @param _proof Validity proof for the transitions.
     function prove(bytes calldata _data, bytes calldata _proof) external;
@@ -181,7 +183,8 @@ interface IInbox {
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
     function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
 
-    /// @notice Returns the transition record hash for a given proposal ID and parent transition hash.
+    /// @notice Returns the transition record hash for a given proposal ID and parent transition
+    /// hash.
     /// @param _proposalId The proposal ID.
     /// @param _parentTransitionHash The parent transition hash.
     /// @return transitionRecordHash_ The hash of the transition record.

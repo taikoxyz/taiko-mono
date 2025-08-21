@@ -2,7 +2,9 @@
 pragma solidity ^0.8.24;
 
 import "./InboxTest.sol";
-import { Inbox, TransitionRecordHashMismatchWithStorage } from "contracts/layer1/shasta/impl/Inbox.sol";
+import {
+    Inbox, TransitionRecordHashMismatchWithStorage
+} from "contracts/layer1/shasta/impl/Inbox.sol";
 import "./InboxMockContracts.sol";
 
 /// @title InboxFinalization
@@ -34,8 +36,9 @@ contract InboxFinalization is InboxTest {
         IInbox.Proposal memory proposal = _createStoredProposal(proposalId, coreState);
         IInbox.Transition memory transition =
             InboxTestLib.createTransition(proposal, coreState.lastFinalizedTransitionHash, Alice);
-        IInbox.TransitionRecord memory transitionRecord =
-            _createStoredTransitionRecord(proposalId, transition, coreState.lastFinalizedTransitionHash);
+        IInbox.TransitionRecord memory transitionRecord = _createStoredTransitionRecord(
+            proposalId, transition, coreState.lastFinalizedTransitionHash
+        );
 
         // Setup expectations
         expectSyncedBlockSave(
@@ -141,7 +144,8 @@ contract InboxFinalization is InboxTest {
         }
 
         // Create transition records for finalization
-        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](numProposals);
+        IInbox.TransitionRecord[] memory transitionRecords =
+            new IInbox.TransitionRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
             transitionRecords[i] = InboxTestLib.createTransitionRecord(transitions[i], 1);
         }
@@ -220,7 +224,8 @@ contract InboxFinalization is InboxTest {
         proposal1.coreStateHash = keccak256(abi.encode(coreState1));
         inbox.exposed_setProposalHash(1, keccak256(abi.encode(proposal1)));
 
-        IInbox.Transition memory transition1 = InboxTestLib.createTransition(proposal1, parentTransitionHash, Bob);
+        IInbox.Transition memory transition1 =
+            InboxTestLib.createTransition(proposal1, parentTransitionHash, Bob);
         IInbox.TransitionRecord memory transitionRecord1 = IInbox.TransitionRecord({
             span: 1,
             bondInstructions: new LibBonds.BondInstruction[](0),
@@ -295,7 +300,8 @@ contract InboxFinalization is InboxTest {
         // Submit and prove proposal 1 correctly first
         IInbox.Proposal memory proposal1 = submitProposal(1, Alice);
         bytes32 parentTransitionHash = getGenesisTransitionHash();
-        IInbox.Transition memory transition1 = InboxTestLib.createTransition(proposal1, parentTransitionHash, Bob);
+        IInbox.Transition memory transition1 =
+            InboxTestLib.createTransition(proposal1, parentTransitionHash, Bob);
         proveProposal(proposal1, Bob, parentTransitionHash);
 
         // Now try to finalize with a WRONG transition record

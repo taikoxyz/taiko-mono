@@ -58,7 +58,8 @@ contract InboxOutOfOrderProving is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.TransitionRecord[] memory emptyTransitionRecords = new IInbox.TransitionRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             // Include proposals array for validation
             IInbox.Proposal[] memory validationProposals;
@@ -162,13 +163,16 @@ contract InboxOutOfOrderProving is InboxTest {
             inbox.prove(proveData, proof);
 
             // Verify transition record was stored with correct parent
-            bytes32 transitionParentHash = index == 0 ? initialParentHash : transitionHashes[index - 1];
-            bytes32 storedTransitionHash = inbox.getTransitionRecordHash(proposals[index].id, transitionParentHash);
+            bytes32 transitionParentHash =
+                index == 0 ? initialParentHash : transitionHashes[index - 1];
+            bytes32 storedTransitionHash =
+                inbox.getTransitionRecordHash(proposals[index].id, transitionParentHash);
             assertTrue(storedTransitionHash != bytes32(0));
         }
 
         // Phase 3: Attempt finalization - should finalize all in correct order
-        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](numProposals);
+        IInbox.TransitionRecord[] memory transitionRecords =
+            new IInbox.TransitionRecord[](numProposals);
 
         for (uint48 i = 0; i < numProposals; i++) {
             transitionRecords[i] = IInbox.TransitionRecord({
@@ -251,7 +255,8 @@ contract InboxOutOfOrderProving is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.TransitionRecord[] memory emptyTransitionRecords = new IInbox.TransitionRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             // Include proposals array for validation
             bytes memory proposalData;
@@ -276,7 +281,11 @@ contract InboxOutOfOrderProving is InboxTest {
                 );
 
                 proposalData = encodeProposeInputForSubsequent(
-                    uint48(0), proposalCoreState, prevProposal, proposalBlobRef, emptyTransitionRecords
+                    uint48(0),
+                    proposalCoreState,
+                    prevProposal,
+                    proposalBlobRef,
+                    emptyTransitionRecords
                 );
             }
 

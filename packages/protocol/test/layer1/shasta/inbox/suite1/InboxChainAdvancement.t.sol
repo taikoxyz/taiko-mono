@@ -45,7 +45,8 @@ contract InboxChainAdvancement is InboxTest {
         // Act: Create, prove, and prepare proposals for sequential chain advancement
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
         IInbox.Transition[] memory transitions = new IInbox.Transition[](numProposals);
-        IInbox.TransitionRecord[] memory storedTransitionRecords = new IInbox.TransitionRecord[](numProposals);
+        IInbox.TransitionRecord[] memory storedTransitionRecords =
+            new IInbox.TransitionRecord[](numProposals);
         bytes32 currentParentHash = genesisHash;
 
         // Step 1: Create all proposals first (no proving yet)
@@ -64,7 +65,8 @@ contract InboxChainAdvancement is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.TransitionRecord[] memory emptyTransitionRecords = new IInbox.TransitionRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
@@ -128,7 +130,11 @@ contract InboxChainAdvancement is InboxTest {
         // Verify chain progression - each transition should have correct parent
         for (uint48 i = 1; i < numProposals; i++) {
             bytes32 expectedParent = InboxTestLib.hashTransition(transitions[i - 1]);
-            assertEq(transitions[i].parentTransitionHash, expectedParent, "Chain should progress correctly");
+            assertEq(
+                transitions[i].parentTransitionHash,
+                expectedParent,
+                "Chain should progress correctly"
+            );
         }
 
         // Verify all proposals are stored
@@ -175,7 +181,7 @@ contract InboxChainAdvancement is InboxTest {
 
             // Create proposal data
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.TransitionRecord[] memory emptyTransitionRecords = new IInbox.TransitionRecord[](0);
+    IInbox.TransitionRecord[] memory emptyTransitionRecords = new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
@@ -239,9 +245,10 @@ contract InboxChainAdvancement is InboxTest {
             currentParentHash = keccak256(abi.encode(transitions[i]));
         }
 
-        // Step 3: Finalize all proposals in one transaction - create transition records like working
+    // Step 3: Finalize all proposals in one transaction - create transition records like working
         // test
-        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](numProposals);
+    IInbox.TransitionRecord[] memory transitionRecords = new
+    IInbox.TransitionRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
@@ -256,7 +263,7 @@ contract InboxChainAdvancement is InboxTest {
         // Core state will be validated by the contract during propose()
 
         // Expect: Final block update for batch completion
-        IInbox.BlockMiniHeader memory lastHeader = transitions[numProposals - 1].endBlockMiniHeader;
+    IInbox.BlockMiniHeader memory lastHeader = transitions[numProposals - 1].endBlockMiniHeader;
         expectSyncedBlockSave(
             lastHeader.number,
             lastHeader.hash,
@@ -316,7 +323,8 @@ contract InboxChainAdvancement is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.TransitionRecord[] memory emptyTransitionRecords = new IInbox.TransitionRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
@@ -416,7 +424,8 @@ contract InboxChainAdvancement is InboxTest {
     }
 
     /// @notice Test max finalization count limit
-    /// @dev TODO: This test needs to be fixed - the transition records are not being encoded properly
+    /// @dev TODO: This test needs to be fixed - the transition records are not being encoded
+    /// properly
     function disabled_test_max_finalization_count_limit() public {
         setupBlobHashes();
         // Set max finalization count to 3
@@ -446,7 +455,8 @@ contract InboxChainAdvancement is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.TransitionRecord[] memory emptyTransitionRecords = new IInbox.TransitionRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
             bytes memory proposalData =
                 abi.encode(uint48(0), proposalCoreState, proposalBlobRef, emptyTransitionRecords);
 
@@ -527,7 +537,8 @@ contract InboxChainAdvancement is InboxTest {
             new IInbox.Proposal[](0), // No proposals needed for validation in this test
             blobRef,
             transitionRecords,
-            transitions[2].endBlockMiniHeader // Header from the 3rd transition (max that will be finalized)
+            transitions[2].endBlockMiniHeader // Header from the 3rd transition (max that will be
+                // finalized)
         );
 
         mockProposerAllowed(Carol);
@@ -558,7 +569,8 @@ contract InboxChainAdvancement is InboxTest {
         // Act: Create and prove all proposals (exceeds finalization limit)
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
         IInbox.Transition[] memory transitions = new IInbox.Transition[](numProposals);
-        IInbox.TransitionRecord[] memory storedTransitionRecords = new IInbox.TransitionRecord[](numProposals);
+        IInbox.TransitionRecord[] memory storedTransitionRecords =
+            new IInbox.TransitionRecord[](numProposals);
         bytes32 currentParentHash = genesisHash;
 
         // Step 1: Create all proposals first (no proving yet)
@@ -578,7 +590,8 @@ contract InboxChainAdvancement is InboxTest {
 
             // Create proposal data
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.TransitionRecord[] memory emptyTransitionRecords = new IInbox.TransitionRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
@@ -642,7 +655,8 @@ contract InboxChainAdvancement is InboxTest {
 
         // Extract the endBlockMiniHeader from the last transition that will be finalized
         // (maxFinalizationCount - 1)
-        // Since only maxFinalizationCount proposals will be finalized, we use that transition's header
+        // Since only maxFinalizationCount proposals will be finalized, we use that transition's
+        // header
         IInbox.BlockMiniHeader memory lastEndHeader =
             transitions[defaultConfig.maxFinalizationCount - 1].endBlockMiniHeader;
 
@@ -702,7 +716,9 @@ contract InboxChainAdvancement is InboxTest {
         transitions[0] = transition;
 
         vm.prank(Alice);
-        inbox.prove(InboxTestAdapter.encodeProveInput(inboxType, proposals, transitions), bytes("proof"));
+        inbox.prove(
+            InboxTestAdapter.encodeProveInput(inboxType, proposals, transitions), bytes("proof")
+        );
     }
 
     /// @notice Helper function to finalize proposals with transition records
@@ -722,7 +738,13 @@ contract InboxChainAdvancement is InboxTest {
         validationProposals[0] = lastProposal;
 
         bytes memory proposeData = InboxTestAdapter.encodeProposeInputWithEndBlock(
-            inboxType, uint48(0), coreState, validationProposals, blobRef, transitionRecords, endHeader
+            inboxType,
+            uint48(0),
+            coreState,
+            validationProposals,
+            blobRef,
+            transitionRecords,
+            endHeader
         );
 
         mockProposerAllowed(Carol);
@@ -770,7 +792,8 @@ contract InboxChainAdvancement is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.TransitionRecord[] memory emptyTransitionRecords = new IInbox.TransitionRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
@@ -862,7 +885,8 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.TransitionRecord memory expectedAggregatedRecord = IInbox.TransitionRecord({
             span: 3,
             bondInstructions: expectedBondInstructions,
-            transitionHash: InboxTestLib.hashTransition(transitions[2]), // Last transition in the aggregated group
+            transitionHash: InboxTestLib.hashTransition(transitions[2]), // Last transition in the
+                // aggregated group
             endBlockMiniHeaderHash: keccak256(abi.encode(transitions[2].endBlockMiniHeader))
         });
 
@@ -873,7 +897,9 @@ contract InboxChainAdvancement is InboxTest {
         // Step 3: Verify the aggregated transition record is stored correctly
         // For proposal 1, the parent should be the genesis transition hash
         bytes32 transitionRecordHash1 = inbox.getTransitionRecordHash(1, parentHash);
-        assertTrue(transitionRecordHash1 != bytes32(0), "Transition record for proposal 1 should exist");
+        assertTrue(
+            transitionRecordHash1 != bytes32(0), "Transition record for proposal 1 should exist"
+        );
 
         // Verify the stored transition record hash matches what we expect
         bytes32 expectedTransitionRecordHash = keccak256(abi.encode(expectedAggregatedRecord));
@@ -883,7 +909,8 @@ contract InboxChainAdvancement is InboxTest {
             "Stored transition record should match expected aggregated record"
         );
 
-        // For proposals 2 and 3, they won't have separate transition records since they're aggregated
+        // For proposals 2 and 3, they won't have separate transition records since they're
+        // aggregated
         // The finalization will use the aggregated record from proposal 1
 
         // Step 4: Finalize all 3 proposals with the single aggregated transition record
@@ -893,7 +920,9 @@ contract InboxChainAdvancement is InboxTest {
 
         // Double-check that all 3 bond instructions are present and correct
         assertEq(
-            transitionRecords[0].bondInstructions.length, 3, "Should have exactly 3 bond instructions"
+            transitionRecords[0].bondInstructions.length,
+            3,
+            "Should have exactly 3 bond instructions"
         );
 
         // Verify each bond instruction individually
@@ -1014,7 +1043,8 @@ contract InboxChainAdvancement is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.TransitionRecord[] memory emptyTransitionRecords = new IInbox.TransitionRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
@@ -1102,13 +1132,18 @@ contract InboxChainAdvancement is InboxTest {
             });
 
             bytes32 expectedHash = keccak256(abi.encode(expectedRecord));
-            assertEq(transitionRecordHash, expectedHash, "Core should store non-aggregated transition record");
+            assertEq(
+                transitionRecordHash,
+                expectedHash,
+                "Core should store non-aggregated transition record"
+            );
 
             expectedParent = keccak256(abi.encode(transitions[i]));
         }
 
         // Step 5: Finalize all 3 using separate transition records
-        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](numProposals);
+        IInbox.TransitionRecord[] memory transitionRecords =
+            new IInbox.TransitionRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
@@ -1131,9 +1166,12 @@ contract InboxChainAdvancement is InboxTest {
             bondInstructionsHash: bytes32(0)
         });
 
-        IInbox.BlockMiniHeader memory lastEndHeader2 = transitions[numProposals - 1].endBlockMiniHeader;
+        IInbox.BlockMiniHeader memory lastEndHeader2 =
+            transitions[numProposals - 1].endBlockMiniHeader;
         uint48 nextId = 4; // numProposals + 1 = 3 + 1
-        _finalizeWithTransitionRecords(coreState, lastProposal, transitionRecords, lastEndHeader2, nextId);
+        _finalizeWithTransitionRecords(
+            coreState, lastProposal, transitionRecords, lastEndHeader2, nextId
+        );
 
         // All 3 proposals are finalized with separate transition records (Core behavior)
     }
@@ -1166,7 +1204,8 @@ contract InboxChainAdvancement is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.TransitionRecord[] memory emptyTransitionRecords = new IInbox.TransitionRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
@@ -1242,7 +1281,8 @@ contract InboxChainAdvancement is InboxTest {
         }
 
         // Step 3: Finalize all 3 proposals in one transaction
-        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](numProposals);
+        IInbox.TransitionRecord[] memory transitionRecords =
+            new IInbox.TransitionRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
@@ -1262,7 +1302,8 @@ contract InboxChainAdvancement is InboxTest {
         // Core state will be validated by the contract during propose()
 
         // Expect synced block save for the last finalized proposal
-        IInbox.BlockMiniHeader memory lastEndHeader2 = transitions[numProposals - 1].endBlockMiniHeader;
+        IInbox.BlockMiniHeader memory lastEndHeader2 =
+            transitions[numProposals - 1].endBlockMiniHeader;
         expectSyncedBlockSave(lastEndHeader2.number, lastEndHeader2.hash, lastEndHeader2.stateRoot);
 
         // Create next proposal with finalization of all 3

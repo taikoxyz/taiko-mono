@@ -38,7 +38,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         assertEq(decoded.transitionRecord.span, original.transitionRecord.span);
         assertEq(decoded.transitionRecord.transitionHash, original.transitionRecord.transitionHash);
         assertEq(
-            decoded.transitionRecord.endBlockMiniHeaderHash, original.transitionRecord.endBlockMiniHeaderHash
+            decoded.transitionRecord.endBlockMiniHeaderHash,
+            original.transitionRecord.endBlockMiniHeaderHash
         );
     }
 
@@ -70,10 +71,16 @@ contract LibProvedEventEncoderFuzzTest is Test {
 
         assertEq(decoded.transition.proposalHash, original.transition.proposalHash);
         assertEq(decoded.transition.parentTransitionHash, original.transition.parentTransitionHash);
-        assertEq(decoded.transition.endBlockMiniHeader.number, original.transition.endBlockMiniHeader.number);
-        assertEq(decoded.transition.endBlockMiniHeader.hash, original.transition.endBlockMiniHeader.hash);
         assertEq(
-            decoded.transition.endBlockMiniHeader.stateRoot, original.transition.endBlockMiniHeader.stateRoot
+            decoded.transition.endBlockMiniHeader.number,
+            original.transition.endBlockMiniHeader.number
+        );
+        assertEq(
+            decoded.transition.endBlockMiniHeader.hash, original.transition.endBlockMiniHeader.hash
+        );
+        assertEq(
+            decoded.transition.endBlockMiniHeader.stateRoot,
+            original.transition.endBlockMiniHeader.stateRoot
         );
         assertEq(decoded.transition.designatedProver, original.transition.designatedProver);
         assertEq(decoded.transition.actualProver, original.transition.actualProver);
@@ -84,7 +91,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
 
         IInbox.ProvedEventPayload memory original;
         original.proposalId = 100;
-        original.transitionRecord.bondInstructions = new LibBonds.BondInstruction[](_instructionCount);
+        original.transitionRecord.bondInstructions =
+            new LibBonds.BondInstruction[](_instructionCount);
 
         for (uint256 i = 0; i < _instructionCount; i++) {
             original.transitionRecord.bondInstructions[i].proposalId = uint48(i + 1000);
@@ -139,13 +147,15 @@ contract LibProvedEventEncoderFuzzTest is Test {
         original.transition.endBlockMiniHeader.number =
             uint48(uint256(keccak256(abi.encode(_proposalId))) % MAX_UINT48);
         original.transition.endBlockMiniHeader.hash = keccak256(abi.encode("endBlock", _proposalId));
-        original.transition.endBlockMiniHeader.stateRoot = keccak256(abi.encode("endState", _proposalId));
+        original.transition.endBlockMiniHeader.stateRoot =
+            keccak256(abi.encode("endState", _proposalId));
         original.transition.designatedProver = _designatedProver;
         original.transition.actualProver = address(uint160(_designatedProver) + 1);
 
         // Create TransitionRecord with derived values
         original.transitionRecord.span = uint8(uint256(keccak256(abi.encode(_proposalId))) % 10 + 1);
-        original.transitionRecord.transitionHash = keccak256(abi.encode("transitionHash", _proposalId));
+        original.transitionRecord.transitionHash =
+            keccak256(abi.encode("transitionHash", _proposalId));
         original.transitionRecord.endBlockMiniHeaderHash =
             keccak256(abi.encode("endBlockMiniHeaderHash", _proposalId));
 
@@ -169,17 +179,24 @@ contract LibProvedEventEncoderFuzzTest is Test {
         assertEq(decoded.proposalId, original.proposalId);
         assertEq(decoded.transition.proposalHash, original.transition.proposalHash);
         assertEq(decoded.transition.parentTransitionHash, original.transition.parentTransitionHash);
-        assertEq(decoded.transition.endBlockMiniHeader.number, original.transition.endBlockMiniHeader.number);
-        assertEq(decoded.transition.endBlockMiniHeader.hash, original.transition.endBlockMiniHeader.hash);
         assertEq(
-            decoded.transition.endBlockMiniHeader.stateRoot, original.transition.endBlockMiniHeader.stateRoot
+            decoded.transition.endBlockMiniHeader.number,
+            original.transition.endBlockMiniHeader.number
+        );
+        assertEq(
+            decoded.transition.endBlockMiniHeader.hash, original.transition.endBlockMiniHeader.hash
+        );
+        assertEq(
+            decoded.transition.endBlockMiniHeader.stateRoot,
+            original.transition.endBlockMiniHeader.stateRoot
         );
         assertEq(decoded.transition.designatedProver, original.transition.designatedProver);
         assertEq(decoded.transition.actualProver, original.transition.actualProver);
         assertEq(decoded.transitionRecord.span, original.transitionRecord.span);
         assertEq(decoded.transitionRecord.transitionHash, original.transitionRecord.transitionHash);
         assertEq(
-            decoded.transitionRecord.endBlockMiniHeaderHash, original.transitionRecord.endBlockMiniHeaderHash
+            decoded.transitionRecord.endBlockMiniHeaderHash,
+            original.transitionRecord.endBlockMiniHeaderHash
         );
         assertEq(decoded.transitionRecord.bondInstructions.length, _bondInstructionCount);
     }
@@ -272,7 +289,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         payload.transitionRecord.transitionHash = keccak256("transitionHash");
         payload.transitionRecord.endBlockMiniHeaderHash = keccak256("endBlockMiniHeaderHash");
 
-        payload.transitionRecord.bondInstructions = new LibBonds.BondInstruction[](_bondInstructionCount);
+        payload.transitionRecord.bondInstructions =
+            new LibBonds.BondInstruction[](_bondInstructionCount);
         for (uint256 i = 0; i < _bondInstructionCount; i++) {
             payload.transitionRecord.bondInstructions[i] = LibBonds.BondInstruction({
                 proposalId: uint48(123 + i),

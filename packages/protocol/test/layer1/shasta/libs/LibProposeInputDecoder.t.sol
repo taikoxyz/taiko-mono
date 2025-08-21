@@ -246,7 +246,8 @@ contract LibProposeInputDecoderTest is Test {
             decoded1.coreState.lastFinalizedProposalId, decoded2.coreState.lastFinalizedProposalId
         );
         assertEq(
-            decoded1.coreState.lastFinalizedTransitionHash, decoded2.coreState.lastFinalizedTransitionHash
+            decoded1.coreState.lastFinalizedTransitionHash,
+            decoded2.coreState.lastFinalizedTransitionHash
         );
         assertEq(decoded1.coreState.bondInstructionsHash, decoded2.coreState.bondInstructionsHash);
         assertEq(decoded1.parentProposals.length, decoded2.parentProposals.length);
@@ -344,7 +345,10 @@ contract LibProposeInputDecoderTest is Test {
         assertEq(decodedInput.deadline, deadline);
         assertEq(decodedInput.coreState.nextProposalId, coreState.nextProposalId);
         assertEq(decodedInput.coreState.lastFinalizedProposalId, coreState.lastFinalizedProposalId);
-        assertEq(decodedInput.coreState.lastFinalizedTransitionHash, coreState.lastFinalizedTransitionHash);
+        assertEq(
+            decodedInput.coreState.lastFinalizedTransitionHash,
+            coreState.lastFinalizedTransitionHash
+        );
         assertEq(decodedInput.coreState.bondInstructionsHash, coreState.bondInstructionsHash);
 
         assertEq(decodedInput.parentProposals.length, 1);

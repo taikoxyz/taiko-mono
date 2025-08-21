@@ -81,10 +81,16 @@ contract LibProveInputDecoderFuzz is Test {
         // Verify transition fields
         assertEq(decoded.transitions[0].proposalHash, transitions[0].proposalHash);
         assertEq(decoded.transitions[0].parentTransitionHash, transitions[0].parentTransitionHash);
-        assertEq(decoded.transitions[0].endBlockMiniHeader.number, transitions[0].endBlockMiniHeader.number);
-        assertEq(decoded.transitions[0].endBlockMiniHeader.hash, transitions[0].endBlockMiniHeader.hash);
         assertEq(
-            decoded.transitions[0].endBlockMiniHeader.stateRoot, transitions[0].endBlockMiniHeader.stateRoot
+            decoded.transitions[0].endBlockMiniHeader.number,
+            transitions[0].endBlockMiniHeader.number
+        );
+        assertEq(
+            decoded.transitions[0].endBlockMiniHeader.hash, transitions[0].endBlockMiniHeader.hash
+        );
+        assertEq(
+            decoded.transitions[0].endBlockMiniHeader.stateRoot,
+            transitions[0].endBlockMiniHeader.stateRoot
         );
         assertEq(decoded.transitions[0].designatedProver, transitions[0].designatedProver);
         assertEq(decoded.transitions[0].actualProver, transitions[0].actualProver);
@@ -139,7 +145,8 @@ contract LibProveInputDecoderFuzz is Test {
             assertEq(decoded.proposals[i].proposer, proposals[i].proposer);
             assertEq(decoded.transitions[i].proposalHash, transitions[i].proposalHash);
             assertEq(
-                decoded.transitions[i].endBlockMiniHeader.number, transitions[i].endBlockMiniHeader.number
+                decoded.transitions[i].endBlockMiniHeader.number,
+                transitions[i].endBlockMiniHeader.number
             );
         }
     }

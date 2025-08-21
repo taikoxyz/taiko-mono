@@ -329,7 +329,11 @@ abstract contract InboxTest is CommonTest {
     }
 
     /// @dev Build transition from builder
-    function buildTransition(TransitionBuilder memory _builder) internal pure returns (IInbox.Transition memory) {
+    function buildTransition(TransitionBuilder memory _builder)
+        internal
+        pure
+        returns (IInbox.Transition memory)
+    {
         return IInbox.Transition({
             proposalHash: _builder.proposalHash,
             parentTransitionHash: _builder.parentTransitionHash,
@@ -472,7 +476,8 @@ abstract contract InboxTest is CommonTest {
 
             // Create all transitions first
             for (uint48 i = 0; i < _config.proposalCount; i++) {
-                transitions[i] = InboxTestLib.createTransition(proposals[i], currentParent, _config.prover);
+                transitions[i] =
+                    InboxTestLib.createTransition(proposals[i], currentParent, _config.prover);
                 currentParent = InboxTestLib.hashTransition(transitions[i]);
             }
 
@@ -1103,7 +1108,9 @@ abstract contract InboxTest is CommonTest {
         internal
         returns (IInbox.Proposal memory proposal)
     {
-        return submitProposalWithTransitionRecords(_proposalId, _proposer, new IInbox.TransitionRecord[](0));
+        return submitProposalWithTransitionRecords(
+            _proposalId, _proposer, new IInbox.TransitionRecord[](0)
+        );
     }
 
     /// @dev Submits a proposal with transition records for finalization
@@ -1439,7 +1446,8 @@ abstract contract InboxTest is CommonTest {
 
         setupProofMocks(true);
 
-        bytes memory proveData = InboxTestAdapter.encodeProveInput(inboxType, _proposals, _transitions);
+        bytes memory proveData =
+            InboxTestAdapter.encodeProveInput(inboxType, _proposals, _transitions);
 
         // Record events to extract transition records
         vm.recordLogs();
@@ -1472,7 +1480,9 @@ abstract contract InboxTest is CommonTest {
         transitions[0] = _transition;
 
         vm.prank(_prover);
-        inbox.prove(InboxTestAdapter.encodeProveInput(inboxType, proposals, transitions), bytes("proof"));
+        inbox.prove(
+            InboxTestAdapter.encodeProveInput(inboxType, proposals, transitions), bytes("proof")
+        );
     }
 
     /// @dev Creates and proves a chain of proposals
@@ -1532,7 +1542,8 @@ abstract contract InboxTest is CommonTest {
         )
     {
         bytes32 genesisHash = getGenesisTransitionHash();
-        (proposals, transitions, transitionRecords) = createProvenChain(1, _numProposals, genesisHash);
+        (proposals, transitions, transitionRecords) =
+            createProvenChain(1, _numProposals, genesisHash);
     }
 
     // ---------------------------------------------------------------
@@ -1604,7 +1615,13 @@ abstract contract InboxTest is CommonTest {
         );
     }
 
-    function assertTransitionRecordStored(uint48 _proposalId, bytes32 _parentTransitionHash) internal view {
+    function assertTransitionRecordStored(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
+        internal
+        view
+    {
         bytes32 storedHash = inbox.getTransitionRecordHash(_proposalId, _parentTransitionHash);
         assertTrue(
             storedHash != bytes32(0),
@@ -1628,7 +1645,9 @@ abstract contract InboxTest is CommonTest {
             storedHash == bytes32(0),
             string(
                 abi.encodePacked(
-                    "Transition record for proposal ", vm.toString(_proposalId), " should not be stored"
+                    "Transition record for proposal ",
+                    vm.toString(_proposalId),
+                    " should not be stored"
                 )
             )
         );
@@ -1684,7 +1703,9 @@ abstract contract InboxTest is CommonTest {
     {
         // Verify finalization by checking that proposals up to _lastFinalizedId are stored
         assertProposalsStored(1, _lastFinalizedId);
-        assertTrue(_expectedFinalTransitionHash != bytes32(0), "Final transition hash should not be zero");
+        assertTrue(
+            _expectedFinalTransitionHash != bytes32(0), "Final transition hash should not be zero"
+        );
     }
 
     /// @dev Asserts proposal count matches expected value

@@ -83,7 +83,9 @@ library InboxTestLib {
 
         bytes32 currentParent = _chain.initialParentHash;
         for (uint256 i = 0; i < _chain.transitions.length; i++) {
-            require(_chain.transitions[i].parentTransitionHash == currentParent, "Invalid parent chain");
+            require(
+                _chain.transitions[i].parentTransitionHash == currentParent, "Invalid parent chain"
+            );
             currentParent = hashTransition(_chain.transitions[i]);
         }
 
@@ -450,8 +452,9 @@ library InboxTestLib {
     {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = createGenesisProposal(_coreState);
-        return
-            _encodeProposeInputInternal(_deadline, _coreState, proposals, _blobRef, _transitionRecords);
+        return _encodeProposeInputInternal(
+            _deadline, _coreState, proposals, _blobRef, _transitionRecords
+        );
     }
 
     /// @dev Encodes propose input with specific proposals for validation
@@ -465,8 +468,9 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        return
-            _encodeProposeInputInternal(uint48(0), _coreState, _proposals, _blobRef, _transitionRecords);
+        return _encodeProposeInputInternal(
+            uint48(0), _coreState, _proposals, _blobRef, _transitionRecords
+        );
     }
 
     /// @dev Encodes propose input with deadline and specific proposals for validation
@@ -481,8 +485,9 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        return
-            _encodeProposeInputInternal(_deadline, _coreState, _proposals, _blobRef, _transitionRecords);
+        return _encodeProposeInputInternal(
+            _deadline, _coreState, _proposals, _blobRef, _transitionRecords
+        );
     }
 
     /// @dev Encodes prove input
@@ -512,7 +517,11 @@ library InboxTestLib {
     }
 
     /// @dev Computes transition record hash
-    function hashTransitionRecord(IInbox.TransitionRecord memory _record) internal pure returns (bytes32) {
+    function hashTransitionRecord(IInbox.TransitionRecord memory _record)
+        internal
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encode(_record));
     }
 
@@ -608,8 +617,9 @@ library InboxTestLib {
     {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = _previousProposal;
-        return
-            _encodeProposeInputInternal(_deadline, _coreState, proposals, _blobRef, _transitionRecords);
+        return _encodeProposeInputInternal(
+            _deadline, _coreState, proposals, _blobRef, _transitionRecords
+        );
     }
 
     /// @dev Encodes propose input when ring buffer wrapping occurs (need 2 proposals for
@@ -628,8 +638,9 @@ library InboxTestLib {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](2);
         proposals[0] = _lastProposal; // The last proposal being validated
         proposals[1] = _nextSlotProposal; // The proposal in the next slot
-        return
-            _encodeProposeInputInternal(uint48(0), _coreState, proposals, _blobRef, _transitionRecords);
+        return _encodeProposeInputInternal(
+            uint48(0), _coreState, proposals, _blobRef, _transitionRecords
+        );
     }
 
     // ---------------------------------------------------------------
@@ -794,7 +805,8 @@ library InboxTestLib {
         pure
         returns (TestContext memory)
     {
-        IInbox.Transition[] memory newTransitions = new IInbox.Transition[](_ctx.transitions.length + 1);
+        IInbox.Transition[] memory newTransitions =
+            new IInbox.Transition[](_ctx.transitions.length + 1);
         for (uint256 i = 0; i < _ctx.transitions.length; i++) {
             newTransitions[i] = _ctx.transitions[i];
         }
