@@ -5,7 +5,8 @@ import { Inbox } from "./Inbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title InboxOptimized1
-/// @notice First optimization layer for the Inbox contract focusing on storage efficiency and transition
+/// @notice First optimization layer for the Inbox contract focusing on storage efficiency and
+/// transition
 /// aggregation
 /// @dev Key optimizations:
 ///      - Reusable transition record slots to reduce storage operations
@@ -75,7 +76,9 @@ abstract contract InboxOptimized1 is Inbox {
         // Initialize current aggregation state
         TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
-            bondInstructions: _calculateBondInstructions(_config, _input.proposals[0], _input.transitions[0]),
+            bondInstructions: _calculateBondInstructions(
+                _config, _input.proposals[0], _input.transitions[0]
+            ),
             transitionHash: _hashTransition(_input.transitions[0]),
             endBlockMiniHeaderHash: _hashBlockMiniHeader(_input.transitions[0].endBlockMiniHeader)
         });
@@ -112,7 +115,8 @@ abstract contract InboxOptimized1 is Inbox {
                     currentRecord.bondInstructions = merged;
                 }
 
-                // Update the transition hash and end block mini header hash for the aggregated record
+                // Update the transition hash and end block mini header hash for the aggregated
+                // record
                 currentRecord.transitionHash = _hashTransition(_input.transitions[i]);
                 currentRecord.endBlockMiniHeaderHash =
                     _hashBlockMiniHeader(_input.transitions[i].endBlockMiniHeader);
@@ -121,7 +125,9 @@ abstract contract InboxOptimized1 is Inbox {
                 currentRecord.span++;
             } else {
                 // Save the current aggregated record before starting a new one
-                _setTransitionRecordHash(_config, currentGroupStartId, firstTransitionInGroup, currentRecord);
+                _setTransitionRecordHash(
+                    _config, currentGroupStartId, firstTransitionInGroup, currentRecord
+                );
 
                 // Start a new record for non-continuous proposal
                 currentGroupStartId = _input.proposals[i].id;
@@ -133,13 +139,17 @@ abstract contract InboxOptimized1 is Inbox {
                         _config, _input.proposals[i], _input.transitions[i]
                     ),
                     transitionHash: _hashTransition(_input.transitions[i]),
-                    endBlockMiniHeaderHash: _hashBlockMiniHeader(_input.transitions[i].endBlockMiniHeader)
+                    endBlockMiniHeaderHash: _hashBlockMiniHeader(
+                        _input.transitions[i].endBlockMiniHeader
+                    )
                 });
             }
         }
 
         // Save the final aggregated record
-        _setTransitionRecordHash(_config, currentGroupStartId, firstTransitionInGroup, currentRecord);
+        _setTransitionRecordHash(
+            _config, currentGroupStartId, firstTransitionInGroup, currentRecord
+        );
     }
 
     /// @inheritdoc Inbox
@@ -165,7 +175,11 @@ abstract contract InboxOptimized1 is Inbox {
         // Check if this is the default record for this proposal
         if (record.proposalId == _proposalId) {
             // Check if parent transition hash matches (partial match)
-            if (_isPartialParentTransitionHashMatch(record.partialParentTransitionHash, _parentTransitionHash)) {
+            if (
+                _isPartialParentTransitionHashMatch(
+                    record.partialParentTransitionHash, _parentTransitionHash
+                )
+            ) {
                 return record.transitionRecordHash;
             }
         }
@@ -202,18 +216,26 @@ abstract contract InboxOptimized1 is Inbox {
             record.proposalId = _proposalId;
             record.partialParentTransitionHash = bytes26(_transition.parentTransitionHash);
         } else if (
-            _isPartialParentTransitionHashMatch(record.partialParentTransitionHash, _transition.parentTransitionHash)
+            _isPartialParentTransitionHashMatch(
+                record.partialParentTransitionHash, _transition.parentTransitionHash
+            )
         ) {
-            // Same proposal ID and same parent transition hash (partial match), update the default slot
+            // Same proposal ID and same parent transition hash (partial match), update the default
+            // slot
             record.transitionRecordHash = transitionRecordHash;
         } else {
             // Same proposal ID but different parent transition hash, use direct mapping
-            bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
+            bytes32 compositeKey =
+                _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
             _transitionRecordHashes[bufferSlot][compositeKey] = transitionRecordHash;
         }
 
         bytes memory payload = encodeProvedEventData(
-            ProvedEventPayload({ proposalId: _proposalId, transition: _transition, transitionRecord: _transitionRecord })
+            ProvedEventPayload({
+                proposalId: _proposalId,
+                transition: _transition,
+                transitionRecord: _transitionRecord
+            })
         );
         emit Proved(payload);
     }

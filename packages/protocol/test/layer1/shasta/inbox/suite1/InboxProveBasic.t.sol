@@ -77,7 +77,8 @@ contract InboxProveBasic is InboxTest {
             assertTransitionRecordStored(proposalId, parentHash);
 
             // Update parent hash for chain progression
-            IInbox.Transition memory transition = InboxTestLib.createTransition(proposals[i], parentHash, Bob);
+            IInbox.Transition memory transition =
+                InboxTestLib.createTransition(proposals[i], parentHash, Bob);
             parentHash = InboxTestLib.hashTransition(transition);
         }
     }
@@ -88,7 +89,8 @@ contract InboxProveBasic is InboxTest {
         // Arrange: Create proposal and transition data
         IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
         bytes32 parentTransitionHash = getGenesisTransitionHash();
-        IInbox.Transition memory transition = InboxTestLib.createTransition(proposal, parentTransitionHash, Bob);
+        IInbox.Transition memory transition =
+            InboxTestLib.createTransition(proposal, parentTransitionHash, Bob);
 
         bytes memory proof = bytes("test_proof_data");
 
@@ -96,7 +98,8 @@ contract InboxProveBasic is InboxTest {
         setupProofMocks(true);
         vm.prank(Bob);
         inbox.prove(
-            InboxTestAdapter.encodeProveInput(inboxType, _toArray(proposal), _toArray(transition)), proof
+            InboxTestAdapter.encodeProveInput(inboxType, _toArray(proposal), _toArray(transition)),
+            proof
         );
 
         // Assert: Verify proof submission was successful
@@ -114,7 +117,11 @@ contract InboxProveBasic is InboxTest {
     }
 
     /// @dev Helper to convert single item to array
-    function _toArray(IInbox.Transition memory _item) private pure returns (IInbox.Transition[] memory arr) {
+    function _toArray(IInbox.Transition memory _item)
+        private
+        pure
+        returns (IInbox.Transition[] memory arr)
+    {
         arr = new IInbox.Transition[](1);
         arr[0] = _item;
     }
@@ -159,7 +166,8 @@ contract InboxProveBasic is InboxTest {
         // Arrange: Create valid proposal and transition data
         IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
         bytes32 parentTransitionHash = getGenesisTransitionHash();
-        IInbox.Transition memory transition = InboxTestLib.createTransition(proposal, parentTransitionHash, Bob);
+        IInbox.Transition memory transition =
+            InboxTestLib.createTransition(proposal, parentTransitionHash, Bob);
 
         // Configure: Set up mock to succeed
         setupProofMocks(true);

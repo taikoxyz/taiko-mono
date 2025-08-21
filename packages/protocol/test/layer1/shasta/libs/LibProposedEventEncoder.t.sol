@@ -65,7 +65,8 @@ contract LibProposedEventEncoderTest is Test {
             decoded.coreState.lastFinalizedProposalId, original.coreState.lastFinalizedProposalId
         );
         assertEq(
-            decoded.coreState.lastFinalizedTransitionHash, original.coreState.lastFinalizedTransitionHash
+            decoded.coreState.lastFinalizedTransitionHash,
+            original.coreState.lastFinalizedTransitionHash
         );
         assertEq(decoded.coreState.bondInstructionsHash, original.coreState.bondInstructionsHash);
     }
@@ -139,7 +140,8 @@ contract LibProposedEventEncoderTest is Test {
             decoded.coreState.lastFinalizedProposalId, original.coreState.lastFinalizedProposalId
         );
         assertEq(
-            decoded.coreState.lastFinalizedTransitionHash, original.coreState.lastFinalizedTransitionHash
+            decoded.coreState.lastFinalizedTransitionHash,
+            original.coreState.lastFinalizedTransitionHash
         );
         assertEq(decoded.coreState.bondInstructionsHash, original.coreState.bondInstructionsHash);
     }

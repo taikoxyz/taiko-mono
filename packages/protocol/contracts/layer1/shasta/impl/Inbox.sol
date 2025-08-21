@@ -179,7 +179,9 @@ abstract contract Inbox is EssentialContract, IInbox {
         _buildAndSaveTransitionRecords(config, input);
 
         // Verify the proof
-        IProofVerifier(config.proofVerifier).verifyProof(_hashTransitionsArray(input.transitions), _proof);
+        IProofVerifier(config.proofVerifier).verifyProof(
+            _hashTransitionsArray(input.transitions), _proof
+        );
     }
 
     /// @notice Withdraws bond balance to specified address
@@ -208,7 +210,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @notice Retrieves the transition record hash for a specific proposal and parent transition
     /// @param _proposalId The ID of the proposal containing the transition
     /// @param _parentTransitionHash The hash of the parent transition in the proof chain
-    /// @return transitionRecordHash_ The keccak256 hash of the TransitionRecord, or bytes32(0) if not found
+    /// @return transitionRecordHash_ The keccak256 hash of the TransitionRecord, or bytes32(0) if
+    /// not found
     function getTransitionRecordHash(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
@@ -312,8 +315,11 @@ abstract contract Inbox is EssentialContract, IInbox {
             transitionRecord.endBlockMiniHeaderHash =
                 _hashBlockMiniHeader(_input.transitions[i].endBlockMiniHeader);
 
-            // Pass transition and transitionRecord to _setTransitionRecordHash which will emit the event
-            _setTransitionRecordHash(_config, _input.proposals[i].id, _input.transitions[i], transitionRecord);
+            // Pass transition and transitionRecord to _setTransitionRecordHash which will emit the
+            // event
+            _setTransitionRecordHash(
+                _config, _input.proposals[i].id, _input.transitions[i], transitionRecord
+            );
         }
     }
 
@@ -350,7 +356,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// designated
     ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
     /// differs from proposer
-    /// @dev Bond instructions affect transition aggregation eligibility - transitions with instructions
+    /// @dev Bond instructions affect transition aggregation eligibility - transitions with
+    /// instructions
     /// cannot be aggregated
     /// @param _config Configuration containing timing windows
     /// @param _proposal Proposal with timestamp and proposer address
@@ -435,7 +442,11 @@ abstract contract Inbox is EssentialContract, IInbox {
         _transitionRecordHashes[bufferSlot][compositeKey] = transitionRecordHash;
 
         bytes memory payload = encodeProvedEventData(
-            ProvedEventPayload({ proposalId: _proposalId, transition: _transition, transitionRecord: _transitionRecord })
+            ProvedEventPayload({
+                proposalId: _proposalId,
+                transition: _transition,
+                transitionRecord: _transitionRecord
+            })
         );
         emit Proved(payload);
     }
@@ -496,7 +507,11 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Hashes a TransitionRecord struct.
     /// @param _transitionRecord The transition record to hash.
     /// @return _ The hash of the transition record.
-    function _hashTransitionRecord(TransitionRecord memory _transitionRecord) internal pure returns (bytes32) {
+    function _hashTransitionRecord(TransitionRecord memory _transitionRecord)
+        internal
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encode(_transitionRecord));
     }
 
@@ -686,7 +701,9 @@ abstract contract Inbox is EssentialContract, IInbox {
                 _config,
                 coreState,
                 proposalId,
-                i < _input.transitionRecords.length ? _input.transitionRecords[i] : lastFinalizedRecord,
+                i < _input.transitionRecords.length
+                    ? _input.transitionRecords[i]
+                    : lastFinalizedRecord,
                 i < _input.transitionRecords.length
             );
 
@@ -751,7 +768,8 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Reconstruct the BlockMiniHeader from the transition record hash
         // Note: We need to decode the endBlockMiniHeaderHash to get the actual header
-        // For finalization, we create a transition with empty block header since we only have the hash
+        // For finalization, we create a transition with empty block header since we only have the
+        // hash
         _coreState.lastFinalizedTransitionHash = _transitionRecord.transitionHash;
 
         // Process bond instructions
@@ -825,7 +843,11 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Hashes an array of Transitions.
     /// @param _transitions The transitions array to hash.
     /// @return _ The hash of the transitions array.
-    function _hashTransitionsArray(Transition[] memory _transitions) private pure returns (bytes32) {
+    function _hashTransitionsArray(Transition[] memory _transitions)
+        private
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encode(_transitions));
     }
 }

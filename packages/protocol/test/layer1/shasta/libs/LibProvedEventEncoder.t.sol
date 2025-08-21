@@ -40,17 +40,24 @@ contract LibProvedEventEncoderTest is Test {
         assertEq(decoded.proposalId, original.proposalId);
         assertEq(decoded.transition.proposalHash, original.transition.proposalHash);
         assertEq(decoded.transition.parentTransitionHash, original.transition.parentTransitionHash);
-        assertEq(decoded.transition.endBlockMiniHeader.number, original.transition.endBlockMiniHeader.number);
-        assertEq(decoded.transition.endBlockMiniHeader.hash, original.transition.endBlockMiniHeader.hash);
         assertEq(
-            decoded.transition.endBlockMiniHeader.stateRoot, original.transition.endBlockMiniHeader.stateRoot
+            decoded.transition.endBlockMiniHeader.number,
+            original.transition.endBlockMiniHeader.number
+        );
+        assertEq(
+            decoded.transition.endBlockMiniHeader.hash, original.transition.endBlockMiniHeader.hash
+        );
+        assertEq(
+            decoded.transition.endBlockMiniHeader.stateRoot,
+            original.transition.endBlockMiniHeader.stateRoot
         );
         assertEq(decoded.transition.designatedProver, original.transition.designatedProver);
         assertEq(decoded.transition.actualProver, original.transition.actualProver);
         assertEq(decoded.transitionRecord.span, original.transitionRecord.span);
         assertEq(decoded.transitionRecord.transitionHash, original.transitionRecord.transitionHash);
         assertEq(
-            decoded.transitionRecord.endBlockMiniHeaderHash, original.transitionRecord.endBlockMiniHeaderHash
+            decoded.transitionRecord.endBlockMiniHeaderHash,
+            original.transitionRecord.endBlockMiniHeaderHash
         );
         assertEq(decoded.transitionRecord.bondInstructions.length, 0);
     }
@@ -105,17 +112,24 @@ contract LibProvedEventEncoderTest is Test {
         assertEq(decoded.proposalId, original.proposalId);
         assertEq(decoded.transition.proposalHash, original.transition.proposalHash);
         assertEq(decoded.transition.parentTransitionHash, original.transition.parentTransitionHash);
-        assertEq(decoded.transition.endBlockMiniHeader.number, original.transition.endBlockMiniHeader.number);
-        assertEq(decoded.transition.endBlockMiniHeader.hash, original.transition.endBlockMiniHeader.hash);
         assertEq(
-            decoded.transition.endBlockMiniHeader.stateRoot, original.transition.endBlockMiniHeader.stateRoot
+            decoded.transition.endBlockMiniHeader.number,
+            original.transition.endBlockMiniHeader.number
+        );
+        assertEq(
+            decoded.transition.endBlockMiniHeader.hash, original.transition.endBlockMiniHeader.hash
+        );
+        assertEq(
+            decoded.transition.endBlockMiniHeader.stateRoot,
+            original.transition.endBlockMiniHeader.stateRoot
         );
         assertEq(decoded.transition.designatedProver, original.transition.designatedProver);
         assertEq(decoded.transition.actualProver, original.transition.actualProver);
         assertEq(decoded.transitionRecord.span, original.transitionRecord.span);
         assertEq(decoded.transitionRecord.transitionHash, original.transitionRecord.transitionHash);
         assertEq(
-            decoded.transitionRecord.endBlockMiniHeaderHash, original.transitionRecord.endBlockMiniHeaderHash
+            decoded.transitionRecord.endBlockMiniHeaderHash,
+            original.transitionRecord.endBlockMiniHeaderHash
         );
         assertEq(decoded.transitionRecord.bondInstructions.length, 3);
 

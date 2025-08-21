@@ -18,7 +18,8 @@ library LibProvedEventEncoder {
         returns (bytes memory encoded_)
     {
         // Calculate total size needed
-        uint256 bufferSize = calculateProvedEventSize(_payload.transitionRecord.bondInstructions.length);
+        uint256 bufferSize =
+            calculateProvedEventSize(_payload.transitionRecord.bondInstructions.length);
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
@@ -99,7 +100,8 @@ library LibProvedEventEncoder {
             uint8 bondTypeValue;
             (bondTypeValue, ptr) = P.unpackUint8(ptr);
             require(bondTypeValue <= uint8(LibBonds.BondType.LIVENESS), InvalidBondType());
-            payload_.transitionRecord.bondInstructions[i].bondType = LibBonds.BondType(bondTypeValue);
+            payload_.transitionRecord.bondInstructions[i].bondType =
+                LibBonds.BondType(bondTypeValue);
 
             (payload_.transitionRecord.bondInstructions[i].payer, ptr) = P.unpackAddress(ptr);
             (payload_.transitionRecord.bondInstructions[i].receiver, ptr) = P.unpackAddress(ptr);

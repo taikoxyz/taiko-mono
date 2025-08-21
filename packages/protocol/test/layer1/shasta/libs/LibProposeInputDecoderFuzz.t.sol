@@ -197,7 +197,8 @@ contract LibProposeInputDecoderFuzz is Test {
         }
 
         // Create transition records
-        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](transitionCount);
+        IInbox.TransitionRecord[] memory transitionRecords =
+            new IInbox.TransitionRecord[](transitionCount);
         for (uint256 i = 0; i < transitionCount; i++) {
             LibBonds.BondInstruction[] memory bondInstructions =
                 new LibBonds.BondInstruction[](bondInstructionCount);
@@ -240,7 +241,9 @@ contract LibProposeInputDecoderFuzz is Test {
         // Verify basic properties
         assertEq(decoded.deadline, 999_999, "Deadline mismatch");
         assertEq(decoded.parentProposals.length, proposalCount, "Proposals length mismatch");
-        assertEq(decoded.transitionRecords.length, transitionCount, "TransitionRecords length mismatch");
+        assertEq(
+            decoded.transitionRecords.length, transitionCount, "TransitionRecords length mismatch"
+        );
 
         // Verify proposal details
         for (uint256 i = 0; i < proposalCount; i++) {
@@ -266,7 +269,9 @@ contract LibProposeInputDecoderFuzz is Test {
         // Verify transition record details
         for (uint256 i = 0; i < transitionCount; i++) {
             assertEq(
-                decoded.transitionRecords[i].span, transitionRecords[i].span, "TransitionRecord span mismatch"
+                decoded.transitionRecords[i].span,
+                transitionRecords[i].span,
+                "TransitionRecord span mismatch"
             );
             assertEq(
                 decoded.transitionRecords[i].bondInstructions.length,
@@ -277,7 +282,13 @@ contract LibProposeInputDecoderFuzz is Test {
     }
 
     /// @notice Fuzz test to ensure encoded size is always smaller than abi.encode
-    function testFuzz_encodedSizeComparison(uint8 proposalCount, uint8 transitionCount) public pure {
+    function testFuzz_encodedSizeComparison(
+        uint8 proposalCount,
+        uint8 transitionCount
+    )
+        public
+        pure
+    {
         // Bound the inputs
         proposalCount = uint8(bound(proposalCount, 1, 10));
         transitionCount = uint8(bound(transitionCount, 1, 10));
@@ -310,7 +321,9 @@ contract LibProposeInputDecoderFuzz is Test {
             "Proposals length mismatch"
         );
         assertEq(
-            decoded.transitionRecords.length, input.transitionRecords.length, "TransitionRecords length mismatch"
+            decoded.transitionRecords.length,
+            input.transitionRecords.length,
+            "TransitionRecords length mismatch"
         );
     }
 

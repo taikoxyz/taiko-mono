@@ -179,11 +179,17 @@ contract LibProveInputDecoderTest is Test {
         assertEq(decoded.transitions.length, 3);
         for (uint256 i = 0; i < 3; i++) {
             assertEq(decoded.transitions[i].proposalHash, transitions[i].proposalHash);
-            assertEq(decoded.transitions[i].parentTransitionHash, transitions[i].parentTransitionHash);
             assertEq(
-                decoded.transitions[i].endBlockMiniHeader.number, transitions[i].endBlockMiniHeader.number
+                decoded.transitions[i].parentTransitionHash, transitions[i].parentTransitionHash
             );
-            assertEq(decoded.transitions[i].endBlockMiniHeader.hash, transitions[i].endBlockMiniHeader.hash);
+            assertEq(
+                decoded.transitions[i].endBlockMiniHeader.number,
+                transitions[i].endBlockMiniHeader.number
+            );
+            assertEq(
+                decoded.transitions[i].endBlockMiniHeader.hash,
+                transitions[i].endBlockMiniHeader.hash
+            );
             assertEq(
                 decoded.transitions[i].endBlockMiniHeader.stateRoot,
                 transitions[i].endBlockMiniHeader.stateRoot

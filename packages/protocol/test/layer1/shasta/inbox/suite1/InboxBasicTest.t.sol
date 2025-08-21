@@ -88,7 +88,10 @@ contract InboxBasicTest is InboxTest {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
 
         bytes memory data = encodeProposeInputWithGenesis(
-            expiredDeadline, coreState, createValidBlobReference(1), new IInbox.TransitionRecord[](0)
+            expiredDeadline,
+            coreState,
+            createValidBlobReference(1),
+            new IInbox.TransitionRecord[](0)
         );
 
         // Act & Assert: Expired deadline should be rejected
@@ -131,7 +134,8 @@ contract InboxBasicTest is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             proveProposal(proposals[i], Bob, currentParent);
             // Update parent for next iteration
-            IInbox.Transition memory transition = InboxTestLib.createTransition(proposals[i], currentParent, Bob);
+            IInbox.Transition memory transition =
+                InboxTestLib.createTransition(proposals[i], currentParent, Bob);
             currentParent = InboxTestLib.hashTransition(transition);
         }
 
@@ -139,7 +143,8 @@ contract InboxBasicTest is InboxTest {
         currentParent = genesisHash;
         for (uint48 i = 0; i < numProposals; i++) {
             assertTransitionRecordStored(i + 1, currentParent);
-            IInbox.Transition memory transition = InboxTestLib.createTransition(proposals[i], currentParent, Bob);
+            IInbox.Transition memory transition =
+                InboxTestLib.createTransition(proposals[i], currentParent, Bob);
             currentParent = InboxTestLib.hashTransition(transition);
         }
     }
