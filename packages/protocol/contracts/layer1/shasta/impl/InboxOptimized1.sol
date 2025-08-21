@@ -35,7 +35,7 @@ abstract contract InboxOptimized1 is Inbox {
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - reuseableClaimRecord: The default claim record for quick access
     mapping(uint256 bufferSlot => ReuseableClaimRecord reuseableClaimRecord) internal
-        _reuseableClaimRecords;
+        _reusableClaimRecords;
 
     uint256[49] private __gap;
 
@@ -160,7 +160,7 @@ abstract contract InboxOptimized1 is Inbox {
         returns (bytes32 claimRecordHash_)
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        ReuseableClaimRecord storage record = _reuseableClaimRecords[bufferSlot];
+        ReuseableClaimRecord storage record = _reusableClaimRecords[bufferSlot];
 
         // Check if this is the default record for this proposal
         if (record.proposalId == _proposalId) {
@@ -193,7 +193,7 @@ abstract contract InboxOptimized1 is Inbox {
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         bytes32 claimRecordHash = _hashClaimRecord(_claimRecord);
-        ReuseableClaimRecord storage record = _reuseableClaimRecords[bufferSlot];
+        ReuseableClaimRecord storage record = _reusableClaimRecords[bufferSlot];
 
         // Check if we can use the default slot
         if (record.proposalId != _proposalId) {
