@@ -30,7 +30,7 @@ contract LibProposedEventEncoderTest is Test {
 
         original.coreState.nextProposalId = 2;
         original.coreState.lastFinalizedProposalId = 0;
-        original.coreState.lastFinalizedClaimHash = keccak256("lastClaim");
+        original.coreState.lastFinalizedTransitionHash = keccak256("lastTransition");
         original.coreState.bondInstructionsHash = keccak256("bondInstructions");
 
         // Encode
@@ -65,7 +65,7 @@ contract LibProposedEventEncoderTest is Test {
             decoded.coreState.lastFinalizedProposalId, original.coreState.lastFinalizedProposalId
         );
         assertEq(
-            decoded.coreState.lastFinalizedClaimHash, original.coreState.lastFinalizedClaimHash
+            decoded.coreState.lastFinalizedTransitionHash, original.coreState.lastFinalizedTransitionHash
         );
         assertEq(decoded.coreState.bondInstructionsHash, original.coreState.bondInstructionsHash);
     }
@@ -95,7 +95,7 @@ contract LibProposedEventEncoderTest is Test {
 
         original.coreState.nextProposalId = 54_321;
         original.coreState.lastFinalizedProposalId = 54_320;
-        original.coreState.lastFinalizedClaimHash = keccak256("finalizedClaim");
+        original.coreState.lastFinalizedTransitionHash = keccak256("finalizedTransition");
         original.coreState.bondInstructionsHash = keccak256("bondInstructionsHash");
 
         // Encode
@@ -139,7 +139,7 @@ contract LibProposedEventEncoderTest is Test {
             decoded.coreState.lastFinalizedProposalId, original.coreState.lastFinalizedProposalId
         );
         assertEq(
-            decoded.coreState.lastFinalizedClaimHash, original.coreState.lastFinalizedClaimHash
+            decoded.coreState.lastFinalizedTransitionHash, original.coreState.lastFinalizedTransitionHash
         );
         assertEq(decoded.coreState.bondInstructionsHash, original.coreState.bondInstructionsHash);
     }
@@ -167,7 +167,7 @@ contract LibProposedEventEncoderTest is Test {
 
         original.coreState.nextProposalId = type(uint48).max;
         original.coreState.lastFinalizedProposalId = type(uint48).max;
-        original.coreState.lastFinalizedClaimHash = bytes32(type(uint256).max);
+        original.coreState.lastFinalizedTransitionHash = bytes32(type(uint256).max);
         original.coreState.bondInstructionsHash = bytes32(type(uint256).max);
 
         // Encode and decode
@@ -187,7 +187,7 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.derivation.blobSlice.timestamp, type(uint48).max);
         assertEq(decoded.coreState.nextProposalId, type(uint48).max);
         assertEq(decoded.coreState.lastFinalizedProposalId, type(uint48).max);
-        assertEq(decoded.coreState.lastFinalizedClaimHash, bytes32(type(uint256).max));
+        assertEq(decoded.coreState.lastFinalizedTransitionHash, bytes32(type(uint256).max));
         assertEq(decoded.coreState.bondInstructionsHash, bytes32(type(uint256).max));
     }
 
@@ -211,7 +211,7 @@ contract LibProposedEventEncoderTest is Test {
 
         original.coreState.nextProposalId = 0;
         original.coreState.lastFinalizedProposalId = 0;
-        original.coreState.lastFinalizedClaimHash = bytes32(0);
+        original.coreState.lastFinalizedTransitionHash = bytes32(0);
         original.coreState.bondInstructionsHash = bytes32(0);
 
         // Encode and decode
@@ -231,7 +231,7 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.derivation.blobSlice.timestamp, 0);
         assertEq(decoded.coreState.nextProposalId, 0);
         assertEq(decoded.coreState.lastFinalizedProposalId, 0);
-        assertEq(decoded.coreState.lastFinalizedClaimHash, bytes32(0));
+        assertEq(decoded.coreState.lastFinalizedTransitionHash, bytes32(0));
         assertEq(decoded.coreState.bondInstructionsHash, bytes32(0));
     }
 
@@ -257,7 +257,7 @@ contract LibProposedEventEncoderTest is Test {
 
         payload.coreState.nextProposalId = 124;
         payload.coreState.lastFinalizedProposalId = 120;
-        payload.coreState.lastFinalizedClaimHash = keccak256("finalized");
+        payload.coreState.lastFinalizedTransitionHash = keccak256("finalized");
         payload.coreState.bondInstructionsHash = keccak256("bonds");
 
         // Measure encoding gas

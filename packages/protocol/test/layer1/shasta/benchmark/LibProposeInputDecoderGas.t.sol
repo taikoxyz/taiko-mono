@@ -24,17 +24,17 @@ contract LibProposeInputDecoderGas is Test {
         console2.log("========================================================\n");
 
         // Test with different combinations
-        _runDecodingTest(1, 0, 0, "Simple: 1 proposal, 0 claims, 0 bonds", simpleGas);
-        _runDecodingTest(2, 1, 0, "Medium: 2 proposals, 1 claim, 0 bonds", mediumGas);
-        _runDecodingTest(3, 2, 2, "Complex: 3 proposals, 2 claims, 2 bonds", complexGas);
-        _runDecodingTest(5, 5, 10, "Large: 5 proposals, 5 claims, 10 bonds", largeGas);
+        _runDecodingTest(1, 0, 0, "Simple: 1 proposal, 0 transitions, 0 bonds", simpleGas);
+        _runDecodingTest(2, 1, 0, "Medium: 2 proposals, 1 transition, 0 bonds", mediumGas);
+        _runDecodingTest(3, 2, 2, "Complex: 3 proposals, 2 transitions, 2 bonds", complexGas);
+        _runDecodingTest(5, 5, 10, "Large: 5 proposals, 5 transitions, 10 bonds", largeGas);
 
         _writeReport();
     }
 
     function _runDecodingTest(
         uint256 _proposalCount,
-        uint256 _claimCount,
+        uint256 _transitionCount,
         uint256 _totalBondInstructions,
         string memory _label,
         uint256[4] storage _gasStorage
@@ -42,7 +42,7 @@ contract LibProposeInputDecoderGas is Test {
         private
     {
         IInbox.ProposeInput memory input =
-            _createTestData(_proposalCount, _claimCount, _totalBondInstructions);
+            _createTestData(_proposalCount, _transitionCount, _totalBondInstructions);
 
         // Prepare encoded data
         bytes memory abiEncoded = abi.encode(input);
@@ -127,7 +127,7 @@ contract LibProposeInputDecoderGas is Test {
 
     function _createTestData(
         uint256 _proposalCount,
-        uint256 _claimCount,
+        uint256 _transitionCount,
         uint256 _totalBondInstructions
     )
         private
@@ -139,7 +139,7 @@ contract LibProposeInputDecoderGas is Test {
         input.coreState = IInbox.CoreState({
             nextProposalId: 100,
             lastFinalizedProposalId: 95,
-            lastFinalizedClaimHash: keccak256("last_finalized"),
+            lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
         });
 
@@ -160,21 +160,21 @@ contract LibProposeInputDecoderGas is Test {
             offset: 512
         });
 
-        input.claimRecords = new IInbox.ClaimRecord[](_claimCount);
+        input.transitionRecords = new IInbox.TransitionRecord[](_transitionCount);
         uint256 bondIndex = 0;
-        for (uint256 i = 0; i < _claimCount; i++) {
-            // Distribute bond instructions across claim records
-            uint256 bondsForThisClaim = 0;
-            if (i < _claimCount - 1) {
-                bondsForThisClaim = _totalBondInstructions / _claimCount;
+        for (uint256 i = 0; i < _transitionCount; i++) {
+            // Distribute bond instructions across transition records
+            uint256 bondsForThisTransition = 0;
+            if (i < _transitionCount - 1) {
+                bondsForThisTransition = _totalBondInstructions / _transitionCount;
             } else {
-                // Last claim gets remaining bonds
-                bondsForThisClaim = _totalBondInstructions - bondIndex;
+                // Last transition gets remaining bonds
+                bondsForThisTransition = _totalBondInstructions - bondIndex;
             }
 
             LibBonds.BondInstruction[] memory bondInstructions =
-                new LibBonds.BondInstruction[](bondsForThisClaim);
-            for (uint256 j = 0; j < bondsForThisClaim; j++) {
+                new LibBonds.BondInstruction[](bondsForThisTransition);
+            for (uint256 j = 0; j < bondsForThisTransition; j++) {
                 bondInstructions[j] = LibBonds.BondInstruction({
                     proposalId: uint48(96 + i),
                     bondType: j % 2 == 0 ? LibBonds.BondType.LIVENESS : LibBonds.BondType.PROVABILITY,
@@ -184,9 +184,9 @@ contract LibProposeInputDecoderGas is Test {
                 bondIndex++;
             }
 
-            input.claimRecords[i] = IInbox.ClaimRecord({
+            input.transitionRecords[i] = IInbox.TransitionRecord({
                 span: uint8(1 + (i % 3)),
-                claimHash: keccak256(abi.encodePacked("claim", i)),
+                transitionHash: keccak256(abi.encodePacked("transition", i)),
                 endBlockMiniHeaderHash: keccak256(abi.encodePacked("end_header", i)),
                 bondInstructions: bondInstructions
             });
@@ -250,7 +250,7 @@ contract LibProposeInputDecoderGas is Test {
         );
 
         report = string.concat(
-            report, "**Note**: P = Proposals, C = Claim Records, B = Bond Instructions\n"
+            report, "**Note**: P = Proposals, C = Transition Records, B = Bond Instructions\n"
         );
         report = string.concat(
             report, "**Note**: Gas measurements include both calldata and decode costs\n"

@@ -213,7 +213,7 @@ abstract contract InboxTest is CommonTest {
     struct CoreStateConfig {
         uint48 nextProposalId;
         uint48 lastFinalizedProposalId;
-        bytes32 lastFinalizedClaimHash;
+        bytes32 lastFinalizedTransitionHash;
         bytes32 bondInstructionsHash;
     }
 
@@ -227,10 +227,10 @@ abstract contract InboxTest is CommonTest {
         bytes32 coreStateHash;
     }
 
-    /// @dev Builder pattern for creating claims
-    struct ClaimBuilder {
+    /// @dev Builder pattern for creating transitions
+    struct TransitionBuilder {
         bytes32 proposalHash;
-        bytes32 parentClaimHash;
+        bytes32 parentTransitionHash;
         uint48 endBlockNumber;
         bytes32 endBlockHash;
         bytes32 endStateRoot;
@@ -249,10 +249,10 @@ abstract contract InboxTest is CommonTest {
         uint48 deadline;
     }
 
-    /// @dev Configuration for creating test claims
-    struct ClaimConfig {
+    /// @dev Configuration for creating test transitions
+    struct TransitionConfig {
         bytes32 proposalHash;
-        bytes32 parentClaimHash;
+        bytes32 parentTransitionHash;
         uint48 endBlockNumber;
         bytes32 endBlockHash;
         bytes32 endStateRoot;
@@ -291,11 +291,11 @@ abstract contract InboxTest is CommonTest {
         });
     }
 
-    /// @dev Start building a new claim
-    function newClaim() internal view returns (ClaimBuilder memory) {
-        return ClaimBuilder({
+    /// @dev Start building a new transition
+    function newTransition() internal view returns (TransitionBuilder memory) {
+        return TransitionBuilder({
             proposalHash: bytes32(0),
-            parentClaimHash: bytes32(0),
+            parentTransitionHash: bytes32(0),
             endBlockNumber: 100,
             endBlockHash: keccak256("endBlockHash"),
             endStateRoot: keccak256("stateRoot"),
@@ -328,11 +328,11 @@ abstract contract InboxTest is CommonTest {
         });
     }
 
-    /// @dev Build claim from builder
-    function buildClaim(ClaimBuilder memory _builder) internal pure returns (IInbox.Claim memory) {
-        return IInbox.Claim({
+    /// @dev Build transition from builder
+    function buildTransition(TransitionBuilder memory _builder) internal pure returns (IInbox.Transition memory) {
+        return IInbox.Transition({
             proposalHash: _builder.proposalHash,
-            parentClaimHash: _builder.parentClaimHash,
+            parentTransitionHash: _builder.parentTransitionHash,
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: _builder.endBlockNumber,
                 hash: _builder.endBlockHash,
@@ -352,7 +352,7 @@ abstract contract InboxTest is CommonTest {
         return IInbox.CoreState({
             nextProposalId: _config.nextProposalId,
             lastFinalizedProposalId: _config.lastFinalizedProposalId,
-            lastFinalizedClaimHash: _config.lastFinalizedClaimHash,
+            lastFinalizedTransitionHash: _config.lastFinalizedTransitionHash,
             bondInstructionsHash: _config.bondInstructionsHash
         });
     }
@@ -367,7 +367,7 @@ abstract contract InboxTest is CommonTest {
             CoreStateConfig({
                 nextProposalId: _nextProposalId,
                 lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: bytes32(0),
+                lastFinalizedTransitionHash: bytes32(0),
                 bondInstructionsHash: bytes32(0)
             })
         );
@@ -377,7 +377,7 @@ abstract contract InboxTest is CommonTest {
     function createFinalizedCoreState(
         uint48 _nextProposalId,
         uint48 _lastFinalizedId,
-        bytes32 _finalClaimHash
+        bytes32 _finalTransitionHash
     )
         internal
         pure
@@ -387,7 +387,7 @@ abstract contract InboxTest is CommonTest {
             CoreStateConfig({
                 nextProposalId: _nextProposalId,
                 lastFinalizedProposalId: _lastFinalizedId,
-                lastFinalizedClaimHash: _finalClaimHash,
+                lastFinalizedTransitionHash: _finalTransitionHash,
                 bondInstructionsHash: bytes32(0)
             })
         );
@@ -398,11 +398,11 @@ abstract contract InboxTest is CommonTest {
         internal
         returns (
             IInbox.Proposal[] memory proposals,
-            IInbox.Claim[] memory claims,
-            IInbox.ClaimRecord[] memory claimRecords
+            IInbox.Transition[] memory transitions,
+            IInbox.TransitionRecord[] memory transitionRecords
         )
     {
-        bytes32 genesisHash = getGenesisClaimHash();
+        bytes32 genesisHash = getGenesisTransitionHash();
         return createProvenChain(1, _count, genesisHash);
     }
 
@@ -434,8 +434,8 @@ abstract contract InboxTest is CommonTest {
         internal
         returns (
             IInbox.Proposal[] memory proposals,
-            IInbox.Claim[] memory claims,
-            IInbox.ClaimRecord[] memory claimRecords,
+            IInbox.Transition[] memory transitions,
+            IInbox.TransitionRecord[] memory transitionRecords,
             PerformanceMetrics memory metrics
         )
     {
@@ -443,8 +443,8 @@ abstract contract InboxTest is CommonTest {
         uint256 startTime = block.timestamp;
 
         proposals = new IInbox.Proposal[](_config.proposalCount);
-        claims = new IInbox.Claim[](_config.proposalCount);
-        claimRecords = new IInbox.ClaimRecord[](_config.proposalCount);
+        transitions = new IInbox.Transition[](_config.proposalCount);
+        transitionRecords = new IInbox.TransitionRecord[](_config.proposalCount);
 
         // Configure ring buffer if specified
         if (_config.ringBuffer.size > 0) {
@@ -470,21 +470,21 @@ abstract contract InboxTest is CommonTest {
             uint256 proveGasStart = gasleft();
             bytes32 currentParent = _config.initialParentHash;
 
-            // Create all claims first
+            // Create all transitions first
             for (uint48 i = 0; i < _config.proposalCount; i++) {
-                claims[i] = InboxTestLib.createClaim(proposals[i], currentParent, _config.prover);
-                currentParent = InboxTestLib.hashClaim(claims[i]);
+                transitions[i] = InboxTestLib.createTransition(proposals[i], currentParent, _config.prover);
+                currentParent = InboxTestLib.hashTransition(transitions[i]);
             }
 
-            // Prove all at once and get claim records from events
-            claimRecords = proveProposalBatch(proposals, claims, _config.prover);
+            // Prove all at once and get transition records from events
+            transitionRecords = proveProposalBatch(proposals, transitions, _config.prover);
             metrics.proveGas = proveGasStart - gasleft();
         }
 
         // Finalize if requested with gas tracking
         if (_config.shouldFinalize && _config.shouldProve) {
             uint256 finalizeGasStart = gasleft();
-            _batchFinalize(claimRecords, _config.finalizer);
+            _batchFinalize(transitionRecords, _config.finalizer);
             metrics.finalizeGas = finalizeGasStart - gasleft();
         }
 
@@ -517,7 +517,7 @@ abstract contract InboxTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // Advanced Proposal and Claim Factories
+    // Advanced Proposal and Transition Factories
     // ---------------------------------------------------------------
 
     /// @dev Creates proposal from detailed configuration
@@ -553,15 +553,15 @@ abstract contract InboxTest is CommonTest {
         });
     }
 
-    /// @dev Creates claim from detailed configuration
-    function createClaimFromConfig(ClaimConfig memory _config)
+    /// @dev Creates transition from detailed configuration
+    function createTransitionFromConfig(TransitionConfig memory _config)
         internal
         pure
-        returns (IInbox.Claim memory)
+        returns (IInbox.Transition memory)
     {
-        return IInbox.Claim({
+        return IInbox.Transition({
             proposalHash: _config.proposalHash,
-            parentClaimHash: _config.parentClaimHash,
+            parentTransitionHash: _config.parentTransitionHash,
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: _config.endBlockNumber,
                 hash: _config.endBlockHash,
@@ -668,7 +668,7 @@ abstract contract InboxTest is CommonTest {
             coreState,
             proposals,
             createValidBlobReference(_proposalId),
-            new IInbox.ClaimRecord[](0)
+            new IInbox.TransitionRecord[](0)
         );
 
         vm.prank(_proposer);
@@ -679,15 +679,15 @@ abstract contract InboxTest is CommonTest {
 
     /// @dev Helper for batch finalization
     function _batchFinalize(
-        IInbox.ClaimRecord[] memory _claimRecords,
+        IInbox.TransitionRecord[] memory _transitionRecords,
         address _finalizer
     )
         private
     {
-        if (_claimRecords.length == 0) return;
+        if (_transitionRecords.length == 0) return;
 
-        // Create a finalization proposal with the claim records
-        uint48 nextProposalId = uint48(_claimRecords.length + 1);
+        // Create a finalization proposal with the transition records
+        uint48 nextProposalId = uint48(_transitionRecords.length + 1);
         IInbox.CoreState memory coreState = createStandardCoreState(nextProposalId);
 
         setupProposalMocks(_finalizer != address(0) ? _finalizer : Alice);
@@ -697,8 +697,8 @@ abstract contract InboxTest is CommonTest {
         proposals[0] = InboxTestLib.createGenesisProposal(coreState);
 
         // Get the endBlockMiniHeader from the last proposal that was proven
-        // This should match what was used when the claim was created
-        uint48 lastProposalId = uint48(_claimRecords.length);
+        // This should match what was used when the transition was created
+        uint48 lastProposalId = uint48(_transitionRecords.length);
         IInbox.BlockMiniHeader memory endBlockMiniHeader = IInbox.BlockMiniHeader({
             number: lastProposalId * 100,
             hash: keccak256(abi.encode(lastProposalId, "endBlockHash")),
@@ -711,7 +711,7 @@ abstract contract InboxTest is CommonTest {
             coreState,
             proposals,
             createValidBlobReference(nextProposalId),
-            _claimRecords,
+            _transitionRecords,
             endBlockMiniHeader
         );
 
@@ -922,7 +922,7 @@ abstract contract InboxTest is CommonTest {
             state,
             proposals,
             createValidBlobReference(1),
-            new IInbox.ClaimRecord[](0)
+            new IInbox.TransitionRecord[](0)
         );
         // Don't actually submit, just prepare the data
     }
@@ -1103,14 +1103,14 @@ abstract contract InboxTest is CommonTest {
         internal
         returns (IInbox.Proposal memory proposal)
     {
-        return submitProposalWithClaimRecords(_proposalId, _proposer, new IInbox.ClaimRecord[](0));
+        return submitProposalWithTransitionRecords(_proposalId, _proposer, new IInbox.TransitionRecord[](0));
     }
 
-    /// @dev Submits a proposal with claim records for finalization
-    function submitProposalWithClaimRecords(
+    /// @dev Submits a proposal with transition records for finalization
+    function submitProposalWithTransitionRecords(
         uint48 _proposalId,
         address _proposer,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         returns (IInbox.Proposal memory proposal)
@@ -1123,7 +1123,7 @@ abstract contract InboxTest is CommonTest {
             _proposalId,
             coreState,
             InboxTestLib.createBlobReference(uint8(_proposalId)),
-            _claimRecords
+            _transitionRecords
         );
 
         setupBlobHashes();
@@ -1158,7 +1158,7 @@ abstract contract InboxTest is CommonTest {
         uint48 _proposalId,
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         view
@@ -1178,7 +1178,7 @@ abstract contract InboxTest is CommonTest {
 
         // Use adapter to handle encoding based on inbox type
         return InboxTestAdapter.encodeProposeInput(
-            inboxType, uint48(0), _coreState, proposals, _blobRef, _claimRecords
+            inboxType, uint48(0), _coreState, proposals, _blobRef, _transitionRecords
         );
     }
 
@@ -1187,14 +1187,14 @@ abstract contract InboxTest is CommonTest {
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         view
         returns (bytes memory)
     {
         return InboxTestAdapter.encodeProposeInput(
-            inboxType, uint48(0), _coreState, _proposals, _blobRef, _claimRecords
+            inboxType, uint48(0), _coreState, _proposals, _blobRef, _transitionRecords
         );
     }
 
@@ -1204,14 +1204,14 @@ abstract contract InboxTest is CommonTest {
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         view
         returns (bytes memory)
     {
         return InboxTestAdapter.encodeProposeInput(
-            inboxType, _deadline, _coreState, _proposals, _blobRef, _claimRecords
+            inboxType, _deadline, _coreState, _proposals, _blobRef, _transitionRecords
         );
     }
 
@@ -1219,7 +1219,7 @@ abstract contract InboxTest is CommonTest {
     function encodeProposeInputWithGenesis(
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         view
@@ -1229,7 +1229,7 @@ abstract contract InboxTest is CommonTest {
         proposals[0] = InboxTestLib.createGenesisProposal(_coreState);
 
         return InboxTestAdapter.encodeProposeInput(
-            inboxType, uint48(0), _coreState, proposals, _blobRef, _claimRecords
+            inboxType, uint48(0), _coreState, proposals, _blobRef, _transitionRecords
         );
     }
 
@@ -1238,7 +1238,7 @@ abstract contract InboxTest is CommonTest {
         uint48 _deadline,
         IInbox.CoreState memory _coreState,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         view
@@ -1248,7 +1248,7 @@ abstract contract InboxTest is CommonTest {
         proposals[0] = InboxTestLib.createGenesisProposal(_coreState);
 
         return InboxTestAdapter.encodeProposeInput(
-            inboxType, _deadline, _coreState, proposals, _blobRef, _claimRecords
+            inboxType, _deadline, _coreState, proposals, _blobRef, _transitionRecords
         );
     }
 
@@ -1257,7 +1257,7 @@ abstract contract InboxTest is CommonTest {
         IInbox.CoreState memory _coreState,
         IInbox.Proposal memory _previousProposal,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         view
@@ -1267,7 +1267,7 @@ abstract contract InboxTest is CommonTest {
         proposals[0] = _previousProposal;
 
         return InboxTestAdapter.encodeProposeInput(
-            inboxType, uint48(0), _coreState, proposals, _blobRef, _claimRecords
+            inboxType, uint48(0), _coreState, proposals, _blobRef, _transitionRecords
         );
     }
 
@@ -1277,7 +1277,7 @@ abstract contract InboxTest is CommonTest {
         IInbox.CoreState memory _coreState,
         IInbox.Proposal memory _previousProposal,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         view
@@ -1287,20 +1287,20 @@ abstract contract InboxTest is CommonTest {
         proposals[0] = _previousProposal;
 
         return InboxTestAdapter.encodeProposeInput(
-            inboxType, _deadline, _coreState, proposals, _blobRef, _claimRecords
+            inboxType, _deadline, _coreState, proposals, _blobRef, _transitionRecords
         );
     }
 
     /// @dev Wrapper for encoding prove data that uses the adapter
     function encodeProveInput(
         IInbox.Proposal[] memory _proposals,
-        IInbox.Claim[] memory _claims
+        IInbox.Transition[] memory _transitions
     )
         internal
         view
         returns (bytes memory)
     {
-        return InboxTestAdapter.encodeProveInput(inboxType, _proposals, _claims);
+        return InboxTestAdapter.encodeProveInput(inboxType, _proposals, _transitions);
     }
 
     /// @dev Gets the genesis core state that was created during contract initialization
@@ -1309,10 +1309,10 @@ abstract contract InboxTest is CommonTest {
         genesisCoreState.nextProposalId = 1;
         genesisCoreState.lastFinalizedProposalId = 0;
 
-        // Genesis claim hash from initialization
-        IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        genesisCoreState.lastFinalizedClaimHash = keccak256(abi.encode(genesisClaim));
+        // Genesis transition hash from initialization
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        genesisCoreState.lastFinalizedTransitionHash = keccak256(abi.encode(genesisTransition));
         genesisCoreState.bondInstructionsHash = bytes32(0);
 
         return genesisCoreState;
@@ -1411,55 +1411,55 @@ abstract contract InboxTest is CommonTest {
         return proposal;
     }
 
-    /// @dev Proves a proposal and returns the claim
+    /// @dev Proves a proposal and returns the transition
     function proveProposal(
         IInbox.Proposal memory _proposal,
         address _prover,
-        bytes32 _parentClaimHash
+        bytes32 _parentTransitionHash
     )
         internal
-        returns (IInbox.Claim memory claim)
+        returns (IInbox.Transition memory transition)
     {
-        claim = InboxTestLib.createClaim(_proposal, _parentClaimHash, _prover);
-        _submitProof(_proposal, claim, _prover);
+        transition = InboxTestLib.createTransition(_proposal, _parentTransitionHash, _prover);
+        _submitProof(_proposal, transition, _prover);
         // Store the endBlockMiniHeader for test purposes
-        inbox.storeEndBlockMiniHeader(_proposal.id, claim.endBlockMiniHeader);
+        inbox.storeEndBlockMiniHeader(_proposal.id, transition.endBlockMiniHeader);
     }
 
-    /// @dev Proves multiple proposals in batch and returns claim records from events
+    /// @dev Proves multiple proposals in batch and returns transition records from events
     function proveProposalBatch(
         IInbox.Proposal[] memory _proposals,
-        IInbox.Claim[] memory _claims,
+        IInbox.Transition[] memory _transitions,
         address _prover
     )
         internal
-        returns (IInbox.ClaimRecord[] memory claimRecords)
+        returns (IInbox.TransitionRecord[] memory transitionRecords)
     {
-        require(_proposals.length == _claims.length, "Array length mismatch");
+        require(_proposals.length == _transitions.length, "Array length mismatch");
 
         setupProofMocks(true);
 
-        bytes memory proveData = InboxTestAdapter.encodeProveInput(inboxType, _proposals, _claims);
+        bytes memory proveData = InboxTestAdapter.encodeProveInput(inboxType, _proposals, _transitions);
 
-        // Record events to extract claim records
+        // Record events to extract transition records
         vm.recordLogs();
         vm.prank(_prover);
         inbox.prove(proveData, bytes("proof"));
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        // Extract claim records from Proved events
-        claimRecords = extractClaimRecordsFromProvedEvents(logs);
+        // Extract transition records from Proved events
+        transitionRecords = extractTransitionRecordsFromProvedEvents(logs);
 
         // Store the endBlockMiniHeaders for test purposes
         for (uint256 i = 0; i < _proposals.length; i++) {
-            inbox.storeEndBlockMiniHeader(_proposals[i].id, _claims[i].endBlockMiniHeader);
+            inbox.storeEndBlockMiniHeader(_proposals[i].id, _transitions[i].endBlockMiniHeader);
         }
     }
 
     /// @dev Internal helper to submit a single proof
     function _submitProof(
         IInbox.Proposal memory _proposal,
-        IInbox.Claim memory _claim,
+        IInbox.Transition memory _transition,
         address _prover
     )
         private
@@ -1468,11 +1468,11 @@ abstract contract InboxTest is CommonTest {
 
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = _proposal;
-        IInbox.Claim[] memory claims = new IInbox.Claim[](1);
-        claims[0] = _claim;
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = _transition;
 
         vm.prank(_prover);
-        inbox.prove(InboxTestAdapter.encodeProveInput(inboxType, proposals, claims), bytes("proof"));
+        inbox.prove(InboxTestAdapter.encodeProveInput(inboxType, proposals, transitions), bytes("proof"));
     }
 
     /// @dev Creates and proves a chain of proposals
@@ -1484,8 +1484,8 @@ abstract contract InboxTest is CommonTest {
         internal
         returns (
             IInbox.Proposal[] memory proposals,
-            IInbox.Claim[] memory claims,
-            IInbox.ClaimRecord[] memory claimRecords
+            IInbox.Transition[] memory transitions,
+            IInbox.TransitionRecord[] memory transitionRecords
         )
     {
         return createProvenChainWithCustomProver(_startId, _count, _initialParentHash, Alice, Bob);
@@ -1502,8 +1502,8 @@ abstract contract InboxTest is CommonTest {
         internal
         returns (
             IInbox.Proposal[] memory proposals,
-            IInbox.Claim[] memory claims,
-            IInbox.ClaimRecord[] memory claimRecords
+            IInbox.Transition[] memory transitions,
+            IInbox.TransitionRecord[] memory transitionRecords
         )
     {
         InboxTestLib.ProposalChain memory chain = InboxTestLib.createProposalChain(
@@ -1511,15 +1511,15 @@ abstract contract InboxTest is CommonTest {
         );
 
         proposals = chain.proposals;
-        claims = chain.claims;
+        transitions = chain.transitions;
 
         // Submit all proposals
         for (uint48 i = 0; i < _count; i++) {
             submitProposal(_startId + i, _proposer);
         }
 
-        // Prove all at once and get claim records from events
-        claimRecords = proveProposalBatch(proposals, claims, _prover);
+        // Prove all at once and get transition records from events
+        transitionRecords = proveProposalBatch(proposals, transitions, _prover);
     }
 
     /// @dev Creates a simple finalization scenario with N proposals
@@ -1527,23 +1527,23 @@ abstract contract InboxTest is CommonTest {
         internal
         returns (
             IInbox.Proposal[] memory proposals,
-            IInbox.Claim[] memory claims,
-            IInbox.ClaimRecord[] memory claimRecords
+            IInbox.Transition[] memory transitions,
+            IInbox.TransitionRecord[] memory transitionRecords
         )
     {
-        bytes32 genesisHash = getGenesisClaimHash();
-        (proposals, claims, claimRecords) = createProvenChain(1, _numProposals, genesisHash);
+        bytes32 genesisHash = getGenesisTransitionHash();
+        (proposals, transitions, transitionRecords) = createProvenChain(1, _numProposals, genesisHash);
     }
 
     // ---------------------------------------------------------------
     // Event Extraction Helpers
     // ---------------------------------------------------------------
 
-    /// @dev Extracts claim records from Proved events emitted during prove operations
-    function extractClaimRecordsFromProvedEvents(Vm.Log[] memory logs)
+    /// @dev Extracts transition records from Proved events emitted during prove operations
+    function extractTransitionRecordsFromProvedEvents(Vm.Log[] memory logs)
         internal
         view
-        returns (IInbox.ClaimRecord[] memory claimRecords)
+        returns (IInbox.TransitionRecord[] memory transitionRecords)
     {
         // Count Proved events
         uint256 provedEventCount = 0;
@@ -1555,7 +1555,7 @@ abstract contract InboxTest is CommonTest {
             }
         }
 
-        claimRecords = new IInbox.ClaimRecord[](provedEventCount);
+        transitionRecords = new IInbox.TransitionRecord[](provedEventCount);
         uint256 recordIndex = 0;
 
         for (uint256 i = 0; i < logs.length; i++) {
@@ -1571,13 +1571,13 @@ abstract contract InboxTest is CommonTest {
                     bytes memory payload = abi.decode(eventData, (bytes));
                     IInbox.ProvedEventPayload memory provedPayload =
                         abi.decode(payload, (IInbox.ProvedEventPayload));
-                    claimRecords[recordIndex] = provedPayload.claimRecord;
+                    transitionRecords[recordIndex] = provedPayload.transitionRecord;
                 } else {
                     // For opt2 and opt3, use LibProvedEventEncoder.decode
                     bytes memory payload = abi.decode(eventData, (bytes));
                     IInbox.ProvedEventPayload memory provedPayload =
                         LibProvedEventEncoder.decode(payload);
-                    claimRecords[recordIndex] = provedPayload.claimRecord;
+                    transitionRecords[recordIndex] = provedPayload.transitionRecord;
                 }
                 recordIndex++;
             }
@@ -1604,31 +1604,31 @@ abstract contract InboxTest is CommonTest {
         );
     }
 
-    function assertClaimRecordStored(uint48 _proposalId, bytes32 _parentClaimHash) internal view {
-        bytes32 storedHash = inbox.getClaimRecordHash(_proposalId, _parentClaimHash);
+    function assertTransitionRecordStored(uint48 _proposalId, bytes32 _parentTransitionHash) internal view {
+        bytes32 storedHash = inbox.getTransitionRecordHash(_proposalId, _parentTransitionHash);
         assertTrue(
             storedHash != bytes32(0),
             string(
                 abi.encodePacked(
-                    "Claim record for proposal ", vm.toString(_proposalId), " not stored"
+                    "Transition record for proposal ", vm.toString(_proposalId), " not stored"
                 )
             )
         );
     }
 
-    function assertClaimRecordNotStored(
+    function assertTransitionRecordNotStored(
         uint48 _proposalId,
-        bytes32 _parentClaimHash
+        bytes32 _parentTransitionHash
     )
         internal
         view
     {
-        bytes32 storedHash = inbox.getClaimRecordHash(_proposalId, _parentClaimHash);
+        bytes32 storedHash = inbox.getTransitionRecordHash(_proposalId, _parentTransitionHash);
         assertTrue(
             storedHash == bytes32(0),
             string(
                 abi.encodePacked(
-                    "Claim record for proposal ", vm.toString(_proposalId), " should not be stored"
+                    "Transition record for proposal ", vm.toString(_proposalId), " should not be stored"
                 )
             )
         );
@@ -1677,14 +1677,14 @@ abstract contract InboxTest is CommonTest {
     /// @dev Asserts that a finalization operation completed successfully
     function assertFinalizationCompleted(
         uint48 _lastFinalizedId,
-        bytes32 _expectedFinalClaimHash
+        bytes32 _expectedFinalTransitionHash
     )
         internal
         view
     {
         // Verify finalization by checking that proposals up to _lastFinalizedId are stored
         assertProposalsStored(1, _lastFinalizedId);
-        assertTrue(_expectedFinalClaimHash != bytes32(0), "Final claim hash should not be zero");
+        assertTrue(_expectedFinalTransitionHash != bytes32(0), "Final transition hash should not be zero");
     }
 
     /// @dev Asserts proposal count matches expected value
@@ -1766,34 +1766,34 @@ abstract contract InboxTest is CommonTest {
     /// @dev Asserts that proposals form a valid chain
     function assertValidProposalChain(
         IInbox.Proposal[] memory _proposals,
-        IInbox.Claim[] memory _claims,
+        IInbox.Transition[] memory _transitions,
         bytes32 _genesisHash
     )
         internal
         pure
     {
-        require(_proposals.length == _claims.length, "Array length mismatch");
+        require(_proposals.length == _transitions.length, "Array length mismatch");
 
         bytes32 expectedParent = _genesisHash;
 
         for (uint256 i = 0; i < _proposals.length; i++) {
-            // Verify claim references correct proposal
+            // Verify transition references correct proposal
             bytes32 expectedProposalHash = InboxTestLib.hashProposal(_proposals[i]);
             assertEq(
-                _claims[i].proposalHash,
+                _transitions[i].proposalHash,
                 expectedProposalHash,
-                string(abi.encodePacked("Claim ", vm.toString(i), " proposal hash mismatch"))
+                string(abi.encodePacked("Transition ", vm.toString(i), " proposal hash mismatch"))
             );
 
-            // Verify claim has correct parent
+            // Verify transition has correct parent
             assertEq(
-                _claims[i].parentClaimHash,
+                _transitions[i].parentTransitionHash,
                 expectedParent,
-                string(abi.encodePacked("Claim ", vm.toString(i), " parent hash mismatch"))
+                string(abi.encodePacked("Transition ", vm.toString(i), " parent hash mismatch"))
             );
 
             // Update expected parent for next iteration
-            expectedParent = InboxTestLib.hashClaim(_claims[i]);
+            expectedParent = InboxTestLib.hashTransition(_transitions[i]);
         }
     }
 
@@ -1823,8 +1823,8 @@ abstract contract InboxTest is CommonTest {
     // Enhanced Helper Functions
     // ---------------------------------------------------------------
 
-    function getGenesisClaimHash() internal pure returns (bytes32) {
-        return InboxTestLib.getGenesisClaimHash(GENESIS_BLOCK_HASH);
+    function getGenesisTransitionHash() internal pure returns (bytes32) {
+        return InboxTestLib.getGenesisTransitionHash(GENESIS_BLOCK_HASH);
     }
 
     function createValidProposal(uint48 _id) internal view returns (IInbox.Proposal memory) {
@@ -1841,17 +1841,17 @@ abstract contract InboxTest is CommonTest {
         return InboxTestLib.createBlobReference(uint8(_seed % 256));
     }
 
-    /// @dev Creates a standard test claim with default values
-    function createStandardClaim(
+    /// @dev Creates a standard test transition with default values
+    function createStandardTransition(
         uint48 _proposalId,
-        bytes32 _parentClaimHash
+        bytes32 _parentTransitionHash
     )
         internal
         view
-        returns (IInbox.Claim memory)
+        returns (IInbox.Transition memory)
     {
         IInbox.Proposal memory proposal = createValidProposal(_proposalId);
-        return InboxTestLib.createClaim(proposal, _parentClaimHash, Bob);
+        return InboxTestLib.createTransition(proposal, _parentTransitionHash, Bob);
     }
 
     /// @dev Advances time beyond proving window for testing late proofs

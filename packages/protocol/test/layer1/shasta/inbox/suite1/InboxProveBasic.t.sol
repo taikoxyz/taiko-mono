@@ -9,7 +9,7 @@ import "contracts/layer1/shasta/impl/Inbox.sol";
 /// @notice Tests for basic proof submission functionality
 /// @dev This test suite covers proof submission and verification:
 ///      - Single and multiple proof submissions
-///      - Claim record storage and retrieval
+///      - Transition record storage and retrieval
 ///      - Proof verification integration with mock verifier
 ///      - Sequential proof chaining with parent relationships
 ///      - Error handling for invalid proofs
@@ -21,23 +21,23 @@ contract InboxProveBasic is InboxTest {
         super.setUp();
     }
 
-    /// @notice Test proving a single claim successfully
+    /// @notice Test proving a single transition successfully
     /// @dev Validates the complete proof submission flow
-    function test_prove_single_claim() public {
+    function test_prove_single_transition() public {
         // Arrange: Submit a proposal that can be proven
         IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
-        bytes32 parentClaimHash = getGenesisClaimHash();
+        bytes32 parentTransitionHash = getGenesisTransitionHash();
 
-        // Act: Submit proof with parent claim hash
-        proveProposal(proposal, Bob, parentClaimHash);
+        // Act: Submit proof with parent transition hash
+        proveProposal(proposal, Bob, parentTransitionHash);
 
-        // Assert: Verify claim record was stored with correct parent relationship
-        assertClaimRecordStored(SINGLE_PROPOSAL, parentClaimHash);
+        // Assert: Verify transition record was stored with correct parent relationship
+        assertTransitionRecordStored(SINGLE_PROPOSAL, parentTransitionHash);
     }
 
-    /// @notice Test proving multiple claims in one transaction
+    /// @notice Test proving multiple transitions in one transaction
     /// @dev Validates batch proof submission capabilities
-    function test_prove_multiple_claims() public {
+    function test_prove_multiple_transitions() public {
         // Arrange: Submit all proposals first
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](FEW_PROPOSALS);
         for (uint48 i = 1; i <= FEW_PROPOSALS; i++) {
@@ -45,22 +45,22 @@ contract InboxProveBasic is InboxTest {
         }
 
         // Act & Assert: Prove each proposal with chained parent hashes
-        bytes32 parentClaimHash = getGenesisClaimHash();
+        bytes32 parentTransitionHash = getGenesisTransitionHash();
         for (uint48 i = 1; i <= FEW_PROPOSALS; i++) {
-            proveProposal(proposals[i - 1], Bob, parentClaimHash);
-            assertClaimRecordStored(i, parentClaimHash);
+            proveProposal(proposals[i - 1], Bob, parentTransitionHash);
+            assertTransitionRecordStored(i, parentTransitionHash);
             // Update parent hash for next iteration
-            IInbox.Claim memory claim =
-                InboxTestLib.createClaim(proposals[i - 1], parentClaimHash, Bob);
-            parentClaimHash = InboxTestLib.hashClaim(claim);
+            IInbox.Transition memory transition =
+                InboxTestLib.createTransition(proposals[i - 1], parentTransitionHash, Bob);
+            parentTransitionHash = InboxTestLib.hashTransition(transition);
         }
     }
 
-    /// @notice Test proving claims for sequential proposals
+    /// @notice Test proving transitions for sequential proposals
     /// @dev Validates linked proof chain construction
     function test_prove_sequential_proposals() public {
         uint48 count = 4;
-        bytes32 parentHash = getGenesisClaimHash();
+        bytes32 parentHash = getGenesisTransitionHash();
 
         // Submit all proposals first
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](count);
@@ -74,21 +74,21 @@ contract InboxProveBasic is InboxTest {
 
             // Prove with current parent hash
             proveProposal(proposals[i], Bob, parentHash);
-            assertClaimRecordStored(proposalId, parentHash);
+            assertTransitionRecordStored(proposalId, parentHash);
 
             // Update parent hash for chain progression
-            IInbox.Claim memory claim = InboxTestLib.createClaim(proposals[i], parentHash, Bob);
-            parentHash = InboxTestLib.hashClaim(claim);
+            IInbox.Transition memory transition = InboxTestLib.createTransition(proposals[i], parentHash, Bob);
+            parentHash = InboxTestLib.hashTransition(transition);
         }
     }
 
     /// @notice Test that proof submission works with mocked verification
     /// @dev Validates proof submission flow integration
     function test_prove_submission_flow() public {
-        // Arrange: Create proposal and claim data
+        // Arrange: Create proposal and transition data
         IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
-        bytes32 parentClaimHash = getGenesisClaimHash();
-        IInbox.Claim memory claim = InboxTestLib.createClaim(proposal, parentClaimHash, Bob);
+        bytes32 parentTransitionHash = getGenesisTransitionHash();
+        IInbox.Transition memory transition = InboxTestLib.createTransition(proposal, parentTransitionHash, Bob);
 
         bytes memory proof = bytes("test_proof_data");
 
@@ -96,11 +96,11 @@ contract InboxProveBasic is InboxTest {
         setupProofMocks(true);
         vm.prank(Bob);
         inbox.prove(
-            InboxTestAdapter.encodeProveInput(inboxType, _toArray(proposal), _toArray(claim)), proof
+            InboxTestAdapter.encodeProveInput(inboxType, _toArray(proposal), _toArray(transition)), proof
         );
 
         // Assert: Verify proof submission was successful
-        assertClaimRecordStored(SINGLE_PROPOSAL, parentClaimHash);
+        assertTransitionRecordStored(SINGLE_PROPOSAL, parentTransitionHash);
     }
 
     /// @dev Helper to convert single item to array
@@ -114,14 +114,14 @@ contract InboxProveBasic is InboxTest {
     }
 
     /// @dev Helper to convert single item to array
-    function _toArray(IInbox.Claim memory _item) private pure returns (IInbox.Claim[] memory arr) {
-        arr = new IInbox.Claim[](1);
+    function _toArray(IInbox.Transition memory _item) private pure returns (IInbox.Transition[] memory arr) {
+        arr = new IInbox.Transition[](1);
         arr[0] = _item;
     }
 
-    /// @notice Test claim record storage and retrieval
-    /// @dev Validates persistent claim record storage with multiple proofs per proposal
-    function test_prove_claim_record_storage() public {
+    /// @notice Test transition record storage and retrieval
+    /// @dev Validates persistent transition record storage with multiple proofs per proposal
+    function test_prove_transition_record_storage() public {
         uint48 numProposals = FEW_PROPOSALS;
         uint256 proofsPerProposal = 2;
 
@@ -136,19 +136,19 @@ contract InboxProveBasic is InboxTest {
         // and a custom parent for second proof
         for (uint48 i = 1; i <= numProposals; i++) {
             for (uint256 j = 0; j < proofsPerProposal; j++) {
-                bytes32 parentClaimHash =
-                    j == 0 ? getGenesisClaimHash() : keccak256(abi.encode("parent", i, j));
-                proveProposal(proposals[i - 1], Bob, parentClaimHash);
-                assertClaimRecordStored(i, parentClaimHash);
+                bytes32 parentTransitionHash =
+                    j == 0 ? getGenesisTransitionHash() : keccak256(abi.encode("parent", i, j));
+                proveProposal(proposals[i - 1], Bob, parentTransitionHash);
+                assertTransitionRecordStored(i, parentTransitionHash);
             }
         }
 
         // Verify persistent storage of all records
         for (uint48 i = 1; i <= numProposals; i++) {
             for (uint256 j = 0; j < proofsPerProposal; j++) {
-                bytes32 parentClaimHash =
-                    j == 0 ? getGenesisClaimHash() : keccak256(abi.encode("parent", i, j));
-                assertClaimRecordStored(i, parentClaimHash);
+                bytes32 parentTransitionHash =
+                    j == 0 ? getGenesisTransitionHash() : keccak256(abi.encode("parent", i, j));
+                assertTransitionRecordStored(i, parentTransitionHash);
             }
         }
     }
@@ -156,10 +156,10 @@ contract InboxProveBasic is InboxTest {
     /// @notice Test proving with mocked proof verification
     /// @dev Validates that proof verification can be mocked for testing
     function test_prove_with_mock_verification() public {
-        // Arrange: Create valid proposal and claim data
+        // Arrange: Create valid proposal and transition data
         IInbox.Proposal memory proposal = submitProposal(SINGLE_PROPOSAL, Alice);
-        bytes32 parentClaimHash = getGenesisClaimHash();
-        IInbox.Claim memory claim = InboxTestLib.createClaim(proposal, parentClaimHash, Bob);
+        bytes32 parentTransitionHash = getGenesisTransitionHash();
+        IInbox.Transition memory transition = InboxTestLib.createTransition(proposal, parentTransitionHash, Bob);
 
         // Configure: Set up mock to succeed
         setupProofMocks(true);
@@ -167,11 +167,11 @@ contract InboxProveBasic is InboxTest {
         // Act: Submit proof with mock verification
         vm.prank(Bob);
         inbox.prove(
-            InboxTestAdapter.encodeProveInput(inboxType, _toArray(proposal), _toArray(claim)),
+            InboxTestAdapter.encodeProveInput(inboxType, _toArray(proposal), _toArray(transition)),
             bytes("test_proof")
         );
 
-        // Assert: Verify claim record was stored successfully
-        assertClaimRecordStored(SINGLE_PROPOSAL, parentClaimHash);
+        // Assert: Verify transition record was stored successfully
+        assertTransitionRecordStored(SINGLE_PROPOSAL, parentTransitionHash);
     }
 }

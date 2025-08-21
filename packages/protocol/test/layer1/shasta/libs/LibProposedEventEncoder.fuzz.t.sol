@@ -63,7 +63,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
     function testFuzz_encodeDecodeCoreState(
         uint48 _nextProposalId,
         uint48 _lastFinalizedProposalId,
-        bytes32 _lastFinalizedClaimHash,
+        bytes32 _lastFinalizedTransitionHash,
         bytes32 _bondInstructionsHash
     )
         public
@@ -74,7 +74,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
 
         payload.coreState.nextProposalId = _nextProposalId;
         payload.coreState.lastFinalizedProposalId = _lastFinalizedProposalId;
-        payload.coreState.lastFinalizedClaimHash = _lastFinalizedClaimHash;
+        payload.coreState.lastFinalizedTransitionHash = _lastFinalizedTransitionHash;
         payload.coreState.bondInstructionsHash = _bondInstructionsHash;
 
         bytes memory encoded = LibProposedEventEncoder.encode(payload);
@@ -84,7 +84,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(
             decoded.coreState.lastFinalizedProposalId, payload.coreState.lastFinalizedProposalId
         );
-        assertEq(decoded.coreState.lastFinalizedClaimHash, payload.coreState.lastFinalizedClaimHash);
+        assertEq(decoded.coreState.lastFinalizedTransitionHash, payload.coreState.lastFinalizedTransitionHash);
         assertEq(decoded.coreState.bondInstructionsHash, payload.coreState.bondInstructionsHash);
     }
 
@@ -169,7 +169,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
             uint48(uint256(keccak256(abi.encode("next", _id))) % MAX_UINT48);
         payload.coreState.lastFinalizedProposalId =
             uint48(uint256(keccak256(abi.encode("last", _id))) % MAX_UINT48);
-        payload.coreState.lastFinalizedClaimHash = keccak256(abi.encode("finalized", _id));
+        payload.coreState.lastFinalizedTransitionHash = keccak256(abi.encode("finalized", _id));
         payload.coreState.bondInstructionsHash = keccak256(abi.encode("bonds", _id));
 
         // Encode and decode
@@ -200,7 +200,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(
             decoded.coreState.lastFinalizedProposalId, payload.coreState.lastFinalizedProposalId
         );
-        assertEq(decoded.coreState.lastFinalizedClaimHash, payload.coreState.lastFinalizedClaimHash);
+        assertEq(decoded.coreState.lastFinalizedTransitionHash, payload.coreState.lastFinalizedTransitionHash);
         assertEq(decoded.coreState.bondInstructionsHash, payload.coreState.bondInstructionsHash);
     }
 
@@ -252,7 +252,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
 
         original.coreState.nextProposalId = _nextProposalId;
         original.coreState.lastFinalizedProposalId = _lastFinalizedProposalId;
-        original.coreState.lastFinalizedClaimHash = keccak256(abi.encode("finalized", _id));
+        original.coreState.lastFinalizedTransitionHash = keccak256(abi.encode("finalized", _id));
         original.coreState.bondInstructionsHash = keccak256(abi.encode("bonds", _id));
 
         // First round trip
@@ -299,7 +299,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
 
         payload.coreState.nextProposalId = 124;
         payload.coreState.lastFinalizedProposalId = 120;
-        payload.coreState.lastFinalizedClaimHash = keccak256("finalized");
+        payload.coreState.lastFinalizedTransitionHash = keccak256("finalized");
         payload.coreState.bondInstructionsHash = keccak256("bonds");
     }
 }

@@ -52,7 +52,7 @@ library LibProposedEventEncoder {
         // Encode CoreState
         ptr = P.packUint48(ptr, _payload.coreState.nextProposalId);
         ptr = P.packUint48(ptr, _payload.coreState.lastFinalizedProposalId);
-        ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedClaimHash);
+        ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
     }
 
@@ -98,7 +98,7 @@ library LibProposedEventEncoder {
         // Decode CoreState
         (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
-        (payload_.coreState.lastFinalizedClaimHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
     }
 
@@ -117,7 +117,7 @@ library LibProposedEventEncoder {
             // BlobSlice: arrayLength(3) + offset(3) + timestamp(6) = 12
             // coreStateHash: 32
             // CoreState: nextProposalId(6) + lastFinalizedProposalId(6) +
-            //           lastFinalizedClaimHash(32) + bondInstructionsHash(32) = 76
+            //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 76
             // Total fixed: 40 + 12 + 32 + 76 = 160
 
             // Variable size: each blob hash is 32 bytes
