@@ -88,7 +88,7 @@ contract InboxTest_CalldataForTxList is InboxTestBase {
         vm.prank(Alice);
 
         // With empty txList
-        ITaikoInbox.BatchMetadata memory meta = inbox.proposeBatch(abi.encode(params), "");
+        (ITaikoInbox.BatchMetadata memory meta,) = inbox.proposeBatch(abi.encode(params), "");
         _saveMetadata(meta);
 
         vm.prank(Alice);

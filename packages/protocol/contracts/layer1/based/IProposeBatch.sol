@@ -18,5 +18,5 @@ interface IProposeBatch {
         bytes calldata _txList
     )
         external
-        returns (ITaikoInbox.BatchMetadata memory meta_);
+        returns (ITaikoInbox.BatchMetadata memory meta_, uint64 lastBlockId_);
 }
