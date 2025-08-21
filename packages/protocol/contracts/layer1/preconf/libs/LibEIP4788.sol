@@ -3,7 +3,7 @@
 // Referenced from: https://ethresear.ch/t/slashing-proofoor-on-chain-slashed-validator-proofs/19421
 pragma solidity ^0.8.24;
 
-import "./LibMerkleUtils.sol";
+import "./LibBeaconMerkleUtils.sol";
 import "@solady/src/utils/ext/ithaca/BLS.sol";
 import "@eth-fabric/urc/lib/BLSUtils.sol";
 
@@ -62,9 +62,9 @@ library LibEIP4788 {
         require(pubKeyHashTreeRoot == _inclusionProof.validator[0], InvalidValidatorPubKey());
 
         // Verify: Validator is a part of the validator list in the beacon state
-        bytes32 validatorHashTreeRoot = LibMerkleUtils.merkleize(_inclusionProof.validator);
+        bytes32 validatorHashTreeRoot = LibBeaconMerkleUtils.merkleize(_inclusionProof.validator);
         require(
-            LibMerkleUtils.verifyProof(
+            LibBeaconMerkleUtils.verifyProof(
                 _inclusionProof.validatorProof,
                 _inclusionProof.validatorsRoot,
                 validatorHashTreeRoot,
@@ -75,7 +75,7 @@ library LibEIP4788 {
 
         // Verify: Validator list is a part of the beacon state
         require(
-            LibMerkleUtils.verifyProof(
+            LibBeaconMerkleUtils.verifyProof(
                 _inclusionProof.validatorsRootProof,
                 _inclusionProof.beaconStateRoot,
                 _inclusionProof.validatorsRoot,
@@ -90,10 +90,10 @@ library LibEIP4788 {
             InvalidProposerLookaheadIndex()
         );
         require(
-            LibMerkleUtils.verifyProof(
+            LibBeaconMerkleUtils.verifyProof(
                 _inclusionProof.validatorIndexProof,
                 _inclusionProof.proposerLookaheadRoot,
-                LibMerkleUtils.toLittleEndian(_inclusionProof.validatorIndex),
+                LibBeaconMerkleUtils.toLittleEndian(_inclusionProof.validatorIndex),
                 _inclusionProof.proposerLookaheadIndex
             ),
             ValidatorIndexProofVerificationFailed()
@@ -101,7 +101,7 @@ library LibEIP4788 {
 
         // Verify: Beacon state is a part of the beacon block
         require(
-            LibMerkleUtils.verifyProof(
+            LibBeaconMerkleUtils.verifyProof(
                 _inclusionProof.beaconStateRootProof,
                 _beaconBlockRoot,
                 _inclusionProof.beaconStateRoot,

@@ -71,22 +71,23 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             uint256 previousEpochTimestamp,
             // Timestamp of the problematic slot
             uint256 slotTimestamp,
+            // Problematic slot
             ILookaheadStore.LookaheadSlot memory lookaheadSlot
         ) = _validateLookaheadEvidence(evidenceX, lookaheadSlots);
 
-        BLS.G1Point calldata beaconValidatorPubKey =
+        BLS.G1Point calldata beaconLookaheadValPubKey =
             _validateBeaconValidatorEvidence(previousEpochTimestamp, slotTimestamp, evidenceY);
 
         if (lookaheadSlots.length != 0 && lookaheadSlot.slotTimestamp == slotTimestamp) {
             // This condition is executed when the problematic slot is a dedicated slot of an
-            // operator, but is assigned to the wrong operator i.e the beacon validator does
-            // not belong to the operator
-            _validateInvalidOperatorEvidence(lookaheadSlot, beaconValidatorPubKey, evidenceZ);
+            // operator, but is assigned to the wrong operator i.e the beacon validator is
+            // not registered to the operator in the URC.
+            _validateInvalidOperatorEvidence(lookaheadSlot, beaconLookaheadValPubKey, evidenceZ);
         } else {
             // This condition is executed when the problematic slot has no assigned operator i.e
-            // when it is an advanced proposal slot, or when the lookahead is empty .
+            // when it is an advanced proposal slot, or when the lookahead is empty.
             _validateMissingOperatorEvidence(
-                previousEpochTimestamp, beaconValidatorPubKey, evidenceZ
+                previousEpochTimestamp, beaconLookaheadValPubKey, evidenceZ
             );
         }
 
@@ -114,8 +115,9 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         }
 
         slotTimestamp_ = evidenceLookahead.slotTimestamp;
-        uint256 epochTimestamp = _getEpochtimestamp(slotTimestamp_);
+        uint256 epochTimestamp = LibPreconfUtils.getEpochtimestampForSlot(slotTimestamp_);
 
+        // Verify that the commitment was accepted by the lookahead store
         bytes26 lookaheadHash =
             ILookaheadStore(lookaheadStore).calculateLookaheadHash(epochTimestamp, _lookaheadSlots);
         require(
@@ -139,6 +141,8 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         }
     }
 
+    /// @dev Verifies that validator public key provided in the evidence is present at the problematic
+    /// slotTimestamp.
     function _validateBeaconValidatorEvidence(
         uint256 _previousEpochTimestamp,
         uint256 _slotTimestamp,
@@ -146,7 +150,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     )
         internal
         view
-        returns (BLS.G1Point calldata)
+        returns (BLS.G1Point calldata beaconLookaheadValPubKey_)
     {
         EvidenceBeaconValidator calldata evidenceBeaconValidator;
         assembly {
@@ -165,17 +169,17 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
         LibEIP4788.verifyValidator(
             expectedproposerLookaheadIndex,
-            evidenceBeaconValidator.beaconValidatorPubKey,
+            evidenceBeaconValidator.beaconLookaheadValPubKey,
             beaconBlockRoot,
             evidenceBeaconValidator.beaconValidatorInclusionProof
         );
 
-        return evidenceBeaconValidator.beaconValidatorPubKey;
+        beaconLookaheadValPubKey_ = evidenceBeaconValidator.beaconLookaheadValPubKey;
     }
 
     function _validateInvalidOperatorEvidence(
         ILookaheadStore.LookaheadSlot memory _lookaheadSlot,
-        BLS.G1Point calldata _beaconValidatorPubKey,
+        BLS.G1Point calldata _beaconLookaheadValPubKey,
         bytes calldata _evidenceInvalidOperatorBytes
     )
         internal
@@ -186,23 +190,24 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             evidenceInvalidOperator := add(_evidenceInvalidOperatorBytes.offset, 0x20)
         }
 
-        // Validator referenced in the preconf lookahead must not match the beacon validator.
+        // Verify that `preconfLookaheadValPubKey` is the validator present in the preconf lookahead
+        // at the problematic slot
         require(
-            !_isEqual(evidenceInvalidOperator.preconfValidatorPubKey, _beaconValidatorPubKey),
-            PreconfValidatorIsSameAsBeaconValidator()
-        );
-
-        // Verify that `preconfValidatorPubKey` is indeed the validator referenced in the
-        // problematic slot of the preconf lookahead.
-        require(
-            _isEqual(
-                evidenceInvalidOperator.preconfValidatorPubKey,
+            _isG1Equal(
+                evidenceInvalidOperator.preconfLookaheadValPubKey,
                 evidenceInvalidOperator.operatorRegistrations[_lookaheadSlot.validatorLeafIndex]
                     .pubkey
             ),
             PreconfValidatorIsNotRegistered()
         );
 
+        // Verify that this preconf lookahead validator does not match the beacon lookahead validator
+        require(
+            !_isG1Equal(evidenceInvalidOperator.preconfLookaheadValPubKey, _beaconLookaheadValPubKey),
+            PreconfValidatorIsSameAsBeaconValidator()
+        );
+
+        // Verify the correctness of `evidenceInvalidOperator.operatorRegistrations`
         IRegistry.OperatorData memory operatorData =
             IRegistry(urc).getOperatorData(_lookaheadSlot.registrationRoot);
         bytes32[] memory leaves = MerkleTree.hashToLeaves(
@@ -215,7 +220,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
     function _validateMissingOperatorEvidence(
         uint256 _previousEpochTimestamp,
-        BLS.G1Point calldata _beaconValidatorPubKey,
+        BLS.G1Point calldata _beaconLookaheadValPubKey,
         bytes calldata _evidenceMissingOperatorBytes
     )
         internal
@@ -226,11 +231,11 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             evidenceMissingOperator := add(_evidenceMissingOperatorBytes.offset, 0x20)
         }
 
-        // Verify that `_beaconValidatorPubKey` belongs to an operator in the URC.
+        // Verify that `_beaconLookaheadValPubKey` belongs to an operator in the URC.
         IRegistry.RegistrationProof calldata registrationProof =
             evidenceMissingOperator.operatorRegistrationProof;
         require(
-            _isEqual(registrationProof.registration.pubkey, _beaconValidatorPubKey),
+            _isG1Equal(registrationProof.registration.pubkey, _beaconLookaheadValPubKey),
             InvalidRegistrationProofValidator()
         );
 
@@ -239,9 +244,10 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         IRegistry.OperatorData memory operatorData =
             IRegistry(urc).getOperatorData(registrationProof.registrationRoot);
 
+        // This is the same reference timestamp that is used in the lookahead store
         uint256 referenceTimestamp = _previousEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
 
-        // Verify that the operator was valid at the reference timestamp.
+        // Verify that this operator was valid at the reference timestamp.
         require(
             operatorData.registeredAt != 0 && operatorData.registeredAt < referenceTimestamp,
             OperatorHasNotRegistered()
@@ -293,17 +299,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     // Internal helpers
     // --------------------------------------------------------------------------
 
-    /// @dev Returns the epoch timestamp of the epoch containing the slot timestamp.
-    /// This could be an epoch in the past, present or future.
-    function _getEpochtimestamp(uint256 _slotTimestamp) internal view returns (uint256) {
-        uint256 genesisTimestamp = LibPreconfConstants.getGenesisTimestamp(block.chainid);
-        uint256 timePassed = _slotTimestamp - genesisTimestamp;
-        uint256 timePassedUptoEpoch = (timePassed / LibPreconfConstants.SECONDS_IN_EPOCH)
-            * LibPreconfConstants.SECONDS_IN_EPOCH;
-        return genesisTimestamp + timePassedUptoEpoch;
-    }
-
-    function _isEqual(BLS.G1Point memory _a, BLS.G1Point memory _b) internal pure returns (bool) {
+    function _isG1Equal(BLS.G1Point memory _a, BLS.G1Point memory _b) internal pure returns (bool) {
         return _a.x_a == _b.x_a && _a.x_b == _b.x_b && _a.y_a == _b.y_a && _a.y_b == _b.y_b;
     }
 

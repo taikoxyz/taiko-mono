@@ -21,34 +21,35 @@ interface ILookaheadSlasher is ISlasher {
     struct EvidenceLookahead {
         // Timestamp of the problematic slot
         uint256 slotTimestamp;
-        // Index of the problematic slot in the lookahead slots array
+        // Index of the associated entry in the `lookaheadSlots` array
         uint256 lookaheadSlotsIndex;
     }
 
-    /// @dev Evidence for validator pub key and its inclusion proof within the beacon lookahead at
-    /// the problematic slot.
+    /// @dev Evidence containing the proof of inclusion of `beaconLookaheadValPubKey` at the 
+    /// problematic slot in beacon lookahead.
     struct EvidenceBeaconValidator {
         // BLS pub key of the validator present within beacon lookahead
         // at `EvidenceLookahead.slotTimestamp`
-        BLS.G1Point beaconValidatorPubKey;
+        BLS.G1Point beaconLookaheadValPubKey;
         // Inclusion proof for the beacon validator pub key in the beacon lookahead
         LibEIP4788.InclusionProof beaconValidatorInclusionProof;
     }
 
-    /// @dev Evidence for when an invalid operator is inserted at a specific preconfer
-    /// lookahead slot
+    /// @dev Evidence suggesting that `preconfLookaheadValPubKey` was inserted into the
+    /// preconf lookahead at the problematic slot.
     struct EvidenceInvalidOperator {
         // BLS pub key of the validator present within preconfer lookahead
         // at `EvidenceLookahead.slotTimestamp`
-        BLS.G1Point preconfValidatorPubKey;
+        BLS.G1Point preconfLookaheadValPubKey;
         // Used to build the merkle proof to verify that preconf validator belongs to the operator
         // within the preconf lookahead
         IRegistry.SignedRegistration[] operatorRegistrations;
     }
 
-    /// @dev Evidence for when an operator is missing from the preconfer lookahead.
+    /// @dev Evidence suggesting that `beaconLookaheadValPubKey` is registered to a valid 
+    /// opted-in operator in the URC
     struct EvidenceMissingOperator {
-        // URC registration proof signifying that `EvidenceBeaconValidator.beaconValidatorPubKey`
+        // URC registration proof signifying that `EvidenceBeaconValidator.beaconLookaheadValPubKey`
         // belongs to a valid opted-in URC operator
         IRegistry.RegistrationProof operatorRegistrationProof;
     }
