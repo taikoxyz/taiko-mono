@@ -44,8 +44,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// - compositeKey: Keccak256 hash of (proposalId, parentTransitionHash)
     /// - transitionRecordHash: The hash of the TransitionRecord struct
     /// @dev Reuses the `batches` slot from Pacaya fork for storage efficiency
-    mapping(uint256 bufferSlot => mapping(bytes32 compositeKey => bytes32 transitionRecordHash)) internal
-        _transitionRecordHashes;
+    mapping(uint256 bufferSlot => mapping(bytes32 compositeKey => bytes32 transitionRecordHash))
+        internal _transitionRecordHashes;
 
     /// @dev Deprecated slots used by Pacaya inbox that contains:
     /// - `transitionIds`
