@@ -443,7 +443,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         bytes32 storedTransitionRecordHash = _transitionRecordHashes[bufferSlot][compositeKey];
         if (storedTransitionRecordHash == transitionRecordHash) return;
 
-        require(storedTransitionRecordHash == 0, TransitionWithSameParentHashAlreadyProven());
+        require(storedTransitionRecordHash == 0, TransitionWithSameParentHashAlreadyProved());
         _transitionRecordHashes[bufferSlot][compositeKey] = transitionRecordHash;
 
         bytes memory payload = encodeProvedEventData(
@@ -885,5 +885,5 @@ error ProposalIdMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
 error SpanOutOfBounds();
-error TransitionWithSameParentHashAlreadyProven();
+error TransitionWithSameParentHashAlreadyProved();
 error Unauthorized();
