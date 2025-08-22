@@ -135,7 +135,7 @@ To maintain the integrity of the proposal process, the `proposer` address must p
 - Confirming that the proposer holds a sufficient balance in the L2 BondManager contract.
 - Ensuring the proposer is not waiting for exiting.
 
-Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposal's block array is replaced with a single block containing no transactions. Note that this does not use the default manifest; instead, it modifies only the blocks array while preserving other manifest data.
+Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposal is replaced with the default manifest, which contains a single empty block with no transactions.
 
 ### Manifest Extraction
 
@@ -302,7 +302,7 @@ Low-bond proposals present a critical challenge: maintaining chain liveness when
 
 ##### Immediate Mitigations
 
-- **Single Empty Block Replacement**: When `isLowBondProposal = true`, the blocks array is replaced with a single block containing no transactions (preserving other manifest data), minimizing proving costs and disincentivizing spam
+- **Default Manifest Replacement**: When `isLowBondProposal = true`, the entire manifest is replaced with the default manifest (containing a single empty block with no transactions), minimizing proving costs and disincentivizing spam
 - **Prover Persistence**: The designated prover is never `address(0)`, ensuring someone is always responsible
 - **Inheritance Mechanism**: Low-bond proposals inherit their parent's designated prover, maintaining continuity
 
