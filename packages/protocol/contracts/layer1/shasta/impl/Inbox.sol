@@ -440,10 +440,10 @@ abstract contract Inbox is EssentialContract, IInbox {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
         bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
 
-        bytes32 savedTransitionRecordHash = _transitionRecordHashes[bufferSlot][compositeKey];
-        if (savedTransitionRecordHash == transitionRecordHash) return;
+        bytes32 storedTransitionRecordHash = _transitionRecordHashes[bufferSlot][compositeKey];
+        if (storedTransitionRecordHash == transitionRecordHash) return;
 
-        require(savedTransitionRecordHash == 0, TransitionWithSameParentHashAlreadyProve());
+        require(storedTransitionRecordHash == 0, TransitionWithSameParentHashAlreadyProve());
         _transitionRecordHashes[bufferSlot][compositeKey] = transitionRecordHash;
 
         bytes memory payload = encodeProvedEventData(
