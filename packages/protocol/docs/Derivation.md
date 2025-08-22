@@ -350,7 +350,7 @@ The validated metadata serves three critical functions in block construction:
 
 ### Pre-Execution Block Header
 
-Metadata encoding into L2 block header fields facilitates efficient peer validation and statistical analysis. The `withdrawalsRoot` field (32 bytes) is repurposed to store multiple metadata values through byte packing:
+Metadata encoding into L2 block header fields facilitates efficient peer validation:
 
 | Metadata Component   | Type    | Header Field                              |
 | -------------------- | ------- | ----------------------------------------- |
