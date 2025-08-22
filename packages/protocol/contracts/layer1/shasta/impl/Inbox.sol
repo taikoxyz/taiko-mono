@@ -44,8 +44,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// - compositeKey: Keccak256 hash of (proposalId, parentTransitionHash)
     /// - transitionRecordHash: The hash of the TransitionRecord struct
     /// @dev Reuses the `batches` slot from Pacaya fork for storage efficiency
-    mapping(uint256 bufferSlot => mapping(bytes32 compositeKey => bytes32 claimRecordHash)) internal
-        _transitionRecordHashes;
+    mapping(uint256 bufferSlot => mapping(bytes32 compositeKey => bytes32 transitionRecordHash))
+        internal _transitionRecordHashes;
 
     /// @dev Deprecated slots used by Pacaya inbox that contains:
     /// - `transitionIds`
@@ -439,6 +439,11 @@ abstract contract Inbox is EssentialContract, IInbox {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
         bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+
+        bytes32 storedTransitionRecordHash = _transitionRecordHashes[bufferSlot][compositeKey];
+        if (storedTransitionRecordHash == transitionRecordHash) return;
+
+        require(storedTransitionRecordHash == 0, TransitionWithSameParentHashAlreadyProved());
         _transitionRecordHashes[bufferSlot][compositeKey] = transitionRecordHash;
 
         bytes memory payload = encodeProvedEventData(
@@ -878,4 +883,5 @@ error ProposalIdMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
 error SpanOutOfBounds();
+error TransitionWithSameParentHashAlreadyProved();
 error Unauthorized();
