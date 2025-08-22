@@ -439,6 +439,11 @@ abstract contract Inbox is EssentialContract, IInbox {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
         bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+
+        bytes32 savedTransitionRecordHash = _transitionRecordHashes[bufferSlot][compositeKey];
+        if (savedTransitionRecordHash == transitionRecordHash) return;
+
+        require(savedTransitionRecordHash == 0, TransitionWithSameParentHashAlreadyProve());
         _transitionRecordHashes[bufferSlot][compositeKey] = transitionRecordHash;
 
         bytes memory payload = encodeProvedEventData(
@@ -880,4 +885,5 @@ error ProposalIdMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
 error SpanOutOfBounds();
+error TransitionWithSameParentHashAlreadyProve();
 error Unauthorized();
