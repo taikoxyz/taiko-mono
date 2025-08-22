@@ -125,7 +125,7 @@ For a complete diff, check the [Geth fork comparison](https://geth.taiko.xyz).
 
 ### JSON-RPC API
 
-Supports all **standard Ethereum execution APIs**. See [Ethereum Execution API Docs](https://ethereum.github.io/execution-apis/docs/reference/json-rpc-api/).
+Supports all **standard Ethereum execution APIs**. See [Ethereum Execution API Docs](https://ethereum.org/en/developers/docs/apis/json-rpc).
 
 ### Engine API
 

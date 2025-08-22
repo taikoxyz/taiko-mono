@@ -4,20 +4,10 @@ name: Claude Code
 on:
   issue_comment:
     types: [created]
-  pull_request_review_comment:
-    types: [created]
-  issues:
-    types: [opened, assigned]
-  pull_request_review:
-    types: [submitted]
 
 jobs:
   claude:
-    if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+    if: (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
     runs-on: [arc-runner-set]
     permissions:
       contents: write
@@ -25,198 +15,23 @@ jobs:
       issues: write
       id-token: write
     steps:
+      - name: Fetch owner/repo of pull request
+        uses: alessbell/pull-request-comment-branch@v2.1.0
+        id: comment-branch
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          # account for forked repos case
+          ref: ${{ steps.comment-branch.outputs.head_ref }}
+          repository: ${{ steps.comment-branch.outputs.head_owner }}/${{ steps.comment-branch.outputs.head_repo }}
           # Fetch more history for better git operations
           fetch-depth: 0
-          # This ensures we have access to all branches and PR refs
-          # The Claude action will handle checking out the correct branch
-          token: ${{ secrets.GITHUB_TOKEN }}
-          # Don't persist credentials to avoid conflicts with fork operations
           persist-credentials: false
-
-      - name: Setup PR environment
-        if: github.event.issue.pull_request || github.event.pull_request
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH_LIST_LIMIT: ${{ vars.BRANCH_LIST_LIMIT || '20' }}
-        run: |
-          set -e  # Exit on error
-
-          # Configure git for proper authentication with GitHub token
-          git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-
-          # Determine PR number based on event type
-          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
-            PR_NUMBER=$(echo "${{ github.event.issue.pull_request.url }}" | grep -oE '[0-9]+$')
-          elif [[ "${{ github.event_name }}" == "pull_request_review" ]] || [[ "${{ github.event_name }}" == "pull_request_review_comment" ]]; then
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-          else
-            echo "⚠️ Could not determine PR number for event type: ${{ github.event_name }}"
-            exit 0  # Not a PR-related event, skip setup
-          fi
-
-          echo "📋 Setting up environment for PR #${PR_NUMBER}"
-
-          # Get comprehensive PR details
-          echo "📥 Fetching PR metadata..."
-          PR_DATA=$(gh pr view ${PR_NUMBER} --json headRefName,headRepository,headRepositoryOwner,isCrossRepository,state,mergeable)
-
-          # Extract PR information
-          HEAD_REF=$(echo "$PR_DATA" | jq -r '.headRefName')
-          HEAD_REPO_OWNER=$(echo "$PR_DATA" | jq -r '.headRepositoryOwner.login')
-          HEAD_REPO_NAME=$(echo "$PR_DATA" | jq -r '.headRepository.name')
-          IS_FORK=$(echo "$PR_DATA" | jq -r '.isCrossRepository')
-          PR_STATE=$(echo "$PR_DATA" | jq -r '.state')
-          IS_MERGEABLE=$(echo "$PR_DATA" | jq -r '.mergeable')
-
-          # Display PR information
-          echo "📊 PR Information:"
-          echo "  - Branch: ${HEAD_REF}"
-          echo "  - Repository: ${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}"
-          echo "  - Is Fork: ${IS_FORK}"
-          echo "  - State: ${PR_STATE}"
-          echo "  - Mergeable: ${IS_MERGEABLE}"
-
-          # Warn if PR is closed
-          if [[ "$PR_STATE" != "OPEN" ]]; then
-            echo "⚠️ Warning: PR is not open (state: ${PR_STATE})"
-          fi
-
-          # Fetch PR head ref (always needed)
-          echo "🔄 Fetching PR head ref from origin..."
-          if git fetch origin "pull/${PR_NUMBER}/head:refs/remotes/origin/pr/${PR_NUMBER}"; then
-            echo "✅ Successfully fetched PR head ref"
-            HEAD_REF_FETCHED=true
-          else
-            echo "⚠️ Could not fetch PR head ref (this may be normal for some PR states)"
-            HEAD_REF_FETCHED=false
-          fi
-
-          # Only fetch merge ref if explicitly needed (e.g., for conflict detection)
-          # This is conditional to reduce unnecessary git operations
-          if [[ "$IS_MERGEABLE" == "UNKNOWN" ]] || [[ "$IS_MERGEABLE" == "CONFLICTING" ]]; then
-            echo "🔄 Fetching PR merge ref to check merge status..."
-            if git fetch origin "pull/${PR_NUMBER}/merge:refs/remotes/origin/pr/${PR_NUMBER}-merge" 2>/dev/null; then
-              echo "✅ Successfully fetched PR merge ref"
-            else
-              echo "ℹ️ No merge ref available (PR has conflicts or cannot be merged)"
-            fi
-          fi
-
-          # Handle fork-specific setup
-          if [[ "$IS_FORK" == "true" ]]; then
-            echo "🔀 Setting up fork remote: ${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}"
-            
-            # Use unique remote name to avoid conflicts with other PRs
-            FORK_REMOTE="fork-pr-${PR_NUMBER}"
-            
-            # Check if this specific fork remote already exists
-            if git remote get-url "${FORK_REMOTE}" >/dev/null 2>&1; then
-              echo "ℹ️ Remote '${FORK_REMOTE}' already exists, updating URL..."
-              git remote set-url "${FORK_REMOTE}" "https://github.com/${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}.git"
-            else
-              echo "➕ Adding fork as remote '${FORK_REMOTE}'..."
-              git remote add "${FORK_REMOTE}" "https://github.com/${HEAD_REPO_OWNER}/${HEAD_REPO_NAME}.git"
-            fi
-            
-            # Fetch the branch from fork with authentication for private repos
-            echo "🔄 Fetching branch '${HEAD_REF}' from fork..."
-            if git fetch "${FORK_REMOTE}" "${HEAD_REF}:refs/remotes/${FORK_REMOTE}/${HEAD_REF}"; then
-              echo "✅ Successfully fetched branch from fork"
-              FORK_BRANCH_FETCHED=true
-              
-              # Create or update local branch
-              if git show-ref --verify --quiet "refs/heads/${HEAD_REF}"; then
-                echo "🔄 Updating existing local branch '${HEAD_REF}'"
-                git branch -f "${HEAD_REF}" "refs/remotes/${FORK_REMOTE}/${HEAD_REF}"
-              else
-                echo "➕ Creating new local branch '${HEAD_REF}'"
-                git branch "${HEAD_REF}" "refs/remotes/${FORK_REMOTE}/${HEAD_REF}"
-              fi
-            else
-              echo "❌ Failed to fetch branch from fork. The fork might be private or the branch might be deleted."
-              FORK_BRANCH_FETCHED=false
-              
-              # Fallback: use the PR head ref we fetched earlier
-              if [[ "$HEAD_REF_FETCHED" == "true" ]] && git show-ref --verify --quiet "refs/remotes/origin/pr/${PR_NUMBER}"; then
-                echo "🔄 Using PR head ref as fallback"
-                git branch -f "${HEAD_REF}" "refs/remotes/origin/pr/${PR_NUMBER}"
-              else
-                echo "❌ ERROR: Unable to fetch PR branch from any source"
-                echo "   - Fork fetch failed: branch may be deleted or fork may be private"
-                echo "   - PR head ref fallback: ${HEAD_REF_FETCHED:-not available}"
-                echo ""
-                echo "🔧 Troubleshooting steps:"
-                echo "   1. Ensure the PR branch still exists"
-                echo "   2. Check if the fork repository is accessible"
-                echo "   3. Verify PR state is OPEN"
-                exit 1
-              fi
-            fi
-          else
-            echo "🔄 Fetching branch from same repository..."
-            if git fetch origin "${HEAD_REF}:refs/remotes/origin/${HEAD_REF}"; then
-              echo "✅ Successfully fetched branch"
-              ORIGIN_BRANCH_FETCHED=true
-              
-              # Create or update local branch
-              if git show-ref --verify --quiet "refs/heads/${HEAD_REF}"; then
-                echo "🔄 Updating existing local branch '${HEAD_REF}'"
-                git branch -f "${HEAD_REF}" "refs/remotes/origin/${HEAD_REF}"
-              else
-                echo "➕ Creating new local branch '${HEAD_REF}'"
-                git branch "${HEAD_REF}" "refs/remotes/origin/${HEAD_REF}"
-              fi
-            else
-              echo "⚠️ Could not fetch branch '${HEAD_REF}' from origin"
-              ORIGIN_BRANCH_FETCHED=false
-              
-              # Fallback to PR head ref
-              if [[ "$HEAD_REF_FETCHED" == "true" ]] && git show-ref --verify --quiet "refs/remotes/origin/pr/${PR_NUMBER}"; then
-                echo "🔄 Using PR head ref as fallback"
-                git branch -f "${HEAD_REF}" "refs/remotes/origin/pr/${PR_NUMBER}"
-              else
-                echo "❌ ERROR: Unable to fetch branch from origin"
-                echo "   - Direct branch fetch failed"
-                echo "   - PR head ref fallback: ${HEAD_REF_FETCHED:-not available}"
-                exit 1
-              fi
-            fi
-          fi
-
-          # Debug output
-          echo ""
-          echo "📝 Git remotes:"
-          git remote -v
-
-          echo ""
-          echo "🌳 Available branches (limit: ${BRANCH_LIST_LIMIT}):"
-          if [[ "$BRANCH_LIST_LIMIT" == "all" ]] || [[ "$BRANCH_LIST_LIMIT" == "-1" ]]; then
-            git branch -a
-          else
-            git branch -a | head -n "${BRANCH_LIST_LIMIT}"
-          fi
-
-          echo ""
-          echo "📍 Current HEAD:"
-          git rev-parse HEAD
-
-          echo ""
-          echo "✅ PR environment setup complete"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-
-      - name: Verify Node.js installation
-        run: |
-          echo "Node.js location:"
-          which node || echo "Node not found in PATH"
 
       - name: Run Claude Code
         id: claude
