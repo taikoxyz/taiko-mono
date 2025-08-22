@@ -618,10 +618,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             // Next slot in the ring buffer is occupied, need to prove it contains a
             // proposal with a smaller id
             require(_parentProposals.length == 2, IncorrectProposalCount());
-            require(
-                _parentProposals[1].id < _parentProposals[0].id,
-                NextProposalIdSmallerThanLastProposalId()
-            );
+            require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
             require(
                 storedNextProposalHash == _hashProposal(_parentProposals[1]),
                 NextProposalHashMismatch()
@@ -872,12 +869,12 @@ error ForkNotActive();
 error InconsistentParams();
 error IncorrectProposalCount();
 error InsufficientBond();
+error InvalidLastProposalProof();
 error InvalidSpan();
 error InvalidState();
 error LastProposalHashMismatch();
 error LastProposalProofNotEmpty();
 error NextProposalHashMismatch();
-error NextProposalIdSmallerThanLastProposalId();
 error NoBondToWithdraw();
 error ProposalHashMismatch();
 error ProposalHashMismatchWithTransition();
