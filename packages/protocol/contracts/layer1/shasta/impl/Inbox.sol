@@ -646,6 +646,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         returns (CoreState memory)
     {
         unchecked {
+            // use previous block as the origin for the proposal to be able to call `blockhash`
             uint256 parentBlockNumber = block.number - 1;
 
             Derivation memory derivation = Derivation({
