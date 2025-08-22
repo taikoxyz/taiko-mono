@@ -352,19 +352,14 @@ The validated metadata serves three critical functions in block construction:
 
 Metadata encoding into L2 block header fields facilitates efficient peer validation and statistical analysis. The `withdrawalsRoot` field (32 bytes) is repurposed to store multiple metadata values through byte packing:
 
-| Metadata Component   | Type    | Header Field                       |
-| -------------------- | ------- | ---------------------------------- |
-| `number`             | uint256 | `number`                           |
-| `timestamp`          | uint256 | `timestamp`                        |
-| `difficulty`         | uint256 | `difficulty`                       |
-| `gasLimit`           | uint256 | `gasLimit`                         |
-| `id`                 | uint48  | `withdrawalsRoot` (bytes 0-5)      |
-| `numBlocks`          | uint16  | `withdrawalsRoot` (bytes 6-7)      |
-| `index`              | uint16  | `withdrawalsRoot` (bytes 8-9)      |
-| `isForcedInclusion`  | bool    | `withdrawalsRoot` (byte 10, bit 0) |
-| `isLowBondProposal`  | bool    | `withdrawalsRoot` (byte 10, bit 1) |
-| `basefeeSharingPctg` | uint8   | First byte in `extraData`          |
-| `anchorBlockNumber ` | uint48  | Next 6 bytes in `extraData`        |
+| Metadata Component   | Type    | Header Field                              |
+| -------------------- | ------- | ----------------------------------------- |
+| `number`             | uint256 | `number`                                  |
+| `timestamp`          | uint256 | `timestamp`                               |
+| `difficulty`         | uint256 | `difficulty`                              |
+| `gasLimit`           | uint256 | `gasLimit`                                |
+| `basefeeSharingPctg` | uint8   | First byte in `extraData`                 |
+| `isLowBondProposal`  | bool    | Lowest bit in the 2nd byte in `extraData` |
 
 #### Additional Pre-Execution Block Header Fields
 
