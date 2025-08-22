@@ -135,7 +135,7 @@ To maintain the integrity of the proposal process, the `proposer` address must p
 - Confirming that the proposer holds a sufficient balance in the L2 BondManager contract.
 - Ensuring the proposer is not waiting for exiting.
 
-Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposal's block array is replaced with a single block containing no transactions. Note that this does not use the default manifest; instead, it modifies only the blocks array while preserving other manifest data.
+Should any of these validation checks fail (as determined by the `updateState` function returning `isLowBondProposal = true`), the proposal is replaced with the default manifest, which contains a single empty block with no transactions.
 
 ### Manifest Extraction
 
@@ -302,7 +302,7 @@ Low-bond proposals present a critical challenge: maintaining chain liveness when
 
 ##### Immediate Mitigations
 
-- **Single Empty Block Replacement**: When `isLowBondProposal = true`, the blocks array is replaced with a single block containing no transactions (preserving other manifest data), minimizing proving costs and disincentivizing spam
+- **Default Manifest Replacement**: When `isLowBondProposal = true`, the entire manifest is replaced with the default manifest (containing a single empty block with no transactions), minimizing proving costs and disincentivizing spam
 - **Prover Persistence**: The designated prover is never `address(0)`, ensuring someone is always responsible
 - **Inheritance Mechanism**: Low-bond proposals inherit their parent's designated prover, maintaining continuity
 
@@ -350,21 +350,16 @@ The validated metadata serves three critical functions in block construction:
 
 ### Pre-Execution Block Header
 
-Metadata encoding into L2 block header fields facilitates efficient peer validation and statistical analysis. The `withdrawalsRoot` field (32 bytes) is repurposed to store multiple metadata values through byte packing:
+Metadata encoding into L2 block header fields facilitates efficient peer validation:
 
-| Metadata Component   | Type    | Header Field                       |
-| -------------------- | ------- | ---------------------------------- |
-| `number`             | uint256 | `number`                           |
-| `timestamp`          | uint256 | `timestamp`                        |
-| `difficulty`         | uint256 | `difficulty`                       |
-| `gasLimit`           | uint256 | `gasLimit`                         |
-| `id`                 | uint48  | `withdrawalsRoot` (bytes 0-5)      |
-| `numBlocks`          | uint16  | `withdrawalsRoot` (bytes 6-7)      |
-| `index`              | uint16  | `withdrawalsRoot` (bytes 8-9)      |
-| `isForcedInclusion`  | bool    | `withdrawalsRoot` (byte 10, bit 0) |
-| `isLowBondProposal`  | bool    | `withdrawalsRoot` (byte 10, bit 1) |
-| `basefeeSharingPctg` | uint8   | First byte in `extraData`          |
-| `anchorBlockNumber ` | uint48  | Next 6 bytes in `extraData`        |
+| Metadata Component   | Type    | Header Field                              |
+| -------------------- | ------- | ----------------------------------------- |
+| `number`             | uint256 | `number`                                  |
+| `timestamp`          | uint256 | `timestamp`                               |
+| `difficulty`         | uint256 | `difficulty`                              |
+| `gasLimit`           | uint256 | `gasLimit`                                |
+| `basefeeSharingPctg` | uint8   | First byte in `extraData`                 |
+| `isLowBondProposal`  | bool    | Lowest bit in the 2nd byte in `extraData` |
 
 #### Additional Pre-Execution Block Header Fields
 
