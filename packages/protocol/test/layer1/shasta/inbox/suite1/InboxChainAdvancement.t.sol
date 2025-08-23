@@ -28,24 +28,25 @@ contract InboxChainAdvancement is InboxTest {
     /// @notice Test sequential chain advancement through finalization
     /// @dev Validates complete end-to-end chain processing flow:
     ///      1. Creates multiple proposals with sequential IDs
-    ///      2. Proves each proposal with proper parent claim linking
+    ///      2. Proves each proposal with proper parent transition linking
     ///      3. Batch finalizes all proposals in one transaction
-    ///      4. Verifies state progression and claim record storage
+    ///      4. Verifies state progression and transition record storage
     function test_sequential_chain_advancement() public {
         // Test enabled - using new advanced test patterns
         // Setup: Prepare EIP-4844 blob environment for chain advancement
         setupBlobHashes();
         uint48 numProposals = 5;
 
-        // Arrange: Get genesis claim hash as chain starting point
-        IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 genesisHash = InboxTestLib.hashClaim(genesisClaim);
+        // Arrange: Get genesis transition hash as chain starting point
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        bytes32 genesisHash = InboxTestLib.hashTransition(genesisTransition);
 
         // Act: Create, prove, and prepare proposals for sequential chain advancement
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
-        IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
-        IInbox.ClaimRecord[] memory storedClaimRecords = new IInbox.ClaimRecord[](numProposals);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](numProposals);
+        IInbox.TransitionRecord[] memory storedTransitionRecords =
+            new IInbox.TransitionRecord[](numProposals);
         bytes32 currentParentHash = genesisHash;
 
         // Step 1: Create all proposals first (no proving yet)
@@ -55,7 +56,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: genesisHash,
+                lastFinalizedTransitionHash: genesisHash,
                 bondInstructionsHash: bytes32(0)
             });
 
@@ -64,16 +65,17 @@ contract InboxChainAdvancement is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
                 proposalData = encodeProposeInputWithGenesis(
-                    proposalCoreState, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, proposalBlobRef, emptyTransitionRecords
                 );
             } else {
                 proposalData = encodeProposeInputForSubsequent(
-                    proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, lastProposal, proposalBlobRef, emptyTransitionRecords
                 );
             }
 
@@ -90,7 +92,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
-                        lastFinalizedClaimHash: genesisHash,
+                        lastFinalizedTransitionHash: genesisHash,
                         bondInstructionsHash: bytes32(0)
                     })
                 )
@@ -100,19 +102,19 @@ contract InboxChainAdvancement is InboxTest {
 
         // Step 2: Prove all proposals sequentially
         for (uint48 i = 0; i < numProposals; i++) {
-            // Prove the proposal - this stores a claim record
-            claims[i] = proveProposal(proposals[i], Bob, currentParentHash);
+            // Prove the proposal - this stores a transition record
+            transitions[i] = proveProposal(proposals[i], Bob, currentParentHash);
 
-            // Store the claim record that was created during proving
-            storedClaimRecords[i] = IInbox.ClaimRecord({
+            // Store the transition record that was created during proving
+            storedTransitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                claimHash: InboxTestLib.hashClaim(claims[i]),
-                endBlockMiniHeaderHash: keccak256(abi.encode(claims[i].endBlockMiniHeader))
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
+                endBlockMiniHeaderHash: keccak256(abi.encode(transitions[i].endBlockMiniHeader))
             });
 
             // Update parent hash for chain progression
-            currentParentHash = InboxTestLib.hashClaim(claims[i]);
+            currentParentHash = InboxTestLib.hashTransition(transitions[i]);
         }
 
         // Assert: Verify the chain advancement was successful
@@ -121,14 +123,18 @@ contract InboxChainAdvancement is InboxTest {
             bytes32 storedHash = inbox.getProposalHash(i);
             assertTrue(storedHash != bytes32(0), "Proposal should be stored");
 
-            // Verify claim record exists for the proposal
-            assertClaimRecordStored(i, claims[i - 1].parentClaimHash);
+            // Verify transition record exists for the proposal
+            assertTransitionRecordStored(i, transitions[i - 1].parentTransitionHash);
         }
 
-        // Verify chain progression - each claim should have correct parent
+        // Verify chain progression - each transition should have correct parent
         for (uint48 i = 1; i < numProposals; i++) {
-            bytes32 expectedParent = InboxTestLib.hashClaim(claims[i - 1]);
-            assertEq(claims[i].parentClaimHash, expectedParent, "Chain should progress correctly");
+            bytes32 expectedParent = InboxTestLib.hashTransition(transitions[i - 1]);
+            assertEq(
+                transitions[i].parentTransitionHash,
+                expectedParent,
+                "Chain should progress correctly"
+            );
         }
 
         // Verify all proposals are stored
@@ -148,14 +154,14 @@ contract InboxChainAdvancement is InboxTest {
         setupBlobHashes();
         uint48 numProposals = 5;
 
-        // Arrange: Get genesis claim hash as chain foundation
-        IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 genesisHash = keccak256(abi.encode(genesisClaim));
+        // Arrange: Get genesis transition hash as chain foundation
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        bytes32 genesisHash = keccak256(abi.encode(genesisTransition));
 
         // Act: Submit and prove all proposals independently (prepare for batch finalization)
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
-        IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](numProposals);
         bytes32 currentParentHash = genesisHash;
 
         // Step 1: Create all proposals first (no proving yet)
@@ -165,7 +171,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: genesisHash,
+                lastFinalizedTransitionHash: genesisHash,
                 bondInstructionsHash: bytes32(0)
             });
 
@@ -175,16 +181,16 @@ contract InboxChainAdvancement is InboxTest {
 
             // Create proposal data
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
+    IInbox.TransitionRecord[] memory emptyTransitionRecords = new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
                 proposalData = encodeProposeInputWithGenesis(
-                    proposalCoreState, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, proposalBlobRef, emptyTransitionRecords
                 );
             } else {
                 proposalData = encodeProposeInputForSubsequent(
-                    proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, lastProposal, proposalBlobRef, emptyTransitionRecords
                 );
             }
 
@@ -201,7 +207,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
-                        lastFinalizedClaimHash: genesisHash,
+                        lastFinalizedTransitionHash: genesisHash,
                         bondInstructionsHash: bytes32(0)
                     })
                 )
@@ -213,7 +219,7 @@ contract InboxChainAdvancement is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             bytes32 storedProposalHash = inbox.getProposalHash(i + 1);
 
-            claims[i] = IInbox.Claim({
+            transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
                 endBlockMiniHeader: IInbox.BlockMiniHeader({
                     number: uint48(100 + (i + 1) * 10),
@@ -228,26 +234,27 @@ contract InboxChainAdvancement is InboxTest {
             mockProofVerification(true);
             IInbox.Proposal[] memory singleProposal = new IInbox.Proposal[](1);
             singleProposal[0] = proposals[i];
-            IInbox.Claim[] memory singleClaim = new IInbox.Claim[](1);
-            singleClaim[0] = claims[i];
+            IInbox.Transition[] memory singleTransition = new IInbox.Transition[](1);
+            singleTransition[0] = transitions[i];
 
-            bytes memory proveData = encodeProveInput(singleProposal, singleClaim);
+            bytes memory proveData = encodeProveInput(singleProposal, singleTransition);
             vm.prank(Bob);
             inbox.prove(proveData, bytes("proof"));
 
             // Update parent hash for chain continuity
-            currentParentHash = keccak256(abi.encode(claims[i]));
+            currentParentHash = keccak256(abi.encode(transitions[i]));
         }
 
-        // Step 3: Finalize all proposals in one transaction - create claim records like working
+    // Step 3: Finalize all proposals in one transaction - create transition records like working
         // test
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](numProposals);
+    IInbox.TransitionRecord[] memory transitionRecords = new
+    IInbox.TransitionRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
-            claimRecords[i] = IInbox.ClaimRecord({
+            transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                claimHash: InboxTestLib.hashClaim(claims[i]),
-                endBlockMiniHeaderHash: keccak256(abi.encode(claims[i].endBlockMiniHeader))
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
+                endBlockMiniHeaderHash: keccak256(abi.encode(transitions[i].endBlockMiniHeader))
             });
         }
         // Arrange: Setup core state for efficient batch finalization
@@ -256,18 +263,18 @@ contract InboxChainAdvancement is InboxTest {
         // Core state will be validated by the contract during propose()
 
         // Expect: Final block update for batch completion
-        IInbox.BlockMiniHeader memory lastHeader = claims[numProposals - 1].endBlockMiniHeader;
+    IInbox.BlockMiniHeader memory lastHeader = transitions[numProposals - 1].endBlockMiniHeader;
         expectSyncedBlockSave(
             lastHeader.number,
             lastHeader.hash,
             lastHeader.stateRoot
         );
 
-        // Act: Submit batch finalization proposal with the claim records
+        // Act: Submit batch finalization proposal with the transition records
         setupProposalMocks(Carol);
         setupBlobHashes();
         
-        // When finalizing, we need to provide the endBlockMiniHeader from the last claim
+        // When finalizing, we need to provide the endBlockMiniHeader from the last transition
         IInbox.Proposal[] memory validationProposals = new IInbox.Proposal[](1);
         validationProposals[0] = proposals[numProposals - 1];
         
@@ -280,7 +287,7 @@ contract InboxChainAdvancement is InboxTest {
                 coreState,
                 validationProposals,
                 InboxTestLib.createBlobReference(uint8(numProposals + 1)),
-                claimRecords,
+                transitionRecords,
                 lastHeader
             )
         );
@@ -296,9 +303,9 @@ contract InboxChainAdvancement is InboxTest {
     function test_chain_advancement_with_gaps() public {
         // Setup: Prepare environment for gap handling testing
         setupBlobHashes();
-        IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 parentHash = keccak256(abi.encode(genesisClaim));
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        bytes32 parentHash = keccak256(abi.encode(genesisTransition));
 
         // Act: Create 5 proposals (will prove only 1,2,4,5 to create gap at 3)
         IInbox.Proposal memory lastProposal;
@@ -307,7 +314,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: parentHash,
+                lastFinalizedTransitionHash: parentHash,
                 bondInstructionsHash: bytes32(0)
             });
             // Core state will be validated by the contract during propose()
@@ -316,16 +323,17 @@ contract InboxChainAdvancement is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
                 proposalData = encodeProposeInputWithGenesis(
-                    proposalCoreState, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, proposalBlobRef, emptyTransitionRecords
                 );
             } else {
                 proposalData = encodeProposeInputForSubsequent(
-                    proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, lastProposal, proposalBlobRef, emptyTransitionRecords
                 );
             }
 
@@ -342,7 +350,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
-                        lastFinalizedClaimHash: parentHash,
+                        lastFinalizedTransitionHash: parentHash,
                         bondInstructionsHash: bytes32(0)
                     })
                 )
@@ -352,43 +360,43 @@ contract InboxChainAdvancement is InboxTest {
 
         // Prove only proposals 1, 2, 4, 5 (skip 3)
         bytes32 currentParent = parentHash;
-        IInbox.Claim[] memory claims = new IInbox.Claim[](5);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](5);
 
         for (uint48 i = 1; i <= 5; i++) {
             if (i == 3) continue; // Skip proposal 3
 
             // Use the stored proposal for proving
-            claims[i - 1] = proveProposal(proposals[i - 1], Bob, currentParent);
+            transitions[i - 1] = proveProposal(proposals[i - 1], Bob, currentParent);
 
             if (i <= 2) {
-                currentParent = keccak256(abi.encode(claims[i - 1]));
+                currentParent = keccak256(abi.encode(transitions[i - 1]));
             }
         }
 
         // Act: Attempt finalization - should only finalize 1 and 2 (3 is missing, creates gap)
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](2);
+        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](2);
         for (uint48 i = 0; i < 2; i++) {
-            claimRecords[i] = IInbox.ClaimRecord({
+            transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                claimHash: InboxTestLib.hashClaim(claims[i]),
-                endBlockMiniHeaderHash: keccak256(abi.encode(claims[i].endBlockMiniHeader))
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
+                endBlockMiniHeaderHash: keccak256(abi.encode(transitions[i].endBlockMiniHeader))
             });
         }
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 6,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: parentHash,
+            lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)
         });
         // Core state will be validated by the contract during propose()
 
         // Expect only proposal 2's block to be saved (last finalized)
         expectSyncedBlockSave(
-            claims[1].endBlockMiniHeader.number,
-            claims[1].endBlockMiniHeader.hash,
-            claims[1].endBlockMiniHeader.stateRoot
+            transitions[1].endBlockMiniHeader.number,
+            transitions[1].endBlockMiniHeader.hash,
+            transitions[1].endBlockMiniHeader.stateRoot
         );
 
         mockProposerAllowed(Carol);
@@ -407,8 +415,8 @@ contract InboxChainAdvancement is InboxTest {
                 coreState,
                 validationProposals,
                 createValidBlobReference(6),
-                claimRecords,
-                claims[1].endBlockMiniHeader
+                transitionRecords,
+                transitions[1].endBlockMiniHeader
             )
         );
 
@@ -416,7 +424,8 @@ contract InboxChainAdvancement is InboxTest {
     }
 
     /// @notice Test max finalization count limit
-    /// @dev TODO: This test needs to be fixed - the claim records are not being encoded properly
+    /// @dev TODO: This test needs to be fixed - the transition records are not being encoded
+    /// properly
     function disabled_test_max_finalization_count_limit() public {
         setupBlobHashes();
         // Set max finalization count to 3
@@ -424,20 +433,20 @@ contract InboxChainAdvancement is InboxTest {
         config.maxFinalizationCount = 3;
         inbox.setTestConfig(config);
 
-        IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 parentHash = keccak256(abi.encode(genesisClaim));
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        bytes32 parentHash = keccak256(abi.encode(genesisTransition));
 
         // Create and prove 10 proposals
         uint48 numProposals = 10;
-        IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](numProposals);
 
         for (uint48 i = 1; i <= numProposals; i++) {
             // Create proposal
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: parentHash,
+                lastFinalizedTransitionHash: parentHash,
                 bondInstructionsHash: bytes32(0)
             });
             // Core state will be validated by the contract during propose()
@@ -446,9 +455,10 @@ contract InboxChainAdvancement is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
             bytes memory proposalData =
-                abi.encode(uint48(0), proposalCoreState, proposalBlobRef, emptyClaimRecords);
+                abi.encode(uint48(0), proposalCoreState, proposalBlobRef, emptyTransitionRecords);
 
             vm.startPrank(Alice);
             setupBlobHashes();
@@ -462,10 +472,10 @@ contract InboxChainAdvancement is InboxTest {
                 InboxTestLib.createProposal(i, Alice, config.basefeeSharingPctg);
             proposal.coreStateHash = bytes32(0);
 
-            bytes32 currentParent = i == 1 ? parentHash : keccak256(abi.encode(claims[i - 2]));
-            claims[i - 1] = IInbox.Claim({
+            bytes32 currentParent = i == 1 ? parentHash : keccak256(abi.encode(transitions[i - 2]));
+            transitions[i - 1] = IInbox.Transition({
                 proposalHash: storedProposalHash,
-                parentClaimHash: currentParent,
+                parentTransitionHash: currentParent,
                 endBlockMiniHeader: IInbox.BlockMiniHeader({
                     number: uint48(100 + i * 10),
                     hash: keccak256(abi.encode(i, "endBlockHash")),
@@ -479,23 +489,23 @@ contract InboxChainAdvancement is InboxTest {
 
             IInbox.Proposal[] memory proveProposals = new IInbox.Proposal[](1);
             proveProposals[0] = proposal;
-            IInbox.Claim[] memory proveClaims = new IInbox.Claim[](1);
-            proveClaims[0] = claims[i - 1];
+            IInbox.Transition[] memory proveTransitions = new IInbox.Transition[](1);
+            proveTransitions[0] = transitions[i - 1];
 
-            bytes memory proveData = encodeProveInput(proveProposals, proveClaims);
+            bytes memory proveData = encodeProveInput(proveProposals, proveTransitions);
             vm.prank(Bob);
             inbox.prove(proveData, bytes("proof"));
         }
 
         // Try to finalize - contract will only process first 3 due to maxFinalizationCount
-        // We provide exactly 3 claim records (the max that can be finalized)
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](3);
+        // We provide exactly 3 transition records (the max that can be finalized)
+        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](3);
         for (uint48 i = 0; i < 3; i++) {
-            claimRecords[i] = IInbox.ClaimRecord({
+            transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                claimHash: InboxTestLib.hashClaim(claims[i]),
-                endBlockMiniHeaderHash: keccak256(abi.encode(claims[i].endBlockMiniHeader))
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
+                endBlockMiniHeaderHash: keccak256(abi.encode(transitions[i].endBlockMiniHeader))
             });
         }
 
@@ -504,30 +514,31 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: parentHash,
+            lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)
         });
         // Core state will be validated by the contract during propose()
 
         // Expect only proposal 3's block to be saved (due to max finalization count)
         expectSyncedBlockSave(
-            claims[2].endBlockMiniHeader.number, // Only first 3 will be finalized
-            claims[2].endBlockMiniHeader.hash,
-            claims[2].endBlockMiniHeader.stateRoot
+            transitions[2].endBlockMiniHeader.number, // Only first 3 will be finalized
+            transitions[2].endBlockMiniHeader.hash,
+            transitions[2].endBlockMiniHeader.stateRoot
         );
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
 
         // When finalizing, we need to provide the endBlockMiniHeader
-        // Since max finalization is 3, use the header from claim[2] (the 3rd claim)
+        // Since max finalization is 3, use the header from transition[2] (the 3rd transition)
         bytes memory proposeData = InboxTestAdapter.encodeProposeInputWithEndBlock(
             inboxType,
             uint48(0),
             coreState,
             new IInbox.Proposal[](0), // No proposals needed for validation in this test
             blobRef,
-            claimRecords,
-            claims[2].endBlockMiniHeader // Header from the 3rd claim (max that will be finalized)
+            transitionRecords,
+            transitions[2].endBlockMiniHeader // Header from the 3rd transition (max that will be
+                // finalized)
         );
 
         mockProposerAllowed(Carol);
@@ -551,14 +562,15 @@ contract InboxChainAdvancement is InboxTest {
         setupBlobHashes();
         uint48 numProposals = 15; // More than maxFinalizationCount (10) to test limits
 
-        IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 genesisHash = keccak256(abi.encode(genesisClaim));
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        bytes32 genesisHash = keccak256(abi.encode(genesisTransition));
 
         // Act: Create and prove all proposals (exceeds finalization limit)
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
-        IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
-        IInbox.ClaimRecord[] memory storedClaimRecords = new IInbox.ClaimRecord[](numProposals);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](numProposals);
+        IInbox.TransitionRecord[] memory storedTransitionRecords =
+            new IInbox.TransitionRecord[](numProposals);
         bytes32 currentParentHash = genesisHash;
 
         // Step 1: Create all proposals first (no proving yet)
@@ -568,7 +580,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: genesisHash,
+                lastFinalizedTransitionHash: genesisHash,
                 bondInstructionsHash: bytes32(0)
             });
 
@@ -578,16 +590,17 @@ contract InboxChainAdvancement is InboxTest {
 
             // Create proposal data
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
                 proposalData = encodeProposeInputWithGenesis(
-                    proposalCoreState, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, proposalBlobRef, emptyTransitionRecords
                 );
             } else {
                 proposalData = encodeProposeInputForSubsequent(
-                    proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, lastProposal, proposalBlobRef, emptyTransitionRecords
                 );
             }
 
@@ -604,7 +617,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
-                        lastFinalizedClaimHash: genesisHash,
+                        lastFinalizedTransitionHash: genesisHash,
                         bondInstructionsHash: bytes32(0)
                     })
                 )
@@ -614,37 +627,38 @@ contract InboxChainAdvancement is InboxTest {
 
         // Step 2: Prove all proposals sequentially
         for (uint48 i = 0; i < numProposals; i++) {
-            // Prove the proposal - this stores a claim record
-            claims[i] = proveProposal(proposals[i], Bob, currentParentHash);
+            // Prove the proposal - this stores a transition record
+            transitions[i] = proveProposal(proposals[i], Bob, currentParentHash);
 
-            // Store the claim record that was created during proving
-            storedClaimRecords[i] = IInbox.ClaimRecord({
+            // Store the transition record that was created during proving
+            storedTransitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                claimHash: InboxTestLib.hashClaim(claims[i]),
-                endBlockMiniHeaderHash: keccak256(abi.encode(claims[i].endBlockMiniHeader))
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
+                endBlockMiniHeaderHash: keccak256(abi.encode(transitions[i].endBlockMiniHeader))
             });
 
             // Update parent hash for chain continuity
-            currentParentHash = InboxTestLib.hashClaim(claims[i]);
+            currentParentHash = InboxTestLib.hashTransition(transitions[i]);
         }
 
         // Act: Try to finalize all at once (should only finalize up to maxFinalizationCount)
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: genesisHash,
+            lastFinalizedTransitionHash: genesisHash,
             bondInstructionsHash: bytes32(0)
         });
         // Core state will be validated by the contract during propose()
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
 
-        // Extract the endBlockMiniHeader from the last claim that will be finalized
+        // Extract the endBlockMiniHeader from the last transition that will be finalized
         // (maxFinalizationCount - 1)
-        // Since only maxFinalizationCount proposals will be finalized, we use that claim's header
+        // Since only maxFinalizationCount proposals will be finalized, we use that transition's
+        // header
         IInbox.BlockMiniHeader memory lastEndHeader =
-            claims[defaultConfig.maxFinalizationCount - 1].endBlockMiniHeader;
+            transitions[defaultConfig.maxFinalizationCount - 1].endBlockMiniHeader;
 
         // When finalizing, we need to provide the endBlockMiniHeader
         IInbox.Proposal[] memory validationProposals = new IInbox.Proposal[](1);
@@ -656,7 +670,7 @@ contract InboxChainAdvancement is InboxTest {
             coreState,
             validationProposals,
             blobRef,
-            storedClaimRecords,
+            storedTransitionRecords,
             lastEndHeader
         );
 
@@ -670,8 +684,8 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.CoreState({
             nextProposalId: numProposals + 2,
             lastFinalizedProposalId: uint48(defaultConfig.maxFinalizationCount),
-            lastFinalizedClaimHash: keccak256(
-                abi.encode(claims[defaultConfig.maxFinalizationCount - 1])
+            lastFinalizedTransitionHash: keccak256(
+                abi.encode(transitions[defaultConfig.maxFinalizationCount - 1])
             ),
             bondInstructionsHash: bytes32(0)
         });
@@ -688,28 +702,30 @@ contract InboxChainAdvancement is InboxTest {
         bytes32 parentHash
     )
         internal
-        returns (IInbox.Proposal memory proposal, IInbox.Claim memory claim)
+        returns (IInbox.Proposal memory proposal, IInbox.Transition memory transition)
     {
         // Submit and prove proposal
         proposal = submitProposal(proposalId, Alice);
-        claim = InboxTestLib.createClaim(proposal, parentHash, Alice);
+        transition = InboxTestLib.createTransition(proposal, parentHash, Alice);
 
         // Prove the proposal
         setupProofMocks(true);
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = proposal;
-        IInbox.Claim[] memory claims = new IInbox.Claim[](1);
-        claims[0] = claim;
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = transition;
 
         vm.prank(Alice);
-        inbox.prove(InboxTestAdapter.encodeProveInput(inboxType, proposals, claims), bytes("proof"));
+        inbox.prove(
+            InboxTestAdapter.encodeProveInput(inboxType, proposals, transitions), bytes("proof")
+        );
     }
 
-    /// @notice Helper function to finalize proposals with claim records
-    function _finalizeWithClaimRecords(
+    /// @notice Helper function to finalize proposals with transition records
+    function _finalizeWithTransitionRecords(
         IInbox.CoreState memory coreState,
         IInbox.Proposal memory lastProposal,
-        IInbox.ClaimRecord[] memory claimRecords,
+        IInbox.TransitionRecord[] memory transitionRecords,
         IInbox.BlockMiniHeader memory endHeader,
         uint48 nextProposalId
     )
@@ -722,7 +738,13 @@ contract InboxChainAdvancement is InboxTest {
         validationProposals[0] = lastProposal;
 
         bytes memory proposeData = InboxTestAdapter.encodeProposeInputWithEndBlock(
-            inboxType, uint48(0), coreState, validationProposals, blobRef, claimRecords, endHeader
+            inboxType,
+            uint48(0),
+            coreState,
+            validationProposals,
+            blobRef,
+            transitionRecords,
+            endHeader
         );
 
         mockProposerAllowed(Carol);
@@ -745,10 +767,10 @@ contract InboxChainAdvancement is InboxTest {
         // Test enabled - using new advanced test patterns
         setupBlobHashes();
 
-        // Setup genesis claim
-        IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 parentHash = keccak256(abi.encode(genesisClaim));
+        // Setup genesis transition
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        bytes32 parentHash = keccak256(abi.encode(genesisTransition));
 
         // Step 1: Create 3 consecutive proposals with different timestamps to trigger bond
         // instructions
@@ -761,7 +783,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: parentHash,
+                lastFinalizedTransitionHash: parentHash,
                 bondInstructionsHash: bytes32(0)
             });
             // Core state will be validated by the contract during propose()
@@ -770,16 +792,17 @@ contract InboxChainAdvancement is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
                 proposalData = encodeProposeInputWithGenesis(
-                    proposalCoreState, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, proposalBlobRef, emptyTransitionRecords
                 );
             } else {
                 proposalData = encodeProposeInputForSubsequent(
-                    proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, lastProposal, proposalBlobRef, emptyTransitionRecords
                 );
             }
 
@@ -795,7 +818,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
-                        lastFinalizedClaimHash: parentHash,
+                        lastFinalizedTransitionHash: parentHash,
                         bondInstructionsHash: bytes32(0)
                     })
                 )
@@ -805,21 +828,21 @@ contract InboxChainAdvancement is InboxTest {
         }
 
         // Step 2: Advance time to make proofs late (triggers liveness bond instructions)
-        // This ensures each claim will have bond instructions that should be aggregated
+        // This ensures each transition will have bond instructions that should be aggregated
         vm.warp(block.timestamp + defaultConfig.provingWindow + 1);
 
         // Prove all 3 proposals together in one transaction
         // Each will have different designated provers to create different bond instructions
-        IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](numProposals);
         bytes32 currentParent = parentHash;
         address[3] memory designatedProvers = [Alice, Bob, Carol];
 
         for (uint48 i = 0; i < numProposals; i++) {
             bytes32 storedProposalHash = inbox.getProposalHash(i + 1);
 
-            claims[i] = IInbox.Claim({
+            transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
-                parentClaimHash: currentParent,
+                parentTransitionHash: currentParent,
                 endBlockMiniHeader: IInbox.BlockMiniHeader({
                     number: uint48(100 + (i + 1) * 10),
                     hash: keccak256(abi.encode(i + 1, "endBlockHash")),
@@ -829,12 +852,12 @@ contract InboxChainAdvancement is InboxTest {
                 actualProver: David // Same actual prover for all (late proof)
              });
 
-            currentParent = keccak256(abi.encode(claims[i]));
+            currentParent = keccak256(abi.encode(transitions[i]));
         }
 
         // Prove all 3 proposals together - they will be aggregated
         mockProofVerification(true);
-        bytes memory proveData = encodeProveInput(proposals, claims);
+        bytes memory proveData = encodeProveInput(proposals, transitions);
 
         // Create expected aggregated bond instructions for verification
         LibBonds.BondInstruction[] memory expectedBondInstructions =
@@ -858,102 +881,108 @@ contract InboxChainAdvancement is InboxTest {
             receiver: David
         });
 
-        // The aggregated claim record that should be emitted
-        IInbox.ClaimRecord memory expectedAggregatedRecord = IInbox.ClaimRecord({
+        // The aggregated transition record that should be emitted
+        IInbox.TransitionRecord memory expectedAggregatedRecord = IInbox.TransitionRecord({
             span: 3,
             bondInstructions: expectedBondInstructions,
-            claimHash: InboxTestLib.hashClaim(claims[2]), // Last claim in the aggregated group
-            endBlockMiniHeaderHash: keccak256(abi.encode(claims[2].endBlockMiniHeader))
+            transitionHash: InboxTestLib.hashTransition(transitions[2]), // Last transition in the
+                // aggregated group
+            endBlockMiniHeaderHash: keccak256(abi.encode(transitions[2].endBlockMiniHeader))
         });
 
         // Now prove - this should aggregate all 3 proposals with their bond instructions
         vm.prank(David);
         inbox.prove(proveData, bytes("proof"));
 
-        // Step 3: Verify the aggregated claim record is stored correctly
-        // For proposal 1, the parent should be the genesis claim hash
-        bytes32 claimRecordHash1 = inbox.getClaimRecordHash(1, parentHash);
-        assertTrue(claimRecordHash1 != bytes32(0), "Claim record for proposal 1 should exist");
-
-        // Verify the stored claim record hash matches what we expect
-        bytes32 expectedClaimRecordHash = keccak256(abi.encode(expectedAggregatedRecord));
-        assertEq(
-            claimRecordHash1,
-            expectedClaimRecordHash,
-            "Stored claim record should match expected aggregated record"
+        // Step 3: Verify the aggregated transition record is stored correctly
+        // For proposal 1, the parent should be the genesis transition hash
+        bytes32 transitionRecordHash1 = inbox.getTransitionRecordHash(1, parentHash);
+        assertTrue(
+            transitionRecordHash1 != bytes32(0), "Transition record for proposal 1 should exist"
         );
 
-        // For proposals 2 and 3, they won't have separate claim records since they're aggregated
+        // Verify the stored transition record hash matches what we expect
+        bytes32 expectedTransitionRecordHash = keccak256(abi.encode(expectedAggregatedRecord));
+        assertEq(
+            transitionRecordHash1,
+            expectedTransitionRecordHash,
+            "Stored transition record should match expected aggregated record"
+        );
+
+        // For proposals 2 and 3, they won't have separate transition records since they're
+        // aggregated
         // The finalization will use the aggregated record from proposal 1
 
-        // Step 4: Finalize all 3 proposals with the single aggregated claim record
+        // Step 4: Finalize all 3 proposals with the single aggregated transition record
         // Use the same bond instructions we verified above for finalization
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
-        claimRecords[0] = expectedAggregatedRecord; // Use the verified aggregated record
+        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
+        transitionRecords[0] = expectedAggregatedRecord; // Use the verified aggregated record
 
         // Double-check that all 3 bond instructions are present and correct
         assertEq(
-            claimRecords[0].bondInstructions.length, 3, "Should have exactly 3 bond instructions"
+            transitionRecords[0].bondInstructions.length,
+            3,
+            "Should have exactly 3 bond instructions"
         );
 
         // Verify each bond instruction individually
         assertEq(
-            claimRecords[0].bondInstructions[0].proposalId,
+            transitionRecords[0].bondInstructions[0].proposalId,
             1,
             "First bond instruction should be for proposal 1"
         );
         assertEq(
-            claimRecords[0].bondInstructions[0].payer,
+            transitionRecords[0].bondInstructions[0].payer,
             Alice,
             "First bond instruction payer should be Alice"
         );
         assertEq(
-            claimRecords[0].bondInstructions[0].receiver,
+            transitionRecords[0].bondInstructions[0].receiver,
             David,
             "First bond instruction receiver should be David"
         );
         assertTrue(
-            claimRecords[0].bondInstructions[0].bondType == LibBonds.BondType.LIVENESS,
+            transitionRecords[0].bondInstructions[0].bondType == LibBonds.BondType.LIVENESS,
             "First should be liveness bond"
         );
 
         assertEq(
-            claimRecords[0].bondInstructions[1].proposalId,
+            transitionRecords[0].bondInstructions[1].proposalId,
             2,
             "Second bond instruction should be for proposal 2"
         );
         assertEq(
-            claimRecords[0].bondInstructions[1].payer,
+            transitionRecords[0].bondInstructions[1].payer,
             Bob,
             "Second bond instruction payer should be Bob"
         );
         assertEq(
-            claimRecords[0].bondInstructions[1].receiver,
+            transitionRecords[0].bondInstructions[1].receiver,
             David,
             "Second bond instruction receiver should be David"
         );
         assertTrue(
-            claimRecords[0].bondInstructions[1].bondType == LibBonds.BondType.LIVENESS,
+            transitionRecords[0].bondInstructions[1].bondType == LibBonds.BondType.LIVENESS,
             "Second should be liveness bond"
         );
 
         assertEq(
-            claimRecords[0].bondInstructions[2].proposalId,
+            transitionRecords[0].bondInstructions[2].proposalId,
             3,
             "Third bond instruction should be for proposal 3"
         );
         assertEq(
-            claimRecords[0].bondInstructions[2].payer,
+            transitionRecords[0].bondInstructions[2].payer,
             Carol,
             "Third bond instruction payer should be Carol"
         );
         assertEq(
-            claimRecords[0].bondInstructions[2].receiver,
+            transitionRecords[0].bondInstructions[2].receiver,
             David,
             "Third bond instruction receiver should be David"
         );
         assertTrue(
-            claimRecords[0].bondInstructions[2].bondType == LibBonds.BondType.LIVENESS,
+            transitionRecords[0].bondInstructions[2].bondType == LibBonds.BondType.LIVENESS,
             "Third should be liveness bond"
         );
 
@@ -961,28 +990,28 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: parentHash,
+            lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)
         });
         // Core state will be validated by the contract during propose()
 
-        // NOTE: Removing expectSyncedBlockSave as aggregated claim records
+        // NOTE: Removing expectSyncedBlockSave as aggregated transition records
         // may handle sync block saves differently than individual records
 
         // Create next proposal with finalization
         // Extract header to avoid stack too deep
-        IInbox.BlockMiniHeader memory lastEndHeader = claims[2].endBlockMiniHeader;
+        IInbox.BlockMiniHeader memory lastEndHeader = transitions[2].endBlockMiniHeader;
         uint48 nextProposalId = 4; // numProposals + 1 = 3 + 1
-        _finalizeWithClaimRecords(
-            coreState, lastProposal, claimRecords, lastEndHeader, nextProposalId
+        _finalizeWithTransitionRecords(
+            coreState, lastProposal, transitionRecords, lastEndHeader, nextProposalId
         );
 
-        // All 3 proposals are now finalized with just 1 aggregated claim record!
+        // All 3 proposals are now finalized with just 1 aggregated transition record!
     }
 
     /// @notice Test proving 3 consecutive proposals together without aggregation (Core
     /// implementation)
-    /// @dev Core Inbox stores each claim record separately even when proved together
+    /// @dev Core Inbox stores each transition record separately even when proved together
     function test_prove_three_consecutive_core_no_aggregation() public {
         // This test is specifically for Core implementation behavior
         if (inboxType != TestInboxFactory.InboxType.Base) {
@@ -992,10 +1021,10 @@ contract InboxChainAdvancement is InboxTest {
 
         setupBlobHashes();
 
-        // Setup genesis claim
-        IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 parentHash = keccak256(abi.encode(genesisClaim));
+        // Setup genesis transition
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        bytes32 parentHash = keccak256(abi.encode(genesisTransition));
 
         // Step 1: Create 3 consecutive proposals
         uint48 numProposals = 3;
@@ -1006,7 +1035,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: parentHash,
+                lastFinalizedTransitionHash: parentHash,
                 bondInstructionsHash: bytes32(0)
             });
 
@@ -1014,16 +1043,17 @@ contract InboxChainAdvancement is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
                 proposalData = encodeProposeInputWithGenesis(
-                    proposalCoreState, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, proposalBlobRef, emptyTransitionRecords
                 );
             } else {
                 proposalData = encodeProposeInputForSubsequent(
-                    proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, lastProposal, proposalBlobRef, emptyTransitionRecords
                 );
             }
 
@@ -1038,7 +1068,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
-                        lastFinalizedClaimHash: parentHash,
+                        lastFinalizedTransitionHash: parentHash,
                         bondInstructionsHash: bytes32(0)
                     })
                 )
@@ -1050,16 +1080,16 @@ contract InboxChainAdvancement is InboxTest {
         vm.warp(block.timestamp + defaultConfig.provingWindow + 1);
 
         // Step 3: Prove all 3 proposals together (Core will store them separately)
-        IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](numProposals);
         bytes32 currentParent = parentHash;
         address[3] memory designatedProvers = [Alice, Bob, Carol];
 
         for (uint48 i = 0; i < numProposals; i++) {
             bytes32 storedProposalHash = inbox.getProposalHash(i + 1);
 
-            claims[i] = IInbox.Claim({
+            transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
-                parentClaimHash: currentParent,
+                parentTransitionHash: currentParent,
                 endBlockMiniHeader: IInbox.BlockMiniHeader({
                     number: uint48(100 + (i + 1) * 10),
                     hash: keccak256(abi.encode(i + 1, "endBlockHash")),
@@ -1069,31 +1099,31 @@ contract InboxChainAdvancement is InboxTest {
                 actualProver: David // Same actual prover (late proof)
              });
 
-            currentParent = keccak256(abi.encode(claims[i]));
+            currentParent = keccak256(abi.encode(transitions[i]));
         }
 
         // Prove all 3 together - Core will NOT aggregate them
         mockProofVerification(true);
-        bytes memory proveData = encodeProveInput(proposals, claims);
+        bytes memory proveData = encodeProveInput(proposals, transitions);
         vm.prank(David);
         inbox.prove(proveData, bytes("proof"));
 
-        // Step 4: Verify Core stored 3 separate claim records (no aggregation)
-        // Each proposal gets its own claim record with span=1
+        // Step 4: Verify Core stored 3 separate transition records (no aggregation)
+        // Each proposal gets its own transition record with span=1
         bytes32 expectedParent = parentHash;
         for (uint48 i = 0; i < numProposals; i++) {
-            bytes32 claimRecordHash = inbox.getClaimRecordHash(i + 1, expectedParent);
-            assertTrue(claimRecordHash != bytes32(0), "Claim record should exist");
+            bytes32 transitionRecordHash = inbox.getTransitionRecordHash(i + 1, expectedParent);
+            assertTrue(transitionRecordHash != bytes32(0), "Transition record should exist");
 
             // Verify it's a non-aggregated record (span=1)
-            IInbox.ClaimRecord memory expectedRecord = IInbox.ClaimRecord({
+            IInbox.TransitionRecord memory expectedRecord = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](1),
-                claimHash: InboxTestLib.hashClaim(claims[i]),
-                endBlockMiniHeaderHash: keccak256(abi.encode(claims[i].endBlockMiniHeader))
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
+                endBlockMiniHeaderHash: keccak256(abi.encode(transitions[i].endBlockMiniHeader))
             });
 
-            // Set up expected bond instruction for this individual claim
+            // Set up expected bond instruction for this individual transition
             expectedRecord.bondInstructions[0] = LibBonds.BondInstruction({
                 proposalId: i + 1,
                 bondType: LibBonds.BondType.LIVENESS,
@@ -1102,21 +1132,26 @@ contract InboxChainAdvancement is InboxTest {
             });
 
             bytes32 expectedHash = keccak256(abi.encode(expectedRecord));
-            assertEq(claimRecordHash, expectedHash, "Core should store non-aggregated claim record");
+            assertEq(
+                transitionRecordHash,
+                expectedHash,
+                "Core should store non-aggregated transition record"
+            );
 
-            expectedParent = keccak256(abi.encode(claims[i]));
+            expectedParent = keccak256(abi.encode(transitions[i]));
         }
 
-        // Step 5: Finalize all 3 using separate claim records
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](numProposals);
+        // Step 5: Finalize all 3 using separate transition records
+        IInbox.TransitionRecord[] memory transitionRecords =
+            new IInbox.TransitionRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
-            claimRecords[i] = IInbox.ClaimRecord({
+            transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](1),
-                claimHash: InboxTestLib.hashClaim(claims[i]),
-                endBlockMiniHeaderHash: keccak256(abi.encode(claims[i].endBlockMiniHeader))
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
+                endBlockMiniHeaderHash: keccak256(abi.encode(transitions[i].endBlockMiniHeader))
             });
-            claimRecords[i].bondInstructions[0] = LibBonds.BondInstruction({
+            transitionRecords[i].bondInstructions[0] = LibBonds.BondInstruction({
                 proposalId: i + 1,
                 bondType: LibBonds.BondType.LIVENESS,
                 payer: designatedProvers[i],
@@ -1127,15 +1162,18 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: parentHash,
+            lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)
         });
 
-        IInbox.BlockMiniHeader memory lastEndHeader2 = claims[numProposals - 1].endBlockMiniHeader;
+        IInbox.BlockMiniHeader memory lastEndHeader2 =
+            transitions[numProposals - 1].endBlockMiniHeader;
         uint48 nextId = 4; // numProposals + 1 = 3 + 1
-        _finalizeWithClaimRecords(coreState, lastProposal, claimRecords, lastEndHeader2, nextId);
+        _finalizeWithTransitionRecords(
+            coreState, lastProposal, transitionRecords, lastEndHeader2, nextId
+        );
 
-        // All 3 proposals are finalized with separate claim records (Core behavior)
+        // All 3 proposals are finalized with separate transition records (Core behavior)
     }
 
     /// @notice Test proving 3 consecutive proposals separately and finalizing all of them
@@ -1143,10 +1181,10 @@ contract InboxChainAdvancement is InboxTest {
     function test_prove_three_separately_finalize_together() public {
         setupBlobHashes();
 
-        // Setup genesis claim
-        IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 parentHash = keccak256(abi.encode(genesisClaim));
+        // Setup genesis transition
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        bytes32 parentHash = keccak256(abi.encode(genesisTransition));
 
         // Step 1: Create 3 consecutive proposals
         uint48 numProposals = 3;
@@ -1157,7 +1195,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
                 lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: parentHash,
+                lastFinalizedTransitionHash: parentHash,
                 bondInstructionsHash: bytes32(0)
             });
             // Core state will be validated by the contract during propose()
@@ -1166,16 +1204,17 @@ contract InboxChainAdvancement is InboxTest {
             mockForcedInclusionDue(false);
 
             LibBlobs.BlobReference memory proposalBlobRef = createValidBlobReference(i);
-            IInbox.ClaimRecord[] memory emptyClaimRecords = new IInbox.ClaimRecord[](0);
+            IInbox.TransitionRecord[] memory emptyTransitionRecords =
+                new IInbox.TransitionRecord[](0);
 
             bytes memory proposalData;
             if (i == 1) {
                 proposalData = encodeProposeInputWithGenesis(
-                    proposalCoreState, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, proposalBlobRef, emptyTransitionRecords
                 );
             } else {
                 proposalData = encodeProposeInputForSubsequent(
-                    proposalCoreState, lastProposal, proposalBlobRef, emptyClaimRecords
+                    proposalCoreState, lastProposal, proposalBlobRef, emptyTransitionRecords
                 );
             }
 
@@ -1191,7 +1230,7 @@ contract InboxChainAdvancement is InboxTest {
                     IInbox.CoreState({
                         nextProposalId: i + 1,
                         lastFinalizedProposalId: 0,
-                        lastFinalizedClaimHash: parentHash,
+                        lastFinalizedTransitionHash: parentHash,
                         bondInstructionsHash: bytes32(0)
                     })
                 )
@@ -1201,15 +1240,15 @@ contract InboxChainAdvancement is InboxTest {
         }
 
         // Step 2: Prove each proposal separately
-        IInbox.Claim[] memory claims = new IInbox.Claim[](numProposals);
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](numProposals);
         bytes32 currentParent = parentHash;
 
         for (uint48 i = 0; i < numProposals; i++) {
             bytes32 storedProposalHash = inbox.getProposalHash(i + 1);
 
-            claims[i] = IInbox.Claim({
+            transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
-                parentClaimHash: currentParent,
+                parentTransitionHash: currentParent,
                 endBlockMiniHeader: IInbox.BlockMiniHeader({
                     number: uint48(100 + (i + 1) * 10),
                     hash: keccak256(abi.encode(i + 1, "endBlockHash")),
@@ -1223,32 +1262,33 @@ contract InboxChainAdvancement is InboxTest {
             mockProofVerification(true);
             IInbox.Proposal[] memory singleProposal = new IInbox.Proposal[](1);
             singleProposal[0] = proposals[i];
-            IInbox.Claim[] memory singleClaim = new IInbox.Claim[](1);
-            singleClaim[0] = claims[i];
+            IInbox.Transition[] memory singleTransition = new IInbox.Transition[](1);
+            singleTransition[0] = transitions[i];
 
-            bytes memory proveData = encodeProveInput(singleProposal, singleClaim);
+            bytes memory proveData = encodeProveInput(singleProposal, singleTransition);
             vm.prank(Bob);
             inbox.prove(proveData, bytes("proof"));
 
-            currentParent = keccak256(abi.encode(claims[i]));
+            currentParent = keccak256(abi.encode(transitions[i]));
         }
 
-        // Verify all claim records are stored
+        // Verify all transition records are stored
         bytes32 expectedParent = parentHash;
         for (uint48 i = 0; i < numProposals; i++) {
-            bytes32 claimRecordHash = inbox.getClaimRecordHash(i + 1, expectedParent);
-            assertTrue(claimRecordHash != bytes32(0), "Claim record should exist");
-            expectedParent = keccak256(abi.encode(claims[i]));
+            bytes32 transitionRecordHash = inbox.getTransitionRecordHash(i + 1, expectedParent);
+            assertTrue(transitionRecordHash != bytes32(0), "Transition record should exist");
+            expectedParent = keccak256(abi.encode(transitions[i]));
         }
 
         // Step 3: Finalize all 3 proposals in one transaction
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](numProposals);
+        IInbox.TransitionRecord[] memory transitionRecords =
+            new IInbox.TransitionRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
-            claimRecords[i] = IInbox.ClaimRecord({
+            transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                claimHash: InboxTestLib.hashClaim(claims[i]),
-                endBlockMiniHeaderHash: keccak256(abi.encode(claims[i].endBlockMiniHeader))
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
+                endBlockMiniHeaderHash: keccak256(abi.encode(transitions[i].endBlockMiniHeader))
             });
         }
 
@@ -1256,18 +1296,19 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: parentHash,
+            lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)
         });
         // Core state will be validated by the contract during propose()
 
         // Expect synced block save for the last finalized proposal
-        IInbox.BlockMiniHeader memory lastEndHeader2 = claims[numProposals - 1].endBlockMiniHeader;
+        IInbox.BlockMiniHeader memory lastEndHeader2 =
+            transitions[numProposals - 1].endBlockMiniHeader;
         expectSyncedBlockSave(lastEndHeader2.number, lastEndHeader2.hash, lastEndHeader2.stateRoot);
 
         // Create next proposal with finalization of all 3
-        _finalizeWithClaimRecords(
-            coreState, lastProposal, claimRecords, lastEndHeader2, numProposals + 1
+        _finalizeWithTransitionRecords(
+            coreState, lastProposal, transitionRecords, lastEndHeader2, numProposals + 1
         );
 
         // All 3 proposals are finalized successfully

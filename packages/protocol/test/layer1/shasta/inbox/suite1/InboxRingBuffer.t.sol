@@ -143,13 +143,13 @@ contract InboxRingBuffer is InboxTest {
         IInbox.CoreState memory coreState1 = IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: getGenesisClaimHash(),
+            lastFinalizedTransitionHash: getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
         setupProposalMocks(Alice);
         bytes memory data1 = encodeProposeInputWithGenesis(
-            coreState1, InboxTestLib.createBlobReference(1), new IInbox.ClaimRecord[](0)
+            coreState1, InboxTestLib.createBlobReference(1), new IInbox.TransitionRecord[](0)
         );
 
         setupBlobHashes();
@@ -164,7 +164,7 @@ contract InboxRingBuffer is InboxTest {
                 IInbox.CoreState({
                     nextProposalId: 2,
                     lastFinalizedProposalId: 0,
-                    lastFinalizedClaimHash: getGenesisClaimHash(),
+                    lastFinalizedTransitionHash: getGenesisTransitionHash(),
                     bondInstructionsHash: bytes32(0)
                 })
             )
@@ -174,13 +174,16 @@ contract InboxRingBuffer is InboxTest {
         IInbox.CoreState memory coreState2 = IInbox.CoreState({
             nextProposalId: 2,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: getGenesisClaimHash(),
+            lastFinalizedTransitionHash: getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
         setupProposalMocks(Alice);
         bytes memory data2 = encodeProposeInputForSubsequent(
-            coreState2, proposal1, InboxTestLib.createBlobReference(2), new IInbox.ClaimRecord[](0)
+            coreState2,
+            proposal1,
+            InboxTestLib.createBlobReference(2),
+            new IInbox.TransitionRecord[](0)
         );
 
         setupBlobHashes();
@@ -195,7 +198,7 @@ contract InboxRingBuffer is InboxTest {
                 IInbox.CoreState({
                     nextProposalId: 3,
                     lastFinalizedProposalId: 0,
-                    lastFinalizedClaimHash: getGenesisClaimHash(),
+                    lastFinalizedTransitionHash: getGenesisTransitionHash(),
                     bondInstructionsHash: bytes32(0)
                 })
             )
@@ -212,7 +215,7 @@ contract InboxRingBuffer is InboxTest {
         IInbox.CoreState memory genesisCoreState = IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: getGenesisClaimHash(),
+            lastFinalizedTransitionHash: getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
         IInbox.Proposal memory genesisProposal =
@@ -221,7 +224,7 @@ contract InboxRingBuffer is InboxTest {
         IInbox.CoreState memory coreState3 = IInbox.CoreState({
             nextProposalId: 3,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: getGenesisClaimHash(),
+            lastFinalizedTransitionHash: getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -236,7 +239,7 @@ contract InboxRingBuffer is InboxTest {
             coreState3,
             parentProposals,
             InboxTestLib.createBlobReference(3),
-            new IInbox.ClaimRecord[](0)
+            new IInbox.TransitionRecord[](0)
         );
 
         setupBlobHashes();

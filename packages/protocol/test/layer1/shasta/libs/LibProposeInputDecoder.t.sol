@@ -13,7 +13,7 @@ contract LibProposeInputDecoderTest is Test {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 10,
             lastFinalizedProposalId: 9,
-            lastFinalizedClaimHash: bytes32(0),
+            lastFinalizedTransitionHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -40,11 +40,11 @@ contract LibProposeInputDecoderTest is Test {
         LibBlobs.BlobReference memory blobRef =
             LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
 
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](1);
-        claimRecords[0] = IInbox.ClaimRecord({
+        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
+        transitionRecords[0] = IInbox.TransitionRecord({
             span: 1,
             bondInstructions: new LibBonds.BondInstruction[](0),
-            claimHash: bytes32(0),
+            transitionHash: bytes32(0),
             endBlockMiniHeaderHash: bytes32(0)
         });
 
@@ -56,7 +56,7 @@ contract LibProposeInputDecoderTest is Test {
             coreState: coreState,
             parentProposals: proposals,
             blobReference: blobRef,
-            claimRecords: claimRecords,
+            transitionRecords: transitionRecords,
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: 0,
                 hash: bytes32(0),
@@ -88,7 +88,7 @@ contract LibProposeInputDecoderTest is Test {
         );
         assertEq(decoded1.parentProposals.length, decoded2.parentProposals.length);
         assertEq(decoded1.blobReference.numBlobs, decoded2.blobReference.numBlobs);
-        assertEq(decoded1.claimRecords.length, decoded2.claimRecords.length);
+        assertEq(decoded1.transitionRecords.length, decoded2.transitionRecords.length);
 
         // Log gas usage
         emit log_named_uint("Simple case - Baseline ABI gas", baselineGas);
@@ -114,7 +114,7 @@ contract LibProposeInputDecoderTest is Test {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 100,
             lastFinalizedProposalId: 95,
-            lastFinalizedClaimHash: keccak256("last_finalized"),
+            lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")
         });
 
@@ -168,8 +168,8 @@ contract LibProposeInputDecoderTest is Test {
         LibBlobs.BlobReference memory blobRef =
             LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 3, offset: 512 });
 
-        // Setup 2 claim records with bond instructions
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](2);
+        // Setup 2 transition records with bond instructions
+        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](2);
 
         LibBonds.BondInstruction[] memory bondInstructions1 = new LibBonds.BondInstruction[](2);
         bondInstructions1[0] = LibBonds.BondInstruction({
@@ -185,10 +185,10 @@ contract LibProposeInputDecoderTest is Test {
             receiver: address(0xffff)
         });
 
-        claimRecords[0] = IInbox.ClaimRecord({
+        transitionRecords[0] = IInbox.TransitionRecord({
             span: 1,
             bondInstructions: bondInstructions1,
-            claimHash: keccak256("claim_96"),
+            transitionHash: keccak256("transition_96"),
             endBlockMiniHeaderHash: keccak256("end_block_96")
         });
 
@@ -200,10 +200,10 @@ contract LibProposeInputDecoderTest is Test {
             receiver: address(0x4444)
         });
 
-        claimRecords[1] = IInbox.ClaimRecord({
+        transitionRecords[1] = IInbox.TransitionRecord({
             span: 2,
             bondInstructions: bondInstructions2,
-            claimHash: keccak256("claim_97"),
+            transitionHash: keccak256("transition_97"),
             endBlockMiniHeaderHash: keccak256("end_block_97")
         });
 
@@ -215,7 +215,7 @@ contract LibProposeInputDecoderTest is Test {
             coreState: coreState,
             parentProposals: proposals,
             blobReference: blobRef,
-            claimRecords: claimRecords,
+            transitionRecords: transitionRecords,
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: 2_000_010,
                 hash: keccak256("end_block"),
@@ -246,14 +246,15 @@ contract LibProposeInputDecoderTest is Test {
             decoded1.coreState.lastFinalizedProposalId, decoded2.coreState.lastFinalizedProposalId
         );
         assertEq(
-            decoded1.coreState.lastFinalizedClaimHash, decoded2.coreState.lastFinalizedClaimHash
+            decoded1.coreState.lastFinalizedTransitionHash,
+            decoded2.coreState.lastFinalizedTransitionHash
         );
         assertEq(decoded1.coreState.bondInstructionsHash, decoded2.coreState.bondInstructionsHash);
         assertEq(decoded1.parentProposals.length, decoded2.parentProposals.length);
         assertEq(decoded1.blobReference.blobStartIndex, decoded2.blobReference.blobStartIndex);
         assertEq(decoded1.blobReference.numBlobs, decoded2.blobReference.numBlobs);
         assertEq(decoded1.blobReference.offset, decoded2.blobReference.offset);
-        assertEq(decoded1.claimRecords.length, decoded2.claimRecords.length);
+        assertEq(decoded1.transitionRecords.length, decoded2.transitionRecords.length);
 
         // Log gas usage
         emit log_named_uint("Complex case - Baseline ABI gas", baselineGas);
@@ -279,7 +280,7 @@ contract LibProposeInputDecoderTest is Test {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: bytes32(uint256(0xdead)),
+            lastFinalizedTransitionHash: bytes32(uint256(0xdead)),
             bondInstructionsHash: bytes32(uint256(0xbeef))
         });
 
@@ -316,7 +317,7 @@ contract LibProposeInputDecoderTest is Test {
             offset: 16_777_215 // max uint24
          });
 
-        IInbox.ClaimRecord[] memory claimRecords = new IInbox.ClaimRecord[](0);
+        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](0);
 
         uint48 deadline = 281_474_976_710_655; // max uint48
 
@@ -326,7 +327,7 @@ contract LibProposeInputDecoderTest is Test {
             coreState: coreState,
             parentProposals: proposals,
             blobReference: blobRef,
-            claimRecords: claimRecords,
+            transitionRecords: transitionRecords,
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: 999_999,
                 hash: bytes32(uint256(0xabcdef)),
@@ -344,7 +345,10 @@ contract LibProposeInputDecoderTest is Test {
         assertEq(decodedInput.deadline, deadline);
         assertEq(decodedInput.coreState.nextProposalId, coreState.nextProposalId);
         assertEq(decodedInput.coreState.lastFinalizedProposalId, coreState.lastFinalizedProposalId);
-        assertEq(decodedInput.coreState.lastFinalizedClaimHash, coreState.lastFinalizedClaimHash);
+        assertEq(
+            decodedInput.coreState.lastFinalizedTransitionHash,
+            coreState.lastFinalizedTransitionHash
+        );
         assertEq(decodedInput.coreState.bondInstructionsHash, coreState.bondInstructionsHash);
 
         assertEq(decodedInput.parentProposals.length, 1);
@@ -355,7 +359,7 @@ contract LibProposeInputDecoderTest is Test {
         assertEq(decodedInput.blobReference.numBlobs, blobRef.numBlobs);
         assertEq(decodedInput.blobReference.offset, blobRef.offset);
 
-        assertEq(decodedInput.claimRecords.length, 0);
+        assertEq(decodedInput.transitionRecords.length, 0);
 
         assertEq(decodedInput.endBlockMiniHeader.number, 999_999);
         assertEq(decodedInput.endBlockMiniHeader.hash, bytes32(uint256(0xabcdef)));

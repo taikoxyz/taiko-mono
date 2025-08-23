@@ -99,7 +99,7 @@ The test suite uses a consolidated architecture with:
 ### Key Components
 
 1. **Proposal Lifecycle**: Submit → Prove → Finalize
-2. **Claim Records**: Storage and validation of proof claims
+2. **Transition Records**: Storage and validation of proof transitions
 3. **Chain Advancement**: Sequential processing and finalization
 4. **Validation Logic**: State checks, deadlines, and constraints
 5. **Ring Buffer**: Capacity management and slot reuse
@@ -108,7 +108,7 @@ The test suite uses a consolidated architecture with:
 
 ### Base & InboxOptimized1
 
-- Must behave identically (except InboxOptimized1 supports claim aggregation)
+- Must behave identically (except InboxOptimized1 supports transition aggregation)
 - Use standard ABI encoding for both calldata and events
 - Test assertions should produce identical results for non-aggregation scenarios
 
@@ -144,7 +144,7 @@ The test suite uses a consolidated architecture with:
 | `test_propose_multiple_sequential()`       | Submits multiple proposals in sequence | • Sequential ID assignment<br>• Batch storage validation         |
 | `test_propose_invalid_state_reverts()`     | Tests proposal with wrong core state   | • InvalidState error<br>• State hash validation                  |
 | `test_propose_deadline_exceeded_reverts()` | Tests expired deadline rejection       | • DeadlineExceeded error<br>• Timestamp validation               |
-| `test_prove_single_claim()`                | Proves a single claim successfully     | • Claim record storage<br>• Proof verification                   |
+| `test_prove_single_transition()`                | Proves a single transition successfully     | • Transition record storage<br>• Proof verification                   |
 
 ### 3. InboxProposeValidation.t.sol - Proposal Validation and Error Cases
 
@@ -164,11 +164,11 @@ The test suite uses a consolidated architecture with:
 
 | Test Function                        | Description                                         | Key Validations                                            |
 | ------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------- |
-| `test_prove_single_claim()`          | Proves a single claim                               | • Claim record storage<br>• Proof verification success     |
-| `test_prove_multiple_claims()`       | Proves multiple claims with different parent hashes | • Multiple claim storage<br>• Independent proof validation |
-| `test_prove_sequential_proposals()`  | Proves claims in sequence with linked parent hashes | • Chain continuity<br>• Parent hash progression            |
+| `test_prove_single_transition()`          | Proves a single transition                               | • Transition record storage<br>• Proof verification success     |
+| `test_prove_multiple_transitions()`       | Proves multiple transitions with different parent hashes | • Multiple transition storage<br>• Independent proof validation |
+| `test_prove_sequential_proposals()`  | Proves transitions in sequence with linked parent hashes | • Chain continuity<br>• Parent hash progression            |
 | `test_prove_verification_called()`   | Verifies proof verification is called correctly     | • Mock call verification<br>• Parameter validation         |
-| `test_prove_claim_record_storage()`  | Tests claim record storage and retrieval            | • Persistent storage<br>• Multiple records per proposal    |
+| `test_prove_transition_record_storage()`  | Tests transition record storage and retrieval            | • Persistent storage<br>• Multiple records per proposal    |
 | `test_prove_invalid_proof_reverts()` | Tests invalid proof rejection                       | • Proof verification failure<br>• Error handling           |
 
 ### 5. InboxChainAdvancement.t.sol - Chain Progression and Finalization ✅
@@ -191,8 +191,8 @@ The test suite uses a consolidated architecture with:
 | ---------------------------------------- | -------------------------------------------- | --------------------------------------------------------- |
 | `test_finalize_single_proposal()`        | Finalizes a single proposal                  | • Single finalization flow<br>• State update verification |
 | `test_finalize_multiple_proposals()`     | Finalizes multiple proposals in batch        | • Batch finalization<br>• Sequential processing           |
-| `test_finalize_stops_at_missing_claim()` | Tests finalization halting at missing claims | • Missing claim detection<br>• Partial finalization       |
-| `test_finalize_invalid_claim_hash()`     | Tests invalid claim hash rejection           | • Hash validation<br>• Error handling                     |
+| `test_finalize_stops_at_missing_transition()` | Tests finalization halting at missing transitions | • Missing transition detection<br>• Partial finalization       |
+| `test_finalize_invalid_transition_hash()`     | Tests invalid transition hash rejection           | • Hash validation<br>• Error handling                     |
 
 ### 7. InboxRingBuffer.t.sol - Ring Buffer Management and Overflow
 
@@ -234,14 +234,14 @@ Tests for forced inclusion mechanism are included in this test file.
 ### InboxChainAdvancement.t.sol Restoration
 
 - **Restored** from backup and fixed compilation issues
-- **Fixed** ClaimRecord struct compatibility (removed parentClaimHash field)
+- **Fixed** TransitionRecord struct compatibility (removed parentTransitionHash field)
 - **Resolved** stack too deep errors by extracting helper functions
 - **Fixed** test_max_finalization_count_limit test by using correct endBlockMiniHeader
 
 ### Data Structure Changes
 
-- ClaimRecord simplified to 4 fields: span, bondInstructions, claimHash, endBlockMiniHeaderHash
-- Removed proposalId and claim fields from ClaimRecord
+- TransitionRecord simplified to 4 fields: span, bondInstructions, transitionHash, endBlockMiniHeaderHash
+- Removed proposalId and transition fields from TransitionRecord
 - Updated all test assertions to match new structure
 
 ## Writing New Tests
@@ -268,10 +268,10 @@ function test_functionality_scenario() public {
     IInbox.Proposal memory proposal = submitProposal(1, Alice);
 
     // 3. Act - Execute functionality
-    proveProposal(proposal, Bob, parentClaimHash);
+    proveProposal(proposal, Bob, parentTransitionHash);
 
     // 4. Assert - Verify results
-    assertClaimRecordStored(1, parentClaimHash);
+    assertTransitionRecordStored(1, parentTransitionHash);
 }
 ```
 
@@ -327,14 +327,14 @@ contract MyInboxTest is InboxTest {
 3. **`createProvenChain()`** - Helper for chain creation
 4. **`setupProposalMocks()`** - Mock configuration
 5. **`assertProposalStored()`** - Storage verification
-6. **`assertClaimRecordStored()`** - Claim verification
+6. **`assertTransitionRecordStored()`** - Transition verification
 
 ### Using Test Utilities
 
 ```solidity
 // Create test scenarios quickly
-(IInbox.Proposal[] memory proposals, IInbox.Claim[] memory claims) =
-    createProvenChain(1, 5, getGenesisClaimHash());
+(IInbox.Proposal[] memory proposals, IInbox.Transition[] memory transitions) =
+    createProvenChain(1, 5, getGenesisTransitionHash());
 
 // Use performance benchmarking
 TestScenario memory scenario = TestScenario({
@@ -411,7 +411,7 @@ pnpm snapshot:l1
 
 1. **Empty/Zero Values** - Handles edge inputs gracefully
 2. **Boundary Conditions** - Tests limits and thresholds
-3. **Missing Dependencies** - Handles absent claim records
+3. **Missing Dependencies** - Handles absent transition records
 4. **Out-of-Order Operations** - Manages non-sequential flows
 5. **Resource Exhaustion** - Tests capacity limits
 6. **Invalid Configurations** - Rejects malformed inputs
@@ -458,8 +458,8 @@ abstract contract InboxTest is CommonTest {
     // Proposal builder for fluent interface
     function proposalBuilder() internal returns (ProposalBuilder memory);
 
-    // Claim builder for consistent claim creation
-    function claimBuilder() internal returns (ClaimBuilder memory);
+    // Transition builder for consistent transition creation
+    function transitionBuilder() internal returns (TransitionBuilder memory);
 
     // Chain builder for sequential proposal chains
     function chainBuilder() internal returns (ChainBuilder memory);
@@ -504,7 +504,7 @@ library InboxTestScenarios {
 **High Priority (Immediate)**
 
 1. Extract duplicate mock setup code
-2. Standardize proposal/claim creation helpers
+2. Standardize proposal/transition creation helpers
 3. Fix inconsistent test patterns
 
 **Medium Priority (Next Sprint)**

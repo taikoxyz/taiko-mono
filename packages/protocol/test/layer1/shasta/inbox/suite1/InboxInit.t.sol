@@ -44,14 +44,14 @@ contract InboxInit is InboxTest {
 
     /// @dev Creates expected genesis core state
     function _createExpectedGenesisCoreState() private pure returns (IInbox.CoreState memory) {
-        IInbox.Claim memory genesisClaim;
-        genesisClaim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        IInbox.Transition memory genesisTransition;
+        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
 
         return createCoreStateFromConfig(
             CoreStateConfig({
                 nextProposalId: 1,
                 lastFinalizedProposalId: 0,
-                lastFinalizedClaimHash: keccak256(abi.encode(genesisClaim)),
+                lastFinalizedTransitionHash: keccak256(abi.encode(genesisTransition)),
                 bondInstructionsHash: bytes32(0)
             })
         );
@@ -112,14 +112,14 @@ contract InboxInit is InboxTest {
             );
 
             // Create expected core state for verification
-            IInbox.Claim memory genesisClaim;
-            genesisClaim.endBlockMiniHeader.hash = testHashes[i];
+            IInbox.Transition memory genesisTransition;
+            genesisTransition.endBlockMiniHeader.hash = testHashes[i];
 
             createCoreStateFromConfig(
                 CoreStateConfig({
                     nextProposalId: 1,
                     lastFinalizedProposalId: 0,
-                    lastFinalizedClaimHash: keccak256(abi.encode(genesisClaim)),
+                    lastFinalizedTransitionHash: keccak256(abi.encode(genesisTransition)),
                     bondInstructionsHash: bytes32(0)
                 })
             );

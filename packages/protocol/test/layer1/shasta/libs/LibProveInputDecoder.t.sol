@@ -18,7 +18,7 @@ contract LibProveInputDecoderTest is Test {
     }
 
     function test_baseline_vs_optimized_simple() public {
-        // Setup simple test case with 1 proposal and 1 claim
+        // Setup simple test case with 1 proposal and 1 transition
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = IInbox.Proposal({
             id: 10,
@@ -28,10 +28,10 @@ contract LibProveInputDecoderTest is Test {
             derivationHash: keccak256("derivation")
         });
 
-        IInbox.Claim[] memory claims = new IInbox.Claim[](1);
-        claims[0] = IInbox.Claim({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposalHash: keccak256("proposal_10"),
-            parentClaimHash: keccak256("parent_claim"),
+            parentTransitionHash: keccak256("parent_transition"),
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: 200,
                 hash: keccak256("end_block"),
@@ -43,7 +43,7 @@ contract LibProveInputDecoderTest is Test {
 
         // Create ProveInput struct
         IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, claims: claims });
+            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
 
         // Test with standard ABI encoding for baseline
         bytes memory abiEncodedData = abi.encode(proveInput);
@@ -63,9 +63,9 @@ contract LibProveInputDecoderTest is Test {
 
         // Verify data integrity
         assertEq(decoded1.proposals.length, decoded2.proposals.length);
-        assertEq(decoded1.claims.length, decoded2.claims.length);
+        assertEq(decoded1.transitions.length, decoded2.transitions.length);
         assertEq(decoded1.proposals[0].id, decoded2.proposals[0].id);
-        assertEq(decoded1.claims[0].proposalHash, decoded2.claims[0].proposalHash);
+        assertEq(decoded1.transitions[0].proposalHash, decoded2.transitions[0].proposalHash);
 
         // Log results
         emit log_named_uint("Baseline gas (ABI)", baselineGas);
@@ -88,10 +88,10 @@ contract LibProveInputDecoderTest is Test {
             derivationHash: keccak256("derivation_hash")
         });
 
-        IInbox.Claim[] memory claims = new IInbox.Claim[](1);
-        claims[0] = IInbox.Claim({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposalHash: keccak256("proposal_hash"),
-            parentClaimHash: keccak256("parent_hash"),
+            parentTransitionHash: keccak256("parent_hash"),
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: 456_789,
                 hash: keccak256("end_block_hash"),
@@ -102,7 +102,7 @@ contract LibProveInputDecoderTest is Test {
         });
 
         IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, claims: claims });
+            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
 
         // Encode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -118,15 +118,15 @@ contract LibProveInputDecoderTest is Test {
         assertEq(decoded.proposals[0].coreStateHash, keccak256("core_state_hash"));
         assertEq(decoded.proposals[0].derivationHash, keccak256("derivation_hash"));
 
-        // Verify Claims
-        assertEq(decoded.claims.length, 1);
-        assertEq(decoded.claims[0].proposalHash, keccak256("proposal_hash"));
-        assertEq(decoded.claims[0].parentClaimHash, keccak256("parent_hash"));
-        assertEq(decoded.claims[0].endBlockMiniHeader.number, 456_789);
-        assertEq(decoded.claims[0].endBlockMiniHeader.hash, keccak256("end_block_hash"));
-        assertEq(decoded.claims[0].endBlockMiniHeader.stateRoot, keccak256("end_state_root"));
-        assertEq(decoded.claims[0].designatedProver, address(0x1234));
-        assertEq(decoded.claims[0].actualProver, address(0x5678));
+        // Verify Transitions
+        assertEq(decoded.transitions.length, 1);
+        assertEq(decoded.transitions[0].proposalHash, keccak256("proposal_hash"));
+        assertEq(decoded.transitions[0].parentTransitionHash, keccak256("parent_hash"));
+        assertEq(decoded.transitions[0].endBlockMiniHeader.number, 456_789);
+        assertEq(decoded.transitions[0].endBlockMiniHeader.hash, keccak256("end_block_hash"));
+        assertEq(decoded.transitions[0].endBlockMiniHeader.stateRoot, keccak256("end_state_root"));
+        assertEq(decoded.transitions[0].designatedProver, address(0x1234));
+        assertEq(decoded.transitions[0].actualProver, address(0x5678));
     }
 
     function test_encode_decode_multiple() public pure {
@@ -142,12 +142,12 @@ contract LibProveInputDecoderTest is Test {
             });
         }
 
-        // Create multiple claims
-        IInbox.Claim[] memory claims = new IInbox.Claim[](3);
+        // Create multiple transitions
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](3);
         for (uint256 i = 0; i < 3; i++) {
-            claims[i] = IInbox.Claim({
+            transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
-                parentClaimHash: keccak256(abi.encodePacked("parent", i)),
+                parentTransitionHash: keccak256(abi.encodePacked("parent", i)),
                 endBlockMiniHeader: IInbox.BlockMiniHeader({
                     number: uint48(3000 + i * 100),
                     hash: keccak256(abi.encodePacked("endBlock", i)),
@@ -159,7 +159,7 @@ contract LibProveInputDecoderTest is Test {
         }
 
         IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, claims: claims });
+            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
 
         // Encode and decode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -175,21 +175,27 @@ contract LibProveInputDecoderTest is Test {
             assertEq(decoded.proposals[i].derivationHash, proposals[i].derivationHash);
         }
 
-        // Verify all claims
-        assertEq(decoded.claims.length, 3);
+        // Verify all transitions
+        assertEq(decoded.transitions.length, 3);
         for (uint256 i = 0; i < 3; i++) {
-            assertEq(decoded.claims[i].proposalHash, claims[i].proposalHash);
-            assertEq(decoded.claims[i].parentClaimHash, claims[i].parentClaimHash);
+            assertEq(decoded.transitions[i].proposalHash, transitions[i].proposalHash);
             assertEq(
-                decoded.claims[i].endBlockMiniHeader.number, claims[i].endBlockMiniHeader.number
+                decoded.transitions[i].parentTransitionHash, transitions[i].parentTransitionHash
             );
-            assertEq(decoded.claims[i].endBlockMiniHeader.hash, claims[i].endBlockMiniHeader.hash);
             assertEq(
-                decoded.claims[i].endBlockMiniHeader.stateRoot,
-                claims[i].endBlockMiniHeader.stateRoot
+                decoded.transitions[i].endBlockMiniHeader.number,
+                transitions[i].endBlockMiniHeader.number
             );
-            assertEq(decoded.claims[i].designatedProver, claims[i].designatedProver);
-            assertEq(decoded.claims[i].actualProver, claims[i].actualProver);
+            assertEq(
+                decoded.transitions[i].endBlockMiniHeader.hash,
+                transitions[i].endBlockMiniHeader.hash
+            );
+            assertEq(
+                decoded.transitions[i].endBlockMiniHeader.stateRoot,
+                transitions[i].endBlockMiniHeader.stateRoot
+            );
+            assertEq(decoded.transitions[i].designatedProver, transitions[i].designatedProver);
+            assertEq(decoded.transitions[i].actualProver, transitions[i].actualProver);
         }
     }
 
@@ -197,14 +203,14 @@ contract LibProveInputDecoderTest is Test {
         // Test with empty arrays
         IInbox.ProveInput memory proveInput = IInbox.ProveInput({
             proposals: new IInbox.Proposal[](0),
-            claims: new IInbox.Claim[](0)
+            transitions: new IInbox.Transition[](0)
         });
 
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
         IInbox.ProveInput memory decoded = LibProveInputDecoder.decode(encoded);
 
         assertEq(decoded.proposals.length, 0);
-        assertEq(decoded.claims.length, 0);
+        assertEq(decoded.transitions.length, 0);
     }
 
     function test_encode_decode_maxValues() public pure {
@@ -218,10 +224,10 @@ contract LibProveInputDecoderTest is Test {
             derivationHash: bytes32(type(uint256).max)
         });
 
-        IInbox.Claim[] memory claims = new IInbox.Claim[](1);
-        claims[0] = IInbox.Claim({
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
+        transitions[0] = IInbox.Transition({
             proposalHash: bytes32(type(uint256).max),
-            parentClaimHash: bytes32(type(uint256).max),
+            parentTransitionHash: bytes32(type(uint256).max),
             endBlockMiniHeader: IInbox.BlockMiniHeader({
                 number: type(uint48).max,
                 hash: bytes32(type(uint256).max),
@@ -232,30 +238,30 @@ contract LibProveInputDecoderTest is Test {
         });
 
         IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, claims: claims });
+            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
 
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
         IInbox.ProveInput memory decoded = LibProveInputDecoder.decode(encoded);
 
         assertEq(decoded.proposals[0].id, type(uint48).max);
         assertEq(decoded.proposals[0].proposer, address(type(uint160).max));
-        assertEq(decoded.claims[0].endBlockMiniHeader.number, type(uint48).max);
+        assertEq(decoded.transitions[0].endBlockMiniHeader.number, type(uint48).max);
     }
 
     function test_revert_mismatchedLengths() public {
         // Test that mismatched array lengths revert properly
-        // The decoder reads uint24 (3 bytes) for proposal count, then uint24 for claim count
+        // The decoder reads uint24 (3 bytes) for proposal count, then uint24 for transition count
         // We need at least 6 bytes, with different values for the two counts
         bytes memory badData = new bytes(6);
 
         // Set proposal count to 0 (3 bytes, all zeros already)
-        // Set claim count to 1 at bytes 3-5 (non-zero to trigger mismatch)
+        // Set transition count to 1 at bytes 3-5 (non-zero to trigger mismatch)
         assembly {
             mstore8(add(badData, 35), 1) // Set byte at index 3 to 1
         }
 
-        // Should revert with ProposalClaimLengthMismatch
-        vm.expectRevert(LibProveInputDecoder.ProposalClaimLengthMismatch.selector);
+        // Should revert with ProposalTransitionLengthMismatch
+        vm.expectRevert(LibProveInputDecoder.ProposalTransitionLengthMismatch.selector);
         wrapper.decode(badData);
     }
 }

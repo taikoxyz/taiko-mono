@@ -76,7 +76,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 
     /// @inheritdoc IPreconfWhitelist
-    function addOperator(address _proposer, address _sequencer) external onlyOwner {
+    function addOperator(address _proposer, address _sequencer) external onlyOwnerOrEjecter {
         _addOperator(_proposer, _sequencer, operatorChangeDelay);
     }
 

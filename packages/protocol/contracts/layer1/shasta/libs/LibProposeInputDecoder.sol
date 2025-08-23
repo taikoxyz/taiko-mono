@@ -19,7 +19,7 @@ library LibProposeInputDecoder {
     {
         // Calculate total size needed
         uint256 bufferSize = _calculateProposeDataSize(
-            _input.parentProposals, _input.claimRecords, _input.endBlockMiniHeader
+            _input.parentProposals, _input.transitionRecords, _input.endBlockMiniHeader
         );
         encoded_ = new bytes(bufferSize);
 
@@ -32,7 +32,7 @@ library LibProposeInputDecoder {
         // 2. Encode CoreState
         ptr = P.packUint48(ptr, _input.coreState.nextProposalId);
         ptr = P.packUint48(ptr, _input.coreState.lastFinalizedProposalId);
-        ptr = P.packBytes32(ptr, _input.coreState.lastFinalizedClaimHash);
+        ptr = P.packBytes32(ptr, _input.coreState.lastFinalizedTransitionHash);
         ptr = P.packBytes32(ptr, _input.coreState.bondInstructionsHash);
 
         // 3. Encode parent proposals array
@@ -47,11 +47,11 @@ library LibProposeInputDecoder {
         ptr = P.packUint16(ptr, _input.blobReference.numBlobs);
         ptr = P.packUint24(ptr, _input.blobReference.offset);
 
-        // 5. Encode ClaimRecords array
-        P.checkArrayLength(_input.claimRecords.length);
-        ptr = P.packUint24(ptr, uint24(_input.claimRecords.length));
-        for (uint256 i; i < _input.claimRecords.length; ++i) {
-            ptr = _encodeClaimRecord(ptr, _input.claimRecords[i]);
+        // 5. Encode TransitionRecords array
+        P.checkArrayLength(_input.transitionRecords.length);
+        ptr = P.packUint24(ptr, uint24(_input.transitionRecords.length));
+        for (uint256 i; i < _input.transitionRecords.length; ++i) {
+            ptr = _encodeTransitionRecord(ptr, _input.transitionRecords[i]);
         }
 
         // 6. Encode BlockMiniHeader with optimization for empty header
@@ -84,7 +84,7 @@ library LibProposeInputDecoder {
         // 2. Decode CoreState
         (input_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
         (input_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
-        (input_.coreState.lastFinalizedClaimHash, ptr) = P.unpackBytes32(ptr);
+        (input_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (input_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
 
         // 3. Decode parent proposals array
@@ -100,12 +100,12 @@ library LibProposeInputDecoder {
         (input_.blobReference.numBlobs, ptr) = P.unpackUint16(ptr);
         (input_.blobReference.offset, ptr) = P.unpackUint24(ptr);
 
-        // 5. Decode ClaimRecords array
-        uint24 claimRecordsLength;
-        (claimRecordsLength, ptr) = P.unpackUint24(ptr);
-        input_.claimRecords = new IInbox.ClaimRecord[](claimRecordsLength);
-        for (uint256 i; i < claimRecordsLength; ++i) {
-            (input_.claimRecords[i], ptr) = _decodeClaimRecord(ptr);
+        // 5. Decode TransitionRecords array
+        uint24 transitionRecordsLength;
+        (transitionRecordsLength, ptr) = P.unpackUint24(ptr);
+        input_.transitionRecords = new IInbox.TransitionRecord[](transitionRecordsLength);
+        for (uint256 i; i < transitionRecordsLength; ++i) {
+            (input_.transitionRecords[i], ptr) = _decodeTransitionRecord(ptr);
         }
 
         // 6. Decode BlockMiniHeader with optimization for empty header
@@ -151,53 +151,53 @@ library LibProposeInputDecoder {
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
-    /// @notice Encode a single ClaimRecord
-    function _encodeClaimRecord(
+    /// @notice Encode a single TransitionRecord
+    function _encodeTransitionRecord(
         uint256 _ptr,
-        IInbox.ClaimRecord memory _claimRecord
+        IInbox.TransitionRecord memory _transitionRecord
     )
         private
         pure
         returns (uint256 newPtr_)
     {
         // Encode span
-        newPtr_ = P.packUint8(_ptr, _claimRecord.span);
+        newPtr_ = P.packUint8(_ptr, _transitionRecord.span);
 
-        // Encode claimHash
-        newPtr_ = P.packBytes32(newPtr_, _claimRecord.claimHash);
+        // Encode transitionHash
+        newPtr_ = P.packBytes32(newPtr_, _transitionRecord.transitionHash);
 
         // Encode endBlockMiniHeaderHash
-        newPtr_ = P.packBytes32(newPtr_, _claimRecord.endBlockMiniHeaderHash);
+        newPtr_ = P.packBytes32(newPtr_, _transitionRecord.endBlockMiniHeaderHash);
 
         // Encode BondInstructions array
-        P.checkArrayLength(_claimRecord.bondInstructions.length);
-        newPtr_ = P.packUint24(newPtr_, uint24(_claimRecord.bondInstructions.length));
-        for (uint256 i; i < _claimRecord.bondInstructions.length; ++i) {
-            newPtr_ = _encodeBondInstruction(newPtr_, _claimRecord.bondInstructions[i]);
+        P.checkArrayLength(_transitionRecord.bondInstructions.length);
+        newPtr_ = P.packUint24(newPtr_, uint24(_transitionRecord.bondInstructions.length));
+        for (uint256 i; i < _transitionRecord.bondInstructions.length; ++i) {
+            newPtr_ = _encodeBondInstruction(newPtr_, _transitionRecord.bondInstructions[i]);
         }
     }
 
-    /// @notice Decode a single ClaimRecord
-    function _decodeClaimRecord(uint256 _ptr)
+    /// @notice Decode a single TransitionRecord
+    function _decodeTransitionRecord(uint256 _ptr)
         private
         pure
-        returns (IInbox.ClaimRecord memory claimRecord_, uint256 newPtr_)
+        returns (IInbox.TransitionRecord memory transitionRecord_, uint256 newPtr_)
     {
         // Decode span
-        (claimRecord_.span, newPtr_) = P.unpackUint8(_ptr);
+        (transitionRecord_.span, newPtr_) = P.unpackUint8(_ptr);
 
-        // Decode claimHash
-        (claimRecord_.claimHash, newPtr_) = P.unpackBytes32(newPtr_);
+        // Decode transitionHash
+        (transitionRecord_.transitionHash, newPtr_) = P.unpackBytes32(newPtr_);
 
         // Decode endBlockMiniHeaderHash
-        (claimRecord_.endBlockMiniHeaderHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (transitionRecord_.endBlockMiniHeaderHash, newPtr_) = P.unpackBytes32(newPtr_);
 
         // Decode BondInstructions array
         uint24 bondInstructionsLength;
         (bondInstructionsLength, newPtr_) = P.unpackUint24(newPtr_);
-        claimRecord_.bondInstructions = new LibBonds.BondInstruction[](bondInstructionsLength);
+        transitionRecord_.bondInstructions = new LibBonds.BondInstruction[](bondInstructionsLength);
         for (uint256 i; i < bondInstructionsLength; ++i) {
-            (claimRecord_.bondInstructions[i], newPtr_) = _decodeBondInstruction(newPtr_);
+            (transitionRecord_.bondInstructions[i], newPtr_) = _decodeBondInstruction(newPtr_);
         }
     }
 
@@ -235,7 +235,7 @@ library LibProposeInputDecoder {
     /// @notice Calculate the size needed for encoding
     function _calculateProposeDataSize(
         IInbox.Proposal[] memory _proposals,
-        IInbox.ClaimRecord[] memory _claimRecords,
+        IInbox.TransitionRecord[] memory _transitionRecords,
         IInbox.BlockMiniHeader memory _endBlockMiniHeader
     )
         private
@@ -265,11 +265,11 @@ library LibProposeInputDecoder {
             // derivationHash(32) = 96
             size_ += _proposals.length * 96;
 
-            // ClaimRecords - each has fixed size + variable bond instructions
-            // Fixed: span(1) + claimHash(32) + endBlockMiniHeaderHash(32) + array length(3) =
+            // TransitionRecords - each has fixed size + variable bond instructions
+            // Fixed: span(1) + transitionHash(32) + endBlockMiniHeaderHash(32) + array length(3) =
             // 68
-            for (uint256 i; i < _claimRecords.length; ++i) {
-                size_ += 68 + (_claimRecords[i].bondInstructions.length * 47);
+            for (uint256 i; i < _transitionRecords.length; ++i) {
+                size_ += 68 + (_transitionRecords[i].bondInstructions.length * 47);
             }
         }
     }

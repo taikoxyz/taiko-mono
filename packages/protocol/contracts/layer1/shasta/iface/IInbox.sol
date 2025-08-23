@@ -59,13 +59,14 @@ interface IInbox {
         bytes32 stateRoot;
     }
 
-    /// @notice Represents a claim about the state transition of a proposal.
-    struct Claim {
+    /// @notice Represents a transition about the state transition of a proposal.
+    struct Transition {
         /// @notice The proposal's hash.
         bytes32 proposalHash;
-        /// @notice The parent claim's hash, this is used to link the claim to its parent claim to
+        /// @notice The parent transition's hash, this is used to link the transition to its parent
+        /// transition to
         /// finalize the corresponding proposal.
-        bytes32 parentClaimHash;
+        bytes32 parentTransitionHash;
         /// @notice The end block header containing number, hash, and state root.
         BlockMiniHeader endBlockMiniHeader;
         /// @notice The designated prover.
@@ -74,14 +75,14 @@ interface IInbox {
         address actualProver;
     }
 
-    /// @notice Represents a record of a claim with additional metadata.
-    struct ClaimRecord {
-        /// @notice The span indicating how many proposals this claim record covers.
+    /// @notice Represents a record of a transition with additional metadata.
+    struct TransitionRecord {
+        /// @notice The span indicating how many proposals this transition record covers.
         uint8 span;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
-        /// @notice The claim's hash
-        bytes32 claimHash;
+        /// @notice The transition's hash
+        bytes32 transitionHash;
         /// @notice The hash of the end block mini header.
         bytes32 endBlockMiniHeaderHash;
     }
@@ -92,8 +93,8 @@ interface IInbox {
         uint48 nextProposalId;
         /// @notice The ID of the last finalized proposal.
         uint48 lastFinalizedProposalId;
-        /// @notice The hash of the last finalized claim.
-        bytes32 lastFinalizedClaimHash;
+        /// @notice The hash of the last finalized transition.
+        bytes32 lastFinalizedTransitionHash;
         /// @notice The hash of all bond instructions.
         bytes32 bondInstructionsHash;
     }
@@ -108,8 +109,8 @@ interface IInbox {
         Proposal[] parentProposals;
         /// @notice Blob reference for proposal data.
         LibBlobs.BlobReference blobReference;
-        /// @notice Array of claim records for finalization.
-        ClaimRecord[] claimRecords;
+        /// @notice Array of transition records for finalization.
+        TransitionRecord[] transitionRecords;
         /// @notice The end block mini header for finalization.
         BlockMiniHeader endBlockMiniHeader;
     }
@@ -118,8 +119,8 @@ interface IInbox {
     struct ProveInput {
         /// @notice Array of proposals to prove.
         Proposal[] proposals;
-        /// @notice Array of claims containing proof details.
-        Claim[] claims;
+        /// @notice Array of transitions containing proof details.
+        Transition[] transitions;
     }
 
     /// @notice Payload data emitted in the Proposed event
@@ -136,10 +137,10 @@ interface IInbox {
     struct ProvedEventPayload {
         /// @notice The proposal ID that was proven.
         uint48 proposalId;
-        /// @notice The claim that was proven.
-        Claim claim;
-        /// @notice The claim record containing additional metadata.
-        ClaimRecord claimRecord;
+        /// @notice The transition that was proven.
+        Transition transition;
+        /// @notice The transition record containing additional metadata.
+        TransitionRecord transitionRecord;
     }
 
     // ---------------------------------------------------------------
@@ -167,9 +168,10 @@ interface IInbox {
     /// @param _data The encoded ProposeInput struct.
     function propose(bytes calldata _lookahead, bytes calldata _data) external;
 
-    /// @notice Proves a claim about some properties of a proposal, including its state transition.
+    /// @notice Proves a transition about some properties of a proposal, including its state
+    /// transition.
     /// @param _data The encoded ProveInput struct.
-    /// @param _proof Validity proof for the claims.
+    /// @param _proof Validity proof for the transitions.
     function prove(bytes calldata _data, bytes calldata _proof) external;
 
     // ---------------------------------------------------------------
@@ -181,17 +183,18 @@ interface IInbox {
     /// @return proposalHash_ The hash stored at the proposal's ring buffer slot.
     function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_);
 
-    /// @notice Returns the claim record hash for a given proposal ID and parent claim hash.
+    /// @notice Returns the transition record hash for a given proposal ID and parent transition
+    /// hash.
     /// @param _proposalId The proposal ID.
-    /// @param _parentClaimHash The parent claim hash.
-    /// @return claimRecordHash_ The hash of the claim record.
-    function getClaimRecordHash(
+    /// @param _parentTransitionHash The parent transition hash.
+    /// @return transitionRecordHash_ The hash of the transition record.
+    function getTransitionRecordHash(
         uint48 _proposalId,
-        bytes32 _parentClaimHash
+        bytes32 _parentTransitionHash
     )
         external
         view
-        returns (bytes32 claimRecordHash_);
+        returns (bytes32 transitionRecordHash_);
 
     /// @notice Gets the capacity for unfinalized proposals.
     /// @return The maximum number of unfinalized proposals that can exist.

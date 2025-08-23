@@ -21,7 +21,7 @@ library InboxTestAdapter {
     /// @param _coreState The core state
     /// @param _proposals The validation proposals
     /// @param _blobRef The blob reference
-    /// @param _claimRecords The claim records for finalization
+    /// @param _transitionRecords The transition records for finalization
     /// @return Encoded propose input
     function encodeProposeInput(
         TestInboxFactory.InboxType _inboxType,
@@ -29,7 +29,7 @@ library InboxTestAdapter {
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords
+        IInbox.TransitionRecord[] memory _transitionRecords
     )
         internal
         pure
@@ -45,7 +45,7 @@ library InboxTestAdapter {
             _coreState,
             _proposals,
             _blobRef,
-            _claimRecords,
+            _transitionRecords,
             endBlockMiniHeader
         );
     }
@@ -57,7 +57,7 @@ library InboxTestAdapter {
         IInbox.CoreState memory _coreState,
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
-        IInbox.ClaimRecord[] memory _claimRecords,
+        IInbox.TransitionRecord[] memory _transitionRecords,
         IInbox.BlockMiniHeader memory _endBlockMiniHeader
     )
         internal
@@ -72,7 +72,7 @@ library InboxTestAdapter {
                 coreState: _coreState,
                 parentProposals: _proposals,
                 blobReference: _blobRef,
-                claimRecords: _claimRecords,
+                transitionRecords: _transitionRecords,
                 endBlockMiniHeader: _endBlockMiniHeader
             });
             return LibProposeInputDecoder.encode(input);
@@ -84,7 +84,7 @@ library InboxTestAdapter {
                 coreState: _coreState,
                 parentProposals: _proposals,
                 blobReference: _blobRef,
-                claimRecords: _claimRecords,
+                transitionRecords: _transitionRecords,
                 endBlockMiniHeader: _endBlockMiniHeader
             });
             return abi.encode(input);
@@ -94,12 +94,12 @@ library InboxTestAdapter {
     /// @dev Encodes prove input based on the Inbox implementation type
     /// @param _inboxType The type of Inbox implementation
     /// @param _proposals The proposals to prove
-    /// @param _claims The claims with proof details
+    /// @param _transitions The transitions with proof details
     /// @return Encoded prove input
     function encodeProveInput(
         TestInboxFactory.InboxType _inboxType,
         IInbox.Proposal[] memory _proposals,
-        IInbox.Claim[] memory _claims
+        IInbox.Transition[] memory _transitions
     )
         internal
         pure
@@ -109,13 +109,13 @@ library InboxTestAdapter {
             // InboxOptimized3 uses custom encoding
             // Create ProveInput struct
             IInbox.ProveInput memory input =
-                IInbox.ProveInput({ proposals: _proposals, claims: _claims });
+                IInbox.ProveInput({ proposals: _proposals, transitions: _transitions });
             return LibProveInputDecoder.encode(input);
         } else {
             // Base, Optimized1, and Optimized2 use standard abi.encode
             // Create ProveInput struct for proper encoding
             IInbox.ProveInput memory input =
-                IInbox.ProveInput({ proposals: _proposals, claims: _claims });
+                IInbox.ProveInput({ proposals: _proposals, transitions: _transitions });
             return abi.encode(input);
         }
     }
@@ -153,14 +153,14 @@ library InboxTestAdapter {
     /// @dev Decodes proved event data based on the Inbox implementation type
     /// @param _inboxType The type of Inbox implementation
     /// @param _data The encoded event data
-    /// @return claimRecord_ The decoded claim record
+    /// @return transitionRecord_ The decoded transition record
     function decodeProvedEventData(
         TestInboxFactory.InboxType _inboxType,
         bytes memory _data
     )
         internal
         pure
-        returns (IInbox.ClaimRecord memory claimRecord_)
+        returns (IInbox.TransitionRecord memory transitionRecord_)
     {
         if (
             _inboxType == TestInboxFactory.InboxType.Optimized2
@@ -168,10 +168,10 @@ library InboxTestAdapter {
         ) {
             // InboxOptimized2 and InboxOptimized3 use custom event encoding
             IInbox.ProvedEventPayload memory payload = LibProvedEventEncoder.decode(_data);
-            return payload.claimRecord;
+            return payload.transitionRecord;
         } else {
             // Base and Optimized1 emit the standard struct
-            claimRecord_ = abi.decode(_data, (IInbox.ClaimRecord));
+            transitionRecord_ = abi.decode(_data, (IInbox.TransitionRecord));
         }
     }
 
