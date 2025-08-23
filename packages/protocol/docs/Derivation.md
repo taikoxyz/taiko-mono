@@ -423,10 +423,6 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 
 ### Transaction Execution
 
-TODO:
-
-- `BLOCK_MAX_TRANSACTIONS` is applied
-
 ## Base Fee Calculation
 
 The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification).
