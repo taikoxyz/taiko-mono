@@ -130,7 +130,7 @@ abstract contract InboxTestBase is CommonTest {
                 hash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))
             }),
-            claimRecords: new IInbox.ClaimRecord[](0)
+            transitionRecords: new IInbox.TransitionRecord[](0)
         });
 
         return abi.encode(input);
@@ -165,17 +165,17 @@ abstract contract InboxTestBase is CommonTest {
         });
     }
 
-    function getGenesisClaimHash() internal pure returns (bytes32) {
-        IInbox.Claim memory claim;
-        claim.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        return keccak256(abi.encode(claim));
+    function getGenesisTransitionHash() internal pure returns (bytes32) {
+        IInbox.Transition memory transition;
+        transition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        return keccak256(abi.encode(transition));
     }
 
     function createGenesisProposal() internal pure returns (IInbox.Proposal memory) {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: getGenesisClaimHash(),
+            lastFinalizedTransitionHash: getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -223,7 +223,7 @@ abstract contract InboxTestBase is CommonTest {
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: getGenesisClaimHash(),
+            lastFinalizedTransitionHash: getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -279,7 +279,7 @@ abstract contract InboxTestBase is CommonTest {
         return IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedClaimHash: getGenesisClaimHash(),
+            lastFinalizedTransitionHash: getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
     }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { InboxTest } from "../base/InboxTest.t.sol";
-import { SimpleInbox } from "./SimpleInbox.sol";
+import { TestInboxOptimized2 } from "./TestInbox.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 
@@ -21,10 +21,8 @@ contract InboxOptimized2Test is InboxTest {
         override
         returns (Inbox)
     {
-        // TODO: Deploy actual InboxOptimized2 implementation
-        // For now, using the same SimpleInbox
         address impl = address(
-            new SimpleInbox(
+            new TestInboxOptimized2(
                 bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
             )
         );
