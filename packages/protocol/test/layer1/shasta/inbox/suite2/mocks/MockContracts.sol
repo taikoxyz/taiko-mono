@@ -59,7 +59,7 @@ contract MockForcedInclusionStore is IForcedInclusionStore {
             revert("No forced inclusions");
         }
         ForcedInclusion memory inclusion = forcedInclusions[0];
-        
+
         // Remove the first element
         for (uint256 i = 0; i < forcedInclusions.length - 1; i++) {
             forcedInclusions[i] = forcedInclusions[i + 1];
@@ -67,7 +67,7 @@ contract MockForcedInclusionStore is IForcedInclusionStore {
         }
         forcedInclusions.pop();
         deadlines.pop();
-        
+
         return inclusion;
     }
 
@@ -78,16 +78,14 @@ contract MockForcedInclusionStore is IForcedInclusionStore {
             offset: _blobReference.offset,
             timestamp: uint48(block.timestamp)
         });
-        
-        ForcedInclusion memory inclusion = ForcedInclusion({
-            feeInGwei: uint64(msg.value / 1 gwei),
-            blobSlice: blobSlice
-        });
-        
+
+        ForcedInclusion memory inclusion =
+            ForcedInclusion({ feeInGwei: uint64(msg.value / 1 gwei), blobSlice: blobSlice });
+
         forcedInclusions.push(inclusion);
         deadlines.push(block.timestamp + 1 hours);
     }
-    
+
     function isOldestForcedInclusionDue() external view returns (bool) {
         if (forcedInclusions.length == 0) return false;
         return block.timestamp >= deadlines[0];
@@ -120,22 +118,23 @@ contract MockSyncedBlockManager is ISyncedBlockManager {
         syncedBlocks.push(lastSyncedBlock);
     }
 
-    function getSyncedBlock(uint48 _offset) 
-        external 
-        view 
+    function getSyncedBlock(uint48 _offset)
+        external
+        view
         returns (uint48 blockNumber_, bytes32 blockHash_, bytes32 stateRoot_)
     {
         if (_offset >= syncedBlocks.length) {
             return (0, bytes32(0), bytes32(0));
         }
-        ISyncedBlockManager.SyncedBlock memory block = syncedBlocks[syncedBlocks.length - 1 - _offset];
-        return (block.blockNumber, block.blockHash, block.stateRoot);
+        ISyncedBlockManager.SyncedBlock memory syncedBlock =
+            syncedBlocks[syncedBlocks.length - 1 - _offset];
+        return (syncedBlock.blockNumber, syncedBlock.blockHash, syncedBlock.stateRoot);
     }
-    
+
     function getLatestSyncedBlockNumber() external view returns (uint48) {
         return lastSyncedBlock.blockNumber;
     }
-    
+
     function getNumberOfSyncedBlocks() external view returns (uint48) {
         return uint48(syncedBlocks.length);
     }

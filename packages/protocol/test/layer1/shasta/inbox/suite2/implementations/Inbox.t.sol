@@ -6,10 +6,10 @@ import { SimpleInbox } from "./SimpleInbox.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 
-/// @title InboxOptimized1Test
-/// @notice Test suite for Optimized1 Inbox implementation
+/// @title InboxTest
+/// @notice Test suite for simple Inbox implementation
 /// @custom:security-contact security@taiko.xyz
-contract InboxOptimized1Test is InboxTest {
+contract InboxSimpleTest is InboxTest {
     function deployInbox(
         address bondToken,
         address syncedBlockManager,
@@ -21,14 +21,14 @@ contract InboxOptimized1Test is InboxTest {
         override
         returns (Inbox)
     {
-        // TODO: Deploy actual InboxOptimized1 implementation
-        // For now, using the same SimpleInbox
+        // Deploy implementation
         address impl = address(
             new SimpleInbox(
                 bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
             )
         );
 
+        // Deploy proxy using the helper function
         return Inbox(
             deploy({
                 name: "",
