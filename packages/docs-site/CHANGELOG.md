@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.30.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.30.0...docs-site-v1.30.1) (2025-08-25)
+
+
+### Chores
+
+* **repo:** fix broken and dead links across the repository ([#19986](https://github.com/taikoxyz/taiko-mono/issues/19986)) ([e8e0814](https://github.com/taikoxyz/taiko-mono/commit/e8e0814601cdbcdeb45350afc144d55cd15bf37e))
+
 ## [1.30.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.6...docs-site-v1.30.0) (2025-08-13)
 
 
