@@ -30,6 +30,8 @@ abstract contract InboxTestBase is CommonTest {
 
     Inbox internal inbox;
     address internal owner = Alice;
+    address internal currentProposer = Bob;
+    address internal nextProposer = Carol;
 
     // Mock contracts
     IERC20 internal bondToken;
@@ -243,7 +245,7 @@ abstract contract InboxTestBase is CommonTest {
         // Build the expected proposal
         IInbox.Proposal memory expectedProposal = IInbox.Proposal({
             id: _proposalId,
-            proposer: Alice,
+            proposer: currentProposer,
             timestamp: uint48(block.timestamp),
             coreStateHash: keccak256(abi.encode(expectedCoreState)),
             derivationHash: keccak256(abi.encode(expectedDerivation))

@@ -30,21 +30,9 @@ contract MockProofVerifier is IProofVerifier {
 /// @title MockProposerChecker
 /// @notice Mock proposer checker that accepts all proposers
 contract MockProposerChecker is IProposerChecker {
-    mapping(address => bool) public authorized;
-
-    constructor() {
-        // By default, authorize test addresses created with vm.addr
-        authorized[0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf] = true; // Alice = vm.addr(0x1)
-        authorized[0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF] = true; // Bob = vm.addr(0x2)
-        authorized[0x6813Eb9362372EEF6200f3b1dbC3f819671cBA69] = true; // Carol = vm.addr(0x3)
-    }
 
     function checkProposer(address _proposer) external view {
-        require(authorized[_proposer], "Unauthorized proposer");
-    }
-
-    function authorizeProposer(address _proposer) external {
-        authorized[_proposer] = true;
+        // allow all proposers
     }
 }
 
@@ -55,20 +43,7 @@ contract MockForcedInclusionStore is IForcedInclusionStore {
     uint256[] public deadlines; // Store deadlines separately since not part of struct
 
     function consumeOldestForcedInclusion(address) external returns (ForcedInclusion memory) {
-        if (forcedInclusions.length == 0) {
-            revert("No forced inclusions");
-        }
-        ForcedInclusion memory inclusion = forcedInclusions[0];
-
-        // Remove the first element
-        for (uint256 i = 0; i < forcedInclusions.length - 1; i++) {
-            forcedInclusions[i] = forcedInclusions[i + 1];
-            deadlines[i] = deadlines[i + 1];
-        }
-        forcedInclusions.pop();
-        deadlines.pop();
-
-        return inclusion;
+       revert("no forced inclusion");
     }
 
     function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {

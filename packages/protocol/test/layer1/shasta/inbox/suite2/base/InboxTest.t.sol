@@ -53,8 +53,10 @@ abstract contract InboxTest is InboxTestBase {
         emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
 
         // Act: Submit the proposal
-        vm.prank(Alice);
+        vm.startSnapshotGas("shasta-propose", "propose_single_empty_ring_buffer");
+        vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
+        vm.stopSnapshotGas();
 
         // Assert: Verify proposal hash is stored
         bytes32 storedHash = inbox.getProposalHash(1);
