@@ -10,6 +10,10 @@ import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 /// @notice Test suite for simple Inbox implementation
 /// @custom:security-contact security@taiko.xyz
 contract InboxSimpleTest is InboxTest {
+    function getTestContractName() internal pure override returns (string memory) {
+        return "Inbox";
+    }
+
     function deployInbox(
         address bondToken,
         address syncedBlockManager,

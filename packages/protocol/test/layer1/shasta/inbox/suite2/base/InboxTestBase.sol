@@ -135,7 +135,7 @@ abstract contract InboxTestBase is CommonTest {
             transitionRecords: new IInbox.TransitionRecord[](0)
         });
 
-        return abi.encode(input);
+        return inbox.encodeProposeInput(input);
     }
 
     function createProposal(
@@ -196,7 +196,7 @@ abstract contract InboxTestBase is CommonTest {
     // Test Helper Functions
     // ---------------------------------------------------------------
 
-    function createFirstProposeInput() internal returns (bytes memory) {
+    function createFirstProposeInput() internal view returns (bytes memory) {
         // For the first proposal after genesis, we need specific state
         IInbox.CoreState memory coreState = _getGenesisCoreState();
 
@@ -213,7 +213,7 @@ abstract contract InboxTestBase is CommonTest {
         input.parentProposals = parentProposals;
         input.blobReference = blobRef;
 
-        return abi.encode(input);
+        return inbox.encodeProposeInput(input);
     }
 
     function buildExpectedProposedPayload(uint48 _proposalId)
@@ -277,7 +277,7 @@ abstract contract InboxTestBase is CommonTest {
         vm.blobhashes(hashes);
     }
 
-    function _getGenesisCoreState() internal returns (IInbox.CoreState memory) {
+    function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
         return IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
@@ -286,8 +286,130 @@ abstract contract InboxTestBase is CommonTest {
         });
     }
 
-    function _createBlobRef() internal returns (LibBlobs.BlobReference memory) {
+    function _createBlobRef() internal pure returns (LibBlobs.BlobReference memory) {
         return LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
+    }
+
+    function _createBlobRefWithParams(
+        uint8 _blobStartIndex,
+        uint8 _numBlobs,
+        uint24 _offset
+    )
+        internal
+        pure
+        returns (LibBlobs.BlobReference memory)
+    {
+        return LibBlobs.BlobReference({
+            blobStartIndex: _blobStartIndex,
+            numBlobs: _numBlobs,
+            offset: _offset
+        });
+    }
+
+    function createProposeInputWithCustomParams(
+        uint48 _deadline,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.Proposal[] memory _parentProposals,
+        IInbox.CoreState memory _coreState
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
+        IInbox.ProposeInput memory input = IInbox.ProposeInput({
+            deadline: _deadline,
+            coreState: _coreState,
+            parentProposals: _parentProposals,
+            blobReference: _blobRef,
+            endBlockMiniHeader: IInbox.BlockMiniHeader({
+                number: uint48(block.number),
+                hash: blockhash(block.number - 1),
+                stateRoot: bytes32(uint256(100))
+            }),
+            transitionRecords: new IInbox.TransitionRecord[](0)
+        });
+        
+        return inbox.encodeProposeInput(input);
+    }
+
+    function createProposeInputWithDeadline(uint48 _deadline) internal returns (bytes memory) {
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
+        parentProposals[0] = createGenesisProposal();
+        
+        return createProposeInputWithCustomParams(
+            _deadline,
+            _createBlobRef(),
+            parentProposals,
+            coreState
+        );
+    }
+
+    function createProposeInputWithBlobs(
+        uint8 _numBlobs,
+        uint24 _offset
+    )
+        internal
+        returns (bytes memory)
+    {
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
+        parentProposals[0] = createGenesisProposal();
+        
+        LibBlobs.BlobReference memory blobRef = _createBlobRefWithParams(0, _numBlobs, _offset);
+        
+        return createProposeInputWithCustomParams(
+            0, // no deadline
+            blobRef,
+            parentProposals,
+            coreState
+        );
+    }
+
+    function buildExpectedProposedPayloadWithBlobs(
+        uint48 _proposalId,
+        uint8 _numBlobs,
+        uint24 _offset
+    )
+        internal
+        view
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        // Build the expected core state after proposal
+        IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
+            nextProposalId: _proposalId + 1,
+            lastFinalizedProposalId: 0,
+            lastFinalizedTransitionHash: getGenesisTransitionHash(),
+            bondInstructionsHash: bytes32(0)
+        });
+
+        // Build the expected derivation with custom blob params
+        IInbox.Derivation memory expectedDerivation = IInbox.Derivation({
+            originBlockNumber: uint48(block.number - 1),
+            originBlockHash: blockhash(block.number - 1),
+            isForcedInclusion: false,
+            basefeeSharingPctg: 0,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: getBlobHashesForTest(_numBlobs),
+                offset: _offset,
+                timestamp: uint48(block.timestamp)
+            })
+        });
+
+        // Build the expected proposal
+        IInbox.Proposal memory expectedProposal = IInbox.Proposal({
+            id: _proposalId,
+            proposer: currentProposer,
+            timestamp: uint48(block.timestamp),
+            coreStateHash: keccak256(abi.encode(expectedCoreState)),
+            derivationHash: keccak256(abi.encode(expectedDerivation))
+        });
+
+        return IInbox.ProposedEventPayload({
+            proposal: expectedProposal,
+            derivation: expectedDerivation,
+            coreState: expectedCoreState
+        });
     }
 
     // ---------------------------------------------------------------
@@ -304,4 +426,7 @@ abstract contract InboxTestBase is CommonTest {
         internal
         virtual
         returns (Inbox);
+
+    /// @dev Returns the name of the test contract for snapshot identification
+    function getTestContractName() internal pure virtual returns (string memory);
 }

@@ -132,7 +132,7 @@ contract TestInboxOptimized2 is InboxOptimized2 {
     }
 }
 
-/// @title TestInboxOptimized1
+/// @title TestInboxOptimized3
 /// @notice Test wrapper for TestInboxOptimized3 contract with configurable behavior
 contract TestInboxOptimized3 is InboxOptimized3 {
     Config private config;

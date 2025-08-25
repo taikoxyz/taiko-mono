@@ -10,6 +10,10 @@ import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 /// @notice Test suite for Optimized3 Inbox implementation
 /// @custom:security-contact security@taiko.xyz
 contract InboxOptimized3Test is InboxTest {
+    function getTestContractName() internal pure override returns (string memory) {
+        return "InboxOptimized3";
+    }
+
     function deployInbox(
         address bondToken,
         address syncedBlockManager,

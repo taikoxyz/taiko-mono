@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./InboxTestBase.sol";
+import "src/layer1/shasta/impl/Inbox.sol";
 import { console2 } from "forge-std/src/console2.sol";
 
 /// @title InboxTest
@@ -36,10 +37,10 @@ abstract contract InboxTest is InboxTestBase {
     }
 
     // ---------------------------------------------------------------
-    // Propose Tests
+    // Main tests with gas snapshot
     // ---------------------------------------------------------------
 
-    function test_propose_single() public {
+    function test_propose() public {
         setupBlobHashes();
 
         // Arrange: Create the first proposal input after genesis
@@ -53,7 +54,10 @@ abstract contract InboxTest is InboxTestBase {
         emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
 
         // Act: Submit the proposal
-        vm.startSnapshotGas("shasta-propose", "propose_single_empty_ring_buffer");
+        vm.startSnapshotGas(
+            "shasta-propose", 
+            string.concat("propose_single_empty_ring_buffer_", getTestContractName())
+        );
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
         vm.stopSnapshotGas();
@@ -61,5 +65,152 @@ abstract contract InboxTest is InboxTestBase {
         // Assert: Verify proposal hash is stored
         bytes32 storedHash = inbox.getProposalHash(1);
         assertTrue(storedHash != bytes32(0), "Proposal hash should be stored");
+    }
+
+    // ---------------------------------------------------------------
+    // Deadline Validation Tests
+    // ---------------------------------------------------------------
+
+    function test_propose_withValidFutureDeadline() public {
+        setupBlobHashes();
+
+        // Create proposal with future deadline using helper
+        bytes memory proposeData = createProposeInputWithDeadline(uint48(block.timestamp + 1 hours));
+        
+        // Expect the correct event
+        IInbox.ProposedEventPayload memory expectedPayload = buildExpectedProposedPayload(1);
+        vm.expectEmit();
+        emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
+        
+        // Should succeed with valid future deadline
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+        
+        // Verify proposal was created with correct hash
+        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        assertEq(inbox.getProposalHash(1), expectedHash, "Proposal hash mismatch");
+    }
+
+    function test_propose_withZeroDeadline() public {
+        setupBlobHashes();
+
+        // Use existing helper - zero deadline means no expiration
+        bytes memory proposeData = createFirstProposeInput();
+        
+        // Expect the correct event
+        IInbox.ProposedEventPayload memory expectedPayload = buildExpectedProposedPayload(1);
+        vm.expectEmit();
+        emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
+        
+        // Should succeed with zero deadline
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+        
+        // Verify proposal was created with correct hash
+        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        assertEq(inbox.getProposalHash(1), expectedHash, "Proposal hash mismatch");
+    }
+
+    function test_propose_RevertWhen_DeadlineExpired() public {
+        setupBlobHashes();
+        
+        // Advance time first
+        vm.warp(block.timestamp + 2 hours);
+        
+        // Create proposal with expired deadline
+        bytes memory proposeData = createProposeInputWithDeadline(uint48(block.timestamp - 1 hours));
+        
+        // Should revert with DeadlineExceeded
+        vm.expectRevert(DeadlineExceeded.selector);
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+    }
+
+    // ---------------------------------------------------------------
+    // Blob Validation Tests
+    // ---------------------------------------------------------------
+
+    function test_propose_withSingleBlob() public {
+        setupBlobHashes();
+        
+        // This is already tested in test_propose, but let's be explicit
+        bytes memory proposeData = createFirstProposeInput();
+        
+        // Expect the correct event for single blob
+        IInbox.ProposedEventPayload memory expectedPayload = buildExpectedProposedPayload(1);
+        vm.expectEmit();
+        emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
+        
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+        
+        // Verify proposal hash and blob configuration
+        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        assertEq(inbox.getProposalHash(1), expectedHash, "Single blob proposal hash mismatch");
+    }
+
+    function test_propose_withMultipleBlobs() public {
+        setupBlobHashes();
+
+        // Use helper to create proposal with multiple blobs
+        bytes memory proposeData = createProposeInputWithBlobs(3, 0);
+        
+        // Expect the correct event for multiple blobs
+        IInbox.ProposedEventPayload memory expectedPayload = buildExpectedProposedPayloadWithBlobs(1, 3, 0);
+        vm.expectEmit();
+        emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
+        
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+        
+        // Verify proposal hash
+        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        assertEq(inbox.getProposalHash(1), expectedHash, "Multiple blob proposal hash mismatch");
+    }
+
+    function test_propose_RevertWhen_BlobIndexOutOfRange() public {
+        setupBlobHashes(); // Sets up 9 blob hashes
+
+        // Create proposal with out-of-range blob index using custom params
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
+        parentProposals[0] = createGenesisProposal();
+        
+        LibBlobs.BlobReference memory blobRef = _createBlobRefWithParams(
+            10, // Out of range (we only have 9 blobs)
+            1,  // numBlobs
+            0   // offset
+        );
+        
+        bytes memory proposeData = createProposeInputWithCustomParams(
+            0, // no deadline
+            blobRef,
+            parentProposals,
+            coreState
+        );
+        
+        // Should revert when accessing invalid blob
+        vm.expectRevert();
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+    }
+
+    function test_propose_withBlobOffset() public {
+        setupBlobHashes();
+
+        // Use helper to create proposal with blob offset
+        bytes memory proposeData = createProposeInputWithBlobs(2, 100);
+        
+        // Expect the correct event with blob offset
+        IInbox.ProposedEventPayload memory expectedPayload = buildExpectedProposedPayloadWithBlobs(1, 2, 100);
+        vm.expectEmit();
+        emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
+        
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+        
+        // Verify proposal hash and check that offset was correctly included
+        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        assertEq(inbox.getProposalHash(1), expectedHash, "Blob with offset proposal hash mismatch");
     }
 }

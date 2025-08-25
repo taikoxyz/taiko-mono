@@ -107,12 +107,9 @@ pnpm fmt:sol            # Format Solidity code
 - Tests mirror contract structure under `test/`
 - Inherit from appropriate base classes:
   - `CommonTest` for shared functionality
-  - `Layer1Test` for L1-specific tests
-  - `Layer2Test` for L2-specific tests
-  - `InboxTest` for Inbox contract tests (advanced utilities)
 - Use provided test accounts (Alice, Bob, Carol, David, Emma)
-- Multi-chain testing with `onEthereum()`/`onTaiko()`
-- Follow structured test patterns with configuration objects
+- For positive tests use `test_functionName_Description` as the test name and verify correct behavior by checking storage variables and/or events. For events use `vm.execptEmit()` (no parameters), which is the same as setting all to true.
+- For negative tests use `test_functionName_RevertWhen` as the test name and make sure they revert with the expected custom error.
 
 **Before Submitting Changes:**
 
