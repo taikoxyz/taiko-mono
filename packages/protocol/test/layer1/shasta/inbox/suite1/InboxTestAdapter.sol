@@ -73,7 +73,8 @@ library InboxTestAdapter {
                 parentProposals: _proposals,
                 blobReference: _blobRef,
                 transitionRecords: _transitionRecords,
-                endBlockMiniHeader: _endBlockMiniHeader
+                endBlockMiniHeader: _endBlockMiniHeader,
+                numForcedInclusions: 0
             });
             return LibProposeInputDecoder.encode(input);
         } else {
@@ -85,7 +86,8 @@ library InboxTestAdapter {
                 parentProposals: _proposals,
                 blobReference: _blobRef,
                 transitionRecords: _transitionRecords,
-                endBlockMiniHeader: _endBlockMiniHeader
+                endBlockMiniHeader: _endBlockMiniHeader,
+                numForcedInclusions: 0
             });
             return abi.encode(input);
         }

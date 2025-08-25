@@ -117,22 +117,17 @@ contract ForcedInclusionStore2 is EssentialContract, IForcedInclusionStore {
 
     /// @inheritdoc IForcedInclusionStore
     function isOldestForcedInclusionDue() external view returns (bool) {
-        uint256 deadline = getOldestForcedInclusionDeadline();
-        return deadline != type(uint256).max && block.timestamp >= deadline;
-    }
-
-    /// @notice Gets the deadline for the oldest forced inclusion.
-    /// @return The deadline for the oldest forced inclusion or `type(uint256).max` if there is no
-    /// forced inclusion in the queue
-    function getOldestForcedInclusionDeadline() public view returns (uint256) {
-        if (head == tail) return type(uint256).max;
-
+        // Early exit for empty queue (most common case)
+        if (head == tail) return false;
+        
         ForcedInclusion storage inclusion = queue[head];
-        // there is no forced inclusion in the queue
-        if (inclusion.blobSlice.timestamp == 0) return type(uint256).max;
-
+        // Early exit if slot is empty
+        if (inclusion.blobSlice.timestamp == 0) return false;
+        
+        // Only calculate deadline if we have a valid inclusion
         unchecked {
-            return uint256(lastProcessedAt).max(inclusion.blobSlice.timestamp) + inclusionDelay;
+            uint256 deadline = uint256(lastProcessedAt).max(inclusion.blobSlice.timestamp) + inclusionDelay;
+            return block.timestamp >= deadline;
         }
     }
 

@@ -113,6 +113,9 @@ interface IInbox {
         TransitionRecord[] transitionRecords;
         /// @notice The end block mini header for finalization.
         BlockMiniHeader endBlockMiniHeader;
+        /// @notice The number of forced inclusions that the proposer wants to process.
+        /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue that he wants to include.
+        uint8 numForcedInclusions;
     }
 
     /// @notice Input data for the prove function

@@ -116,13 +116,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Key behaviors:
     ///      1. Validates proposer authorization via ProposerChecker
     ///      2. Finalizes eligible proposals to free ring buffer space
-    ///      3. Processes forced inclusions if due (oldest first)
-    ///      4. Submits regular proposal if capacity available
+    ///      3. Process `numForcedInclusions` forced inclusions. The proposer is forced to process at least one if it is due.
     ///      5. Updates core state and emits Proposed event
-    /// @dev Forced inclusion processing:
-    ///      - Processes exactly one (oldest) forced inclusion per call
-    ///      - Only processed when due, cannot be processed early
-    ///      - Takes priority over regular proposals
     function propose(
         bytes calldata,
         /*_lookahead*/
@@ -149,19 +144,24 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Verify capacity for new proposals
         uint256 availableCapacity = _getAvailableCapacity(config, coreState);
-        require(availableCapacity > 0, ExceedsUnfinalizedProposalCapacity());
+        require(availableCapacity > input.numForcedInclusions + 1, ExceedsUnfinalizedProposalCapacity());
 
         // Process forced inclusion if required
-        bool forcedInclusionProcessed;
-        (coreState, forcedInclusionProcessed) = _processForcedInclusion(config, coreState);
-
-        if (!forcedInclusionProcessed || availableCapacity > 1) {
-            // Propose the normal proposal after the potential forced inclusion to match the
-            // behavior in Shasta fork.
-            LibBlobs.BlobSlice memory blobSlice =
-                LibBlobs.validateBlobReference(input.blobReference, _getBlobHash);
-            _propose(config, coreState, blobSlice, false);
+        for (uint8 i = 0; i < input.numForcedInclusions; ++i) {
+            // TODO: we can optimize by capturing wheter something else is due or not.
+            coreState = _processForcedInclusion(config, coreState);
         }
+        
+        // Verify that no forced inclusion that is due remains in the queue.
+        if (IForcedInclusionStore(config.forcedInclusionStore).isOldestForcedInclusionDue()) {
+            revert UnprocessedForcedInclusionIsDue();
+        }
+
+        // Propose the normal proposal after the potential forced inclusion to match the
+        // behavior in Pacaya.
+        LibBlobs.BlobSlice memory blobSlice =
+            LibBlobs.validateBlobReference(input.blobReference, _getBlobHash);
+        _propose(config, coreState, blobSlice, false);
     }
 
     /// @inheritdoc IInbox
@@ -568,27 +568,14 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _config Configuration containing forced inclusion store address
     /// @param _coreState Current core state to update if inclusion processed
     /// @return coreState_ Updated state if forced inclusion processed, unchanged otherwise
-    /// @return forcedInclusionProcessed_ True if a forced inclusion was successfully processed
     function _processForcedInclusion(
         Config memory _config,
         CoreState memory _coreState
     )
         private
-        returns (CoreState memory coreState_, bool forcedInclusionProcessed_)
+        returns (CoreState memory coreState_)
     {
-        // Use low-level call to handle potential errors gracefully
-        (bool success, bytes memory returnData) = _config.forcedInclusionStore.call(
-            abi.encodeCall(IForcedInclusionStore.consumeOldestForcedInclusion, (msg.sender))
-        );
-
-        // If the call fails, return _coreState as is
-        if (!success) {
-            return (_coreState, false);
-        }
-
-        // Decode the returned ForcedInclusion struct
-        IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
-            abi.decode(returnData, (IForcedInclusionStore.ForcedInclusion));
+        IForcedInclusionStore.ForcedInclusion memory forcedInclusion = IForcedInclusionStore(_config.forcedInclusionStore).consumeOldestForcedInclusion(msg.sender);
 
         coreState_ = _propose(_config, _coreState, forcedInclusion.blobSlice, true);
     }
@@ -885,3 +872,4 @@ error RingBufferSizeZero();
 error SpanOutOfBounds();
 error TransitionWithSameParentHashAlreadyProved();
 error Unauthorized();
+error UnprocessedForcedInclusionIsDue();
