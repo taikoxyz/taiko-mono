@@ -931,7 +931,7 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 // GetNextPreconfWhiteListOperator resolves the next preconfirmation whitelist operator address.
 func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
 	if c.PacayaClients.PreconfWhitelist == nil {
-		return common.Address{}, errors.New("prpreconfirmationeconf whitelist contract is not set")
+		return common.Address{}, errors.New("preconfirmation whitelist contract is not set")
 	}
 
 	var cancel context.CancelFunc
