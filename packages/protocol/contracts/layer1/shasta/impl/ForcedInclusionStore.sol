@@ -94,45 +94,61 @@ contract ForcedInclusionStore2 is EssentialContract, IForcedInclusionStore {
     }
 
     /// @inheritdoc IForcedInclusionStore
-    /// @dev Only the inbox contract can call it since we don't do any validation here
-    function consumeOldestForcedInclusion(address _feeRecipient)
+    function consumeForcedInclusions(
+        address _feeRecipient,
+        uint256 _count
+    )
         external
         onlyFrom(inbox)
         nonReentrant
-        returns (ForcedInclusion memory inclusion_)
+        returns (ForcedInclusion[] memory inclusions_)
     {
-        // we only need to check the first one, since it will be the oldest.
-        ForcedInclusion storage inclusion = queue[head];
-        require(inclusion.blobSlice.timestamp != 0, NoForcedInclusionFound());
+        // Early exit if no inclusions requested or queue is empty
+        if (_count == 0 || head == tail) {
+            return new ForcedInclusion[](0);
+        }
 
-        inclusion_ = inclusion;
+        // Calculate actual number to process (min of requested and available)
+        uint256 available = tail - head;
+        uint256 toProcess = _count > available ? available : _count;
 
-        lastProcessedAt = uint64(block.timestamp);
+        inclusions_ = new ForcedInclusion[](toProcess);
+        uint256 totalFees;
 
         unchecked {
-            delete queue[head++]; // delete element at head AND THEN increment head
-            _feeRecipient.sendEtherAndVerify(inclusion_.feeInGwei * 1 gwei);
+            for (uint256 i; i < toProcess; ++i) {
+                inclusions_[i] = queue[head + i];
+                totalFees += inclusions_[i].feeInGwei;
+
+                // Delete the inclusion from storage
+                delete queue[head + i];
+            }
+
+            // Update head and lastProcessedAt after all processing
+            head += uint64(toProcess);
+            lastProcessedAt = uint64(block.timestamp);
+
+            // Send all fees in one transfer
+            if (totalFees > 0) {
+                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+            }
         }
     }
 
     /// @inheritdoc IForcedInclusionStore
     function isOldestForcedInclusionDue() external view returns (bool) {
-        uint256 deadline = getOldestForcedInclusionDeadline();
-        return deadline != type(uint256).max && block.timestamp >= deadline;
-    }
-
-    /// @notice Gets the deadline for the oldest forced inclusion.
-    /// @return The deadline for the oldest forced inclusion or `type(uint256).max` if there is no
-    /// forced inclusion in the queue
-    function getOldestForcedInclusionDeadline() public view returns (uint256) {
-        if (head == tail) return type(uint256).max;
+        // Early exit for empty queue (most common case)
+        if (head == tail) return false;
 
         ForcedInclusion storage inclusion = queue[head];
-        // there is no forced inclusion in the queue
-        if (inclusion.blobSlice.timestamp == 0) return type(uint256).max;
+        // Early exit if slot is empty
+        if (inclusion.blobSlice.timestamp == 0) return false;
 
+        // Only calculate deadline if we have a valid inclusion
         unchecked {
-            return uint256(lastProcessedAt).max(inclusion.blobSlice.timestamp) + inclusionDelay;
+            uint256 deadline =
+                uint256(lastProcessedAt).max(inclusion.blobSlice.timestamp) + inclusionDelay;
+            return block.timestamp >= deadline;
         }
     }
 
