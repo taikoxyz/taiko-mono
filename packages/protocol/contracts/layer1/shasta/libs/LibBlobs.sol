@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @title LibBlobs
-/// @notice Library for the ShastaInbox contract
+/// @notice Library for handling blobs.
 /// @custom:security-contact security@taiko.xyz
 library LibBlobs {
     // -------------------------------------------------------------------
@@ -11,6 +11,8 @@ library LibBlobs {
     uint256 internal constant FIELD_ELEMENT_BYTES = 32;
     uint256 internal constant BLOB_FIELD_ELEMENTS = 4096;
     uint256 internal constant BLOB_BYTES = BLOB_FIELD_ELEMENTS * FIELD_ELEMENT_BYTES;
+
+    uint256 internal constant MAX_BLOBS = type(uint8).max;
 
     // -------------------------------------------------------------------
     // Structs
@@ -45,17 +47,21 @@ library LibBlobs {
     /// @dev Validates a blob locator and converts it to a blob slice.
     /// @param _blobReference The blob locator to validate.
     /// @return The blob slice.
-    function validateBlobReference(BlobReference memory _blobReference)
+    function validateBlobReference(
+        BlobReference memory _blobReference,
+        function(uint256) view returns (bytes32) _blobhash
+    )
         internal
         view
         returns (BlobSlice memory)
     {
-        if (_blobReference.numBlobs == 0) revert InvalidBlobReference();
+        require(_blobReference.numBlobs > 0, NoBlobs());
+        require(_blobReference.blobStartIndex <= MAX_BLOBS, TwoManyBlobs());
 
         bytes32[] memory blobHashes = new bytes32[](_blobReference.numBlobs);
         for (uint256 i; i < _blobReference.numBlobs; ++i) {
-            blobHashes[i] = blobhash(_blobReference.blobStartIndex + i);
-            if (blobHashes[i] == 0) revert BlobNotFound();
+            blobHashes[i] = _blobhash(_blobReference.blobStartIndex + i);
+            require(blobHashes[i] != 0, BlobNotFound());
         }
 
         return BlobSlice({
@@ -70,5 +76,6 @@ library LibBlobs {
     // -------------------------------------------------------------------
 
     error BlobNotFound();
-    error InvalidBlobReference();
+    error NoBlobs();
+    error TwoManyBlobs();
 }

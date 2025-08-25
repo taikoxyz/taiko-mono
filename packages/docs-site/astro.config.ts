@@ -220,10 +220,6 @@ export default defineConfig({
                   link: "/guides/node-operators/run-a-node-for-taiko-hekla/",
                 },
                 {
-                  label: "Enable a proposer",
-                  link: "/guides/node-operators/enable-a-proposer/",
-                },
-                {
                   label: "Enable a prover",
                   link: "/guides/node-operators/enable-a-prover/",
                 },
