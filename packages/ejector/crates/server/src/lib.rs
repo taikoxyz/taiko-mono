@@ -7,7 +7,9 @@ pub async fn spawn_server(
     port: u64,
     shutdown: impl std::future::Future<Output = ()> + Send + 'static,
 ) -> eyre::Result<()> {
-    let router = Router::new().route("/", get(health));
+    let health_router = Router::new().route("/", get(health));
+
+    let router = health_router.merge(metrics::router());
 
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port as u16);
 

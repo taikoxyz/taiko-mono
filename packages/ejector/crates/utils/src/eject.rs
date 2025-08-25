@@ -55,9 +55,12 @@ pub async fn eject_operator(
                 "removeOperator mined in block {:?}, tx {:?}",
                 rcpt.block_number, rcpt.transaction_hash
             );
+
+            metrics::inc_eject_success(&operator.to_string());
         }
         None => {
             warn!("Timed out waiting for receipt for {tx_hash:#x}; continuing to run.");
+            metrics::inc_eject_error(&operator.to_string());
         }
     }
     Ok(())

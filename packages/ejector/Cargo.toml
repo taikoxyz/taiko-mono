@@ -10,6 +10,7 @@ config = { path = "crates/config" }
 monitor = { path = "crates/monitor" }
 beacon = { path = "crates/beacon" }
 server = { path = "crates/server" }
+metrics = { path = "crates/metrics" }
 clap = { workspace = true }
 dotenvy = { workspace = true }
 eyre = { workspace = true }

@@ -8,3 +8,4 @@ axum = { workspace = true }
 eyre = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+metrics = { workspace = true }

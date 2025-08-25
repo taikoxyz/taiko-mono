@@ -9,4 +9,5 @@ tracing.workspace = true
 alloy.workspace = true
 futures-util.workspace = true
 bindings.workspace = true
+metrics.workspace = true
 tokio.workspace = true

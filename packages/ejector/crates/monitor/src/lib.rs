@@ -165,6 +165,8 @@ impl Monitor {
             info!("Connecting to block stream...");
             match ProviderBuilder::new().connect_ws(WsConnect::new(self.l2_ws_url.clone())).await {
                 Ok(provider) => {
+                    info!("Connected to block stream at {}", self.l2_ws_url);
+                    metrics::inc_ws_reconnections();
                     // sanity
                     match provider.get_block_number().await {
                         Ok(bn) => info!("WS get_block_number() = {bn}"),
@@ -183,6 +185,8 @@ impl Monitor {
                                             "New block header: number={:?} hash={:?}, coinbase={:?}",
                                             header.number, header.hash, header.beneficiary
                                         );
+
+                                        metrics::inc_l2_blocks();
                                         *last_seen.lock().await = Instant::now();
                                         backoff = Duration::from_secs(1); // reset after good event
                                     }
