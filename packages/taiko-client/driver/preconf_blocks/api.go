@@ -74,9 +74,9 @@ func (s *PreconfBlockAPIServer) BuildPreconfBlock(c echo.Context) error {
 
 	start := time.Now()
 	defer func() {
-		elapsed := float64(time.Since(start).Milliseconds())
-		metrics.DriverPreconfBuildPreconfBlockDuration.Observe(elapsed)
-		log.Debug("BuildPreconfBlock completed", "elapsed", elapsed)
+		elapsed_ms := time.Since(start).Milliseconds()
+		metrics.DriverPreconfBuildPreconfBlockDuration.Observe(float64(elapsed_ms) / 1_000)
+		log.Debug("BuildPreconfBlock completed", "elapsed", fmt.Sprintf("%dms", elapsed_ms))
 	}()
 
 	// make a new context, we don't want to cancel the request if the caller times out.
