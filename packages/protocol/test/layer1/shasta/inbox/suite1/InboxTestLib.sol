@@ -423,7 +423,8 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        return abi.encode(_deadline, _coreState, _proposals, _blobRef, _transitionRecords);
+        // Add default numForcedInclusions = 0
+        return abi.encode(_deadline, _coreState, _proposals, _blobRef, _transitionRecords, uint8(0));
     }
 
     /// @dev Encodes propose input for the first proposal after genesis (with validation)
@@ -640,6 +641,24 @@ library InboxTestLib {
         proposals[1] = _nextSlotProposal; // The proposal in the next slot
         return _encodeProposeInputInternal(
             uint48(0), _coreState, proposals, _blobRef, _transitionRecords
+        );
+    }
+
+    /// @dev Encodes propose input with explicit numForcedInclusions
+    function encodeProposeInputWithForcedInclusions(
+        uint64 _deadline,
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal[] memory _proposals,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.TransitionRecord[] memory _transitionRecords,
+        uint8 _numForcedInclusions
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(
+            _deadline, _coreState, _proposals, _blobRef, _transitionRecords, _numForcedInclusions
         );
     }
 
