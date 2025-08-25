@@ -112,14 +112,16 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IInbox
-    /// @notice Proposes new L2 blocks to the rollup using blobs for DA.
+    /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
     ///      1. Validates proposer authorization via ProposerChecker
     ///      2. Finalizes eligible proposals up to `config.maxFinalizationCount` to free ring buffer
     ///         space.
     ///      3. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to
-    ///         process at least one if it is due.
-    ///      5. Updates core state and emits `Proposed` event
+    ///         process at least `config.minForcedInclusionCount` if they are due.
+    ///      4. Updates core state and emits `Proposed` event
+    /// @dev IMPORTANT: The regular proposal might not be included if there is not enough capacity
+    ///      available(i.e forced inclusions are prioritized).
     function propose(
         bytes calldata,
         /*_lookahead*/
@@ -146,21 +148,31 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Verify capacity for new proposals
         uint256 availableCapacity = _getAvailableCapacity(config, coreState);
-        require(availableCapacity > input.numForcedInclusions, ExceedsUnfinalizedProposalCapacity());
+        require(
+            availableCapacity >= input.numForcedInclusions, ExceedsUnfinalizedProposalCapacity()
+        );
 
         // Process forced inclusion if required
-        coreState = _processForcedInclusions(config, coreState, input.numForcedInclusions);
+        uint256 amountOfForcedInclusionsProcessed;
+        (coreState, amountOfForcedInclusionsProcessed) =
+            _processForcedInclusions(config, coreState, input.numForcedInclusions);
+        availableCapacity -= amountOfForcedInclusionsProcessed;
 
-        // Verify that no forced inclusion that is due remains in the queue.
-        if (IForcedInclusionStore(config.forcedInclusionStore).isOldestForcedInclusionDue()) {
-            revert UnprocessedForcedInclusionIsDue();
+        // Verify that at least `config.minForcedInclusionCount` forced inclusions were processed or
+        // none remains in the queue that is due.
+        require(
+            input.numForcedInclusions >= config.minForcedInclusionCount
+                || !IForcedInclusionStore(config.forcedInclusionStore).isOldestForcedInclusionDue(),
+            UnprocessedForcedInclusionIsDue()
+        );
+
+        // Propose the normal proposal after the potential forced inclusions if there is capacity
+        // available
+        if (availableCapacity > 0) {
+            LibBlobs.BlobSlice memory blobSlice =
+                LibBlobs.validateBlobReference(input.blobReference, _getBlobHash);
+            _propose(config, coreState, blobSlice, false);
         }
-
-        // Propose the normal proposal after the potential forced inclusion to match the
-        // behavior in Pacaya.
-        LibBlobs.BlobSlice memory blobSlice =
-            LibBlobs.validateBlobReference(input.blobReference, _getBlobHash);
-        _propose(config, coreState, blobSlice, false);
     }
 
     /// @inheritdoc IInbox
@@ -567,14 +579,15 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _config Configuration containing forced inclusion store address
     /// @param _coreState Current core state to update with each inclusion processed
     /// @param _numForcedInclusions Maximum number of forced inclusions to process
-    /// @return Updated core state after processing all consumed forced inclusions
+    /// @return _ Updated core state after processing all consumed forced inclusions
+    /// @return _ Number of forced inclusions processed
     function _processForcedInclusions(
         Config memory _config,
         CoreState memory _coreState,
         uint8 _numForcedInclusions
     )
         private
-        returns (CoreState memory)
+        returns (CoreState memory, uint256)
     {
         IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = IForcedInclusionStore(
             _config.forcedInclusionStore
@@ -584,7 +597,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             _coreState = _propose(_config, _coreState, forcedInclusions[i].blobSlice, true);
         }
 
-        return _coreState;
+        return (_coreState, forcedInclusions.length);
     }
 
     /// @dev Verifies that parentProposals[0] is the current chain head

@@ -117,9 +117,8 @@ contract ForcedInclusionStore2 is EssentialContract, IForcedInclusionStore {
 
         unchecked {
             for (uint256 i; i < toProcess; ++i) {
-                ForcedInclusion storage inclusion = queue[head + i];
-                inclusions_[i] = inclusion;
-                totalFees += inclusion.feeInGwei;
+                inclusions_[i] = queue[head + i];
+                totalFees += inclusions_[i].feeInGwei;
 
                 // Delete the inclusion from storage
                 delete queue[head + i];

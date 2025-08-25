@@ -20,6 +20,9 @@ interface IInbox {
         address proofVerifier;
         address proposerChecker;
         address forcedInclusionStore;
+        /// @notice The minimum number of forced inclusions that the proposer is forced to process
+        /// if they are due.
+        uint256 minForcedInclusionCount;
     }
 
     /// @notice Contains derivation data for a proposal that is not needed during proving.
