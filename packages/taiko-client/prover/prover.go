@@ -267,6 +267,12 @@ func (p *Prover) eventLoop() {
 
 // Close closes the prover instance.
 func (p *Prover) Close(_ context.Context) {
+	// Stop the proof submitter's buffer monitor
+	if p.proofSubmitterPacaya != nil {
+		if submitter, ok := p.proofSubmitterPacaya.(*proofSubmitter.ProofSubmitterPacaya); ok {
+			submitter.Stop()
+		}
+	}
 	p.wg.Wait()
 }
 
