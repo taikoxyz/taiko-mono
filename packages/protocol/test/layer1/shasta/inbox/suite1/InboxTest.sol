@@ -768,7 +768,7 @@ abstract contract InboxTest is CommonTest {
         vm.mockCall(
             forcedInclusionStore,
             abi.encodeWithSelector(
-                IForcedInclusionStore.consumeOldestForcedInclusion.selector, _proposer
+                IForcedInclusionStore.consumeForcedInclusions.selector, _proposer, 1
             ),
             abi.encode(_forcedInclusion)
         );

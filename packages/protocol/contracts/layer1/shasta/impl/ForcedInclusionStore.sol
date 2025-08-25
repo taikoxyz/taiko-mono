@@ -94,24 +94,45 @@ contract ForcedInclusionStore2 is EssentialContract, IForcedInclusionStore {
     }
 
     /// @inheritdoc IForcedInclusionStore
-    /// @dev Only the inbox contract can call it since we don't do any validation here
-    function consumeOldestForcedInclusion(address _feeRecipient)
+    function consumeForcedInclusions(
+        address _feeRecipient,
+        uint256 _count
+    )
         external
         onlyFrom(inbox)
         nonReentrant
-        returns (ForcedInclusion memory inclusion_)
+        returns (ForcedInclusion[] memory inclusions_)
     {
-        // we only need to check the first one, since it will be the oldest.
-        ForcedInclusion storage inclusion = queue[head];
-        require(inclusion.blobSlice.timestamp != 0, NoForcedInclusionFound());
+        // Early exit if no inclusions requested or queue is empty
+        if (_count == 0 || head == tail) {
+            return new ForcedInclusion[](0);
+        }
 
-        inclusion_ = inclusion;
-
-        lastProcessedAt = uint64(block.timestamp);
-
+        // Calculate actual number to process (min of requested and available)
+        uint256 available = tail - head;
+        uint256 toProcess = _count > available ? available : _count;
+        
+        inclusions_ = new ForcedInclusion[](toProcess);
+        uint256 totalFees;
+        
         unchecked {
-            delete queue[head++]; // delete element at head AND THEN increment head
-            _feeRecipient.sendEtherAndVerify(inclusion_.feeInGwei * 1 gwei);
+            for (uint256 i; i < toProcess; ++i) {
+                ForcedInclusion storage inclusion = queue[head + i];       
+                inclusions_[i] = inclusion;
+                totalFees += inclusion.feeInGwei;
+                
+                // Delete the inclusion from storage
+                delete queue[head + i];
+            }
+
+            // Update head and lastProcessedAt after all processing
+            head += uint64(toProcess);
+            lastProcessedAt = uint64(block.timestamp);
+            
+            // Send all fees in one transfer
+            if (totalFees > 0) {
+                _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
+            }
         }
     }
 

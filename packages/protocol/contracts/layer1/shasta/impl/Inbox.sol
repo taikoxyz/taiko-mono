@@ -112,12 +112,12 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IInbox
-    /// @notice Proposes new L2 blocks to the rollup
+    /// @notice Proposes new L2 blocks to the rollup using blobs for DA.
     /// @dev Key behaviors:
     ///      1. Validates proposer authorization via ProposerChecker
-    ///      2. Finalizes eligible proposals to free ring buffer space
-    ///      3. Process `numForcedInclusions` forced inclusions. The proposer is forced to process at least one if it is due.
-    ///      5. Updates core state and emits Proposed event
+    ///      2. Finalizes eligible proposals up to `config.maxFinalizationCount` to free ring buffer space
+    ///      3. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to process at least one if it is due.
+    ///      5. Updates core state and emits `Proposed` event
     function propose(
         bytes calldata,
         /*_lookahead*/
@@ -147,10 +147,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         require(availableCapacity > input.numForcedInclusions + 1, ExceedsUnfinalizedProposalCapacity());
 
         // Process forced inclusion if required
-        for (uint8 i = 0; i < input.numForcedInclusions; ++i) {
-            // TODO: we can optimize by capturing wheter something else is due or not.
-            coreState = _processForcedInclusion(config, coreState);
-        }
+        coreState = _processForcedInclusions(config, coreState, input.numForcedInclusions);
         
         // Verify that no forced inclusion that is due remains in the queue.
         if (IForcedInclusionStore(config.forcedInclusionStore).isOldestForcedInclusionDue()) {
@@ -568,16 +565,19 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _config Configuration containing forced inclusion store address
     /// @param _coreState Current core state to update if inclusion processed
     /// @return coreState_ Updated state if forced inclusion processed, unchanged otherwise
-    function _processForcedInclusion(
+    function _processForcedInclusions(
         Config memory _config,
-        CoreState memory _coreState
+        CoreState memory _coreState,
+        uint8 _numForcedInclusions
     )
         private
         returns (CoreState memory coreState_)
     {
-        IForcedInclusionStore.ForcedInclusion memory forcedInclusion = IForcedInclusionStore(_config.forcedInclusionStore).consumeOldestForcedInclusion(msg.sender);
+        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = IForcedInclusionStore(_config.forcedInclusionStore).consumeForcedInclusions(msg.sender, _numForcedInclusions);
 
-        coreState_ = _propose(_config, _coreState, forcedInclusion.blobSlice, true);
+        for (uint256 i; i < forcedInclusions.length; ++i) {
+            coreState_ = _propose(_config, _coreState, forcedInclusions[i].blobSlice, true);
+        }
     }
 
     /// @dev Verifies that parentProposals[0] is the current chain head
