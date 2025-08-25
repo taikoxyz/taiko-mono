@@ -64,7 +64,7 @@ abstract contract InboxTestBase is CommonTest {
     // ---------------------------------------------------------------
 
     modifier withBlobs() {
-        setupBlobHashes();
+        _setupBlobHashes();
         _;
     }
 
@@ -75,7 +75,7 @@ abstract contract InboxTestBase is CommonTest {
     /// @dev We usually avoid mocks as much as possible since they might make testing flaky
     /// @dev We use mocks for the dependencies that are not important, well tested and with uniform
     /// behavior(e.g. ERC20) or that are not implemented yet
-    function setupMocks() internal {
+    function _setupMocks() internal {
         bondToken = new MockERC20();
         syncedBlockManager = new MockSyncedBlockManager();
         proofVerifier = new MockProofVerifier();
@@ -84,7 +84,7 @@ abstract contract InboxTestBase is CommonTest {
 
     /// @dev Deploy the real contracts that will be used as dependencies of the inbox
     ///      Some of these may need to be updgraded later because of circular references
-    function setupDependencies() internal {
+    function _setupDependencies() internal {
         // we then need to update the ForcedInclusionStore to use the inbox address
         address forcedInclusionStoreImplementation =
             address(new ForcedInclusionStore(INCLUSION_DELAY, FEE_IN_GWEI, address(0)));
@@ -101,7 +101,7 @@ abstract contract InboxTestBase is CommonTest {
     /// @dev Upgrade the dependencies of the inbox
     ///      This is used to upgrade the dependencies of the inbox after the inbox is deployed
     ///      and the dependencies are not upgradable
-    function upgradeDependencies(address _inbox) internal {
+    function _upgradeDependencies(address _inbox) internal {
         address newForcedInclusionStore =
             address(new ForcedInclusionStore(INCLUSION_DELAY, FEE_IN_GWEI, _inbox));
 
@@ -110,74 +110,29 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // Data Builders
+    // Genesis State Builders
     // ---------------------------------------------------------------
 
-    function createProposeInput(uint48 _proposalId) internal returns (bytes memory) {
-        IInbox.CoreState memory coreState = _getGenesisCoreState();
-
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = createProposal(_proposalId - 1, coreState);
-
-        LibBlobs.BlobReference memory blobRef =
-            LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
-
-        IInbox.ProposeInput memory input = IInbox.ProposeInput({
-            deadline: 0,
-            coreState: coreState,
-            parentProposals: parentProposals,
-            blobReference: blobRef,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
-                number: uint48(block.number),
-                hash: blockhash(block.number - 1),
-                stateRoot: bytes32(uint256(100))
-            }),
-            transitionRecords: new IInbox.TransitionRecord[](0)
-        });
-
-        return inbox.encodeProposeInput(input);
-    }
-
-    function createProposal(
-        uint48 _id,
-        IInbox.CoreState memory _coreState
-    )
-        internal
-        view
-        returns (IInbox.Proposal memory)
-    {
-        IInbox.Derivation memory derivation = IInbox.Derivation({
-            originBlockNumber: uint48(block.number - 1),
-            originBlockHash: blockhash(block.number - 1),
-            isForcedInclusion: false,
-            basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: testBlobHashes,
-                offset: 0,
-                timestamp: uint48(block.timestamp)
-            })
-        });
-
-        return IInbox.Proposal({
-            id: _id,
-            proposer: Alice,
-            timestamp: uint48(block.timestamp),
-            coreStateHash: keccak256(abi.encode(_coreState)),
-            derivationHash: keccak256(abi.encode(derivation))
+    function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
+        return IInbox.CoreState({
+            nextProposalId: 1,
+            lastFinalizedProposalId: 0,
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
+            bondInstructionsHash: bytes32(0)
         });
     }
 
-    function getGenesisTransitionHash() internal pure returns (bytes32) {
+    function _getGenesisTransitionHash() internal pure returns (bytes32) {
         IInbox.Transition memory transition;
         transition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
         return keccak256(abi.encode(transition));
     }
 
-    function createGenesisProposal() internal pure returns (IInbox.Proposal memory) {
+    function _createGenesisProposal() internal pure returns (IInbox.Proposal memory) {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: getGenesisTransitionHash(),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -193,80 +148,10 @@ abstract contract InboxTestBase is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // Test Helper Functions
+    // Blob Helpers
     // ---------------------------------------------------------------
 
-    function createFirstProposeInput() internal view returns (bytes memory) {
-        // For the first proposal after genesis, we need specific state
-        IInbox.CoreState memory coreState = _getGenesisCoreState();
-
-        // Parent proposal is genesis (id=0)
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = createGenesisProposal();
-
-        // Create blob reference
-        LibBlobs.BlobReference memory blobRef = _createBlobRef();
-
-        // Create the propose input
-        IInbox.ProposeInput memory input;
-        input.coreState = coreState;
-        input.parentProposals = parentProposals;
-        input.blobReference = blobRef;
-
-        return inbox.encodeProposeInput(input);
-    }
-
-    function buildExpectedProposedPayload(uint48 _proposalId)
-        internal
-        view
-        returns (IInbox.ProposedEventPayload memory)
-    {
-        // Build the expected core state after proposal
-        IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
-            nextProposalId: _proposalId + 1,
-            lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
-        });
-
-        // Build the expected derivation
-        IInbox.Derivation memory expectedDerivation = IInbox.Derivation({
-            originBlockNumber: uint48(block.number - 1),
-            originBlockHash: blockhash(block.number - 1),
-            isForcedInclusion: false,
-            basefeeSharingPctg: 0, // Using actual value from SimpleInbox config
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: getBlobHashesForTest(1),
-                offset: 0,
-                timestamp: uint48(block.timestamp)
-            })
-        });
-
-        // Build the expected proposal
-        IInbox.Proposal memory expectedProposal = IInbox.Proposal({
-            id: _proposalId,
-            proposer: currentProposer,
-            timestamp: uint48(block.timestamp),
-            coreStateHash: keccak256(abi.encode(expectedCoreState)),
-            derivationHash: keccak256(abi.encode(expectedDerivation))
-        });
-
-        return IInbox.ProposedEventPayload({
-            proposal: expectedProposal,
-            derivation: expectedDerivation,
-            coreState: expectedCoreState
-        });
-    }
-
-    function getBlobHashesForTest(uint256 _numBlobs) internal pure returns (bytes32[] memory) {
-        bytes32[] memory hashes = new bytes32[](_numBlobs);
-        for (uint256 i = 0; i < _numBlobs; i++) {
-            hashes[i] = keccak256(abi.encode("blob", i));
-        }
-        return hashes;
-    }
-
-    function setupBlobHashes() internal {
+    function _setupBlobHashes() internal {
         // Setup test blob hashes for EIP-4844
         bytes32[] memory hashes = new bytes32[](9);
         for (uint256 i = 0; i < 9; i++) {
@@ -277,20 +162,15 @@ abstract contract InboxTestBase is CommonTest {
         vm.blobhashes(hashes);
     }
 
-    function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
-        return IInbox.CoreState({
-            nextProposalId: 1,
-            lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
-        });
+    function _getBlobHashesForTest(uint256 _numBlobs) internal pure returns (bytes32[] memory) {
+        bytes32[] memory hashes = new bytes32[](_numBlobs);
+        for (uint256 i = 0; i < _numBlobs; i++) {
+            hashes[i] = keccak256(abi.encode("blob", i));
+        }
+        return hashes;
     }
 
-    function _createBlobRef() internal pure returns (LibBlobs.BlobReference memory) {
-        return LibBlobs.BlobReference({ blobStartIndex: 0, numBlobs: 1, offset: 0 });
-    }
-
-    function _createBlobRefWithParams(
+    function _createBlobRef(
         uint8 _blobStartIndex,
         uint8 _numBlobs,
         uint24 _offset
@@ -306,7 +186,11 @@ abstract contract InboxTestBase is CommonTest {
         });
     }
 
-    function createProposeInputWithCustomParams(
+    // ---------------------------------------------------------------
+    // Propose Input Builders
+    // ---------------------------------------------------------------
+
+    function _createProposeInputWithCustomParams(
         uint48 _deadline,
         LibBlobs.BlobReference memory _blobRef,
         IInbox.Proposal[] memory _parentProposals,
@@ -332,33 +216,54 @@ abstract contract InboxTestBase is CommonTest {
         return inbox.encodeProposeInput(input);
     }
 
-    function createProposeInputWithDeadline(uint48 _deadline) internal returns (bytes memory) {
+    function _createFirstProposeInput() internal view returns (bytes memory) {
+        // For the first proposal after genesis, we need specific state
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
+
+        // Parent proposal is genesis (id=0)
+        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
+        parentProposals[0] = _createGenesisProposal();
+
+        // Create blob reference
+        LibBlobs.BlobReference memory blobRef = _createBlobRef(0, 1, 0);
+
+        // Create the propose input
+        IInbox.ProposeInput memory input;
+        input.coreState = coreState;
+        input.parentProposals = parentProposals;
+        input.blobReference = blobRef;
+
+        return inbox.encodeProposeInput(input);
+    }
+
+    function _createProposeInputWithDeadline(uint48 _deadline) internal view returns (bytes memory) {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = createGenesisProposal();
+        parentProposals[0] = _createGenesisProposal();
         
-        return createProposeInputWithCustomParams(
+        return _createProposeInputWithCustomParams(
             _deadline,
-            _createBlobRef(),
+            _createBlobRef(0, 1, 0),
             parentProposals,
             coreState
         );
     }
 
-    function createProposeInputWithBlobs(
+    function _createProposeInputWithBlobs(
         uint8 _numBlobs,
         uint24 _offset
     )
         internal
+        view
         returns (bytes memory)
     {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = createGenesisProposal();
+        parentProposals[0] = _createGenesisProposal();
         
-        LibBlobs.BlobReference memory blobRef = _createBlobRefWithParams(0, _numBlobs, _offset);
+        LibBlobs.BlobReference memory blobRef = _createBlobRef(0, _numBlobs, _offset);
         
-        return createProposeInputWithCustomParams(
+        return _createProposeInputWithCustomParams(
             0, // no deadline
             blobRef,
             parentProposals,
@@ -366,7 +271,11 @@ abstract contract InboxTestBase is CommonTest {
         );
     }
 
-    function buildExpectedProposedPayloadWithBlobs(
+    // ---------------------------------------------------------------
+    // Expected Event Payload Builders
+    // ---------------------------------------------------------------
+
+    function _buildExpectedProposedPayload(
         uint48 _proposalId,
         uint8 _numBlobs,
         uint24 _offset
@@ -379,18 +288,18 @@ abstract contract InboxTestBase is CommonTest {
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: getGenesisTransitionHash(),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
 
-        // Build the expected derivation with custom blob params
+        // Build the expected derivation
         IInbox.Derivation memory expectedDerivation = IInbox.Derivation({
             originBlockNumber: uint48(block.number - 1),
             originBlockHash: blockhash(block.number - 1),
             isForcedInclusion: false,
-            basefeeSharingPctg: 0,
+            basefeeSharingPctg: 0, // Using actual value from SimpleInbox config
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: getBlobHashesForTest(_numBlobs),
+                blobHashes: _getBlobHashesForTest(_numBlobs),
                 offset: _offset,
                 timestamp: uint48(block.timestamp)
             })
@@ -410,6 +319,28 @@ abstract contract InboxTestBase is CommonTest {
             derivation: expectedDerivation,
             coreState: expectedCoreState
         });
+    }
+
+    // Convenience overload with default blob parameters
+    function _buildExpectedProposedPayload(uint48 _proposalId)
+        internal
+        view
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        return _buildExpectedProposedPayload(_proposalId, 1, 0);
+    }
+
+    // Convenience function for buildExpectedProposedPayload with custom blob params
+    function _buildExpectedProposedPayloadWithBlobs(
+        uint48 _proposalId,
+        uint8 _numBlobs,
+        uint24 _offset
+    )
+        internal
+        view
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        return _buildExpectedProposedPayload(_proposalId, _numBlobs, _offset);
     }
 
     // ---------------------------------------------------------------

@@ -11,11 +11,11 @@ import { console2 } from "forge-std/src/console2.sol";
 abstract contract InboxTest is InboxTestBase {
     function setUp() public virtual override {
         // Deploy dependencies
-        setupDependencies();
+        _setupDependencies();
 
         // Setup mocks - we usually avoid mocks as much as possible since they might make testing
         // flaky
-        setupMocks();
+        _setupMocks();
 
         // Deploy inbox through implementation-specific method
         inbox = deployInbox(
@@ -26,7 +26,7 @@ abstract contract InboxTest is InboxTestBase {
             address(forcedInclusionStore)
         );
 
-        upgradeDependencies(address(inbox));
+        _upgradeDependencies(address(inbox));
 
         // Advance block to ensure we have block history
         vm.roll(INITIAL_BLOCK_NUMBER);
@@ -41,13 +41,13 @@ abstract contract InboxTest is InboxTestBase {
     // ---------------------------------------------------------------
 
     function test_propose() public {
-        setupBlobHashes();
+        _setupBlobHashes();
 
         // Arrange: Create the first proposal input after genesis
-        bytes memory proposeData = createFirstProposeInput();
+        bytes memory proposeData = _createFirstProposeInput();
 
         // Build expected event data
-        IInbox.ProposedEventPayload memory expectedPayload = buildExpectedProposedPayload(1);
+        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
 
         // Expect the Proposed event with the correct data
         vm.expectEmit();
@@ -72,13 +72,13 @@ abstract contract InboxTest is InboxTestBase {
     // ---------------------------------------------------------------
 
     function test_propose_withValidFutureDeadline() public {
-        setupBlobHashes();
+        _setupBlobHashes();
 
         // Create proposal with future deadline using helper
-        bytes memory proposeData = createProposeInputWithDeadline(uint48(block.timestamp + 1 hours));
+        bytes memory proposeData = _createProposeInputWithDeadline(uint48(block.timestamp + 1 hours));
         
         // Expect the correct event
-        IInbox.ProposedEventPayload memory expectedPayload = buildExpectedProposedPayload(1);
+        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
         emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
         
@@ -92,13 +92,13 @@ abstract contract InboxTest is InboxTestBase {
     }
 
     function test_propose_withZeroDeadline() public {
-        setupBlobHashes();
+        _setupBlobHashes();
 
         // Use existing helper - zero deadline means no expiration
-        bytes memory proposeData = createFirstProposeInput();
+        bytes memory proposeData = _createFirstProposeInput();
         
         // Expect the correct event
-        IInbox.ProposedEventPayload memory expectedPayload = buildExpectedProposedPayload(1);
+        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
         emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
         
@@ -112,13 +112,13 @@ abstract contract InboxTest is InboxTestBase {
     }
 
     function test_propose_RevertWhen_DeadlineExpired() public {
-        setupBlobHashes();
+        _setupBlobHashes();
         
         // Advance time first
         vm.warp(block.timestamp + 2 hours);
         
         // Create proposal with expired deadline
-        bytes memory proposeData = createProposeInputWithDeadline(uint48(block.timestamp - 1 hours));
+        bytes memory proposeData = _createProposeInputWithDeadline(uint48(block.timestamp - 1 hours));
         
         // Should revert with DeadlineExceeded
         vm.expectRevert(DeadlineExceeded.selector);
@@ -131,13 +131,13 @@ abstract contract InboxTest is InboxTestBase {
     // ---------------------------------------------------------------
 
     function test_propose_withSingleBlob() public {
-        setupBlobHashes();
+        _setupBlobHashes();
         
         // This is already tested in test_propose, but let's be explicit
-        bytes memory proposeData = createFirstProposeInput();
+        bytes memory proposeData = _createFirstProposeInput();
         
         // Expect the correct event for single blob
-        IInbox.ProposedEventPayload memory expectedPayload = buildExpectedProposedPayload(1);
+        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
         emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
         
@@ -150,13 +150,13 @@ abstract contract InboxTest is InboxTestBase {
     }
 
     function test_propose_withMultipleBlobs() public {
-        setupBlobHashes();
+        _setupBlobHashes();
 
         // Use helper to create proposal with multiple blobs
-        bytes memory proposeData = createProposeInputWithBlobs(3, 0);
+        bytes memory proposeData = _createProposeInputWithBlobs(3, 0);
         
         // Expect the correct event for multiple blobs
-        IInbox.ProposedEventPayload memory expectedPayload = buildExpectedProposedPayloadWithBlobs(1, 3, 0);
+        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayloadWithBlobs(1, 3, 0);
         vm.expectEmit();
         emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
         
@@ -169,20 +169,20 @@ abstract contract InboxTest is InboxTestBase {
     }
 
     function test_propose_RevertWhen_BlobIndexOutOfRange() public {
-        setupBlobHashes(); // Sets up 9 blob hashes
+        _setupBlobHashes(); // Sets up 9 blob hashes
 
         // Create proposal with out-of-range blob index using custom params
         IInbox.CoreState memory coreState = _getGenesisCoreState();
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = createGenesisProposal();
+        parentProposals[0] = _createGenesisProposal();
         
-        LibBlobs.BlobReference memory blobRef = _createBlobRefWithParams(
+        LibBlobs.BlobReference memory blobRef = _createBlobRef(
             10, // Out of range (we only have 9 blobs)
             1,  // numBlobs
             0   // offset
         );
         
-        bytes memory proposeData = createProposeInputWithCustomParams(
+        bytes memory proposeData = _createProposeInputWithCustomParams(
             0, // no deadline
             blobRef,
             parentProposals,
@@ -196,13 +196,13 @@ abstract contract InboxTest is InboxTestBase {
     }
 
     function test_propose_withBlobOffset() public {
-        setupBlobHashes();
+        _setupBlobHashes();
 
         // Use helper to create proposal with blob offset
-        bytes memory proposeData = createProposeInputWithBlobs(2, 100);
+        bytes memory proposeData = _createProposeInputWithBlobs(2, 100);
         
         // Expect the correct event with blob offset
-        IInbox.ProposedEventPayload memory expectedPayload = buildExpectedProposedPayloadWithBlobs(1, 2, 100);
+        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayloadWithBlobs(1, 2, 100);
         vm.expectEmit();
         emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
         
