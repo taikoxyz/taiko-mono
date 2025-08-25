@@ -285,6 +285,30 @@ abstract contract Inbox is EssentialContract, IInbox {
         return abi.encode(_payload);
     }
 
+    /// @dev Encodes the propose input data
+    /// @param _input The ProposeInput struct
+    /// @return The encoded data
+    function encodeProposeInput(ProposeInput memory _input)
+        external
+        pure
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(_input);
+    }
+
+    /// @dev Encodes the prove input data
+    /// @param _input The ProveInput struct
+    /// @return The encoded data
+    function encodeProveInput(ProveInput memory _input)
+        external
+        pure
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(_input);
+    }
+
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
