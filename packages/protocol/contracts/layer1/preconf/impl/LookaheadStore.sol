@@ -75,7 +75,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     }
 
     // View and Pure functions
-    // --------------------------------------------------------------------------
+    // --------------------------------------------------------------------
 
     /// @inheritdoc ILookaheadStore
     function calculateLookaheadHash(
@@ -115,7 +115,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     }
 
     // Internal functions
-    // --------------------------------------------------------------------------
+    // --------------------------------------------------------------------
 
     function _updateLookahead(
         uint256 _nextEpochTimestamp,

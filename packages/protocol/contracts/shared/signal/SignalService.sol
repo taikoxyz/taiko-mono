@@ -61,18 +61,6 @@ contract SignalService is EssentialResolverContract, ISignalService {
         emit Authorized(_addr, _authorize);
     }
 
-    /// @dev Allow TaikoL2 to receive signals directly in its Anchor transaction.
-    /// @param _signalSlots The signal slots to mark as received.
-    function receiveSignals(bytes32[] calldata _signalSlots)
-        external
-        onlyFromNamed(LibNames.B_TAIKO)
-    {
-        for (uint256 i; i < _signalSlots.length; ++i) {
-            _receivedSignals[_signalSlots[i]] = true;
-        }
-        emit SignalsReceived(_signalSlots);
-    }
-
     /// @inheritdoc ISignalService
     function sendSignal(bytes32 _signal) external returns (bytes32) {
         return _sendSignal(msg.sender, _signal, _signal);

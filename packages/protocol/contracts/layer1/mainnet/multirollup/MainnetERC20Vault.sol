@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { ERC20VaultOriginal as ERC20Vault } from "src/shared/tokenvault/ERC20VaultOriginal.sol";
+import "src/shared/tokenvault/ERC20Vault.sol";
 import "../libs/LibFasterReentryLock.sol";
 
 /// @title MainnetERC20Vault

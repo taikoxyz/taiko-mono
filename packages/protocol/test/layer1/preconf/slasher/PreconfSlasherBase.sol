@@ -68,7 +68,7 @@ contract PreconfSlasherBase is CommonTest {
     }
 
     // Modifiers
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     modifier InsertBatchAndTransition(BlockPosition _blockPosition, address _proposer) {
         _insertBatch(1, uint64(actualBlockHeader.number), _blockPosition, _proposer);
@@ -77,7 +77,7 @@ contract PreconfSlasherBase is CommonTest {
     }
 
     // Internal Helpers
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function _insertBatch(
         uint64 _batchId,
