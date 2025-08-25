@@ -1,8 +1,10 @@
 name: "Build and Push Multi-Arch Docker Image (ejector)"
+permissions:
+  contents: read
 
 on:
   push:
-    branches: [main, ejector]
+    branches: [main]
     tags:
       - "ejector-v*"
     paths:
