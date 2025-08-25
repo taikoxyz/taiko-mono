@@ -81,8 +81,8 @@ async fn main() -> Result<()> {
         l1_http_url.clone(),
         config.l2_target_block_time,
         config.eject_after_n_slots_missed,
-        taiko_wrapper_address.clone(),
-        whitelist_address.clone(),
+        taiko_wrapper_address,
+        whitelist_address,
         handover_slots,
         config.min_operators,
     );
