@@ -31,7 +31,7 @@ func blockToEnvelope(
 	if overflow := u256.SetFromBig(block.BaseFee()); overflow {
 		return nil, fmt.Errorf("failed to convert base fee to uint256: %v", overflow)
 	}
-	
+
 	txs, err := utils.EncodeAndCompressTxList(block.Transactions())
 	if err != nil {
 		return nil, err

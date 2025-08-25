@@ -13,7 +13,9 @@
       "Bash(git:*)",
       "Bash(ls:*)",
       "Bash(mv:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(go test:*)",
+      "Bash(./proof_submitter.test:*)"
     ],
     "deny": []
   }
