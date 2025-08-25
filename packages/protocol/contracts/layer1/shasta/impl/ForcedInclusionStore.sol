@@ -111,16 +111,16 @@ contract ForcedInclusionStore2 is EssentialContract, IForcedInclusionStore {
         // Calculate actual number to process (min of requested and available)
         uint256 available = tail - head;
         uint256 toProcess = _count > available ? available : _count;
-        
+
         inclusions_ = new ForcedInclusion[](toProcess);
         uint256 totalFees;
-        
+
         unchecked {
             for (uint256 i; i < toProcess; ++i) {
-                ForcedInclusion storage inclusion = queue[head + i];       
+                ForcedInclusion storage inclusion = queue[head + i];
                 inclusions_[i] = inclusion;
                 totalFees += inclusion.feeInGwei;
-                
+
                 // Delete the inclusion from storage
                 delete queue[head + i];
             }
@@ -128,7 +128,7 @@ contract ForcedInclusionStore2 is EssentialContract, IForcedInclusionStore {
             // Update head and lastProcessedAt after all processing
             head += uint64(toProcess);
             lastProcessedAt = uint64(block.timestamp);
-            
+
             // Send all fees in one transfer
             if (totalFees > 0) {
                 _feeRecipient.sendEtherAndVerify(totalFees * 1 gwei);
@@ -140,14 +140,15 @@ contract ForcedInclusionStore2 is EssentialContract, IForcedInclusionStore {
     function isOldestForcedInclusionDue() external view returns (bool) {
         // Early exit for empty queue (most common case)
         if (head == tail) return false;
-        
+
         ForcedInclusion storage inclusion = queue[head];
         // Early exit if slot is empty
         if (inclusion.blobSlice.timestamp == 0) return false;
-        
+
         // Only calculate deadline if we have a valid inclusion
         unchecked {
-            uint256 deadline = uint256(lastProcessedAt).max(inclusion.blobSlice.timestamp) + inclusionDelay;
+            uint256 deadline =
+                uint256(lastProcessedAt).max(inclusion.blobSlice.timestamp) + inclusionDelay;
             return block.timestamp >= deadline;
         }
     }

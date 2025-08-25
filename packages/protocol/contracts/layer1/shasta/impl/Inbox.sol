@@ -115,8 +115,10 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @notice Proposes new L2 blocks to the rollup using blobs for DA.
     /// @dev Key behaviors:
     ///      1. Validates proposer authorization via ProposerChecker
-    ///      2. Finalizes eligible proposals up to `config.maxFinalizationCount` to free ring buffer space
-    ///      3. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to process at least one if it is due.
+    ///      2. Finalizes eligible proposals up to `config.maxFinalizationCount` to free ring buffer
+    ///         space.
+    ///      3. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to
+    ///         process at least one if it is due.
     ///      5. Updates core state and emits `Proposed` event
     function propose(
         bytes calldata,
@@ -144,11 +146,13 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Verify capacity for new proposals
         uint256 availableCapacity = _getAvailableCapacity(config, coreState);
-        require(availableCapacity > input.numForcedInclusions + 1, ExceedsUnfinalizedProposalCapacity());
+        require(
+            availableCapacity > input.numForcedInclusions + 1, ExceedsUnfinalizedProposalCapacity()
+        );
 
         // Process forced inclusion if required
         coreState = _processForcedInclusions(config, coreState, input.numForcedInclusions);
-        
+
         // Verify that no forced inclusion that is due remains in the queue.
         if (IForcedInclusionStore(config.forcedInclusionStore).isOldestForcedInclusionDue()) {
             revert UnprocessedForcedInclusionIsDue();
@@ -573,7 +577,9 @@ abstract contract Inbox is EssentialContract, IInbox {
         private
         returns (CoreState memory coreState_)
     {
-        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = IForcedInclusionStore(_config.forcedInclusionStore).consumeForcedInclusions(msg.sender, _numForcedInclusions);
+        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = IForcedInclusionStore(
+            _config.forcedInclusionStore
+        ).consumeForcedInclusions(msg.sender, _numForcedInclusions);
 
         for (uint256 i; i < forcedInclusions.length; ++i) {
             coreState_ = _propose(_config, _coreState, forcedInclusions[i].blobSlice, true);

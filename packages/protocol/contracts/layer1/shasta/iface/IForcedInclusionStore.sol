@@ -26,7 +26,8 @@ interface IForcedInclusionStore {
     /// @dev Only callable by the inbox contract. Processes up to `_count` inclusions.
     /// @param _feeRecipient The address to receive the fees from all consumed inclusions
     /// @param _count The maximum number of forced inclusions to consume
-    /// @return inclusions_ Array of consumed forced inclusions (may be less than _count if queue has fewer)
+    /// @return inclusions_ Array of consumed forced inclusions (may be less than _count if queue
+    /// has fewer)
     function consumeForcedInclusions(
         address _feeRecipient,
         uint256 _count
