@@ -177,6 +177,7 @@ impl Monitor {
                         Ok(sub) => {
                             let mut stream = sub.into_stream();
                             info!("Subscribed to block stream at {}", self.l2_ws_url);
+
                             loop {
                                 match stream.next().await {
                                     Some(header) => {
