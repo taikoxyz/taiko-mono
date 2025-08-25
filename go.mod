@@ -25,7 +25,7 @@ require (
 	github.com/holiman/uint256 v1.3.2
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo-contrib v0.17.2
-	github.com/labstack/echo-jwt/v4 v4.3.0
+	github.com/labstack/echo-jwt/v4 v4.3.1
 	github.com/labstack/echo/v4 v4.13.3
 	github.com/labstack/gommon v0.4.2
 	github.com/libp2p/go-libp2p v0.36.5
@@ -183,7 +183,7 @@ require (
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
@@ -295,7 +295,7 @@ require (
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/term v0.30.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
-	golang.org/x/time v0.9.0 // indirect
+	golang.org/x/time v0.11.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241015192408-796eee8c2d53 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53 // indirect
@@ -311,7 +311,7 @@ require (
 
 replace github.com/ethereum/go-ethereum v1.15.5 => github.com/taikoxyz/taiko-geth v1.15.1-0.20250714172126-8dc1f9603447
 
-replace github.com/ethereum-optimism/optimism v1.7.4 => github.com/taikoxyz/optimism v0.0.0-20250730044945-e74a2168ae26
+replace github.com/ethereum-optimism/optimism v1.7.4 => github.com/taikoxyz/optimism v0.0.0-20250825180038-bb7cd4289b8e
 
 replace github.com/uber/jaeger-client-go => github.com/uber/jaeger-client-go v2.25.0+incompatible
 
