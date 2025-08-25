@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.11.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.10.1...taiko-alethia-client-v1.11.0) (2025-08-25)
+
+
+### Features
+
+* **taiko-client:** Add duration metrics to PreconfBlockApiServer ([#19969](https://github.com/taikoxyz/taiko-mono/issues/19969)) ([cb174ba](https://github.com/taikoxyz/taiko-mono/commit/cb174ba3342a88cf80818b9efe3a7add1859dac7))
+* **taiko-client:** fallback preconf ([#19546](https://github.com/taikoxyz/taiko-mono/issues/19546)) ([3a402ad](https://github.com/taikoxyz/taiko-mono/commit/3a402ad83b4dfbb929ba3c00bc6603722a545008))
+* **taiko-client:** make the `beaconSyncer.getBlockPayload()` more compliant with the spec ([#19860](https://github.com/taikoxyz/taiko-mono/issues/19860)) ([747e898](https://github.com/taikoxyz/taiko-mono/commit/747e898f8187be6d4c10b88ec36ee5ed95db3580))
+
+
+### Chores
+
+* **taiko-client:** add emoji to quickly identify logs ([#19974](https://github.com/taikoxyz/taiko-mono/issues/19974)) ([8e979b6](https://github.com/taikoxyz/taiko-mono/commit/8e979b69aa00ba66140f1ab318b72b0f1a62d56b))
+
 ## [1.10.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.10.0...taiko-alethia-client-v1.10.1) (2025-08-12)
 
 
