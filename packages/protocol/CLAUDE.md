@@ -50,7 +50,7 @@ packages/
   // Group label
   // ---------------------------------------------------------------
   ```
-- Always make sure there is a "/// @custom:security-contact security@taiko.xyz" for solidity files (test not included), and ensure license is MIT (all solidity files)
+- Always make sure there is a "/// @custom:security-contact security@taiko.xyz" for solidity files (BUT NOT FOR TEST FILES), and ensure license is MIT (all solidity files)
 - Use `///` comments for natspec. Only external and public functions should have a `@notice`, while internal or private only have `@dev`
 - Use named parameters on mapping definitions
 - Function parameters should always start with "_", and return values should always end with "_"

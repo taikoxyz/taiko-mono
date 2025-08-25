@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxTest } from "../base/InboxTest.t.sol";
-import { TestInboxOptimized3 } from "./TestInbox.sol";
-import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
-import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
+import { AbstractProposeTest } from "./AbstractProposeTest.t.sol";
+import { TestInboxOptimized1 } from "../implementations/TestInbox.sol";
+import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
+import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
 
-/// @title InboxOptimized3Test
-/// @notice Test suite for Optimized3 Inbox implementation
-/// @custom:security-contact security@taiko.xyz
-contract InboxOptimized3Test is InboxTest {
+/// @title InboxOptimized1Propose
+/// @notice Test suite for propose functionality on Optimized1 Inbox implementation
+contract InboxOptimized1Propose is AbstractProposeTest {
     function getTestContractName() internal pure override returns (string memory) {
-        return "InboxOptimized3";
+        return "InboxOptimized1";
     }
 
     function deployInbox(
@@ -26,7 +25,7 @@ contract InboxOptimized3Test is InboxTest {
         returns (Inbox)
     {
         address impl = address(
-            new TestInboxOptimized3(
+            new TestInboxOptimized1(
                 bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
             )
         );
