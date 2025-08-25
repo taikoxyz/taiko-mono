@@ -84,7 +84,7 @@ export default defineConfig({
                   link: "/taiko-alethia-protocol/protocol-design/inception-layers/",
                 },
                 {
-                  label: "Pacaya fork Taiko Alethia",
+                  label: "Pacaya Fork Taiko Alethia",
                   link: "/taiko-alethia-protocol/protocol-design/pacaya-fork-taiko-alethia/",
                 },
                 {
@@ -220,16 +220,8 @@ export default defineConfig({
                   link: "/guides/node-operators/run-a-node-for-taiko-hekla/",
                 },
                 {
-                  label: "Enable a proposer",
-                  link: "/guides/node-operators/enable-a-proposer/",
-                },
-                {
                   label: "Enable a prover",
                   link: "/guides/node-operators/enable-a-prover/",
-                },
-                {
-                  label: "Deploy a ProverSet",
-                  link: "guides/node-operators/deploy-a-proverset/",
                 },
                 {
                   label: "Node troubleshooting",
