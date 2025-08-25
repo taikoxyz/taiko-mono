@@ -147,7 +147,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         // Verify capacity for new proposals
         uint256 availableCapacity = _getAvailableCapacity(config, coreState);
         require(
-            availableCapacity > input.numForcedInclusions + 1, ExceedsUnfinalizedProposalCapacity()
+            availableCapacity > input.numForcedInclusions, ExceedsUnfinalizedProposalCapacity()
         );
 
         // Process forced inclusion if required
@@ -564,26 +564,29 @@ abstract contract Inbox is EssentialContract, IInbox {
         );
     }
 
-    /// @dev Attempts to process a forced inclusion from the ForcedInclusionStore
-    /// @notice Uses low-level call to handle potential failures gracefully
+    /// @dev Processes multiple forced inclusions from the ForcedInclusionStore
+    /// @notice Consumes up to _numForcedInclusions from the queue and proposes them sequentially
     /// @param _config Configuration containing forced inclusion store address
-    /// @param _coreState Current core state to update if inclusion processed
-    /// @return coreState_ Updated state if forced inclusion processed, unchanged otherwise
+    /// @param _coreState Current core state to update with each inclusion processed
+    /// @param _numForcedInclusions Maximum number of forced inclusions to process
+    /// @return Updated core state after processing all consumed forced inclusions
     function _processForcedInclusions(
         Config memory _config,
         CoreState memory _coreState,
         uint8 _numForcedInclusions
     )
         private
-        returns (CoreState memory coreState_)
+        returns (CoreState memory)
     {
         IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = IForcedInclusionStore(
             _config.forcedInclusionStore
         ).consumeForcedInclusions(msg.sender, _numForcedInclusions);
 
         for (uint256 i; i < forcedInclusions.length; ++i) {
-            coreState_ = _propose(_config, _coreState, forcedInclusions[i].blobSlice, true);
+            _coreState = _propose(_config, _coreState, forcedInclusions[i].blobSlice, true);
         }
+        
+        return _coreState;
     }
 
     /// @dev Verifies that parentProposals[0] is the current chain head
