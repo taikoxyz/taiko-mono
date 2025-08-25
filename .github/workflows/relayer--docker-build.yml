@@ -24,45 +24,200 @@ permissions:
   attestations: write
   contents: read
 
+env:
+  DOCKER_REGISTRY: docker.io
+  DOCKER_REPOSITORY_MIGRATIONS: nethermind/surge-relayer-migrations
+  DOCKER_REPOSITORY_RELAYER: nethermind/surge-relayer
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
 jobs:
   build-migrations:
+    name: Build and push migrations docker image
+    runs-on: ${{ matrix.os }}
+    if: github.repository == 'NethermindEth/surge-taiko-mono'
     strategy:
       matrix:
         include:
-          - runner: ubuntu-latest
+          - os: ubuntu-latest
             platform: linux/amd64
-          - runner: ubuntu-24.04-arm
+          - os: ubuntu-24.04-arm
             platform: linux/arm64
-    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-dockerhub.yaml@v1.5.1
-    with:
-      image_name: relayer-migrations
-      runner: ${{ matrix.runner }}
-      platforms: ${{ matrix.platform }}
-      push: ${{ github.event_name != 'pull_request' }}
-      context: packages/relayer
-      dockerfile_path: packages/relayer/Dockerfile.migrations
-      ignore_trivy: true # TODO: remove this once security issues are fixed
-    secrets:
-      dockerhub_username: ${{ secrets.DOCKER_USERNAME }}
-      dockerhub_password: ${{ secrets.DOCKER_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_MIGRATIONS }}
+          tags: type=raw,value=temp-${{ matrix.os }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          platforms: ${{ matrix.platform }}
+          context: packages/relayer
+          file: packages/relayer/Dockerfile.migrations
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  merge-migrations:
+    runs-on: ubuntu-latest
+    needs:
+      - build-migrations
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_MIGRATIONS }}
+          tags: |
+            type=raw,value=latest
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=sha
+
+      - name: Create manifest list and push
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_MIGRATIONS }}:temp-ubuntu-latest \
+            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_MIGRATIONS }}:temp-ubuntu-24.04-arm
+ 
+      - uses: oras-project/setup-oras@v1
+      - run: oras version
+      - name: Login to registry with oras
+        run: |
+          oras login ${{ env.DOCKER_REGISTRY }} \
+            -u ${{ env.DOCKER_USERNAME }} \
+            -p ${{ env.DOCKER_PASSWORD }}
+
+
+      - name: Summary
+        run: |
+          echo "## Docker build completed :green_circle:" >> $GITHUB_STEP_SUMMARY
+          echo "### Tags" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" | while IFS= read -r TAG; do
+            echo "- $TAG" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "### Notes" >> $GITHUB_STEP_SUMMARY
 
   build-relayer:
+    name: Build and push relayer docker image
+    runs-on: ${{ matrix.os }}
+    if: github.repository == 'NethermindEth/surge-taiko-mono'
     strategy:
       matrix:
         include:
-          - runner: ubuntu-latest
+          - os: ubuntu-latest
             platform: linux/amd64
-          - runner: ubuntu-24.04-arm
+          - os: ubuntu-24.04-arm
             platform: linux/arm64
-    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-dockerhub.yaml@v1.5.1
-    with:
-      image_name: relayer
-      runner: ${{ matrix.runner }}
-      platforms: ${{ matrix.platform }}
-      context: "."
-      dockerfile_path: "packages/relayer/Dockerfile"
-      push: ${{ github.event_name != 'pull_request' }}
-      ignore_trivy: true # TODO: remove this once security issues are fixed
-    secrets:
-      dockerhub_username: ${{ secrets.DOCKER_USERNAME }}
-      dockerhub_password: ${{ secrets.DOCKER_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_RELAYER }}
+          tags: type=raw,value=temp-${{ matrix.os }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          platforms: ${{ matrix.platform }}
+          context: .
+          file: packages/relayer/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  merge-relayer:
+    runs-on: ubuntu-latest
+    needs:
+      - build-relayer
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_RELAYER }}
+          tags: |
+            type=raw,value=latest
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=sha
+
+      - name: Create manifest list and push
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_RELAYER }}:temp-ubuntu-latest \
+            ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REPOSITORY_RELAYER }}:temp-ubuntu-24.04-arm
+ 
+      - uses: oras-project/setup-oras@v1
+      - run: oras version
+      - name: Login to registry with oras
+        run: |
+          oras login ${{ env.DOCKER_REGISTRY }} \
+            -u ${{ env.DOCKER_USERNAME }} \
+            -p ${{ env.DOCKER_PASSWORD }}
+
+
+      - name: Summary
+        run: |
+          echo "## Docker build completed :green_circle:" >> $GITHUB_STEP_SUMMARY
+          echo "### Tags" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" | while IFS= read -r TAG; do
+            echo "- $TAG" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "### Notes" >> $GITHUB_STEP_SUMMARY
