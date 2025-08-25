@@ -213,4 +213,136 @@ abstract contract InboxTest is InboxTestBase {
         bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
         assertEq(inbox.getProposalHash(1), expectedHash, "Blob with offset proposal hash mismatch");
     }
+
+    // ---------------------------------------------------------------
+    // Multiple Proposal Tests
+    // ---------------------------------------------------------------
+
+    function test_propose_twoConsecutiveProposals() public {
+        _setupBlobHashes();
+
+        // First proposal (ID 1)
+        bytes memory firstProposeData = _createFirstProposeInput();
+        IInbox.ProposedEventPayload memory firstExpectedPayload = _buildExpectedProposedPayload(1);
+        
+        vm.expectEmit();
+        emit IInbox.Proposed(inbox.encodeProposedEventData(firstExpectedPayload));
+        
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), firstProposeData);
+        
+        // Verify first proposal
+        bytes32 firstProposalHash = inbox.getProposalHash(1);
+        assertEq(firstProposalHash, keccak256(abi.encode(firstExpectedPayload.proposal)), "First proposal hash mismatch");
+
+        // Advance block for second proposal
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 12);
+
+        // Second proposal (ID 2) - using the first proposal as parent
+        IInbox.CoreState memory secondCoreState = IInbox.CoreState({
+            nextProposalId: 2,
+            lastFinalizedProposalId: 0,
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
+            bondInstructionsHash: bytes32(0)
+        });
+        
+        IInbox.Proposal[] memory secondParentProposals = new IInbox.Proposal[](1);
+        secondParentProposals[0] = firstExpectedPayload.proposal;
+        
+        bytes memory secondProposeData = _createProposeInputWithCustomParams(
+            0, // no deadline
+            _createBlobRef(0, 1, 0),
+            secondParentProposals,
+            secondCoreState
+        );
+        
+        // Build expected payload for second proposal
+        IInbox.ProposedEventPayload memory secondExpectedPayload = _buildExpectedProposedPayload(2);
+        
+        vm.expectEmit();
+        emit IInbox.Proposed(inbox.encodeProposedEventData(secondExpectedPayload));
+        
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), secondProposeData);
+        
+        // Verify second proposal
+        bytes32 secondProposalHash = inbox.getProposalHash(2);
+        assertEq(secondProposalHash, keccak256(abi.encode(secondExpectedPayload.proposal)), "Second proposal hash mismatch");
+        
+        // Verify both proposals exist
+        assertTrue(inbox.getProposalHash(1) != bytes32(0), "First proposal should still exist");
+        assertTrue(inbox.getProposalHash(2) != bytes32(0), "Second proposal should exist");
+        assertNotEq(inbox.getProposalHash(1), inbox.getProposalHash(2), "Proposals should have different hashes");
+    }
+
+    function test_propose_RevertWhen_WrongParentProposal() public {
+        _setupBlobHashes();
+
+        // First, create the first proposal successfully
+        bytes memory firstProposeData = _createFirstProposeInput();
+        
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), firstProposeData);
+
+        // Now try to create a second proposal with a WRONG parent
+        // We'll use genesis as parent instead of the first proposal (wrong!)
+        IInbox.CoreState memory wrongCoreState = IInbox.CoreState({
+            nextProposalId: 2,
+            lastFinalizedProposalId: 0,
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
+            bondInstructionsHash: bytes32(0)
+        });
+
+        // Using genesis as parent instead of the first proposal - this is wrong!
+        IInbox.Proposal[] memory wrongParentProposals = new IInbox.Proposal[](1);
+        wrongParentProposals[0] = _createGenesisProposal();
+
+        bytes memory wrongProposeData = _createProposeInputWithCustomParams(
+            0,
+            _createBlobRef(0, 1, 0),
+            wrongParentProposals,
+            wrongCoreState
+        );
+
+        // Should revert because parent proposal hash doesn't match
+        vm.expectRevert(); // The specific error will depend on the Inbox implementation
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), wrongProposeData);
+    }
+
+    function test_propose_RevertWhen_ParentProposalDoesNotExist() public {
+        _setupBlobHashes();
+
+        // Create a fake parent proposal that doesn't exist on-chain
+        IInbox.Proposal memory fakeParent = IInbox.Proposal({
+            id: 99, // This proposal doesn't exist
+            proposer: Alice,
+            timestamp: uint48(block.timestamp),
+            coreStateHash: keccak256("fake"),
+            derivationHash: keccak256("fake")
+        });
+
+        IInbox.CoreState memory coreState = IInbox.CoreState({
+            nextProposalId: 100,
+            lastFinalizedProposalId: 0,
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
+            bondInstructionsHash: bytes32(0)
+        });
+
+        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
+        parentProposals[0] = fakeParent;
+
+        bytes memory proposeData = _createProposeInputWithCustomParams(
+            0,
+            _createBlobRef(0, 1, 0),
+            parentProposals,
+            coreState
+        );
+
+        // Should revert because parent proposal doesn't exist
+        vm.expectRevert();
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
+    }
 }
