@@ -146,9 +146,7 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Verify capacity for new proposals
         uint256 availableCapacity = _getAvailableCapacity(config, coreState);
-        require(
-            availableCapacity > input.numForcedInclusions, ExceedsUnfinalizedProposalCapacity()
-        );
+        require(availableCapacity > input.numForcedInclusions, ExceedsUnfinalizedProposalCapacity());
 
         // Process forced inclusion if required
         coreState = _processForcedInclusions(config, coreState, input.numForcedInclusions);
@@ -585,7 +583,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         for (uint256 i; i < forcedInclusions.length; ++i) {
             _coreState = _propose(_config, _coreState, forcedInclusions[i].blobSlice, true);
         }
-        
+
         return _coreState;
     }
 
