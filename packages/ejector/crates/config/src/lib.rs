@@ -45,6 +45,10 @@ pub struct Config {
     // server port
     #[arg(long, env = "SERVER_PORT", default_value_t = 8080u64)]
     pub server_port: u64,
+
+    // minimum number of operators to keep in the whitelist
+    #[arg(long, env = "MIN_OPERATORS", default_value_t = 3u64)]
+    pub min_operators: u64,
 }
 
 // tests
@@ -77,6 +81,8 @@ mod tests {
             "4",
             "--server-port",
             "8081",
+            "--min-operators",
+            "1",
         ]);
 
         assert_eq!(config.preconf_whitelist_address, "0x1123");
@@ -90,5 +96,6 @@ mod tests {
         assert_eq!(config.beacon_url, "http://test-beacon.com");
         assert_eq!(config.handover_slots, 4);
         assert_eq!(config.server_port, 8081);
+        assert_eq!(config.min_operators, 1);
     }
 }

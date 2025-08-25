@@ -32,6 +32,7 @@ pub struct Monitor {
     taiko_wrapper_address: Address,
     whitelist_address: Address,
     handover_slots: u64,
+    min_operators: u64,
 }
 
 impl Monitor {
@@ -46,6 +47,7 @@ impl Monitor {
         taiko_wrapper_address: Address,
         whitelist_address: Address,
         handover_slots: u64,
+        min_operators: u64,
     ) -> Self {
         let target_block_time = Duration::from_secs(target_block_time_secs);
         let eject_after = target_block_time * eject_after_n_slots_missed as u32;
@@ -60,6 +62,7 @@ impl Monitor {
             taiko_wrapper_address,
             whitelist_address,
             handover_slots,
+            min_operators,
         }
     }
 
@@ -86,6 +89,10 @@ impl Monitor {
         let mut prev_resp = self.responsibility_now();
 
         let beacon_client = self.beacon_client.clone();
+
+        // we only eject if we have at least min_operators in the whitelist.
+        // that way in case of an error with the ejector we don't eject down to 0 operators.
+        let min_operators = self.min_operators;
 
         // watchdog task
         let _watchdog = tokio::spawn(async move {
@@ -133,11 +140,13 @@ impl Monitor {
                 let elapsed = last_seen_for_watch.lock().await.elapsed();
                 if elapsed >= max {
                     warn!("Max time reached without new blocks: {:?}", elapsed);
+
                     if let Err(e) = eject_operator(
                         l1_http_url.clone(),
                         signer.clone(),
                         whitelist_address,
-                        curr_resp.clone().lookahead,
+                        curr_resp.lookahead,
+                        min_operators,
                     )
                     .await
                     {

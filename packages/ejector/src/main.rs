@@ -84,6 +84,7 @@ async fn main() -> Result<()> {
         taiko_wrapper_address.clone(),
         whitelist_address.clone(),
         handover_slots,
+        config.min_operators,
     );
 
     let monitor_handle = tokio::spawn(async move {

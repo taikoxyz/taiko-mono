@@ -12,10 +12,22 @@ pub async fn eject_operator(
     signer: alloy::signers::local::PrivateKeySigner,
     whitelist_addr: Address,
     lookahead: Lookahead,
+    min_operators: u64,
 ) -> eyre::Result<()> {
     let l1 = ProviderBuilder::new().wallet(signer.clone()).connect_http(l1_http_url.clone());
 
     let preconf_whitelist = bindings::IPreconfWhitelist::new(whitelist_addr, l1.clone());
+
+    let operator_count = preconf_whitelist.operatorCount().call().await?;
+
+    if min_operators > 0 && u64::from(operator_count) <= min_operators {
+        warn!(
+            "Not ejecting operator: operator_count {}, min_operators {}",
+            operator_count, min_operators
+        );
+
+        return Ok(());
+    }
 
     let operator = match lookahead {
         Lookahead::Current => preconf_whitelist.getOperatorForCurrentEpoch().call().await?,
