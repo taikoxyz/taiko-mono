@@ -16,7 +16,8 @@
       "Bash(rm:*)",
       "Bash(mkdir:*)",
       "Bash(pnpm compile:l1:*)",
-      "Bash(pnpm compile:*)"
+      "Bash(pnpm compile:*)",
+      "Bash(forge test *)"
     ],
     "deny": []
   }
