@@ -6,8 +6,7 @@ import { AbstractProveTest } from "./AbstractProveTest.t.sol";
 import { TestInboxOptimized3 } from "../implementations/TestInboxOptimized3.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
-// Import the error from the decoder library
-import "contracts/layer1/shasta/libs/LibProveInputDecoder.sol";
+import { LibProveInputDecoder } from "contracts/layer1/shasta/libs/LibProveInputDecoder.sol";
 
 /// @title InboxOptimized3Prove
 /// @notice Test suite for prove functionality on InboxOptimized3 implementation
@@ -26,13 +25,24 @@ contract InboxOptimized3Prove is AbstractProveTest {
         input.proposals = new IInbox.Proposal[](2);
         input.transitions = new IInbox.Transition[](1); // Mismatch!
         
-        bytes memory proveData = inbox.encodeProveInput(input);
-        bytes memory proof = _createValidProof();
-        
-        // This will revert with ProposalTransitionLengthMismatch() but the test expects InconsistentParams()
-        vm.expectRevert(InconsistentParams.selector);
-        vm.prank(currentProver);
-        inbox.prove(proveData, proof);
+        // InboxOptimized3 uses LibProveInputDecoder which throws ProposalTransitionLengthMismatch()
+        // during encoding itself, not during prove()
+        vm.expectRevert(LibProveInputDecoder.ProposalTransitionLengthMismatch.selector);
+        inbox.encodeProveInput(input);
+    }
+
+    function _getExpectedAggregationBehavior(uint256 proposalCount, bool consecutive) 
+        internal pure override returns (uint256 expectedEvents, uint256 expectedMaxSpan) {
+        if (consecutive) {
+            return (1, proposalCount); // One event with span=proposalCount
+        } else {
+            return (proposalCount, 1); // Individual events for gaps
+        }
+    }
+
+    function _getExpectedMixedScenarioEvents() internal pure override returns (uint256) {
+        // Optimized: 2 events (groups 1-2 and 4-6)
+        return 2;
     }
 
     function deployInbox(

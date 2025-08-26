@@ -14,6 +14,20 @@ contract InboxOptimized1Prove is AbstractProveTest {
         return "InboxOptimized1";
     }
 
+    function _getExpectedAggregationBehavior(uint256 proposalCount, bool consecutive) 
+        internal pure override returns (uint256 expectedEvents, uint256 expectedMaxSpan) {
+        if (consecutive) {
+            return (1, proposalCount); // One event with span=proposalCount
+        } else {
+            return (proposalCount, 1); // Individual events for gaps
+        }
+    }
+
+    function _getExpectedMixedScenarioEvents() internal pure override returns (uint256) {
+        // Optimized: 2 events (groups 1-2 and 4-6)
+        return 2;
+    }
+
     function deployInbox(
         address bondToken,
         address syncedBlockManager,
