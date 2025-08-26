@@ -1,26 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { CommonTest } from "test/shared/CommonTest.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
-import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {
-    MockERC20,
-    MockSyncedBlockManager,
-    MockProofVerifier
-} from "../mocks/MockContracts.sol";
-import { PreconfWhitelist } from "contracts/layer1/preconf/impl/PreconfWhitelist.sol";
-import { LibPreconfConstants } from "contracts/layer1/preconf/libs/LibPreconfConstants.sol";
-import { ForcedInclusionStore } from "contracts/layer1/shasta/impl/ForcedInclusionStore.sol";
-import { IProofVerifier } from "contracts/layer1/shasta/iface/IProofVerifier.sol";
-import { IProposerChecker } from "contracts/layer1/shasta/iface/IProposerChecker.sol";
-import { IForcedInclusionStore } from "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ISyncedBlockManager } from "src/shared/based/iface/ISyncedBlockManager.sol";
-import { UUPSUpgradeable } from "@openzeppelin-upgrades/contracts/proxy/utils/UUPSUpgradeable.sol";
-import { InboxTestHelper } from "../helpers/InboxTestHelper.sol";
+import { InboxTestSetup } from "../common/InboxTestSetup.sol";
+import { BlobTestUtils } from "../common/BlobTestUtils.sol";
 import { console2 } from "forge-std/src/console2.sol";
 
 // Import errors from Inbox implementation
@@ -28,36 +12,13 @@ import "contracts/layer1/shasta/impl/Inbox.sol";
 
 /// @title AbstractProposeTest
 /// @notice All propose tests for Inbox implementations
-abstract contract AbstractProposeTest is InboxTestHelper {
+abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
-    Inbox internal inbox;
-    address internal owner = Alice;
     address internal currentProposer = Bob;
     address internal nextProposer = Carol;
-
-    // Mock contracts
-    IERC20 internal bondToken;
-    ISyncedBlockManager internal syncedBlockManager;
-    IProofVerifier internal proofVerifier;
-    IProposerChecker internal proposerChecker;
-
-    // Dependencies
-    IForcedInclusionStore internal forcedInclusionStore;
-
-    // Test blob hashes
-    bytes32[] internal testBlobHashes;
-
-    // ---------------------------------------------------------------
-    // modifiers
-    // ---------------------------------------------------------------
-
-    modifier withBlobs() {
-        _setupBlobHashes();
-        _;
-    }
 
     // ---------------------------------------------------------------
     // Setup Functions
@@ -65,85 +26,15 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function setUp() public virtual override {
         super.setUp();
-        
-        // Deploy dependencies
-        _setupDependencies();
-
-        // Setup mocks - we usually avoid mocks as much as possible since they might make testing
-        // flaky
-        _setupMocks();
-
-        // Deploy inbox through implementation-specific method
-        inbox = deployInbox(
-            address(bondToken),
-            address(syncedBlockManager),
-            address(proofVerifier),
-            address(proposerChecker),
-            address(forcedInclusionStore)
-        );
-
-        _upgradeDependencies(address(inbox));
-
-        // Advance block to ensure we have block history
-        vm.roll(INITIAL_BLOCK_NUMBER);
-        vm.warp(INITIAL_BLOCK_TIMESTAMP);
 
         // Select a proposer for testing
-        _selectProposer(Bob);
+        currentProposer = _selectProposer(Bob);
 
         //TODO: ideally we also setup the blob hashes here to avoid doing it on each test but it
         // doesn't last until the test run
     }
 
-    /// @dev We usually avoid mocks as much as possible since they might make testing flaky
-    /// @dev We use mocks for the dependencies that are not important, well tested and with uniform
-    /// behavior(e.g. ERC20) or that are not implemented yet
-    function _setupMocks() internal {
-        bondToken = new MockERC20();
-        syncedBlockManager = new MockSyncedBlockManager();
-        proofVerifier = new MockProofVerifier();
-    }
 
-    /// @dev Deploy the real contracts that will be used as dependencies of the inbox
-    ///      Some of these may need to be updgraded later because of circular references
-    function _setupDependencies() internal {
-        // Deploy ForcedInclusionStore
-        address forcedInclusionStoreImplementation =
-            address(new ForcedInclusionStore(INCLUSION_DELAY, FEE_IN_GWEI, address(0)));
-
-        forcedInclusionStore = IForcedInclusionStore(
-            deploy({
-                name: "",
-                impl: forcedInclusionStoreImplementation,
-                data: abi.encodeCall(ForcedInclusionStore.init, (owner))
-            })
-        );
-
-        // Deploy PreconfWhitelist (real implementation, not a mock)
-        proposerChecker = _deployPreconfWhitelist();
-    }
-
-    /// @dev Upgrade the dependencies of the inbox
-    ///      This is used to upgrade the dependencies of the inbox after the inbox is deployed
-    ///      and the dependencies are not upgradable
-    function _upgradeDependencies(address _inbox) internal {
-        address newForcedInclusionStore =
-            address(new ForcedInclusionStore(INCLUSION_DELAY, FEE_IN_GWEI, _inbox));
-
-        vm.prank(owner);
-        UUPSUpgradeable(address(forcedInclusionStore)).upgradeTo(newForcedInclusionStore);
-    }
-
-    function _setupBlobHashes() internal {
-        // Setup test blob hashes for EIP-4844
-        bytes32[] memory hashes = new bytes32[](9);
-        for (uint256 i = 0; i < 9; i++) {
-            hashes[i] = keccak256(abi.encode("blob", i));
-            testBlobHashes.push(hashes[i]);
-        }
-        // Mock the blobhash function for testing
-        vm.blobhashes(hashes);
-    }
 
     // ---------------------------------------------------------------
     // Propose Input Builders
@@ -258,7 +149,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose() public {
         _setupBlobHashes();
-        _selectProposer(Bob);  // Refresh proposer selection
+        currentProposer = _selectProposer(Bob);
 
 
         // Arrange: Create the first proposal input after genesis
@@ -291,7 +182,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_withValidFutureDeadline() public {
         _setupBlobHashes();
-        _selectProposer(Bob);  // Refresh proposer selection
+        currentProposer = _selectProposer(Bob);
 
         // Create proposal with future deadline using helper
         bytes memory proposeData = _createProposeInputWithDeadline(uint48(block.timestamp + 1 hours));
@@ -312,7 +203,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_withZeroDeadline() public {
         _setupBlobHashes();
-        _selectProposer(Bob);  // Refresh proposer selection
+        currentProposer = _selectProposer(Bob);
 
         // Use existing helper - zero deadline means no expiration
         bytes memory proposeData = _createFirstProposeInput();
@@ -336,7 +227,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         
         // Advance time first
         vm.warp(block.timestamp + 2 hours);
-        _selectProposer(Bob);  // Refresh after time change
+        currentProposer = _selectProposer(Bob);
         
         // Create proposal with expired deadline
         bytes memory proposeData = _createProposeInputWithDeadline(uint48(block.timestamp - 1 hours));
@@ -353,7 +244,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_withSingleBlob() public {
         _setupBlobHashes();
-        _selectProposer(Bob);
+        currentProposer = _selectProposer(Bob);
         
         // This is already tested in test_propose, but let's be explicit
         bytes memory proposeData = _createFirstProposeInput();
@@ -373,7 +264,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_withMultipleBlobs() public {
         _setupBlobHashes();
-        _selectProposer(Bob);
+        currentProposer = _selectProposer(Bob);
 
         // Use helper to create proposal with multiple blobs
         bytes memory proposeData = _createProposeInputWithBlobs(3, 0);
@@ -420,7 +311,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_withBlobOffset() public {
         _setupBlobHashes();
-        _selectProposer(Bob);
+        currentProposer = _selectProposer(Bob);
 
         // Use helper to create proposal with blob offset
         bytes memory proposeData = _createProposeInputWithBlobs(2, 100);
@@ -444,7 +335,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_twoConsecutiveProposals() public {
         _setupBlobHashes();
-        _selectProposer(Bob);
+        currentProposer = _selectProposer(Bob);
 
         // First proposal (ID 1)
         bytes memory firstProposeData = _createFirstProposeInput();
@@ -503,7 +394,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_RevertWhen_WrongParentProposal() public {
         _setupBlobHashes();
-        _selectProposer(Bob);
+        currentProposer = _selectProposer(Bob);
 
         // First, create the first proposal successfully
         bytes memory firstProposeData = _createFirstProposeInput();
@@ -539,7 +430,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_RevertWhen_ParentProposalDoesNotExist() public {
         _setupBlobHashes();
-        _selectProposer(Bob);
+        currentProposer = _selectProposer(Bob);
 
         // Create a fake parent proposal that doesn't exist on-chain
         IInbox.Proposal memory fakeParent = IInbox.Proposal({
@@ -573,100 +464,6 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         inbox.propose(bytes(""), proposeData);
     }
 
-    // ---------------------------------------------------------------
-    // PreconfWhitelist Helper Functions
-    // ---------------------------------------------------------------
-
-    function _deployPreconfWhitelist() internal returns (IProposerChecker) {
-        // Deploy PreconfWhitelist with Alice as fallback preconfer
-        address impl = address(new PreconfWhitelist(Alice));
-        
-        address proxy = deploy({
-            name: "",
-            impl: impl,
-            data: abi.encodeCall(
-                PreconfWhitelist.init,
-                (
-                    owner,    // owner
-                    0,        // operatorChangeDelay (immediate for tests)
-                    0         // randomnessDelay (immediate for tests)
-                )
-            )
-        });
-        
-        PreconfWhitelist whitelist = PreconfWhitelist(proxy);
-        
-        // Add test operators
-        _setupTestOperators(whitelist);
-        
-        return IProposerChecker(proxy);
-    }
-
-    function _setupTestOperators(PreconfWhitelist _whitelist) internal {
-        // Add 4 operators to mimic mainnet setup
-        vm.prank(owner);
-        _whitelist.addOperator(Bob, Bob); // proposer and sequencer same for simplicity
-        
-        vm.prank(owner);
-        _whitelist.addOperator(Carol, Carol);
-        
-        vm.prank(owner);
-        _whitelist.addOperator(David, David);
-        
-        vm.prank(owner);
-        _whitelist.addOperator(Emma, Emma);
-    }
-
-    function _mockBeaconRootForProposer(address _desiredProposer) internal {
-        // Get current epoch timestamp
-        uint256 epochTimestamp = _getCurrentEpochTimestamp();
-        
-        // Use a deterministic beacon root that will reliably select the desired proposer
-        // Now we have 4 operators: Bob, Carol, David, Emma
-        bytes32 deterministicRoot;
-        if (_desiredProposer == Bob) {
-            deterministicRoot = keccak256(abi.encode("select_bob"));
-        } else if (_desiredProposer == Carol) {
-            deterministicRoot = keccak256(abi.encode("select_carol"));
-        } else if (_desiredProposer == David) {
-            deterministicRoot = keccak256(abi.encode("select_david"));
-        } else if (_desiredProposer == Emma) {
-            deterministicRoot = keccak256(abi.encode("select_emma"));
-        } else {
-            deterministicRoot = keccak256(abi.encode(_desiredProposer, "fallback"));
-        }
-        
-        // Mock the beacon root call
-        vm.mockCall(
-            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,
-            abi.encode(epochTimestamp),
-            abi.encode(deterministicRoot)
-        );
-    }
-
-    function _getCurrentEpochTimestamp() internal view returns (uint256) {
-        // Simple approach: just return current timestamp aligned to epoch boundary
-        // This avoids issues with genesis timestamp calculations in test environments
-        uint256 epochSeconds = LibPreconfConstants.SECONDS_IN_EPOCH;
-        return (block.timestamp / epochSeconds) * epochSeconds;
-    }
-
-    function _selectProposer(address _proposer) internal returns (address) {
-        // Mock beacon root to select a specific proposer
-        _mockBeaconRootForProposer(_proposer);
-        
-        PreconfWhitelist whitelist = PreconfWhitelist(address(proposerChecker));
-        address selectedProposer = whitelist.getOperatorForCurrentEpoch();
-        
-        // If no proposer selected, fall back to the fallback preconfer (Alice)
-        if (selectedProposer == address(0)) {
-            selectedProposer = Alice;
-        }
-        
-        // Update currentProposer and return
-        currentProposer = selectedProposer;
-        return selectedProposer;
-    }
 
     // ---------------------------------------------------------------
     // Abstract Functions
@@ -681,6 +478,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
     )
         internal
         virtual
+        override
         returns (Inbox);
 
     /// @dev Returns the name of the test contract for snapshot identification
