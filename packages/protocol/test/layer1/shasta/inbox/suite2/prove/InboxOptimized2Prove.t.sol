@@ -23,10 +23,6 @@ contract InboxOptimized2Prove is AbstractProveTest {
         }
     }
 
-    function _getExpectedMixedScenarioEvents() internal pure override returns (uint256) {
-        // Optimized: 2 events (groups 1-2 and 4-6)
-        return 2;
-    }
 
     function deployInbox(
         address bondToken,
