@@ -156,7 +156,10 @@ contract DeploySurgeL1 is DeployCapability {
         require(minVerificationStreak != 0, "config: MIN_LIVENESS_STREAK");
         require(livenessBondBase != 0, "config: LIVENESS_BOND_BASE");
         require(cooldownWindow != 0, "config: COOLDOWN_WINDOW");
-        require(cooldownWindow < maxVerificationDelay, "config: COOLDOWN_WINDOW < MAX_VERIFICATION_DELAY")
+        require(
+            cooldownWindow < maxVerificationDelay,
+            "config: COOLDOWN_WINDOW < MAX_VERIFICATION_DELAY"
+        );
         address l1Owner = msg.sender;
 
         // Timelock variables
