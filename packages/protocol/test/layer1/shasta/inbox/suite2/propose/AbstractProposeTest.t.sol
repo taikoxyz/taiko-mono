@@ -9,9 +9,10 @@ import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy
 import {
     MockERC20,
     MockSyncedBlockManager,
-    MockProofVerifier,
-    MockProposerChecker
+    MockProofVerifier
 } from "../mocks/MockContracts.sol";
+import { PreconfWhitelist } from "contracts/layer1/preconf/impl/PreconfWhitelist.sol";
+import { LibPreconfConstants } from "contracts/layer1/preconf/libs/LibPreconfConstants.sol";
 import { ForcedInclusionStore } from "contracts/layer1/shasta/impl/ForcedInclusionStore.sol";
 import { IProofVerifier } from "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import { IProposerChecker } from "contracts/layer1/shasta/iface/IProposerChecker.sol";
@@ -87,6 +88,9 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.roll(INITIAL_BLOCK_NUMBER);
         vm.warp(INITIAL_BLOCK_TIMESTAMP);
 
+        // Select a proposer for testing
+        _selectProposer(Bob);
+
         //TODO: ideally we also setup the blob hashes here to avoid doing it on each test but it
         // doesn't last until the test run
     }
@@ -98,13 +102,12 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         bondToken = new MockERC20();
         syncedBlockManager = new MockSyncedBlockManager();
         proofVerifier = new MockProofVerifier();
-        proposerChecker = new MockProposerChecker();
     }
 
     /// @dev Deploy the real contracts that will be used as dependencies of the inbox
     ///      Some of these may need to be updgraded later because of circular references
     function _setupDependencies() internal {
-        // we then need to update the ForcedInclusionStore to use the inbox address
+        // Deploy ForcedInclusionStore
         address forcedInclusionStoreImplementation =
             address(new ForcedInclusionStore(INCLUSION_DELAY, FEE_IN_GWEI, address(0)));
 
@@ -115,6 +118,9 @@ abstract contract AbstractProposeTest is InboxTestHelper {
                 data: abi.encodeCall(ForcedInclusionStore.init, (owner))
             })
         );
+
+        // Deploy PreconfWhitelist (real implementation, not a mock)
+        proposerChecker = _deployPreconfWhitelist();
     }
 
     /// @dev Upgrade the dependencies of the inbox
@@ -252,6 +258,8 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose() public {
         _setupBlobHashes();
+        _selectProposer(Bob);  // Refresh proposer selection
+
 
         // Arrange: Create the first proposal input after genesis
         bytes memory proposeData = _createFirstProposeInput();
@@ -283,6 +291,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_withValidFutureDeadline() public {
         _setupBlobHashes();
+        _selectProposer(Bob);  // Refresh proposer selection
 
         // Create proposal with future deadline using helper
         bytes memory proposeData = _createProposeInputWithDeadline(uint48(block.timestamp + 1 hours));
@@ -303,6 +312,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_withZeroDeadline() public {
         _setupBlobHashes();
+        _selectProposer(Bob);  // Refresh proposer selection
 
         // Use existing helper - zero deadline means no expiration
         bytes memory proposeData = _createFirstProposeInput();
@@ -326,6 +336,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         
         // Advance time first
         vm.warp(block.timestamp + 2 hours);
+        _selectProposer(Bob);  // Refresh after time change
         
         // Create proposal with expired deadline
         bytes memory proposeData = _createProposeInputWithDeadline(uint48(block.timestamp - 1 hours));
@@ -342,6 +353,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_withSingleBlob() public {
         _setupBlobHashes();
+        _selectProposer(Bob);
         
         // This is already tested in test_propose, but let's be explicit
         bytes memory proposeData = _createFirstProposeInput();
@@ -361,6 +373,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_withMultipleBlobs() public {
         _setupBlobHashes();
+        _selectProposer(Bob);
 
         // Use helper to create proposal with multiple blobs
         bytes memory proposeData = _createProposeInputWithBlobs(3, 0);
@@ -407,6 +420,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_withBlobOffset() public {
         _setupBlobHashes();
+        _selectProposer(Bob);
 
         // Use helper to create proposal with blob offset
         bytes memory proposeData = _createProposeInputWithBlobs(2, 100);
@@ -430,6 +444,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_twoConsecutiveProposals() public {
         _setupBlobHashes();
+        _selectProposer(Bob);
 
         // First proposal (ID 1)
         bytes memory firstProposeData = _createFirstProposeInput();
@@ -488,6 +503,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_RevertWhen_WrongParentProposal() public {
         _setupBlobHashes();
+        _selectProposer(Bob);
 
         // First, create the first proposal successfully
         bytes memory firstProposeData = _createFirstProposeInput();
@@ -523,6 +539,7 @@ abstract contract AbstractProposeTest is InboxTestHelper {
 
     function test_propose_RevertWhen_ParentProposalDoesNotExist() public {
         _setupBlobHashes();
+        _selectProposer(Bob);
 
         // Create a fake parent proposal that doesn't exist on-chain
         IInbox.Proposal memory fakeParent = IInbox.Proposal({
@@ -554,6 +571,101 @@ abstract contract AbstractProposeTest is InboxTestHelper {
         vm.expectRevert();
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
+    }
+
+    // ---------------------------------------------------------------
+    // PreconfWhitelist Helper Functions
+    // ---------------------------------------------------------------
+
+    function _deployPreconfWhitelist() internal returns (IProposerChecker) {
+        // Deploy PreconfWhitelist with Alice as fallback preconfer
+        address impl = address(new PreconfWhitelist(Alice));
+        
+        address proxy = deploy({
+            name: "",
+            impl: impl,
+            data: abi.encodeCall(
+                PreconfWhitelist.init,
+                (
+                    owner,    // owner
+                    0,        // operatorChangeDelay (immediate for tests)
+                    0         // randomnessDelay (immediate for tests)
+                )
+            )
+        });
+        
+        PreconfWhitelist whitelist = PreconfWhitelist(proxy);
+        
+        // Add test operators
+        _setupTestOperators(whitelist);
+        
+        return IProposerChecker(proxy);
+    }
+
+    function _setupTestOperators(PreconfWhitelist _whitelist) internal {
+        // Add 4 operators to mimic mainnet setup
+        vm.prank(owner);
+        _whitelist.addOperator(Bob, Bob); // proposer and sequencer same for simplicity
+        
+        vm.prank(owner);
+        _whitelist.addOperator(Carol, Carol);
+        
+        vm.prank(owner);
+        _whitelist.addOperator(David, David);
+        
+        vm.prank(owner);
+        _whitelist.addOperator(Emma, Emma);
+    }
+
+    function _mockBeaconRootForProposer(address _desiredProposer) internal {
+        // Get current epoch timestamp
+        uint256 epochTimestamp = _getCurrentEpochTimestamp();
+        
+        // Use a deterministic beacon root that will reliably select the desired proposer
+        // Now we have 4 operators: Bob, Carol, David, Emma
+        bytes32 deterministicRoot;
+        if (_desiredProposer == Bob) {
+            deterministicRoot = keccak256(abi.encode("select_bob"));
+        } else if (_desiredProposer == Carol) {
+            deterministicRoot = keccak256(abi.encode("select_carol"));
+        } else if (_desiredProposer == David) {
+            deterministicRoot = keccak256(abi.encode("select_david"));
+        } else if (_desiredProposer == Emma) {
+            deterministicRoot = keccak256(abi.encode("select_emma"));
+        } else {
+            deterministicRoot = keccak256(abi.encode(_desiredProposer, "fallback"));
+        }
+        
+        // Mock the beacon root call
+        vm.mockCall(
+            LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,
+            abi.encode(epochTimestamp),
+            abi.encode(deterministicRoot)
+        );
+    }
+
+    function _getCurrentEpochTimestamp() internal view returns (uint256) {
+        // Simple approach: just return current timestamp aligned to epoch boundary
+        // This avoids issues with genesis timestamp calculations in test environments
+        uint256 epochSeconds = LibPreconfConstants.SECONDS_IN_EPOCH;
+        return (block.timestamp / epochSeconds) * epochSeconds;
+    }
+
+    function _selectProposer(address _proposer) internal returns (address) {
+        // Mock beacon root to select a specific proposer
+        _mockBeaconRootForProposer(_proposer);
+        
+        PreconfWhitelist whitelist = PreconfWhitelist(address(proposerChecker));
+        address selectedProposer = whitelist.getOperatorForCurrentEpoch();
+        
+        // If no proposer selected, fall back to the fallback preconfer (Alice)
+        if (selectedProposer == address(0)) {
+            selectedProposer = Alice;
+        }
+        
+        // Update currentProposer and return
+        currentProposer = selectedProposer;
+        return selectedProposer;
     }
 
     // ---------------------------------------------------------------

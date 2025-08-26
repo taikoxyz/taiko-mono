@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "contracts/layer1/shasta/iface/IProofVerifier.sol";
-import "contracts/layer1/shasta/iface/IProposerChecker.sol";
 import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
 import "contracts/shared/based/iface/ISyncedBlockManager.sol";
 
@@ -27,14 +26,6 @@ contract MockProofVerifier is IProofVerifier {
     }
 }
 
-/// @title MockProposerChecker
-/// @notice Mock proposer checker that accepts all proposers
-contract MockProposerChecker is IProposerChecker {
-
-    function checkProposer(address _proposer) external view {
-        // allow all proposers
-    }
-}
 
 /// @title MockForcedInclusionStore
 /// @notice Mock forced inclusion store for testing
