@@ -40,13 +40,7 @@ library InboxTestAdapter {
             IInbox.Checkpoint({ number: 0, hash: bytes32(0), stateRoot: bytes32(0) });
 
         return encodeProposeInputWithEndBlock(
-            _inboxType,
-            _deadline,
-            _coreState,
-            _proposals,
-            _blobRef,
-            _transitionRecords,
-            checkpoint
+            _inboxType, _deadline, _coreState, _proposals, _blobRef, _transitionRecords, checkpoint
         );
     }
 

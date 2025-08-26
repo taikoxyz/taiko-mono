@@ -312,8 +312,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             transitionRecord.bondInstructions =
                 _calculateBondInstructions(_config, _input.proposals[i], _input.transitions[i]);
             transitionRecord.transitionHash = _hashTransition(_input.transitions[i]);
-            transitionRecord.checkpointHash =
-                _hashCheckpoint(_input.transitions[i].checkpoint);
+            transitionRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
 
             // Pass transition and transitionRecord to _setTransitionRecordHash which will emit the
             // event
@@ -720,14 +719,9 @@ abstract contract Inbox is EssentialContract, IInbox {
         // Update synced block if any proposals were finalized
         if (finalizedCount > 0) {
             bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
-            require(
-                checkpointHash == lastFinalizedRecord.checkpointHash,
-                checkpointMismatch()
-            );
+            require(checkpointHash == lastFinalizedRecord.checkpointHash, checkpointMismatch());
             ISyncedBlockManager(_config.syncedBlockManager).saveSyncedBlock(
-                _input.checkpoint.number,
-                _input.checkpoint.hash,
-                _input.checkpoint.stateRoot
+                _input.checkpoint.number, _input.checkpoint.hash, _input.checkpoint.stateRoot
             );
         }
 

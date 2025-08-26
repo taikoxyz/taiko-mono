@@ -182,17 +182,10 @@ contract LibProveInputDecoderTest is Test {
             assertEq(
                 decoded.transitions[i].parentTransitionHash, transitions[i].parentTransitionHash
             );
+            assertEq(decoded.transitions[i].checkpoint.number, transitions[i].checkpoint.number);
+            assertEq(decoded.transitions[i].checkpoint.hash, transitions[i].checkpoint.hash);
             assertEq(
-                decoded.transitions[i].checkpoint.number,
-                transitions[i].checkpoint.number
-            );
-            assertEq(
-                decoded.transitions[i].checkpoint.hash,
-                transitions[i].checkpoint.hash
-            );
-            assertEq(
-                decoded.transitions[i].checkpoint.stateRoot,
-                transitions[i].checkpoint.stateRoot
+                decoded.transitions[i].checkpoint.stateRoot, transitions[i].checkpoint.stateRoot
             );
             assertEq(decoded.transitions[i].designatedProver, transitions[i].designatedProver);
             assertEq(decoded.transitions[i].actualProver, transitions[i].actualProver);

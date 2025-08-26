@@ -40,11 +40,7 @@ contract LibProposeInputDecoderFuzz is Test {
                 offset: offset
             }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            checkpoint: IInbox.Checkpoint({
-                number: 0,
-                hash: bytes32(0),
-                stateRoot: bytes32(0)
-            })
+            checkpoint: IInbox.Checkpoint({ number: 0, hash: bytes32(0), stateRoot: bytes32(0) })
         });
 
         bytes memory encoded = LibProposeInputDecoder.encode(input);
@@ -87,11 +83,7 @@ contract LibProposeInputDecoderFuzz is Test {
             parentProposals: proposals,
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            checkpoint: IInbox.Checkpoint({
-                number: 0,
-                hash: bytes32(0),
-                stateRoot: bytes32(0)
-            })
+            checkpoint: IInbox.Checkpoint({ number: 0, hash: bytes32(0), stateRoot: bytes32(0) })
         });
 
         // Encode and decode

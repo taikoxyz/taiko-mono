@@ -79,12 +79,7 @@ contract TestInboxOptimized2 is InboxOptimized2, ITestInbox {
     }
 
     // Function to store checkpoint for test purposes
-    function storecheckpoint(
-        uint48 _proposalId,
-        IInbox.Checkpoint memory _header
-    )
-        external
-    {
+    function storecheckpoint(uint48 _proposalId, IInbox.Checkpoint memory _header) external {
         testcheckpoints[_proposalId] = _header;
     }
 

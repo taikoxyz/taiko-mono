@@ -1166,8 +1166,7 @@ contract InboxChainAdvancement is InboxTest {
             bondInstructionsHash: bytes32(0)
         });
 
-        IInbox.Checkpoint memory lastEndHeader2 =
-            transitions[numProposals - 1].checkpoint;
+        IInbox.Checkpoint memory lastEndHeader2 = transitions[numProposals - 1].checkpoint;
         uint48 nextId = 4; // numProposals + 1 = 3 + 1
         _finalizeWithTransitionRecords(
             coreState, lastProposal, transitionRecords, lastEndHeader2, nextId
@@ -1302,8 +1301,7 @@ contract InboxChainAdvancement is InboxTest {
         // Core state will be validated by the contract during propose()
 
         // Expect synced block save for the last finalized proposal
-        IInbox.Checkpoint memory lastEndHeader2 =
-            transitions[numProposals - 1].checkpoint;
+        IInbox.Checkpoint memory lastEndHeader2 = transitions[numProposals - 1].checkpoint;
         expectSyncedBlockSave(lastEndHeader2.number, lastEndHeader2.hash, lastEndHeader2.stateRoot);
 
         // Create next proposal with finalization of all 3

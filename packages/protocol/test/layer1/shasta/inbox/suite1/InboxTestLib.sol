@@ -680,11 +680,7 @@ library InboxTestLib {
         return IInbox.Transition({
             proposalHash: bytes32(0),
             parentTransitionHash: bytes32(0),
-            checkpoint: IInbox.Checkpoint({
-                number: 0,
-                hash: _genesisBlockHash,
-                stateRoot: bytes32(0)
-            }),
+            checkpoint: IInbox.Checkpoint({ number: 0, hash: _genesisBlockHash, stateRoot: bytes32(0) }),
             designatedProver: address(0),
             actualProver: address(0)
         });

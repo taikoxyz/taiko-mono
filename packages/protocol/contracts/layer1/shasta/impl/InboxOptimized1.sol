@@ -118,8 +118,7 @@ abstract contract InboxOptimized1 is Inbox {
                 // Update the transition hash and end block mini header hash for the aggregated
                 // record
                 currentRecord.transitionHash = _hashTransition(_input.transitions[i]);
-                currentRecord.checkpointHash =
-                    _hashCheckpoint(_input.transitions[i].checkpoint);
+                currentRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
 
                 // Increment span to include this aggregated proposal
                 currentRecord.span++;
@@ -139,9 +138,7 @@ abstract contract InboxOptimized1 is Inbox {
                         _config, _input.proposals[i], _input.transitions[i]
                     ),
                     transitionHash: _hashTransition(_input.transitions[i]),
-                    checkpointHash: _hashCheckpoint(
-                        _input.transitions[i].checkpoint
-                    )
+                    checkpointHash: _hashCheckpoint(_input.transitions[i].checkpoint)
                 });
             }
         }

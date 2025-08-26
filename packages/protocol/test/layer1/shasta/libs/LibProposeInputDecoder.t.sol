@@ -57,11 +57,7 @@ contract LibProposeInputDecoderTest is Test {
             parentProposals: proposals,
             blobReference: blobRef,
             transitionRecords: transitionRecords,
-            checkpoint: IInbox.Checkpoint({
-                number: 0,
-                hash: bytes32(0),
-                stateRoot: bytes32(0)
-            })
+            checkpoint: IInbox.Checkpoint({ number: 0, hash: bytes32(0), stateRoot: bytes32(0) })
         });
 
         // Test with standard ABI encoding for baseline
