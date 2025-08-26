@@ -11,11 +11,13 @@ import "src/layer1/mainnet/libs/LibFasterReentryLock.sol";
 contract SurgeDevnetInbox is TaikoInbox {
     struct ConfigParams {
         uint64 chainId;
+        uint24 cooldownWindow;
         uint64 maxVerificationDelay;
         uint96 livenessBondBase;
     }
 
     uint64 public immutable chainId;
+    uint24 public immutable cooldownWindow;
     uint64 public immutable maxVerificationDelay;
     uint96 public immutable livenessBondBase;
 
@@ -30,6 +32,7 @@ contract SurgeDevnetInbox is TaikoInbox {
         TaikoInbox(_wrapper, _dao, _verifier, _bondToken, _signalService)
     {
         chainId = _configParams.chainId;
+        cooldownWindow = _configParams.cooldownWindow;
         maxVerificationDelay = _configParams.maxVerificationDelay;
         livenessBondBase = _configParams.livenessBondBase;
     }
@@ -59,7 +62,7 @@ contract SurgeDevnetInbox is TaikoInbox {
                 maxGasIssuancePerBlock: 0
             }),
             provingWindow: 24 hours,
-            cooldownWindow: 7 days,
+            cooldownWindow: cooldownWindow,
             maxSignalsToReceive: 16,
             maxBlocksPerBatch: 6,
             forkHeights: ITaikoInbox.ForkHeights({ ontake: 0, pacaya: 0, shasta: 0, unzen: 0 }),
