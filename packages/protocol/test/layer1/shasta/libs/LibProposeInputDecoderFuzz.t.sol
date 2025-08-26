@@ -40,7 +40,7 @@ contract LibProposeInputDecoderFuzz is Test {
                 offset: offset
             }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: 0,
                 hash: bytes32(0),
                 stateRoot: bytes32(0)
@@ -87,7 +87,7 @@ contract LibProposeInputDecoderFuzz is Test {
             parentProposals: proposals,
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: 0,
                 hash: bytes32(0),
                 stateRoot: bytes32(0)
@@ -107,7 +107,7 @@ contract LibProposeInputDecoderFuzz is Test {
     /// @notice Fuzz test for transition records with bond instructions
     function testFuzz_encodeDecodeTransitionRecord(
         bytes32 transitionHash,
-        bytes32 endBlockMiniHeaderHash,
+        bytes32 checkpointHash,
         uint8 span
     )
         public
@@ -128,7 +128,7 @@ contract LibProposeInputDecoderFuzz is Test {
             span: span,
             bondInstructions: bonds,
             transitionHash: transitionHash,
-            endBlockMiniHeaderHash: endBlockMiniHeaderHash
+            checkpointHash: checkpointHash
         });
 
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
@@ -142,7 +142,7 @@ contract LibProposeInputDecoderFuzz is Test {
             parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: transitions,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: 100,
                 hash: keccak256("block"),
                 stateRoot: keccak256("state")
@@ -156,7 +156,7 @@ contract LibProposeInputDecoderFuzz is Test {
         assertEq(decoded.transitionRecords.length, 1);
         assertEq(decoded.transitionRecords[0].span, span);
         assertEq(decoded.transitionRecords[0].transitionHash, transitionHash);
-        assertEq(decoded.transitionRecords[0].endBlockMiniHeaderHash, endBlockMiniHeaderHash);
+        assertEq(decoded.transitionRecords[0].checkpointHash, checkpointHash);
     }
 
     /// @notice Fuzz test with variable array lengths
@@ -215,7 +215,7 @@ contract LibProposeInputDecoderFuzz is Test {
                 span: uint8(1 + i % 3),
                 bondInstructions: bondInstructions,
                 transitionHash: keccak256(abi.encodePacked("transition", i)),
-                endBlockMiniHeaderHash: keccak256(abi.encodePacked("endBlock", i))
+                checkpointHash: keccak256(abi.encodePacked("endBlock", i))
             });
         }
 
@@ -225,7 +225,7 @@ contract LibProposeInputDecoderFuzz is Test {
             parentProposals: proposals,
             blobReference: blobRef,
             transitionRecords: transitionRecords,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: 2_000_000,
                 hash: keccak256("endBlock"),
                 stateRoot: keccak256("endState")
@@ -389,11 +389,11 @@ contract LibProposeInputDecoderFuzz is Test {
                 span: uint8(1 + i % 3),
                 bondInstructions: bondInstructions,
                 transitionHash: keccak256(abi.encodePacked("transition", i)),
-                endBlockMiniHeaderHash: keccak256(abi.encodePacked("endBlock", i))
+                checkpointHash: keccak256(abi.encodePacked("endBlock", i))
             });
         }
 
-        input.endBlockMiniHeader = IInbox.BlockMiniHeader({
+        input.checkpoint = IInbox.Checkpoint({
             number: 2_000_000,
             hash: keccak256("final_end_block"),
             stateRoot: keccak256("final_end_state")

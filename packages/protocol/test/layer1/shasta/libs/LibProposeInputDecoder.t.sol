@@ -45,7 +45,7 @@ contract LibProposeInputDecoderTest is Test {
             span: 1,
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: bytes32(0),
-            endBlockMiniHeaderHash: bytes32(0)
+            checkpointHash: bytes32(0)
         });
 
         uint48 deadline = 2_000_000;
@@ -57,7 +57,7 @@ contract LibProposeInputDecoderTest is Test {
             parentProposals: proposals,
             blobReference: blobRef,
             transitionRecords: transitionRecords,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: 0,
                 hash: bytes32(0),
                 stateRoot: bytes32(0)
@@ -189,7 +189,7 @@ contract LibProposeInputDecoderTest is Test {
             span: 1,
             bondInstructions: bondInstructions1,
             transitionHash: keccak256("transition_96"),
-            endBlockMiniHeaderHash: keccak256("end_block_96")
+            checkpointHash: keccak256("end_block_96")
         });
 
         LibBonds.BondInstruction[] memory bondInstructions2 = new LibBonds.BondInstruction[](1);
@@ -204,7 +204,7 @@ contract LibProposeInputDecoderTest is Test {
             span: 2,
             bondInstructions: bondInstructions2,
             transitionHash: keccak256("transition_97"),
-            endBlockMiniHeaderHash: keccak256("end_block_97")
+            checkpointHash: keccak256("end_block_97")
         });
 
         uint48 deadline = 2_000_000;
@@ -216,7 +216,7 @@ contract LibProposeInputDecoderTest is Test {
             parentProposals: proposals,
             blobReference: blobRef,
             transitionRecords: transitionRecords,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: 2_000_010,
                 hash: keccak256("end_block"),
                 stateRoot: keccak256("end_state")
@@ -328,7 +328,7 @@ contract LibProposeInputDecoderTest is Test {
             parentProposals: proposals,
             blobReference: blobRef,
             transitionRecords: transitionRecords,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: 999_999,
                 hash: bytes32(uint256(0xabcdef)),
                 stateRoot: bytes32(uint256(0xfedcba))
@@ -361,8 +361,8 @@ contract LibProposeInputDecoderTest is Test {
 
         assertEq(decodedInput.transitionRecords.length, 0);
 
-        assertEq(decodedInput.endBlockMiniHeader.number, 999_999);
-        assertEq(decodedInput.endBlockMiniHeader.hash, bytes32(uint256(0xabcdef)));
-        assertEq(decodedInput.endBlockMiniHeader.stateRoot, bytes32(uint256(0xfedcba)));
+        assertEq(decodedInput.checkpoint.number, 999_999);
+        assertEq(decodedInput.checkpoint.hash, bytes32(uint256(0xabcdef)));
+        assertEq(decodedInput.checkpoint.stateRoot, bytes32(uint256(0xfedcba)));
     }
 }

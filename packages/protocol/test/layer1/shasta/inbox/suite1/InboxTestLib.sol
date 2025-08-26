@@ -232,7 +232,7 @@ library InboxTestLib {
         return IInbox.Transition({
             proposalHash: hashProposal(_proposal),
             parentTransitionHash: _parentTransitionHash,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: _proposal.id * 100,
                 hash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
                 stateRoot: keccak256(abi.encode(_proposal.id, "stateRoot"))
@@ -259,7 +259,7 @@ library InboxTestLib {
         return IInbox.Transition({
             proposalHash: _proposalHash,
             parentTransitionHash: _parentTransitionHash,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: _endBlockNumber,
                 hash: _endBlockHash,
                 stateRoot: _endStateRoot
@@ -305,7 +305,7 @@ library InboxTestLib {
             span: _span,
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: hashTransition(_transition),
-            endBlockMiniHeaderHash: keccak256(abi.encode(_transition.endBlockMiniHeader))
+            checkpointHash: keccak256(abi.encode(_transition.checkpoint))
         });
     }
 
@@ -323,7 +323,7 @@ library InboxTestLib {
             span: _span,
             bondInstructions: _bondInstructions,
             transitionHash: hashTransition(_transition),
-            endBlockMiniHeaderHash: keccak256(abi.encode(_transition.endBlockMiniHeader))
+            checkpointHash: keccak256(abi.encode(_transition.checkpoint))
         });
     }
 
@@ -680,7 +680,7 @@ library InboxTestLib {
         return IInbox.Transition({
             proposalHash: bytes32(0),
             parentTransitionHash: bytes32(0),
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: 0,
                 hash: _genesisBlockHash,
                 stateRoot: bytes32(0)

@@ -187,14 +187,14 @@ contract LibProposeInputDecoderGas is Test {
             input.transitionRecords[i] = IInbox.TransitionRecord({
                 span: uint8(1 + (i % 3)),
                 transitionHash: keccak256(abi.encodePacked("transition", i)),
-                endBlockMiniHeaderHash: keccak256(abi.encodePacked("end_header", i)),
+                checkpointHash: keccak256(abi.encodePacked("end_header", i)),
                 bondInstructions: bondInstructions
             });
         }
 
-        // Add endBlockMiniHeader if needed
-        input.endBlockMiniHeader =
-            IInbox.BlockMiniHeader({ number: 0, hash: bytes32(0), stateRoot: bytes32(0) });
+        // Add checkpoint if needed
+        input.checkpoint =
+            IInbox.Checkpoint({ number: 0, hash: bytes32(0), stateRoot: bytes32(0) });
     }
 
     function _writeReport() private {

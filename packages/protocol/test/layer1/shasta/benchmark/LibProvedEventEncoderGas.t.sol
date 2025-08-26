@@ -154,7 +154,7 @@ contract LibProvedEventEncoderGas is Test {
         payload_.proposalId = 12_345;
         payload_.transition.proposalHash = keccak256("proposal");
         payload_.transition.parentTransitionHash = keccak256("parent");
-        payload_.transition.endBlockMiniHeader = IInbox.BlockMiniHeader({
+        payload_.transition.checkpoint = IInbox.Checkpoint({
             number: 999_999,
             hash: keccak256("block"),
             stateRoot: keccak256("state")
@@ -164,7 +164,7 @@ contract LibProvedEventEncoderGas is Test {
 
         payload_.transitionRecord.span = 42;
         payload_.transitionRecord.transitionHash = keccak256("transition");
-        payload_.transitionRecord.endBlockMiniHeaderHash = keccak256("header");
+        payload_.transitionRecord.checkpointHash = keccak256("header");
         payload_.transitionRecord.bondInstructions =
             new LibBonds.BondInstruction[](_bondInstructionsCount);
 

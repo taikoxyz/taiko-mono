@@ -27,16 +27,16 @@ interface ITestInbox is IInbox {
     )
         external;
 
-    /// @notice Store endBlockMiniHeader for test purposes
-    function storeEndBlockMiniHeader(
+    /// @notice Store checkpoint for test purposes
+    function storecheckpoint(
         uint48 _proposalId,
-        IInbox.BlockMiniHeader memory _header
+        IInbox.Checkpoint memory _header
     )
         external;
 
-    /// @notice Get stored endBlockMiniHeader for test purposes
-    function getStoredEndBlockMiniHeader(uint48 _proposalId)
+    /// @notice Get stored checkpoint for test purposes
+    function getStoredcheckpoint(uint48 _proposalId)
         external
         view
-        returns (IInbox.BlockMiniHeader memory);
+        returns (IInbox.Checkpoint memory);
 }

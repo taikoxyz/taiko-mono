@@ -51,7 +51,7 @@ interface IInbox {
         bytes32 derivationHash;
     }
 
-    struct BlockMiniHeader {
+    struct Checkpoint {
         uint48 number;
         /// @notice The block hash for the end (last) L2 block in this proposal.
         bytes32 hash;
@@ -68,7 +68,7 @@ interface IInbox {
         /// finalize the corresponding proposal.
         bytes32 parentTransitionHash;
         /// @notice The end block header containing number, hash, and state root.
-        BlockMiniHeader endBlockMiniHeader;
+        Checkpoint checkpoint;
         /// @notice The designated prover.
         address designatedProver;
         /// @notice The actual prover.
@@ -84,7 +84,7 @@ interface IInbox {
         /// @notice The transition's hash
         bytes32 transitionHash;
         /// @notice The hash of the end block mini header.
-        bytes32 endBlockMiniHeaderHash;
+        bytes32 checkpointHash;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -112,7 +112,7 @@ interface IInbox {
         /// @notice Array of transition records for finalization.
         TransitionRecord[] transitionRecords;
         /// @notice The end block mini header for finalization.
-        BlockMiniHeader endBlockMiniHeader;
+        Checkpoint checkpoint;
     }
 
     /// @notice Input data for the prove function

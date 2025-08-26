@@ -13,8 +13,8 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
     bool private configSet;
     mapping(uint256 => bytes32) private mockBlobHashes;
     bool private useMockBlobHashes;
-    // Storage to track endBlockMiniHeader for test purposes
-    mapping(uint48 => IInbox.BlockMiniHeader) public testEndBlockMiniHeaders;
+    // Storage to track checkpoint for test purposes
+    mapping(uint48 => IInbox.Checkpoint) public testcheckpoints;
 
     constructor() InboxOptimized3() { }
 
@@ -78,22 +78,22 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
         _setTransitionRecordHash(testConfig, _proposalId, _transition, _transitionRecord);
     }
 
-    // Function to store endBlockMiniHeader for test purposes
-    function storeEndBlockMiniHeader(
+    // Function to store checkpoint for test purposes
+    function storecheckpoint(
         uint48 _proposalId,
-        IInbox.BlockMiniHeader memory _header
+        IInbox.Checkpoint memory _header
     )
         external
     {
-        testEndBlockMiniHeaders[_proposalId] = _header;
+        testcheckpoints[_proposalId] = _header;
     }
 
-    // Helper function to get the stored endBlockMiniHeader
-    function getStoredEndBlockMiniHeader(uint48 _proposalId)
+    // Helper function to get the stored checkpoint
+    function getStoredcheckpoint(uint48 _proposalId)
         external
         view
-        returns (IInbox.BlockMiniHeader memory)
+        returns (IInbox.Checkpoint memory)
     {
-        return testEndBlockMiniHeaders[_proposalId];
+        return testcheckpoints[_proposalId];
     }
 }

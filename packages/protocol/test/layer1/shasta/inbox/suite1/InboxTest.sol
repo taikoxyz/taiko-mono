@@ -337,7 +337,7 @@ abstract contract InboxTest is CommonTest {
         return IInbox.Transition({
             proposalHash: _builder.proposalHash,
             parentTransitionHash: _builder.parentTransitionHash,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: _builder.endBlockNumber,
                 hash: _builder.endBlockHash,
                 stateRoot: _builder.endStateRoot
@@ -567,7 +567,7 @@ abstract contract InboxTest is CommonTest {
         return IInbox.Transition({
             proposalHash: _config.proposalHash,
             parentTransitionHash: _config.parentTransitionHash,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: _config.endBlockNumber,
                 hash: _config.endBlockHash,
                 stateRoot: _config.endStateRoot
@@ -701,10 +701,10 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = InboxTestLib.createGenesisProposal(coreState);
 
-        // Get the endBlockMiniHeader from the last proposal that was proven
+        // Get the checkpoint from the last proposal that was proven
         // This should match what was used when the transition was created
         uint48 lastProposalId = uint48(_transitionRecords.length);
-        IInbox.BlockMiniHeader memory endBlockMiniHeader = IInbox.BlockMiniHeader({
+        IInbox.Checkpoint memory checkpoint = IInbox.Checkpoint({
             number: lastProposalId * 100,
             hash: keccak256(abi.encode(lastProposalId, "endBlockHash")),
             stateRoot: keccak256(abi.encode(lastProposalId, "stateRoot"))
@@ -717,7 +717,7 @@ abstract contract InboxTest is CommonTest {
             proposals,
             createValidBlobReference(nextProposalId),
             _transitionRecords,
-            endBlockMiniHeader
+            checkpoint
         );
 
         vm.prank(_finalizer != address(0) ? _finalizer : Alice);
@@ -1318,7 +1318,7 @@ abstract contract InboxTest is CommonTest {
 
         // Genesis transition hash from initialization
         IInbox.Transition memory genesisTransition;
-        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.hash = GENESIS_BLOCK_HASH;
         genesisCoreState.lastFinalizedTransitionHash = keccak256(abi.encode(genesisTransition));
         genesisCoreState.bondInstructionsHash = bytes32(0);
 
@@ -1429,8 +1429,8 @@ abstract contract InboxTest is CommonTest {
     {
         transition = InboxTestLib.createTransition(_proposal, _parentTransitionHash, _prover);
         _submitProof(_proposal, transition, _prover);
-        // Store the endBlockMiniHeader for test purposes
-        inbox.storeEndBlockMiniHeader(_proposal.id, transition.endBlockMiniHeader);
+        // Store the checkpoint for test purposes
+        inbox.storecheckpoint(_proposal.id, transition.checkpoint);
     }
 
     /// @dev Proves multiple proposals in batch and returns transition records from events
@@ -1458,9 +1458,9 @@ abstract contract InboxTest is CommonTest {
         // Extract transition records from Proved events
         transitionRecords = extractTransitionRecordsFromProvedEvents(logs);
 
-        // Store the endBlockMiniHeaders for test purposes
+        // Store the checkpoints for test purposes
         for (uint256 i = 0; i < _proposals.length; i++) {
-            inbox.storeEndBlockMiniHeader(_proposals[i].id, _transitions[i].endBlockMiniHeader);
+            inbox.storecheckpoint(_proposals[i].id, _transitions[i].checkpoint);
         }
     }
 

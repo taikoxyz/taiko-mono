@@ -80,7 +80,7 @@ abstract contract InboxOptimized1 is Inbox {
                 _config, _input.proposals[0], _input.transitions[0]
             ),
             transitionHash: _hashTransition(_input.transitions[0]),
-            endBlockMiniHeaderHash: _hashBlockMiniHeader(_input.transitions[0].endBlockMiniHeader)
+            checkpointHash: _hashCheckpoint(_input.transitions[0].checkpoint)
         });
 
         uint48 currentGroupStartId = _input.proposals[0].id;
@@ -118,8 +118,8 @@ abstract contract InboxOptimized1 is Inbox {
                 // Update the transition hash and end block mini header hash for the aggregated
                 // record
                 currentRecord.transitionHash = _hashTransition(_input.transitions[i]);
-                currentRecord.endBlockMiniHeaderHash =
-                    _hashBlockMiniHeader(_input.transitions[i].endBlockMiniHeader);
+                currentRecord.checkpointHash =
+                    _hashCheckpoint(_input.transitions[i].checkpoint);
 
                 // Increment span to include this aggregated proposal
                 currentRecord.span++;
@@ -139,8 +139,8 @@ abstract contract InboxOptimized1 is Inbox {
                         _config, _input.proposals[i], _input.transitions[i]
                     ),
                     transitionHash: _hashTransition(_input.transitions[i]),
-                    endBlockMiniHeaderHash: _hashBlockMiniHeader(
-                        _input.transitions[i].endBlockMiniHeader
+                    checkpointHash: _hashCheckpoint(
+                        _input.transitions[i].checkpoint
                     )
                 });
             }

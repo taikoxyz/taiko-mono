@@ -182,7 +182,7 @@ contract InboxProposeValidation is InboxTest {
     function test_propose_unauthorized_proposer() public {
         // Setup: Create valid genesis transition and core state structure
         IInbox.Transition memory genesisTransition;
-        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.hash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
@@ -222,7 +222,7 @@ contract InboxProposeValidation is InboxTest {
         // Setup: Prepare EIP-4844 blob environment for forced inclusion testing
         setupBlobHashes();
         IInbox.Transition memory genesisTransition;
-        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.hash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
@@ -348,7 +348,7 @@ contract InboxProposeValidation is InboxTest {
         setupBlobHashes();
 
         IInbox.Transition memory genesisTransition;
-        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.hash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
@@ -392,7 +392,7 @@ contract InboxProposeValidation is InboxTest {
         setupBlobHashes(); // Setup valid blob hashes first
 
         IInbox.Transition memory genesisTransition;
-        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.hash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         IInbox.CoreState memory coreState = IInbox.CoreState({

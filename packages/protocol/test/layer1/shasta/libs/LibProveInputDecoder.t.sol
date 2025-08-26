@@ -32,7 +32,7 @@ contract LibProveInputDecoderTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: keccak256("proposal_10"),
             parentTransitionHash: keccak256("parent_transition"),
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: 200,
                 hash: keccak256("end_block"),
                 stateRoot: keccak256("end_state")
@@ -92,7 +92,7 @@ contract LibProveInputDecoderTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: keccak256("proposal_hash"),
             parentTransitionHash: keccak256("parent_hash"),
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: 456_789,
                 hash: keccak256("end_block_hash"),
                 stateRoot: keccak256("end_state_root")
@@ -122,9 +122,9 @@ contract LibProveInputDecoderTest is Test {
         assertEq(decoded.transitions.length, 1);
         assertEq(decoded.transitions[0].proposalHash, keccak256("proposal_hash"));
         assertEq(decoded.transitions[0].parentTransitionHash, keccak256("parent_hash"));
-        assertEq(decoded.transitions[0].endBlockMiniHeader.number, 456_789);
-        assertEq(decoded.transitions[0].endBlockMiniHeader.hash, keccak256("end_block_hash"));
-        assertEq(decoded.transitions[0].endBlockMiniHeader.stateRoot, keccak256("end_state_root"));
+        assertEq(decoded.transitions[0].checkpoint.number, 456_789);
+        assertEq(decoded.transitions[0].checkpoint.hash, keccak256("end_block_hash"));
+        assertEq(decoded.transitions[0].checkpoint.stateRoot, keccak256("end_state_root"));
         assertEq(decoded.transitions[0].designatedProver, address(0x1234));
         assertEq(decoded.transitions[0].actualProver, address(0x5678));
     }
@@ -148,7 +148,7 @@ contract LibProveInputDecoderTest is Test {
             transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
                 parentTransitionHash: keccak256(abi.encodePacked("parent", i)),
-                endBlockMiniHeader: IInbox.BlockMiniHeader({
+                checkpoint: IInbox.Checkpoint({
                     number: uint48(3000 + i * 100),
                     hash: keccak256(abi.encodePacked("endBlock", i)),
                     stateRoot: keccak256(abi.encodePacked("endState", i))
@@ -183,16 +183,16 @@ contract LibProveInputDecoderTest is Test {
                 decoded.transitions[i].parentTransitionHash, transitions[i].parentTransitionHash
             );
             assertEq(
-                decoded.transitions[i].endBlockMiniHeader.number,
-                transitions[i].endBlockMiniHeader.number
+                decoded.transitions[i].checkpoint.number,
+                transitions[i].checkpoint.number
             );
             assertEq(
-                decoded.transitions[i].endBlockMiniHeader.hash,
-                transitions[i].endBlockMiniHeader.hash
+                decoded.transitions[i].checkpoint.hash,
+                transitions[i].checkpoint.hash
             );
             assertEq(
-                decoded.transitions[i].endBlockMiniHeader.stateRoot,
-                transitions[i].endBlockMiniHeader.stateRoot
+                decoded.transitions[i].checkpoint.stateRoot,
+                transitions[i].checkpoint.stateRoot
             );
             assertEq(decoded.transitions[i].designatedProver, transitions[i].designatedProver);
             assertEq(decoded.transitions[i].actualProver, transitions[i].actualProver);
@@ -228,7 +228,7 @@ contract LibProveInputDecoderTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: bytes32(type(uint256).max),
             parentTransitionHash: bytes32(type(uint256).max),
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
+            checkpoint: IInbox.Checkpoint({
                 number: type(uint48).max,
                 hash: bytes32(type(uint256).max),
                 stateRoot: bytes32(type(uint256).max)
@@ -245,7 +245,7 @@ contract LibProveInputDecoderTest is Test {
 
         assertEq(decoded.proposals[0].id, type(uint48).max);
         assertEq(decoded.proposals[0].proposer, address(type(uint160).max));
-        assertEq(decoded.transitions[0].endBlockMiniHeader.number, type(uint48).max);
+        assertEq(decoded.transitions[0].checkpoint.number, type(uint48).max);
     }
 
     function test_revert_mismatchedLengths() public {

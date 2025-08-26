@@ -189,7 +189,7 @@ contract LibProveInputDecoderGas is Test {
             input.transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
                 parentTransitionHash: keccak256(abi.encodePacked("parent_transition", i)),
-                endBlockMiniHeader: IInbox.BlockMiniHeader({
+                checkpoint: IInbox.Checkpoint({
                     number: uint48(2_000_000 + i * 10),
                     hash: keccak256(abi.encodePacked("end_block", i)),
                     stateRoot: keccak256(abi.encodePacked("end_state", i))
