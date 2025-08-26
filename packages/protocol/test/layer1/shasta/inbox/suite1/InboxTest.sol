@@ -190,7 +190,8 @@ abstract contract InboxTest is CommonTest {
             syncedBlockManager: syncedBlockManager,
             proofVerifier: proofVerifier,
             proposerChecker: proposerChecker,
-            forcedInclusionStore: forcedInclusionStore
+            forcedInclusionStore: forcedInclusionStore,
+            minForcedInclusionCount: 1
         });
 
         inbox.setTestConfig(defaultConfig);
@@ -768,7 +769,7 @@ abstract contract InboxTest is CommonTest {
         vm.mockCall(
             forcedInclusionStore,
             abi.encodeWithSelector(
-                IForcedInclusionStore.consumeOldestForcedInclusion.selector, _proposer
+                IForcedInclusionStore.consumeForcedInclusions.selector, _proposer, 1
             ),
             abi.encode(_forcedInclusion)
         );
