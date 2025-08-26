@@ -267,6 +267,10 @@ interface ITaikoInbox {
     /// @param transitions The transitions data.
     event BatchesProved(address verifier, uint64[] batchIds, Transition[] transitions);
 
+    /// @notice Emitted when a chain rollback occurs
+    /// @param numBatches The new number of batches after the rollback
+    event BatchesRollbacked(uint64 numBatches);
+
     /// @notice Emitted when a transition is overwritten by a conflicting one with the same parent
     /// hash but different block hash or state root.
     /// @param batchId The batch ID.
