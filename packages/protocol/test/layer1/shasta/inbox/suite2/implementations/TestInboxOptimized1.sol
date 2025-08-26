@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
+import { InboxOptimized1 } from "src/layer1/shasta/impl/InboxOptimized1.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
-/// @title TestInbox
-/// @notice Test wrapper for Inbox contract with configurable behavior
-contract TestInbox is Inbox {
+/// @title TestInboxOptimized1
+/// @notice Test wrapper for TestInboxOptimized1 contract with configurable behavior
+contract TestInboxOptimized1 is InboxOptimized1 {
     Config private config;
 
     address private immutable _bondToken;

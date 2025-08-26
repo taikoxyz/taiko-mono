@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { AbstractProposeTest } from "./AbstractProposeTest.t.sol";
-import { TestInboxOptimized3 } from "../implementations/TestInbox.sol";
+import { TestInboxOptimized3 } from "../implementations/TestInboxOptimized3.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
 
