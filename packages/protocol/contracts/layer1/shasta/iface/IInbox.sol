@@ -20,6 +20,9 @@ interface IInbox {
         address proofVerifier;
         address proposerChecker;
         address forcedInclusionStore;
+        /// @notice The minimum number of forced inclusions that the proposer is forced to process
+        /// if they are due.
+        uint256 minForcedInclusionCount;
     }
 
     /// @notice Contains derivation data for a proposal that is not needed during proving.
@@ -113,6 +116,10 @@ interface IInbox {
         TransitionRecord[] transitionRecords;
         /// @notice The checkpoint for finalization.
         Checkpoint checkpoint;
+        /// @notice The number of forced inclusions that the proposer wants to process.
+        /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
+        /// that he wants to include.
+        uint8 numForcedInclusions;
     }
 
     /// @notice Input data for the prove function

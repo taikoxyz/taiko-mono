@@ -67,7 +67,8 @@ library InboxTestAdapter {
                 parentProposals: _proposals,
                 blobReference: _blobRef,
                 transitionRecords: _transitionRecords,
-                checkpoint: _checkpoint
+                checkpoint: _checkpoint,
+                numForcedInclusions: 0
             });
             return LibProposeInputDecoder.encode(input);
         } else {
@@ -79,7 +80,8 @@ library InboxTestAdapter {
                 parentProposals: _proposals,
                 blobReference: _blobRef,
                 transitionRecords: _transitionRecords,
-                checkpoint: _checkpoint
+                checkpoint: _checkpoint,
+                numForcedInclusions: 0
             });
             return abi.encode(input);
         }

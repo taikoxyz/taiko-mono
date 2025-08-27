@@ -68,6 +68,9 @@ library LibProposeInputDecoder {
             ptr = P.packBytes32(ptr, _input.checkpoint.hash);
             ptr = P.packBytes32(ptr, _input.checkpoint.stateRoot);
         }
+
+        // 7. Encode numForcedInclusions
+        ptr = P.packUint8(ptr, _input.numForcedInclusions);
     }
 
     /// @notice Decodes propose data using optimized operations with LibPackUnpack
@@ -118,7 +121,10 @@ library LibProposeInputDecoder {
             (input_.checkpoint.hash, ptr) = P.unpackBytes32(ptr);
             (input_.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
         }
+
         // else: checkpoint remains as default (all zeros)
+        // 7. Decode numForcedInclusions
+        (input_.numForcedInclusions, ptr) = P.unpackUint8(ptr);
     }
 
     /// @notice Encode a single Proposal
@@ -248,7 +254,8 @@ library LibProposeInputDecoder {
             // BlobReference: 2 + 2 + 3 = 7 bytes
             // Arrays lengths: 3 + 3 = 6 bytes
             // Checkpoint flag: 1 byte
-            size_ = 96;
+            // numForcedInclusions: 1 byte (uint8)
+            size_ = 97;
 
             // Add Checkpoint size if not empty
             bool isEmpty = _checkpoint.number == 0 && _checkpoint.hash == bytes32(0)

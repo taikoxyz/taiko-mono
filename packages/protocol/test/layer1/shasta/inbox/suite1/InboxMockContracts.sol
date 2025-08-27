@@ -51,12 +51,16 @@ contract StubForcedInclusionStore {
         return false;
     }
 
-    function consumeOldestForcedInclusion(address)
+    function consumeForcedInclusions(
+        address,
+        uint256
+    )
         external
         pure
-        returns (IForcedInclusionStore.ForcedInclusion memory)
+        returns (IForcedInclusionStore.ForcedInclusion[] memory)
     {
-        revert("Not implemented");
+        // Return empty array
+        return new IForcedInclusionStore.ForcedInclusion[](0);
     }
 }
 

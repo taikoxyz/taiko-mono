@@ -291,6 +291,9 @@ contract InboxProposeValidation is InboxTest {
     ///      2. Fills capacity with valid proposals
     ///      3. Attempts to exceed capacity with third proposal
     ///      4. Expects ExceedsUnfinalizedProposalCapacity error for protection
+    /// @notice Test that proposals are silently skipped when capacity is exceeded
+    /// @dev With the new forced inclusion design, regular proposals are silently skipped
+    ///      when there's no available capacity, allowing forced inclusions to be prioritized
     function test_propose_exceeds_capacity() public {
         // Setup: Prepare environment with limited ring buffer capacity
         setupBlobHashes();
@@ -304,7 +307,15 @@ contract InboxProposeValidation is InboxTest {
             submitProposal(i, Alice);
         }
 
-        // Act & Assert: Attempt to add 3rd proposal (exceeds capacity)
+        // Verify initial state: 2 proposals stored
+        assertProposalStored(1);
+        assertProposalStored(2);
+
+        // Store current proposal hashes
+        bytes32 prop1Hash = inbox.getProposalHash(1);
+        bytes32 prop2Hash = inbox.getProposalHash(2);
+
+        // Act: Attempt to add 3rd proposal (exceeds capacity)
         // Setup for proposal 3
         IInbox.CoreState memory coreState3 = _getGenesisCoreState();
         coreState3.nextProposalId = 3;
@@ -331,10 +342,18 @@ contract InboxProposeValidation is InboxTest {
             new IInbox.TransitionRecord[](0)
         );
 
-        // Expect capacity exceeded error for DoS protection
-        vm.expectRevert(ExceedsUnfinalizedProposalCapacity.selector);
+        // Act: Call propose - should succeed but skip the proposal
         vm.prank(Alice);
         inbox.propose(bytes(""), data3);
+
+        // Assert: Verify that no new proposal was created (silently skipped)
+        // The existing proposals should remain unchanged
+        assertEq(inbox.getProposalHash(1), prop1Hash, "Proposal 1 should be unchanged");
+        assertEq(inbox.getProposalHash(2), prop2Hash, "Proposal 2 should be unchanged");
+
+        // Proposal 3 should not exist (slot 0 should still have genesis)
+        bytes32 slot0Hash = inbox.getProposalHash(0);
+        assertTrue(slot0Hash != bytes32(0), "Slot 0 should still have genesis");
     }
 
     /// @notice Test proposal with invalid blob reference
