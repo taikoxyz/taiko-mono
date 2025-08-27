@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## 🎯 Project Overview
 
 Taiko is a based rollup on Ethereum that uses validity proofs for finalization. It's designed to be a type-1 (fully Ethereum-equivalent) ZK-EVM.
 
@@ -14,14 +14,7 @@ Taiko is a based rollup on Ethereum that uses validity proofs for finalization. 
 - Contestable validity proofs with bonding mechanism
 - Native Ethereum equivalence (type-1 ZK-EVM)
 
-**Monorepo Structure:**
-
-- Uses pnpm workspaces for package management
-- Smart contracts built with Foundry
-- Backend services written in Go
-- Frontend applications using TypeScript/SvelteKit
-
-## Repository Structure
+## 📦 Monorepo Architecture
 
 ```
 packages/
@@ -33,107 +26,14 @@ packages/
 └── [other packages]   # NFTs, monitoring, documentation
 ```
 
-## Smart Contract Development (packages/protocol)
+**Technology Stack:**
 
-### Coding Style
+- Smart contracts: Solidity + Foundry
+- Backend services: Go
+- Frontend applications: TypeScript/SvelteKit
+- Package management: pnpm workspaces
 
-- Use newer solidity syntax
-- Private state variables and private or internal functions should be prefixed with an underscore
-- Event names should be in the past tense
-- Use named imports
-  - YES: `import {Contract} from "./contract.sol"`
-  - NO: `import "./contract.sol"`
-- Prefer straightforward custom errors over require strings and avoid natspec comments for errors, always put errors at the end of the implementation file, not in the interface.
-- For larger files, have clear separators between external & public, internal, private functions, and errors.
-  ```
-  // ---------------------------------------------------------------
-  // Group label
-  // ---------------------------------------------------------------
-  ```
-- Always make sure there is a "/// @custom:security-contact security@taiko.xyz" for solidity files (BUT NOT FOR TEST FILES), and ensure license is MIT (all solidity files)
-- Use `///` comments for natspec. Only external and public functions should have a `@notice`, while internal or private only have `@dev`
-- Use named parameters on mapping definitions
-- Function parameters should always start with "_", and return values should always end with "_"
-
-### Commands
-
-```bash
-# Compilation
-pnpm compile              # All contracts
-pnpm compile:l1          # Layer 1 only
-pnpm compile:l2          # Layer 2 only
-
-# Testing
-pnpm test                # Run all tests
-pnpm test:l1            # L1 tests (uses FOUNDRY_PROFILE=layer1)
-pnpm test:l2            # L2 tests (uses FOUNDRY_PROFILE=layer2)
-pnpm test:coverage      # Generate coverage report
-
-# Single test execution
-forge test --match-test <name>   # Test by name
-forge test --match-path <path>   # Test by file
-forge test -vvvv                # Debug with max verbosity
-forge test --match-path <path> --summary  # Test summary with gas usage
-
-# Performance testing
-forge test --gas-report         # Generate gas usage report
-forge test --match-path <path> --gas-limit <limit>  # Test with gas constraints
-
-# Gas & Storage
-pnpm snapshot:l1        # Generate gas report
-pnpm layout             # Generate storage layouts (critical before upgrades)
-
-# Code Quality
-pnpm fmt:sol            # Format Solidity code
-```
-
-IMPORTANT: When making changes to the shasta protocol or asked to run tests for shasta only run `forge test --match-path"test/layer1/shasta/inbox/suite2/*` instead of the entire suite.
-
-### pnpm and Foundry Integration
-
-- Install pnpm packages first before working with Foundry: `pnpm install`
-- Foundry relies on compiled dependencies and packages managed by pnpm
-- Compile contracts and run tests using pnpm commands (that will use forge under the hood with the right profiles)
-
-### Architecture & Standards
-
-**Contract Structure:**
-
-- Layer separation: `layer1/`, `layer2/`, `shared/`
-- UUPS upgradeable pattern with OpenZeppelin
-- Resolver pattern for cross-contract discovery
-- Storage gaps (`uint256[50] __gap`) for upgrade safety (applicable only to upgradeable contracts)
-
-**Testing Standards:**
-
-- Tests mirror contract structure under `test/`
-- Inherit from appropriate base classes:
-  - `CommonTest` for shared functionality
-- Use provided test accounts (Alice, Bob, Carol, David, Emma)
-- For positive tests use `test_functionName_Description` as the test name and verify correct behavior by checking storage variables and/or events. For events use `vm.execptEmit()` (no parameters), which is the same as setting all to true.
-- For negative tests use `test_functionName_RevertWhen` as the test name and make sure they revert with the expected custom error.
-
-**Before Submitting Changes:**
-
-1. Format code: `pnpm fmt:sol`
-2. Run full test suite: `pnpm test`
-3. Check coverage: `pnpm test:coverage`
-4. Verify storage layout: `pnpm layout` (compare before/after)
-5. Check gas impact: `pnpm snapshot:l1`
-6. Run performance benchmarks for critical contracts
-7. Validate test isolation and cleanup
-8. Review gas usage patterns and optimization opportunities
-
-### Gas Considerations
-
-- Any contract that lives on the L1 needs to be optimized, and gas consumption is very important. Minimize storage writes and reads as much as possible.
-- When working or reviewing gas optimizations always run:
-  - `pnpm snapshot:l1` and review the diffs in gas consumption per test. You can find them in `packages/protocol/gas-reports/layer1-contracts.txt` file. This shows the gas used by each test.
-  - You can also review the diffs in gas from the other files inside `packages/protocol/gas-reports/`. These are written using Foundry's new `snapshotGas` cheatcodes and are inserted in strategic sections of the tests where we want to capture gas usage. These are updated automatically when running `forge test`.
-
-## Common Tasks
-
-### Working with the Monorepo
+## 🚀 Essential Monorepo Commands
 
 ```bash
 # Install all dependencies
@@ -151,62 +51,62 @@ pnpm --filter @taiko/taiko-client build
 pnpm clean && pnpm install
 ```
 
-### Cross-Package Development
+## 📋 Cross-Package Development Guidelines
 
 - Changes affecting multiple packages should be tested together
 - Use `pnpm link` for local package development
 - Run integration tests when modifying shared dependencies
 - Update package versions consistently
+- Install pnpm packages first before working with Foundry: `pnpm install`
 
-### Debugging Tips
+## 🔧 Tool Configuration & Usage
 
-- For smart contracts: Use `forge test -vvvv` for maximum verbosity
-- For Go services: Use `dlv` debugger or extensive logging
-- For frontend: Use browser DevTools and SvelteKit's built-in debugging
-- Use `console.log` debugging sparingly, prefer proper debuggers
+- **GitHub**: Use the GitHub CLI (`gh`) instead of direct API requests or curl requests
+- **Package Management**: Use pnpm commands at the monorepo root for cross-package operations
+- **Development**: Prefer package-specific commands when working within a single package
+- **IDE**: Leverage VS Code extensions for Solidity, Go, and TypeScript development
 
-## Important Notes
+## 🐛 Debugging Strategies
 
-### Security
+- **Smart contracts**: Use `forge test -vvvv` for maximum verbosity
+- **Go services**: Use `dlv` debugger or extensive logging
+- **Frontend**: Use browser DevTools and SvelteKit's built-in debugging
+- **General**: Use proper debuggers over console.log debugging
+
+## 🔒 Security Best Practices
 
 - Never commit sensitive data (private keys, API keys, etc.)
 - Always validate user inputs
 - Follow security best practices for each language/framework
-- Use the security contact for any security-related issues
-- Run security audits on smart contracts before deployment
 - Implement rate limiting and DoS protection
 
-### Performance
+## ⚡ Performance Optimization Principles
 
-- L1 contracts must be gas-optimized
-- Minimize storage operations in smart contracts
 - Use efficient algorithms and data structures
 - Profile and benchmark critical paths
 - Consider caching strategies for frequently accessed data
 - Optimize database queries in backend services
 
-### Documentation
+## 📝 Documentation Standards
 
 - Update README files when adding new features
 - Document complex algorithms and business logic
 - Keep API documentation up to date
 - Add inline comments for non-obvious code
 - Update CHANGELOG.md for significant changes
+- **ALWAYS** prefer simple, efficient code
 
-## CI/CD and Deployment
+## ✅ CI/CD Requirements
 
-### Testing Requirements
+### Testing Standards
 
 - All tests must pass before merging
 - Maintain test coverage above threshold (aim for >95%)
 - Include unit, integration, and performance tests
 - Test edge cases and error conditions
 - Follow structured test patterns with proper isolation
-- Use performance benchmarking for gas-critical operations
-- Implement proper test data factories and reusable utilities
-- Document test scenarios and expected behaviors
 
-### Code Review Guidelines
+### Code Review Checklist
 
 - Review for security vulnerabilities
 - Check for proper error handling
@@ -214,21 +114,8 @@ pnpm clean && pnpm install
 - Ensure code follows style guidelines
 - Look for potential race conditions in concurrent code
 - Validate test quality and coverage
-- Review performance implications and gas usage
-- Check test isolation and cleanup patterns
-- Ensure proper use of test utilities and factories
 
-## Tool Usage
-
-- When interacting with GitHub, use the GitHub CLI (`gh`) instead of doing direct API requests or curl requests. You can find the docs here: https://cli.github.com/manual/
-- Use pnpm commands at the monorepo root for cross-package operations
-- Prefer package-specific commands when working within a single package
-- Use appropriate debugging tools for each technology stack
-- Leverage VS Code extensions for Solidity, Go, and TypeScript development
-
-## Troubleshooting
-
-### Common Issues
+## 🔨 Troubleshooting Common Issues
 
 1. **Compilation errors**: Run `pnpm clean` and `pnpm install`
 2. **Test failures**: Check for recent dependency updates
@@ -236,9 +123,13 @@ pnpm clean && pnpm install
 4. **Type errors**: Ensure TypeScript definitions are up to date
 5. **Build failures**: Verify all dependencies are installed correctly
 
-### Getting Help
+## 📬 Getting Help
 
 - Check existing issues on GitHub
 - Review documentation in each package
 - Ask in developer channels
 - Contact security team for security issues: security@taiko.xyz
+
+---
+
+**Note**: For protocol-specific development guidance, see `packages/protocol/CLAUDE.md`
