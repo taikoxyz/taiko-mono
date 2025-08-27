@@ -264,7 +264,7 @@ contract InboxChainAdvancement is InboxTest {
 
         // Expect: Final block update for batch completion
     ICheckpointManager.Checkpoint memory lastHeader = transitions[numProposals - 1].checkpoint;
-        expectSyncedBlockSave(
+        expectCheckpointSaved(
             lastHeader.number,
             lastHeader.hash,
             lastHeader.stateRoot
@@ -393,10 +393,8 @@ contract InboxChainAdvancement is InboxTest {
         // Core state will be validated by the contract during propose()
 
         // Expect only proposal 2's block to be saved (last finalized)
-        expectSyncedBlockSave(
-            transitions[1].checkpoint.blockNumber,
-            transitions[1].checkpoint.blockHash,
-            transitions[1].checkpoint.stateRoot
+        expectCheckpointSaved(
+            transitions[1].checkpoint
         );
 
         mockProposerAllowed(Carol);
@@ -520,10 +518,8 @@ contract InboxChainAdvancement is InboxTest {
         // Core state will be validated by the contract during propose()
 
         // Expect only proposal 3's block to be saved (due to max finalization count)
-        expectSyncedBlockSave(
-            transitions[2].checkpoint.blockNumber, // Only first 3 will be finalized
-            transitions[2].checkpoint.blockHash,
-            transitions[2].checkpoint.stateRoot
+        expectCheckpointSaved(
+            transitions[2].checkpoint
         );
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
@@ -995,7 +991,7 @@ contract InboxChainAdvancement is InboxTest {
         });
         // Core state will be validated by the contract during propose()
 
-        // NOTE: Removing expectSyncedBlockSave as aggregated transition records
+        // NOTE: Removing expectCheckpointSaved as aggregated transition records
         // may handle sync block saves differently than individual records
 
         // Create next proposal with finalization
@@ -1303,7 +1299,7 @@ contract InboxChainAdvancement is InboxTest {
 
         // Expect checkpoint save for the last finalized proposal
         ICheckpointManager.Checkpoint memory checkpoint = transitions[numProposals - 1].checkpoint;
-        expectSyncedBlockSave(checkpoint.blockNumber, checkpoint.blockHash, checkpoint.stateRoot);
+        expectCheckpointSaved(checkpoint);
 
         // Create next proposal with finalization of all 3
         _finalizeWithTransitionRecords(

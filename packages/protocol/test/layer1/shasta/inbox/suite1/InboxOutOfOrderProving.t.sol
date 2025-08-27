@@ -17,7 +17,7 @@ contract InboxOutOfOrderProving is InboxTest {
     // Override setupMockAddresses to use actual mock contracts
     function setupMockAddresses() internal override {
         bondToken = address(new MockERC20());
-        checkpointManager = address(new StubSyncedBlockManager());
+        checkpointManager = address(new StubCheckpointManager());
         forcedInclusionStore = address(new StubForcedInclusionStore());
         proofVerifier = address(new StubProofVerifier());
         proposerChecker = address(new StubProposerChecker());
@@ -197,10 +197,8 @@ contract InboxOutOfOrderProving is InboxTest {
 
         // Expect final block update
         IInbox.Transition memory lastTransition = transitions[numProposals - 1];
-        expectSyncedBlockSave(
-            lastTransition.checkpoint.blockNumber,
-            lastTransition.checkpoint.blockHash,
-            lastTransition.checkpoint.stateRoot
+        expectCheckpointSaved(
+            lastTransition.checkpoint
         );
 
         // Submit new proposal that triggers finalization
@@ -389,10 +387,8 @@ contract InboxOutOfOrderProving is InboxTest {
         mockForcedInclusionDue(false);
 
         // Expect only proposal 1 to be finalized
-        expectSyncedBlockSave(
-            transition1.checkpoint.blockNumber,
-            transition1.checkpoint.blockHash,
-            transition1.checkpoint.stateRoot
+        expectCheckpointSaved(
+            transition1.checkpoint
         );
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(4);

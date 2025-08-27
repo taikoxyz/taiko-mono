@@ -91,7 +91,7 @@ contract CheckpointManager is EssentialContract, ICheckpointManager {
     function getCheckpoint(uint48 _offset)
         external
         view
-        returns (uint48 blockNumber_, bytes32 blockHash_, bytes32 stateRoot_)
+        returns (Checkpoint memory)
     {
         require(_stackSize != 0, NoCheckpoints());
         require(_offset < _stackSize, IndexOutOfBounds());
@@ -112,10 +112,7 @@ contract CheckpointManager is EssentialContract, ICheckpointManager {
                 slot = maxStackSize + _stackTop - _offset;
             }
 
-            Checkpoint memory checkpoint = _checkpoints[slot];
-            blockNumber_ = checkpoint.blockNumber;
-            blockHash_ = checkpoint.blockHash;
-            stateRoot_ = checkpoint.stateRoot;
+            return _checkpoints[slot];
         }
     }
 

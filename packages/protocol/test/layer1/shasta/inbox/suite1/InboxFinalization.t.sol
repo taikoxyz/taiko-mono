@@ -41,10 +41,8 @@ contract InboxFinalization is InboxTest {
         );
 
         // Setup expectations
-        expectSyncedBlockSave(
-            transition.checkpoint.blockNumber,
-            transition.checkpoint.blockHash,
-            transition.checkpoint.stateRoot
+        expectCheckpointSaved(
+            transition.checkpoint
         );
 
         // Act: Submit proposal that triggers finalization with the transition's checkpoint
@@ -151,10 +149,8 @@ contract InboxFinalization is InboxTest {
         }
 
         // Setup expectations for finalization
-        expectSyncedBlockSave(
-            transitions[numProposals - 1].checkpoint.blockNumber,
-            transitions[numProposals - 1].checkpoint.blockHash,
-            transitions[numProposals - 1].checkpoint.stateRoot
+        expectCheckpointSaved(
+            transitions[numProposals - 1].checkpoint
         );
 
         // Act: Submit finalization proposal with the last transition's checkpoint
@@ -255,10 +251,8 @@ contract InboxFinalization is InboxTest {
         mockForcedInclusionDue(false);
 
         // Only expect first proposal to be finalized
-        expectSyncedBlockSave(
-            transition1.checkpoint.blockNumber,
-            transition1.checkpoint.blockHash,
-            transition1.checkpoint.stateRoot
+        expectCheckpointSaved(
+            transition1.checkpoint
         );
 
         // Create proposal data with only transitionRecord1

@@ -27,7 +27,7 @@ contract InboxProposeValidation is InboxTest {
     // Override setupMockAddresses to use actual mock contracts
     function setupMockAddresses() internal override {
         bondToken = address(new MockERC20());
-        checkpointManager = address(new StubSyncedBlockManager());
+        checkpointManager = address(new StubCheckpointManager());
         forcedInclusionStore = address(new StubForcedInclusionStore());
         proofVerifier = address(new StubProofVerifier());
         proposerChecker = address(new StubProposerChecker());

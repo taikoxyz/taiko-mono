@@ -39,13 +39,11 @@ interface ICheckpointManager {
     /// @notice Gets a checkpoint by index
     /// @param _offset The offset of the checkpoint. Use 0 for the last checkpoint, 1 for the
     /// second last, etc.
-    /// @return blockNumber_ The block number
-    /// @return blockHash_ The block hash
-    /// @return stateRoot_ The state root
+    /// @return _ The checkpoint
     function getCheckpoint(uint48 _offset)
         external
         view
-        returns (uint48 blockNumber_, bytes32 blockHash_, bytes32 stateRoot_);
+        returns (Checkpoint memory);
 
     /// @notice Gets the latest checkpoint number
     /// @return _ The latest checkpoint number

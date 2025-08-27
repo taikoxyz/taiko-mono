@@ -42,7 +42,7 @@ contract MockERC20 is IERC20 {
     }
 }
 
-contract StubSyncedBlockManager {
+contract StubCheckpointManager {
     function saveCheckpoint(uint48, bytes32, bytes32) external { }
 }
 

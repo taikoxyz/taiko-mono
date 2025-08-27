@@ -128,7 +128,7 @@ abstract contract InboxTest is CommonTest {
     function setupMockAddresses(bool useRealMocks) internal virtual {
         if (useRealMocks) {
             bondToken = address(new MockERC20());
-            checkpointManager = address(new StubSyncedBlockManager());
+            checkpointManager = address(new StubCheckpointManager());
             forcedInclusionStore = address(new StubForcedInclusionStore());
             proofVerifier = address(new StubProofVerifier());
             proposerChecker = address(new StubProposerChecker());
@@ -1082,17 +1082,16 @@ abstract contract InboxTest is CommonTest {
         }
     }
 
-    function expectSyncedBlockSave(
-        uint48 _blockNumber,
-        bytes32 _blockHash,
-        bytes32 _stateRoot
+    function expectCheckpointSaved(
+        ICheckpointManager.Checkpoint memory _checkpoint
     )
         internal
     {
         vm.expectCall(
             checkpointManager,
             abi.encodeWithSelector(
-                ICheckpointManager.saveCheckpoint.selector, _blockNumber, _blockHash, _stateRoot
+                ICheckpointManager.saveCheckpoint.selector,
+                _checkpoint
             )
         );
     }
