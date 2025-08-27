@@ -26,7 +26,12 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized1() { }
+    constructor(
+        uint64 _inclusionDelay,
+        uint64 _feeInGwei
+    )
+        InboxOptimized1(_inclusionDelay, _feeInGwei)
+    { }
 
     // ---------------------------------------------------------------
     // External Functions

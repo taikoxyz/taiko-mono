@@ -12,7 +12,7 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
     mapping(uint256 => bytes32) private mockBlobHashes;
     bool private useMockBlobHashes;
 
-    constructor() InboxOptimized2() { }
+    constructor() InboxOptimized2(7 days, 10) { }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;
@@ -40,7 +40,7 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
                 syncedBlockManager: address(0),
                 proofVerifier: address(0),
                 proposerChecker: address(0),
-                forcedInclusionStore: address(0),
+                forcedInclusionStore: address(this),
                 minForcedInclusionCount: 1
             });
         }

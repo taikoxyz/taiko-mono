@@ -16,7 +16,7 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
     // Storage to track endBlockMiniHeader for test purposes
     mapping(uint48 => IInbox.BlockMiniHeader) public testEndBlockMiniHeaders;
 
-    constructor() InboxOptimized1() { }
+    constructor() InboxOptimized1(7 days, 10) { }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;
@@ -43,7 +43,7 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
                 syncedBlockManager: address(0),
                 proofVerifier: address(0),
                 proposerChecker: address(0),
-                forcedInclusionStore: address(0),
+                forcedInclusionStore: address(this),
                 minForcedInclusionCount: 1
             });
         }

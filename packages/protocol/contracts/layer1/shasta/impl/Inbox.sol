@@ -11,6 +11,7 @@ import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { AbstractForcedInclusionStore } from "./AbstractForcedInclusionStore.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, and verification in Taiko's based
@@ -22,7 +23,7 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals
 /// @custom:security-contact security@taiko.xyz
-abstract contract Inbox is EssentialContract, IInbox {
+abstract contract Inbox is AbstractForcedInclusionStore, IInbox {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
@@ -74,7 +75,12 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
 
     /// @notice Initializes the Inbox contract
-    constructor() EssentialContract() { }
+    constructor(
+        uint64 _inclusionDelay,
+        uint64 _feeInGwei
+    )
+        AbstractForcedInclusionStore(_inclusionDelay, _feeInGwei)
+    { }
 
     /// @notice Initializes the Inbox contract with genesis block
     /// @param _owner The owner of this contract
@@ -162,7 +168,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         // none remains in the queue that is due.
         require(
             input.numForcedInclusions >= config.minForcedInclusionCount
-                || !IForcedInclusionStore(config.forcedInclusionStore).isOldestForcedInclusionDue(),
+                || !_isOldestForcedInclusionDue(),
             UnprocessedForcedInclusionIsDue()
         );
 
@@ -589,9 +595,9 @@ abstract contract Inbox is EssentialContract, IInbox {
         private
         returns (CoreState memory, uint256)
     {
-        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = IForcedInclusionStore(
-            _config.forcedInclusionStore
-        ).consumeForcedInclusions(msg.sender, _numForcedInclusions);
+        // Directly call the internal function instead of the external interface
+        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = 
+            _consumeForcedInclusions(msg.sender, _numForcedInclusions);
 
         for (uint256 i; i < forcedInclusions.length; ++i) {
             _coreState = _propose(_config, _coreState, forcedInclusions[i].blobSlice, true);

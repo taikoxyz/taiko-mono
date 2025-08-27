@@ -190,7 +190,7 @@ abstract contract InboxTest is CommonTest {
             syncedBlockManager: syncedBlockManager,
             proofVerifier: proofVerifier,
             proposerChecker: proposerChecker,
-            forcedInclusionStore: forcedInclusionStore,
+            forcedInclusionStore: address(inbox),
             minForcedInclusionCount: 1
         });
 
