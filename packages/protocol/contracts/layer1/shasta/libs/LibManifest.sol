@@ -22,9 +22,6 @@ library LibManifest {
     /// the cost of a worst-case prover attack is bounded.
     uint256 internal constant BLOCK_MAX_RAW_TRANSACTIONS = 4096 * 2;
 
-    /// @notice Maximum number of transactions that can be included in an actual L2 block.
-    uint256 internal constant BLOCK_MAX_TRANSACTIONS = 4096;
-
     /// @notice The maximum anchor block number offset from the proposal origin block number.
     uint256 internal constant ANCHOR_MAX_OFFSET = 128;
 

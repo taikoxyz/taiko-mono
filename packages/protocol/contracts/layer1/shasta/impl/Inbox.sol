@@ -44,8 +44,8 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// - compositeKey: Keccak256 hash of (proposalId, parentTransitionHash)
     /// - transitionRecordHash: The hash of the TransitionRecord struct
     /// @dev Reuses the `batches` slot from Pacaya fork for storage efficiency
-    mapping(uint256 bufferSlot => mapping(bytes32 compositeKey => bytes32 claimRecordHash)) internal
-        _transitionRecordHashes;
+    mapping(uint256 bufferSlot => mapping(bytes32 compositeKey => bytes32 transitionRecordHash))
+        internal _transitionRecordHashes;
 
     /// @dev Deprecated slots used by Pacaya inbox that contains:
     /// - `transitionIds`
@@ -112,17 +112,16 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
 
     /// @inheritdoc IInbox
-    /// @notice Proposes new L2 blocks to the rollup
+    /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
     ///      1. Validates proposer authorization via ProposerChecker
-    ///      2. Finalizes eligible proposals to free ring buffer space
-    ///      3. Processes forced inclusions if due (oldest first)
-    ///      4. Submits regular proposal if capacity available
-    ///      5. Updates core state and emits Proposed event
-    /// @dev Forced inclusion processing:
-    ///      - Processes exactly one (oldest) forced inclusion per call
-    ///      - Only processed when due, cannot be processed early
-    ///      - Takes priority over regular proposals
+    ///      2. Finalizes eligible proposals up to `config.maxFinalizationCount` to free ring buffer
+    ///         space.
+    ///      3. Process `input.numForcedInclusions` forced inclusions. The proposer is forced to
+    ///         process at least `config.minForcedInclusionCount` if they are due.
+    ///      4. Updates core state and emits `Proposed` event
+    /// @dev IMPORTANT: The regular proposal might not be included if there is not enough capacity
+    ///      available(i.e forced inclusions are prioritized).
     function propose(
         bytes calldata,
         /*_lookahead*/
@@ -149,15 +148,27 @@ abstract contract Inbox is EssentialContract, IInbox {
 
         // Verify capacity for new proposals
         uint256 availableCapacity = _getAvailableCapacity(config, coreState);
-        require(availableCapacity > 0, ExceedsUnfinalizedProposalCapacity());
+        require(
+            availableCapacity >= input.numForcedInclusions, ExceedsUnfinalizedProposalCapacity()
+        );
 
         // Process forced inclusion if required
-        bool forcedInclusionProcessed;
-        (coreState, forcedInclusionProcessed) = _processForcedInclusion(config, coreState);
+        uint256 amountOfForcedInclusionsProcessed;
+        (coreState, amountOfForcedInclusionsProcessed) =
+            _processForcedInclusions(config, coreState, input.numForcedInclusions);
+        availableCapacity -= amountOfForcedInclusionsProcessed;
 
-        if (!forcedInclusionProcessed || availableCapacity > 1) {
-            // Propose the normal proposal after the potential forced inclusion to match the
-            // behavior in Shasta fork.
+        // Verify that at least `config.minForcedInclusionCount` forced inclusions were processed or
+        // none remains in the queue that is due.
+        require(
+            input.numForcedInclusions >= config.minForcedInclusionCount
+                || !IForcedInclusionStore(config.forcedInclusionStore).isOldestForcedInclusionDue(),
+            UnprocessedForcedInclusionIsDue()
+        );
+
+        // Propose the normal proposal after the potential forced inclusions if there is capacity
+        // available
+        if (availableCapacity > 0) {
             LibBlobs.BlobSlice memory blobSlice =
                 LibBlobs.validateBlobReference(input.blobReference, _getBlobHash);
             _propose(config, coreState, blobSlice, false);
@@ -463,6 +474,11 @@ abstract contract Inbox is EssentialContract, IInbox {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
         bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+
+        bytes32 storedTransitionRecordHash = _transitionRecordHashes[bufferSlot][compositeKey];
+        if (storedTransitionRecordHash == transitionRecordHash) return;
+
+        require(storedTransitionRecordHash == 0, TransitionWithSameParentHashAlreadyProved());
         _transitionRecordHashes[bufferSlot][compositeKey] = transitionRecordHash;
 
         bytes memory payload = encodeProvedEventData(
@@ -582,34 +598,30 @@ abstract contract Inbox is EssentialContract, IInbox {
         );
     }
 
-    /// @dev Attempts to process a forced inclusion from the ForcedInclusionStore
-    /// @notice Uses low-level call to handle potential failures gracefully
+    /// @dev Processes multiple forced inclusions from the ForcedInclusionStore
+    /// @notice Consumes up to _numForcedInclusions from the queue and proposes them sequentially
     /// @param _config Configuration containing forced inclusion store address
-    /// @param _coreState Current core state to update if inclusion processed
-    /// @return coreState_ Updated state if forced inclusion processed, unchanged otherwise
-    /// @return forcedInclusionProcessed_ True if a forced inclusion was successfully processed
-    function _processForcedInclusion(
+    /// @param _coreState Current core state to update with each inclusion processed
+    /// @param _numForcedInclusions Maximum number of forced inclusions to process
+    /// @return _ Updated core state after processing all consumed forced inclusions
+    /// @return _ Number of forced inclusions processed
+    function _processForcedInclusions(
         Config memory _config,
-        CoreState memory _coreState
+        CoreState memory _coreState,
+        uint8 _numForcedInclusions
     )
         private
-        returns (CoreState memory coreState_, bool forcedInclusionProcessed_)
+        returns (CoreState memory, uint256)
     {
-        // Use low-level call to handle potential errors gracefully
-        (bool success, bytes memory returnData) = _config.forcedInclusionStore.call(
-            abi.encodeCall(IForcedInclusionStore.consumeOldestForcedInclusion, (msg.sender))
-        );
+        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = IForcedInclusionStore(
+            _config.forcedInclusionStore
+        ).consumeForcedInclusions(msg.sender, _numForcedInclusions);
 
-        // If the call fails, return _coreState as is
-        if (!success) {
-            return (_coreState, false);
+        for (uint256 i; i < forcedInclusions.length; ++i) {
+            _coreState = _propose(_config, _coreState, forcedInclusions[i].blobSlice, true);
         }
 
-        // Decode the returned ForcedInclusion struct
-        IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
-            abi.decode(returnData, (IForcedInclusionStore.ForcedInclusion));
-
-        coreState_ = _propose(_config, _coreState, forcedInclusion.blobSlice, true);
+        return (_coreState, forcedInclusions.length);
     }
 
     /// @dev Verifies that parentProposals[0] is the current chain head
@@ -637,10 +649,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             // Next slot in the ring buffer is occupied, need to prove it contains a
             // proposal with a smaller id
             require(_parentProposals.length == 2, IncorrectProposalCount());
-            require(
-                _parentProposals[1].id < _parentProposals[0].id,
-                NextProposalIdSmallerThanLastProposalId()
-            );
+            require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
             require(
                 storedNextProposalHash == _hashProposal(_parentProposals[1]),
                 NextProposalHashMismatch()
@@ -891,12 +900,12 @@ error ForkNotActive();
 error InconsistentParams();
 error IncorrectProposalCount();
 error InsufficientBond();
+error InvalidLastProposalProof();
 error InvalidSpan();
 error InvalidState();
 error LastProposalHashMismatch();
 error LastProposalProofNotEmpty();
 error NextProposalHashMismatch();
-error NextProposalIdSmallerThanLastProposalId();
 error NoBondToWithdraw();
 error ProposalHashMismatch();
 error ProposalHashMismatchWithTransition();
@@ -905,4 +914,6 @@ error ProposalIdMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
 error SpanOutOfBounds();
+error TransitionWithSameParentHashAlreadyProved();
 error Unauthorized();
+error UnprocessedForcedInclusionIsDue();

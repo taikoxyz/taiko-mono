@@ -69,6 +69,9 @@ library LibProposeInputDecoder {
             ptr = P.packBytes32(ptr, _input.endBlockMiniHeader.hash);
             ptr = P.packBytes32(ptr, _input.endBlockMiniHeader.stateRoot);
         }
+
+        // 7. Encode numForcedInclusions
+        ptr = P.packUint8(ptr, _input.numForcedInclusions);
     }
 
     /// @notice Decodes propose data using optimized operations with LibPackUnpack
@@ -120,6 +123,9 @@ library LibProposeInputDecoder {
             (input_.endBlockMiniHeader.stateRoot, ptr) = P.unpackBytes32(ptr);
         }
         // else: endBlockMiniHeader remains as default (all zeros)
+
+        // 7. Decode numForcedInclusions
+        (input_.numForcedInclusions, ptr) = P.unpackUint8(ptr);
     }
 
     /// @notice Encode a single Proposal
@@ -249,7 +255,8 @@ library LibProposeInputDecoder {
             // BlobReference: 2 + 2 + 3 = 7 bytes
             // Arrays lengths: 3 + 3 = 6 bytes
             // BlockMiniHeader flag: 1 byte
-            size_ = 96;
+            // numForcedInclusions: 1 byte (uint8)
+            size_ = 97;
 
             // Add BlockMiniHeader size if not empty
             bool isEmpty = _endBlockMiniHeader.number == 0 && _endBlockMiniHeader.hash == bytes32(0)

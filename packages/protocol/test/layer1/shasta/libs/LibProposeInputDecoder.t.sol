@@ -61,7 +61,8 @@ contract LibProposeInputDecoderTest is Test {
                 number: 0,
                 hash: bytes32(0),
                 stateRoot: bytes32(0)
-            })
+            }),
+            numForcedInclusions: 0
         });
 
         // Test with standard ABI encoding for baseline
@@ -220,7 +221,8 @@ contract LibProposeInputDecoderTest is Test {
                 number: 2_000_010,
                 hash: keccak256("end_block"),
                 stateRoot: keccak256("end_state")
-            })
+            }),
+            numForcedInclusions: 0
         });
 
         // Test with standard ABI encoding for baseline
@@ -332,7 +334,8 @@ contract LibProposeInputDecoderTest is Test {
                 number: 999_999,
                 hash: bytes32(uint256(0xabcdef)),
                 stateRoot: bytes32(uint256(0xfedcba))
-            })
+            }),
+            numForcedInclusions: 0
         });
 
         // Encode using compact encoding

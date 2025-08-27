@@ -126,17 +126,19 @@ contract InboxRingBuffer is InboxTest {
     }
 
     /// @notice Test protection of unfinalized proposals from overwrite
-    /// @dev Validates capacity enforcement for data safety
+    /// @dev Validates that proposals are silently skipped when capacity is exceeded
     /// Ring buffer size 3 means slots 0, 1, 2:
     /// - Slot 0: Genesis proposal (can only be overwritten if proposal 1 is finalized)
     /// - Slot 1: Will hold proposal 1
     /// - Slot 2: Will hold proposal 2
     /// Capacity is 2, meaning max 2 unfinalized proposals
+    /// With the new design, when capacity is exceeded, proposals are silently skipped
+    /// rather than reverting, allowing forced inclusions to be prioritized
     function test_ring_buffer_protect_unfinalized() public {
         setupSmallRingBuffer(); // Ring buffer size 3, capacity = 2
 
         // Test scenario: Try to submit 3 proposals without finalization
-        // Expected: 3rd proposal should fail because it would overwrite genesis
+        // Expected: 3rd proposal should be silently skipped because it would overwrite genesis
         // but proposal 1 is not finalized
 
         // Submit proposal 1
@@ -204,10 +206,10 @@ contract InboxRingBuffer is InboxTest {
             )
         );
 
-        // Try to submit proposal 3 - should fail due to capacity
+        // Try to submit proposal 3 - should be silently skipped due to capacity
         // Proposal 3 would go to slot 0 (3 % 3 = 0), which has the genesis proposal
         // Genesis can only be overwritten if proposal 1 is finalized (which it's not)
-        // So this will fail with ExceedsUnfinalizedProposalCapacity
+        // With the new design, this will be silently skipped instead of reverting
         // We need to provide both proposal 2 (parent) and genesis (slot being overwritten)
 
         // Create the genesis proposal that was stored at initialization
@@ -243,9 +245,20 @@ contract InboxRingBuffer is InboxTest {
         );
 
         setupBlobHashes();
-        vm.expectRevert(ExceedsUnfinalizedProposalCapacity.selector);
+
+        // Store hashes before attempting proposal 3
+        bytes32 genesisHash = inbox.getProposalHash(0);
+        bytes32 prop1Hash = inbox.getProposalHash(1);
+        bytes32 prop2Hash = inbox.getProposalHash(2);
+
+        // With the new design, proposal is silently skipped when capacity is exceeded
         vm.prank(Alice);
         inbox.propose(bytes(""), data3);
+
+        // Verify that existing proposals remain unchanged (proposal 3 was skipped)
+        assertEq(inbox.getProposalHash(0), genesisHash, "Genesis should be unchanged");
+        assertEq(inbox.getProposalHash(1), prop1Hash, "Proposal 1 should be unchanged");
+        assertEq(inbox.getProposalHash(2), prop2Hash, "Proposal 2 should be unchanged");
     }
 
     // All helper functions are now inherited from InboxTest base class

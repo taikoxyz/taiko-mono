@@ -212,85 +212,15 @@ contract InboxProposeValidation is InboxTest {
         inbox.propose(bytes(""), data);
     }
 
-    /// @notice Test proposal with forced inclusion
-    /// @dev Validates forced inclusion mechanism for censorship resistance:
-    ///      1. Configures forced inclusion as due/required
-    ///      2. Mocks consumption of oldest forced inclusion with fee data
-    ///      3. Submits regular proposal triggering forced inclusion processing
-    ///      4. Verifies both forced and regular proposals are created correctly
-    function test_propose_with_forced_inclusion() public {
-        // Setup: Prepare EIP-4844 blob environment for forced inclusion testing
-        setupBlobHashes();
-        IInbox.Transition memory genesisTransition;
-        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
-        bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
-
-        IInbox.CoreState memory coreState = IInbox.CoreState({
-            nextProposalId: 1,
-            lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: initialParentHash,
-            bondInstructionsHash: bytes32(0)
-        });
-        // Core state will be validated by the contract during propose()
-
-        // Arrange: Configure Alice as authorized proposer
-        mockProposerAllowed(Alice);
-
-        // Arrange: Mock that forced inclusion is due (censorship resistance trigger)
-        mockForcedInclusionDue(true);
-
-        // Arrange: Mock consumption of oldest forced inclusion (fee-paying transaction)
-        bytes32[] memory blobHashes = new bytes32[](1);
-        blobHashes[0] = keccak256(abi.encode("forced_blob", 0));
-
-        IForcedInclusionStore.ForcedInclusion memory forcedInclusion = IForcedInclusionStore
-            .ForcedInclusion({
-            feeInGwei: 10, // Fee paid for forced inclusion
-            blobSlice: LibBlobs.BlobSlice({
-                blobHashes: blobHashes,
-                offset: 0,
-                timestamp: uint48(block.timestamp)
-            })
-        });
-
-        vm.mockCall(
-            forcedInclusionStore,
-            abi.encodeWithSelector(
-                IForcedInclusionStore.consumeOldestForcedInclusion.selector, Alice
-            ),
-            abi.encode(forcedInclusion)
-        );
-
-        // Arrange: Create regular proposal data (will trigger forced inclusion processing)
-        LibBlobs.BlobReference memory blobRef = createValidBlobReference(2);
-        IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](0);
-
-        // Use proper encoding with proposals array
-        bytes memory data =
-            encodeProposeInputWithGenesis(uint48(0), coreState, blobRef, transitionRecords);
-
-        // Note: When forced inclusion is due, both forced inclusion and regular proposals are
-        // created
-
-        // Act: Submit proposal triggering forced inclusion processing
-        vm.prank(Alice);
-        inbox.propose(bytes(""), data);
-
-        // Assert: Verify forced inclusion proposal was created
-        bytes32 storedHash1 = inbox.getProposalHash(1); // Forced inclusion proposal
-        assertTrue(storedHash1 != bytes32(0), "Forced inclusion proposal should be created");
-
-        // Assert: Verify regular proposal was also created
-        bytes32 storedHash2 = inbox.getProposalHash(2); // Regular proposal
-        assertTrue(storedHash2 != bytes32(0), "Regular proposal should also be created");
-    }
-
     /// @notice Test proposal exceeding unfinalized capacity
     /// @dev Validates ring buffer capacity enforcement for DoS protection:
     ///      1. Configures small ring buffer size (capacity = 2)
     ///      2. Fills capacity with valid proposals
     ///      3. Attempts to exceed capacity with third proposal
     ///      4. Expects ExceedsUnfinalizedProposalCapacity error for protection
+    /// @notice Test that proposals are silently skipped when capacity is exceeded
+    /// @dev With the new forced inclusion design, regular proposals are silently skipped
+    ///      when there's no available capacity, allowing forced inclusions to be prioritized
     function test_propose_exceeds_capacity() public {
         // Setup: Prepare environment with limited ring buffer capacity
         setupBlobHashes();
@@ -304,7 +234,15 @@ contract InboxProposeValidation is InboxTest {
             submitProposal(i, Alice);
         }
 
-        // Act & Assert: Attempt to add 3rd proposal (exceeds capacity)
+        // Verify initial state: 2 proposals stored
+        assertProposalStored(1);
+        assertProposalStored(2);
+
+        // Store current proposal hashes
+        bytes32 prop1Hash = inbox.getProposalHash(1);
+        bytes32 prop2Hash = inbox.getProposalHash(2);
+
+        // Act: Attempt to add 3rd proposal (exceeds capacity)
         // Setup for proposal 3
         IInbox.CoreState memory coreState3 = _getGenesisCoreState();
         coreState3.nextProposalId = 3;
@@ -331,10 +269,18 @@ contract InboxProposeValidation is InboxTest {
             new IInbox.TransitionRecord[](0)
         );
 
-        // Expect capacity exceeded error for DoS protection
-        vm.expectRevert(ExceedsUnfinalizedProposalCapacity.selector);
+        // Act: Call propose - should succeed but skip the proposal
         vm.prank(Alice);
         inbox.propose(bytes(""), data3);
+
+        // Assert: Verify that no new proposal was created (silently skipped)
+        // The existing proposals should remain unchanged
+        assertEq(inbox.getProposalHash(1), prop1Hash, "Proposal 1 should be unchanged");
+        assertEq(inbox.getProposalHash(2), prop2Hash, "Proposal 2 should be unchanged");
+
+        // Proposal 3 should not exist (slot 0 should still have genesis)
+        bytes32 slot0Hash = inbox.getProposalHash(0);
+        assertTrue(slot0Hash != bytes32(0), "Slot 0 should still have genesis");
     }
 
     /// @notice Test proposal with invalid blob reference

@@ -6,7 +6,6 @@
 contracts_shared=(
 "contracts/shared/tokenvault/ERC1155Vault.sol:ERC1155Vault"
 "contracts/shared/tokenvault/ERC20Vault.sol:ERC20Vault"
-"contracts/shared/tokenvault/ERC20VaultOriginal.sol:ERC20VaultOriginal"
 "contracts/shared/tokenvault/ERC721Vault.sol:ERC721Vault"
 "contracts/shared/tokenvault/BridgedERC20.sol:BridgedERC20"
 "contracts/shared/tokenvault/BridgedERC20V2.sol:BridgedERC20V2"
@@ -35,6 +34,7 @@ contracts_layer1=(
 "contracts/layer1/mainnet/multirollup/MainnetERC721Vault.sol:MainnetERC721Vault"
 "contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"
 "contracts/layer1/shasta/impl/MainnetShastaInbox.sol:MainnetShastaInbox"
+"contracts/layer1/shasta/impl/ForcedInclusionStore.sol:ForcedInclusionStore2"
 "contracts/layer1/team/TokenUnlock.sol:TokenUnlock"
 "contracts/layer1/provers/ProverSet.sol:ProverSet"
 "contracts/layer1/fork-router/ForkRouter.sol:ForkRouter"
