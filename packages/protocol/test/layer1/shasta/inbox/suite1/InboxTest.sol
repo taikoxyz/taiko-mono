@@ -759,20 +759,15 @@ abstract contract InboxTest is CommonTest {
     /// @dev Sets up mocks for forced inclusion scenario
     function setupForcedInclusionMocks(
         address _proposer,
-        IForcedInclusionStore.ForcedInclusion memory _forcedInclusion
+        IForcedInclusionStore.ForcedInclusion memory /*_forcedInclusion*/
     )
         internal
     {
         mockProposerAllowed(_proposer);
         mockForcedInclusionDue(true);
-
-        vm.mockCall(
-            forcedInclusionStore,
-            abi.encodeWithSelector(
-                IForcedInclusionStore.consumeForcedInclusions.selector, _proposer, 1
-            ),
-            abi.encode(_forcedInclusion)
-        );
+        
+        // Note: consumeForcedInclusions is now internal to the inbox
+        // No external mock needed since forced inclusion store is merged
     }
 
     /// @dev Sets up mocks for unauthorized proposer test
