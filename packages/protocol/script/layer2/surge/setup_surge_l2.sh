@@ -40,10 +40,17 @@ export LOG_LEVEL=${LOG_LEVEL:-"-vvvv"}
 # Parameterize block gas limit
 export BLOCK_GAS_LIMIT=${BLOCK_GAS_LIMIT:-200000000}
 
+# Parameterize gas price
+export GAS_PRICE=""
+if [ -n "$GAS_PRICE" ]; then
+    GAS_PRICE="--gas-price $GAS_PRICE"
+fi
+
 forge script ./script/layer2/surge/SetupSurgeL2.s.sol:SetupSurgeL2 \
     --fork-url $FORK_URL \
     $BROADCAST_ARG \
     --ffi \
     $LOG_LEVEL \
     --private-key $PRIVATE_KEY \
-    --block-gas-limit $BLOCK_GAS_LIMIT 
+    --block-gas-limit $BLOCK_GAS_LIMIT \
+    $GAS_PRICE
