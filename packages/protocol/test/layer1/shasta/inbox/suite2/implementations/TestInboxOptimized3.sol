@@ -42,7 +42,8 @@ contract TestInboxOptimized3 is InboxOptimized3 {
             syncedBlockManager: _syncedBlockManager,
             proofVerifier: _proofVerifier,
             proposerChecker: _proposerChecker,
-            forcedInclusionStore: _forcedInclusionStore
+            forcedInclusionStore: _forcedInclusionStore,
+            minForcedInclusionCount: 1
         });
     }
 }

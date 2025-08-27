@@ -371,7 +371,8 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
                 hash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))
             }),
-            transitionRecords: new IInbox.TransitionRecord[](0)
+            transitionRecords: new IInbox.TransitionRecord[](0),
+            numForcedInclusions: 0
         });
         
         return inbox.encodeProposeInput(input);

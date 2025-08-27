@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "contracts/layer1/shasta/iface/IProofVerifier.sol";
-import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
 import "contracts/shared/based/iface/ISyncedBlockManager.sol";
 
 /// @title MockERC20
@@ -27,41 +26,6 @@ contract MockProofVerifier is IProofVerifier {
 }
 
 
-/// @title MockForcedInclusionStore
-/// @notice Mock forced inclusion store for testing
-contract MockForcedInclusionStore is IForcedInclusionStore {
-    ForcedInclusion[] public forcedInclusions;
-    uint256[] public deadlines; // Store deadlines separately since not part of struct
-
-    function consumeOldestForcedInclusion(address) external returns (ForcedInclusion memory) {
-       revert("no forced inclusion");
-    }
-
-    function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
-        // Create a forced inclusion from the blob reference
-        LibBlobs.BlobSlice memory blobSlice = LibBlobs.BlobSlice({
-            blobHashes: new bytes32[](1),
-            offset: _blobReference.offset,
-            timestamp: uint48(block.timestamp)
-        });
-
-        ForcedInclusion memory inclusion =
-            ForcedInclusion({ feeInGwei: uint64(msg.value / 1 gwei), blobSlice: blobSlice });
-
-        forcedInclusions.push(inclusion);
-        deadlines.push(block.timestamp + 1 hours);
-    }
-
-    function isOldestForcedInclusionDue() external view returns (bool) {
-        if (forcedInclusions.length == 0) return false;
-        return block.timestamp >= deadlines[0];
-    }
-
-    function addForcedInclusion(ForcedInclusion memory _inclusion) external {
-        forcedInclusions.push(_inclusion);
-        deadlines.push(block.timestamp + 1 hours);
-    }
-}
 
 /// @title MockSyncedBlockManager
 /// @notice Mock synced block manager for testing

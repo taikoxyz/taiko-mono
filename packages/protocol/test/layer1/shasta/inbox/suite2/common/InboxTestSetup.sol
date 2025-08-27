@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { InboxTestHelper } from "./InboxTestHelper.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
-import { ForcedInclusionStore } from "contracts/layer1/shasta/impl/ForcedInclusionStore.sol";
+import { ForcedInclusionStore2 } from "contracts/layer1/shasta/impl/ForcedInclusionStore.sol";
 import { IForcedInclusionStore } from "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
 import { IProofVerifier } from "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import { IProposerChecker } from "contracts/layer1/shasta/iface/IProposerChecker.sol";
@@ -85,13 +85,13 @@ abstract contract InboxTestSetup is InboxTestHelper {
     function _setupDependencies() internal virtual {
         // Deploy ForcedInclusionStore
         address forcedInclusionStoreImplementation =
-            address(new ForcedInclusionStore(INCLUSION_DELAY, FEE_IN_GWEI, address(0)));
+            address(new ForcedInclusionStore2(INCLUSION_DELAY, FEE_IN_GWEI, address(0)));
 
         forcedInclusionStore = IForcedInclusionStore(
             deploy({
                 name: "",
                 impl: forcedInclusionStoreImplementation,
-                data: abi.encodeCall(ForcedInclusionStore.init, (owner))
+                data: abi.encodeCall(ForcedInclusionStore2.init, (owner))
             })
         );
 
@@ -109,7 +109,7 @@ abstract contract InboxTestSetup is InboxTestHelper {
     ///      and the dependencies are not upgradable
     function _upgradeDependencies(address _inbox) internal {
         address newForcedInclusionStore =
-            address(new ForcedInclusionStore(INCLUSION_DELAY, FEE_IN_GWEI, _inbox));
+            address(new ForcedInclusionStore2(INCLUSION_DELAY, FEE_IN_GWEI, _inbox));
 
         vm.prank(owner);
         UUPSUpgradeable(address(forcedInclusionStore)).upgradeTo(newForcedInclusionStore);

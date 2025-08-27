@@ -42,7 +42,8 @@ contract TestInbox is Inbox {
             syncedBlockManager: _syncedBlockManager,
             proofVerifier: _proofVerifier,
             proposerChecker: _proposerChecker,
-            forcedInclusionStore: _forcedInclusionStore
+            forcedInclusionStore: _forcedInclusionStore,
+            minForcedInclusionCount: 1
         });
     }
 }

@@ -42,7 +42,8 @@ contract TestInboxOptimized1 is InboxOptimized1 {
             syncedBlockManager: _syncedBlockManager,
             proofVerifier: _proofVerifier,
             proposerChecker: _proposerChecker,
-            forcedInclusionStore: _forcedInclusionStore
+            forcedInclusionStore: _forcedInclusionStore,
+            minForcedInclusionCount: 1
         });
     }
 }
