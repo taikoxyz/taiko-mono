@@ -931,7 +931,7 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 // GetNextPreconfWhiteListOperator resolves the next preconfirmation whitelist operator address.
 func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Address, error) {
 	if c.PacayaClients.PreconfWhitelist == nil {
-		return common.Address{}, errors.New("prpreconfirmationeconf whitelist contract is not set")
+		return common.Address{}, errors.New("preconfirmation whitelist contract is not set")
 	}
 
 	var cancel context.CancelFunc
@@ -952,6 +952,37 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	}
 
 	return opInfo.SequencerAddress, nil
+}
+
+// GetAllPreconfOperators fetch all possible preconfirmation operators added to the whitelist contract,
+// regardless of whether they are active or not, or eligible for the current or next epoch.
+func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, error) {
+	if c.PacayaClients.PreconfWhitelist == nil {
+		return nil, errors.New("preconfirmation whitelist contract is not set")
+	}
+
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	count, err := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get total preconfirmation whitelist operators: %w", err)
+	}
+
+	var operators []common.Address
+	for i := uint8(0); i < count; i++ {
+		operator, err := c.PacayaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get preconfirmation whitelist operator by index %d: %w", i, err)
+		}
+		operators = append(operators, operator)
+	}
+
+	return operators, nil
 }
 
 // GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address.
