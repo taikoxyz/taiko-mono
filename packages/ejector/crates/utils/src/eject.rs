@@ -1,6 +1,10 @@
 use std::time::Duration;
 
-use alloy::{primitives::Address, providers::ProviderBuilder, transports::http::reqwest::Url};
+use alloy::{
+    primitives::{Address, U256},
+    providers::{Provider, ProviderBuilder},
+    transports::http::reqwest::Url,
+};
 use tracing::{info, warn};
 
 use crate::receipt::poll_receipt_until;
@@ -20,10 +24,13 @@ pub async fn eject_operator(
 
     let operator_count = preconf_whitelist.operatorCount().call().await?;
 
-    if min_operators > 0 && u64::from(operator_count) <= min_operators {
+    let active_operators =
+        active_operator_count(&preconf_whitelist, u64::from(operator_count)).await?;
+
+    if min_operators > 0 && u64::from(active_operators) <= min_operators {
         warn!(
             "Not ejecting operator: operator_count {}, min_operators {}",
-            operator_count, min_operators
+            active_operators, min_operators
         );
 
         return Ok(());
@@ -64,4 +71,21 @@ pub async fn eject_operator(
         }
     }
     Ok(())
+}
+async fn active_operator_count<P>(
+    preconf_whitelist: &bindings::IPreconfWhitelist::IPreconfWhitelistInstance<P>,
+    operator_count: u64,
+) -> eyre::Result<u64>
+where
+    P: Provider + Clone + Send + Sync + 'static,
+{
+    let mut count = 0u64;
+    for i in 0..operator_count {
+        let addr = preconf_whitelist.operatorMapping(U256::from(i)).call().await?;
+        let info = preconf_whitelist.operators(addr).call().await?;
+        if info.inactiveSince == 0 && info.activeSince != 0 {
+            count += 1;
+        }
+    }
+    Ok(count)
 }
