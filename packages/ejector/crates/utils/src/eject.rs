@@ -22,10 +22,7 @@ pub async fn eject_operator(
 
     let preconf_whitelist = bindings::IPreconfWhitelist::new(whitelist_addr, l1.clone());
 
-    let operator_count = preconf_whitelist.operatorCount().call().await?;
-
-    let active_operators =
-        active_operator_count(&preconf_whitelist, u64::from(operator_count)).await?;
+    let active_operators = active_operator_count(&preconf_whitelist).await?;
 
     if min_operators > 0 && u64::from(active_operators) <= min_operators {
         warn!(
@@ -76,11 +73,12 @@ pub async fn eject_operator(
 // active operators have activeSince != 0 and inactiveSince == 0
 async fn active_operator_count<P>(
     preconf_whitelist: &bindings::IPreconfWhitelist::IPreconfWhitelistInstance<P>,
-    operator_count: u64,
 ) -> eyre::Result<u64>
 where
     P: Provider + Clone + Send + Sync + 'static,
 {
+    let operator_count = preconf_whitelist.operatorCount().call().await?;
+
     let mut count = 0u64;
     for i in 0..operator_count {
         let addr = preconf_whitelist.operatorMapping(U256::from(i)).call().await?;
