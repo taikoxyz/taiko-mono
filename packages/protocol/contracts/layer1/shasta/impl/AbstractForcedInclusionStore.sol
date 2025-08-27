@@ -86,18 +86,6 @@ abstract contract AbstractForcedInclusionStore is EssentialContract, IForcedIncl
         emit ForcedInclusionStored(inclusion);
     }
 
-    /// @inheritdoc IForcedInclusionStore
-    function consumeForcedInclusions(
-        address, /*_feeRecipient*/
-        uint256 /*_count*/
-    )
-        external
-        virtual
-        returns (ForcedInclusion[] memory)
-    {
-        // This will be overridden by the inheriting contract
-        revert("Must be implemented by inheriting contract");
-    }
 
     /// @inheritdoc IForcedInclusionStore
     function isOldestForcedInclusionDue() external view returns (bool) {
@@ -170,10 +158,6 @@ abstract contract AbstractForcedInclusionStore is EssentialContract, IForcedIncl
             return block.timestamp >= deadline;
         }
     }
-
-    // ---------------------------------------------------------------
-    // Private Functions
-    // ---------------------------------------------------------------
     
     function _blobhash(uint256 _blobIndex) private view returns (bytes32) {
         return blobhash(_blobIndex);
