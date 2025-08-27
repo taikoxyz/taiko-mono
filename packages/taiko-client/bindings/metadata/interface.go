@@ -6,12 +6,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 // TaikoProposalMetaData defines all the metadata of a Taiko block.
 type TaikoProposalMetaData interface {
 	Pacaya() TaikoBatchMetaDataPacaya
 	IsPacaya() bool
+	Shasta() TaikoBatchMetaDataShasta
+	IsShasta() bool
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint
@@ -45,4 +48,10 @@ type TaikoBatchMetaDataPacaya interface {
 	GetTxIndex() uint
 	GetTxHash() common.Hash
 	InnerMetadata() *pacayaBindings.ITaikoInboxBatchMetadata
+}
+
+type TaikoBatchMetaDataShasta interface {
+	GetProposal() shastaBindings.IInboxProposal
+	GetDerivation() shastaBindings.IInboxDerivation
+	GetCoreState() shastaBindings.IInboxCoreState
 }
