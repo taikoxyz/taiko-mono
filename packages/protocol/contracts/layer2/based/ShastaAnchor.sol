@@ -170,7 +170,13 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Process new L1 anchor data
         if (_anchorBlockNumber > _state.anchorBlockNumber) {
             // Save L1 block data
-            checkpointManager.saveCheckpoint(_anchorBlockNumber, _anchorBlockHash, _anchorStateRoot);
+            checkpointManager.saveCheckpoint(
+                ICheckpointManager.Checkpoint({
+                    blockNumber: _anchorBlockNumber,
+                    blockHash: _anchorBlockHash,
+                    stateRoot: _anchorStateRoot
+                })
+            );
 
             // Process bond instructions with hash verification
             bytes32 newBondInstructionsHash =
