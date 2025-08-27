@@ -188,12 +188,12 @@ contract CheckpointManagerTest is CommonTest {
         vm.stopPrank();
     }
 
-    function test_getSyncedBlock_revert_noCheckpoints() public {
+    function test_getCheckpoint_revert_noCheckpoints() public {
         vm.expectRevert(CheckpointManager.NoCheckpoints.selector);
         checkpointManager.getCheckpoint(0);
     }
 
-    function test_getSyncedBlock_revert_indexOutOfBounds() public {
+    function test_getCheckpoint_revert_indexOutOfBounds() public {
         vm.prank(authorized);
 
         checkpointManager.saveCheckpoint(
