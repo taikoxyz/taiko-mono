@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxTestHelper } from "../helpers/InboxTestHelper.sol";
+import { InboxTestHelper } from "./InboxTestHelper.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
 import { ForcedInclusionStore } from "contracts/layer1/shasta/impl/ForcedInclusionStore.sol";

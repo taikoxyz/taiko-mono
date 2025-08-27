@@ -5,11 +5,8 @@ import { TestInbox } from "../implementations/TestInbox.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
 import { CommonTest } from "test/shared/CommonTest.sol";
 
-/// @title InboxBase  
+/// @title InboxBase
 /// @notice Base contract providing deployment logic for basic Inbox implementation
-/// @dev This contract inherits from CommonTest to access the deploy() function directly.
-///      Since CommonTest is already in the inheritance chain via AbstractProveTest,
-///      this creates a simple multiple inheritance scenario that Solidity handles fine.
 abstract contract InboxBase is CommonTest {
 
     function getTestContractName() internal pure virtual returns (string memory) {
