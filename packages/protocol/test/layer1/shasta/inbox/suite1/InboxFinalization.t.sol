@@ -26,7 +26,7 @@ contract InboxFinalization is InboxTest {
     /// @dev Validates complete single proposal finalization flow:
     ///      1. Creates and stores proposal with valid transition record
     ///      2. Triggers finalization through new proposal submission
-    ///      3. Verifies synced block manager update and state progression
+    ///      3. Verifies checkpoint manager update and state progression
 
     function test_finalize_single_proposal() public {
         // Arrange: Create a proposal and transition record ready for finalization
@@ -41,11 +41,7 @@ contract InboxFinalization is InboxTest {
         );
 
         // Setup expectations
-        expectSyncedBlockSave(
-            transition.checkpoint.number,
-            transition.checkpoint.hash,
-            transition.checkpoint.stateRoot
-        );
+        expectCheckpointSaved(transition.checkpoint);
 
         // Act: Submit proposal that triggers finalization with the transition's checkpoint
         _submitFinalizationProposal(proposal, transitionRecord, transition.checkpoint);
@@ -87,7 +83,7 @@ contract InboxFinalization is InboxTest {
     function _submitFinalizationProposal(
         IInbox.Proposal memory _proposalToValidate,
         IInbox.TransitionRecord memory _transitionRecord,
-        IInbox.Checkpoint memory _checkpoint
+        ICheckpointManager.Checkpoint memory _checkpoint
     )
         private
     {
@@ -151,11 +147,7 @@ contract InboxFinalization is InboxTest {
         }
 
         // Setup expectations for finalization
-        expectSyncedBlockSave(
-            transitions[numProposals - 1].checkpoint.number,
-            transitions[numProposals - 1].checkpoint.hash,
-            transitions[numProposals - 1].checkpoint.stateRoot
-        );
+        expectCheckpointSaved(transitions[numProposals - 1].checkpoint);
 
         // Act: Submit finalization proposal with the last transition's checkpoint
         _submitBatchFinalizationProposal(
@@ -175,7 +167,7 @@ contract InboxFinalization is InboxTest {
         IInbox.Proposal memory _lastProposal,
         IInbox.TransitionRecord[] memory _transitionRecords,
         uint48 _nextProposalId,
-        IInbox.Checkpoint memory _checkpoint
+        ICheckpointManager.Checkpoint memory _checkpoint
     )
         private
     {
@@ -213,7 +205,7 @@ contract InboxFinalization is InboxTest {
         setupBlobHashes();
         // Create genesis transition
         IInbox.Transition memory genesisTransition;
-        genesisTransition.checkpoint.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         bytes32 parentTransitionHash = keccak256(abi.encode(genesisTransition));
 
         // Store proposal 1 with transition
@@ -255,11 +247,7 @@ contract InboxFinalization is InboxTest {
         mockForcedInclusionDue(false);
 
         // Only expect first proposal to be finalized
-        expectSyncedBlockSave(
-            transition1.checkpoint.number,
-            transition1.checkpoint.hash,
-            transition1.checkpoint.stateRoot
-        );
+        expectCheckpointSaved(transition1.checkpoint);
 
         // Create proposal data with only transitionRecord1
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
@@ -275,7 +263,7 @@ contract InboxFinalization is InboxTest {
         // Use the adapter with the checkpoint from transition1 since that's what we're
         // finalizing
         // Extract to local variable to avoid stack too deep
-        IInbox.Checkpoint memory endBlockHeader = transition1.checkpoint;
+        ICheckpointManager.Checkpoint memory endBlockHeader = transition1.checkpoint;
         bytes memory data = InboxTestAdapter.encodeProposeInputWithEndBlock(
             inboxType, uint48(0), coreState, proposals, blobRef, transitionRecords, endBlockHeader
         );

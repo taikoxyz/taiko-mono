@@ -2,27 +2,27 @@
 pragma solidity ^0.8.24;
 
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { ISyncedBlockManager } from "../iface/ISyncedBlockManager.sol";
+import { ICheckpointManager } from "../iface/ICheckpointManager.sol";
 
-/// @title SyncedBlockManager
+/// @title CheckpointManager
 /// @notice Contract for managing synced L2 blocks using a ring buffer
-/// @dev This contract implements a ring buffer to store the most recent synced blocks.
+/// @dev This contract implements a ring buffer to store the most recent checkpoints.
 /// When the buffer is full, new blocks overwrite the oldest entries. The contract
 /// ensures blocks are saved in strictly increasing order by block number.
 /// @custom:security-contact security@taiko.xyz
-contract SyncedBlockManager is EssentialContract, ISyncedBlockManager {
+contract CheckpointManager is EssentialContract, ICheckpointManager {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
-    /// @notice The address of the authorized contract that can update the synced block
+    /// @notice The address of the authorized contract that can update the checkpoint
     address public immutable authorized;
 
-    /// @notice The number of synced blocks to keep in the ring buffer
+    /// @notice The number of checkpoints to keep in the ring buffer
     uint48 public immutable maxStackSize;
 
-    /// @notice The latest synced block number
-    uint48 private _latestSyncedBlockNumber;
+    /// @notice The latest checkpoint number
+    uint48 private _latestCheckpointNumber;
 
     /// @notice The current top of the stack (ring buffer index)
     uint48 private _stackTop;
@@ -30,9 +30,9 @@ contract SyncedBlockManager is EssentialContract, ISyncedBlockManager {
     /// @notice The current number of items in the stack
     uint48 private _stackSize;
 
-    /// @notice Ring buffer as a stack for storing synced blocks
-    /// @dev Maps slot indices (0 to maxStackSize-1) to synced block data
-    mapping(uint48 slot => SyncedBlock syncedBlock) private _syncedBlocks;
+    /// @notice Ring buffer as a stack for storing checkpoints
+    /// @dev Maps slot indices (0 to maxStackSize-1) to checkpoint data
+    mapping(uint48 slot => Checkpoint checkpoint) private _checkpoints;
 
     uint256[48] private __gap;
 
@@ -40,7 +40,7 @@ contract SyncedBlockManager is EssentialContract, ISyncedBlockManager {
     // Constructor and Initializer
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the SyncedBlockManager with the authorized address and ring buffer size
+    /// @notice Initializes the CheckpointManager with the authorized address and ring buffer size
     /// @param _authorized The address of the authorized contract. On L1, this shall be the inbox,
     /// on L2, this shall be the anchor transactor.
     /// @param _maxStackSize The size of the ring buffer
@@ -62,22 +62,12 @@ contract SyncedBlockManager is EssentialContract, ISyncedBlockManager {
     // External Functions
     // ---------------------------------------------------------------
 
-    /// @inheritdoc ISyncedBlockManager
-    function saveSyncedBlock(
-        uint48 _blockNumber,
-        bytes32 _blockHash,
-        bytes32 _stateRoot
-    )
-        external
-        onlyFrom(authorized)
-    {
+    /// @inheritdoc ICheckpointManager
+    function saveCheckpoint(Checkpoint calldata _checkpoint) external onlyFrom(authorized) {
         // Validate all fields
-        require(_stateRoot != 0, InvalidSyncedBlock());
-        require(_blockHash != 0, InvalidSyncedBlock());
-        require(_blockNumber > _latestSyncedBlockNumber, InvalidSyncedBlock());
-
-        SyncedBlock memory syncedBlock =
-            SyncedBlock({ blockNumber: _blockNumber, blockHash: _blockHash, stateRoot: _stateRoot });
+        require(_checkpoint.stateRoot != 0, InvalidCheckpoint());
+        require(_checkpoint.blockHash != 0, InvalidCheckpoint());
+        require(_checkpoint.blockNumber > _latestCheckpointNumber, InvalidCheckpoint());
 
         unchecked {
             // Ring buffer implementation:
@@ -85,25 +75,21 @@ contract SyncedBlockManager is EssentialContract, ISyncedBlockManager {
             // - When we reach maxStackSize, it wraps back to 0
             // - This ensures we always overwrite the oldest entry when buffer is full
             _stackTop = (_stackTop + 1) % maxStackSize;
-            _syncedBlocks[_stackTop] = syncedBlock;
+            _checkpoints[_stackTop] = _checkpoint;
 
             // Update stack size (capped at maxStackSize)
             if (_stackSize < maxStackSize) {
                 ++_stackSize;
             }
         }
-        _latestSyncedBlockNumber = _blockNumber;
+        _latestCheckpointNumber = _checkpoint.blockNumber;
 
-        emit SyncedBlockSaved(_blockNumber, _blockHash, _stateRoot);
+        emit CheckpointSaved(_checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot);
     }
 
-    /// @inheritdoc ISyncedBlockManager
-    function getSyncedBlock(uint48 _offset)
-        external
-        view
-        returns (uint48 blockNumber_, bytes32 blockHash_, bytes32 stateRoot_)
-    {
-        require(_stackSize != 0, NoSyncedBlocks());
+    /// @inheritdoc ICheckpointManager
+    function getCheckpoint(uint48 _offset) external view returns (Checkpoint memory) {
+        require(_stackSize != 0, NoCheckpoints());
         require(_offset < _stackSize, IndexOutOfBounds());
 
         unchecked {
@@ -122,20 +108,17 @@ contract SyncedBlockManager is EssentialContract, ISyncedBlockManager {
                 slot = maxStackSize + _stackTop - _offset;
             }
 
-            SyncedBlock memory syncedBlock = _syncedBlocks[slot];
-            blockNumber_ = syncedBlock.blockNumber;
-            blockHash_ = syncedBlock.blockHash;
-            stateRoot_ = syncedBlock.stateRoot;
+            return _checkpoints[slot];
         }
     }
 
-    /// @inheritdoc ISyncedBlockManager
-    function getLatestSyncedBlockNumber() external view returns (uint48) {
-        return _latestSyncedBlockNumber;
+    /// @inheritdoc ICheckpointManager
+    function getLatestCheckpointNumber() external view returns (uint48) {
+        return _latestCheckpointNumber;
     }
 
-    /// @inheritdoc ISyncedBlockManager
-    function getNumberOfSyncedBlocks() external view returns (uint48) {
+    /// @inheritdoc ICheckpointManager
+    function getNumberOfCheckpoints() external view returns (uint48) {
         return _stackSize;
     }
 
@@ -146,7 +129,7 @@ contract SyncedBlockManager is EssentialContract, ISyncedBlockManager {
     error IndexOutOfBounds();
     error InvalidAddress();
     error InvalidMaxStackSize();
-    error InvalidSyncedBlock();
-    error NoSyncedBlocks();
+    error InvalidCheckpoint();
+    error NoCheckpoints();
     error Unauthorized();
 }

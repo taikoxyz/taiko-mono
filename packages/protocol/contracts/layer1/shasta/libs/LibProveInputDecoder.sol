@@ -105,8 +105,8 @@ library LibProveInputDecoder {
         newPtr_ = P.packBytes32(_ptr, _transition.proposalHash);
         newPtr_ = P.packBytes32(newPtr_, _transition.parentTransitionHash);
         // Encode Checkpoint
-        newPtr_ = P.packUint48(newPtr_, _transition.checkpoint.number);
-        newPtr_ = P.packBytes32(newPtr_, _transition.checkpoint.hash);
+        newPtr_ = P.packUint48(newPtr_, _transition.checkpoint.blockNumber);
+        newPtr_ = P.packBytes32(newPtr_, _transition.checkpoint.blockHash);
         newPtr_ = P.packBytes32(newPtr_, _transition.checkpoint.stateRoot);
         newPtr_ = P.packAddress(newPtr_, _transition.designatedProver);
         newPtr_ = P.packAddress(newPtr_, _transition.actualProver);
@@ -121,8 +121,8 @@ library LibProveInputDecoder {
         (transition_.proposalHash, newPtr_) = P.unpackBytes32(_ptr);
         (transition_.parentTransitionHash, newPtr_) = P.unpackBytes32(newPtr_);
         // Decode Checkpoint
-        (transition_.checkpoint.number, newPtr_) = P.unpackUint48(newPtr_);
-        (transition_.checkpoint.hash, newPtr_) = P.unpackBytes32(newPtr_);
+        (transition_.checkpoint.blockNumber, newPtr_) = P.unpackUint48(newPtr_);
+        (transition_.checkpoint.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
         (transition_.checkpoint.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
         (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
         (transition_.actualProver, newPtr_) = P.unpackAddress(newPtr_);

@@ -411,7 +411,7 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
    - Emits `ProverDesignated` event
 
 3. **L1 state anchoring and bond processing** (when anchorBlockNumber > previous anchorBlockNumber)
-   - Persists L1 block data via `syncedBlockManager.saveSyncedBlock`
+   - Persists L1 block data via `checkpointManager.saveCheckpoint`
    - Processes bond instructions (NONE, LIVENESS, and PROVABILITY types) where NONE results in no transfer
    - Maintains cumulative hash integrity by chaining: `keccak256(previousHash, instruction)` (skips if proposalId=0 or bondType=NONE)
    - Updates anchor state atomically (bondInstructionsHash and anchorBlockNumber)

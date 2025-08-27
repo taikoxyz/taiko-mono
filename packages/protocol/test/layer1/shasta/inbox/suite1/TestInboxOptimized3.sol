@@ -14,7 +14,7 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
     mapping(uint256 => bytes32) private mockBlobHashes;
     bool private useMockBlobHashes;
     // Storage to track checkpoint for test purposes
-    mapping(uint48 => IInbox.Checkpoint) public testcheckpoints;
+    mapping(uint48 => ICheckpointManager.Checkpoint) public testcheckpoints;
 
     constructor() InboxOptimized3() { }
 
@@ -40,7 +40,7 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
                 maxFinalizationCount: 10,
                 ringBufferSize: 100,
                 basefeeSharingPctg: 10,
-                syncedBlockManager: address(0),
+                checkpointManager: address(0),
                 proofVerifier: address(0),
                 proposerChecker: address(0),
                 forcedInclusionStore: address(0),
@@ -80,7 +80,12 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
     }
 
     // Function to store checkpoint for test purposes
-    function storeCheckpoint(uint48 _proposalId, IInbox.Checkpoint memory _checkpoint) external {
+    function storeCheckpoint(
+        uint48 _proposalId,
+        ICheckpointManager.Checkpoint memory _checkpoint
+    )
+        external
+    {
         testcheckpoints[_proposalId] = _checkpoint;
     }
 
@@ -88,7 +93,7 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
     function getStoredcheckpoint(uint48 _proposalId)
         external
         view
-        returns (IInbox.Checkpoint memory)
+        returns (ICheckpointManager.Checkpoint memory)
     {
         return testcheckpoints[_proposalId];
     }

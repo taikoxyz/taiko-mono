@@ -4,13 +4,13 @@ pragma solidity ^0.8.24;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { ISyncedBlockManager } from "src/shared/based/iface/ISyncedBlockManager.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, and verification in Taiko's based
@@ -83,7 +83,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         __Essential_init(_owner);
 
         Transition memory transition;
-        transition.checkpoint.hash = _genesisBlockHash;
+        transition.checkpoint.blockHash = _genesisBlockHash;
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
@@ -533,7 +533,11 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @dev Hashes a Checkpoint struct.
     /// @param _checkpoint The checkpoint to hash.
     /// @return _ The hash of the checkpoint.
-    function _hashCheckpoint(Checkpoint memory _checkpoint) internal pure returns (bytes32) {
+    function _hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
+        internal
+        pure
+        returns (bytes32)
+    {
         return keccak256(abi.encode(_checkpoint));
     }
 
@@ -682,7 +686,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Finalizes proven proposals and updates synced block
+    /// @dev Finalizes proven proposals and updates checkpoint
     /// @notice Processes up to maxFinalizationCount proposals in sequence
     /// @dev Stops at first missing transition record or span boundary
     /// @param _config Configuration with finalization parameters
@@ -723,13 +727,11 @@ abstract contract Inbox is EssentialContract, IInbox {
             finalizedCount++;
         }
 
-        // Update synced block if any proposals were finalized
+        // Update checkpoint if any proposals were finalized
         if (finalizedCount > 0) {
             bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
-            require(checkpointHash == lastFinalizedRecord.checkpointHash, checkpointMismatch());
-            ISyncedBlockManager(_config.syncedBlockManager).saveSyncedBlock(
-                _input.checkpoint.number, _input.checkpoint.hash, _input.checkpoint.stateRoot
-            );
+            require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
+            ICheckpointManager(_config.checkpointManager).saveCheckpoint(_input.checkpoint);
         }
 
         return coreState;
@@ -864,7 +866,7 @@ error TransitionRecordHashMismatchWithStorage();
 error TransitionRecordNotProvided();
 error DeadlineExceeded();
 error EmptyProposals();
-error checkpointMismatch();
+error CheckpointMismatch();
 error ExceedsUnfinalizedProposalCapacity();
 error ForkNotActive();
 error InconsistentParams();

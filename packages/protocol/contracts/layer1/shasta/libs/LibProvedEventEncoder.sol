@@ -32,8 +32,8 @@ library LibProvedEventEncoder {
         ptr = P.packBytes32(ptr, _payload.transition.proposalHash);
         ptr = P.packBytes32(ptr, _payload.transition.parentTransitionHash);
         // Encode Checkpoint
-        ptr = P.packUint48(ptr, _payload.transition.checkpoint.number);
-        ptr = P.packBytes32(ptr, _payload.transition.checkpoint.hash);
+        ptr = P.packUint48(ptr, _payload.transition.checkpoint.blockNumber);
+        ptr = P.packBytes32(ptr, _payload.transition.checkpoint.blockHash);
         ptr = P.packBytes32(ptr, _payload.transition.checkpoint.stateRoot);
         ptr = P.packAddress(ptr, _payload.transition.designatedProver);
         ptr = P.packAddress(ptr, _payload.transition.actualProver);
@@ -77,8 +77,8 @@ library LibProvedEventEncoder {
         (payload_.transition.proposalHash, ptr) = P.unpackBytes32(ptr);
         (payload_.transition.parentTransitionHash, ptr) = P.unpackBytes32(ptr);
         // Decode Checkpoint
-        (payload_.transition.checkpoint.number, ptr) = P.unpackUint48(ptr);
-        (payload_.transition.checkpoint.hash, ptr) = P.unpackBytes32(ptr);
+        (payload_.transition.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
+        (payload_.transition.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
         (payload_.transition.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
         (payload_.transition.designatedProver, ptr) = P.unpackAddress(ptr);
         (payload_.transition.actualProver, ptr) = P.unpackAddress(ptr);

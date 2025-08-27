@@ -231,7 +231,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
     /// @param _anchorBlockId The ID of the anchor block.
     /// @param _anchorStateRoot The state root of the anchor block.
     function _syncChainData(uint64 _anchorBlockId, bytes32 _anchorStateRoot) internal {
-        /// @dev If the anchor block ID is less than or equal to the last synced block, return
+        /// @dev If the anchor block ID is less than or equal to the last checkpoint, return
         /// early.
         if (_anchorBlockId <= lastSyncedBlock) return;
 
@@ -241,7 +241,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
             l1ChainId, LibSignals.STATE_ROOT, _anchorBlockId, _anchorStateRoot
         );
 
-        /// @dev Update the last synced block to the current anchor block ID.
+        /// @dev Update the last checkpoint to the current anchor block ID.
         lastSyncedBlock = _anchorBlockId;
     }
 

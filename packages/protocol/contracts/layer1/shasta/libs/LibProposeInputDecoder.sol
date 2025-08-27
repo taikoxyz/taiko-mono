@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { IInbox } from "../iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title LibProposeInputDecoder
 /// @notice Library for encoding and decoding propose data with gas optimization using LibPackUnpack
@@ -56,16 +57,16 @@ library LibProposeInputDecoder {
 
         // 6. Encode Checkpoint with optimization for empty header
         // Check if checkpoint is empty (all fields are zero)
-        bool isEmpty = _input.checkpoint.number == 0 && _input.checkpoint.hash == bytes32(0)
-            && _input.checkpoint.stateRoot == bytes32(0);
+        bool isEmpty = _input.checkpoint.blockNumber == 0
+            && _input.checkpoint.blockHash == bytes32(0) && _input.checkpoint.stateRoot == bytes32(0);
 
         // Write flag byte: 0 for empty, 1 for non-empty
         ptr = P.packUint8(ptr, isEmpty ? 0 : 1);
 
         // Only encode the full header if it's not empty
         if (!isEmpty) {
-            ptr = P.packUint48(ptr, _input.checkpoint.number);
-            ptr = P.packBytes32(ptr, _input.checkpoint.hash);
+            ptr = P.packUint48(ptr, _input.checkpoint.blockNumber);
+            ptr = P.packBytes32(ptr, _input.checkpoint.blockHash);
             ptr = P.packBytes32(ptr, _input.checkpoint.stateRoot);
         }
 
@@ -117,8 +118,8 @@ library LibProposeInputDecoder {
         // If flag is 0, the header is empty, leave it as default (all zeros)
         // If flag is 1, decode the full header
         if (headerFlag == 1) {
-            (input_.checkpoint.number, ptr) = P.unpackUint48(ptr);
-            (input_.checkpoint.hash, ptr) = P.unpackBytes32(ptr);
+            (input_.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
+            (input_.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
             (input_.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
         }
 
@@ -241,7 +242,7 @@ library LibProposeInputDecoder {
     function _calculateProposeDataSize(
         IInbox.Proposal[] memory _proposals,
         IInbox.TransitionRecord[] memory _transitionRecords,
-        IInbox.Checkpoint memory _checkpoint
+        ICheckpointManager.Checkpoint memory _checkpoint
     )
         private
         pure
@@ -258,7 +259,7 @@ library LibProposeInputDecoder {
             size_ = 97;
 
             // Add Checkpoint size if not empty
-            bool isEmpty = _checkpoint.number == 0 && _checkpoint.hash == bytes32(0)
+            bool isEmpty = _checkpoint.blockNumber == 0 && _checkpoint.blockHash == bytes32(0)
                 && _checkpoint.stateRoot == bytes32(0);
 
             if (!isEmpty) {
