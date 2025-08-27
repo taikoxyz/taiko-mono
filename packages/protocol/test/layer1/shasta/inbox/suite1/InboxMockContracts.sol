@@ -45,7 +45,6 @@ contract StubSyncedBlockManager {
     function saveSyncedBlock(uint48, bytes32, bytes32) external { }
 }
 
-
 contract StubProofVerifier {
     bool public shouldFail;
 
