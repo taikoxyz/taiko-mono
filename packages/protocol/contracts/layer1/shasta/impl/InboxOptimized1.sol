@@ -115,7 +115,7 @@ abstract contract InboxOptimized1 is Inbox {
                     currentRecord.bondInstructions = merged;
                 }
 
-                // Update the transition hash and end block mini header hash for the aggregated
+                // Update the transition hash and checkpoint hash for the aggregated
                 // record
                 currentRecord.transitionHash = _hashTransition(_input.transitions[i]);
                 currentRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);

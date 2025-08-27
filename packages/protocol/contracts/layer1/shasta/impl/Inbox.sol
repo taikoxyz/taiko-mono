@@ -520,10 +520,10 @@ abstract contract Inbox is EssentialContract, IInbox {
     }
 
     /// @dev Hashes a Checkpoint struct.
-    /// @param _header The block mini header to hash.
-    /// @return _ The hash of the block mini header.
-    function _hashCheckpoint(Checkpoint memory _header) internal pure returns (bytes32) {
-        return keccak256(abi.encode(_header));
+    /// @param _checkpoint The checkpoint to hash.
+    /// @return _ The hash of the checkpoint.
+    function _hashCheckpoint(Checkpoint memory _checkpoint) internal pure returns (bytes32) {
+        return keccak256(abi.encode(_checkpoint));
     }
 
     // ---------------------------------------------------------------

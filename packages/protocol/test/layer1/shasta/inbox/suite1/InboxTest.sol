@@ -1430,7 +1430,7 @@ abstract contract InboxTest is CommonTest {
         transition = InboxTestLib.createTransition(_proposal, _parentTransitionHash, _prover);
         _submitProof(_proposal, transition, _prover);
         // Store the checkpoint for test purposes
-        inbox.storecheckpoint(_proposal.id, transition.checkpoint);
+        inbox.storeCheckpoint(_proposal.id, transition.checkpoint);
     }
 
     /// @dev Proves multiple proposals in batch and returns transition records from events
@@ -1460,7 +1460,7 @@ abstract contract InboxTest is CommonTest {
 
         // Store the checkpoints for test purposes
         for (uint256 i = 0; i < _proposals.length; i++) {
-            inbox.storecheckpoint(_proposals[i].id, _transitions[i].checkpoint);
+            inbox.storeCheckpoint(_proposals[i].id, _transitions[i].checkpoint);
         }
     }
 

@@ -79,8 +79,8 @@ contract TestInboxCore is Inbox, ITestInbox {
     }
 
     // Function to store checkpoint for test purposes
-    function storecheckpoint(uint48 _proposalId, IInbox.Checkpoint memory _header) external {
-        testcheckpoints[_proposalId] = _header;
+    function storeCheckpoint(uint48 _proposalId, IInbox.Checkpoint memory _checkpoint) external {
+        testcheckpoints[_proposalId] = _checkpoint;
     }
 
     // Helper function to get the stored checkpoint

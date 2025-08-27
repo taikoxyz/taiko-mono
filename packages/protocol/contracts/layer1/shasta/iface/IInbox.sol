@@ -83,7 +83,7 @@ interface IInbox {
         LibBonds.BondInstruction[] bondInstructions;
         /// @notice The transition's hash
         bytes32 transitionHash;
-        /// @notice The hash of the end block mini header.
+        /// @notice The hash of the checkpoint.
         bytes32 checkpointHash;
     }
 
@@ -111,7 +111,7 @@ interface IInbox {
         LibBlobs.BlobReference blobReference;
         /// @notice Array of transition records for finalization.
         TransitionRecord[] transitionRecords;
-        /// @notice The end block mini header for finalization.
+        /// @notice The checkpoint for finalization.
         Checkpoint checkpoint;
     }
 
