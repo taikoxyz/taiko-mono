@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/p2p/gating"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -26,6 +27,7 @@ import (
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -44,7 +46,7 @@ var (
 	wsUpgrader             = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 )
 
-const requestSyncMargin = uint64(512)
+const requestSyncMargin = uint64(128) // Margin for requesting sync, to avoid requesting very old blocks.
 
 // preconfBlockChainSyncer is an interface for preconfirmation block chain syncer.
 type preconfBlockChainSyncer interface {
@@ -218,6 +220,14 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 ) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfOnUnsafeL2PayloadDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2Payload completed", "elapsed", elapsed)
+	}()
+
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
 	// it means the message is for importing the pending blocks from the cache after
 	// a new L2 EE chain has just finished a beacon-sync.
@@ -310,6 +320,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfOnL2UnsafeResponseDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2Response completed", "elapsed", elapsed)
+	}()
+
 	// add responses seen to cache.
 	s.responseSeenCache.Add(msg.ExecutionPayload.BlockHash, time.Now().UTC())
 
@@ -398,6 +415,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfOnL2UnsafeRequestDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2Request completed", "elapsed", elapsed)
+	}()
+
 	// Ignore the message if it is from the current P2P node.
 	if from != "" && s.p2pNode.Host().ID() == from {
 		log.Debug("Ignore the message from the current P2P node", "peer", from)
@@ -426,7 +450,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	}
 
 	if headL1Origin != nil && block.NumberU64() <= headL1Origin.BlockID.Uint64() {
-		log.Warn(
+		log.Debug(
 			"Ignore the message for outdated block",
 			"peer", from,
 			"blockID", block.NumberU64(),
@@ -530,6 +554,13 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 ) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	start := time.Now()
+	defer func() {
+		elapsed := float64(time.Since(start).Milliseconds())
+		metrics.DriverPreconfOnEndOfSequencingRequestDuration.Observe(elapsed)
+		log.Debug("OnUnsafeL2EndOfSequencingRequest completed", "elapsed", elapsed)
+	}()
 
 	// Ignore the message if it is from the current P2P node.
 	if from != "" && s.p2pNode.Host().ID() == from {
@@ -674,18 +705,15 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 						s.blockRequestsCache.Add(currentPayload.Payload.ParentHash, struct{}{})
 					}
 				}
-				if s.latestSeenProposal != nil {
-					tip := s.latestSeenProposal.Pacaya().GetLastBlockID()
-					if tip >= requestSyncMargin && parentNum <= tip-requestSyncMargin {
-						log.Debug("Skipping request for very old block",
-							"tip", tip,
-							"margin", requestSyncMargin,
-						)
-					} else {
-						publishRequest()
-					}
+
+				tip := progress.HighestOriginBlockID.Uint64()
+
+				if tip >= requestSyncMargin && parentNum <= tip-requestSyncMargin {
+					log.Debug("Skipping request for very old block",
+						"tip", tip,
+						"margin", requestSyncMargin,
+					)
 				} else {
-					// No known tip yet → safest is to skip to avoid spam during startup/backfill.
 					publishRequest()
 				}
 			}
@@ -802,7 +830,7 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 	if payload.GasLimit == 0 {
 		return errors.New("non-zero gas limit is required")
 	}
-	var u256BaseFee = uint256.Int(payload.BaseFeePerGas)
+	u256BaseFee := uint256.Int(payload.BaseFeePerGas)
 	if u256BaseFee.ToBig().Cmp(common.Big0) == 0 {
 		return errors.New("non-zero base fee per gas is required")
 	}
@@ -897,6 +925,30 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
 		s.lookahead.CurrOperator,
 		s.lookahead.NextOperator,
 	}
+}
+
+// AllP2PSequencerAddresses implements the p2p.PreconfGossipRuntimeConfig interface.
+func (s *PreconfBlockAPIServer) AllP2PSequencerAddresses() []common.Address {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+
+	operators, err := s.rpc.GetAllPreconfOperators(nil)
+	if err != nil {
+		log.Warn("Failed to get all preconfirmation operators", "error", err)
+		return []common.Address{}
+	}
+
+	return operators
+}
+
+// P2pHost returns the host of the connected p2pNode for the p2p.PreconfGossipRuntimeConfig interface
+func (s *PreconfBlockAPIServer) P2PHost() host.Host {
+	return s.p2pNode.Host()
+}
+
+// ConnGater returns the connection gater of the connected p2pNode for the p2p.PreconfGossipRuntimeConfig interface
+func (s *PreconfBlockAPIServer) ConnGater() gating.BlockingConnectionGater {
+	return s.p2pNode.ConnectionGater()
 }
 
 // UpdateLookahead updates the lookahead information.
