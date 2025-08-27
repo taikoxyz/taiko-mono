@@ -7,7 +7,7 @@ Taiko Alethia's **based rollup design** and **multiproving architecture** create
 
 The following diagram illustrates **Taiko Alethia's transaction fee flow**:
 
-![Economics](~/assets/content/docs/taiko-alethia-protocol/based-economics.png)
+![Economics](../../../../assets/content/docs/taiko-alethia-protocol/based-economics.png)
 
 ---
 
