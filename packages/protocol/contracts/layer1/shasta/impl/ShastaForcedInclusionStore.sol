@@ -7,7 +7,7 @@ import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 
-/// @title AbstractForcedInclusionStore
+/// @title ShastaForcedInclusionStore
 /// @dev Abstract contract for storing and managing forced inclusion requests. Forced inclusions
 /// allow users to pay a fee to ensure their transactions are included in a block. The contract
 /// maintains a FIFO queue of inclusion requests.
@@ -17,7 +17,7 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 /// @dev Forced inclusions are limited to 1 blob only, and one L2 block only(this and other protocol
 /// constrains are enforced by the node and verified by the prover)
 /// @custom:security-contact security@taiko.xyz
-abstract contract AbstractForcedInclusionStore is EssentialContract, IForcedInclusionStore {
+abstract contract ShastaForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     using LibAddress for address;
     using LibMath for uint256;
 

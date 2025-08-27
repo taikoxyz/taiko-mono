@@ -11,7 +11,7 @@ import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
-import { AbstractForcedInclusionStore } from "./AbstractForcedInclusionStore.sol";
+import { ShastaForcedInclusionStore } from "./ShastaForcedInclusionStore.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, and verification in Taiko's based
@@ -23,7 +23,7 @@ import { AbstractForcedInclusionStore } from "./AbstractForcedInclusionStore.sol
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals
 /// @custom:security-contact security@taiko.xyz
-abstract contract Inbox is AbstractForcedInclusionStore, IInbox {
+abstract contract Inbox is ShastaForcedInclusionStore, IInbox {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
@@ -79,7 +79,7 @@ abstract contract Inbox is AbstractForcedInclusionStore, IInbox {
         uint64 _inclusionDelay,
         uint64 _feeInGwei
     )
-        AbstractForcedInclusionStore(_inclusionDelay, _feeInGwei)
+        ShastaForcedInclusionStore(_inclusionDelay, _feeInGwei)
     { }
 
     /// @notice Initializes the Inbox contract with genesis block
