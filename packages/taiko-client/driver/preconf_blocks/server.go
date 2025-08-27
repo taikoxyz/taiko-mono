@@ -223,9 +223,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 
 	start := time.Now()
 	defer func() {
-		elapsed := float64(time.Since(start).Milliseconds())
-		metrics.DriverPreconfOnUnsafeL2PayloadDuration.Observe(elapsed)
-		log.Debug("OnUnsafeL2Payload completed", "elapsed", elapsed)
+		elapsedMs := time.Since(start).Milliseconds()
+		metrics.DriverPreconfOnUnsafeL2PayloadDuration.Observe(float64(elapsedMs) / 1_000)
+		log.Debug("OnUnsafeL2Payload completed", "elapsed", fmt.Sprintf("%dms", elapsedMs))
 	}()
 
 	// Ignore the message if it is from the current P2P node, when `from` is empty,
@@ -322,9 +322,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Response(
 
 	start := time.Now()
 	defer func() {
-		elapsed := float64(time.Since(start).Milliseconds())
-		metrics.DriverPreconfOnL2UnsafeResponseDuration.Observe(elapsed)
-		log.Debug("OnUnsafeL2Response completed", "elapsed", elapsed)
+		elapsedMs := time.Since(start).Milliseconds()
+		metrics.DriverPreconfOnL2UnsafeResponseDuration.Observe(float64(elapsedMs) / 1_000)
+		log.Debug("OnUnsafeL2Response completed", "elapsed", fmt.Sprintf("%dms", elapsedMs))
 	}()
 
 	// add responses seen to cache.
@@ -417,9 +417,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 
 	start := time.Now()
 	defer func() {
-		elapsed := float64(time.Since(start).Milliseconds())
-		metrics.DriverPreconfOnL2UnsafeRequestDuration.Observe(elapsed)
-		log.Debug("OnUnsafeL2Request completed", "elapsed", elapsed)
+		elapsedMs := time.Since(start).Milliseconds()
+		metrics.DriverPreconfOnL2UnsafeRequestDuration.Observe(float64(elapsedMs) / 1_000)
+		log.Debug("OnUnsafeL2Request completed", "elapsed", fmt.Sprintf("%dms", elapsedMs))
 	}()
 
 	// Ignore the message if it is from the current P2P node.
@@ -558,9 +558,9 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2EndOfSequencingRequest(
 
 	start := time.Now()
 	defer func() {
-		elapsed := float64(time.Since(start).Milliseconds())
-		metrics.DriverPreconfOnEndOfSequencingRequestDuration.Observe(elapsed)
-		log.Debug("OnUnsafeL2EndOfSequencingRequest completed", "elapsed", elapsed)
+		elapsedMs := time.Since(start).Milliseconds()
+		metrics.DriverPreconfOnEndOfSequencingRequestDuration.Observe(float64(elapsedMs) / 1_000)
+		log.Debug("OnUnsafeL2EndOfSequencingRequest completed", "elapsed", fmt.Sprintf("%dms", elapsedMs))
 	}()
 
 	// Ignore the message if it is from the current P2P node.
