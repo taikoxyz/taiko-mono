@@ -393,9 +393,7 @@ contract InboxChainAdvancement is InboxTest {
         // Core state will be validated by the contract during propose()
 
         // Expect only proposal 2's block to be saved (last finalized)
-        expectCheckpointSaved(
-            transitions[1].checkpoint
-        );
+        expectCheckpointSaved(transitions[1].checkpoint);
 
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
@@ -518,9 +516,7 @@ contract InboxChainAdvancement is InboxTest {
         // Core state will be validated by the contract during propose()
 
         // Expect only proposal 3's block to be saved (due to max finalization count)
-        expectCheckpointSaved(
-            transitions[2].checkpoint
-        );
+        expectCheckpointSaved(transitions[2].checkpoint);
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
 

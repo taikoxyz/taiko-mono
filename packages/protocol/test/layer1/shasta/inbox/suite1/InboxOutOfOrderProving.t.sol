@@ -197,9 +197,7 @@ contract InboxOutOfOrderProving is InboxTest {
 
         // Expect final block update
         IInbox.Transition memory lastTransition = transitions[numProposals - 1];
-        expectCheckpointSaved(
-            lastTransition.checkpoint
-        );
+        expectCheckpointSaved(lastTransition.checkpoint);
 
         // Submit new proposal that triggers finalization
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
@@ -387,9 +385,7 @@ contract InboxOutOfOrderProving is InboxTest {
         mockForcedInclusionDue(false);
 
         // Expect only proposal 1 to be finalized
-        expectCheckpointSaved(
-            transition1.checkpoint
-        );
+        expectCheckpointSaved(transition1.checkpoint);
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(4);
 

@@ -41,9 +41,7 @@ contract InboxFinalization is InboxTest {
         );
 
         // Setup expectations
-        expectCheckpointSaved(
-            transition.checkpoint
-        );
+        expectCheckpointSaved(transition.checkpoint);
 
         // Act: Submit proposal that triggers finalization with the transition's checkpoint
         _submitFinalizationProposal(proposal, transitionRecord, transition.checkpoint);
@@ -149,9 +147,7 @@ contract InboxFinalization is InboxTest {
         }
 
         // Setup expectations for finalization
-        expectCheckpointSaved(
-            transitions[numProposals - 1].checkpoint
-        );
+        expectCheckpointSaved(transitions[numProposals - 1].checkpoint);
 
         // Act: Submit finalization proposal with the last transition's checkpoint
         _submitBatchFinalizationProposal(
@@ -251,9 +247,7 @@ contract InboxFinalization is InboxTest {
         mockForcedInclusionDue(false);
 
         // Only expect first proposal to be finalized
-        expectCheckpointSaved(
-            transition1.checkpoint
-        );
+        expectCheckpointSaved(transition1.checkpoint);
 
         // Create proposal data with only transitionRecord1
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);

@@ -40,10 +40,7 @@ interface ICheckpointManager {
     /// @param _offset The offset of the checkpoint. Use 0 for the last checkpoint, 1 for the
     /// second last, etc.
     /// @return _ The checkpoint
-    function getCheckpoint(uint48 _offset)
-        external
-        view
-        returns (Checkpoint memory);
+    function getCheckpoint(uint48 _offset) external view returns (Checkpoint memory);
 
     /// @notice Gets the latest checkpoint number
     /// @return _ The latest checkpoint number

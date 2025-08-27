@@ -1082,17 +1082,10 @@ abstract contract InboxTest is CommonTest {
         }
     }
 
-    function expectCheckpointSaved(
-        ICheckpointManager.Checkpoint memory _checkpoint
-    )
-        internal
-    {
+    function expectCheckpointSaved(ICheckpointManager.Checkpoint memory _checkpoint) internal {
         vm.expectCall(
             checkpointManager,
-            abi.encodeWithSelector(
-                ICheckpointManager.saveCheckpoint.selector,
-                _checkpoint
-            )
+            abi.encodeWithSelector(ICheckpointManager.saveCheckpoint.selector, _checkpoint)
         );
     }
 

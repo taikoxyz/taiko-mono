@@ -88,11 +88,7 @@ contract CheckpointManager is EssentialContract, ICheckpointManager {
     }
 
     /// @inheritdoc ICheckpointManager
-    function getCheckpoint(uint48 _offset)
-        external
-        view
-        returns (Checkpoint memory)
-    {
+    function getCheckpoint(uint48 _offset) external view returns (Checkpoint memory) {
         require(_stackSize != 0, NoCheckpoints());
         require(_offset < _stackSize, IndexOutOfBounds());
 
