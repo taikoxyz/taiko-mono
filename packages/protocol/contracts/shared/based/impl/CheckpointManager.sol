@@ -5,7 +5,7 @@ import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { ICheckpointManager } from "../iface/ICheckpointManager.sol";
 
 /// @title CheckpointManager
-/// @notice Contract for managing synced L2 blocks using a ring buffer
+/// @notice Contract for managing synced L2 checkpoints using a ring buffer
 /// @dev This contract implements a ring buffer to store the most recent checkpoints.
 /// When the buffer is full, new blocks overwrite the oldest entries. The contract
 /// ensures blocks are saved in strictly increasing order by block number.
