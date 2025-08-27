@@ -27,7 +27,7 @@ contract InboxProposeValidation is InboxTest {
     // Override setupMockAddresses to use actual mock contracts
     function setupMockAddresses() internal override {
         bondToken = address(new MockERC20());
-        syncedBlockManager = address(new StubSyncedBlockManager());
+        checkpointManager = address(new StubSyncedBlockManager());
         forcedInclusionStore = address(new StubForcedInclusionStore());
         proofVerifier = address(new StubProofVerifier());
         proposerChecker = address(new StubProposerChecker());
@@ -182,7 +182,7 @@ contract InboxProposeValidation is InboxTest {
     function test_propose_unauthorized_proposer() public {
         // Setup: Create valid genesis transition and core state structure
         IInbox.Transition memory genesisTransition;
-        genesisTransition.checkpoint.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
@@ -294,7 +294,7 @@ contract InboxProposeValidation is InboxTest {
         setupBlobHashes();
 
         IInbox.Transition memory genesisTransition;
-        genesisTransition.checkpoint.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
@@ -338,7 +338,7 @@ contract InboxProposeValidation is InboxTest {
         setupBlobHashes(); // Setup valid blob hashes first
 
         IInbox.Transition memory genesisTransition;
-        genesisTransition.checkpoint.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         IInbox.CoreState memory coreState = IInbox.CoreState({

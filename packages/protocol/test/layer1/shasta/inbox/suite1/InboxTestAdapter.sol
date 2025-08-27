@@ -36,8 +36,11 @@ library InboxTestAdapter {
         returns (bytes memory)
     {
         // Default checkpoint - will be overridden by the other function if needed
-        IInbox.Checkpoint memory checkpoint =
-            IInbox.Checkpoint({ number: 0, hash: bytes32(0), stateRoot: bytes32(0) });
+        ICheckpointManager.Checkpoint memory checkpoint = ICheckpointManager.Checkpoint({
+            blockNumber: 0,
+            blockHash: bytes32(0),
+            stateRoot: bytes32(0)
+        });
 
         return encodeProposeInputWithEndBlock(
             _inboxType, _deadline, _coreState, _proposals, _blobRef, _transitionRecords, checkpoint
@@ -52,7 +55,7 @@ library InboxTestAdapter {
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
         IInbox.TransitionRecord[] memory _transitionRecords,
-        IInbox.Checkpoint memory _checkpoint
+        ICheckpointManager.Checkpoint memory _checkpoint
     )
         internal
         pure

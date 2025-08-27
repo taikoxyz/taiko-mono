@@ -7,6 +7,7 @@ import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibProposeInputDecoder } from "contracts/layer1/shasta/libs/LibProposeInputDecoder.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 import { LibBonds } from "contracts/shared/based/libs/LibBonds.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title LibProposeInputDecoderGas
 /// @notice Gas comparison between optimized LibProposeInputDecoder and abi.encode/decode
@@ -193,7 +194,11 @@ contract LibProposeInputDecoderGas is Test {
         }
 
         // Add checkpoint if needed
-        input.checkpoint = IInbox.Checkpoint({ number: 0, hash: bytes32(0), stateRoot: bytes32(0) });
+        input.checkpoint = ICheckpointManager.Checkpoint({
+            blockNumber: 0,
+            blockHash: bytes32(0),
+            stateRoot: bytes32(0)
+        });
     }
 
     function _writeReport() private {

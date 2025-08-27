@@ -17,7 +17,7 @@ contract InboxOutOfOrderProving is InboxTest {
     // Override setupMockAddresses to use actual mock contracts
     function setupMockAddresses() internal override {
         bondToken = address(new MockERC20());
-        syncedBlockManager = address(new StubSyncedBlockManager());
+        checkpointManager = address(new StubSyncedBlockManager());
         forcedInclusionStore = address(new StubForcedInclusionStore());
         proofVerifier = address(new StubProofVerifier());
         proposerChecker = address(new StubProposerChecker());
@@ -39,7 +39,7 @@ contract InboxOutOfOrderProving is InboxTest {
 
         // Get initial parent hash
         IInbox.Transition memory genesisTransition;
-        genesisTransition.checkpoint.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         // Phase 1: Create multiple proposals sequentially
@@ -133,9 +133,9 @@ contract InboxOutOfOrderProving is InboxTest {
             transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
                 parentTransitionHash: parentHash,
-                checkpoint: IInbox.Checkpoint({
-                    number: uint48(100 + i * 10),
-                    hash: keccak256(abi.encode(proposals[i].id, "endBlockHash")),
+                checkpoint: ICheckpointManager.Checkpoint({
+                    blockNumber: uint48(100 + i * 10),
+                    blockHash: keccak256(abi.encode(proposals[i].id, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(proposals[i].id, "stateRoot"))
                 }),
                 designatedProver: Alice,
@@ -198,8 +198,8 @@ contract InboxOutOfOrderProving is InboxTest {
         // Expect final block update
         IInbox.Transition memory lastTransition = transitions[numProposals - 1];
         expectSyncedBlockSave(
-            lastTransition.checkpoint.number,
-            lastTransition.checkpoint.hash,
+            lastTransition.checkpoint.blockNumber,
+            lastTransition.checkpoint.blockHash,
             lastTransition.checkpoint.stateRoot
         );
 
@@ -225,7 +225,7 @@ contract InboxOutOfOrderProving is InboxTest {
         inbox.propose(bytes(""), proposeData);
 
         // Verify finalization occurred (we can't directly check core state hash
-        // but we can verify by checking that the synced block save was called)
+        // but we can verify by checking that the checkpoint save was called)
     }
 
     /// @notice Test that unproven proposals block finalization
@@ -238,7 +238,7 @@ contract InboxOutOfOrderProving is InboxTest {
         setupBlobHashes();
         // Create genesis transition
         IInbox.Transition memory genesisTransition;
-        genesisTransition.checkpoint.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         // Create 3 proposals
@@ -333,9 +333,9 @@ contract InboxOutOfOrderProving is InboxTest {
             IInbox.Transition memory transition = IInbox.Transition({
                 proposalHash: storedProposalHash,
                 parentTransitionHash: parentHash,
-                checkpoint: IInbox.Checkpoint({
-                    number: uint48(100 + i * 10),
-                    hash: keccak256(abi.encode(i, "endBlockHash")),
+                checkpoint: ICheckpointManager.Checkpoint({
+                    blockNumber: uint48(100 + i * 10),
+                    blockHash: keccak256(abi.encode(i, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i, "stateRoot"))
                 }),
                 designatedProver: Alice,
@@ -368,9 +368,9 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.Transition memory transition1 = IInbox.Transition({
             proposalHash: storedProposalHashForTransition,
             parentTransitionHash: initialParentHash,
-            checkpoint: IInbox.Checkpoint({
-                number: 110,
-                hash: keccak256(abi.encode(1, "endBlockHash")),
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: 110,
+                blockHash: keccak256(abi.encode(1, "endBlockHash")),
                 stateRoot: keccak256(abi.encode(1, "stateRoot"))
             }),
             designatedProver: Alice,
@@ -390,8 +390,8 @@ contract InboxOutOfOrderProving is InboxTest {
 
         // Expect only proposal 1 to be finalized
         expectSyncedBlockSave(
-            transition1.checkpoint.number,
-            transition1.checkpoint.hash,
+            transition1.checkpoint.blockNumber,
+            transition1.checkpoint.blockHash,
             transition1.checkpoint.stateRoot
         );
 

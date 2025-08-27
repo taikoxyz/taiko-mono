@@ -56,8 +56,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         original.proposalId = 123;
         original.transition.proposalHash = _proposalHash;
         original.transition.parentTransitionHash = _parentTransitionHash;
-        original.transition.checkpoint.number = _endBlockNumber;
-        original.transition.checkpoint.hash = _endBlockHash;
+        original.transition.checkpoint.blockNumber = _endBlockNumber;
+        original.transition.checkpoint.blockHash = _endBlockHash;
         original.transition.checkpoint.stateRoot = _endStateRoot;
         original.transition.designatedProver = _designatedProver;
         original.transition.actualProver = _actualProver;
@@ -68,8 +68,10 @@ contract LibProvedEventEncoderFuzzTest is Test {
 
         assertEq(decoded.transition.proposalHash, original.transition.proposalHash);
         assertEq(decoded.transition.parentTransitionHash, original.transition.parentTransitionHash);
-        assertEq(decoded.transition.checkpoint.number, original.transition.checkpoint.number);
-        assertEq(decoded.transition.checkpoint.hash, original.transition.checkpoint.hash);
+        assertEq(
+            decoded.transition.checkpoint.blockNumber, original.transition.checkpoint.blockNumber
+        );
+        assertEq(decoded.transition.checkpoint.blockHash, original.transition.checkpoint.blockHash);
         assertEq(decoded.transition.checkpoint.stateRoot, original.transition.checkpoint.stateRoot);
         assertEq(decoded.transition.designatedProver, original.transition.designatedProver);
         assertEq(decoded.transition.actualProver, original.transition.actualProver);
@@ -133,9 +135,9 @@ contract LibProvedEventEncoderFuzzTest is Test {
         // Create Transition with derived values
         original.transition.proposalHash = keccak256(abi.encode("proposal", _proposalId));
         original.transition.parentTransitionHash = keccak256(abi.encode("parent", _proposalId));
-        original.transition.checkpoint.number =
+        original.transition.checkpoint.blockNumber =
             uint48(uint256(keccak256(abi.encode(_proposalId))) % MAX_UINT48);
-        original.transition.checkpoint.hash = keccak256(abi.encode("endBlock", _proposalId));
+        original.transition.checkpoint.blockHash = keccak256(abi.encode("endBlock", _proposalId));
         original.transition.checkpoint.stateRoot = keccak256(abi.encode("endState", _proposalId));
         original.transition.designatedProver = _designatedProver;
         original.transition.actualProver = address(uint160(_designatedProver) + 1);
@@ -167,8 +169,10 @@ contract LibProvedEventEncoderFuzzTest is Test {
         assertEq(decoded.proposalId, original.proposalId);
         assertEq(decoded.transition.proposalHash, original.transition.proposalHash);
         assertEq(decoded.transition.parentTransitionHash, original.transition.parentTransitionHash);
-        assertEq(decoded.transition.checkpoint.number, original.transition.checkpoint.number);
-        assertEq(decoded.transition.checkpoint.hash, original.transition.checkpoint.hash);
+        assertEq(
+            decoded.transition.checkpoint.blockNumber, original.transition.checkpoint.blockNumber
+        );
+        assertEq(decoded.transition.checkpoint.blockHash, original.transition.checkpoint.blockHash);
         assertEq(decoded.transition.checkpoint.stateRoot, original.transition.checkpoint.stateRoot);
         assertEq(decoded.transition.designatedProver, original.transition.designatedProver);
         assertEq(decoded.transition.actualProver, original.transition.actualProver);
@@ -225,8 +229,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         original.proposalId = type(uint48).max;
         original.transition.proposalHash = bytes32(type(uint256).max);
         original.transition.parentTransitionHash = bytes32(type(uint256).max);
-        original.transition.checkpoint.number = type(uint48).max;
-        original.transition.checkpoint.hash = bytes32(type(uint256).max);
+        original.transition.checkpoint.blockNumber = type(uint48).max;
+        original.transition.checkpoint.blockHash = bytes32(type(uint256).max);
         original.transition.checkpoint.stateRoot = bytes32(type(uint256).max);
         original.transition.designatedProver = address(type(uint160).max);
         original.transition.actualProver = address(type(uint160).max);
@@ -245,7 +249,7 @@ contract LibProvedEventEncoderFuzzTest is Test {
         IInbox.ProvedEventPayload memory decoded = LibProvedEventEncoder.decode(encoded);
 
         assertEq(decoded.proposalId, type(uint48).max);
-        assertEq(decoded.transition.checkpoint.number, type(uint48).max);
+        assertEq(decoded.transition.checkpoint.blockNumber, type(uint48).max);
         assertEq(decoded.transitionRecord.span, type(uint8).max);
     }
 
@@ -257,8 +261,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         payload.proposalId = 123;
         payload.transition.proposalHash = keccak256("proposal");
         payload.transition.parentTransitionHash = keccak256("parent");
-        payload.transition.checkpoint.number = 1_000_000;
-        payload.transition.checkpoint.hash = keccak256("endBlock");
+        payload.transition.checkpoint.blockNumber = 1_000_000;
+        payload.transition.checkpoint.blockHash = keccak256("endBlock");
         payload.transition.checkpoint.stateRoot = keccak256("endState");
         payload.transition.designatedProver = address(0x1234);
         payload.transition.actualProver = address(0x5678);

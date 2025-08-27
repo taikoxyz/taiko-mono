@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { PacayaAnchor } from "./PacayaAnchor.sol";
-import { ISyncedBlockManager } from "src/shared/based/iface/ISyncedBlockManager.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
@@ -56,7 +56,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     IShastaBondManager public immutable bondManager;
 
     /// @notice Contract managing synchronized L1 block data.
-    ISyncedBlockManager public immutable syncedBlockManager;
+    ICheckpointManager public immutable checkpointManager;
 
     // ---------------------------------------------------------------
     // State variables
@@ -88,7 +88,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _signalService The address of the signal service.
     /// @param _pacayaForkHeight The block height at which the Pacaya fork is activated.
     /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
-    /// @param _syncedBlockManager The address of the synced block manager.
+    /// @param _checkpointManager The address of the checkpoint manager.
     /// @param _bondManager The address of the bond manager.
     constructor(
         uint48 _livenessBondGwei,
@@ -96,7 +96,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
-        ISyncedBlockManager _syncedBlockManager,
+        ICheckpointManager _checkpointManager,
         IShastaBondManager _bondManager
     )
         PacayaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
@@ -107,7 +107,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
         livenessBondGwei = _livenessBondGwei;
         provabilityBondGwei = _provabilityBondGwei;
-        syncedBlockManager = _syncedBlockManager;
+        checkpointManager = _checkpointManager;
         bondManager = _bondManager;
     }
 
@@ -170,9 +170,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Process new L1 anchor data
         if (_anchorBlockNumber > _state.anchorBlockNumber) {
             // Save L1 block data
-            syncedBlockManager.saveSyncedBlock(
-                _anchorBlockNumber, _anchorBlockHash, _anchorStateRoot
-            );
+            checkpointManager.saveCheckpoint(_anchorBlockNumber, _anchorBlockHash, _anchorStateRoot);
 
             // Process bond instructions with hash verification
             bytes32 newBondInstructionsHash =

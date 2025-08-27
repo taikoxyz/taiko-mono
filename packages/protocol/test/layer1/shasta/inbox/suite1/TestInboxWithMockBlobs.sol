@@ -37,7 +37,7 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
                 maxFinalizationCount: 10,
                 ringBufferSize: 100, // Ensure this is not zero
                 basefeeSharingPctg: 10,
-                syncedBlockManager: address(0),
+                checkpointManager: address(0),
                 proofVerifier: address(0),
                 proposerChecker: address(0),
                 forcedInclusionStore: address(0),

@@ -356,7 +356,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
 
     /// @notice Retrieves the transition used for the last synced batch.
     /// @return batchId_ The batch ID of the last synced transition.
-    /// @return blockId_ The block ID of the last synced block.
+    /// @return blockId_ The block ID of the last checkpoint.
     /// @return ts_ The last synced transition.
     function v4GetLastSyncedTransition()
         external

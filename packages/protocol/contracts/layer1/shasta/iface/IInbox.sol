@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -16,7 +17,7 @@ interface IInbox {
         uint256 maxFinalizationCount;
         uint256 ringBufferSize;
         uint8 basefeeSharingPctg;
-        address syncedBlockManager;
+        address checkpointManager;
         address proofVerifier;
         address proposerChecker;
         address forcedInclusionStore;
@@ -54,14 +55,6 @@ interface IInbox {
         bytes32 derivationHash;
     }
 
-    struct Checkpoint {
-        uint48 number;
-        /// @notice The block hash for the end (last) L2 block in this proposal.
-        bytes32 hash;
-        /// @notice The state root for the end (last) L2 block in this proposal.
-        bytes32 stateRoot;
-    }
-
     /// @notice Represents a transition about the state transition of a proposal.
     struct Transition {
         /// @notice The proposal's hash.
@@ -71,7 +64,7 @@ interface IInbox {
         /// finalize the corresponding proposal.
         bytes32 parentTransitionHash;
         /// @notice The end block header containing number, hash, and state root.
-        Checkpoint checkpoint;
+        ICheckpointManager.Checkpoint checkpoint;
         /// @notice The designated prover.
         address designatedProver;
         /// @notice The actual prover.
@@ -115,7 +108,7 @@ interface IInbox {
         /// @notice Array of transition records for finalization.
         TransitionRecord[] transitionRecords;
         /// @notice The checkpoint for finalization.
-        Checkpoint checkpoint;
+        ICheckpointManager.Checkpoint checkpoint;
         /// @notice The number of forced inclusions that the proposer wants to process.
         /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
         /// that he wants to include.
