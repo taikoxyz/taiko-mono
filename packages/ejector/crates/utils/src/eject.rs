@@ -72,6 +72,8 @@ pub async fn eject_operator(
     }
     Ok(())
 }
+
+// active operators have activeSince != 0 and inactiveSince == 0
 async fn active_operator_count<P>(
     preconf_whitelist: &bindings::IPreconfWhitelist::IPreconfWhitelistInstance<P>,
     operator_count: u64,
