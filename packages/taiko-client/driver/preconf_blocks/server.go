@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
+	"github.com/ethereum-optimism/optimism/op-node/p2p/gating"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -26,6 +27,7 @@ import (
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -923,6 +925,30 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
 		s.lookahead.CurrOperator,
 		s.lookahead.NextOperator,
 	}
+}
+
+// AllP2PSequencerAddresses implements the p2p.PreconfGossipRuntimeConfig interface.
+func (s *PreconfBlockAPIServer) AllP2PSequencerAddresses() []common.Address {
+	s.lookaheadMutex.Lock()
+	defer s.lookaheadMutex.Unlock()
+
+	operators, err := s.rpc.GetAllPreconfOperators(nil)
+	if err != nil {
+		log.Warn("Failed to get all preconfirmation operators", "error", err)
+		return []common.Address{}
+	}
+
+	return operators
+}
+
+// P2pHost returns the host of the connected p2pNode for the p2p.PreconfGossipRuntimeConfig interface
+func (s *PreconfBlockAPIServer) P2PHost() host.Host {
+	return s.p2pNode.Host()
+}
+
+// ConnGater returns the connection gater of the connected p2pNode for the p2p.PreconfGossipRuntimeConfig interface
+func (s *PreconfBlockAPIServer) ConnGater() gating.BlockingConnectionGater {
+	return s.p2pNode.ConnectionGater()
 }
 
 // UpdateLookahead updates the lookahead information.
