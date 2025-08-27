@@ -595,8 +595,7 @@ abstract contract Inbox is ShastaForcedInclusionStore, IInbox {
         private
         returns (CoreState memory, uint256)
     {
-        // Directly call the internal function instead of the external interface
-        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions =
+        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = 
             _consumeForcedInclusions(msg.sender, _numForcedInclusions);
 
         for (uint256 i; i < forcedInclusions.length; ++i) {

@@ -43,7 +43,6 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
                 syncedBlockManager: address(0),
                 proofVerifier: address(0),
                 proposerChecker: address(0),
-                forcedInclusionStore: address(this),
                 minForcedInclusionCount: 1
             });
         }

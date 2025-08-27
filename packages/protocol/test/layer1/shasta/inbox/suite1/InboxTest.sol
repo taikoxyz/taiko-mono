@@ -44,7 +44,6 @@ abstract contract InboxTest is CommonTest {
 
     address internal bondToken;
     address internal syncedBlockManager;
-    address internal forcedInclusionStore;
     address internal proofVerifier;
     address internal proposerChecker;
 
@@ -129,13 +128,11 @@ abstract contract InboxTest is CommonTest {
         if (useRealMocks) {
             bondToken = address(new MockERC20());
             syncedBlockManager = address(new StubSyncedBlockManager());
-            forcedInclusionStore = address(new StubForcedInclusionStore());
             proofVerifier = address(new StubProofVerifier());
             proposerChecker = address(new StubProposerChecker());
         } else {
             bondToken = makeAddr("bondToken");
             syncedBlockManager = makeAddr("syncedBlockManager");
-            forcedInclusionStore = makeAddr("forcedInclusionStore");
             proofVerifier = makeAddr("proofVerifier");
             proposerChecker = makeAddr("proposerChecker");
         }
@@ -190,7 +187,6 @@ abstract contract InboxTest is CommonTest {
             syncedBlockManager: syncedBlockManager,
             proofVerifier: proofVerifier,
             proposerChecker: proposerChecker,
-            forcedInclusionStore: address(inbox),
             minForcedInclusionCount: 1
         });
 
@@ -1055,7 +1051,7 @@ abstract contract InboxTest is CommonTest {
 
     function mockForcedInclusionDue(bool _isDue) internal {
         vm.mockCall(
-            forcedInclusionStore,
+            address(inbox),
             abi.encodeWithSelector(IForcedInclusionStore.isOldestForcedInclusionDue.selector),
             abi.encode(_isDue)
         );

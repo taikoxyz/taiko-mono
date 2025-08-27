@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
 
 /// @title InboxMockContracts
 /// @notice Mock contracts for testing Inbox functionality
@@ -46,23 +45,6 @@ contract StubSyncedBlockManager {
     function saveSyncedBlock(uint48, bytes32, bytes32) external { }
 }
 
-contract StubForcedInclusionStore {
-    function isOldestForcedInclusionDue() external pure returns (bool) {
-        return false;
-    }
-
-    function consumeForcedInclusions(
-        address,
-        uint256
-    )
-        external
-        pure
-        returns (IForcedInclusionStore.ForcedInclusion[] memory)
-    {
-        // Return empty array
-        return new IForcedInclusionStore.ForcedInclusion[](0);
-    }
-}
 
 contract StubProofVerifier {
     bool public shouldFail;

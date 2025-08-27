@@ -40,7 +40,6 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
                 syncedBlockManager: address(0),
                 proofVerifier: address(0),
                 proposerChecker: address(0),
-                forcedInclusionStore: address(this),
                 minForcedInclusionCount: 1
             });
         }
