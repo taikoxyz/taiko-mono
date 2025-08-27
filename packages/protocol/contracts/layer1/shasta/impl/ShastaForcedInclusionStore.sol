@@ -86,7 +86,6 @@ abstract contract ShastaForcedInclusionStore is EssentialContract, IForcedInclus
         emit ForcedInclusionStored(inclusion);
     }
 
-
     /// @inheritdoc IForcedInclusionStore
     function isOldestForcedInclusionDue() external view returns (bool) {
         return _isOldestForcedInclusionDue();
@@ -158,7 +157,7 @@ abstract contract ShastaForcedInclusionStore is EssentialContract, IForcedInclus
             return block.timestamp >= deadline;
         }
     }
-    
+
     function _blobhash(uint256 _blobIndex) private view returns (bytes32) {
         return blobhash(_blobIndex);
     }

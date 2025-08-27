@@ -765,7 +765,7 @@ abstract contract InboxTest is CommonTest {
     {
         mockProposerAllowed(_proposer);
         mockForcedInclusionDue(true);
-        
+
         // Note: consumeForcedInclusions is now internal to the inbox
         // No external mock needed since forced inclusion store is merged
     }
