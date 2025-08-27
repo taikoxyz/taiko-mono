@@ -35,7 +35,7 @@ var (
 	}
 	RaikoApiKeyPath = &cli.StringFlag{
 		Name:     "raiko.apiKeyPath",
-		Usage:    "Path to a api key for the Raiko service",
+		Usage:    "Path to an api key for the Raiko service",
 		Category: proverCategory,
 		EnvVars:  []string{"RAIKO_API_KEY_PATH"},
 	}

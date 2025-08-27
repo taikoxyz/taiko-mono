@@ -12,6 +12,6 @@ export default async function getAddress(ensName: string): Promise<IAddress> {
     chainId,
   })) as GetEnsAddressReturnType;
 
-  if (!address) throw new Error('No ENS name');
+  if (!address) throw new Error('No ENS address');
   return address;
 }
