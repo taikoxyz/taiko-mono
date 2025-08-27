@@ -3,15 +3,23 @@
 pragma solidity ^0.8.24;
 
 import { AbstractProveTest } from "./AbstractProveTest.t.sol";
-import { TestInbox } from "../implementations/TestInbox.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
+import { InboxBase } from "../base/InboxBase.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
+import { CommonTest } from "test/shared/CommonTest.sol";
 
 /// @title InboxProve
 /// @notice Test suite for prove functionality on simple Inbox implementation
-contract InboxProve is AbstractProveTest {
-    function getTestContractName() internal pure override returns (string memory) {
-        return "Inbox";
+contract InboxProve is AbstractProveTest, InboxBase {
+    function setUp() public virtual override(AbstractProveTest, CommonTest) {
+        AbstractProveTest.setUp();
+    }
+    function getTestContractName() 
+        internal 
+        pure 
+        override(AbstractProveTest, InboxBase) 
+        returns (string memory) 
+    {
+        return InboxBase.getTestContractName();
     }
 
     function deployInbox(
@@ -22,23 +30,11 @@ contract InboxProve is AbstractProveTest {
         address forcedInclusionStore
     )
         internal
-        override
+        override(AbstractProveTest, InboxBase)
         returns (Inbox)
     {
-        // Deploy implementation
-        address impl = address(
-            new TestInbox(
-                bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
-            )
-        );
-
-        // Deploy proxy using the helper function
-        return Inbox(
-            deploy({
-                name: "",
-                impl: impl,
-                data: abi.encodeCall(Inbox.init, (owner, GENESIS_BLOCK_HASH))
-            })
+        return InboxBase.deployInbox(
+            bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
         );
     }
 }

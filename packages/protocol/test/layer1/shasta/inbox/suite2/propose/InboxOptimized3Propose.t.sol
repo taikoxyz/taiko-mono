@@ -2,15 +2,23 @@
 pragma solidity ^0.8.24;
 
 import { AbstractProposeTest } from "./AbstractProposeTest.t.sol";
-import { TestInboxOptimized3 } from "../implementations/TestInboxOptimized3.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
+import { InboxOptimized3Base } from "../base/InboxOptimized3Base.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
+import { CommonTest } from "test/shared/CommonTest.sol";
 
 /// @title InboxOptimized3Propose
 /// @notice Test suite for propose functionality on Optimized3 Inbox implementation
-contract InboxOptimized3Propose is AbstractProposeTest {
-    function getTestContractName() internal pure override returns (string memory) {
-        return "InboxOptimized3";
+contract InboxOptimized3Propose is AbstractProposeTest, InboxOptimized3Base {
+    function setUp() public virtual override(AbstractProposeTest, CommonTest) {
+        AbstractProposeTest.setUp();
+    }
+    function getTestContractName() 
+        internal 
+        pure 
+        override(AbstractProposeTest, InboxOptimized3Base) 
+        returns (string memory) 
+    {
+        return InboxOptimized3Base.getTestContractName();
     }
 
     function deployInbox(
@@ -21,21 +29,11 @@ contract InboxOptimized3Propose is AbstractProposeTest {
         address forcedInclusionStore
     )
         internal
-        override
+        override(AbstractProposeTest, InboxOptimized3Base)
         returns (Inbox)
     {
-        address impl = address(
-            new TestInboxOptimized3(
-                bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
-            )
-        );
-
-        return Inbox(
-            deploy({
-                name: "",
-                impl: impl,
-                data: abi.encodeCall(Inbox.init, (owner, GENESIS_BLOCK_HASH))
-            })
+        return InboxOptimized3Base.deployInbox(
+            bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
         );
     }
 }

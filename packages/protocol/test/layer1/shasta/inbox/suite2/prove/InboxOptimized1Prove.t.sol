@@ -3,15 +3,23 @@
 pragma solidity ^0.8.24;
 
 import { AbstractProveTest } from "./AbstractProveTest.t.sol";
-import { TestInboxOptimized1 } from "../implementations/TestInboxOptimized1.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
+import { InboxOptimized1Base } from "../base/InboxOptimized1Base.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
+import { CommonTest } from "test/shared/CommonTest.sol";
 
 /// @title InboxOptimized1Prove
 /// @notice Test suite for prove functionality on InboxOptimized1 implementation
-contract InboxOptimized1Prove is AbstractProveTest {
-    function getTestContractName() internal pure override returns (string memory) {
-        return "InboxOptimized1";
+contract InboxOptimized1Prove is AbstractProveTest, InboxOptimized1Base {
+    function setUp() public virtual override(AbstractProveTest, CommonTest) {
+        AbstractProveTest.setUp();
+    }
+    function getTestContractName() 
+        internal 
+        pure 
+        override(AbstractProveTest, InboxOptimized1Base) 
+        returns (string memory) 
+    {
+        return InboxOptimized1Base.getTestContractName();
     }
 
     function _getExpectedAggregationBehavior(uint256 proposalCount, bool consecutive) 
@@ -23,7 +31,6 @@ contract InboxOptimized1Prove is AbstractProveTest {
         }
     }
 
-
     function deployInbox(
         address bondToken,
         address syncedBlockManager,
@@ -32,23 +39,11 @@ contract InboxOptimized1Prove is AbstractProveTest {
         address forcedInclusionStore
     )
         internal
-        override
+        override(AbstractProveTest, InboxOptimized1Base)
         returns (Inbox)
     {
-        // Deploy implementation
-        address impl = address(
-            new TestInboxOptimized1(
-                bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
-            )
-        );
-
-        // Deploy proxy using the helper function
-        return Inbox(
-            deploy({
-                name: "",
-                impl: impl,
-                data: abi.encodeCall(Inbox.init, (owner, GENESIS_BLOCK_HASH))
-            })
+        return InboxOptimized1Base.deployInbox(
+            bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
         );
     }
 }

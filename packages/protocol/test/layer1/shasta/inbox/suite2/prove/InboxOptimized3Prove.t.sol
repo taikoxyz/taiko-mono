@@ -3,16 +3,41 @@
 pragma solidity ^0.8.24;
 
 import { AbstractProveTest } from "./AbstractProveTest.t.sol";
-import { TestInboxOptimized3 } from "../implementations/TestInboxOptimized3.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
+import { InboxOptimized3Base } from "../base/InboxOptimized3Base.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
+import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibProveInputDecoder } from "contracts/layer1/shasta/libs/LibProveInputDecoder.sol";
+import { CommonTest } from "test/shared/CommonTest.sol";
 
 /// @title InboxOptimized3Prove
 /// @notice Test suite for prove functionality on InboxOptimized3 implementation
-contract InboxOptimized3Prove is AbstractProveTest {
-    function getTestContractName() internal pure override returns (string memory) {
-        return "InboxOptimized3";
+contract InboxOptimized3Prove is AbstractProveTest, InboxOptimized3Base {
+    function setUp() public virtual override(AbstractProveTest, CommonTest) {
+        AbstractProveTest.setUp();
+    }
+    function getTestContractName() 
+        internal 
+        pure 
+        override(AbstractProveTest, InboxOptimized3Base) 
+        returns (string memory) 
+    {
+        return InboxOptimized3Base.getTestContractName();
+    }
+
+    function deployInbox(
+        address bondToken,
+        address syncedBlockManager,
+        address proofVerifier,
+        address proposerChecker,
+        address forcedInclusionStore
+    )
+        internal
+        override(AbstractProveTest, InboxOptimized3Base)
+        returns (Inbox)
+    {
+        return InboxOptimized3Base.deployInbox(
+            bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
+        );
     }
 
     // Override the inconsistent params test for InboxOptimized3 which uses different error
@@ -38,34 +63,5 @@ contract InboxOptimized3Prove is AbstractProveTest {
         } else {
             return (proposalCount, 1); // Individual events for gaps
         }
-    }
-
-
-    function deployInbox(
-        address bondToken,
-        address syncedBlockManager,
-        address proofVerifier,
-        address proposerChecker,
-        address forcedInclusionStore
-    )
-        internal
-        override
-        returns (Inbox)
-    {
-        // Deploy implementation
-        address impl = address(
-            new TestInboxOptimized3(
-                bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
-            )
-        );
-
-        // Deploy proxy using the helper function
-        return Inbox(
-            deploy({
-                name: "",
-                impl: impl,
-                data: abi.encodeCall(Inbox.init, (owner, GENESIS_BLOCK_HASH))
-            })
-        );
     }
 }
