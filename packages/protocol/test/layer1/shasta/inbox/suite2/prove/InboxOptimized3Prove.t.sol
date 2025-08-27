@@ -15,11 +15,12 @@ contract InboxOptimized3Prove is AbstractProveTest, InboxOptimized3Base {
     function setUp() public virtual override(AbstractProveTest, CommonTest) {
         AbstractProveTest.setUp();
     }
-    function getTestContractName() 
-        internal 
-        pure 
-        override(AbstractProveTest, InboxOptimized3Base) 
-        returns (string memory) 
+
+    function getTestContractName()
+        internal
+        pure
+        override(AbstractProveTest, InboxOptimized3Base)
+        returns (string memory)
     {
         return InboxOptimized3Base.getTestContractName();
     }
@@ -49,15 +50,22 @@ contract InboxOptimized3Prove is AbstractProveTest, InboxOptimized3Base {
         IInbox.ProveInput memory input;
         input.proposals = new IInbox.Proposal[](2);
         input.transitions = new IInbox.Transition[](1); // Mismatch!
-        
+
         // InboxOptimized3 uses LibProveInputDecoder which throws ProposalTransitionLengthMismatch()
         // during encoding itself, not during prove()
         vm.expectRevert(LibProveInputDecoder.ProposalTransitionLengthMismatch.selector);
         inbox.encodeProveInput(input);
     }
 
-    function _getExpectedAggregationBehavior(uint256 proposalCount, bool consecutive) 
-        internal pure override returns (uint256 expectedEvents, uint256 expectedMaxSpan) {
+    function _getExpectedAggregationBehavior(
+        uint256 proposalCount,
+        bool consecutive
+    )
+        internal
+        pure
+        override
+        returns (uint256 expectedEvents, uint256 expectedMaxSpan)
+    {
         if (consecutive) {
             return (1, proposalCount); // One event with span=proposalCount
         } else {

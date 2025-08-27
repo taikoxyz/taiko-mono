@@ -12,11 +12,12 @@ contract InboxPropose is AbstractProposeTest, InboxBase {
     function setUp() public virtual override(AbstractProposeTest, CommonTest) {
         AbstractProposeTest.setUp();
     }
-    function getTestContractName() 
-        internal 
-        pure 
-        override(AbstractProposeTest, InboxBase) 
-        returns (string memory) 
+
+    function getTestContractName()
+        internal
+        pure
+        override(AbstractProposeTest, InboxBase)
+        returns (string memory)
     {
         return InboxBase.getTestContractName();
     }

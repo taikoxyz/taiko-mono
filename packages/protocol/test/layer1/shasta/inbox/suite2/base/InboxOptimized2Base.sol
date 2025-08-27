@@ -8,7 +8,6 @@ import { CommonTest } from "test/shared/CommonTest.sol";
 /// @title InboxOptimized2Base
 /// @notice Base contract providing deployment logic for InboxOptimized2 implementation
 abstract contract InboxOptimized2Base is CommonTest {
-
     function getTestContractName() internal pure virtual returns (string memory) {
         return "InboxOptimized2";
     }
@@ -29,7 +28,7 @@ abstract contract InboxOptimized2Base is CommonTest {
                 bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
             )
         );
-        
+
         return Inbox(
             deploy({
                 name: "",

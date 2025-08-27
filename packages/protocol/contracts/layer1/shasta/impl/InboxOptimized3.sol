@@ -37,14 +37,24 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
     /// @notice Encodes ProposeInput using optimized binary format
     /// @dev Reduces calldata size by ~35% compared to standard ABI encoding
     /// @param _input The ProposeInput struct to encode
-    function encodeProposeInput(ProposeInput memory _input) external pure override returns (bytes memory) {
+    function encodeProposeInput(ProposeInput memory _input)
+        external
+        pure
+        override
+        returns (bytes memory)
+    {
         return LibProposeInputDecoder.encode(_input);
     }
 
     /// @notice Encodes ProveInput using optimized binary format
     /// @dev Reduces calldata size by ~40% compared to standard ABI encoding
     /// @param _input The ProveInput struct to encode
-    function encodeProveInput(ProveInput memory _input) external pure override returns (bytes memory) {
+    function encodeProveInput(ProveInput memory _input)
+        external
+        pure
+        override
+        returns (bytes memory)
+    {
         return LibProveInputDecoder.encode(_input);
     }
 

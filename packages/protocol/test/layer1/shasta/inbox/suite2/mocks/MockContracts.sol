@@ -25,8 +25,6 @@ contract MockProofVerifier is IProofVerifier {
     }
 }
 
-
-
 /// @title MockSyncedBlockManager
 /// @notice Mock synced block manager for testing
 contract MockSyncedBlockManager is ISyncedBlockManager {

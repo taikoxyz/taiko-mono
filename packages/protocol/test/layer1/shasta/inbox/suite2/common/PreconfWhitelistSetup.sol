@@ -10,7 +10,6 @@ import { CommonTest } from "test/shared/CommonTest.sol";
 /// @title PreconfWhitelistSetup
 /// @notice Utilities for setting up and managing PreconfWhitelist for tests
 contract PreconfWhitelistSetup is CommonTest {
-    
     // ---------------------------------------------------------------
     // PreconfWhitelist Deployment and Setup
     // ---------------------------------------------------------------
@@ -18,34 +17,36 @@ contract PreconfWhitelistSetup is CommonTest {
     function _deployPreconfWhitelist(address _owner) public returns (IProposerChecker) {
         // Deploy PreconfWhitelist with Alice as fallback preconfer
         address impl = address(new PreconfWhitelist(Alice)); // Alice as fallback
-        
-        address proxy = address(new ERC1967Proxy(
-            impl,
-            abi.encodeCall(
-                PreconfWhitelist.init,
-                (
-                    _owner,   // owner
-                    0,        // operatorChangeDelay (immediate for tests)
-                    0         // randomnessDelay (immediate for tests)
+
+        address proxy = address(
+            new ERC1967Proxy(
+                impl,
+                abi.encodeCall(
+                    PreconfWhitelist.init,
+                    (
+                        _owner, // owner
+                        0, // operatorChangeDelay (immediate for tests)
+                        0 // randomnessDelay (immediate for tests)
+                    )
                 )
             )
-        ));
-        
+        );
+
         PreconfWhitelist whitelist = PreconfWhitelist(proxy);
-        
+
         // Add 4 test operators to mimic mainnet setup
         vm.prank(_owner);
         whitelist.addOperator(Bob, Bob);
-        
+
         vm.prank(_owner);
         whitelist.addOperator(Carol, Carol);
-        
+
         vm.prank(_owner);
         whitelist.addOperator(David, David);
-        
+
         vm.prank(_owner);
         whitelist.addOperator(Emma, Emma);
-        
+
         return IProposerChecker(proxy);
     }
 
@@ -56,7 +57,7 @@ contract PreconfWhitelistSetup is CommonTest {
     function _mockBeaconRootForProposer(address _desiredProposer) internal {
         // Get current epoch timestamp
         uint256 epochTimestamp = _getCurrentEpochTimestamp();
-        
+
         // Use a deterministic beacon root that will reliably select the desired proposer
         // Now we have 4 operators: Bob, Carol, David, Emma
         bytes32 deterministicRoot;
@@ -71,7 +72,7 @@ contract PreconfWhitelistSetup is CommonTest {
         } else {
             deterministicRoot = keccak256(abi.encode(_desiredProposer, "fallback"));
         }
-        
+
         // Mock the beacon root call
         vm.mockCall(
             LibPreconfConstants.BEACON_BLOCK_ROOT_CONTRACT,
@@ -88,24 +89,23 @@ contract PreconfWhitelistSetup is CommonTest {
     }
 
     function _selectProposer(
-        IProposerChecker _proposerChecker, 
+        IProposerChecker _proposerChecker,
         address _proposer
-    ) 
-        public 
-        returns (address) 
+    )
+        public
+        returns (address)
     {
         // Mock beacon root to select a specific proposer
         _mockBeaconRootForProposer(_proposer);
-        
+
         PreconfWhitelist whitelist = PreconfWhitelist(address(_proposerChecker));
         address selectedProposer = whitelist.getOperatorForCurrentEpoch();
-        
+
         // If no proposer selected, fall back to the fallback preconfer (Alice)
         if (selectedProposer == address(0)) {
             selectedProposer = Alice;
         }
-        
+
         return selectedProposer;
     }
-
 }

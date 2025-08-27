@@ -13,17 +13,25 @@ contract InboxOptimized2Prove is AbstractProveTest, InboxOptimized2Base {
     function setUp() public virtual override(AbstractProveTest, CommonTest) {
         AbstractProveTest.setUp();
     }
-    function getTestContractName() 
-        internal 
-        pure 
-        override(AbstractProveTest, InboxOptimized2Base) 
-        returns (string memory) 
+
+    function getTestContractName()
+        internal
+        pure
+        override(AbstractProveTest, InboxOptimized2Base)
+        returns (string memory)
     {
         return InboxOptimized2Base.getTestContractName();
     }
 
-    function _getExpectedAggregationBehavior(uint256 proposalCount, bool consecutive) 
-        internal pure override returns (uint256 expectedEvents, uint256 expectedMaxSpan) {
+    function _getExpectedAggregationBehavior(
+        uint256 proposalCount,
+        bool consecutive
+    )
+        internal
+        pure
+        override
+        returns (uint256 expectedEvents, uint256 expectedMaxSpan)
+    {
         if (consecutive) {
             return (1, proposalCount); // One event with span=proposalCount
         } else {

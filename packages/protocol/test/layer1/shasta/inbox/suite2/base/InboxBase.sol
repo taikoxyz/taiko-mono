@@ -8,7 +8,6 @@ import { CommonTest } from "test/shared/CommonTest.sol";
 /// @title InboxBase
 /// @notice Base contract providing deployment logic for basic Inbox implementation
 abstract contract InboxBase is CommonTest {
-
     function getTestContractName() internal pure virtual returns (string memory) {
         return "Inbox";
     }
@@ -29,7 +28,7 @@ abstract contract InboxBase is CommonTest {
                 bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
             )
         );
-        
+
         return Inbox(
             deploy({
                 name: "",

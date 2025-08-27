@@ -6,7 +6,6 @@ import "forge-std/src/Test.sol";
 /// @title BlobTestUtils
 /// @notice Simple utilities for blob-related testing
 contract BlobTestUtils is Test {
-
     function _setupBlobHashes() internal {
         // Setup test blob hashes for EIP-4844
         bytes32[] memory hashes = new bytes32[](9);

@@ -16,7 +16,6 @@ import "contracts/layer1/shasta/impl/Inbox.sol";
 /// @title AbstractProveTest
 /// @notice All prove tests for Inbox implementations
 abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
-    
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -44,61 +43,56 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     function test_prove_singleProposal() public {
         // First create a proposal
         IInbox.Proposal memory proposal = _proposeAndGetProposal();
-        
+
         // Create prove input for this proposal
         bytes memory proveData = _createProveInput(proposal);
         bytes memory proof = _createValidProof();
-        
+
         // Record events to verify count later
         vm.recordLogs();
-        
+
         vm.prank(currentProver);
-        vm.startSnapshotGas(
-            "shasta-prove", 
-            string.concat("prove_single_", getTestContractName())
-        );
+        vm.startSnapshotGas("shasta-prove", string.concat("prove_single_", getTestContractName()));
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
-        
+
         // Verify transition record is stored
-        bytes32 transitionRecordHash = inbox.getTransitionRecordHash(
-            proposal.id, 
-            _getGenesisTransitionHash()
-        );
+        bytes32 transitionRecordHash =
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
         assertTrue(transitionRecordHash != bytes32(0), "Transition record should be stored");
-        
+
         // Verify exactly one Proved event was emitted
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 eventCount = _countProvedEvents(logs);
         assertEq(eventCount, 1, "Should emit exactly one Proved event");
     }
 
-    /// @dev Tests proving 2 consecutive proposals - optimized implementations should aggregate into 1 event
+    /// @dev Tests proving 2 consecutive proposals - optimized implementations should aggregate into
+    /// 1 event
     /// forge-config: default.isolate = true
     function test_prove_twoConsecutiveProposals() public {
         // Create 2 consecutive proposals
         IInbox.Proposal[] memory proposals = _createConsecutiveProposals(2);
-        
+
         // Create prove input
         bytes memory proveData = _createProveInputForMultipleProposals(proposals, true);
         bytes memory proof = _createValidProof();
-        
+
         // Check expected events based on implementation
         (uint256 expectedEvents,) = _getExpectedAggregationBehavior(2, true);
-        
+
         // Record events to verify count later
         vm.recordLogs();
-        
+
         vm.prank(currentProver);
         vm.startSnapshotGas(
-            "shasta-prove",
-            string.concat("prove_consecutive_2_", getTestContractName())
+            "shasta-prove", string.concat("prove_consecutive_2_", getTestContractName())
         );
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
-        
+
         // Verify all proposals were proven
-        
+
         // Verify correct number of events were emitted
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 eventCount = _countProvedEvents(logs);
@@ -111,22 +105,20 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         IInbox.Proposal[] memory proposals = _createConsecutiveProposals(3);
         bytes memory proveData = _createProveInputForMultipleProposals(proposals, true);
         bytes memory proof = _createValidProof();
-        
+
         // Check expected events based on implementation
         (uint256 expectedEvents,) = _getExpectedAggregationBehavior(3, true);
-        
+
         // Record events to verify count later
         vm.recordLogs();
-        
+
         vm.prank(currentProver);
         vm.startSnapshotGas(
-            "shasta-prove",
-            string.concat("prove_consecutive_3_", getTestContractName())
+            "shasta-prove", string.concat("prove_consecutive_3_", getTestContractName())
         );
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
-        
-        
+
         // Verify correct number of events were emitted
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 eventCount = _countProvedEvents(logs);
@@ -139,22 +131,20 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         IInbox.Proposal[] memory proposals = _createConsecutiveProposals(5);
         bytes memory proveData = _createProveInputForMultipleProposals(proposals, true);
         bytes memory proof = _createValidProof();
-        
+
         // Check expected events based on implementation
         (uint256 expectedEvents,) = _getExpectedAggregationBehavior(5, true);
-        
+
         // Record events to verify count later
         vm.recordLogs();
-        
+
         vm.prank(currentProver);
         vm.startSnapshotGas(
-            "shasta-prove",
-            string.concat("prove_consecutive_5_", getTestContractName())
+            "shasta-prove", string.concat("prove_consecutive_5_", getTestContractName())
         );
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
-        
-        
+
         // Verify correct number of events were emitted
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 eventCount = _countProvedEvents(logs);
@@ -169,29 +159,26 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         indices[0] = 1;
         indices[1] = 3;
         IInbox.Proposal[] memory proposals = _createProposalsWithGaps(indices);
-        
+
         bytes memory proveData = _createProveInputForMultipleProposals(proposals, false);
         bytes memory proof = _createValidProof();
-        
+
         // Record events to verify count
         vm.recordLogs();
-        
+
         vm.prank(currentProver);
-        vm.startSnapshotGas(
-            "shasta-prove",
-            string.concat("prove_gaps_1_", getTestContractName())
-        );
+        vm.startSnapshotGas("shasta-prove", string.concat("prove_gaps_1_", getTestContractName()));
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
-        
-        
+
         // Should have 2 separate events (no aggregation for gaps)
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 eventCount = _countProvedEvents(logs);
         assertEq(eventCount, 2, "Should emit 2 events for non-consecutive");
     }
 
-    /// @dev Tests proving non-consecutive proposals with multiple gaps [1,3,5] - measures individual proving
+    /// @dev Tests proving non-consecutive proposals with multiple gaps [1,3,5] - measures
+    /// individual proving
     /// forge-config: default.isolate = true
     function test_prove_nonConsecutive_multipleGaps() public {
         // Create proposals 1,2,3,4,5 but prove 1,3,5
@@ -200,22 +187,18 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         indices[1] = 3;
         indices[2] = 5;
         IInbox.Proposal[] memory proposals = _createProposalsWithGaps(indices);
-        
+
         bytes memory proveData = _createProveInputForMultipleProposals(proposals, false);
         bytes memory proof = _createValidProof();
-        
+
         // Record events to verify count
         vm.recordLogs();
-        
+
         vm.prank(currentProver);
-        vm.startSnapshotGas(
-            "shasta-prove",
-            string.concat("prove_gaps_2_", getTestContractName())
-        );
+        vm.startSnapshotGas("shasta-prove", string.concat("prove_gaps_2_", getTestContractName()));
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
-        
-        
+
         // Should have 3 separate events (no aggregation for gaps)
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 eventCount = _countProvedEvents(logs);
@@ -233,27 +216,26 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         indices[3] = 5;
         indices[4] = 6;
         IInbox.Proposal[] memory proposals = _createProposalsWithGaps(indices);
-        
+
         bytes memory proveData = _createProveInputForMultipleProposals(proposals, false);
         bytes memory proof = _createValidProof();
-        
+
         // Record events to verify count
         vm.recordLogs();
-        
+
         vm.prank(currentProver);
         vm.startSnapshotGas(
-            "shasta-prove",
-            string.concat("prove_mixed_groups_", getTestContractName())
+            "shasta-prove", string.concat("prove_mixed_groups_", getTestContractName())
         );
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
-        
-        
+
         // Calculate expected events dynamically for mixed scenario [1,2,4,5,6]:
-        // Basic implementation: 5 events (one per proposal)  
+        // Basic implementation: 5 events (one per proposal)
         // Optimized implementations: 2 events (group 1-2 and group 4-6)
         uint256 expectedEvents;
-        (uint256 consecutiveEvents,) = _getExpectedAggregationBehavior(2, true); // Test consecutive behavior
+        (uint256 consecutiveEvents,) = _getExpectedAggregationBehavior(2, true); // Test consecutive
+            // behavior
         if (consecutiveEvents == 1) {
             // Optimized implementation: supports aggregation
             // Mixed scenario has 2 consecutive groups: [1,2] and [4,5,6]
@@ -272,27 +254,23 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     function test_prove_reverseOrder() public {
         // Create 3 proposals but prove them in reverse order [3,2,1]
         IInbox.Proposal[] memory allProposals = _createConsecutiveProposals(3);
-        
+
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](3);
         proposals[0] = allProposals[2]; // proposal 3
         proposals[1] = allProposals[1]; // proposal 2
         proposals[2] = allProposals[0]; // proposal 1
-        
+
         bytes memory proveData = _createProveInputForMultipleProposals(proposals, false);
         bytes memory proof = _createValidProof();
-        
+
         // Record events to verify count
         vm.recordLogs();
-        
+
         vm.prank(currentProver);
-        vm.startSnapshotGas(
-            "shasta-prove",
-            string.concat("prove_reverse_", getTestContractName())
-        );
+        vm.startSnapshotGas("shasta-prove", string.concat("prove_reverse_", getTestContractName()));
         inbox.prove(proveData, proof);
         vm.stopSnapshotGas();
-        
-        
+
         // Should have 3 separate events (reverse order, no aggregation)
         Vm.Log[] memory logs = vm.getRecordedLogs();
         uint256 eventCount = _countProvedEvents(logs);
@@ -308,7 +286,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         IInbox.ProveInput memory input;
         bytes memory proveData = inbox.encodeProveInput(input);
         bytes memory proof = _createValidProof();
-        
+
         // Should revert with EmptyProposals
         vm.expectRevert(EmptyProposals.selector);
         vm.prank(currentProver);
@@ -320,10 +298,10 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         IInbox.ProveInput memory input;
         input.proposals = new IInbox.Proposal[](2);
         input.transitions = new IInbox.Transition[](1); // Mismatch!
-        
+
         bytes memory proveData = inbox.encodeProveInput(input);
         bytes memory proof = _createValidProof();
-        
+
         // Should revert with InconsistentParams
         vm.expectRevert(InconsistentParams.selector);
         vm.prank(currentProver);
@@ -339,10 +317,10 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             coreStateHash: keccak256("fake"),
             derivationHash: keccak256("fake")
         });
-        
+
         bytes memory proveData = _createProveInput(fakeProposal);
         bytes memory proof = _createValidProof();
-        
+
         // Should revert because proposal doesn't exist
         vm.expectRevert();
         vm.prank(currentProver);
@@ -352,34 +330,30 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     function test_prove_withCustomDesignatedProver() public {
         // Create a proposal
         IInbox.Proposal memory proposal = _proposeAndGetProposal();
-        
+
         // Create transition with different designated prover
         IInbox.Transition memory transition = _createTransitionForProposal(proposal);
         transition.designatedProver = Alice; // Different from currentProver
-        
+
         IInbox.Transition[] memory transitions = new IInbox.Transition[](1);
         transitions[0] = transition;
-        
+
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = proposal;
-        
-        IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions
-        });
-        
+
+        IInbox.ProveInput memory input =
+            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
+
         bytes memory proveData = inbox.encodeProveInput(input);
         bytes memory proof = _createValidProof();
-        
+
         // Should succeed with any designated prover
         vm.prank(currentProver);
         inbox.prove(proveData, proof);
-        
+
         // Verify transition record was stored
-        bytes32 transitionRecordHash = inbox.getTransitionRecordHash(
-            proposal.id, 
-            _getGenesisTransitionHash()
-        );
+        bytes32 transitionRecordHash =
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
         assertTrue(transitionRecordHash != bytes32(0), "Transition record should be stored");
     }
 
@@ -387,8 +361,10 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     // Helper functions for prove input creation
     // ---------------------------------------------------------------
 
-    function _createConsecutiveProposals(uint8 count) 
-        internal returns (IInbox.Proposal[] memory proposals) {
+    function _createConsecutiveProposals(uint8 count)
+        internal
+        returns (IInbox.Proposal[] memory proposals)
+    {
         proposals = new IInbox.Proposal[](count);
         for (uint256 i = 0; i < count; i++) {
             if (i == 0) {
@@ -396,20 +372,22 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             } else {
                 vm.roll(block.number + 1);
                 vm.warp(block.timestamp + 12);
-                proposals[i] = _proposeConsecutiveProposal(proposals[i-1]);
+                proposals[i] = _proposeConsecutiveProposal(proposals[i - 1]);
             }
         }
     }
 
-    function _createProposalsWithGaps(uint8[] memory indices) 
-        internal returns (IInbox.Proposal[] memory proposals) {
+    function _createProposalsWithGaps(uint8[] memory indices)
+        internal
+        returns (IInbox.Proposal[] memory proposals)
+    {
         // Create all proposals sequentially first
         uint8 maxIndex = 0;
         for (uint256 i = 0; i < indices.length; i++) {
             if (indices[i] > maxIndex) maxIndex = indices[i];
         }
         IInbox.Proposal[] memory allProposals = _createConsecutiveProposals(maxIndex);
-        
+
         // Return only the requested indices
         proposals = new IInbox.Proposal[](indices.length);
         for (uint256 i = 0; i < indices.length; i++) {
@@ -420,18 +398,22 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     function _createProveInputForMultipleProposals(
         IInbox.Proposal[] memory proposals,
         bool consecutive
-    ) internal view returns (bytes memory) {
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](proposals.length);
-        
+
         // Build transitions with proper parent hash chaining
         // For consecutive proposals, chain the transition hashes
         // For non-consecutive, each starts from genesis (or their actual parent in real scenarios)
         bytes32 parentHash = _getGenesisTransitionHash();
-        
+
         for (uint256 i = 0; i < proposals.length; i++) {
             transitions[i] = _createTransitionForProposal(proposals[i]);
             transitions[i].parentTransitionHash = parentHash;
-            
+
             if (consecutive) {
                 // Chain transitions for consecutive proposals
                 parentHash = keccak256(abi.encode(transitions[i]));
@@ -441,18 +423,14 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
                 parentHash = _getGenesisTransitionHash();
             }
         }
-        
-        IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: proposals,
-            transitions: transitions
-        });
-        
+
+        IInbox.ProveInput memory input =
+            IInbox.ProveInput({ proposals: proposals, transitions: transitions });
+
         return inbox.encodeProveInput(input);
     }
 
-
-    function _countProvedEvents(Vm.Log[] memory logs) 
-        internal pure returns (uint256 count) {
+    function _countProvedEvents(Vm.Log[] memory logs) internal pure returns (uint256 count) {
         for (uint256 i = 0; i < logs.length; i++) {
             if (logs[i].topics[0] == keccak256("Proved(bytes)")) {
                 count++;
@@ -464,31 +442,39 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     // Virtual functions for implementation-specific behavior
     // ---------------------------------------------------------------
 
-    function _getExpectedAggregationBehavior(uint256 proposalCount, bool /* consecutive */) 
-        internal view virtual returns (uint256 expectedEvents, uint256 expectedMaxSpan) {
+    function _getExpectedAggregationBehavior(
+        uint256 proposalCount,
+        bool /* consecutive */
+    )
+        internal
+        view
+        virtual
+        returns (uint256 expectedEvents, uint256 expectedMaxSpan)
+    {
         // Default (Basic Inbox): no aggregation
         return (proposalCount, 1);
     }
 
-
     function _proposeAndGetProposal() internal returns (IInbox.Proposal memory) {
         _setupBlobHashes();
-        
+
         // Create and submit proposal
         bytes memory proposeData = _createFirstProposeInput();
-        
+
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
-        
+
         // Build and return the expected proposal
-        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(
-            1, 1, 0, currentProposer
-        );
-        
+        IInbox.ProposedEventPayload memory expectedPayload =
+            _buildExpectedProposedPayload(1, 1, 0, currentProposer);
+
         return expectedPayload.proposal;
     }
 
-    function _proposeConsecutiveProposal(IInbox.Proposal memory _parent) internal returns (IInbox.Proposal memory) {
+    function _proposeConsecutiveProposal(IInbox.Proposal memory _parent)
+        internal
+        returns (IInbox.Proposal memory)
+    {
         // Build state for consecutive proposal
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: _parent.id + 1,
@@ -496,56 +482,65 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
-        
+
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
         parentProposals[0] = _parent;
-        
+
         bytes memory proposeData = _createProposeInputWithCustomParams(
             0, // no deadline
             _createBlobRef(0, 1, 0),
             parentProposals,
             coreState
         );
-        
+
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
-        
+
         // Build and return the expected proposal
-        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(
-            _parent.id + 1, 1, 0, currentProposer
-        );
-        
+        IInbox.ProposedEventPayload memory expectedPayload =
+            _buildExpectedProposedPayload(_parent.id + 1, 1, 0, currentProposer);
+
         return expectedPayload.proposal;
     }
 
-    function _createProveInput(IInbox.Proposal memory _proposal) internal view returns (bytes memory) {
+    function _createProveInput(IInbox.Proposal memory _proposal)
+        internal
+        view
+        returns (bytes memory)
+    {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = _proposal;
         return _createProveInputForProposals(proposals);
     }
 
-    function _createProveInputForProposals(IInbox.Proposal[] memory _proposals) internal view returns (bytes memory) {
+    function _createProveInputForProposals(IInbox.Proposal[] memory _proposals)
+        internal
+        view
+        returns (bytes memory)
+    {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](_proposals.length);
-        
+
         bytes32 parentTransitionHash = _getGenesisTransitionHash();
-        
+
         for (uint256 i = 0; i < _proposals.length; i++) {
             transitions[i] = _createTransitionForProposal(_proposals[i]);
             transitions[i].parentTransitionHash = parentTransitionHash;
-            
+
             // Update parent hash for next iteration
             parentTransitionHash = keccak256(abi.encode(transitions[i]));
         }
-        
-        IInbox.ProveInput memory input = IInbox.ProveInput({
-            proposals: _proposals,
-            transitions: transitions
-        });
-        
+
+        IInbox.ProveInput memory input =
+            IInbox.ProveInput({ proposals: _proposals, transitions: transitions });
+
         return inbox.encodeProveInput(input);
     }
 
-    function _createTransitionForProposal(IInbox.Proposal memory _proposal) internal view returns (IInbox.Transition memory) {
+    function _createTransitionForProposal(IInbox.Proposal memory _proposal)
+        internal
+        view
+        returns (IInbox.Transition memory)
+    {
         return IInbox.Transition({
             proposalHash: keccak256(abi.encode(_proposal)),
             parentTransitionHash: _getGenesisTransitionHash(),
@@ -559,7 +554,6 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         });
     }
 
-
     function _createValidProof() internal pure returns (bytes memory) {
         // MockProofVerifier always accepts, so return any non-empty proof
         return abi.encode("valid_proof");
@@ -571,7 +565,11 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         LibBlobs.BlobReference memory _blobRef,
         IInbox.Proposal[] memory _parentProposals,
         IInbox.CoreState memory _coreState
-    ) internal view returns (bytes memory) {
+    )
+        internal
+        view
+        returns (bytes memory)
+    {
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: _deadline,
             coreState: _coreState,
@@ -585,7 +583,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             transitionRecords: new IInbox.TransitionRecord[](0),
             numForcedInclusions: 0
         });
-        
+
         return inbox.encodeProposeInput(input);
     }
 
@@ -594,12 +592,12 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
         parentProposals[0] = _createGenesisProposal();
         LibBlobs.BlobReference memory blobRef = _createBlobRef(0, 1, 0);
-        
+
         IInbox.ProposeInput memory input;
         input.coreState = coreState;
         input.parentProposals = parentProposals;
         input.blobReference = blobRef;
-        
+
         return inbox.encodeProposeInput(input);
     }
 
@@ -613,7 +611,11 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         address proofVerifier,
         address proposerChecker,
         address forcedInclusionStore
-    ) internal virtual override returns (Inbox);
+    )
+        internal
+        virtual
+        override
+        returns (Inbox);
 
     /// @dev Returns the name of the test contract for snapshot identification
     function getTestContractName() internal pure virtual returns (string memory);

@@ -12,11 +12,12 @@ contract InboxOptimized3Propose is AbstractProposeTest, InboxOptimized3Base {
     function setUp() public virtual override(AbstractProposeTest, CommonTest) {
         AbstractProposeTest.setUp();
     }
-    function getTestContractName() 
-        internal 
-        pure 
-        override(AbstractProposeTest, InboxOptimized3Base) 
-        returns (string memory) 
+
+    function getTestContractName()
+        internal
+        pure
+        override(AbstractProposeTest, InboxOptimized3Base)
+        returns (string memory)
     {
         return InboxOptimized3Base.getTestContractName();
     }

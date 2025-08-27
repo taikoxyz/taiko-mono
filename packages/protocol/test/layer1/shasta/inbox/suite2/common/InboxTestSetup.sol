@@ -11,11 +11,7 @@ import { IProposerChecker } from "contracts/layer1/shasta/iface/IProposerChecker
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ISyncedBlockManager } from "src/shared/based/iface/ISyncedBlockManager.sol";
 import { UUPSUpgradeable } from "@openzeppelin-upgrades/contracts/proxy/utils/UUPSUpgradeable.sol";
-import {
-    MockERC20,
-    MockSyncedBlockManager,
-    MockProofVerifier
-} from "../mocks/MockContracts.sol";
+import { MockERC20, MockSyncedBlockManager, MockProofVerifier } from "../mocks/MockContracts.sol";
 
 /// @title InboxTestSetup
 /// @notice Common setup logic for Inbox tests - handles deployment and dependencies
@@ -35,7 +31,7 @@ abstract contract InboxTestSetup is InboxTestHelper {
 
     // Dependencies
     IForcedInclusionStore internal forcedInclusionStore;
-    
+
     // Proposer helper (using composition instead of inheritance to avoid diamond problem)
     PreconfWhitelistSetup internal proposerHelper;
 
@@ -45,10 +41,10 @@ abstract contract InboxTestSetup is InboxTestHelper {
 
     function setUp() public virtual override {
         super.setUp();
-        
+
         // Create proposer helper
         proposerHelper = new PreconfWhitelistSetup();
-        
+
         // Deploy dependencies
         _setupDependencies();
 
@@ -98,7 +94,7 @@ abstract contract InboxTestSetup is InboxTestHelper {
         // Deploy PreconfWhitelist directly as proposer checker
         proposerChecker = proposerHelper._deployPreconfWhitelist(owner);
     }
-    
+
     /// @dev Helper function to select a proposer (delegates to proposer helper)
     function _selectProposer(address _proposer) internal returns (address) {
         return proposerHelper._selectProposer(proposerChecker, _proposer);

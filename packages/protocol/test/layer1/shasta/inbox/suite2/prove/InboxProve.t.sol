@@ -13,11 +13,12 @@ contract InboxProve is AbstractProveTest, InboxBase {
     function setUp() public virtual override(AbstractProveTest, CommonTest) {
         AbstractProveTest.setUp();
     }
-    function getTestContractName() 
-        internal 
-        pure 
-        override(AbstractProveTest, InboxBase) 
-        returns (string memory) 
+
+    function getTestContractName()
+        internal
+        pure
+        override(AbstractProveTest, InboxBase)
+        returns (string memory)
     {
         return InboxBase.getTestContractName();
     }
