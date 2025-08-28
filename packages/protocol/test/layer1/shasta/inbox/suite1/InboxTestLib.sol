@@ -232,9 +232,9 @@ library InboxTestLib {
         return IInbox.Transition({
             proposalHash: hashProposal(_proposal),
             parentTransitionHash: _parentTransitionHash,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
-                number: _proposal.id * 100,
-                hash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: _proposal.id * 100,
+                blockHash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
                 stateRoot: keccak256(abi.encode(_proposal.id, "stateRoot"))
             }),
             designatedProver: _proposal.proposer,
@@ -259,9 +259,9 @@ library InboxTestLib {
         return IInbox.Transition({
             proposalHash: _proposalHash,
             parentTransitionHash: _parentTransitionHash,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
-                number: _endBlockNumber,
-                hash: _endBlockHash,
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: _endBlockNumber,
+                blockHash: _endBlockHash,
                 stateRoot: _endStateRoot
             }),
             designatedProver: _designatedProver,
@@ -305,7 +305,7 @@ library InboxTestLib {
             span: _span,
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: hashTransition(_transition),
-            endBlockMiniHeaderHash: keccak256(abi.encode(_transition.endBlockMiniHeader))
+            checkpointHash: keccak256(abi.encode(_transition.checkpoint))
         });
     }
 
@@ -323,7 +323,7 @@ library InboxTestLib {
             span: _span,
             bondInstructions: _bondInstructions,
             transitionHash: hashTransition(_transition),
-            endBlockMiniHeaderHash: keccak256(abi.encode(_transition.endBlockMiniHeader))
+            checkpointHash: keccak256(abi.encode(_transition.checkpoint))
         });
     }
 
@@ -699,9 +699,9 @@ library InboxTestLib {
         return IInbox.Transition({
             proposalHash: bytes32(0),
             parentTransitionHash: bytes32(0),
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
-                number: 0,
-                hash: _genesisBlockHash,
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: 0,
+                blockHash: _genesisBlockHash,
                 stateRoot: bytes32(0)
             }),
             designatedProver: address(0),

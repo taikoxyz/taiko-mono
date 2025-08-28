@@ -10,20 +10,20 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 /// @notice Test wrapper for TestInboxOptimized3 contract with configurable behavior
 contract TestInboxOptimized3 is InboxOptimized3 {
     address private immutable _bondToken;
-    address private immutable _syncedBlockManager;
+    address private immutable _checkpointManager;
     address private immutable _proofVerifier;
     address private immutable _proposerChecker;
     address private immutable _forcedInclusionStore;
 
     constructor(
         address bondToken,
-        address syncedBlockManager,
+        address checkpointManager,
         address proofVerifier,
         address proposerChecker,
         address forcedInclusionStore
     ) {
         _bondToken = bondToken;
-        _syncedBlockManager = syncedBlockManager;
+        _checkpointManager = checkpointManager;
         _proofVerifier = proofVerifier;
         _proposerChecker = proposerChecker;
         _forcedInclusionStore = forcedInclusionStore;
@@ -37,7 +37,7 @@ contract TestInboxOptimized3 is InboxOptimized3 {
             maxFinalizationCount: 16,
             ringBufferSize: 100,
             basefeeSharingPctg: 0,
-            syncedBlockManager: _syncedBlockManager,
+            checkpointManager: _checkpointManager,
             proofVerifier: _proofVerifier,
             proposerChecker: _proposerChecker,
             forcedInclusionStore: _forcedInclusionStore,

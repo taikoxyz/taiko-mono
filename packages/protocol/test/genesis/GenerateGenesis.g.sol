@@ -131,7 +131,7 @@ contract TestGenerateGenesis is Test {
                     getPredeployedContractAddress("SignalService"),
                     uint64(pacayaForkHeight),
                     uint64(shastaForkHeight),
-                    address(0), // syncedBlockManager - to be set later
+                    address(0), // checkpointManager - to be set later
                     address(0) // bondManager - to be set later
                 )
             )

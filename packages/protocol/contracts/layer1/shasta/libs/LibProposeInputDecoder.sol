@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { IInbox } from "../iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title LibProposeInputDecoder
 /// @notice Library for encoding and decoding propose data with gas optimization using LibPackUnpack
@@ -19,7 +20,7 @@ library LibProposeInputDecoder {
     {
         // Calculate total size needed
         uint256 bufferSize = _calculateProposeDataSize(
-            _input.parentProposals, _input.transitionRecords, _input.endBlockMiniHeader
+            _input.parentProposals, _input.transitionRecords, _input.checkpoint
         );
         encoded_ = new bytes(bufferSize);
 
@@ -54,20 +55,19 @@ library LibProposeInputDecoder {
             ptr = _encodeTransitionRecord(ptr, _input.transitionRecords[i]);
         }
 
-        // 6. Encode BlockMiniHeader with optimization for empty header
-        // Check if endBlockMiniHeader is empty (all fields are zero)
-        bool isEmpty = _input.endBlockMiniHeader.number == 0
-            && _input.endBlockMiniHeader.hash == bytes32(0)
-            && _input.endBlockMiniHeader.stateRoot == bytes32(0);
+        // 6. Encode Checkpoint with optimization for empty header
+        // Check if checkpoint is empty (all fields are zero)
+        bool isEmpty = _input.checkpoint.blockNumber == 0
+            && _input.checkpoint.blockHash == bytes32(0) && _input.checkpoint.stateRoot == bytes32(0);
 
         // Write flag byte: 0 for empty, 1 for non-empty
         ptr = P.packUint8(ptr, isEmpty ? 0 : 1);
 
         // Only encode the full header if it's not empty
         if (!isEmpty) {
-            ptr = P.packUint48(ptr, _input.endBlockMiniHeader.number);
-            ptr = P.packBytes32(ptr, _input.endBlockMiniHeader.hash);
-            ptr = P.packBytes32(ptr, _input.endBlockMiniHeader.stateRoot);
+            ptr = P.packUint48(ptr, _input.checkpoint.blockNumber);
+            ptr = P.packBytes32(ptr, _input.checkpoint.blockHash);
+            ptr = P.packBytes32(ptr, _input.checkpoint.stateRoot);
         }
 
         // 7. Encode numForcedInclusions
@@ -111,19 +111,19 @@ library LibProposeInputDecoder {
             (input_.transitionRecords[i], ptr) = _decodeTransitionRecord(ptr);
         }
 
-        // 6. Decode BlockMiniHeader with optimization for empty header
+        // 6. Decode Checkpoint with optimization for empty header
         uint8 headerFlag;
         (headerFlag, ptr) = P.unpackUint8(ptr);
 
         // If flag is 0, the header is empty, leave it as default (all zeros)
         // If flag is 1, decode the full header
         if (headerFlag == 1) {
-            (input_.endBlockMiniHeader.number, ptr) = P.unpackUint48(ptr);
-            (input_.endBlockMiniHeader.hash, ptr) = P.unpackBytes32(ptr);
-            (input_.endBlockMiniHeader.stateRoot, ptr) = P.unpackBytes32(ptr);
+            (input_.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
+            (input_.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
+            (input_.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
         }
-        // else: endBlockMiniHeader remains as default (all zeros)
 
+        // else: checkpoint remains as default (all zeros)
         // 7. Decode numForcedInclusions
         (input_.numForcedInclusions, ptr) = P.unpackUint8(ptr);
     }
@@ -172,8 +172,8 @@ library LibProposeInputDecoder {
         // Encode transitionHash
         newPtr_ = P.packBytes32(newPtr_, _transitionRecord.transitionHash);
 
-        // Encode endBlockMiniHeaderHash
-        newPtr_ = P.packBytes32(newPtr_, _transitionRecord.endBlockMiniHeaderHash);
+        // Encode checkpointHash
+        newPtr_ = P.packBytes32(newPtr_, _transitionRecord.checkpointHash);
 
         // Encode BondInstructions array
         P.checkArrayLength(_transitionRecord.bondInstructions.length);
@@ -195,8 +195,8 @@ library LibProposeInputDecoder {
         // Decode transitionHash
         (transitionRecord_.transitionHash, newPtr_) = P.unpackBytes32(newPtr_);
 
-        // Decode endBlockMiniHeaderHash
-        (transitionRecord_.endBlockMiniHeaderHash, newPtr_) = P.unpackBytes32(newPtr_);
+        // Decode checkpointHash
+        (transitionRecord_.checkpointHash, newPtr_) = P.unpackBytes32(newPtr_);
 
         // Decode BondInstructions array
         uint24 bondInstructionsLength;
@@ -242,7 +242,7 @@ library LibProposeInputDecoder {
     function _calculateProposeDataSize(
         IInbox.Proposal[] memory _proposals,
         IInbox.TransitionRecord[] memory _transitionRecords,
-        IInbox.BlockMiniHeader memory _endBlockMiniHeader
+        ICheckpointManager.Checkpoint memory _checkpoint
     )
         private
         pure
@@ -254,16 +254,16 @@ library LibProposeInputDecoder {
             // CoreState: 6 + 6 + 32 + 32 = 76 bytes
             // BlobReference: 2 + 2 + 3 = 7 bytes
             // Arrays lengths: 3 + 3 = 6 bytes
-            // BlockMiniHeader flag: 1 byte
+            // Checkpoint flag: 1 byte
             // numForcedInclusions: 1 byte (uint8)
             size_ = 97;
 
-            // Add BlockMiniHeader size if not empty
-            bool isEmpty = _endBlockMiniHeader.number == 0 && _endBlockMiniHeader.hash == bytes32(0)
-                && _endBlockMiniHeader.stateRoot == bytes32(0);
+            // Add Checkpoint size if not empty
+            bool isEmpty = _checkpoint.blockNumber == 0 && _checkpoint.blockHash == bytes32(0)
+                && _checkpoint.stateRoot == bytes32(0);
 
             if (!isEmpty) {
-                // BlockMiniHeader when not empty: 6 + 32 + 32 = 70 bytes
+                // Checkpoint when not empty: 6 + 32 + 32 = 70 bytes
                 size_ += 70;
             }
 
@@ -273,7 +273,7 @@ library LibProposeInputDecoder {
             size_ += _proposals.length * 96;
 
             // TransitionRecords - each has fixed size + variable bond instructions
-            // Fixed: span(1) + transitionHash(32) + endBlockMiniHeaderHash(32) + array length(3) =
+            // Fixed: span(1) + transitionHash(32) + checkpointHash(32) + array length(3) =
             // 68
             for (uint256 i; i < _transitionRecords.length; ++i) {
                 size_ += 68 + (_transitionRecords[i].bondInstructions.length * 47);

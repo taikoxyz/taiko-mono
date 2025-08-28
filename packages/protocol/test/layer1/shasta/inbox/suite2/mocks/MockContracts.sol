@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "contracts/layer1/shasta/iface/IProofVerifier.sol";
-import "contracts/shared/based/iface/ISyncedBlockManager.sol";
+import "contracts/shared/based/iface/ICheckpointManager.sol";
 
 /// @title MockERC20
 /// @notice Mock ERC20 token for testing bond mechanics
@@ -25,45 +25,33 @@ contract MockProofVerifier is IProofVerifier {
     }
 }
 
-/// @title MockSyncedBlockManager
-/// @notice Mock synced block manager for testing
-contract MockSyncedBlockManager is ISyncedBlockManager {
-    ISyncedBlockManager.SyncedBlock public lastSyncedBlock;
-    ISyncedBlockManager.SyncedBlock[] public syncedBlocks;
+/// @title MockCheckpointManager
+/// @notice Mock checkpoint manager for testing
+contract MockCheckpointManager is ICheckpointManager {
+    ICheckpointManager.Checkpoint public lastCheckpoint;
+    ICheckpointManager.Checkpoint[] public checkpoints;
 
-    function saveSyncedBlock(
-        uint48 _blockNumber,
-        bytes32 _blockHash,
-        bytes32 _stateRoot
-    )
-        external
-    {
-        lastSyncedBlock = ISyncedBlockManager.SyncedBlock({
-            blockHash: _blockHash,
-            stateRoot: _stateRoot,
-            blockNumber: _blockNumber
-        });
-        syncedBlocks.push(lastSyncedBlock);
+    function saveCheckpoint(ICheckpointManager.Checkpoint calldata _checkpoint) external {
+        checkpoints.push(_checkpoint);
     }
 
-    function getSyncedBlock(uint48 _offset)
+    function getCheckpoint(uint48 _offset)
         external
         view
-        returns (uint48 blockNumber_, bytes32 blockHash_, bytes32 stateRoot_)
+        returns (ICheckpointManager.Checkpoint memory)
     {
-        if (_offset >= syncedBlocks.length) {
-            return (0, bytes32(0), bytes32(0));
+        ICheckpointManager.Checkpoint memory checkpoint;
+        if (_offset < checkpoints.length) {
+            checkpoint = checkpoints[checkpoints.length - 1 - _offset];
         }
-        ISyncedBlockManager.SyncedBlock memory syncedBlock =
-            syncedBlocks[syncedBlocks.length - 1 - _offset];
-        return (syncedBlock.blockNumber, syncedBlock.blockHash, syncedBlock.stateRoot);
+        return checkpoint;
     }
 
-    function getLatestSyncedBlockNumber() external view returns (uint48) {
-        return lastSyncedBlock.blockNumber;
+    function getLatestCheckpointNumber() external view returns (uint48) {
+        return lastCheckpoint.blockNumber;
     }
 
-    function getNumberOfSyncedBlocks() external view returns (uint48) {
-        return uint48(syncedBlocks.length);
+    function getNumberOfCheckpoints() external view returns (uint48) {
+        return uint48(checkpoints.length);
     }
 }

@@ -26,7 +26,7 @@ contract InboxFinalization is InboxTest {
     /// @dev Validates complete single proposal finalization flow:
     ///      1. Creates and stores proposal with valid transition record
     ///      2. Triggers finalization through new proposal submission
-    ///      3. Verifies synced block manager update and state progression
+    ///      3. Verifies checkpoint manager update and state progression
 
     function test_finalize_single_proposal() public {
         // Arrange: Create a proposal and transition record ready for finalization
@@ -41,14 +41,10 @@ contract InboxFinalization is InboxTest {
         );
 
         // Setup expectations
-        expectSyncedBlockSave(
-            transition.endBlockMiniHeader.number,
-            transition.endBlockMiniHeader.hash,
-            transition.endBlockMiniHeader.stateRoot
-        );
+        expectCheckpointSaved(transition.checkpoint);
 
-        // Act: Submit proposal that triggers finalization with the transition's endBlockMiniHeader
-        _submitFinalizationProposal(proposal, transitionRecord, transition.endBlockMiniHeader);
+        // Act: Submit proposal that triggers finalization with the transition's checkpoint
+        _submitFinalizationProposal(proposal, transitionRecord, transition.checkpoint);
     }
 
     /// @dev Helper to create and store a proposal for testing
@@ -87,7 +83,7 @@ contract InboxFinalization is InboxTest {
     function _submitFinalizationProposal(
         IInbox.Proposal memory _proposalToValidate,
         IInbox.TransitionRecord memory _transitionRecord,
-        IInbox.BlockMiniHeader memory _endBlockMiniHeader
+        ICheckpointManager.Checkpoint memory _checkpoint
     )
         private
     {
@@ -102,7 +98,7 @@ contract InboxFinalization is InboxTest {
         IInbox.CoreState memory newCoreState = _getGenesisCoreState();
         newCoreState.nextProposalId = 2;
 
-        // Use the adapter with explicit endBlockMiniHeader
+        // Use the adapter with explicit checkpoint
         bytes memory data = InboxTestAdapter.encodeProposeInputWithEndBlock(
             inboxType,
             uint48(0),
@@ -110,7 +106,7 @@ contract InboxFinalization is InboxTest {
             proposals,
             InboxTestLib.createBlobReference(2),
             transitionRecords,
-            _endBlockMiniHeader
+            _checkpoint
         );
 
         setupBlobHashes();
@@ -151,18 +147,14 @@ contract InboxFinalization is InboxTest {
         }
 
         // Setup expectations for finalization
-        expectSyncedBlockSave(
-            transitions[numProposals - 1].endBlockMiniHeader.number,
-            transitions[numProposals - 1].endBlockMiniHeader.hash,
-            transitions[numProposals - 1].endBlockMiniHeader.stateRoot
-        );
+        expectCheckpointSaved(transitions[numProposals - 1].checkpoint);
 
-        // Act: Submit finalization proposal with the last transition's endBlockMiniHeader
+        // Act: Submit finalization proposal with the last transition's checkpoint
         _submitBatchFinalizationProposal(
             proposals[numProposals - 1],
             transitionRecords,
             numProposals + 1,
-            transitions[numProposals - 1].endBlockMiniHeader
+            transitions[numProposals - 1].checkpoint
         );
 
         // Assert: Verify finalization completed
@@ -175,7 +167,7 @@ contract InboxFinalization is InboxTest {
         IInbox.Proposal memory _lastProposal,
         IInbox.TransitionRecord[] memory _transitionRecords,
         uint48 _nextProposalId,
-        IInbox.BlockMiniHeader memory _endBlockMiniHeader
+        ICheckpointManager.Checkpoint memory _checkpoint
     )
         private
     {
@@ -198,7 +190,7 @@ contract InboxFinalization is InboxTest {
                 proposals,
                 InboxTestLib.createBlobReference(uint8(_nextProposalId)),
                 _transitionRecords,
-                _endBlockMiniHeader
+                _checkpoint
             )
         );
     }
@@ -213,7 +205,7 @@ contract InboxFinalization is InboxTest {
         setupBlobHashes();
         // Create genesis transition
         IInbox.Transition memory genesisTransition;
-        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         bytes32 parentTransitionHash = keccak256(abi.encode(genesisTransition));
 
         // Store proposal 1 with transition
@@ -230,7 +222,7 @@ contract InboxFinalization is InboxTest {
             span: 1,
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: InboxTestLib.hashTransition(transition1),
-            endBlockMiniHeaderHash: keccak256(abi.encode(transition1.endBlockMiniHeader))
+            checkpointHash: keccak256(abi.encode(transition1.checkpoint))
         });
         // Create a parent transition struct for the function call
         IInbox.Transition memory parentTransition;
@@ -255,11 +247,7 @@ contract InboxFinalization is InboxTest {
         mockForcedInclusionDue(false);
 
         // Only expect first proposal to be finalized
-        expectSyncedBlockSave(
-            transition1.endBlockMiniHeader.number,
-            transition1.endBlockMiniHeader.hash,
-            transition1.endBlockMiniHeader.stateRoot
-        );
+        expectCheckpointSaved(transition1.checkpoint);
 
         // Create proposal data with only transitionRecord1
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
@@ -272,10 +260,10 @@ contract InboxFinalization is InboxTest {
         LibBlobs.BlobReference memory blobRef =
             LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 1, offset: 0 });
 
-        // Use the adapter with the endBlockMiniHeader from transition1 since that's what we're
+        // Use the adapter with the checkpoint from transition1 since that's what we're
         // finalizing
         // Extract to local variable to avoid stack too deep
-        IInbox.BlockMiniHeader memory endBlockHeader = transition1.endBlockMiniHeader;
+        ICheckpointManager.Checkpoint memory endBlockHeader = transition1.checkpoint;
         bytes memory data = InboxTestAdapter.encodeProposeInputWithEndBlock(
             inboxType, uint48(0), coreState, proposals, blobRef, transitionRecords, endBlockHeader
         );
@@ -309,7 +297,7 @@ contract InboxFinalization is InboxTest {
             span: 2, // Modified field - wrong span value
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: InboxTestLib.hashTransition(transition1),
-            endBlockMiniHeaderHash: keccak256(abi.encode(transition1.endBlockMiniHeader))
+            checkpointHash: keccak256(abi.encode(transition1.checkpoint))
         });
 
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
@@ -338,7 +326,7 @@ contract InboxFinalization is InboxTest {
                 proposals,
                 InboxTestLib.createBlobReference(2),
                 transitionRecords,
-                transition1.endBlockMiniHeader // Use the actual transition's endBlockMiniHeader
+                transition1.checkpoint // Use the actual transition's checkpoint
             )
         );
     }

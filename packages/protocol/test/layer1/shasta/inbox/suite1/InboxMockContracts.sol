@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
+import "contracts/shared/based/iface/ICheckpointManager.sol";
 
 /// @title InboxMockContracts
 /// @notice Mock contracts for testing Inbox functionality
@@ -42,8 +43,8 @@ contract MockERC20 is IERC20 {
     }
 }
 
-contract StubSyncedBlockManager {
-    function saveSyncedBlock(uint48, bytes32, bytes32) external { }
+contract StubCheckpointManager {
+    function saveCheckpoint(ICheckpointManager.Checkpoint memory) external { }
 }
 
 contract StubForcedInclusionStore {

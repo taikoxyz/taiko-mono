@@ -6,6 +6,7 @@ import { console2 } from "forge-std/src/console2.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibProveInputDecoder } from "contracts/layer1/shasta/libs/LibProveInputDecoder.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title LibProveInputDecoderGas
 /// @notice Gas comparison between optimized LibProveInputDecoder and abi.encode/decode
@@ -189,9 +190,9 @@ contract LibProveInputDecoderGas is Test {
             input.transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
                 parentTransitionHash: keccak256(abi.encodePacked("parent_transition", i)),
-                endBlockMiniHeader: IInbox.BlockMiniHeader({
-                    number: uint48(2_000_000 + i * 10),
-                    hash: keccak256(abi.encodePacked("end_block", i)),
+                checkpoint: ICheckpointManager.Checkpoint({
+                    blockNumber: uint48(2_000_000 + i * 10),
+                    blockHash: keccak256(abi.encodePacked("end_block", i)),
                     stateRoot: keccak256(abi.encodePacked("end_state", i))
                 }),
                 designatedProver: address(uint160(0x2000 + i)),

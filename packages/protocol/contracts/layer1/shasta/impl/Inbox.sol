@@ -4,13 +4,13 @@ pragma solidity ^0.8.24;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { ISyncedBlockManager } from "src/shared/based/iface/ISyncedBlockManager.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs, and verification in Taiko's based
@@ -83,7 +83,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         __Essential_init(_owner);
 
         Transition memory transition;
-        transition.endBlockMiniHeader.hash = _genesisBlockHash;
+        transition.checkpoint.blockHash = _genesisBlockHash;
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
@@ -347,8 +347,7 @@ abstract contract Inbox is EssentialContract, IInbox {
             transitionRecord.bondInstructions =
                 _calculateBondInstructions(_config, _input.proposals[i], _input.transitions[i]);
             transitionRecord.transitionHash = _hashTransition(_input.transitions[i]);
-            transitionRecord.endBlockMiniHeaderHash =
-                _hashBlockMiniHeader(_input.transitions[i].endBlockMiniHeader);
+            transitionRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
 
             // Pass transition and transitionRecord to _setTransitionRecordHash which will emit the
             // event
@@ -555,11 +554,15 @@ abstract contract Inbox is EssentialContract, IInbox {
         return keccak256(abi.encode(_transitionRecord));
     }
 
-    /// @dev Hashes a BlockMiniHeader struct.
-    /// @param _header The block mini header to hash.
-    /// @return _ The hash of the block mini header.
-    function _hashBlockMiniHeader(BlockMiniHeader memory _header) internal pure returns (bytes32) {
-        return keccak256(abi.encode(_header));
+    /// @dev Hashes a Checkpoint struct.
+    /// @param _checkpoint The checkpoint to hash.
+    /// @return _ The hash of the checkpoint.
+    function _hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(_checkpoint));
     }
 
     // ---------------------------------------------------------------
@@ -707,7 +710,7 @@ abstract contract Inbox is EssentialContract, IInbox {
         }
     }
 
-    /// @dev Finalizes proven proposals and updates synced block
+    /// @dev Finalizes proven proposals and updates checkpoint
     /// @notice Processes up to maxFinalizationCount proposals in sequence
     /// @dev Stops at first missing transition record or span boundary
     /// @param _config Configuration with finalization parameters
@@ -748,18 +751,11 @@ abstract contract Inbox is EssentialContract, IInbox {
             finalizedCount++;
         }
 
-        // Update synced block if any proposals were finalized
+        // Update checkpoint if any proposals were finalized
         if (finalizedCount > 0) {
-            bytes32 endBlockMiniHeaderHash = _hashBlockMiniHeader(_input.endBlockMiniHeader);
-            require(
-                endBlockMiniHeaderHash == lastFinalizedRecord.endBlockMiniHeaderHash,
-                EndBlockMiniHeaderMismatch()
-            );
-            ISyncedBlockManager(_config.syncedBlockManager).saveSyncedBlock(
-                _input.endBlockMiniHeader.number,
-                _input.endBlockMiniHeader.hash,
-                _input.endBlockMiniHeader.stateRoot
-            );
+            bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
+            require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
+            ICheckpointManager(_config.checkpointManager).saveCheckpoint(_input.checkpoint);
         }
 
         return coreState;
@@ -800,8 +796,8 @@ abstract contract Inbox is EssentialContract, IInbox {
         // Update core state
         _coreState.lastFinalizedProposalId = _proposalId;
 
-        // Reconstruct the BlockMiniHeader from the transition record hash
-        // Note: We need to decode the endBlockMiniHeaderHash to get the actual header
+        // Reconstruct the Checkpoint from the transition record hash
+        // Note: We need to decode the checkpointHash to get the actual header
         // For finalization, we create a transition with empty block header since we only have the
         // hash
         _coreState.lastFinalizedTransitionHash = _transitionRecord.transitionHash;
@@ -894,7 +890,7 @@ error TransitionRecordHashMismatchWithStorage();
 error TransitionRecordNotProvided();
 error DeadlineExceeded();
 error EmptyProposals();
-error EndBlockMiniHeaderMismatch();
+error CheckpointMismatch();
 error ExceedsUnfinalizedProposalCapacity();
 error ForkNotActive();
 error InconsistentParams();

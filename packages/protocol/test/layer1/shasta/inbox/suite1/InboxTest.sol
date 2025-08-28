@@ -11,7 +11,7 @@ import "contracts/layer1/shasta/iface/IInbox.sol";
 import "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import "contracts/layer1/shasta/iface/IProposerChecker.sol";
 import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
-import "contracts/shared/based/iface/ISyncedBlockManager.sol";
+import "contracts/shared/based/iface/ICheckpointManager.sol";
 import "contracts/layer1/shasta/libs/LibBlobs.sol";
 import "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
 import "src/shared/based/libs/LibBonds.sol";
@@ -43,7 +43,7 @@ abstract contract InboxTest is CommonTest {
     // ---------------------------------------------------------------
 
     address internal bondToken;
-    address internal syncedBlockManager;
+    address internal checkpointManager;
     address internal forcedInclusionStore;
     address internal proofVerifier;
     address internal proposerChecker;
@@ -128,13 +128,13 @@ abstract contract InboxTest is CommonTest {
     function setupMockAddresses(bool useRealMocks) internal virtual {
         if (useRealMocks) {
             bondToken = address(new MockERC20());
-            syncedBlockManager = address(new StubSyncedBlockManager());
+            checkpointManager = address(new StubCheckpointManager());
             forcedInclusionStore = address(new StubForcedInclusionStore());
             proofVerifier = address(new StubProofVerifier());
             proposerChecker = address(new StubProposerChecker());
         } else {
             bondToken = makeAddr("bondToken");
-            syncedBlockManager = makeAddr("syncedBlockManager");
+            checkpointManager = makeAddr("checkpointManager");
             forcedInclusionStore = makeAddr("forcedInclusionStore");
             proofVerifier = makeAddr("proofVerifier");
             proposerChecker = makeAddr("proposerChecker");
@@ -187,7 +187,7 @@ abstract contract InboxTest is CommonTest {
             maxFinalizationCount: DEFAULT_MAX_FINALIZATION_COUNT,
             ringBufferSize: DEFAULT_RING_BUFFER_SIZE,
             basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
-            syncedBlockManager: syncedBlockManager,
+            checkpointManager: checkpointManager,
             proofVerifier: proofVerifier,
             proposerChecker: proposerChecker,
             forcedInclusionStore: forcedInclusionStore,
@@ -338,9 +338,9 @@ abstract contract InboxTest is CommonTest {
         return IInbox.Transition({
             proposalHash: _builder.proposalHash,
             parentTransitionHash: _builder.parentTransitionHash,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
-                number: _builder.endBlockNumber,
-                hash: _builder.endBlockHash,
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: _builder.endBlockNumber,
+                blockHash: _builder.endBlockHash,
                 stateRoot: _builder.endStateRoot
             }),
             designatedProver: _builder.designatedProver,
@@ -568,9 +568,9 @@ abstract contract InboxTest is CommonTest {
         return IInbox.Transition({
             proposalHash: _config.proposalHash,
             parentTransitionHash: _config.parentTransitionHash,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
-                number: _config.endBlockNumber,
-                hash: _config.endBlockHash,
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: _config.endBlockNumber,
+                blockHash: _config.endBlockHash,
                 stateRoot: _config.endStateRoot
             }),
             designatedProver: _config.designatedProver,
@@ -702,12 +702,12 @@ abstract contract InboxTest is CommonTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = InboxTestLib.createGenesisProposal(coreState);
 
-        // Get the endBlockMiniHeader from the last proposal that was proven
+        // Get the checkpoint from the last proposal that was proven
         // This should match what was used when the transition was created
         uint48 lastProposalId = uint48(_transitionRecords.length);
-        IInbox.BlockMiniHeader memory endBlockMiniHeader = IInbox.BlockMiniHeader({
-            number: lastProposalId * 100,
-            hash: keccak256(abi.encode(lastProposalId, "endBlockHash")),
+        ICheckpointManager.Checkpoint memory checkpoint = ICheckpointManager.Checkpoint({
+            blockNumber: lastProposalId * 100,
+            blockHash: keccak256(abi.encode(lastProposalId, "endBlockHash")),
             stateRoot: keccak256(abi.encode(lastProposalId, "stateRoot"))
         });
 
@@ -718,7 +718,7 @@ abstract contract InboxTest is CommonTest {
             proposals,
             createValidBlobReference(nextProposalId),
             _transitionRecords,
-            endBlockMiniHeader
+            checkpoint
         );
 
         vm.prank(_finalizer != address(0) ? _finalizer : Alice);
@@ -1082,18 +1082,10 @@ abstract contract InboxTest is CommonTest {
         }
     }
 
-    function expectSyncedBlockSave(
-        uint48 _blockNumber,
-        bytes32 _blockHash,
-        bytes32 _stateRoot
-    )
-        internal
-    {
+    function expectCheckpointSaved(ICheckpointManager.Checkpoint memory _checkpoint) internal {
         vm.expectCall(
-            syncedBlockManager,
-            abi.encodeWithSelector(
-                ISyncedBlockManager.saveSyncedBlock.selector, _blockNumber, _blockHash, _stateRoot
-            )
+            checkpointManager,
+            abi.encodeWithSelector(ICheckpointManager.saveCheckpoint.selector, _checkpoint)
         );
     }
 
@@ -1319,7 +1311,7 @@ abstract contract InboxTest is CommonTest {
 
         // Genesis transition hash from initialization
         IInbox.Transition memory genesisTransition;
-        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         genesisCoreState.lastFinalizedTransitionHash = keccak256(abi.encode(genesisTransition));
         genesisCoreState.bondInstructionsHash = bytes32(0);
 
@@ -1430,8 +1422,8 @@ abstract contract InboxTest is CommonTest {
     {
         transition = InboxTestLib.createTransition(_proposal, _parentTransitionHash, _prover);
         _submitProof(_proposal, transition, _prover);
-        // Store the endBlockMiniHeader for test purposes
-        inbox.storeEndBlockMiniHeader(_proposal.id, transition.endBlockMiniHeader);
+        // Store the checkpoint for test purposes
+        inbox.storeCheckpoint(_proposal.id, transition.checkpoint);
     }
 
     /// @dev Proves multiple proposals in batch and returns transition records from events
@@ -1459,9 +1451,9 @@ abstract contract InboxTest is CommonTest {
         // Extract transition records from Proved events
         transitionRecords = extractTransitionRecordsFromProvedEvents(logs);
 
-        // Store the endBlockMiniHeaders for test purposes
+        // Store the checkpoints for test purposes
         for (uint256 i = 0; i < _proposals.length; i++) {
-            inbox.storeEndBlockMiniHeader(_proposals[i].id, _transitions[i].endBlockMiniHeader);
+            inbox.storeCheckpoint(_proposals[i].id, _transitions[i].checkpoint);
         }
     }
 

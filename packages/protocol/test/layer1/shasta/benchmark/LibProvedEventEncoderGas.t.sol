@@ -6,6 +6,7 @@ import { console2 } from "forge-std/src/console2.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibProvedEventEncoder } from "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title LibProvedEventEncoderGas
 /// @notice Gas comparison between optimized LibEncoder and abi.encode
@@ -154,9 +155,9 @@ contract LibProvedEventEncoderGas is Test {
         payload_.proposalId = 12_345;
         payload_.transition.proposalHash = keccak256("proposal");
         payload_.transition.parentTransitionHash = keccak256("parent");
-        payload_.transition.endBlockMiniHeader = IInbox.BlockMiniHeader({
-            number: 999_999,
-            hash: keccak256("block"),
+        payload_.transition.checkpoint = ICheckpointManager.Checkpoint({
+            blockNumber: 999_999,
+            blockHash: keccak256("block"),
             stateRoot: keccak256("state")
         });
         payload_.transition.designatedProver = address(0x1234567890123456789012345678901234567890);
@@ -164,7 +165,7 @@ contract LibProvedEventEncoderGas is Test {
 
         payload_.transitionRecord.span = 42;
         payload_.transitionRecord.transitionHash = keccak256("transition");
-        payload_.transitionRecord.endBlockMiniHeaderHash = keccak256("header");
+        payload_.transitionRecord.checkpointHash = keccak256("header");
         payload_.transitionRecord.bondInstructions =
             new LibBonds.BondInstruction[](_bondInstructionsCount);
 

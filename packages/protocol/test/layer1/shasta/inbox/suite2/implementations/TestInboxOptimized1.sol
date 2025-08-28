@@ -12,20 +12,20 @@ contract TestInboxOptimized1 is InboxOptimized1 {
     Config private config;
 
     address private immutable _bondToken;
-    address private immutable _syncedBlockManager;
+    address private immutable _checkpointManager;
     address private immutable _proofVerifier;
     address private immutable _proposerChecker;
     address private immutable _forcedInclusionStore;
 
     constructor(
         address bondToken,
-        address syncedBlockManager,
+        address checkpointManager,
         address proofVerifier,
         address proposerChecker,
         address forcedInclusionStore
     ) {
         _bondToken = bondToken;
-        _syncedBlockManager = syncedBlockManager;
+        _checkpointManager = checkpointManager;
         _proofVerifier = proofVerifier;
         _proposerChecker = proposerChecker;
         _forcedInclusionStore = forcedInclusionStore;
@@ -39,7 +39,7 @@ contract TestInboxOptimized1 is InboxOptimized1 {
             maxFinalizationCount: 16,
             ringBufferSize: 100,
             basefeeSharingPctg: 0,
-            syncedBlockManager: _syncedBlockManager,
+            checkpointManager: _checkpointManager,
             proofVerifier: _proofVerifier,
             proposerChecker: _proposerChecker,
             forcedInclusionStore: _forcedInclusionStore,
