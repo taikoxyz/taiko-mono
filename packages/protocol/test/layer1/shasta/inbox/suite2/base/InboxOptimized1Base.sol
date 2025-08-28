@@ -28,12 +28,16 @@ abstract contract InboxOptimized1Base is CommonTest {
             )
         );
 
-        return Inbox(
+        TestInboxOptimized1 inbox = TestInboxOptimized1(
             deploy({
                 name: "",
                 impl: impl,
                 data: abi.encodeCall(Inbox.init, (Alice, bytes32(uint256(1))))
             })
         );
+
+        inbox.fillTransitionRecordBuffer();
+
+        return inbox;
     }
 }
