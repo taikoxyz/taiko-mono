@@ -24,7 +24,7 @@ pub async fn eject_operator(
 
     let active_operators = active_operator_count(&preconf_whitelist).await?;
 
-    if min_operators > 0 && u64::from(active_operators) <= min_operators {
+    if min_operators > 0 && active_operators <= min_operators {
         warn!(
             "Not ejecting operator: operator_count {}, min_operators {}",
             active_operators, min_operators
@@ -87,5 +87,6 @@ where
             count += 1;
         }
     }
+
     Ok(count)
 }
