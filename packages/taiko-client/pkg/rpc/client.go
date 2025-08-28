@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 const (
@@ -33,6 +34,13 @@ type PacayaClients struct {
 	ForkHeights          *pacayaBindings.ITaikoInboxForkHeights
 }
 
+// ShastaClients contains all smart contract clients for ShastaClients fork.
+type ShastaClients struct {
+	TaikoInbox *shastaBindings.ShastaInboxClient
+	//TODO: read this config onchain
+	//ForkHeights *shastaBindings.ITaikoInboxForkHeights
+}
+
 // Client contains all L1/L2 RPC clients that a driver needs.
 type Client struct {
 	// Geth ethclient clients
@@ -45,6 +53,7 @@ type Client struct {
 	L1Beacon *BeaconClient
 	// Protocol contracts clients
 	PacayaClients *PacayaClients
+	ShastaClients *ShastaClients
 }
 
 // ClientConfig contains all configs which will be used to initializing an

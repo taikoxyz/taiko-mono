@@ -9,83 +9,107 @@ import (
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
-// Ensure TaikoDataBlockMetadataShasta implements TaikoBlockMetaData.
-var _ TaikoProposalMetaData = (*TaikoDataBlockMetadataShasta)(nil)
+// Ensure TaikoProposalMetadataShasta implements TaikoBlockMetaData.
+var _ TaikoProposalMetaData = (*TaikoProposalMetadataShasta)(nil)
 
-// TaikoDataBlockMetadataShasta is the metadata of an Shasta Taiko blocks batch.
-type TaikoDataBlockMetadataShasta struct {
+// TaikoProposalMetadataShasta is the metadata of an Shasta Taiko blocks batch.
+type TaikoProposalMetadataShasta struct {
 	shastaBindings.IInboxProposal
 	shastaBindings.IInboxDerivation
 	shastaBindings.IInboxCoreState
 	types.Log
 }
 
+// NewTaikoProposalMetadataShasta creates a new instance of TaikoProposalMetadataShasta
+// from the ShastaTaikoInbox.Proposed event.
+func NewTaikoProposalMetadataShasta(e *shastaBindings.IInboxProposedEventPayload, log types.Log) *TaikoProposalMetadataShasta {
+	return &TaikoProposalMetadataShasta{
+		IInboxProposal:   e.Proposal,
+		IInboxDerivation: e.Derivation,
+		IInboxCoreState:  e.CoreState,
+		Log:              log,
+	}
+}
+
 // Pacaya implements TaikoProposalMetaData interface.
-func (m *TaikoDataBlockMetadataShasta) Pacaya() TaikoBatchMetaDataPacaya {
+func (m *TaikoProposalMetadataShasta) Pacaya() TaikoBatchMetaDataPacaya {
 	return nil
 }
 
 // IsPacaya implements TaikoProposalMetaData interface.
-func (m *TaikoDataBlockMetadataShasta) IsPacaya() bool {
+func (m *TaikoProposalMetadataShasta) IsPacaya() bool {
 	return false
 }
 
 // Shasta implements TaikoProposalMetaData interface.
-func (m *TaikoDataBlockMetadataShasta) Shasta() TaikoBatchMetaDataShasta {
+func (m *TaikoProposalMetadataShasta) Shasta() TaikoBatchMetaDataShasta {
 	return m
 }
 
 // IsShasta implements TaikoProposalMetaData interface.
-func (m *TaikoDataBlockMetadataShasta) IsShasta() bool {
+func (m *TaikoProposalMetadataShasta) IsShasta() bool {
 	return false
 }
 
 // GetRawBlockHeight returns the raw L1 block height.
-func (m *TaikoDataBlockMetadataShasta) GetRawBlockHeight() *big.Int {
+func (m *TaikoProposalMetadataShasta) GetRawBlockHeight() *big.Int {
 	return new(big.Int).SetUint64(m.BlockNumber)
 }
 
 // GetRawBlockHash returns the raw L1 block hash.
-func (m *TaikoDataBlockMetadataShasta) GetRawBlockHash() common.Hash {
+func (m *TaikoProposalMetadataShasta) GetRawBlockHash() common.Hash {
 	return m.BlockHash
 }
 
 // GetTxIndex returns the transaction index.
-func (m *TaikoDataBlockMetadataShasta) GetTxIndex() uint {
+func (m *TaikoProposalMetadataShasta) GetTxIndex() uint {
 	return m.Log.TxIndex
 }
 
 // GetTxHash returns the transaction hash.
-func (m *TaikoDataBlockMetadataShasta) GetTxHash() common.Hash {
+func (m *TaikoProposalMetadataShasta) GetTxHash() common.Hash {
 	return m.Log.TxHash
 }
 
 // GetProposer returns the proposer of this batch.
-func (m *TaikoDataBlockMetadataShasta) GetProposer() common.Address {
+func (m *TaikoProposalMetadataShasta) GetProposer() common.Address {
 	return m.Proposer
 }
 
 // GetCoinbase returns block coinbase. Sets it to common.Address{}, because we need to fetch the value from blob.
-func (m *TaikoDataBlockMetadataShasta) GetCoinbase() common.Address {
+func (m *TaikoProposalMetadataShasta) GetCoinbase() common.Address {
 	return common.Address{}
 }
 
 // GetBlobCreatedIn returns the L1 block number when the blob created.
-func (m *TaikoDataBlockMetadataShasta) GetBlobCreatedIn() *big.Int {
-	return m.BlobSlice.Timestamp
+func (m *TaikoProposalMetadataShasta) GetBlobCreatedIn() *big.Int {
+	return new(big.Int).SetUint64(m.BlockNumber)
+}
+
+// GetBlobHashes returns blob hashes in this proposal.
+func (m *TaikoProposalMetadataShasta) GetBlobHashes() []common.Hash {
+	var blobHashes []common.Hash
+	for _, hash := range m.GetDerivation().BlobSlice.BlobHashes {
+		blobHashes = append(blobHashes, hash)
+	}
+	return blobHashes
+}
+
+func (m *TaikoProposalMetadataShasta) GetBlobTimestamp() uint64 {
+	return m.GetDerivation().BlobSlice.Timestamp.Uint64()
 }
 
 // GetProposal returns the transaction hash.
-func (m *TaikoDataBlockMetadataShasta) GetProposal() shastaBindings.IInboxProposal {
+func (m *TaikoProposalMetadataShasta) GetProposal() shastaBindings.IInboxProposal {
 	return m.IInboxProposal
 }
 
 // GetDerivation returns the transaction hash.
-func (m *TaikoDataBlockMetadataShasta) GetDerivation() shastaBindings.IInboxDerivation {
+func (m *TaikoProposalMetadataShasta) GetDerivation() shastaBindings.IInboxDerivation {
 	return m.IInboxDerivation
 }
 
 // GetCoreState returns the transaction hash.
-func (m *TaikoDataBlockMetadataShasta) GetCoreState() shastaBindings.IInboxCoreState {
+func (m *TaikoProposalMetadataShasta) GetCoreState() shastaBindings.IInboxCoreState {
 	return m.IInboxCoreState
 }

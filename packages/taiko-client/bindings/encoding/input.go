@@ -161,7 +161,7 @@ func init() {
 	}
 
 	if TaikoInboxABI, err = pacayaBindings.TaikoInboxClientMetaData.GetAbi(); err != nil {
-		log.Crit("Get TaikoInbox ABI error", "error", err)
+		log.Crit("Get PacayaTaikoInbox ABI error", "error", err)
 	}
 
 	if TaikoWrapperABI, err = pacayaBindings.TaikoWrapperClientMetaData.GetAbi(); err != nil {
@@ -245,7 +245,7 @@ func EncodeBatchesSubProofs(subProofs []SubProof) ([]byte, error) {
 	return b, nil
 }
 
-// EncodeProveBatchesInput performs the solidity `abi.encode` for the given TaikoInbox.proveBatches input.
+// EncodeProveBatchesInput performs the solidity `abi.encode` for the given PacayaTaikoInbox.proveBatches input.
 func EncodeProveBatchesInput(
 	metas []metadata.TaikoProposalMetaData,
 	transitions []pacayaBindings.ITaikoInboxTransition,
@@ -264,7 +264,7 @@ func EncodeProveBatchesInput(
 	}
 	input, err := ProveBatchesInputArgs.Pack(pacayaMetas, transitions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode TaikoInbox.proveBatches input item after pacaya fork, %w", err)
+		return nil, fmt.Errorf("failed to abi.encode PacayaTaikoInbox.proveBatches input item after pacaya fork, %w", err)
 	}
 
 	return input, nil

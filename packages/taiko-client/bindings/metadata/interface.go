@@ -54,4 +54,7 @@ type TaikoBatchMetaDataShasta interface {
 	GetProposal() shastaBindings.IInboxProposal
 	GetDerivation() shastaBindings.IInboxDerivation
 	GetCoreState() shastaBindings.IInboxCoreState
+	GetBlobHashes() []common.Hash
+	GetBlobTimestamp() uint64
+	GetRawBlockHeight() *big.Int
 }

@@ -2,6 +2,7 @@ package txlistfetcher
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -16,8 +17,8 @@ type CalldataFetcher struct {
 	rpc *rpc.Client
 }
 
-// NewCalldataFetch creates a new CalldataFetcher instance based on the given rpc client.
-func NewCalldataFetch(rpc *rpc.Client) *CalldataFetcher {
+// NewCalldataFetcher creates a new CalldataFetcher instance based on the given rpc client.
+func NewCalldataFetcher(rpc *rpc.Client) *CalldataFetcher {
 	return &CalldataFetcher{rpc: rpc}
 }
 
@@ -47,4 +48,8 @@ func (d *CalldataFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBa
 	}
 
 	return nil, fmt.Errorf("calldata for batch %d not found", meta.GetBatchID())
+}
+
+func (d *CalldataFetcher) FetchShasta(_ context.Context, _ metadata.TaikoBatchMetaDataShasta) ([]byte, error) {
+	return nil, errors.New("calldata is NOT supported from Shasta fork")
 }

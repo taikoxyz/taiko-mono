@@ -34,7 +34,7 @@ var (
 	defaultWaitTimeout = 3 * time.Minute
 )
 
-// GetProtocolConfigs gets the protocol configs from TaikoInbox contract.
+// GetProtocolConfigs gets the protocol configs from PacayaTaikoInbox contract.
 func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs, error) {
 	var cancel context.CancelFunc
 	if opts == nil {
@@ -51,7 +51,7 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 	return config.NewPacayaProtocolConfigs(&configs), nil
 }
 
-// ensureGenesisMatched fetches the L2 genesis block from TaikoInbox contract,
+// ensureGenesisMatched fetches the L2 genesis block from PacayaTaikoInbox contract,
 // and checks whether the fetched genesis is same to the node local genesis.
 func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Address) error {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
@@ -103,7 +103,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 		// If chain actives ontake fork from genesis, we need to fetch the genesis block hash from `BlockVerifiedV2` event.
 		if protocolConfigs.ForkHeightsPacaya() == 0 {
 			// Fetch the genesis `BatchesVerified` event.
-			log.Info("Filtering batchesVerified events from TaikoInbox contract")
+			log.Info("Filtering batchesVerified events from PacayaTaikoInbox contract")
 			iter, err := c.PacayaClients.TaikoInbox.FilterBatchesVerified(filterOpts)
 			if err != nil {
 				return err
@@ -115,12 +115,12 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 				return iter.Error()
 			}
 		} else if protocolConfigs.ForkHeightsOntake() == 0 {
-			log.Info("Filtering blockVerifiedV2 events from TaikoInbox contract")
+			log.Info("Filtering blockVerifiedV2 events from PacayaTaikoInbox contract")
 			if l2GenesisHash, err = c.filterGenesisBlockVerifiedV2(ctx, filterOpts, taikoInbox); err != nil {
 				return err
 			}
 		} else {
-			log.Info("Filtering blockVerified events from TaikoInbox contract")
+			log.Info("Filtering blockVerified events from PacayaTaikoInbox contract")
 			if l2GenesisHash, err = c.filterGenesisBlockVerified(ctx, filterOpts, taikoInbox); err != nil {
 				return err
 			}
@@ -540,7 +540,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 	return progress, nil
 }
 
-// GetProtocolStateVariablesPacaya gets the protocol states from TaikoInbox contract.
+// GetProtocolStateVariablesPacaya gets the protocol states from PacayaTaikoInbox contract.
 func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 	Stats1 pacayaBindings.ITaikoInboxStats1
 	Stats2 pacayaBindings.ITaikoInboxStats2
@@ -578,7 +578,7 @@ func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 	return states, g.Wait()
 }
 
-// GetLastVerifiedTransitionPacaya gets the last verified transition from TaikoInbox contract.
+// GetLastVerifiedTransitionPacaya gets the last verified transition from PacayaTaikoInbox contract.
 func (c *Client) GetLastVerifiedTransitionPacaya(ctx context.Context) (*struct {
 	BatchId uint64
 	BlockId uint64

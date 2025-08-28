@@ -148,7 +148,7 @@ func GetBatchProofStatus(
 		return nil, err
 	}
 
-	// Get the transition state from TaikoInbox contract.
+	// Get the transition state from PacayaTaikoInbox contract.
 	transition, err := cli.PacayaClients.TaikoInbox.GetTransitionByParentHash(
 		&bind.CallOpts{Context: ctxWithTimeout},
 		batchID.Uint64(),

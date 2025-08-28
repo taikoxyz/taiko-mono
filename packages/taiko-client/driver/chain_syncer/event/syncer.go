@@ -71,8 +71,8 @@ func NewSyncer(
 	)
 
 	var (
-		txListFetcherBlob     = txlistFetcher.NewBlobTxListFetcher(client, blobDataSource)
-		txListFetcherCalldata = txlistFetcher.NewCalldataFetch(client)
+		txListFetcherBlob     = txlistFetcher.NewBlobFetcher(client, blobDataSource)
+		txListFetcherCalldata = txlistFetcher.NewCalldataFetcher(client)
 	)
 	return &Syncer{
 		ctx:                ctx,
@@ -141,7 +141,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 
 	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
 		Client:               s.rpc.L1,
-		TaikoInbox:           s.rpc.PacayaClients.TaikoInbox,
+		PacayaTaikoInbox:     s.rpc.PacayaClients.TaikoInbox,
 		StartHeight:          s.state.GetL1Current().Number,
 		EndHeight:            l1End.Number,
 		OnBatchProposedEvent: s.onBatchProposed,
@@ -166,6 +166,28 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 // onBatchProposed is a `BatchProposed` event callback which responsible for
 // inserting the proposed block one by one to the L2 execution engine.
 func (s *Syncer) onBatchProposed(
+	ctx context.Context,
+	meta metadata.TaikoProposalMetaData,
+	endIter eventIterator.EndBatchProposedEventIterFunc,
+) error {
+	if meta.IsPacaya() {
+		return s.processPacayaBatch(ctx, meta, endIter)
+	}
+	return s.processShastaProposal(ctx, meta, endIter)
+}
+
+func (s *Syncer) processShastaProposal(
+	ctx context.Context,
+	meta metadata.TaikoProposalMetaData,
+	endIter eventIterator.EndBatchProposedEventIterFunc,
+) error {
+	// 1. check reorg
+	// 2. decode blob data
+	// 3. validate Proposal-level and Block-level Metadata
+	// 4. Insert L2 blocks
+}
+
+func (s *Syncer) processPacayaBatch(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 	endIter eventIterator.EndBatchProposedEventIterFunc,

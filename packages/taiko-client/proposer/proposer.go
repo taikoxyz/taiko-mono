@@ -128,6 +128,8 @@ func (p *Proposer) InitFromConfig(
 	p.chainConfig = config.NewChainConfig(
 		p.rpc.L2.ChainID,
 		p.rpc.PacayaClients.ForkHeights.Ontake,
+		// TODO
+		p.rpc.PacayaClients.ForkHeights.Pacaya,
 		p.rpc.PacayaClients.ForkHeights.Pacaya,
 	)
 	p.txBuilder = builder.NewBuilderWithFallback(
