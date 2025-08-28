@@ -14,6 +14,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
+// An extended set of histogram buckers to have more granularity in the [0.5,
+// 2.5] range.
+var HistogramBuckets = []float64{.005, .01, .025, .05, .1, .25, .5, .75, 1, 1.25, 1.5, 1.75, 2, 2.5, 5, 10}
+
 // Metrics
 var (
 	registry = opMetrics.NewRegistry()
@@ -48,28 +52,33 @@ var (
 		Name: "driver_on_l2_unsafe_request",
 	})
 	DriverPreconfOnL2UnsafeRequestDuration = factory.NewHistogram(prometheus.HistogramOpts{
-		Name: "driver_on_l2_unsafe_request_duration",
+		Name:    "driver_on_l2_unsafe_request_duration",
+		Buckets: HistogramBuckets,
 	})
 	DriverPreconfOnL2UnsafeResponseCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "driver_on_l2_unsafe_response",
 	})
 	DriverPreconfOnL2UnsafeResponseDuration = factory.NewHistogram(prometheus.HistogramOpts{
-		Name: "driver_on_l2_unsafe_response_duration",
+		Name:    "driver_on_l2_unsafe_response_duration",
+		Buckets: HistogramBuckets,
 	})
 	DriverPreconfOnUnsafeL2PayloadDuration = factory.NewHistogram(prometheus.HistogramOpts{
-		Name: "driver_on_unsafe_l2_payload_duration",
+		Name:    "driver_on_unsafe_l2_payload_duration",
+		Buckets: HistogramBuckets,
 	})
 	DriverPreconfOnEndOfSequencingRequestCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "driver_on_end_of_sequencing_request",
 	})
 	DriverPreconfOnEndOfSequencingRequestDuration = factory.NewHistogram(prometheus.HistogramOpts{
-		Name: "driver_on_end_of_sequencing_request_duration",
+		Name:    "driver_on_end_of_sequencing_request_duration",
+		Buckets: HistogramBuckets,
 	})
 	DriverImportedPreconBlocksFromCacheCounter = factory.NewCounter(prometheus.CounterOpts{
 		Name: "driver_imported_preconf_blocks_from_cache",
 	})
 	DriverPreconfBuildPreconfBlockDuration = factory.NewHistogram(prometheus.HistogramOpts{
-		Name: "driver_preconf_build_preconf_block_duration",
+		Name:    "driver_preconf_build_preconf_block_duration",
+		Buckets: HistogramBuckets,
 	})
 
 	// Proposer
