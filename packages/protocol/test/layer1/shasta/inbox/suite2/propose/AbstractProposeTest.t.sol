@@ -463,8 +463,4 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     {
         return _buildExpectedProposedPayload(_proposalId, _numBlobs, _offset, currentProposer);
     }
-
-    // ---------------------------------------------------------------
-    // Abstract Functions
-    // ---------------------------------------------------------------
 }

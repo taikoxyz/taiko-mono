@@ -600,10 +600,4 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
         return inbox.encodeProposeInput(input);
     }
-
-    // ---------------------------------------------------------------
-    // Abstract Functions
-    // ---------------------------------------------------------------
-
-
 }
