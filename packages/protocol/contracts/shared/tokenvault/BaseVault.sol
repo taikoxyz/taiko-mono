@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../bridge/IBridge.sol";
 import "../common/EssentialResolverContract.sol";
 import "../libs/LibNames.sol";
-import "../libs/LibBytes.sol";
+import { LibBytes as LibBytesInternal } from "../libs/LibBytes.sol";
 
 /// @title INameSymbol
 /// @notice Interface for contracts that provide name() and symbol()
@@ -27,7 +27,7 @@ abstract contract BaseVault is
     IMessageInvocable,
     IERC165Upgradeable
 {
-    using LibBytes for bytes;
+    using LibBytesInternal for bytes;
 
     uint256[50] private __gap;
 
