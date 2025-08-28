@@ -467,19 +467,4 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     // ---------------------------------------------------------------
     // Abstract Functions
     // ---------------------------------------------------------------
-
-    function deployInbox(
-        address bondToken,
-        address syncedBlockManager,
-        address proofVerifier,
-        address proposerChecker,
-        address forcedInclusionStore
-    )
-        internal
-        virtual
-        override
-        returns (Inbox);
-
-    /// @dev Returns the name of the test contract for snapshot identification
-    function getTestContractName() internal pure virtual returns (string memory);
 }

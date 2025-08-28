@@ -1,31 +1,37 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IInboxDeployer } from "./IInboxDeployer.sol";
 import { TestInboxOptimized2 } from "../implementations/TestInboxOptimized2.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
-import { CommonTest } from "test/shared/CommonTest.sol";
+import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 
-/// @title InboxOptimized2Base
-/// @notice Base contract providing deployment logic for InboxOptimized2 implementation
-abstract contract InboxOptimized2Base is CommonTest {
-    function getTestContractName() internal pure virtual returns (string memory) {
+/// @title InboxOptimized2Deployer
+/// @notice Deployer for the InboxOptimized2 implementation
+contract InboxOptimized2Deployer is InboxTestHelper, IInboxDeployer {
+    /// @inheritdoc IInboxDeployer
+    function getTestContractName() external pure returns (string memory) {
         return "InboxOptimized2";
     }
 
+    /// @inheritdoc IInboxDeployer
     function deployInbox(
         address bondToken,
         address syncedBlockManager,
         address proofVerifier,
-        address proposerChecker,
-        address forcedInclusionStore
+        address proposerChecker
     )
-        internal
-        virtual
+        external
         returns (Inbox)
     {
         address impl = address(
             new TestInboxOptimized2(
-                bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
+                bondToken,
+                syncedBlockManager,
+                proofVerifier,
+                proposerChecker,
+                INCLUSION_DELAY,
+                FEE_IN_GWEI
             )
         );
 

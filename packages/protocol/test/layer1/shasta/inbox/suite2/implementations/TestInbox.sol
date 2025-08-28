@@ -13,20 +13,21 @@ contract TestInbox is Inbox {
     address private immutable _syncedBlockManager;
     address private immutable _proofVerifier;
     address private immutable _proposerChecker;
-    address private immutable _forcedInclusionStore;
 
     constructor(
         address bondToken,
         address syncedBlockManager,
         address proofVerifier,
         address proposerChecker,
-        address forcedInclusionStore
-    ) {
+        uint64 inclusionDelay,
+        uint64 feeInGwei
+    )
+        Inbox(inclusionDelay, feeInGwei)
+    {
         _bondToken = bondToken;
         _syncedBlockManager = syncedBlockManager;
         _proofVerifier = proofVerifier;
         _proposerChecker = proposerChecker;
-        _forcedInclusionStore = forcedInclusionStore;
     }
 
     function getConfig() public view override returns (IInbox.Config memory) {
@@ -40,7 +41,6 @@ contract TestInbox is Inbox {
             syncedBlockManager: _syncedBlockManager,
             proofVerifier: _proofVerifier,
             proposerChecker: _proposerChecker,
-            forcedInclusionStore: _forcedInclusionStore,
             minForcedInclusionCount: 1
         });
     }
