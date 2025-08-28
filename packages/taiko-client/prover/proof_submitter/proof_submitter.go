@@ -184,6 +184,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 						if time.Since(startAt) > maxProofRequestTimeout {
 							log.Warn("Retry timeout exceeded maxProofRequestTimeout, switching to SGX proof as fallback")
 							useZK = false
+							startAt = time.Now()
 						} else {
 							return fmt.Errorf("zk proof is WIP, status: %w", err)
 						}
@@ -192,6 +193,7 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 							"batchID", opts.BatchID,
 						)
 						useZK = false
+						startAt = time.Now()
 					}
 				}
 			}
