@@ -17,7 +17,7 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
     /// @inheritdoc IInboxDeployer
     function deployInbox(
         address bondToken,
-        address syncedBlockManager,
+        address checkpointManager,
         address proofVerifier,
         address proposerChecker
     )
@@ -26,12 +26,7 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
     {
         address impl = address(
             new TestInbox(
-                bondToken,
-                syncedBlockManager,
-                proofVerifier,
-                proposerChecker,
-                INCLUSION_DELAY,
-                FEE_IN_GWEI
+                bondToken, checkpointManager, proofVerifier, proposerChecker, INCLUSION_DELAY, FEE_IN_GWEI
             )
         );
 

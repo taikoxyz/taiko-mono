@@ -2,13 +2,13 @@
 pragma solidity ^0.8.24;
 
 import { CommonTest } from "test/shared/CommonTest.sol";
-import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
+import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ISyncedBlockManager } from "src/shared/based/iface/ISyncedBlockManager.sol";
-import { IProofVerifier } from "contracts/layer1/shasta/iface/IProofVerifier.sol";
-import { IProposerChecker } from "contracts/layer1/shasta/iface/IProposerChecker.sol";
-import { IForcedInclusionStore } from "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { IProofVerifier } from "src/layer1/shasta/iface/IProofVerifier.sol";
+import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
+import { IForcedInclusionStore } from "src/layer1/shasta/iface/IForcedInclusionStore.sol";
 
 /// @title InboxTestHelper
 /// @notice Pure utility functions for Inbox tests
@@ -45,7 +45,7 @@ contract InboxTestHelper is CommonTest {
 
     function _getGenesisTransitionHash() internal pure returns (bytes32) {
         IInbox.Transition memory transition;
-        transition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        transition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         return keccak256(abi.encode(transition));
     }
 

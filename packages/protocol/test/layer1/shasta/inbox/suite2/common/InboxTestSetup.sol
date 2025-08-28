@@ -7,9 +7,9 @@ import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
 import { IProofVerifier } from "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import { IProposerChecker } from "contracts/layer1/shasta/iface/IProposerChecker.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ISyncedBlockManager } from "src/shared/based/iface/ISyncedBlockManager.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 import { UUPSUpgradeable } from "@openzeppelin-upgrades/contracts/proxy/utils/UUPSUpgradeable.sol";
-import { MockERC20, MockSyncedBlockManager, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { MockERC20, MockCheckpointManager, MockProofVerifier } from "../mocks/MockContracts.sol";
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 
 /// @title InboxTestSetup
@@ -24,7 +24,7 @@ abstract contract InboxTestSetup is InboxTestHelper {
 
     // Mock contracts
     IERC20 internal bondToken;
-    ISyncedBlockManager internal syncedBlockManager;
+    ICheckpointManager internal checkpointManager;
     IProofVerifier internal proofVerifier;
     IProposerChecker internal proposerChecker;
 
@@ -59,7 +59,7 @@ abstract contract InboxTestSetup is InboxTestHelper {
         require(address(inboxDeployer) != address(0), "Deployer not set");
         inbox = inboxDeployer.deployInbox(
             address(bondToken),
-            address(syncedBlockManager),
+            address(checkpointManager),
             address(proofVerifier),
             address(proposerChecker)
         );
@@ -74,7 +74,7 @@ abstract contract InboxTestSetup is InboxTestHelper {
     /// behavior(e.g. ERC20) or that are not implemented yet
     function _setupMocks() internal {
         bondToken = new MockERC20();
-        syncedBlockManager = new MockSyncedBlockManager();
+        checkpointManager = new MockCheckpointManager();
         proofVerifier = new MockProofVerifier();
     }
 

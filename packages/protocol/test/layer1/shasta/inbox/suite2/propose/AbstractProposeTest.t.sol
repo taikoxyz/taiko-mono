@@ -374,9 +374,9 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
             coreState: _coreState,
             parentProposals: _parentProposals,
             blobReference: _blobRef,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
-                number: uint48(block.number),
-                hash: blockhash(block.number - 1),
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))
             }),
             transitionRecords: new IInbox.TransitionRecord[](0),

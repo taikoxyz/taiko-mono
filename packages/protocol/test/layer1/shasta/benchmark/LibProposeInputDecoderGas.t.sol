@@ -7,6 +7,7 @@ import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibProposeInputDecoder } from "contracts/layer1/shasta/libs/LibProposeInputDecoder.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 import { LibBonds } from "contracts/shared/based/libs/LibBonds.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title LibProposeInputDecoderGas
 /// @notice Gas comparison between optimized LibProposeInputDecoder and abi.encode/decode
@@ -187,14 +188,17 @@ contract LibProposeInputDecoderGas is Test {
             input.transitionRecords[i] = IInbox.TransitionRecord({
                 span: uint8(1 + (i % 3)),
                 transitionHash: keccak256(abi.encodePacked("transition", i)),
-                endBlockMiniHeaderHash: keccak256(abi.encodePacked("end_header", i)),
+                checkpointHash: keccak256(abi.encodePacked("end_header", i)),
                 bondInstructions: bondInstructions
             });
         }
 
-        // Add endBlockMiniHeader if needed
-        input.endBlockMiniHeader =
-            IInbox.BlockMiniHeader({ number: 0, hash: bytes32(0), stateRoot: bytes32(0) });
+        // Add checkpoint if needed
+        input.checkpoint = ICheckpointManager.Checkpoint({
+            blockNumber: 0,
+            blockHash: bytes32(0),
+            stateRoot: bytes32(0)
+        });
     }
 
     function _writeReport() private {

@@ -138,13 +138,13 @@ The test suite uses a consolidated architecture with:
 
 ### 2. InboxBasicTest.t.sol - Fundamental Operations and Basic Flows
 
-| Test Function                              | Description                            | Key Validations                                                  |
-| ------------------------------------------ | -------------------------------------- | ---------------------------------------------------------------- |
-| `test_propose_single_valid()`              | Submits a single valid proposal        | • Proposal storage<br>• Hash verification<br>• Core state update |
-| `test_propose_multiple_sequential()`       | Submits multiple proposals in sequence | • Sequential ID assignment<br>• Batch storage validation         |
-| `test_propose_invalid_state_reverts()`     | Tests proposal with wrong core state   | • InvalidState error<br>• State hash validation                  |
-| `test_propose_deadline_exceeded_reverts()` | Tests expired deadline rejection       | • DeadlineExceeded error<br>• Timestamp validation               |
-| `test_prove_single_transition()`                | Proves a single transition successfully     | • Transition record storage<br>• Proof verification                   |
+| Test Function                              | Description                             | Key Validations                                                  |
+| ------------------------------------------ | --------------------------------------- | ---------------------------------------------------------------- |
+| `test_propose_single_valid()`              | Submits a single valid proposal         | • Proposal storage<br>• Hash verification<br>• Core state update |
+| `test_propose_multiple_sequential()`       | Submits multiple proposals in sequence  | • Sequential ID assignment<br>• Batch storage validation         |
+| `test_propose_invalid_state_reverts()`     | Tests proposal with wrong core state    | • InvalidState error<br>• State hash validation                  |
+| `test_propose_deadline_exceeded_reverts()` | Tests expired deadline rejection        | • DeadlineExceeded error<br>• Timestamp validation               |
+| `test_prove_single_transition()`           | Proves a single transition successfully | • Transition record storage<br>• Proof verification              |
 
 ### 3. InboxProposeValidation.t.sol - Proposal Validation and Error Cases
 
@@ -162,14 +162,14 @@ The test suite uses a consolidated architecture with:
 
 ### 4. InboxProveBasic.t.sol - Proof Submission and Validation
 
-| Test Function                        | Description                                         | Key Validations                                            |
-| ------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------- |
-| `test_prove_single_transition()`          | Proves a single transition                               | • Transition record storage<br>• Proof verification success     |
-| `test_prove_multiple_transitions()`       | Proves multiple transitions with different parent hashes | • Multiple transition storage<br>• Independent proof validation |
-| `test_prove_sequential_proposals()`  | Proves transitions in sequence with linked parent hashes | • Chain continuity<br>• Parent hash progression            |
-| `test_prove_verification_called()`   | Verifies proof verification is called correctly     | • Mock call verification<br>• Parameter validation         |
-| `test_prove_transition_record_storage()`  | Tests transition record storage and retrieval            | • Persistent storage<br>• Multiple records per proposal    |
-| `test_prove_invalid_proof_reverts()` | Tests invalid proof rejection                       | • Proof verification failure<br>• Error handling           |
+| Test Function                            | Description                                              | Key Validations                                                 |
+| ---------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------- |
+| `test_prove_single_transition()`         | Proves a single transition                               | • Transition record storage<br>• Proof verification success     |
+| `test_prove_multiple_transitions()`      | Proves multiple transitions with different parent hashes | • Multiple transition storage<br>• Independent proof validation |
+| `test_prove_sequential_proposals()`      | Proves transitions in sequence with linked parent hashes | • Chain continuity<br>• Parent hash progression                 |
+| `test_prove_verification_called()`       | Verifies proof verification is called correctly          | • Mock call verification<br>• Parameter validation              |
+| `test_prove_transition_record_storage()` | Tests transition record storage and retrieval            | • Persistent storage<br>• Multiple records per proposal         |
+| `test_prove_invalid_proof_reverts()`     | Tests invalid proof rejection                            | • Proof verification failure<br>• Error handling                |
 
 ### 5. InboxChainAdvancement.t.sol - Chain Progression and Finalization ✅
 
@@ -183,15 +183,15 @@ The test suite uses a consolidated architecture with:
 | `test_prove_three_separately_finalize_together()` | Tests separate proofs with batch finalization  | • Mixed processing patterns<br>• Finalization flexibility       |
 
 **Status**: All tests passing (5 passed, 1 skipped for base implementation)
-**Fixed Issues**: Stack too deep errors resolved, endBlockMiniHeader mismatch fixed
+**Fixed Issues**: Stack too deep errors resolved, checkpoint mismatch fixed
 
 ### 6. InboxFinalization.t.sol - Finalization Mechanics and Limits
 
-| Test Function                            | Description                                  | Key Validations                                           |
-| ---------------------------------------- | -------------------------------------------- | --------------------------------------------------------- |
-| `test_finalize_single_proposal()`        | Finalizes a single proposal                  | • Single finalization flow<br>• State update verification |
-| `test_finalize_multiple_proposals()`     | Finalizes multiple proposals in batch        | • Batch finalization<br>• Sequential processing           |
-| `test_finalize_stops_at_missing_transition()` | Tests finalization halting at missing transitions | • Missing transition detection<br>• Partial finalization       |
+| Test Function                                 | Description                                       | Key Validations                                           |
+| --------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
+| `test_finalize_single_proposal()`             | Finalizes a single proposal                       | • Single finalization flow<br>• State update verification |
+| `test_finalize_multiple_proposals()`          | Finalizes multiple proposals in batch             | • Batch finalization<br>• Sequential processing           |
+| `test_finalize_stops_at_missing_transition()` | Tests finalization halting at missing transitions | • Missing transition detection<br>• Partial finalization  |
 | `test_finalize_invalid_transition_hash()`     | Tests invalid transition hash rejection           | • Hash validation<br>• Error handling                     |
 
 ### 7. InboxRingBuffer.t.sol - Ring Buffer Management and Overflow
@@ -236,11 +236,11 @@ Tests for forced inclusion mechanism are included in this test file.
 - **Restored** from backup and fixed compilation issues
 - **Fixed** TransitionRecord struct compatibility (removed parentTransitionHash field)
 - **Resolved** stack too deep errors by extracting helper functions
-- **Fixed** test_max_finalization_count_limit test by using correct endBlockMiniHeader
+- **Fixed** test_max_finalization_count_limit test by using correct checkpoint
 
 ### Data Structure Changes
 
-- TransitionRecord simplified to 4 fields: span, bondInstructions, transitionHash, endBlockMiniHeaderHash
+- TransitionRecord simplified to 4 fields: span, bondInstructions, transitionHash, checkpointHash
 - Removed proposalId and transition fields from TransitionRecord
 - Updated all test assertions to match new structure
 
