@@ -285,6 +285,55 @@
 
 ## Inbox
 
+╭-----------------------------+------------------------------------------------------------------+------+--------+-------+----------------------------------------------╮
+| Name                        | Type                                                             | Slot | Offset | Bytes |
++=======================================================================================================================================================================+
+| _initialized                | uint8                                                            | 0    | 0      | 1     |
+|
+| _initializing               | bool                                                             | 0    | 1      | 1     |
+|
+| __gap                       | uint256[50]                                                      | 1    | 0      | 1600  |
+|
+| _owner                      | address                                                          | 51   | 0      | 20    |
+|
+| __gap                       | uint256[49]                                                      | 52   | 0      | 1568  |
+|
+| _pendingOwner               | address                                                          | 101  | 0      | 20    |
+|
+| __gap                       | uint256[49]                                                      | 102  | 0      | 1568  |
+|
+| __gapFromOldAddressResolver | uint256[50]                                                      | 151  | 0      | 1600  |
+|
+| __reentry                   | uint8                                                            | 201  | 0      | 1     |
+|
+| __paused                    | uint8                                                            | 201  | 1      | 1     |
+|
+| __gap                       | uint256[10]                                                      | 202  | 0      | 320   |
+|
+| queue                       | mapping(uint256 => struct IForcedInclusionStore.ForcedInclusion) | 212  | 0      | 32    |
+|
+| head                        | uint64                                                           | 213  | 0      | 8     |
+|
+| tail                        | uint64                                                           | 213  | 8      | 8     |
+|
+| lastProcessedAt             | uint64                                                           | 213  | 16     | 8     |
+|
+| __reserved1                 | uint64                                                           | 213  | 24     | 8     |
+|
+| __gap                       | uint256[37]                                                      | 214  | 0      | 1184  |
+|
+| _transitionRecordHashes     | mapping(uint256 => mapping(bytes32 => bytes32))                  | 251  | 0      | 32    |
+|
+| __slotsUsedByPacaya         | uint256[5]                                                       | 252  | 0      | 160   |
+|
+| bondBalance                 | mapping(address => uint256)                                      | 257  | 0      | 32    |
+|
+| _proposalHashes             | mapping(uint256 => bytes32)                                      | 258  | 0      | 32    |
+|
+| __gap                       | uint256[42]                                                      | 259  | 0      | 1344  |
+╰-----------------------------+------------------------------------------------------------------+------+--------+-------+----------------------------------------------╯
+
+
 ## HeklaInbox
 
 ╭-----------------------------+--------------------------+------+--------+-------+--------------------------------------------------╮
@@ -579,37 +628,37 @@
 |
 | __paused                    | uint8                                                               | 201  | 1      | 1     |
 |
-| __gap                       | uint256[49]                                                         | 202  | 0      | 1568  |
+| __gap                       | uint256[10]                                                         | 202  | 0      | 320   |
 |
-| queue                       | mapping(uint256 => struct IForcedInclusionStore.ForcedInclusion)    | 251  | 0      | 32    |
+| queue                       | mapping(uint256 => struct IForcedInclusionStore.ForcedInclusion)    | 212  | 0      | 32    |
 |
-| head                        | uint64                                                              | 252  | 0      | 8     |
+| head                        | uint64                                                              | 213  | 0      | 8     |
 |
-| tail                        | uint64                                                              | 252  | 8      | 8     |
+| tail                        | uint64                                                              | 213  | 8      | 8     |
 |
-| lastProcessedAt             | uint64                                                              | 252  | 16     | 8     |
+| lastProcessedAt             | uint64                                                              | 213  | 16     | 8     |
 |
-| __reserved1                 | uint64                                                              | 252  | 24     | 8     |
+| __reserved1                 | uint64                                                              | 213  | 24     | 8     |
 |
-| __gap                       | uint256[48]                                                         | 253  | 0      | 1536  |
+| __gap                       | uint256[37]                                                         | 214  | 0      | 1184  |
 |
-| _transitionRecordHashes     | mapping(uint256 => mapping(bytes32 => bytes32))                     | 301  | 0      | 32    |
+| _transitionRecordHashes     | mapping(uint256 => mapping(bytes32 => bytes32))                     | 251  | 0      | 32    |
 |
-| __slotsUsedByPacaya         | uint256[5]                                                          | 302  | 0      | 160   |
+| __slotsUsedByPacaya         | uint256[5]                                                          | 252  | 0      | 160   |
 |
-| bondBalance                 | mapping(address => uint256)                                         | 307  | 0      | 32    |
+| bondBalance                 | mapping(address => uint256)                                         | 257  | 0      | 32    |
 |
-| _proposalHashes             | mapping(uint256 => bytes32)                                         | 308  | 0      | 32    |
+| _proposalHashes             | mapping(uint256 => bytes32)                                         | 258  | 0      | 32    |
 |
-| __gap                       | uint256[42]                                                         | 309  | 0      | 1344  |
+| __gap                       | uint256[42]                                                         | 259  | 0      | 1344  |
 |
-| _reusableTransitionRecords  | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | 351  | 0      | 32    |
+| _reusableTransitionRecords  | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | 301  | 0      | 32    |
 |
-| __gap                       | uint256[49]                                                         | 352  | 0      | 1568  |
+| __gap                       | uint256[49]                                                         | 302  | 0      | 1568  |
+|
+| __gap                       | uint256[50]                                                         | 351  | 0      | 1600  |
 |
 | __gap                       | uint256[50]                                                         | 401  | 0      | 1600  |
-|
-| __gap                       | uint256[50]                                                         | 451  | 0      | 1600  |
 ╰-----------------------------+---------------------------------------------------------------------+------+--------+-------+------------------------------------------------------------------------╯
 
 
@@ -952,4 +1001,41 @@
 
 
 ## TaikoDAOController
+
+╭-----------------------------+-------------+------+--------+-------+--------------------------------------------------------------------╮
+| Name                        | Type        | Slot | Offset | Bytes |
++========================================================================================================================================+
+| _initialized                | uint8       | 0    | 0      | 1     |
+|
+| _initializing               | bool        | 0    | 1      | 1     |
+|
+| __gap                       | uint256[50] | 1    | 0      | 1600  |
+|
+| _owner                      | address     | 51   | 0      | 20    |
+|
+| __gap                       | uint256[49] | 52   | 0      | 1568  |
+|
+| _pendingOwner               | address     | 101  | 0      | 20    |
+|
+| __gap                       | uint256[49] | 102  | 0      | 1568  |
+|
+| __gapFromOldAddressResolver | uint256[50] | 151  | 0      | 1600  |
+|
+| __reentry                   | uint8       | 201  | 0      | 1     |
+|
+| __paused                    | uint8       | 201  | 1      | 1     |
+|
+| __gap                       | uint256[49] | 202  | 0      | 1568  |
+|
+| __reserved0                 | uint256     | 251  | 0      | 32    |
+|
+| lastExecutionId             | uint64      | 252  | 0      | 8     |
+|
+| __reserved1                 | address     | 252  | 8      | 20    |
+|
+| __gap                       | uint256[48] | 253  | 0      | 1536  |
+|
+| __gap                       | bytes32[50] | 301  | 0      | 1600  |
+╰-----------------------------+-------------+------+--------+-------+--------------------------------------------------------------------╯
+
 

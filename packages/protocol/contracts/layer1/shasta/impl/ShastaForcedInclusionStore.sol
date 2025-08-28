@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
+import { ShastaEssentialContract } from "../base/ShastaEssentialContract.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
@@ -17,7 +17,7 @@ import { LibMath } from "src/shared/libs/LibMath.sol";
 /// @dev Forced inclusions are limited to 1 blob only, and one L2 block only(this and other protocol
 /// constrains are enforced by the node and verified by the prover)
 /// @custom:security-contact security@taiko.xyz
-abstract contract ShastaForcedInclusionStore is EssentialContract, IForcedInclusionStore {
+abstract contract ShastaForcedInclusionStore is ShastaEssentialContract, IForcedInclusionStore {
     using LibAddress for address;
     using LibMath for uint256;
 
@@ -35,7 +35,7 @@ abstract contract ShastaForcedInclusionStore is EssentialContract, IForcedInclus
     uint64 public lastProcessedAt;
     uint64 private __reserved1;
 
-    uint256[48] private __gap;
+    uint256[37] private __gap;
 
     // keccak256(abi.encode(uint256(keccak256("taiko.alethia.forcedinclusion.storage.TransactionGuard"))
     // - 1) & ~bytes32(uint256(0xff));
@@ -61,7 +61,7 @@ abstract contract ShastaForcedInclusionStore is EssentialContract, IForcedInclus
     )
         nonZeroValue(_inclusionDelay)
         nonZeroValue(_feeInGwei)
-        EssentialContract()
+        ShastaEssentialContract()
     {
         inclusionDelay = _inclusionDelay;
         feeInGwei = _feeInGwei;
