@@ -76,10 +76,10 @@ abstract contract Inbox is ShastaForcedInclusionStore, IInbox {
 
     /// @notice Initializes the Inbox contract
     constructor(
-        uint64 _inclusionDelay,
+        uint64 _forcedInclusionDelay,
         uint64 _feeInGwei
     )
-        ShastaForcedInclusionStore(_inclusionDelay, _feeInGwei)
+        ShastaForcedInclusionStore(_forcedInclusionDelay, _feeInGwei)
     { }
 
     /// @notice Initializes the Inbox contract with genesis block

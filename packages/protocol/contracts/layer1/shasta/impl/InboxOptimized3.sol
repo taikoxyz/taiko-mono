@@ -29,10 +29,10 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
     // ---------------------------------------------------------------
 
     constructor(
-        uint64 _inclusionDelay,
+        uint64 _forcedInclusionDelay,
         uint64 _feeInGwei
     )
-        InboxOptimized2(_inclusionDelay, _feeInGwei)
+        InboxOptimized2(_forcedInclusionDelay, _feeInGwei)
     { }
 
     // ---------------------------------------------------------------
