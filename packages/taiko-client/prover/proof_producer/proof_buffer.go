@@ -72,6 +72,8 @@ func (pb *ProofBuffer) Len() int {
 
 // FirstItemAt returns the first item updated time of the buffer.
 func (pb *ProofBuffer) FirstItemAt() time.Time {
+	pb.mutex.RLock()
+	defer pb.mutex.RUnlock()
 	return pb.firstItemAt
 }
 
