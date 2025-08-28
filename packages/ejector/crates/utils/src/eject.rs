@@ -86,6 +86,12 @@ where
         if info.inactiveSince == 0 && info.activeSince != 0 {
             count += 1;
         }
+
+        // log out each operator's info
+        info!(
+            "Operator {}: addr: {:#x}, activeSince: {}, inactiveSince: {}, index: {}, sequencerAddress: {:#x}",
+            i, addr, info.activeSince, info.inactiveSince, info.index, info.sequencerAddress
+        );
     }
 
     Ok(count)
