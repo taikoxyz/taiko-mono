@@ -25,6 +25,8 @@ var (
 	MaxNumSupportedProofTypes = 4
 )
 
+const maxProofRequestTimeout = 1 * time.Hour
+
 // ProofSubmitterPacaya is responsible requesting proofs for the given L2
 // blocks, and submitting the generated proofs to the TaikoInbox smart contract.
 type ProofSubmitterPacaya struct {
@@ -179,12 +181,19 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 					startAt,
 				); err != nil {
 					if errors.Is(err, proofProducer.ErrProofInProgress) || errors.Is(err, proofProducer.ErrRetry) {
-						return fmt.Errorf("zk proof is WIP, status: %w", err)
+						if time.Since(startAt) > maxProofRequestTimeout {
+							log.Warn("Retry timeout exceeded maxProofRequestTimeout, switching to SGX proof as fallback")
+							useZK = false
+							startAt = time.Now()
+						} else {
+							return fmt.Errorf("zk proof is WIP, status: %w", err)
+						}
 					} else {
 						log.Debug("ZK proof was not chosen or got unexpected error, attempting to request SGX proof",
 							"batchID", opts.BatchID,
 						)
 						useZK = false
+						startAt = time.Now()
 					}
 				}
 			}
@@ -197,6 +206,9 @@ func (s *ProofSubmitterPacaya) RequestProof(ctx context.Context, meta metadata.T
 					meta,
 					startAt,
 				); err != nil {
+					if time.Since(startAt) > maxProofRequestTimeout {
+						log.Warn("WARN: Proof generation taking too long, please investigate")
+					}
 					return fmt.Errorf("failed to request base proof, error: %w", err)
 				}
 			}
