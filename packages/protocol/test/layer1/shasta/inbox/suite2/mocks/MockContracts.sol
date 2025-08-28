@@ -26,7 +26,7 @@ contract MockProofVerifier is IProofVerifier {
 }
 
 /// @title MockCheckpointManager
-/// @notice Mock synced block manager for testing
+/// @notice Mock checkpoint manager for testing
 contract MockCheckpointManager is ICheckpointManager {
     ICheckpointManager.Checkpoint public lastCheckpoint;
     ICheckpointManager.Checkpoint[] public checkpoints;
