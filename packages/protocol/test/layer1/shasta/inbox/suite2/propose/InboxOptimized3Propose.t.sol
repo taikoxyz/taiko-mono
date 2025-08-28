@@ -24,7 +24,7 @@ contract InboxOptimized3Propose is AbstractProposeTest, InboxOptimized3Base {
 
     function deployInbox(
         address bondToken,
-        address syncedBlockManager,
+        address checkpointManager,
         address proofVerifier,
         address proposerChecker,
         address forcedInclusionStore
@@ -34,7 +34,7 @@ contract InboxOptimized3Propose is AbstractProposeTest, InboxOptimized3Base {
         returns (Inbox)
     {
         return InboxOptimized3Base.deployInbox(
-            bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
+            bondToken, checkpointManager, proofVerifier, proposerChecker, forcedInclusionStore
         );
     }
 }

@@ -14,7 +14,7 @@ abstract contract InboxBase is CommonTest {
 
     function deployInbox(
         address bondToken,
-        address syncedBlockManager,
+        address checkpointManager,
         address proofVerifier,
         address proposerChecker,
         address forcedInclusionStore
@@ -25,7 +25,7 @@ abstract contract InboxBase is CommonTest {
     {
         address impl = address(
             new TestInbox(
-                bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
+                bondToken, checkpointManager, proofVerifier, proposerChecker, forcedInclusionStore
             )
         );
 

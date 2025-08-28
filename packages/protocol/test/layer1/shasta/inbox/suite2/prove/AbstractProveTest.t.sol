@@ -544,9 +544,9 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         return IInbox.Transition({
             proposalHash: keccak256(abi.encode(_proposal)),
             parentTransitionHash: _getGenesisTransitionHash(),
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
-                number: uint48(block.number),
-                hash: blockhash(block.number - 1),
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(200))
             }),
             designatedProver: currentProver,
@@ -575,9 +575,9 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             coreState: _coreState,
             parentProposals: _parentProposals,
             blobReference: _blobRef,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
-                number: uint48(block.number),
-                hash: blockhash(block.number - 1),
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: uint48(block.number),
+                blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))
             }),
             transitionRecords: new IInbox.TransitionRecord[](0),
@@ -607,7 +607,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
     function deployInbox(
         address bondToken,
-        address syncedBlockManager,
+        address checkpointManager,
         address proofVerifier,
         address proposerChecker,
         address forcedInclusionStore

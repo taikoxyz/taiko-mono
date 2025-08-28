@@ -43,7 +43,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
     uint64 public parentGasExcess;
 
     /// @notice The last synced L1 block height.
-    uint64 public lastSyncedBlock;
+    uint64 public lastCheckpoint;
 
     /// @notice The last L2 block's timestamp.
     uint64 public parentTimestamp;
@@ -233,7 +233,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
     function _syncChainData(uint64 _anchorBlockId, bytes32 _anchorStateRoot) internal {
         /// @dev If the anchor block ID is less than or equal to the last checkpoint, return
         /// early.
-        if (_anchorBlockId <= lastSyncedBlock) return;
+        if (_anchorBlockId <= lastCheckpoint) return;
 
         /// @dev Store the L1's state root as a signal to the local signal service to
         /// allow for multi-hop bridging.
@@ -242,7 +242,7 @@ abstract contract PacayaAnchor is OntakeAnchor {
         );
 
         /// @dev Update the last checkpoint to the current anchor block ID.
-        lastSyncedBlock = _anchorBlockId;
+        lastCheckpoint = _anchorBlockId;
     }
 
     /// @dev Updates the parent block hash and timestamp.

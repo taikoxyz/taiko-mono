@@ -24,7 +24,7 @@ contract InboxPropose is AbstractProposeTest, InboxBase {
 
     function deployInbox(
         address bondToken,
-        address syncedBlockManager,
+        address checkpointManager,
         address proofVerifier,
         address proposerChecker,
         address forcedInclusionStore
@@ -34,7 +34,7 @@ contract InboxPropose is AbstractProposeTest, InboxBase {
         returns (Inbox)
     {
         return InboxBase.deployInbox(
-            bondToken, syncedBlockManager, proofVerifier, proposerChecker, forcedInclusionStore
+            bondToken, checkpointManager, proofVerifier, proposerChecker, forcedInclusionStore
         );
     }
 }
