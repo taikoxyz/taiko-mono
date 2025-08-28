@@ -9,7 +9,6 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 /// @title TestInboxOptimized3
 /// @notice Test wrapper for TestInboxOptimized3 contract with configurable behavior
 contract TestInboxOptimized3 is InboxOptimized3 {
-
     address private immutable _bondToken;
     address private immutable _syncedBlockManager;
     address private immutable _proofVerifier;
@@ -46,7 +45,8 @@ contract TestInboxOptimized3 is InboxOptimized3 {
         });
     }
 
-    /// @dev Fills the buffer with a hash that has no meaning for the protocol. This simulates the upgrade from Pacaya to Shasta,
+    /// @dev Fills the buffer with a hash that has no meaning for the protocol. This simulates the
+    /// upgrade from Pacaya to Shasta,
     ///      since this buffer will already be full since we are reusing the same slot.
     function fillTransitionRecordBuffer() public {
         IInbox.Config memory config = getConfig();

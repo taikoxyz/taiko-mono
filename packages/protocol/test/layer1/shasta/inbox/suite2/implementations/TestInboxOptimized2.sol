@@ -47,7 +47,8 @@ contract TestInboxOptimized2 is InboxOptimized2 {
         });
     }
 
-    /// @dev Fills the buffer with a hash that has no meaning for the protocol. This simulates the upgrade from Pacaya to Shasta,
+    /// @dev Fills the buffer with a hash that has no meaning for the protocol. This simulates the
+    /// upgrade from Pacaya to Shasta,
     ///      since this buffer will already be full since we are reusing the same slot.
     function fillTransitionRecordBuffer() public {
         IInbox.Config memory _config = getConfig();
