@@ -58,10 +58,6 @@ interface ISignalService {
         bytes32 signal
     );
 
-    /// @notice Emitted when signals are received directly by TaikoL2 in its Anchor transaction.
-    /// @param signalSlots The signal slots that were received.
-    event SignalsReceived(bytes32[] signalSlots);
-
     /// @notice Emitted when a signal is sent.
     /// @param app The address that initiated the signal.
     /// @param signal The signal (message) that was sent.
@@ -73,10 +69,6 @@ interface ISignalService {
     /// @param addr The address to be authorized or deauthorized.
     /// @param authorized True if authorized, false otherwise.
     event Authorized(address indexed addr, bool authorized);
-
-    /// @dev Allow TaikoL2 to receive signals directly in its Anchor transaction.
-    /// @param _signalSlots The signal slots to mark as received.
-    function receiveSignals(bytes32[] calldata _signalSlots) external;
 
     /// @notice Send a signal (message) by setting the storage slot to the same value as the signal
     /// itself.

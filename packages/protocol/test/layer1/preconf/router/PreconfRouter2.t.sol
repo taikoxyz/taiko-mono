@@ -5,7 +5,7 @@ import "./PreconfRouter2TestBase.sol";
 
 contract PreconfRouter2Test is PreconfRouter2TestBase {
     // Proposals by URC Operators
-    // --------------------------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     // Current Epoch Lookahead Structure
     // ----------------------------------
@@ -110,7 +110,7 @@ contract PreconfRouter2Test is PreconfRouter2TestBase {
     }
 
     // Proposals by whitelisted or fallback operators
-    // --------------------------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     function test_whitelistPreconferProposesWhenCurrentLookaheadIsEmpty_case1(uint256 _slotOffset)
         external
@@ -857,7 +857,7 @@ contract PreconfRouter2Test is PreconfRouter2TestBase {
     }
 
     // Proposals with pushing of lookahead
-    // --------------------------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @dev The test sets up the lookahead for the next epoch to cache a valid set of slots, but
     /// then immediately clears the next lookahead from the store, allowing the router to push
@@ -991,7 +991,7 @@ contract PreconfRouter2Test is PreconfRouter2TestBase {
     }
 
     // Revert cases
-    // --------------------------------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     function test_revertProvidedSlotIndexIsOutOfBounds()
         external

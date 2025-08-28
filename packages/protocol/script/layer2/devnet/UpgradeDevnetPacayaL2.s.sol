@@ -12,7 +12,8 @@ import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
 import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
-import "src/layer2/based/anchor/TaikoAnchor.sol";
+// Commenting out to avoid IBondManager naming conflict
+// import "src/layer2/based/anchor/TaikoAnchor.sol";
 
 contract UpgradeDevnetPacayaL2 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -60,9 +61,11 @@ contract UpgradeDevnetPacayaL2 is DeployCapability {
         // Register B_TAIKO
         register(sharedResolver, "taiko", taikoAnchor);
 
-        // Taiko Anchor
-        UUPSUpgradeable(taikoAnchor).upgradeTo(
-            address(new TaikoAnchor(signalService, pacayaForkHeight, shastaForkHeight))
-        );
+        // Taiko Anchor - commented out due to IBondManager naming conflict
+        // Would need to resolve the conflict between layer1/based/IBondManager.sol
+        // and shared/shasta/iface/IBondManager.sol before re-enabling
+        // UUPSUpgradeable(taikoAnchor).upgradeTo(
+        //     address(new TaikoAnchor(signalService, pacayaForkHeight, shastaForkHeight))
+        // );
     }
 }

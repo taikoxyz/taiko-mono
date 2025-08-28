@@ -13,7 +13,7 @@ import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/tokenvault/BridgedERC20.sol";
 import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/shared/tokenvault/ERC1155Vault.sol";
-import { ERC20VaultOriginal as ERC20Vault } from "src/shared/tokenvault/ERC20VaultOriginal.sol";
+import "src/shared/tokenvault/ERC20Vault.sol";
 import "src/shared/tokenvault/ERC721Vault.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
 import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";

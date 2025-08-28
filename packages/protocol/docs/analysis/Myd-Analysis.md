@@ -275,7 +275,7 @@ L2 anchor transactions play a crucial role in maintaining the integrity and secu
 - The `anchor` function is responsible for verifying and storing the L1 block details, including the block hash, state root, block ID, and parent gas used.
 - It performs various checks, such as validating the input parameters, verifying the sender's permission, and checking the ancestor hashes.
 - The function calculates the base fee for the L2 block using the `_calc1559BaseFee` function and compares it with the current block's base fee. If there is a mismatch and the fee check is not skipped, the function reverts.
-- If the provided L1 block ID is greater than the last synced block by a certain threshold, the function syncs the L1 state root with the signal service.
+- If the provided L1 block ID is greater than the last checkpoint by a certain threshold, the function syncs the L1 state root with the signal service.
 - The function updates the `l2Hashes` mapping, stores the parent block hash, and updates the `publicInputHash`.
 
 Potential Issues:
