@@ -26,7 +26,12 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
     {
         address impl = address(
             new TestInbox(
-                bondToken, checkpointManager, proofVerifier, proposerChecker, INCLUSION_DELAY, FEE_IN_GWEI
+                bondToken,
+                checkpointManager,
+                proofVerifier,
+                proposerChecker,
+                INCLUSION_DELAY,
+                FEE_IN_GWEI
             )
         );
 

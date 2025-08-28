@@ -89,7 +89,6 @@ abstract contract InboxTestSetup is InboxTestHelper {
         return proposerHelper._selectProposer(proposerChecker, _proposer);
     }
 
-
     /// @dev Returns the name of the test contract for snapshot identification
     /// @dev Delegates to the deployer to get the appropriate name
     function getTestContractName() internal view virtual returns (string memory) {
