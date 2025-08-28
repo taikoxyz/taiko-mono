@@ -94,5 +94,7 @@ where
         );
     }
 
+    info!("Active operatorcount: {}", count);
+
     Ok(count)
 }
