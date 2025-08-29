@@ -25,12 +25,7 @@ contract InboxOptimized1Deployer is InboxTestHelper, IInboxDeployer {
         returns (Inbox)
     {
         address impl = address(
-            new TestInboxOptimized1(
-                bondToken,
-                checkpointManager,
-                proofVerifier,
-                proposerChecker
-            )
+            new TestInboxOptimized1(bondToken, checkpointManager, proofVerifier, proposerChecker)
         );
 
         TestInboxOptimized1 inbox = TestInboxOptimized1(

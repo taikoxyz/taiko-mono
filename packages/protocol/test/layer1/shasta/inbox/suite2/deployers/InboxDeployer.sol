@@ -24,14 +24,8 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
         external
         returns (Inbox)
     {
-        address impl = address(
-            new TestInbox(
-                bondToken,
-                checkpointManager,
-                proofVerifier,
-                proposerChecker
-            )
-        );
+        address impl =
+            address(new TestInbox(bondToken, checkpointManager, proofVerifier, proposerChecker));
 
         TestInbox inbox = TestInbox(
             deploy({
