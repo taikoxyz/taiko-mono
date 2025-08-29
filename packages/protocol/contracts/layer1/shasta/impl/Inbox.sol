@@ -216,10 +216,7 @@ abstract contract Inbox is IInbox, EssentialContract {
 
     /// @inheritdoc IInbox
     function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
-        LibBlobs.BlobSlice memory blobSlice =
-            LibBlobs.validateBlobReference(_blobReference, _getBlobHash);
-
-        LibForcedInclusion.storeForcedInclusion(_forcedInclusionStorage, getConfig(), blobSlice);
+        LibForcedInclusion.storeForcedInclusion(_forcedInclusionStorage, getConfig(), _blobReference);
     }
 
     /// @inheritdoc IInbox

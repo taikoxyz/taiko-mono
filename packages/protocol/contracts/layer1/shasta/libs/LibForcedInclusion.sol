@@ -41,18 +41,22 @@ library LibForcedInclusion {
     //  Public Functions
     // ---------------------------------------------------------------
 
+    /// @dev See `IInbox.storeForcedInclusion`
     function storeForcedInclusion(
         Storage storage $,
         IInbox.Config memory _config,
-        LibBlobs.BlobSlice memory _blobSlice
+        LibBlobs.BlobReference memory _blobReference
     )
         public
     {
+        LibBlobs.BlobSlice memory blobSlice =
+            LibBlobs.validateBlobReference(_blobReference, _getBlobHash);
+
         require(msg.value == _config.forcedInclusionFeeInGwei * 1 gwei, IncorrectFee());
 
         IInbox.ForcedInclusion memory inclusion = IInbox.ForcedInclusion({
             feeInGwei: _config.forcedInclusionFeeInGwei,
-            blobSlice: _blobSlice
+            blobSlice: blobSlice
         });
 
         $.queue[$.tail++] = inclusion;
@@ -108,8 +112,7 @@ library LibForcedInclusion {
         }
     }
 
-    /// @dev Internal implementation to check if the oldest forced inclusion is due
-    /// @return True if the oldest forced inclusion is due, false otherwise
+    /// @dev See `IInbox.isOldestForcedInclusionDue`
     function isOldestForcedInclusionDue(
         Storage storage $,
         IInbox.Config memory _config
@@ -133,10 +136,18 @@ library LibForcedInclusion {
         }
     }
 
+    /// @dev Retrieves the hash of a blob at the specified index
+    /// @notice Uses EIP-4844 blobhash opcode to access blob data
+    /// @dev Virtual to allow test contracts to mock blob hash retrieval
+    /// @param _blobIndex The index of the blob in the transaction
+    /// @return _ The versioned hash of the blob
+    function _getBlobHash(uint256 _blobIndex) internal view returns (bytes32) {
+        return blobhash(_blobIndex);
+    }
+
     // ---------------------------------------------------------------
     // Errors
     // ---------------------------------------------------------------
 
     error IncorrectFee();
-    error MultipleCallsInOneTx();
 }
