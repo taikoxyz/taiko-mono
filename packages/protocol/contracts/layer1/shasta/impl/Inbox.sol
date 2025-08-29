@@ -5,12 +5,13 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
+import { StandaloneTransaction } from "../iface/IStandaloneTransaction.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
-import { ShastaForcedInclusionStore } from "./ShastaForcedInclusionStore.sol";
+import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title Inbox
@@ -23,7 +24,7 @@ import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.so
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals
 /// @custom:security-contact security@taiko.xyz
-abstract contract Inbox is ShastaForcedInclusionStore, IInbox {
+abstract contract Inbox is IInbox, EssentialContract, StandaloneTransaction {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
@@ -68,19 +69,18 @@ abstract contract Inbox is ShastaForcedInclusionStore, IInbox {
     /// around checks in the contract.
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
-    uint256[42] private __gap;
+    /// @dev Storage for forced inclusion requests
+    ///  Two slots used
+    LibForcedInclusion.Storage internal _forcedInclusionStorage;
+
+    uint256[40] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
     /// @notice Initializes the Inbox contract
-    constructor(
-        uint64 _forcedInclusionDelay,
-        uint64 _feeInGwei
-    )
-        ShastaForcedInclusionStore(_forcedInclusionDelay, _feeInGwei)
-    { }
+    constructor(uint64 _forcedInclusionDelay, uint64 _feeInGwei) EssentialContract() { }
 
     /// @notice Initializes the Inbox contract with genesis block
     /// @param _owner The owner of this contract
@@ -159,16 +159,19 @@ abstract contract Inbox is ShastaForcedInclusionStore, IInbox {
         );
 
         // Process forced inclusion if required
-        uint256 amountOfForcedInclusionsProcessed;
-        (coreState, amountOfForcedInclusionsProcessed) =
+        uint256 numForcedInclusionsProcessed;
+        (coreState, numForcedInclusionsProcessed) =
             _processForcedInclusions(config, coreState, input.numForcedInclusions);
-        availableCapacity -= amountOfForcedInclusionsProcessed;
+
+        availableCapacity -= numForcedInclusionsProcessed;
 
         // Verify that at least `config.minForcedInclusionCount` forced inclusions were processed or
         // none remains in the queue that is due.
         require(
             input.numForcedInclusions >= config.minForcedInclusionCount
-                || !_isOldestForcedInclusionDue(),
+                || !LibForcedInclusion.isOldestForcedInclusionDue(
+                    _forcedInclusionStorage, config.forcedInclusionConfig
+                ),
             UnprocessedForcedInclusionIsDue()
         );
 
@@ -213,6 +216,30 @@ abstract contract Inbox is ShastaForcedInclusionStore, IInbox {
         // Transfer the bond
         IERC20(getConfig().bondToken).safeTransfer(_address, amount);
         emit BondWithdrawn(_address, amount);
+    }
+
+    /// @notice Stores a forced inclusion request
+    /// The priority fee must be paid to the contract
+    /// @param _blobReference The blob locator that contains the transaction data
+    function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference)
+        external
+        payable
+        onlyStandaloneTx
+    {
+        LibBlobs.BlobSlice memory blobSlice =
+            LibBlobs.validateBlobReference(_blobReference, _getBlobHash);
+
+        LibForcedInclusion.storeForcedInclusion(
+            _forcedInclusionStorage, getConfig().forcedInclusionConfig, blobSlice
+        );
+    }
+
+    /// @notice Checks if the oldest forced inclusion is due
+    /// @return True if the oldest forced inclusion is due, false otherwise
+    function isOldestForcedInclusionDue() external view returns (bool) {
+        return LibForcedInclusion.isOldestForcedInclusionDue(
+            _forcedInclusionStorage, getConfig().forcedInclusionConfig
+        );
     }
 
     /// @notice Retrieves the proposal hash for a given proposal ID
@@ -622,8 +649,8 @@ abstract contract Inbox is ShastaForcedInclusionStore, IInbox {
         private
         returns (CoreState memory, uint256)
     {
-        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions =
-            _consumeForcedInclusions(msg.sender, _numForcedInclusions);
+        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = LibForcedInclusion
+            .consumeForcedInclusions(_forcedInclusionStorage, msg.sender, _numForcedInclusions);
 
         for (uint256 i; i < forcedInclusions.length; ++i) {
             _coreState = _propose(_config, _coreState, forcedInclusions[i].blobSlice, true);

@@ -43,7 +43,11 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
                 checkpointManager: address(0),
                 proofVerifier: address(0),
                 proposerChecker: address(0),
-                minForcedInclusionCount: 1
+                minForcedInclusionCount: 1,
+                forcedInclusionConfig: IForcedInclusionStore.Config({
+                    inclusionDelay: 100,
+                    feeInGwei: 1_000_000_000
+                })
             });
         }
         return testConfig;

@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { IForcedInclusionStore } from "./IForcedInclusionStore.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -23,6 +24,8 @@ interface IInbox {
         /// @notice The minimum number of forced inclusions that the proposer is forced to process
         /// if they are due.
         uint256 minForcedInclusionCount;
+        /// @notice The configuration parameters for forced inclusion.
+        IForcedInclusionStore.Config forcedInclusionConfig;
     }
 
     /// @notice Contains derivation data for a proposal that is not needed during proving.

@@ -6,6 +6,11 @@ import { LibBlobs } from "../libs/LibBlobs.sol";
 /// @title IForcedInclusionStore
 /// @custom:security-contact security@taiko.xyz
 interface IForcedInclusionStore {
+    struct Config {
+        uint64 inclusionDelay; // measured in seconds
+        uint64 feeInGwei;
+    }
+
     /// @notice Represents a forced inclusion that will be stored onchain.
     struct ForcedInclusion {
         /// @notice The fee in Gwei that was paid to submit the forced inclusion.

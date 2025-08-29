@@ -189,7 +189,11 @@ abstract contract InboxTest is CommonTest {
             checkpointManager: checkpointManager,
             proofVerifier: proofVerifier,
             proposerChecker: proposerChecker,
-            minForcedInclusionCount: 1
+            minForcedInclusionCount: 1,
+            forcedInclusionConfig: IForcedInclusionStore.Config({
+                inclusionDelay: 100,
+                feeInGwei: 1_000_000_000
+            })
         });
 
         inbox.setTestConfig(defaultConfig);

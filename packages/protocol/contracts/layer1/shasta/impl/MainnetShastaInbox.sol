@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { InboxOptimized3 } from "./InboxOptimized3.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
+import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 
 /// @title MainnetShastaInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
@@ -50,7 +51,7 @@ contract MainnetShastaInbox is InboxOptimized3 {
     /// @notice Gets the configuration for this Inbox contract
     /// @return _ The configuration struct with shasta-specific settings
     // TODO: figure out these values
-    function getConfig() public view override returns (Config memory) {
+    function getConfig() public pure override returns (Config memory) {
         return Config({
             bondToken: address(0),
             provingWindow: 2 hours,
@@ -61,7 +62,11 @@ contract MainnetShastaInbox is InboxOptimized3 {
             checkpointManager: address(0),
             proofVerifier: address(0),
             proposerChecker: address(0),
-            minForcedInclusionCount: 1
+            minForcedInclusionCount: 1,
+            forcedInclusionConfig: IForcedInclusionStore.Config({
+                inclusionDelay: 100,
+                feeInGwei: 1_000_000_000
+            })
         });
     }
 
