@@ -10,7 +10,6 @@ interface ITestInbox is IInbox {
     /// @notice Set test configuration
     function setTestConfig(IInbox.Config memory _config) external;
 
-
     /// @notice Expose internal function for testing - set proposal hash
     function exposed_setProposalHash(uint48 _proposalId, bytes32 _hash) external;
 

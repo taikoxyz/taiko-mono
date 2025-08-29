@@ -27,7 +27,6 @@ interface IInbox {
         uint64 forcedInclusionFeeInGwei;
     }
 
-
     /// @notice Contains derivation data for a proposal that is not needed during proving.
     /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
     struct Derivation {
@@ -161,7 +160,6 @@ interface IInbox {
     /// @param instructions The bond instructions that need to be performed.
     event BondInstructed(LibBonds.BondInstruction[] instructions);
 
-
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
@@ -176,7 +174,6 @@ interface IInbox {
     /// @param _data The encoded ProveInput struct.
     /// @param _proof Validity proof for the transitions.
     function prove(bytes calldata _data, bytes calldata _proof) external;
-
 
     // ---------------------------------------------------------------
     // External View Functions
@@ -203,5 +200,4 @@ interface IInbox {
     /// @notice Gets the capacity for unfinalized proposals.
     /// @return The maximum number of unfinalized proposals that can exist.
     function getCapacity() external view returns (uint256);
-
 }

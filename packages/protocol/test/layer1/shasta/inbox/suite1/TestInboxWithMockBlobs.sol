@@ -19,7 +19,6 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
         configSet = true;
     }
 
-
     function getConfig() public view override returns (IInbox.Config memory) {
         // During initialization, provide a minimal valid config to avoid division by zero
         if (!configSet) {
@@ -56,5 +55,4 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
     {
         _setTransitionRecordHash(testConfig, _proposalId, _transition, _transitionRecord);
     }
-
 }

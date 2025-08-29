@@ -21,7 +21,6 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
         configSet = true;
     }
 
-
     function getConfig() public view override returns (IInbox.Config memory) {
         if (!configSet) {
             return IInbox.Config({
@@ -41,7 +40,6 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
         }
         return testConfig;
     }
-
 
     // Expose internal functions for testing
     function exposed_setProposalHash(uint48 _proposalId, bytes32 _hash) external {

@@ -50,15 +50,12 @@ library LibForcedInclusion {
     )
         public
     {
-        LibBlobs.BlobSlice memory blobSlice =
-            LibBlobs.validateBlobReference(_blobReference);
+        LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_blobReference);
 
         require(msg.value == _config.forcedInclusionFeeInGwei * 1 gwei, IncorrectFee());
 
-        IForcedInclusionStore.ForcedInclusion memory inclusion = IForcedInclusionStore.ForcedInclusion({
-            feeInGwei: _config.forcedInclusionFeeInGwei,
-            blobSlice: blobSlice
-        });
+        IForcedInclusionStore.ForcedInclusion memory inclusion = IForcedInclusionStore
+            .ForcedInclusion({ feeInGwei: _config.forcedInclusionFeeInGwei, blobSlice: blobSlice });
 
         $.queue[$.tail++] = inclusion;
 
@@ -136,7 +133,6 @@ library LibForcedInclusion {
             return block.timestamp >= deadline;
         }
     }
-
 
     // ---------------------------------------------------------------
     // Errors

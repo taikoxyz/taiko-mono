@@ -14,7 +14,8 @@ import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title Inbox
-/// @notice Core contract for managing L2 proposals, proofs,verification and forced inclusion in Taiko's based
+/// @notice Core contract for managing L2 proposals, proofs,verification and forced inclusion in
+/// Taiko's based
 /// rollup architecture.
 /// @dev This abstract contract implements the fundamental inbox logic including:
 ///      - Proposal submission with forced inclusion support
@@ -217,7 +218,9 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @inheritdoc IForcedInclusionStore
     function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
-        LibForcedInclusion.storeForcedInclusion(_forcedInclusionStorage, getConfig(), _blobReference);
+        LibForcedInclusion.storeForcedInclusion(
+            _forcedInclusionStorage, getConfig(), _blobReference
+        );
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -372,7 +375,6 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             );
         }
     }
-
 
     /// @dev Validates transition consistency with its corresponding proposal
     /// @notice Ensures the transition references the correct proposal hash

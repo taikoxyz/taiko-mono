@@ -623,7 +623,8 @@ abstract contract InboxTest is CommonTest {
         view
         returns (IForcedInclusionStore.ForcedInclusion[] memory)
     {
-        IForcedInclusionStore.ForcedInclusion[] memory inclusions = new IForcedInclusionStore.ForcedInclusion[](_fees.length);
+        IForcedInclusionStore.ForcedInclusion[] memory inclusions =
+            new IForcedInclusionStore.ForcedInclusion[](_fees.length);
 
         for (uint256 i = 0; i < _fees.length; i++) {
             inclusions[i] = createForcedInclusionDataWithSeed(_fees[i], i);
@@ -641,7 +642,8 @@ abstract contract InboxTest is CommonTest {
         private
         returns (IInbox.Proposal memory)
     {
-        IForcedInclusionStore.ForcedInclusion memory forcedInclusion = createStandardForcedInclusion();
+        IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
+            createStandardForcedInclusion();
         setupForcedInclusionMocks(_proposer, forcedInclusion);
 
         return _deadline > 0
