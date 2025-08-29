@@ -5,7 +5,6 @@ import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
-import { IForcedInclusionStore } from "src/layer1/shasta/iface/IForcedInclusionStore.sol";
 
 /// @title TestInbox
 /// @notice Test wrapper for Inbox contract with configurable behavior
@@ -43,10 +42,8 @@ contract TestInbox is Inbox {
             proofVerifier: _proofVerifier,
             proposerChecker: _proposerChecker,
             minForcedInclusionCount: 1,
-            forcedInclusionConfig: IForcedInclusionStore.Config({
-                inclusionDelay: 100,
-                feeInGwei: 1_000_000_000
-            })
+            forcedInclusionDelay: 100,
+            forcedInclusionFeeInGwei: 1_000_000_000
         });
     }
 

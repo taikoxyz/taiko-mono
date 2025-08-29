@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { InboxOptimized3 } from "./InboxOptimized3.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
-import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 
 /// @title MainnetShastaInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
@@ -63,10 +62,8 @@ contract MainnetShastaInbox is InboxOptimized3 {
             proofVerifier: address(0),
             proposerChecker: address(0),
             minForcedInclusionCount: 1,
-            forcedInclusionConfig: IForcedInclusionStore.Config({
-                inclusionDelay: 100,
-                feeInGwei: 1_000_000_000
-            })
+            forcedInclusionDelay: 100,
+            forcedInclusionFeeInGwei: 1_000_000_000
         });
     }
 

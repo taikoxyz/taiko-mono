@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
@@ -25,7 +25,7 @@ library LibForcedInclusion {
     // ---------------------------------------------------------------
 
     struct Storage {
-        mapping(uint256 id => IForcedInclusionStore.ForcedInclusion inclusion) queue; //slot 1
+        mapping(uint256 id => IInbox.ForcedInclusion inclusion) queue; //slot 1
         // --slot 2--
         /// @notice The index of the oldest forced inclusion in the queue. This is where items will
         /// be dequeued.
@@ -43,19 +43,21 @@ library LibForcedInclusion {
 
     function storeForcedInclusion(
         Storage storage $,
-        IForcedInclusionStore.Config memory _config,
+        IInbox.Config memory _config,
         LibBlobs.BlobSlice memory _blobSlice
     )
         public
     {
-        require(msg.value == _config.feeInGwei * 1 gwei, IncorrectFee());
+        require(msg.value == _config.forcedInclusionFeeInGwei * 1 gwei, IncorrectFee());
 
-        IForcedInclusionStore.ForcedInclusion memory inclusion = IForcedInclusionStore
-            .ForcedInclusion({ feeInGwei: _config.feeInGwei, blobSlice: _blobSlice });
+        IInbox.ForcedInclusion memory inclusion = IInbox.ForcedInclusion({
+            feeInGwei: _config.forcedInclusionFeeInGwei,
+            blobSlice: _blobSlice
+        });
 
         $.queue[$.tail++] = inclusion;
 
-        emit IForcedInclusionStore.ForcedInclusionStored(inclusion);
+        emit IInbox.ForcedInclusionStored(inclusion);
     }
 
     /// @dev Internal implementation of consuming forced inclusions
@@ -70,18 +72,20 @@ library LibForcedInclusion {
         uint256 _count
     )
         public
-        returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
+        returns (IInbox.ForcedInclusion[] memory inclusions_)
     {
+        // TODO: we need to optimize the storage access by ensuring only 1 SLOAD and 1 SSTORE per
+        // this function call.
         // Early exit if no inclusions requested or queue is empty
         if (_count == 0 || $.head == $.tail) {
-            return new IForcedInclusionStore.ForcedInclusion[](0);
+            return new IInbox.ForcedInclusion[](0);
         }
 
         // Calculate actual number to process (min of requested and available)
         uint256 available = $.tail - $.head;
         uint256 toProcess = _count > available ? available : _count;
 
-        inclusions_ = new IForcedInclusionStore.ForcedInclusion[](toProcess);
+        inclusions_ = new IInbox.ForcedInclusion[](toProcess);
         uint256 totalFees;
 
         unchecked {
@@ -108,7 +112,7 @@ library LibForcedInclusion {
     /// @return True if the oldest forced inclusion is due, false otherwise
     function isOldestForcedInclusionDue(
         Storage storage $,
-        IForcedInclusionStore.Config memory _config
+        IInbox.Config memory _config
     )
         public
         view
@@ -117,14 +121,14 @@ library LibForcedInclusion {
         // Early exit for empty queue (most common case)
         if ($.head == $.tail) return false;
 
-        IForcedInclusionStore.ForcedInclusion storage inclusion = $.queue[$.head];
+        IInbox.ForcedInclusion storage inclusion = $.queue[$.head];
         // Early exit if slot is empty
         if (inclusion.blobSlice.timestamp == 0) return false;
 
         // Only calculate deadline if we have a valid inclusion
         unchecked {
             uint256 deadline = uint256($.lastProcessedAt).max(inclusion.blobSlice.timestamp)
-                + _config.inclusionDelay;
+                + _config.forcedInclusionDelay;
             return block.timestamp >= deadline;
         }
     }

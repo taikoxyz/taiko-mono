@@ -10,7 +10,6 @@ import "./InboxMockContracts.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
 import "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import "contracts/layer1/shasta/iface/IProposerChecker.sol";
-import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
 import "contracts/shared/based/iface/ICheckpointManager.sol";
 import "contracts/layer1/shasta/libs/LibBlobs.sol";
 import "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
@@ -190,10 +189,8 @@ abstract contract InboxTest is CommonTest {
             proofVerifier: proofVerifier,
             proposerChecker: proposerChecker,
             minForcedInclusionCount: 1,
-            forcedInclusionConfig: IForcedInclusionStore.Config({
-                inclusionDelay: 100,
-                feeInGwei: 1_000_000_000
-            })
+            forcedInclusionDelay: 100,
+            forcedInclusionFeeInGwei: 1_000_000_000
         });
 
         inbox.setTestConfig(defaultConfig);
@@ -584,7 +581,7 @@ abstract contract InboxTest is CommonTest {
     function createForcedInclusionData(uint64 _fee)
         internal
         view
-        returns (IForcedInclusionStore.ForcedInclusion memory)
+        returns (IInbox.ForcedInclusion memory)
     {
         return createForcedInclusionDataWithSeed(_fee, 0);
     }
@@ -596,12 +593,12 @@ abstract contract InboxTest is CommonTest {
     )
         internal
         view
-        returns (IForcedInclusionStore.ForcedInclusion memory)
+        returns (IInbox.ForcedInclusion memory)
     {
         bytes32[] memory blobHashes = new bytes32[](1);
         blobHashes[0] = keccak256(abi.encode("forced_blob", _seed));
 
-        return IForcedInclusionStore.ForcedInclusion({
+        return IInbox.ForcedInclusion({
             feeInGwei: _fee,
             blobSlice: LibBlobs.BlobSlice({
                 blobHashes: blobHashes,
@@ -615,7 +612,7 @@ abstract contract InboxTest is CommonTest {
     function createStandardForcedInclusion()
         internal
         view
-        returns (IForcedInclusionStore.ForcedInclusion memory)
+        returns (IInbox.ForcedInclusion memory)
     {
         return createForcedInclusionData(STANDARD_FEE);
     }
@@ -624,10 +621,9 @@ abstract contract InboxTest is CommonTest {
     function createForcedInclusionBatch(uint64[] memory _fees)
         internal
         view
-        returns (IForcedInclusionStore.ForcedInclusion[] memory)
+        returns (IInbox.ForcedInclusion[] memory)
     {
-        IForcedInclusionStore.ForcedInclusion[] memory inclusions =
-            new IForcedInclusionStore.ForcedInclusion[](_fees.length);
+        IInbox.ForcedInclusion[] memory inclusions = new IInbox.ForcedInclusion[](_fees.length);
 
         for (uint256 i = 0; i < _fees.length; i++) {
             inclusions[i] = createForcedInclusionDataWithSeed(_fees[i], i);
@@ -645,8 +641,7 @@ abstract contract InboxTest is CommonTest {
         private
         returns (IInbox.Proposal memory)
     {
-        IForcedInclusionStore.ForcedInclusion memory forcedInclusion =
-            createStandardForcedInclusion();
+        IInbox.ForcedInclusion memory forcedInclusion = createStandardForcedInclusion();
         setupForcedInclusionMocks(_proposer, forcedInclusion);
 
         return _deadline > 0
@@ -761,7 +756,7 @@ abstract contract InboxTest is CommonTest {
     /// @dev Sets up mocks for forced inclusion scenario
     function setupForcedInclusionMocks(
         address _proposer,
-        IForcedInclusionStore.ForcedInclusion memory /*_forcedInclusion*/
+        IInbox.ForcedInclusion memory /*_forcedInclusion*/
     )
         internal
     {
@@ -1058,7 +1053,7 @@ abstract contract InboxTest is CommonTest {
     function mockForcedInclusionDue(bool _isDue) internal {
         vm.mockCall(
             address(inbox),
-            abi.encodeWithSelector(IForcedInclusionStore.isOldestForcedInclusionDue.selector),
+            abi.encodeWithSelector(IInbox.isOldestForcedInclusionDue.selector),
             abi.encode(_isDue)
         );
     }

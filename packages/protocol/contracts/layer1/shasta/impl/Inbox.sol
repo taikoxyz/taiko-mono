@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { StandaloneTransaction } from "../iface/IStandaloneTransaction.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
@@ -169,9 +168,7 @@ abstract contract Inbox is IInbox, EssentialContract, StandaloneTransaction {
         // none remains in the queue that is due.
         require(
             input.numForcedInclusions >= config.minForcedInclusionCount
-                || !LibForcedInclusion.isOldestForcedInclusionDue(
-                    _forcedInclusionStorage, config.forcedInclusionConfig
-                ),
+                || !LibForcedInclusion.isOldestForcedInclusionDue(_forcedInclusionStorage, config),
             UnprocessedForcedInclusionIsDue()
         );
 
@@ -218,9 +215,7 @@ abstract contract Inbox is IInbox, EssentialContract, StandaloneTransaction {
         emit BondWithdrawn(_address, amount);
     }
 
-    /// @notice Stores a forced inclusion request
-    /// The priority fee must be paid to the contract
-    /// @param _blobReference The blob locator that contains the transaction data
+    /// @inheritdoc IInbox
     function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference)
         external
         payable
@@ -229,17 +224,12 @@ abstract contract Inbox is IInbox, EssentialContract, StandaloneTransaction {
         LibBlobs.BlobSlice memory blobSlice =
             LibBlobs.validateBlobReference(_blobReference, _getBlobHash);
 
-        LibForcedInclusion.storeForcedInclusion(
-            _forcedInclusionStorage, getConfig().forcedInclusionConfig, blobSlice
-        );
+        LibForcedInclusion.storeForcedInclusion(_forcedInclusionStorage, getConfig(), blobSlice);
     }
 
-    /// @notice Checks if the oldest forced inclusion is due
-    /// @return True if the oldest forced inclusion is due, false otherwise
+    /// @inheritdoc IInbox
     function isOldestForcedInclusionDue() external view returns (bool) {
-        return LibForcedInclusion.isOldestForcedInclusionDue(
-            _forcedInclusionStorage, getConfig().forcedInclusionConfig
-        );
+        return LibForcedInclusion.isOldestForcedInclusionDue(_forcedInclusionStorage, getConfig());
     }
 
     /// @notice Retrieves the proposal hash for a given proposal ID
@@ -649,7 +639,7 @@ abstract contract Inbox is IInbox, EssentialContract, StandaloneTransaction {
         private
         returns (CoreState memory, uint256)
     {
-        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = LibForcedInclusion
+        IInbox.ForcedInclusion[] memory forcedInclusions = LibForcedInclusion
             .consumeForcedInclusions(_forcedInclusionStorage, msg.sender, _numForcedInclusions);
 
         for (uint256 i; i < forcedInclusions.length; ++i) {
