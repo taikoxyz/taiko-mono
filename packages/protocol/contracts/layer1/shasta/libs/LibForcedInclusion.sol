@@ -75,7 +75,7 @@ library LibForcedInclusion {
         address _feeRecipient,
         uint256 _count
     )
-        public
+        internal
         returns (IInbox.ForcedInclusion[] memory inclusions_)
     {
         // TODO: we need to optimize the storage access by ensuring only 1 SLOAD and 1 SSTORE per
