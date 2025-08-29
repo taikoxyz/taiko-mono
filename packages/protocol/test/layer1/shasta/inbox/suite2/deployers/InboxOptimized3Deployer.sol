@@ -29,9 +29,7 @@ contract InboxOptimized3Deployer is InboxTestHelper, IInboxDeployer {
                 bondToken,
                 checkpointManager,
                 proofVerifier,
-                proposerChecker,
-                INCLUSION_DELAY,
-                FEE_IN_GWEI
+                proposerChecker
             )
         );
 

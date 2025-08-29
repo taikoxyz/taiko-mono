@@ -18,11 +18,9 @@ contract TestInbox is Inbox {
         address bondToken,
         address checkpointManager,
         address proofVerifier,
-        address proposerChecker,
-        uint64 inclusionDelay,
-        uint64 feeInGwei
+        address proposerChecker
     )
-        Inbox(inclusionDelay, feeInGwei)
+        Inbox()
     {
         _bondToken = bondToken;
         _checkpointManager = checkpointManager;
