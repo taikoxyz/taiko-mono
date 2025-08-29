@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { StandaloneTransaction } from "../iface/IStandaloneTransaction.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
@@ -23,7 +22,7 @@ import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.so
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals
 /// @custom:security-contact security@taiko.xyz
-abstract contract Inbox is IInbox, EssentialContract, StandaloneTransaction {
+abstract contract Inbox is IInbox, EssentialContract {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
@@ -216,11 +215,7 @@ abstract contract Inbox is IInbox, EssentialContract, StandaloneTransaction {
     }
 
     /// @inheritdoc IInbox
-    function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference)
-        external
-        payable
-        onlyStandaloneTx
-    {
+    function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
         LibBlobs.BlobSlice memory blobSlice =
             LibBlobs.validateBlobReference(_blobReference, _getBlobHash);
 
