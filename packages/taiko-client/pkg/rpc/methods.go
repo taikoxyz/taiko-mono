@@ -1095,6 +1095,26 @@ func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, er
 	return getImmutableAddressPacaya(c, opts, c.PacayaClients.TaikoWrapper.PreconfRouter)
 }
 
+// GetPreconfRouterConfig returns the PreconfRouter config.
+func (c *Client) GetPreconfRouterConfig(opts *bind.CallOpts) (*pacayaBindings.IPreconfRouterConfig, error) {
+	if c.PacayaClients.PreconfRouter == nil {
+		return nil, errors.New("preconfRouter contract is not set")
+	}
+
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	routerConfig, err := c.PacayaClients.PreconfRouter.GetConfig(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the PreconfRouter config: %w", err)
+	}
+	return &routerConfig, nil
+}
+
 // getImmutableAddressPacaya resolves the Pacaya contract address.
 func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, error)](
 	c *Client,

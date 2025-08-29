@@ -33,7 +33,6 @@ type Config struct {
 	PreconfBlockServerCORSOrigins string
 	P2PConfigs                    *p2p.Config
 	P2PSignerConfigs              p2p.SignerSetup
-	PreconfHandoverSkipSlots      uint64
 	PreconfOperatorAddress        common.Address
 }
 
@@ -118,15 +117,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		return nil, err
 	}
 
-	preconfHandoverSkipSlots := c.Uint64(flags.PreconfHandoverSkipSlots.Name)
-	if rpc.L1Beacon != nil && preconfHandoverSkipSlots > rpc.L1Beacon.SlotsPerEpoch {
-		return nil, fmt.Errorf(
-			"preconfirmation handover skip slots %d is greater than slots per epoch %d",
-			preconfHandoverSkipSlots,
-			rpc.L1Beacon.SlotsPerEpoch,
-		)
-	}
-
 	var preconfOperatorAddress common.Address
 	if c.IsSet(p2pFlags.SequencerP2PKeyName) {
 		sequencerP2PKey, err := crypto.ToECDSA(common.FromHex(c.String(p2pFlags.SequencerP2PKeyName)))
@@ -148,7 +138,6 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		PreconfBlockServerCORSOrigins: c.String(flags.PreconfBlockServerCORSOrigins.Name),
 		P2PConfigs:                    p2pConfigs,
 		P2PSignerConfigs:              signerConfigs,
-		PreconfHandoverSkipSlots:      preconfHandoverSkipSlots,
 		PreconfOperatorAddress:        preconfOperatorAddress,
 	}, nil
 }
