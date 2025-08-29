@@ -74,32 +74,33 @@ library LibForcedInclusion {
         public
         returns (IInbox.ForcedInclusion[] memory inclusions_)
     {
-        // TODO: we need to optimize the storage access by ensuring only 1 SLOAD and 1 SSTORE per
-        // this function call.
-        // Early exit if no inclusions requested or queue is empty
-        if (_count == 0 || $.head == $.tail) {
-            return new IInbox.ForcedInclusion[](0);
-        }
-
-        // Calculate actual number to process (min of requested and available)
-        uint256 available = $.tail - $.head;
-        uint256 toProcess = _count > available ? available : _count;
-
-        inclusions_ = new IInbox.ForcedInclusion[](toProcess);
-        uint256 totalFees;
-
         unchecked {
-            for (uint256 i; i < toProcess; ++i) {
-                inclusions_[i] = $.queue[$.head + i];
-                totalFees += inclusions_[i].feeInGwei;
+            // Early exit if no inclusions requested
+            if (_count == 0) {
+                return new IInbox.ForcedInclusion[](0);
+            }
 
-                // Delete the inclusion from storage
-                delete $.queue[$.head + i];
+            (uint64 head, uint64 tail) = ($.head, $.tail);
+
+            // Early exit if  queue is empty
+            if (head == tail) {
+                return new IInbox.ForcedInclusion[](0);
+            }
+
+            // Calculate actual number to process (min of requested and available)
+            uint256 available = tail - head;
+            uint256 toProcess = _count > available ? available : _count;
+
+            inclusions_ = new IInbox.ForcedInclusion[](toProcess);
+            uint256 totalFees;
+
+            for (uint256 i; i < toProcess; ++i) {
+                inclusions_[i] = $.queue[head + i];
+                totalFees += inclusions_[i].feeInGwei;
             }
 
             // Update head and lastProcessedAt after all processing
-            $.head += uint64(toProcess);
-            $.lastProcessedAt = uint64(block.timestamp);
+            ($.head, $.lastProcessedAt) = (head + uint64(toProcess), uint64(block.timestamp));
 
             // Send all fees in one transfer
             if (totalFees > 0) {
@@ -118,17 +119,19 @@ library LibForcedInclusion {
         view
         returns (bool)
     {
-        // Early exit for empty queue (most common case)
-        if ($.head == $.tail) return false;
+        (uint64 head, uint64 tail, uint64 lastProcessedAt) = ($.head, $.tail, $.lastProcessedAt);
 
-        IInbox.ForcedInclusion storage inclusion = $.queue[$.head];
+        // Early exit for empty queue (most common case)
+        if (head == tail) return false;
+
+        uint256 timestamp = $.queue[head].blobSlice.timestamp;
+
         // Early exit if slot is empty
-        if (inclusion.blobSlice.timestamp == 0) return false;
+        if (timestamp == 0) return false;
 
         // Only calculate deadline if we have a valid inclusion
         unchecked {
-            uint256 deadline = uint256($.lastProcessedAt).max(inclusion.blobSlice.timestamp)
-                + _config.forcedInclusionDelay;
+            uint256 deadline = timestamp.max(lastProcessedAt) + _config.forcedInclusionDelay;
             return block.timestamp >= deadline;
         }
     }
