@@ -18,7 +18,8 @@
       "Bash(pnpm compile:l1:*)",
       "Bash(pnpm compile:*)",
       "Bash(forge test *)",
-      "Bash(forge test:*)"
+      "Bash(forge test:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

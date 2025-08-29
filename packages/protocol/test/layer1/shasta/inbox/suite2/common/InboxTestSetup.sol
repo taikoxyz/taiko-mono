@@ -4,14 +4,13 @@ pragma solidity ^0.8.24;
 import { InboxTestHelper } from "./InboxTestHelper.sol";
 import { PreconfWhitelistSetup } from "./PreconfWhitelistSetup.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
-import { ForcedInclusionStore2 } from "contracts/layer1/shasta/impl/ForcedInclusionStore.sol";
-import { IForcedInclusionStore } from "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
 import { IProofVerifier } from "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import { IProposerChecker } from "contracts/layer1/shasta/iface/IProposerChecker.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 import { UUPSUpgradeable } from "@openzeppelin-upgrades/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { MockERC20, MockCheckpointManager, MockProofVerifier } from "../mocks/MockContracts.sol";
+import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 
 /// @title InboxTestSetup
 /// @notice Common setup logic for Inbox tests - handles deployment and dependencies
@@ -29,8 +28,8 @@ abstract contract InboxTestSetup is InboxTestHelper {
     IProofVerifier internal proofVerifier;
     IProposerChecker internal proposerChecker;
 
-    // Dependencies
-    IForcedInclusionStore internal forcedInclusionStore;
+    // Deployer for creating inbox instances
+    IInboxDeployer internal inboxDeployer;
 
     // Proposer helper (using composition instead of inheritance to avoid diamond problem)
     PreconfWhitelistSetup internal proposerHelper;
@@ -38,6 +37,11 @@ abstract contract InboxTestSetup is InboxTestHelper {
     // ---------------------------------------------------------------
     // Setup Functions
     // ---------------------------------------------------------------
+
+    /// @dev Set the deployer to use for creating inbox instances
+    function setDeployer(IInboxDeployer _deployer) internal {
+        inboxDeployer = _deployer;
+    }
 
     function setUp() public virtual override {
         super.setUp();
@@ -51,16 +55,14 @@ abstract contract InboxTestSetup is InboxTestHelper {
         // Setup mocks
         _setupMocks();
 
-        // Deploy inbox through implementation-specific method
-        inbox = deployInbox(
+        // Deploy inbox using the deployer
+        require(address(inboxDeployer) != address(0), "Deployer not set");
+        inbox = inboxDeployer.deployInbox(
             address(bondToken),
             address(checkpointManager),
             address(proofVerifier),
-            address(proposerChecker),
-            address(forcedInclusionStore)
+            address(proposerChecker)
         );
-
-        _upgradeDependencies(address(inbox));
 
         // Advance block to ensure we have block history
         vm.roll(INITIAL_BLOCK_NUMBER);
@@ -77,20 +79,7 @@ abstract contract InboxTestSetup is InboxTestHelper {
     }
 
     /// @dev Deploy the real contracts that will be used as dependencies of the inbox
-    ///      Some of these may need to be upgraded later because of circular references
     function _setupDependencies() internal virtual {
-        // Deploy ForcedInclusionStore
-        address forcedInclusionStoreImplementation =
-            address(new ForcedInclusionStore2(INCLUSION_DELAY, FEE_IN_GWEI, address(0)));
-
-        forcedInclusionStore = IForcedInclusionStore(
-            deploy({
-                name: "",
-                impl: forcedInclusionStoreImplementation,
-                data: abi.encodeCall(ForcedInclusionStore2.init, (owner))
-            })
-        );
-
         // Deploy PreconfWhitelist directly as proposer checker
         proposerChecker = proposerHelper._deployPreconfWhitelist(owner);
     }
@@ -100,29 +89,10 @@ abstract contract InboxTestSetup is InboxTestHelper {
         return proposerHelper._selectProposer(proposerChecker, _proposer);
     }
 
-    /// @dev Upgrade the dependencies of the inbox
-    ///      This is used to upgrade the dependencies of the inbox after the inbox is deployed
-    ///      and the dependencies are not upgradable
-    function _upgradeDependencies(address _inbox) internal {
-        address newForcedInclusionStore =
-            address(new ForcedInclusionStore2(INCLUSION_DELAY, FEE_IN_GWEI, _inbox));
-
-        vm.prank(owner);
-        UUPSUpgradeable(address(forcedInclusionStore)).upgradeTo(newForcedInclusionStore);
+    /// @dev Returns the name of the test contract for snapshot identification
+    /// @dev Delegates to the deployer to get the appropriate name
+    function getTestContractName() internal view virtual returns (string memory) {
+        require(address(inboxDeployer) != address(0), "Deployer not set");
+        return inboxDeployer.getTestContractName();
     }
-
-    // ---------------------------------------------------------------
-    // Abstract Functions
-    // ---------------------------------------------------------------
-
-    function deployInbox(
-        address bondToken,
-        address checkpointManager,
-        address proofVerifier,
-        address proposerChecker,
-        address forcedInclusionStore
-    )
-        internal
-        virtual
-        returns (Inbox);
 }

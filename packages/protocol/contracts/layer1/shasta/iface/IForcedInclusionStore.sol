@@ -22,19 +22,6 @@ interface IForcedInclusionStore {
     /// @param _blobReference The blob locator that contains the transaction data
     function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
-    /// @notice Consumes multiple forced inclusions from the queue in batch
-    /// @dev Only callable by the inbox contract. Processes up to `_count` inclusions.
-    /// @param _feeRecipient The address to receive the fees from all consumed inclusions
-    /// @param _count The maximum number of forced inclusions to consume
-    /// @return inclusions_ Array of consumed forced inclusions (may be less than _count if queue
-    /// has fewer)
-    function consumeForcedInclusions(
-        address _feeRecipient,
-        uint256 _count
-    )
-        external
-        returns (ForcedInclusion[] memory inclusions_);
-
     /// @notice Checks if the oldest forced inclusion is due
     /// @return True if the oldest forced inclusion is due, false otherwise
     function isOldestForcedInclusionDue() external view returns (bool);

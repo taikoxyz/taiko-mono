@@ -7,23 +7,22 @@ import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibMath } from "src/shared/libs/LibMath.sol";
 
-/// @title ForcedInclusionStore2
-/// @dev A contract for storing and managing forced inclusion requests. Forced inclusions allow
-/// users to pay a fee to ensure their transactions are included in a block. The contract maintains
-/// a FIFO queue of inclusion requests.
+/// @title ShastaForcedInclusionStore
+/// @dev Abstract contract for storing and managing forced inclusion requests. Forced inclusions
+/// allow users to pay a fee to ensure their transactions are included in a block. The contract
+/// maintains a FIFO queue of inclusion requests.
 /// @dev Inclusion delay is measured in seconds, since we don't have an easy way to get batch number
 /// in the Shasta design.
 /// @dev We only allow one forced inclusion per L1 transaction to avoid spamming the proposer.
 /// @dev Forced inclusions are limited to 1 blob only, and one L2 block only(this and other protocol
 /// constrains are enforced by the node and verified by the prover)
 /// @custom:security-contact security@taiko.xyz
-contract ForcedInclusionStore2 is EssentialContract, IForcedInclusionStore {
+abstract contract ShastaForcedInclusionStore is EssentialContract, IForcedInclusionStore {
     using LibAddress for address;
     using LibMath for uint256;
 
     uint64 public immutable inclusionDelay; // measured in seconds
     uint64 public immutable feeInGwei;
-    address public immutable inbox;
 
     mapping(uint256 id => ForcedInclusion inclusion) public queue; //slot 1
     // --slot 2--
@@ -58,8 +57,7 @@ contract ForcedInclusionStore2 is EssentialContract, IForcedInclusionStore {
 
     constructor(
         uint64 _inclusionDelay,
-        uint64 _feeInGwei,
-        address _inbox
+        uint64 _feeInGwei
     )
         nonZeroValue(_inclusionDelay)
         nonZeroValue(_feeInGwei)
@@ -67,11 +65,6 @@ contract ForcedInclusionStore2 is EssentialContract, IForcedInclusionStore {
     {
         inclusionDelay = _inclusionDelay;
         feeInGwei = _feeInGwei;
-        inbox = _inbox;
-    }
-
-    function init(address _owner) external initializer {
-        __Essential_init(_owner);
     }
 
     /// @inheritdoc IForcedInclusionStore
@@ -94,13 +87,25 @@ contract ForcedInclusionStore2 is EssentialContract, IForcedInclusionStore {
     }
 
     /// @inheritdoc IForcedInclusionStore
-    function consumeForcedInclusions(
+    function isOldestForcedInclusionDue() external view returns (bool) {
+        return _isOldestForcedInclusionDue();
+    }
+
+    // ---------------------------------------------------------------
+    // Internal Functions (accessible by inheriting contracts)
+    // ---------------------------------------------------------------
+
+    /// @dev Internal implementation of consuming forced inclusions
+    /// @notice Consumes up to _count forced inclusions from the queue
+    /// @param _feeRecipient The address to receive the fees from all consumed inclusions
+    /// @param _count The maximum number of forced inclusions to consume
+    /// @return inclusions_ Array of consumed forced inclusions (may be less than _count if queue
+    /// has fewer)
+    function _consumeForcedInclusions(
         address _feeRecipient,
         uint256 _count
     )
-        external
-        onlyFrom(inbox)
-        nonReentrant
+        internal
         returns (ForcedInclusion[] memory inclusions_)
     {
         // Early exit if no inclusions requested or queue is empty
@@ -135,8 +140,9 @@ contract ForcedInclusionStore2 is EssentialContract, IForcedInclusionStore {
         }
     }
 
-    /// @inheritdoc IForcedInclusionStore
-    function isOldestForcedInclusionDue() external view returns (bool) {
+    /// @dev Internal implementation to check if the oldest forced inclusion is due
+    /// @return True if the oldest forced inclusion is due, false otherwise
+    function _isOldestForcedInclusionDue() internal view returns (bool) {
         // Early exit for empty queue (most common case)
         if (head == tail) return false;
 
@@ -152,16 +158,13 @@ contract ForcedInclusionStore2 is EssentialContract, IForcedInclusionStore {
         }
     }
 
-    // -------------------------------------------------------------------
-    // Private Functions
-    // -------------------------------------------------------------------
     function _blobhash(uint256 _blobIndex) private view returns (bytes32) {
         return blobhash(_blobIndex);
     }
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Errors
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     error BlobNotFound();
     error IncorrectFee();

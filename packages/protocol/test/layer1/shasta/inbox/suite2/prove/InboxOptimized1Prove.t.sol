@@ -1,26 +1,15 @@
 // SPDX-License-Identifier: MIT
-/// @custom:security-contact security@taiko.xyz
 pragma solidity ^0.8.24;
 
 import { AbstractProveTest } from "./AbstractProveTest.t.sol";
-import { InboxOptimized1Base } from "../base/InboxOptimized1Base.sol";
-import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
-import { CommonTest } from "test/shared/CommonTest.sol";
+import { InboxOptimized1Deployer } from "../deployers/InboxOptimized1Deployer.sol";
 
 /// @title InboxOptimized1Prove
 /// @notice Test suite for prove functionality on InboxOptimized1 implementation
-contract InboxOptimized1Prove is AbstractProveTest, InboxOptimized1Base {
-    function setUp() public virtual override(AbstractProveTest, CommonTest) {
-        AbstractProveTest.setUp();
-    }
-
-    function getTestContractName()
-        internal
-        pure
-        override(AbstractProveTest, InboxOptimized1Base)
-        returns (string memory)
-    {
-        return InboxOptimized1Base.getTestContractName();
+contract InboxOptimized1Prove is AbstractProveTest {
+    function setUp() public virtual override {
+        setDeployer(new InboxOptimized1Deployer());
+        super.setUp();
     }
 
     function _getExpectedAggregationBehavior(
@@ -37,21 +26,5 @@ contract InboxOptimized1Prove is AbstractProveTest, InboxOptimized1Base {
         } else {
             return (proposalCount, 1); // Individual events for gaps
         }
-    }
-
-    function deployInbox(
-        address bondToken,
-        address checkpointManager,
-        address proofVerifier,
-        address proposerChecker,
-        address forcedInclusionStore
-    )
-        internal
-        override(AbstractProveTest, InboxOptimized1Base)
-        returns (Inbox)
-    {
-        return InboxOptimized1Base.deployInbox(
-            bondToken, checkpointManager, proofVerifier, proposerChecker, forcedInclusionStore
-        );
     }
 }

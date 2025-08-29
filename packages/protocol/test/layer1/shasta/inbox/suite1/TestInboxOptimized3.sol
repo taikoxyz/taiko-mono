@@ -16,7 +16,7 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
     // Storage to track checkpoint for test purposes
     mapping(uint48 => ICheckpointManager.Checkpoint) public testcheckpoints;
 
-    constructor() InboxOptimized3() { }
+    constructor() InboxOptimized3(7 days, 10) { }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;
@@ -43,7 +43,6 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
                 checkpointManager: address(0),
                 proofVerifier: address(0),
                 proposerChecker: address(0),
-                forcedInclusionStore: address(0),
                 minForcedInclusionCount: 1
             });
         }

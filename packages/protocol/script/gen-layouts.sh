@@ -34,7 +34,6 @@ contracts_layer1=(
 "contracts/layer1/mainnet/multirollup/MainnetERC721Vault.sol:MainnetERC721Vault"
 "contracts/layer1/mainnet/MainnetInbox.sol:MainnetInbox"
 "contracts/layer1/shasta/impl/MainnetShastaInbox.sol:MainnetShastaInbox"
-"contracts/layer1/shasta/impl/ForcedInclusionStore.sol:ForcedInclusionStore2"
 "contracts/layer1/team/TokenUnlock.sol:TokenUnlock"
 "contracts/layer1/provers/ProverSet.sol:ProverSet"
 "contracts/layer1/fork-router/ForkRouter.sol:ForkRouter"

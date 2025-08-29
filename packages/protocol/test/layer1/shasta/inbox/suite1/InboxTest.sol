@@ -129,7 +129,6 @@ abstract contract InboxTest is CommonTest {
         if (useRealMocks) {
             bondToken = address(new MockERC20());
             checkpointManager = address(new StubCheckpointManager());
-            forcedInclusionStore = address(new StubForcedInclusionStore());
             proofVerifier = address(new StubProofVerifier());
             proposerChecker = address(new StubProposerChecker());
         } else {
@@ -190,7 +189,6 @@ abstract contract InboxTest is CommonTest {
             checkpointManager: checkpointManager,
             proofVerifier: proofVerifier,
             proposerChecker: proposerChecker,
-            forcedInclusionStore: forcedInclusionStore,
             minForcedInclusionCount: 1
         });
 
@@ -759,20 +757,15 @@ abstract contract InboxTest is CommonTest {
     /// @dev Sets up mocks for forced inclusion scenario
     function setupForcedInclusionMocks(
         address _proposer,
-        IForcedInclusionStore.ForcedInclusion memory _forcedInclusion
+        IForcedInclusionStore.ForcedInclusion memory /*_forcedInclusion*/
     )
         internal
     {
         mockProposerAllowed(_proposer);
         mockForcedInclusionDue(true);
 
-        vm.mockCall(
-            forcedInclusionStore,
-            abi.encodeWithSelector(
-                IForcedInclusionStore.consumeForcedInclusions.selector, _proposer, 1
-            ),
-            abi.encode(_forcedInclusion)
-        );
+        // Note: consumeForcedInclusions is now internal to the inbox
+        // No external mock needed since forced inclusion store is merged
     }
 
     /// @dev Sets up mocks for unauthorized proposer test
@@ -1060,7 +1053,7 @@ abstract contract InboxTest is CommonTest {
 
     function mockForcedInclusionDue(bool _isDue) internal {
         vm.mockCall(
-            forcedInclusionStore,
+            address(inbox),
             abi.encodeWithSelector(IForcedInclusionStore.isOldestForcedInclusionDue.selector),
             abi.encode(_isDue)
         );

@@ -15,20 +15,21 @@ contract TestInboxOptimized1 is InboxOptimized1 {
     address private immutable _checkpointManager;
     address private immutable _proofVerifier;
     address private immutable _proposerChecker;
-    address private immutable _forcedInclusionStore;
 
     constructor(
         address bondToken,
         address checkpointManager,
         address proofVerifier,
         address proposerChecker,
-        address forcedInclusionStore
-    ) {
+        uint64 inclusionDelay,
+        uint64 feeInGwei
+    )
+        InboxOptimized1(inclusionDelay, feeInGwei)
+    {
         _bondToken = bondToken;
         _checkpointManager = checkpointManager;
         _proofVerifier = proofVerifier;
         _proposerChecker = proposerChecker;
-        _forcedInclusionStore = forcedInclusionStore;
     }
 
     function getConfig() public view override returns (IInbox.Config memory) {
@@ -42,7 +43,6 @@ contract TestInboxOptimized1 is InboxOptimized1 {
             checkpointManager: _checkpointManager,
             proofVerifier: _proofVerifier,
             proposerChecker: _proposerChecker,
-            forcedInclusionStore: _forcedInclusionStore,
             minForcedInclusionCount: 1
         });
     }

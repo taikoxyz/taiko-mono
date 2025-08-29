@@ -28,7 +28,6 @@ contract InboxProposeValidation is InboxTest {
     function setupMockAddresses() internal override {
         bondToken = address(new MockERC20());
         checkpointManager = address(new StubCheckpointManager());
-        forcedInclusionStore = address(new StubForcedInclusionStore());
         proofVerifier = address(new StubProofVerifier());
         proposerChecker = address(new StubProposerChecker());
     }

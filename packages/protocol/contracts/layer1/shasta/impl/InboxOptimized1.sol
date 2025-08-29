@@ -44,7 +44,12 @@ abstract contract InboxOptimized1 is Inbox {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() Inbox() { }
+    constructor(
+        uint64 _forcedInclusionDelay,
+        uint64 _feeInGwei
+    )
+        Inbox(_forcedInclusionDelay, _feeInGwei)
+    { }
 
     // ---------------------------------------------------------------
     // Internal Functions - Overrides
