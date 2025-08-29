@@ -19,13 +19,6 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
         configSet = true;
     }
 
-    function setMockBlobValidation(bool _useMock) external {
-        useMockBlobHashes = _useMock;
-    }
-
-    function setMockBlobHash(uint256 _index, bytes32 _hash) external {
-        mockBlobHashes[_index] = _hash;
-    }
 
     function getConfig() public view override returns (IInbox.Config memory) {
         // During initialization, provide a minimal valid config to avoid division by zero
@@ -64,23 +57,4 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
         _setTransitionRecordHash(testConfig, _proposalId, _transition, _transitionRecord);
     }
 
-    /// @dev Override _getBlobHash to support mock blob hashes in tests
-    function _getBlobHash(uint256 _blobIndex) internal view override returns (bytes32) {
-        if (useMockBlobHashes) {
-            // Check if we have a specific mock hash set for this index
-            bytes32 mockHash = mockBlobHashes[_blobIndex];
-            if (mockHash != bytes32(0)) {
-                return mockHash;
-            }
-            // If no mock hash is set, generate a deterministic one for testing
-            // unless the test explicitly wants to test missing blobs at specific indices
-            // For index 100 specifically, return bytes32(0) to test BlobNotFound error
-            if (_blobIndex == 100) {
-                return bytes32(0);
-            }
-            return keccak256(abi.encode("blob", _blobIndex));
-        }
-        // Fall back to the real blobhash opcode
-        return blobhash(_blobIndex);
-    }
 }

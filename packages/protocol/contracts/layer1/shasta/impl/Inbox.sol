@@ -175,7 +175,7 @@ abstract contract Inbox is IInbox, EssentialContract {
         // available
         if (availableCapacity > 0) {
             LibBlobs.BlobSlice memory blobSlice =
-                LibBlobs.validateBlobReference(input.blobReference, _getBlobHash);
+                LibBlobs.validateBlobReference(input.blobReference);
             _propose(config, coreState, blobSlice, false);
         }
     }
@@ -372,14 +372,6 @@ abstract contract Inbox is IInbox, EssentialContract {
         }
     }
 
-    /// @dev Retrieves the hash of a blob at the specified index
-    /// @notice Uses EIP-4844 blobhash opcode to access blob data
-    /// @dev Virtual to allow test contracts to mock blob hash retrieval
-    /// @param _blobIndex The index of the blob in the transaction
-    /// @return _ The versioned hash of the blob
-    function _getBlobHash(uint256 _blobIndex) internal view virtual returns (bytes32) {
-        return blobhash(_blobIndex);
-    }
 
     /// @dev Validates transition consistency with its corresponding proposal
     /// @notice Ensures the transition references the correct proposal hash

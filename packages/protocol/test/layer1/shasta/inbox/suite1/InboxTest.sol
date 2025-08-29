@@ -194,7 +194,6 @@ abstract contract InboxTest is CommonTest {
         });
 
         inbox.setTestConfig(defaultConfig);
-        inbox.setMockBlobValidation(true);
     }
 
     function fundTestAccounts() internal virtual {
@@ -733,11 +732,6 @@ abstract contract InboxTest is CommonTest {
     function setupBlobHashes(uint256 _count) internal {
         bytes32[] memory hashes = InboxTestLib.generateBlobHashes(_count);
         vm.blobhashes(hashes);
-
-        // Also set up mock blob hashes for our test inbox
-        for (uint256 i = 0; i < _count && i < 256; i++) {
-            inbox.setMockBlobHash(i, hashes[i]);
-        }
     }
 
     // ---------------------------------------------------------------

@@ -11,8 +11,6 @@ import "./ITestInbox.sol";
 contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
     IInbox.Config private testConfig;
     bool private configSet;
-    mapping(uint256 => bytes32) private mockBlobHashes;
-    bool private useMockBlobHashes;
     // Storage to track checkpoint for test purposes
     mapping(uint48 => ICheckpointManager.Checkpoint) public testcheckpoints;
 
@@ -23,13 +21,6 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
         configSet = true;
     }
 
-    function setMockBlobValidation(bool _useMock) external {
-        useMockBlobHashes = _useMock;
-    }
-
-    function setMockBlobHash(uint256 _index, bytes32 _hash) external {
-        mockBlobHashes[_index] = _hash;
-    }
 
     function getConfig() public view override returns (IInbox.Config memory) {
         if (!configSet) {
@@ -51,19 +42,6 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
         return testConfig;
     }
 
-    function _getBlobHash(uint256 _blobIndex) internal view override returns (bytes32) {
-        if (useMockBlobHashes) {
-            bytes32 mockHash = mockBlobHashes[_blobIndex];
-            if (mockHash != bytes32(0)) {
-                return mockHash;
-            }
-            if (_blobIndex == 100) {
-                return bytes32(0);
-            }
-            return keccak256(abi.encode("blob", _blobIndex));
-        }
-        return blobhash(_blobIndex);
-    }
 
     // Expose internal functions for testing
     function exposed_setProposalHash(uint48 _proposalId, bytes32 _hash) external {

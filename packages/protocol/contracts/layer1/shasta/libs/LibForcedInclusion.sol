@@ -50,7 +50,7 @@ library LibForcedInclusion {
         public
     {
         LibBlobs.BlobSlice memory blobSlice =
-            LibBlobs.validateBlobReference(_blobReference, _getBlobHash);
+            LibBlobs.validateBlobReference(_blobReference);
 
         require(msg.value == _config.forcedInclusionFeeInGwei * 1 gwei, IncorrectFee());
 
@@ -136,14 +136,6 @@ library LibForcedInclusion {
         }
     }
 
-    /// @dev Retrieves the hash of a blob at the specified index
-    /// @notice Uses EIP-4844 blobhash opcode to access blob data
-    /// @dev Virtual to allow test contracts to mock blob hash retrieval
-    /// @param _blobIndex The index of the blob in the transaction
-    /// @return _ The versioned hash of the blob
-    function _getBlobHash(uint256 _blobIndex) internal view returns (bytes32) {
-        return blobhash(_blobIndex);
-    }
 
     // ---------------------------------------------------------------
     // Errors
