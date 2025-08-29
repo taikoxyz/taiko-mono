@@ -81,30 +81,16 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @param _genesisBlockHash The hash of the genesis block
     function init(address _owner, bytes32 _genesisBlockHash) external initializer {
         __Essential_init(_owner);
+        _initializeInbox(_genesisBlockHash);
+    }
 
-        Transition memory transition;
-        transition.checkpoint.blockHash = _genesisBlockHash;
-
-        CoreState memory coreState;
-        coreState.nextProposalId = 1;
-        coreState.lastFinalizedTransitionHash = _hashTransition(transition);
-
-        Proposal memory proposal;
-        proposal.coreStateHash = _hashCoreState(coreState);
-
-        Derivation memory derivation;
-        proposal.derivationHash = _hashDerivation(derivation);
-
-        _setProposalHash(getConfig(), 0, _hashProposal(proposal));
-        emit Proposed(
-            encodeProposedEventData(
-                ProposedEventPayload({
-                    proposal: proposal,
-                    derivation: derivation,
-                    coreState: coreState
-                })
-            )
-        );
+    /// @notice Reinitializes the Inbox contract for upgrades
+    /// @dev Used when upgrading from Pacaya to Shasta on mainnet where proxy already exists
+    /// @param _owner The owner of this contract
+    /// @param _genesisBlockHash The hash of the genesis block
+    function initV2(address _owner, bytes32 _genesisBlockHash) external reinitializer(2) {
+        __Essential_init(_owner);
+        _initializeInbox(_genesisBlockHash);
     }
 
     // ---------------------------------------------------------------
@@ -323,6 +309,35 @@ abstract contract Inbox is EssentialContract, IInbox {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @dev Initializes the inbox with genesis state
+    /// @notice Sets up the initial proposal and core state with genesis block
+    /// @param _genesisBlockHash The hash of the genesis block
+    function _initializeInbox(bytes32 _genesisBlockHash) internal {
+        Transition memory transition;
+        transition.checkpoint.blockHash = _genesisBlockHash;
+
+        CoreState memory coreState;
+        coreState.nextProposalId = 1;
+        coreState.lastFinalizedTransitionHash = _hashTransition(transition);
+
+        Proposal memory proposal;
+        proposal.coreStateHash = _hashCoreState(coreState);
+
+        Derivation memory derivation;
+        proposal.derivationHash = _hashDerivation(derivation);
+
+        _setProposalHash(getConfig(), 0, _hashProposal(proposal));
+        emit Proposed(
+            encodeProposedEventData(
+                ProposedEventPayload({
+                    proposal: proposal,
+                    derivation: derivation,
+                    coreState: coreState
+                })
+            )
+        );
+    }
 
     /// @dev Builds and persists transition records for batch proof submissions
     /// @notice Validates transitions, calculates bond instructions, and stores records
