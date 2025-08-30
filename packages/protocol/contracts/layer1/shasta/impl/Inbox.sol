@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { StandaloneTransaction } from "../iface/IStandaloneTransaction.sol";
 import { IInbox } from "../iface/IInbox.sol";
+import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
@@ -14,7 +14,8 @@ import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title Inbox
-/// @notice Core contract for managing L2 proposals, proofs, and verification in Taiko's based
+/// @notice Core contract for managing L2 proposals, proofs,verification and forced inclusion in
+/// Taiko's based
 /// rollup architecture.
 /// @dev This abstract contract implements the fundamental inbox logic including:
 ///      - Proposal submission with forced inclusion support
@@ -23,7 +24,7 @@ import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.so
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals
 /// @custom:security-contact security@taiko.xyz
-abstract contract Inbox is IInbox, EssentialContract, StandaloneTransaction {
+abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
@@ -79,7 +80,7 @@ abstract contract Inbox is IInbox, EssentialContract, StandaloneTransaction {
     // ---------------------------------------------------------------
 
     /// @notice Initializes the Inbox contract
-    constructor(uint64 _forcedInclusionDelay, uint64 _feeInGwei) EssentialContract() { }
+    constructor() EssentialContract() { }
 
     /// @notice Initializes the Inbox contract with genesis block
     /// @param _owner The owner of this contract
@@ -176,7 +177,7 @@ abstract contract Inbox is IInbox, EssentialContract, StandaloneTransaction {
         // available
         if (availableCapacity > 0) {
             LibBlobs.BlobSlice memory blobSlice =
-                LibBlobs.validateBlobReference(input.blobReference, _getBlobHash);
+                LibBlobs.validateBlobReference(input.blobReference);
             _propose(config, coreState, blobSlice, false);
         }
     }
@@ -215,19 +216,14 @@ abstract contract Inbox is IInbox, EssentialContract, StandaloneTransaction {
         emit BondWithdrawn(_address, amount);
     }
 
-    /// @inheritdoc IInbox
-    function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference)
-        external
-        payable
-        onlyStandaloneTx
-    {
-        LibBlobs.BlobSlice memory blobSlice =
-            LibBlobs.validateBlobReference(_blobReference, _getBlobHash);
-
-        LibForcedInclusion.storeForcedInclusion(_forcedInclusionStorage, getConfig(), blobSlice);
+    /// @inheritdoc IForcedInclusionStore
+    function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
+        LibForcedInclusion.storeForcedInclusion(
+            _forcedInclusionStorage, getConfig(), _blobReference
+        );
     }
 
-    /// @inheritdoc IInbox
+    /// @inheritdoc IForcedInclusionStore
     function isOldestForcedInclusionDue() external view returns (bool) {
         return LibForcedInclusion.isOldestForcedInclusionDue(_forcedInclusionStorage, getConfig());
     }
@@ -378,15 +374,6 @@ abstract contract Inbox is IInbox, EssentialContract, StandaloneTransaction {
                 _config, _input.proposals[i].id, _input.transitions[i], transitionRecord
             );
         }
-    }
-
-    /// @dev Retrieves the hash of a blob at the specified index
-    /// @notice Uses EIP-4844 blobhash opcode to access blob data
-    /// @dev Virtual to allow test contracts to mock blob hash retrieval
-    /// @param _blobIndex The index of the blob in the transaction
-    /// @return _ The versioned hash of the blob
-    function _getBlobHash(uint256 _blobIndex) internal view virtual returns (bytes32) {
-        return blobhash(_blobIndex);
     }
 
     /// @dev Validates transition consistency with its corresponding proposal
@@ -639,7 +626,7 @@ abstract contract Inbox is IInbox, EssentialContract, StandaloneTransaction {
         private
         returns (CoreState memory, uint256)
     {
-        IInbox.ForcedInclusion[] memory forcedInclusions = LibForcedInclusion
+        IForcedInclusionStore.ForcedInclusion[] memory forcedInclusions = LibForcedInclusion
             .consumeForcedInclusions(_forcedInclusionStorage, msg.sender, _numForcedInclusions);
 
         for (uint256 i; i < forcedInclusions.length; ++i) {

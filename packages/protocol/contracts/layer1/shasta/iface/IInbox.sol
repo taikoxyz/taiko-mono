@@ -27,14 +27,6 @@ interface IInbox {
         uint64 forcedInclusionFeeInGwei;
     }
 
-    /// @notice Represents a forced inclusion that will be stored onchain.
-    struct ForcedInclusion {
-        /// @notice The fee in Gwei that was paid to submit the forced inclusion.
-        uint64 feeInGwei;
-        /// @notice The proposal's blob slice.
-        LibBlobs.BlobSlice blobSlice;
-    }
-
     /// @notice Contains derivation data for a proposal that is not needed during proving.
     /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
     struct Derivation {
@@ -168,9 +160,6 @@ interface IInbox {
     /// @param instructions The bond instructions that need to be performed.
     event BondInstructed(LibBonds.BondInstruction[] instructions);
 
-    /// @dev Event emitted when a forced inclusion is stored.
-    event ForcedInclusionStored(ForcedInclusion forcedInclusion);
-
     // ---------------------------------------------------------------
     // External Transactional Functions
     // ---------------------------------------------------------------
@@ -185,11 +174,6 @@ interface IInbox {
     /// @param _data The encoded ProveInput struct.
     /// @param _proof Validity proof for the transitions.
     function prove(bytes calldata _data, bytes calldata _proof) external;
-
-    /// @notice Stores a forced inclusion request
-    /// The priority fee must be paid to the contract
-    /// @param _blobReference The blob locator that contains the transaction data
-    function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
     // ---------------------------------------------------------------
     // External View Functions
@@ -216,8 +200,4 @@ interface IInbox {
     /// @notice Gets the capacity for unfinalized proposals.
     /// @return The maximum number of unfinalized proposals that can exist.
     function getCapacity() external view returns (uint256);
-
-    /// @notice Checks if the oldest forced inclusion is due
-    /// @return True if the oldest forced inclusion is due, false otherwise
-    function isOldestForcedInclusionDue() external view returns (bool);
 }
