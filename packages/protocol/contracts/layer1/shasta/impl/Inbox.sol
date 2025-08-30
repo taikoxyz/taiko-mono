@@ -80,7 +80,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @notice Initializes the Inbox contract
-    constructor(uint64 _forcedInclusionDelay, uint64 _feeInGwei) EssentialContract() { }
+    constructor() EssentialContract() { }
 
     /// @notice Initializes the Inbox contract with genesis block
     /// @param _owner The owner of this contract

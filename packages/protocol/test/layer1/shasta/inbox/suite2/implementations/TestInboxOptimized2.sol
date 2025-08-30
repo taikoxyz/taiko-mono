@@ -20,11 +20,9 @@ contract TestInboxOptimized2 is InboxOptimized2 {
         address bondToken,
         address checkpointManager,
         address proofVerifier,
-        address proposerChecker,
-        uint64 inclusionDelay,
-        uint64 feeInGwei
+        address proposerChecker
     )
-        InboxOptimized2(inclusionDelay, feeInGwei)
+        InboxOptimized2()
     {
         _bondToken = bondToken;
         _checkpointManager = checkpointManager;

@@ -27,12 +27,7 @@ contract MainnetShastaInbox is InboxOptimized3 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor(
-        uint64 _forcedInclusionDelay,
-        uint64 _feeInGwei
-    )
-        InboxOptimized3(_forcedInclusionDelay, _feeInGwei)
-    { }
+    constructor() InboxOptimized3() { }
 
     // ---------------------------------------------------------------
     // External/Public Functions

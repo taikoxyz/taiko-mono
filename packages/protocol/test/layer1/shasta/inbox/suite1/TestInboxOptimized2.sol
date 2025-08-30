@@ -14,7 +14,7 @@ contract TestInboxOptimized2 is InboxOptimized2, ITestInbox {
     // Storage to track checkpoint for test purposes
     mapping(uint48 => ICheckpointManager.Checkpoint) public testcheckpoints;
 
-    constructor() InboxOptimized2(7 days, 10) { }
+    constructor() InboxOptimized2() { }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;

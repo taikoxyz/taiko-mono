@@ -14,7 +14,7 @@ contract TestInboxCore is Inbox, ITestInbox {
     // Storage to track checkpoint for test purposes
     mapping(uint48 => ICheckpointManager.Checkpoint) public testcheckpoints;
 
-    constructor() Inbox(7 days, 10) { }
+    constructor() Inbox() { }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;
