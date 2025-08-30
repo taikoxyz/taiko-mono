@@ -86,7 +86,7 @@ library LibForcedInclusion {
 
             // Early exit if  queue is empty
             if (head == tail) {
-                return new IInbox.ForcedInclusion[](0);
+                return new IForcedInclusionStore.ForcedInclusion[](0);
             }
 
             // Calculate actual number to process (min of requested and available)
