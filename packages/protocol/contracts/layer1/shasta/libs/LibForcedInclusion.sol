@@ -25,17 +25,17 @@ library LibForcedInclusion {
     //  Structs
     // ---------------------------------------------------------------
 
+    /// @dev Storage for the forced inclusion queue. This struct uses 2 slots.
     struct Storage {
-        mapping(uint256 id => IForcedInclusionStore.ForcedInclusion inclusion) queue; //slot 1
-        // --slot 2--
+        mapping(uint256 id => IForcedInclusionStore.ForcedInclusion inclusion) queue;
         /// @notice The index of the oldest forced inclusion in the queue. This is where items will
         /// be dequeued.
-        uint64 head;
+        uint48 head;
         /// @notice The index of the next free slot in the queue. This is where items will be
         /// enqueued.
-        uint64 tail;
+        uint48 tail;
         /// @notice The last time a forced inclusion was processed.
-        uint64 lastProcessedAt;
+        uint48 lastProcessedAt;
     }
 
     // ---------------------------------------------------------------
@@ -100,8 +100,8 @@ library LibForcedInclusion {
             }
 
             // Update head and lastProcessedAt after all processing
-            $.head += uint64(toProcess);
-            $.lastProcessedAt = uint64(block.timestamp);
+            $.head += uint48(toProcess);
+            $.lastProcessedAt = uint48(block.timestamp);
 
             // Send all fees in one transfer
             if (totalFees > 0) {
