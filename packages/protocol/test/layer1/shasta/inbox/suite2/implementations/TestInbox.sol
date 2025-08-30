@@ -18,11 +18,9 @@ contract TestInbox is Inbox {
         address bondToken,
         address checkpointManager,
         address proofVerifier,
-        address proposerChecker,
-        uint64 inclusionDelay,
-        uint64 feeInGwei
+        address proposerChecker
     )
-        Inbox(inclusionDelay, feeInGwei)
+        Inbox()
     {
         _bondToken = bondToken;
         _checkpointManager = checkpointManager;
@@ -41,7 +39,9 @@ contract TestInbox is Inbox {
             checkpointManager: _checkpointManager,
             proofVerifier: _proofVerifier,
             proposerChecker: _proposerChecker,
-            minForcedInclusionCount: 1
+            minForcedInclusionCount: 1,
+            forcedInclusionDelay: 100,
+            forcedInclusionFeeInGwei: 1_000_000_000
         });
     }
 

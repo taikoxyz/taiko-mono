@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
+import "contracts/layer1/shasta/iface/IInbox.sol";
 import "contracts/shared/based/iface/ICheckpointManager.sol";
 
 /// @title InboxMockContracts
