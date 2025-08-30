@@ -79,15 +79,11 @@ abstract contract Inbox is EssentialContract, IInbox {
     /// @notice Initializes the Inbox contract with genesis block
     /// @param _owner The owner of this contract
     /// @param _genesisBlockHash The hash of the genesis block
-    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
-        __Essential_init(_owner);
-        _initializeInbox(_genesisBlockHash);
-    }
+    function init(address _owner, bytes32 _genesisBlockHash) external reinitializer(3) {
+        address owner = owner();
+        require(owner == address(0) || owner == msg.sender, ACCESS_DENIED());
 
-    /// @notice Reinitializes the Inbox contract for upgrades
-    /// @dev Used when upgrading from Pacaya to Shasta on mainnet where proxy already exists
-    /// @param _genesisBlockHash The hash of the genesis block
-    function initV2(bytes32 _genesisBlockHash) external reinitializer(2) {
+        __Essential_init(_owner);
         _initializeInbox(_genesisBlockHash);
     }
 
