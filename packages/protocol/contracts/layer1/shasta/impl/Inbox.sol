@@ -83,17 +83,19 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     constructor() EssentialContract() { }
 
     /// @notice Initializes the Inbox contract with genesis block
+    /// @dev This contract uses a reinitializer so that it works both on fresh deployments as well
+    /// as existing inbox proxies(i.e. mainnet)
+    /// @dev IMPORTANT: Make sure this function is called in the same tx as the deployment or
+    /// upgrade happens. On upgrades this is usually done calling `upgradeToAndCall`
     /// @param _owner The owner of this contract
     /// @param _genesisBlockHash The hash of the genesis block
-    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
-        __Essential_init(_owner);
-        _initializeInbox(_genesisBlockHash);
-    }
+    function initV2(address _owner, bytes32 _genesisBlockHash) external reinitializer(2) {
+        address owner = owner();
+        require(owner == address(0) || owner == msg.sender, ACCESS_DENIED());
 
-    /// @notice Reinitializes the Inbox contract for upgrades
-    /// @dev Used when upgrading from Pacaya to Shasta on mainnet where proxy already exists
-    /// @param _genesisBlockHash The hash of the genesis block
-    function initV2(bytes32 _genesisBlockHash) external reinitializer(2) {
+        if (owner == address(0)) {
+            __Essential_init(_owner);
+        }
         _initializeInbox(_genesisBlockHash);
     }
 
