@@ -93,7 +93,9 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         address owner = owner();
         require(owner == address(0) || owner == msg.sender, ACCESS_DENIED());
 
-        __Essential_init(_owner);
+        if (owner == address(0)) {
+            __Essential_init(_owner);
+        }
         _initializeInbox(_genesisBlockHash);
     }
 
