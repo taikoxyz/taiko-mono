@@ -13,20 +13,19 @@ contract TestInboxOptimized3 is InboxOptimized3 {
     address private immutable _checkpointManager;
     address private immutable _proofVerifier;
     address private immutable _proposerChecker;
-    address private immutable _forcedInclusionStore;
 
     constructor(
         address bondToken,
         address checkpointManager,
         address proofVerifier,
-        address proposerChecker,
-        address forcedInclusionStore
-    ) {
+        address proposerChecker
+    )
+        InboxOptimized3()
+    {
         _bondToken = bondToken;
         _checkpointManager = checkpointManager;
         _proofVerifier = proofVerifier;
         _proposerChecker = proposerChecker;
-        _forcedInclusionStore = forcedInclusionStore;
     }
 
     function getConfig() public view override returns (IInbox.Config memory) {
@@ -40,9 +39,10 @@ contract TestInboxOptimized3 is InboxOptimized3 {
             checkpointManager: _checkpointManager,
             proofVerifier: _proofVerifier,
             proposerChecker: _proposerChecker,
-            forcedInclusionStore: _forcedInclusionStore,
-            minForcedInclusionCount: 1
-        });
+            minForcedInclusionCount: 1,
+            forcedInclusionDelay: 100,
+            forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+         });
     }
 
     /// @dev Fills the buffer with a hash that has no meaning for the protocol. This simulates the

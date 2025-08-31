@@ -8,7 +8,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 import { IProofVerifier } from "src/layer1/shasta/iface/IProofVerifier.sol";
 import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
-import { IForcedInclusionStore } from "src/layer1/shasta/iface/IForcedInclusionStore.sol";
 
 /// @title InboxTestHelper
 /// @notice Pure utility functions for Inbox tests

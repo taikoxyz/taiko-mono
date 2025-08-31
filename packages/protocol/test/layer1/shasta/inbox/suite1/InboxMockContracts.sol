@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
+import "contracts/layer1/shasta/iface/IInbox.sol";
 import "contracts/shared/based/iface/ICheckpointManager.sol";
 
 /// @title InboxMockContracts
@@ -45,24 +45,6 @@ contract MockERC20 is IERC20 {
 
 contract StubCheckpointManager {
     function saveCheckpoint(ICheckpointManager.Checkpoint memory) external { }
-}
-
-contract StubForcedInclusionStore {
-    function isOldestForcedInclusionDue() external pure returns (bool) {
-        return false;
-    }
-
-    function consumeForcedInclusions(
-        address,
-        uint256
-    )
-        external
-        pure
-        returns (IForcedInclusionStore.ForcedInclusion[] memory)
-    {
-        // Return empty array
-        return new IForcedInclusionStore.ForcedInclusion[](0);
-    }
 }
 
 contract StubProofVerifier {
