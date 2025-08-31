@@ -11,24 +11,14 @@ import "./ITestInbox.sol";
 contract TestInboxOptimized2 is InboxOptimized2, ITestInbox {
     IInbox.Config private testConfig;
     bool private configSet;
-    mapping(uint256 => bytes32) private mockBlobHashes;
-    bool private useMockBlobHashes;
     // Storage to track checkpoint for test purposes
     mapping(uint48 => ICheckpointManager.Checkpoint) public testcheckpoints;
 
-    constructor() InboxOptimized2(7 days, 10) { }
+    constructor() InboxOptimized2() { }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;
         configSet = true;
-    }
-
-    function setMockBlobValidation(bool _useMock) external {
-        useMockBlobHashes = _useMock;
-    }
-
-    function setMockBlobHash(uint256 _index, bytes32 _hash) external {
-        mockBlobHashes[_index] = _hash;
     }
 
     function getConfig() public view override returns (IInbox.Config memory) {
@@ -43,24 +33,12 @@ contract TestInboxOptimized2 is InboxOptimized2, ITestInbox {
                 checkpointManager: address(0),
                 proofVerifier: address(0),
                 proposerChecker: address(0),
-                minForcedInclusionCount: 1
+                minForcedInclusionCount: 1,
+                forcedInclusionDelay: 100,
+                forcedInclusionFeeInGwei: 1_000_000_000
             });
         }
         return testConfig;
-    }
-
-    function _getBlobHash(uint256 _blobIndex) internal view override returns (bytes32) {
-        if (useMockBlobHashes) {
-            bytes32 mockHash = mockBlobHashes[_blobIndex];
-            if (mockHash != bytes32(0)) {
-                return mockHash;
-            }
-            if (_blobIndex == 100) {
-                return bytes32(0);
-            }
-            return keccak256(abi.encode("blob", _blobIndex));
-        }
-        return blobhash(_blobIndex);
     }
 
     // Expose internal functions for testing

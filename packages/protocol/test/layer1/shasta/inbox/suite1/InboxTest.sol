@@ -8,9 +8,9 @@ import "./ITestInbox.sol";
 import "./InboxTestAdapter.sol";
 import "./InboxMockContracts.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
+import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
 import "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import "contracts/layer1/shasta/iface/IProposerChecker.sol";
-import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
 import "contracts/shared/based/iface/ICheckpointManager.sol";
 import "contracts/layer1/shasta/libs/LibBlobs.sol";
 import "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
@@ -189,11 +189,12 @@ abstract contract InboxTest is CommonTest {
             checkpointManager: checkpointManager,
             proofVerifier: proofVerifier,
             proposerChecker: proposerChecker,
-            minForcedInclusionCount: 1
+            minForcedInclusionCount: 1,
+            forcedInclusionDelay: 100,
+            forcedInclusionFeeInGwei: 1_000_000_000
         });
 
         inbox.setTestConfig(defaultConfig);
-        inbox.setMockBlobValidation(true);
     }
 
     function fundTestAccounts() internal virtual {
@@ -734,11 +735,6 @@ abstract contract InboxTest is CommonTest {
     function setupBlobHashes(uint256 _count) internal {
         bytes32[] memory hashes = InboxTestLib.generateBlobHashes(_count);
         vm.blobhashes(hashes);
-
-        // Also set up mock blob hashes for our test inbox
-        for (uint256 i = 0; i < _count && i < 256; i++) {
-            inbox.setMockBlobHash(i, hashes[i]);
-        }
     }
 
     // ---------------------------------------------------------------

@@ -27,12 +27,7 @@ contract MainnetShastaInbox is InboxOptimized3 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor(
-        uint64 _forcedInclusionDelay,
-        uint64 _feeInGwei
-    )
-        InboxOptimized3(_forcedInclusionDelay, _feeInGwei)
-    { }
+    constructor() InboxOptimized3() { }
 
     // ---------------------------------------------------------------
     // External/Public Functions
@@ -50,7 +45,7 @@ contract MainnetShastaInbox is InboxOptimized3 {
     /// @notice Gets the configuration for this Inbox contract
     /// @return _ The configuration struct with shasta-specific settings
     // TODO: figure out these values
-    function getConfig() public view override returns (Config memory) {
+    function getConfig() public pure override returns (Config memory) {
         return Config({
             bondToken: address(0),
             provingWindow: 2 hours,
@@ -61,7 +56,9 @@ contract MainnetShastaInbox is InboxOptimized3 {
             checkpointManager: address(0),
             proofVerifier: address(0),
             proposerChecker: address(0),
-            minForcedInclusionCount: 1
+            minForcedInclusionCount: 1,
+            forcedInclusionDelay: 100,
+            forcedInclusionFeeInGwei: 1_000_000_000
         });
     }
 

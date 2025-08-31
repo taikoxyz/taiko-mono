@@ -20,11 +20,9 @@ contract TestInboxOptimized1 is InboxOptimized1 {
         address bondToken,
         address checkpointManager,
         address proofVerifier,
-        address proposerChecker,
-        uint64 inclusionDelay,
-        uint64 feeInGwei
+        address proposerChecker
     )
-        InboxOptimized1(inclusionDelay, feeInGwei)
+        InboxOptimized1()
     {
         _bondToken = bondToken;
         _checkpointManager = checkpointManager;
@@ -43,7 +41,9 @@ contract TestInboxOptimized1 is InboxOptimized1 {
             checkpointManager: _checkpointManager,
             proofVerifier: _proofVerifier,
             proposerChecker: _proposerChecker,
-            minForcedInclusionCount: 1
+            minForcedInclusionCount: 1,
+            forcedInclusionDelay: 100,
+            forcedInclusionFeeInGwei: 1_000_000_000
         });
     }
 
