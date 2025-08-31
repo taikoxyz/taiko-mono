@@ -191,8 +191,8 @@ abstract contract InboxTest is CommonTest {
             proposerChecker: proposerChecker,
             minForcedInclusionCount: 1,
             forcedInclusionDelay: 100,
-            forcedInclusionFeeInGwei: 1_000_000_000
-        });
+            forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+         });
 
         inbox.setTestConfig(defaultConfig);
     }

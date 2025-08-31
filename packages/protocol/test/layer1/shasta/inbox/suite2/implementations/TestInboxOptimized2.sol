@@ -43,8 +43,8 @@ contract TestInboxOptimized2 is InboxOptimized2 {
             proposerChecker: _proposerChecker,
             minForcedInclusionCount: 1,
             forcedInclusionDelay: 100,
-            forcedInclusionFeeInGwei: 1_000_000_000
-        });
+            forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+         });
     }
 
     /// @dev Fills the buffer with a hash that has no meaning for the protocol. This simulates the

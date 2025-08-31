@@ -35,8 +35,8 @@ contract TestInboxOptimized2 is InboxOptimized2, ITestInbox {
                 proposerChecker: address(0),
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
-                forcedInclusionFeeInGwei: 1_000_000_000
-            });
+                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+             });
         }
         return testConfig;
     }
