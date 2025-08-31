@@ -1,33 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import { IInboxDeployer } from "./IInboxDeployer.sol";
 import { TestInbox } from "../implementations/TestInbox.sol";
 import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
-import { CommonTest } from "test/shared/CommonTest.sol";
+import { InboxTestHelper } from "../common/InboxTestHelper.sol";
 
-/// @title InboxBase
-/// @notice Base contract providing deployment logic for basic Inbox implementation
-abstract contract InboxBase is CommonTest {
-    function getTestContractName() internal pure virtual returns (string memory) {
+/// @title InboxDeployer
+/// @notice Deployer for the standard Inbox implementation
+contract InboxDeployer is InboxTestHelper, IInboxDeployer {
+    /// @inheritdoc IInboxDeployer
+    function getTestContractName() external pure returns (string memory) {
         return "Inbox";
     }
 
+    /// @inheritdoc IInboxDeployer
     function deployInbox(
         address bondToken,
         address checkpointManager,
         address proofVerifier,
-        address proposerChecker,
-        address forcedInclusionStore
+        address proposerChecker
     )
-        internal
-        virtual
+        external
         returns (Inbox)
     {
-        address impl = address(
-            new TestInbox(
-                bondToken, checkpointManager, proofVerifier, proposerChecker, forcedInclusionStore
-            )
-        );
+        address impl =
+            address(new TestInbox(bondToken, checkpointManager, proofVerifier, proposerChecker));
 
         TestInbox inbox = TestInbox(
             deploy({
