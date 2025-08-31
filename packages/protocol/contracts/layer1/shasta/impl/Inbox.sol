@@ -83,34 +83,20 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     constructor() EssentialContract() { }
 
     /// @notice Initializes the Inbox contract with genesis block
+    /// @dev This contract uses a reinitializer so that it works both on fresh deployments as well
+    /// as existing inbox proxies(i.e. mainnet)
+    /// @dev IMPORTANT: Make sure this function is called in the same tx as the deployment or
+    /// upgrade happens. On upgrades this is usually done calling `upgradeToAndCall`
     /// @param _owner The owner of this contract
     /// @param _genesisBlockHash The hash of the genesis block
-    function init(address _owner, bytes32 _genesisBlockHash) external initializer {
-        __Essential_init(_owner);
+    function initV2(address _owner, bytes32 _genesisBlockHash) external reinitializer(2) {
+        address owner = owner();
+        require(owner == address(0) || owner == msg.sender, ACCESS_DENIED());
 
-        Transition memory transition;
-        transition.checkpoint.blockHash = _genesisBlockHash;
-
-        CoreState memory coreState;
-        coreState.nextProposalId = 1;
-        coreState.lastFinalizedTransitionHash = _hashTransition(transition);
-
-        Proposal memory proposal;
-        proposal.coreStateHash = _hashCoreState(coreState);
-
-        Derivation memory derivation;
-        proposal.derivationHash = _hashDerivation(derivation);
-
-        _setProposalHash(getConfig(), 0, _hashProposal(proposal));
-        emit Proposed(
-            encodeProposedEventData(
-                ProposedEventPayload({
-                    proposal: proposal,
-                    derivation: derivation,
-                    coreState: coreState
-                })
-            )
-        );
+        if (owner == address(0)) {
+            __Essential_init(_owner);
+        }
+        _initializeInbox(_genesisBlockHash);
     }
 
     // ---------------------------------------------------------------
@@ -342,6 +328,35 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @dev Initializes the inbox with genesis state
+    /// @notice Sets up the initial proposal and core state with genesis block
+    /// @param _genesisBlockHash The hash of the genesis block
+    function _initializeInbox(bytes32 _genesisBlockHash) internal {
+        Transition memory transition;
+        transition.checkpoint.blockHash = _genesisBlockHash;
+
+        CoreState memory coreState;
+        coreState.nextProposalId = 1;
+        coreState.lastFinalizedTransitionHash = _hashTransition(transition);
+
+        Proposal memory proposal;
+        proposal.coreStateHash = _hashCoreState(coreState);
+
+        Derivation memory derivation;
+        proposal.derivationHash = _hashDerivation(derivation);
+
+        _setProposalHash(getConfig(), 0, _hashProposal(proposal));
+        emit Proposed(
+            encodeProposedEventData(
+                ProposedEventPayload({
+                    proposal: proposal,
+                    derivation: derivation,
+                    coreState: coreState
+                })
+            )
+        );
+    }
 
     /// @dev Builds and persists transition records for batch proof submissions
     /// @notice Validates transitions, calculates bond instructions, and stores records

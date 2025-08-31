@@ -48,7 +48,7 @@ contract TestInboxFactory {
         }
 
         bytes memory initData = abi.encodeWithSelector(
-            bytes4(keccak256("init(address,bytes32)")), _owner, _genesisBlockHash
+            bytes4(keccak256("initV2(address,bytes32)")), _owner, _genesisBlockHash
         );
 
         ERC1967Proxy proxy = new ERC1967Proxy(impl, initData);
