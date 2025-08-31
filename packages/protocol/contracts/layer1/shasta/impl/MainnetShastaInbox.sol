@@ -56,9 +56,10 @@ contract MainnetShastaInbox is InboxOptimized3 {
             checkpointManager: address(0),
             proofVerifier: address(0),
             proposerChecker: address(0),
-            forcedInclusionStore: address(0),
-            minForcedInclusionCount: 1
-        });
+            minForcedInclusionCount: 1,
+            forcedInclusionDelay: 100,
+            forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+         });
     }
 
     // ---------------------------------------------------------------
