@@ -522,7 +522,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     {
         try _signalService.verifySignalReceived(
             _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
-        ) { 
+        ) {
             numCacheOps_ = 0; // No caching anymore
         } catch {
             revert B_SIGNAL_NOT_RECEIVED();

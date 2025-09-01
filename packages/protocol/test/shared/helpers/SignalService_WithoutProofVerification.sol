@@ -25,7 +25,7 @@ contract SignalService_WithoutProofVerification is SignalService {
 
     /// @notice Override to skip all signal verification for testing
     function verifySignalReceived(
-        uint64,  /*_chainId*/
+        uint64, /*_chainId*/
         address, /*_app*/
         bytes32, /*_signal*/
         bytes calldata /*_proof*/

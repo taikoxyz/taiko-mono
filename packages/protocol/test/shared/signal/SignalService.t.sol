@@ -497,7 +497,7 @@ contract TestSignalService is CommonTest {
         view
     {
         assertEq(
-            mockSignalService.isChainDataSynced(chainId, LibSignals.STATE_ROOT, blockId, stateRoot),
+    mockSignalService.isChainDataSynced(chainId, LibSignals.STATE_ROOT, blockId, stateRoot),
             stateRootCached
         );
 

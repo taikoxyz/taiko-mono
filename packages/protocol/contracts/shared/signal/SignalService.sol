@@ -222,7 +222,6 @@ contract SignalService is EssentialResolverContract, ISignalService {
         emit SignalSent(_app, _signal, slot_, _value);
     }
 
-
     function _loadSignalValue(
         address _app,
         bytes32 _signal
@@ -263,7 +262,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
 
         // Decode single hop proof
         Proof memory hop = abi.decode(_proof, (Proof));
-        
+
         // Verify the hop must be for the current chain
         if (hop.chainId != block.chainid) revert SS_INVALID_LAST_HOP_CHAINID();
 
