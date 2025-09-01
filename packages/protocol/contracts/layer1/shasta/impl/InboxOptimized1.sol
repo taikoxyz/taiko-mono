@@ -124,9 +124,7 @@ abstract contract InboxOptimized1 is Inbox {
                 currentRecord.span++;
             } else {
                 // Save the current aggregated record before starting a new one
-                _setTransitionRecordHash(
-                    currentGroupStartId, firstTransitionInGroup, currentRecord
-                );
+                _setTransitionRecordHash(currentGroupStartId, firstTransitionInGroup, currentRecord);
 
                 // Start a new record for non-continuous proposal
                 currentGroupStartId = _input.proposals[i].id;
@@ -144,9 +142,7 @@ abstract contract InboxOptimized1 is Inbox {
         }
 
         // Save the final aggregated record
-        _setTransitionRecordHash(
-            currentGroupStartId, firstTransitionInGroup, currentRecord
-        );
+        _setTransitionRecordHash(currentGroupStartId, firstTransitionInGroup, currentRecord);
     }
 
     /// @inheritdoc Inbox

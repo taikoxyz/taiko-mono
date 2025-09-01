@@ -44,5 +44,4 @@ contract TestInbox is Inbox {
             forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
          });
     }
-
 }

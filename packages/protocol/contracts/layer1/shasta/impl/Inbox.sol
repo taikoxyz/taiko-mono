@@ -66,7 +66,8 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
     /// @dev Simple mapping for storing transition record hashes
-    /// @dev We do not use a ring buffer for this mapping, since a nested mapping does not benefit from it
+    /// @dev We do not use a ring buffer for this mapping, since a nested mapping does not benefit
+    /// from it
     /// @dev Stores transition records for proposals with different parent transitions
     /// - compositeKey: Keccak256 hash of (proposalId, parentTransitionHash)
     /// - transitionRecordHash: The hash of the TransitionRecord struct
