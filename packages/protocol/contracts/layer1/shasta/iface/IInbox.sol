@@ -50,6 +50,8 @@ interface IInbox {
         address proposer;
         /// @notice The L1 block timestamp when the proposal was accepted.
         uint48 timestamp;
+        /// @notice The timestamp of the last slot where the current preconfer can propose.
+        uint48 lookaheadSlotTimestamp;
         /// @notice The current hash of coreState
         bytes32 coreStateHash;
         /// @notice Hash of the Derivation struct containing additional proposal data.
