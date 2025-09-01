@@ -53,6 +53,11 @@ type Driver struct {
 	p2pSigner p2p.Signer
 	p2pSetup  p2p.SetupP2P
 
+	// Handover config read from the preconf router
+	handoverSkipSlots uint64
+	// Last epoch when the handover config was reloaded
+	lastConfigReloadEpoch uint64
+
 	ctx context.Context
 	wg  sync.WaitGroup
 }
@@ -72,6 +77,10 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.l1HeadCh = make(chan *types.Header, 1024)
 	d.ctx = ctx
 	d.Config = cfg
+
+	// Initialize handover config caching
+	d.handoverSkipSlots = defaultHandoverSkipSlots
+	d.lastConfigReloadEpoch = 0
 
 	if d.rpc, err = rpc.NewClient(d.ctx, cfg.ClientConfig); err != nil {
 		return err
@@ -370,11 +379,10 @@ func (d *Driver) cacheLookaheadLoop() {
 	}()
 
 	var (
-		seenBlockNumber   uint64 = 0
-		lastSlot          uint64 = 0
-		opWin                    = preconfBlocks.NewOpWindow(d.rpc.L1Beacon.SlotsPerEpoch)
-		wasSequencer             = false
-		handoverSkipSlots        = defaultHandoverSkipSlots
+		seenBlockNumber uint64 = 0
+		lastSlot        uint64 = 0
+		opWin                  = preconfBlocks.NewOpWindow(d.rpc.L1Beacon.SlotsPerEpoch)
+		wasSequencer           = false
 	)
 
 	// Check if the operator is transitioning to being the sequencer, if so, will check
@@ -418,18 +426,27 @@ func (d *Driver) cacheLookaheadLoop() {
 			slotsLeftInEpoch = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
 		)
 
+		// Only read and update handover config at epoch transitions to avoide race conditions
+		// where different nodes might read different configs during mid-epoch upgrades
+		if currentEpoch > d.lastConfigReloadEpoch {
+			routerConfig, err := d.rpc.GetPreconfRouterConfig(&bind.CallOpts{Context: d.ctx})
+			if err != nil {
+				log.Warn("Failed to fetch preconf router config, keeping current handoverSkipSlots", "error", err, "currentHandoverSkipSlots", d.handoverSkipSlots)
+			} else {
+				newHandoverSkipSlots := routerConfig.HandOverSlots.Uint64()
+				if newHandoverSkipSlots != d.handoverSkipSlots {
+					log.Info("Updated handover config for new epoch", "epoch", currentEpoch, "oldHandoverSkipSlots", d.handoverSkipSlots, "newHandoverSkipSlots", newHandoverSkipSlots)
+					d.handoverSkipSlots = newHandoverSkipSlots
+				}
+			}
+			d.lastConfigReloadEpoch = currentEpoch
+		}
+
 		latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
 		if err != nil {
 			log.Error("Failed to fetch the latest L1 head for lookahead", "error", err)
 
 			return err
-		}
-
-		routerConfig, err := d.rpc.GetPreconfRouterConfig(&bind.CallOpts{Context: d.ctx})
-		if err != nil {
-			log.Warn("Failed to fetch preconf router config, use defaultHandoverSkipSlots instead", "error", err)
-		} else {
-			handoverSkipSlots = routerConfig.HandOverSlots.Uint64()
 		}
 
 		if latestSeenBlockNumber == seenBlockNumber {
@@ -522,8 +539,8 @@ func (d *Driver) cacheLookaheadLoop() {
 			}
 
 			var (
-				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true, handoverSkipSlots)
-				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false, handoverSkipSlots)
+				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true, d.handoverSkipSlots)
+				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false, d.handoverSkipSlots)
 			)
 			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
 				CurrOperator:     currOp,
@@ -551,8 +568,8 @@ func (d *Driver) cacheLookaheadLoop() {
 
 		// Otherwise, just log out lookahead information.
 		var (
-			currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true, handoverSkipSlots)
-			nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false, handoverSkipSlots)
+			currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true, d.handoverSkipSlots)
+			nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false, d.handoverSkipSlots)
 		)
 
 		log.Info(
