@@ -11,6 +11,12 @@ networks:
 storage:
   postgres:
     enabled: true
+    drop_each_run: true
+    indexes:
+      global_injected_parameters:
+        - block_number
+        - block_hash
+        - tx_hash
 native_transfers:
   enabled: false
 contracts:

@@ -42,7 +42,7 @@ The `rindexer.yaml` file contains the core indexer configuration:
 Run all indexers defined in the configuration:
 
 ```bash
-cargo run -- start all
+cargo run
 ```
 
 ## Working with [`rindexer`](https://github.com/joshstevens19/rindexer)
