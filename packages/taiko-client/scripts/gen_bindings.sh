@@ -35,9 +35,9 @@ cat ../protocol/out/layer1/MainnetShastaInbox.sol/MainnetShastaInbox.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type ShastaInboxClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_inbox.go
 
-cat ../protocol/out/layer1/LibManifest.sol/LibManifest.json |
+cat ../protocol/out/layer2/ShastaAnchor.sol/ShastaAnchor.json |
 	jq .abi |
-	${ABIGEN_BIN} --abi - --type LibManifestClient --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_lib_manifest.go
+	${ABIGEN_BIN} --abi - --type ShastaAnchor --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_anchor.go
 
 git -C ../../ log --format="%H" -n 1 >./bindings/${FORK}/.githead
 
