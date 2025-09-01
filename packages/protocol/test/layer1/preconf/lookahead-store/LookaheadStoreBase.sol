@@ -43,7 +43,12 @@ contract LookaheadStoreBase is CommonTest {
         urc = new MockURC();
         overseer = new MockOverseer();
         lookaheadStore = new LookaheadStore(
-            address(urc), protector, lookaheadSlasher, preconfSlasher, preconfRouter, address(overseer)
+            address(urc),
+            protector,
+            lookaheadSlasher,
+            preconfSlasher,
+            preconfRouter,
+            address(overseer)
         );
 
         // Wrap time to the beginning of an arbitrary epoch

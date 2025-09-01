@@ -141,7 +141,8 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         }
     }
 
-    /// @dev Verifies that validator public key provided in the evidence is present at the problematic
+    /// @dev Verifies that validator public key provided in the evidence is present at the
+    /// problematic
     /// slotTimestamp.
     function _validateBeaconValidatorEvidence(
         uint256 _previousEpochTimestamp,
@@ -201,7 +202,8 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             PreconfValidatorIsNotRegistered()
         );
 
-        // Verify that this preconf lookahead validator does not match the beacon lookahead validator
+        // Verify that this preconf lookahead validator does not match the beacon lookahead
+        // validator
         require(
             !_isG1Equal(evidenceInvalidOperator.preconfLookaheadValPubKey, _beaconLookaheadValPubKey),
             PreconfValidatorIsSameAsBeaconValidator()
@@ -299,7 +301,14 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     // Internal helpers
     // --------------------------------------------------------------------------
 
-    function _isG1Equal(BLS.G1Point memory _a, BLS.G1Point memory _b) internal pure returns (bool) {
+    function _isG1Equal(
+        BLS.G1Point memory _a,
+        BLS.G1Point memory _b
+    )
+        internal
+        pure
+        returns (bool)
+    {
         return _a.x_a == _b.x_a && _a.x_b == _b.x_b && _a.y_a == _b.y_a && _a.y_b == _b.y_b;
     }
 

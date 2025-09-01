@@ -43,7 +43,10 @@ abstract contract SimpleMultisig {
 
     function __SimpleMultisig_init(uint64 _signingThreshold, address[] memory _signers) internal {
         require(_signers.length > 0, AtleastOneSignerIsRequired());
-        require(_signingThreshold != 0 && _signingThreshold <= _signers.length, InvalidSigningThreshold());
+        require(
+            _signingThreshold != 0 && _signingThreshold <= _signers.length,
+            InvalidSigningThreshold()
+        );
 
         for (uint256 i; i < _signers.length; ++i) {
             signers[_signers[i]] = true;

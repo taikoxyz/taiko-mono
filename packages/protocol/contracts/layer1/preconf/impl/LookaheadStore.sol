@@ -210,10 +210,15 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         view
         returns (LookaheadSlot[] memory)
     {
-        require(_signedCommitment.commitment.slasher == lookaheadSlasher, SlasherIsNotLookaheadSlasher());
+        require(
+            _signedCommitment.commitment.slasher == lookaheadSlasher, SlasherIsNotLookaheadSlasher()
+        );
 
         (, IRegistry.SlasherCommitment memory slasherCommitment) = _validateOperator(
-            _registrationRoot, block.timestamp, getConfig().minCollateralForPosting, lookaheadSlasher
+            _registrationRoot,
+            block.timestamp,
+            getConfig().minCollateralForPosting,
+            lookaheadSlasher
         );
 
         // Validate the lookahead poster's signed commitment

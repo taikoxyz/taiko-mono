@@ -25,7 +25,7 @@ interface ILookaheadSlasher is ISlasher {
         uint256 lookaheadSlotsIndex;
     }
 
-    /// @dev Evidence containing the proof of inclusion of `beaconLookaheadValPubKey` at the 
+    /// @dev Evidence containing the proof of inclusion of `beaconLookaheadValPubKey` at the
     /// problematic slot in beacon lookahead.
     struct EvidenceBeaconValidator {
         // BLS pub key of the validator present within beacon lookahead
@@ -46,7 +46,7 @@ interface ILookaheadSlasher is ISlasher {
         IRegistry.SignedRegistration[] operatorRegistrations;
     }
 
-    /// @dev Evidence suggesting that `beaconLookaheadValPubKey` is registered to a valid 
+    /// @dev Evidence suggesting that `beaconLookaheadValPubKey` is registered to a valid
     /// opted-in operator in the URC
     struct EvidenceMissingOperator {
         // URC registration proof signifying that `EvidenceBeaconValidator.beaconLookaheadValPubKey`

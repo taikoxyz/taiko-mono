@@ -780,7 +780,10 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
         _updateLookahead(signedCommitment);
     }
 
-    function test_acceptsWhenTheOperatorWasBlacklistedButUnblacklistedInTime() external useMainnet {
+    function test_acceptsWhenTheOperatorWasBlacklistedButUnblacklistedInTime()
+        external
+        useMainnet
+    {
         (
             ,
             SetupOperator[] memory _lookaheadOperators,
@@ -791,7 +794,8 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
         _setOperatorBlacklistStatus(
             _lookaheadOperators[1].registrationRoot,
             uint48(EPOCH_START - 3 * LibPreconfConstants.SECONDS_IN_SLOT), // Blacklisted early
-            uint48(EPOCH_START - 2 * LibPreconfConstants.SECONDS_IN_SLOT) // Unblacklisted before epoch
+            uint48(EPOCH_START - 2 * LibPreconfConstants.SECONDS_IN_SLOT) // Unblacklisted before
+                // epoch
         );
 
         // Build a signed commitment on the lookahead slots for next epoch
