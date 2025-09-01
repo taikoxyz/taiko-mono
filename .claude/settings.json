@@ -15,12 +15,13 @@
       "Bash(mv:*)",
       "Bash(rm:*)",
       "Bash(mkdir:*)",
-      "Bash(pnpm compile:l1:*)",
+      "Bash(grep:*)",
       "Bash(pnpm compile:*)",
-      "Bash(forge test *)",
-      "Bash(forge test:*)",
-      "Bash(grep:*)"
+      "Bash(pnpm test:*)",
+      "Bash(pnpm snapshot:*)",
+      "Bash(pnpm layout:*)",
+      "Bash(forge test:*)"
     ],
-    "deny": []
+    "deny": ["Bash(git push --force:*)"]
   }
 }
