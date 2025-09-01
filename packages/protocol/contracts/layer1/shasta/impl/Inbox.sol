@@ -79,29 +79,24 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // Constructor
     // ---------------------------------------------------------------
 
-    /// @notice Initializes the Inbox contract
     constructor() EssentialContract() { }
-
-    /// @notice Initializes the Inbox contract with genesis block
-    /// @dev This contract uses a reinitializer so that it works both on fresh deployments as well
-    /// as existing inbox proxies(i.e. mainnet)
-    /// @dev IMPORTANT: Make sure this function is called in the same tx as the deployment or
-    /// upgrade happens. On upgrades this is usually done calling `upgradeToAndCall`
-    /// @param _owner The owner of this contract
-    /// @param _genesisBlockHash The hash of the genesis block
-    function init2(address _owner, bytes32 _genesisBlockHash) external reinitializer(2) {
-        address owner = owner();
-        require(owner == address(0) || owner == msg.sender, ACCESS_DENIED());
-
-        if (owner == address(0)) {
-            __Essential_init(_owner);
-        }
-        _initializeInbox(_genesisBlockHash);
-    }
 
     // ---------------------------------------------------------------
     // External & Public Functions
     // ---------------------------------------------------------------
+
+    /// @notice Initializes the Inbox contract
+    function init(address _owner) external initializer {
+        __Essential_init(_owner);
+    }
+
+    /// @notice Initializes the Inbox contract with genesis block
+    /// @dev This contract uses a reinitializer so that it works both on fresh deployments as well
+    /// as existing inbox proxies(i.e. mainnet)
+    /// @param _genesisBlockHash The hash of the genesis block
+    function init2(bytes32 _genesisBlockHash) external onlyOwner reinitializer(2) {
+        _initializeInbox(_genesisBlockHash);
+    }
 
     /// @inheritdoc IInbox
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.

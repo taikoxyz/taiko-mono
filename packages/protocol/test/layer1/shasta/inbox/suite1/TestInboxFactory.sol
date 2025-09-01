@@ -6,12 +6,14 @@ import "./TestInboxOptimized1.sol";
 import "./TestInboxOptimized2.sol";
 import "./TestInboxOptimized3.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
+import "contracts/layer1/shasta/impl/Inbox.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "forge-std/src/Test.sol";
 
 /// @title TestInboxFactory
 /// @notice Factory contract to deploy different Inbox implementations for testing
 /// @custom:security-contact security@taiko.xyz
-contract TestInboxFactory {
+contract TestInboxFactory is Test {
     /// @notice The type of Inbox implementation to deploy
     enum InboxType {
         Base,
@@ -47,12 +49,14 @@ contract TestInboxFactory {
             revert("Invalid inbox type");
         }
 
-        bytes memory initData = abi.encodeWithSelector(
-            bytes4(keccak256("init2(address,bytes32)")), _owner, _genesisBlockHash
-        );
+        bytes memory initData = abi.encodeWithSelector(bytes4(keccak256("init(address)")), _owner);
 
         ERC1967Proxy proxy = new ERC1967Proxy(impl, initData);
         inbox = address(proxy);
+
+        // Initialize with genesis block hash (must be called as owner)
+        vm.prank(_owner);
+        Inbox(inbox).init2(_genesisBlockHash);
     }
 
     /// @notice Get the InboxType from environment variable or default

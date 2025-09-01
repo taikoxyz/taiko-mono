@@ -27,13 +27,12 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
         address impl =
             address(new TestInbox(bondToken, checkpointManager, proofVerifier, proposerChecker));
 
-        TestInbox inbox = TestInbox(
-            deploy({
-                name: "",
-                impl: impl,
-                data: abi.encodeCall(Inbox.init2, (Alice, bytes32(uint256(1))))
-            })
-        );
+        TestInbox inbox =
+            TestInbox(deploy({ name: "", impl: impl, data: abi.encodeCall(Inbox.init, (Alice)) }));
+
+        // Initialize with genesis block hash (must be called as owner)
+        vm.prank(Alice);
+        inbox.init2(bytes32(uint256(1)));
 
         inbox.fillTransitionRecordBuffer();
 

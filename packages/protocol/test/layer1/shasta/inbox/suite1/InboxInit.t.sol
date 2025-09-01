@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./InboxTest.sol";
+import "./TestInboxCore.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "contracts/layer1/shasta/impl/Inbox.sol";
@@ -77,23 +78,43 @@ contract InboxInit is InboxTest {
     function test_init_already_initialized() public {
         ITestInbox testInbox = _deployFreshInbox(Alice, GENESIS_BLOCK_HASH);
 
-        // Attempt second initialization should fail
+        // Attempt second initialization should fail - need to call as owner to get past ownership
+        // check
+        vm.prank(Alice);
         expectRevertWithMessage(
             "Initializable: contract is already initialized",
             "Double initialization should be prevented"
         );
-        // Cast to Inbox to access init function
-        Inbox(address(testInbox)).init2(Bob, bytes32(uint256(2)));
+        // Cast to Inbox to access init2 function (should fail as already initialized)
+        Inbox(address(testInbox)).init2(bytes32(uint256(2)));
     }
 
     /// @notice Test initialization with zero address owner
-    /// @dev Validates owner validation handling
+    /// @dev Validates owner validation handling - EssentialContract sets msg.sender as owner when
+    /// address(0) is passed
     function test_init_zero_address_owner() public {
-        ITestInbox testInbox = _deployFreshInbox(address(0), GENESIS_BLOCK_HASH);
+        // Deploy fresh implementation without using factory that calls init2
+        address impl = address(new TestInboxCore());
 
-        // Contract should handle zero address gracefully
+        bytes memory initData =
+            abi.encodeWithSelector(bytes4(keccak256("init(address)")), address(0));
+
+        ERC1967Proxy proxy = new ERC1967Proxy(impl, initData);
+        ITestInbox testInbox = ITestInbox(address(proxy));
+
+        // EssentialContract sets msg.sender as owner when address(0) is passed
         address actualOwner = Ownable(address(testInbox)).owner();
-        assertTrue(actualOwner != address(0), "Owner should not be zero address");
+        assertEq(
+            actualOwner,
+            address(this),
+            "Owner should be msg.sender (this test contract) when address(0) is passed"
+        );
+
+        // Now test successful init2 call as owner
+        Inbox(address(testInbox)).init2(GENESIS_BLOCK_HASH);
+
+        // Verify initialization completed successfully
+        assertTrue(actualOwner != address(0), "Initialization should succeed with valid owner");
     }
 
     /// @notice Test initialization with different genesis block hashes

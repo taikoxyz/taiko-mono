@@ -31,9 +31,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     constructor(address _erc20Vault) BridgedERC20(_erc20Vault) { }
 
     /// @inheritdoc IBridgedERC20Initializable
-    /// @dev This function is called when the bridge deploys a new bridged ERC20 token, so this
-    /// function must also cover the logic in init2(), we use
-    /// `reinitializer(2)` instead of `initializer`.
+    /// @dev This function is called when the bridge deploys a new bridged ERC20 token.
     function init(
         address _owner,
         address _srcToken,
@@ -45,7 +43,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
         external
         virtual
         override
-        reinitializer(2)
+        initializer
     {
         // Check if provided parameters are valid
         LibBridgedToken.validateInputs(_srcToken, _srcChainId);
@@ -61,7 +59,7 @@ contract BridgedERC20V2 is BridgedERC20, IERC20PermitUpgradeable, EIP712Upgradea
     }
 
     /// @notice This function shall be called by previously deployed contracts.
-    function init2() external reinitializer(2) {
+    function init2() external onlyOwner reinitializer(2) {
         __EIP712_init_unchained(name(), "1");
     }
 
