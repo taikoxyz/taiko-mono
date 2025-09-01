@@ -179,7 +179,7 @@ contract Bridge is EssentialResolverContract, IBridge {
             revert B_MESSAGE_NOT_SENT();
         }
 
-        _proveSignalReceived(
+        _verifySignalReceived(
             signalService, signalForFailedMessage(msgHash), _message.destChainId, _proof
         );
 
@@ -242,8 +242,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         _checkStatus(msgHash, Status.NEW);
 
         stats.proofSize = uint32(_proof.length);
-        stats.numCacheOps =
-            _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
+        _verifySignalReceived(signalService, msgHash, _message.srcChainId, _proof);
 
         uint256 refundAmount;
         if (_unableToInvokeMessageCall(_message, signalService)) {
@@ -509,8 +508,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
     /// @param _proof The merkle inclusion proof.
-    /// @return numCacheOps_ Num of cached items
-    function _proveSignalReceived(
+    function _verifySignalReceived(
         ISignalService _signalService,
         bytes32 _signal,
         uint64 _chainId,
@@ -518,13 +516,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     )
         private
         view
-        returns (uint32 numCacheOps_)
     {
         try _signalService.verifySignalReceived(
             _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
-        ) {
-            numCacheOps_ = 0; // No caching anymore
-        } catch {
+        ) { } catch {
             revert B_SIGNAL_NOT_RECEIVED();
         }
     }
@@ -536,7 +531,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @notice Checks if the signal was received.
-    /// This is the 'readonly' version of _proveSignalReceived.
+    /// This is the 'readonly' version of _verifySignalReceived.
     /// @param _signalService The signal service address.
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
