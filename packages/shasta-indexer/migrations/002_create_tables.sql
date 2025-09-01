@@ -65,7 +65,7 @@ CREATE TABLE proposed (
 
 -- ============================================================================
 -- PROVED EVENT TABLE
--- Stores both raw event and decoded ProvedEventPayload data including bond instructions
+-- Stores both raw event and decoded ProvedEventPayload data
 -- ============================================================================
 CREATE TABLE proved (
     id BIGSERIAL PRIMARY KEY,
@@ -94,10 +94,6 @@ CREATE TABLE proved (
     transition_hash CHAR(66) NOT NULL,
     end_block_mini_header_hash CHAR(66) NOT NULL,
 
-    -- Bond instructions (stored as JSONB array for flexibility)
-    bond_instructions JSONB NOT NULL DEFAULT '[]'::JSONB,
-    bond_instruction_count INTEGER NOT NULL DEFAULT 0,
-
     -- Transaction metadata
     contract_address VARCHAR(42) NOT NULL,
     tx_hash CHAR(66) NOT NULL,
@@ -122,18 +118,44 @@ CREATE TABLE proved (
 );
 
 -- ============================================================================
+-- PROVED BOND INSTRUCTIONS TABLE
+-- Stores individual bond instructions from Proved events
+-- ============================================================================
+CREATE TABLE proved_bond_instructions (
+    id BIGSERIAL PRIMARY KEY,
+
+    -- Reference to the proved event
+    proved_id BIGINT NOT NULL REFERENCES proved(id) ON DELETE CASCADE,
+
+    -- BondInstruction fields
+    proposal_id BIGINT NOT NULL, -- uint48
+    bond_type SMALLINT NOT NULL, -- BondType enum (uint8)
+    bond_type_name VARCHAR(20) NOT NULL, -- Human-readable bond type
+    payer VARCHAR(42) NOT NULL, -- address
+    receiver VARCHAR(42) NOT NULL, -- address
+
+    -- Transaction metadata (for convenience)
+    tx_hash CHAR(66) NOT NULL,
+    block_number BIGINT NOT NULL,
+
+    -- Constraints
+    CONSTRAINT check_proved_bond_type CHECK (bond_type >= 0 AND bond_type <= 255)
+);
+
+-- ============================================================================
 -- BOND INSTRUCTED EVENT TABLE
--- Stores both raw event and decoded bond instructions
+-- Stores individual bond instructions from BondInstructed events
+-- Each row represents one BondInstruction
 -- ============================================================================
 CREATE TABLE bond_instructed (
     id BIGSERIAL PRIMARY KEY,
 
-    -- Raw event data (contains array of BondInstruction)
-    data BYTEA NOT NULL,
-
-    -- Bond instructions (stored as JSONB array for flexibility)
-    bond_instructions JSONB NOT NULL DEFAULT '[]'::JSONB,
-    instruction_count INTEGER NOT NULL DEFAULT 0,
+    -- BondInstruction fields
+    proposal_id BIGINT NOT NULL, -- uint48
+    bond_type SMALLINT NOT NULL, -- BondType enum (uint8)
+    bond_type_name VARCHAR(20) NOT NULL, -- Human-readable bond type
+    payer VARCHAR(42) NOT NULL, -- address
+    receiver VARCHAR(42) NOT NULL, -- address
 
     -- Transaction metadata
     contract_address VARCHAR(42) NOT NULL,
@@ -161,45 +183,21 @@ CREATE INDEX idx_proposed_proposal_id ON proposed(proposal_id);
 CREATE INDEX idx_proposed_proposer ON proposed(proposer);
 CREATE INDEX idx_proposed_block_number ON proposed(block_number);
 CREATE INDEX idx_proposed_tx_hash ON proposed(tx_hash);
-CREATE INDEX idx_proposed_contract_address ON proposed(contract_address);
 CREATE INDEX idx_proposed_core_state_hash ON proposed(core_state_hash);
-CREATE INDEX idx_proposed_derivation_hash ON proposed(derivation_hash);
-CREATE INDEX idx_proposed_is_forced_inclusion ON proposed(is_forced_inclusion);
-CREATE INDEX idx_proposed_processed_at ON proposed(processed_at);
 
 -- Indexes for proved table
 CREATE INDEX idx_proved_proposal_id ON proved(proposal_id);
 CREATE INDEX idx_proved_block_number ON proved(block_number);
 CREATE INDEX idx_proved_tx_hash ON proved(tx_hash);
-CREATE INDEX idx_proved_contract_address ON proved(contract_address);
-CREATE INDEX idx_proved_designated_prover ON proved(designated_prover);
-CREATE INDEX idx_proved_actual_prover ON proved(actual_prover);
 CREATE INDEX idx_proved_transition_hash ON proved(transition_hash);
-CREATE INDEX idx_proved_is_designated_prover ON proved(is_designated_prover);
-CREATE INDEX idx_proved_processed_at ON proved(processed_at);
--- GIN index for JSONB bond_instructions
-CREATE INDEX idx_proved_bond_instructions ON proved USING GIN (bond_instructions);
+
+-- Indexes for proved_bond_instructions table
+CREATE INDEX idx_proved_bond_instructions_proved_id ON proved_bond_instructions(proved_id);
+CREATE INDEX idx_proved_bond_instructions_proposal_id ON proved_bond_instructions(proposal_id);
+CREATE INDEX idx_proved_bond_instructions_block_numbe ON proved_bond_instructions(block_number);
+CREATE INDEX idx_proved_bond_instructions_tx_hash ON proved_bond_instructions(tx_hash);
 
 -- Indexes for bond_instructed table
+CREATE INDEX idx_bond_instructed_proposal_id ON bond_instructed(proposal_id);
 CREATE INDEX idx_bond_instructed_block_number ON bond_instructed(block_number);
 CREATE INDEX idx_bond_instructed_tx_hash ON bond_instructed(tx_hash);
-CREATE INDEX idx_bond_instructed_contract_address ON bond_instructed(contract_address);
--- GIN index for JSONB bond_instructions
-CREATE INDEX idx_bond_instructed_bond_instructions ON bond_instructed USING GIN (bond_instructions);
-
--- ============================================================================
--- COMMENTS
--- ============================================================================
-COMMENT ON TABLE proposed IS 'Stores Proposed events from ShastaInbox contract with decoded ProposedEventPayload data';
-COMMENT ON TABLE proved IS 'Stores Proved events from ShastaInbox contract with decoded ProvedEventPayload data including bond instructions';
-COMMENT ON TABLE bond_instructed IS 'Stores BondInstructed events from ShastaInbox contract with decoded bond instructions';
-
-COMMENT ON COLUMN proposed.proposal_id IS 'The proposal ID (uint48 from Proposal.id)';
-COMMENT ON COLUMN proposed.blob_hashes IS 'Array of blob hashes from BlobSlice.blobHashes';
-COMMENT ON COLUMN proposed.is_forced_inclusion IS 'Whether this is a forced inclusion from Derivation.isForcedInclusion';
-
-COMMENT ON COLUMN proved.span IS 'The span value from TransitionRecord.span';
-COMMENT ON COLUMN proved.is_designated_prover IS 'True if the designated prover and actual prover are the same';
-COMMENT ON COLUMN proved.bond_instructions IS 'JSONB array of bond instructions with structure: {proposal_id, bond_type, bond_type_name, payer, receiver}';
-
-COMMENT ON COLUMN bond_instructed.bond_instructions IS 'JSONB array of bond instructions with structure: {proposal_id, bond_type, bond_type_name, payer, receiver}';

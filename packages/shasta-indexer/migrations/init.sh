@@ -13,7 +13,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}Initializing Shasta Indexer Database${NC}"
+echo -e "${GREEN}Initializing Indexer Database${NC}"
 echo "=================================="
 
 # Function to execute SQL file
@@ -58,22 +58,8 @@ echo -e "${GREEN}Database connection successful${NC}"
 
 # Execute migrations in order
 execute_sql "001_create_schema.sql" "Creating schema"
-execute_sql "002_create_tables.sql" "Creating tables with custom fields"
-execute_sql "003_create_views.sql" "Creating views and materialized views"
+execute_sql "002_create_tables.sql" "Creating tables"
 
 echo ""
 echo -e "${GREEN}Database initialization completed successfully!${NC}"
 echo ""
-echo "Tables created:"
-echo "  - indexer_shasta_inbox.bond_instructed"
-echo "  - indexer_shasta_inbox.proposed"
-echo "  - indexer_shasta_inbox.proved"
-echo ""
-echo "Views created:"
-echo "  - indexer_shasta_inbox.proposal_summary"
-echo "  - indexer_shasta_inbox.recent_activity"
-echo "  - indexer_shasta_inbox.verification_stats"
-echo "  - indexer_shasta_inbox.performance_metrics (materialized)"
-echo ""
-echo "To refresh the materialized view, run:"
-echo "  psql -d $DB_NAME -c 'REFRESH MATERIALIZED VIEW indexer_shasta_inbox.performance_metrics;'"
