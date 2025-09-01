@@ -13,7 +13,6 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
-	chainiterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -50,7 +49,7 @@ func (d *BlobFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBatchM
 	// Fetch the L1 block sidecars.
 	sidecars, err := d.dataSource.GetBlobs(ctx, l1Header.Time, meta.GetBlobHashes())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get blobs, errs: %w and %w", err, chainiterator.ErrEOF)
+		return nil, fmt.Errorf("failed to get blobs, errs: %w", err)
 	}
 
 	log.Info("Fetch sidecars", "blockNumber", blockNum, "sidecars", len(sidecars))

@@ -180,7 +180,10 @@ func (b *BalanceMonitor) getTokenBalance(ctx context.Context, client *ethclient.
 
 	balance, ok := result[0].(*big.Int)
 	if !ok {
-		return nil, fmt.Errorf("unexpected type for balance result")
+		if val, ok := result[0].(big.Int); ok {
+			return &val, nil
+		}
+		return nil, fmt.Errorf("unexpected type for balance result: %T", result[0])
 	}
 
 	return balance, nil

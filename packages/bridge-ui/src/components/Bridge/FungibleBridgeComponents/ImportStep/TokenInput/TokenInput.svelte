@@ -205,7 +205,7 @@
 
   $: validAmount = $enteredAmount > BigInt(0) && !exceeds;
 
-  $: exceeds = false;
+  let exceeds = false;
   $: if (exceeds) {
     exceedsQuota = true;
   } else {

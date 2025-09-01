@@ -204,7 +204,7 @@ func (b *Bridge) submitBridgeTx(ctx context.Context) error {
 
 	err = b.setLatestNonce(ctx, auth)
 	if err != nil {
-		return errors.New("b.setLatestNonce")
+		return errors.Wrap(err, "b.setLatestNonce")
 	}
 
 	processingFee := big.NewInt(10000)

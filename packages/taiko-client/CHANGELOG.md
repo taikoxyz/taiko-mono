@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.10.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.10.0...taiko-alethia-client-v1.10.1) (2025-08-12)
+
+
+### Bug Fixes
+
+* **taiko-client:** add extended retry for missing trie node sync errors ([#19874](https://github.com/taikoxyz/taiko-mono/issues/19874)) ([65c00fd](https://github.com/taikoxyz/taiko-mono/commit/65c00fd2c2d78a6dc317c1fcf1911513d8d2250e))
+
+
+### Chores
+
+* **taiko-client:** lower request sync margin ([#19913](https://github.com/taikoxyz/taiko-mono/issues/19913)) ([48ffe13](https://github.com/taikoxyz/taiko-mono/commit/48ffe13ed43fc59cdc6850f7374f5e779a6ed6f7))
+
+## [1.10.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.9.0...taiko-alethia-client-v1.10.0) (2025-08-05)
+
+
+### Features
+
+* **taiko-client:** add support for external signer from optimism module ([#19851](https://github.com/taikoxyz/taiko-mono/issues/19851)) ([0227770](https://github.com/taikoxyz/taiko-mono/commit/0227770f8baf256fd362b4393ab85da623e784f2))
+
+
+### Bug Fixes
+
+* **taiko-client:** fix the returned err about blob not found ([#19869](https://github.com/taikoxyz/taiko-mono/issues/19869)) ([45336b0](https://github.com/taikoxyz/taiko-mono/commit/45336b037b4d7f52c1ae2cd44139011587393631))
+
 ## [1.9.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.8.0...taiko-alethia-client-v1.9.0) (2025-07-30)
 
 

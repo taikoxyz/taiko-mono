@@ -10,7 +10,7 @@ Taiko Alethia nodes are minimally modified Ethereum **execution clients** that a
 
 This architecture mirrors Ethereum’s execution/consensus split but **replaces the consensus layer** with Taiko’s own `taiko-client`. The `taiko-client` drives `taiko-geth` over the [Engine API](https://github.com/ethereum/execution-apis/tree/main/src/engine), allowing **modular execution client compatibility**.
 
-![Taiko Alethia nodes diagram](~/assets/content/docs/taiko-alethia-protocol/taiko-nodes.png)
+![Taiko Alethia nodes diagram](../../../../assets/content/docs/taiko-alethia-protocol/taiko-nodes.png)
 
 ## Execution Layer: taiko-geth
 
@@ -125,7 +125,7 @@ For a complete diff, check the [Geth fork comparison](https://geth.taiko.xyz).
 
 ### JSON-RPC API
 
-Supports all **standard Ethereum execution APIs**. See [Ethereum Execution API Docs](https://ethereum.github.io/execution-apis/docs/reference/json-rpc-api/).
+Supports all **standard Ethereum execution APIs**. See [Ethereum Execution API Docs](https://ethereum.org/en/developers/docs/apis/json-rpc).
 
 ### Engine API
 

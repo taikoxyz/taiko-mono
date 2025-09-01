@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.30.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.6...docs-site-v1.30.0) (2025-08-13)
+
+
+### Features
+
+* **docs-site:** update docs for based preconfs, node running, removal of proverset ([#19928](https://github.com/taikoxyz/taiko-mono/issues/19928)) ([1a4b568](https://github.com/taikoxyz/taiko-mono/commit/1a4b5680e9a78f9e4feb3ffb686a8d8aab2e16e0))
+
+
+### Bug Fixes
+
+* **docs-site:** fix astro.config.ts ([#19929](https://github.com/taikoxyz/taiko-mono/issues/19929)) ([dd854a7](https://github.com/taikoxyz/taiko-mono/commit/dd854a79b77f81bcc1c38b5a26273e4fd6fe3937))
+
+## [1.29.6](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.5...docs-site-v1.29.6) (2025-08-06)
+
+
+### Bug Fixes
+
+* **docs-site:** minor identifier mismatch ([#19876](https://github.com/taikoxyz/taiko-mono/issues/19876)) ([288ab83](https://github.com/taikoxyz/taiko-mono/commit/288ab8368601ca2c5fafbd8b6e73f45092e61ff7))
+
 ## [1.29.5](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.29.4...docs-site-v1.29.5) (2025-07-31)
 
 
