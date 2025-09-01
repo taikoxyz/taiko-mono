@@ -60,4 +60,5 @@ type BlockManifest struct {
 type ProposalManifest struct {
 	ProverAuthBytes []byte          `json:"proverAuthBytes"`
 	Blocks          []BlockManifest `json:"blocks"`
+	IsDefault       bool            `json:"isDefault"`
 }

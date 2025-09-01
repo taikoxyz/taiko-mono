@@ -87,7 +87,7 @@ func (d *BlobFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBatchM
 	return sliceTxList(meta.GetBatchID(), b, meta.GetTxListOffset(), meta.GetTxListSize())
 }
 
-func (d *BlobFetcher) FetchShasta(ctx context.Context, meta metadata.TaikoBatchMetaDataShasta) ([]byte, error) {
+func (d *BlobFetcher) FetchShasta(ctx context.Context, meta metadata.TaikoProposalMetaDataShasta) ([]byte, error) {
 	blobHashesLength := len(meta.GetDerivation().BlobSlice.BlobHashes)
 	if blobHashesLength == 0 ||
 		blobHashesLength > manifest.ProposalMaxBlobs ||

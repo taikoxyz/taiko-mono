@@ -182,8 +182,9 @@ func (s *Syncer) processShastaProposal(
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) error {
 	// 1. check reorg
-	// 2. decode blob data
-	// 3. validate Proposal-level and Block-level Metadata
+	// 2. decode blob data and check Proposal-level data
+
+	// 3. validate Block-level Metadata
 	// 4. Insert L2 blocks
 }
 
@@ -378,6 +379,6 @@ func (s *Syncer) checkReorg(ctx context.Context, batchID *big.Int) (*rpc.ReorgCh
 }
 
 // BlocksInserterPacaya returns the Pacaya blocks inserter.
-func (s *Syncer) BlocksInserterPacaya() *blocksInserter.BlocksInserterPacaya {
-	return s.blocksInserterPacaya.(*blocksInserter.BlocksInserterPacaya)
+func (s *Syncer) BlocksInserterPacaya() *blocksInserter.Pacaya {
+	return s.blocksInserterPacaya.(*blocksInserter.Pacaya)
 }

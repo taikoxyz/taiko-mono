@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
@@ -20,6 +21,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -494,6 +496,98 @@ func assembleCreateExecutionPayloadMetaPacaya(
 	}, anchorTx, nil
 }
 
+// assembleCreateExecutionPayloadMetaShasta assembles the metadata for creating an execution payload,
+// and the `ShastaAnchor.updateState` transaction for the given Shasta block.
+func assembleCreateExecutionPayloadMetaShasta(
+	ctx context.Context,
+	rpc *rpc.Client,
+	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
+	metadata metadata.TaikoProposalMetaData,
+	proposalManifest manifest.ProposalManifest,
+	parent *types.Header,
+	blockIndex int,
+	bondInstructions []shastaBindings.LibBondsBondInstruction,
+) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
+	if !metadata.IsShasta() {
+		return nil, nil, fmt.Errorf("metadata is not for Shasta fork")
+	}
+	if blockIndex >= len(proposalManifest.Blocks) {
+		return nil, nil, fmt.Errorf("block index %d out of bounds", blockIndex)
+	}
+
+	var (
+		meta      = metadata.Shasta()
+		blockID   = new(big.Int).Add(parent.Number, common.Big1)
+		blockInfo = proposalManifest.Blocks[blockIndex]
+	)
+	difficulty, err := encoding.CalculateShastaDifficulty(parent.Difficulty, blockID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
+	}
+	timestamp := blockInfo.Timestamp
+
+	// Calculate base fee
+	// TODO: Confirm base fee calculation for Shasta
+	baseFee := parent.BaseFee
+	if baseFee == nil {
+		baseFee = new(big.Int).SetUint64(1000000000) // Default 1 gwei
+	}
+
+	// Assemble a ShastaAnchor.updateState transaction
+	anchorBlockID := new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
+	anchorBlockHeader, err := rpc.L1.HeaderByNumber(ctx, anchorBlockID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch anchor block: %w", err)
+	}
+
+	anchorTx, err := anchorConstructor.AssembleUpdateStateTx(
+		ctx,
+		parent,
+		meta.GetProposal().Id,
+		meta.GetProposal().Proposer,
+		proposalManifest.ProverAuthBytes,
+		meta.GetCoreState().BondInstructionsHash,
+		bondInstructions,
+		uint16(blockIndex),
+		anchorBlockID,
+		anchorBlockHeader.Hash(),
+		anchorBlockHeader.Root,
+		blockID,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.updateState transaction: %w", err)
+	}
+
+	// TODO: construct extraData
+
+	// Convert SignedTransactions to types.Transactions
+	txs, err := convertSignedTransactionsToTypes(blockInfo.Transactions)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to convert transactions: %w", err)
+	}
+
+	return &createExecutionPayloadsMetaData{
+		BlockID:               blockID,
+		ExtraData:             []byte{}, // TODO: construct extraData
+		SuggestedFeeRecipient: blockInfo.Coinbase,
+		GasLimit:              blockInfo.GasLimit,
+		Difficulty:            common.BytesToHash(difficulty),
+		Timestamp:             timestamp,
+		ParentHash:            parent.Hash(),
+		// TODO: add more fields to L1Origin
+		L1Origin: &rawdb.L1Origin{
+			BlockID:       blockID,
+			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
+			L1BlockHeight: meta.GetRawBlockHeight(),
+			L1BlockHash:   meta.GetRawBlockHash(),
+		},
+		Txs:         txs,
+		Withdrawals: make([]*types.Withdrawal, 0),
+		// TODO: to be confirmed
+		BaseFee: baseFee,
+	}, anchorTx, nil
+}
+
 // updateL1OriginForBatch updates the L1 origin for the given batch of blocks.
 func updateL1OriginForBatch(
 	ctx context.Context,
@@ -553,4 +647,57 @@ func updateL1OriginForBatch(
 		})
 	}
 	return g.Wait()
+}
+
+// convertSignedTransactionsToTypes converts a slice of SignedTransaction to types.Transactions
+func convertSignedTransactionsToTypes(signedTxs []manifest.SignedTransaction) (types.Transactions, error) {
+	txs := make(types.Transactions, 0, len(signedTxs))
+	for _, stx := range signedTxs {
+		tx, err := convertSignedTransactionToType(&stx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert signed transaction: %w", err)
+		}
+		txs = append(txs, tx)
+	}
+	return txs, nil
+}
+
+// convertSignedTransactionToType converts a single SignedTransaction to types.Transaction
+func convertSignedTransactionToType(stx *manifest.SignedTransaction) (*types.Transaction, error) {
+	// Handle EIP-1559 transaction (type 2)
+	if stx.TxType == 2 {
+		// Create access list from bytes
+		var accessList types.AccessList
+		if len(stx.AccessList) > 0 {
+			if err := rlp.DecodeBytes(stx.AccessList, &accessList); err != nil {
+				return nil, fmt.Errorf("failed to decode access list: %w", err)
+			}
+		}
+
+		// Create the dynamic fee transaction
+		tx := &types.DynamicFeeTx{
+			ChainID:    new(big.Int).SetUint64(stx.ChainId),
+			Nonce:      stx.Nonce,
+			GasTipCap:  stx.MaxPriorityFeePerGas,
+			GasFeeCap:  stx.MaxFeePerGas,
+			Gas:        stx.GasLimit,
+			To:         &stx.To,
+			Value:      stx.Value,
+			Data:       stx.Data,
+			AccessList: accessList,
+		}
+
+		// Create the transaction with signature
+		signer := types.NewLondonSigner(new(big.Int).SetUint64(stx.ChainId))
+		
+		// Calculate v value for EIP-1559
+		v := new(big.Int).SetUint64(uint64(stx.V))
+		r := new(big.Int).SetBytes(stx.R[:])
+		s := new(big.Int).SetBytes(stx.S[:])
+
+		return types.NewTx(tx).WithSignature(signer, append(append(r.Bytes(), s.Bytes()...), byte(v.Uint64())))
+	}
+
+	// Handle legacy transaction (type 0) or other types
+	return nil, fmt.Errorf("unsupported transaction type: %d", stx.TxType)
 }

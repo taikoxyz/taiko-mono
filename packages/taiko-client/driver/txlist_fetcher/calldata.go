@@ -50,6 +50,6 @@ func (d *CalldataFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBa
 	return nil, fmt.Errorf("calldata for batch %d not found", meta.GetBatchID())
 }
 
-func (d *CalldataFetcher) FetchShasta(_ context.Context, _ metadata.TaikoBatchMetaDataShasta) ([]byte, error) {
+func (d *CalldataFetcher) FetchShasta(_ context.Context, _ metadata.TaikoProposalMetaDataShasta) ([]byte, error) {
 	return nil, errors.New("calldata is NOT supported from Shasta fork")
 }

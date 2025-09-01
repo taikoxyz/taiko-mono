@@ -40,7 +40,7 @@ func (m *TaikoDataBlockMetadataPacaya) IsPacaya() bool {
 }
 
 // Shasta implements TaikoProposalMetaData interface.
-func (m *TaikoDataBlockMetadataPacaya) Shasta() TaikoBatchMetaDataShasta {
+func (m *TaikoDataBlockMetadataPacaya) Shasta() TaikoProposalMetaDataShasta {
 	return nil
 }
 

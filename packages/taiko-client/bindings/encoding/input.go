@@ -83,6 +83,10 @@ var (
 		{Name: "TAIKO_DIFFICULTY", Type: stringType},
 		{Name: "block.number", Type: uint256Type},
 	}
+	ShastaDifficultyInputArgs = abi.Arguments{
+		{Name: "parent.metadata.difficulty", Type: uint256Type},
+		{Name: "block.number", Type: uint256Type},
+	}
 	batchParamsWithForcedInclusionArgs = abi.Arguments{
 		{Name: "bytesX", Type: bytesType},
 		{Name: "bytesY", Type: bytesType},
@@ -275,6 +279,16 @@ func CalculatePacayaDifficulty(blockNum *big.Int) ([]byte, error) {
 	packed, err := PacayaDifficultyInputArgs.Pack("TAIKO_DIFFICULTY", blockNum)
 	if err != nil {
 		return nil, fmt.Errorf("failed to abi.encode Pacaya difficulty, %w", err)
+	}
+
+	return crypto.Keccak256(packed), nil
+}
+
+// CalculateShastaDifficulty calculates the difficulty for the given Shasta block.
+func CalculateShastaDifficulty(parentDifficulty *big.Int, blockNum *big.Int) ([]byte, error) {
+	packed, err := ShastaDifficultyInputArgs.Pack(parentDifficulty, blockNum)
+	if err != nil {
+		return nil, fmt.Errorf("failed to abi.encode Shasta difficulty, %w", err)
 	}
 
 	return crypto.Keccak256(packed), nil

@@ -183,14 +183,14 @@ func assembleBatchProposedIteratorCallback(
 
 			if lastBatchID != 0 && event.Meta.BatchId != lastBatchID+1 {
 				log.Warn(
-					"BatchProposed event is not continuous, rescan the L1 chain",
+					"Proposed event is not continuous, rescan the L1 chain",
 					"fromL1Block", start.Number,
 					"toL1Block", endHeight,
 					"lastScannedBatchID", lastBatchID,
 					"currentScannedBatchID", event.Meta.BatchId,
 				)
 				return fmt.Errorf(
-					"BatchProposed event is not continuous, lastScannedBatchID: %d, currentScannedBatchID: %d",
+					"Proposed event is not continuous, lastScannedBatchID: %d, currentScannedBatchID: %d",
 					lastBatchID, event.Meta.BatchId,
 				)
 			}

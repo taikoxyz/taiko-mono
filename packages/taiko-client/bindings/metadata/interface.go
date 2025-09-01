@@ -13,7 +13,7 @@ import (
 type TaikoProposalMetaData interface {
 	Pacaya() TaikoBatchMetaDataPacaya
 	IsPacaya() bool
-	Shasta() TaikoBatchMetaDataShasta
+	Shasta() TaikoProposalMetaDataShasta
 	IsShasta() bool
 	GetRawBlockHeight() *big.Int
 	GetRawBlockHash() common.Hash
@@ -50,11 +50,12 @@ type TaikoBatchMetaDataPacaya interface {
 	InnerMetadata() *pacayaBindings.ITaikoInboxBatchMetadata
 }
 
-type TaikoBatchMetaDataShasta interface {
+type TaikoProposalMetaDataShasta interface {
 	GetProposal() shastaBindings.IInboxProposal
 	GetDerivation() shastaBindings.IInboxDerivation
 	GetCoreState() shastaBindings.IInboxCoreState
 	GetBlobHashes() []common.Hash
 	GetBlobTimestamp() uint64
 	GetRawBlockHeight() *big.Int
+	GetRawBlockHash() common.Hash
 }

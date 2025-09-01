@@ -37,6 +37,7 @@ type PacayaClients struct {
 // ShastaClients contains all smart contract clients for ShastaClients fork.
 type ShastaClients struct {
 	TaikoInbox *shastaBindings.ShastaInboxClient
+	Anchor     *shastaBindings.ShastaAnchor
 	//TODO: read this config onchain
 	//ForkHeights *shastaBindings.ITaikoInboxForkHeights
 }
