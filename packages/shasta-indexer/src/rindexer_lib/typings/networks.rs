@@ -47,14 +47,17 @@ async fn create_shadow_client(
 
 static LOCAL_PROVIDER: OnceCell<Arc<JsonRpcCachedProvider>> = OnceCell::const_new();
 
+static HOLESKY_PROVIDER: OnceCell<Arc<JsonRpcCachedProvider>> = OnceCell::const_new();
+
+static ETHEREUM_PROVIDER: OnceCell<Arc<JsonRpcCachedProvider>> = OnceCell::const_new();
+
 pub async fn get_local_provider_cache() -> Arc<JsonRpcCachedProvider> {
     LOCAL_PROVIDER
         .get_or_init(|| async {
             let chain_state_notification = None;
 
             create_client(
-                &public_read_env_value("http://127.0.0.1:8545/")
-                    .unwrap_or("http://127.0.0.1:8545/".to_string()),
+                &public_read_env_value("LOCAL_RPC").unwrap_or("LOCAL_RPC".to_string()),
                 31337,
                 None,
                 None,
@@ -74,9 +77,69 @@ pub async fn get_local_provider() -> Arc<RindexerProvider> {
     get_local_provider_cache().await.get_inner_provider()
 }
 
+pub async fn get_holesky_provider_cache() -> Arc<JsonRpcCachedProvider> {
+    HOLESKY_PROVIDER
+        .get_or_init(|| async {
+            let chain_state_notification = None;
+
+            create_client(
+                &public_read_env_value("HOLESKY_RPC").unwrap_or("HOLESKY_RPC".to_string()),
+                17000,
+                None,
+                None,
+                None,
+                HeaderMap::new(),
+                None,
+                chain_state_notification,
+            )
+            .await
+            .expect("Error creating provider")
+        })
+        .await
+        .clone()
+}
+
+pub async fn get_holesky_provider() -> Arc<RindexerProvider> {
+    get_holesky_provider_cache().await.get_inner_provider()
+}
+
+pub async fn get_ethereum_provider_cache() -> Arc<JsonRpcCachedProvider> {
+    ETHEREUM_PROVIDER
+        .get_or_init(|| async {
+            let chain_state_notification = None;
+
+            create_client(
+                &public_read_env_value("ETHEREUM_RPC").unwrap_or("ETHEREUM_RPC".to_string()),
+                1,
+                None,
+                None,
+                None,
+                HeaderMap::new(),
+                None,
+                chain_state_notification,
+            )
+            .await
+            .expect("Error creating provider")
+        })
+        .await
+        .clone()
+}
+
+pub async fn get_ethereum_provider() -> Arc<RindexerProvider> {
+    get_ethereum_provider_cache().await.get_inner_provider()
+}
+
 pub async fn get_provider_cache_for_network(network: &str) -> Arc<JsonRpcCachedProvider> {
     if network == "local" {
         return get_local_provider_cache().await;
+    }
+
+    if network == "holesky" {
+        return get_holesky_provider_cache().await;
+    }
+
+    if network == "ethereum" {
+        return get_ethereum_provider_cache().await;
     }
     panic!("Network not supported")
 }

@@ -534,10 +534,8 @@ where
 
 pub async fn shasta_inbox_contract(
     network: &str,
+    address: Address,
 ) -> RindexerShastaInboxGenInstance<Arc<RindexerProvider>, AnyNetwork> {
-    let address: Address = "0xae78736cd615f374d3085123a210448e74fc6393"
-        .parse()
-        .expect("Invalid address");
     RindexerShastaInboxGen::new(
         address,
         get_provider_cache_for_network(network)
@@ -550,6 +548,22 @@ pub async fn decoder_contract(
     network: &str,
 ) -> RindexerShastaInboxGenInstance<Arc<RindexerProvider>, AnyNetwork> {
     if network == "local" {
+        RindexerShastaInboxGen::new(
+            // do not care about address here its decoding makes it easier to handle ValueOrArray
+            Address::ZERO,
+            get_provider_cache_for_network(network)
+                .await
+                .get_inner_provider(),
+        )
+    } else if network == "holesky" {
+        RindexerShastaInboxGen::new(
+            // do not care about address here its decoding makes it easier to handle ValueOrArray
+            Address::ZERO,
+            get_provider_cache_for_network(network)
+                .await
+                .get_inner_provider(),
+        )
+    } else if network == "ethereum" {
         RindexerShastaInboxGen::new(
             // do not care about address here its decoding makes it easier to handle ValueOrArray
             Address::ZERO,
