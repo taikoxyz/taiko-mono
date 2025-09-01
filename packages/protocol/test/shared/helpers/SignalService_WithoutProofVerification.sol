@@ -22,4 +22,19 @@ contract SignalService_WithoutProofVerification is SignalService {
         // Skip verifying the merkle proof entirely
         return bytes32(uint256(789));
     }
+
+    /// @notice Override to skip all signal verification for testing
+    function verifySignalReceived(
+        uint64,  /*_chainId*/
+        address, /*_app*/
+        bytes32, /*_signal*/
+        bytes calldata /*_proof*/
+    )
+        external
+        pure
+        override
+    {
+        // Skip all verification for testing - just return without reverting
+        return;
+    }
 }

@@ -74,7 +74,7 @@ contract TestBridge1 is CommonTest {
         });
         // Mocking proof - but obviously it needs to be created in prod
         // corresponding to the message
-        bytes memory proof = hex"00";
+        bytes memory proof = "";
 
         bytes32 msgHash = tBridge.hashMessage(message);
 
@@ -110,7 +110,7 @@ contract TestBridge1 is CommonTest {
         });
         // Mocking proof - but obviously it needs to be created in prod
         // corresponding to the message
-        bytes memory proof = hex"00";
+        bytes memory proof = "";
 
         bytes32 msgHash = tBridge.hashMessage(message);
 
@@ -146,7 +146,7 @@ contract TestBridge1 is CommonTest {
         });
         // Mocking proof - but obviously it needs to be created in prod
         // corresponding to the message
-        bytes memory proof = hex"00";
+        bytes memory proof = "";
 
         bytes32 msgHash = tBridge.hashMessage(message);
 
@@ -346,7 +346,7 @@ contract TestBridge1 is CommonTest {
             data: ""
         });
 
-        bytes memory proof = hex"00";
+        bytes memory proof = "";
         bytes32 msgHash = tBridge.hashMessage(message);
         vm.chainId(taikoChainId);
         vm.prank(Bob);
@@ -374,7 +374,7 @@ contract TestBridge1 is CommonTest {
             data: ""
         });
 
-        bytes memory proof = hex"00";
+        bytes memory proof = "";
         bytes32 msgHash = tBridge.hashMessage(message);
         vm.chainId(taikoChainId);
         vm.prank(Bob);

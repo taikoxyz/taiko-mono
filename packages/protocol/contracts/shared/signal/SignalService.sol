@@ -78,6 +78,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
     )
         external
         view
+        virtual
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
     }
