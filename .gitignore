@@ -43,6 +43,7 @@ jspm_packages/
 
 # TypeScript v1 declaration files
 typings/
+!packages/shasta-indexer/src/rindexer_lib/typings
 
 # TypeScript cache
 *.tsbuildinfo

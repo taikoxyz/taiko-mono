@@ -1,0 +1,11 @@
+
+[package]
+name = "shasta_indexer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rindexer = { git = "https://github.com/joshstevens19/rindexer", branch = "master" }
+tokio = { version = "1", features = ["full"] }
+alloy = { version = "1.0.27", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }

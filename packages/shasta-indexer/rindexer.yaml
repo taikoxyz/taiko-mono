@@ -1,0 +1,26 @@
+name: indexer
+description: An event indexer implementation for Shasta protocol
+repository: https://github.com/taikoxyz/taiko-mono
+project_type: rust
+config: {}
+timestamps: null
+networks:
+  - name: local
+    chain_id: 31337
+    rpc: http://127.0.0.1:8545/
+storage:
+  postgres:
+    enabled: true
+native_transfers:
+  enabled: false
+contracts:
+  - name: ShastaInboxProposal
+    details:
+      - network: local
+        address: 0xae78736cd615f374d3085123a210448e74fc6393
+        start_block: "0"
+    abi: ./abis/ShastaInbox.json
+    include_events:
+      - name: Proposed
+      - name: Proved
+      - name: BondInstructed
