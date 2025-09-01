@@ -6,24 +6,12 @@ import "src/shared/signal/SignalService.sol";
 contract SignalService_WithoutProofVerification is SignalService {
     constructor(address _resolver) SignalService(_resolver) { }
 
-    function proveSignalReceived(
-        uint64, /*srcChainId*/
-        address, /*app*/
-        bytes32, /*signal*/
-        bytes calldata /*proof*/
-    )
-        public
-        pure
-        override
-        returns (uint256)
-    { }
-
-    function _verifyHopProof(
+    function _verifyProof(
         uint64, /*chainId*/
         address, /*app*/
         bytes32, /*signal*/
         bytes32, /*value*/
-        HopProof memory, /*hop*/
+        Proof memory, /*hop*/
         address /*relay*/
     )
         internal

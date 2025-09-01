@@ -517,12 +517,13 @@ contract Bridge is EssentialResolverContract, IBridge {
         bytes calldata _proof
     )
         private
+        view
         returns (uint32 numCacheOps_)
     {
-        try _signalService.proveSignalReceived(
+        try _signalService.verifySignalReceived(
             _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
-        ) returns (uint256 numCacheOps) {
-            numCacheOps_ = uint32(numCacheOps);
+        ) { 
+            numCacheOps_ = 0; // No caching anymore
         } catch {
             revert B_SIGNAL_NOT_RECEIVED();
         }
