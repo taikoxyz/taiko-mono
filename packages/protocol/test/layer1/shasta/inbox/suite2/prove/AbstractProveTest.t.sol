@@ -314,6 +314,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             id: 999,
             proposer: Alice,
             timestamp: uint48(block.timestamp),
+            lookaheadSlotTimestamp: uint48(block.timestamp + 12),
             coreStateHash: keccak256("fake"),
             derivationHash: keccak256("fake")
         });

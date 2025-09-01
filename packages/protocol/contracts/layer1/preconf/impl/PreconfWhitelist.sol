@@ -155,12 +155,17 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     }
 
     /// @inheritdoc IProposerChecker
-    function checkProposer(address _proposer) external view {
+    function checkProposer(address _proposer)
+        external
+        view
+        returns (uint48 lookaheadSlotTimestamp_)
+    {
         address operator = getOperatorForCurrentEpoch();
         if (operator == address(0)) {
             operator = fallbackPreconfer;
         }
         require(operator == _proposer, InvalidProposer());
+        //TODO: Return the timestamp of the last slot for the current epoch
     }
 
     /// @inheritdoc IPreconfWhitelist
