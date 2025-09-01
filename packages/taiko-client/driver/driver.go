@@ -426,7 +426,7 @@ func (d *Driver) cacheLookaheadLoop() {
 			slotsLeftInEpoch = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
 		)
 
-		// Only read and update handover config at epoch transitions to avoide race conditions
+		// Only read and update handover config at epoch transitions to avoid race conditions
 		// where different nodes might read different configs during mid-epoch upgrades
 		if currentEpoch > d.lastConfigReloadEpoch {
 			routerConfig, err := d.rpc.GetPreconfRouterConfig(&bind.CallOpts{Context: d.ctx})
