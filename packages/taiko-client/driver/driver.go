@@ -431,11 +431,13 @@ func (d *Driver) cacheLookaheadLoop() {
 		if currentEpoch > d.lastConfigReloadEpoch {
 			routerConfig, err := d.rpc.GetPreconfRouterConfig(&bind.CallOpts{Context: d.ctx})
 			if err != nil {
-				log.Warn("Failed to fetch preconf router config, keeping current handoverSkipSlots", "error", err, "currentHandoverSkipSlots", d.handoverSkipSlots)
+				log.Warn("Failed to fetch preconf router config, keeping current handoverSkipSlots",
+					"error", err, "currentHandoverSkipSlots", d.handoverSkipSlots)
 			} else {
 				newHandoverSkipSlots := routerConfig.HandOverSlots.Uint64()
 				if newHandoverSkipSlots != d.handoverSkipSlots {
-					log.Info("Updated handover config for new epoch", "epoch", currentEpoch, "oldHandoverSkipSlots", d.handoverSkipSlots, "newHandoverSkipSlots", newHandoverSkipSlots)
+					log.Info("Updated handover config for new epoch", "epoch", currentEpoch,
+						"oldHandoverSkipSlots", d.handoverSkipSlots, "newHandoverSkipSlots", newHandoverSkipSlots)
 					d.handoverSkipSlots = newHandoverSkipSlots
 				}
 			}
