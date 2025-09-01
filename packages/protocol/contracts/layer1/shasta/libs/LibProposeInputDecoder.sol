@@ -140,6 +140,7 @@ library LibProposeInputDecoder {
         newPtr_ = P.packUint48(_ptr, _proposal.id);
         newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
         newPtr_ = P.packUint48(newPtr_, _proposal.timestamp);
+        newPtr_ = P.packUint48(newPtr_, _proposal.lookaheadSlotTimestamp);
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
     }
@@ -153,6 +154,7 @@ library LibProposeInputDecoder {
         (proposal_.id, newPtr_) = P.unpackUint48(_ptr);
         (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
         (proposal_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
+        (proposal_.lookaheadSlotTimestamp, newPtr_) = P.unpackUint48(newPtr_);
         (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
@@ -268,9 +270,10 @@ library LibProposeInputDecoder {
             }
 
             // Proposals - each has fixed size
-            // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) + coreStateHash(32) +
-            // derivationHash(32) = 96
-            size_ += _proposals.length * 96;
+            // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) +
+            // lookaheadSlotTimestamp(6) + coreStateHash(32) +
+            // derivationHash(32) = 102
+            size_ += _proposals.length * 102;
 
             // TransitionRecords - each has fixed size + variable bond instructions
             // Fixed: span(1) + transitionHash(32) + checkpointHash(32) + array length(3) =
