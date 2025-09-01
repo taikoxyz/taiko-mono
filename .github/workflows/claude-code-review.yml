@@ -5,19 +5,11 @@ on:
     # Only run the first time the PR is opened or when it is marked as ready for review
     # This is to avoid claude from automatically reviewing the PR every time there's a new commit
     types: [opened, ready_for_review]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
 
 jobs:
   claude-review:
     # Run for non-draft PRs that are not marked to be skipped
-    if: |
-      github.event.pull_request.draft == false &&
-      !contains(github.event.pull_request.labels.*.name, 'option.do-not-merge')
+    if: (github.event.pull_request.draft == false && !contains(github.event.pull_request.labels.*.name, 'option.do-not-merge'))
     runs-on: [arc-runner-set]
     permissions:
       contents: read
@@ -26,10 +18,18 @@ jobs:
       id-token: write
 
     steps:
+      - name: Fetch owner/repo of pull request
+        uses: alessbell/pull-request-comment-branch@v2.1.0
+        id: comment-branch
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          # account for forked repos case
+          ref: ${{ steps.comment-branch.outputs.head_ref }}
+          repository: ${{ steps.comment-branch.outputs.head_owner }}/${{ steps.comment-branch.outputs.head_repo }}
+          # Fetch more history for better git operations
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -60,24 +60,10 @@ jobs:
             - Test coverage
 
             Be constructive and helpful in your feedback. Don't be overly polite or verbose, it is ok to be direct.
-          # Optional: Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
+          # Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
           use_sticky_comment: true
 
-          # Optional: Customize review based on file types
-          # direct_prompt: |
-          #   Review this PR focusing on:
-          #   - For TypeScript files: Type safety and proper interface usage
-          #   - For API endpoints: Security, input validation, and error handling
-          #   - For React components: Performance, accessibility, and best practices
-          #   - For tests: Coverage, edge cases, and test quality
-
-          # Optional: Different prompts for different authors
-          # direct_prompt: |
-          #   ${{ github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR' &&
-          #   'Welcome! Please review this PR from a first-time contributor. Be encouraging and provide detailed explanations for any suggestions.' ||
-          #   'Please provide a thorough code review focusing on our coding standards and best practices.' }}
-
-          # Optional: Add specific tools for running tests or linting
+          # Add specific tools for running tests or linting
           allowed_tools: |
             Bash(pnpm install)
             Bash(pnpm test:*)
@@ -90,8 +76,3 @@ jobs:
             Bash(grep *)
             Bash(ls *)
             WebFetch(domain:docs.anthropic.com)
-
-          # Optional: Skip review for certain conditions
-          # if: |
-          #   !contains(github.event.pull_request.title, '[skip-review]') &&
-          #   !contains(github.event.pull_request.title, '[WIP]')
