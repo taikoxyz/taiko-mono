@@ -45,19 +45,17 @@ async fn create_shadow_client(
     .await
 }
 
-static HOLESKY_PROVIDER: OnceCell<Arc<JsonRpcCachedProvider>> = OnceCell::const_new();
+static LOCAL_PROVIDER: OnceCell<Arc<JsonRpcCachedProvider>> = OnceCell::const_new();
 
-static DEVNET_PROVIDER: OnceCell<Arc<JsonRpcCachedProvider>> = OnceCell::const_new();
-
-pub async fn get_holesky_provider_cache() -> Arc<JsonRpcCachedProvider> {
-    HOLESKY_PROVIDER
+pub async fn get_local_provider_cache() -> Arc<JsonRpcCachedProvider> {
+    LOCAL_PROVIDER
         .get_or_init(|| async {
             let chain_state_notification = None;
 
             create_client(
-                &public_read_env_value("https://l1rpc.hekla.taiko.xyz/")
-                    .unwrap_or("https://l1rpc.hekla.taiko.xyz/".to_string()),
-                17000,
+                &public_read_env_value("http://127.0.0.1:8545/")
+                    .unwrap_or("http://127.0.0.1:8545/".to_string()),
+                31337,
                 None,
                 None,
                 None,
@@ -72,44 +70,13 @@ pub async fn get_holesky_provider_cache() -> Arc<JsonRpcCachedProvider> {
         .clone()
 }
 
-pub async fn get_holesky_provider() -> Arc<RindexerProvider> {
-    get_holesky_provider_cache().await.get_inner_provider()
-}
-
-pub async fn get_devnet_provider_cache() -> Arc<JsonRpcCachedProvider> {
-    DEVNET_PROVIDER
-        .get_or_init(|| async {
-            let chain_state_notification = None;
-
-            create_client(
-                &public_read_env_value("https://l1rpc.internal.taiko.xyz/")
-                    .unwrap_or("https://l1rpc.internal.taiko.xyz/".to_string()),
-                167005,
-                None,
-                None,
-                None,
-                HeaderMap::new(),
-                None,
-                chain_state_notification,
-            )
-            .await
-            .expect("Error creating provider")
-        })
-        .await
-        .clone()
-}
-
-pub async fn get_devnet_provider() -> Arc<RindexerProvider> {
-    get_devnet_provider_cache().await.get_inner_provider()
+pub async fn get_local_provider() -> Arc<RindexerProvider> {
+    get_local_provider_cache().await.get_inner_provider()
 }
 
 pub async fn get_provider_cache_for_network(network: &str) -> Arc<JsonRpcCachedProvider> {
-    if network == "holesky" {
-        return get_holesky_provider_cache().await;
-    }
-
-    if network == "devnet" {
-        return get_devnet_provider_cache().await;
+    if network == "local" {
+        return get_local_provider_cache().await;
     }
     panic!("Network not supported")
 }

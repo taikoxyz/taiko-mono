@@ -14,7 +14,7 @@ storage:
 native_transfers:
   enabled: false
 contracts:
-  - name: ShastaInboxProposal
+  - name: ShastaInbox
     details:
       - network: local
         address: 0xae78736cd615f374d3085123a210448e74fc6393
