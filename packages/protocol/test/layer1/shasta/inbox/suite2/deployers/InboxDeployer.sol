@@ -35,8 +35,6 @@ contract InboxDeployer is InboxTestHelper, IInboxDeployer {
             })
         );
 
-        inbox.fillTransitionRecordBuffer();
-
         return inbox;
     }
 }

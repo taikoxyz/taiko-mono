@@ -45,15 +45,4 @@ contract TestInbox is Inbox {
          });
     }
 
-    /// @dev Fills the buffer with a hash that has no meaning for the protocol. This simulates the
-    /// upgrade from Pacaya to Shasta,
-    ///      since this buffer will already be full since we are reusing the same slot.
-    function fillTransitionRecordBuffer() public {
-        IInbox.Config memory config = getConfig();
-        bytes32 value = bytes32(keccak256("transitionRecord"));
-
-        for (uint256 i = 0; i < config.ringBufferSize; i++) {
-            _transitionRecordHashes[i][bytes32(0)] = value;
-        }
-    }
 }
