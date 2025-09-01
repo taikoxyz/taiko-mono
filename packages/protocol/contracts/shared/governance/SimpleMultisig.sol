@@ -131,7 +131,7 @@ abstract contract SimpleMultisig {
 
         bytes32 digest;
         unchecked {
-            digest = keccak256(abi.encode(_ds, nonce++, _data));
+            digest = keccak256(abi.encode(_ds, ++nonce, _data));
         }
 
         address lastSigner;
@@ -153,14 +153,14 @@ abstract contract SimpleMultisig {
     // -----------------------------------------------------------------------------------
 
     function _getAddSignerDomainSeparator() internal pure virtual returns (bytes32) {
-        return keccak256("ADD_SIGNER");
+        return keccak256("TAIKO_SIMPLE_MULTISIG_ADD_SIGNER");
     }
 
     function _getRemoveSignerDomainSeparator() internal pure virtual returns (bytes32) {
-        return keccak256("REMOVE_SIGNER");
+        return keccak256("TAIKO_SIMPLE_MULTISIG_REMOVE_SIGNER");
     }
 
     function _getUpdateSigningThresholdDomainSeparator() internal pure virtual returns (bytes32) {
-        return keccak256("UPDATE_SIGNING_THRESHOLD");
+        return keccak256("TAIKO_SIMPLE_MULTISIG_UPDATE_SIGNING_THRESHOLD");
     }
 }

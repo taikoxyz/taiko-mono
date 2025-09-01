@@ -19,15 +19,14 @@ contract MockOverseer {
     {
         _blacklist[_operatorRegistrationRoot] = IOverseer.BlacklistTimestamps({
             blacklistedAt: _blacklistedAt,
-            unBlacklistedAt: _unblacklistedAt,
-            _reserved: 0
+            unBlacklistedAt: _unblacklistedAt
         });
     }
 
     /// @notice Mock implementation of the blacklist getter
     /// @param _operatorRegistrationRoot The operator registration root
     /// @return The blacklist timestamps
-    function blacklist(bytes32 _operatorRegistrationRoot)
+    function getBlacklist(bytes32 _operatorRegistrationRoot)
         external
         view
         returns (IOverseer.BlacklistTimestamps memory)

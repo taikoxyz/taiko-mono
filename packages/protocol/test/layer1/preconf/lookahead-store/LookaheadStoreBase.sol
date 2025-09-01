@@ -33,6 +33,7 @@ contract LookaheadStoreBase is CommonTest {
         + 5 * LibPreconfConstants.SECONDS_IN_EPOCH;
 
     address internal protector = vm.addr(uint256(bytes32("protector")));
+    address internal lookaheadSlasher = vm.addr(uint256(bytes32("lookaheadSlasher")));
     address internal preconfSlasher = vm.addr(uint256(bytes32("preconfSlasher")));
     address internal preconfRouter = vm.addr(uint256(bytes32("preconfRouter")));
     bytes32 internal posterRegistrationRoot = bytes32("poster_registration_root");
@@ -42,7 +43,7 @@ contract LookaheadStoreBase is CommonTest {
         urc = new MockURC();
         overseer = new MockOverseer();
         lookaheadStore = new LookaheadStore(
-            address(urc), protector, preconfSlasher, preconfRouter, address(overseer)
+            address(urc), protector, lookaheadSlasher, preconfSlasher, preconfRouter, address(overseer)
         );
 
         // Wrap time to the beginning of an arbitrary epoch
@@ -122,7 +123,7 @@ contract LookaheadStoreBase is CommonTest {
 
         _operator.registrationRoot = posterRegistrationRoot;
         _operator.committer = posterOwnerAndCommitter;
-        _operator.slasher = protector;
+        _operator.slasher = lookaheadSlasher;
 
         _validateSetupOperatorData(_operator, lookaheadStore.getConfig().minCollateralForPosting);
 
@@ -235,7 +236,7 @@ contract LookaheadStoreBase is CommonTest {
         ISlasher.Commitment memory commitment = ISlasher.Commitment({
             commitmentType: 0,
             payload: abi.encode(_trimLookaheadSlots(_lookaheadSlots, _numLookaheadSlots)),
-            slasher: protector
+            slasher: lookaheadSlasher
         });
 
         bytes32 commitmentHash = keccak256(abi.encode(commitment));

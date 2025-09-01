@@ -47,7 +47,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
         // Manipulate the committer for the lookahead poster
         urc.setSlasherCommitment(
             _lookaheadPostingOperator.registrationRoot,
-            protector,
+            lookaheadSlasher,
             _lookaheadPostingOperator.optedInAt,
             _lookaheadPostingOperator.optedOutAt,
             address(0) // Wrong committer
@@ -257,7 +257,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
         // Manipulate the slasher commitment of the poster
         urc.setSlasherCommitment(
             _lookaheadPostingOperator.registrationRoot,
-            protector,
+            lookaheadSlasher,
             0, // Not opted in
             _lookaheadPostingOperator.optedOutAt,
             _lookaheadPostingOperator.committer
@@ -282,7 +282,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
         // Manipulate the slasher commitment of the poster
         urc.setSlasherCommitment(
             _lookaheadPostingOperator.registrationRoot,
-            protector,
+            lookaheadSlasher,
             block.timestamp, // Opted in in the posting slot itself
             _lookaheadPostingOperator.optedOutAt,
             _lookaheadPostingOperator.committer
@@ -307,7 +307,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
         // Manipulate the slasher commitment of the poster
         urc.setSlasherCommitment(
             _lookaheadPostingOperator.registrationRoot,
-            protector,
+            lookaheadSlasher,
             _lookaheadPostingOperator.optedInAt,
             EPOCH_START - 1, // Opted out before the epoch
             _lookaheadPostingOperator.committer
@@ -332,7 +332,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
         // Manipulate the slasher commitment of the poster
         urc.setSlasherCommitment(
             _lookaheadPostingOperator.registrationRoot,
-            protector,
+            lookaheadSlasher,
             _lookaheadPostingOperator.optedInAt,
             block.timestamp, // Opted out in the posting slot itself
             _lookaheadPostingOperator.committer
@@ -754,6 +754,80 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
 
         // Attempt to post the lookahead for the next epoch reverts
         vm.expectRevert(ILookaheadStore.OperatorHasNotOptedIn.selector);
+        _updateLookahead(signedCommitment);
+    }
+
+    function test_revertsWhenTheOperatorHasBeenBlacklisted() external useMainnet {
+        (
+            ,
+            SetupOperator[] memory _lookaheadOperators,
+            ILookaheadStore.LookaheadSlot[] memory _lookaheadSlots
+        ) = _setupURCAndPrepareInputs(2);
+
+        // Blacklist the second operator before the current epoch
+        _setOperatorBlacklistStatus(
+            _lookaheadOperators[1].registrationRoot,
+            uint48(EPOCH_START - LibPreconfConstants.SECONDS_IN_SLOT), // Blacklisted before epoch
+            0 // Never unblacklisted
+        );
+
+        // Build a signed commitment on the lookahead slots for next epoch
+        ISlasher.SignedCommitment memory signedCommitment =
+            _buildLookaheadCommitment(_lookaheadSlots, _lookaheadOperators.length);
+
+        // Attempt to post the lookahead for the next epoch reverts
+        vm.expectRevert(ILookaheadStore.OperatorHasBeenBlacklisted.selector);
+        _updateLookahead(signedCommitment);
+    }
+
+    function test_acceptsWhenTheOperatorWasBlacklistedButUnblacklistedInTime() external useMainnet {
+        (
+            ,
+            SetupOperator[] memory _lookaheadOperators,
+            ILookaheadStore.LookaheadSlot[] memory _lookaheadSlots
+        ) = _setupURCAndPrepareInputs(2);
+
+        // Blacklist and then unblacklist the second operator before the current epoch
+        _setOperatorBlacklistStatus(
+            _lookaheadOperators[1].registrationRoot,
+            uint48(EPOCH_START - 3 * LibPreconfConstants.SECONDS_IN_SLOT), // Blacklisted early
+            uint48(EPOCH_START - 2 * LibPreconfConstants.SECONDS_IN_SLOT) // Unblacklisted before epoch
+        );
+
+        // Build a signed commitment on the lookahead slots for next epoch
+        ISlasher.SignedCommitment memory signedCommitment =
+            _buildLookaheadCommitment(_lookaheadSlots, _lookaheadOperators.length);
+
+        // Should succeed because operator was unblacklisted in time
+        bytes26 lookaheadHash = _updateLookahead(signedCommitment);
+
+        // The next epoch's lookahead hash is correctly added to the lookahead store
+        assertEq(
+            lookaheadStore.getLookaheadHash(EPOCH_START + LibPreconfConstants.SECONDS_IN_EPOCH),
+            lookaheadHash
+        );
+    }
+
+    function test_revertsWhenTheOperatorWasUnblacklistedTooLate() external useMainnet {
+        (
+            ,
+            SetupOperator[] memory _lookaheadOperators,
+            ILookaheadStore.LookaheadSlot[] memory _lookaheadSlots
+        ) = _setupURCAndPrepareInputs(2);
+
+        // Blacklist and then unblacklist the second operator too late
+        _setOperatorBlacklistStatus(
+            _lookaheadOperators[1].registrationRoot,
+            uint48(EPOCH_START - 3 * LibPreconfConstants.SECONDS_IN_SLOT), // Blacklisted early
+            uint48(EPOCH_START) // Unblacklisted when epoch started (too late)
+        );
+
+        // Build a signed commitment on the lookahead slots for next epoch
+        ISlasher.SignedCommitment memory signedCommitment =
+            _buildLookaheadCommitment(_lookaheadSlots, _lookaheadOperators.length);
+
+        // Attempt to post the lookahead for the next epoch reverts
+        vm.expectRevert(ILookaheadStore.OperatorHasBeenBlacklisted.selector);
         _updateLookahead(signedCommitment);
     }
 }

@@ -127,14 +127,14 @@ contract Overseer is IOverseer, SimpleMultisig, EssentialContract {
     // -----------------------------------------------------------------------------------
 
     function _getAddSignerDomainSeparator() internal pure override returns (bytes32) {
-        return keccak256("TAIKO_ALETHIA_ADD_OVERSEER_SIGNER");
+        return keccak256("TAIKO_ALETHIA_OVERSEER_ADD_SIGNER");
     }
 
     function _getRemoveSignerDomainSeparator() internal pure override returns (bytes32) {
-        return keccak256("TAIKO_ALETHIA_REMOVE_OVERSEER_SIGNER");
+        return keccak256("TAIKO_ALETHIA_OVERSEER_REMOVE_SIGNER");
     }
 
     function _getUpdateSigningThresholdDomainSeparator() internal pure override returns (bytes32) {
-        return keccak256("TAIKO_ALETHIA_UPDATE_OVERSEER_SIGNING_THRESHOLD");
+        return keccak256("TAIKO_ALETHIA_OVERSEER_UPDATE_SIGNING_THRESHOLD");
     }
 }

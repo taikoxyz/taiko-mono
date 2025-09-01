@@ -7,7 +7,6 @@ interface IOverseer {
     struct BlacklistTimestamps {
         uint48 blacklistedAt;
         uint48 unBlacklistedAt;
-        uint160 _reserved;
     }
 
     /// @dev These delays prevent the lookahead from being messed up mid-epoch

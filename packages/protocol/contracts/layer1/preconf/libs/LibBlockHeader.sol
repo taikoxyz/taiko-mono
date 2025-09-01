@@ -25,9 +25,6 @@ library LibBlockHeader {
         bytes8 nonce;
         uint256 baseFeePerGas;
         bytes32 withdrawalsRoot;
-        uint64 blobGasUsed;
-        uint64 excessBlobGas;
-        bytes32 parentBeaconBlockRoot;
     }
 
     function encodeRLP(BlockHeader memory _blockHeader) internal pure returns (bytes memory) {

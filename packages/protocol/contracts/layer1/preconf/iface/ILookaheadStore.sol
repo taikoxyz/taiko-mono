@@ -54,7 +54,7 @@ interface ILookaheadStore {
     error PosterHasInsufficientCollateral();
     error PosterHasNotOptedIn();
     error PosterHasUnregistered();
-    error SlasherIsNotProtector();
+    error SlasherIsNotLookaheadSlasher();
     error SlotTimestampIsNotIncrementing();
 
     event LookaheadPosted(
