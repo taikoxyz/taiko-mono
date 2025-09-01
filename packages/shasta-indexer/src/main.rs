@@ -6,6 +6,7 @@ use rindexer::{
     IndexingDetails, StartDetails,
 };
 
+mod decoder;
 mod rindexer_lib;
 
 #[tokio::main]

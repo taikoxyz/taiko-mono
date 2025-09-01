@@ -12,6 +12,7 @@ storage:
   postgres:
     enabled: true
     drop_each_run: true
+    disable_create_tables: true
     indexes:
       global_injected_parameters:
         - block_number
