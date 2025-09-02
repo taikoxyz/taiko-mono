@@ -870,6 +870,22 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
+                // TaikoAnchor => CrossChainOwned
+                l1ChainId,
+                // TaikoAnchor
+                publicInputHash: `${ethers.utils.solidityKeccak256(
+                    ["bytes32[256]"],
+                    [
+                        new Array(255)
+                            .fill(ethers.constants.HashZero)
+                            .concat([
+                                ethers.utils.hexZeroPad(
+                                    ethers.utils.hexlify(chainId),
+                                    32,
+                                ),
+                            ]),
+                    ],
+                )}`,
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.TaikoAnchorImpl,
@@ -1055,7 +1071,6 @@ function getImmutableReference(
 }
 
 function replaceImmutableValues(artifact: any, maps: Array<any>): any {
-    console.log({ artifact, maps })
     for (let i = 0; i < maps.length; i++) {
         artifact = replaceImmutableValue(artifact, maps[i].id, maps[i].value);
     }
@@ -1065,7 +1080,6 @@ function replaceImmutableValues(artifact: any, maps: Array<any>): any {
 
 function replaceImmutableValue(artifact: any, id: any, value: string): any {
     const offsets = artifact.deployedBytecode.immutableReferences[`${id}`];
-    console.log({ offsets, refs: artifact.deployedBytecode.immutableReferences })
     let deployedBytecodeWithoutPrefix =
         artifact.deployedBytecode.object.substring(2);
     if (value.startsWith("0x")) value = value.substring(2);
