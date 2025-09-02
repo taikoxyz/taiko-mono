@@ -147,7 +147,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 }
 
 // filterGenesisBlockVerifiedV2 fetches the genesis block verified
-// event from the lagacy TaikoL1 `BlockVerifiedV2` events.
+// event from the legacy TaikoL1 `BlockVerifiedV2` events.
 func (c *Client) filterGenesisBlockVerifiedV2(
 	ctx context.Context,
 	ops *bind.FilterOpts,
@@ -174,7 +174,7 @@ func (c *Client) filterGenesisBlockVerifiedV2(
 }
 
 // filterGenesisBlockVerified fetches the genesis block verified
-// event from the lagacy TaikoL1 `BlockVerified` events.
+// event from the legacy TaikoL1 `BlockVerified` events.
 func (c *Client) filterGenesisBlockVerified(
 	ctx context.Context,
 	ops *bind.FilterOpts,
@@ -182,7 +182,7 @@ func (c *Client) filterGenesisBlockVerified(
 ) (common.Hash, error) {
 	client, err := ontakeBindings.NewTaikoL1Client(taikoInbox, c.L1)
 	if err != nil {
-		return common.Hash{}, fmt.Errorf("failed to create lagacy TaikoL1 client: %w", err)
+		return common.Hash{}, fmt.Errorf("failed to create legacy TaikoL1 client: %w", err)
 	}
 
 	// Fetch the genesis `BlockVerified` event.

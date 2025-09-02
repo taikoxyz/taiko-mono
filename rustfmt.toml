@@ -1,0 +1,13 @@
+reorder_imports = true
+group_imports = "StdExternalCrate"
+imports_granularity = "Crate"
+use_small_heuristics = "Max"
+comment_width = 120
+wrap_comments = true
+max_width = 100
+binop_separator = "Back"
+trailing_comma = "Vertical"
+trailing_semicolon = false
+use_field_init_shorthand = true
+overflow_delimited_expr = true
+format_code_in_doc_comments = true
