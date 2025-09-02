@@ -69,6 +69,8 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Optimizes for the common case (single transition per proposal) while supporting branches
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - slot: The TransitionRecordSlot containing primary record and branches
+    /// @dev When proposals are aggregated (span > 1), the record is stored at the FIRST proposal's
+    /// slot but contains the LAST proposal's transition/checkpoint hashes
     mapping(uint256 bufferSlot => IInbox.TransitionRecordSlot) internal _transitionRecordSlots;
 
     /// @dev Storage for forced inclusion requests
@@ -435,10 +437,12 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///         1. New proposal ID: Overwrites reusable slot
     ///         2. Same ID, same parent: Updates reusable slot
     ///         3. Same ID, different parent: Uses branch mapping
+    /// @dev For aggregated records (span > 1): stored at the FIRST proposal's slot,
+    /// but the record contains the LAST proposal's transition/checkpoint hashes
     /// @param _config The configuration parameters containing ring buffer size
-    /// @param _proposalId The ID of the proposal being proven
+    /// @param _proposalId The ID of the proposal being proven (first proposal if aggregated)
     /// @param _transition The transition data to include in the event
-    /// @param _transitionRecord The transition record to hash and store
+    /// @param _transitionRecord The transition record to hash and store (contains last transition if aggregated)
     function _setTransitionRecordHash(
         Config memory _config,
         uint48 _proposalId,
