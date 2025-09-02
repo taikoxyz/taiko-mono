@@ -36,8 +36,6 @@ contract InboxOptimized3Deployer is InboxTestHelper, IInboxDeployer {
             })
         );
 
-        inbox.fillTransitionRecordBuffer();
-
         return inbox;
     }
 }

@@ -37,30 +37,26 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     event BondWithdrawn(address indexed user, uint256 amount);
 
     // ---------------------------------------------------------------
-    // State Variables
+    // State Variables for compatibility with Pacaya inbox.
     // ---------------------------------------------------------------
 
-    /// @dev Ring buffer for storing transition record hashes with composite key indexing
-    /// @dev Stores transition records for proposals with different parent transitions
-    /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
-    /// - compositeKey: Keccak256 hash of (proposalId, parentTransitionHash)
-    /// - transitionRecordHash: The hash of the TransitionRecord struct
-    /// @dev Reuses the `batches` slot from Pacaya fork for storage efficiency
-    mapping(uint256 bufferSlot => mapping(bytes32 compositeKey => bytes32 transitionRecordHash))
-        internal _transitionRecordHashes;
-
     /// @dev Deprecated slots used by Pacaya inbox that contains:
+    /// - `batches`
     /// - `transitionIds`
     /// - `transitions`
     /// - `__reserve1`
     /// - `stats1`
     /// - `stats2`
-    uint256[5] private __slotsUsedByPacaya;
+    uint256[6] private __slotsUsedByPacaya;
 
     /// @notice Bond balance for each account used in Pacaya inbox.
     /// @dev This is not used in Shasta. It is kept so users can withdraw their bond.
     /// @dev Bonds are now handled entirely on L2, by the `BondManager` contract.
     mapping(address account => uint256 bond) public bondBalance;
+
+    // ---------------------------------------------------------------
+    // State Variables for Shasta inbox.
+    // ---------------------------------------------------------------
 
     /// @dev Ring buffer for storing proposal hashes indexed by buffer slot
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
@@ -69,11 +65,19 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// around checks in the contract.
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
+    /// @dev Simple mapping for storing transition record hashes
+    /// @dev We do not use a ring buffer for this mapping, since a nested mapping does not benefit
+    /// from it
+    /// @dev Stores transition records for proposals with different parent transitions
+    /// - compositeKey: Keccak256 hash of (proposalId, parentTransitionHash)
+    /// - transitionRecordHash: The hash of the TransitionRecord struct
+    mapping(bytes32 compositeKey => bytes32 transitionRecordHash) internal _transitionRecordHashes;
+
     /// @dev Storage for forced inclusion requests
     ///  Two slots used
     LibForcedInclusion.Storage internal _forcedInclusionStorage;
 
-    uint256[40] private __gap;
+    uint256[39] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -240,8 +244,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (bytes32 transitionRecordHash_)
     {
-        Config memory config = getConfig();
-        return _getTransitionRecordHash(config, _proposalId, _parentTransitionHash);
+        return _getTransitionRecordHash(_proposalId, _parentTransitionHash);
     }
 
     /// @notice Returns the maximum capacity for unfinalized proposals
@@ -390,7 +393,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Pass transition and transitionRecord to _setTransitionRecordHash which will emit the
             // event
             _setTransitionRecordHash(
-                _config, _input.proposals[i].id, _input.transitions[i], transitionRecord
+                _input.proposals[i].id, _input.transitions[i], transitionRecord
             );
         }
     }
@@ -485,13 +488,11 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Stores transition record hash and emits Proved event
     /// @notice Virtual function to allow optimization in derived contracts
-    /// @dev Calculates composite key for unique transition identification
-    /// @param _config Configuration containing ring buffer size
+    /// @dev Uses composite key for unique transition identification
     /// @param _proposalId The ID of the proposal being proven
     /// @param _transition The transition data to include in the event
     /// @param _transitionRecord The transition record to hash and store
     function _setTransitionRecordHash(
-        Config memory _config,
         uint48 _proposalId,
         Transition memory _transition,
         TransitionRecord memory _transitionRecord
@@ -499,15 +500,14 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
         virtual
     {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
         bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
 
-        bytes32 storedTransitionRecordHash = _transitionRecordHashes[bufferSlot][compositeKey];
+        bytes32 storedTransitionRecordHash = _transitionRecordHashes[compositeKey];
         if (storedTransitionRecordHash == transitionRecordHash) return;
 
         require(storedTransitionRecordHash == 0, TransitionWithSameParentHashAlreadyProved());
-        _transitionRecordHashes[bufferSlot][compositeKey] = transitionRecordHash;
+        _transitionRecordHashes[compositeKey] = transitionRecordHash;
 
         bytes memory payload = encodeProvedEventData(
             ProvedEventPayload({
@@ -532,8 +532,10 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Retrieves transition record hash from storage
     /// @notice Virtual to allow optimization strategies in derived contracts
+    /// @param _proposalId The ID of the proposal
+    /// @param _parentTransitionHash The hash of the parent transition
+    /// @return transitionRecordHash_ The stored transition record hash
     function _getTransitionRecordHash(
-        Config memory _config,
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
@@ -542,9 +544,8 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
         returns (bytes32 transitionRecordHash_)
     {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        transitionRecordHash_ = _transitionRecordHashes[bufferSlot][compositeKey];
+        transitionRecordHash_ = _transitionRecordHashes[compositeKey];
     }
 
     /// @dev Validates proposal hash against stored value
@@ -772,7 +773,6 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Try to finalize the current proposal
             bool finalized;
             (finalized, proposalId) = _finalizeProposal(
-                _config,
                 coreState,
                 proposalId,
                 i < _input.transitionRecords.length
@@ -800,7 +800,6 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Attempts to finalize a single proposal
     /// @notice Updates core state and processes bond instructions if successful
-    /// @param _config Configuration for transition record retrieval
     /// @param _coreState Core state to update (passed by reference)
     /// @param _proposalId The ID of the proposal to finalize
     /// @param _transitionRecord The expected transition record for verification
@@ -808,7 +807,6 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @return finalized_ True if proposal was successfully finalized
     /// @return nextProposalId_ Next proposal ID to process (current + span)
     function _finalizeProposal(
-        Config memory _config,
         CoreState memory _coreState,
         uint48 _proposalId,
         TransitionRecord memory _transitionRecord,
@@ -819,7 +817,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         // Check if transition record exists in storage
         bytes32 storedHash =
-            _getTransitionRecordHash(_config, _proposalId, _coreState.lastFinalizedTransitionHash);
+            _getTransitionRecordHash(_proposalId, _coreState.lastFinalizedTransitionHash);
 
         if (storedHash == 0) return (false, _proposalId);
 
