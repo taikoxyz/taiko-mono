@@ -12,6 +12,7 @@ export interface Config {
     shastaForkHeight: number;
     livenessBondGwei: number;
     provabilityBondGwei: number;
+    withdrawalDelay: number;
     maxCheckpointStackSize: number;
     minBond: number;
     bondToken: string;

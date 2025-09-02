@@ -53,6 +53,7 @@ export async function deployTaikoAnchor(
         config.shastaForkHeight,
         config.livenessBondGwei,
         config.provabilityBondGwei,
+        config.withdrawalDelay,
         config.maxCheckpointStackSize,
         config.minBond,
         config.bondToken,
@@ -131,6 +132,7 @@ async function generateContractConfigs(
     shastaForkHeight: number,
     livenessBondGwei: number,
     provabilityBondGwei: number,
+    withdrawalDelay: number,
     maxCheckpointStackSize: number,
     minBond: number,
     bondToken: string,
@@ -228,7 +230,19 @@ async function generateContractConfigs(
         {},
         getImmutableReference("PacayaAnchor", ["signalService"]),
         getImmutableReference("PacayaAnchor", ["pacayaForkHeight"]),
-        getImmutableReference("ShastaAnchor", ["shastaForkHeight"]),
+        getImmutableReference("PacayaAnchor", ["shastaForkHeight"]),
+        getImmutableReference("ShastaAnchor", ["livenessBondGwei"]),
+        getImmutableReference("ShastaAnchor", ["provabilityBondGwei"]),
+        getImmutableReference("ShastaAnchor", ["bondManager"]),
+        getImmutableReference("ShastaAnchor", ["checkpointManager"]),
+    );
+    const bondManagerReferencesMap: any = getImmutableReference(
+        "BondManager",
+        ["authorized", "bondToken", "minBond", "withdrawalDelay"],
+    );
+    const checkpointManagerReferencesMap: any = getImmutableReference(
+        "CheckpointManager",
+        ["authorized", "maxStackSize"],
     );
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
         "signalService",
@@ -628,6 +642,133 @@ async function generateContractConfigs(
             isProxy: true,
         },
         // Rollup Contracts
+        BondManagerImpl: {
+            address: addressMap.BondManagerImpl,
+            deployedBytecode: linkContractLibs(
+                replaceImmutableValues(contractArtifacts.BondManagerImpl, [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.BondManagerImpl,
+                            32,
+                        ),
+                    },
+                    {
+                        id: essentialContractReferencesMap.__resolver.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SharedResolver,
+                            32,
+                        ),
+                    },
+                    {
+                        id: bondManagerReferencesMap.authorized.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.TaikoAnchor,
+                            32,
+                        ),
+                    },
+                    {
+                        id: bondManagerReferencesMap.bondToken.id,
+                        value: ethers.utils.hexZeroPad(
+                            bondToken,
+                            32,
+                        ),
+                    },
+                    {
+                        id: bondManagerReferencesMap.minBond.id,
+                        value: ethers.utils.hexZeroPad(
+                            ethers.utils.hexlify(minBond),
+                            32,
+                        ),
+                    },
+                    {
+                        id: bondManagerReferencesMap.withdrawalDelay.id,
+                        value: ethers.utils.hexZeroPad(
+                            ethers.utils.hexlify(withdrawalDelay),
+                            32,
+                        ),
+                    },
+                ]),
+                addressMap,
+            ),
+            variables: {},
+        },
+        BondManager: {
+            address: addressMap.BondManager,
+            deployedBytecode:
+
+                contractArtifacts.BondManager.deployedBytecode.object,
+            variables: {
+                // EssentialContract
+                __reentry: 1, // _FALSE
+                __paused: 1, // _FALSE
+                // EssentialContract => UUPSUpgradeable => Initializable
+                _initialized: 1,
+                _initializing: false,
+                // EssentialContract => Ownable2StepUpgradeable
+                _owner: contractOwner,
+            },
+            slots: {
+                [IMPLEMENTATION_SLOT]: addressMap.BondManagerImpl,
+            },
+            isProxy: true,
+        },
+        CheckpointManagerImpl: {
+            address: addressMap.CheckpointManagerImpl,
+            deployedBytecode: linkContractLibs(
+                replaceImmutableValues(contractArtifacts.CheckpointManagerImpl, [
+                    {
+                        id: uupsImmutableReferencesMap.__self.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.BondManagerImpl,
+                            32,
+                        ),
+                    },
+                    {
+                        id: essentialContractReferencesMap.__resolver.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.SharedResolver,
+                            32,
+                        ),
+                    },
+                    {
+                        id: checkpointManagerReferencesMap.authorized.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.TaikoAnchor,
+                            32,
+                        ),
+                    },
+                    {
+                        id: bondManagerReferencesMap.maxStackSize.id,
+                        value: ethers.utils.hexZeroPad(
+                            ethers.utils.hexlify(maxCheckpointStackSize),
+                            32,
+                        ),
+                    },
+                ]),
+                addressMap,
+            ),
+            variables: {},
+        },
+        CheckpointManager: {
+            address: addressMap.CheckpointManager,
+            deployedBytecode:
+                contractArtifacts.CheckpointManager.deployedBytecode.object,
+            variables: {
+                // EssentialContract
+                __reentry: 1, // _FALSE
+                __paused: 1, // _FALSE
+                // EssentialContract => UUPSUpgradeable => Initializable
+                _initialized: 1,
+                _initializing: false,
+                // EssentialContract => Ownable2StepUpgradeable
+                _owner: contractOwner,
+            },
+            slots: {
+                [IMPLEMENTATION_SLOT]: addressMap.CheckpointManagerImpl,
+            },
+            isProxy: true,
+        },
         TaikoAnchorImpl: {
             address: addressMap.TaikoAnchorImpl,
             deployedBytecode: linkContractLibs(
@@ -667,6 +808,34 @@ async function generateContractConfigs(
                             32,
                         ),
                     },
+                    {
+                        id: taikoAnchorReferencesMap.livenessBondGwei.id,
+                        value: ethers.utils.hexZeroPad(
+                            ethers.utils.hexlify(livenessBondGwei),
+                            32,
+                        ),
+                    },
+                    {
+                        id: taikoAnchorReferencesMap.provabilityBondGwei.id,
+                        value: ethers.utils.hexZeroPad(
+                            ethers.utils.hexlify(provabilityBondGwei),
+                            32,
+                        ),
+                    },
+                    {
+                        id: taikoAnchorReferencesMap.bondManager.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.BondManager,
+                            32,
+                        ),
+                    },
+                    {
+                        id: taikoAnchorReferencesMap.checkpointManager.id,
+                        value: ethers.utils.hexZeroPad(
+                            addressMap.CheckpointManager,
+                            32,
+                        ),
+                    },
                 ]),
                 addressMap,
             ),
@@ -687,23 +856,6 @@ async function generateContractConfigs(
                 _initializing: false,
                 // EssentialContract => Ownable2StepUpgradeable
                 _owner: contractOwner,
-                // TaikoAnchor => CrossChainOwned
-                l1ChainId,
-                // TaikoAnchor
-                parentGasExcess: param1559.gasExcess,
-                publicInputHash: `${ethers.utils.solidityKeccak256(
-                    ["bytes32[256]"],
-                    [
-                        new Array(255)
-                            .fill(ethers.constants.HashZero)
-                            .concat([
-                                ethers.utils.hexZeroPad(
-                                    ethers.utils.hexlify(chainId),
-                                    32,
-                                ),
-                            ]),
-                    ],
-                )}`,
             },
             slots: {
                 [IMPLEMENTATION_SLOT]: addressMap.TaikoAnchorImpl,
