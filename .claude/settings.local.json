@@ -17,7 +17,8 @@
       "Bash(mkdir:*)",
       "Bash(pnpm compile:l1:*)",
       "Bash(pnpm compile:*)",
-      "Bash(go test:*)"
+      "Bash(go test:*)",
+      "Bash(go build:*)"
     ],
     "deny": []
   }

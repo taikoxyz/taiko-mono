@@ -29,14 +29,6 @@ var (
 	_ = abi.ConvertType
 )
 
-// LibBondsBondInstruction is an auto generated low-level Go binding around an user-defined struct.
-type LibBondsBondInstruction struct {
-	ProposalId *big.Int
-	BondType   uint8
-	Payer      common.Address
-	Receiver   common.Address
-}
-
 // OntakeAnchorBaseFeeConfig is an auto generated low-level Go binding around an user-defined struct.
 type OntakeAnchorBaseFeeConfig struct {
 	AdjustmentQuotient     uint8

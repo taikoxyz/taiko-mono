@@ -5,13 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/misc"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -23,6 +24,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -507,6 +509,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 	parent *types.Header,
 	blockIndex int,
 	bondInstructions []shastaBindings.LibBondsBondInstruction,
+	isLowBondProposal bool,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
 	if !metadata.IsShasta() {
 		return nil, nil, fmt.Errorf("metadata is not for Shasta fork")
@@ -527,11 +530,13 @@ func assembleCreateExecutionPayloadMetaShasta(
 	timestamp := blockInfo.Timestamp
 
 	// Calculate base fee
-	// TODO: Confirm base fee calculation for Shasta
-	baseFee := parent.BaseFee
-	if baseFee == nil {
-		baseFee = new(big.Int).SetUint64(1000000000) // Default 1 gwei
+	chainConfig := core.TaikoGenesisBlock(rpc.L2.ChainID.Uint64()).Config
+	ancestorBlock, err := rpc.L2.HeaderByHash(ctx, parent.ParentHash)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch ancestor block: %w", err)
 	}
+	parentBlockTime := parent.Time - ancestorBlock.Time
+	baseFee := misc.CalcEIP4396BaseFee(chainConfig, parent, parentBlockTime)
 
 	// Assemble a ShastaAnchor.updateState transaction
 	anchorBlockID := new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
@@ -553,22 +558,21 @@ func assembleCreateExecutionPayloadMetaShasta(
 		anchorBlockHeader.Hash(),
 		anchorBlockHeader.Root,
 		blockID,
+		baseFee,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.updateState transaction: %w", err)
 	}
 
-	// TODO: construct extraData
-
-	// Convert SignedTransactions to types.Transactions
-	txs, err := convertSignedTransactionsToTypes(blockInfo.Transactions)
+	// Encode extraData with basefeeSharingPctg and isLowBondProposal
+	extraData, err := encodeExtraData(meta.GetDerivation().BasefeeSharingPctg, isLowBondProposal)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to convert transactions: %w", err)
+		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
 
 	return &createExecutionPayloadsMetaData{
 		BlockID:               blockID,
-		ExtraData:             []byte{}, // TODO: construct extraData
+		ExtraData:             extraData,
 		SuggestedFeeRecipient: blockInfo.Coinbase,
 		GasLimit:              blockInfo.GasLimit,
 		Difficulty:            common.BytesToHash(difficulty),
@@ -581,10 +585,9 @@ func assembleCreateExecutionPayloadMetaShasta(
 			L1BlockHeight: meta.GetRawBlockHeight(),
 			L1BlockHash:   meta.GetRawBlockHash(),
 		},
-		Txs:         txs,
+		Txs:         blockInfo.Transactions,
 		Withdrawals: make([]*types.Withdrawal, 0),
-		// TODO: to be confirmed
-		BaseFee: baseFee,
+		BaseFee:     baseFee,
 	}, anchorTx, nil
 }
 
@@ -649,55 +652,179 @@ func updateL1OriginForBatch(
 	return g.Wait()
 }
 
-// convertSignedTransactionsToTypes converts a slice of SignedTransaction to types.Transactions
-func convertSignedTransactionsToTypes(signedTxs []manifest.SignedTransaction) (types.Transactions, error) {
-	txs := make(types.Transactions, 0, len(signedTxs))
-	for _, stx := range signedTxs {
-		tx, err := convertSignedTransactionToType(&stx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert signed transaction: %w", err)
-		}
-		txs = append(txs, tx)
+func encodeExtraData(
+	basefeeSharingPctg uint8,
+	isLowBondProposal bool,
+) ([]byte, error) {
+	// Create a 2-byte array for extraData
+	extraData := make([]byte, 2)
+
+	// First byte: basefeeSharingPctg
+	extraData[0] = basefeeSharingPctg
+
+	// Second byte: isLowBondProposal in the lowest bit
+	if isLowBondProposal {
+		extraData[1] = 0x01
+	} else {
+		extraData[1] = 0x00
 	}
-	return txs, nil
+
+	return extraData, nil
 }
 
-// convertSignedTransactionToType converts a single SignedTransaction to types.Transaction
-func convertSignedTransactionToType(stx *manifest.SignedTransaction) (*types.Transaction, error) {
-	// Handle EIP-1559 transaction (type 2)
-	if stx.TxType == 2 {
-		// Create access list from bytes
-		var accessList types.AccessList
-		if len(stx.AccessList) > 0 {
-			if err := rlp.DecodeBytes(stx.AccessList, &accessList); err != nil {
-				return nil, fmt.Errorf("failed to decode access list: %w", err)
+// checkBlockLevelMetadata validates and adjusts block-level metadata according to protocol rules
+func checkBlockLevelMetadata(
+	ctx context.Context,
+	rpc *rpc.Client,
+	proposalManifest *manifest.ProposalManifest,
+	isForcedInclusion bool,
+	proposal *shastaBindings.IInboxProposal,
+	parent *types.Header,
+	parentMetadata *metadata.TaikoProposalMetaDataShasta,
+	originBlockNumber uint64,
+) error {
+	if proposalManifest == nil || len(proposalManifest.Blocks) == 0 {
+		return fmt.Errorf("invalid proposal manifest: no blocks")
+	}
+
+	// Track if any block has a valid anchor number for forced inclusion protection
+	hasValidAnchor := false
+	parentAnchorBlockNumber := uint64(0)
+	if parentMetadata != nil && parentMetadata.GetDerivation() != nil {
+		parentAnchorBlockNumber = parentMetadata.GetDerivation().AnchorBlockNumber
+	}
+
+	for i := range proposalManifest.Blocks {
+		// Timestamp Validation
+		if proposalManifest.Blocks[i].Timestamp > proposal.Timestamp.Uint64() {
+			log.Debug("Adjusting block timestamp to proposal timestamp",
+				"blockIndex", i,
+				"originalTimestamp", proposalManifest.Blocks[i].Timestamp,
+				"newTimestamp", proposal.Timestamp)
+			proposalManifest.Blocks[i].Timestamp = proposal.Timestamp.Uint64()
+		}
+
+		// Calculate lower bound for timestamp
+		parentTimestamp := parent.Time
+		lowerBound := parentTimestamp + 1
+		if proposal.Timestamp.Uint64() > manifest.TimestampMaxOffset {
+			timestampLowerBound := proposal.Timestamp.Uint64() - manifest.TimestampMaxOffset
+			if timestampLowerBound > lowerBound {
+				lowerBound = timestampLowerBound
 			}
 		}
 
-		// Create the dynamic fee transaction
-		tx := &types.DynamicFeeTx{
-			ChainID:    new(big.Int).SetUint64(stx.ChainId),
-			Nonce:      stx.Nonce,
-			GasTipCap:  stx.MaxPriorityFeePerGas,
-			GasFeeCap:  stx.MaxFeePerGas,
-			Gas:        stx.GasLimit,
-			To:         &stx.To,
-			Value:      stx.Value,
-			Data:       stx.Data,
-			AccessList: accessList,
+		if proposalManifest.Blocks[i].Timestamp < lowerBound {
+			log.Debug("Adjusting block timestamp to lower bound",
+				"blockIndex", i,
+				"originalTimestamp", proposalManifest.Blocks[i].Timestamp,
+				"newTimestamp", lowerBound)
+			proposalManifest.Blocks[i].Timestamp = lowerBound
 		}
 
-		// Create the transaction with signature
-		signer := types.NewLondonSigner(new(big.Int).SetUint64(stx.ChainId))
-		
-		// Calculate v value for EIP-1559
-		v := new(big.Int).SetUint64(uint64(stx.V))
-		r := new(big.Int).SetBytes(stx.R[:])
-		s := new(big.Int).SetBytes(stx.S[:])
+		// Anchor Block Number Validation
+		isInvalidAnchor := false
 
-		return types.NewTx(tx).WithSignature(signer, append(append(r.Bytes(), s.Bytes()...), byte(v.Uint64())))
+		// Check non-monotonic progression
+		if proposalManifest.Blocks[i].AnchorBlockNumber < parentAnchorBlockNumber {
+			log.Debug("Invalid anchor: non-monotonic progression",
+				"blockIndex", i,
+				"anchorBlockNumber", proposalManifest.Blocks[i].AnchorBlockNumber,
+				"parentAnchorBlockNumber", parentAnchorBlockNumber)
+			isInvalidAnchor = true
+		}
+
+		// Check future reference
+		if proposalManifest.Blocks[i].AnchorBlockNumber >= originBlockNumber {
+			log.Debug("Invalid anchor: future reference",
+				"blockIndex", i,
+				"anchorBlockNumber", proposalManifest.Blocks[i].AnchorBlockNumber,
+				"originBlockNumber", originBlockNumber)
+			isInvalidAnchor = true
+		}
+
+		// Check excessive lag
+		if originBlockNumber > manifest.AnchorMaxOffset && proposalManifest.Blocks[i].AnchorBlockNumber < originBlockNumber-ANCHOR_MAX_OFFSET {
+			log.Debug("Invalid anchor: excessive lag",
+				"blockIndex", i,
+				"anchorBlockNumber", proposalManifest.Blocks[i].AnchorBlockNumber,
+				"minRequired", originBlockNumber-manifest.AnchorMaxOffset)
+			isInvalidAnchor = true
+		}
+
+		if isInvalidAnchor {
+			log.Info("Setting anchor block number to parent's anchor",
+				"blockIndex", i,
+				"originalAnchor", proposalManifest.Blocks[i].AnchorBlockNumber,
+				"newAnchor", parentAnchorBlockNumber)
+			proposalManifest.Blocks[i].AnchorBlockNumber = parentAnchorBlockNumber
+		} else if proposalManifest.Blocks[i].AnchorBlockNumber > parentAnchorBlockNumber {
+			hasValidAnchor = true
+		}
+
+		// Coinbase Assignment
+		if isForcedInclusion {
+			// Forced inclusions always use proposal.proposer
+			proposalManifest.Blocks[i].Coinbase = proposal.Proposer
+		} else if (proposalManifest.Blocks[i].Coinbase == common.Address{}) {
+			// Use proposal.proposer as fallback if manifest coinbase is zero
+			proposalManifest.Blocks[i].Coinbase = proposal.Proposer
+		}
+		// Otherwise keep the manifest's coinbase
+
+		// Gas Limit Validation
+		parentGasLimit := parent.GasLimit
+
+		// Calculate bounds
+		lowerGasBound := parentGasLimit * (10000 - manifest.MaxBlockGasLimitChangePermyriad) / 10000
+		if lowerGasBound < manifest.MinBlockGasLimit {
+			lowerGasBound = manifest.MinBlockGasLimit
+		}
+		upperGasBound := parentGasLimit * (10000 + manifest.MaxBlockGasLimitChangePermyriad) / 10000
+
+		// Apply constraints
+		if proposalManifest.Blocks[i].GasLimit == 0 {
+			// Inherit parent value
+			proposalManifest.Blocks[i].GasLimit = parentGasLimit
+		} else if proposalManifest.Blocks[i].GasLimit < lowerGasBound {
+			log.Debug("Clamping gas limit to lower bound",
+				"blockIndex", i,
+				"originalGasLimit", proposalManifest.Blocks[i].GasLimit,
+				"newGasLimit", lowerGasBound)
+			proposalManifest.Blocks[i].GasLimit = lowerGasBound
+		} else if proposalManifest.Blocks[i].GasLimit > upperGasBound {
+			log.Debug("Clamping gas limit to upper bound",
+				"blockIndex", i,
+				"originalGasLimit", proposalManifest.Blocks[i].GasLimit,
+				"newGasLimit", upperGasBound)
+			proposalManifest.Blocks[i].GasLimit = upperGasBound
+		}
+
+		// Update parent values for next iteration
+		if i < len(proposalManifest.Blocks)-1 {
+			// Update parent timestamp for next block
+			parent.Time = proposalManifest.Blocks[i].Timestamp
+			// Update parent gas limit for next block
+			parent.GasLimit = proposalManifest.Blocks[i].GasLimit
+			// Update parent anchor if it changed
+			if proposalManifest.Blocks[i].AnchorBlockNumber > parentAnchorBlockNumber {
+				parentAnchorBlockNumber = proposalManifest.Blocks[i].AnchorBlockNumber
+			}
+		}
 	}
 
-	// Handle legacy transaction (type 0) or other types
-	return nil, fmt.Errorf("unsupported transaction type: %d", stx.TxType)
+	// Forced inclusion protection
+	if isForcedInclusion && !hasValidAnchor {
+		log.Warn("Non-forced proposal has no valid anchor blocks, replacing with default manifest")
+		// Replace the entire manifest with the default manifest
+		// This penalizes proposals that fail to provide proper L1 anchoring
+		proposalManifest.IsDefault = true
+		// TODO: Actually replace with default manifest - this would need to be provided
+		// For now, just mark it as default
+	}
+
+	// Note: bondInstructionsHash and bondInstructions validation would be handled
+	// in the calling code as it requires fetching L1 state and events
+
+	return nil
 }

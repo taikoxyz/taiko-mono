@@ -79,6 +79,8 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 }
 
 // AssembleUpdateStateTx assembles a signed ShastaAnchor.updateState transaction.
+// Note: For now, we assume isLowBondProposal is false as we cannot simulate the transaction
+// to get the actual value. This should be updated once we have a way to determine it.
 func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 	ctx context.Context,
 	// Parameters of the ShastaAnchor.updateState transaction.
@@ -94,9 +96,9 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 	anchorStateRoot common.Hash,
 	// Height of the L2 block which including the ShastaAnchor.updateState transaction.
 	l2Height *big.Int,
+	baseFee *big.Int,
 ) (*types.Transaction, error) {
-	//TODO: to be confirmed
-	opts, err := c.transactOpts(ctx, l2Height, nil, parent.Hash())
+	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
 	if err != nil {
 		return nil, err
 	}
@@ -108,13 +110,12 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 		"anchorStateRoot", anchorStateRoot,
 		"parentGasUsed", parent.GasUsed,
 		"parentHash", parent.Hash(),
-		"gasIssuancePerSecond", baseFeeConfig.GasIssuancePerSecond,
-		"basefeeAdjustmentQuotient", baseFeeConfig.AdjustmentQuotient,
-		"signalSlots", len(signalSlots),
-		"baseFee", utils.WeiToGWei(baseFee),
+		"proposalId", proposalId,
+		"proposer", proposer,
+		"blockIndex", blockIndex,
 	)
 
-	return c.rpc.ShastaClients.Anchor.UpdateState(
+	tx, err := c.rpc.ShastaClients.Anchor.UpdateState(
 		opts,
 		proposalId,
 		proposer,
@@ -126,6 +127,11 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 		anchorBlockHash,
 		anchorStateRoot,
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	return tx, nil
 }
 
 // transactOpts is a utility method to create some transact options of the anchor transaction in given L2 block with

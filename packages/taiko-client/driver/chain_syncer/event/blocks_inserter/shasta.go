@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 
-	"log"
 	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
@@ -86,12 +86,10 @@ func (i *Shasta) InsertBlocks(
 		return err
 	} else {
 		proposalManifest = i.decompressor.TryDecompressProposalManifest(metadataBytes, int(meta.GetDerivation().BlobSlice.Offset.Int64()))
-		// Check Block-level metadata
 	}
 
-	if proposalManifest.IsDefault {
-
-	} else {
+	if !proposalManifest.IsDefault {
+		// Check Block-level metadata
 
 	}
 
