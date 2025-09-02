@@ -673,6 +673,24 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		}
 
 		parentNum := uint64(currentPayload.Payload.BlockNumber - 1)
+
+		// header by number only returns blocks from canonical chain unlike
+		// getBlockByHash, so we can use it to check if the parent is
+		// already canonical.
+		parentCanonHdr, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parentNum))
+		if err != nil && !errors.Is(err, ethereum.NotFound) {
+			return fmt.Errorf("failed to fetch canonical header at %d: %w", parentNum, err)
+		}
+		if parentCanonHdr != nil && parentCanonHdr.Hash() == currentPayload.Payload.ParentHash {
+			log.Debug(
+				"Parent block already in L2 canonical chain, stop searching cached envelopes",
+				"blockID", parentNum,
+				"hash", currentPayload.Payload.ParentHash.Hex(),
+			)
+
+			break
+		}
+
 		parentPayload := s.envelopesCache.get(parentNum, currentPayload.Payload.ParentHash)
 		if parentPayload == nil {
 			// If the parent payload is not found in the cache and chain is not syncing,
@@ -724,19 +742,6 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 				currentPayload.Payload.BlockNumber-1,
 				currentPayload.Payload.ParentHash.Hex(),
 			)
-		}
-
-		parentHeader, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(parentPayload.Payload.BlockNumber)))
-		if err != nil && !errors.Is(err, ethereum.NotFound) {
-			return fmt.Errorf("failed to fetch parent header: %w", err)
-		}
-
-		// If the parent is already canonical, stop here and dont append it.
-		// we are done now.
-		if parentHeader != nil && parentHeader.Hash() == parentPayload.Payload.BlockHash {
-			log.Debug("Parent block is already in L2 canonical chain, stop searching cached envelopes")
-
-			break
 		}
 
 		payloadsToImport = append([]*preconf.Envelope{
