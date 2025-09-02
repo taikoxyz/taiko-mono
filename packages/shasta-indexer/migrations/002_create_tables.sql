@@ -196,7 +196,7 @@ CREATE INDEX idx_proved_block_timestamp ON proved(block_timestamp);
 -- Indexes for proved_bond_instructions table
 CREATE INDEX idx_proved_bond_instructions_proved_id ON proved_bond_instructions(proved_id);
 CREATE INDEX idx_proved_bond_instructions_proposal_id ON proved_bond_instructions(proposal_id);
-CREATE INDEX idx_proved_bond_instructions_block_numbe ON proved_bond_instructions(block_number);
+CREATE INDEX idx_proved_bond_instructions_block_number ON proved_bond_instructions(block_number);
 CREATE INDEX idx_proved_bond_instructions_tx_hash ON proved_bond_instructions(tx_hash);
 
 -- Indexes for bond_instructed table
