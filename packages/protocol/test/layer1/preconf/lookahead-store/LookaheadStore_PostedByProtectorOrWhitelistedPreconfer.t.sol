@@ -5,7 +5,7 @@ import "./LookaheadStoreBase.sol";
 
 contract TestLookaheadStore_PostedByProtectorOrWhitelistedPreconfer is LookaheadStoreBase {
     // Lookahead posting accepted
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function test_acceptsValidLookaheadByWhitelist(
         SetupOperator memory _lookaheadPostingOperator,
@@ -91,7 +91,7 @@ contract TestLookaheadStore_PostedByProtectorOrWhitelistedPreconfer is Lookahead
     }
 
     // Lookahead posting reverts
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function test_revertsWhenTheSenderIsNotTheProtectorOrPreconfRouter() external useMainnet {
         (
