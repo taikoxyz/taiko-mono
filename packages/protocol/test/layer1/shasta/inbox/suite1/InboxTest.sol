@@ -323,6 +323,7 @@ abstract contract InboxTest is CommonTest {
             id: _builder.id,
             proposer: _builder.proposer,
             timestamp: uint48(block.timestamp),
+            lookaheadSlotTimestamp: uint48(block.timestamp + 12), // Default: current + 1 slot
             coreStateHash: _builder.coreStateHash,
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -553,6 +554,7 @@ abstract contract InboxTest is CommonTest {
             id: _config.id,
             proposer: _config.proposer,
             timestamp: uint48(block.timestamp),
+            lookaheadSlotTimestamp: uint48(block.timestamp + 12), // Default: current + 1 slot
             coreStateHash: bytes32(0), // Will be set later
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -1043,7 +1045,7 @@ abstract contract InboxTest is CommonTest {
         vm.mockCall(
             proposerChecker,
             abi.encodeWithSelector(IProposerChecker.checkProposer.selector, _proposer),
-            abi.encode()
+            abi.encode(uint48(0))
         );
     }
 
@@ -1389,6 +1391,7 @@ abstract contract InboxTest is CommonTest {
         proposal.id = _proposalId;
         proposal.proposer = _proposer;
         proposal.timestamp = uint48(_timestamp);
+        proposal.lookaheadSlotTimestamp = uint48(0); // Set to 0 as returned by mockProposerAllowed
         proposal.derivationHash = keccak256(abi.encode(derivation));
 
         // The contract increments nextProposalId during processing

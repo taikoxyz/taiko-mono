@@ -76,6 +76,7 @@ library LibProveInputDecoder {
         newPtr_ = P.packUint48(_ptr, _proposal.id);
         newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
         newPtr_ = P.packUint48(newPtr_, _proposal.timestamp);
+        newPtr_ = P.packUint48(newPtr_, _proposal.lookaheadSlotTimestamp);
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
     }
@@ -89,6 +90,7 @@ library LibProveInputDecoder {
         (proposal_.id, newPtr_) = P.unpackUint48(_ptr);
         (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
         (proposal_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
+        (proposal_.lookaheadSlotTimestamp, newPtr_) = P.unpackUint48(newPtr_);
         (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
@@ -144,13 +146,14 @@ library LibProveInputDecoder {
             size_ = 6;
 
             // Proposals - each has fixed size
-            // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) + coreStateHash(32) +
-            // derivationHash(32) = 96
+            // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) +
+            // lookaheadSlotTimestamp(6) + coreStateHash(32) +
+            // derivationHash(32) = 102
             //
             // Transitions - each has fixed size: proposalHash(32) + parentTransitionHash(32) +
             // Checkpoint(6 + 32 + 32) + designatedProver(20) + actualProver(20) = 174
             //
-            size_ += _proposals.length * 270;
+            size_ += _proposals.length * 276;
         }
     }
 

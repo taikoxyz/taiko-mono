@@ -34,6 +34,7 @@ contract LibProposeInputDecoderTest is Test {
             id: 10,
             proposer: address(0x1),
             timestamp: 1000,
+            lookaheadSlotTimestamp: 1_700_000_012,
             coreStateHash: bytes32(0),
             derivationHash: keccak256(abi.encode(derivations[0]))
         });
@@ -142,6 +143,7 @@ contract LibProposeInputDecoderTest is Test {
             id: 96,
             proposer: address(0x1234),
             timestamp: 1_000_000,
+            lookaheadSlotTimestamp: 1_700_000_012,
             coreStateHash: keccak256("core_state_96"),
             derivationHash: keccak256(abi.encode(derivations[0]))
         });
@@ -163,6 +165,7 @@ contract LibProposeInputDecoderTest is Test {
             id: 97,
             proposer: address(0x5678),
             timestamp: 1_000_010,
+            lookaheadSlotTimestamp: 1_700_000_012,
             coreStateHash: keccak256("core_state_97"),
             derivationHash: keccak256(abi.encode(derivations[1]))
         });
@@ -310,6 +313,7 @@ contract LibProposeInputDecoderTest is Test {
             id: 1,
             proposer: address(0xabcd),
             timestamp: 999_999,
+            lookaheadSlotTimestamp: 1_700_000_012,
             coreStateHash: bytes32(uint256(0x123456)),
             derivationHash: keccak256(abi.encode(derivations[0]))
         });
