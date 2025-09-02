@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title LibTransitionAggregation
 /// @notice Library for aggregating consecutive transition records to optimize storage and gas usage
@@ -63,8 +62,8 @@ library LibTransitionAggregation {
         IInbox.TransitionRecord memory currentRecord = IInbox.TransitionRecord({
             span: 1,
             bondInstructions: _calculateBondInstructions(_config, _proposals[0], _transitions[0]),
-            transitionHash: _hashTransition(_transitions[0]),
-            checkpointHash: _hashCheckpoint(_transitions[0].checkpoint)
+            transitionHash: keccak256(abi.encode(_transitions[0])),
+            checkpointHash: keccak256(abi.encode(_transitions[0].checkpoint))
         });
 
         uint48 currentGroupStartId = _proposals[0].id;
@@ -85,8 +84,8 @@ library LibTransitionAggregation {
                 }
 
                 // Update record with latest transition data
-                currentRecord.transitionHash = _hashTransition(_transitions[i]);
-                currentRecord.checkpointHash = _hashCheckpoint(_transitions[i].checkpoint);
+                currentRecord.transitionHash = keccak256(abi.encode(_transitions[i]));
+                currentRecord.checkpointHash = keccak256(abi.encode(_transitions[i].checkpoint));
                 currentRecord.span++;
             } else {
                 // Save current aggregated record
@@ -104,8 +103,8 @@ library LibTransitionAggregation {
                 currentRecord = IInbox.TransitionRecord({
                     span: 1,
                     bondInstructions: _calculateBondInstructions(_config, _proposals[i], _transitions[i]),
-                    transitionHash: _hashTransition(_transitions[i]),
-                    checkpointHash: _hashCheckpoint(_transitions[i].checkpoint)
+                    transitionHash: keccak256(abi.encode(_transitions[i])),
+                    checkpointHash: keccak256(abi.encode(_transitions[i].checkpoint))
                 });
             }
         }
@@ -176,21 +175,4 @@ library LibTransitionAggregation {
         }
     }
 
-    /// @dev Hashes a Transition struct
-    /// @param _transition The transition to hash
-    /// @return _ The hash of the transition
-    function _hashTransition(IInbox.Transition memory _transition) private pure returns (bytes32) {
-        return keccak256(abi.encode(_transition));
-    }
-
-    /// @dev Hashes a Checkpoint struct
-    /// @param _checkpoint The checkpoint to hash
-    /// @return _ The hash of the checkpoint
-    function _hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
-        private
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_checkpoint));
-    }
 }

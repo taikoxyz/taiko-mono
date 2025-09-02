@@ -190,7 +190,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Verify the proof
         IProofVerifier(config.proofVerifier).verifyProof(
-            _hashTransitionsArray(input.transitions), _proof
+            keccak256(abi.encode(input.transitions)), _proof
         );
     }
 
@@ -345,15 +345,15 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         CoreState memory coreState;
         coreState.nextProposalId = 1;
-        coreState.lastFinalizedTransitionHash = _hashTransition(transition);
+        coreState.lastFinalizedTransitionHash = keccak256(abi.encode(transition));
 
         Proposal memory proposal;
-        proposal.coreStateHash = _hashCoreState(coreState);
+        proposal.coreStateHash = keccak256(abi.encode(coreState));
 
         Derivation memory derivation;
-        proposal.derivationHash = _hashDerivation(derivation);
+        proposal.derivationHash = keccak256(abi.encode(derivation));
 
-        _setProposalHash(config, 0, _hashProposal(proposal));
+        _setProposalHash(config, 0, keccak256(abi.encode(proposal)));
         emit Proposed(
             encodeProposedEventData(
                 ProposedEventPayload({
@@ -507,7 +507,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         internal
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+        bytes32 transitionRecordHash = keccak256(abi.encode(_transitionRecord));
         IInbox.TransitionRecordSlot storage slot = _transitionRecordSlots[bufferSlot];
 
         // Check if we can use the primary slot
@@ -605,39 +605,11 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (bytes32 proposalHash_)
     {
-        proposalHash_ = _hashProposal(_proposal);
+        proposalHash_ = keccak256(abi.encode(_proposal));
         bytes32 storedProposalHash = _proposalHashes[_proposal.id % _config.ringBufferSize];
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
 
-    /// @dev Hashes a Transition struct.
-    /// @param _transition The transition to hash.
-    /// @return _ The hash of the transition.
-    function _hashTransition(Transition memory _transition) internal pure returns (bytes32) {
-        return keccak256(abi.encode(_transition));
-    }
-
-    /// @dev Hashes a TransitionRecord struct.
-    /// @param _transitionRecord The transition record to hash.
-    /// @return _ The hash of the transition record.
-    function _hashTransitionRecord(TransitionRecord memory _transitionRecord)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_transitionRecord));
-    }
-
-    /// @dev Hashes a Checkpoint struct.
-    /// @param _checkpoint The checkpoint to hash.
-    /// @return _ The hash of the checkpoint.
-    function _hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_checkpoint));
-    }
 
     // ---------------------------------------------------------------
     // Private Functions
@@ -670,7 +642,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
         require(_input.parentProposals.length > 0, EmptyProposals());
         require(
-            _hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
+            keccak256(abi.encode(_input.coreState)) == _input.parentProposals[0].coreStateHash,
             InvalidState()
         );
     }
@@ -732,7 +704,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             require(_parentProposals.length == 2, IncorrectProposalCount());
             require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
             require(
-                storedNextProposalHash == _hashProposal(_parentProposals[1]),
+                storedNextProposalHash == keccak256(abi.encode(_parentProposals[1])),
                 NextProposalHashMismatch()
             );
         }
@@ -774,11 +746,11 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 timestamp: uint48(block.timestamp),
                 lookaheadSlotTimestamp: _lookaheadSlotTimestamp,
                 proposer: msg.sender,
-                coreStateHash: _hashCoreState(_coreState),
-                derivationHash: _hashDerivation(derivation)
+                coreStateHash: keccak256(abi.encode(_coreState)),
+                derivationHash: keccak256(abi.encode(derivation))
             });
 
-            _setProposalHash(_config, proposal.id, _hashProposal(proposal));
+            _setProposalHash(_config, proposal.id, keccak256(abi.encode(proposal)));
             bytes memory payload = encodeProposedEventData(
                 ProposedEventPayload({
                     proposal: proposal,
@@ -835,7 +807,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Update checkpoint if any proposals were finalized
         if (finalizedCount > 0) {
-            bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
+            bytes32 checkpointHash = keccak256(abi.encode(_input.checkpoint));
             require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
             ICheckpointManager(_config.checkpointManager).saveCheckpoint(_input.checkpoint);
         }
@@ -872,7 +844,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(_hasTransitionRecord, TransitionRecordNotProvided());
 
         // Verify transition record hash matches
-        bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+        bytes32 transitionRecordHash = keccak256(abi.encode(_transitionRecord));
         require(transitionRecordHash == storedHash, TransitionRecordHashMismatchWithStorage());
 
         // Update core state
@@ -931,37 +903,6 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return keccak256(abi.encode(_proposalId, _parentTransitionHash));
     }
 
-    /// @dev Hashes a Proposal struct.
-    /// @param _proposal The proposal to hash.
-    /// @return _ The hash of the proposal.
-    function _hashProposal(Proposal memory _proposal) private pure returns (bytes32) {
-        return keccak256(abi.encode(_proposal));
-    }
-
-    /// @dev Hashes a CoreState struct.
-    /// @param _coreState The core state to hash.
-    /// @return _ The hash of the core state.
-    function _hashCoreState(CoreState memory _coreState) private pure returns (bytes32) {
-        return keccak256(abi.encode(_coreState));
-    }
-
-    /// @dev Hashes a Derivation struct.
-    /// @param _derivation The derivation to hash.
-    /// @return _ The hash of the derivation.
-    function _hashDerivation(Derivation memory _derivation) private pure returns (bytes32) {
-        return keccak256(abi.encode(_derivation));
-    }
-
-    /// @dev Hashes an array of Transitions.
-    /// @param _transitions The transitions array to hash.
-    /// @return _ The hash of the transitions array.
-    function _hashTransitionsArray(Transition[] memory _transitions)
-        private
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_transitions));
-    }
 
     /// @dev Compares partial (26 bytes) with full (32 bytes) parent transition hash
     /// @notice Used for storage optimization - stores only 26 bytes in reusable slot
