@@ -429,6 +429,11 @@ func (d *Driver) cacheLookaheadLoop() {
 		// Only read and update handover config at epoch transitions to avoid race conditions
 		// where different nodes might read different configs during mid-epoch upgrades
 		if currentEpoch > d.lastConfigReloadEpoch {
+			log.Info("Epoch transition detected, reloading handover config",
+				"epoch", currentEpoch, "lastConfigReloadEpoch",
+				d.lastConfigReloadEpoch,
+			)
+
 			routerConfig, err := d.rpc.GetPreconfRouterConfig(&bind.CallOpts{Context: d.ctx})
 			if err != nil {
 				log.Warn("Failed to fetch preconf router config, keeping current handoverSkipSlots",
@@ -441,7 +446,10 @@ func (d *Driver) cacheLookaheadLoop() {
 					d.handoverSkipSlots = newHandoverSkipSlots
 				}
 			}
+
 			d.lastConfigReloadEpoch = currentEpoch
+
+			log.Info("Handover config reload complete", "lastConfigReloadEpoch", d.lastConfigReloadEpoch)
 		}
 
 		latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
