@@ -103,6 +103,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 id: i,
                 proposer: Alice,
                 timestamp: uint48(block.timestamp),
+                lookaheadSlotTimestamp: uint48(0), // Set to 0 as returned by mockProposerAllowed
                 coreStateHash: bytes32(0),
                 derivationHash: keccak256(abi.encode(derivation))
             });
@@ -344,6 +345,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 id: i,
                 proposer: Alice,
                 timestamp: uint48(block.timestamp),
+                lookaheadSlotTimestamp: uint48(0), // Set to 0 as returned by mockProposerAllowed
                 coreStateHash: keccak256(abi.encode(updatedCoreState)),
                 derivationHash: keccak256(abi.encode(derivation))
             });
