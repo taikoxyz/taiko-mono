@@ -14,7 +14,7 @@ import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 ///      - Custom calldata encoding for propose and prove inputs
 ///      - Compact binary representation using LibProposeInputDecoder and LibProveInputDecoder
 ///      - Reduced transaction costs through efficient data packing
-///      - Maintains all optimizations from InboxOptimized1 and InboxOptimized2
+///      - Maintains all optimizations from base Inbox and InboxOptimized2
 /// @dev Gas savings: ~40% reduction in calldata costs for propose/prove operations
 /// @custom:security-contact security@taiko.xyz
 abstract contract InboxOptimized3 is InboxOptimized2 {

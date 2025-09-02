@@ -163,8 +163,6 @@ abstract contract InboxTest is CommonTest {
 
         if (keccak256(bytes(inboxTypeStr)) == keccak256(bytes("base"))) {
             return TestInboxFactory.InboxType.Base;
-        } else if (keccak256(bytes(inboxTypeStr)) == keccak256(bytes("opt1"))) {
-            return TestInboxFactory.InboxType.Optimized1;
         } else if (keccak256(bytes(inboxTypeStr)) == keccak256(bytes("opt2"))) {
             return TestInboxFactory.InboxType.Optimized2;
         } else if (keccak256(bytes(inboxTypeStr)) == keccak256(bytes("opt3"))) {
@@ -1559,11 +1557,7 @@ abstract contract InboxTest is CommonTest {
                 // Decode the event data based on inbox type
                 bytes memory eventData = logs[i].data;
 
-                if (
-                    inboxType == TestInboxFactory.InboxType.Base
-                        || inboxType == TestInboxFactory.InboxType.Optimized1
-                ) {
-                    // For base and opt1, use abi.decode
+                if (inboxType == TestInboxFactory.InboxType.Base) {
                     bytes memory payload = abi.decode(eventData, (bytes));
                     IInbox.ProvedEventPayload memory provedPayload =
                         abi.decode(payload, (IInbox.ProvedEventPayload));
