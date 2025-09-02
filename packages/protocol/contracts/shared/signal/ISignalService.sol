@@ -10,32 +10,15 @@ pragma solidity ^0.8.24;
 /// a merkle proof.
 /// @custom:security-contact security@taiko.xyz
 interface ISignalService {
-    enum CacheOption {
-        CACHE_NOTHING,
-        CACHE_SIGNAL_ROOT,
-        CACHE_STATE_ROOT,
-        CACHE_BOTH
-    }
-
-    struct HopProof {
-        /// @notice This hop's destination chain ID. If there is a next hop, this ID is the next
-        /// hop's source chain ID.
+    struct Proof {
+        /// @notice The destination chain ID (must be the current chain).
         uint64 chainId;
-        /// @notice The ID of a source chain block whose state root has been synced to the hop's
+        /// @notice The ID of a source chain block whose state root has been synced to the
         /// destination chain.
-        /// Note that this block ID must be greater than or equal to the block ID where the signal
-        /// was sent on the source chain.
         uint64 blockId;
-        /// @notice The state root or signal root of the source chain at the above blockId. This
-        /// value has been synced to the destination chain.
-        /// @dev To get both the blockId and the rootHash, apps should subscribe to the
-        /// ChainDataSynced event or query `topBlockId` first using the source chain's ID and
-        /// LibSignals.STATE_ROOT to get the most recent block ID synced, then call
-        /// `getSyncedChainData` to read the synchronized data.
+        /// @notice The state root or signal root of the source chain at the above blockId.
+        /// This value must have been synced to the destination chain.
         bytes32 rootHash;
-        /// @notice Options to cache either the state roots or signal roots of middle-hops to the
-        /// current chain.
-        CacheOption cacheOption;
         /// @notice The signal service's account proof. If this value is empty, then `rootHash` will
         /// be used as the signal root, otherwise, `rootHash` will be used as the state root.
         bytes[] accountProof;
@@ -93,25 +76,6 @@ interface ISignalService {
         returns (bytes32 signal_);
 
     /// @notice Verifies if a signal has been received on the target chain.
-    /// @param _chainId The identifier for the source chain from which the
-    /// signal originated.
-    /// @param _app The address that initiated the signal.
-    /// @param _signal The signal (message) to send.
-    /// @param _proof Merkle proof that the signal was persisted on the
-    /// source chain. If this proof is empty, then we check if this signal has been marked as
-    /// received by TaikoL2.
-    /// @return numCacheOps_ The number of newly cached items.
-    function proveSignalReceived(
-        uint64 _chainId,
-        address _app,
-        bytes32 _signal,
-        bytes calldata _proof
-    )
-        external
-        returns (uint256 numCacheOps_);
-
-    /// @notice Verifies if a signal has been received on the target chain.
-    /// This is the "readonly" version of proveSignalReceived.
     /// @param _chainId The identifier for the source chain from which the
     /// signal originated.
     /// @param _app The address that initiated the signal.

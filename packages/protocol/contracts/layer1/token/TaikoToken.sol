@@ -35,7 +35,7 @@ contract TaikoToken is TaikoTokenBase {
         _mint(_recipient, 1_000_000_000 ether);
     }
 
-    function init2() external reinitializer(2) {
+    function init2() external onlyOwner reinitializer(2) {
         // Ensure non-voting accounts are forced to delegate to themselves so their getPastVotes
         // will return their balance as their voting power.
         address[] memory accounts = getNonVotingAccounts();
