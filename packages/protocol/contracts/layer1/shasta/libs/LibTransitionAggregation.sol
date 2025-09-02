@@ -32,7 +32,8 @@ library LibTransitionAggregation {
     /// @notice Aggregates consecutive transitions into optimized records
     /// @dev Groups consecutive proposal IDs into single records with merged bond instructions
     /// @dev NOTE: That using a view function here instead of manipulating storage directly on the
-    /// inbox or passing a storage pointer is slightly less efficient, but for non extremely large number
+    /// inbox or passing a storage pointer is slightly less efficient, but for non extremely large
+    /// number
     /// of transitions, it's a small difference and the readability is much better.
     /// @param _proposals Array of proposals to aggregate
     /// @param _transitions Array of transitions corresponding to proposals
