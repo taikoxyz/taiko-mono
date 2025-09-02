@@ -165,7 +165,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
             operator = fallbackPreconfer;
         }
         require(operator == _proposer, InvalidProposer());
-        //TODO: Return the timestamp of the last slot for the current epoch
+        // Slashing is not enabled for whitelisted preconfers, so we return block.timestamp + 12
+        // which represents one slot duration (12 seconds)
+        lookaheadSlotTimestamp_ = uint48(block.timestamp + 12);
     }
 
     /// @inheritdoc IPreconfWhitelist
