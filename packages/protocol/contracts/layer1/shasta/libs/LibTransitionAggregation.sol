@@ -50,8 +50,8 @@ library LibTransitionAggregation {
             return new AggregatedRecord[](0);
         }
 
-        // Pre-allocate maximum possible records (worst case: no aggregation)
-        AggregatedRecord[] memory tempRecords = new AggregatedRecord[](_proposals.length);
+        // Allocate worst-case size directly in return variable
+        records_ = new AggregatedRecord[](_proposals.length);
         uint256 recordCount = 0;
 
         // Initialize first aggregation group
@@ -85,7 +85,7 @@ library LibTransitionAggregation {
                 currentRecord.span++;
             } else {
                 // Save current aggregated record
-                tempRecords[recordCount] = AggregatedRecord({
+                records_[recordCount] = AggregatedRecord({
                     startProposalId: currentGroupStartId,
                     firstTransition: firstTransitionInGroup,
                     record: currentRecord
@@ -106,17 +106,16 @@ library LibTransitionAggregation {
         }
 
         // Save the final aggregated record
-        tempRecords[recordCount] = AggregatedRecord({
+        records_[recordCount] = AggregatedRecord({
             startProposalId: currentGroupStartId,
             firstTransition: firstTransitionInGroup,
             record: currentRecord
         });
         recordCount++;
 
-        // Copy to correctly sized array
-        records_ = new AggregatedRecord[](recordCount);
-        for (uint256 i = 0; i < recordCount; ++i) {
-            records_[i] = tempRecords[i];
+        // Resize array to actual size using assembly
+        assembly {
+            mstore(records_, recordCount)
         }
     }
 
