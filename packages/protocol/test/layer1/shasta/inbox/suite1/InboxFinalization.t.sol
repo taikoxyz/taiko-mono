@@ -72,7 +72,8 @@ contract InboxFinalization is InboxTest {
         private
         returns (IInbox.TransitionRecord memory transitionRecord)
     {
-        transitionRecord = InboxTestLib.createTransitionRecord(_transition, 1);
+        transitionRecord =
+            InboxTestLib.createTransitionRecord(_transition, 1, defaultConfig.cooldownWindow);
         // Create a parent transition with the parentTransitionHash for the function call
         IInbox.Transition memory parentTransition;
         parentTransition.parentTransitionHash = _parentTransitionHash;
@@ -146,10 +147,11 @@ contract InboxFinalization is InboxTest {
         IInbox.TransitionRecord[] memory transitionRecords =
             new IInbox.TransitionRecord[](numProposals);
         for (uint48 i = 0; i < numProposals; i++) {
-            transitionRecords[i] = InboxTestLib.createTransitionRecord(transitions[i], 1);
+            transitionRecords[i] =
+                InboxTestLib.createTransitionRecord(transitions[i], 1, defaultConfig.cooldownWindow);
         }
 
-        // Advance time to pass the cooldown period (5 minutes)
+        // Advance time to pass the cooldown period
         vm.warp(block.timestamp + defaultConfig.cooldownWindow + 1);
 
         // Setup expectations for finalization

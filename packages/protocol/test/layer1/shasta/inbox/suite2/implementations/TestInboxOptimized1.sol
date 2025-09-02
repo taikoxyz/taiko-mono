@@ -35,7 +35,7 @@ contract TestInboxOptimized1 is InboxOptimized1 {
             bondToken: _bondToken,
             provingWindow: 2 hours,
             extendedProvingWindow: 4 hours,
-            effectiveAt: 0,
+            cooldownWindow: 48 hours,
             maxFinalizationCount: 16,
             ringBufferSize: 100,
             basefeeSharingPctg: 0,

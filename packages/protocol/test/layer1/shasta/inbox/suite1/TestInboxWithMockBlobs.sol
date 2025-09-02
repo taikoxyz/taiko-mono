@@ -26,7 +26,7 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
                 bondToken: address(0),
                 provingWindow: 1 hours,
                 extendedProvingWindow: 2 hours,
-            effectiveAt: 0,
+                cooldownWindow: 48 hours,
                 maxFinalizationCount: 10,
                 ringBufferSize: 100, // Ensure this is not zero
                 basefeeSharingPctg: 10,

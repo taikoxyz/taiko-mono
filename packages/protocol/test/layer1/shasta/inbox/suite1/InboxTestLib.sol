@@ -303,9 +303,21 @@ library InboxTestLib {
         view
         returns (IInbox.TransitionRecord memory)
     {
+        return createTransitionRecord(_transition, _span, 172_800); // Default to 48 hours
+    }
+
+    function createTransitionRecord(
+        IInbox.Transition memory _transition,
+        uint8 _span,
+        uint48 _cooldownWindow
+    )
+        internal
+        view
+        returns (IInbox.TransitionRecord memory)
+    {
         return IInbox.TransitionRecord({
             span: _span,
-            effectiveAt: uint48(block.timestamp + 300), // Default cooldown window of 300 seconds
+            effectiveAt: uint48(block.timestamp + _cooldownWindow),
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: hashTransition(_transition),
             checkpointHash: keccak256(abi.encode(_transition.checkpoint))
@@ -322,9 +334,23 @@ library InboxTestLib {
         view
         returns (IInbox.TransitionRecord memory)
     {
+        return createTransitionRecordWithBonds(_transition, _span, _bondInstructions, 172_800); // Default
+            // to 48 hours
+    }
+
+    function createTransitionRecordWithBonds(
+        IInbox.Transition memory _transition,
+        uint8 _span,
+        LibBonds.BondInstruction[] memory _bondInstructions,
+        uint48 _cooldownWindow
+    )
+        internal
+        view
+        returns (IInbox.TransitionRecord memory)
+    {
         return IInbox.TransitionRecord({
             span: _span,
-            effectiveAt: uint48(block.timestamp + 300), // Default cooldown window of 300 seconds
+            effectiveAt: uint48(block.timestamp + _cooldownWindow),
             bondInstructions: _bondInstructions,
             transitionHash: hashTransition(_transition),
             checkpointHash: keccak256(abi.encode(_transition.checkpoint))
@@ -340,9 +366,21 @@ library InboxTestLib {
         view
         returns (IInbox.TransitionRecord[] memory records)
     {
+        return createTransitionRecordBatch(_transitions, _span, 172_800); // Default to 48 hours
+    }
+
+    function createTransitionRecordBatch(
+        IInbox.Transition[] memory _transitions,
+        uint8 _span,
+        uint48 _cooldownWindow
+    )
+        internal
+        view
+        returns (IInbox.TransitionRecord[] memory records)
+    {
         records = new IInbox.TransitionRecord[](_transitions.length);
         for (uint256 i = 0; i < _transitions.length; i++) {
-            records[i] = createTransitionRecord(_transitions[i], _span);
+            records[i] = createTransitionRecord(_transitions[i], _span, _cooldownWindow);
         }
     }
 
