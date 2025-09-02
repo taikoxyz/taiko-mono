@@ -25,8 +25,6 @@ module.exports = {
       ERC1155VaultImpl: getConstantAddress(`0${this.chainId}`, 4),
       SignalServiceImpl: getConstantAddress(`0${this.chainId}`, 5),
       SharedResolverImpl: getConstantAddress(`0${this.chainId}`, 6),
-      BondManagerImpl: getConstantAddress(`0${this.chainId}`, 7),
-      CheckpointManagerImpl: getConstantAddress(`0${this.chainId}`, 8),
       BridgedERC20Impl: getConstantAddress(`0${this.chainId}`, 10096),
       BridgedERC721Impl: getConstantAddress(`0${this.chainId}`, 10097),
       BridgedERC1155Impl: getConstantAddress(`0${this.chainId}`, 10098),
@@ -34,6 +32,8 @@ module.exports = {
       // Rollup Contracts
       TaikoAnchorImpl: getConstantAddress(`0${this.chainId}`, 10001),
       RollupResolverImpl: getConstantAddress(`0${this.chainId}`, 10002),
+      BondManagerImpl: getConstantAddress(`0${this.chainId}`, 10003),
+      CheckpointManagerImpl: getConstantAddress(`0${this.chainId}`, 10004),
       // ============ Proxies ============
       // Shared Contracts
       Bridge: getConstantAddress(this.chainId, 1),
@@ -42,11 +42,11 @@ module.exports = {
       ERC1155Vault: getConstantAddress(this.chainId, 4),
       SignalService: getConstantAddress(this.chainId, 5),
       SharedResolver: getConstantAddress(this.chainId, 6),
-      BondManager: getConstantAddress(this.chainId, 7),
-      CheckpointManager: getConstantAddress(this.chainId, 8),
       // Rollup Contracts
       TaikoAnchor: getConstantAddress(this.chainId, 10001),
       RollupResolver: getConstantAddress(this.chainId, 10002),
+      BondManager: getConstantAddress(this.chainId, 10003),
+      CheckpointManager: getConstantAddress(this.chainId, 10004),
     };
   },
   // L2 EIP-1559 baseFee calculation related fields.

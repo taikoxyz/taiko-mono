@@ -51,6 +51,11 @@ export async function deployTaikoAnchor(
         config.param1559,
         config.pacayaForkHeight,
         config.shastaForkHeight,
+        config.livenessBondGwei,
+        config.provabilityBondGwei,
+        config.maxCheckpointStackSize,
+        config.minBond,
+        config.bondToken,
     );
 
     const storageLayouts: any = {};
@@ -124,6 +129,11 @@ async function generateContractConfigs(
     param1559: any,
     pacayaForkHeight: number,
     shastaForkHeight: number,
+    livenessBondGwei: number,
+    provabilityBondGwei: number,
+    maxCheckpointStackSize: number,
+    minBond: number,
+    bondToken: string,
 ): Promise<any> {
     const contractArtifacts: any = {
         // ============ Contracts ============
@@ -149,6 +159,7 @@ async function generateContractConfigs(
                 "./DefaultResolver.sol/DefaultResolver.json",
             ),
         ),
+        // Bridged Token Contracts
         BridgedERC20Impl: require(
             path.join(ARTIFACTS_PATH, "./BridgedERC20.sol/BridgedERC20.json"),
         ),
@@ -171,6 +182,15 @@ async function generateContractConfigs(
                 "./DefaultResolver.sol/DefaultResolver.json",
             ),
         ),
+        BondManagerImpl: require(
+            path.join(ARTIFACTS_PATH, "./BondManager.sol/BondManager.json"),
+        ),
+        CheckpointManagerImpl: require(
+            path.join(
+                ARTIFACTS_PATH,
+                "./CheckpointManager.sol/CheckpointManager.json",
+            ),
+        ),
         // Libraries
         LibNetwork: require(
             path.join(ARTIFACTS_PATH, "./LibNetwork.sol/LibNetwork.json"),
@@ -191,6 +211,8 @@ async function generateContractConfigs(
     // Rollup Contracts
     contractArtifacts.TaikoAnchor = proxy;
     contractArtifacts.RollupResolver = proxy;
+    contractArtifacts.BondManager = proxy;
+    contractArtifacts.CheckpointManager = proxy;
 
     const addressMap: any = {};
 
