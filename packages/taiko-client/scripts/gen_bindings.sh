@@ -39,6 +39,10 @@ cat ../protocol/out/layer2/ShastaAnchor.sol/ShastaAnchor.json |
 	jq .abi |
 	${ABIGEN_BIN} --abi - --type ShastaAnchor --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_shasta_anchor.go
 
+cat ../protocol/out/layer2/BondManager.sol/BondManager.json |
+  jq .abi |
+  ${ABIGEN_BIN} --abi - --type BondManager --pkg ${FORK} --out $DIR/../bindings/${FORK}/gen_bond_manager.go
+
 git -C ../../ log --format="%H" -n 1 >./bindings/${FORK}/.githead
 
 echo "🍻 Go contract bindings generated!"
