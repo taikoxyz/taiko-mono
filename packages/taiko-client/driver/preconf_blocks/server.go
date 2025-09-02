@@ -732,7 +732,10 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		}
 
 		// If the parent is already canonical, stop here and dont append it.
+		// we are done now.
 		if parentHeader != nil && parentHeader.Hash() == parentPayload.Payload.BlockHash {
+			log.Debug("Parent block is already in L2 canonical chain, stop searching cached envelopes")
+
 			break
 		}
 
