@@ -165,8 +165,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
             operator = fallbackPreconfer;
         }
         require(operator == _proposer, InvalidProposer());
-        // Slashing is not enabled for whitelisted preconfers, so we return block.timestamp + 12
-        // which represents one slot duration (12 seconds)
+        // Slashing is not enabled for whitelisted preconfers, so we return 0
         lookaheadSlotTimestamp_ = 0;
     }
 
