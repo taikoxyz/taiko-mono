@@ -83,6 +83,7 @@ pub async fn bond_instructed_handler(
                         format!("0x{}", hex::encode(result.tx_information.transaction_hash)),
                         e
                     );
+                    return Err(e.to_string());
                 }
             }
 

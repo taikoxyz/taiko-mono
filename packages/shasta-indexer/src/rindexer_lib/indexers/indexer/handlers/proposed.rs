@@ -1,13 +1,12 @@
-use crate::decoder::shasta::{decode_proposed_data_shasta, ProposedEventPayload};
 use super::error::{HandlerError, HandlerResult};
+use crate::decoder::shasta::{decode_proposed_data_shasta, ProposedEventPayload};
 use crate::rindexer_lib::typings::indexer::events::shasta_inbox::{
     no_extensions, ProposedEvent, ProposedResult, ShastaInboxEventType,
 };
 use alloy::hex;
 use rindexer::{
-    event::callback_registry::EventCallbackRegistry,
-    rindexer_error, rindexer_info,
-    RindexerColorize, PostgresClient,
+    event::callback_registry::EventCallbackRegistry, rindexer_error, rindexer_info, PostgresClient,
+    RindexerColorize,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -81,6 +80,8 @@ pub async fn proposed_handler(manifest_path: &PathBuf, registry: &mut EventCallb
                         format!("0x{}", hex::encode(result.tx_information.transaction_hash)),
                         e
                     );
+
+                    return Err(e.to_string());
                 }
             }
 

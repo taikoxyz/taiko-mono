@@ -138,7 +138,7 @@ async fn process_proved_event(
                     {
                         rindexer_error!("Failed to insert bond instruction: {}", e);
                         let _ = database.execute("ROLLBACK", &[]).await;
-                        return Err(e);
+                        return Err(HandlerError::ProcessingError(format!("Failed to insert bond instruction: {}", e)));
                     }
                 }
                 // Commit transaction
@@ -179,6 +179,7 @@ pub async fn proved_handler(manifest_path: &PathBuf, registry: &mut EventCallbac
                                 ),
                                 e
                             );
+                            return Err(e.to_string());
                         }
                     }
                     Err(e) => {
@@ -187,6 +188,7 @@ pub async fn proved_handler(manifest_path: &PathBuf, registry: &mut EventCallbac
                             format!("0x{}", hex::encode(result.tx_information.transaction_hash)),
                             e
                         );
+                        return Err(format!("Failed to decode Proved event data: {}", e));
                     }
                 }
             }
