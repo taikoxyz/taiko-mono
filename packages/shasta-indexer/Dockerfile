@@ -28,5 +28,6 @@ WORKDIR /app
 COPY --from=builder /app/target/release/shasta_indexer /usr/local/bin/
 COPY rindexer.yaml ./
 COPY abis ./abis
+COPY migrations ./migrations
 
 ENTRYPOINT ["shasta_indexer"]
