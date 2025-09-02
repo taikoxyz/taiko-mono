@@ -480,8 +480,8 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
     function rollbackBatches() external {
         Config memory config = pacayaConfig();
 
-        uint64 lastVerifiedBatchId = state.stats2.lastVerifiedBatchId;
-        uint64 numBatchesRollbacked = state.stats2.numBatches - lastVerifiedBatchId - 1;
+        uint64 startId = state.stats2.lastVerifiedBatchId + 1;
+        uint64 endId = state.stats2.numBatches - 1;
 
         // If the verification streak has been broken, likely due to a prover bug, we rollback to
         // the last verified batch.
@@ -490,12 +490,12 @@ abstract contract TaikoInbox is EssentialContract, ITaikoInbox, IProposeBatch, I
                 - state.batches[state.stats2.lastVerifiedBatchId % config.batchRingBufferSize]
                     .lastBlockTimestamp > config.maxVerificationDelay
         ) {
-            state.stats2.numBatches = lastVerifiedBatchId + 1;
+            state.stats2.numBatches = startId;
         } else {
             revert RollbackNotAllowed();
         }
 
-        emit BatchesRollbacked(numBatchesRollbacked);
+        emit BatchesRollbacked(startId, endId);
     }
 
     // View functions --------------------------------------------------------------------------
