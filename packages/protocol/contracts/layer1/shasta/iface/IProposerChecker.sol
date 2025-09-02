@@ -9,6 +9,11 @@ interface IProposerChecker {
 
     /// @notice Checks if an address is a valid proposer
     /// @param _proposer The address to check
+    /// @return lookaheadSlotTimestamp_ The timestamp of the last slot where the current preconfer
+    /// can propose.
     /// @dev This function must revert if the address is not a valid proposer
-    function checkProposer(address _proposer) external view;
+    function checkProposer(address _proposer)
+        external
+        view
+        returns (uint48 lookaheadSlotTimestamp_);
 }
