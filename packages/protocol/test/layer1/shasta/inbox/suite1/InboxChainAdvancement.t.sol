@@ -222,6 +222,10 @@ contract InboxChainAdvancement is InboxTest {
         // Expect: Final block update for batch completion
     ICheckpointManager.Checkpoint memory lastHeader = transitions[numProposals - 1].checkpoint;
         expectCheckpointSaved(lastHeader);
+            lastHeader.number,
+            lastHeader.hash,
+            lastHeader.stateRoot
+        );
 
         // Act: Submit batch finalization proposal with the transition records
         setupProposalMocks(Carol);

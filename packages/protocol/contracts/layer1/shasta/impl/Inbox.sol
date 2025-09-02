@@ -834,6 +834,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             return (false, _proposalId);
         }
 
+
         // Update core state
         _coreState.lastFinalizedProposalId = _proposalId;
 

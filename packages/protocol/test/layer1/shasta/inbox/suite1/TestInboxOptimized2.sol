@@ -27,7 +27,7 @@ contract TestInboxOptimized2 is InboxOptimized2, ITestInbox {
                 bondToken: address(0),
                 provingWindow: 1 hours,
                 extendedProvingWindow: 2 hours,
-                cooldownWindow: 5 minutes,
+            effectiveAt: 0,
                 maxFinalizationCount: 10,
                 ringBufferSize: 100,
                 basefeeSharingPctg: 10,
