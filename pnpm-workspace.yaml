@@ -1,2 +1,15 @@
 packages:
-  - "packages/*"
+  - packages/*
+onlyBuiltDependencies:
+  - "@sveltejs/kit"
+  - bufferutil
+  - es5-ext
+  - esbuild
+  - keccak
+  - lefthook
+  - optimism
+  - protobufjs
+  - secp256k1
+  - sharp
+  - svelte-preprocess
+  - utf-8-validate

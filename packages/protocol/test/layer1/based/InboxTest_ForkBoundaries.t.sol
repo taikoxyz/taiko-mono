@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-import "contracts/layer1/based/ITaikoInbox.sol";
+import "src/layer1/based/ITaikoInbox.sol";
 import "test/layer1/Layer1Test.sol";
 import "./InboxTestBase.sol";
 
