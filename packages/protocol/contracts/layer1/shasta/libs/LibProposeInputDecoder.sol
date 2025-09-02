@@ -169,11 +169,8 @@ library LibProposeInputDecoder {
         // Encode span
         newPtr_ = P.packUint8(_ptr, _transitionRecord.span);
 
-        // Encode transitionHash
-        newPtr_ = P.packBytes32(newPtr_, _transitionRecord.transitionHash);
-
-        // Encode checkpointHash
-        newPtr_ = P.packBytes32(newPtr_, _transitionRecord.checkpointHash);
+        // Encode effectiveAt
+        newPtr_ = P.packUint48(newPtr_, _transitionRecord.effectiveAt);
 
         // Encode BondInstructions array
         P.checkArrayLength(_transitionRecord.bondInstructions.length);
@@ -181,6 +178,12 @@ library LibProposeInputDecoder {
         for (uint256 i; i < _transitionRecord.bondInstructions.length; ++i) {
             newPtr_ = _encodeBondInstruction(newPtr_, _transitionRecord.bondInstructions[i]);
         }
+
+        // Encode transitionHash
+        newPtr_ = P.packBytes32(newPtr_, _transitionRecord.transitionHash);
+
+        // Encode checkpointHash
+        newPtr_ = P.packBytes32(newPtr_, _transitionRecord.checkpointHash);
     }
 
     /// @notice Decode a single TransitionRecord
@@ -192,11 +195,8 @@ library LibProposeInputDecoder {
         // Decode span
         (transitionRecord_.span, newPtr_) = P.unpackUint8(_ptr);
 
-        // Decode transitionHash
-        (transitionRecord_.transitionHash, newPtr_) = P.unpackBytes32(newPtr_);
-
-        // Decode checkpointHash
-        (transitionRecord_.checkpointHash, newPtr_) = P.unpackBytes32(newPtr_);
+        // Decode effectiveAt
+        (transitionRecord_.effectiveAt, newPtr_) = P.unpackUint48(newPtr_);
 
         // Decode BondInstructions array
         uint24 bondInstructionsLength;
@@ -205,6 +205,12 @@ library LibProposeInputDecoder {
         for (uint256 i; i < bondInstructionsLength; ++i) {
             (transitionRecord_.bondInstructions[i], newPtr_) = _decodeBondInstruction(newPtr_);
         }
+
+        // Decode transitionHash
+        (transitionRecord_.transitionHash, newPtr_) = P.unpackBytes32(newPtr_);
+
+        // Decode checkpointHash
+        (transitionRecord_.checkpointHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
     /// @notice Encode a single BondInstruction
@@ -273,10 +279,10 @@ library LibProposeInputDecoder {
             size_ += _proposals.length * 96;
 
             // TransitionRecords - each has fixed size + variable bond instructions
-            // Fixed: span(1) + transitionHash(32) + checkpointHash(32) + array length(3) =
-            // 68
+            // Fixed: span(1) + effectiveAt(6) + array length(3) + transitionHash(32) +
+            // checkpointHash(32) = 74
             for (uint256 i; i < _transitionRecords.length; ++i) {
-                size_ += 68 + (_transitionRecords[i].bondInstructions.length * 47);
+                size_ += 74 + (_transitionRecords[i].bondInstructions.length * 47);
             }
         }
     }
