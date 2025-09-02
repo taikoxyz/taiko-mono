@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBondsL1 } from "./LibBondsL1.sol";
 
 /// @title LibTransitionAggregation
 /// @notice Library for aggregating consecutive transition records to optimize storage and gas usage
@@ -35,16 +36,11 @@ library LibTransitionAggregation {
     /// @param _proposals Array of proposals to aggregate
     /// @param _transitions Array of transitions corresponding to proposals
     /// @param _config Configuration parameters for bond calculations
-    /// @param _calculateBondInstructions Function pointer for bond calculation
     /// @return records_ Array of aggregated records ready for storage
     function aggregateTransitions(
         IInbox.Proposal[] memory _proposals,
         IInbox.Transition[] memory _transitions,
-        IInbox.Config memory _config,
-        function(IInbox.Config memory, IInbox.Proposal memory, IInbox.Transition memory)
-            internal
-            view
-            returns (LibBonds.BondInstruction[] memory) _calculateBondInstructions
+        IInbox.Config memory _config
     )
         internal
         view
@@ -61,7 +57,7 @@ library LibTransitionAggregation {
         // Initialize first aggregation group
         IInbox.TransitionRecord memory currentRecord = IInbox.TransitionRecord({
             span: 1,
-            bondInstructions: _calculateBondInstructions(_config, _proposals[0], _transitions[0]),
+            bondInstructions: LibBondsL1.calculateBondInstructions(_config, _proposals[0], _transitions[0]),
             transitionHash: keccak256(abi.encode(_transitions[0])),
             checkpointHash: keccak256(abi.encode(_transitions[0].checkpoint))
         });
@@ -75,7 +71,7 @@ library LibTransitionAggregation {
             if (canAggregate(currentGroupStartId, currentRecord.span, _proposals[i].id)) {
                 // Aggregate with current record
                 LibBonds.BondInstruction[] memory newInstructions =
-                    _calculateBondInstructions(_config, _proposals[i], _transitions[i]);
+                    LibBondsL1.calculateBondInstructions(_config, _proposals[i], _transitions[i]);
 
                 // Merge bond instructions if any exist
                 if (newInstructions.length > 0) {
@@ -102,7 +98,7 @@ library LibTransitionAggregation {
 
                 currentRecord = IInbox.TransitionRecord({
                     span: 1,
-                    bondInstructions: _calculateBondInstructions(_config, _proposals[i], _transitions[i]),
+                    bondInstructions: LibBondsL1.calculateBondInstructions(_config, _proposals[i], _transitions[i]),
                     transitionHash: keccak256(abi.encode(_transitions[i])),
                     checkpointHash: keccak256(abi.encode(_transitions[i].checkpoint))
                 });

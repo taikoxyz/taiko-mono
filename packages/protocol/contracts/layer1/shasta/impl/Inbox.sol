@@ -386,8 +386,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             LibTransitionAggregation.aggregateTransitions(
                 _input.proposals,
                 _input.transitions,
-                _config,
-                _calculateBondInstructions
+                _config
             );
 
         // Save all aggregated records to storage
@@ -418,64 +417,6 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
     }
 
-    /// @dev Calculates bond instructions based on proof timing and prover identity
-    /// @notice Bond instruction rules:
-    ///         - On-time (within provingWindow): No bond changes
-    ///         - Late (within extendedProvingWindow): Liveness bond transfer if prover differs from
-    /// designated
-    ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
-    /// differs from proposer
-    /// @dev Bond instructions affect transition aggregation eligibility - transitions with
-    /// instructions
-    /// cannot be aggregated
-    /// @param _config Configuration containing timing windows
-    /// @param _proposal Proposal with timestamp and proposer address
-    /// @param _transition Transition with designated and actual prover addresses
-    /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
-    /// prover)
-    function _calculateBondInstructions(
-        Config memory _config,
-        Proposal memory _proposal,
-        Transition memory _transition
-    )
-        internal
-        view
-        returns (LibBonds.BondInstruction[] memory bondInstructions_)
-    {
-        unchecked {
-            uint256 proofTimestamp = block.timestamp;
-            uint256 windowEnd = _proposal.timestamp + _config.provingWindow;
-
-            // On-time proof - no bond instructions needed
-            if (proofTimestamp <= windowEnd) {
-                return new LibBonds.BondInstruction[](0);
-            }
-
-            // Late or very late proof - determine bond type and parties
-            uint256 extendedWindowEnd = _proposal.timestamp + _config.extendedProvingWindow;
-            bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
-
-            // Check if bond instruction is needed
-            bool needsBondInstruction = isWithinExtendedWindow
-                ? (_transition.designatedProver != _transition.actualProver)
-                : (_proposal.proposer != _transition.actualProver);
-
-            if (!needsBondInstruction) {
-                return new LibBonds.BondInstruction[](0);
-            }
-
-            // Create single bond instruction
-            bondInstructions_ = new LibBonds.BondInstruction[](1);
-            bondInstructions_[0] = LibBonds.BondInstruction({
-                proposalId: _proposal.id,
-                bondType: isWithinExtendedWindow
-                    ? LibBonds.BondType.LIVENESS
-                    : LibBonds.BondType.PROVABILITY,
-                payer: isWithinExtendedWindow ? _transition.designatedProver : _proposal.proposer,
-                receiver: _transition.actualProver
-            });
-        }
-    }
 
     /// @dev Stores a proposal hash in the ring buffer
     /// @notice Overwrites any existing hash at the calculated buffer slot
