@@ -11,6 +11,7 @@ import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
+import { LibTransitionAggregation } from "../libs/LibTransitionAggregation.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title Inbox
@@ -365,12 +366,8 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Builds and persists transition records for batch proof submissions with aggregation
-    /// @notice Validates transitions, calculates bond instructions, and stores records
-    /// @dev Aggregation strategy:
-    ///      - Groups consecutive proposal IDs into single transition records
-    ///      - Merges bond instructions for aggregated transitions
-    ///      - Updates end block header for each aggregation
-    ///      - Saves aggregated records with increased span value
+    /// @dev Validates transitions, calculates bond instructions, and stores records using
+    /// LibTransitionAggregation for optimized grouping of consecutive proposals
     /// @param _config The configuration parameters for validation and storage
     /// @param _input The ProveInput containing arrays of proposals and corresponding transitions
     function _buildAndSaveTransitionRecords(
@@ -379,78 +376,29 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         internal
     {
-        // Validate first proposal
-        _validateTransition(_config, _input.proposals[0], _input.transitions[0]);
-
-        // Initialize current aggregation state
-        TransitionRecord memory currentRecord = TransitionRecord({
-            span: 1,
-            bondInstructions: _calculateBondInstructions(
-                _config, _input.proposals[0], _input.transitions[0]
-            ),
-            transitionHash: _hashTransition(_input.transitions[0]),
-            checkpointHash: _hashCheckpoint(_input.transitions[0].checkpoint)
-        });
-
-        uint48 currentGroupStartId = _input.proposals[0].id;
-        Transition memory firstTransitionInGroup = _input.transitions[0];
-
-        // Process remaining proposals
-        for (uint256 i = 1; i < _input.proposals.length; ++i) {
+        // Validate all transitions first
+        for (uint256 i = 0; i < _input.proposals.length; ++i) {
             _validateTransition(_config, _input.proposals[i], _input.transitions[i]);
-
-            // Check if current proposal can be aggregated with the previous group
-            if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
-                // Aggregate with current record
-                LibBonds.BondInstruction[] memory newInstructions =
-                    _calculateBondInstructions(_config, _input.proposals[i], _input.transitions[i]);
-
-                if (newInstructions.length > 0) {
-                    // Inline merge to avoid separate function call and reduce stack depth
-                    uint256 oldLen = currentRecord.bondInstructions.length;
-                    uint256 newLen = newInstructions.length;
-                    LibBonds.BondInstruction[] memory merged =
-                        new LibBonds.BondInstruction[](oldLen + newLen);
-
-                    // Copy existing instructions
-                    for (uint256 j; j < oldLen; ++j) {
-                        merged[j] = currentRecord.bondInstructions[j];
-                    }
-
-                    // Copy new instructions
-                    for (uint256 j; j < newLen; ++j) {
-                        merged[oldLen + j] = newInstructions[j];
-                    }
-                    currentRecord.bondInstructions = merged;
-                }
-
-                // Update the transition hash and checkpoint hash for the aggregated record
-                currentRecord.transitionHash = _hashTransition(_input.transitions[i]);
-                currentRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
-
-                // Increment span to include this aggregated proposal
-                currentRecord.span++;
-            } else {
-                // Save the current aggregated record before starting a new one
-                _setTransitionRecordHash(_config, currentGroupStartId, firstTransitionInGroup, currentRecord);
-
-                // Start a new record for non-continuous proposal
-                currentGroupStartId = _input.proposals[i].id;
-                firstTransitionInGroup = _input.transitions[i];
-
-                currentRecord = TransitionRecord({
-                    span: 1,
-                    bondInstructions: _calculateBondInstructions(
-                        _config, _input.proposals[i], _input.transitions[i]
-                    ),
-                    transitionHash: _hashTransition(_input.transitions[i]),
-                    checkpointHash: _hashCheckpoint(_input.transitions[i].checkpoint)
-                });
-            }
         }
 
-        // Save the final aggregated record
-        _setTransitionRecordHash(_config, currentGroupStartId, firstTransitionInGroup, currentRecord);
+        // Aggregate transitions using library
+        LibTransitionAggregation.AggregatedRecord[] memory aggregatedRecords =
+            LibTransitionAggregation.aggregateTransitions(
+                _input.proposals,
+                _input.transitions,
+                _config,
+                _calculateBondInstructions
+            );
+
+        // Save all aggregated records to storage
+        for (uint256 i = 0; i < aggregatedRecords.length; ++i) {
+            _setTransitionRecordHash(
+                _config,
+                aggregatedRecords[i].startProposalId,
+                aggregatedRecords[i].firstTransition,
+                aggregatedRecords[i].record
+            );
+        }
     }
 
     /// @dev Validates transition consistency with its corresponding proposal
