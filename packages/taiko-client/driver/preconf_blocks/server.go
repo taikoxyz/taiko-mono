@@ -677,11 +677,12 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 		// header by number only returns blocks from canonical chain unlike
 		// getBlockByHash, so we can use it to check if the parent is
 		// already canonical.
-		parentCanonHdr, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parentNum))
+		parentHeader, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parentNum))
 		if err != nil && !errors.Is(err, ethereum.NotFound) {
 			return fmt.Errorf("failed to fetch canonical header at %d: %w", parentNum, err)
 		}
-		if parentCanonHdr != nil && parentCanonHdr.Hash() == currentPayload.Payload.ParentHash {
+
+		if parentHeader != nil && parentHeader.Hash() == currentPayload.Payload.ParentHash {
 			log.Debug(
 				"Parent block already in L2 canonical chain, stop searching cached envelopes",
 				"blockID", parentNum,
