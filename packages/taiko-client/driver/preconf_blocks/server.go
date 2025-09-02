@@ -1214,9 +1214,6 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 		return false, fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
 
-	// If the block is successfully inserted, we try to put the envelope into the cache.
-	s.tryPutEnvelopeIntoCache(msg, from)
-
 	// If the block number is greater than the highest unsafe L2 payload block ID,
 	// update the highest unsafe L2 payload block ID.
 	if uint64(msg.ExecutionPayload.BlockNumber) > s.highestUnsafeL2PayloadBlockID {
