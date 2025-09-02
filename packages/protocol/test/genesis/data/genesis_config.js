@@ -25,6 +25,8 @@ module.exports = {
       ERC1155VaultImpl: getConstantAddress(`0${this.chainId}`, 4),
       SignalServiceImpl: getConstantAddress(`0${this.chainId}`, 5),
       SharedResolverImpl: getConstantAddress(`0${this.chainId}`, 6),
+      BondManagerImpl: getConstantAddress(`0${this.chainId}`, 7),
+      CheckpointManagerImpl: getConstantAddress(`0${this.chainId}`, 8),
       BridgedERC20Impl: getConstantAddress(`0${this.chainId}`, 10096),
       BridgedERC721Impl: getConstantAddress(`0${this.chainId}`, 10097),
       BridgedERC1155Impl: getConstantAddress(`0${this.chainId}`, 10098),
@@ -40,6 +42,8 @@ module.exports = {
       ERC1155Vault: getConstantAddress(this.chainId, 4),
       SignalService: getConstantAddress(this.chainId, 5),
       SharedResolver: getConstantAddress(this.chainId, 6),
+      BondManager: getConstantAddress(this.chainId, 7),
+      CheckpointManager: getConstantAddress(this.chainId, 8),
       // Rollup Contracts
       TaikoAnchor: getConstantAddress(this.chainId, 10001),
       RollupResolver: getConstantAddress(this.chainId, 10002),
@@ -53,6 +57,11 @@ module.exports = {
   predeployERC20: true,
   pacayaForkHeight: 1024,
   shastaForkHeight: 2048,
+  livenessBondGwei: 128_000_000_000,
+  provabilityBondGwei: 128_000_000_000,
+  maxCheckpointStackSize: 2048,
+  minBond: 0,
+  bondToken: "0x0000000000000000000000000000000000000000",
 };
 
 function getConstantAddress(prefix, suffix) {
