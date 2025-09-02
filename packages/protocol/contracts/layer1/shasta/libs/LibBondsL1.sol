@@ -12,12 +12,15 @@ library LibBondsL1 {
     /// @notice Calculates bond instructions based on proof timing and prover identity
     /// @dev Bond instruction rules:
     ///         - On-time (within provingWindow): No bond changes
-    ///         - Late (within extendedProvingWindow): Liveness bond transfer if prover differs from designated
-    ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover differs from proposer
+    ///         - Late (within extendedProvingWindow): Liveness bond transfer if prover differs from
+    ///           designated
+    ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
+    ///           differs from proposer
     /// @param _config Configuration containing timing windows
     /// @param _proposal Proposal with timestamp and proposer address
     /// @param _transition Transition with designated and actual prover addresses
-    /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same prover)
+    /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
+    /// prover)
     function calculateBondInstructions(
         IInbox.Config memory _config,
         IInbox.Proposal memory _proposal,

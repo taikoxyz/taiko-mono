@@ -610,7 +610,8 @@ contract InboxChainAdvancement is InboxTest {
     }
 
     /// @notice Test proving 3 consecutive proposals together with bond instruction aggregation
-    /// @dev This test works with all implementations since aggregation is now built into base Inbox.
+    /// @dev This test works with all implementations since aggregation is now built into base
+    /// Inbox.
     function test_prove_three_consecutive_and_finalize_all_aggregated() public {
         // Test enabled - using new advanced test patterns
         setupBlobHashes();

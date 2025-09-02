@@ -66,7 +66,8 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     mapping(uint256 bufferSlot => bytes32 proposalHash) internal _proposalHashes;
 
     /// @dev Unified storage for all transition records using ring buffer pattern
-    /// @dev Optimizes for the common case (single transition per proposal) while supporting branches
+    /// @dev Optimizes for the common case (single transition per proposal) while supporting
+    /// branches
     /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
     /// - slot: The TransitionRecordSlot containing primary record and branches
     /// @dev When proposals are aggregated (span > 1), the record is stored at the FIRST proposal's
@@ -341,7 +342,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _genesisBlockHash The hash of the genesis block
     function _initializeInbox(bytes32 _genesisBlockHash) internal {
         Config memory config = getConfig();
-        
+
         Transition memory transition;
         transition.checkpoint.blockHash = _genesisBlockHash;
 
@@ -385,11 +386,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Aggregate transitions using library
         LibTransitionAggregation.AggregatedRecord[] memory aggregatedRecords =
-            LibTransitionAggregation.aggregateTransitions(
-                _input.proposals,
-                _input.transitions,
-                _config
-            );
+        LibTransitionAggregation.aggregateTransitions(_input.proposals, _input.transitions, _config);
 
         // Save all aggregated records to storage
         for (uint256 i = 0; i < aggregatedRecords.length; ++i) {
@@ -419,7 +416,6 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
     }
 
-
     /// @dev Stores a proposal hash in the ring buffer
     /// @notice Overwrites any existing hash at the calculated buffer slot
     function _setProposalHash(
@@ -442,7 +438,8 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _config The configuration parameters containing ring buffer size
     /// @param _proposalId The ID of the proposal being proven (first proposal if aggregated)
     /// @param _transition The transition data to include in the event
-    /// @param _transitionRecord The transition record to hash and store (contains last transition if aggregated)
+    /// @param _transitionRecord The transition record to hash and store (contains last transition
+    /// if aggregated)
     function _setTransitionRecordHash(
         Config memory _config,
         uint48 _proposalId,
@@ -524,11 +521,8 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Check if this is the primary record for this proposal
         if (slot.proposalId == _proposalId) {
             // Check if parent transition hash matches (partial match)
-            if (
-                _isPartialParentTransitionHashMatch(
-                    slot.partialParentHash, _parentTransitionHash
-                )
-            ) {
+            if (_isPartialParentTransitionHashMatch(slot.partialParentHash, _parentTransitionHash))
+            {
                 return slot.primaryRecordHash;
             }
         }
@@ -554,7 +548,6 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes32 storedProposalHash = _proposalHashes[_proposal.id % _config.ringBufferSize];
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
-
 
     // ---------------------------------------------------------------
     // Private Functions
@@ -847,7 +840,6 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         return keccak256(abi.encode(_proposalId, _parentTransitionHash));
     }
-
 
     /// @dev Compares partial (26 bytes) with full (32 bytes) parent transition hash
     /// @notice Used for storage optimization - stores only 26 bytes in reusable slot

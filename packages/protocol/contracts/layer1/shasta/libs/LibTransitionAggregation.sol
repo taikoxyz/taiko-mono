@@ -31,8 +31,9 @@ library LibTransitionAggregation {
 
     /// @notice Aggregates consecutive transitions into optimized records
     /// @dev Groups consecutive proposal IDs into single records with merged bond instructions
-    /// @dev NOTE: That using a view function here instead of manipulating storage directly on the inbox
-    /// or passing a storage pointer is slightly less efficient, but for non extremely large number of transitions, it's a small difference and the readability is much better.
+    /// @dev NOTE: That using a view function here instead of manipulating storage directly on the
+    /// inbox or passing a storage pointer is slightly less efficient, but for non extremely large number
+    /// of transitions, it's a small difference and the readability is much better.
     /// @param _proposals Array of proposals to aggregate
     /// @param _transitions Array of transitions corresponding to proposals
     /// @param _config Configuration parameters for bond calculations
@@ -57,7 +58,9 @@ library LibTransitionAggregation {
         // Initialize first aggregation group
         IInbox.TransitionRecord memory currentRecord = IInbox.TransitionRecord({
             span: 1,
-            bondInstructions: LibBondsL1.calculateBondInstructions(_config, _proposals[0], _transitions[0]),
+            bondInstructions: LibBondsL1.calculateBondInstructions(
+                _config, _proposals[0], _transitions[0]
+            ),
             transitionHash: keccak256(abi.encode(_transitions[0])),
             checkpointHash: keccak256(abi.encode(_transitions[0].checkpoint))
         });
@@ -98,7 +101,9 @@ library LibTransitionAggregation {
 
                 currentRecord = IInbox.TransitionRecord({
                     span: 1,
-                    bondInstructions: LibBondsL1.calculateBondInstructions(_config, _proposals[i], _transitions[i]),
+                    bondInstructions: LibBondsL1.calculateBondInstructions(
+                        _config, _proposals[i], _transitions[i]
+                    ),
                     transitionHash: keccak256(abi.encode(_transitions[i])),
                     checkpointHash: keccak256(abi.encode(_transitions[i].checkpoint))
                 });
@@ -156,7 +161,7 @@ library LibTransitionAggregation {
     {
         uint256 existingLen = _existing.length;
         uint256 newLen = _newInstructions.length;
-        
+
         merged_ = new LibBonds.BondInstruction[](existingLen + newLen);
 
         // Copy existing instructions
@@ -169,5 +174,4 @@ library LibTransitionAggregation {
             merged_[existingLen + i] = _newInstructions[i];
         }
     }
-
 }
