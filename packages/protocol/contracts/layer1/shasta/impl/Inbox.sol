@@ -148,8 +148,9 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (input.numForcedInclusions > 0) {
             // Process forced inclusion if required
             uint256 numForcedInclusionsProcessed;
-            (coreState, numForcedInclusionsProcessed) =
-                _processForcedInclusions(config, coreState, input.numForcedInclusions, lookaheadSlotTimestamp);
+            (coreState, numForcedInclusionsProcessed) = _processForcedInclusions(
+                config, coreState, input.numForcedInclusions, lookaheadSlotTimestamp
+            );
 
             availableCapacity -= numForcedInclusionsProcessed;
         }
