@@ -610,15 +610,8 @@ contract InboxChainAdvancement is InboxTest {
     }
 
     /// @notice Test proving 3 consecutive proposals together with bond instruction aggregation
-    /// @dev This test is for InboxOptimized1 which supports aggregation.
-    ///      Core implementation doesn't aggregate, so we skip it there.
+    /// @dev This test works with all implementations since aggregation is now built into base Inbox.
     function test_prove_three_consecutive_and_finalize_all_aggregated() public {
-        // Skip this test for Core implementation as it doesn't support aggregation
-        if (inboxType == TestInboxFactory.InboxType.Base) {
-            vm.skip(true);
-            return;
-        }
-
         // Test enabled - using new advanced test patterns
         setupBlobHashes();
 
@@ -824,11 +817,10 @@ contract InboxChainAdvancement is InboxTest {
     /// implementation)
     /// @dev Core Inbox stores each transition record separately even when proved together
     function test_prove_three_consecutive_core_no_aggregation() public {
-        // This test is specifically for Core implementation behavior
-        if (inboxType != TestInboxFactory.InboxType.Base) {
-            vm.skip(true);
-            return;
-        }
+        // DEPRECATED: This test was designed for the old Core implementation without aggregation.
+        // The Core implementation now has aggregation built-in, making this test obsolete.
+        vm.skip(true);
+        return;
 
         setupBlobHashes();
 

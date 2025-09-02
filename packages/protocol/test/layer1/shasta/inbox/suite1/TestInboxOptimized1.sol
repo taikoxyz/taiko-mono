@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "contracts/layer1/shasta/impl/InboxOptimized1.sol";
+import "contracts/layer1/shasta/impl/Inbox.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
 import "./ITestInbox.sol";
 
 /// @title TestInboxOptimized1
-/// @notice Concrete implementation of InboxOptimized1 for testing
+/// @notice DEPRECATED: Optimizations have been merged into base Inbox contract
+/// @dev This now simply extends Inbox (which includes all previous optimizations)
 /// @custom:security-contact security@taiko.xyz
-contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
+contract TestInboxOptimized1 is Inbox, ITestInbox {
     IInbox.Config private testConfig;
     bool private configSet;
     // Storage to track checkpoint for test purposes
     mapping(uint48 => ICheckpointManager.Checkpoint) public testcheckpoints;
 
-    constructor() InboxOptimized1() { }
+    constructor() Inbox() { }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;

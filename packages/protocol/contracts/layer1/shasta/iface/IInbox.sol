@@ -86,6 +86,20 @@ interface IInbox {
         bytes32 checkpointHash;
     }
 
+    /// @notice Optimized storage for transition records with efficient ring buffer and branching
+    /// @dev Stores transition records with optimized access patterns for the common case
+    struct TransitionRecordSlot {
+        /// @notice Primary transition record hash (optimized for single branch case)
+        bytes32 primaryRecordHash;
+        /// @notice Proposal ID this slot is associated with
+        uint48 proposalId;
+        /// @notice First 26 bytes of parent transition hash for optimization
+        bytes26 partialParentHash;
+        /// @notice Branch support for multiple transitions per proposal
+        /// @dev parentHash => recordHash mapping for when proposals have multiple branches
+        mapping(bytes32 parentHash => bytes32 recordHash) branches;
+    }
+
     /// @notice Represents the core state of the inbox.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.

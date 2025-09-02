@@ -208,7 +208,7 @@ library InboxTestAdapter {
         if (_inboxType == TestInboxFactory.InboxType.Base) {
             return "Inbox (base)";
         } else if (_inboxType == TestInboxFactory.InboxType.Optimized1) {
-            return "InboxOptimized1";
+            return "Inbox (deprecated Optimized1)";
         } else if (_inboxType == TestInboxFactory.InboxType.Optimized2) {
             return "InboxOptimized2";
         } else if (_inboxType == TestInboxFactory.InboxType.Optimized3) {

@@ -11,4 +11,20 @@ contract InboxProve is AbstractProveTest {
         setDeployer(new InboxDeployer());
         super.setUp();
     }
+
+    function _getExpectedAggregationBehavior(
+        uint256 proposalCount,
+        bool consecutive
+    )
+        internal
+        pure
+        override
+        returns (uint256 expectedEvents, uint256 expectedMaxSpan)
+    {
+        if (consecutive) {
+            return (1, proposalCount); // One event with span=proposalCount (aggregation built-in)
+        } else {
+            return (proposalCount, 1); // Individual events for gaps
+        }
+    }
 }
