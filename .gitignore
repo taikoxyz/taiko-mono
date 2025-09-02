@@ -128,3 +128,9 @@ packages/taiko-client/opnode_p2p_priv.txt
 
 #Claude
 .claude/settings.local.json
+
+# Ejector
+target
+
+#Env
+**/*.env
