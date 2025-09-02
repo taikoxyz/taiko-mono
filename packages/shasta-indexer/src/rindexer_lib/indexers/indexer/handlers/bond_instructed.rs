@@ -1,3 +1,4 @@
+use super::error::{HandlerError, HandlerResult};
 use crate::rindexer_lib::typings::indexer::events::shasta_inbox::{
     no_extensions, BondInstructedEvent, BondInstructedResult, ShastaInboxEventType,
 };
@@ -23,7 +24,7 @@ fn get_bond_type_name(bond_type: u8) -> &'static str {
 async fn insert_bond_instructions(
     database: &Arc<PostgresClient>,
     result: &BondInstructedResult,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> HandlerResult<()> {
     let bond_instructions = &result.event_data.instructions;
 
     for instruction in bond_instructions.iter() {
@@ -33,7 +34,8 @@ async fn insert_bond_instructions(
                 proposal_id, bond_type, bond_type_name, payer, receiver,
                 contract_address, tx_hash, block_number,
                 block_timestamp, block_hash, network, tx_index, log_index
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ON CONFLICT (tx_hash, log_index) DO NOTHING",
                 &[
                     &instruction.proposalId.to::<i64>(),
                     &(instruction.bondType as i16),
@@ -51,7 +53,7 @@ async fn insert_bond_instructions(
                 ],
             )
             .await
-            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+            .map_err(|e| HandlerError::DatabaseError(e.to_string()))?;
     }
 
     Ok(())
@@ -60,7 +62,7 @@ async fn insert_bond_instructions(
 async fn process_bond_instructed_event(
     database: &Arc<PostgresClient>,
     result: &BondInstructedResult,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> HandlerResult<()> {
     insert_bond_instructions(database, result).await
 }
 

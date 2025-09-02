@@ -1,7 +1,5 @@
-use crate::decoder::{
-    error::DecodeError,
-    shasta::{decode_proved_data_shasta, BondInstruction, ProvedEventPayload},
-};
+use crate::decoder::shasta::{decode_proved_data_shasta, BondInstruction, ProvedEventPayload};
+use super::error::{HandlerError, HandlerResult};
 use crate::rindexer_lib::typings::indexer::events::shasta_inbox::{
     no_extensions, ProvedEvent, ProvedResult, ShastaInboxEventType,
 };
@@ -28,7 +26,7 @@ async fn insert_proved_event(
     database: &Arc<PostgresClient>,
     result: &ProvedResult,
     decoded: &ProvedEventPayload,
-) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+) -> HandlerResult<u64> {
     database.execute(
         "INSERT INTO indexer_shasta_inbox.proved (
             data, proposal_id, proposal_hash, parent_transition_hash,
@@ -61,7 +59,7 @@ async fn insert_proved_event(
             &(result.tx_information.transaction_index as i64),
             &result.tx_information.log_index.to_string(),
         ],
-    ).await.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+    ).await.map_err(|e| HandlerError::DatabaseError(e.to_string()))
 }
 
 async fn insert_bond_instruction(
@@ -70,13 +68,14 @@ async fn insert_bond_instruction(
     instruction: &BondInstruction,
     tx_hash: &str,
     block_number: i64,
-) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+) -> HandlerResult<u64> {
     database
         .execute(
             "INSERT INTO indexer_shasta_inbox.proved_bond_instructions (
             proved_id, proposal_id, bond_type, bond_type_name,
             payer, receiver, tx_hash, block_number
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (proved_id, bond_type, payer, receiver) DO NOTHING",
             &[
                 &proved_id,
                 &instruction.proposalId.to::<i64>(),
@@ -89,21 +88,21 @@ async fn insert_bond_instruction(
             ],
         )
         .await
-        .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+        .map_err(|e| HandlerError::DatabaseError(e.to_string()))
 }
 
 async fn get_proved_id(
     database: &Arc<PostgresClient>,
     tx_hash: &str,
     log_index: &str,
-) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
+) -> HandlerResult<i64> {
     let row = database
         .query_one(
             "SELECT id FROM indexer_shasta_inbox.proved WHERE tx_hash = $1 AND log_index = $2",
             &[&tx_hash, &log_index],
         )
         .await
-        .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+        .map_err(|e| HandlerError::DatabaseError(e.to_string()))?;
     Ok(row.get(0))
 }
 
@@ -111,9 +110,10 @@ async fn process_proved_event(
     database: &Arc<PostgresClient>,
     result: &ProvedResult,
     decoded: &ProvedEventPayload,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> HandlerResult<()> {
     // Start transaction
-    database.execute("BEGIN", &[]).await?;
+    database.execute("BEGIN", &[]).await
+        .map_err(|e| HandlerError::TransactionError(format!("Failed to start transaction: {}", e)))?;
 
     // Insert proved event
     let rows_affected = insert_proved_event(database, result, decoded).await?;
@@ -137,21 +137,22 @@ async fn process_proved_event(
                     .await
                     {
                         rindexer_error!("Failed to insert bond instruction: {}", e);
-                        database.execute("ROLLBACK", &[]).await?;
+                        let _ = database.execute("ROLLBACK", &[]).await;
                         return Err(e);
                     }
                 }
                 // Commit transaction
-                database.execute("COMMIT", &[]).await?;
+                database.execute("COMMIT", &[]).await
+                    .map_err(|e| HandlerError::TransactionError(format!("Failed to commit: {}", e)))?;
             }
             Err(e) => {
-                database.execute("ROLLBACK", &[]).await?;
-                return Err(e);
+                let _ = database.execute("ROLLBACK", &[]).await;
+                return Err(HandlerError::ProcessingError(format!("Failed to get proved_id: {}", e)));
             }
         }
     } else {
         // No rows inserted (conflict)
-        database.execute("ROLLBACK", &[]).await?;
+        let _ = database.execute("ROLLBACK", &[]).await;
     }
 
     Ok(())

@@ -1,7 +1,5 @@
-use crate::decoder::{
-    error::DecodeError, 
-    shasta::{decode_proposed_data_shasta, ProposedEventPayload}
-};
+use crate::decoder::shasta::{decode_proposed_data_shasta, ProposedEventPayload};
+use super::error::{HandlerError, HandlerResult};
 use crate::rindexer_lib::typings::indexer::events::shasta_inbox::{
     no_extensions, ProposedEvent, ProposedResult, ShastaInboxEventType,
 };
@@ -18,7 +16,7 @@ async fn insert_proposed_event(
     database: &Arc<PostgresClient>,
     result: &ProposedResult,
     decoded: &ProposedEventPayload,
-) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
+) -> HandlerResult<u64> {
     database.execute(
         "INSERT INTO indexer_shasta_inbox.proposed (
             data, proposal_id, proposer, proposal_timestamp, core_state_hash,
@@ -56,14 +54,15 @@ async fn insert_proposed_event(
             &(result.tx_information.transaction_index as i64),
             &result.tx_information.log_index.to_string(),
         ],
-    ).await.map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+    ).await.map_err(|e| HandlerError::DatabaseError(e.to_string()))
 }
 
 async fn process_proposed_event(
     database: &Arc<PostgresClient>,
     result: &ProposedResult,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let decoded = decode_proposed_data_shasta(&result.event_data.data)?;
+) -> HandlerResult<()> {
+    let decoded = decode_proposed_data_shasta(&result.event_data.data)
+        .map_err(|e| HandlerError::DecodeError(e))?;
     insert_proposed_event(database, result, &decoded).await?;
     Ok(())
 }

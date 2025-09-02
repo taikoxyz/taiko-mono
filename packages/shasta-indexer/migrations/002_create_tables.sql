@@ -139,7 +139,8 @@ CREATE TABLE proved_bond_instructions (
     block_number BIGINT NOT NULL,
 
     -- Constraints
-    CONSTRAINT check_proved_bond_type CHECK (bond_type >= 0 AND bond_type <= 255)
+    CONSTRAINT check_proved_bond_type CHECK (bond_type >= 0 AND bond_type <= 255),
+    CONSTRAINT unique_proved_bond_instruction UNIQUE (proved_id, bond_type, payer, receiver)
 );
 
 -- ============================================================================
