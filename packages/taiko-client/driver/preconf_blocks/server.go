@@ -726,17 +726,20 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 			)
 		}
 
-		payloadsToImport = append([]*preconf.Envelope{
-			parentPayload,
-		}, payloadsToImport...)
-		s.blockRequestsCache.Remove(parentPayload.Payload.BlockHash)
-
-		// Check if the found parent payload is in the canonical chain,
-		// if it is not, continue to find the parent payload.
 		parentHeader, err := s.rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(uint64(parentPayload.Payload.BlockNumber)))
 		if err != nil && !errors.Is(err, ethereum.NotFound) {
 			return fmt.Errorf("failed to fetch parent header: %w", err)
 		}
+
+		// If the parent is already canonical, stop here and dont append it.
+		if parentHeader != nil && parentHeader.Hash() == parentPayload.Payload.BlockHash {
+			break
+		}
+
+		payloadsToImport = append([]*preconf.Envelope{
+			parentPayload,
+		}, payloadsToImport...)
+		s.blockRequestsCache.Remove(parentPayload.Payload.BlockHash)
 
 		if parentHeader == nil || parentHeader.Hash() != parentPayload.Payload.BlockHash {
 			log.Debug(
@@ -1213,6 +1216,9 @@ func (s *PreconfBlockAPIServer) TryImportingPayload(
 	); err != nil {
 		return false, fmt.Errorf("failed to insert preconfirmation block from P2P network: %w", err)
 	}
+
+	// If the block is successfully inserted, we try to put the envelope into the cache.
+	s.tryPutEnvelopeIntoCache(msg, from)
 
 	// If the block number is greater than the highest unsafe L2 payload block ID,
 	// update the highest unsafe L2 payload block ID.
