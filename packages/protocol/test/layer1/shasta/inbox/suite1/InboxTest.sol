@@ -183,6 +183,7 @@ abstract contract InboxTest is CommonTest {
             bondToken: bondToken,
             provingWindow: DEFAULT_PROVING_WINDOW,
             extendedProvingWindow: DEFAULT_EXTENDED_PROVING_WINDOW,
+            cooldownWindow: 5 minutes,
             maxFinalizationCount: DEFAULT_MAX_FINALIZATION_COUNT,
             ringBufferSize: DEFAULT_RING_BUFFER_SIZE,
             basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,

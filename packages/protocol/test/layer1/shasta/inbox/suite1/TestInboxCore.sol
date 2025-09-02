@@ -27,6 +27,7 @@ contract TestInboxCore is Inbox, ITestInbox {
                 bondToken: address(0),
                 provingWindow: 1 hours,
                 extendedProvingWindow: 2 hours,
+                cooldownWindow: 5 minutes,
                 maxFinalizationCount: 10,
                 ringBufferSize: 100,
                 basefeeSharingPctg: 10,

@@ -33,6 +33,7 @@ contract TestInbox is Inbox {
             bondToken: _bondToken,
             provingWindow: 2 hours,
             extendedProvingWindow: 4 hours,
+            cooldownWindow: 5 minutes,
             maxFinalizationCount: 16,
             ringBufferSize: 100,
             basefeeSharingPctg: 0,

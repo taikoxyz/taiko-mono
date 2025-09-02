@@ -187,6 +187,7 @@ contract LibProposeInputDecoderGas is Test {
 
             input.transitionRecords[i] = IInbox.TransitionRecord({
                 span: uint8(1 + (i % 3)),
+                effectiveAt: 0,
                 transitionHash: keccak256(abi.encodePacked("transition", i)),
                 checkpointHash: keccak256(abi.encodePacked("end_header", i)),
                 bondInstructions: bondInstructions

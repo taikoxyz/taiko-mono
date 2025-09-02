@@ -385,6 +385,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Reuse the same memory location for the transitionRecord struct
             transitionRecord.bondInstructions =
                 _calculateBondInstructions(_config, _input.proposals[i], _input.transitions[i]);
+            transitionRecord.effectiveAt = uint48(block.timestamp + _config.cooldownWindow);
             transitionRecord.transitionHash = _hashTransition(_input.transitions[i]);
             transitionRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
 
@@ -816,6 +817,11 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Verify transition record hash matches
         bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
         require(transitionRecordHash == storedHash, TransitionRecordHashMismatchWithStorage());
+
+        // Check if cooldown period has passed
+        if (block.timestamp < _transitionRecord.effectiveAt) {
+            return (false, _proposalId);
+        }
 
         // Update core state
         _coreState.lastFinalizedProposalId = _proposalId;

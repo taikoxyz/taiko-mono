@@ -14,6 +14,7 @@ interface IInbox {
         address bondToken;
         uint48 provingWindow;
         uint48 extendedProvingWindow;
+        uint48 cooldownWindow;
         uint256 maxFinalizationCount;
         uint256 ringBufferSize;
         uint8 basefeeSharingPctg;
@@ -76,6 +77,8 @@ interface IInbox {
     struct TransitionRecord {
         /// @notice The span indicating how many proposals this transition record covers.
         uint8 span;
+        /// @notice The timestamp when this transition becomes effective for finalization.
+        uint48 effectiveAt;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
         /// @notice The hash of the last transition in the span.

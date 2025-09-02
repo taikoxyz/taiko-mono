@@ -89,6 +89,9 @@ contract InboxFinalization is InboxTest {
     {
         setupProposalMocks(Alice);
 
+        // Advance time to pass the cooldown period (5 minutes)
+        vm.warp(block.timestamp + defaultConfig.cooldownWindow + 1);
+
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
         transitionRecords[0] = _transitionRecord;
 
@@ -145,6 +148,9 @@ contract InboxFinalization is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             transitionRecords[i] = InboxTestLib.createTransitionRecord(transitions[i], 1);
         }
+
+        // Advance time to pass the cooldown period (5 minutes)
+        vm.warp(block.timestamp + defaultConfig.cooldownWindow + 1);
 
         // Setup expectations for finalization
         expectCheckpointSaved(transitions[numProposals - 1].checkpoint);
@@ -220,6 +226,7 @@ contract InboxFinalization is InboxTest {
             InboxTestLib.createTransition(proposal1, parentTransitionHash, Bob);
         IInbox.TransitionRecord memory transitionRecord1 = IInbox.TransitionRecord({
             span: 1,
+            effectiveAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: InboxTestLib.hashTransition(transition1),
             checkpointHash: keccak256(abi.encode(transition1.checkpoint))
@@ -245,6 +252,9 @@ contract InboxFinalization is InboxTest {
         // Setup mocks
         mockProposerAllowed(Alice);
         mockForcedInclusionDue(false);
+
+        // Advance time to pass the cooldown period (5 minutes)
+        vm.warp(block.timestamp + defaultConfig.cooldownWindow + 1);
 
         // Only expect first proposal to be finalized
         expectCheckpointSaved(transition1.checkpoint);
@@ -295,6 +305,7 @@ contract InboxFinalization is InboxTest {
         // Now try to finalize with a WRONG transition record
         IInbox.TransitionRecord memory wrongTransitionRecord = IInbox.TransitionRecord({
             span: 2, // Modified field - wrong span value
+            effectiveAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: InboxTestLib.hashTransition(transition1),
             checkpointHash: keccak256(abi.encode(transition1.checkpoint))

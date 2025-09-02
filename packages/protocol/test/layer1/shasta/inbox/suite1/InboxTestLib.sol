@@ -298,11 +298,12 @@ library InboxTestLib {
         uint8 _span
     )
         internal
-        pure
+        view
         returns (IInbox.TransitionRecord memory)
     {
         return IInbox.TransitionRecord({
             span: _span,
+            effectiveAt: uint48(block.timestamp + 300), // Default cooldown window of 300 seconds
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: hashTransition(_transition),
             checkpointHash: keccak256(abi.encode(_transition.checkpoint))
@@ -316,11 +317,12 @@ library InboxTestLib {
         LibBonds.BondInstruction[] memory _bondInstructions
     )
         internal
-        pure
+        view
         returns (IInbox.TransitionRecord memory)
     {
         return IInbox.TransitionRecord({
             span: _span,
+            effectiveAt: uint48(block.timestamp + 300), // Default cooldown window of 300 seconds
             bondInstructions: _bondInstructions,
             transitionHash: hashTransition(_transition),
             checkpointHash: keccak256(abi.encode(_transition.checkpoint))
@@ -333,7 +335,7 @@ library InboxTestLib {
         uint8 _span
     )
         internal
-        pure
+        view
         returns (IInbox.TransitionRecord[] memory records)
     {
         records = new IInbox.TransitionRecord[](_transitions.length);

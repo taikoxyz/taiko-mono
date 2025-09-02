@@ -108,6 +108,7 @@ contract InboxChainAdvancement is InboxTest {
             // Store the transition record that was created during proving
             storedTransitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
+                effectiveAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
@@ -252,6 +253,7 @@ contract InboxChainAdvancement is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
+                effectiveAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
@@ -264,11 +266,7 @@ contract InboxChainAdvancement is InboxTest {
 
         // Expect: Final block update for batch completion
     ICheckpointManager.Checkpoint memory lastHeader = transitions[numProposals - 1].checkpoint;
-        expectCheckpointSaved(
-            lastHeader.number,
-            lastHeader.hash,
-            lastHeader.stateRoot
-        );
+        expectCheckpointSaved(lastHeader);
 
         // Act: Submit batch finalization proposal with the transition records
         setupProposalMocks(Carol);
@@ -378,6 +376,7 @@ contract InboxChainAdvancement is InboxTest {
         for (uint48 i = 0; i < 2; i++) {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
+                effectiveAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
@@ -391,6 +390,9 @@ contract InboxChainAdvancement is InboxTest {
             bondInstructionsHash: bytes32(0)
         });
         // Core state will be validated by the contract during propose()
+
+        // Advance time to pass the cooldown period (5 minutes)
+        vm.warp(block.timestamp + defaultConfig.cooldownWindow + 1);
 
         // Expect only proposal 2's block to be saved (last finalized)
         expectCheckpointSaved(transitions[1].checkpoint);
@@ -499,6 +501,7 @@ contract InboxChainAdvancement is InboxTest {
         for (uint48 i = 0; i < 3; i++) {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
+                effectiveAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
@@ -625,6 +628,7 @@ contract InboxChainAdvancement is InboxTest {
             // Store the transition record that was created during proving
             storedTransitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
+                effectiveAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
@@ -876,6 +880,7 @@ contract InboxChainAdvancement is InboxTest {
         // The aggregated transition record that should be emitted
         IInbox.TransitionRecord memory expectedAggregatedRecord = IInbox.TransitionRecord({
             span: 3,
+            effectiveAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
             bondInstructions: expectedBondInstructions,
             transitionHash: InboxTestLib.hashTransition(transitions[2]), // Last transition in the
                 // aggregated group
@@ -1110,6 +1115,7 @@ contract InboxChainAdvancement is InboxTest {
             // Verify it's a non-aggregated record (span=1)
             IInbox.TransitionRecord memory expectedRecord = IInbox.TransitionRecord({
                 span: 1,
+                effectiveAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
                 bondInstructions: new LibBonds.BondInstruction[](1),
                 transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
@@ -1139,6 +1145,7 @@ contract InboxChainAdvancement is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
+                effectiveAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
                 bondInstructions: new LibBonds.BondInstruction[](1),
                 transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
@@ -1278,6 +1285,7 @@ contract InboxChainAdvancement is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
+                effectiveAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
@@ -1292,6 +1300,9 @@ contract InboxChainAdvancement is InboxTest {
             bondInstructionsHash: bytes32(0)
         });
         // Core state will be validated by the contract during propose()
+
+        // Advance time to pass the cooldown period (5 minutes)
+        vm.warp(block.timestamp + defaultConfig.cooldownWindow + 1);
 
         // Expect checkpoint save for the last finalized proposal
         ICheckpointManager.Checkpoint memory checkpoint = transitions[numProposals - 1].checkpoint;

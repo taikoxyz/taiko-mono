@@ -76,6 +76,7 @@ abstract contract InboxOptimized1 is Inbox {
         // Initialize current aggregation state
         TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
+            effectiveAt: uint48(block.timestamp + _config.cooldownWindow),
             bondInstructions: _calculateBondInstructions(
                 _config, _input.proposals[0], _input.transitions[0]
             ),
@@ -132,6 +133,7 @@ abstract contract InboxOptimized1 is Inbox {
 
                 currentRecord = TransitionRecord({
                     span: 1,
+                    effectiveAt: uint48(block.timestamp + _config.cooldownWindow),
                     bondInstructions: _calculateBondInstructions(
                         _config, _input.proposals[i], _input.transitions[i]
                     ),
