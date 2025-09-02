@@ -119,7 +119,6 @@ contract TestGenerateGenesis is Test {
 
     function testBondManager() public {
         address bondManagerAddress = getPredeployedContractAddress("BondManager");
-
         EssentialContract bondManagerProxy = EssentialContract(bondManagerAddress);
 
         assertEq(contractOwner, bondManagerProxy.owner());
