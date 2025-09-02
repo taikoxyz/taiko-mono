@@ -727,9 +727,9 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             Proposal memory proposal = Proposal({
                 id: _coreState.nextProposalId++,
-                proposer: msg.sender,
                 timestamp: uint48(block.timestamp),
                 lookaheadSlotTimestamp: _lookaheadSlotTimestamp,
+                proposer: msg.sender,
                 coreStateHash: _hashCoreState(_coreState),
                 derivationHash: _hashDerivation(derivation)
             });
