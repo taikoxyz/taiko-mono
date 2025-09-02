@@ -5,7 +5,7 @@ DB_HOST=${DB_HOST:-localhost}
 DB_PORT=${DB_PORT:-5432}
 DB_NAME=${DB_NAME:-shasta_indexer}
 DB_USER=${DB_USER:-postgres}
-DB_PASSWORD=${DB_PASSWORD:-}
+DB_PASSWORD=${DB_PASSWORD:-rindexer}
 
 # Colors for output
 RED='\033[0;31m'
@@ -56,9 +56,12 @@ fi
 
 echo -e "${GREEN}Database connection successful${NC}"
 
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 # Execute migrations in order
-execute_sql "001_create_schema.sql" "Creating schema"
-execute_sql "002_create_tables.sql" "Creating tables"
+execute_sql "$SCRIPT_DIR/001_create_schema.sql" "Creating schema"
+execute_sql "$SCRIPT_DIR/002_create_tables.sql" "Creating tables"
 
 echo ""
 echo -e "${GREEN}Database initialization completed successfully!${NC}"

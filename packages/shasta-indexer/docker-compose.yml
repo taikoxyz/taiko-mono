@@ -9,7 +9,10 @@ services:
     restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: shasta_indexer
+      POSTGRES_PASSWORD: rindexer
     ports:
-      - 5440:5432
+      - 5432:5432
     env_file:
       - ./.env
