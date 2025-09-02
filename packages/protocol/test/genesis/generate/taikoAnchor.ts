@@ -5,6 +5,10 @@ const { ethers } = require("ethers");
 const linker = require("solc/linker");
 const { computeStorageSlots, getStorageLayout } = require("./utils");
 const ARTIFACTS_PATH = path.join(__dirname, "../../../out/layer2");
+const SHARED_ARTIFACTS_PATH = path.join(
+    __dirname,
+    "../../../out/shared",
+);
 
 const IMPLEMENTATION_SLOT =
     "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
@@ -189,7 +193,7 @@ async function generateContractConfigs(
         ),
         CheckpointManagerImpl: require(
             path.join(
-                ARTIFACTS_PATH,
+                SHARED_ARTIFACTS_PATH,
                 "./CheckpointManager.sol/CheckpointManager.json",
             ),
         ),
@@ -226,6 +230,16 @@ async function generateContractConfigs(
         "UUPSUpgradeable",
         ["__self"],
     );
+    const sharedEssentialContractReferencesMap: any = getImmutableReference(
+        "EssentialContract",
+        ["__resolver"],
+        SHARED_ARTIFACTS_PATH,
+    );
+    const sharedUUPSImmutableReferencesMap: any = getImmutableReference(
+        "UUPSUpgradeable",
+        ["__self"],
+        SHARED_ARTIFACTS_PATH,
+    );
     const taikoAnchorReferencesMap: any = Object.assign(
         {},
         getImmutableReference("PacayaAnchor", ["signalService"]),
@@ -243,6 +257,7 @@ async function generateContractConfigs(
     const checkpointManagerReferencesMap: any = getImmutableReference(
         "CheckpointManager",
         ["authorized", "maxStackSize"],
+        SHARED_ARTIFACTS_PATH
     );
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
         "signalService",
@@ -696,7 +711,6 @@ async function generateContractConfigs(
         BondManager: {
             address: addressMap.BondManager,
             deployedBytecode:
-
                 contractArtifacts.BondManager.deployedBytecode.object,
             variables: {
                 // EssentialContract
@@ -718,14 +732,14 @@ async function generateContractConfigs(
             deployedBytecode: linkContractLibs(
                 replaceImmutableValues(contractArtifacts.CheckpointManagerImpl, [
                     {
-                        id: uupsImmutableReferencesMap.__self.id,
+                        id: sharedUUPSImmutableReferencesMap.__self.id,
                         value: ethers.utils.hexZeroPad(
-                            addressMap.BondManagerImpl,
+                            addressMap.CheckpointManagerImpl,
                             32,
                         ),
                     },
                     {
-                        id: essentialContractReferencesMap.__resolver.id,
+                        id: sharedEssentialContractReferencesMap.__resolver.id,
                         value: ethers.utils.hexZeroPad(
                             addressMap.SharedResolver,
                             32,
@@ -739,7 +753,7 @@ async function generateContractConfigs(
                         ),
                     },
                     {
-                        id: bondManagerReferencesMap.maxStackSize.id,
+                        id: checkpointManagerReferencesMap.maxStackSize.id,
                         value: ethers.utils.hexZeroPad(
                             ethers.utils.hexlify(maxCheckpointStackSize),
                             32,
@@ -958,10 +972,11 @@ function getLinkLibs(artifact: any, linkRefs: any, addressMap: any) {
 function getImmutableReference(
     contractName: string,
     immutableValueNames: Array<string>,
+    artifactsPath = ARTIFACTS_PATH,
 ) {
     const references: any = {};
     const artifactPath = path.join(
-        ARTIFACTS_PATH,
+        artifactsPath,
         `./${contractName}.sol/${contractName}.json`,
     );
 
@@ -1040,6 +1055,7 @@ function getImmutableReference(
 }
 
 function replaceImmutableValues(artifact: any, maps: Array<any>): any {
+    console.log({ artifact, maps })
     for (let i = 0; i < maps.length; i++) {
         artifact = replaceImmutableValue(artifact, maps[i].id, maps[i].value);
     }
@@ -1049,6 +1065,7 @@ function replaceImmutableValues(artifact: any, maps: Array<any>): any {
 
 function replaceImmutableValue(artifact: any, id: any, value: string): any {
     const offsets = artifact.deployedBytecode.immutableReferences[`${id}`];
+    console.log({ offsets, refs: artifact.deployedBytecode.immutableReferences })
     let deployedBytecodeWithoutPrefix =
         artifact.deployedBytecode.object.substring(2);
     if (value.startsWith("0x")) value = value.substring(2);
