@@ -10,7 +10,7 @@ Taiko Alethia nodes are minimally modified Ethereum **execution clients** that a
 
 This architecture mirrors Ethereum’s execution/consensus split but **replaces the consensus layer** with Taiko’s own `taiko-client`. The `taiko-client` drives `taiko-geth` over the [Engine API](https://github.com/ethereum/execution-apis/tree/main/src/engine), allowing **modular execution client compatibility**.
 
-![Taiko Alethia nodes diagram](~/assets/content/docs/taiko-alethia-protocol/taiko-nodes.png)
+![Taiko Alethia nodes diagram](../../../../assets/content/docs/taiko-alethia-protocol/taiko-nodes.png)
 
 ## Execution Layer: taiko-geth
 

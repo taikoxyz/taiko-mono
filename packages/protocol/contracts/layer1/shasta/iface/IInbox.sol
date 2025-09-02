@@ -78,9 +78,9 @@ interface IInbox {
         uint8 span;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
-        /// @notice The transition's hash
+        /// @notice The hash of the last transition in the span.
         bytes32 transitionHash;
-        /// @notice The hash of the checkpoint.
+        /// @notice The hash of the last checkpoint in the span.
         bytes32 checkpointHash;
     }
 

@@ -581,17 +581,17 @@
 |
 | __gap                       | uint256[49]                                                         | 202  | 0      | 1568  |
 |
-| _transitionRecordHashes     | mapping(uint256 => mapping(bytes32 => bytes32))                     | 251  | 0      | 32    |
-|
-| __slotsUsedByPacaya         | uint256[5]                                                          | 252  | 0      | 160   |
+| __slotsUsedByPacaya         | uint256[6]                                                          | 251  | 0      | 192   |
 |
 | bondBalance                 | mapping(address => uint256)                                         | 257  | 0      | 32    |
 |
 | _proposalHashes             | mapping(uint256 => bytes32)                                         | 258  | 0      | 32    |
 |
-| _forcedInclusionStorage     | struct LibForcedInclusion.Storage                                   | 259  | 0      | 64    |
+| _transitionRecordHashes     | mapping(bytes32 => bytes32)                                         | 259  | 0      | 32    |
 |
-| __gap                       | uint256[40]                                                         | 261  | 0      | 1280  |
+| _forcedInclusionStorage     | struct LibForcedInclusion.Storage                                   | 260  | 0      | 64    |
+|
+| __gap                       | uint256[39]                                                         | 262  | 0      | 1248  |
 |
 | _reusableTransitionRecords  | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | 301  | 0      | 32    |
 |

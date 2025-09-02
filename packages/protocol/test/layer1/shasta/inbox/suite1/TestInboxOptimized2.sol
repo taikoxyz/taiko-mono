@@ -53,7 +53,7 @@ contract TestInboxOptimized2 is InboxOptimized2, ITestInbox {
     )
         external
     {
-        _setTransitionRecordHash(testConfig, _proposalId, _transition, _transitionRecord);
+        _setTransitionRecordHash(_proposalId, _transition, _transitionRecord);
     }
 
     // Function to store checkpoint for test purposes

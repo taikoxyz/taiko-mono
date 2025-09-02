@@ -53,6 +53,6 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
     )
         external
     {
-        _setTransitionRecordHash(testConfig, _proposalId, _transition, _transitionRecord);
+        _setTransitionRecordHash(_proposalId, _transition, _transitionRecord);
     }
 }

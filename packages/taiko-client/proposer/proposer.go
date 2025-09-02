@@ -534,7 +534,7 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 		if time.Since(p.l2HeadUpdate.updatedAt.UTC()) < p.FallbackTimeout {
 			log.Info("Fallback timeout not reached, skip proposing",
 				"l2HeadUpdate", p.l2HeadUpdate.updatedAt.UTC(),
-				"l2HeadUpdate", p.l2HeadUpdate.blockID,
+				"blockID", p.l2HeadUpdate.blockID,
 				"now", time.Now().UTC(),
 				"fallbackTimeout", p.FallbackTimeout,
 			)

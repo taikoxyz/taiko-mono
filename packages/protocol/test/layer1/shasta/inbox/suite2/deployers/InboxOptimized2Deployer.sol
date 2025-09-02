@@ -36,8 +36,6 @@ contract InboxOptimized2Deployer is InboxTestHelper, IInboxDeployer {
         vm.prank(Alice);
         inbox.init2(bytes32(uint256(1)));
 
-        inbox.fillTransitionRecordBuffer();
-
         return inbox;
     }
 }
