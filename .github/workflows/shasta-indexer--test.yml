@@ -26,6 +26,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build
+      working-directory: packages/shasta-indexer
       run: cargo build --verbose
     - name: Run tests
+      working-directory: packages/shasta-indexer
       run: cargo test --verbose
