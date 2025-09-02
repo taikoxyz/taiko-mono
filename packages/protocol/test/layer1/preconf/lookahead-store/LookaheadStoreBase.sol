@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "../mocks/MockURC.sol";
+import "../mocks/MockOverseer.sol";
 import "test/shared/CommonTest.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "src/layer1/preconf/impl/LookaheadStore.sol";
@@ -24,6 +25,7 @@ contract LookaheadStoreBase is CommonTest {
     }
 
     MockURC internal urc;
+    MockOverseer internal overseer;
     LookaheadStore internal lookaheadStore;
 
     uint256 internal constant NUM_OPERATORS = 10;
@@ -31,6 +33,7 @@ contract LookaheadStoreBase is CommonTest {
         + 5 * LibPreconfConstants.SECONDS_IN_EPOCH;
 
     address internal protector = vm.addr(uint256(bytes32("protector")));
+    address internal lookaheadSlasher = vm.addr(uint256(bytes32("lookaheadSlasher")));
     address internal preconfSlasher = vm.addr(uint256(bytes32("preconfSlasher")));
     address internal preconfRouter = vm.addr(uint256(bytes32("preconfRouter")));
     bytes32 internal posterRegistrationRoot = bytes32("poster_registration_root");
@@ -38,7 +41,15 @@ contract LookaheadStoreBase is CommonTest {
 
     function setUpOnEthereum() internal virtual override {
         urc = new MockURC();
-        lookaheadStore = new LookaheadStore(address(urc), protector, preconfSlasher, preconfRouter);
+        overseer = new MockOverseer();
+        lookaheadStore = new LookaheadStore(
+            address(urc),
+            protector,
+            lookaheadSlasher,
+            preconfSlasher,
+            preconfRouter,
+            address(overseer)
+        );
 
         // Wrap time to the beginning of an arbitrary epoch
         vm.warp(EPOCH_START);
@@ -117,7 +128,7 @@ contract LookaheadStoreBase is CommonTest {
 
         _operator.registrationRoot = posterRegistrationRoot;
         _operator.committer = posterOwnerAndCommitter;
-        _operator.slasher = protector;
+        _operator.slasher = lookaheadSlasher;
 
         _validateSetupOperatorData(_operator, lookaheadStore.getConfig().minCollateralForPosting);
 
@@ -182,6 +193,20 @@ contract LookaheadStoreBase is CommonTest {
         );
     }
 
+    /// @notice Helper function to set blacklist status for operators in tests
+    /// @param _registrationRoot The operator registration root
+    /// @param _blacklistedAt Timestamp when blacklisted (0 means never blacklisted)
+    /// @param _unblacklistedAt Timestamp when unblacklisted (0 means never unblacklisted)
+    function _setOperatorBlacklistStatus(
+        bytes32 _registrationRoot,
+        uint48 _blacklistedAt,
+        uint48 _unblacklistedAt
+    )
+        internal
+    {
+        overseer.setBlacklistTimestamps(_registrationRoot, _blacklistedAt, _unblacklistedAt);
+    }
+
     function _validateLookaheadSlots(
         ILookaheadStore.LookaheadSlot[] memory _lookaheadSlots,
         SetupOperator[] memory _operators
@@ -216,7 +241,7 @@ contract LookaheadStoreBase is CommonTest {
         ISlasher.Commitment memory commitment = ISlasher.Commitment({
             commitmentType: 0,
             payload: abi.encode(_trimLookaheadSlots(_lookaheadSlots, _numLookaheadSlots)),
-            slasher: protector
+            slasher: lookaheadSlasher
         });
 
         bytes32 commitmentHash = keccak256(abi.encode(commitment));

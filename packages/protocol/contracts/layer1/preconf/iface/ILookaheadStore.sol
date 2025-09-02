@@ -44,6 +44,7 @@ interface ILookaheadStore {
     error InvalidValidatorLeafIndex();
     error LookaheadNotRequired();
     error NotProtectorOrPreconfRouter();
+    error OperatorHasBeenBlacklisted();
     error OperatorHasBeenSlashed();
     error OperatorHasInsufficientCollateral();
     error OperatorHasNotOptedIn();
@@ -53,7 +54,7 @@ interface ILookaheadStore {
     error PosterHasInsufficientCollateral();
     error PosterHasNotOptedIn();
     error PosterHasUnregistered();
-    error SlasherIsNotProtector();
+    error SlasherIsNotLookaheadSlasher();
     error SlotTimestampIsNotIncrementing();
 
     event LookaheadPosted(

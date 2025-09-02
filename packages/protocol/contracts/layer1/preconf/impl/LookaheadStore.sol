@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "src/layer1/preconf/libs/LibPreconfConstants.sol";
 import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/layer1/preconf/iface/ILookaheadStore.sol";
+import "src/layer1/preconf/iface/IOverseer.sol";
 import "src/shared/common/EssentialContract.sol";
 import "@eth-fabric/urc/IRegistry.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -13,8 +14,10 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 contract LookaheadStore is ILookaheadStore, EssentialContract {
     IRegistry public immutable urc;
     address public immutable protector;
+    address public immutable lookaheadSlasher;
     address public immutable preconfSlasher;
     address public immutable preconfRouter;
+    address public immutable overseer;
 
     // Lookahead buffer that stores the hashed lookahead entries for an epoch
     mapping(uint256 epochTimestamp_mod_lookaheadBufferSize => LookaheadHash lookaheadHash) public
@@ -25,15 +28,19 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
     constructor(
         address _urc,
         address _protector,
+        address _lookaheadSlasher,
         address _preconfSlasher,
-        address _preconfRouter
+        address _preconfRouter,
+        address _overseer
     )
         EssentialContract()
     {
         urc = IRegistry(_urc);
         protector = _protector;
+        lookaheadSlasher = _lookaheadSlasher;
         preconfSlasher = _preconfSlasher;
         preconfRouter = _preconfRouter;
+        overseer = _overseer;
     }
 
     function init(address _owner) external initializer {
@@ -55,7 +62,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
         if (_registrationRoot == bytes32(0)) {
             // If the registration root is 0, the lookahead is posted by a whitelist preconfer
-            // (via preconf router) or it is posted the protector.
+            // (via preconf router) or it is posted the lookahead slasher.
             if (msg.sender == preconfRouter) {
                 require(isLookaheadRequired_, LookaheadNotRequired());
             } else {
@@ -203,10 +210,15 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         view
         returns (LookaheadSlot[] memory)
     {
-        require(_signedCommitment.commitment.slasher == protector, SlasherIsNotProtector());
+        require(
+            _signedCommitment.commitment.slasher == lookaheadSlasher, SlasherIsNotLookaheadSlasher()
+        );
 
         (, IRegistry.SlasherCommitment memory slasherCommitment) = _validateOperator(
-            _registrationRoot, block.timestamp, getConfig().minCollateralForPosting, protector
+            _registrationRoot,
+            block.timestamp,
+            getConfig().minCollateralForPosting,
+            lookaheadSlasher
         );
 
         // Validate the lookahead poster's signed commitment
@@ -259,10 +271,23 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         // For the poster, we consider the latest collateral value.
         // For the operators within lookahead, we consider the collateral value at the start of
         // the current epoch.
-        uint256 collateralWei = _slasher == protector
+        uint256 collateralWei = _slasher == lookaheadSlasher
             ? operatorData_.collateralWei
             : urc.getHistoricalCollateral(_registrationRoot, _timestamp);
         require(collateralWei >= _minCollateral, OperatorHasInsufficientCollateral());
+
+        IOverseer.BlacklistTimestamps memory blacklistTimestamps =
+            IOverseer(overseer).getBlacklist(_registrationRoot);
+
+        // The operators within lookahead must not be blacklisted, or may have been blacklist in the
+        // current epoch.
+        bool notBlacklisted =
+            blacklistTimestamps.blacklistedAt == 0 || blacklistTimestamps.blacklistedAt > _timestamp;
+        // If unblacklisted, the operators within lookahead must have been unblacklisted at least
+        // two slots in advanced from the current epoch.
+        bool unblacklisted = blacklistTimestamps.unBlacklistedAt != 0
+            && blacklistTimestamps.unBlacklistedAt < _timestamp;
+        require(notBlacklisted || unblacklisted, OperatorHasBeenBlacklisted());
 
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
 
