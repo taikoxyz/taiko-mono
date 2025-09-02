@@ -35,7 +35,7 @@ contract InboxOptimized3Deployer is InboxTestHelper, IInboxDeployer {
         // Initialize with genesis block hash (must be called as owner)
         vm.prank(Alice);
         inbox.init2(bytes32(uint256(1)));
-        
+
         return inbox;
     }
 }
