@@ -6,10 +6,11 @@ import "../libs/LibPreconfUtils.sol";
 import "../libs/LibPreconfConstants.sol";
 import "src/shared/libs/LibNames.sol";
 import "src/shared/common/EssentialContract.sol";
+import "src/layer1/shasta/iface/IProposerChecker.sol";
 
 /// @title PreconfWhitelist
 /// @custom:security-contact security@taiko.xyz
-contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
+contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChecker {
     struct OperatorInfo {
         uint32 activeSince; // Epoch when the operator becomes active.
         uint32 inactiveSince; // Epoch when the operator is no longer active.
@@ -20,6 +21,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     event Consolidated(uint8 previousCount, uint8 newCount, bool havingPerfectOperators);
     event OperatorChangeDelaySet(uint8 delay);
     event EjecterUpdated(address indexed ejecter, bool isEjecter);
+
+    /// @notice The fallback preconfer address.
+    address public immutable fallbackPreconfer;
 
     /// @dev An operator consists of a proposer address(the key to this mapping) and a sequencer
     /// address.
@@ -48,7 +52,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         _;
     }
 
-    constructor() EssentialContract() { }
+    constructor(address _fallbackPreconfer) EssentialContract() {
+        fallbackPreconfer = _fallbackPreconfer;
+    }
 
     function init(
         address _owner,
@@ -148,8 +154,23 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         emit EjecterUpdated(_ejecter, _isEjecter);
     }
 
+    /// @inheritdoc IProposerChecker
+    function checkProposer(address _proposer)
+        external
+        view
+        returns (uint48 lookaheadSlotTimestamp_)
+    {
+        address operator = getOperatorForCurrentEpoch();
+        if (operator == address(0)) {
+            operator = fallbackPreconfer;
+        }
+        require(operator == _proposer, InvalidProposer());
+        // Slashing is not enabled for whitelisted preconfers, so we return 0
+        lookaheadSlotTimestamp_ = 0;
+    }
+
     /// @inheritdoc IPreconfWhitelist
-    function getOperatorForCurrentEpoch() external view returns (address) {
+    function getOperatorForCurrentEpoch() public view returns (address) {
         return _getOperatorForEpoch(epochStartTimestamp(0));
     }
 

@@ -5,7 +5,7 @@ import "./LookaheadStoreBase.sol";
 
 contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
     // Lookahead posting accepted
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function test_acceptsValidLookaheadCommitment(
         SetupOperator memory _lookaheadPostingOperator,
@@ -31,7 +31,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
     }
 
     // Lookahead posting reverts (Issues with the poster)
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function test_revertsWhenCommitmentIsNotSignedByThePostersCommitter() external useMainnet {
         (
@@ -348,7 +348,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
     }
 
     // Lookahead posting reverts (Invalid inputs)
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function test_revertsWhenLookaheadIsAlreadyPostedForNextEpoch() external useMainnet {
         (
@@ -486,7 +486,7 @@ contract TestLookaheadStore_PostedByOperator is LookaheadStoreBase {
     }
 
     // Lookahead posting reverts (Issues with the operators)
-    // ------------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------
 
     function test_revertsWhenTheOperatorHasNotRegistered_Case1() external useMainnet {
         (
