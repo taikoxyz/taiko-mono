@@ -806,20 +806,7 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	s.Nil(err)
 	s.Equal(l2Head1.Number.Uint64(), headL1Origin.BlockID.Uint64())
 
-	isForkALastBlockCanonical, err := s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
-		context.Background(),
-		&preconf.Envelope{
-			Payload: &eth.ExecutionPayload{
-				BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
-				BlockHash:   forkA[len(forkA)-1].Hash(),
-				ParentHash:  forkA[len(forkA)-1].ParentHash(),
-			},
-		},
-		&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
-	)
-	s.Nil(err)
-
-	isForkBLastBlockCanonical, err := s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+	ok, err := s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
 		context.Background(),
 		&preconf.Envelope{
 			Payload: &eth.ExecutionPayload{
@@ -828,16 +815,53 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 				ParentHash:  forkB[len(forkB)-1].ParentHash(),
 			},
 		},
-		&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
+		headL1Origin,
 	)
 	s.Nil(err)
+	s.True(ok)
+
+	ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+		context.Background(),
+		&preconf.Envelope{
+			Payload: &eth.ExecutionPayload{
+				BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
+				BlockHash:   forkA[len(forkA)-1].Hash(),
+				ParentHash:  forkA[len(forkA)-1].ParentHash(),
+			},
+		},
+		headL1Origin,
+	)
+	s.Nil(err)
+	s.True(ok)
 
 	if isInForkA {
-		s.True(isForkALastBlockCanonical)
-		s.False(isForkBLastBlockCanonical)
+		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+			context.Background(),
+			&preconf.Envelope{
+				Payload: &eth.ExecutionPayload{
+					BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
+					BlockHash:   forkB[len(forkB)-1].Hash(),
+					ParentHash:  forkB[len(forkB)-1].ParentHash(),
+				},
+			},
+			&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
+		)
+		s.Nil(err)
+		s.False(ok)
 	} else {
-		s.True(isForkBLastBlockCanonical)
-		s.False(isForkALastBlockCanonical)
+		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+			context.Background(),
+			&preconf.Envelope{
+				Payload: &eth.ExecutionPayload{
+					BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
+					BlockHash:   forkA[len(forkA)-1].Hash(),
+					ParentHash:  forkA[len(forkA)-1].ParentHash(),
+				},
+			},
+			&rawdb.L1Origin{BlockID: headL1Origin.BlockID, L2BlockHash: testutils.RandomHash()},
+		)
+		s.Nil(err)
+		s.False(ok)
 	}
 }
 
