@@ -1,0 +1,24 @@
+[package]
+name = "rpc"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy-primitives = { workspace = true, default-features = false }
+alloy-provider = { workspace = true, features = [
+  "ipc",
+  "reqwest",
+  "reqwest-rustls-tls",
+  "engine-api",
+] }
+alloy-rpc-types = { workspace = true, default-features = false }
+alloy-rpc-types-engine = { workspace = true, features = ["jwt", "serde"] }
+alloy-rpc-client = { workspace = true, default-features = false }
+alloy-transport-http = { workspace = true, features = [
+  "reqwest",
+  "hyper",
+  "jwt-auth",
+] }
+url = { workspace = true }
+tower = { workspace = true }
+http-body-util = { workspace = true }

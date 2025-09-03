@@ -1,0 +1,7 @@
+[package]
+name = "proposer"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+rpc = { path = "../rpc" }
