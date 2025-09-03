@@ -2682,7 +2682,15 @@ dependencies = [
 name = "proposer"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-types",
+ "alloy-rpc-types-eth",
+ "futures",
  "rpc",
+ "tokio",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]

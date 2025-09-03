@@ -5,3 +5,12 @@ edition.workspace = true
 
 [dependencies]
 rpc = { path = "../rpc" }
+
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+futures = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-rpc-types-eth = { workspace = true }
+tracing = { workspace = true }

@@ -20,10 +20,13 @@ alloy-provider = { version = "1.0.23", default-features = false }
 alloy-rpc-types = { version = "1.0.23", default-features = false }
 alloy-rpc-client = { version = "1.0.23", default-features = false }
 alloy-rpc-types-engine = { version = "1.0.23", default-features = false }
+alloy-rpc-types-eth = { version = "1.0.23", default-features = false }
 alloy-transport-http = { version = "1.0.23", default-features = false }
 
 # General
 tokio = "1.45.1"
+tokio-util = "0.7.15"
+futures = "0.3.31"
 clap = "4.5.39"
 url = "2.5.4"
 tower = "0.5.2"
