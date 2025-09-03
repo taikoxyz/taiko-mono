@@ -14,6 +14,8 @@ import "src/shared/tokenvault/BridgedERC721.sol";
 import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/signal/SignalService.sol";
 import "src/layer2/based/TaikoAnchor.sol";
+import "src/layer2/based/BondManager.sol";
+import "src/shared/based/impl/CheckpointManager.sol";
 import "../shared/helpers/RegularERC20.sol";
 
 contract TestGenerateGenesis is Test {
@@ -27,6 +29,12 @@ contract TestGenerateGenesis is Test {
     uint256 private l1ChainId = configJSON.readUint(".l1ChainId");
     uint256 private pacayaForkHeight = configJSON.readUint(".pacayaForkHeight");
     uint256 private shastaForkHeight = configJSON.readUint(".shastaForkHeight");
+    uint48 private livenessBondGwei = uint48(configJSON.readUint(".livenessBondGwei"));
+    uint48 private provabilityBondGwei = uint48(configJSON.readUint(".provabilityBondGwei"));
+    address private bondToken = configJSON.readAddress(".bondToken");
+    uint256 private minBond = configJSON.readUint(".minBond");
+    uint48 private withdrawalDelay = uint48(configJSON.readUint(".withdrawalDelay"));
+    uint48 private maxCheckpointStackSize = uint48(configJSON.readUint(".maxCheckpointStackSize"));
 
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
@@ -109,6 +117,60 @@ contract TestGenerateGenesis is Test {
         vm.stopPrank();
     }
 
+    function testBondManager() public {
+        address bondManagerAddress = getPredeployedContractAddress("BondManager");
+        EssentialContract bondManagerProxy = EssentialContract(bondManagerAddress);
+
+        assertEq(contractOwner, bondManagerProxy.owner());
+        assertEq(
+            getPredeployedContractAddress("TaikoAnchor"),
+            BondManager(bondManagerAddress).authorized()
+        );
+        assertEq(bondToken, address(BondManager(bondManagerAddress).bondToken()));
+        assertEq(minBond, BondManager(bondManagerAddress).minBond());
+        assertEq(withdrawalDelay, BondManager(bondManagerAddress).withdrawalDelay());
+
+        vm.startPrank(bondManagerProxy.owner());
+
+        bondManagerProxy.upgradeTo(
+            address(
+                new BondManager(
+                    getPredeployedContractAddress("TaikoAnchor"),
+                    getPredeployedContractAddress("RegularERC20"),
+                    1 ether,
+                    7 days
+                )
+            )
+        );
+
+        vm.stopPrank();
+    }
+
+    function testCheckpointManager() public {
+        address checkpointManagerAddress = getPredeployedContractAddress("CheckpointManager");
+
+        EssentialContract checkpointManagerProxy = EssentialContract(checkpointManagerAddress);
+
+        assertEq(contractOwner, checkpointManagerProxy.owner());
+        assertEq(
+            getPredeployedContractAddress("TaikoAnchor"),
+            address(CheckpointManager(checkpointManagerAddress).authorized())
+        );
+        assertEq(maxCheckpointStackSize, CheckpointManager(checkpointManagerAddress).maxStackSize());
+
+        vm.startPrank(checkpointManagerProxy.owner());
+
+        checkpointManagerProxy.upgradeTo(
+            address(
+                new CheckpointManager(
+                    getPredeployedContractAddress("TaikoAnchor"), maxCheckpointStackSize
+                )
+            )
+        );
+
+        vm.stopPrank();
+    }
+
     function testTaikoAnchor() public {
         TaikoAnchor taikoAnchorProxy = TaikoAnchor(getPredeployedContractAddress("TaikoAnchor"));
 
@@ -120,6 +182,15 @@ contract TestGenerateGenesis is Test {
             getPredeployedContractAddress("SignalService"),
             address(taikoAnchorProxy.signalService())
         );
+        assertEq(
+            getPredeployedContractAddress("CheckpointManager"),
+            address(taikoAnchorProxy.checkpointManager())
+        );
+        assertEq(
+            getPredeployedContractAddress("BondManager"), address(taikoAnchorProxy.bondManager())
+        );
+        assertEq(livenessBondGwei, taikoAnchorProxy.livenessBondGwei());
+        assertEq(provabilityBondGwei, taikoAnchorProxy.provabilityBondGwei());
 
         vm.startPrank(taikoAnchorProxy.owner());
 
