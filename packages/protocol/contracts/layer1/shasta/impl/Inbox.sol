@@ -28,6 +28,24 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
+
+    /// @notice Optimized storage for transition records with efficient ring buffer and branching
+    /// @dev Stores transition records with optimized access patterns for the common case
+    struct TransitionRecordSlot {
+        /// @notice Primary transition record hash (optimized for single branch case)
+        bytes32 primaryRecordHash;
+        /// @notice Proposal ID this slot is associated with
+        uint48 proposalId;
+        /// @notice First 26 bytes of parent transition hash for optimization
+        bytes26 partialParentHash;
+        /// @notice Branch support for multiple transitions per proposal
+        /// @dev parentHash => recordHash mapping for when proposals have multiple branches
+        mapping(bytes32 parentHash => bytes32 recordHash) branches;
+    }
+
+    // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
 
@@ -72,7 +90,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// - slot: The TransitionRecordSlot containing primary record and branches
     /// @dev When proposals are aggregated (span > 1), the record is stored at the FIRST proposal's
     /// slot but contains the LAST proposal's transition/checkpoint hashes
-    mapping(uint256 bufferSlot => IInbox.TransitionRecordSlot) internal _transitionRecordSlots;
+    mapping(uint256 bufferSlot => TransitionRecordSlot) internal _transitionRecordSlots;
 
     /// @dev Storage for forced inclusion requests
     ///  Two slots used
@@ -450,7 +468,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
         bytes32 transitionRecordHash = keccak256(abi.encode(_transitionRecord));
-        IInbox.TransitionRecordSlot storage slot = _transitionRecordSlots[bufferSlot];
+        TransitionRecordSlot storage slot = _transitionRecordSlots[bufferSlot];
 
         // Check if we can use the primary slot
         if (slot.proposalId != _proposalId) {
@@ -516,7 +534,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (bytes32 transitionRecordHash_)
     {
         uint256 bufferSlot = _proposalId % _config.ringBufferSize;
-        IInbox.TransitionRecordSlot storage slot = _transitionRecordSlots[bufferSlot];
+        TransitionRecordSlot storage slot = _transitionRecordSlots[bufferSlot];
 
         // Check if this is the primary record for this proposal
         if (slot.proposalId == _proposalId) {
