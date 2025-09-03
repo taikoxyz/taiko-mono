@@ -93,6 +93,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			L2EngineEndpoint:        c.String(flags.L2AuthEndpoint.Name),
 			JwtSecret:               string(jwtSecret),
 			Timeout:                 c.Duration(flags.RPCTimeout.Name),
+			TaikoWrapperAddress:     common.HexToAddress(c.String(flags.DriverTaikoWrapperAddress.Name)),
 		}
 		p2pConfigs    *p2p.Config
 		signerConfigs p2p.SignerSetup
