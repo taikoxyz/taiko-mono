@@ -2988,9 +2988,15 @@ dependencies = [
  "alloy-rpc-client",
  "alloy-rpc-types",
  "alloy-rpc-types-engine",
+ "alloy-rpc-types-eth",
  "alloy-transport-http",
+ "anyhow",
  "http-body-util",
+ "serde",
+ "serde_json",
+ "tokio",
  "tower",
+ "tracing",
  "url",
 ]
 

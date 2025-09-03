@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use alloy_primitives::Bytes;
 use alloy_provider::RootProvider;
 use alloy_rpc_client::RpcClient as AlloyRpcClient;
@@ -17,6 +19,7 @@ pub struct RpcClient {
     l1_provider: RootProvider,
     l2_provider: RootProvider,
     l2_engine: Option<RootProvider>,
+    l2_engine_client: Option<Arc<AlloyRpcClient>>,
 }
 
 /// Configuration for the `RpcClient`.
@@ -35,6 +38,7 @@ impl RpcClient {
             l1_provider: RootProvider::new_http(config.l1_provider_url),
             l2_provider: RootProvider::new_http(config.l2_provider_url),
             l2_engine: None,
+            l2_engine_client: None,
         };
 
         // Creates a new auth RPC client for the given address and JWT secret.
@@ -59,13 +63,21 @@ impl RpcClient {
     pub fn l2_engine(&self) -> Option<&RootProvider> {
         self.l2_engine.as_ref()
     }
+    
+    /// Returns a reference to the raw L2 engine RPC client, if configured.
+    pub(crate) fn l2_engine_client(&self) -> Option<&Arc<AlloyRpcClient>> {
+        self.l2_engine_client.as_ref()
+    }
 
     // Configures the L2 execution engine client with authentication.
     fn with_l2_engine(&mut self, url: Url, jwt: JwtSecret) {
         let hyper_client = Client::builder(TokioExecutor::new()).build_http::<Full<Bytes>>();
         let auth_service = ServiceBuilder::new().layer(AuthLayer::new(jwt)).service(hyper_client);
         let http_client = Http::with_client(HyperClient::with_service(auth_service), url);
-
-        self.l2_engine = Some(RootProvider::new(AlloyRpcClient::new(http_client, false)))
+        
+        let rpc_client = AlloyRpcClient::new(http_client, false);
+        let rpc_client_arc = Arc::new(rpc_client.clone());
+        self.l2_engine = Some(RootProvider::new(rpc_client));
+        self.l2_engine_client = Some(rpc_client_arc);
     }
 }

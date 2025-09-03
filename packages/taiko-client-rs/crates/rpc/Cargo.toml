@@ -12,6 +12,7 @@ alloy-provider = { workspace = true, features = [
   "engine-api",
 ] }
 alloy-rpc-types = { workspace = true, default-features = false }
+alloy-rpc-types-eth = { workspace = true, default-features = false }
 alloy-rpc-types-engine = { workspace = true, features = ["jwt", "serde"] }
 alloy-rpc-client = { workspace = true, default-features = false }
 alloy-transport-http = { workspace = true, features = [
@@ -22,3 +23,8 @@ alloy-transport-http = { workspace = true, features = [
 url = { workspace = true }
 tower = { workspace = true }
 http-body-util = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
