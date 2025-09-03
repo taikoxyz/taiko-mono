@@ -905,7 +905,7 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 		return common.Address{}
 	}
 
-	log.Info("Current operator address for epoch as P2P sequencer", "address", operatorAddress.Hex())
+	log.Debug("Current operator address for epoch as P2P sequencer", "address", operatorAddress.Hex())
 
 	return operatorAddress
 }
