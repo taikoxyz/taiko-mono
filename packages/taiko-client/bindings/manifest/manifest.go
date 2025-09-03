@@ -25,6 +25,8 @@ const (
 	MaxBlockGasLimitChangePermyriad = 10 // 0.1%
 	// MinBlockGasLimit The minimum block gas limit, refer to LibManifest.MIN_BLOCK_GAS_LIMIT.
 	MinBlockGasLimit = 15_000_000
+	// AnchorMinOffset The minimum anchor block number offset from the proposal origin block number, refer to LibManifest.ANCHOR_MIN_OFFSET.
+	AnchorMinOffset = 2
 )
 
 // BlockManifest represents a block manifest

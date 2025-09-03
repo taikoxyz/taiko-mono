@@ -1,4 +1,4 @@
-package txlistfetcher
+package manifestFetcher
 
 import (
 	"context"
@@ -11,48 +11,42 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// BlobFetcher is responsible for fetching the txList blob from the L1 block sidecar.
-type BlobFetcher struct {
+// ShastaManifestFetcher is responsible for fetching the txList blob from the L1 block sidecar.
+type ShastaManifestFetcher struct {
 	cli        *rpc.Client
 	dataSource *rpc.BlobDataSource
 }
 
-// NewBlobFetcher creates a new BlobFetcher instance based on the given rpc client.
-func NewBlobFetcher(cli *rpc.Client, ds *rpc.BlobDataSource) *BlobFetcher {
-	return &BlobFetcher{cli, ds}
+// NewShastaManifestFetcher creates a new ShastaManifestFetcher instance based on the given rpc client.
+func NewShastaManifestFetcher(cli *rpc.Client, ds *rpc.BlobDataSource) *ShastaManifestFetcher {
+	return &ShastaManifestFetcher{cli, ds}
 }
 
-// FetchPacaya implements the TxListFetcher interface.
-func (d *BlobFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBatchMetaDataPacaya) ([]byte, error) {
-	if len(meta.GetBlobHashes()) == 0 {
-		return nil, pkg.ErrBlobUnused
-	}
-
-	var blockNum uint64
-	if meta.GetBlobCreatedIn().Int64() == 0 {
-		blockNum = meta.GetProposedIn()
-	} else {
-		blockNum = meta.GetBlobCreatedIn().Uint64()
-	}
-
-	// Fetch the L1 block header with the given blob.
-	l1Header, err := d.cli.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
-	if err != nil {
-		return nil, err
+func (d *ShastaManifestFetcher) FetchShasta(ctx context.Context, meta metadata.TaikoProposalMetaDataShasta) ([]byte, error) {
+	blobHashesLength := len(meta.GetDerivation().BlobSlice.BlobHashes)
+	if blobHashesLength == 0 ||
+		blobHashesLength > manifest.ProposalMaxBlobs ||
+		meta.GetDerivation().BlobSlice.Offset.Cmp(big.NewInt(int64(manifest.BlobBytes*blobHashesLength-32))) > 0 {
+		return nil, pkg.ErrBlobValidationFailed
 	}
 
 	// Fetch the L1 block sidecars.
-	sidecars, err := d.dataSource.GetBlobs(ctx, l1Header.Time, meta.GetBlobHashes())
+	sidecars, err := d.dataSource.GetBlobs(ctx, meta.GetBlobTimestamp(), meta.GetBlobHashes())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get blobs, errs: %w", err)
 	}
 
-	log.Info("Fetch sidecars", "blockNumber", blockNum, "sidecars", len(sidecars))
+	log.Info("Fetch sidecars",
+		"proposalID", meta.GetProposal().Id,
+		"l1Height", meta.GetRawBlockHeight(),
+		"sidecars", len(sidecars),
+	)
 
 	var b []byte
 	for _, blobHash := range meta.GetBlobHashes() {
@@ -83,5 +77,5 @@ func (d *BlobFetcher) FetchPacaya(ctx context.Context, meta metadata.TaikoBatchM
 		return nil, pkg.ErrSidecarNotFound
 	}
 
-	return sliceTxList(meta.GetBatchID(), b, meta.GetTxListOffset(), meta.GetTxListSize())
+	return b, nil
 }

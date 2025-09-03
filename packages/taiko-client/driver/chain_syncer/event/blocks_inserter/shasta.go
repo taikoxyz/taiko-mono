@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"math/big"
 	"sync"
 
@@ -32,10 +31,6 @@ import (
 type Shasta struct {
 	rpc                  *rpc.Client
 	progressTracker      *beaconsync.SyncProgressTracker
-	blobDatasource       *rpc.BlobDataSource
-	decompressor         *manifest_decompressor.ManifestDecompressor // Manifest decompressor
-	anchorConstructor    *anchorTxConstructor.AnchorTxConstructor    // ShastaAnchor.updateState transactions constructor
-	blobFetcher          txlistFetcher.TxListFetcher
 	latestSeenProposalCh chan *encoding.LastSeenProposal
 	mutex                sync.Mutex
 }
@@ -56,7 +51,6 @@ func NewBlocksInserterShasta(
 		blobDatasource:       blobDatasource,
 		decompressor:         decompressor,
 		anchorConstructor:    anchorConstructor,
-		blobFetcher:          blobFetcher,
 		latestSeenProposalCh: latestSeenProposalCh,
 	}
 }
@@ -77,21 +71,7 @@ func (i *Shasta) InsertBlocks(
 		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
 		// to the channel.
 		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
-		meta               = metadata.Shasta()
-		proposalManifest   = manifest.ProposalManifest{IsDefault: true}
 	)
-
-	metadataBytes, err := i.blobFetcher.FetchShasta(ctx, meta)
-	if err != nil && !errors.Is(err, pkg.ErrBlobValidationFailed) {
-		return err
-	} else {
-		proposalManifest = i.decompressor.TryDecompressProposalManifest(metadataBytes, int(meta.GetDerivation().BlobSlice.Offset.Int64()))
-	}
-
-	if !proposalManifest.IsDefault {
-		// Check Block-level metadata
-
-	}
 
 	log.Debug(
 		"Inserting blocks to L2 execution engine",
