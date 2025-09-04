@@ -32,7 +32,7 @@ contract InboxOptimized2Deployer is InboxTestHelper, IInboxDeployer {
             deploy({
                 name: "",
                 impl: impl,
-                data: abi.encodeCall(Inbox.init, (Alice, bytes32(uint256(1))))
+                data: abi.encodeCall(Inbox.initV3, (Alice, bytes32(uint256(1))))
             })
         );
 
