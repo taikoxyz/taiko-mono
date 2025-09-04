@@ -822,17 +822,21 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         if (storedHash == 0) return (false, _proposalId);
 
-        // Verify transition record was provided
-        require(_hasTransitionRecord, TransitionRecordNotProvided());
+        // If transition record is provided, allow finalization regardless of cooldown
+        // If not provided, and cooldown has passed, revert
+        if (!_hasTransitionRecord) {
+            // Check if cooldown period has passed for forcing
+            if (block.timestamp < _transitionRecord.effectiveAt) {
+                // Cooldown not passed, don't force finalization
+                return (false, _proposalId);
+            }
+            // Cooldown passed, force finalization
+            require(_hasTransitionRecord, TransitionRecordNotProvided());
+        }
 
         // Verify transition record hash matches
         bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
         require(transitionRecordHash == storedHash, TransitionRecordHashMismatchWithStorage());
-
-        // Check if cooldown period has passed
-        if (block.timestamp < _transitionRecord.effectiveAt) {
-            return (false, _proposalId);
-        }
 
         // Update core state
         _coreState.lastFinalizedProposalId = _proposalId;
