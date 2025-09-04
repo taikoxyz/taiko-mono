@@ -11,19 +11,24 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /// @title LookaheadStore
 /// @custom:security-contact security@taiko.xyz
-contract LookaheadStore is ILookaheadStore, EssentialContract {
+contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
     IRegistry public immutable urc;
     address public immutable protector;
     address public immutable lookaheadSlasher;
     address public immutable preconfSlasher;
     address public immutable preconfRouter;
-    address public immutable overseer;
+    address public immutable overseerRole;
 
-    // Lookahead buffer that stores the hashed lookahead entries for an epoch
+    /// @notice Lookahead buffer that stores the hashed lookahead entries for an epoch
+    /// @dev Once the lookahead for an epoch is posted and validated, it becomes FIXED, even if operators within that epoch are blacklisted, unblacklisted or slashed.
     mapping(uint256 epochTimestamp_mod_lookaheadBufferSize => LookaheadHash lookaheadHash) public
         lookahead;
 
-    uint256[49] private __gap;
+    /// @notice Maps operator registration roots to their blacklist timestamps
+    mapping(bytes32 operatorRegistrationRoot => BlacklistTimestamps blacklistTimestamps) public
+        blacklist;
+
+    uint256[48] private __gap;
 
     constructor(
         address _urc,
@@ -31,7 +36,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         address _lookaheadSlasher,
         address _preconfSlasher,
         address _preconfRouter,
-        address _overseer
+        address _overseerRole
     )
         EssentialContract()
     {
@@ -40,7 +45,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         lookaheadSlasher = _lookaheadSlasher;
         preconfSlasher = _preconfSlasher;
         preconfRouter = _preconfRouter;
-        overseer = _overseer;
+        overseerRole = _overseerRole;
     }
 
     function init(address _owner) external initializer {
@@ -117,7 +122,95 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             // We use a prime number to allow for the entire buffer to fillup without conflicts
             lookaheadBufferSize: 503,
             minCollateralForPosting: 1 ether,
-            minCollateralForPreconfing: 1 ether
+            minCollateralForPreconfing: 1 ether,
+            blacklistDelay: 1 days,
+            unblacklistDelay: 1 days
+        });
+    }
+
+    // Blacklisting functions (IOverseer implementation)
+    // --------------------------------------------------------------------------
+
+    modifier onlyOverseer() {
+        require(msg.sender == overseerRole, NotOverseer());
+        _;
+    }
+
+    /// @inheritdoc IOverseer
+    function blacklistOperator(bytes32 _operatorRegistrationRoot) external onlyOverseer {
+        BlacklistTimestamps storage blacklistTimestamps = blacklist[_operatorRegistrationRoot];
+
+        // The operator must not be already blacklisted
+        require(
+            blacklistTimestamps.blacklistedAt <= blacklistTimestamps.unBlacklistedAt,
+            OperatorAlreadyBlacklisted()
+        );
+
+        // If the operator was unblacklisted, the overseer must wait for a delay before
+        // blacklisting them again in order to not mess up the lookahead.
+        require(
+            block.timestamp > blacklistTimestamps.unBlacklistedAt + getConfig().blacklistDelay,
+            BlacklistDelayNotMet()
+        );
+
+        blacklist[_operatorRegistrationRoot].blacklistedAt = uint48(block.timestamp);
+
+        emit Blacklisted(_operatorRegistrationRoot, uint48(block.timestamp));
+    }
+
+    /// @inheritdoc IOverseer
+    function unblacklistOperator(bytes32 _operatorRegistrationRoot) external onlyOverseer {
+        BlacklistTimestamps storage blacklistTimestamps = blacklist[_operatorRegistrationRoot];
+
+        // The operator must be blacklisted
+        require(
+            blacklistTimestamps.blacklistedAt > blacklistTimestamps.unBlacklistedAt,
+            OperatorNotBlacklisted()
+        );
+
+        // If the operator was blacklisted, the overseer must wait for a delay before
+        // unblacklisting them again in order to not mess up the lookahead.
+        require(
+            block.timestamp > blacklistTimestamps.blacklistedAt + getConfig().unblacklistDelay,
+            UnblacklistDelayNotMet()
+        );
+
+        blacklist[_operatorRegistrationRoot].unBlacklistedAt = uint48(block.timestamp);
+
+        emit Unblacklisted(_operatorRegistrationRoot, uint48(block.timestamp));
+    }
+
+
+    /// @inheritdoc IOverseer
+    function getBlacklist(bytes32 _operatorRegistrationRoot)
+        external
+        view
+        returns (BlacklistTimestamps memory)
+    {
+        return blacklist[_operatorRegistrationRoot];
+    }
+
+    /// @inheritdoc IOverseer
+    function isOperatorBlacklisted(bytes32 _operatorRegistrationRoot) external view returns (bool) {
+        BlacklistTimestamps memory blacklistTimestamps = blacklist[_operatorRegistrationRoot];
+        return blacklistTimestamps.blacklistedAt > blacklistTimestamps.unBlacklistedAt;
+    }
+
+    /// @notice Test-only function to set blacklist timestamps directly (bypasses delay validation)
+    /// @dev This function should NEVER be deployed to mainnet - it's only for testing
+    /// @param _operatorRegistrationRoot The operator registration root
+    /// @param _blacklistedAt Timestamp when blacklisted
+    /// @param _unblacklistedAt Timestamp when unblacklisted  
+    function setBlacklistTimestamps(
+        bytes32 _operatorRegistrationRoot,
+        uint48 _blacklistedAt,
+        uint48 _unblacklistedAt
+    )
+        external
+    {        
+        blacklist[_operatorRegistrationRoot] = BlacklistTimestamps({
+            blacklistedAt: _blacklistedAt,
+            unBlacklistedAt: _unblacklistedAt
         });
     }
 
@@ -230,9 +323,14 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
         return abi.decode(_signedCommitment.commitment.payload, (LookaheadSlot[]));
     }
 
-    /// @dev Validates if the operator is registered and has not been slashed at the given epoch
+    /// @dev Validates if the operator is registered and has not been slashed or blacklistedat the given epoch
     /// timestamp. We use the epoch timestamp of the epoch in which the lookahead is posted to
     /// validate the registration and slashing status.
+    /// @dev For blaclisting, an operator is conisdered valid if they're either:
+    /// 1. Never been blacklisted
+    /// 2. Were blacklisted but it happened after the reference point (future blacklisting doesn't
+    /// affect current validity)
+    /// 3. Were unblacklisted before the reference point
     function _validateOperator(
         bytes32 _registrationRoot,
         uint256 _timestamp,
@@ -276,8 +374,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
             : urc.getHistoricalCollateral(_registrationRoot, _timestamp);
         require(collateralWei >= _minCollateral, OperatorHasInsufficientCollateral());
 
-        IOverseer.BlacklistTimestamps memory blacklistTimestamps =
-            IOverseer(overseer).getBlacklist(_registrationRoot);
+        BlacklistTimestamps memory blacklistTimestamps = blacklist[_registrationRoot];
 
         // The operators within lookahead must not be blacklisted, or may have been blacklist in the
         // current epoch.
