@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
@@ -17,10 +16,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/manifest_decompressor"
-	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -32,6 +28,7 @@ type Shasta struct {
 	rpc                  *rpc.Client
 	progressTracker      *beaconsync.SyncProgressTracker
 	latestSeenProposalCh chan *encoding.LastSeenProposal
+	anchorConstructor    *anchorTxConstructor.AnchorTxConstructor
 	mutex                sync.Mutex
 }
 
@@ -39,17 +36,12 @@ type Shasta struct {
 func NewBlocksInserterShasta(
 	rpc *rpc.Client,
 	progressTracker *beaconsync.SyncProgressTracker,
-	blobDatasource *rpc.BlobDataSource,
-	decompressor *manifest_decompressor.ManifestDecompressor,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
-	blobFetcher txlistFetcher.TxListFetcher,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) *Shasta {
 	return &Shasta{
 		rpc:                  rpc,
 		progressTracker:      progressTracker,
-		blobDatasource:       blobDatasource,
-		decompressor:         decompressor,
 		anchorConstructor:    anchorConstructor,
 		latestSeenProposalCh: latestSeenProposalCh,
 	}
@@ -57,13 +49,26 @@ func NewBlocksInserterShasta(
 
 // InsertBlocks inserts new Shasta blocks to the L2 execution engine.
 func (i *Shasta) InsertBlocks(
+	_ context.Context,
+	_ metadata.TaikoProposalMetaData,
+	_ eventIterator.EndBatchProposedEventIterFunc,
+) (err error) {
+	return errors.New("not supported in Shasta")
+}
+
+func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
+	proposalManifest manifest.ProposalManifest,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsShasta() {
-		return fmt.Errorf("metadata is not for Shasta fork")
+		return errors.New("metadata is not for Shasta fork")
 	}
+	if len(proposalManifest.Blocks) < 1 {
+		return errors.New("invalid number of blocks")
+	}
+
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
 
@@ -71,56 +76,24 @@ func (i *Shasta) InsertBlocks(
 		// We assume the proposal won't cause a reorg, if so, we will resend a new proposal
 		// to the channel.
 		latestSeenProposal = &encoding.LastSeenProposal{TaikoProposalMetaData: metadata}
+		meta               = metadata.Shasta()
 	)
 
 	log.Debug(
-		"Inserting blocks to L2 execution engine",
+		"Inserting Shasta blocks to L2 execution engine",
 		"proposalID", meta.GetProposal().Id,
-		"assignedProver", meta.GetProposal().Proposer,
-		"lastTimestamp", meta.GetLastBlockTimestamp(),
-		"coinbase", meta.GetCoinbase(),
-		"numBlobs", len(meta.GetBlobHashes()),
+		"invalidManifest", proposalManifest.Invalid,
+		"coinbase", proposalManifest.Blocks[0].Coinbase,
 	)
 
 	var (
-		parent          *types.Header
+		parent          = proposalManifest.ParentBlock.Header()
 		lastPayloadData *engine.ExecutableData
 	)
 
 	go i.sendLatestSeenProposal(latestSeenProposal)
 
-	for j := range meta.GetBlocks() {
-		// Fetch the L2 parent block, if the node is just finished a P2P sync, we simply use the tracker's
-		// last synced verified block as the parent, otherwise, we fetch the parent block from L2 EE.
-		if i.progressTracker.Triggered() {
-			// Already synced through beacon sync, just skip this event.
-			if new(big.Int).SetUint64(meta.GetLastBlockID()).Cmp(i.progressTracker.LastSyncedBlockID()) <= 0 {
-				return nil
-			}
-
-			parent, err = i.rpc.L2.HeaderByHash(ctx, i.progressTracker.LastSyncedBlockHash())
-		} else {
-			var parentNumber *big.Int
-			if lastPayloadData == nil {
-				if meta.GetBatchID().Uint64() == i.rpc.ShastaClients.ForkHeights.Shasta {
-					parentNumber = new(big.Int).SetUint64(meta.GetBatchID().Uint64() - 1)
-				} else {
-					lastBatch, err := i.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(meta.GetBatchID().Uint64()-1))
-					if err != nil {
-						return fmt.Errorf("failed to fetch last batch (%d): %w", meta.GetBatchID().Uint64()-1, err)
-					}
-					parentNumber = new(big.Int).SetUint64(lastBatch.LastBlockId)
-				}
-			} else {
-				parentNumber = new(big.Int).SetUint64(lastPayloadData.Number)
-			}
-
-			parent, err = i.rpc.L2ParentByCurrentBlockID(ctx, new(big.Int).Add(parentNumber, common.Big1))
-		}
-		if err != nil {
-			return fmt.Errorf("failed to fetch L2 parent block: %w", err)
-		}
-
+	for j := range proposalManifest.Blocks {
 		log.Debug(
 			"Parent block",
 			"blockID", parent.Number,
@@ -128,57 +101,7 @@ func (i *Shasta) InsertBlocks(
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
 
-		// If this is the first block in the batch, we check if the whole batch has been inserted by
-		// trying to fetch the last block header from L2 EE. If it is known in canonical,
-		// we can skip the rest of the blocks, and only update the L1Origin in L2 EE for each block.
-		if j == 0 {
-			log.Debug(
-				"Checking if batch is in canonical chain",
-				"batchID", meta.GetBatchID(),
-				"lastBlockID", meta.GetLastBlockID(),
-				"assignedProver", meta.GetProposer(),
-				"lastTimestamp", meta.GetLastBlockTimestamp(),
-				"coinbase", meta.GetCoinbase(),
-				"numBlobs", len(meta.GetBlobHashes()),
-				"blocks", len(meta.GetBlocks()),
-				"parentNumber", parent.Number,
-				"parentHash", parent.Hash(),
-			)
-
-			lastBlockHeader, err := isKnownCanonicalBatch(
-				ctx,
-				i.rpc,
-				i.anchorConstructor,
-				metadata,
-				allTxs,
-				txListBytes,
-				parent,
-			)
-			if err != nil {
-				log.Info("Unknown batch for the current canonical chain", "batchID", meta.GetBatchID(), "reason", err)
-			} else if lastBlockHeader != nil {
-				log.Info(
-					"🧬 Known batch in canonical chain",
-					"batchID", meta.GetBatchID(),
-					"lastBlockID", meta.GetLastBlockID(),
-					"lastBlockHash", lastBlockHeader.Hash(),
-					"assignedProver", meta.GetProposer(),
-					"lastTimestamp", meta.GetLastBlockTimestamp(),
-					"coinbase", meta.GetCoinbase(),
-					"numBlobs", len(meta.GetBlobHashes()),
-					"blocks", len(meta.GetBlocks()),
-					"parentNumber", parent.Number,
-					"parentHash", parent.Hash(),
-				)
-
-				// Update the L1 origin for each block in the batch.
-				if err := updateL1OriginForBatch(ctx, i.rpc, metadata); err != nil {
-					return fmt.Errorf("failed to update L1 origin for batch (%d): %w", meta.GetBatchID().Uint64(), err)
-				}
-
-				return nil
-			}
-		}
+		// TODO: To be implemented, check if the proposal is known in canonical
 
 		// Otherwise, we need to create a new execution payload and set it as the head block in L2 EE.
 		createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaShasta(
@@ -186,9 +109,10 @@ func (i *Shasta) InsertBlocks(
 			i.rpc,
 			i.anchorConstructor,
 			metadata,
-			allTxs,
+			proposalManifest,
 			parent,
 			j,
+			proposalManifest.IsLowBondProposal,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to assemble execution payload creation metadata: %w", err)
@@ -200,9 +124,6 @@ func (i *Shasta) InsertBlocks(
 			i.rpc,
 			&createPayloadAndSetHeadMetaData{
 				createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
-				AnchorBlockID:                   new(big.Int).SetUint64(meta.GetAnchorBlockID()),
-				AnchorBlockHash:                 meta.GetAnchorBlockHash(),
-				BaseFeeConfig:                   meta.GetBaseFeeConfig(),
 				Parent:                          parent,
 			},
 			anchorTx,
@@ -218,7 +139,7 @@ func (i *Shasta) InsertBlocks(
 		}
 
 		log.Info(
-			"🔗 New L2 block inserted",
+			"🔗 New Shasta L2 block inserted",
 			"blockID", lastPayloadData.Number,
 			"hash", lastPayloadData.BlockHash,
 			"coinbase", lastPayloadData.FeeRecipient.Hex(),
@@ -226,11 +147,11 @@ func (i *Shasta) InsertBlocks(
 			"timestamp", lastPayloadData.Timestamp,
 			"baseFee", utils.WeiToGWei(lastPayloadData.BaseFeePerGas),
 			"withdrawals", len(lastPayloadData.Withdrawals),
-			"batchID", meta.GetBatchID(),
+			"proposalID", meta.GetProposal().Id,
 			"gasLimit", lastPayloadData.GasLimit,
 			"gasUsed", lastPayloadData.GasUsed,
 			"parentHash", lastPayloadData.ParentHash,
-			"indexInBatch", j,
+			"indexInProposal", j,
 		)
 
 		metrics.DriverL2HeadHeightGauge.Set(float64(lastPayloadData.Number))

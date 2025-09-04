@@ -28,7 +28,10 @@ func NewShastaManifestFetcher(cli *rpc.Client, ds *rpc.BlobDataSource) *ShastaMa
 	return &ShastaManifestFetcher{cli, ds}
 }
 
-func (d *ShastaManifestFetcher) FetchShasta(ctx context.Context, meta metadata.TaikoProposalMetaDataShasta) ([]byte, error) {
+func (d *ShastaManifestFetcher) FetchShasta(
+	ctx context.Context,
+	meta metadata.TaikoProposalMetaDataShasta,
+) ([]byte, error) {
 	blobHashesLength := len(meta.GetDerivation().BlobSlice.BlobHashes)
 	if blobHashesLength == 0 ||
 		blobHashesLength > manifest.ProposalMaxBlobs ||

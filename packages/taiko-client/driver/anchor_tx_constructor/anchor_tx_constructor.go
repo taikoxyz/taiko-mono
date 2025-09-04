@@ -94,6 +94,7 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 	anchorBlockNumber *big.Int,
 	anchorBlockHash common.Hash,
 	anchorStateRoot common.Hash,
+	LookaheadSlotTimestamp *big.Int,
 	// Height of the L2 block which including the ShastaAnchor.updateState transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,
@@ -126,6 +127,7 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 		anchorBlockNumber,
 		anchorBlockHash,
 		anchorStateRoot,
+		LookaheadSlotTimestamp,
 	)
 	if err != nil {
 		return nil, err

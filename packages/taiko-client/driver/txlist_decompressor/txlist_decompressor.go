@@ -23,8 +23,8 @@ func NewTxListDecompressor(
 	return &TxListDecompressor{blockMaxGasLimit: blockMaxGasLimit, maxBytesPerTxList: maxBytesPerTxList}
 }
 
-// TryDecompress validates and decompresses whether the transactions list in the PacayaTaikoInbox.proposeBatch transaction's
-// input data is valid, the rules are:
+// TryDecompress validates and decompresses whether the transactions list in the
+// PacayaTaikoInbox.proposeBatch transaction's input data is valid, the rules are:
 // - If the transaction list is empty, it's valid.
 // - If the transaction list is not empty:
 //  1. If the transaction list is using calldata, the compressed bytes of the transaction list must be

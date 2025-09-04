@@ -22,7 +22,12 @@ type ChainConfig struct {
 }
 
 // NewChainConfig creates a new ChainConfig instance.
-func NewChainConfig(chainID *big.Int, ontakeForkHeight uint64, pacayaForkHeight uint64, shastaForkHeight uint64) *ChainConfig {
+func NewChainConfig(
+	chainID *big.Int,
+	ontakeForkHeight uint64,
+	pacayaForkHeight uint64,
+	shastaForkHeight uint64,
+) *ChainConfig {
 	cfg := &ChainConfig{
 		ChainID:          chainID,
 		OntakeForkHeight: new(big.Int).SetUint64(ontakeForkHeight),

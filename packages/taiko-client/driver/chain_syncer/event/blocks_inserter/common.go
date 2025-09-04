@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/consensus/misc"
+	"github.com/ethereum/go-ethereum/core"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -208,7 +211,6 @@ func isKnownCanonicalBatch(
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
 	allTxs []*types.Transaction,
-	txListBytes []byte,
 	parent *types.Header,
 ) (*types.Header, error) {
 	var (
@@ -247,9 +249,6 @@ func isKnownCanonicalBatch(
 				rpc,
 				&createPayloadAndSetHeadMetaData{
 					createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
-					AnchorBlockID:                   new(big.Int).SetUint64(metadata.Pacaya().GetAnchorBlockID()),
-					AnchorBlockHash:                 metadata.Pacaya().GetAnchorBlockHash(),
-					BaseFeeConfig:                   metadata.Pacaya().GetBaseFeeConfig(),
 					Parent:                          parentHeader,
 				},
 				b,
@@ -498,14 +497,14 @@ func assembleCreateExecutionPayloadMetaPacaya(
 // assembleCreateExecutionPayloadMetaShasta assembles the metadata for creating an execution payload,
 // and the `ShastaAnchor.updateState` transaction for the given Shasta block.
 func assembleCreateExecutionPayloadMetaShasta(
-	_ context.Context,
-	anchorTx *types.Transaction,
+	ctx context.Context,
+	rpc *rpc.Client,
+	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
 	proposalManifest manifest.ProposalManifest,
 	parent *types.Header,
 	blockIndex int,
 	isLowBondProposal bool,
-	baseFee *big.Int,
 ) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
 	if !metadata.IsShasta() {
 		return nil, nil, fmt.Errorf("metadata is not for Shasta fork")
@@ -524,6 +523,38 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
 	}
 	timestamp := blockInfo.Timestamp
+	// Calculate base fee
+	chainConfig := core.TaikoGenesisBlock(rpc.L2.ChainID.Uint64()).Config
+	ancestorBlock, err := rpc.L2.HeaderByHash(ctx, parent.ParentHash)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch ancestor block: %w", err)
+	}
+	parentBlockTime := parent.Time - ancestorBlock.Time
+	baseFee := misc.CalcEIP4396BaseFee(chainConfig, parent, parentBlockTime)
+	anchorBlockID := new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
+	anchorBlockHeader, err := rpc.L1.HeaderByNumber(ctx, anchorBlockID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch anchor block: %w", err)
+	}
+	anchorTx, err := anchorConstructor.AssembleUpdateStateTx(
+		ctx,
+		parent,
+		meta.GetProposal().Id,
+		meta.GetProposal().Proposer,
+		proposalManifest.ProverAuthBytes,
+		blockInfo.BondInstructionsHash,
+		blockInfo.BondInstructions,
+		uint16(blockIndex),
+		anchorBlockID,
+		anchorBlockHeader.Hash(),
+		anchorBlockHeader.Root,
+		meta.GetProposal().LookaheadSlotTimestamp,
+		blockID,
+		baseFee,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.updateState transaction: %w", err)
+	}
 
 	// Encode extraData with basefeeSharingPctg and isLowBondProposal
 	extraData, err := encodeExtraData(meta.GetDerivation().BasefeeSharingPctg, isLowBondProposal)
@@ -539,7 +570,6 @@ func assembleCreateExecutionPayloadMetaShasta(
 		Difficulty:            common.BytesToHash(difficulty),
 		Timestamp:             timestamp,
 		ParentHash:            parent.Hash(),
-		// TODO: add more fields to L1Origin
 		L1Origin: &rawdb.L1Origin{
 			BlockID:       blockID,
 			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.

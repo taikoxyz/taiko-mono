@@ -3,9 +3,13 @@ package event
 import (
 	"context"
 	"errors"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -18,15 +22,14 @@ func checkBlockLevelMetadata(
 	proposalManifest *manifest.ProposalManifest,
 	isForcedInclusion bool,
 	proposal shastaBindings.IInboxProposal,
-	parentBlock *types.Block,
 	originBlockNumber uint64,
-	parentAnchorBlockNumber uint64,
+	l2State shastaBindings.ShastaAnchorState,
 ) error {
 	if proposalManifest == nil {
 		return errors.New("non-point proposal manifest")
 	}
 	// If there is the default manifest, we return directly
-	if proposalManifest.IsDefault {
+	if proposalManifest.Invalid {
 		return nil
 	}
 
@@ -36,9 +39,11 @@ func checkBlockLevelMetadata(
 
 	// Track if any block has a valid anchor number for forced inclusion protection
 	var (
-		hasValidAnchor  = false
-		parentTimestamp = parentBlock.Time()
-		parentGasLimit  = parentBlock.GasLimit()
+		hasValidAnchor             = false
+		parentTimestamp            = proposalManifest.ParentBlock.Time()
+		parentGasLimit             = proposalManifest.ParentBlock.GasLimit()
+		parentAnchorBlockNumber    = l2State.AnchorBlockNumber.Uint64()
+		parentBondInstructionsHash = l2State.BondInstructionsHash
 	)
 
 	for i := range proposalManifest.Blocks {
@@ -90,7 +95,8 @@ func checkBlockLevelMetadata(
 		}
 
 		// Check excessive lag
-		if originBlockNumber > manifest.AnchorMaxOffset && proposalManifest.Blocks[i].AnchorBlockNumber < originBlockNumber-manifest.AnchorMaxOffset {
+		if originBlockNumber > manifest.AnchorMaxOffset &&
+			proposalManifest.Blocks[i].AnchorBlockNumber < originBlockNumber-manifest.AnchorMaxOffset {
 			log.Debug("Invalid anchor: excessive lag",
 				"blockIndex", i,
 				"anchorBlockNumber", proposalManifest.Blocks[i].AnchorBlockNumber,
@@ -145,13 +151,36 @@ func checkBlockLevelMetadata(
 		}
 
 		// Update parent values for next iteration
-		if i < len(proposalManifest.Blocks)-1 {
+		if i < len(proposalManifest.Blocks) {
 			// Update parent timestamp for next block
 			parentTimestamp = proposalManifest.Blocks[i].Timestamp
 			// Update parent gas limit for next block
 			parentGasLimit = proposalManifest.Blocks[i].GasLimit
-			// Update parent anchor if it changed
+			// Update parent anchor and fetch bond if it changed
 			if proposalManifest.Blocks[i].AnchorBlockNumber > parentAnchorBlockNumber {
+				iterBondInstructed, err := rpc.ShastaClients.TaikoInbox.FilterBondInstructed(
+					&bind.FilterOpts{
+						Start:   parentAnchorBlockNumber + 1,
+						End:     &proposalManifest.Blocks[i].AnchorBlockNumber,
+						Context: ctx,
+					},
+				)
+				if err != nil {
+					return err
+				}
+				for iterBondInstructed.Next() {
+					event := iterBondInstructed.Event
+					proposalManifest.Blocks[i].BondInstructions =
+						append(proposalManifest.Blocks[i].BondInstructions, event.Instructions...)
+				}
+				iterHash := parentBondInstructionsHash
+				for _, bond := range proposalManifest.Blocks[i].BondInstructions {
+					if iterHash, err = encoding.CalculateBondInstructionHash(iterHash, bond); err != nil {
+						return err
+					}
+				}
+				proposalManifest.Blocks[i].BondInstructionsHash = iterHash
+				parentBondInstructionsHash = iterHash
 				parentAnchorBlockNumber = proposalManifest.Blocks[i].AnchorBlockNumber
 			}
 		}
@@ -162,12 +191,9 @@ func checkBlockLevelMetadata(
 		log.Warn("Non-forced proposal has no valid anchor blocks, replacing with default manifest")
 		// Replace the entire manifest with the default manifest
 		// This penalizes proposals that fail to provide proper L1 anchoring
-		proposalManifest.IsDefault = true
+		proposalManifest.Invalid = true
 		return nil
 	}
-
-	// TODO: bondInstructionsHash and bondInstructions validation would be handled
-	// in the calling code as it requires fetching L1 state and events
 
 	return nil
 }

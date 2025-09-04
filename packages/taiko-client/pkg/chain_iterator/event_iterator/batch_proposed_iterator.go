@@ -21,8 +21,8 @@ import (
 // EndBatchProposedEventIterFunc ends the current iteration.
 type EndBatchProposedEventIterFunc func()
 
-// OnBatchProposedEvent represents the callback function which will be called when a PacayaTaikoInbox.BatchProposed event is
-// iterated.
+// OnBatchProposedEvent represents the callback function which will be called
+// when a PacayaTaikoInbox.BatchProposed event is iterated.
 type OnBatchProposedEvent func(
 	context.Context,
 	metadata.TaikoProposalMetaData,
@@ -32,9 +32,6 @@ type OnBatchProposedEvent func(
 // BatchProposedIterator iterates the emitted PacayaTaikoInbox.BatchProposed events in the chain,
 // with the awareness of reorganization.
 type BatchProposedIterator struct {
-	ctx                context.Context
-	pacayaTaikoInbox   *pacayaBindings.TaikoInboxClient
-	shastaTaikoInbox   *shastaBindings.ShastaInboxClient
 	blockBatchIterator *chainIterator.BlockBatchIterator
 	isEnd              bool
 }
@@ -57,7 +54,7 @@ func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorCon
 		return nil, errors.New("invalid callback")
 	}
 
-	iterator := &BatchProposedIterator{ctx: ctx, pacayaTaikoInbox: cfg.PacayaTaikoInbox}
+	iterator := &BatchProposedIterator{}
 
 	// Initialize the inner block iterator.
 	blockIterator, err := chainIterator.NewBlockBatchIterator(ctx, &chainIterator.BlockBatchIteratorConfig{
@@ -172,6 +169,11 @@ func assembleBatchProposedIteratorCallback(
 			updateCurrentFunc(current)
 		}
 
+		// Check if there is any error during the Pacaya iteration.
+		if iterPacaya.Error() != nil {
+			return iterPacaya.Error()
+		}
+
 		proposalEventDecoder := shastaEncoder.NewEncoder()
 		for iterShasta.Next() {
 			event := iterShasta.Event
@@ -179,29 +181,34 @@ func assembleBatchProposedIteratorCallback(
 			if err != nil {
 				return err
 			}
-			log.Debug("Processing Proposed event", "proposalID", decodedProposedEvent.Proposal.Id, "l1BlockHeight", event.Raw.BlockNumber)
+			proposalID := decodedProposedEvent.Proposal.Id.Uint64()
+			log.Debug("Processing Proposed event", "proposalID", proposalID, "l1BlockHeight", event.Raw.BlockNumber)
 
-			if lastBatchID != 0 && event.Meta.BatchId != lastBatchID+1 {
+			if lastBatchID != 0 && proposalID != lastBatchID+1 {
 				log.Warn(
 					"Proposed event is not continuous, rescan the L1 chain",
 					"fromL1Block", start.Number,
 					"toL1Block", endHeight,
-					"lastScannedBatchID", lastBatchID,
-					"currentScannedBatchID", event.Meta.BatchId,
+					"lastScannedProposalID", lastBatchID,
+					"currentScannedProposalID", proposalID,
 				)
 				return fmt.Errorf(
-					"Proposed event is not continuous, lastScannedBatchID: %d, currentScannedBatchID: %d",
-					lastBatchID, event.Meta.BatchId,
+					"proposed event is not continuous, lastScannedBatchID: %d, currentScannedBatchID: %d",
+					lastBatchID, proposalID,
 				)
 			}
 
-			if err := callback(ctx, metadata.NewTaikoProposalMetadataShasta(decodedProposedEvent, event.Raw), eventIter.end); err != nil {
+			if err := callback(
+				ctx,
+				metadata.NewTaikoProposalMetadataShasta(decodedProposedEvent, event.Raw),
+				eventIter.end,
+			); err != nil {
 				log.Warn("Error while processing Proposed events, keep retrying", "error", err)
 				return err
 			}
 
 			if eventIter.isEnd {
-				log.Debug("BatchProposedIterator is ended", "start", start.Number, "end", endHeight)
+				log.Debug("ProposedIterator is ended", "start", start.Number, "end", endHeight)
 				endFunc()
 				return nil
 			}
@@ -213,14 +220,14 @@ func assembleBatchProposedIteratorCallback(
 
 			log.Debug("Updating current block cursor for processing Proposed events", "block", current.Number)
 
-			lastBatchID = decodedProposedEvent.Proposal.Id.Uint64()
+			lastBatchID = proposalID
 
 			updateCurrentFunc(current)
 		}
 
-		// Check if there is any error during the iteration.
-		if iterPacaya.Error() != nil {
-			return iterPacaya.Error()
+		// Check if there is any error during the Shasta iteration.
+		if iterShasta.Error() != nil {
+			return iterShasta.Error()
 		}
 
 		return nil

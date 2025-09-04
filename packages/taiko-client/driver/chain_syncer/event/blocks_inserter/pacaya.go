@@ -18,6 +18,7 @@ import (
 	"github.com/holiman/uint256"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
@@ -73,7 +74,7 @@ func (i *Pacaya) InsertBlocks(
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsPacaya() {
-		return fmt.Errorf("metadata is not for Pacaya fork")
+		return errors.New("metadata is not for Pacaya fork")
 	}
 	i.mutex.Lock()
 	defer i.mutex.Unlock()
@@ -178,7 +179,6 @@ func (i *Pacaya) InsertBlocks(
 				i.anchorConstructor,
 				metadata,
 				allTxs,
-				txListBytes,
 				parent,
 			)
 			if err != nil {
@@ -227,9 +227,6 @@ func (i *Pacaya) InsertBlocks(
 			i.rpc,
 			&createPayloadAndSetHeadMetaData{
 				createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
-				AnchorBlockID:                   new(big.Int).SetUint64(meta.GetAnchorBlockID()),
-				AnchorBlockHash:                 meta.GetAnchorBlockHash(),
-				BaseFeeConfig:                   meta.GetBaseFeeConfig(),
 				Parent:                          parent,
 			},
 			anchorTx,
@@ -268,6 +265,15 @@ func (i *Pacaya) InsertBlocks(
 	go i.sendLatestSeenProposal(latestSeenProposal)
 
 	return nil
+}
+
+func (i *Pacaya) InsertBlocksWithManifest(
+	_ context.Context,
+	_ metadata.TaikoProposalMetaData,
+	_ manifest.ProposalManifest,
+	_ eventIterator.EndBatchProposedEventIterFunc,
+) error {
+	return errors.New("not supported in Pacaya")
 }
 
 // InsertPreconfBlocksFromEnvelopes inserts preconfirmation blocks from the given envelopes.

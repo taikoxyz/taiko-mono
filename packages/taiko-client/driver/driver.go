@@ -116,9 +116,8 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.chainConfig = config.NewChainConfig(
 		d.rpc.L2.ChainID,
 		d.rpc.PacayaClients.ForkHeights.Ontake,
-		// TODO
 		d.rpc.PacayaClients.ForkHeights.Pacaya,
-		d.rpc.PacayaClients.ForkHeights.Pacaya,
+		d.rpc.PacayaClients.ForkHeights.Shasta,
 	)
 
 	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {

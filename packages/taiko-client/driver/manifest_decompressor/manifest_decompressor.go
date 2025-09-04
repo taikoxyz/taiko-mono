@@ -26,28 +26,28 @@ func (v *ManifestDecompressor) tryDecompressProposalManifest(
 	_, size, err := ExtractVersionAndSize(blobBytes, offset)
 	if err != nil {
 		log.Error("Failed to extracts both version or size, use default manifest instead", "err", err)
-		return manifest.ProposalManifest{IsDefault: true}
+		return manifest.ProposalManifest{Invalid: true}
 	}
 
 	manifestBytes, err := utils.Decompress(blobBytes[offset+64 : offset+64+int(size)])
 	// Decompress the manifest bytes.
 	if err != nil {
 		log.Error("Failed to decompress manifest bytes, use default manifest instead", "error", err)
-		return manifest.ProposalManifest{IsDefault: true}
+		return manifest.ProposalManifest{Invalid: true}
 	}
 
 	var proposal manifest.ProposalManifest
 	// Try to RLP decode the transaction list bytes.
 	if err = rlp.DecodeBytes(manifestBytes, &proposal); err != nil {
 		log.Error("Failed to decode  decompress manifest bytes, use default manifest instead", "error", err)
-		return manifest.ProposalManifest{IsDefault: true}
+		return manifest.ProposalManifest{Invalid: true}
 	}
 
 	if len(proposal.Blocks) > manifest.ProposalMaxBlocks {
 		log.Error("There are too many blocks in the manifest, use default manifest instead",
 			"blocks", len(proposal.Blocks),
 			"max", manifest.ProposalMaxBlocks)
-		return manifest.ProposalManifest{IsDefault: true}
+		return manifest.ProposalManifest{Invalid: true}
 	}
 
 	for _, block := range proposal.Blocks {
@@ -55,7 +55,7 @@ func (v *ManifestDecompressor) tryDecompressProposalManifest(
 			log.Error("Block has too many transactions, use default manifest instead",
 				"transactions", len(block.Transactions),
 				"max", manifest.BlockMaxRawTransactions)
-			return manifest.ProposalManifest{IsDefault: true}
+			return manifest.ProposalManifest{Invalid: true}
 		}
 	}
 

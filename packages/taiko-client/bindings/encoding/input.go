@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
+
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -59,6 +63,12 @@ var (
 		{Name: "verifier", Type: "address"},
 		{Name: "proof", Type: "bytes"},
 	}
+	BondInstructionComponents = []abi.ArgumentMarshaling{
+		{Name: "proposalId", Type: "uint48"},
+		{Name: "bondType", Type: "uint8"},
+		{Name: "payer", Type: "address"},
+		{Name: "receiver", Type: "address"},
+	}
 )
 
 var (
@@ -69,6 +79,7 @@ var (
 	BatchMetaDataComponentsArrayType, _   = abi.NewType("tuple[]", "ITaikoInbox.BatchMetadata", BatchMetaDataComponents)
 	BatchTransitionComponentsArrayType, _ = abi.NewType("tuple[]", "ITaikoInbox.Transition", BatchTransitionComponents)
 	SubProofsComponentsArrayType, _       = abi.NewType("tuple[]", "ComposeVerifier.SubProof", SubProofComponents)
+	BondInstructionComponentsType, _      = abi.NewType("tuple", "LibBonds.BondInstruction", BondInstructionComponents)
 	SubProofsComponentsArrayArgs          = abi.Arguments{
 		{Name: "ComposeVerifier.SubProof[]", Type: SubProofsComponentsArrayType},
 	}
@@ -90,6 +101,10 @@ var (
 	batchParamsWithForcedInclusionArgs = abi.Arguments{
 		{Name: "bytesX", Type: bytesType},
 		{Name: "bytesY", Type: bytesType},
+	}
+	AggregateBondInstructionHashArgs = abi.Arguments{
+		{Name: "_bondInstructionsHash", Type: bytesType},
+		{Name: "_bondInstruction", Type: BondInstructionComponentsType},
 	}
 )
 
@@ -292,6 +307,18 @@ func CalculateShastaDifficulty(parentDifficulty *big.Int, blockNum *big.Int) ([]
 	}
 
 	return crypto.Keccak256(packed), nil
+}
+
+func CalculateBondInstructionHash(previousBondInstructionHash common.Hash, bondInstruction shastaBindings.LibBondsBondInstruction) (common.Hash, error) {
+	if bondInstruction.ProposalId.Cmp(common.Big0) == 0 || bondInstruction.BondType == 0 {
+		return previousBondInstructionHash, nil
+	}
+	packed, err := AggregateBondInstructionHashArgs.Pack(previousBondInstructionHash, bondInstruction)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("failed to abi.encode bondInstruction, %w", err)
+	}
+
+	return common.BytesToHash(crypto.Keccak256(packed)), nil
 }
 
 // EncodeBaseFeeConfig encodes the block.extraData field from the given base fee config.

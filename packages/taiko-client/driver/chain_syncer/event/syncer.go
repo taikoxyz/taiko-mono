@@ -4,17 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/core/types"
-	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/manifest_decompressor"
 	"math/big"
 	"net/url"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/manifest_decompressor"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/misc"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -44,14 +43,14 @@ type Syncer struct {
 
 	// Blocks inserters
 	blocksInserterPacaya blocksInserter.Inserter // Pacaya blocks inserter
+	blocksInserterShasta blocksInserter.Inserter // Shasta blocks inserter
 
 	lastInsertedBatchID *big.Int
 	reorgDetectedFlag   bool
 
 	// Shasta
-	fetcher           manifestFetcher.ManifestFetcher
-	decompressor      *manifest_decompressor.ManifestDecompressor // Manifest decompressor
-	anchorConstructor *anchorTxConstructor.AnchorTxConstructor
+	fetcher      manifestFetcher.ManifestFetcher
+	decompressor *manifest_decompressor.ManifestDecompressor // Manifest decompressor
 }
 
 // NewSyncer creates a new syncer instance.
@@ -194,118 +193,92 @@ func (s *Syncer) processShastaProposal(
 	meta metadata.TaikoProposalMetaData,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) error {
-	// 1. check reorg
+	// Check reorg
 	// TODO: depends on the new struct in taiko-geth
-	// 2. Fetch the manifest
 	var (
-		proposalManifest        = manifest.ProposalManifest{IsDefault: true}
-		metadataShasta          = meta.Shasta()
-		parentBlock             = &types.Block{} // TODO: should get parentBlock in step 1
-		blockID                 = parentBlock.Number().Uint64() + 1
-		parentAnchorBlockNumber uint64
-		blockInfo               manifest.BlockManifest
+		proposalManifest = manifest.ProposalManifest{Invalid: true}
+		metadataShasta   = meta.Shasta()
+		parentBlock      = &types.Block{} // TODO: should get parentBlock in step 1
+		blockID          = parentBlock.Number().Uint64() + 1
 	)
-
+	// Fetch the manifest
 	metadataBytes, err := s.fetcher.FetchShasta(ctx, metadataShasta)
 	if err != nil && !errors.Is(err, pkg.ErrBlobValidationFailed) {
 		return err
 	} else {
-		proposalManifest = s.decompressor.TryDecompressProposalManifest(metadataBytes, int(metadataShasta.GetDerivation().BlobSlice.Offset.Int64()))
+		proposalManifest = s.decompressor.TryDecompressProposalManifest(
+			metadataBytes,
+			int(metadataShasta.GetDerivation().BlobSlice.Offset.Int64()),
+		)
 	}
 
-	// Extract anchorBlockID from parent block's anchor transaction
-	if len(parentBlock.Transactions()) > 0 {
-		anchorTx := parentBlock.Transactions()[0]
+	// Add extra info into ProposalManifest, after we decompress the blob data
+	proposalManifest.ParentBlock = parentBlock
+	proposalManifest.IsLowBondProposal = false
 
-		// Try to decode the anchor transaction method
-		method, err := encoding.TaikoAnchorABI.MethodById(anchorTx.Data())
-		if err == nil {
-			args := map[string]interface{}{}
+	if !proposalManifest.Invalid {
+		// Proposer and `isLowBondProposal` Validation
+		designatedProverInfo, err := s.rpc.ShastaClients.Anchor.GetDesignatedProver(
+			&bind.CallOpts{BlockNumber: parentBlock.Number(), BlockHash: parentBlock.Hash(), Context: ctx},
+			metadataShasta.GetProposal().Id,
+			metadataShasta.GetProposal().Proposer,
+			proposalManifest.ProverAuthBytes,
+		)
+		if err != nil {
+			return err
+		}
 
-			// Unpack the transaction data based on the method
-			if err := method.Inputs.UnpackIntoMap(args, anchorTx.Data()[4:]); err == nil && method.Name == "anchorV3" {
-				// For anchorV3, the anchor block number is in the _anchorBlockNumber parameter
-				if anchorBlockID, ok := args["_anchorBlockId"].(uint64); ok {
-					parentAnchorBlockNumber = anchorBlockID
-					log.Debug("Extracted anchorBlockID from anchorV3", "anchorBlockID", parentAnchorBlockNumber)
-				}
-			}
-		} else {
-			// If TaikoAnchor ABI doesn't work, try Shasta's updateState
-			// For Shasta, we need to get the ABI from the shasta bindings
-			if shastaABI, err := shastaBindings.ShastaAnchorMetaData.GetAbi(); err == nil {
-				if method, err := shastaABI.MethodById(anchorTx.Data()); err == nil && method.Name == "updateState" {
-					args := map[string]interface{}{}
+		if designatedProverInfo.IsLowBondProposal {
+			proposalManifest.IsLowBondProposal = designatedProverInfo.IsLowBondProposal
+			proposalManifest = manifest.ProposalManifest{Invalid: true}
+		}
 
-					// Unpack the updateState transaction data
-					if err := method.Inputs.UnpackIntoMap(args, anchorTx.Data()[4:]); err == nil {
-						// For updateState, the anchor block number is in the _anchorBlockNumber parameter
-						if anchorBlockNumber, ok := args["_anchorBlockNumber"].(*big.Int); ok {
-							parentAnchorBlockNumber = anchorBlockNumber.Uint64()
-							log.Debug("Extracted anchorBlockNumber from updateState", "anchorBlockNumber", parentAnchorBlockNumber)
-						}
-					}
-				}
-			}
+		latestState, err := s.rpc.ShastaClients.Anchor.GetState(
+			&bind.CallOpts{BlockNumber: parentBlock.Number(), BlockHash: parentBlock.Hash(), Context: ctx},
+		)
+		if err != nil {
+			return err
+		}
+
+		// Check block-level metadata and reset some incorrect value
+		if err := checkBlockLevelMetadata(
+			ctx,
+			s.rpc,
+			&proposalManifest,
+			metadataShasta.GetDerivation().IsForcedInclusion,
+			metadataShasta.GetProposal(),
+			blockID,
+			latestState,
+		); err != nil {
+			return err
+		}
+	}
+	// Handle the default manifest
+	if proposalManifest.Invalid {
+		proposalManifest.Blocks = []manifest.BlockManifest{
+			{
+				Timestamp:         metadataShasta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
+				Coinbase:          metadataShasta.GetProposal().Proposer,
+				AnchorBlockNumber: 0,
+				GasLimit:          parentBlock.GasLimit(), // Inherit parentBlock's value
+			},
 		}
 	}
 
-	if err := checkBlockLevelMetadata(
-		ctx,
-		s.rpc,
-		&proposalManifest,
-		metadataShasta.GetDerivation().IsForcedInclusion,
-		metadataShasta.GetProposal(),
-		parentBlock,
-		blockID,
-		parentAnchorBlockNumber,
-	); err != nil {
+	// Insert new blocks to L2 EE's chain.
+	log.Info(
+		"New Proposal event",
+		"l1Height", meta.GetRawBlockHeight(),
+		"l1Hash", meta.GetRawBlockHash(),
+		"proposalID", metadataShasta.GetProposal().Id,
+		"invalidManifest", proposalManifest.Invalid,
+		"blocks", len(proposalManifest.Blocks),
+	)
+	if err := s.blocksInserterShasta.InsertBlocksWithManifest(ctx, meta, proposalManifest, endIter); err != nil {
 		return err
 	}
-
-	// Calculate base fee
-	chainConfig := core.TaikoGenesisBlock(s.rpc.L2.ChainID.Uint64()).Config
-	ancestorBlock, err := s.rpc.L2.HeaderByHash(ctx, parentBlock.ParentHash())
-	if err != nil {
-		return fmt.Errorf("failed to fetch ancestor block: %w", err)
-	}
-	parentBlockTime := parentBlock.Time() - ancestorBlock.Time
-	baseFee := misc.CalcEIP4396BaseFee(chainConfig, parentBlock.Header(), parentBlockTime)
-
-	// Try to assemble the first ShastaAnchor.updateState transaction
-	if proposalManifest.IsDefault {
-		blockInfo = manifest.BlockManifest{
-			Timestamp: parentBlockTime,
-		}
-	} else {
-		blockInfo = proposalManifest.Blocks[0]
-	}
-	anchorBlockID := new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
-	anchorBlockHeader, err := s.rpc.L1.HeaderByNumber(ctx, anchorBlockID)
-	if err != nil {
-		return fmt.Errorf("failed to fetch anchor block: %w", err)
-	}
-
-	anchorTx, err := s.anchorConstructor.AssembleUpdateStateTx(
-		ctx,
-		parentBlock.Header(),
-		metadataShasta.GetProposal().Id,
-		metadataShasta.GetProposal().Proposer,
-		proposalManifest.ProverAuthBytes,
-		metadataShasta.GetCoreState().BondInstructionsHash,
-		bondInstructions,
-		uint16(0),
-		anchorBlockID,
-		anchorBlockHeader.Hash(),
-		anchorBlockHeader.Root,
-		new(big.Int).SetUint64(blockID),
-		baseFee,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create ShastaAnchor.updateState transaction: %w", err)
-	}
-
-	// 4. Insert L2 blocks
+	// TODO: write Proposal info into taiko-geth
+	return nil
 }
 
 func (s *Syncer) processPacayaBatch(
