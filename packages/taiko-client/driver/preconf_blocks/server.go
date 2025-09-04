@@ -438,7 +438,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	// Fetch the block from L2 EE and gossip it out.
 	block, err := s.rpc.L2.BlockByHash(ctx, hash)
 	if err != nil {
-		log.Warn(
+		log.Debug(
 			"Failed to fetch preconfirmation request block by hash",
 			"peer", from,
 			"hash", hash.Hex(),
@@ -899,7 +899,7 @@ func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context
 func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 	operatorAddress, err := s.rpc.GetPreconfWhiteListOperator(nil)
 	if err != nil || operatorAddress == (common.Address{}) {
-		log.Warn("Failed to get current preconfirmation whitelist operator address", "error", err)
+		log.Debug("Failed to get current preconfirmation whitelist operator address", "error", err)
 		return common.Address{}
 	}
 
