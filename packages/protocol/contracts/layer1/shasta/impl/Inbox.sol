@@ -751,7 +751,8 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Finalizes proven proposals and updates checkpoint
     /// @dev Performs up to `maxFinalizationCount` finalization iterations.
-    /// The caller is forced to finalize transition records that have passed their cooldown period, but can
+    /// The caller is forced to finalize transition records that have passed their cooldown period,
+    /// but can
     /// decide to finalize ones that haven't.
     /// @param _config Configuration with finalization parameters
     /// @param _input Input containing transition records and end block header
