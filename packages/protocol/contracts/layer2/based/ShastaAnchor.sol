@@ -201,6 +201,40 @@ abstract contract ShastaAnchor is PacayaAnchor {
         return _state;
     }
 
+    /// @notice Designates a prover for a specific proposal and checks bond sufficiency.
+    /// @dev This function allows external callers to verify prover designation without modifying
+    /// state.
+    ///      The process includes:
+    ///      1. Validating prover authentication if _proverAuth is provided
+    ///      2. Checking proposer's bond sufficiency against required bonds and proving fee
+    ///      3. Determining the appropriate prover based on bond status
+    ///      4. Fallback logic if designated prover has insufficient bonds
+    /// @param _proposalId The unique identifier of the proposal requiring a prover.
+    /// @param _proposer The address of the entity that created the proposal.
+    /// @param _proverAuth Encoded ProverAuth struct containing:
+    ///        - proposalId: Must match _proposalId parameter
+    ///        - proposer: Must match _proposer parameter
+    ///        - provingFeeGwei: Fee in Gwei the prover will receive
+    ///        - signature: ECDSA signature from the designated prover
+    ///        If empty or invalid, defaults to proposer as prover with no fee.
+    /// @return isLowBondProposal_ True if the proposer lacks sufficient bonds for the proposal.
+    ///         When true, the previous designated prover is used.
+    /// @return designatedProver_ The address of the designated prover. Will be:
+    ///         - The signer of valid _proverAuth if bonds are sufficient
+    ///         - The proposer if _proverAuth is invalid or designated prover lacks bonds
+    ///         - The previous designated prover if proposer has insufficient bonds
+    function designateProver(
+        uint48 _proposalId,
+        address _proposer,
+        bytes calldata _proverAuth
+    )
+        external
+        view
+        returns (bool isLowBondProposal_, address designatedProver_)
+    {
+        return _designateProver(_proposalId, _proposer, _proverAuth);
+    }
+
     // ---------------------------------------------------------------
     // Private functions
     // ---------------------------------------------------------------
