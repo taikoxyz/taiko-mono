@@ -12,6 +12,9 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 /// @title LookaheadStore
 /// @custom:security-contact security@taiko.xyz
 contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
+    // State variables
+    // -------------------------------------------------------------------------
+    
     IRegistry public immutable urc;
     address public immutable protector;
     address public immutable lookaheadSlasher;
@@ -30,6 +33,17 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
 
     uint256[48] private __gap;
 
+    // Modifiers
+    // -------------------------------------------------------------------------
+
+    modifier onlyOverseer() {
+        require(msg.sender == overseerRole, NotOverseer());
+        _;
+    }
+
+    // Constructor
+    // -------------------------------------------------------------------------
+
     constructor(
         address _urc,
         address _protector,
@@ -47,6 +61,9 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
         preconfRouter = _preconfRouter;
         overseerRole = _overseerRole;
     }
+
+    // External & Public
+    // -------------------------------------------------------------------------
 
     function init(address _owner) external initializer {
         __Essential_init(_owner);
@@ -84,56 +101,6 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
         }
 
         return _updateLookahead(LibPreconfUtils.getEpochTimestamp(1), lookaheadSlots);
-    }
-
-    // View and Pure functions
-    // --------------------------------------------------------------------------
-
-    /// @inheritdoc ILookaheadStore
-    function calculateLookaheadHash(
-        uint256 _epochTimestamp,
-        LookaheadSlot[] memory _lookaheadSlots
-    )
-        external
-        pure
-        returns (bytes26)
-    {
-        return LibPreconfUtils.calculateLookaheadHash(_epochTimestamp, _lookaheadSlots);
-    }
-
-    /// @inheritdoc ILookaheadStore
-    function isLookaheadRequired() public view returns (bool) {
-        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
-
-        return _getLookaheadHash(nextEpochTimestamp).epochTimestamp != nextEpochTimestamp;
-    }
-
-    /// @inheritdoc ILookaheadStore
-    function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes26 hash_) {
-        LookaheadHash memory lookaheadHash = _getLookaheadHash(_epochTimestamp);
-        if (lookaheadHash.epochTimestamp == _epochTimestamp) {
-            hash_ = lookaheadHash.lookaheadHash;
-        }
-    }
-
-    /// @inheritdoc ILookaheadStore
-    function getConfig() public pure virtual returns (Config memory) {
-        return Config({
-            // We use a prime number to allow for the entire buffer to fillup without conflicts
-            lookaheadBufferSize: 503,
-            minCollateralForPosting: 1 ether,
-            minCollateralForPreconfing: 1 ether,
-            blacklistDelay: 1 days,
-            unblacklistDelay: 1 days
-        });
-    }
-
-    // Blacklisting functions (IOverseer implementation)
-    // --------------------------------------------------------------------------
-
-    modifier onlyOverseer() {
-        require(msg.sender == overseerRole, NotOverseer());
-        _;
     }
 
     /// @inheritdoc IOverseer
@@ -180,6 +147,43 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
         emit Unblacklisted(_operatorRegistrationRoot, uint48(block.timestamp));
     }
 
+    /// @notice Test-only function to set blacklist timestamps directly (bypasses delay validation)
+    /// @dev This function should NEVER be deployed to mainnet - it's only for testing
+    /// @param _operatorRegistrationRoot The operator registration root
+    /// @param _blacklistedAt Timestamp when blacklisted
+    /// @param _unblacklistedAt Timestamp when unblacklisted  
+    function setBlacklistTimestamps(
+        bytes32 _operatorRegistrationRoot,
+        uint48 _blacklistedAt,
+        uint48 _unblacklistedAt
+    )
+        external
+    {        
+        blacklist[_operatorRegistrationRoot] = BlacklistTimestamps({
+            blacklistedAt: _blacklistedAt,
+            unBlacklistedAt: _unblacklistedAt
+        });
+    }
+
+    /// @inheritdoc ILookaheadStore
+    function calculateLookaheadHash(
+        uint256 _epochTimestamp,
+        LookaheadSlot[] memory _lookaheadSlots
+    )
+        external
+        pure
+        returns (bytes26)
+    {
+        return LibPreconfUtils.calculateLookaheadHash(_epochTimestamp, _lookaheadSlots);
+    }
+
+    /// @inheritdoc ILookaheadStore
+    function getLookaheadHash(uint256 _epochTimestamp) external view returns (bytes26 hash_) {
+        LookaheadHash memory lookaheadHash = _getLookaheadHash(_epochTimestamp);
+        if (lookaheadHash.epochTimestamp == _epochTimestamp) {
+            hash_ = lookaheadHash.lookaheadHash;
+        }
+    }
 
     /// @inheritdoc IOverseer
     function getBlacklist(bytes32 _operatorRegistrationRoot)
@@ -196,21 +200,22 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
         return blacklistTimestamps.blacklistedAt > blacklistTimestamps.unBlacklistedAt;
     }
 
-    /// @notice Test-only function to set blacklist timestamps directly (bypasses delay validation)
-    /// @dev This function should NEVER be deployed to mainnet - it's only for testing
-    /// @param _operatorRegistrationRoot The operator registration root
-    /// @param _blacklistedAt Timestamp when blacklisted
-    /// @param _unblacklistedAt Timestamp when unblacklisted  
-    function setBlacklistTimestamps(
-        bytes32 _operatorRegistrationRoot,
-        uint48 _blacklistedAt,
-        uint48 _unblacklistedAt
-    )
-        external
-    {        
-        blacklist[_operatorRegistrationRoot] = BlacklistTimestamps({
-            blacklistedAt: _blacklistedAt,
-            unBlacklistedAt: _unblacklistedAt
+    /// @inheritdoc ILookaheadStore
+    function isLookaheadRequired() public view returns (bool) {
+        uint256 nextEpochTimestamp = LibPreconfUtils.getEpochTimestamp(1);
+
+        return _getLookaheadHash(nextEpochTimestamp).epochTimestamp != nextEpochTimestamp;
+    }
+
+    /// @inheritdoc ILookaheadStore
+    function getConfig() public pure virtual returns (Config memory) {
+        return Config({
+            // We use a prime number to allow for the entire buffer to fillup without conflicts
+            lookaheadBufferSize: 503,
+            minCollateralForPosting: 1 ether,
+            minCollateralForPreconfing: 1 ether,
+            blacklistDelay: 1 days,
+            unblacklistDelay: 1 days
         });
     }
 
