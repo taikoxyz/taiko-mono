@@ -4,6 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+protocol = { path = "../protocol" }
+alloy-consensus = { workspace = true, default-features = false }
+alloy-network = { workspace = true, default-features = false }
 alloy-primitives = { workspace = true, default-features = false }
 alloy-provider = { workspace = true, features = [
   "ipc",
@@ -20,6 +23,7 @@ alloy-transport-http = { workspace = true, features = [
   "hyper",
   "jwt-auth",
 ] }
+taiko-reth = { workspace = true }
 url = { workspace = true }
 tower = { workspace = true }
 http-body-util = { workspace = true }

@@ -1,10 +1,14 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
+use alloy_consensus::{BlockHeader, Header as ConsensusHeader};
 use alloy_primitives::{Address, Bytes, U256, hex::FromHex};
 use alloy_provider::Provider;
 use alloy_rpc_types_eth::BlockNumberOrTag;
 use anyhow::{Context, Result};
 use serde::Deserialize;
+use taiko_reth::consensus::eip4396::{
+    SHASTA_INITIAL_BASE_FEE, calculate_next_block_eip4396_base_fee,
+};
 use tokio::time::timeout;
 use tracing::debug;
 
@@ -92,14 +96,8 @@ impl RpcClient {
 
         debug!("Latest L2 head: block #{}", l2_head.header.number);
 
-        // Calculate base fee
-        let current_timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .context("Failed to get current timestamp")?
-            .as_secs();
-
         let base_fee = self
-            .calculate_base_fee(&l2_head.header, &params.base_fee_config, current_timestamp)
+            .calculate_base_fee(&l2_head.header)
             .await
             .context("Failed to calculate base fee")?;
 
@@ -127,13 +125,46 @@ impl RpcClient {
     }
 
     /// Calculates the base fee for the next block.
-    async fn calculate_base_fee(
-        &self,
-        l2_head: &alloy_rpc_types_eth::Header,
-        config: &BaseFeeConfig,
-        _timestamp: u64,
-    ) -> Result<U256> {
-        todo!()
+    async fn calculate_base_fee(&self, l2_head: &alloy_rpc_types_eth::Header) -> Result<U256> {
+        if l2_head.number < 1 {
+            return Ok(U256::from(SHASTA_INITIAL_BASE_FEE));
+        }
+
+        // Convert RPC header to consensus header by accessing inner fields
+        let consensus_header = ConsensusHeader {
+            parent_hash: l2_head.parent_hash,
+            ommers_hash: l2_head.ommers_hash,
+            beneficiary: l2_head.beneficiary,
+            state_root: l2_head.state_root,
+            transactions_root: l2_head.transactions_root,
+            receipts_root: l2_head.receipts_root,
+            logs_bloom: l2_head.logs_bloom,
+            difficulty: l2_head.difficulty,
+            number: l2_head.number,
+            gas_limit: l2_head.gas_limit,
+            gas_used: l2_head.gas_used,
+            timestamp: l2_head.timestamp,
+            extra_data: l2_head.extra_data.clone(),
+            mix_hash: l2_head.mix_hash,
+            nonce: l2_head.nonce,
+            base_fee_per_gas: l2_head.base_fee_per_gas,
+            withdrawals_root: l2_head.withdrawals_root,
+            blob_gas_used: l2_head.blob_gas_used,
+            excess_blob_gas: l2_head.excess_blob_gas,
+            parent_beacon_block_root: l2_head.parent_beacon_block_root,
+            requests_hash: None,
+        };
+
+        let l2_head_parent = self
+            .l1_provider()
+            .get_block_by_hash(l2_head.parent_hash)
+            .await?
+            .context("L2 head parent block not found")?;
+
+        Ok(U256::from(calculate_next_block_eip4396_base_fee(
+            &consensus_header,
+            l2_head.timestamp() - l2_head_parent.header.timestamp(),
+        )))
     }
 
     /// Fetches transaction pool content from the L2 engine.

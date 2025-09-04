@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/rpc", "crates/proposer", "bin/client"]
+members = ["crates/rpc", "crates/proposer", "crates/protocol", "bin/client"]
 
 [workspace.package]
 edition = "2024"
@@ -21,8 +21,18 @@ alloy-rpc-types = { version = "1.0.23", default-features = false }
 alloy-rpc-client = { version = "1.0.23", default-features = false }
 alloy-rpc-types-engine = { version = "1.0.23", default-features = false }
 alloy-rpc-types-eth = { version = "1.0.23", default-features = false }
+alloy-transport = { version = "1.0.23", default-features = false }
 alloy-transport-http = { version = "1.0.23", default-features = false }
-taiko-reth = { git = "https://github.com/taikoxyz/alethia-reth", tag = "v0.3.0" }
+alloy-contract = { version = "1.0.23", default-features = false }
+alloy-sol-macro = { version = "1.0.23", default-features = false, features = [
+  "json",
+] }
+alloy-sol-types = { version = "1.0.23", default-features = false }
+alloy-signer-local = { version = "1.0.23", default-features = false }
+alloy-network = { version = "1.0.23", default-features = false }
+alloy-consensus = { version = "1.0.23", default-features = false, features = [
+] }
+taiko-reth = { git = "https://github.com/taikoxyz/alethia-reth", branch = "main" }
 
 # General
 tokio = "1.45.1"
