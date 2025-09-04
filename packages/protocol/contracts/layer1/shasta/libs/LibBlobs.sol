@@ -12,8 +12,6 @@ library LibBlobs {
     uint256 internal constant BLOB_FIELD_ELEMENTS = 4096;
     uint256 internal constant BLOB_BYTES = BLOB_FIELD_ELEMENTS * FIELD_ELEMENT_BYTES;
 
-    uint256 internal constant MAX_BLOBS = type(uint8).max;
-
     // -------------------------------------------------------------------
     // Structs
     // -------------------------------------------------------------------
@@ -47,20 +45,16 @@ library LibBlobs {
     /// @dev Validates a blob locator and converts it to a blob slice.
     /// @param _blobReference The blob locator to validate.
     /// @return The blob slice.
-    function validateBlobReference(
-        BlobReference memory _blobReference,
-        function(uint256) view returns (bytes32) _blobhash
-    )
+    function validateBlobReference(BlobReference memory _blobReference)
         internal
         view
         returns (BlobSlice memory)
     {
         require(_blobReference.numBlobs > 0, NoBlobs());
-        require(_blobReference.blobStartIndex <= MAX_BLOBS, TwoManyBlobs());
 
         bytes32[] memory blobHashes = new bytes32[](_blobReference.numBlobs);
         for (uint256 i; i < _blobReference.numBlobs; ++i) {
-            blobHashes[i] = _blobhash(_blobReference.blobStartIndex + i);
+            blobHashes[i] = blobhash(_blobReference.blobStartIndex + i);
             require(blobHashes[i] != 0, BlobNotFound());
         }
 
@@ -77,5 +71,4 @@ library LibBlobs {
 
     error BlobNotFound();
     error NoBlobs();
-    error TwoManyBlobs();
 }

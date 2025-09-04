@@ -125,3 +125,12 @@ packages/protocol/snapshots/InboxTest_ProposeAndProve.json
 packages/taiko-client/opnode_discovery_db
 packages/taiko-client/opnode_peerstore_db
 packages/taiko-client/opnode_p2p_priv.txt
+
+#Claude
+.claude/settings.local.json
+
+# Ejector
+target
+
+#Env
+**/*.env

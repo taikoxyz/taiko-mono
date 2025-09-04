@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./ShastaAnchor.sol";
-import "src/shared/based/iface/ISyncedBlockManager.sol";
+import "src/shared/based/iface/ICheckpointManager.sol";
 import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
 
 /// @title TaikoAnchor
@@ -24,7 +24,7 @@ contract TaikoAnchor is ShastaAnchor {
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
-        address _syncedBlockManager,
+        address _checkpointManager,
         address _bondManager
     )
         ShastaAnchor(
@@ -33,7 +33,7 @@ contract TaikoAnchor is ShastaAnchor {
             _signalService,
             _pacayaForkHeight,
             _shastaForkHeight,
-            ISyncedBlockManager(_syncedBlockManager),
+            ICheckpointManager(_checkpointManager),
             IShastaBondManager(_bondManager)
         )
     { }

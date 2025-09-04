@@ -174,7 +174,7 @@
 |
 | parentGasExcess             | uint64                      | 253  | 0      | 8     |
 |
-| lastSyncedBlock             | uint64                      | 253  | 8      | 8     |
+| lastCheckpoint              | uint64                      | 253  | 8      | 8     |
 |
 | parentTimestamp             | uint64                      | 253  | 16     | 8     |
 |
@@ -186,9 +186,9 @@
 |
 | __gap                       | uint256[46]                 | 255  | 0      | 1472  |
 |
-| _state                      | struct ShastaAnchor.State   | 301  | 0      | 64    |
+| _state                      | struct ShastaAnchor.State   | 301  | 0      | 96    |
 |
-| __gap                       | uint256[48]                 | 303  | 0      | 1536  |
+| __gap                       | uint256[48]                 | 304  | 0      | 1536  |
 ╰-----------------------------+-----------------------------+------+--------+-------+----------------------------------------------------╯
 
 

@@ -35,22 +35,19 @@ library InboxTestAdapter {
         pure
         returns (bytes memory)
     {
-        // Default endBlockMiniHeader - will be overridden by the other function if needed
-        IInbox.BlockMiniHeader memory endBlockMiniHeader =
-            IInbox.BlockMiniHeader({ number: 0, hash: bytes32(0), stateRoot: bytes32(0) });
+        // Default checkpoint - will be overridden by the other function if needed
+        ICheckpointManager.Checkpoint memory checkpoint = ICheckpointManager.Checkpoint({
+            blockNumber: 0,
+            blockHash: bytes32(0),
+            stateRoot: bytes32(0)
+        });
 
         return encodeProposeInputWithEndBlock(
-            _inboxType,
-            _deadline,
-            _coreState,
-            _proposals,
-            _blobRef,
-            _transitionRecords,
-            endBlockMiniHeader
+            _inboxType, _deadline, _coreState, _proposals, _blobRef, _transitionRecords, checkpoint
         );
     }
 
-    /// @dev Encodes propose input with explicit endBlockMiniHeader
+    /// @dev Encodes propose input with explicit checkpoint
     function encodeProposeInputWithEndBlock(
         TestInboxFactory.InboxType _inboxType,
         uint48 _deadline,
@@ -58,7 +55,7 @@ library InboxTestAdapter {
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
         IInbox.TransitionRecord[] memory _transitionRecords,
-        IInbox.BlockMiniHeader memory _endBlockMiniHeader
+        ICheckpointManager.Checkpoint memory _checkpoint
     )
         internal
         pure
@@ -73,7 +70,8 @@ library InboxTestAdapter {
                 parentProposals: _proposals,
                 blobReference: _blobRef,
                 transitionRecords: _transitionRecords,
-                endBlockMiniHeader: _endBlockMiniHeader
+                checkpoint: _checkpoint,
+                numForcedInclusions: 0
             });
             return LibProposeInputDecoder.encode(input);
         } else {
@@ -85,7 +83,8 @@ library InboxTestAdapter {
                 parentProposals: _proposals,
                 blobReference: _blobRef,
                 transitionRecords: _transitionRecords,
-                endBlockMiniHeader: _endBlockMiniHeader
+                checkpoint: _checkpoint,
+                numForcedInclusions: 0
             });
             return abi.encode(input);
         }

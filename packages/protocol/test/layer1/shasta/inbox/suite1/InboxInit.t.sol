@@ -45,7 +45,7 @@ contract InboxInit is InboxTest {
     /// @dev Creates expected genesis core state
     function _createExpectedGenesisCoreState() private pure returns (IInbox.CoreState memory) {
         IInbox.Transition memory genesisTransition;
-        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
 
         return createCoreStateFromConfig(
             CoreStateConfig({
@@ -67,6 +67,7 @@ contract InboxInit is InboxTest {
             id: 0,
             proposer: address(0),
             timestamp: 0,
+            lookaheadSlotTimestamp: 0,
             coreStateHash: keccak256(abi.encode(_coreState)),
             derivationHash: bytes32(0)
         });
@@ -83,7 +84,7 @@ contract InboxInit is InboxTest {
             "Double initialization should be prevented"
         );
         // Cast to Inbox to access init function
-        Inbox(address(testInbox)).init(Bob, bytes32(uint256(2)));
+        Inbox(address(testInbox)).initV2(Bob, bytes32(uint256(2)));
     }
 
     /// @notice Test initialization with zero address owner
@@ -113,7 +114,7 @@ contract InboxInit is InboxTest {
 
             // Create expected core state for verification
             IInbox.Transition memory genesisTransition;
-            genesisTransition.endBlockMiniHeader.hash = testHashes[i];
+            genesisTransition.checkpoint.blockHash = testHashes[i];
 
             createCoreStateFromConfig(
                 CoreStateConfig({

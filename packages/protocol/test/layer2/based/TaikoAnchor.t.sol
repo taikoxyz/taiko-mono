@@ -32,7 +32,7 @@ contract TestTaikoAnchor is Layer2Test {
                     address(signalService),
                     0,
                     0,
-                    address(0), // syncedBlockManager
+                    address(0), // checkpointManager
                     address(0) // bondManager
                 )
             ),

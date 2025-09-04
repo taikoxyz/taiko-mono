@@ -11,24 +11,14 @@ import "./ITestInbox.sol";
 contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
     IInbox.Config private testConfig;
     bool private configSet;
-    mapping(uint256 => bytes32) private mockBlobHashes;
-    bool private useMockBlobHashes;
-    // Storage to track endBlockMiniHeader for test purposes
-    mapping(uint48 => IInbox.BlockMiniHeader) public testEndBlockMiniHeaders;
+    // Storage to track checkpoint for test purposes
+    mapping(uint48 => ICheckpointManager.Checkpoint) public testcheckpoints;
 
     constructor() InboxOptimized3() { }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;
         configSet = true;
-    }
-
-    function setMockBlobValidation(bool _useMock) external {
-        useMockBlobHashes = _useMock;
-    }
-
-    function setMockBlobHash(uint256 _index, bytes32 _hash) external {
-        mockBlobHashes[_index] = _hash;
     }
 
     function getConfig() public view override returns (IInbox.Config memory) {
@@ -40,27 +30,15 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
                 maxFinalizationCount: 10,
                 ringBufferSize: 100,
                 basefeeSharingPctg: 10,
-                syncedBlockManager: address(0),
+                checkpointManager: address(0),
                 proofVerifier: address(0),
                 proposerChecker: address(0),
-                forcedInclusionStore: address(0)
-            });
+                minForcedInclusionCount: 1,
+                forcedInclusionDelay: 100,
+                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+             });
         }
         return testConfig;
-    }
-
-    function _getBlobHash(uint256 _blobIndex) internal view override returns (bytes32) {
-        if (useMockBlobHashes) {
-            bytes32 mockHash = mockBlobHashes[_blobIndex];
-            if (mockHash != bytes32(0)) {
-                return mockHash;
-            }
-            if (_blobIndex == 100) {
-                return bytes32(0);
-            }
-            return keccak256(abi.encode("blob", _blobIndex));
-        }
-        return blobhash(_blobIndex);
     }
 
     // Expose internal functions for testing
@@ -75,25 +53,25 @@ contract TestInboxOptimized3 is InboxOptimized3, ITestInbox {
     )
         external
     {
-        _setTransitionRecordHash(testConfig, _proposalId, _transition, _transitionRecord);
+        _setTransitionRecordHash(_proposalId, _transition, _transitionRecord);
     }
 
-    // Function to store endBlockMiniHeader for test purposes
-    function storeEndBlockMiniHeader(
+    // Function to store checkpoint for test purposes
+    function storeCheckpoint(
         uint48 _proposalId,
-        IInbox.BlockMiniHeader memory _header
+        ICheckpointManager.Checkpoint memory _checkpoint
     )
         external
     {
-        testEndBlockMiniHeaders[_proposalId] = _header;
+        testcheckpoints[_proposalId] = _checkpoint;
     }
 
-    // Helper function to get the stored endBlockMiniHeader
-    function getStoredEndBlockMiniHeader(uint48 _proposalId)
+    // Helper function to get the stored checkpoint
+    function getStoredcheckpoint(uint48 _proposalId)
         external
         view
-        returns (IInbox.BlockMiniHeader memory)
+        returns (ICheckpointManager.Checkpoint memory)
     {
-        return testEndBlockMiniHeaders[_proposalId];
+        return testcheckpoints[_proposalId];
     }
 }

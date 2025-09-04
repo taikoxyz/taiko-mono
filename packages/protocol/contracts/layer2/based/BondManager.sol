@@ -22,7 +22,7 @@ contract BondManager is EssentialContract, IBondManager {
     /// @notice ERC20 token used as bond.
     IERC20 public immutable bondToken;
 
-    /// @notice Minimum bond required on L1
+    /// @notice Minimum bond required
     uint256 public immutable minBond;
 
     /// @notice Time delay required before withdrawal after request

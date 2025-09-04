@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -16,10 +17,14 @@ interface IInbox {
         uint256 maxFinalizationCount;
         uint256 ringBufferSize;
         uint8 basefeeSharingPctg;
-        address syncedBlockManager;
+        address checkpointManager;
         address proofVerifier;
         address proposerChecker;
-        address forcedInclusionStore;
+        /// @notice The minimum number of forced inclusions that the proposer is forced to process
+        /// if they are due.
+        uint256 minForcedInclusionCount;
+        uint64 forcedInclusionDelay; // measured in seconds
+        uint64 forcedInclusionFeeInGwei;
     }
 
     /// @notice Contains derivation data for a proposal that is not needed during proving.
@@ -41,22 +46,16 @@ interface IInbox {
     struct Proposal {
         /// @notice Unique identifier for the proposal.
         uint48 id;
-        /// @notice Address of the proposer.
-        address proposer;
         /// @notice The L1 block timestamp when the proposal was accepted.
         uint48 timestamp;
+        /// @notice The timestamp of the last slot where the current preconfer can propose.
+        uint48 lookaheadSlotTimestamp;
+        /// @notice Address of the proposer.
+        address proposer;
         /// @notice The current hash of coreState
         bytes32 coreStateHash;
         /// @notice Hash of the Derivation struct containing additional proposal data.
         bytes32 derivationHash;
-    }
-
-    struct BlockMiniHeader {
-        uint48 number;
-        /// @notice The block hash for the end (last) L2 block in this proposal.
-        bytes32 hash;
-        /// @notice The state root for the end (last) L2 block in this proposal.
-        bytes32 stateRoot;
     }
 
     /// @notice Represents a transition about the state transition of a proposal.
@@ -68,7 +67,7 @@ interface IInbox {
         /// finalize the corresponding proposal.
         bytes32 parentTransitionHash;
         /// @notice The end block header containing number, hash, and state root.
-        BlockMiniHeader endBlockMiniHeader;
+        ICheckpointManager.Checkpoint checkpoint;
         /// @notice The designated prover.
         address designatedProver;
         /// @notice The actual prover.
@@ -81,10 +80,10 @@ interface IInbox {
         uint8 span;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
-        /// @notice The transition's hash
+        /// @notice The hash of the last transition in the span.
         bytes32 transitionHash;
-        /// @notice The hash of the end block mini header.
-        bytes32 endBlockMiniHeaderHash;
+        /// @notice The hash of the last checkpoint in the span.
+        bytes32 checkpointHash;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -111,8 +110,12 @@ interface IInbox {
         LibBlobs.BlobReference blobReference;
         /// @notice Array of transition records for finalization.
         TransitionRecord[] transitionRecords;
-        /// @notice The end block mini header for finalization.
-        BlockMiniHeader endBlockMiniHeader;
+        /// @notice The checkpoint for finalization.
+        ICheckpointManager.Checkpoint checkpoint;
+        /// @notice The number of forced inclusions that the proposer wants to process.
+        /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
+        /// that he wants to include.
+        uint8 numForcedInclusions;
     }
 
     /// @notice Input data for the prove function

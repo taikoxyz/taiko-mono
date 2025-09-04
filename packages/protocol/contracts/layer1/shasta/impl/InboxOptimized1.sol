@@ -80,7 +80,7 @@ abstract contract InboxOptimized1 is Inbox {
                 _config, _input.proposals[0], _input.transitions[0]
             ),
             transitionHash: _hashTransition(_input.transitions[0]),
-            endBlockMiniHeaderHash: _hashBlockMiniHeader(_input.transitions[0].endBlockMiniHeader)
+            checkpointHash: _hashCheckpoint(_input.transitions[0].checkpoint)
         });
 
         uint48 currentGroupStartId = _input.proposals[0].id;
@@ -115,19 +115,16 @@ abstract contract InboxOptimized1 is Inbox {
                     currentRecord.bondInstructions = merged;
                 }
 
-                // Update the transition hash and end block mini header hash for the aggregated
+                // Update the transition hash and checkpoint hash for the aggregated
                 // record
                 currentRecord.transitionHash = _hashTransition(_input.transitions[i]);
-                currentRecord.endBlockMiniHeaderHash =
-                    _hashBlockMiniHeader(_input.transitions[i].endBlockMiniHeader);
+                currentRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
 
                 // Increment span to include this aggregated proposal
                 currentRecord.span++;
             } else {
                 // Save the current aggregated record before starting a new one
-                _setTransitionRecordHash(
-                    _config, currentGroupStartId, firstTransitionInGroup, currentRecord
-                );
+                _setTransitionRecordHash(currentGroupStartId, firstTransitionInGroup, currentRecord);
 
                 // Start a new record for non-continuous proposal
                 currentGroupStartId = _input.proposals[i].id;
@@ -139,17 +136,13 @@ abstract contract InboxOptimized1 is Inbox {
                         _config, _input.proposals[i], _input.transitions[i]
                     ),
                     transitionHash: _hashTransition(_input.transitions[i]),
-                    endBlockMiniHeaderHash: _hashBlockMiniHeader(
-                        _input.transitions[i].endBlockMiniHeader
-                    )
+                    checkpointHash: _hashCheckpoint(_input.transitions[i].checkpoint)
                 });
             }
         }
 
         // Save the final aggregated record
-        _setTransitionRecordHash(
-            _config, currentGroupStartId, firstTransitionInGroup, currentRecord
-        );
+        _setTransitionRecordHash(currentGroupStartId, firstTransitionInGroup, currentRecord);
     }
 
     /// @inheritdoc Inbox
@@ -160,7 +153,6 @@ abstract contract InboxOptimized1 is Inbox {
     ///         3. Falls back to composite key mapping if no match
     /// @dev Reduces storage reads by ~50% for common case (single transition per proposal)
     function _getTransitionRecordHash(
-        Config memory _config,
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
@@ -169,7 +161,8 @@ abstract contract InboxOptimized1 is Inbox {
         override
         returns (bytes32 transitionRecordHash_)
     {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
+        Config memory config = getConfig();
+        uint256 bufferSlot = _proposalId % config.ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
         // Check if this is the default record for this proposal
@@ -186,7 +179,7 @@ abstract contract InboxOptimized1 is Inbox {
 
         // Otherwise check the direct mapping
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        return _transitionRecordHashes[bufferSlot][compositeKey];
+        return _transitionRecordHashes[compositeKey];
     }
 
     /// @inheritdoc Inbox
@@ -197,7 +190,6 @@ abstract contract InboxOptimized1 is Inbox {
     ///         3. Same ID, different parent: Uses composite key mapping
     /// @dev Saves ~20,000 gas for common case by avoiding mapping writes
     function _setTransitionRecordHash(
-        Config memory _config,
         uint48 _proposalId,
         Transition memory _transition,
         TransitionRecord memory _transitionRecord
@@ -205,7 +197,8 @@ abstract contract InboxOptimized1 is Inbox {
         internal
         override
     {
-        uint256 bufferSlot = _proposalId % _config.ringBufferSize;
+        Config memory config = getConfig();
+        uint256 bufferSlot = _proposalId % config.ringBufferSize;
         bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
@@ -227,7 +220,7 @@ abstract contract InboxOptimized1 is Inbox {
             // Same proposal ID but different parent transition hash, use direct mapping
             bytes32 compositeKey =
                 _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
-            _transitionRecordHashes[bufferSlot][compositeKey] = transitionRecordHash;
+            _transitionRecordHashes[compositeKey] = transitionRecordHash;
         }
 
         bytes memory payload = encodeProvedEventData(

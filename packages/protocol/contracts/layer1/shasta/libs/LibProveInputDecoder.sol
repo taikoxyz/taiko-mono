@@ -76,6 +76,7 @@ library LibProveInputDecoder {
         newPtr_ = P.packUint48(_ptr, _proposal.id);
         newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
         newPtr_ = P.packUint48(newPtr_, _proposal.timestamp);
+        newPtr_ = P.packUint48(newPtr_, _proposal.lookaheadSlotTimestamp);
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
     }
@@ -89,6 +90,7 @@ library LibProveInputDecoder {
         (proposal_.id, newPtr_) = P.unpackUint48(_ptr);
         (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
         (proposal_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
+        (proposal_.lookaheadSlotTimestamp, newPtr_) = P.unpackUint48(newPtr_);
         (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
@@ -104,10 +106,10 @@ library LibProveInputDecoder {
     {
         newPtr_ = P.packBytes32(_ptr, _transition.proposalHash);
         newPtr_ = P.packBytes32(newPtr_, _transition.parentTransitionHash);
-        // Encode BlockMiniHeader
-        newPtr_ = P.packUint48(newPtr_, _transition.endBlockMiniHeader.number);
-        newPtr_ = P.packBytes32(newPtr_, _transition.endBlockMiniHeader.hash);
-        newPtr_ = P.packBytes32(newPtr_, _transition.endBlockMiniHeader.stateRoot);
+        // Encode Checkpoint
+        newPtr_ = P.packUint48(newPtr_, _transition.checkpoint.blockNumber);
+        newPtr_ = P.packBytes32(newPtr_, _transition.checkpoint.blockHash);
+        newPtr_ = P.packBytes32(newPtr_, _transition.checkpoint.stateRoot);
         newPtr_ = P.packAddress(newPtr_, _transition.designatedProver);
         newPtr_ = P.packAddress(newPtr_, _transition.actualProver);
     }
@@ -120,10 +122,10 @@ library LibProveInputDecoder {
     {
         (transition_.proposalHash, newPtr_) = P.unpackBytes32(_ptr);
         (transition_.parentTransitionHash, newPtr_) = P.unpackBytes32(newPtr_);
-        // Decode BlockMiniHeader
-        (transition_.endBlockMiniHeader.number, newPtr_) = P.unpackUint48(newPtr_);
-        (transition_.endBlockMiniHeader.hash, newPtr_) = P.unpackBytes32(newPtr_);
-        (transition_.endBlockMiniHeader.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
+        // Decode Checkpoint
+        (transition_.checkpoint.blockNumber, newPtr_) = P.unpackUint48(newPtr_);
+        (transition_.checkpoint.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (transition_.checkpoint.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
         (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
         (transition_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
     }
@@ -144,13 +146,14 @@ library LibProveInputDecoder {
             size_ = 6;
 
             // Proposals - each has fixed size
-            // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) + coreStateHash(32) +
-            // derivationHash(32) = 96
+            // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) +
+            // lookaheadSlotTimestamp(6) + coreStateHash(32) +
+            // derivationHash(32) = 102
             //
             // Transitions - each has fixed size: proposalHash(32) + parentTransitionHash(32) +
-            // BlockMiniHeader(6 + 32 + 32) + designatedProver(20) + actualProver(20) = 174
+            // Checkpoint(6 + 32 + 32) + designatedProver(20) + actualProver(20) = 174
             //
-            size_ += _proposals.length * 270;
+            size_ += _proposals.length * 276;
         }
     }
 

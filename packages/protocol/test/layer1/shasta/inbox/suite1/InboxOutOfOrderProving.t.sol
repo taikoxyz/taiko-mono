@@ -17,8 +17,7 @@ contract InboxOutOfOrderProving is InboxTest {
     // Override setupMockAddresses to use actual mock contracts
     function setupMockAddresses() internal override {
         bondToken = address(new MockERC20());
-        syncedBlockManager = address(new StubSyncedBlockManager());
-        forcedInclusionStore = address(new StubForcedInclusionStore());
+        checkpointManager = address(new StubCheckpointManager());
         proofVerifier = address(new StubProofVerifier());
         proposerChecker = address(new StubProposerChecker());
     }
@@ -39,7 +38,7 @@ contract InboxOutOfOrderProving is InboxTest {
 
         // Get initial parent hash
         IInbox.Transition memory genesisTransition;
-        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         // Phase 1: Create multiple proposals sequentially
@@ -104,6 +103,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 id: i,
                 proposer: Alice,
                 timestamp: uint48(block.timestamp),
+                lookaheadSlotTimestamp: uint48(0), // Set to 0 as returned by mockProposerAllowed
                 coreStateHash: bytes32(0),
                 derivationHash: keccak256(abi.encode(derivation))
             });
@@ -133,9 +133,9 @@ contract InboxOutOfOrderProving is InboxTest {
             transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
                 parentTransitionHash: parentHash,
-                endBlockMiniHeader: IInbox.BlockMiniHeader({
-                    number: uint48(100 + i * 10),
-                    hash: keccak256(abi.encode(proposals[i].id, "endBlockHash")),
+                checkpoint: ICheckpointManager.Checkpoint({
+                    blockNumber: uint48(100 + i * 10),
+                    blockHash: keccak256(abi.encode(proposals[i].id, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(proposals[i].id, "stateRoot"))
                 }),
                 designatedProver: Alice,
@@ -179,7 +179,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 transitionHash: InboxTestLib.hashTransition(transitions[i]),
-                endBlockMiniHeaderHash: keccak256(abi.encode(transitions[i].endBlockMiniHeader))
+                checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
             });
         }
 
@@ -197,11 +197,7 @@ contract InboxOutOfOrderProving is InboxTest {
 
         // Expect final block update
         IInbox.Transition memory lastTransition = transitions[numProposals - 1];
-        expectSyncedBlockSave(
-            lastTransition.endBlockMiniHeader.number,
-            lastTransition.endBlockMiniHeader.hash,
-            lastTransition.endBlockMiniHeader.stateRoot
-        );
+        expectCheckpointSaved(lastTransition.checkpoint);
 
         // Submit new proposal that triggers finalization
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
@@ -210,7 +206,7 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.Proposal[] memory finalValidationProposals = new IInbox.Proposal[](1);
         finalValidationProposals[0] = proposals[numProposals - 1];
 
-        // When finalizing, we need to provide the endBlockMiniHeader from the last transition
+        // When finalizing, we need to provide the checkpoint from the last transition
         bytes memory proposeData = InboxTestAdapter.encodeProposeInputWithEndBlock(
             inboxType,
             uint48(0),
@@ -218,14 +214,14 @@ contract InboxOutOfOrderProving is InboxTest {
             finalValidationProposals,
             blobRef,
             transitionRecords,
-            lastTransition.endBlockMiniHeader
+            lastTransition.checkpoint
         );
 
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
 
         // Verify finalization occurred (we can't directly check core state hash
-        // but we can verify by checking that the synced block save was called)
+        // but we can verify by checking that the checkpoint save was called)
     }
 
     /// @notice Test that unproven proposals block finalization
@@ -238,7 +234,7 @@ contract InboxOutOfOrderProving is InboxTest {
         setupBlobHashes();
         // Create genesis transition
         IInbox.Transition memory genesisTransition;
-        genesisTransition.endBlockMiniHeader.hash = GENESIS_BLOCK_HASH;
+        genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
 
         // Create 3 proposals
@@ -324,6 +320,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 id: i,
                 proposer: Alice,
                 timestamp: uint48(block.timestamp),
+                lookaheadSlotTimestamp: uint48(0), // Set to 0 as returned by mockProposerAllowed
                 coreStateHash: keccak256(abi.encode(updatedCoreState)),
                 derivationHash: keccak256(abi.encode(derivation))
             });
@@ -333,9 +330,9 @@ contract InboxOutOfOrderProving is InboxTest {
             IInbox.Transition memory transition = IInbox.Transition({
                 proposalHash: storedProposalHash,
                 parentTransitionHash: parentHash,
-                endBlockMiniHeader: IInbox.BlockMiniHeader({
-                    number: uint48(100 + i * 10),
-                    hash: keccak256(abi.encode(i, "endBlockHash")),
+                checkpoint: ICheckpointManager.Checkpoint({
+                    blockNumber: uint48(100 + i * 10),
+                    blockHash: keccak256(abi.encode(i, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i, "stateRoot"))
                 }),
                 designatedProver: Alice,
@@ -368,9 +365,9 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.Transition memory transition1 = IInbox.Transition({
             proposalHash: storedProposalHashForTransition,
             parentTransitionHash: initialParentHash,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
-                number: 110,
-                hash: keccak256(abi.encode(1, "endBlockHash")),
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: 110,
+                blockHash: keccak256(abi.encode(1, "endBlockHash")),
                 stateRoot: keccak256(abi.encode(1, "stateRoot"))
             }),
             designatedProver: Alice,
@@ -382,18 +379,14 @@ contract InboxOutOfOrderProving is InboxTest {
             span: 1,
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: InboxTestLib.hashTransition(transition1),
-            endBlockMiniHeaderHash: keccak256(abi.encode(transition1.endBlockMiniHeader))
+            checkpointHash: keccak256(abi.encode(transition1.checkpoint))
         });
 
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
 
         // Expect only proposal 1 to be finalized
-        expectSyncedBlockSave(
-            transition1.endBlockMiniHeader.number,
-            transition1.endBlockMiniHeader.hash,
-            transition1.endBlockMiniHeader.stateRoot
-        );
+        expectCheckpointSaved(transition1.checkpoint);
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(4);
 
@@ -411,7 +404,7 @@ contract InboxOutOfOrderProving is InboxTest {
             )
         );
 
-        // When finalizing, we need to provide the endBlockMiniHeader
+        // When finalizing, we need to provide the checkpoint
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = lastProposal;
 
@@ -422,7 +415,7 @@ contract InboxOutOfOrderProving is InboxTest {
             proposals,
             blobRef,
             transitionRecords,
-            transition1.endBlockMiniHeader // Use the header from the transition being finalized
+            transition1.checkpoint // Use the header from the transition being finalized
         );
 
         vm.prank(Carol);

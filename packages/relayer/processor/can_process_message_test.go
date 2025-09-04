@@ -67,8 +67,16 @@ func Test_canProcessMessage(t *testing.T) {
 			relayer.EventStatusNew,
 			relayerAddr,
 			relayerAddr,
-			5,
+			0,
 			true,
+		},
+		{
+			"cantProcess, eventStatusRecalled",
+			relayer.EventStatusRecalled,
+			relayerAddr,
+			relayerAddr,
+			5,
+			false,
 		},
 	}
 

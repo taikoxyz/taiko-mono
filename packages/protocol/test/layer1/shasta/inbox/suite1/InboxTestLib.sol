@@ -157,6 +157,7 @@ library InboxTestLib {
             id: _id,
             proposer: _proposer,
             timestamp: uint48(block.timestamp),
+            lookaheadSlotTimestamp: uint48(0), // Set to 0 to match mockProposerAllowed return value
             coreStateHash: bytes32(0),
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -191,6 +192,7 @@ library InboxTestLib {
             id: _id,
             proposer: _proposer,
             timestamp: uint48(block.timestamp),
+            lookaheadSlotTimestamp: uint48(0), // Set to 0 to match mockProposerAllowed return value
             coreStateHash: bytes32(0),
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -232,9 +234,9 @@ library InboxTestLib {
         return IInbox.Transition({
             proposalHash: hashProposal(_proposal),
             parentTransitionHash: _parentTransitionHash,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
-                number: _proposal.id * 100,
-                hash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: _proposal.id * 100,
+                blockHash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
                 stateRoot: keccak256(abi.encode(_proposal.id, "stateRoot"))
             }),
             designatedProver: _proposal.proposer,
@@ -259,9 +261,9 @@ library InboxTestLib {
         return IInbox.Transition({
             proposalHash: _proposalHash,
             parentTransitionHash: _parentTransitionHash,
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
-                number: _endBlockNumber,
-                hash: _endBlockHash,
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: _endBlockNumber,
+                blockHash: _endBlockHash,
                 stateRoot: _endStateRoot
             }),
             designatedProver: _designatedProver,
@@ -305,7 +307,7 @@ library InboxTestLib {
             span: _span,
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: hashTransition(_transition),
-            endBlockMiniHeaderHash: keccak256(abi.encode(_transition.endBlockMiniHeader))
+            checkpointHash: keccak256(abi.encode(_transition.checkpoint))
         });
     }
 
@@ -323,7 +325,7 @@ library InboxTestLib {
             span: _span,
             bondInstructions: _bondInstructions,
             transitionHash: hashTransition(_transition),
-            endBlockMiniHeaderHash: keccak256(abi.encode(_transition.endBlockMiniHeader))
+            checkpointHash: keccak256(abi.encode(_transition.checkpoint))
         });
     }
 
@@ -423,7 +425,8 @@ library InboxTestLib {
         pure
         returns (bytes memory)
     {
-        return abi.encode(_deadline, _coreState, _proposals, _blobRef, _transitionRecords);
+        // Add default numForcedInclusions = 0
+        return abi.encode(_deadline, _coreState, _proposals, _blobRef, _transitionRecords, uint8(0));
     }
 
     /// @dev Encodes propose input for the first proposal after genesis (with validation)
@@ -576,6 +579,7 @@ library InboxTestLib {
         proposal.id = 0;
         proposal.proposer = address(0);
         proposal.timestamp = 0;
+        proposal.lookaheadSlotTimestamp = 0;
 
         // Use the passed core state to calculate the coreStateHash
         proposal.coreStateHash = keccak256(abi.encode(_coreState));
@@ -643,6 +647,24 @@ library InboxTestLib {
         );
     }
 
+    /// @dev Encodes propose input with explicit numForcedInclusions
+    function encodeProposeInputWithForcedInclusions(
+        uint64 _deadline,
+        IInbox.CoreState memory _coreState,
+        IInbox.Proposal[] memory _proposals,
+        LibBlobs.BlobReference memory _blobRef,
+        IInbox.TransitionRecord[] memory _transitionRecords,
+        uint8 _numForcedInclusions
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return abi.encode(
+            _deadline, _coreState, _proposals, _blobRef, _transitionRecords, _numForcedInclusions
+        );
+    }
+
     // ---------------------------------------------------------------
     // Chain Building Functions
     // ---------------------------------------------------------------
@@ -680,9 +702,9 @@ library InboxTestLib {
         return IInbox.Transition({
             proposalHash: bytes32(0),
             parentTransitionHash: bytes32(0),
-            endBlockMiniHeader: IInbox.BlockMiniHeader({
-                number: 0,
-                hash: _genesisBlockHash,
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: 0,
+                blockHash: _genesisBlockHash,
                 stateRoot: bytes32(0)
             }),
             designatedProver: address(0),

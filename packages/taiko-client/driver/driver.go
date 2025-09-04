@@ -28,9 +28,10 @@ import (
 )
 
 const (
-	protocolStatusReportInterval     = 30 * time.Second
-	exchangeTransitionConfigInterval = 1 * time.Minute
-	peerLoopReportInterval           = 30 * time.Second
+	protocolStatusReportInterval            = 30 * time.Second
+	exchangeTransitionConfigInterval        = 1 * time.Minute
+	peerLoopReportInterval                  = 30 * time.Second
+	defaultHandoverSkipSlots         uint64 = 4
 )
 
 // Driver keeps the L2 execution engine's local block chain in sync with the TaikoInbox
@@ -52,6 +53,11 @@ type Driver struct {
 	p2pSigner p2p.Signer
 	p2pSetup  p2p.SetupP2P
 
+	// Handover config read from the preconf router
+	handoverSkipSlots uint64
+	// Last epoch when the handover config was reloaded
+	lastConfigReloadEpoch uint64
+
 	ctx context.Context
 	wg  sync.WaitGroup
 }
@@ -71,6 +77,10 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.l1HeadCh = make(chan *types.Header, 1024)
 	d.ctx = ctx
 	d.Config = cfg
+
+	// Initialize handover config caching
+	d.handoverSkipSlots = defaultHandoverSkipSlots
+	d.lastConfigReloadEpoch = 0
 
 	if d.rpc, err = rpc.NewClient(d.ctx, cfg.ClientConfig); err != nil {
 		return err
@@ -373,7 +383,7 @@ func (d *Driver) cacheLookaheadLoop() {
 	var (
 		seenBlockNumber uint64 = 0
 		lastSlot        uint64 = 0
-		opWin                  = preconfBlocks.NewOpWindow(d.PreconfHandoverSkipSlots, d.rpc.L1Beacon.SlotsPerEpoch)
+		opWin                  = preconfBlocks.NewOpWindow(d.rpc.L1Beacon.SlotsPerEpoch)
 		wasSequencer           = false
 	)
 
@@ -417,6 +427,32 @@ func (d *Driver) cacheLookaheadLoop() {
 			slotInEpoch      = d.rpc.L1Beacon.SlotInEpoch()
 			slotsLeftInEpoch = d.rpc.L1Beacon.SlotsPerEpoch - d.rpc.L1Beacon.SlotInEpoch()
 		)
+
+		// Only read and update handover config at epoch transitions to avoid race conditions
+		// where different nodes might read different configs during mid-epoch upgrades
+		if currentEpoch > d.lastConfigReloadEpoch {
+			log.Info("Epoch transition detected, reloading handover config",
+				"epoch", currentEpoch, "lastConfigReloadEpoch",
+				d.lastConfigReloadEpoch,
+			)
+
+			routerConfig, err := d.rpc.GetPreconfRouterConfig(&bind.CallOpts{Context: d.ctx})
+			if err != nil {
+				log.Warn("Failed to fetch preconf router config, keeping current handoverSkipSlots",
+					"error", err, "currentHandoverSkipSlots", d.handoverSkipSlots)
+			} else {
+				newHandoverSkipSlots := routerConfig.HandOverSlots.Uint64()
+				if newHandoverSkipSlots != d.handoverSkipSlots {
+					log.Info("Updated handover config for new epoch", "epoch", currentEpoch,
+						"oldHandoverSkipSlots", d.handoverSkipSlots, "newHandoverSkipSlots", newHandoverSkipSlots)
+					d.handoverSkipSlots = newHandoverSkipSlots
+				}
+			}
+
+			d.lastConfigReloadEpoch = currentEpoch
+
+			log.Info("Handover config reload complete", "lastConfigReloadEpoch", d.lastConfigReloadEpoch)
+		}
 
 		latestSeenBlockNumber, err := d.rpc.L1.BlockNumber(d.ctx)
 		if err != nil {
@@ -515,9 +551,10 @@ func (d *Driver) cacheLookaheadLoop() {
 			}
 
 			var (
-				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
-				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
+				currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true, d.handoverSkipSlots)
+				nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false, d.handoverSkipSlots)
 			)
+
 			d.preconfBlockServer.UpdateLookahead(&preconfBlocks.Lookahead{
 				CurrOperator:     currOp,
 				NextOperator:     nextOp,
@@ -544,8 +581,8 @@ func (d *Driver) cacheLookaheadLoop() {
 
 		// Otherwise, just log out lookahead information.
 		var (
-			currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true)
-			nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false)
+			currRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, true, d.handoverSkipSlots)
+			nextRanges = opWin.SequencingWindowSplit(d.PreconfOperatorAddress, false, d.handoverSkipSlots)
 		)
 
 		log.Info(

@@ -19,14 +19,6 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
         configSet = true;
     }
 
-    function setMockBlobValidation(bool _useMock) external {
-        useMockBlobHashes = _useMock;
-    }
-
-    function setMockBlobHash(uint256 _index, bytes32 _hash) external {
-        mockBlobHashes[_index] = _hash;
-    }
-
     function getConfig() public view override returns (IInbox.Config memory) {
         // During initialization, provide a minimal valid config to avoid division by zero
         if (!configSet) {
@@ -37,11 +29,13 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
                 maxFinalizationCount: 10,
                 ringBufferSize: 100, // Ensure this is not zero
                 basefeeSharingPctg: 10,
-                syncedBlockManager: address(0),
+                checkpointManager: address(0),
                 proofVerifier: address(0),
                 proposerChecker: address(0),
-                forcedInclusionStore: address(0)
-            });
+                minForcedInclusionCount: 1,
+                forcedInclusionDelay: 100,
+                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+             });
         }
         return testConfig;
     }
@@ -59,26 +53,6 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
     )
         external
     {
-        _setTransitionRecordHash(testConfig, _proposalId, _transition, _transitionRecord);
-    }
-
-    /// @dev Override _getBlobHash to support mock blob hashes in tests
-    function _getBlobHash(uint256 _blobIndex) internal view override returns (bytes32) {
-        if (useMockBlobHashes) {
-            // Check if we have a specific mock hash set for this index
-            bytes32 mockHash = mockBlobHashes[_blobIndex];
-            if (mockHash != bytes32(0)) {
-                return mockHash;
-            }
-            // If no mock hash is set, generate a deterministic one for testing
-            // unless the test explicitly wants to test missing blobs at specific indices
-            // For index 100 specifically, return bytes32(0) to test BlobNotFound error
-            if (_blobIndex == 100) {
-                return bytes32(0);
-            }
-            return keccak256(abi.encode("blob", _blobIndex));
-        }
-        // Fall back to the real blobhash opcode
-        return blobhash(_blobIndex);
+        _setTransitionRecordHash(_proposalId, _transition, _transitionRecord);
     }
 }

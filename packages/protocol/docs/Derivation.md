@@ -203,7 +203,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 **Invalidation conditions** (sets `anchorBlockNumber` to `parent.metadata.anchorBlockNumber`):
 
 - **Non-monotonic progression**: `manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber`
-- **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber`
+- **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - ANCHOR_MIN_OFFSET`
 - **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET`
 
 **Forced inclusion protection**: For non-forced proposals (`proposal.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire manifest is replaced with the default manifest, penalizing proposals that fail to provide proper L1 anchoring.
@@ -411,7 +411,7 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
    - Emits `ProverDesignated` event
 
 3. **L1 state anchoring and bond processing** (when anchorBlockNumber > previous anchorBlockNumber)
-   - Persists L1 block data via `syncedBlockManager.saveSyncedBlock`
+   - Persists L1 block data via `checkpointManager.saveCheckpoint`
    - Processes bond instructions (NONE, LIVENESS, and PROVABILITY types) where NONE results in no transfer
    - Maintains cumulative hash integrity by chaining: `keccak256(previousHash, instruction)` (skips if proposalId=0 or bondType=NONE)
    - Updates anchor state atomically (bondInstructionsHash and anchorBlockNumber)

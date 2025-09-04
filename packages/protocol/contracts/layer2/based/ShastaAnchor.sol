@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { PacayaAnchor } from "./PacayaAnchor.sol";
-import { ISyncedBlockManager } from "src/shared/based/iface/ISyncedBlockManager.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
@@ -28,6 +28,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint48 anchorBlockNumber; // Latest L1 block number anchored to L2
         address designatedProver; // The prover designated for the current batch
         bool isLowBondProposal; // Indicates if the proposal has insufficient bonds
+        uint48 lookaheadSlotTimestamp; // The timestamp of the last slot where the current preconfer
+            // can propose.
     }
 
     /// @notice Authentication data for prover designation.
@@ -56,7 +58,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     IShastaBondManager public immutable bondManager;
 
     /// @notice Contract managing synchronized L1 block data.
-    ISyncedBlockManager public immutable syncedBlockManager;
+    ICheckpointManager public immutable checkpointManager;
 
     // ---------------------------------------------------------------
     // State variables
@@ -88,7 +90,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _signalService The address of the signal service.
     /// @param _pacayaForkHeight The block height at which the Pacaya fork is activated.
     /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
-    /// @param _syncedBlockManager The address of the synced block manager.
+    /// @param _checkpointManager The address of the checkpoint manager.
     /// @param _bondManager The address of the bond manager.
     constructor(
         uint48 _livenessBondGwei,
@@ -96,7 +98,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
-        ISyncedBlockManager _syncedBlockManager,
+        ICheckpointManager _checkpointManager,
         IShastaBondManager _bondManager
     )
         PacayaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
@@ -107,7 +109,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
         livenessBondGwei = _livenessBondGwei;
         provabilityBondGwei = _provabilityBondGwei;
-        syncedBlockManager = _syncedBlockManager;
+        checkpointManager = _checkpointManager;
         bondManager = _bondManager;
     }
 
@@ -131,6 +133,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _anchorBlockNumber L1 block number to anchor (0 to skip anchoring).
     /// @param _anchorBlockHash L1 block hash at _anchorBlockNumber.
     /// @param _anchorStateRoot L1 state root at _anchorBlockNumber.
+    /// @param _lookaheadSlotTimestamp The timestamp of the last slot where the current preconfer
+    /// can propose.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ Address of the designated prover.
     function updateState(
@@ -144,7 +148,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint16 _blockIndex,
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
-        bytes32 _anchorStateRoot
+        bytes32 _anchorStateRoot,
+        uint48 _lookaheadSlotTimestamp
     )
         external
         onlyGoldenTouch
@@ -160,18 +165,24 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Handle prover designation on first block
         if (_blockIndex == 0) {
             (isLowBondProposal_, designatedProver_) =
-                _designateProver(_proposalId, _proposer, _proverAuth);
+                _getDesignatedProver(_proposalId, _proposer, _proverAuth);
 
             _state.designatedProver = designatedProver_;
             _state.isLowBondProposal = isLowBondProposal_;
+            _state.lookaheadSlotTimestamp = _lookaheadSlotTimestamp;
+
             emit ProverDesignated(designatedProver_, isLowBondProposal_);
         }
 
         // Process new L1 anchor data
         if (_anchorBlockNumber > _state.anchorBlockNumber) {
             // Save L1 block data
-            syncedBlockManager.saveSyncedBlock(
-                _anchorBlockNumber, _anchorBlockHash, _anchorStateRoot
+            checkpointManager.saveCheckpoint(
+                ICheckpointManager.Checkpoint({
+                    blockNumber: _anchorBlockNumber,
+                    blockHash: _anchorBlockHash,
+                    stateRoot: _anchorStateRoot
+                })
             );
 
             // Process bond instructions with hash verification
@@ -190,6 +201,24 @@ abstract contract ShastaAnchor is PacayaAnchor {
         return _state;
     }
 
+    /// @notice Returns the designated prover
+    /// @param _proposalId The proposal ID.
+    /// @param _proposer The proposer address.
+    /// @param _proverAuth Encoded prover authentication data.
+    /// @return isLowBondProposal_ True if proposer has insufficient bonds.
+    /// @return designatedProver_ The designated prover address.
+    function getDesignatedProver(
+        uint48 _proposalId,
+        address _proposer,
+        bytes calldata _proverAuth
+    )
+        external
+        view
+        returns (bool isLowBondProposal_, address designatedProver_)
+    {
+        return _getDesignatedProver(_proposalId, _proposer, _proverAuth);
+    }
+
     // ---------------------------------------------------------------
     // Private functions
     // ---------------------------------------------------------------
@@ -201,13 +230,13 @@ abstract contract ShastaAnchor is PacayaAnchor {
         _blockhashes[_parentId] = blockhash(_parentId);
     }
 
-    /// @dev Designates a prover and checks bond sufficiency.
+    /// @dev Returns the designated prover
     /// @param _proposalId The proposal ID.
     /// @param _proposer The proposer address.
     /// @param _proverAuth Encoded prover authentication data.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ The designated prover address.
-    function _designateProver(
+    function _getDesignatedProver(
         uint48 _proposalId,
         address _proposer,
         bytes calldata _proverAuth

@@ -22,13 +22,6 @@ interface IForcedInclusionStore {
     /// @param _blobReference The blob locator that contains the transaction data
     function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable;
 
-    /// @notice Consumes the oldest forced inclusion request and removes it from the queue
-    /// @param _feeRecipient The address to receive the fee
-    /// @return The forced inclusion that was consumed
-    function consumeOldestForcedInclusion(address _feeRecipient)
-        external
-        returns (ForcedInclusion memory);
-
     /// @notice Checks if the oldest forced inclusion is due
     /// @return True if the oldest forced inclusion is due, false otherwise
     function isOldestForcedInclusionDue() external view returns (bool);
