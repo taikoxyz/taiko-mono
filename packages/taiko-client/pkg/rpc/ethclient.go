@@ -94,7 +94,8 @@ func (c *EthClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.B
 	defer cancel()
 
 	var result *types.Block
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "BlockByHash"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "BlockByHash")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.BlockByHash(ctxWithTimeout, hash)
 		return innerErr
@@ -111,12 +112,14 @@ func (c *EthClient) BatchBlocksByHashes(ctx context.Context, hashes []common.Has
 	defer cancel()
 
 	var results []*types.Block
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "BatchBlocksByHashes"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "BatchBlocksByHashes")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		reqs := make([]rpc.BatchElem, len(hashes))
 		results = make([]*types.Block, len(hashes))
 		for i, hash := range hashes {
+			blockMethodName := GetRPCMethodName(c.metrics.GetClientType(), "BlockByHash")
 			reqs[i] = rpc.BatchElem{
-				Method: GetRPCMethodName(c.metrics.GetClientType(), "BlockByHash"),
+				Method: blockMethodName,
 				Args:   []interface{}{hash, true},
 				Result: &results[i],
 			}
@@ -144,7 +147,8 @@ func (c *EthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.
 	defer cancel()
 
 	var result *types.Block
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "BlockByNumber"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "BlockByNumber")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.BlockByNumber(ctxWithTimeout, number)
 		return innerErr
@@ -158,7 +162,8 @@ func (c *EthClient) BlockNumber(ctx context.Context) (uint64, error) {
 	defer cancel()
 
 	var result uint64
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "BlockNumber"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "BlockNumber")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.BlockNumber(ctxWithTimeout)
 		return innerErr
@@ -172,7 +177,8 @@ func (c *EthClient) PeerCount(ctx context.Context) (uint64, error) {
 	defer cancel()
 
 	var result uint64
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "PeerCount"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "PeerCount")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.PeerCount(ctxWithTimeout)
 		return innerErr
@@ -186,7 +192,8 @@ func (c *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.
 	defer cancel()
 
 	var result *types.Header
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "HeaderByHash"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "HeaderByHash")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.HeaderByHash(ctxWithTimeout, hash)
 		return innerErr
@@ -201,7 +208,8 @@ func (c *EthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types
 	defer cancel()
 
 	var result *types.Header
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "HeaderByNumber"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "HeaderByNumber")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.HeaderByNumber(ctxWithTimeout, number)
 		return innerErr
@@ -217,12 +225,14 @@ func (c *EthClient) BatchHeadersByNumbers(ctx context.Context, numbers []*big.In
 	defer cancel()
 
 	var results []*types.Header
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "BatchHeadersByNumbers"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "BatchHeadersByNumbers")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		reqs := make([]rpc.BatchElem, len(numbers))
 		results = make([]*types.Header, len(numbers))
 		for i, blockNum := range numbers {
+			blockNumMethodName := GetRPCMethodName(c.metrics.GetClientType(), "BlockByNumber")
 			reqs[i] = rpc.BatchElem{
-				Method: GetRPCMethodName(c.metrics.GetClientType(), "BlockByNumber"),
+				Method: blockNumMethodName,
 				Args:   []interface{}{toBlockNumArg(blockNum), false},
 				Result: &results[i],
 			}
@@ -263,7 +273,8 @@ func (c *EthClient) TransactionByHash(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	err = c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "TransactionByHash"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "TransactionByHash")
+	err = c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		tx, isPending, err = c.ethClient.TransactionByHash(ctxWithTimeout, hash)
 		return err
 	})
@@ -286,7 +297,8 @@ func (c *EthClient) TransactionSender(
 	defer cancel()
 
 	var result common.Address
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "TransactionSender"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "TransactionSender")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.TransactionSender(ctxWithTimeout, tx, block, index)
 		return innerErr
@@ -300,7 +312,8 @@ func (c *EthClient) TransactionCount(ctx context.Context, blockHash common.Hash)
 	defer cancel()
 
 	var result uint
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "TransactionCount"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "TransactionCount")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.TransactionCount(ctxWithTimeout, blockHash)
 		return innerErr
@@ -318,7 +331,8 @@ func (c *EthClient) TransactionInBlock(
 	defer cancel()
 
 	var result *types.Transaction
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "TransactionInBlock"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "TransactionInBlock")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.TransactionInBlock(ctxWithTimeout, blockHash, index)
 		return innerErr
@@ -333,7 +347,8 @@ func (c *EthClient) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, e
 	defer cancel()
 
 	var result *ethereum.SyncProgress
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "SyncProgress"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "SyncProgress")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.SyncProgress(ctxWithTimeout)
 		return innerErr
@@ -347,7 +362,8 @@ func (c *EthClient) NetworkID(ctx context.Context) (*big.Int, error) {
 	defer cancel()
 
 	var result *big.Int
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "NetworkID"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "NetworkID")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.NetworkID(ctxWithTimeout)
 		return innerErr
@@ -366,7 +382,8 @@ func (c *EthClient) BalanceAt(
 	defer cancel()
 
 	var result *big.Int
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "BalanceAt"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "BalanceAt")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.BalanceAt(ctxWithTimeout, account, blockNumber)
 		return innerErr
@@ -386,7 +403,8 @@ func (c *EthClient) StorageAt(
 	defer cancel()
 
 	var result []byte
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "StorageAt"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "StorageAt")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.StorageAt(ctxWithTimeout, account, key, blockNumber)
 		return innerErr
@@ -405,7 +423,8 @@ func (c *EthClient) CodeAt(
 	defer cancel()
 
 	var result []byte
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "CodeAt"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "CodeAt")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.CodeAt(ctxWithTimeout, account, blockNumber)
 		return innerErr
@@ -424,7 +443,8 @@ func (c *EthClient) NonceAt(
 	defer cancel()
 
 	var result uint64
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "NonceAt"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "NonceAt")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.NonceAt(ctxWithTimeout, account, blockNumber)
 		return innerErr
@@ -438,7 +458,8 @@ func (c *EthClient) PendingBalanceAt(ctx context.Context, account common.Address
 	defer cancel()
 
 	var result *big.Int
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "PendingBalanceAt"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "PendingBalanceAt")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.PendingBalanceAt(ctxWithTimeout, account)
 		return innerErr
@@ -456,7 +477,8 @@ func (c *EthClient) PendingStorageAt(
 	defer cancel()
 
 	var result []byte
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "PendingStorageAt"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "PendingStorageAt")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.PendingStorageAt(ctxWithTimeout, account, key)
 		return innerErr
@@ -470,7 +492,8 @@ func (c *EthClient) PendingCodeAt(ctx context.Context, account common.Address) (
 	defer cancel()
 
 	var result []byte
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "PendingCodeAt"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "PendingCodeAt")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.PendingCodeAt(ctxWithTimeout, account)
 		return innerErr
@@ -485,7 +508,8 @@ func (c *EthClient) PendingNonceAt(ctx context.Context, account common.Address) 
 	defer cancel()
 
 	var result uint64
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "PendingNonceAt"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "PendingNonceAt")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.PendingNonceAt(ctxWithTimeout, account)
 		return innerErr
@@ -499,7 +523,8 @@ func (c *EthClient) PendingTransactionCount(ctx context.Context) (uint, error) {
 	defer cancel()
 
 	var result uint
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "PendingTransactionCount"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "PendingTransactionCount")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.PendingTransactionCount(ctxWithTimeout)
 		return innerErr
@@ -522,7 +547,8 @@ func (c *EthClient) CallContract(
 	defer cancel()
 
 	var result []byte
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "CallContract"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "CallContract")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.CallContract(ctxWithTimeout, msg, blockNumber)
 		return innerErr
@@ -541,7 +567,8 @@ func (c *EthClient) CallContractAtHash(
 	defer cancel()
 
 	var result []byte
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "CallContractAtHash"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "CallContractAtHash")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.CallContractAtHash(ctxWithTimeout, msg, blockHash)
 		return innerErr
@@ -556,7 +583,8 @@ func (c *EthClient) PendingCallContract(ctx context.Context, msg ethereum.CallMs
 	defer cancel()
 
 	var result []byte
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "PendingCallContract"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "PendingCallContract")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.PendingCallContract(ctxWithTimeout, msg)
 		return innerErr
@@ -571,7 +599,8 @@ func (c *EthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	defer cancel()
 
 	var result *big.Int
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "SuggestGasPrice"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "SuggestGasPrice")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.SuggestGasPrice(ctxWithTimeout)
 		return innerErr
@@ -586,7 +615,8 @@ func (c *EthClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	defer cancel()
 
 	var result *big.Int
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "SuggestGasTipCap"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "SuggestGasTipCap")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.SuggestGasTipCap(ctxWithTimeout)
 		return innerErr
@@ -605,7 +635,8 @@ func (c *EthClient) FeeHistory(
 	defer cancel()
 
 	var result *ethereum.FeeHistory
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "FeeHistory"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "FeeHistory")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.FeeHistory(ctxWithTimeout, blockCount, lastBlock, rewardPercentiles)
 		return innerErr
@@ -622,7 +653,8 @@ func (c *EthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint
 	defer cancel()
 
 	var result uint64
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "EstimateGas"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "EstimateGas")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.ethClient.EstimateGas(ctxWithTimeout, msg)
 		return innerErr
@@ -638,7 +670,8 @@ func (c *EthClient) SendTransaction(ctx context.Context, tx *types.Transaction) 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "SendTransaction"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "SendTransaction")
+	return c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		return c.ethClient.SendTransaction(ctxWithTimeout, tx)
 	})
 }
@@ -682,9 +715,11 @@ func (c *EthClient) FillTransaction(ctx context.Context, args *TransactionArgs) 
 	defer cancel()
 
 	var result *types.Transaction
-	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "FillTransaction"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "FillTransaction")
+	err := c.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var signResult SignTransactionResult
-		err := c.CallContext(ctxWithTimeout, &signResult, GetRPCMethodName(c.metrics.GetClientType(), "FillTransaction"), *args)
+		fillTxMethodName := GetRPCMethodName(c.metrics.GetClientType(), "FillTransaction")
+		err := c.CallContext(ctxWithTimeout, &signResult, fillTxMethodName, *args)
 		if err != nil {
 			return err
 		}

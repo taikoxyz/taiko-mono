@@ -48,8 +48,9 @@ func (c *EngineClient) ForkchoiceUpdate(
 	defer cancel()
 
 	var result *engine.ForkChoiceResponse
-	err := c.metrics.TrackRequest(timeoutCtx, GetRPCMethodName(c.metrics.GetClientType(), "ForkchoiceUpdate"), func() error {
-		return c.Client.CallContext(timeoutCtx, &result, GetRPCMethodName(c.metrics.GetClientType(), "ForkchoiceUpdate"), fc, attributes)
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "ForkchoiceUpdate")
+	err := c.metrics.TrackRequest(timeoutCtx, methodName, func() error {
+		return c.Client.CallContext(timeoutCtx, &result, methodName, fc, attributes)
 	})
 	if err != nil {
 		return nil, err
@@ -67,8 +68,9 @@ func (c *EngineClient) NewPayload(
 	defer cancel()
 
 	var result *engine.PayloadStatusV1
-	err := c.metrics.TrackRequest(timeoutCtx, GetRPCMethodName(c.metrics.GetClientType(), "NewPayload"), func() error {
-		return c.Client.CallContext(timeoutCtx, &result, GetRPCMethodName(c.metrics.GetClientType(), "NewPayload"), payload)
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "NewPayload")
+	err := c.metrics.TrackRequest(timeoutCtx, methodName, func() error {
+		return c.Client.CallContext(timeoutCtx, &result, methodName, payload)
 	})
 	if err != nil {
 		return nil, err
@@ -86,8 +88,9 @@ func (c *EngineClient) GetPayload(
 	defer cancel()
 
 	var result *engine.ExecutionPayloadEnvelope
-	err := c.metrics.TrackRequest(timeoutCtx, GetRPCMethodName(c.metrics.GetClientType(), "GetPayload"), func() error {
-		return c.Client.CallContext(timeoutCtx, &result, GetRPCMethodName(c.metrics.GetClientType(), "GetPayload"), payloadID)
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "GetPayload")
+	err := c.metrics.TrackRequest(timeoutCtx, methodName, func() error {
+		return c.Client.CallContext(timeoutCtx, &result, methodName, payloadID)
 	})
 	if err != nil {
 		return nil, err
@@ -105,8 +108,9 @@ func (c *EngineClient) ExchangeTransitionConfiguration(
 	defer cancel()
 
 	var result *engine.TransitionConfigurationV1
-	err := c.metrics.TrackRequest(timeoutCtx, GetRPCMethodName(c.metrics.GetClientType(), "ExchangeTransitionConfiguration"), func() error {
-		return c.Client.CallContext(timeoutCtx, &result, GetRPCMethodName(c.metrics.GetClientType(), "ExchangeTransitionConfiguration"), cfg)
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "ExchangeTransitionConfiguration")
+	err := c.metrics.TrackRequest(timeoutCtx, methodName, func() error {
+		return c.Client.CallContext(timeoutCtx, &result, methodName, cfg)
 	})
 	if err != nil {
 		return nil, err
@@ -130,11 +134,12 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 	defer cancel()
 	var result []*miner.PreBuiltTxList
 
-	err := c.metrics.TrackRequest(timeoutCtx, GetRPCMethodName(c.metrics.GetClientType(), "TxPoolContentWithMinTip"), func() error {
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "TxPoolContentWithMinTip")
+	err := c.metrics.TrackRequest(timeoutCtx, methodName, func() error {
 		return c.CallContext(
 			timeoutCtx,
 			&result,
-			GetRPCMethodName(c.metrics.GetClientType(), "TxPoolContentWithMinTip"),
+			methodName,
 			beneficiary,
 			baseFee,
 			blockMaxGasLimit,
@@ -154,8 +159,9 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 func (c *EngineClient) UpdateL1Origin(ctx context.Context, l1Origin *rawdb.L1Origin) (*rawdb.L1Origin, error) {
 	var res *rawdb.L1Origin
 
-	err := c.metrics.TrackRequest(ctx, GetRPCMethodName(c.metrics.GetClientType(), "UpdateL1Origin"), func() error {
-		return c.CallContext(ctx, &res, GetRPCMethodName(c.metrics.GetClientType(), "UpdateL1Origin"), l1Origin)
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "UpdateL1Origin")
+	err := c.metrics.TrackRequest(ctx, methodName, func() error {
+		return c.CallContext(ctx, &res, methodName, l1Origin)
 	})
 	if err != nil {
 		return nil, err
@@ -172,8 +178,9 @@ func (c *EngineClient) SetL1OriginSignature(
 ) (*rawdb.L1Origin, error) {
 	var res *rawdb.L1Origin
 
-	err := c.metrics.TrackRequest(ctx, GetRPCMethodName(c.metrics.GetClientType(), "SetL1OriginSignature"), func() error {
-		return c.CallContext(ctx, &res, GetRPCMethodName(c.metrics.GetClientType(), "SetL1OriginSignature"), blockID, signature)
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "SetL1OriginSignature")
+	err := c.metrics.TrackRequest(ctx, methodName, func() error {
+		return c.CallContext(ctx, &res, methodName, blockID, signature)
 	})
 	if err != nil {
 		return nil, err
@@ -186,8 +193,9 @@ func (c *EngineClient) SetL1OriginSignature(
 func (c *EngineClient) SetHeadL1Origin(ctx context.Context, blockID *big.Int) (*big.Int, error) {
 	var res *big.Int
 
-	err := c.metrics.TrackRequest(ctx, GetRPCMethodName(c.metrics.GetClientType(), "SetHeadL1Origin"), func() error {
-		return c.CallContext(ctx, &res, GetRPCMethodName(c.metrics.GetClientType(), "SetHeadL1Origin"), blockID)
+	methodName := GetRPCMethodName(c.metrics.GetClientType(), "SetHeadL1Origin")
+	err := c.metrics.TrackRequest(ctx, methodName, func() error {
+		return c.CallContext(ctx, &res, methodName, blockID)
 	})
 	if err != nil {
 		return nil, err

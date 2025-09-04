@@ -526,7 +526,8 @@ func (c *Client) GetPoolContent(
 	}
 
 	var result []*miner.PreBuiltTxList
-	err = c.L2Engine.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("engine", "TxPoolContentWithMinTip"), func() error {
+	methodName := GetRPCMethodName("engine", "TxPoolContentWithMinTip")
+	err = c.L2Engine.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		var innerErr error
 		result, innerErr = c.L2Engine.TxPoolContentWithMinTip(
 			ctxWithTimeout,
@@ -673,13 +674,15 @@ func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		return c.L1.metrics.TrackRequest(opts.Context, GetRPCMethodName("taiko", "GetProtocolStateVariablesPacaya"), func() error {
+		methodName := GetRPCMethodName("taiko", "GetProtocolStateVariablesPacaya")
+		return c.L1.metrics.TrackRequest(opts.Context, methodName, func() error {
 			states.Stats1, err = c.PacayaClients.TaikoInbox.GetStats1(opts)
 			return err
 		})
 	})
 	g.Go(func() error {
-		return c.L1.metrics.TrackRequest(opts.Context, GetRPCMethodName("taiko", "GetProtocolStateVariablesPacaya"), func() error {
+		methodName := GetRPCMethodName("taiko", "GetProtocolStateVariablesPacaya")
+		return c.L1.metrics.TrackRequest(opts.Context, methodName, func() error {
 			states.Stats2, err = c.PacayaClients.TaikoInbox.GetStats2(opts)
 			return err
 		})
@@ -702,7 +705,8 @@ func (c *Client) GetLastVerifiedTransitionPacaya(ctx context.Context) (*struct {
 		BlockId uint64
 		Ts      pacayaBindings.ITaikoInboxTransitionState
 	}
-	err := c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "GetLastVerifiedTransitionPacaya"), func() error {
+	methodName := GetRPCMethodName("taiko", "GetLastVerifiedTransitionPacaya")
+	err := c.L1.metrics.TrackRequest(ctxWithTimeout, methodName, func() error {
 		t, innerErr := c.PacayaClients.TaikoInbox.GetLastVerifiedTransition(&bind.CallOpts{Context: ctxWithTimeout})
 		if innerErr != nil {
 			return innerErr
@@ -1130,7 +1134,8 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	defer cancel()
 
 	var result common.Address
-	err := c.L1.metrics.TrackRequest(opts.Context, GetRPCMethodName("taiko", "GetNextPreconfWhiteListOperator"), func() error {
+	methodName := GetRPCMethodName("taiko", "GetNextPreconfWhiteListOperator")
+	err := c.L1.metrics.TrackRequest(opts.Context, methodName, func() error {
 		proposer, innerErr := c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
 		if innerErr != nil {
 			return fmt.Errorf("failed to get preconfirmation whitelist operator: %w", innerErr)

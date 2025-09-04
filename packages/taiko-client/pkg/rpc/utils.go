@@ -21,8 +21,8 @@ import (
 var (
 	ZeroAddress         common.Address
 	BlockMaxTxListBytes uint64 = (params.BlobTxBytesPerFieldElement - 1) * params.BlobTxFieldElementsPerBlob
-	ErrInvalidLength = errors.New("invalid length")
-	ErrSlotBMarshal  = errors.New("abi: cannot marshal in to go type: length insufficient 160 require 192")
+	ErrInvalidLength           = errors.New("invalid length")
+	ErrSlotBMarshal            = errors.New("abi: cannot marshal in to go type: length insufficient 160 require 192")
 )
 
 // CheckProverBalance checks if the prover has the necessary allowance and
@@ -206,4 +206,3 @@ func CtxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) 
 
 	return ctx, func() {}
 }
-
