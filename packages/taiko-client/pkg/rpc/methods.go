@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
@@ -43,12 +44,16 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	configs, err := c.PacayaClients.TaikoInbox.PacayaConfig(opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return config.NewPacayaProtocolConfigs(&configs), nil
+	var result config.ProtocolConfigs
+	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getProtocolConfigs", func() error {
+		configs, innerErr := c.PacayaClients.TaikoInbox.PacayaConfig(opts)
+		if innerErr != nil {
+			return innerErr
+		}
+		result = config.NewPacayaProtocolConfigs(&configs)
+		return nil
+	})
+	return result, err
 }
 
 // ensureGenesisMatched fetches the L2 genesis block from TaikoInbox contract,
@@ -57,7 +62,15 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
+	var stateVars *struct {
+		Stats1 pacayaBindings.ITaikoInboxStats1
+		Stats2 pacayaBindings.ITaikoInboxStats2
+	}
+	err := c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getProtocolStateVariables", func() error {
+		var innerErr error
+		stateVars, innerErr = c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
+		return innerErr
+	})
 	if err != nil {
 		return err
 	}
@@ -65,7 +78,12 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 	genesisHeight := stateVars.Stats1.GenesisHeight
 
 	// Fetch the node's genesis block.
-	nodeGenesis, err := c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
+	var nodeGenesis *types.Header
+	err = c.L2.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+		var innerErr error
+		nodeGenesis, innerErr = c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
+		return innerErr
+	})
 	if err != nil {
 		return err
 	}
@@ -77,7 +95,12 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 		filterOpts    = &bind.FilterOpts{Start: genesisHeight, End: &genesisHeight, Context: ctxWithTimeout}
 	)
 
-	protocolConfigs, err := c.GetProtocolConfigs(&bind.CallOpts{Context: ctxWithTimeout})
+	var protocolConfigs config.ProtocolConfigs
+	err = c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getProtocolConfigs", func() error {
+		var innerErr error
+		protocolConfigs, innerErr = c.GetProtocolConfigs(&bind.CallOpts{Context: ctxWithTimeout})
+		return innerErr
+	})
 	if err != nil {
 		return err
 	}
@@ -153,24 +176,29 @@ func (c *Client) filterGenesisBlockVerifiedV2(
 	ops *bind.FilterOpts,
 	taikoInbox common.Address,
 ) (common.Hash, error) {
-	client, err := ontakeBindings.NewTaikoL1Client(taikoInbox, c.L1)
-	if err != nil {
-		return common.Hash{}, fmt.Errorf("failed to create legacy TaikoL1 client: %w", err)
-	}
+	var result common.Hash
+	err := c.L1.metrics.TrackRequest(ctx, "taiko_filterGenesisBlockVerifiedV2", func() error {
+		client, innerErr := ontakeBindings.NewTaikoL1Client(taikoInbox, c.L1)
+		if innerErr != nil {
+			return fmt.Errorf("failed to create legacy TaikoL1 client: %w", innerErr)
+		}
 
-	// Fetch the genesis `BlockVerifiedV2` event.
-	iter, err := client.FilterBlockVerifiedV2(ops, []*big.Int{common.Big0}, nil)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	if iter.Next() {
-		return iter.Event.BlockHash, nil
-	}
-	if iter.Error() != nil {
-		return common.Hash{}, iter.Error()
-	}
+		// Fetch the genesis `BlockVerifiedV2` event.
+		iter, innerErr := client.FilterBlockVerifiedV2(ops, []*big.Int{common.Big0}, nil)
+		if innerErr != nil {
+			return innerErr
+		}
+		if iter.Next() {
+			result = iter.Event.BlockHash
+			return nil
+		}
+		if iter.Error() != nil {
+			return iter.Error()
+		}
 
-	return common.Hash{}, fmt.Errorf("failed to find genesis block verified V2 event")
+		return fmt.Errorf("failed to find genesis block verified V2 event")
+	})
+	return result, err
 }
 
 // filterGenesisBlockVerified fetches the genesis block verified
@@ -180,24 +208,29 @@ func (c *Client) filterGenesisBlockVerified(
 	ops *bind.FilterOpts,
 	taikoInbox common.Address,
 ) (common.Hash, error) {
-	client, err := ontakeBindings.NewTaikoL1Client(taikoInbox, c.L1)
-	if err != nil {
-		return common.Hash{}, fmt.Errorf("failed to create legacy TaikoL1 client: %w", err)
-	}
+	var result common.Hash
+	err := c.L1.metrics.TrackRequest(ctx, "taiko_filterGenesisBlockVerified", func() error {
+		client, innerErr := ontakeBindings.NewTaikoL1Client(taikoInbox, c.L1)
+		if innerErr != nil {
+			return fmt.Errorf("failed to create legacy TaikoL1 client: %w", innerErr)
+		}
 
-	// Fetch the genesis `BlockVerified` event.
-	iter, err := client.FilterBlockVerified(ops, []*big.Int{common.Big0}, nil)
-	if err != nil {
-		return common.Hash{}, err
-	}
-	if iter.Next() {
-		return iter.Event.BlockHash, nil
-	}
-	if iter.Error() != nil {
-		return common.Hash{}, iter.Error()
-	}
+		// Fetch the genesis `BlockVerified` event.
+		iter, innerErr := client.FilterBlockVerified(ops, []*big.Int{common.Big0}, nil)
+		if innerErr != nil {
+			return innerErr
+		}
+		if iter.Next() {
+			result = iter.Event.BlockHash
+			return nil
+		}
+		if iter.Error() != nil {
+			return iter.Error()
+		}
 
-	return common.Hash{}, fmt.Errorf("failed to find genesis block verified event")
+		return fmt.Errorf("failed to find genesis block verified event")
+	})
+	return result, err
 }
 
 // WaitTillL2ExecutionEngineSynced keeps waiting until the L2 execution engine is fully synced.
@@ -208,7 +241,12 @@ func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
 		func() error {
 			newCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 			defer cancel()
-			progress, err := c.L2ExecutionEngineSyncProgress(newCtx)
+			var progress *L2SyncProgress
+			err := c.L2.metrics.TrackRequest(newCtx, "taiko_l2ExecutionEngineSyncProgress", func() error {
+				var innerErr error
+				progress, innerErr = c.L2ExecutionEngineSyncProgress(newCtx)
+				return innerErr
+			})
 			if err != nil {
 				log.Error("Fetch L2 execution engine sync progress error", "error", err)
 				return err
@@ -238,7 +276,12 @@ func (c *Client) LatestL2KnownL1Header(ctx context.Context) (*types.Header, erro
 	defer cancel()
 
 	// Try to fetch the latest known L1 header from the L2 execution engine.
-	headL1Origin, err := c.L2.HeadL1Origin(ctxWithTimeout)
+	var headL1Origin *rawdb.L1Origin
+	err := c.L2.metrics.TrackRequest(ctxWithTimeout, "taiko_headL1Origin", func() error {
+		var innerErr error
+		headL1Origin, innerErr = c.L2.HeadL1Origin(ctxWithTimeout)
+		return innerErr
+	})
 	if err != nil {
 		switch err.Error() {
 		case ethereum.NotFound.Error():
@@ -253,7 +296,12 @@ func (c *Client) LatestL2KnownL1Header(ctx context.Context) (*types.Header, erro
 	}
 
 	// Fetch the L1 header from the L1 chain.
-	header, err := c.L1.HeaderByHash(ctxWithTimeout, headL1Origin.L1BlockHash)
+	var header *types.Header
+	err = c.L1.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByHash", func() error {
+		var innerErr error
+		header, innerErr = c.L1.HeaderByHash(ctxWithTimeout, headL1Origin.L1BlockHash)
+		return innerErr
+	})
 	if err != nil {
 		switch err.Error() {
 		case ethereum.NotFound.Error():
@@ -274,12 +322,17 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return nil, err
-	}
+	var result *types.Header
+	err := c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getGenesisL1Header", func() error {
+		stateVars, innerErr := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
+		if innerErr != nil {
+			return innerErr
+		}
 
-	return c.L1.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight))
+		result, innerErr = c.L1.HeaderByNumber(ctxWithTimeout, new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight))
+		return innerErr
+	})
+	return result, err
 }
 
 // GetBatchByID fetches the batch by ID from the Pacaya protocol.
@@ -287,12 +340,16 @@ func (c *Client) GetBatchByID(ctx context.Context, batchID *big.Int) (*pacayaBin
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, batchID.Uint64())
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
-	}
-
-	return &batch, nil
+	var result *pacayaBindings.ITaikoInboxBatch
+	err := c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getBatchByID", func() error {
+		batch, innerErr := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, batchID.Uint64())
+		if innerErr != nil {
+			return fmt.Errorf("failed to fetch batch by ID: %w", innerErr)
+		}
+		result = &batch
+		return nil
+	})
+	return result, err
 }
 
 // L2ParentByCurrentBlockID fetches the block header from L2 execution engine with the largest block id that
@@ -309,10 +366,21 @@ func (c *Client) L2ParentByCurrentBlockID(ctx context.Context, blockID *big.Int)
 	log.Debug("Get parent block by block ID", "parentBlockID", parentBlockID)
 
 	if parentBlockID.Cmp(common.Big0) == 0 {
-		return c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
+		var result *types.Header
+		err := c.L2.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+			var innerErr error
+			result, innerErr = c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
+			return innerErr
+		})
+		return result, err
 	}
 
-	l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, parentBlockID)
+	var l1Origin *rawdb.L1Origin
+	err := c.L2.metrics.TrackRequest(ctxWithTimeout, "taiko_l1OriginByID", func() error {
+		var innerErr error
+		l1Origin, innerErr = c.L2.L1OriginByID(ctxWithTimeout, parentBlockID)
+		return innerErr
+	})
 	if err != nil {
 		if err.Error() != ethereum.NotFound.Error() {
 			return nil, err
@@ -322,7 +390,12 @@ func (c *Client) L2ParentByCurrentBlockID(ctx context.Context, blockID *big.Int)
 		// by the parent block ID.
 		log.Warn("L1Origin not found, try to fetch parent by ID", "blockID", parentBlockID)
 
-		parent, err := c.L2.BlockByNumber(ctxWithTimeout, parentBlockID)
+		var parent *types.Block
+		err = c.L2.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+			var innerErr error
+			parent, innerErr = c.L2.BlockByNumber(ctxWithTimeout, parentBlockID)
+			return innerErr
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -334,7 +407,13 @@ func (c *Client) L2ParentByCurrentBlockID(ctx context.Context, blockID *big.Int)
 
 	log.Debug("Parent block L1 origin", "l1Origin", l1Origin, "parentBlockID", parentBlockID)
 
-	return c.L2.HeaderByHash(ctxWithTimeout, parentHash)
+	var result *types.Header
+	err = c.L2.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByHash", func() error {
+		var innerErr error
+		result, innerErr = c.L2.HeaderByHash(ctxWithTimeout, parentHash)
+		return innerErr
+	})
+	return result, err
 }
 
 // WaitL2Header keeps waiting for the L2 block header of the given block ID.
@@ -361,7 +440,11 @@ func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Hea
 			return nil, ctxWithTimeout.Err()
 		}
 
-		header, err = c.L2.HeaderByNumber(ctxWithTimeout, blockID)
+		err = c.L2.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+			var innerErr error
+			header, innerErr = c.L2.HeaderByNumber(ctxWithTimeout, blockID)
+			return innerErr
+		})
 		if err != nil {
 			log.Debug(
 				"Fetch block header from L2 execution engine not found, keep retrying",
@@ -393,7 +476,11 @@ func (c *Client) CalculateBaseFee(
 		err     error
 	)
 
-	if baseFee, err = c.calculateBaseFeePacaya(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
+	err = c.L2.metrics.TrackRequest(ctx, "taiko_calculateBaseFeePacaya", func() error {
+		baseFee, err = c.calculateBaseFeePacaya(ctx, l2Head, currentTimestamp, baseFeeConfig)
+		return err
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -418,7 +505,12 @@ func (c *Client) GetPoolContent(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	l2Head, err := c.L2.HeaderByNumber(ctx, nil)
+	var l2Head *types.Header
+	err := c.L2.metrics.TrackRequest(ctx, "eth_getBlockByNumber", func() error {
+		var innerErr error
+		l2Head, innerErr = c.L2.HeaderByNumber(ctx, nil)
+		return innerErr
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -433,16 +525,22 @@ func (c *Client) GetPoolContent(
 		localsArg = append(localsArg, local.Hex())
 	}
 
-	return c.L2Engine.TxPoolContentWithMinTip(
-		ctxWithTimeout,
-		beneficiary,
-		baseFee,
-		uint64(blockMaxGasLimit),
-		maxBytesPerTxList,
-		localsArg,
-		maxTransactionsLists,
-		minTip,
-	)
+	var result []*miner.PreBuiltTxList
+	err = c.L2Engine.metrics.TrackRequest(ctxWithTimeout, "taikoAuth_txPoolContentWithMinTip", func() error {
+		var innerErr error
+		result, innerErr = c.L2Engine.TxPoolContentWithMinTip(
+			ctxWithTimeout,
+			beneficiary,
+			baseFee,
+			uint64(blockMaxGasLimit),
+			maxBytesPerTxList,
+			localsArg,
+			maxTransactionsLists,
+			minTip,
+		)
+		return innerErr
+	})
+	return result, err
 }
 
 // L2AccountNonce fetches the nonce of the given L2 account at a specified height.
@@ -455,13 +553,16 @@ func (c *Client) L2AccountNonce(
 	defer cancel()
 
 	var result hexutil.Uint64
-	return uint64(result), c.L2.CallContext(
-		ctxWithTimeout,
-		&result,
-		"eth_getTransactionCount",
-		account,
-		rpc.BlockNumberOrHashWithHash(blockHash, false),
-	)
+	err := c.L2.metrics.TrackRequest(ctxWithTimeout, "eth_getTransactionCount", func() error {
+		return c.L2.CallContext(
+			ctxWithTimeout,
+			&result,
+			"eth_getTransactionCount",
+			account,
+			rpc.BlockNumberOrHashWithHash(blockHash, false),
+		)
+	})
+	return uint64(result), err
 }
 
 // L2SyncProgress represents the sync progress of a L2 execution engine, `ethereum.SyncProgress` is used to check
@@ -497,40 +598,45 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 	g, ctx := errgroup.WithContext(ctxWithTimeout)
 
 	g.Go(func() error {
-		progress.SyncProgress, err = c.L2.SyncProgress(ctx)
-		return err
+		return c.L2.metrics.TrackRequest(ctx, "eth_syncing", func() error {
+			progress.SyncProgress, err = c.L2.SyncProgress(ctx)
+			return err
+		})
 	})
 	g.Go(func() error {
-		// Try get the highest block ID from the Pacaya protocol state variables.
-		stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
-		if err != nil {
-			return err
-		}
-
-		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
-		if err != nil {
-			return err
-		}
-
-		progress.HighestOriginBlockID = new(big.Int).SetUint64(batch.LastBlockId)
-
-		return nil
-	})
-	g.Go(func() error {
-		headL1Origin, err := c.L2.HeadL1Origin(ctx)
-		if err != nil {
-			switch err.Error() {
-			case ethereum.NotFound.Error():
-				// There is only genesis block in the L2 execution engine, or it has not started
-				// syncing the pending blocks yet.
-				progress.CurrentBlockID = common.Big0
-				return nil
-			default:
-				return err
+		return c.L1.metrics.TrackRequest(ctx, "taiko_getHighestOriginBlockID", func() error {
+			// Try get the highest block ID from the Pacaya protocol state variables.
+			stateVars, innerErr := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+			if innerErr != nil {
+				return innerErr
 			}
-		}
-		progress.CurrentBlockID = headL1Origin.BlockID
-		return nil
+
+			batch, innerErr := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
+			if innerErr != nil {
+				return innerErr
+			}
+
+			progress.HighestOriginBlockID = new(big.Int).SetUint64(batch.LastBlockId)
+			return nil
+		})
+	})
+	g.Go(func() error {
+		return c.L2.metrics.TrackRequest(ctx, "taiko_headL1Origin", func() error {
+			headL1Origin, innerErr := c.L2.HeadL1Origin(ctx)
+			if innerErr != nil {
+				switch innerErr.Error() {
+				case ethereum.NotFound.Error():
+					// There is only genesis block in the L2 execution engine, or it has not started
+					// syncing the pending blocks yet.
+					progress.CurrentBlockID = common.Big0
+					return nil
+				default:
+					return innerErr
+				}
+			}
+			progress.CurrentBlockID = headL1Origin.BlockID
+			return nil
+		})
 	})
 
 	if err := g.Wait(); err != nil {
@@ -567,12 +673,16 @@ func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		states.Stats1, err = c.PacayaClients.TaikoInbox.GetStats1(opts)
-		return err
+		return c.L1.metrics.TrackRequest(opts.Context, "taiko_getStats1", func() error {
+			states.Stats1, err = c.PacayaClients.TaikoInbox.GetStats1(opts)
+			return err
+		})
 	})
 	g.Go(func() error {
-		states.Stats2, err = c.PacayaClients.TaikoInbox.GetStats2(opts)
-		return err
+		return c.L1.metrics.TrackRequest(opts.Context, "taiko_getStats2", func() error {
+			states.Stats2, err = c.PacayaClients.TaikoInbox.GetStats2(opts)
+			return err
+		})
 	})
 
 	return states, g.Wait()
@@ -587,12 +697,20 @@ func (c *Client) GetLastVerifiedTransitionPacaya(ctx context.Context) (*struct {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	t, err := c.PacayaClients.TaikoInbox.GetLastVerifiedTransition(&bind.CallOpts{Context: ctxWithTimeout})
-	if err != nil {
-		return nil, err
+	var result *struct {
+		BatchId uint64
+		BlockId uint64
+		Ts      pacayaBindings.ITaikoInboxTransitionState
 	}
-
-	return &t, nil
+	err := c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getLastVerifiedTransition", func() error {
+		t, innerErr := c.PacayaClients.TaikoInbox.GetLastVerifiedTransition(&bind.CallOpts{Context: ctxWithTimeout})
+		if innerErr != nil {
+			return innerErr
+		}
+		result = &t
+		return nil
+	})
+	return result, err
 }
 
 // ReorgCheckResult represents the information about whether the L1 block has been reorged
@@ -630,25 +748,45 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that batch, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
 		if batchID.Cmp(common.Big0) == 0 {
-			genesisHeight, err := c.getGenesisHeight(ctxWithTimeout)
+			var genesisHeight *big.Int
+			err := c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getGenesisHeight", func() error {
+				var innerErr error
+				genesisHeight, innerErr = c.getGenesisHeight(ctxWithTimeout)
+				return innerErr
+			})
 			if err != nil {
 				return nil, err
 			}
 
 			result.IsReorged = true
-			if result.L1CurrentToReset, err = c.L1.HeaderByNumber(ctxWithTimeout, genesisHeight); err != nil {
+			err = c.L1.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+				var innerErr error
+				result.L1CurrentToReset, innerErr = c.L1.HeaderByNumber(ctxWithTimeout, genesisHeight)
+				return innerErr
+			})
+			if err != nil {
 				return nil, err
 			}
 
 			return result, nil
 		}
 
-		batch, err := c.GetBatchByID(ctxWithTimeout, batchID)
+		var batch *pacayaBindings.ITaikoInboxBatch
+		err := c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getBatchByID", func() error {
+			var innerErr error
+			batch, innerErr = c.GetBatchByID(ctxWithTimeout, batchID)
+			return innerErr
+		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch batch (%d) by ID: %w", batchID, err)
 		}
 		// 1. Check whether the last L2 block's corresponding L1 block which in L1Origin has been reorged.
-		l1Origin, err := c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId))
+		var l1Origin *rawdb.L1Origin
+		err = c.L2.metrics.TrackRequest(ctxWithTimeout, "taiko_l1OriginByID", func() error {
+			var innerErr error
+			l1Origin, innerErr = c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId))
+			return innerErr
+		})
 		if err != nil {
 			// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
 			// its local database, we skip this check.
@@ -661,7 +799,12 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 		}
 
 		// Compare the L1 header hash in the L1Origin with the current L1 header hash in the L1 chain.
-		l1Header, err := c.L1.HeaderByNumber(ctxWithTimeout, l1Origin.L1BlockHeight)
+		var l1Header *types.Header
+		err = c.L1.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+			var innerErr error
+			l1Header, innerErr = c.L1.HeaderByNumber(ctxWithTimeout, l1Origin.L1BlockHeight)
+			return innerErr
+		})
 		if err != nil {
 			// We can not find the L1 header which in the L1Origin, which means that L1 block has been reorged.
 			if err.Error() == ethereum.NotFound.Error() {
@@ -723,12 +866,22 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	l1Height uint64,
 ) (bool, error) {
 	log.Debug("Check synced L1 snippet from anchor", "blockID", blockID, "l1Height", l1Height)
-	block, err := c.L2.BlockByNumber(ctx, blockID)
+	var block *types.Block
+	err := c.L2.metrics.TrackRequest(ctx, "eth_getBlockByNumber", func() error {
+		var innerErr error
+		block, innerErr = c.L2.BlockByNumber(ctx, blockID)
+		return innerErr
+	})
 	if err != nil {
 		log.Error("Failed to fetch L2 block", "blockID", blockID, "error", err)
 		return false, err
 	}
-	parent, err := c.L2.BlockByHash(ctx, block.ParentHash())
+	var parent *types.Block
+	err = c.L2.metrics.TrackRequest(ctx, "eth_getBlockByHash", func() error {
+		var innerErr error
+		parent, innerErr = c.L2.BlockByHash(ctx, block.ParentHash())
+		return innerErr
+	})
 	if err != nil {
 		log.Error("Failed to fetch L2 parent block", "blockID", blockID, "parentHash", block.ParentHash(), "error", err)
 		return false, err
@@ -752,7 +905,12 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		return true, nil
 	}
 
-	l1Header, err := c.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(l1HeightInAnchor))
+	var l1Header *types.Header
+	err = c.L1.metrics.TrackRequest(ctx, "eth_getBlockByNumber", func() error {
+		var innerErr error
+		l1Header, innerErr = c.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(l1HeightInAnchor))
+		return innerErr
+	})
 	if err != nil {
 		log.Error("Failed to fetch L1 header", "blockID", blockID, "error", err)
 		return false, err
@@ -867,14 +1025,26 @@ func (c *Client) calculateBaseFeePacaya(
 		"baseFeeConfig", baseFeeConfig,
 	)
 
-	baseFeeInfo, err := c.PacayaClients.TaikoAnchor.GetBasefeeV2(
-		&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx},
-		uint32(l2Head.GasUsed),
-		currentTimestamp,
-		*baseFeeConfig,
-	)
+	var baseFeeInfo struct {
+		Basefee      *big.Int
+		NewGasTarget uint64
+		NewGasExcess uint64
+	}
+	err := c.L2.metrics.TrackRequest(ctx, "taiko_getBasefeeV2", func() error {
+		var innerErr error
+		baseFeeInfo, innerErr = c.PacayaClients.TaikoAnchor.GetBasefeeV2(
+			&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx},
+			uint32(l2Head.GasUsed),
+			currentTimestamp,
+			*baseFeeConfig,
+		)
+		if innerErr != nil {
+			return fmt.Errorf("failed to calculate pacaya block base fee by GetBasefeeV2: %w", innerErr)
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to calculate pacaya block base fee by GetBasefeeV2: %w", err)
+		return nil, err
 	}
 
 	return baseFeeInfo.Basefee, nil
@@ -882,12 +1052,16 @@ func (c *Client) calculateBaseFeePacaya(
 
 // getGenesisHeight fetches the genesis height from the protocol.
 func (c *Client) getGenesisHeight(ctx context.Context) (*big.Int, error) {
-	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, err
-	}
-
-	return new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight), nil
+	var result *big.Int
+	err := c.L1.metrics.TrackRequest(ctx, "taiko_getGenesisHeight", func() error {
+		stateVars, innerErr := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
+		if innerErr != nil {
+			return innerErr
+		}
+		result = new(big.Int).SetUint64(stateVars.Stats1.GenesisHeight)
+		return nil
+	})
+	return result, err
 }
 
 // GetProofVerifierPacaya resolves the Pacaya proof verifier address.
@@ -899,7 +1073,13 @@ func (c *Client) GetProofVerifierPacaya(opts *bind.CallOpts) (common.Address, er
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	return c.PacayaClients.TaikoInbox.Verifier(opts)
+	var result common.Address
+	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getVerifier", func() error {
+		var innerErr error
+		result, innerErr = c.PacayaClients.TaikoInbox.Verifier(opts)
+		return innerErr
+	})
+	return result, err
 }
 
 // GetPreconfWhiteListOperator resolves the current preconfirmation whitelist operator address.
@@ -915,17 +1095,25 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	proposer, err := c.PacayaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
+	var result common.Address
+	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getPreconfWhiteListOperator", func() error {
+		proposer, innerErr := c.PacayaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
+		if innerErr != nil {
+			return fmt.Errorf("failed to get preconfirmation whitelist operator: %w", innerErr)
+		}
+
+		opInfo, innerErr := c.PacayaClients.PreconfWhitelist.Operators(opts, proposer)
+		if innerErr != nil {
+			return fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", innerErr)
+		}
+		result = opInfo.SequencerAddress
+		return nil
+	})
 	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator: %w", err)
+		return common.Address{}, err
 	}
 
-	opInfo, err := c.PacayaClients.PreconfWhitelist.Operators(opts, proposer)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
-	}
-
-	return opInfo.SequencerAddress, nil
+	return result, nil
 }
 
 // GetNextPreconfWhiteListOperator resolves the next preconfirmation whitelist operator address.
@@ -941,17 +1129,25 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	proposer, err := c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
+	var result common.Address
+	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getNextPreconfWhiteListOperator", func() error {
+		proposer, innerErr := c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
+		if innerErr != nil {
+			return fmt.Errorf("failed to get preconfirmation whitelist operator: %w", innerErr)
+		}
+
+		opInfo, innerErr := c.PacayaClients.PreconfWhitelist.Operators(opts, proposer)
+		if innerErr != nil {
+			return fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", innerErr)
+		}
+		result = opInfo.SequencerAddress
+		return nil
+	})
 	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator: %w", err)
+		return common.Address{}, err
 	}
 
-	opInfo, err := c.PacayaClients.PreconfWhitelist.Operators(opts, proposer)
-	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to get preconfirmation whitelist operator info: %w", err)
-	}
-
-	return opInfo.SequencerAddress, nil
+	return result, nil
 }
 
 // GetAllPreconfOperators fetch all possible preconfirmation operators added to the whitelist contract,
@@ -968,21 +1164,25 @@ func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, 
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	count, err := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get total preconfirmation whitelist operators: %w", err)
-	}
-
-	var operators []common.Address
-	for i := uint8(0); i < count; i++ {
-		operator, err := c.PacayaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
-		if err != nil {
-			return nil, fmt.Errorf("failed to get preconfirmation whitelist operator by index %d: %w", i, err)
+	var result []common.Address
+	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getAllPreconfOperators", func() error {
+		count, innerErr := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
+		if innerErr != nil {
+			return fmt.Errorf("failed to get total preconfirmation whitelist operators: %w", innerErr)
 		}
-		operators = append(operators, operator)
-	}
 
-	return operators, nil
+		var operators []common.Address
+		for i := uint8(0); i < count; i++ {
+			operator, innerErr := c.PacayaClients.PreconfWhitelist.OperatorMapping(opts, big.NewInt(int64(i)))
+			if innerErr != nil {
+				return fmt.Errorf("failed to get preconfirmation whitelist operator by index %d: %w", i, innerErr)
+			}
+			operators = append(operators, operator)
+		}
+		result = operators
+		return nil
+	})
+	return result, err
 }
 
 // GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address.
@@ -1002,12 +1202,16 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		head, err = c.PacayaClients.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
-		return err
+		return c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_forcedInclusionHead", func() error {
+			head, err = c.PacayaClients.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
+			return err
+		})
 	})
 	g.Go(func() error {
-		tail, err = c.PacayaClients.ForcedInclusionStore.Tail(&bind.CallOpts{Context: ctxWithTimeout})
-		return err
+		return c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_forcedInclusionTail", func() error {
+			tail, err = c.PacayaClients.ForcedInclusionStore.Tail(&bind.CallOpts{Context: ctxWithTimeout})
+			return err
+		})
 	})
 	if err := g.Wait(); err != nil {
 		return nil, nil, encoding.TryParsingCustomError(err)
@@ -1018,12 +1222,20 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 		return nil, nil, nil
 	}
 
-	forcedInclusion, err := c.PacayaClients.ForcedInclusionStore.GetForcedInclusion(
-		&bind.CallOpts{Context: ctxWithTimeout},
-		new(big.Int).SetUint64(head),
-	)
+	var forcedInclusion pacayaBindings.IForcedInclusionStoreForcedInclusion
+	err = c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getForcedInclusion", func() error {
+		var innerErr error
+		forcedInclusion, innerErr = c.PacayaClients.ForcedInclusionStore.GetForcedInclusion(
+			&bind.CallOpts{Context: ctxWithTimeout},
+			new(big.Int).SetUint64(head),
+		)
+		if innerErr != nil {
+			return encoding.TryParsingCustomError(innerErr)
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, nil, encoding.TryParsingCustomError(err)
+		return nil, nil, err
 	}
 
 	// If there is an empty forced inclusion, we will return nil.
@@ -1031,11 +1243,19 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 		return nil, nil, nil
 	}
 
-	minTxsPerForcedInclusion, err := c.PacayaClients.TaikoWrapper.MINTXSPERFORCEDINCLUSION(
-		&bind.CallOpts{Context: ctxWithTimeout},
-	)
+	var minTxsPerForcedInclusion uint16
+	err = c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getMinTxsPerForcedInclusion", func() error {
+		var innerErr error
+		minTxsPerForcedInclusion, innerErr = c.PacayaClients.TaikoWrapper.MINTXSPERFORCEDINCLUSION(
+			&bind.CallOpts{Context: ctxWithTimeout},
+		)
+		if innerErr != nil {
+			return encoding.TryParsingCustomError(innerErr)
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, nil, encoding.TryParsingCustomError(err)
+		return nil, nil, err
 	}
 
 	return &forcedInclusion, new(big.Int).SetUint64(uint64(minTxsPerForcedInclusion)), nil
@@ -1108,11 +1328,16 @@ func (c *Client) GetPreconfRouterConfig(opts *bind.CallOpts) (*pacayaBindings.IP
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	routerConfig, err := c.PacayaClients.PreconfRouter.GetConfig(opts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get the PreconfRouter config: %w", err)
-	}
-	return &routerConfig, nil
+	var result *pacayaBindings.IPreconfRouterConfig
+	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getPreconfRouterConfig", func() error {
+		routerConfig, innerErr := c.PacayaClients.PreconfRouter.GetConfig(opts)
+		if innerErr != nil {
+			return fmt.Errorf("failed to get the PreconfRouter config: %w", innerErr)
+		}
+		result = &routerConfig
+		return nil
+	})
+	return result, err
 }
 
 // getImmutableAddressPacaya resolves the Pacaya contract address.
@@ -1132,5 +1357,11 @@ func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, erro
 	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
 	defer cancel()
 
-	return resolveFunc(opts)
+	var result common.Address
+	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getImmutableAddress", func() error {
+		var innerErr error
+		result, innerErr = resolveFunc(opts)
+		return innerErr
+	})
+	return result, err
 }

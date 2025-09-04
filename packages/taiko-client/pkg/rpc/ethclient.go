@@ -39,10 +39,16 @@ type EthClient struct {
 	*ethClient
 
 	timeout time.Duration
+	metrics *RPCMetrics
 }
 
 // NewEthClient creates a new EthClient instance.
 func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthClient, error) {
+	return NewEthClientWithType(ctx, url, timeout, "eth")
+}
+
+// NewEthClientWithType creates a new EthClient instance with a specific client type for metrics.
+func NewEthClientWithType(ctx context.Context, url string, timeout time.Duration, clientType string) (*EthClient, error) {
 	var timeoutVal = defaultTimeout
 	if timeout != 0 {
 		timeoutVal = timeout
@@ -66,6 +72,7 @@ func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthC
 		gethClient: &gethClient{gethclient.New(client)},
 		ethClient:  ethClient,
 		timeout:    timeoutVal,
+		metrics:    NewRPCMetrics(clientType),
 	}, nil
 }
 
@@ -81,7 +88,13 @@ func (c *EthClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.B
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.BlockByHash(ctxWithTimeout, hash)
+	var result *types.Block
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByHash", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.BlockByHash(ctxWithTimeout, hash)
+		return innerErr
+	})
+	return result, err
 }
 
 // BatchBlocksByHashes requests multiple blocks by their hashes in a batch.
@@ -92,25 +105,28 @@ func (c *EthClient) BatchBlocksByHashes(ctx context.Context, hashes []common.Has
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	reqs := make([]rpc.BatchElem, len(hashes))
-	results := make([]*types.Block, len(hashes))
-	for i, hash := range hashes {
-		reqs[i] = rpc.BatchElem{
-			Method: "eth_getBlockByHash",
-			Args:   []interface{}{hash, true},
-			Result: &results[i],
+	var results []*types.Block
+	err := c.metrics.TrackRequest(ctxWithTimeout, "batch_getBlockByHash", func() error {
+		reqs := make([]rpc.BatchElem, len(hashes))
+		results = make([]*types.Block, len(hashes))
+		for i, hash := range hashes {
+			reqs[i] = rpc.BatchElem{
+				Method: "eth_getBlockByHash",
+				Args:   []interface{}{hash, true},
+				Result: &results[i],
+			}
 		}
-	}
-	if err := c.BatchCallContext(ctxWithTimeout, reqs); err != nil {
-		return nil, err
-	}
-	for i := range reqs {
-		if reqs[i].Error != nil {
-			return nil, reqs[i].Error
+		if err := c.BatchCallContext(ctxWithTimeout, reqs); err != nil {
+			return err
 		}
-	}
-
-	return results, nil
+		for i := range reqs {
+			if reqs[i].Error != nil {
+				return reqs[i].Error
+			}
+		}
+		return nil
+	})
+	return results, err
 }
 
 // BlockByNumber returns a block from the current canonical chain. If number is nil, the
@@ -122,7 +138,13 @@ func (c *EthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.BlockByNumber(ctxWithTimeout, number)
+	var result *types.Block
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.BlockByNumber(ctxWithTimeout, number)
+		return innerErr
+	})
+	return result, err
 }
 
 // BlockNumber returns the most recent block number
@@ -130,7 +152,13 @@ func (c *EthClient) BlockNumber(ctx context.Context) (uint64, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.BlockNumber(ctxWithTimeout)
+	var result uint64
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_blockNumber", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.BlockNumber(ctxWithTimeout)
+		return innerErr
+	})
+	return result, err
 }
 
 // PeerCount returns the number of p2p peers as reported by the net_peerCount method.
@@ -138,7 +166,13 @@ func (c *EthClient) PeerCount(ctx context.Context) (uint64, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PeerCount(ctxWithTimeout)
+	var result uint64
+	err := c.metrics.TrackRequest(ctxWithTimeout, "net_peerCount", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.PeerCount(ctxWithTimeout)
+		return innerErr
+	})
+	return result, err
 }
 
 // HeaderByHash returns the block header with the given hash.
@@ -146,7 +180,13 @@ func (c *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.HeaderByHash(ctxWithTimeout, hash)
+	var result *types.Header
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByHash", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.HeaderByHash(ctxWithTimeout, hash)
+		return innerErr
+	})
+	return result, err
 }
 
 // HeaderByNumber returns a block header from the current canonical chain. If number is
@@ -155,7 +195,13 @@ func (c *EthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.HeaderByNumber(ctxWithTimeout, number)
+	var result *types.Header
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.HeaderByNumber(ctxWithTimeout, number)
+		return innerErr
+	})
+	return result, err
 }
 
 func (c *EthClient) BatchHeadersByNumbers(ctx context.Context, numbers []*big.Int) ([]*types.Header, error) {
@@ -165,25 +211,28 @@ func (c *EthClient) BatchHeadersByNumbers(ctx context.Context, numbers []*big.In
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	reqs := make([]rpc.BatchElem, len(numbers))
-	results := make([]*types.Header, len(numbers))
-	for i, blockNum := range numbers {
-		reqs[i] = rpc.BatchElem{
-			Method: "eth_getBlockByNumber",
-			Args:   []interface{}{toBlockNumArg(blockNum), false},
-			Result: &results[i],
+	var results []*types.Header
+	err := c.metrics.TrackRequest(ctxWithTimeout, "batch_getBlockByNumber", func() error {
+		reqs := make([]rpc.BatchElem, len(numbers))
+		results = make([]*types.Header, len(numbers))
+		for i, blockNum := range numbers {
+			reqs[i] = rpc.BatchElem{
+				Method: "eth_getBlockByNumber",
+				Args:   []interface{}{toBlockNumArg(blockNum), false},
+				Result: &results[i],
+			}
 		}
-	}
-	if err := c.BatchCallContext(ctxWithTimeout, reqs); err != nil {
-		return nil, err
-	}
-	for i := range reqs {
-		if reqs[i].Error != nil {
-			return nil, reqs[i].Error
+		if err := c.BatchCallContext(ctxWithTimeout, reqs); err != nil {
+			return err
 		}
-	}
-
-	return results, nil
+		for i := range reqs {
+			if reqs[i].Error != nil {
+				return reqs[i].Error
+			}
+		}
+		return nil
+	})
+	return results, err
 }
 
 func toBlockNumArg(number *big.Int) string {
@@ -209,7 +258,11 @@ func (c *EthClient) TransactionByHash(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.TransactionByHash(ctxWithTimeout, hash)
+	err = c.metrics.TrackRequest(ctxWithTimeout, "eth_getTransactionByHash", func() error {
+		tx, isPending, err = c.ethClient.TransactionByHash(ctxWithTimeout, hash)
+		return err
+	})
+	return tx, isPending, err
 }
 
 // TransactionSender returns the sender address of the given transaction. The transaction
@@ -227,7 +280,13 @@ func (c *EthClient) TransactionSender(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.TransactionSender(ctxWithTimeout, tx, block, index)
+	var result common.Address
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getTransactionSender", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.TransactionSender(ctxWithTimeout, tx, block, index)
+		return innerErr
+	})
+	return result, err
 }
 
 // TransactionCount returns the total number of transactions in the given block.
@@ -235,7 +294,13 @@ func (c *EthClient) TransactionCount(ctx context.Context, blockHash common.Hash)
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.TransactionCount(ctxWithTimeout, blockHash)
+	var result uint
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockTransactionCount", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.TransactionCount(ctxWithTimeout, blockHash)
+		return innerErr
+	})
+	return result, err
 }
 
 // TransactionInBlock returns a single transaction at index in the given block.
@@ -247,7 +312,13 @@ func (c *EthClient) TransactionInBlock(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.TransactionInBlock(ctxWithTimeout, blockHash, index)
+	var result *types.Transaction
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getTransactionByBlockHashAndIndex", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.TransactionInBlock(ctxWithTimeout, blockHash, index)
+		return innerErr
+	})
+	return result, err
 }
 
 // SyncProgress retrieves the current progress of the sync algorithm. If there's
@@ -256,7 +327,13 @@ func (c *EthClient) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, e
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.SyncProgress(ctxWithTimeout)
+	var result *ethereum.SyncProgress
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_syncing", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.SyncProgress(ctxWithTimeout)
+		return innerErr
+	})
+	return result, err
 }
 
 // NetworkID returns the network ID for this client.
@@ -264,7 +341,13 @@ func (c *EthClient) NetworkID(ctx context.Context) (*big.Int, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.NetworkID(ctxWithTimeout)
+	var result *big.Int
+	err := c.metrics.TrackRequest(ctxWithTimeout, "net_version", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.NetworkID(ctxWithTimeout)
+		return innerErr
+	})
+	return result, err
 }
 
 // BalanceAt returns the wei balance of the given account.
@@ -277,7 +360,13 @@ func (c *EthClient) BalanceAt(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.BalanceAt(ctxWithTimeout, account, blockNumber)
+	var result *big.Int
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getBalance", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.BalanceAt(ctxWithTimeout, account, blockNumber)
+		return innerErr
+	})
+	return result, err
 }
 
 // StorageAt returns the value of key in the contract storage of the given account.
@@ -291,7 +380,13 @@ func (c *EthClient) StorageAt(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.StorageAt(ctxWithTimeout, account, key, blockNumber)
+	var result []byte
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getStorageAt", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.StorageAt(ctxWithTimeout, account, key, blockNumber)
+		return innerErr
+	})
+	return result, err
 }
 
 // CodeAt returns the contract code of the given account.
@@ -304,7 +399,13 @@ func (c *EthClient) CodeAt(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.CodeAt(ctxWithTimeout, account, blockNumber)
+	var result []byte
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getCode", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.CodeAt(ctxWithTimeout, account, blockNumber)
+		return innerErr
+	})
+	return result, err
 }
 
 // NonceAt returns the account nonce of the given account.
@@ -317,7 +418,13 @@ func (c *EthClient) NonceAt(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.NonceAt(ctxWithTimeout, account, blockNumber)
+	var result uint64
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getTransactionCount", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.NonceAt(ctxWithTimeout, account, blockNumber)
+		return innerErr
+	})
+	return result, err
 }
 
 // PendingBalanceAt returns the wei balance of the given account in the pending state.
@@ -325,7 +432,13 @@ func (c *EthClient) PendingBalanceAt(ctx context.Context, account common.Address
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PendingBalanceAt(ctxWithTimeout, account)
+	var result *big.Int
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getBalance", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.PendingBalanceAt(ctxWithTimeout, account)
+		return innerErr
+	})
+	return result, err
 }
 
 // PendingStorageAt returns the value of key in the contract storage of the given account in the pending state.
@@ -337,7 +450,13 @@ func (c *EthClient) PendingStorageAt(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PendingStorageAt(ctxWithTimeout, account, key)
+	var result []byte
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getStorageAt", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.PendingStorageAt(ctxWithTimeout, account, key)
+		return innerErr
+	})
+	return result, err
 }
 
 // PendingCodeAt returns the contract code of the given account in the pending state.
@@ -345,7 +464,13 @@ func (c *EthClient) PendingCodeAt(ctx context.Context, account common.Address) (
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PendingCodeAt(ctxWithTimeout, account)
+	var result []byte
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getCode", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.PendingCodeAt(ctxWithTimeout, account)
+		return innerErr
+	})
+	return result, err
 }
 
 // PendingNonceAt returns the account nonce of the given account in the pending state.
@@ -354,7 +479,13 @@ func (c *EthClient) PendingNonceAt(ctx context.Context, account common.Address) 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PendingNonceAt(ctxWithTimeout, account)
+	var result uint64
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getTransactionCount", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.PendingNonceAt(ctxWithTimeout, account)
+		return innerErr
+	})
+	return result, err
 }
 
 // PendingTransactionCount returns the total number of transactions in the pending state.
@@ -362,7 +493,13 @@ func (c *EthClient) PendingTransactionCount(ctx context.Context) (uint, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PendingTransactionCount(ctxWithTimeout)
+	var result uint
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_getTransactionCount", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.PendingTransactionCount(ctxWithTimeout)
+		return innerErr
+	})
+	return result, err
 }
 
 // CallContract executes a message call transaction, which is directly executed in the VM
@@ -379,7 +516,13 @@ func (c *EthClient) CallContract(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.CallContract(ctxWithTimeout, msg, blockNumber)
+	var result []byte
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_call", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.CallContract(ctxWithTimeout, msg, blockNumber)
+		return innerErr
+	})
+	return result, err
 }
 
 // CallContractAtHash is almost the same as CallContract except that it selects
@@ -392,7 +535,13 @@ func (c *EthClient) CallContractAtHash(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.CallContractAtHash(ctxWithTimeout, msg, blockHash)
+	var result []byte
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_call", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.CallContractAtHash(ctxWithTimeout, msg, blockHash)
+		return innerErr
+	})
+	return result, err
 }
 
 // PendingCallContract executes a message call transaction using the EVM.
@@ -401,7 +550,13 @@ func (c *EthClient) PendingCallContract(ctx context.Context, msg ethereum.CallMs
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PendingCallContract(ctxWithTimeout, msg)
+	var result []byte
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_call", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.PendingCallContract(ctxWithTimeout, msg)
+		return innerErr
+	})
+	return result, err
 }
 
 // SuggestGasPrice retrieves the currently suggested gas price to allow a timely
@@ -410,7 +565,13 @@ func (c *EthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.SuggestGasPrice(ctxWithTimeout)
+	var result *big.Int
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_gasPrice", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.SuggestGasPrice(ctxWithTimeout)
+		return innerErr
+	})
+	return result, err
 }
 
 // SuggestGasTipCap retrieves the currently suggested gas tip cap after 1559 to
@@ -419,7 +580,13 @@ func (c *EthClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.SuggestGasTipCap(ctxWithTimeout)
+	var result *big.Int
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_maxPriorityFeePerGas", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.SuggestGasTipCap(ctxWithTimeout)
+		return innerErr
+	})
+	return result, err
 }
 
 // FeeHistory retrieves the fee market history.
@@ -432,7 +599,13 @@ func (c *EthClient) FeeHistory(
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.FeeHistory(ctxWithTimeout, blockCount, lastBlock, rewardPercentiles)
+	var result *ethereum.FeeHistory
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_feeHistory", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.FeeHistory(ctxWithTimeout, blockCount, lastBlock, rewardPercentiles)
+		return innerErr
+	})
+	return result, err
 }
 
 // EstimateGas tries to estimate the gas needed to execute a specific transaction based on
@@ -443,7 +616,13 @@ func (c *EthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.EstimateGas(ctxWithTimeout, msg)
+	var result uint64
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_estimateGas", func() error {
+		var innerErr error
+		result, innerErr = c.ethClient.EstimateGas(ctxWithTimeout, msg)
+		return innerErr
+	})
+	return result, err
 }
 
 // SendTransaction injects a signed transaction into the pending pool for execution.
@@ -454,7 +633,9 @@ func (c *EthClient) SendTransaction(ctx context.Context, tx *types.Transaction) 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.SendTransaction(ctxWithTimeout, tx)
+	return c.metrics.TrackRequest(ctxWithTimeout, "eth_sendTransaction", func() error {
+		return c.ethClient.SendTransaction(ctxWithTimeout, tx)
+	})
 }
 
 // TransactionArgs represents the arguments to construct a new transaction
@@ -495,11 +676,15 @@ func (c *EthClient) FillTransaction(ctx context.Context, args *TransactionArgs) 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	var result SignTransactionResult
-	err := c.CallContext(ctxWithTimeout, &result, "eth_fillTransaction", *args)
-	if err != nil {
-		return nil, err
-	}
-
-	return result.Tx, nil
+	var result *types.Transaction
+	err := c.metrics.TrackRequest(ctxWithTimeout, "eth_fillTransaction", func() error {
+		var signResult SignTransactionResult
+		err := c.CallContext(ctxWithTimeout, &signResult, "eth_fillTransaction", *args)
+		if err != nil {
+			return err
+		}
+		result = signResult.Tx
+		return nil
+	})
+	return result, err
 }

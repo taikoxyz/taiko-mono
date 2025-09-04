@@ -42,6 +42,7 @@ type BeaconClient struct {
 	genesisTime    uint64
 	SecondsPerSlot uint64
 	SlotsPerEpoch  uint64
+	metrics        *RPCMetrics
 }
 
 // NewBeaconClient returns a new beacon client.
@@ -92,7 +93,14 @@ func NewBeaconClient(endpoint string, timeout time.Duration) (*BeaconClient, err
 		"genesisTime", genesisTime,
 	)
 
-	return &BeaconClient{cli, timeout, uint64(genesisTime), uint64(secondsPerSlot), uint64(slotsPerEpoch)}, nil
+	return &BeaconClient{
+		Client:         cli,
+		timeout:        timeout,
+		genesisTime:    uint64(genesisTime),
+		SecondsPerSlot: uint64(secondsPerSlot),
+		SlotsPerEpoch:  uint64(slotsPerEpoch),
+		metrics:        NewRPCMetrics("beacon"),
+	}, nil
 }
 
 // GetBlobs returns the sidecars for a given slot.
@@ -100,21 +108,27 @@ func (c *BeaconClient) GetBlobs(ctx context.Context, time uint64) ([]*structs.Si
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	slot, err := c.timeToSlot(time)
-	if err != nil {
-		return nil, err
-	}
-	resBytes, err := c.Get(ctxWithTimeout, c.BaseURL().Path+fmt.Sprintf(sidecarsRequestURL, slot))
-	if err != nil {
-		return nil, err
-	}
+	var result []*structs.Sidecar
+	err := c.metrics.TrackRequest(ctxWithTimeout, "beacon_getBlobSidecars", func() error {
+		slot, err := c.timeToSlot(time)
+		if err != nil {
+			return err
+		}
+		resBytes, err := c.Get(ctxWithTimeout, c.BaseURL().Path+fmt.Sprintf(sidecarsRequestURL, slot))
+		if err != nil {
+			return err
+		}
 
-	var sidecars *structs.SidecarsResponse
-	if err = json.Unmarshal(resBytes, &sidecars); err != nil {
-		return nil, err
-	}
+		var sidecars *structs.SidecarsResponse
+		if err = json.Unmarshal(resBytes, &sidecars); err != nil {
+			return err
+		}
 
-	return sidecars.Data, nil
+		result = sidecars.Data
+		return nil
+	})
+
+	return result, err
 }
 
 // timeToSlot returns the slots of the given timestamp.

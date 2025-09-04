@@ -4,10 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -24,13 +21,6 @@ import (
 var (
 	ZeroAddress         common.Address
 	BlockMaxTxListBytes uint64 = (params.BlobTxBytesPerFieldElement - 1) * params.BlobTxFieldElementsPerBlob
-	// DefaultInterruptSignals is a set of default interrupt signals.
-	DefaultInterruptSignals = []os.Signal{
-		os.Interrupt,
-		os.Kill,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-	}
 	ErrInvalidLength = errors.New("invalid length")
 	ErrSlotBMarshal  = errors.New("abi: cannot marshal in to go type: length insufficient 160 require 192")
 )
@@ -217,18 +207,3 @@ func CtxWithTimeoutOrDefault(ctx context.Context, defaultTimeout time.Duration) 
 	return ctx, func() {}
 }
 
-// BlockOnInterruptsContext blocks until a SIGTERM is received.
-// Passing in signals will override the default signals.
-// The function will stop blocking if the context is closed.
-func BlockOnInterruptsContext(ctx context.Context, signals ...os.Signal) {
-	if len(signals) == 0 {
-		signals = DefaultInterruptSignals
-	}
-	interruptChannel := make(chan os.Signal, 1)
-	signal.Notify(interruptChannel, signals...)
-	select {
-	case <-interruptChannel:
-	case <-ctx.Done():
-		signal.Stop(interruptChannel)
-	}
-}
