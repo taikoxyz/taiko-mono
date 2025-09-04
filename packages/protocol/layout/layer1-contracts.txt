@@ -857,7 +857,11 @@
 |
 | lookahead                   | mapping(uint256 => struct ILookaheadStore.LookaheadHash) | 251  | 0      | 32    |
 |
-| __gap                       | uint256[49]                                              | 252  | 0      | 1568  |
+| blacklist                   | mapping(bytes32 => struct IOverseer.BlacklistTimestamps) | 252  | 0      | 32    |
+|
+| overseers                   | mapping(address => bool)                                 | 253  | 0      | 32    |
+|
+| __gap                       | uint256[47]                                              | 254  | 0      | 1504  |
 ╰-----------------------------+----------------------------------------------------------+------+--------+-------+-----------------------------------------------------------------╯
 
 

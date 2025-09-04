@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "../mocks/MockURC.sol";
-import "../mocks/MockOverseer.sol";
 import "test/shared/CommonTest.sol";
 import "src/shared/libs/LibNetwork.sol";
 import "src/layer1/preconf/impl/LookaheadStore.sol";
@@ -25,7 +24,6 @@ contract LookaheadStoreBase is CommonTest {
     }
 
     MockURC internal urc;
-    MockOverseer internal overseer;
     LookaheadStore internal lookaheadStore;
 
     uint256 internal constant NUM_OPERATORS = 10;
@@ -36,20 +34,23 @@ contract LookaheadStoreBase is CommonTest {
     address internal lookaheadSlasher = vm.addr(uint256(bytes32("lookaheadSlasher")));
     address internal preconfSlasher = vm.addr(uint256(bytes32("preconfSlasher")));
     address internal preconfRouter = vm.addr(uint256(bytes32("preconfRouter")));
+    address internal overseerRole = vm.addr(uint256(bytes32("overseerRole")));
     bytes32 internal posterRegistrationRoot = bytes32("poster_registration_root");
     address internal posterOwnerAndCommitter = vm.addr(uint256(posterRegistrationRoot));
 
     function setUpOnEthereum() internal virtual override {
         urc = new MockURC();
-        overseer = new MockOverseer();
-        lookaheadStore = new LookaheadStore(
-            address(urc),
-            protector,
-            lookaheadSlasher,
-            preconfSlasher,
-            preconfRouter,
-            address(overseer)
+
+        address impl = address(
+            new LookaheadStore(
+                address(urc), protector, lookaheadSlasher, preconfSlasher, preconfRouter
+            )
         );
+
+        bytes memory data = abi.encodeCall(LookaheadStore.init, (address(this), overseerRole));
+
+        address proxy = deploy("lookahead_store", impl, data);
+        lookaheadStore = LookaheadStore(proxy);
 
         // Wrap time to the beginning of an arbitrary epoch
         vm.warp(EPOCH_START);
@@ -204,7 +205,8 @@ contract LookaheadStoreBase is CommonTest {
     )
         internal
     {
-        overseer.setBlacklistTimestamps(_registrationRoot, _blacklistedAt, _unblacklistedAt);
+        // Use the test-only function to set blacklist timestamps directly
+        lookaheadStore.setBlacklistTimestamps(_registrationRoot, _blacklistedAt, _unblacklistedAt);
     }
 
     function _validateLookaheadSlots(

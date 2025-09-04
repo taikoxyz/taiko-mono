@@ -35,6 +35,10 @@ interface ILookaheadStore {
         uint80 minCollateralForPosting;
         // The minimum collateral for a registered operator to preconf.
         uint80 minCollateralForPreconfing;
+        // Delay after which a formerly unblacklisted operator can be blacklisted again
+        uint256 blacklistDelay;
+        // Delay after which a formerly blacklisted operator can be unblacklisted again
+        uint256 unblacklistDelay;
     }
 
     error CommitmentSignerMismatch();
