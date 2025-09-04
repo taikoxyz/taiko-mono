@@ -13,7 +13,7 @@ interface IOverseer {
     event Blacklisted(bytes32 indexed operatorRegistrationRoot, uint48 timestamp);
     event Unblacklisted(bytes32 indexed operatorRegistrationRoot, uint48 timestamp);
 
-    // Overseer management events  
+    // Overseer management events
     event OverseerUpdated(address indexed overseer, bool enabled);
 
     error BlacklistDelayNotMet();
