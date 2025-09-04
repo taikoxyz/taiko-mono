@@ -13,6 +13,9 @@ interface IOverseer {
     event Blacklisted(bytes32 indexed operatorRegistrationRoot, uint48 timestamp);
     event Unblacklisted(bytes32 indexed operatorRegistrationRoot, uint48 timestamp);
 
+    // Overseer management events  
+    event OverseerUpdated(address indexed overseer, bool enabled);
+
     error BlacklistDelayNotMet();
     error NotOverseer();
     error OperatorAlreadyBlacklisted();
@@ -26,6 +29,12 @@ interface IOverseer {
     /// @notice Removes an operator from the blacklist
     /// @param _operatorRegistrationRoot registration root of the operator to unblacklist
     function unblacklistOperator(bytes32 _operatorRegistrationRoot) external;
+
+    /// @notice Sets or removes an overseer address
+    /// @dev Only the owner can add or remove overseers
+    /// @param _overseer The address to set as overseer
+    /// @param _enabled True to grant overseer role, false to revoke
+    function setOverseer(address _overseer, bool _enabled) external;
 
     // Views
     // -----------------------------------------------------------------------------------

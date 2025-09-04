@@ -20,7 +20,6 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
     address public immutable lookaheadSlasher;
     address public immutable preconfSlasher;
     address public immutable preconfRouter;
-    address public immutable overseerRole;
 
     /// @notice Lookahead buffer that stores the hashed lookahead entries for an epoch
     /// @dev Once the lookahead for an epoch is posted and validated, it becomes FIXED, even if
@@ -32,13 +31,16 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
     mapping(bytes32 operatorRegistrationRoot => BlacklistTimestamps blacklistTimestamps) public
         blacklist;
 
-    uint256[48] private __gap;
+    /// @notice Maps addresses to their overseer role status
+    mapping(address => bool) public overseers;
+
+    uint256[47] private __gap;
 
     // Modifiers
     // -------------------------------------------------------------------------
 
     modifier onlyOverseer() {
-        require(msg.sender == overseerRole, NotOverseer());
+        require(overseers[msg.sender], NotOverseer());
         _;
     }
 
@@ -50,8 +52,7 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
         address _protector,
         address _lookaheadSlasher,
         address _preconfSlasher,
-        address _preconfRouter,
-        address _overseerRole
+        address _preconfRouter
     )
         EssentialContract()
     {
@@ -60,14 +61,17 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
         lookaheadSlasher = _lookaheadSlasher;
         preconfSlasher = _preconfSlasher;
         preconfRouter = _preconfRouter;
-        overseerRole = _overseerRole;
     }
 
     // External & Public
     // -------------------------------------------------------------------------
 
-    function init(address _owner) external initializer {
+    function init(address _owner, address _initialOverseer) external initializer {
         __Essential_init(_owner);
+        if (_initialOverseer != address(0)) {
+            overseers[_initialOverseer] = true;
+            emit OverseerUpdated(_initialOverseer, true);
+        }
     }
 
     /// @inheritdoc ILookaheadStore
@@ -146,6 +150,12 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
         blacklist[_operatorRegistrationRoot].unBlacklistedAt = uint48(block.timestamp);
 
         emit Unblacklisted(_operatorRegistrationRoot, uint48(block.timestamp));
+    }
+
+    /// @inheritdoc IOverseer
+    function setOverseer(address _overseer, bool _enabled) external onlyOwner {
+        overseers[_overseer] = _enabled;
+        emit OverseerUpdated(_overseer, _enabled);
     }
 
     /// @notice Test-only function to set blacklist timestamps directly (bypasses delay validation)
