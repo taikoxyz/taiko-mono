@@ -14,7 +14,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
     // State variables
     // -------------------------------------------------------------------------
-    
+
     IRegistry public immutable urc;
     address public immutable protector;
     address public immutable lookaheadSlasher;
@@ -23,7 +23,8 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
     address public immutable overseerRole;
 
     /// @notice Lookahead buffer that stores the hashed lookahead entries for an epoch
-    /// @dev Once the lookahead for an epoch is posted and validated, it becomes FIXED, even if operators within that epoch are blacklisted, unblacklisted or slashed.
+    /// @dev Once the lookahead for an epoch is posted and validated, it becomes FIXED, even if
+    /// operators within that epoch are blacklisted, unblacklisted or slashed.
     mapping(uint256 epochTimestamp_mod_lookaheadBufferSize => LookaheadHash lookaheadHash) public
         lookahead;
 
@@ -151,14 +152,14 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
     /// @dev This function should NEVER be deployed to mainnet - it's only for testing
     /// @param _operatorRegistrationRoot The operator registration root
     /// @param _blacklistedAt Timestamp when blacklisted
-    /// @param _unblacklistedAt Timestamp when unblacklisted  
+    /// @param _unblacklistedAt Timestamp when unblacklisted
     function setBlacklistTimestamps(
         bytes32 _operatorRegistrationRoot,
         uint48 _blacklistedAt,
         uint48 _unblacklistedAt
     )
         external
-    {        
+    {
         blacklist[_operatorRegistrationRoot] = BlacklistTimestamps({
             blacklistedAt: _blacklistedAt,
             unBlacklistedAt: _unblacklistedAt
@@ -195,7 +196,11 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
     }
 
     /// @inheritdoc IOverseer
-    function isOperatorBlacklisted(bytes32 _operatorRegistrationRoot) external view returns (bool) {
+    function isOperatorBlacklisted(bytes32 _operatorRegistrationRoot)
+        external
+        view
+        returns (bool)
+    {
         BlacklistTimestamps memory blacklistTimestamps = blacklist[_operatorRegistrationRoot];
         return blacklistTimestamps.blacklistedAt > blacklistTimestamps.unBlacklistedAt;
     }
@@ -328,7 +333,8 @@ contract LookaheadStore is ILookaheadStore, IOverseer, EssentialContract {
         return abi.decode(_signedCommitment.commitment.payload, (LookaheadSlot[]));
     }
 
-    /// @dev Validates if the operator is registered and has not been slashed or blacklistedat the given epoch
+    /// @dev Validates if the operator is registered and has not been slashed or blacklistedat the
+    /// given epoch
     /// timestamp. We use the epoch timestamp of the epoch in which the lookahead is posted to
     /// validate the registration and slashing status.
     /// @dev For blaclisting, an operator is conisdered valid if they're either:

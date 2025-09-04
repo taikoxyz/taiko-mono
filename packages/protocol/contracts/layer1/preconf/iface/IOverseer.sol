@@ -9,7 +9,6 @@ interface IOverseer {
         uint48 unBlacklistedAt;
     }
 
-
     // Blacklist events
     event Blacklisted(bytes32 indexed operatorRegistrationRoot, uint48 timestamp);
     event Unblacklisted(bytes32 indexed operatorRegistrationRoot, uint48 timestamp);
@@ -30,7 +29,6 @@ interface IOverseer {
 
     // Views
     // -----------------------------------------------------------------------------------
-
 
     /// @notice Returns the blacklist timestamps for all operators
     /// @param _operatorRegistrationRoot registration root of the operator

@@ -41,12 +41,7 @@ contract LookaheadStoreBase is CommonTest {
     function setUpOnEthereum() internal virtual override {
         urc = new MockURC();
         lookaheadStore = new LookaheadStore(
-            address(urc),
-            protector,
-            lookaheadSlasher,
-            preconfSlasher,
-            preconfRouter,
-            overseerRole
+            address(urc), protector, lookaheadSlasher, preconfSlasher, preconfRouter, overseerRole
         );
 
         // Wrap time to the beginning of an arbitrary epoch
