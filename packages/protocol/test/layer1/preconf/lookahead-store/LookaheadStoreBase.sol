@@ -40,9 +40,15 @@ contract LookaheadStoreBase is CommonTest {
 
     function setUpOnEthereum() internal virtual override {
         urc = new MockURC();
-        lookaheadStore = new LookaheadStore(
-            address(urc), protector, lookaheadSlasher, preconfSlasher, preconfRouter, overseerRole
-        );
+        
+        address impl = address(new LookaheadStore(
+            address(urc), protector, lookaheadSlasher, preconfSlasher, preconfRouter
+        ));
+        
+        bytes memory data = abi.encodeCall(LookaheadStore.init, (address(this), overseerRole));
+        
+        address proxy = deploy("lookahead_store", impl, data);
+        lookaheadStore = LookaheadStore(proxy);
 
         // Wrap time to the beginning of an arbitrary epoch
         vm.warp(EPOCH_START);
