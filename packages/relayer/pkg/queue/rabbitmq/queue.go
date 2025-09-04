@@ -408,7 +408,7 @@ func (r *RabbitMQ) Subscribe(ctx context.Context, msgChan chan<- queue.Message, 
 
 	if err != nil {
 		if err == amqp.ErrClosed {
-			slog.Info("cant subscribe to rabbitmq, channel closed. attempting reconnection")
+			slog.Info("can't subscribe to rabbitmq, channel closed. attempting reconnection")
 
 			if err := r.connect(); err != nil {
 				slog.Error("error reconnecting to channel during subscribe", "err", err.Error())
