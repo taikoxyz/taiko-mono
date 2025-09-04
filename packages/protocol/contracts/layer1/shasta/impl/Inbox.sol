@@ -750,8 +750,9 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Finalizes proven proposals and updates checkpoint
-    /// @notice Processes up to maxFinalizationCount proposals in sequence
-    /// @dev Stops at first missing transition record or span boundary
+    /// @dev Performs up to `maxFinalizationCount` finalization iterations.
+    /// The caller is forced to finalize transition records that have passed their cooldown period, but can
+    /// decide to finalize ones that haven't.
     /// @param _config Configuration with finalization parameters
     /// @param _input Input containing transition records and end block header
     /// @return _ Core state with updated finalization counters
