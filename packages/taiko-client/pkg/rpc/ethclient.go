@@ -48,7 +48,12 @@ func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthC
 }
 
 // NewEthClientWithType creates a new EthClient instance with a specific client type for metrics.
-func NewEthClientWithType(ctx context.Context, url string, timeout time.Duration, clientType string) (*EthClient, error) {
+func NewEthClientWithType(
+	ctx context.Context,
+	url string,
+	timeout time.Duration,
+	clientType string,
+) (*EthClient, error) {
 	var timeoutVal = defaultTimeout
 	if timeout != 0 {
 		timeoutVal = timeout
