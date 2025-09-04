@@ -45,7 +45,7 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 	defer cancel()
 
 	var result config.ProtocolConfigs
-	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getProtocolConfigs", func() error {
+	err := c.L1.metrics.TrackRequest(opts.Context, GetRPCMethodName("taiko", "GetProtocolConfigs"), func() error {
 		configs, innerErr := c.PacayaClients.TaikoInbox.PacayaConfig(opts)
 		if innerErr != nil {
 			return innerErr
@@ -66,7 +66,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 		Stats1 pacayaBindings.ITaikoInboxStats1
 		Stats2 pacayaBindings.ITaikoInboxStats2
 	}
-	err := c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getProtocolStateVariables", func() error {
+	err := c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "ensureGenesisMatched"), func() error {
 		var innerErr error
 		stateVars, innerErr = c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
 		return innerErr
@@ -79,7 +79,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 
 	// Fetch the node's genesis block.
 	var nodeGenesis *types.Header
-	err = c.L2.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+	err = c.L2.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("l2", "HeaderByNumber"), func() error {
 		var innerErr error
 		nodeGenesis, innerErr = c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
 		return innerErr
@@ -96,7 +96,7 @@ func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Add
 	)
 
 	var protocolConfigs config.ProtocolConfigs
-	err = c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getProtocolConfigs", func() error {
+	err = c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "GetProtocolConfigs"), func() error {
 		var innerErr error
 		protocolConfigs, innerErr = c.GetProtocolConfigs(&bind.CallOpts{Context: ctxWithTimeout})
 		return innerErr
@@ -177,7 +177,7 @@ func (c *Client) filterGenesisBlockVerifiedV2(
 	taikoInbox common.Address,
 ) (common.Hash, error) {
 	var result common.Hash
-	err := c.L1.metrics.TrackRequest(ctx, "taiko_filterGenesisBlockVerifiedV2", func() error {
+	err := c.L1.metrics.TrackRequest(ctx, GetRPCMethodName("taiko", "filterGenesisBlockVerifiedV2"), func() error {
 		client, innerErr := ontakeBindings.NewTaikoL1Client(taikoInbox, c.L1)
 		if innerErr != nil {
 			return fmt.Errorf("failed to create legacy TaikoL1 client: %w", innerErr)
@@ -209,7 +209,7 @@ func (c *Client) filterGenesisBlockVerified(
 	taikoInbox common.Address,
 ) (common.Hash, error) {
 	var result common.Hash
-	err := c.L1.metrics.TrackRequest(ctx, "taiko_filterGenesisBlockVerified", func() error {
+	err := c.L1.metrics.TrackRequest(ctx, GetRPCMethodName("taiko", "filterGenesisBlockVerified"), func() error {
 		client, innerErr := ontakeBindings.NewTaikoL1Client(taikoInbox, c.L1)
 		if innerErr != nil {
 			return fmt.Errorf("failed to create legacy TaikoL1 client: %w", innerErr)
@@ -242,7 +242,7 @@ func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
 			newCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 			defer cancel()
 			var progress *L2SyncProgress
-			err := c.L2.metrics.TrackRequest(newCtx, "taiko_l2ExecutionEngineSyncProgress", func() error {
+			err := c.L2.metrics.TrackRequest(newCtx, GetRPCMethodName("taiko", "L2ExecutionEngineSyncProgress"), func() error {
 				var innerErr error
 				progress, innerErr = c.L2ExecutionEngineSyncProgress(newCtx)
 				return innerErr
@@ -277,7 +277,7 @@ func (c *Client) LatestL2KnownL1Header(ctx context.Context) (*types.Header, erro
 
 	// Try to fetch the latest known L1 header from the L2 execution engine.
 	var headL1Origin *rawdb.L1Origin
-	err := c.L2.metrics.TrackRequest(ctxWithTimeout, "taiko_headL1Origin", func() error {
+	err := c.L2.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "LatestL2KnownL1Header"), func() error {
 		var innerErr error
 		headL1Origin, innerErr = c.L2.HeadL1Origin(ctxWithTimeout)
 		return innerErr
@@ -297,7 +297,7 @@ func (c *Client) LatestL2KnownL1Header(ctx context.Context) (*types.Header, erro
 
 	// Fetch the L1 header from the L1 chain.
 	var header *types.Header
-	err = c.L1.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByHash", func() error {
+	err = c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("l1", "HeaderByHash"), func() error {
 		var innerErr error
 		header, innerErr = c.L1.HeaderByHash(ctxWithTimeout, headL1Origin.L1BlockHash)
 		return innerErr
@@ -323,7 +323,7 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 	defer cancel()
 
 	var result *types.Header
-	err := c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getGenesisL1Header", func() error {
+	err := c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "GetGenesisL1Header"), func() error {
 		stateVars, innerErr := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
 		if innerErr != nil {
 			return innerErr
@@ -341,7 +341,7 @@ func (c *Client) GetBatchByID(ctx context.Context, batchID *big.Int) (*pacayaBin
 	defer cancel()
 
 	var result *pacayaBindings.ITaikoInboxBatch
-	err := c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getBatchByID", func() error {
+	err := c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "GetBatchByID"), func() error {
 		batch, innerErr := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, batchID.Uint64())
 		if innerErr != nil {
 			return fmt.Errorf("failed to fetch batch by ID: %w", innerErr)
@@ -367,7 +367,7 @@ func (c *Client) L2ParentByCurrentBlockID(ctx context.Context, blockID *big.Int)
 
 	if parentBlockID.Cmp(common.Big0) == 0 {
 		var result *types.Header
-		err := c.L2.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+		err := c.L2.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("l2", "HeaderByNumber"), func() error {
 			var innerErr error
 			result, innerErr = c.L2.HeaderByNumber(ctxWithTimeout, common.Big0)
 			return innerErr
@@ -376,7 +376,7 @@ func (c *Client) L2ParentByCurrentBlockID(ctx context.Context, blockID *big.Int)
 	}
 
 	var l1Origin *rawdb.L1Origin
-	err := c.L2.metrics.TrackRequest(ctxWithTimeout, "taiko_l1OriginByID", func() error {
+	err := c.L2.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "L2ParentByCurrentBlockID"), func() error {
 		var innerErr error
 		l1Origin, innerErr = c.L2.L1OriginByID(ctxWithTimeout, parentBlockID)
 		return innerErr
@@ -391,7 +391,7 @@ func (c *Client) L2ParentByCurrentBlockID(ctx context.Context, blockID *big.Int)
 		log.Warn("L1Origin not found, try to fetch parent by ID", "blockID", parentBlockID)
 
 		var parent *types.Block
-		err = c.L2.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+		err = c.L2.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("l2", "BlockByNumber"), func() error {
 			var innerErr error
 			parent, innerErr = c.L2.BlockByNumber(ctxWithTimeout, parentBlockID)
 			return innerErr
@@ -408,7 +408,7 @@ func (c *Client) L2ParentByCurrentBlockID(ctx context.Context, blockID *big.Int)
 	log.Debug("Parent block L1 origin", "l1Origin", l1Origin, "parentBlockID", parentBlockID)
 
 	var result *types.Header
-	err = c.L2.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByHash", func() error {
+	err = c.L2.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("l2", "HeaderByHash"), func() error {
 		var innerErr error
 		result, innerErr = c.L2.HeaderByHash(ctxWithTimeout, parentHash)
 		return innerErr
@@ -440,7 +440,7 @@ func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Hea
 			return nil, ctxWithTimeout.Err()
 		}
 
-		err = c.L2.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+		err = c.L2.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("l2", "HeaderByNumber"), func() error {
 			var innerErr error
 			header, innerErr = c.L2.HeaderByNumber(ctxWithTimeout, blockID)
 			return innerErr
@@ -476,7 +476,7 @@ func (c *Client) CalculateBaseFee(
 		err     error
 	)
 
-	err = c.L2.metrics.TrackRequest(ctx, "taiko_calculateBaseFeePacaya", func() error {
+	err = c.L2.metrics.TrackRequest(ctx, GetRPCMethodName("taiko", "calculateBaseFeePacaya"), func() error {
 		baseFee, err = c.calculateBaseFeePacaya(ctx, l2Head, currentTimestamp, baseFeeConfig)
 		return err
 	})
@@ -506,7 +506,7 @@ func (c *Client) GetPoolContent(
 	defer cancel()
 
 	var l2Head *types.Header
-	err := c.L2.metrics.TrackRequest(ctx, "eth_getBlockByNumber", func() error {
+	err := c.L2.metrics.TrackRequest(ctx, GetRPCMethodName("l2", "HeaderByNumber"), func() error {
 		var innerErr error
 		l2Head, innerErr = c.L2.HeaderByNumber(ctx, nil)
 		return innerErr
@@ -526,7 +526,7 @@ func (c *Client) GetPoolContent(
 	}
 
 	var result []*miner.PreBuiltTxList
-	err = c.L2Engine.metrics.TrackRequest(ctxWithTimeout, "taikoAuth_txPoolContentWithMinTip", func() error {
+	err = c.L2Engine.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("engine", "TxPoolContentWithMinTip"), func() error {
 		var innerErr error
 		result, innerErr = c.L2Engine.TxPoolContentWithMinTip(
 			ctxWithTimeout,
@@ -553,11 +553,11 @@ func (c *Client) L2AccountNonce(
 	defer cancel()
 
 	var result hexutil.Uint64
-	err := c.L2.metrics.TrackRequest(ctxWithTimeout, "eth_getTransactionCount", func() error {
+	err := c.L2.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("l2", "L2AccountNonce"), func() error {
 		return c.L2.CallContext(
 			ctxWithTimeout,
 			&result,
-			"eth_getTransactionCount",
+			GetRPCMethodName("l2", "NonceAt"),
 			account,
 			rpc.BlockNumberOrHashWithHash(blockHash, false),
 		)
@@ -598,13 +598,13 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 	g, ctx := errgroup.WithContext(ctxWithTimeout)
 
 	g.Go(func() error {
-		return c.L2.metrics.TrackRequest(ctx, "eth_syncing", func() error {
+		return c.L2.metrics.TrackRequest(ctx, GetRPCMethodName("l2", "SyncProgress"), func() error {
 			progress.SyncProgress, err = c.L2.SyncProgress(ctx)
 			return err
 		})
 	})
 	g.Go(func() error {
-		return c.L1.metrics.TrackRequest(ctx, "taiko_getHighestOriginBlockID", func() error {
+		return c.L1.metrics.TrackRequest(ctx, GetRPCMethodName("taiko", "L2ExecutionEngineSyncProgress"), func() error {
 			// Try get the highest block ID from the Pacaya protocol state variables.
 			stateVars, innerErr := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 			if innerErr != nil {
@@ -621,7 +621,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 		})
 	})
 	g.Go(func() error {
-		return c.L2.metrics.TrackRequest(ctx, "taiko_headL1Origin", func() error {
+		return c.L2.metrics.TrackRequest(ctx, GetRPCMethodName("taiko", "L2ExecutionEngineSyncProgress"), func() error {
 			headL1Origin, innerErr := c.L2.HeadL1Origin(ctx)
 			if innerErr != nil {
 				switch innerErr.Error() {
@@ -673,13 +673,13 @@ func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		return c.L1.metrics.TrackRequest(opts.Context, "taiko_getStats1", func() error {
+		return c.L1.metrics.TrackRequest(opts.Context, GetRPCMethodName("taiko", "GetProtocolStateVariablesPacaya"), func() error {
 			states.Stats1, err = c.PacayaClients.TaikoInbox.GetStats1(opts)
 			return err
 		})
 	})
 	g.Go(func() error {
-		return c.L1.metrics.TrackRequest(opts.Context, "taiko_getStats2", func() error {
+		return c.L1.metrics.TrackRequest(opts.Context, GetRPCMethodName("taiko", "GetProtocolStateVariablesPacaya"), func() error {
 			states.Stats2, err = c.PacayaClients.TaikoInbox.GetStats2(opts)
 			return err
 		})
@@ -702,7 +702,7 @@ func (c *Client) GetLastVerifiedTransitionPacaya(ctx context.Context) (*struct {
 		BlockId uint64
 		Ts      pacayaBindings.ITaikoInboxTransitionState
 	}
-	err := c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getLastVerifiedTransition", func() error {
+	err := c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "GetLastVerifiedTransitionPacaya"), func() error {
 		t, innerErr := c.PacayaClients.TaikoInbox.GetLastVerifiedTransition(&bind.CallOpts{Context: ctxWithTimeout})
 		if innerErr != nil {
 			return innerErr
@@ -749,7 +749,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 		// engine for that batch, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
 		if batchID.Cmp(common.Big0) == 0 {
 			var genesisHeight *big.Int
-			err := c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getGenesisHeight", func() error {
+			err := c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "getGenesisHeight"), func() error {
 				var innerErr error
 				genesisHeight, innerErr = c.getGenesisHeight(ctxWithTimeout)
 				return innerErr
@@ -759,7 +759,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 			}
 
 			result.IsReorged = true
-			err = c.L1.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+			err = c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("l1", "HeaderByNumber"), func() error {
 				var innerErr error
 				result.L1CurrentToReset, innerErr = c.L1.HeaderByNumber(ctxWithTimeout, genesisHeight)
 				return innerErr
@@ -772,7 +772,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 		}
 
 		var batch *pacayaBindings.ITaikoInboxBatch
-		err := c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getBatchByID", func() error {
+		err := c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "GetBatchByID"), func() error {
 			var innerErr error
 			batch, innerErr = c.GetBatchByID(ctxWithTimeout, batchID)
 			return innerErr
@@ -782,7 +782,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 		}
 		// 1. Check whether the last L2 block's corresponding L1 block which in L1Origin has been reorged.
 		var l1Origin *rawdb.L1Origin
-		err = c.L2.metrics.TrackRequest(ctxWithTimeout, "taiko_l1OriginByID", func() error {
+		err = c.L2.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "CheckL1Reorg"), func() error {
 			var innerErr error
 			l1Origin, innerErr = c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId))
 			return innerErr
@@ -800,7 +800,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 
 		// Compare the L1 header hash in the L1Origin with the current L1 header hash in the L1 chain.
 		var l1Header *types.Header
-		err = c.L1.metrics.TrackRequest(ctxWithTimeout, "eth_getBlockByNumber", func() error {
+		err = c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("l1", "HeaderByNumber"), func() error {
 			var innerErr error
 			l1Header, innerErr = c.L1.HeaderByNumber(ctxWithTimeout, l1Origin.L1BlockHeight)
 			return innerErr
@@ -867,7 +867,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 ) (bool, error) {
 	log.Debug("Check synced L1 snippet from anchor", "blockID", blockID, "l1Height", l1Height)
 	var block *types.Block
-	err := c.L2.metrics.TrackRequest(ctx, "eth_getBlockByNumber", func() error {
+	err := c.L2.metrics.TrackRequest(ctx, GetRPCMethodName("l2", "BlockByNumber"), func() error {
 		var innerErr error
 		block, innerErr = c.L2.BlockByNumber(ctx, blockID)
 		return innerErr
@@ -877,7 +877,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		return false, err
 	}
 	var parent *types.Block
-	err = c.L2.metrics.TrackRequest(ctx, "eth_getBlockByHash", func() error {
+	err = c.L2.metrics.TrackRequest(ctx, GetRPCMethodName("l2", "BlockByHash"), func() error {
 		var innerErr error
 		parent, innerErr = c.L2.BlockByHash(ctx, block.ParentHash())
 		return innerErr
@@ -906,7 +906,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 	}
 
 	var l1Header *types.Header
-	err = c.L1.metrics.TrackRequest(ctx, "eth_getBlockByNumber", func() error {
+	err = c.L1.metrics.TrackRequest(ctx, GetRPCMethodName("l1", "HeaderByNumber"), func() error {
 		var innerErr error
 		l1Header, innerErr = c.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(l1HeightInAnchor))
 		return innerErr
@@ -1030,7 +1030,7 @@ func (c *Client) calculateBaseFeePacaya(
 		NewGasTarget uint64
 		NewGasExcess uint64
 	}
-	err := c.L2.metrics.TrackRequest(ctx, "taiko_getBasefeeV2", func() error {
+	err := c.L2.metrics.TrackRequest(ctx, GetRPCMethodName("taiko", "calculateBaseFeePacaya"), func() error {
 		var innerErr error
 		baseFeeInfo, innerErr = c.PacayaClients.TaikoAnchor.GetBasefeeV2(
 			&bind.CallOpts{BlockNumber: l2Head.Number, BlockHash: l2Head.Hash(), Context: ctx},
@@ -1053,7 +1053,7 @@ func (c *Client) calculateBaseFeePacaya(
 // getGenesisHeight fetches the genesis height from the protocol.
 func (c *Client) getGenesisHeight(ctx context.Context) (*big.Int, error) {
 	var result *big.Int
-	err := c.L1.metrics.TrackRequest(ctx, "taiko_getGenesisHeight", func() error {
+	err := c.L1.metrics.TrackRequest(ctx, GetRPCMethodName("taiko", "getGenesisHeight"), func() error {
 		stateVars, innerErr := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 		if innerErr != nil {
 			return innerErr
@@ -1074,7 +1074,7 @@ func (c *Client) GetProofVerifierPacaya(opts *bind.CallOpts) (common.Address, er
 	defer cancel()
 
 	var result common.Address
-	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getVerifier", func() error {
+	err := c.L1.metrics.TrackRequest(opts.Context, GetRPCMethodName("taiko", "GetProofVerifierPacaya"), func() error {
 		var innerErr error
 		result, innerErr = c.PacayaClients.TaikoInbox.Verifier(opts)
 		return innerErr
@@ -1096,7 +1096,7 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	defer cancel()
 
 	var result common.Address
-	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getPreconfWhiteListOperator", func() error {
+	err := c.L1.metrics.TrackRequest(opts.Context, GetRPCMethodName("taiko", "GetPreconfWhiteListOperator"), func() error {
 		proposer, innerErr := c.PacayaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
 		if innerErr != nil {
 			return fmt.Errorf("failed to get preconfirmation whitelist operator: %w", innerErr)
@@ -1130,7 +1130,7 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	defer cancel()
 
 	var result common.Address
-	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getNextPreconfWhiteListOperator", func() error {
+	err := c.L1.metrics.TrackRequest(opts.Context, GetRPCMethodName("taiko", "GetNextPreconfWhiteListOperator"), func() error {
 		proposer, innerErr := c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
 		if innerErr != nil {
 			return fmt.Errorf("failed to get preconfirmation whitelist operator: %w", innerErr)
@@ -1165,7 +1165,7 @@ func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, 
 	defer cancel()
 
 	var result []common.Address
-	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getAllPreconfOperators", func() error {
+	err := c.L1.metrics.TrackRequest(opts.Context, GetRPCMethodName("taiko", "GetAllPreconfOperators"), func() error {
 		count, innerErr := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
 		if innerErr != nil {
 			return fmt.Errorf("failed to get total preconfirmation whitelist operators: %w", innerErr)
@@ -1202,13 +1202,13 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		return c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_forcedInclusionHead", func() error {
+		return c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "GetForcedInclusionPacaya"), func() error {
 			head, err = c.PacayaClients.ForcedInclusionStore.Head(&bind.CallOpts{Context: ctxWithTimeout})
 			return err
 		})
 	})
 	g.Go(func() error {
-		return c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_forcedInclusionTail", func() error {
+		return c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "GetForcedInclusionPacaya"), func() error {
 			tail, err = c.PacayaClients.ForcedInclusionStore.Tail(&bind.CallOpts{Context: ctxWithTimeout})
 			return err
 		})
@@ -1223,7 +1223,7 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	}
 
 	var forcedInclusion pacayaBindings.IForcedInclusionStoreForcedInclusion
-	err = c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getForcedInclusion", func() error {
+	err = c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "GetForcedInclusionPacaya"), func() error {
 		var innerErr error
 		forcedInclusion, innerErr = c.PacayaClients.ForcedInclusionStore.GetForcedInclusion(
 			&bind.CallOpts{Context: ctxWithTimeout},
@@ -1244,7 +1244,7 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	}
 
 	var minTxsPerForcedInclusion uint16
-	err = c.L1.metrics.TrackRequest(ctxWithTimeout, "taiko_getMinTxsPerForcedInclusion", func() error {
+	err = c.L1.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName("taiko", "GetForcedInclusionPacaya"), func() error {
 		var innerErr error
 		minTxsPerForcedInclusion, innerErr = c.PacayaClients.TaikoWrapper.MINTXSPERFORCEDINCLUSION(
 			&bind.CallOpts{Context: ctxWithTimeout},
@@ -1329,7 +1329,7 @@ func (c *Client) GetPreconfRouterConfig(opts *bind.CallOpts) (*pacayaBindings.IP
 	defer cancel()
 
 	var result *pacayaBindings.IPreconfRouterConfig
-	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getPreconfRouterConfig", func() error {
+	err := c.L1.metrics.TrackRequest(opts.Context, GetRPCMethodName("taiko", "GetPreconfRouterConfig"), func() error {
 		routerConfig, innerErr := c.PacayaClients.PreconfRouter.GetConfig(opts)
 		if innerErr != nil {
 			return fmt.Errorf("failed to get the PreconfRouter config: %w", innerErr)
@@ -1358,7 +1358,7 @@ func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, erro
 	defer cancel()
 
 	var result common.Address
-	err := c.L1.metrics.TrackRequest(opts.Context, "taiko_getImmutableAddress", func() error {
+	err := c.L1.metrics.TrackRequest(opts.Context, GetRPCMethodName("taiko", "getImmutableAddressPacaya"), func() error {
 		var innerErr error
 		result, innerErr = resolveFunc(opts)
 		return innerErr

@@ -109,7 +109,7 @@ func (c *BeaconClient) GetBlobs(ctx context.Context, time uint64) ([]*structs.Si
 	defer cancel()
 
 	var result []*structs.Sidecar
-	err := c.metrics.TrackRequest(ctxWithTimeout, "beacon_getBlobSidecars", func() error {
+	err := c.metrics.TrackRequest(ctxWithTimeout, GetRPCMethodName(c.metrics.GetClientType(), "GetBlobs"), func() error {
 		slot, err := c.timeToSlot(time)
 		if err != nil {
 			return err

@@ -48,8 +48,8 @@ func (c *EngineClient) ForkchoiceUpdate(
 	defer cancel()
 
 	var result *engine.ForkChoiceResponse
-	err := c.metrics.TrackRequest(timeoutCtx, "engine_forkchoiceUpdatedV2", func() error {
-		return c.Client.CallContext(timeoutCtx, &result, "engine_forkchoiceUpdatedV2", fc, attributes)
+	err := c.metrics.TrackRequest(timeoutCtx, GetRPCMethodName(c.metrics.GetClientType(), "ForkchoiceUpdate"), func() error {
+		return c.Client.CallContext(timeoutCtx, &result, GetRPCMethodName(c.metrics.GetClientType(), "ForkchoiceUpdate"), fc, attributes)
 	})
 	if err != nil {
 		return nil, err
@@ -67,8 +67,8 @@ func (c *EngineClient) NewPayload(
 	defer cancel()
 
 	var result *engine.PayloadStatusV1
-	err := c.metrics.TrackRequest(timeoutCtx, "engine_newPayloadV2", func() error {
-		return c.Client.CallContext(timeoutCtx, &result, "engine_newPayloadV2", payload)
+	err := c.metrics.TrackRequest(timeoutCtx, GetRPCMethodName(c.metrics.GetClientType(), "NewPayload"), func() error {
+		return c.Client.CallContext(timeoutCtx, &result, GetRPCMethodName(c.metrics.GetClientType(), "NewPayload"), payload)
 	})
 	if err != nil {
 		return nil, err
@@ -86,8 +86,8 @@ func (c *EngineClient) GetPayload(
 	defer cancel()
 
 	var result *engine.ExecutionPayloadEnvelope
-	err := c.metrics.TrackRequest(timeoutCtx, "engine_getPayloadV2", func() error {
-		return c.Client.CallContext(timeoutCtx, &result, "engine_getPayloadV2", payloadID)
+	err := c.metrics.TrackRequest(timeoutCtx, GetRPCMethodName(c.metrics.GetClientType(), "GetPayload"), func() error {
+		return c.Client.CallContext(timeoutCtx, &result, GetRPCMethodName(c.metrics.GetClientType(), "GetPayload"), payloadID)
 	})
 	if err != nil {
 		return nil, err
@@ -105,8 +105,8 @@ func (c *EngineClient) ExchangeTransitionConfiguration(
 	defer cancel()
 
 	var result *engine.TransitionConfigurationV1
-	err := c.metrics.TrackRequest(timeoutCtx, "engine_exchangeTransitionConfigurationV1", func() error {
-		return c.Client.CallContext(timeoutCtx, &result, "engine_exchangeTransitionConfigurationV1", cfg)
+	err := c.metrics.TrackRequest(timeoutCtx, GetRPCMethodName(c.metrics.GetClientType(), "ExchangeTransitionConfiguration"), func() error {
+		return c.Client.CallContext(timeoutCtx, &result, GetRPCMethodName(c.metrics.GetClientType(), "ExchangeTransitionConfiguration"), cfg)
 	})
 	if err != nil {
 		return nil, err
@@ -130,11 +130,11 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 	defer cancel()
 	var result []*miner.PreBuiltTxList
 
-	err := c.metrics.TrackRequest(timeoutCtx, "taikoAuth_txPoolContentWithMinTip", func() error {
+	err := c.metrics.TrackRequest(timeoutCtx, GetRPCMethodName(c.metrics.GetClientType(), "TxPoolContentWithMinTip"), func() error {
 		return c.CallContext(
 			timeoutCtx,
 			&result,
-			"taikoAuth_txPoolContentWithMinTip",
+			GetRPCMethodName(c.metrics.GetClientType(), "TxPoolContentWithMinTip"),
 			beneficiary,
 			baseFee,
 			blockMaxGasLimit,
@@ -154,8 +154,8 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 func (c *EngineClient) UpdateL1Origin(ctx context.Context, l1Origin *rawdb.L1Origin) (*rawdb.L1Origin, error) {
 	var res *rawdb.L1Origin
 
-	err := c.metrics.TrackRequest(ctx, "taikoAuth_updateL1Origin", func() error {
-		return c.CallContext(ctx, &res, "taikoAuth_updateL1Origin", l1Origin)
+	err := c.metrics.TrackRequest(ctx, GetRPCMethodName(c.metrics.GetClientType(), "UpdateL1Origin"), func() error {
+		return c.CallContext(ctx, &res, GetRPCMethodName(c.metrics.GetClientType(), "UpdateL1Origin"), l1Origin)
 	})
 	if err != nil {
 		return nil, err
@@ -172,8 +172,8 @@ func (c *EngineClient) SetL1OriginSignature(
 ) (*rawdb.L1Origin, error) {
 	var res *rawdb.L1Origin
 
-	err := c.metrics.TrackRequest(ctx, "taikoAuth_setL1OriginSignature", func() error {
-		return c.CallContext(ctx, &res, "taikoAuth_setL1OriginSignature", blockID, signature)
+	err := c.metrics.TrackRequest(ctx, GetRPCMethodName(c.metrics.GetClientType(), "SetL1OriginSignature"), func() error {
+		return c.CallContext(ctx, &res, GetRPCMethodName(c.metrics.GetClientType(), "SetL1OriginSignature"), blockID, signature)
 	})
 	if err != nil {
 		return nil, err
@@ -186,8 +186,8 @@ func (c *EngineClient) SetL1OriginSignature(
 func (c *EngineClient) SetHeadL1Origin(ctx context.Context, blockID *big.Int) (*big.Int, error) {
 	var res *big.Int
 
-	err := c.metrics.TrackRequest(ctx, "taikoAuth_setHeadL1Origin", func() error {
-		return c.CallContext(ctx, &res, "taikoAuth_setHeadL1Origin", blockID)
+	err := c.metrics.TrackRequest(ctx, GetRPCMethodName(c.metrics.GetClientType(), "SetHeadL1Origin"), func() error {
+		return c.CallContext(ctx, &res, GetRPCMethodName(c.metrics.GetClientType(), "SetHeadL1Origin"), blockID)
 	})
 	if err != nil {
 		return nil, err

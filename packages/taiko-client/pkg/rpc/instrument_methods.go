@@ -55,8 +55,50 @@ var (
 
 	// BeaconClient method mappings
 	beaconMethodMappings = map[string]string{
-		"GetBlobs": "beacon_getBlobSidecars",
-		"Get":      "beacon_get",
+		"GetBlobs":        "beacon_getBlobSidecars",
+		"Get":             "beacon_get",
+		"timeToSlot":      "beacon_timeToSlot",
+		"CurrentSlot":     "beacon_currentSlot",
+		"CurrentEpoch":    "beacon_currentEpoch",
+		"SlotInEpoch":     "beacon_slotInEpoch",
+		"TimestampOfSlot": "beacon_timestampOfSlot",
+	}
+
+	// TaikoClient method mappings (for methods.go)
+	taikoMethodMappings = map[string]string{
+		"GetProtocolConfigs":                 "taiko_getProtocolConfigs",
+		"ensureGenesisMatched":               "taiko_ensureGenesisMatched",
+		"filterGenesisBlockVerifiedV2":       "taiko_filterGenesisBlockVerifiedV2",
+		"filterGenesisBlockVerified":         "taiko_filterGenesisBlockVerified",
+		"WaitTillL2ExecutionEngineSynced":    "taiko_waitTillL2ExecutionEngineSynced",
+		"LatestL2KnownL1Header":              "taiko_latestL2KnownL1Header",
+		"GetGenesisL1Header":                 "taiko_getGenesisL1Header",
+		"GetBatchByID":                       "taiko_getBatchByID",
+		"L2ParentByCurrentBlockID":           "taiko_l2ParentByCurrentBlockID",
+		"WaitL2Header":                       "taiko_waitL2Header",
+		"CalculateBaseFee":                   "taiko_calculateBaseFee",
+		"GetPoolContent":                     "taiko_getPoolContent",
+		"L2AccountNonce":                     "taiko_l2AccountNonce",
+		"L2ExecutionEngineSyncProgress":      "taiko_l2ExecutionEngineSyncProgress",
+		"GetProtocolStateVariablesPacaya":    "taiko_getProtocolStateVariablesPacaya",
+		"GetLastVerifiedTransitionPacaya":    "taiko_getLastVerifiedTransitionPacaya",
+		"CheckL1Reorg":                       "taiko_checkL1Reorg",
+		"checkSyncedL1SnippetFromAnchor":     "taiko_checkSyncedL1SnippetFromAnchor",
+		"calculateBaseFeePacaya":             "taiko_calculateBaseFeePacaya",
+		"getGenesisHeight":                   "taiko_getGenesisHeight",
+		"GetProofVerifierPacaya":             "taiko_getProofVerifierPacaya",
+		"GetPreconfWhiteListOperator":        "taiko_getPreconfWhiteListOperator",
+		"GetNextPreconfWhiteListOperator":    "taiko_getNextPreconfWhiteListOperator",
+		"GetAllPreconfOperators":             "taiko_getAllPreconfOperators",
+		"GetForcedInclusionPacaya":           "taiko_getForcedInclusionPacaya",
+		"GetPreconfRouterConfig":             "taiko_getPreconfRouterConfig",
+		"GetOPVerifierPacaya":                "taiko_getOPVerifierPacaya",
+		"GetSGXVerifierPacaya":               "taiko_getSGXVerifierPacaya",
+		"GetRISC0VerifierPacaya":             "taiko_getRISC0VerifierPacaya",
+		"GetSP1VerifierPacaya":               "taiko_getSP1VerifierPacaya",
+		"GetSgxGethVerifierPacaya":           "taiko_getSgxGethVerifierPacaya",
+		"GetPreconfRouterPacaya":             "taiko_getPreconfRouterPacaya",
+		"getImmutableAddressPacaya":          "taiko_getImmutableAddress",
 	}
 )
 
@@ -73,6 +115,10 @@ func GetRPCMethodName(clientType, methodName string) string {
 		}
 	case "beacon":
 		if rpcMethod, exists := beaconMethodMappings[methodName]; exists {
+			return rpcMethod
+		}
+	case "taiko":
+		if rpcMethod, exists := taikoMethodMappings[methodName]; exists {
 			return rpcMethod
 		}
 	}
