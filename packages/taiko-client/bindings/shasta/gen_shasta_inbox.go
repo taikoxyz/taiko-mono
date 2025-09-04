@@ -29,25 +29,33 @@ var (
 	_ = abi.ConvertType
 )
 
-// IInboxBlockMiniHeader is an auto generated low-level Go binding around an user-defined struct.
-type IInboxBlockMiniHeader struct {
-	Number    *big.Int
-	Hash      [32]byte
-	StateRoot [32]byte
+// ICheckpointManagerCheckpoint is an auto generated low-level Go binding around an user-defined struct.
+type ICheckpointManagerCheckpoint struct {
+	BlockNumber *big.Int
+	BlockHash   [32]byte
+	StateRoot   [32]byte
+}
+
+// IForcedInclusionStoreForcedInclusion is an auto generated low-level Go binding around an user-defined struct.
+type IForcedInclusionStoreForcedInclusion struct {
+	FeeInGwei uint64
+	BlobSlice LibBlobsBlobSlice
 }
 
 // IInboxConfig is an auto generated low-level Go binding around an user-defined struct.
 type IInboxConfig struct {
-	BondToken             common.Address
-	ProvingWindow         *big.Int
-	ExtendedProvingWindow *big.Int
-	MaxFinalizationCount  *big.Int
-	RingBufferSize        *big.Int
-	BasefeeSharingPctg    uint8
-	SyncedBlockManager    common.Address
-	ProofVerifier         common.Address
-	ProposerChecker       common.Address
-	ForcedInclusionStore  common.Address
+	BondToken                common.Address
+	ProvingWindow            *big.Int
+	ExtendedProvingWindow    *big.Int
+	MaxFinalizationCount     *big.Int
+	RingBufferSize           *big.Int
+	BasefeeSharingPctg       uint8
+	CheckpointManager        common.Address
+	ProofVerifier            common.Address
+	ProposerChecker          common.Address
+	MinForcedInclusionCount  *big.Int
+	ForcedInclusionDelay     uint64
+	ForcedInclusionFeeInGwei uint64
 }
 
 // IInboxCoreState is an auto generated low-level Go binding around an user-defined struct.
@@ -69,21 +77,23 @@ type IInboxDerivation struct {
 
 // IInboxProposal is an auto generated low-level Go binding around an user-defined struct.
 type IInboxProposal struct {
-	Id             *big.Int
-	Proposer       common.Address
-	Timestamp      *big.Int
-	CoreStateHash  [32]byte
-	DerivationHash [32]byte
+	Id                     *big.Int
+	Timestamp              *big.Int
+	LookaheadSlotTimestamp *big.Int
+	Proposer               common.Address
+	CoreStateHash          [32]byte
+	DerivationHash         [32]byte
 }
 
 // IInboxProposeInput is an auto generated low-level Go binding around an user-defined struct.
 type IInboxProposeInput struct {
-	Deadline           *big.Int
-	CoreState          IInboxCoreState
-	ParentProposals    []IInboxProposal
-	BlobReference      LibBlobsBlobReference
-	TransitionRecords  []IInboxTransitionRecord
-	EndBlockMiniHeader IInboxBlockMiniHeader
+	Deadline            *big.Int
+	CoreState           IInboxCoreState
+	ParentProposals     []IInboxProposal
+	BlobReference       LibBlobsBlobReference
+	TransitionRecords   []IInboxTransitionRecord
+	Checkpoint          ICheckpointManagerCheckpoint
+	NumForcedInclusions uint8
 }
 
 // IInboxProposedEventPayload is an auto generated low-level Go binding around an user-defined struct.
@@ -110,17 +120,17 @@ type IInboxProvedEventPayload struct {
 type IInboxTransition struct {
 	ProposalHash         [32]byte
 	ParentTransitionHash [32]byte
-	EndBlockMiniHeader   IInboxBlockMiniHeader
+	Checkpoint           ICheckpointManagerCheckpoint
 	DesignatedProver     common.Address
 	ActualProver         common.Address
 }
 
 // IInboxTransitionRecord is an auto generated low-level Go binding around an user-defined struct.
 type IInboxTransitionRecord struct {
-	Span                   uint8
-	BondInstructions       []LibBondsBondInstruction
-	TransitionHash         [32]byte
-	EndBlockMiniHeaderHash [32]byte
+	Span             uint8
+	BondInstructions []LibBondsBondInstruction
+	TransitionHash   [32]byte
+	CheckpointHash   [32]byte
 }
 
 // LibBlobsBlobReference is an auto generated low-level Go binding around an user-defined struct.
@@ -147,7 +157,7 @@ type LibBondsBondInstruction struct {
 
 // ShastaInboxClientMetaData contains all meta data concerning the ShastaInboxClient contract.
 var ShastaInboxClientMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"bondBalance\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"bond\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"decodeProposeInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"parentProposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"transitionRecords\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.TransitionRecord[]\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"endBlockMiniHeaderHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"endBlockMiniHeader\",\"type\":\"tuple\",\"internalType\":\"structIInbox.BlockMiniHeader\",\"components\":[{\"name\":\"number\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProposedEventData\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProveInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"proposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"endBlockMiniHeader\",\"type\":\"tuple\",\"internalType\":\"structIInbox.BlockMiniHeader\",\"components\":[{\"name\":\"number\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProvedEventData\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"endBlockMiniHeader\",\"type\":\"tuple\",\"internalType\":\"structIInbox.BlockMiniHeader\",\"components\":[{\"name\":\"number\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionRecord\",\"type\":\"tuple\",\"internalType\":\"structIInbox.TransitionRecord\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"endBlockMiniHeaderHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposeInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"parentProposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"transitionRecords\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.TransitionRecord[]\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"endBlockMiniHeaderHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"endBlockMiniHeader\",\"type\":\"tuple\",\"internalType\":\"structIInbox.BlockMiniHeader\",\"components\":[{\"name\":\"number\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposedEventData\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposedEventPayload\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProveInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"proposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"endBlockMiniHeader\",\"type\":\"tuple\",\"internalType\":\"structIInbox.BlockMiniHeader\",\"components\":[{\"name\":\"number\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProvedEventData\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"endBlockMiniHeader\",\"type\":\"tuple\",\"internalType\":\"structIInbox.BlockMiniHeader\",\"components\":[{\"name\":\"number\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionRecord\",\"type\":\"tuple\",\"internalType\":\"structIInbox.TransitionRecord\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"endBlockMiniHeaderHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProvedEventPayload\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"endBlockMiniHeader\",\"type\":\"tuple\",\"internalType\":\"structIInbox.BlockMiniHeader\",\"components\":[{\"name\":\"number\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionRecord\",\"type\":\"tuple\",\"internalType\":\"structIInbox.TransitionRecord\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"endBlockMiniHeaderHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getCapacity\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getConfig\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Config\",\"components\":[{\"name\":\"bondToken\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"provingWindow\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"extendedProvingWindow\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"maxFinalizationCount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"ringBufferSize\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"syncedBlockManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proofVerifier\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposerChecker\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"forcedInclusionStore\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getProposalHash\",\"inputs\":[{\"name\":\"_proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"}],\"outputs\":[{\"name\":\"proposalHash_\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTransitionRecordHash\",\"inputs\":[{\"name\":\"_proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"_parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"transitionRecordHash_\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"init\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_genesisBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"propose\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"prove\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdrawBond\",\"inputs\":[{\"name\":\"_address\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondInstructed\",\"inputs\":[{\"name\":\"instructions\",\"type\":\"tuple[]\",\"indexed\":false,\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondWithdrawn\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Proposed\",\"inputs\":[{\"name\":\"data\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Proved\",\"inputs\":[{\"name\":\"data\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BlobNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BondInstructionsLengthExceeded\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"DeadlineExceeded\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EmptyProposals\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EndBlockMiniHeaderMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExceedsUnfinalizedProposalCapacity\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InconsistentParams\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"IncorrectProposalCount\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidBondType\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidCoreState\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidLastProposalProof\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidSpan\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidState\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LengthExceedsUint24\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NextProposalHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoBlobs\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoBondToWithdraw\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProposalHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProposalHashMismatchWithTransition\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProposalTransitionLengthMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SpanOutOfBounds\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TransitionRecordHashMismatchWithStorage\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TransitionRecordNotProvided\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TwoManyBlobs\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
+	ABI: "[{\"type\":\"constructor\",\"inputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"acceptOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"bondBalance\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[{\"name\":\"bond\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"decodeProposeInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"parentProposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lookaheadSlotTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"transitionRecords\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.TransitionRecord[]\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpointHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointManager.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"numForcedInclusions\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProposedEventData\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lookaheadSlotTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProveInput\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"proposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lookaheadSlotTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointManager.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"decodeProvedEventData\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointManager.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionRecord\",\"type\":\"tuple\",\"internalType\":\"structIInbox.TransitionRecord\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpointHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposeInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposeInput\",\"components\":[{\"name\":\"deadline\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"parentProposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lookaheadSlotTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]},{\"name\":\"transitionRecords\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.TransitionRecord[]\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpointHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointManager.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"numForcedInclusions\",\"type\":\"uint8\",\"internalType\":\"uint8\"}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposedEventData\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lookaheadSlotTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProposedEventPayload\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProposedEventPayload\",\"components\":[{\"name\":\"proposal\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Proposal\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lookaheadSlotTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"derivation\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Derivation\",\"components\":[{\"name\":\"originBlockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"originBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"isForcedInclusion\",\"type\":\"bool\",\"internalType\":\"bool\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]},{\"name\":\"coreState\",\"type\":\"tuple\",\"internalType\":\"structIInbox.CoreState\",\"components\":[{\"name\":\"nextProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedProposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lastFinalizedTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"bondInstructionsHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProveInput\",\"inputs\":[{\"name\":\"_input\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProveInput\",\"components\":[{\"name\":\"proposals\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Proposal[]\",\"components\":[{\"name\":\"id\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"lookaheadSlotTimestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"proposer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"coreStateHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"derivationHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"transitions\",\"type\":\"tuple[]\",\"internalType\":\"structIInbox.Transition[]\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointManager.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProvedEventData\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointManager.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionRecord\",\"type\":\"tuple\",\"internalType\":\"structIInbox.TransitionRecord\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpointHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"encodeProvedEventPayload\",\"inputs\":[{\"name\":\"_payload\",\"type\":\"tuple\",\"internalType\":\"structIInbox.ProvedEventPayload\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"transition\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Transition\",\"components\":[{\"name\":\"proposalHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpoint\",\"type\":\"tuple\",\"internalType\":\"structICheckpointManager.Checkpoint\",\"components\":[{\"name\":\"blockNumber\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"blockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"stateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]},{\"name\":\"designatedProver\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"actualProver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionRecord\",\"type\":\"tuple\",\"internalType\":\"structIInbox.TransitionRecord\",\"components\":[{\"name\":\"span\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"bondInstructions\",\"type\":\"tuple[]\",\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]},{\"name\":\"transitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"checkpointHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}]}]}],\"outputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getCapacity\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getConfig\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"tuple\",\"internalType\":\"structIInbox.Config\",\"components\":[{\"name\":\"bondToken\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"provingWindow\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"extendedProvingWindow\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"maxFinalizationCount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"ringBufferSize\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"basefeeSharingPctg\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"checkpointManager\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proofVerifier\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"proposerChecker\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"minForcedInclusionCount\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"forcedInclusionDelay\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"forcedInclusionFeeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"}]}],\"stateMutability\":\"pure\"},{\"type\":\"function\",\"name\":\"getProposalHash\",\"inputs\":[{\"name\":\"_proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"}],\"outputs\":[{\"name\":\"proposalHash_\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"getTransitionRecordHash\",\"inputs\":[{\"name\":\"_proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"_parentTransitionHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[{\"name\":\"transitionRecordHash_\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"impl\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"inNonReentrant\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"initV2\",\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_genesisBlockHash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"isOldestForcedInclusionDue\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"owner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"paused\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"pendingOwner\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"propose\",\"inputs\":[{\"name\":\"\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"prove\",\"inputs\":[{\"name\":\"_data\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"_proof\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"proxiableUUID\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"renounceOwnership\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"resolver\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"storeForcedInclusion\",\"inputs\":[{\"name\":\"_blobReference\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobReference\",\"components\":[{\"name\":\"blobStartIndex\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"numBlobs\",\"type\":\"uint16\",\"internalType\":\"uint16\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"}]}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"transferOwnership\",\"inputs\":[{\"name\":\"newOwner\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"unpause\",\"inputs\":[],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeTo\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"upgradeToAndCall\",\"inputs\":[{\"name\":\"newImplementation\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"data\",\"type\":\"bytes\",\"internalType\":\"bytes\"}],\"outputs\":[],\"stateMutability\":\"payable\"},{\"type\":\"function\",\"name\":\"withdrawBond\",\"inputs\":[{\"name\":\"_address\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AdminChanged\",\"inputs\":[{\"name\":\"previousAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"newAdmin\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BeaconUpgraded\",\"inputs\":[{\"name\":\"beacon\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondInstructed\",\"inputs\":[{\"name\":\"instructions\",\"type\":\"tuple[]\",\"indexed\":false,\"internalType\":\"structLibBonds.BondInstruction[]\",\"components\":[{\"name\":\"proposalId\",\"type\":\"uint48\",\"internalType\":\"uint48\"},{\"name\":\"bondType\",\"type\":\"uint8\",\"internalType\":\"enumLibBonds.BondType\"},{\"name\":\"payer\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"receiver\",\"type\":\"address\",\"internalType\":\"address\"}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"BondWithdrawn\",\"inputs\":[{\"name\":\"user\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"amount\",\"type\":\"uint256\",\"indexed\":false,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ForcedInclusionStored\",\"inputs\":[{\"name\":\"forcedInclusion\",\"type\":\"tuple\",\"indexed\":false,\"internalType\":\"structIForcedInclusionStore.ForcedInclusion\",\"components\":[{\"name\":\"feeInGwei\",\"type\":\"uint64\",\"internalType\":\"uint64\"},{\"name\":\"blobSlice\",\"type\":\"tuple\",\"internalType\":\"structLibBlobs.BlobSlice\",\"components\":[{\"name\":\"blobHashes\",\"type\":\"bytes32[]\",\"internalType\":\"bytes32[]\"},{\"name\":\"offset\",\"type\":\"uint24\",\"internalType\":\"uint24\"},{\"name\":\"timestamp\",\"type\":\"uint48\",\"internalType\":\"uint48\"}]}]}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Initialized\",\"inputs\":[{\"name\":\"version\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferStarted\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"previousOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"newOwner\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Paused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Proposed\",\"inputs\":[{\"name\":\"data\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Proved\",\"inputs\":[{\"name\":\"data\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Unpaused\",\"inputs\":[{\"name\":\"account\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"Upgraded\",\"inputs\":[{\"name\":\"implementation\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"error\",\"name\":\"ACCESS_DENIED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BlobNotFound\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"BondInstructionsLengthExceeded\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"CheckpointMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"DeadlineExceeded\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ETH_TRANSFER_FAILED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"EmptyProposals\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ExceedsUnfinalizedProposalCapacity\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"FUNC_NOT_IMPLEMENTED\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"INVALID_PAUSE_STATUS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InconsistentParams\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"IncorrectProposalCount\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidBondType\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidCoreState\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidLastProposalProof\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidSpan\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"InvalidState\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"LengthExceedsUint24\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NextProposalHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoBlobs\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"NoBondToWithdraw\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProposalHashMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProposalHashMismatchWithTransition\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ProposalTransitionLengthMismatch\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"REENTRANT_CALL\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"SpanOutOfBounds\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TransitionRecordHashMismatchWithStorage\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"TransitionRecordNotProvided\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"UnprocessedForcedInclusionIsDue\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_ADDRESS\",\"inputs\":[]},{\"type\":\"error\",\"name\":\"ZERO_VALUE\",\"inputs\":[]}]",
 }
 
 // ShastaInboxClientABI is the input ABI used to generate the binding from.
@@ -329,7 +339,7 @@ func (_ShastaInboxClient *ShastaInboxClientCallerSession) BondBalance(account co
 
 // DecodeProposeInput is a free data retrieval call binding the contract method 0xafb63ad4.
 //
-// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint48,uint48,bytes32,bytes32),(uint48,address,uint48,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32)))
+// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint48,uint48,bytes32,bytes32),(uint48,uint48,uint48,address,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32),uint8))
 func (_ShastaInboxClient *ShastaInboxClientCaller) DecodeProposeInput(opts *bind.CallOpts, _data []byte) (IInboxProposeInput, error) {
 	var out []interface{}
 	err := _ShastaInboxClient.contract.Call(opts, &out, "decodeProposeInput", _data)
@@ -346,21 +356,21 @@ func (_ShastaInboxClient *ShastaInboxClientCaller) DecodeProposeInput(opts *bind
 
 // DecodeProposeInput is a free data retrieval call binding the contract method 0xafb63ad4.
 //
-// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint48,uint48,bytes32,bytes32),(uint48,address,uint48,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32)))
+// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint48,uint48,bytes32,bytes32),(uint48,uint48,uint48,address,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32),uint8))
 func (_ShastaInboxClient *ShastaInboxClientSession) DecodeProposeInput(_data []byte) (IInboxProposeInput, error) {
 	return _ShastaInboxClient.Contract.DecodeProposeInput(&_ShastaInboxClient.CallOpts, _data)
 }
 
 // DecodeProposeInput is a free data retrieval call binding the contract method 0xafb63ad4.
 //
-// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint48,uint48,bytes32,bytes32),(uint48,address,uint48,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32)))
+// Solidity: function decodeProposeInput(bytes _data) pure returns((uint48,(uint48,uint48,bytes32,bytes32),(uint48,uint48,uint48,address,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32),uint8))
 func (_ShastaInboxClient *ShastaInboxClientCallerSession) DecodeProposeInput(_data []byte) (IInboxProposeInput, error) {
 	return _ShastaInboxClient.Contract.DecodeProposeInput(&_ShastaInboxClient.CallOpts, _data)
 }
 
 // DecodeProposedEventData is a free data retrieval call binding the contract method 0xc52bb381.
 //
-// Solidity: function decodeProposedEventData(bytes _data) pure returns(((uint48,address,uint48,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)))
+// Solidity: function decodeProposedEventData(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)))
 func (_ShastaInboxClient *ShastaInboxClientCaller) DecodeProposedEventData(opts *bind.CallOpts, _data []byte) (IInboxProposedEventPayload, error) {
 	var out []interface{}
 	err := _ShastaInboxClient.contract.Call(opts, &out, "decodeProposedEventData", _data)
@@ -377,21 +387,21 @@ func (_ShastaInboxClient *ShastaInboxClientCaller) DecodeProposedEventData(opts 
 
 // DecodeProposedEventData is a free data retrieval call binding the contract method 0xc52bb381.
 //
-// Solidity: function decodeProposedEventData(bytes _data) pure returns(((uint48,address,uint48,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)))
+// Solidity: function decodeProposedEventData(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)))
 func (_ShastaInboxClient *ShastaInboxClientSession) DecodeProposedEventData(_data []byte) (IInboxProposedEventPayload, error) {
 	return _ShastaInboxClient.Contract.DecodeProposedEventData(&_ShastaInboxClient.CallOpts, _data)
 }
 
 // DecodeProposedEventData is a free data retrieval call binding the contract method 0xc52bb381.
 //
-// Solidity: function decodeProposedEventData(bytes _data) pure returns(((uint48,address,uint48,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)))
+// Solidity: function decodeProposedEventData(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)))
 func (_ShastaInboxClient *ShastaInboxClientCallerSession) DecodeProposedEventData(_data []byte) (IInboxProposedEventPayload, error) {
 	return _ShastaInboxClient.Contract.DecodeProposedEventData(&_ShastaInboxClient.CallOpts, _data)
 }
 
 // DecodeProveInput is a free data retrieval call binding the contract method 0xedbacd44.
 //
-// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,address,uint48,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[]))
+// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[]))
 func (_ShastaInboxClient *ShastaInboxClientCaller) DecodeProveInput(opts *bind.CallOpts, _data []byte) (IInboxProveInput, error) {
 	var out []interface{}
 	err := _ShastaInboxClient.contract.Call(opts, &out, "decodeProveInput", _data)
@@ -408,14 +418,14 @@ func (_ShastaInboxClient *ShastaInboxClientCaller) DecodeProveInput(opts *bind.C
 
 // DecodeProveInput is a free data retrieval call binding the contract method 0xedbacd44.
 //
-// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,address,uint48,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[]))
+// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[]))
 func (_ShastaInboxClient *ShastaInboxClientSession) DecodeProveInput(_data []byte) (IInboxProveInput, error) {
 	return _ShastaInboxClient.Contract.DecodeProveInput(&_ShastaInboxClient.CallOpts, _data)
 }
 
 // DecodeProveInput is a free data retrieval call binding the contract method 0xedbacd44.
 //
-// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,address,uint48,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[]))
+// Solidity: function decodeProveInput(bytes _data) pure returns(((uint48,uint48,uint48,address,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[]))
 func (_ShastaInboxClient *ShastaInboxClientCallerSession) DecodeProveInput(_data []byte) (IInboxProveInput, error) {
 	return _ShastaInboxClient.Contract.DecodeProveInput(&_ShastaInboxClient.CallOpts, _data)
 }
@@ -451,9 +461,9 @@ func (_ShastaInboxClient *ShastaInboxClientCallerSession) DecodeProvedEventData(
 	return _ShastaInboxClient.Contract.DecodeProvedEventData(&_ShastaInboxClient.CallOpts, _data)
 }
 
-// EncodeProposeInput is a free data retrieval call binding the contract method 0xbed6ea86.
+// EncodeProposeInput is a free data retrieval call binding the contract method 0x13fc9a59.
 //
-// Solidity: function encodeProposeInput((uint48,(uint48,uint48,bytes32,bytes32),(uint48,address,uint48,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32)) _input) pure returns(bytes)
+// Solidity: function encodeProposeInput((uint48,(uint48,uint48,bytes32,bytes32),(uint48,uint48,uint48,address,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32),uint8) _input) pure returns(bytes)
 func (_ShastaInboxClient *ShastaInboxClientCaller) EncodeProposeInput(opts *bind.CallOpts, _input IInboxProposeInput) ([]byte, error) {
 	var out []interface{}
 	err := _ShastaInboxClient.contract.Call(opts, &out, "encodeProposeInput", _input)
@@ -468,23 +478,23 @@ func (_ShastaInboxClient *ShastaInboxClientCaller) EncodeProposeInput(opts *bind
 
 }
 
-// EncodeProposeInput is a free data retrieval call binding the contract method 0xbed6ea86.
+// EncodeProposeInput is a free data retrieval call binding the contract method 0x13fc9a59.
 //
-// Solidity: function encodeProposeInput((uint48,(uint48,uint48,bytes32,bytes32),(uint48,address,uint48,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32)) _input) pure returns(bytes)
+// Solidity: function encodeProposeInput((uint48,(uint48,uint48,bytes32,bytes32),(uint48,uint48,uint48,address,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32),uint8) _input) pure returns(bytes)
 func (_ShastaInboxClient *ShastaInboxClientSession) EncodeProposeInput(_input IInboxProposeInput) ([]byte, error) {
 	return _ShastaInboxClient.Contract.EncodeProposeInput(&_ShastaInboxClient.CallOpts, _input)
 }
 
-// EncodeProposeInput is a free data retrieval call binding the contract method 0xbed6ea86.
+// EncodeProposeInput is a free data retrieval call binding the contract method 0x13fc9a59.
 //
-// Solidity: function encodeProposeInput((uint48,(uint48,uint48,bytes32,bytes32),(uint48,address,uint48,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32)) _input) pure returns(bytes)
+// Solidity: function encodeProposeInput((uint48,(uint48,uint48,bytes32,bytes32),(uint48,uint48,uint48,address,bytes32,bytes32)[],(uint16,uint16,uint24),(uint8,(uint48,uint8,address,address)[],bytes32,bytes32)[],(uint48,bytes32,bytes32),uint8) _input) pure returns(bytes)
 func (_ShastaInboxClient *ShastaInboxClientCallerSession) EncodeProposeInput(_input IInboxProposeInput) ([]byte, error) {
 	return _ShastaInboxClient.Contract.EncodeProposeInput(&_ShastaInboxClient.CallOpts, _input)
 }
 
-// EncodeProposedEventData is a free data retrieval call binding the contract method 0xdd77a314.
+// EncodeProposedEventData is a free data retrieval call binding the contract method 0xb38c7c08.
 //
-// Solidity: function encodeProposedEventData(((uint48,address,uint48,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)) _payload) pure returns(bytes)
+// Solidity: function encodeProposedEventData(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)) _payload) pure returns(bytes)
 func (_ShastaInboxClient *ShastaInboxClientCaller) EncodeProposedEventData(opts *bind.CallOpts, _payload IInboxProposedEventPayload) ([]byte, error) {
 	var out []interface{}
 	err := _ShastaInboxClient.contract.Call(opts, &out, "encodeProposedEventData", _payload)
@@ -499,23 +509,23 @@ func (_ShastaInboxClient *ShastaInboxClientCaller) EncodeProposedEventData(opts 
 
 }
 
-// EncodeProposedEventData is a free data retrieval call binding the contract method 0xdd77a314.
+// EncodeProposedEventData is a free data retrieval call binding the contract method 0xb38c7c08.
 //
-// Solidity: function encodeProposedEventData(((uint48,address,uint48,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)) _payload) pure returns(bytes)
+// Solidity: function encodeProposedEventData(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)) _payload) pure returns(bytes)
 func (_ShastaInboxClient *ShastaInboxClientSession) EncodeProposedEventData(_payload IInboxProposedEventPayload) ([]byte, error) {
 	return _ShastaInboxClient.Contract.EncodeProposedEventData(&_ShastaInboxClient.CallOpts, _payload)
 }
 
-// EncodeProposedEventData is a free data retrieval call binding the contract method 0xdd77a314.
+// EncodeProposedEventData is a free data retrieval call binding the contract method 0xb38c7c08.
 //
-// Solidity: function encodeProposedEventData(((uint48,address,uint48,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)) _payload) pure returns(bytes)
+// Solidity: function encodeProposedEventData(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)) _payload) pure returns(bytes)
 func (_ShastaInboxClient *ShastaInboxClientCallerSession) EncodeProposedEventData(_payload IInboxProposedEventPayload) ([]byte, error) {
 	return _ShastaInboxClient.Contract.EncodeProposedEventData(&_ShastaInboxClient.CallOpts, _payload)
 }
 
-// EncodeProposedEventPayload is a free data retrieval call binding the contract method 0x5d6daad4.
+// EncodeProposedEventPayload is a free data retrieval call binding the contract method 0x76534f87.
 //
-// Solidity: function encodeProposedEventPayload(((uint48,address,uint48,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)) _payload) pure returns(bytes)
+// Solidity: function encodeProposedEventPayload(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)) _payload) pure returns(bytes)
 func (_ShastaInboxClient *ShastaInboxClientCaller) EncodeProposedEventPayload(opts *bind.CallOpts, _payload IInboxProposedEventPayload) ([]byte, error) {
 	var out []interface{}
 	err := _ShastaInboxClient.contract.Call(opts, &out, "encodeProposedEventPayload", _payload)
@@ -530,23 +540,23 @@ func (_ShastaInboxClient *ShastaInboxClientCaller) EncodeProposedEventPayload(op
 
 }
 
-// EncodeProposedEventPayload is a free data retrieval call binding the contract method 0x5d6daad4.
+// EncodeProposedEventPayload is a free data retrieval call binding the contract method 0x76534f87.
 //
-// Solidity: function encodeProposedEventPayload(((uint48,address,uint48,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)) _payload) pure returns(bytes)
+// Solidity: function encodeProposedEventPayload(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)) _payload) pure returns(bytes)
 func (_ShastaInboxClient *ShastaInboxClientSession) EncodeProposedEventPayload(_payload IInboxProposedEventPayload) ([]byte, error) {
 	return _ShastaInboxClient.Contract.EncodeProposedEventPayload(&_ShastaInboxClient.CallOpts, _payload)
 }
 
-// EncodeProposedEventPayload is a free data retrieval call binding the contract method 0x5d6daad4.
+// EncodeProposedEventPayload is a free data retrieval call binding the contract method 0x76534f87.
 //
-// Solidity: function encodeProposedEventPayload(((uint48,address,uint48,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)) _payload) pure returns(bytes)
+// Solidity: function encodeProposedEventPayload(((uint48,uint48,uint48,address,bytes32,bytes32),(uint48,bytes32,bool,uint8,(bytes32[],uint24,uint48)),(uint48,uint48,bytes32,bytes32)) _payload) pure returns(bytes)
 func (_ShastaInboxClient *ShastaInboxClientCallerSession) EncodeProposedEventPayload(_payload IInboxProposedEventPayload) ([]byte, error) {
 	return _ShastaInboxClient.Contract.EncodeProposedEventPayload(&_ShastaInboxClient.CallOpts, _payload)
 }
 
-// EncodeProveInput is a free data retrieval call binding the contract method 0x6c1aa7c8.
+// EncodeProveInput is a free data retrieval call binding the contract method 0xd1e0b652.
 //
-// Solidity: function encodeProveInput(((uint48,address,uint48,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[]) _input) pure returns(bytes)
+// Solidity: function encodeProveInput(((uint48,uint48,uint48,address,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[]) _input) pure returns(bytes)
 func (_ShastaInboxClient *ShastaInboxClientCaller) EncodeProveInput(opts *bind.CallOpts, _input IInboxProveInput) ([]byte, error) {
 	var out []interface{}
 	err := _ShastaInboxClient.contract.Call(opts, &out, "encodeProveInput", _input)
@@ -561,16 +571,16 @@ func (_ShastaInboxClient *ShastaInboxClientCaller) EncodeProveInput(opts *bind.C
 
 }
 
-// EncodeProveInput is a free data retrieval call binding the contract method 0x6c1aa7c8.
+// EncodeProveInput is a free data retrieval call binding the contract method 0xd1e0b652.
 //
-// Solidity: function encodeProveInput(((uint48,address,uint48,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[]) _input) pure returns(bytes)
+// Solidity: function encodeProveInput(((uint48,uint48,uint48,address,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[]) _input) pure returns(bytes)
 func (_ShastaInboxClient *ShastaInboxClientSession) EncodeProveInput(_input IInboxProveInput) ([]byte, error) {
 	return _ShastaInboxClient.Contract.EncodeProveInput(&_ShastaInboxClient.CallOpts, _input)
 }
 
-// EncodeProveInput is a free data retrieval call binding the contract method 0x6c1aa7c8.
+// EncodeProveInput is a free data retrieval call binding the contract method 0xd1e0b652.
 //
-// Solidity: function encodeProveInput(((uint48,address,uint48,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[]) _input) pure returns(bytes)
+// Solidity: function encodeProveInput(((uint48,uint48,uint48,address,bytes32,bytes32)[],(bytes32,bytes32,(uint48,bytes32,bytes32),address,address)[]) _input) pure returns(bytes)
 func (_ShastaInboxClient *ShastaInboxClientCallerSession) EncodeProveInput(_input IInboxProveInput) ([]byte, error) {
 	return _ShastaInboxClient.Contract.EncodeProveInput(&_ShastaInboxClient.CallOpts, _input)
 }
@@ -670,7 +680,7 @@ func (_ShastaInboxClient *ShastaInboxClientCallerSession) GetCapacity() (*big.In
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfig() pure returns((address,uint48,uint48,uint256,uint256,uint8,address,address,address,address))
+// Solidity: function getConfig() pure returns((address,uint48,uint48,uint256,uint256,uint8,address,address,address,uint256,uint64,uint64))
 func (_ShastaInboxClient *ShastaInboxClientCaller) GetConfig(opts *bind.CallOpts) (IInboxConfig, error) {
 	var out []interface{}
 	err := _ShastaInboxClient.contract.Call(opts, &out, "getConfig")
@@ -687,14 +697,14 @@ func (_ShastaInboxClient *ShastaInboxClientCaller) GetConfig(opts *bind.CallOpts
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfig() pure returns((address,uint48,uint48,uint256,uint256,uint8,address,address,address,address))
+// Solidity: function getConfig() pure returns((address,uint48,uint48,uint256,uint256,uint8,address,address,address,uint256,uint64,uint64))
 func (_ShastaInboxClient *ShastaInboxClientSession) GetConfig() (IInboxConfig, error) {
 	return _ShastaInboxClient.Contract.GetConfig(&_ShastaInboxClient.CallOpts)
 }
 
 // GetConfig is a free data retrieval call binding the contract method 0xc3f909d4.
 //
-// Solidity: function getConfig() pure returns((address,uint48,uint48,uint256,uint256,uint8,address,address,address,address))
+// Solidity: function getConfig() pure returns((address,uint48,uint48,uint256,uint256,uint8,address,address,address,uint256,uint64,uint64))
 func (_ShastaInboxClient *ShastaInboxClientCallerSession) GetConfig() (IInboxConfig, error) {
 	return _ShastaInboxClient.Contract.GetConfig(&_ShastaInboxClient.CallOpts)
 }
@@ -821,6 +831,37 @@ func (_ShastaInboxClient *ShastaInboxClientSession) InNonReentrant() (bool, erro
 // Solidity: function inNonReentrant() view returns(bool)
 func (_ShastaInboxClient *ShastaInboxClientCallerSession) InNonReentrant() (bool, error) {
 	return _ShastaInboxClient.Contract.InNonReentrant(&_ShastaInboxClient.CallOpts)
+}
+
+// IsOldestForcedInclusionDue is a free data retrieval call binding the contract method 0x16db8952.
+//
+// Solidity: function isOldestForcedInclusionDue() view returns(bool)
+func (_ShastaInboxClient *ShastaInboxClientCaller) IsOldestForcedInclusionDue(opts *bind.CallOpts) (bool, error) {
+	var out []interface{}
+	err := _ShastaInboxClient.contract.Call(opts, &out, "isOldestForcedInclusionDue")
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// IsOldestForcedInclusionDue is a free data retrieval call binding the contract method 0x16db8952.
+//
+// Solidity: function isOldestForcedInclusionDue() view returns(bool)
+func (_ShastaInboxClient *ShastaInboxClientSession) IsOldestForcedInclusionDue() (bool, error) {
+	return _ShastaInboxClient.Contract.IsOldestForcedInclusionDue(&_ShastaInboxClient.CallOpts)
+}
+
+// IsOldestForcedInclusionDue is a free data retrieval call binding the contract method 0x16db8952.
+//
+// Solidity: function isOldestForcedInclusionDue() view returns(bool)
+func (_ShastaInboxClient *ShastaInboxClientCallerSession) IsOldestForcedInclusionDue() (bool, error) {
+	return _ShastaInboxClient.Contract.IsOldestForcedInclusionDue(&_ShastaInboxClient.CallOpts)
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -999,25 +1040,25 @@ func (_ShastaInboxClient *ShastaInboxClientTransactorSession) AcceptOwnership() 
 	return _ShastaInboxClient.Contract.AcceptOwnership(&_ShastaInboxClient.TransactOpts)
 }
 
-// Init is a paid mutator transaction binding the contract method 0x2cc0b254.
+// InitV2 is a paid mutator transaction binding the contract method 0x59af1baf.
 //
-// Solidity: function init(address _owner, bytes32 _genesisBlockHash) returns()
-func (_ShastaInboxClient *ShastaInboxClientTransactor) Init(opts *bind.TransactOpts, _owner common.Address, _genesisBlockHash [32]byte) (*types.Transaction, error) {
-	return _ShastaInboxClient.contract.Transact(opts, "init", _owner, _genesisBlockHash)
+// Solidity: function initV2(address _owner, bytes32 _genesisBlockHash) returns()
+func (_ShastaInboxClient *ShastaInboxClientTransactor) InitV2(opts *bind.TransactOpts, _owner common.Address, _genesisBlockHash [32]byte) (*types.Transaction, error) {
+	return _ShastaInboxClient.contract.Transact(opts, "initV2", _owner, _genesisBlockHash)
 }
 
-// Init is a paid mutator transaction binding the contract method 0x2cc0b254.
+// InitV2 is a paid mutator transaction binding the contract method 0x59af1baf.
 //
-// Solidity: function init(address _owner, bytes32 _genesisBlockHash) returns()
-func (_ShastaInboxClient *ShastaInboxClientSession) Init(_owner common.Address, _genesisBlockHash [32]byte) (*types.Transaction, error) {
-	return _ShastaInboxClient.Contract.Init(&_ShastaInboxClient.TransactOpts, _owner, _genesisBlockHash)
+// Solidity: function initV2(address _owner, bytes32 _genesisBlockHash) returns()
+func (_ShastaInboxClient *ShastaInboxClientSession) InitV2(_owner common.Address, _genesisBlockHash [32]byte) (*types.Transaction, error) {
+	return _ShastaInboxClient.Contract.InitV2(&_ShastaInboxClient.TransactOpts, _owner, _genesisBlockHash)
 }
 
-// Init is a paid mutator transaction binding the contract method 0x2cc0b254.
+// InitV2 is a paid mutator transaction binding the contract method 0x59af1baf.
 //
-// Solidity: function init(address _owner, bytes32 _genesisBlockHash) returns()
-func (_ShastaInboxClient *ShastaInboxClientTransactorSession) Init(_owner common.Address, _genesisBlockHash [32]byte) (*types.Transaction, error) {
-	return _ShastaInboxClient.Contract.Init(&_ShastaInboxClient.TransactOpts, _owner, _genesisBlockHash)
+// Solidity: function initV2(address _owner, bytes32 _genesisBlockHash) returns()
+func (_ShastaInboxClient *ShastaInboxClientTransactorSession) InitV2(_owner common.Address, _genesisBlockHash [32]byte) (*types.Transaction, error) {
+	return _ShastaInboxClient.Contract.InitV2(&_ShastaInboxClient.TransactOpts, _owner, _genesisBlockHash)
 }
 
 // Pause is a paid mutator transaction binding the contract method 0x8456cb59.
@@ -1102,6 +1143,27 @@ func (_ShastaInboxClient *ShastaInboxClientSession) RenounceOwnership() (*types.
 // Solidity: function renounceOwnership() returns()
 func (_ShastaInboxClient *ShastaInboxClientTransactorSession) RenounceOwnership() (*types.Transaction, error) {
 	return _ShastaInboxClient.Contract.RenounceOwnership(&_ShastaInboxClient.TransactOpts)
+}
+
+// StoreForcedInclusion is a paid mutator transaction binding the contract method 0xe7e46b3d.
+//
+// Solidity: function storeForcedInclusion((uint16,uint16,uint24) _blobReference) payable returns()
+func (_ShastaInboxClient *ShastaInboxClientTransactor) StoreForcedInclusion(opts *bind.TransactOpts, _blobReference LibBlobsBlobReference) (*types.Transaction, error) {
+	return _ShastaInboxClient.contract.Transact(opts, "storeForcedInclusion", _blobReference)
+}
+
+// StoreForcedInclusion is a paid mutator transaction binding the contract method 0xe7e46b3d.
+//
+// Solidity: function storeForcedInclusion((uint16,uint16,uint24) _blobReference) payable returns()
+func (_ShastaInboxClient *ShastaInboxClientSession) StoreForcedInclusion(_blobReference LibBlobsBlobReference) (*types.Transaction, error) {
+	return _ShastaInboxClient.Contract.StoreForcedInclusion(&_ShastaInboxClient.TransactOpts, _blobReference)
+}
+
+// StoreForcedInclusion is a paid mutator transaction binding the contract method 0xe7e46b3d.
+//
+// Solidity: function storeForcedInclusion((uint16,uint16,uint24) _blobReference) payable returns()
+func (_ShastaInboxClient *ShastaInboxClientTransactorSession) StoreForcedInclusion(_blobReference LibBlobsBlobReference) (*types.Transaction, error) {
+	return _ShastaInboxClient.Contract.StoreForcedInclusion(&_ShastaInboxClient.TransactOpts, _blobReference)
 }
 
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
@@ -1761,6 +1823,140 @@ func (_ShastaInboxClient *ShastaInboxClientFilterer) WatchBondWithdrawn(opts *bi
 func (_ShastaInboxClient *ShastaInboxClientFilterer) ParseBondWithdrawn(log types.Log) (*ShastaInboxClientBondWithdrawn, error) {
 	event := new(ShastaInboxClientBondWithdrawn)
 	if err := _ShastaInboxClient.contract.UnpackLog(event, "BondWithdrawn", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// ShastaInboxClientForcedInclusionStoredIterator is returned from FilterForcedInclusionStored and is used to iterate over the raw logs and unpacked data for ForcedInclusionStored events raised by the ShastaInboxClient contract.
+type ShastaInboxClientForcedInclusionStoredIterator struct {
+	Event *ShastaInboxClientForcedInclusionStored // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *ShastaInboxClientForcedInclusionStoredIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(ShastaInboxClientForcedInclusionStored)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(ShastaInboxClientForcedInclusionStored)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *ShastaInboxClientForcedInclusionStoredIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *ShastaInboxClientForcedInclusionStoredIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// ShastaInboxClientForcedInclusionStored represents a ForcedInclusionStored event raised by the ShastaInboxClient contract.
+type ShastaInboxClientForcedInclusionStored struct {
+	ForcedInclusion IForcedInclusionStoreForcedInclusion
+	Raw             types.Log // Blockchain specific contextual infos
+}
+
+// FilterForcedInclusionStored is a free log retrieval operation binding the contract event 0x2f33e0807c74cca345279e8e8eb5083d2da943d7013bd2111794b5938ac437d8.
+//
+// Solidity: event ForcedInclusionStored((uint64,(bytes32[],uint24,uint48)) forcedInclusion)
+func (_ShastaInboxClient *ShastaInboxClientFilterer) FilterForcedInclusionStored(opts *bind.FilterOpts) (*ShastaInboxClientForcedInclusionStoredIterator, error) {
+
+	logs, sub, err := _ShastaInboxClient.contract.FilterLogs(opts, "ForcedInclusionStored")
+	if err != nil {
+		return nil, err
+	}
+	return &ShastaInboxClientForcedInclusionStoredIterator{contract: _ShastaInboxClient.contract, event: "ForcedInclusionStored", logs: logs, sub: sub}, nil
+}
+
+// WatchForcedInclusionStored is a free log subscription operation binding the contract event 0x2f33e0807c74cca345279e8e8eb5083d2da943d7013bd2111794b5938ac437d8.
+//
+// Solidity: event ForcedInclusionStored((uint64,(bytes32[],uint24,uint48)) forcedInclusion)
+func (_ShastaInboxClient *ShastaInboxClientFilterer) WatchForcedInclusionStored(opts *bind.WatchOpts, sink chan<- *ShastaInboxClientForcedInclusionStored) (event.Subscription, error) {
+
+	logs, sub, err := _ShastaInboxClient.contract.WatchLogs(opts, "ForcedInclusionStored")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(ShastaInboxClientForcedInclusionStored)
+				if err := _ShastaInboxClient.contract.UnpackLog(event, "ForcedInclusionStored", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseForcedInclusionStored is a log parse operation binding the contract event 0x2f33e0807c74cca345279e8e8eb5083d2da943d7013bd2111794b5938ac437d8.
+//
+// Solidity: event ForcedInclusionStored((uint64,(bytes32[],uint24,uint48)) forcedInclusion)
+func (_ShastaInboxClient *ShastaInboxClientFilterer) ParseForcedInclusionStored(log types.Log) (*ShastaInboxClientForcedInclusionStored, error) {
+	event := new(ShastaInboxClientForcedInclusionStored)
+	if err := _ShastaInboxClient.contract.UnpackLog(event, "ForcedInclusionStored", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
