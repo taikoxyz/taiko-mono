@@ -68,8 +68,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @dev Two slots used to store the state:
     State private _state;
 
+
+    mapping(uint256 blockId => uint256 lookaheadSlotTimestamp) public 
+		blockIdToLookaheadSlotTimestamp;
+
     /// @notice Storage gap for upgrade safety.
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -169,10 +173,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
             _state.designatedProver = designatedProver_;
             _state.isLowBondProposal = isLowBondProposal_;
-            _state.lookaheadSlotTimestamp = _lookaheadSlotTimestamp;
+          
 
             emit ProverDesignated(designatedProver_, isLowBondProposal_);
         }
+
+       
 
         // Process new L1 anchor data
         if (_anchorBlockNumber > _state.anchorBlockNumber) {
@@ -193,6 +199,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
             _state.bondInstructionsHash = newBondInstructionsHash;
             _state.anchorBlockNumber = _anchorBlockNumber;
         }
+
+         _state.lookaheadSlotTimestamp = _lookaheadSlotTimestamp;
+        blockIdToLookaheadSlotTimestamp[block.number] = _lookaheadSlotTimestamp;
     }
 
     /// @notice Returns the current state of the anchor.
