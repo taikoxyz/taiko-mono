@@ -79,8 +79,6 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 }
 
 // AssembleUpdateStateTx assembles a signed ShastaAnchor.updateState transaction.
-// Note: For now, we assume isLowBondProposal is false as we cannot simulate the transaction
-// to get the actual value. This should be updated once we have a way to determine it.
 func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 	ctx context.Context,
 	// Parameters of the ShastaAnchor.updateState transaction.
@@ -196,7 +194,7 @@ func (c *AnchorTxConstructor) signTxPayload(hash []byte) ([]byte, error) {
 		// Try k = 2.
 		sig, ok = c.signer.SignWithK(new(secp256k1.ModNScalar).SetInt(2))(hash)
 		if !ok {
-			log.Crit("Failed to sign TaikoAnchor.anchorV3 transaction using K = 1 and K = 2")
+			log.Crit("Failed to sign TaikoAnchor.anchorV3 / ShastaAnchor.updateState transaction using K = 1 and K = 2")
 		}
 	}
 

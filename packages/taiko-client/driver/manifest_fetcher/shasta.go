@@ -36,7 +36,7 @@ func (d *ShastaManifestFetcher) FetchShasta(
 	if blobHashesLength == 0 ||
 		blobHashesLength > manifest.ProposalMaxBlobs ||
 		meta.GetDerivation().BlobSlice.Offset.Cmp(big.NewInt(int64(manifest.BlobBytes*blobHashesLength-32))) > 0 {
-		return nil, pkg.ErrBlobValidationFailed
+		return nil, pkg.ErrInvalidShastaBlobs
 	}
 
 	// Fetch the L1 block sidecars.
@@ -45,7 +45,8 @@ func (d *ShastaManifestFetcher) FetchShasta(
 		return nil, fmt.Errorf("failed to get blobs, errs: %w", err)
 	}
 
-	log.Info("Fetch sidecars",
+	log.Info(
+		"Fetch sidecars",
 		"proposalID", meta.GetProposal().Id,
 		"l1Height", meta.GetRawBlockHeight(),
 		"sidecars", len(sidecars),

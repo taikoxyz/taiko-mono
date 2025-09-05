@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 	"time"
 
@@ -36,10 +37,9 @@ type PacayaClients struct {
 
 // ShastaClients contains all smart contract clients for ShastaClients fork.
 type ShastaClients struct {
-	TaikoInbox *shastaBindings.ShastaInboxClient
-	Anchor     *shastaBindings.ShastaAnchor
-	//TODO: read this config onchain
-	//ForkHeights *shastaBindings.ITaikoInboxForkHeights
+	TaikoInbox  *shastaBindings.ShastaInboxClient
+	Anchor      *shastaBindings.ShastaAnchor
+	ForkHeights *big.Int
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -144,6 +144,9 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	// Initialize all smart contract clients.
 	if err := c.initPacayaClients(cfg); err != nil {
 		return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
+	}
+	if err := c.initShastaClients(cfg); err != nil {
+		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
 	}
 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
@@ -256,6 +259,32 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		ComposeVerifier:      composeVerifier,
 		PreconfWhitelist:     preconfWhitelist,
 		PreconfRouter:        preconfRouter,
+	}
+
+	return nil
+}
+
+// initShastaClients initializes all Shasta smart contract clients.
+func (c *Client) initShastaClients(cfg *ClientConfig) error {
+	shastaInbox, err := shastaBindings.NewShastaInboxClient(cfg.TaikoInboxAddress, c.L1)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of ShastaInboxClient: %w", err)
+	}
+
+	shastaAnchor, err := shastaBindings.NewShastaAnchor(cfg.TaikoAnchorAddress, c.L2)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of ShastaAnchorClient: %w", err)
+	}
+
+	shastaForkHeight, err := shastaAnchor.ShastaForkHeight(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get shasta fork height: %w", err)
+	}
+
+	c.ShastaClients = &ShastaClients{
+		TaikoInbox:  shastaInbox,
+		Anchor:      shastaAnchor,
+		ForkHeights: new(big.Int).SetUint64(shastaForkHeight),
 	}
 
 	return nil

@@ -21,14 +21,14 @@ import (
 type EndBatchProposedEventIterFunc func()
 
 // OnBatchProposedEvent represents the callback function which will be called
-// when a PacayaTaikoInbox.BatchProposed event is iterated.
+// when a Pacaya TaikoInbox.BatchProposed event is iterated.
 type OnBatchProposedEvent func(
 	context.Context,
 	metadata.TaikoProposalMetaData,
 	EndBatchProposedEventIterFunc,
 ) error
 
-// BatchProposedIterator iterates the emitted PacayaTaikoInbox.BatchProposed events in the chain,
+// BatchProposedIterator iterates the emitted Pacaya TaikoInbox.BatchProposed events in the chain,
 // with the awareness of reorganization.
 type BatchProposedIterator struct {
 	blockBatchIterator *chainIterator.BlockBatchIterator

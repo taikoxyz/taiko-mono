@@ -36,7 +36,7 @@ func SubscribeBatchesVerifiedPacaya(
 	return SubscribeEvent("BatchesVerified", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := taikoInbox.WatchBatchesVerified(nil, ch)
 		if err != nil {
-			log.Error("Create PacayaTaikoInbox.BatchesVerified subscription error", "error", err)
+			log.Error("Create Pacaya TaikoInbox.BatchesVerified subscription error", "error", err)
 			return nil, err
 		}
 
@@ -54,7 +54,7 @@ func SubscribeBatchProposedPacaya(
 	return SubscribeEvent("BatchProposed", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := taikoInbox.WatchBatchProposed(nil, ch)
 		if err != nil {
-			log.Error("Create PacayaTaikoInbox.BatchProposed subscription error", "error", err)
+			log.Error("Create Pacaya TaikoInbox.BatchProposed subscription error", "error", err)
 			return nil, err
 		}
 
@@ -72,7 +72,7 @@ func SubscribeBatchesProvedPacaya(
 	return SubscribeEvent("BatchesProved", func(ctx context.Context) (event.Subscription, error) {
 		sub, err := taikoInbox.WatchBatchesProved(nil, ch)
 		if err != nil {
-			log.Error("Create PacayaTaikoInbox.BatchesProved subscription error", "error", err)
+			log.Error("Create Pacaya TaikoInbox.BatchesProved subscription error", "error", err)
 			return nil, err
 		}
 

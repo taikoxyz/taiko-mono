@@ -136,6 +136,7 @@ var (
 	// Shasta fork
 	ShastaInboxABI  *abi.ABI
 	ShastaAnchorABI *abi.ABI
+	BondManagerABI  *abi.ABI
 
 	customErrorMaps []map[string]abi.Error
 )
@@ -184,7 +185,7 @@ func init() {
 	}
 
 	if TaikoInboxABI, err = pacayaBindings.TaikoInboxClientMetaData.GetAbi(); err != nil {
-		log.Crit("Get PacayaTaikoInbox ABI error", "error", err)
+		log.Crit("Get Pacaya TaikoInbox ABI error", "error", err)
 	}
 
 	if TaikoWrapperABI, err = pacayaBindings.TaikoWrapperClientMetaData.GetAbi(); err != nil {
@@ -227,6 +228,10 @@ func init() {
 		log.Crit("Get Shasta Anchor ABI error", "error", err)
 	}
 
+	if BondManagerABI, err = shastaBindings.BondManagerMetaData.GetAbi(); err != nil {
+		log.Crit("Get BondManager ABI error", "error", err)
+	}
+
 	customErrorMaps = []map[string]abi.Error{
 		TaikoL1ABI.Errors,
 		TaikoL2ABI.Errors,
@@ -248,6 +253,7 @@ func init() {
 		ProverSetPacayaABI.Errors,
 		ShastaInboxABI.Errors,
 		ShastaAnchorABI.Errors,
+		BondManagerABI.Errors,
 	}
 }
 

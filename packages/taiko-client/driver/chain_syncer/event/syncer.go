@@ -203,7 +203,7 @@ func (s *Syncer) processShastaProposal(
 	)
 	// Fetch the manifest
 	metadataBytes, err := s.fetcher.FetchShasta(ctx, metadataShasta)
-	if err != nil && !errors.Is(err, pkg.ErrBlobValidationFailed) {
+	if err != nil && !errors.Is(err, pkg.ErrInvalidShastaBlobs) {
 		return err
 	} else {
 		proposalManifest = s.decompressor.TryDecompressProposalManifest(

@@ -90,6 +90,7 @@ func (m *TaikoProposalMetadataShasta) GetBlobHashes() []common.Hash {
 	return blobHashes
 }
 
+// GetBlobTimestamp returns the timestamp of the blob slice in this proposal.
 func (m *TaikoProposalMetadataShasta) GetBlobTimestamp() uint64 {
 	return m.GetDerivation().BlobSlice.Timestamp.Uint64()
 }
