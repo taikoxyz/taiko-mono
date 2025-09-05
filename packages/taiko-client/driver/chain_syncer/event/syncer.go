@@ -88,6 +88,12 @@ func NewSyncer(
 			txListFetcherBlob,
 			latestSeenProposalCh,
 		),
+		blocksInserterShasta: blocksInserter.NewBlocksInserterShasta(
+			client,
+			progressTracker,
+			constructor,
+			latestSeenProposalCh,
+		),
 		shastaManifestFetcher: shastaManifest.NewManifestFetcher(client, blobDataSource),
 	}, nil
 }
@@ -233,7 +239,7 @@ func (s *Syncer) processShastaProposal(
 			return err
 		}
 	}
-	// Handle the default manifest
+
 	if proposalManifest.Default {
 		proposalManifest.Blocks = []*manifest.BlockManifest{
 			{
@@ -247,16 +253,17 @@ func (s *Syncer) processShastaProposal(
 
 	// Insert new blocks to L2 EE's chain.
 	log.Info(
-		"New Proposal event",
+		"New Shasta Proposed event",
 		"l1Height", meta.GetRawBlockHeight(),
 		"l1Hash", meta.GetRawBlockHash(),
 		"proposalID", metadataShasta.GetProposal().Id,
-		"invalidManifest", proposalManifest.Default,
+		"defaultManifest", proposalManifest.Default,
 		"blocks", len(proposalManifest.Blocks),
 	)
 	if err := s.blocksInserterShasta.InsertBlocksWithManifest(ctx, meta, proposalManifest, endIter); err != nil {
 		return err
 	}
+
 	// TODO: write Proposal info into taiko-geth
 	return nil
 }
