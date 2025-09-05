@@ -36,9 +36,8 @@ contract InboxInit is InboxTest {
 
     /// @dev Helper to deploy fresh inbox with initialization
     function _deployFreshInbox(address _owner, bytes32 _genesisHash) private returns (ITestInbox) {
-        // Use the factory to deploy the selected implementation
-        TestInboxFactory localFactory = new TestInboxFactory();
-        address inboxAddress = localFactory.deployInbox(inboxType, _owner, _genesisHash);
+        // Use the existing factory to deploy the selected implementation
+        address inboxAddress = factory.deployInbox(inboxType, _owner, _genesisHash);
         return ITestInbox(inboxAddress);
     }
 
@@ -103,7 +102,9 @@ contract InboxInit is InboxTest {
         bytes32[3] memory testHashes = [bytes32(0), bytes32(uint256(1)), keccak256("genesis")];
 
         for (uint256 i = 0; i < testHashes.length; i++) {
-            ITestInbox testInbox = _deployFreshInbox(Alice, testHashes[i]);
+            // Use the existing factory instead of creating a new one each iteration
+            address inboxAddress = factory.deployInbox(inboxType, Alice, testHashes[i]);
+            ITestInbox testInbox = ITestInbox(inboxAddress);
 
             // Verify successful initialization with each hash
             assertEq(
