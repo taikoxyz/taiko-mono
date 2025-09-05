@@ -29,8 +29,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         address designatedProver; // The prover designated for the current batch
         bool isLowBondProposal; // Indicates if the proposal has insufficient bonds
         uint48 endOfSubmissionWindowTimeStamp; // The timestamp of the last slot where the current
-            // preconfer
-            // can propose.
+            // preconfer can submit preconf-ed blcoks to the L2 network.
     }
 
     /// @notice Authentication data for prover designation.
