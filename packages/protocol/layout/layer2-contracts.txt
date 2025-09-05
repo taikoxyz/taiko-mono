@@ -188,7 +188,7 @@
 |
 | _state                          | struct ShastaAnchor.State   | 301  | 0      | 96    |
 |
-| blockIdToLookaheadSlotTimestamp | mapping(uint256 => uint256) | 304  | 0      | 32    |
+| blockIdToEndOfSubmissionWindowTimeStamp | mapping(uint256 => uint256) | 304  | 0      | 32    |
 |
 | __gap                           | uint256[46]                 | 305  | 0      | 1472  |
 ╰---------------------------------+-----------------------------+------+--------+-------+----------------------------------------------------╯

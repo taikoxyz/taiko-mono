@@ -49,7 +49,7 @@ interface IInbox {
         /// @notice The L1 block timestamp when the proposal was accepted.
         uint48 timestamp;
         /// @notice The timestamp of the last slot where the current preconfer can propose.
-        uint48 lookaheadSlotTimestamp;
+        uint48 endOfSubmissionWindowTimeStamp;
         /// @notice Address of the proposer.
         address proposer;
         /// @notice The current hash of coreState

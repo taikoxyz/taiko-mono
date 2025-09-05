@@ -180,7 +180,7 @@ contract LibProveInputDecoderGas is Test {
                 id: uint48(96 + i),
                 proposer: address(uint160(0x1000 + i)),
                 timestamp: uint48(1_000_000 + i * 10),
-                lookaheadSlotTimestamp: uint48(1_000_000 + i * 10 + 12),
+                endOfSubmissionWindowTimeStamp: uint48(1_000_000 + i * 10 + 12),
                 coreStateHash: keccak256(abi.encodePacked("core_state", i)),
                 derivationHash: keccak256(abi.encodePacked("derivation", i))
             });
