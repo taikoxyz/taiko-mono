@@ -49,10 +49,12 @@ func checkBlockLevelMetadata(
 	for i := range proposalManifest.Blocks {
 		// Timestamp Validation
 		if proposalManifest.Blocks[i].Timestamp > proposal.Timestamp.Uint64() {
-			log.Debug("Adjusting block timestamp to proposal timestamp",
+			log.Debug(
+				"Adjusting block timestamp to proposal timestamp",
 				"blockIndex", i,
 				"originalTimestamp", proposalManifest.Blocks[i].Timestamp,
-				"newTimestamp", proposal.Timestamp)
+				"newTimestamp", proposal.Timestamp,
+			)
 			proposalManifest.Blocks[i].Timestamp = proposal.Timestamp.Uint64()
 		}
 
@@ -66,7 +68,8 @@ func checkBlockLevelMetadata(
 		}
 
 		if proposalManifest.Blocks[i].Timestamp < lowerBound {
-			log.Debug("Adjusting block timestamp to lower bound",
+			log.Debug(
+				"Adjusting block timestamp to lower bound",
 				"blockIndex", i,
 				"originalTimestamp", proposalManifest.Blocks[i].Timestamp,
 				"newTimestamp", lowerBound)
@@ -78,37 +81,45 @@ func checkBlockLevelMetadata(
 
 		// Check non-monotonic progression
 		if proposalManifest.Blocks[i].AnchorBlockNumber < parentAnchorBlockNumber {
-			log.Debug("Invalid anchor: non-monotonic progression",
+			log.Debug(
+				"Invalid anchor: non-monotonic progression",
 				"blockIndex", i,
 				"anchorBlockNumber", proposalManifest.Blocks[i].AnchorBlockNumber,
-				"parentAnchorBlockNumber", parentAnchorBlockNumber)
+				"parentAnchorBlockNumber", parentAnchorBlockNumber,
+			)
 			isInvalidAnchor = true
 		}
 
 		// Check future reference
 		if proposalManifest.Blocks[i].AnchorBlockNumber >= originBlockNumber-manifest.AnchorMinOffset {
-			log.Debug("Invalid anchor: future reference",
+			log.Debug(
+				"Invalid anchor: future reference",
 				"blockIndex", i,
 				"anchorBlockNumber", proposalManifest.Blocks[i].AnchorBlockNumber,
-				"originBlockNumber", originBlockNumber)
+				"originBlockNumber", originBlockNumber,
+			)
 			isInvalidAnchor = true
 		}
 
 		// Check excessive lag
 		if originBlockNumber > manifest.AnchorMaxOffset &&
 			proposalManifest.Blocks[i].AnchorBlockNumber < originBlockNumber-manifest.AnchorMaxOffset {
-			log.Debug("Invalid anchor: excessive lag",
+			log.Debug(
+				"Invalid anchor: excessive lag",
 				"blockIndex", i,
 				"anchorBlockNumber", proposalManifest.Blocks[i].AnchorBlockNumber,
-				"minRequired", originBlockNumber-manifest.AnchorMaxOffset)
+				"minRequired", originBlockNumber-manifest.AnchorMaxOffset,
+			)
 			isInvalidAnchor = true
 		}
 
 		if isInvalidAnchor {
-			log.Info("Setting anchor block number to parent's anchor",
+			log.Info(
+				"Setting anchor block number to parent's anchor",
 				"blockIndex", i,
 				"originalAnchor", proposalManifest.Blocks[i].AnchorBlockNumber,
-				"newAnchor", parentAnchorBlockNumber)
+				"newAnchor", parentAnchorBlockNumber,
+			)
 			proposalManifest.Blocks[i].AnchorBlockNumber = parentAnchorBlockNumber
 		} else if proposalManifest.Blocks[i].AnchorBlockNumber > parentAnchorBlockNumber {
 			hasValidAnchor = true
@@ -137,16 +148,20 @@ func checkBlockLevelMetadata(
 			// Inherit parent value
 			proposalManifest.Blocks[i].GasLimit = parentGasLimit
 		} else if proposalManifest.Blocks[i].GasLimit < lowerGasBound {
-			log.Debug("Clamping gas limit to lower bound",
+			log.Debug(
+				"Clamping gas limit to lower bound",
 				"blockIndex", i,
 				"originalGasLimit", proposalManifest.Blocks[i].GasLimit,
-				"newGasLimit", lowerGasBound)
+				"newGasLimit", lowerGasBound,
+			)
 			proposalManifest.Blocks[i].GasLimit = lowerGasBound
 		} else if proposalManifest.Blocks[i].GasLimit > upperGasBound {
-			log.Debug("Clamping gas limit to upper bound",
+			log.Debug(
+				"Clamping gas limit to upper bound",
 				"blockIndex", i,
 				"originalGasLimit", proposalManifest.Blocks[i].GasLimit,
-				"newGasLimit", upperGasBound)
+				"newGasLimit", upperGasBound,
+			)
 			proposalManifest.Blocks[i].GasLimit = upperGasBound
 		}
 

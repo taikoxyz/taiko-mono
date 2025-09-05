@@ -133,6 +133,10 @@ var (
 	TaikoTokenPacayaABI     *abi.ABI
 	ProverSetPacayaABI      *abi.ABI
 
+	// Shasta fork
+	ShastaInboxABI  *abi.ABI
+	ShastaAnchorABI *abi.ABI
+
 	customErrorMaps []map[string]abi.Error
 )
 
@@ -215,6 +219,14 @@ func init() {
 		log.Crit("Get ProverSet ABI error", "error", err)
 	}
 
+	if ShastaInboxABI, err = shastaBindings.ShastaInboxClientMetaData.GetAbi(); err != nil {
+		log.Crit("Get Shasta Inbox ABI error", "error", err)
+	}
+
+	if ShastaAnchorABI, err = shastaBindings.ShastaAnchorMetaData.GetAbi(); err != nil {
+		log.Crit("Get Shasta Anchor ABI error", "error", err)
+	}
+
 	customErrorMaps = []map[string]abi.Error{
 		TaikoL1ABI.Errors,
 		TaikoL2ABI.Errors,
@@ -234,6 +246,8 @@ func init() {
 		ForkRouterPacayaABI.Errors,
 		TaikoTokenPacayaABI.Errors,
 		ProverSetPacayaABI.Errors,
+		ShastaInboxABI.Errors,
+		ShastaAnchorABI.Errors,
 	}
 }
 
@@ -264,7 +278,7 @@ func EncodeBatchesSubProofs(subProofs []SubProof) ([]byte, error) {
 	return b, nil
 }
 
-// EncodeProveBatchesInput performs the solidity `abi.encode` for the given PacayaTaikoInbox.proveBatches input.
+// EncodeProveBatchesInput performs the solidity `abi.encode` for the given Pacaya `TaikoInbox.proveBatches` input.
 func EncodeProveBatchesInput(
 	metas []metadata.TaikoProposalMetaData,
 	transitions []pacayaBindings.ITaikoInboxTransition,
@@ -283,7 +297,7 @@ func EncodeProveBatchesInput(
 	}
 	input, err := ProveBatchesInputArgs.Pack(pacayaMetas, transitions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode PacayaTaikoInbox.proveBatches input item after pacaya fork, %w", err)
+		return nil, fmt.Errorf("failed to abi.encode Pacaya TaikoInbox.proveBatches input item after pacaya fork, %w", err)
 	}
 
 	return input, nil
@@ -303,13 +317,18 @@ func CalculatePacayaDifficulty(blockNum *big.Int) ([]byte, error) {
 func CalculateShastaDifficulty(parentDifficulty *big.Int, blockNum *big.Int) ([]byte, error) {
 	packed, err := ShastaDifficultyInputArgs.Pack(parentDifficulty, blockNum)
 	if err != nil {
-		return nil, fmt.Errorf("failed to abi.encode Shasta difficulty, %w", err)
+		return nil, fmt.Errorf("failed to abi.encode Shasta block difficulty, %w", err)
 	}
 
 	return crypto.Keccak256(packed), nil
 }
 
-func CalculateBondInstructionHash(previousBondInstructionHash common.Hash, bondInstruction shastaBindings.LibBondsBondInstruction) (common.Hash, error) {
+// CalculateBondInstructionHash calculates the bond instruction hash by hashing the given previous bond instruction
+// hash and bond instruction.
+func CalculateBondInstructionHash(
+	previousBondInstructionHash common.Hash,
+	bondInstruction shastaBindings.LibBondsBondInstruction,
+) (common.Hash, error) {
 	if bondInstruction.ProposalId.Cmp(common.Big0) == 0 || bondInstruction.BondType == 0 {
 		return previousBondInstructionHash, nil
 	}
