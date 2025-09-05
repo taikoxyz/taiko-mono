@@ -83,8 +83,8 @@ func ExtractVersion(data []byte, offset int) (uint32, error) {
 	versionUint := uint32(version.Uint64())
 
 	// Validate version for Shasta
-	if versionUint != manifest.ValidShastaVersion {
-		return 0, fmt.Errorf("invalid version: expected 0x%x, got 0x%x", manifest.ValidShastaVersion, versionUint)
+	if versionUint != manifest.ShastaPayloadVersion {
+		return 0, fmt.Errorf("invalid version: expected 0x%x, got 0x%x", manifest.ShastaPayloadVersion, versionUint)
 	}
 
 	return versionUint, nil

@@ -255,7 +255,7 @@ func (s *Syncer) processShastaProposal(
 	}
 	// Handle the default manifest
 	if proposalManifest.Invalid {
-		proposalManifest.Blocks = []manifest.BlockManifest{
+		proposalManifest.Blocks = []*manifest.BlockManifest{
 			{
 				Timestamp:         metadataShasta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
 				Coinbase:          metadataShasta.GetProposal().Proposer,
