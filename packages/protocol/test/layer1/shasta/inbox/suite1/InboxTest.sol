@@ -169,8 +169,6 @@ abstract contract InboxTest is CommonTest {
             return TestInboxFactory.InboxType.Optimized2;
         } else if (keccak256(bytes(inboxTypeStr)) == keccak256(bytes("opt3"))) {
             return TestInboxFactory.InboxType.Optimized3;
-        } else if (keccak256(bytes(inboxTypeStr)) == keccak256(bytes("opt4"))) {
-            return TestInboxFactory.InboxType.Optimized4;
         } else {
             // Default to Core if unknown type
             emit log_string(
@@ -481,7 +479,7 @@ abstract contract InboxTest is CommonTest {
             for (uint48 i = 0; i < _config.proposalCount; i++) {
                 transitions[i] =
                     InboxTestLib.createTransition(proposals[i], currentParent, _config.prover);
-                currentParent = hashTransition(transitions[i]);
+                currentParent = InboxTestLib.hashTransition(transitions[i]);
             }
 
             // Prove all at once and get transition records from events
@@ -669,7 +667,7 @@ abstract contract InboxTest is CommonTest {
         setupBlobHashes();
 
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = createGenesisProposal(coreState);
+        proposals[0] = InboxTestLib.createGenesisProposal(coreState);
 
         bytes memory data = InboxTestAdapter.encodeProposeInput(
             inboxType,
@@ -703,7 +701,7 @@ abstract contract InboxTest is CommonTest {
         setupBlobHashes();
 
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = createGenesisProposal(coreState);
+        proposals[0] = InboxTestLib.createGenesisProposal(coreState);
 
         // Get the checkpoint from the last proposal that was proven
         // This should match what was used when the transition was created
@@ -913,7 +911,7 @@ abstract contract InboxTest is CommonTest {
         setupProposalMocks(Alice);
         IInbox.CoreState memory state = createStandardCoreState(1);
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = createGenesisProposal(state);
+        proposals[0] = InboxTestLib.createGenesisProposal(state);
 
         InboxTestAdapter.encodeProposeInput(
             inboxType,
@@ -1162,7 +1160,7 @@ abstract contract InboxTest is CommonTest {
         if (_proposalId == 1) {
             // First proposal after genesis, use genesis validation
             proposals = new IInbox.Proposal[](1);
-            proposals[0] = createGenesisProposal(_coreState);
+            proposals[0] = InboxTestLib.createGenesisProposal(_coreState);
         } else {
             // Subsequent proposals, include the previous proposal for validation
             proposals = new IInbox.Proposal[](1);
@@ -1219,7 +1217,7 @@ abstract contract InboxTest is CommonTest {
         returns (bytes memory)
     {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = createGenesisProposal(_coreState);
+        proposals[0] = InboxTestLib.createGenesisProposal(_coreState);
 
         return InboxTestAdapter.encodeProposeInput(
             inboxType, uint48(0), _coreState, proposals, _blobRef, _transitionRecords
@@ -1238,7 +1236,7 @@ abstract contract InboxTest is CommonTest {
         returns (bytes memory)
     {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
-        proposals[0] = createGenesisProposal(_coreState);
+        proposals[0] = InboxTestLib.createGenesisProposal(_coreState);
 
         return InboxTestAdapter.encodeProposeInput(
             inboxType, _deadline, _coreState, proposals, _blobRef, _transitionRecords
@@ -1312,10 +1310,10 @@ abstract contract InboxTest is CommonTest {
     }
 
     /// @dev Recreates the genesis proposal that was stored during contract initialization
-    function _recreateGenesisProposal() internal view returns (IInbox.Proposal memory) {
+    function _recreateGenesisProposal() internal pure returns (IInbox.Proposal memory) {
         // Use the library function that correctly recreates the genesis proposal
         IInbox.CoreState memory genesisCoreState = _getGenesisCoreState();
-        return createGenesisProposal(genesisCoreState);
+        return InboxTestLib.createGenesisProposal(genesisCoreState);
     }
 
     /// @dev Recreates a stored proposal based on the pattern used in tests
@@ -1400,7 +1398,7 @@ abstract contract InboxTest is CommonTest {
         // We need to simulate that here
         IInbox.CoreState memory updatedCoreState = _coreState;
         updatedCoreState.nextProposalId++;
-        proposal.coreStateHash = hashCoreState(updatedCoreState);
+        proposal.coreStateHash = keccak256(abi.encode(updatedCoreState));
 
         return proposal;
     }
@@ -1778,7 +1776,7 @@ abstract contract InboxTest is CommonTest {
         bytes32 _genesisHash
     )
         internal
-        view
+        pure
     {
         require(_proposals.length == _transitions.length, "Array length mismatch");
 
@@ -1801,7 +1799,7 @@ abstract contract InboxTest is CommonTest {
             );
 
             // Update expected parent for next iteration
-            expectedParent = hashTransition(_transitions[i]);
+            expectedParent = InboxTestLib.hashTransition(_transitions[i]);
         }
     }
 
@@ -1828,48 +1826,8 @@ abstract contract InboxTest is CommonTest {
     }
 
     // ---------------------------------------------------------------
-    // Inbox Type Conversion
+    // Enhanced Helper Functions
     // ---------------------------------------------------------------
-
-    /// @dev Converts TestInboxFactory.InboxType to InboxTestLib.InboxType
-    function getInboxTestLibType() internal view returns (InboxTestLib.InboxType) {
-        if (inboxType == TestInboxFactory.InboxType.Base) {
-            return InboxTestLib.InboxType.Base;
-        } else if (inboxType == TestInboxFactory.InboxType.Optimized1) {
-            return InboxTestLib.InboxType.Optimized1;
-        } else if (inboxType == TestInboxFactory.InboxType.Optimized2) {
-            return InboxTestLib.InboxType.Optimized2;
-        } else if (inboxType == TestInboxFactory.InboxType.Optimized3) {
-            return InboxTestLib.InboxType.Optimized3;
-        } else if (inboxType == TestInboxFactory.InboxType.Optimized4) {
-            return InboxTestLib.InboxType.Optimized4;
-        } else {
-            return InboxTestLib.InboxType.Base; // Default fallback
-        }
-    }
-
-    // ---------------------------------------------------------------
-    // Enhanced Helper Functions - Inbox-Type-Aware
-    // ---------------------------------------------------------------
-
-    /// @dev Computes transition hash using the correct method for current inbox type
-    function hashTransition(IInbox.Transition memory _transition) internal view returns (bytes32) {
-        return InboxTestLib.hashTransition(_transition, getInboxTestLibType());
-    }
-
-    /// @dev Computes core state hash using the correct method for current inbox type
-    function hashCoreState(IInbox.CoreState memory _state) internal view returns (bytes32) {
-        return InboxTestLib.hashCoreState(_state, getInboxTestLibType());
-    }
-
-    /// @dev Creates genesis proposal using the correct method for current inbox type
-    function createGenesisProposal(IInbox.CoreState memory _coreState)
-        internal
-        view
-        returns (IInbox.Proposal memory)
-    {
-        return InboxTestLib.createGenesisProposal(_coreState, getInboxTestLibType());
-    }
 
     function getGenesisTransitionHash() internal pure returns (bytes32) {
         return InboxTestLib.getGenesisTransitionHash(GENESIS_BLOCK_HASH);

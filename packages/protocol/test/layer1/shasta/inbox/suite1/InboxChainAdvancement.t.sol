@@ -40,7 +40,7 @@ contract InboxChainAdvancement is InboxTest {
         // Arrange: Get genesis transition hash as chain starting point
         IInbox.Transition memory genesisTransition;
         genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
-        bytes32 genesisHash = hashTransition(genesisTransition);
+        bytes32 genesisHash = InboxTestLib.hashTransition(genesisTransition);
 
         // Act: Create, prove, and prepare proposals for sequential chain advancement
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
@@ -64,12 +64,12 @@ contract InboxChainAdvancement is InboxTest {
             storedTransitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                transitionHash: hashTransition(transitions[i]),
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
             });
 
             // Update parent hash for chain progression
-            currentParentHash = hashTransition(transitions[i]);
+            currentParentHash = InboxTestLib.hashTransition(transitions[i]);
         }
 
         // Assert: Verify the chain advancement was successful
@@ -84,7 +84,7 @@ contract InboxChainAdvancement is InboxTest {
 
         // Verify chain progression - each transition should have correct parent
         for (uint48 i = 1; i < numProposals; i++) {
-            bytes32 expectedParent = hashTransition(transitions[i - 1]);
+            bytes32 expectedParent = InboxTestLib.hashTransition(transitions[i - 1]);
             assertEq(
                 transitions[i].parentTransitionHash,
                 expectedParent,
@@ -208,7 +208,7 @@ contract InboxChainAdvancement is InboxTest {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                transitionHash: hashTransition(transitions[i]),
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
             });
         }
@@ -289,7 +289,7 @@ contract InboxChainAdvancement is InboxTest {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                transitionHash: hashTransition(transitions[i]),
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
             });
         }
@@ -410,7 +410,7 @@ contract InboxChainAdvancement is InboxTest {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                transitionHash: hashTransition(transitions[i]),
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
             });
         }
@@ -489,12 +489,12 @@ contract InboxChainAdvancement is InboxTest {
             storedTransitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                transitionHash: hashTransition(transitions[i]),
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
             });
 
             // Update parent hash for chain continuity
-            currentParentHash = hashTransition(transitions[i]);
+            currentParentHash = InboxTestLib.hashTransition(transitions[i]);
         }
 
         // Act: Try to finalize all at once (should only finalize up to maxFinalizationCount)
@@ -695,7 +695,7 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.TransitionRecord memory expectedAggregatedRecord = IInbox.TransitionRecord({
             span: 3,
             bondInstructions: expectedBondInstructions,
-            transitionHash: hashTransition(transitions[2]), // Last transition in the
+            transitionHash: InboxTestLib.hashTransition(transitions[2]), // Last transition in the
                 // aggregated group
             checkpointHash: keccak256(abi.encode(transitions[2].checkpoint))
         });
@@ -888,7 +888,7 @@ contract InboxChainAdvancement is InboxTest {
             IInbox.TransitionRecord memory expectedRecord = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](1),
-                transitionHash: hashTransition(transitions[i]),
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
             });
 
@@ -917,7 +917,7 @@ contract InboxChainAdvancement is InboxTest {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](1),
-                transitionHash: hashTransition(transitions[i]),
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
             });
             transitionRecords[i].bondInstructions[0] = LibBonds.BondInstruction({
@@ -1011,7 +1011,7 @@ contract InboxChainAdvancement is InboxTest {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                transitionHash: hashTransition(transitions[i]),
+                transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
             });
         }

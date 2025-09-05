@@ -144,7 +144,8 @@ contract InboxProposeValidation is InboxTest {
             lastFinalizedTransitionHash: genesisHash,
             bondInstructionsHash: bytes32(0)
         });
-        IInbox.Proposal memory genesisProposal = createGenesisProposal(genesisCoreState);
+        IInbox.Proposal memory genesisProposal =
+            InboxTestLib.createGenesisProposal(genesisCoreState);
 
         // Arrange: Create proposal with mismatched core state (attack simulation)
         IInbox.CoreState memory wrongCoreState =

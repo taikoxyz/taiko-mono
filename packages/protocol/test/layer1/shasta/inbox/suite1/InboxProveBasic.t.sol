@@ -52,7 +52,7 @@ contract InboxProveBasic is InboxTest {
             // Update parent hash for next iteration
             IInbox.Transition memory transition =
                 InboxTestLib.createTransition(proposals[i - 1], parentTransitionHash, Bob);
-            parentTransitionHash = hashTransition(transition);
+            parentTransitionHash = InboxTestLib.hashTransition(transition);
         }
     }
 
@@ -79,7 +79,7 @@ contract InboxProveBasic is InboxTest {
             // Update parent hash for chain progression
             IInbox.Transition memory transition =
                 InboxTestLib.createTransition(proposals[i], parentHash, Bob);
-            parentHash = hashTransition(transition);
+            parentHash = InboxTestLib.hashTransition(transition);
         }
     }
 

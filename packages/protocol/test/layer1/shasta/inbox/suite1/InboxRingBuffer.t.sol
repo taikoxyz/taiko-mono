@@ -220,7 +220,8 @@ contract InboxRingBuffer is InboxTest {
             lastFinalizedTransitionHash: getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
-        IInbox.Proposal memory genesisProposal = createGenesisProposal(genesisCoreState);
+        IInbox.Proposal memory genesisProposal =
+            InboxTestLib.createGenesisProposal(genesisCoreState);
 
         IInbox.CoreState memory coreState3 = IInbox.CoreState({
             nextProposalId: 3,
