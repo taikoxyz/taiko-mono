@@ -80,6 +80,9 @@ interface IInbox {
         /// @notice The span indicating how many proposals this transition record covers.
         uint8 span;
         /// @notice The timestamp when this transition becomes effective for finalization.
+        /// @dev The delay is necessary to prevent a race condition where the proposer builds the
+        /// `ProposeInput` with X number of transitions to finalize, but then there's a `prove`
+        /// transaction before him that forces him to finalize more proposals
         uint48 effectiveAt;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
