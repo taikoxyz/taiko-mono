@@ -65,14 +65,14 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // ---------------------------------------------------------------
 
     /// @notice Current state of the anchor proposal being processed.
-    /// @dev Two slots used to store the state:
+    /// @dev 3 slots used to store the state:
     State private _state;
 
     mapping(uint256 blockId => uint256 lookaheadSlotTimestamp) public
         blockIdToLookaheadSlotTimestamp;
 
     /// @notice Storage gap for upgrade safety.
-    uint256[47] private __gap;
+    uint256[46] private __gap;
 
     // ---------------------------------------------------------------
     // Events
