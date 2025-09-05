@@ -61,8 +61,8 @@ library InboxTestAdapter {
         pure
         returns (bytes memory)
     {
-        if (_inboxType == TestInboxFactory.InboxType.Optimized3) {
-            // InboxOptimized3 uses custom encoding
+        if (_inboxType == TestInboxFactory.InboxType.Optimized3 || _inboxType == TestInboxFactory.InboxType.Optimized4) {
+            // InboxOptimized3 and InboxOptimized4 use custom encoding
             // Create ProposeInput struct
             IInbox.ProposeInput memory input = IInbox.ProposeInput({
                 deadline: _deadline,
@@ -104,8 +104,8 @@ library InboxTestAdapter {
         pure
         returns (bytes memory)
     {
-        if (_inboxType == TestInboxFactory.InboxType.Optimized3) {
-            // InboxOptimized3 uses custom encoding
+        if (_inboxType == TestInboxFactory.InboxType.Optimized3 || _inboxType == TestInboxFactory.InboxType.Optimized4) {
+            // InboxOptimized3 and InboxOptimized4 use custom encoding
             // Create ProveInput struct
             IInbox.ProveInput memory input =
                 IInbox.ProveInput({ proposals: _proposals, transitions: _transitions });
@@ -135,8 +135,9 @@ library InboxTestAdapter {
         if (
             _inboxType == TestInboxFactory.InboxType.Optimized2
                 || _inboxType == TestInboxFactory.InboxType.Optimized3
+                || _inboxType == TestInboxFactory.InboxType.Optimized4
         ) {
-            // InboxOptimized2 and InboxOptimized3 use custom event encoding
+            // InboxOptimized2, InboxOptimized3 and InboxOptimized4 use custom event encoding
             IInbox.ProposedEventPayload memory payload = LibProposedEventEncoder.decode(_data);
             proposal_ = payload.proposal;
             coreState_ = payload.coreState;
@@ -164,8 +165,9 @@ library InboxTestAdapter {
         if (
             _inboxType == TestInboxFactory.InboxType.Optimized2
                 || _inboxType == TestInboxFactory.InboxType.Optimized3
+                || _inboxType == TestInboxFactory.InboxType.Optimized4
         ) {
-            // InboxOptimized2 and InboxOptimized3 use custom event encoding
+            // InboxOptimized2, InboxOptimized3 and InboxOptimized4 use custom event encoding
             IInbox.ProvedEventPayload memory payload = LibProvedEventEncoder.decode(_data);
             return payload.transitionRecord;
         } else {
@@ -182,7 +184,7 @@ library InboxTestAdapter {
         pure
         returns (bool)
     {
-        return _inboxType == TestInboxFactory.InboxType.Optimized3;
+        return _inboxType == TestInboxFactory.InboxType.Optimized3 || _inboxType == TestInboxFactory.InboxType.Optimized4;
     }
 
     /// @dev Checks if an Inbox type uses custom event encoding
@@ -194,7 +196,8 @@ library InboxTestAdapter {
         returns (bool)
     {
         return _inboxType == TestInboxFactory.InboxType.Optimized2
-            || _inboxType == TestInboxFactory.InboxType.Optimized3;
+            || _inboxType == TestInboxFactory.InboxType.Optimized3
+            || _inboxType == TestInboxFactory.InboxType.Optimized4;
     }
 
     /// @dev Gets a string representation of the Inbox type for logging
