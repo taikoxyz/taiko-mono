@@ -6,10 +6,11 @@ The Taiko Shasta Inbox test suite provides comprehensive coverage of the Inbox c
 
 ## Inbox Implementations
 
-1. **Inbox.sol** — The base, fundamental implementation
-2. **InboxOptimized1** — Fully compatible with `Inbox.sol`, includes slot reuse optimizations
-3. **InboxOptimized2** — Uses custom encoder for event data to reduce gas costs
-4. **InboxOptimized3** — Uses custom decoding functions for calldata (others use `abi.decode`)
+1. **Inbox.sol** — The base implementation with built-in transition aggregation and storage optimizations
+2. **InboxOptimized2** — Uses custom encoder for event data to reduce gas costs
+3. **InboxOptimized3** — Uses custom decoding functions for calldata (others use `abi.decode`)
+
+**Note**: InboxOptimized1 has been merged into the base Inbox.sol implementation.
 
 ## Quick Start
 
@@ -46,9 +47,6 @@ Use the `INBOX` environment variable to select which implementation to test:
 # Test base implementation (default)
 INBOX=base FOUNDRY_PROFILE=layer1 forge test --match-path "test/layer1/shasta/inbox/*.t.sol"
 
-# Test InboxOptimized1
-INBOX=opt1 FOUNDRY_PROFILE=layer1 forge test --match-path "test/layer1/shasta/inbox/*.t.sol"
-
 # Test InboxOptimized2
 INBOX=opt2 FOUNDRY_PROFILE=layer1 forge test --match-path "test/layer1/shasta/inbox/*.t.sol"
 
@@ -82,7 +80,6 @@ The test suite uses a consolidated architecture with:
 ### Test Implementations
 
 - **TestInboxCore.sol** - Test wrapper for base Inbox
-- **TestInboxOptimized1.sol** - Test wrapper for InboxOptimized1
 - **TestInboxOptimized2.sol** - Test wrapper for InboxOptimized2
 - **TestInboxOptimized3.sol** - Test wrapper for InboxOptimized3
 
@@ -106,9 +103,9 @@ The test suite uses a consolidated architecture with:
 
 ## Compatibility Notes
 
-### Base & InboxOptimized1
+### Base Implementation
 
-- Must behave identically (except InboxOptimized1 supports transition aggregation)
+- Now includes all optimizations previously in InboxOptimized1 (transition aggregation, storage optimization)
 - Use standard ABI encoding for both calldata and events
 - Test assertions should produce identical results for non-aggregation scenarios
 

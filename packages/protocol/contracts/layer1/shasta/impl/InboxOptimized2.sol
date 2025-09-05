@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "./Inbox.sol";
-import { InboxOptimized1 } from "./InboxOptimized1.sol";
 import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
@@ -12,10 +11,10 @@ import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 ///      - Custom event encoding using LibProposedEventEncoder and LibProvedEventEncoder
 ///      - Compact binary representation for event data
 ///      - Reduced calldata size for events
-///      - Maintains all optimizations from InboxOptimized1
+///      - Builds on top of base Inbox (which now includes transition aggregation optimizations)
 /// @dev Gas savings: ~30% reduction in event emission costs compared to standard ABI encoding
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxOptimized2 is InboxOptimized1 {
+abstract contract InboxOptimized2 is Inbox {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -26,7 +25,7 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized1() { }
+    constructor() Inbox() { }
 
     // ---------------------------------------------------------------
     // External Functions

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "./TestInboxCore.sol";
-import "./TestInboxOptimized1.sol";
 import "./TestInboxOptimized2.sol";
 import "./TestInboxOptimized3.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
@@ -15,7 +14,6 @@ contract TestInboxFactory {
     /// @notice The type of Inbox implementation to deploy
     enum InboxType {
         Base,
-        Optimized1,
         Optimized2,
         Optimized3
     }
@@ -37,8 +35,6 @@ contract TestInboxFactory {
 
         if (_type == InboxType.Base) {
             impl = address(new TestInboxCore());
-        } else if (_type == InboxType.Optimized1) {
-            impl = address(new TestInboxOptimized1());
         } else if (_type == InboxType.Optimized2) {
             impl = address(new TestInboxOptimized2());
         } else if (_type == InboxType.Optimized3) {
