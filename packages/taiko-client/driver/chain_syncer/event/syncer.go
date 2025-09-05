@@ -60,18 +60,11 @@ func NewSyncer(
 		return nil, fmt.Errorf("failed to initialize anchor constructor: %w", err)
 	}
 
-	blobDataSource := rpc.NewBlobDataSource(
-		ctx,
-		client,
-		blobServerEndpoint,
-	)
-
-	txListDecompressor := txListDecompressor.NewTxListDecompressor(rpc.BlockMaxTxListBytes)
-
 	var (
-		txListFetcherBlob     = txlistFetcher.NewBlobFetcher(client, blobDataSource)
-		txListFetcherCalldata = txlistFetcher.NewCalldataFetcher(client)
+		blobDataSource     = rpc.NewBlobDataSource(ctx, client, blobServerEndpoint)
+		txListDecompressor = txListDecompressor.NewTxListDecompressor(rpc.BlockMaxTxListBytes)
 	)
+
 	return &Syncer{
 		ctx:                ctx,
 		rpc:                client,
@@ -84,8 +77,8 @@ func NewSyncer(
 			blobDataSource,
 			txListDecompressor,
 			constructor,
-			txListFetcherCalldata,
-			txListFetcherBlob,
+			txlistFetcher.NewCalldataFetcher(client),
+			txlistFetcher.NewBlobFetcher(client, blobDataSource),
 			latestSeenProposalCh,
 		),
 		blocksInserterShasta: blocksInserter.NewBlocksInserterShasta(

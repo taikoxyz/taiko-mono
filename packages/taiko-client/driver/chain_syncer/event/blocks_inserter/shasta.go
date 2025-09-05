@@ -53,9 +53,10 @@ func (i *Shasta) InsertBlocks(
 	_ metadata.TaikoProposalMetaData,
 	_ eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
-	return errors.New("not supported in Shasta")
+	return errors.New("not supported in Shasta block inserter")
 }
 
+// InsertBlocksWithManifest inserts new Shasta blocks to the L2 execution engine based on the given proposal manifest.
 func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
@@ -64,9 +65,6 @@ func (i *Shasta) InsertBlocksWithManifest(
 ) (err error) {
 	if !metadata.IsShasta() {
 		return errors.New("metadata is not for Shasta fork")
-	}
-	if len(proposalManifest.Blocks) < 1 {
-		return errors.New("invalid number of blocks")
 	}
 
 	i.mutex.Lock()
@@ -83,7 +81,6 @@ func (i *Shasta) InsertBlocksWithManifest(
 		"Inserting Shasta blocks to L2 execution engine",
 		"proposalID", meta.GetProposal().Id,
 		"invalidManifest", proposalManifest.Default,
-		"coinbase", proposalManifest.Blocks[0].Coinbase,
 	)
 
 	var (
@@ -170,7 +167,8 @@ func (i *Shasta) InsertPreconfBlocksFromEnvelopes(
 	envelopes []*preconf.Envelope,
 	fromCache bool,
 ) ([]*types.Header, error) {
-	panic("To be implemented")
+	// TODO: To be implemented.
+	return nil, errors.New("not supported in Shasta block inserter")
 }
 
 // sendLatestSeenProposal sends the latest seen proposal to the channel, if it is not nil.

@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -514,24 +515,30 @@ func assembleCreateExecutionPayloadMetaShasta(
 	}
 
 	var (
-		meta      = metadata.Shasta()
-		blockID   = new(big.Int).Add(parent.Number, common.Big1)
-		blockInfo = proposalManifest.Blocks[blockIndex]
+		meta          = metadata.Shasta()
+		blockID       = new(big.Int).Add(parent.Number, common.Big1)
+		blockInfo     = proposalManifest.Blocks[blockIndex]
+		anchorBlockID = new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
+		baseFee       = new(big.Int).SetUint64(params.ShastaInitialBaseFee)
 	)
 	difficulty, err := encoding.CalculateShastaDifficulty(parent.Difficulty, blockID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
 	}
-	timestamp := blockInfo.Timestamp
+
 	// Calculate base fee
-	chainConfig := core.TaikoGenesisBlock(rpc.L2.ChainID.Uint64()).Config
-	ancestorBlock, err := rpc.L2.HeaderByHash(ctx, parent.ParentHash)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch ancestor block: %w", err)
+	if parent.Number.Cmp(common.Big0) > 0 {
+		grandParentBlock, err := rpc.L2.HeaderByHash(ctx, parent.ParentHash)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
+		}
+		baseFee = misc.CalcEIP4396BaseFee(
+			core.TaikoGenesisBlock(rpc.L2.ChainID.Uint64()).Config,
+			parent,
+			parent.Time-grandParentBlock.Time,
+		)
 	}
-	parentBlockTime := parent.Time - ancestorBlock.Time
-	baseFee := misc.CalcEIP4396BaseFee(chainConfig, parent, parentBlockTime)
-	anchorBlockID := new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
+
 	anchorBlockHeader, err := rpc.L1.HeaderByNumber(ctx, anchorBlockID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch anchor block: %w", err)
@@ -568,7 +575,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 		SuggestedFeeRecipient: blockInfo.Coinbase,
 		GasLimit:              blockInfo.GasLimit,
 		Difficulty:            common.BytesToHash(difficulty),
-		Timestamp:             timestamp,
+		Timestamp:             blockInfo.Timestamp,
 		ParentHash:            parent.Hash(),
 		L1Origin: &rawdb.L1Origin{
 			BlockID:       blockID,
