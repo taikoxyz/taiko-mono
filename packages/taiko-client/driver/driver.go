@@ -400,7 +400,11 @@ func (d *Driver) cacheLookaheadLoop() {
 
 			hash, seen := d.preconfBlockServer.GetSequencingEndedForEpoch(epoch)
 			if !seen {
-				log.Info("Lookahead requesting end of sequencing for epoch", "epoch", epoch, "slot", slot)
+				log.Info("Lookahead requesting end of sequencing for epoch",
+					"epoch", epoch,
+					"slot", slot,
+				)
+
 				if err := d.p2pNode.GossipOut().PublishL2EndOfSequencingRequest(
 					context.Background(),
 					epoch,

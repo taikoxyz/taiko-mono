@@ -1098,7 +1098,15 @@ func (c *Client) GetPreconfRouterPacaya(opts *bind.CallOpts) (common.Address, er
 // GetPreconfRouterConfig returns the PreconfRouter config.
 func (c *Client) GetPreconfRouterConfig(opts *bind.CallOpts) (*pacayaBindings.IPreconfRouterConfig, error) {
 	if c.PacayaClients.PreconfRouter == nil {
-		return nil, errors.New("preconfRouter contract is not set")
+		preconfRouterAddr, err := c.GetPreconfRouterPacaya(opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve preconfirmation router address: %w", err)
+		}
+
+		c.PacayaClients.PreconfRouter, err = pacayaBindings.NewPreconfRouter(preconfRouterAddr, c.L1)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create preconfirmation router: %w", err)
+		}
 	}
 
 	var cancel context.CancelFunc
