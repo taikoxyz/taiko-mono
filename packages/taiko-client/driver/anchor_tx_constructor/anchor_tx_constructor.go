@@ -116,7 +116,7 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 		"blockIndex", blockIndex,
 	)
 
-	tx, err := c.rpc.ShastaClients.Anchor.UpdateState(
+	return c.rpc.ShastaClients.Anchor.UpdateState(
 		opts,
 		proposalId,
 		proposer,
@@ -129,11 +129,6 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 		anchorStateRoot,
 		LookaheadSlotTimestamp,
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return tx, nil
 }
 
 // transactOpts is a utility method to create some transact options of the anchor transaction in given L2 block with
