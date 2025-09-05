@@ -66,7 +66,7 @@ This guide provides specific instructions for working with Taiko's smart contrac
 
 - `contracts/layer1/shasta/impl/Inbox.sol`: main rollup contract that handles propose, prove and finalization.
 - `contracts/layer1/shasta/iface`: interfaces for protocol contracts, including most data structures.
-- `contracts/layer2/based/ShastaAnchor.sol`: Anchor contract for syncrhonizing L1 state into the L2 and also does bond management.
+- `contracts/layer2/based/ShastaAnchor.sol`: Anchor contract for synchronizing L1 state into the L2 and also does bond management.
 
 ### Design Patterns
 
