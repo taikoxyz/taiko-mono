@@ -14,7 +14,6 @@ import (
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	chainIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator"
-	shastaEncoder "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/encoder"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
@@ -174,14 +173,19 @@ func assembleBatchProposedIteratorCallback(
 			return iterPacaya.Error()
 		}
 
-		proposalEventDecoder := shastaEncoder.NewEncoder()
 		for iterShasta.Next() {
 			event := iterShasta.Event
-			decodedProposedEvent, err := proposalEventDecoder.DecodeProposedEvent(event.Data)
+			proposedEventPayload, err := rpc.DecodeShastaProposalData(
+				&bind.CallOpts{Context: ctx},
+				shastaTaikoInbox,
+				event.Data,
+			)
 			if err != nil {
+				log.Error("Failed to decode proposed event data", "error", err)
 				return err
 			}
-			proposalID := decodedProposedEvent.Proposal.Id.Uint64()
+
+			proposalID := proposedEventPayload.Proposal.Id.Uint64()
 			log.Debug("Processing Proposed event", "proposalID", proposalID, "l1BlockHeight", event.Raw.BlockNumber)
 
 			if lastBatchID != 0 && proposalID != lastBatchID+1 {
@@ -200,7 +204,7 @@ func assembleBatchProposedIteratorCallback(
 
 			if err := callback(
 				ctx,
-				metadata.NewTaikoProposalMetadataShasta(decodedProposedEvent, event.Raw),
+				metadata.NewTaikoProposalMetadataShasta(proposedEventPayload, event.Raw),
 				eventIter.end,
 			); err != nil {
 				log.Warn("Error while processing Proposed events, keep retrying", "error", err)

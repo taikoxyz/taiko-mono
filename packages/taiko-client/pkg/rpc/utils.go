@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"os"
 	"os/signal"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -231,4 +233,28 @@ func BlockOnInterruptsContext(ctx context.Context, signals ...os.Signal) {
 	case <-ctx.Done():
 		signal.Stop(interruptChannel)
 	}
+}
+
+// DecodeShastaProposalData decodes the proposal data from the corresponding Inbox event.
+func DecodeShastaProposalData(
+	opts *bind.CallOpts,
+	inbox *shastaBindings.ShastaInboxClient,
+	data []byte,
+) (
+	*shastaBindings.IInboxProposedEventPayload,
+	error,
+) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	proposedEventPayload, err := inbox.DecodeProposedEventData(opts, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode proposed event data: %w", err)
+	}
+
+	return &proposedEventPayload, nil
 }
