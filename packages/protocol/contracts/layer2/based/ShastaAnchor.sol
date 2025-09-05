@@ -165,7 +165,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Handle prover designation on first block
         if (_blockIndex == 0) {
             (isLowBondProposal_, designatedProver_) =
-                _designateProver(_proposalId, _proposer, _proverAuth);
+                _getDesignatedProver(_proposalId, _proposer, _proverAuth);
 
             _state.designatedProver = designatedProver_;
             _state.isLowBondProposal = isLowBondProposal_;
@@ -201,6 +201,24 @@ abstract contract ShastaAnchor is PacayaAnchor {
         return _state;
     }
 
+    /// @notice Returns the designated prover
+    /// @param _proposalId The proposal ID.
+    /// @param _proposer The proposer address.
+    /// @param _proverAuth Encoded prover authentication data.
+    /// @return isLowBondProposal_ True if proposer has insufficient bonds.
+    /// @return designatedProver_ The designated prover address.
+    function getDesignatedProver(
+        uint48 _proposalId,
+        address _proposer,
+        bytes calldata _proverAuth
+    )
+        external
+        view
+        returns (bool isLowBondProposal_, address designatedProver_)
+    {
+        return _getDesignatedProver(_proposalId, _proposer, _proverAuth);
+    }
+
     // ---------------------------------------------------------------
     // Private functions
     // ---------------------------------------------------------------
@@ -212,13 +230,13 @@ abstract contract ShastaAnchor is PacayaAnchor {
         _blockhashes[_parentId] = blockhash(_parentId);
     }
 
-    /// @dev Designates a prover and checks bond sufficiency.
+    /// @dev Returns the designated prover
     /// @param _proposalId The proposal ID.
     /// @param _proposer The proposer address.
     /// @param _proverAuth Encoded prover authentication data.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ The designated prover address.
-    function _designateProver(
+    function _getDesignatedProver(
         uint48 _proposalId,
         address _proposer,
         bytes calldata _proverAuth
