@@ -12,7 +12,7 @@ import (
 // Ensure TaikoProposalMetadataShasta implements TaikoBlockMetaData.
 var _ TaikoProposalMetaData = (*TaikoProposalMetadataShasta)(nil)
 
-// TaikoProposalMetadataShasta is the metadata of an Shasta Taiko blocks batch.
+// TaikoProposalMetadataShasta is the metadata of a Shasta Taiko blocks batch.
 type TaikoProposalMetadataShasta struct {
 	shastaBindings.IInboxProposal
 	shastaBindings.IInboxDerivation
