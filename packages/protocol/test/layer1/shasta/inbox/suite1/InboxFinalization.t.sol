@@ -136,7 +136,7 @@ contract InboxFinalization is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             transitions[i] = InboxTestLib.createTransition(proposals[i], currentParentHash, Bob);
             proveProposal(proposals[i], Bob, currentParentHash);
-            currentParentHash = InboxTestLib.hashTransition(transitions[i]);
+            currentParentHash = hashTransition(transitions[i]);
         }
 
         // Create transition records for finalization
@@ -158,7 +158,7 @@ contract InboxFinalization is InboxTest {
         );
 
         // Assert: Verify finalization completed
-        bytes32 finalTransitionHash = InboxTestLib.hashTransition(transitions[numProposals - 1]);
+        bytes32 finalTransitionHash = hashTransition(transitions[numProposals - 1]);
         assertFinalizationCompleted(numProposals, finalTransitionHash);
     }
 
@@ -221,7 +221,7 @@ contract InboxFinalization is InboxTest {
         IInbox.TransitionRecord memory transitionRecord1 = IInbox.TransitionRecord({
             span: 1,
             bondInstructions: new LibBonds.BondInstruction[](0),
-            transitionHash: InboxTestLib.hashTransition(transition1),
+            transitionHash: hashTransition(transition1),
             checkpointHash: keccak256(abi.encode(transition1.checkpoint))
         });
         // Create a parent transition struct for the function call
@@ -296,7 +296,7 @@ contract InboxFinalization is InboxTest {
         IInbox.TransitionRecord memory wrongTransitionRecord = IInbox.TransitionRecord({
             span: 2, // Modified field - wrong span value
             bondInstructions: new LibBonds.BondInstruction[](0),
-            transitionHash: InboxTestLib.hashTransition(transition1),
+            transitionHash: hashTransition(transition1),
             checkpointHash: keccak256(abi.encode(transition1.checkpoint))
         });
 

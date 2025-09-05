@@ -51,8 +51,7 @@ contract InboxBasicTest is InboxTest {
             lastFinalizedTransitionHash: getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
         });
-        IInbox.Proposal memory genesisProposal =
-            InboxTestLib.createGenesisProposal(genesisCoreState);
+        IInbox.Proposal memory genesisProposal = createGenesisProposal(genesisCoreState);
 
         // Create proposal data with wrong core state (nextProposalId=2 instead of 1)
         IInbox.CoreState memory wrongCoreState = InboxTestLib.createCoreState(2, 0);
@@ -136,7 +135,7 @@ contract InboxBasicTest is InboxTest {
             // Update parent for next iteration
             IInbox.Transition memory transition =
                 InboxTestLib.createTransition(proposals[i], currentParent, Bob);
-            currentParent = InboxTestLib.hashTransition(transition);
+            currentParent = hashTransition(transition);
         }
 
         // Verify all transition records stored
@@ -145,7 +144,7 @@ contract InboxBasicTest is InboxTest {
             assertTransitionRecordStored(i + 1, currentParent);
             IInbox.Transition memory transition =
                 InboxTestLib.createTransition(proposals[i], currentParent, Bob);
-            currentParent = InboxTestLib.hashTransition(transition);
+            currentParent = hashTransition(transition);
         }
     }
 }

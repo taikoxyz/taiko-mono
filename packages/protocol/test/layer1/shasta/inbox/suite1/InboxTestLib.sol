@@ -4,12 +4,26 @@ pragma solidity ^0.8.24;
 import "contracts/layer1/shasta/iface/IInbox.sol";
 import "contracts/layer1/shasta/libs/LibBlobs.sol";
 import "contracts/shared/based/libs/LibBonds.sol";
+import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 
 /// @title InboxTestLib
 /// @notice Consolidated test utility library for Inbox tests
 /// @dev Single source of truth for all test data creation and manipulation
 /// @custom:security-contact security@taiko.xyz
 library InboxTestLib {
+    // ---------------------------------------------------------------
+    // Constants and Types
+    // ---------------------------------------------------------------
+
+    /// @notice Inbox implementation types for hashing compatibility
+    enum InboxType {
+        Base,
+        Optimized1,
+        Optimized2,
+        Optimized3,
+        Optimized4
+    }
+
     // ---------------------------------------------------------------
     // Data Structures
     // ---------------------------------------------------------------
@@ -311,6 +325,24 @@ library InboxTestLib {
         });
     }
 
+    /// @dev Creates a transition record without bond instructions (inbox-type-aware)
+    function createTransitionRecord(
+        IInbox.Transition memory _transition,
+        uint8 _span,
+        InboxType _inboxType
+    )
+        internal
+        pure
+        returns (IInbox.TransitionRecord memory)
+    {
+        return IInbox.TransitionRecord({
+            span: _span,
+            bondInstructions: new LibBonds.BondInstruction[](0),
+            transitionHash: hashTransition(_transition, _inboxType),
+            checkpointHash: hashCheckpoint(_transition.checkpoint, _inboxType)
+        });
+    }
+
     /// @dev Creates a transition record with bond instructions
     function createTransitionRecordWithBonds(
         IInbox.Transition memory _transition,
@@ -326,6 +358,25 @@ library InboxTestLib {
             bondInstructions: _bondInstructions,
             transitionHash: hashTransition(_transition),
             checkpointHash: keccak256(abi.encode(_transition.checkpoint))
+        });
+    }
+
+    /// @dev Creates a transition record with bond instructions (inbox-type-aware)
+    function createTransitionRecordWithBonds(
+        IInbox.Transition memory _transition,
+        uint8 _span,
+        LibBonds.BondInstruction[] memory _bondInstructions,
+        InboxType _inboxType
+    )
+        internal
+        pure
+        returns (IInbox.TransitionRecord memory)
+    {
+        return IInbox.TransitionRecord({
+            span: _span,
+            bondInstructions: _bondInstructions,
+            transitionHash: hashTransition(_transition, _inboxType),
+            checkpointHash: hashCheckpoint(_transition.checkpoint, _inboxType)
         });
     }
 
@@ -514,9 +565,27 @@ library InboxTestLib {
         return keccak256(abi.encode(_proposal));
     }
 
-    /// @dev Computes transition hash
+    /// @dev Computes transition hash (standard method for most inbox types)
     function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
         return keccak256(abi.encode(_transition));
+    }
+
+    /// @dev Computes transition hash with specific inbox type compatibility
+    function hashTransition(
+        IInbox.Transition memory _transition,
+        InboxType _inboxType
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        if (_inboxType == InboxType.Optimized4) {
+            // InboxOptimized4 uses EfficientHashLib for transition hashing
+            return EfficientHashLib.hash(_transition.proposalHash, _transition.parentTransitionHash);
+        } else {
+            // All other implementations use standard encoding
+            return keccak256(abi.encode(_transition));
+        }
     }
 
     /// @dev Computes transition record hash
@@ -528,9 +597,63 @@ library InboxTestLib {
         return keccak256(abi.encode(_record));
     }
 
-    /// @dev Computes core state hash
+    /// @dev Computes core state hash (standard method for most inbox types)
     function hashCoreState(IInbox.CoreState memory _state) internal pure returns (bytes32) {
         return keccak256(abi.encode(_state));
+    }
+
+    /// @dev Computes core state hash with specific inbox type compatibility
+    function hashCoreState(
+        IInbox.CoreState memory _state,
+        InboxType _inboxType
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        if (_inboxType == InboxType.Optimized4) {
+            // InboxOptimized4 uses EfficientHashLib for core state hashing
+            return EfficientHashLib.hash(
+                bytes32(uint256(_state.nextProposalId)),
+                bytes32(uint256(_state.lastFinalizedProposalId)),
+                _state.lastFinalizedTransitionHash,
+                _state.bondInstructionsHash
+            );
+        } else {
+            // All other implementations use standard encoding
+            return keccak256(abi.encode(_state));
+        }
+    }
+
+    /// @dev Computes checkpoint hash (standard method for most inbox types)
+    function hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(_checkpoint));
+    }
+
+    /// @dev Computes checkpoint hash with specific inbox type compatibility
+    function hashCheckpoint(
+        ICheckpointManager.Checkpoint memory _checkpoint,
+        InboxType _inboxType
+    )
+        internal
+        pure
+        returns (bytes32)
+    {
+        if (_inboxType == InboxType.Optimized4) {
+            // InboxOptimized4 uses EfficientHashLib for checkpoint hashing
+            return EfficientHashLib.hash(
+                bytes32(uint256(_checkpoint.blockNumber)),
+                _checkpoint.blockHash,
+                _checkpoint.stateRoot
+            );
+        } else {
+            // All other implementations use standard encoding
+            return keccak256(abi.encode(_checkpoint));
+        }
     }
 
     // ---------------------------------------------------------------
@@ -581,8 +704,35 @@ library InboxTestLib {
         proposal.timestamp = 0;
         proposal.lookaheadSlotTimestamp = 0;
 
-        // Use the passed core state to calculate the coreStateHash
+        // Use the passed core state to calculate the coreStateHash (standard method)
         proposal.coreStateHash = keccak256(abi.encode(_coreState));
+
+        // Hash of empty derivation (matching what init() does)
+        IInbox.Derivation memory emptyDerivation;
+        proposal.derivationHash = keccak256(abi.encode(emptyDerivation));
+
+        return proposal;
+    }
+
+    /// @dev Creates a genesis proposal with inbox-type-aware hashing
+    function createGenesisProposal(
+        IInbox.CoreState memory _coreState,
+        InboxType _inboxType
+    )
+        internal
+        pure
+        returns (IInbox.Proposal memory)
+    {
+        // Recreate the exact genesis proposal as created in the contract's init() function
+        IInbox.Proposal memory proposal;
+        // Genesis proposal has all default values except coreStateHash and derivationHash
+        proposal.id = 0;
+        proposal.proposer = address(0);
+        proposal.timestamp = 0;
+        proposal.lookaheadSlotTimestamp = 0;
+
+        // Use the appropriate hashing method for the inbox type
+        proposal.coreStateHash = hashCoreState(_coreState, _inboxType);
 
         // Hash of empty derivation (matching what init() does)
         IInbox.Derivation memory emptyDerivation;

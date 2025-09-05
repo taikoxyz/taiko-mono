@@ -61,7 +61,10 @@ library InboxTestAdapter {
         pure
         returns (bytes memory)
     {
-        if (_inboxType == TestInboxFactory.InboxType.Optimized3 || _inboxType == TestInboxFactory.InboxType.Optimized4) {
+        if (
+            _inboxType == TestInboxFactory.InboxType.Optimized3
+                || _inboxType == TestInboxFactory.InboxType.Optimized4
+        ) {
             // InboxOptimized3 and InboxOptimized4 use custom encoding
             // Create ProposeInput struct
             IInbox.ProposeInput memory input = IInbox.ProposeInput({
@@ -104,7 +107,10 @@ library InboxTestAdapter {
         pure
         returns (bytes memory)
     {
-        if (_inboxType == TestInboxFactory.InboxType.Optimized3 || _inboxType == TestInboxFactory.InboxType.Optimized4) {
+        if (
+            _inboxType == TestInboxFactory.InboxType.Optimized3
+                || _inboxType == TestInboxFactory.InboxType.Optimized4
+        ) {
             // InboxOptimized3 and InboxOptimized4 use custom encoding
             // Create ProveInput struct
             IInbox.ProveInput memory input =
@@ -184,7 +190,8 @@ library InboxTestAdapter {
         pure
         returns (bool)
     {
-        return _inboxType == TestInboxFactory.InboxType.Optimized3 || _inboxType == TestInboxFactory.InboxType.Optimized4;
+        return _inboxType == TestInboxFactory.InboxType.Optimized3
+            || _inboxType == TestInboxFactory.InboxType.Optimized4;
     }
 
     /// @dev Checks if an Inbox type uses custom event encoding

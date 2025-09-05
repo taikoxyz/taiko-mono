@@ -569,7 +569,12 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Hashes a Transition struct.
     /// @param _transition The transition to hash.
     /// @return _ The hash of the transition.
-    function _hashTransition(Transition memory _transition) internal pure virtual returns (bytes32) {
+    function _hashTransition(Transition memory _transition)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
         return keccak256(abi.encode(_transition));
     }
 
@@ -631,7 +636,12 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Hashes a Derivation struct.
     /// @param _derivation The derivation to hash.
     /// @return _ The hash of the derivation.
-    function _hashDerivation(Derivation memory _derivation) internal pure virtual returns (bytes32) {
+    function _hashDerivation(Derivation memory _derivation)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
         return keccak256(abi.encode(_derivation));
     }
 
@@ -919,7 +929,6 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 LibBonds.aggregateBondInstruction(_coreState.bondInstructionsHash, _instructions[i]);
         }
     }
-
 }
 
 // ---------------------------------------------------------------

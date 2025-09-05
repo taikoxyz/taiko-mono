@@ -65,7 +65,7 @@ contract InboxOutOfOrderProving is InboxTest {
             if (i == 1) {
                 // First proposal needs genesis for validation
                 validationProposals = new IInbox.Proposal[](1);
-                validationProposals[0] = InboxTestLib.createGenesisProposal(proposalCoreState);
+                validationProposals[0] = createGenesisProposal(proposalCoreState);
             } else {
                 // Subsequent proposals need the previous proposal for validation
                 validationProposals = new IInbox.Proposal[](1);
@@ -178,7 +178,7 @@ contract InboxOutOfOrderProving is InboxTest {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
                 bondInstructions: new LibBonds.BondInstruction[](0),
-                transitionHash: InboxTestLib.hashTransition(transitions[i]),
+                transitionHash: hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
             });
         }
@@ -378,7 +378,7 @@ contract InboxOutOfOrderProving is InboxTest {
         transitionRecords[0] = IInbox.TransitionRecord({
             span: 1,
             bondInstructions: new LibBonds.BondInstruction[](0),
-            transitionHash: InboxTestLib.hashTransition(transition1),
+            transitionHash: hashTransition(transition1),
             checkpointHash: keccak256(abi.encode(transition1.checkpoint))
         });
 
