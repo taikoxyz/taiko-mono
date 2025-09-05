@@ -213,6 +213,8 @@ library InboxTestAdapter {
             return "InboxOptimized2";
         } else if (_inboxType == TestInboxFactory.InboxType.Optimized3) {
             return "InboxOptimized3";
+        } else if (_inboxType == TestInboxFactory.InboxType.Optimized4) {
+            return "InboxOptimized4";
         } else {
             return "Unknown";
         }

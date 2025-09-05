@@ -14,7 +14,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Test configurations
-INBOX_TYPES=("base" "opt1" "opt2" "opt3")
+INBOX_TYPES=("base" "opt1" "opt2" "opt3" "opt4")
 DEFAULT_VERBOSITY="vv"
 TEST_PATH="test/layer1/shasta/inbox"
 
@@ -152,7 +152,7 @@ Commands:
     help  Show this help message
 
 Options:
-    inbox_type: base, opt1, opt2, opt3
+    inbox_type: base, opt1, opt2, opt3, opt4
     test_file: Name of test file (e.g., InboxBasicTest.t.sol)
     test_name: Name of specific test function
     verbosity: v, vv, vvv, vvvv (default: vv)

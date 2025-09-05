@@ -169,6 +169,8 @@ abstract contract InboxTest is CommonTest {
             return TestInboxFactory.InboxType.Optimized2;
         } else if (keccak256(bytes(inboxTypeStr)) == keccak256(bytes("opt3"))) {
             return TestInboxFactory.InboxType.Optimized3;
+        } else if (keccak256(bytes(inboxTypeStr)) == keccak256(bytes("opt4"))) {
+            return TestInboxFactory.InboxType.Optimized4;
         } else {
             // Default to Core if unknown type
             emit log_string(

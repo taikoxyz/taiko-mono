@@ -569,7 +569,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Hashes a Transition struct.
     /// @param _transition The transition to hash.
     /// @return _ The hash of the transition.
-    function _hashTransition(Transition memory _transition) internal pure returns (bytes32) {
+    function _hashTransition(Transition memory _transition) internal pure virtual returns (bytes32) {
         return keccak256(abi.encode(_transition));
     }
 
@@ -579,6 +579,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _hashTransitionRecord(TransitionRecord memory _transitionRecord)
         internal
         pure
+        virtual
         returns (bytes32)
     {
         return keccak256(abi.encode(_transitionRecord));
@@ -590,9 +591,60 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
         internal
         pure
+        virtual
         returns (bytes32)
     {
         return keccak256(abi.encode(_checkpoint));
+    }
+
+    /// @dev Computes composite key for transition record storage
+    /// @notice Creates unique identifier for proposal-parent transition pairs
+    /// @param _proposalId The ID of the proposal
+    /// @param _parentTransitionHash Hash of the parent transition
+    /// @return _ Keccak256 hash of encoded parameters
+    function _composeTransitionKey(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(_proposalId, _parentTransitionHash));
+    }
+
+    /// @dev Hashes a Proposal struct.
+    /// @param _proposal The proposal to hash.
+    /// @return _ The hash of the proposal.
+    function _hashProposal(Proposal memory _proposal) internal pure virtual returns (bytes32) {
+        return keccak256(abi.encode(_proposal));
+    }
+
+    /// @dev Hashes a CoreState struct.
+    /// @param _coreState The core state to hash.
+    /// @return _ The hash of the core state.
+    function _hashCoreState(CoreState memory _coreState) internal pure virtual returns (bytes32) {
+        return keccak256(abi.encode(_coreState));
+    }
+
+    /// @dev Hashes a Derivation struct.
+    /// @param _derivation The derivation to hash.
+    /// @return _ The hash of the derivation.
+    function _hashDerivation(Derivation memory _derivation) internal pure virtual returns (bytes32) {
+        return keccak256(abi.encode(_derivation));
+    }
+
+    /// @dev Hashes an array of Transitions.
+    /// @param _transitions The transitions array to hash.
+    /// @return _ The hash of the transitions array.
+    function _hashTransitionsArray(Transition[] memory _transitions)
+        internal
+        pure
+        virtual
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(_transitions));
     }
 
     // ---------------------------------------------------------------
@@ -868,53 +920,6 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
     }
 
-    /// @dev Computes composite key for transition record storage
-    /// @notice Creates unique identifier for proposal-parent transition pairs
-    /// @param _proposalId The ID of the proposal
-    /// @param _parentTransitionHash Hash of the parent transition
-    /// @return _ Keccak256 hash of encoded parameters
-    function _composeTransitionKey(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_proposalId, _parentTransitionHash));
-    }
-
-    /// @dev Hashes a Proposal struct.
-    /// @param _proposal The proposal to hash.
-    /// @return _ The hash of the proposal.
-    function _hashProposal(Proposal memory _proposal) private pure returns (bytes32) {
-        return keccak256(abi.encode(_proposal));
-    }
-
-    /// @dev Hashes a CoreState struct.
-    /// @param _coreState The core state to hash.
-    /// @return _ The hash of the core state.
-    function _hashCoreState(CoreState memory _coreState) private pure returns (bytes32) {
-        return keccak256(abi.encode(_coreState));
-    }
-
-    /// @dev Hashes a Derivation struct.
-    /// @param _derivation The derivation to hash.
-    /// @return _ The hash of the derivation.
-    function _hashDerivation(Derivation memory _derivation) private pure returns (bytes32) {
-        return keccak256(abi.encode(_derivation));
-    }
-
-    /// @dev Hashes an array of Transitions.
-    /// @param _transitions The transitions array to hash.
-    /// @return _ The hash of the transitions array.
-    function _hashTransitionsArray(Transition[] memory _transitions)
-        private
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_transitions));
-    }
 }
 
 // ---------------------------------------------------------------

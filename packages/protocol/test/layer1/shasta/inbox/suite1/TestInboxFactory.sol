@@ -5,6 +5,7 @@ import "./TestInboxCore.sol";
 import "./TestInboxOptimized1.sol";
 import "./TestInboxOptimized2.sol";
 import "./TestInboxOptimized3.sol";
+import "./TestInboxOptimized4.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -17,7 +18,8 @@ contract TestInboxFactory {
         Base,
         Optimized1,
         Optimized2,
-        Optimized3
+        Optimized3,
+        Optimized4
     }
 
     /// @notice Deploy a specific Inbox implementation
@@ -43,6 +45,8 @@ contract TestInboxFactory {
             impl = address(new TestInboxOptimized2());
         } else if (_type == InboxType.Optimized3) {
             impl = address(new TestInboxOptimized3());
+        } else if (_type == InboxType.Optimized4) {
+            impl = address(new TestInboxOptimized4());
         } else {
             revert("Invalid inbox type");
         }
