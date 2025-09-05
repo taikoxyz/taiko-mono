@@ -111,30 +111,4 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
     {
         return LibProveInputDecoder.decode(_data);
     }
-
-    /// @inheritdoc Inbox
-    /// @dev Encodes the proposed event data
-    /// @param _payload The ProposedEventPayload object
-    /// @return The encoded data
-    function encodeProposedEventData(ProposedEventPayload memory _payload)
-        public
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibProposedEventEncoder.encode(_payload);
-    }
-
-    /// @inheritdoc Inbox
-    /// @dev Encodes the proved event data
-    /// @param _payload The ProvedEventPayload object
-    /// @return The encoded data
-    function encodeProvedEventData(ProvedEventPayload memory _payload)
-        public
-        pure
-        override
-        returns (bytes memory)
-    {
-        return LibProvedEventEncoder.encode(_payload);
-    }
 }
