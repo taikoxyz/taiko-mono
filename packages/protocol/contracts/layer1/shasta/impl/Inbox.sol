@@ -370,6 +370,20 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return keccak256(abi.encode(_transitions));
     }
 
+    /// @notice Hashes a Proposal struct.
+    /// @param _proposal The proposal to hash.
+    /// @return _ The hash of the proposal.
+    function hashProposal(Proposal memory _proposal) public pure virtual returns (bytes32) {
+        return keccak256(abi.encode(_proposal));
+    }
+
+    /// @notice Hashes a Derivation struct.
+    /// @param _derivation The derivation to hash.
+    /// @return _ The hash of the derivation.
+    function hashDerivation(Derivation memory _derivation) public pure virtual returns (bytes32) {
+        return keccak256(abi.encode(_derivation));
+    }
+
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
@@ -389,9 +403,9 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         proposal.coreStateHash = hashCoreState(coreState);
 
         Derivation memory derivation;
-        proposal.derivationHash = _hashDerivation(derivation);
+        proposal.derivationHash = hashDerivation(derivation);
 
-        _setProposalHash(getConfig(), 0, _hashProposal(proposal));
+        _setProposalHash(getConfig(), 0, hashProposal(proposal));
         emit Proposed(
             encodeProposedEventData(
                 ProposedEventPayload({
@@ -599,7 +613,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         view
         returns (bytes32 proposalHash_)
     {
-        proposalHash_ = _hashProposal(_proposal);
+        proposalHash_ = hashProposal(_proposal);
         bytes32 storedProposalHash = _proposalHashes[_proposal.id % _config.ringBufferSize];
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
@@ -631,25 +645,6 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (bytes32)
     {
         return keccak256(abi.encode(_proposalId, _parentTransitionHash));
-    }
-
-    /// @dev Hashes a Proposal struct.
-    /// @param _proposal The proposal to hash.
-    /// @return _ The hash of the proposal.
-    function _hashProposal(Proposal memory _proposal) internal pure virtual returns (bytes32) {
-        return keccak256(abi.encode(_proposal));
-    }
-
-    /// @dev Hashes a Derivation struct.
-    /// @param _derivation The derivation to hash.
-    /// @return _ The hash of the derivation.
-    function _hashDerivation(Derivation memory _derivation)
-        internal
-        pure
-        virtual
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_derivation));
     }
 
     // ---------------------------------------------------------------
@@ -745,7 +740,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             require(_parentProposals.length == 2, IncorrectProposalCount());
             require(_parentProposals[1].id < _parentProposals[0].id, InvalidLastProposalProof());
             require(
-                storedNextProposalHash == _hashProposal(_parentProposals[1]),
+                storedNextProposalHash == hashProposal(_parentProposals[1]),
                 NextProposalHashMismatch()
             );
         }
@@ -788,10 +783,10 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 lookaheadSlotTimestamp: _lookaheadSlotTimestamp,
                 proposer: msg.sender,
                 coreStateHash: hashCoreState(_coreState),
-                derivationHash: _hashDerivation(derivation)
+                derivationHash: hashDerivation(derivation)
             });
 
-            _setProposalHash(_config, proposal.id, _hashProposal(proposal));
+            _setProposalHash(_config, proposal.id, hashProposal(proposal));
             bytes memory payload = encodeProposedEventData(
                 ProposedEventPayload({
                     proposal: proposal,
