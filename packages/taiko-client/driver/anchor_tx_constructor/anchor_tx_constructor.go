@@ -157,7 +157,7 @@ func (c *AnchorTxConstructor) transactOpts(
 		"parentHash", parentHash,
 	)
 
-	// Because the verified block ID has exceeded the Pacaya fork height, we can change this value.
+	// After the verified block ID has exceeded the Pacaya fork height, we can change this value.
 	gasLimit := consensus.AnchorV3GasLimit
 	if l2Height.Uint64() >= c.rpc.PacayaClients.ForkHeights.Shasta {
 		gasLimit = consensus.UpdateStateGasLimit
