@@ -501,7 +501,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
-	proposalManifest manifest.ProposalManifest,
+	proposalManifest *manifest.ProposalManifest,
 	parent *types.Header,
 	blockIndex int,
 	isLowBondProposal bool,

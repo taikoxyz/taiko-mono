@@ -47,7 +47,7 @@ type BlockManifest struct {
 	GasLimit uint64 `json:"gasLimit"`
 	// The transactions for this block
 	Transactions types.Transactions `json:"transactions"`
-	// Extra info
+	// Extra information
 	BondInstructionsHash common.Hash                              `json:"bondInstructionsHash"`
 	BondInstructions     []shastaBindings.LibBondsBondInstruction `json:"bondInstructions"`
 }
@@ -57,8 +57,8 @@ type BlockManifest struct {
 type ProposalManifest struct {
 	ProverAuthBytes []byte           `json:"proverAuthBytes"`
 	Blocks          []*BlockManifest `json:"blocks"`
-	// Extra info
-	Invalid           bool         `json:"invalid"`
+	// Extra information
+	Default           bool         `json:"default"`
 	ParentBlock       *types.Block `json:"parentBlock"`
 	IsLowBondProposal bool         `json:"isLowBondProposal"`
 }

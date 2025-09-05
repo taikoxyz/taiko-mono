@@ -11,16 +11,12 @@ import (
 // TxListDecompressor is responsible for validating and decompressing
 // the transactions list in a Pacaya TaikoInbox.proposeBatch transaction.
 type TxListDecompressor struct {
-	blockMaxGasLimit  uint64
 	maxBytesPerTxList uint64
 }
 
 // NewTxListDecompressor creates a new TxListDecompressor instance based on giving configurations.
-func NewTxListDecompressor(
-	blockMaxGasLimit uint64,
-	maxBytesPerTxList uint64,
-) *TxListDecompressor {
-	return &TxListDecompressor{blockMaxGasLimit: blockMaxGasLimit, maxBytesPerTxList: maxBytesPerTxList}
+func NewTxListDecompressor(maxBytesPerTxList uint64) *TxListDecompressor {
+	return &TxListDecompressor{maxBytesPerTxList: maxBytesPerTxList}
 }
 
 // TryDecompress validates and decompresses whether the transactions list in the

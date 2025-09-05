@@ -24,7 +24,7 @@ type Inserter interface {
 	InsertBlocksWithManifest(
 		ctx context.Context,
 		metadata metadata.TaikoProposalMetaData,
-		proposalManifest manifest.ProposalManifest,
+		proposalManifest *manifest.ProposalManifest,
 		endIter eventIterator.EndBatchProposedEventIterFunc,
 	) error
 }

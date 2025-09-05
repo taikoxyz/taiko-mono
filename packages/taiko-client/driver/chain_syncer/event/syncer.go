@@ -2,15 +2,10 @@ package event
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
 	"time"
-
-	"github.com/ethereum/go-ethereum/core/types"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/manifest_decompressor"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,12 +17,11 @@ import (
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/beaconsync"
 	blocksInserter "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/blocks_inserter"
-	manifestFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/manifest_fetcher"
+	shastaManifest "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	txListDecompressor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_decompressor"
 	txlistFetcher "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/txlist_fetcher"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
@@ -48,9 +42,8 @@ type Syncer struct {
 	lastInsertedBatchID *big.Int
 	reorgDetectedFlag   bool
 
-	// Shasta
-	fetcher      manifestFetcher.ManifestFetcher
-	decompressor *manifest_decompressor.ManifestDecompressor // Manifest decompressor
+	// Shasta manifest fetcher
+	shastaManifestFetcher *shastaManifest.ShastaManifestFetcher
 }
 
 // NewSyncer creates a new syncer instance.
@@ -67,20 +60,13 @@ func NewSyncer(
 		return nil, fmt.Errorf("failed to initialize anchor constructor: %w", err)
 	}
 
-	protocolConfigs, err := client.GetProtocolConfigs(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, err
-	}
 	blobDataSource := rpc.NewBlobDataSource(
 		ctx,
 		client,
 		blobServerEndpoint,
 	)
 
-	txListDecompressor := txListDecompressor.NewTxListDecompressor(
-		uint64(protocolConfigs.BlockMaxGasLimit()),
-		rpc.BlockMaxTxListBytes,
-	)
+	txListDecompressor := txListDecompressor.NewTxListDecompressor(rpc.BlockMaxTxListBytes)
 
 	var (
 		txListFetcherBlob     = txlistFetcher.NewBlobFetcher(client, blobDataSource)
@@ -102,6 +88,7 @@ func NewSyncer(
 			txListFetcherBlob,
 			latestSeenProposalCh,
 		),
+		shastaManifestFetcher: shastaManifest.NewManifestFetcher(client, blobDataSource),
 	}, nil
 }
 
@@ -154,6 +141,7 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
 		Client:               s.rpc.L1,
 		PacayaTaikoInbox:     s.rpc.PacayaClients.TaikoInbox,
+		ShastaTaikoInbox:     s.rpc.ShastaClients.Inbox,
 		StartHeight:          s.state.GetL1Current().Number,
 		EndHeight:            l1End.Number,
 		OnBatchProposedEvent: s.onBatchProposed,
@@ -188,6 +176,8 @@ func (s *Syncer) onBatchProposed(
 	return s.processShastaProposal(ctx, meta, endIter)
 }
 
+// processShastaProposal processes a Shasta proposal event, and tries inserting
+// the proposed blocks to the L2 execution engine.
 func (s *Syncer) processShastaProposal(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
@@ -196,30 +186,21 @@ func (s *Syncer) processShastaProposal(
 	// Check reorg
 	// TODO: depends on the new struct in taiko-geth
 	var (
-		proposalManifest = manifest.ProposalManifest{Invalid: true}
-		metadataShasta   = meta.Shasta()
-		parentBlock      = &types.Block{} // TODO: should get parentBlock in step 1
-		blockID          = parentBlock.Number().Uint64() + 1
+		metadataShasta = meta.Shasta()
 	)
-	// Fetch the manifest
-	metadataBytes, err := s.fetcher.FetchShasta(ctx, metadataShasta)
-	if err != nil && !errors.Is(err, pkg.ErrInvalidShastaBlobs) {
+	// Fetch and parse the manifest from blobs.
+	proposalManifest, err := s.shastaManifestFetcher.Fetch(ctx, metadataShasta)
+	if err != nil {
 		return err
-	} else {
-		proposalManifest = s.decompressor.TryDecompressProposalManifest(
-			metadataBytes,
-			int(metadataShasta.GetDerivation().BlobSlice.Offset.Int64()),
-		)
+	}
+	if proposalManifest.ParentBlock, err = s.rpc.L2.BlockByNumber(ctx, nil); err != nil {
+		return err
 	}
 
-	// Add extra info into ProposalManifest, after we decompress the blob data
-	proposalManifest.ParentBlock = parentBlock
-	proposalManifest.IsLowBondProposal = false
-
-	if !proposalManifest.Invalid {
+	if !proposalManifest.Default {
 		// Proposer and `isLowBondProposal` Validation
 		designatedProverInfo, err := s.rpc.ShastaClients.Anchor.GetDesignatedProver(
-			&bind.CallOpts{BlockNumber: parentBlock.Number(), BlockHash: parentBlock.Hash(), Context: ctx},
+			&bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx},
 			metadataShasta.GetProposal().Id,
 			metadataShasta.GetProposal().Proposer,
 			proposalManifest.ProverAuthBytes,
@@ -229,38 +210,37 @@ func (s *Syncer) processShastaProposal(
 		}
 
 		if designatedProverInfo.IsLowBondProposal {
-			proposalManifest.IsLowBondProposal = designatedProverInfo.IsLowBondProposal
-			proposalManifest = manifest.ProposalManifest{Invalid: true}
+			proposalManifest = &manifest.ProposalManifest{Default: true, IsLowBondProposal: true}
 		}
 
 		latestState, err := s.rpc.ShastaClients.Anchor.GetState(
-			&bind.CallOpts{BlockNumber: parentBlock.Number(), BlockHash: parentBlock.Hash(), Context: ctx},
+			&bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx},
 		)
 		if err != nil {
 			return err
 		}
 
 		// Check block-level metadata and reset some incorrect value
-		if err := checkBlockLevelMetadata(
+		if err := shastaManifest.ValidateMetadata(
 			ctx,
 			s.rpc,
-			&proposalManifest,
+			proposalManifest,
 			metadataShasta.GetDerivation().IsForcedInclusion,
 			metadataShasta.GetProposal(),
-			blockID,
+			proposalManifest.ParentBlock.NumberU64()+1,
 			latestState,
 		); err != nil {
 			return err
 		}
 	}
 	// Handle the default manifest
-	if proposalManifest.Invalid {
+	if proposalManifest.Default {
 		proposalManifest.Blocks = []*manifest.BlockManifest{
 			{
 				Timestamp:         metadataShasta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
 				Coinbase:          metadataShasta.GetProposal().Proposer,
 				AnchorBlockNumber: 0,
-				GasLimit:          parentBlock.GasLimit(), // Inherit parentBlock's value
+				GasLimit:          proposalManifest.ParentBlock.GasLimit(), // Inherit parentBlock's value
 			},
 		}
 	}
@@ -271,7 +251,7 @@ func (s *Syncer) processShastaProposal(
 		"l1Height", meta.GetRawBlockHeight(),
 		"l1Hash", meta.GetRawBlockHash(),
 		"proposalID", metadataShasta.GetProposal().Id,
-		"invalidManifest", proposalManifest.Invalid,
+		"invalidManifest", proposalManifest.Default,
 		"blocks", len(proposalManifest.Blocks),
 	)
 	if err := s.blocksInserterShasta.InsertBlocksWithManifest(ctx, meta, proposalManifest, endIter); err != nil {
@@ -281,6 +261,8 @@ func (s *Syncer) processShastaProposal(
 	return nil
 }
 
+// processPacayaBatch processes a Pacaya batch event, and tries inserting
+// the proposed blocks to the L2 execution engine.
 func (s *Syncer) processPacayaBatch(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,

@@ -59,7 +59,7 @@ func (i *Shasta) InsertBlocks(
 func (i *Shasta) InsertBlocksWithManifest(
 	ctx context.Context,
 	metadata metadata.TaikoProposalMetaData,
-	proposalManifest manifest.ProposalManifest,
+	proposalManifest *manifest.ProposalManifest,
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsShasta() {
@@ -82,7 +82,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 	log.Debug(
 		"Inserting Shasta blocks to L2 execution engine",
 		"proposalID", meta.GetProposal().Id,
-		"invalidManifest", proposalManifest.Invalid,
+		"invalidManifest", proposalManifest.Default,
 		"coinbase", proposalManifest.Blocks[0].Coinbase,
 	)
 

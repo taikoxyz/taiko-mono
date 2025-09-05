@@ -117,7 +117,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		d.rpc.L2.ChainID,
 		d.rpc.PacayaClients.ForkHeights.Ontake,
 		d.rpc.PacayaClients.ForkHeights.Pacaya,
-		d.rpc.PacayaClients.ForkHeights.Shasta,
+		d.rpc.ShastaClients.ForkHeight.Uint64(),
 	)
 
 	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
@@ -434,20 +434,28 @@ func (d *Driver) cacheLookaheadLoop() {
 		// Only read and update handover config at epoch transitions to avoid race conditions
 		// where different nodes might read different configs during mid-epoch upgrades
 		if currentEpoch > d.lastConfigReloadEpoch {
-			log.Info("Epoch transition detected, reloading handover config",
-				"epoch", currentEpoch, "lastConfigReloadEpoch",
-				d.lastConfigReloadEpoch,
+			log.Info(
+				"Epoch transition detected, reloading handover config",
+				"epoch", currentEpoch,
+				"lastConfigReloadEpoch", d.lastConfigReloadEpoch,
 			)
 
 			routerConfig, err := d.rpc.GetPreconfRouterConfig(&bind.CallOpts{Context: d.ctx})
 			if err != nil {
-				log.Warn("Failed to fetch preconf router config, keeping current handoverSkipSlots",
-					"error", err, "currentHandoverSkipSlots", d.handoverSkipSlots)
+				log.Warn(
+					"Failed to fetch preconf router config, keeping current handoverSkipSlots",
+					"error", err,
+					"currentHandoverSkipSlots", d.handoverSkipSlots,
+				)
 			} else {
 				newHandoverSkipSlots := routerConfig.HandOverSlots.Uint64()
 				if newHandoverSkipSlots != d.handoverSkipSlots {
-					log.Info("Updated handover config for new epoch", "epoch", currentEpoch,
-						"oldHandoverSkipSlots", d.handoverSkipSlots, "newHandoverSkipSlots", newHandoverSkipSlots)
+					log.Info(
+						"Updated handover config for new epoch",
+						"epoch", currentEpoch,
+						"oldHandoverSkipSlots", d.handoverSkipSlots,
+						"newHandoverSkipSlots", newHandoverSkipSlots,
+					)
 					d.handoverSkipSlots = newHandoverSkipSlots
 				}
 			}

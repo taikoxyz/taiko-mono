@@ -37,9 +37,9 @@ type PacayaClients struct {
 
 // ShastaClients contains all smart contract clients for ShastaClients fork.
 type ShastaClients struct {
-	TaikoInbox  *shastaBindings.ShastaInboxClient
-	Anchor      *shastaBindings.ShastaAnchor
-	ForkHeights *big.Int
+	Inbox      *shastaBindings.ShastaInboxClient
+	Anchor     *shastaBindings.ShastaAnchor
+	ForkHeight *big.Int
 }
 
 // Client contains all L1/L2 RPC clients that a driver needs.
@@ -282,9 +282,9 @@ func (c *Client) initShastaClients(cfg *ClientConfig) error {
 	}
 
 	c.ShastaClients = &ShastaClients{
-		TaikoInbox:  shastaInbox,
-		Anchor:      shastaAnchor,
-		ForkHeights: new(big.Int).SetUint64(shastaForkHeight),
+		Inbox:      shastaInbox,
+		Anchor:     shastaAnchor,
+		ForkHeight: new(big.Int).SetUint64(shastaForkHeight),
 	}
 
 	return nil

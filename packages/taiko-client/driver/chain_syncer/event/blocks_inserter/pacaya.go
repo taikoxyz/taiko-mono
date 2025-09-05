@@ -270,7 +270,7 @@ func (i *Pacaya) InsertBlocks(
 func (i *Pacaya) InsertBlocksWithManifest(
 	_ context.Context,
 	_ metadata.TaikoProposalMetaData,
-	_ manifest.ProposalManifest,
+	_ *manifest.ProposalManifest,
 	_ eventIterator.EndBatchProposedEventIterFunc,
 ) error {
 	return errors.New("not supported in Pacaya")
