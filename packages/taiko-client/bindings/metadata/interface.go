@@ -21,7 +21,6 @@ type TaikoProposalMetaData interface {
 	GetTxHash() common.Hash
 	GetProposer() common.Address
 	GetCoinbase() common.Address
-	GetBlobCreatedIn() *big.Int
 }
 
 type TaikoBatchMetaDataPacaya interface {

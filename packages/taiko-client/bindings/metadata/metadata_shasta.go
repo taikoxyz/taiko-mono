@@ -81,11 +81,6 @@ func (m *TaikoProposalMetadataShasta) GetCoinbase() common.Address {
 	return common.Address{}
 }
 
-// GetBlobCreatedIn returns the L1 block number when the blob created.
-func (m *TaikoProposalMetadataShasta) GetBlobCreatedIn() *big.Int {
-	return new(big.Int).SetUint64(m.BlockNumber)
-}
-
 // GetBlobHashes returns blob hashes in this proposal.
 func (m *TaikoProposalMetadataShasta) GetBlobHashes() []common.Hash {
 	var blobHashes []common.Hash
