@@ -29,6 +29,46 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     constructor() InboxOptimized3() { }
 
     // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
+
+    /// @inheritdoc Inbox
+    /// @notice Optimized transition hashing using EfficientHashLib
+    /// @dev Hashes a single Transition struct (2 bytes32 fields)
+    function hashTransition(Transition memory _transition) public pure override returns (bytes32) {
+        return EfficientHashLib.hash(_transition.proposalHash, _transition.parentTransitionHash);
+    }
+
+    /// @inheritdoc Inbox
+    /// @notice Optimized checkpoint hashing using EfficientHashLib
+    /// @dev Efficiently hashes Checkpoint struct
+    function hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
+        public
+        pure
+        override
+        returns (bytes32)
+    {
+        // Checkpoint has: blockNumber, blockHash, stateRoot
+        return EfficientHashLib.hash(
+            bytes32(uint256(_checkpoint.blockNumber)), _checkpoint.blockHash, _checkpoint.stateRoot
+        );
+    }
+
+    /// @inheritdoc Inbox
+    /// @notice Optimized core state hashing using EfficientHashLib
+    /// @dev Efficiently hashes a CoreState struct
+    function hashCoreState(CoreState memory _coreState) public pure override returns (bytes32) {
+        // CoreState: nextProposalId, lastFinalizedProposalId, lastFinalizedTransitionHash,
+        // bondInstructionsHash
+        return EfficientHashLib.hash(
+            bytes32(uint256(_coreState.nextProposalId)),
+            bytes32(uint256(_coreState.lastFinalizedProposalId)),
+            _coreState.lastFinalizedTransitionHash,
+            _coreState.bondInstructionsHash
+        );
+    }
+
+    // ---------------------------------------------------------------
     // Internal Functions - Overrides
     // ---------------------------------------------------------------
 
@@ -45,46 +85,5 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
         returns (bytes32)
     {
         return EfficientHashLib.hash(uint256(_proposalId), uint256(_parentTransitionHash));
-    }
-
-    /// @inheritdoc Inbox
-    /// @dev Optimized transition hashing using EfficientHashLib
-    /// @notice Hashes a single Transition struct (2 bytes32 fields)
-    function _hashTransition(Transition memory _transition)
-        internal
-        pure
-        override
-        returns (bytes32)
-    {
-        return EfficientHashLib.hash(_transition.proposalHash, _transition.parentTransitionHash);
-    }
-
-    /// @inheritdoc Inbox
-    /// @dev Optimized checkpoint hashing using EfficientHashLib
-    /// @notice Efficiently hashes Checkpoint struct
-    function _hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
-        internal
-        pure
-        override
-        returns (bytes32)
-    {
-        // Checkpoint has: blockNumber, blockHash, stateRoot
-        return EfficientHashLib.hash(
-            bytes32(uint256(_checkpoint.blockNumber)), _checkpoint.blockHash, _checkpoint.stateRoot
-        );
-    }
-
-    /// @inheritdoc Inbox
-    /// @dev Optimized core state hashing using EfficientHashLib
-    /// @notice Efficiently hashes a CoreState struct
-    function _hashCoreState(CoreState memory _coreState) internal pure override returns (bytes32) {
-        // CoreState: nextProposalId, lastFinalizedProposalId, lastFinalizedTransitionHash,
-        // bondInstructionsHash
-        return EfficientHashLib.hash(
-            bytes32(uint256(_coreState.nextProposalId)),
-            bytes32(uint256(_coreState.lastFinalizedProposalId)),
-            _coreState.lastFinalizedTransitionHash,
-            _coreState.bondInstructionsHash
-        );
     }
 }
