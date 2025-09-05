@@ -90,7 +90,7 @@ func (r *NFTBalanceRepository) decreaseBalanceInDB(
 		if err != gorm.ErrRecordNotFound {
 			return nil, errors.Wrap(err, "r.db.gormDB.First")
 		} else {
-			// cant decrease a balance if user never had this balance, indexing issue
+			// can't decrease a balance if user never had this balance, indexing issue
 			return nil, nil
 		}
 	}
