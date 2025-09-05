@@ -176,7 +176,7 @@ func assembleBatchProposedIteratorCallback(
 		for iterShasta.Next() {
 			event := iterShasta.Event
 			proposedEventPayload, err := rpc.DecodeShastaProposalData(
-				&bind.CallOpts{Context: ctx},
+				&bind.CallOpts{Context: ctx, BlockHash: event.Raw.BlockHash},
 				shastaTaikoInbox,
 				event.Data,
 			)
