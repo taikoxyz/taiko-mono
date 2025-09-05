@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/preconf/iface/ILookaheadSlasher.sol";
-import "src/layer1/preconf/iface/IOverseer.sol";
+import "src/layer1/preconf/impl/Blacklist.sol";
 import "src/layer1/preconf/libs/LibEIP4788.sol";
 import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/layer1/preconf/libs/LibPreconfConstants.sol";
@@ -10,16 +10,11 @@ import "src/shared/common/EssentialContract.sol";
 import "@eth-fabric/urc/lib/MerkleTree.sol";
 
 /// @title LookaheadSlasher
-/// @dev The lookahead contained within the beacon state is referred to
-/// as the "beacon lookahead"
-/// whereas, the lookahead maintained by the preconfing protocol is referred to
-/// as the "preconf lookahead"
 /// @custom:security-contact security@taiko.xyz
 contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
     address public immutable urc;
     address public immutable lookaheadStore;
     address public immutable preconfSlasher;
-    address public immutable overseer;
     uint256 public immutable slashAmount;
 
     uint256[50] private __gap;
@@ -28,7 +23,6 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         address _urc,
         address _lookaheadStore,
         address _preconfSlasher,
-        address _overseer,
         uint256 _slashAmount
     )
         EssentialContract()
@@ -36,7 +30,6 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         urc = _urc;
         lookaheadStore = _lookaheadStore;
         preconfSlasher = _preconfSlasher;
-        overseer = _overseer;
         slashAmount = _slashAmount;
     }
 
@@ -283,12 +276,13 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         );
 
         require(
-            collateral > ILookaheadStore(lookaheadStore).getConfig().minCollateralForPreconfing,
+            collateral
+                > ILookaheadStore(lookaheadStore).getLookaheadStoreConfig().minCollateralForPreconfing,
             OperatorHasInsufficientCollateral()
         );
 
-        IOverseer.BlacklistTimestamps memory blacklistTimestamps =
-            IOverseer(overseer).getBlacklist(registrationProof.registrationRoot);
+        Blacklist.BlacklistTimestamps memory blacklistTimestamps =
+            Blacklist(lookaheadStore).getBlacklist(registrationProof.registrationRoot);
 
         // Verify that the operator was not blacklisted at the reference timestamp
         bool notBlacklisted = blacklistTimestamps.blacklistedAt == 0

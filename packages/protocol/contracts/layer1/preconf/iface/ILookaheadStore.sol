@@ -28,7 +28,7 @@ interface ILookaheadStore {
         bytes26 lookaheadHash;
     }
 
-    struct Config {
+    struct LookaheadStoreConfig {
         // The size of the lookahead buffer.
         uint16 lookaheadBufferSize;
         // The minimum collateral for a registered operator to post the lookahead.
@@ -37,13 +37,31 @@ interface ILookaheadStore {
         uint80 minCollateralForPreconfing;
     }
 
+    struct LookaheadData {
+        // Index of the slot in the current lookahead
+        uint256 slotIndex;
+        // URC registration root of the lookahead poster
+        bytes32 registrationRoot;
+        // Current epoch lookahead slots
+        LookaheadSlot[] currLookahead;
+        // Next epoch lookahead slots
+        LookaheadSlot[] nextLookahead;
+        // Commitment signature for the lookahead poster
+        bytes commitmentSignature;
+    }
+
     error CommitmentSignerMismatch();
     error CommitterMismatch();
+    error InvalidLookahead();
     error InvalidLookaheadEpoch();
+    error InvalidLookaheadTimestamp();
+    error InvalidSlotIndex();
     error InvalidSlotTimestamp();
     error InvalidValidatorLeafIndex();
     error LookaheadNotRequired();
+    error NotInbox();
     error NotProtectorOrPreconfRouter();
+    error NotWhitelistedOrFallbackPreconfer();
     error OperatorHasBeenBlacklisted();
     error OperatorHasBeenSlashed();
     error OperatorHasInsufficientCollateral();
@@ -54,24 +72,26 @@ interface ILookaheadStore {
     error PosterHasInsufficientCollateral();
     error PosterHasNotOptedIn();
     error PosterHasUnregistered();
+    error ProposerIsNotPreconfer();
     error SlasherIsNotLookaheadSlasher();
     error SlotTimestampIsNotIncrementing();
 
     event LookaheadPosted(
-        uint256 indexed epochTimestamp, bytes32 lookaheadHash, LookaheadSlot[] lookaheadSlot
+        uint256 indexed epochTimestamp, bytes32 lookaheadHash, LookaheadSlot[] lookaheadSlots
     );
 
-    /// @notice Allows a registered operator to post the lookahead for the next epoch.
-    /// @param _registrationRoot The registration root of the posting-operator in the URC.
-    /// @param _data The signed commitment containing the lookahead data, or the lookahead data if
-    /// posted by the protector or a whitelist preconfer (via preconf router).
-    /// @return lookaheadHash_ The lookahead hash.
-    function updateLookahead(
-        bytes32 _registrationRoot,
-        bytes calldata _data
+    /// @notice Checks if a proposer is eligible to propose for the current slot and conditionally
+    ///         updates the lookahead for the next epoch,.
+    /// @param _proposer The address of the proposer to check.
+    /// @param _lookaheadData The lookahead data for current and next epoch.
+    /// @return submissionSlotTimestamp_ The timestamp of the submission slot i.e also the upper
+    ///         boundary of preconfing period.
+    function checkProposer(
+        address _proposer,
+        bytes calldata _lookaheadData
     )
         external
-        returns (bytes26 lookaheadHash_);
+        returns (uint64 submissionSlotTimestamp_);
 
     /// @notice Calculates the lookahead hash for a given epoch and lookahead slots.
     /// @param _epochTimestamp The timestamp of the epoch.
@@ -96,5 +116,5 @@ interface ILookaheadStore {
 
     /// @notice Returns the configuration of the lookahead store.
     /// @return The configuration of the lookahead store.
-    function getConfig() external pure returns (Config memory);
+    function getLookaheadStoreConfig() external pure returns (LookaheadStoreConfig memory);
 }
