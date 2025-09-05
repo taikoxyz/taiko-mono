@@ -833,7 +833,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 return (false, _proposalId);
             }
             // Cooldown passed, force finalization
-            require(_hasTransitionRecord, TransitionRecordNotProvided());
+            revert(TransitionRecordNotProvided());
         }
 
         // Verify transition record hash matches
