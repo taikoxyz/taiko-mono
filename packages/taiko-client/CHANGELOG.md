@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.11.0](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.10.1...taiko-alethia-client-v1.11.0) (2025-09-06)
+
+
+### Features
+
+* **taiko-client:** Add duration metrics to PreconfBlockApiServer ([#19969](https://github.com/taikoxyz/taiko-mono/issues/19969)) ([cb174ba](https://github.com/taikoxyz/taiko-mono/commit/cb174ba3342a88cf80818b9efe3a7add1859dac7))
+* **taiko-client:** blacklist peers who publish blocks signed by sequencers who arent onchain ([#20006](https://github.com/taikoxyz/taiko-mono/issues/20006)) ([8b477d3](https://github.com/taikoxyz/taiko-mono/commit/8b477d35402a5c7f63c479df984879a460876923))
+* **taiko-client:** fallback preconf ([#19546](https://github.com/taikoxyz/taiko-mono/issues/19546)) ([3a402ad](https://github.com/taikoxyz/taiko-mono/commit/3a402ad83b4dfbb929ba3c00bc6603722a545008))
+* **taiko-client:** fallback to sgx proof ([#19967](https://github.com/taikoxyz/taiko-mono/issues/19967)) ([7a63b58](https://github.com/taikoxyz/taiko-mono/commit/7a63b58ca234997b2862063705d020bf3e72d90d))
+* **taiko-client:** make the `beaconSyncer.getBlockPayload()` more compliant with the spec ([#19860](https://github.com/taikoxyz/taiko-mono/issues/19860)) ([747e898](https://github.com/taikoxyz/taiko-mono/commit/747e898f8187be6d4c10b88ec36ee5ed95db3580))
+* **taiko-client:** read handover slots on chain ([#19987](https://github.com/taikoxyz/taiko-mono/issues/19987)) ([316fadc](https://github.com/taikoxyz/taiko-mono/commit/316fadcef6a55dd9da4ba2b8a83ddbe00aca1c77))
+* **taiko-client:** remove dependency on geth undocumented `eth_getHeaderByHash` feature  ([#20035](https://github.com/taikoxyz/taiko-mono/issues/20035)) ([e1032ce](https://github.com/taikoxyz/taiko-mono/commit/e1032ceeea5657f0d2f4cb290321a2902287ec66))
+
+
+### Bug Fixes
+
+* **taiko-client:** elapsed time in histograms ([#19975](https://github.com/taikoxyz/taiko-mono/issues/19975)) ([3807dfc](https://github.com/taikoxyz/taiko-mono/commit/3807dfcdd3f2b7cc08a6b1260b62723d58e64162))
+* **taiko-client:** fix preconf router config ([#20074](https://github.com/taikoxyz/taiko-mono/issues/20074)) ([e0ba42f](https://github.com/taikoxyz/taiko-mono/commit/e0ba42f497743d6e442c95fa447bdceb2cb61980))
+* **taiko-client:** revert pr-20035 ([#20066](https://github.com/taikoxyz/taiko-mono/issues/20066)) ([2ee7349](https://github.com/taikoxyz/taiko-mono/commit/2ee73496fa701f1decda06befe6f3b1297d29fef))
+* **taiko-client:** use unique log key for block ID in fallback check ([#20026](https://github.com/taikoxyz/taiko-mono/issues/20026)) ([793a2d6](https://github.com/taikoxyz/taiko-mono/commit/793a2d69e1882adfe029f85a68e5079cd8c63310))
+
+
+### Chores
+
+* **relayer, taiko-client:** fix typo/grammar in comments ([#20071](https://github.com/taikoxyz/taiko-mono/issues/20071)) ([da74cf5](https://github.com/taikoxyz/taiko-mono/commit/da74cf532ec777eadbee5a6dd44fcc2a4b67d346))
+* **taiko-client:** add emoji to quickly identify logs ([#19974](https://github.com/taikoxyz/taiko-mono/issues/19974)) ([8e979b6](https://github.com/taikoxyz/taiko-mono/commit/8e979b69aa00ba66140f1ab318b72b0f1a62d56b))
+* **taiko-client:** correct misspelling in `taiko-client` comments ([#20052](https://github.com/taikoxyz/taiko-mono/issues/20052)) ([96e8507](https://github.com/taikoxyz/taiko-mono/commit/96e8507581aebbfabd4c3cec3475baf0d87026d0))
+
+
+### Code Refactoring
+
+* **taiko-client:** use the built-in max/min to simplify the code ([#20022](https://github.com/taikoxyz/taiko-mono/issues/20022)) ([4bb93e2](https://github.com/taikoxyz/taiko-mono/commit/4bb93e2f57defcd81f160187696faaf7adc0bd5d))
+
 ## [1.10.1](https://github.com/taikoxyz/taiko-mono/compare/taiko-alethia-client-v1.10.0...taiko-alethia-client-v1.10.1) (2025-08-12)
 
 
