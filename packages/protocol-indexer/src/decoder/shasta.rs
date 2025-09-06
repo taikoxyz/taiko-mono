@@ -22,14 +22,14 @@ pub use LibBonds::BondInstruction;
 
 /// Decode the data field from a Proposed event into a ProposedEventPayload
 ///
-/// The Proposed event uses a custom compact encoding format:
-/// - Proposal: id(6) + proposer(20) + timestamp(6) = 32 bytes
+/// The Proposed event uses a custom compact encoding format (LibProposedEventEncoder):
+/// - Proposal: id(6) + proposer(20) + timestamp(6) + lookaheadSlotTimestamp(6) = 38 bytes
 /// - Derivation: originBlockNumber(6) + isForcedInclusion(1) + basefeeSharingPctg(1) = 8 bytes
 /// - BlobSlice: arrayLength(3) + blobHashes(32*n) + offset(3) + timestamp(6) = 12 + 32n bytes
-/// - Proposal (cont): coreStateHash(32) + derivationHash(32) = 64 bytes
+/// - Proposal (cont): coreStateHash(32) = 32 bytes
 /// - CoreState: nextProposalId(6) + lastFinalizedProposalId(6) +
 ///              lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 76 bytes
-/// Total fixed size: 192 bytes + (32 * blob_hashes_count)
+/// Total fixed size: 166 bytes + (32 * blob_hashes_count)
 pub fn decode_proposed_data_shasta(data: &[u8]) -> Result<ProposedEventPayload, DecodeError> {
     let mut ptr = 0;
 
@@ -108,6 +108,7 @@ pub fn decode_proposed_data_shasta(data: &[u8]) -> Result<ProposedEventPayload, 
     let proposal_id = unpack_uint48(data, &mut ptr, "proposal.id")?;
     let proposer = unpack_address(data, &mut ptr, "proposal.proposer")?;
     let proposal_timestamp = unpack_uint48(data, &mut ptr, "proposal.timestamp")?;
+    let _lookahead_slot_timestamp = unpack_uint48(data, &mut ptr, "proposal.lookaheadSlotTimestamp")?; // Read but not used until ABI is updated
 
     // Decode Derivation fields
     let origin_block_number = unpack_uint48(data, &mut ptr, "derivation.originBlockNumber")?;
@@ -144,9 +145,6 @@ pub fn decode_proposed_data_shasta(data: &[u8]) -> Result<ProposedEventPayload, 
     // Decode coreStateHash (part of Proposal)
     let core_state_hash = unpack_bytes32(data, &mut ptr, "proposal.coreStateHash")?;
 
-    // Decode derivationHash (part of Proposal)
-    let derivation_hash = unpack_bytes32(data, &mut ptr, "proposal.derivationHash")?;
-
     // Decode CoreState
     let next_proposal_id = unpack_uint48(data, &mut ptr, "coreState.nextProposalId")?;
     let last_finalized_proposal_id =
@@ -160,10 +158,11 @@ pub fn decode_proposed_data_shasta(data: &[u8]) -> Result<ProposedEventPayload, 
     Ok(ProposedEventPayload {
         proposal: Proposal {
             id: Uint::<48, 1>::from(proposal_id),
-            proposer,
             timestamp: Uint::<48, 1>::from(proposal_timestamp),
+            // lookaheadSlotTimestamp is not in the current ABI, will be added when ABI is updated
+            proposer,
             coreStateHash: core_state_hash,
-            derivationHash: derivation_hash,
+            derivationHash: B256::ZERO, // Not included in the compact encoding, set to zero
         },
         derivation: Derivation {
             originBlockNumber: Uint::<48, 1>::from(origin_block_number),
@@ -187,13 +186,13 @@ pub fn decode_proposed_data_shasta(data: &[u8]) -> Result<ProposedEventPayload, 
 
 /// Decode the data field from a Proved event into a ProvedEventPayload
 ///
-/// The Proved event uses a custom compact encoding format:
+/// The Proved event uses a custom compact encoding format (LibProvedEventEncoder):
 /// - proposalId: 6 bytes
 /// - Transition: proposalHash(32) + parentTransitionHash(32) = 64 bytes
-///   - endBlockMiniHeader: number(6) + hash(32) + stateRoot(32) = 70 bytes
+///   - checkpoint: blockNumber(6) + blockHash(32) + stateRoot(32) = 70 bytes
 ///   - designatedProver(20) + actualProver(20) = 40 bytes
-/// - TransitionRecord: span(1) + transitionHash(32) + endBlockMiniHeaderHash(32) = 65 bytes
-/// - bondInstructions array length: 2 bytes
+/// - TransitionRecord: span(1) + transitionHash(32) + checkpointHash(32) = 65 bytes
+/// - bondInstructions array length: 2 bytes (uint16)
 /// - Each bond instruction: proposalId(6) + bondType(1) + payer(20) + receiver(20) = 47 bytes
 /// Total fixed size: 247 bytes + (47 * bond_instructions_count)
 pub fn decode_proved_data_shasta(data: &[u8]) -> Result<ProvedEventPayload, DecodeError> {
@@ -277,10 +276,10 @@ pub fn decode_proved_data_shasta(data: &[u8]) -> Result<ProvedEventPayload, Deco
     let proposal_hash = unpack_bytes32(data, &mut ptr, "transition.proposalHash")?;
     let parent_transition_hash = unpack_bytes32(data, &mut ptr, "transition.parentTransitionHash")?;
 
-    // Decode endBlockMiniHeader
-    let end_block_number = unpack_uint48(data, &mut ptr, "endBlockMiniHeader.number")?;
-    let end_block_hash = unpack_bytes32(data, &mut ptr, "endBlockMiniHeader.hash")?;
-    let end_block_state_root = unpack_bytes32(data, &mut ptr, "endBlockMiniHeader.stateRoot")?;
+    // Decode checkpoint (called endBlockMiniHeader in current ABI)
+    let checkpoint_block_number = unpack_uint48(data, &mut ptr, "checkpoint.blockNumber")?;
+    let checkpoint_block_hash = unpack_bytes32(data, &mut ptr, "checkpoint.blockHash")?;
+    let checkpoint_state_root = unpack_bytes32(data, &mut ptr, "checkpoint.stateRoot")?;
 
     // Decode provers
     let designated_prover = unpack_address(data, &mut ptr, "transition.designatedProver")?;
@@ -289,8 +288,8 @@ pub fn decode_proved_data_shasta(data: &[u8]) -> Result<ProvedEventPayload, Deco
     // Decode TransitionRecord
     let span = unpack_uint8(data, &mut ptr, "transitionRecord.span")?;
     let transition_hash = unpack_bytes32(data, &mut ptr, "transitionRecord.transitionHash")?;
-    let end_block_mini_header_hash =
-        unpack_bytes32(data, &mut ptr, "transitionRecord.endBlockMiniHeaderHash")?;
+    let checkpoint_hash =
+        unpack_bytes32(data, &mut ptr, "transitionRecord.checkpointHash")?; // Actually checkpointHash in Solidity
 
     // Decode bond instructions array length
     let bond_instructions_length =
@@ -345,9 +344,9 @@ pub fn decode_proved_data_shasta(data: &[u8]) -> Result<ProvedEventPayload, Deco
             proposalHash: proposal_hash,
             parentTransitionHash: parent_transition_hash,
             endBlockMiniHeader: BlockMiniHeader {
-                number: Uint::<48, 1>::from(end_block_number),
-                hash: end_block_hash,
-                stateRoot: end_block_state_root,
+                number: Uint::<48, 1>::from(checkpoint_block_number),
+                hash: checkpoint_block_hash,
+                stateRoot: checkpoint_state_root,
             },
             designatedProver: designated_prover,
             actualProver: actual_prover,
@@ -355,7 +354,7 @@ pub fn decode_proved_data_shasta(data: &[u8]) -> Result<ProvedEventPayload, Deco
         transitionRecord: TransitionRecord {
             span: span,
             transitionHash: transition_hash,
-            endBlockMiniHeaderHash: end_block_mini_header_hash,
+            endBlockMiniHeaderHash: checkpoint_hash,
             bondInstructions: bond_instructions,
         },
     })
