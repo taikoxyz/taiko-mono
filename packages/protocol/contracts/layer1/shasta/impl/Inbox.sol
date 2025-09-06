@@ -93,7 +93,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// upgrade happens. On upgrades this is usually done calling `upgradeToAndCall`
     /// @param _owner The owner of this contract
     /// @param _genesisBlockHash The hash of the genesis block
-    function initV2(address _owner, bytes32 _genesisBlockHash) external reinitializer(2) {
+    function initV3(address _owner, bytes32 _genesisBlockHash) external reinitializer(3) {
         address owner = owner();
         require(owner == address(0) || owner == msg.sender, ACCESS_DENIED());
 

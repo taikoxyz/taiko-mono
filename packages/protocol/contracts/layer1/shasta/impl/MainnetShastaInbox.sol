@@ -44,7 +44,6 @@ contract MainnetShastaInbox is InboxOptimized4 {
 
     /// @notice Gets the configuration for this Inbox contract
     /// @return _ The configuration struct with shasta-specific settings
-    // TODO: figure out these values
     function getConfig() public pure override returns (Config memory) {
         return Config({
             bondToken: address(0),
