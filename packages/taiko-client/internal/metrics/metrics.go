@@ -11,7 +11,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/utils"
 )
 
 // An extended set of histogram buckers to have more granularity in the [0.5,
@@ -219,7 +219,7 @@ func Serve(ctx context.Context, c *cli.Context) error {
 		}
 	}()
 
-	rpc.BlockOnInterruptsContext(ctx)
+	utils.BlockOnInterruptsContext(ctx)
 
 	return nil
 }

@@ -82,12 +82,12 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 		defer cancel()
 
-		if l1Client, err = NewEthClient(ctxWithTimeout, cfg.L1Endpoint, cfg.Timeout); err != nil {
+		if l1Client, err = NewEthClientWithType(ctxWithTimeout, cfg.L1Endpoint, cfg.Timeout, "l1"); err != nil {
 			log.Error("Failed to connect to L1 endpoint, retrying", "endpoint", cfg.L1Endpoint, "err", err)
 			return err
 		}
 
-		if l2Client, err = NewEthClient(ctxWithTimeout, cfg.L2Endpoint, cfg.Timeout); err != nil {
+		if l2Client, err = NewEthClientWithType(ctxWithTimeout, cfg.L2Endpoint, cfg.Timeout, "l2"); err != nil {
 			log.Error("Failed to connect to L2 endpoint, retrying", "endpoint", cfg.L2Endpoint, "err", err)
 			return err
 		}
@@ -101,7 +101,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		}
 
 		if cfg.L2CheckPoint != "" {
-			l2CheckPoint, err = NewEthClient(ctxWithTimeout, cfg.L2CheckPoint, cfg.Timeout)
+			l2CheckPoint, err = NewEthClientWithType(ctxWithTimeout, cfg.L2CheckPoint, cfg.Timeout, "l2checkpoint")
 			if err != nil {
 				log.Error("Failed to connect to L2 checkpoint endpoint, retrying", "endpoint", cfg.L2CheckPoint, "err", err)
 				return err
