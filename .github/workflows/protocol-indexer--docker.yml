@@ -1,4 +1,4 @@
-name: "Build and Push Multi-Arch Docker Image"
+name: "Build and Push Protocol Indexer Multi-Arch Docker Image"
 permissions:
   contents: read
 
