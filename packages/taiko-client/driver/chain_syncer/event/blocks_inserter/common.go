@@ -135,6 +135,7 @@ func createExecutionPayloads(
 			Timestamp:   meta.Timestamp,
 			TxList:      txListBytes,
 			MixHash:     meta.Difficulty,
+			BatchID:     meta.BatchID,
 			ExtraData:   meta.ExtraData,
 		},
 		BaseFeePerGas: meta.BaseFee,
@@ -477,6 +478,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 
 	return &createExecutionPayloadsMetaData{
 		BlockID:               blockID,
+		BatchID:               meta.GetBatchID(),
 		ExtraData:             meta.GetExtraData(),
 		SuggestedFeeRecipient: meta.GetCoinbase(),
 		GasLimit:              uint64(meta.GetGasLimit()),
@@ -571,6 +573,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 
 	return &createExecutionPayloadsMetaData{
 		BlockID:               blockID,
+		BatchID:               meta.GetProposal().Id,
 		ExtraData:             extraData,
 		SuggestedFeeRecipient: blockInfo.Coinbase,
 		GasLimit:              blockInfo.GasLimit,
@@ -641,6 +644,9 @@ func updateL1OriginForBatch(
 				log.Info("Update head L1 origin", "blockID", blockID, "l1Origin", l1Origin)
 				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
+				}
+				if _, err := rpc.L2Engine.SetBatchToBlock(ctx, meta.GetBatchID(), blockID); err != nil {
+					return fmt.Errorf("failed to write batch to block mapping: %w", err)
 				}
 			}
 

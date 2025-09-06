@@ -33,6 +33,7 @@ type Inserter interface {
 // for creating a new execution payloads.
 type createExecutionPayloadsMetaData struct {
 	BlockID               *big.Int
+	BatchID               *big.Int
 	ExtraData             []byte
 	SuggestedFeeRecipient common.Address
 	GasLimit              uint64

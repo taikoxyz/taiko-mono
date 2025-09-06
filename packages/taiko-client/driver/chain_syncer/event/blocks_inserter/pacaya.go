@@ -267,6 +267,7 @@ func (i *Pacaya) InsertBlocks(
 	return nil
 }
 
+// InsertBlocksWithManifest won't be used for Pacaya blocks, just return an error.
 func (i *Pacaya) InsertBlocksWithManifest(
 	_ context.Context,
 	_ metadata.TaikoProposalMetaData,
