@@ -4,7 +4,7 @@ permissions:
 
 on:
   push:
-    branches: [main]
+    branches: [main, shasta-indexer]
     tags:
       - "protocol-indexer-v*"
     paths:
