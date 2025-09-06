@@ -62,7 +62,7 @@ contract InboxTestHelper is CommonTest {
             id: 0,
             proposer: address(0),
             timestamp: 0,
-            lookaheadSlotTimestamp: 0,
+            endOfSubmissionWindowTimeStamp: 0,
             coreStateHash: keccak256(abi.encode(coreState)),
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -136,7 +136,8 @@ contract InboxTestHelper is CommonTest {
             id: _proposalId,
             proposer: _currentProposer,
             timestamp: uint48(block.timestamp),
-            lookaheadSlotTimestamp: 0, // PreconfWhitelist returns 0 for lookaheadSlotTimestamp
+            endOfSubmissionWindowTimeStamp: 0, // PreconfWhitelist returns 0 for
+                // endOfSubmissionWindowTimeStamp
             coreStateHash: keccak256(abi.encode(expectedCoreState)),
             derivationHash: keccak256(abi.encode(expectedDerivation))
         });

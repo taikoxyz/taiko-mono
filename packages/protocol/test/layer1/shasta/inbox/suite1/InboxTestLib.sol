@@ -157,7 +157,8 @@ library InboxTestLib {
             id: _id,
             proposer: _proposer,
             timestamp: uint48(block.timestamp),
-            lookaheadSlotTimestamp: uint48(0), // Set to 0 to match mockProposerAllowed return value
+            endOfSubmissionWindowTimeStamp: uint48(0), // Set to 0 to match mockProposerAllowed
+                // return value
             coreStateHash: bytes32(0),
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -192,7 +193,8 @@ library InboxTestLib {
             id: _id,
             proposer: _proposer,
             timestamp: uint48(block.timestamp),
-            lookaheadSlotTimestamp: uint48(0), // Set to 0 to match mockProposerAllowed return value
+            endOfSubmissionWindowTimeStamp: uint48(0), // Set to 0 to match mockProposerAllowed
+                // return value
             coreStateHash: bytes32(0),
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -579,7 +581,7 @@ library InboxTestLib {
         proposal.id = 0;
         proposal.proposer = address(0);
         proposal.timestamp = 0;
-        proposal.lookaheadSlotTimestamp = 0;
+        proposal.endOfSubmissionWindowTimeStamp = 0;
 
         // Use the passed core state to calculate the coreStateHash
         proposal.coreStateHash = keccak256(abi.encode(_coreState));
