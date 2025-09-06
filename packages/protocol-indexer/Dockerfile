@@ -1,5 +1,6 @@
 # Build stage
-FROM rust:1.83-bookworm AS builder
+# Use Rust 1.89+ which supports edition2024 feature required by alloy-chains
+FROM rust:1.89-bookworm AS builder
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
@@ -10,9 +11,18 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy the protocol-indexer package files
-COPY packages/protocol-indexer/ .
-RUN cargo build --release
+# Copy only Cargo files first for better caching
+COPY packages/protocol-indexer/Cargo.toml packages/protocol-indexer/Cargo.lock ./
+
+# Create dummy main.rs to build dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs && \
+    cargo build --release && \
+    rm -rf src
+
+# Copy the actual source code and build
+COPY packages/protocol-indexer/src ./src
+COPY packages/protocol-indexer/abis ./abis
+RUN touch src/main.rs && cargo build --release
 
 # Runtime stage
 FROM ubuntu:22.04
