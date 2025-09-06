@@ -571,9 +571,15 @@ func assembleCreateExecutionPayloadMetaShasta(
 		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
 
+	// Set batchID only for the last block in the proposal
+	var batchID *big.Int
+	if len(proposalManifest.Blocks)-1 == blockIndex {
+		batchID = meta.GetProposal().Id
+	}
+
 	return &createExecutionPayloadsMetaData{
 		BlockID:               blockID,
-		BatchID:               meta.GetProposal().Id,
+		BatchID:               batchID,
 		ExtraData:             extraData,
 		SuggestedFeeRecipient: blockInfo.Coinbase,
 		GasLimit:              blockInfo.GasLimit,
@@ -645,7 +651,7 @@ func updateL1OriginForBatch(
 				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}
-				if _, err := rpc.L2Engine.SetBatchToBlock(ctx, meta.GetBatchID(), blockID); err != nil {
+				if _, err := rpc.L2Engine.SetBatchToLastBlock(ctx, meta.GetBatchID(), blockID); err != nil {
 					return fmt.Errorf("failed to write batch to block mapping: %w", err)
 				}
 			}

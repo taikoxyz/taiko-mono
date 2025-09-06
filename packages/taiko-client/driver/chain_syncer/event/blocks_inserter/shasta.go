@@ -98,9 +98,6 @@ func (i *Shasta) InsertBlocksWithManifest(
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
 
-		// TODO: To be implemented, check if the proposal is known in canonical
-
-		// Otherwise, we need to create a new execution payload and set it as the head block in L2 EE.
 		createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaShasta(
 			ctx,
 			i.rpc,
