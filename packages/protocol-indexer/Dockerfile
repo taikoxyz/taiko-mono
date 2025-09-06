@@ -42,5 +42,10 @@ COPY --from=builder /app/target/release/protocol_indexer /usr/local/bin/
 COPY packages/protocol-indexer/rindexer.yaml ./
 COPY packages/protocol-indexer/abis ./abis
 COPY packages/protocol-indexer/migrations ./migrations
+COPY packages/protocol-indexer/docker-entrypoint.sh /usr/local/bin/
 
-ENTRYPOINT ["protocol_indexer"]
+# Make entrypoint executable
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["--indexer", "--graphql"]
