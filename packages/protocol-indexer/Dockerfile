@@ -10,8 +10,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy everything and build
-COPY . .
+# Copy the protocol-indexer package files
+COPY packages/protocol-indexer/ .
 RUN cargo build --release
 
 # Runtime stage
@@ -26,8 +26,8 @@ WORKDIR /app
 
 # Copy binary and configs
 COPY --from=builder /app/target/release/protocol_indexer /usr/local/bin/
-COPY rindexer.yaml ./
-COPY abis ./abis
-COPY migrations ./migrations
+COPY packages/protocol-indexer/rindexer.yaml ./
+COPY packages/protocol-indexer/abis ./abis
+COPY packages/protocol-indexer/migrations ./migrations
 
 ENTRYPOINT ["protocol_indexer"]
