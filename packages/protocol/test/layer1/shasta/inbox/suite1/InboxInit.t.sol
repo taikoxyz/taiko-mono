@@ -84,7 +84,7 @@ contract InboxInit is InboxTest {
             "Double initialization should be prevented"
         );
         // Cast to Inbox to access init function
-        Inbox(address(testInbox)).initV2(Bob, bytes32(uint256(2)));
+        Inbox(address(testInbox)).initV3(Bob, bytes32(uint256(2)));
     }
 
     /// @notice Test initialization with zero address owner
