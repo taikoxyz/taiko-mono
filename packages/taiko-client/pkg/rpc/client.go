@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 const (
@@ -33,6 +35,13 @@ type PacayaClients struct {
 	ForkHeights          *pacayaBindings.ITaikoInboxForkHeights
 }
 
+// ShastaClients contains all smart contract clients for ShastaClients fork.
+type ShastaClients struct {
+	Inbox      *shastaBindings.ShastaInboxClient
+	Anchor     *shastaBindings.ShastaAnchor
+	ForkHeight *big.Int
+}
+
 // Client contains all L1/L2 RPC clients that a driver needs.
 type Client struct {
 	// Geth ethclient clients
@@ -45,6 +54,7 @@ type Client struct {
 	L1Beacon *BeaconClient
 	// Protocol contracts clients
 	PacayaClients *PacayaClients
+	ShastaClients *ShastaClients
 }
 
 // ClientConfig contains all configs which will be used to initializing an
@@ -134,6 +144,9 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 	// Initialize all smart contract clients.
 	if err := c.initPacayaClients(cfg); err != nil {
 		return nil, fmt.Errorf("failed to initialize Pacaya clients: %w", err)
+	}
+	if err := c.initShastaClients(cfg); err != nil {
+		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
 	}
 
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
@@ -246,6 +259,32 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 		ComposeVerifier:      composeVerifier,
 		PreconfWhitelist:     preconfWhitelist,
 		PreconfRouter:        preconfRouter,
+	}
+
+	return nil
+}
+
+// initShastaClients initializes all Shasta smart contract clients.
+func (c *Client) initShastaClients(cfg *ClientConfig) error {
+	shastaInbox, err := shastaBindings.NewShastaInboxClient(cfg.TaikoInboxAddress, c.L1)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of ShastaInboxClient: %w", err)
+	}
+
+	shastaAnchor, err := shastaBindings.NewShastaAnchor(cfg.TaikoAnchorAddress, c.L2)
+	if err != nil {
+		return fmt.Errorf("failed to create new instance of ShastaAnchorClient: %w", err)
+	}
+
+	shastaForkHeight, err := shastaAnchor.ShastaForkHeight(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get shasta fork height: %w", err)
+	}
+
+	c.ShastaClients = &ShastaClients{
+		Inbox:      shastaInbox,
+		Anchor:     shastaAnchor,
+		ForkHeight: new(big.Int).SetUint64(shastaForkHeight),
 	}
 
 	return nil

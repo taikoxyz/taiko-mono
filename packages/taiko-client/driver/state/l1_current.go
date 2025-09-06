@@ -49,7 +49,7 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 		return nil
 	}
 
-	// Fetch the block info from TaikoInbox contract, and set the L1 height.
+	// Fetch the block info from Pacaya TaikoInbox contract, and set the L1 height.
 	batch, err := s.FindBatchForBlockID(ctx, blockID.Uint64())
 	if err != nil {
 		return fmt.Errorf("failed to find batch for block ID (%d): %w", blockID, err)
