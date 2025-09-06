@@ -1,0 +1,45 @@
+name: indexer
+description: An event indexer implementation for Taiko protocol
+repository: https://github.com/taikoxyz/taiko-mono
+project_type: rust
+config: {}
+timestamps: null
+networks:
+  - name: local
+    chain_id: 31337
+    rpc: ${LOCAL_RPC}
+  - name: holesky
+    chain_id: 17000
+    rpc: ${HOLESKY_RPC}
+  - name: ethereum
+    chain_id: 1
+    rpc: ${ETHEREUM_RPC}
+storage:
+  postgres:
+    enabled: true
+    drop_each_run: true
+    disable_create_tables: true
+    indexes:
+      global_injected_parameters:
+        - block_number
+        - block_hash
+        - tx_hash
+native_transfers:
+  enabled: false
+contracts:
+  - name: ShastaInbox
+    details:
+      - network: local
+        address: "0x0000000000000000000000000000000000000000"
+        start_block: "0"
+      - network: holesky
+        address: "0x0000000000000000000000000000000000000000"
+        start_block: "0"
+      - network: ethereum
+        address: "0x0000000000000000000000000000000000000000"
+        start_block: "0"
+    abi: ./abis/ShastaInbox.json
+    include_events:
+      - name: Proposed
+      - name: Proved
+      - name: BondInstructed

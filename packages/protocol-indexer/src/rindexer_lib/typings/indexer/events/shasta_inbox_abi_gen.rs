@@ -1,0 +1,1245 @@
+use alloy::sol;
+
+sol!(
+    #[derive(Debug)]
+    #[sol(rpc, all_derives)]
+    RindexerShastaInboxGen,
+    r#"[
+  {
+    "type": "function",
+    "name": "acceptOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "bondBalance",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "bond",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "decodeProposeInput",
+    "inputs": [
+      {
+        "name": "_data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "input_",
+        "type": "tuple",
+        "internalType": "struct IInbox.ProposeInput",
+        "components": [
+          {
+            "name": "deadline",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
+            "name": "coreState",
+            "type": "tuple",
+            "internalType": "struct IInbox.CoreState",
+            "components": [
+              {
+                "name": "nextProposalId",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "lastFinalizedProposalId",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "lastFinalizedTransitionHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "bondInstructionsHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "parentProposals",
+            "type": "tuple[]",
+            "internalType": "struct IInbox.Proposal[]",
+            "components": [
+              {
+                "name": "id",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "proposer",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "timestamp",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "coreStateHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "derivationHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "blobReference",
+            "type": "tuple",
+            "internalType": "struct LibBlobs.BlobReference",
+            "components": [
+              {
+                "name": "blobStartIndex",
+                "type": "uint16",
+                "internalType": "uint16"
+              },
+              {
+                "name": "numBlobs",
+                "type": "uint16",
+                "internalType": "uint16"
+              },
+              {
+                "name": "offset",
+                "type": "uint24",
+                "internalType": "uint24"
+              }
+            ]
+          },
+          {
+            "name": "transitionRecords",
+            "type": "tuple[]",
+            "internalType": "struct IInbox.TransitionRecord[]",
+            "components": [
+              {
+                "name": "span",
+                "type": "uint8",
+                "internalType": "uint8"
+              },
+              {
+                "name": "bondInstructions",
+                "type": "tuple[]",
+                "internalType": "struct LibBonds.BondInstruction[]",
+                "components": [
+                  {
+                    "name": "proposalId",
+                    "type": "uint48",
+                    "internalType": "uint48"
+                  },
+                  {
+                    "name": "bondType",
+                    "type": "uint8",
+                    "internalType": "enum LibBonds.BondType"
+                  },
+                  {
+                    "name": "payer",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "receiver",
+                    "type": "address",
+                    "internalType": "address"
+                  }
+                ]
+              },
+              {
+                "name": "transitionHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "endBlockMiniHeaderHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "endBlockMiniHeader",
+            "type": "tuple",
+            "internalType": "struct IInbox.BlockMiniHeader",
+            "components": [
+              {
+                "name": "number",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "hash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "stateRoot",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "decodeProveInput",
+    "inputs": [
+      {
+        "name": "_data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct IInbox.ProveInput",
+        "components": [
+          {
+            "name": "proposals",
+            "type": "tuple[]",
+            "internalType": "struct IInbox.Proposal[]",
+            "components": [
+              {
+                "name": "id",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "proposer",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "timestamp",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "coreStateHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "derivationHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "transitions",
+            "type": "tuple[]",
+            "internalType": "struct IInbox.Transition[]",
+            "components": [
+              {
+                "name": "proposalHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "parentTransitionHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "endBlockMiniHeader",
+                "type": "tuple",
+                "internalType": "struct IInbox.BlockMiniHeader",
+                "components": [
+                  {
+                    "name": "number",
+                    "type": "uint48",
+                    "internalType": "uint48"
+                  },
+                  {
+                    "name": "hash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "stateRoot",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  }
+                ]
+              },
+              {
+                "name": "designatedProver",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "actualProver",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "encodeProposedEventData",
+    "inputs": [
+      {
+        "name": "_payload",
+        "type": "tuple",
+        "internalType": "struct IInbox.ProposedEventPayload",
+        "components": [
+          {
+            "name": "proposal",
+            "type": "tuple",
+            "internalType": "struct IInbox.Proposal",
+            "components": [
+              {
+                "name": "id",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "proposer",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "timestamp",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "coreStateHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "derivationHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "derivation",
+            "type": "tuple",
+            "internalType": "struct IInbox.Derivation",
+            "components": [
+              {
+                "name": "originBlockNumber",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "originBlockHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "isForcedInclusion",
+                "type": "bool",
+                "internalType": "bool"
+              },
+              {
+                "name": "basefeeSharingPctg",
+                "type": "uint8",
+                "internalType": "uint8"
+              },
+              {
+                "name": "blobSlice",
+                "type": "tuple",
+                "internalType": "struct LibBlobs.BlobSlice",
+                "components": [
+                  {
+                    "name": "blobHashes",
+                    "type": "bytes32[]",
+                    "internalType": "bytes32[]"
+                  },
+                  {
+                    "name": "offset",
+                    "type": "uint24",
+                    "internalType": "uint24"
+                  },
+                  {
+                    "name": "timestamp",
+                    "type": "uint48",
+                    "internalType": "uint48"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "coreState",
+            "type": "tuple",
+            "internalType": "struct IInbox.CoreState",
+            "components": [
+              {
+                "name": "nextProposalId",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "lastFinalizedProposalId",
+                "type": "uint48",
+                "internalType": "uint48"
+              },
+              {
+                "name": "lastFinalizedTransitionHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "bondInstructionsHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "encodeProvedEventData",
+    "inputs": [
+      {
+        "name": "_payload",
+        "type": "tuple",
+        "internalType": "struct IInbox.ProvedEventPayload",
+        "components": [
+          {
+            "name": "proposalId",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
+            "name": "transition",
+            "type": "tuple",
+            "internalType": "struct IInbox.Transition",
+            "components": [
+              {
+                "name": "proposalHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "parentTransitionHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "endBlockMiniHeader",
+                "type": "tuple",
+                "internalType": "struct IInbox.BlockMiniHeader",
+                "components": [
+                  {
+                    "name": "number",
+                    "type": "uint48",
+                    "internalType": "uint48"
+                  },
+                  {
+                    "name": "hash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "stateRoot",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  }
+                ]
+              },
+              {
+                "name": "designatedProver",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "actualProver",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "transitionRecord",
+            "type": "tuple",
+            "internalType": "struct IInbox.TransitionRecord",
+            "components": [
+              {
+                "name": "span",
+                "type": "uint8",
+                "internalType": "uint8"
+              },
+              {
+                "name": "bondInstructions",
+                "type": "tuple[]",
+                "internalType": "struct LibBonds.BondInstruction[]",
+                "components": [
+                  {
+                    "name": "proposalId",
+                    "type": "uint48",
+                    "internalType": "uint48"
+                  },
+                  {
+                    "name": "bondType",
+                    "type": "uint8",
+                    "internalType": "enum LibBonds.BondType"
+                  },
+                  {
+                    "name": "payer",
+                    "type": "address",
+                    "internalType": "address"
+                  },
+                  {
+                    "name": "receiver",
+                    "type": "address",
+                    "internalType": "address"
+                  }
+                ]
+              },
+              {
+                "name": "transitionHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "endBlockMiniHeaderHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "getCapacity",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getConfig",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct IInbox.Config",
+        "components": [
+          {
+            "name": "bondToken",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "provingWindow",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
+            "name": "extendedProvingWindow",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
+            "name": "maxFinalizationCount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "ringBufferSize",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "basefeeSharingPctg",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "syncedBlockManager",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "proofVerifier",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "proposerChecker",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "forcedInclusionStore",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getProposalHash",
+    "inputs": [
+      {
+        "name": "_proposalId",
+        "type": "uint48",
+        "internalType": "uint48"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "proposalHash_",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getTransitionRecordHash",
+    "inputs": [
+      {
+        "name": "_proposalId",
+        "type": "uint48",
+        "internalType": "uint48"
+      },
+      {
+        "name": "_parentTransitionHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "transitionRecordHash_",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "impl",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "inNonReentrant",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "init",
+    "inputs": [
+      {
+        "name": "_owner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "_genesisBlockHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "paused",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pendingOwner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "propose",
+    "inputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "prove",
+    "inputs": [
+      {
+        "name": "_data",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "_proof",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "proxiableUUID",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "renounceOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "resolver",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "inputs": [
+      {
+        "name": "newOwner",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "unpause",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "upgradeTo",
+    "inputs": [
+      {
+        "name": "newImplementation",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "upgradeToAndCall",
+    "inputs": [
+      {
+        "name": "newImplementation",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawBond",
+    "inputs": [
+      {
+        "name": "_address",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "AdminChanged",
+    "inputs": [
+      {
+        "name": "previousAdmin",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "newAdmin",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BeaconUpgraded",
+    "inputs": [
+      {
+        "name": "beacon",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BondInstructed",
+    "inputs": [
+      {
+        "name": "instructions",
+        "type": "tuple[]",
+        "indexed": false,
+        "internalType": "struct LibBonds.BondInstruction[]",
+        "components": [
+          {
+            "name": "proposalId",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
+            "name": "bondType",
+            "type": "uint8",
+            "internalType": "enum LibBonds.BondType"
+          },
+          {
+            "name": "payer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "receiver",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BondWithdrawn",
+    "inputs": [
+      {
+        "name": "user",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Initialized",
+    "inputs": [
+      {
+        "name": "version",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "uint8"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferStarted",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "inputs": [
+      {
+        "name": "previousOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newOwner",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Paused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Proposed",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Proved",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Unpaused",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Upgraded",
+    "inputs": [
+      {
+        "name": "implementation",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "ACCESS_DENIED",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BlobNotFound",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DeadlineExceeded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EmptyProposals",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "EndBlockMiniHeaderMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ExceedsUnfinalizedProposalCapacity",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "FUNC_NOT_IMPLEMENTED",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "INVALID_PAUSE_STATUS",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InconsistentParams",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "IncorrectProposalCount",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidLastProposalProof",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidSpan",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidState",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NextProposalHashMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoBlobs",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoBondToWithdraw",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ProposalHashMismatch",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ProposalHashMismatchWithTransition",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "REENTRANT_CALL",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SpanOutOfBounds",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransitionRecordHashMismatchWithStorage",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransitionRecordNotProvided",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransitionWithSameParentHashAlreadyProved",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TwoManyBlobs",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZERO_ADDRESS",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZERO_VALUE",
+    "inputs": []
+  }
+]
+"#
+);

@@ -1,0 +1,4 @@
+.rindexer
+    generated_csv/**/*.txt
+target/
+.claude/

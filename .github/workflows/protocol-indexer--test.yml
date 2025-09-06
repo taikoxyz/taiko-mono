@@ -1,0 +1,35 @@
+name: "CI"
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/protocol-indexer/**"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "packages/protocol-indexer/**"
+    branches-ignore:
+      - release-please--branches--**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build
+      working-directory: packages/protocol-indexer
+      run: cargo build --verbose
+    - name: Run tests
+      working-directory: packages/protocol-indexer
+      run: cargo test --verbose
