@@ -2,11 +2,14 @@
 # Use Rust 1.89+ which supports edition2024 feature required by alloy-chains
 FROM rust:1.89-bookworm AS builder
 
-# Install dependencies
+# Install dependencies including Node.js (required by rindexer build)
 RUN apt-get update && apt-get install -y \
     git \
     pkg-config \
     libssl-dev \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
