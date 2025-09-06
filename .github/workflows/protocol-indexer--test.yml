@@ -6,11 +6,11 @@ on:
   push:
     branches: [main]
     paths:
-      - "packages/shasta-indexer/**"
+      - "packages/protocol-indexer/**"
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - "packages/shasta-indexer/**"
+      - "packages/protocol-indexer/**"
     branches-ignore:
       - release-please--branches--**
 
@@ -28,8 +28,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build
-      working-directory: packages/shasta-indexer
+      working-directory: packages/protocol-indexer
       run: cargo build --verbose
     - name: Run tests
-      working-directory: packages/shasta-indexer
+      working-directory: packages/protocol-indexer
       run: cargo test --verbose

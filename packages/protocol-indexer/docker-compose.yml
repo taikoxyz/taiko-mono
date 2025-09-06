@@ -10,7 +10,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: shasta_indexer
+      POSTGRES_DB: protocol_indexer
       POSTGRES_PASSWORD: rindexer
     ports:
       - 5432:5432

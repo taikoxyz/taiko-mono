@@ -25,9 +25,9 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy binary and configs
-COPY --from=builder /app/target/release/shasta_indexer /usr/local/bin/
+COPY --from=builder /app/target/release/protocol_indexer /usr/local/bin/
 COPY rindexer.yaml ./
 COPY abis ./abis
 COPY migrations ./migrations
 
-ENTRYPOINT ["shasta_indexer"]
+ENTRYPOINT ["protocol_indexer"]

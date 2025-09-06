@@ -1,5 +1,5 @@
 name: indexer
-description: An event indexer implementation for Shasta protocol
+description: An event indexer implementation for Taiko protocol
 repository: https://github.com/taikoxyz/taiko-mono
 project_type: rust
 config: {}

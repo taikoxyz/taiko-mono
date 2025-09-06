@@ -6,9 +6,9 @@ on:
   push:
     branches: [main]
     tags:
-      - "shasta-indexer-v*"
+      - "protocol-indexer-v*"
     paths:
-      - "packages/shasta-indexer/**"
+      - "packages/protocol-indexer/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -71,7 +71,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: packages/shasta-indexer/Dockerfile
+          file: packages/protocol-indexer/Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
           tags: ${{ env.REGISTRY_IMAGE }}

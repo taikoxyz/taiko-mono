@@ -1,10 +1,10 @@
-# Shasta Indexer
+# Protocol Indexer
 
-An event indexer implementation for the Shasta protocol built with [rindexer](https://github.com/joshstevens19/rindexer).
+An event indexer implementation for the protocol built with [rindexer](https://github.com/joshstevens19/rindexer).
 
 ## Overview
 
-This indexer monitors and processes events from the Taiko protocol smart contracts, providing real-time event tracking and data persistence. It's designed to efficiently index blockchain events such as `Proposed`, `Proved`, and `BondInstructed` from the Shasta `Inbox` contract.
+This indexer monitors and processes events from the Taiko protocol smart contracts, providing real-time event tracking and data persistence. It's designed to efficiently index blockchain events such as `Proposed`, `Proved`, and `BondInstructed` from the protocol `Inbox` contract.
 
 ## Prerequisites
 
@@ -17,7 +17,7 @@ This indexer monitors and processes events from the Taiko protocol smart contrac
 
 ```bash
 git clone https://github.com/taikoxyz/taiko-mono
-cd packages/shasta-indexer
+cd packages/protocol-indexer
 ```
 
 ### Build
@@ -71,7 +71,7 @@ Generated code will be placed in `src/rindexer_lib/` and includes:
 ### Build the Docker Image
 
 ```bash
-docker build -t shasta-indexer .
+docker build -t protocol-indexer .
 ```
 
 ### Run with Docker Compose

@@ -2,7 +2,7 @@
 [workspace]
 
 [package]
-name = "shasta_indexer"
+name = "protocol_indexer"
 version = "0.1.0"
 edition = "2021"
 
