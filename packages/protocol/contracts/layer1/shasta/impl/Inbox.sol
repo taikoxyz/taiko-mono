@@ -387,6 +387,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Reuse the same memory location for the transitionRecord struct
             transitionRecord.bondInstructions =
                 _calculateBondInstructions(_config, _input.proposals[i], _input.transitions[i]);
+            transitionRecord.effectiveAt = uint48(block.timestamp + _config.cooldownWindow);
             transitionRecord.transitionHash = _hashTransition(_input.transitions[i]);
             transitionRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
 
@@ -749,8 +750,10 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     /// @dev Finalizes proven proposals and updates checkpoint
-    /// @notice Processes up to maxFinalizationCount proposals in sequence
-    /// @dev Stops at first missing transition record or span boundary
+    /// @dev Performs up to `maxFinalizationCount` finalization iterations.
+    /// The caller is forced to finalize transition records that have passed their cooldown period,
+    /// but can
+    /// decide to finalize ones that haven't.
     /// @param _config Configuration with finalization parameters
     /// @param _input Input containing transition records and end block header
     /// @return _ Core state with updated finalization counters
@@ -821,8 +824,17 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         if (storedHash == 0) return (false, _proposalId);
 
-        // Verify transition record was provided
-        require(_hasTransitionRecord, TransitionRecordNotProvided());
+        // If transition record is provided, allow finalization regardless of cooldown
+        // If not provided, and cooldown has passed, revert
+        if (!_hasTransitionRecord) {
+            // Check if cooldown period has passed for forcing
+            if (block.timestamp < _transitionRecord.effectiveAt) {
+                // Cooldown not passed, don't force finalization
+                return (false, _proposalId);
+            }
+            // Cooldown passed, force finalization
+            revert TransitionRecordNotProvided();
+        }
 
         // Verify transition record hash matches
         bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);

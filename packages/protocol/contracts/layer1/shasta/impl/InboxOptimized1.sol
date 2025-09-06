@@ -74,8 +74,10 @@ abstract contract InboxOptimized1 is Inbox {
         _validateTransition(_config, _input.proposals[0], _input.transitions[0]);
 
         // Initialize current aggregation state
+        uint48 effectiveAt = uint48(block.timestamp + _config.cooldownWindow);
         TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
+            effectiveAt: effectiveAt,
             bondInstructions: _calculateBondInstructions(
                 _config, _input.proposals[0], _input.transitions[0]
             ),
@@ -132,6 +134,7 @@ abstract contract InboxOptimized1 is Inbox {
 
                 currentRecord = TransitionRecord({
                     span: 1,
+                    effectiveAt: effectiveAt,
                     bondInstructions: _calculateBondInstructions(
                         _config, _input.proposals[i], _input.transitions[i]
                     ),
