@@ -139,7 +139,7 @@ func (i *Indexer) saveERC20Transfer(ctx context.Context, chainID *big.Int, vLog 
 	if pk == 0 {
 		symbol, err := getERC20Symbol(ctx, i.ethClient, vLog.Address.Hex())
 		if err != nil {
-			// some erc20 dont have symbol method properly,
+			// some erc20 don't have symbol method properly,
 			// returns `invalid opcode`.
 			if strings.Contains(err.Error(), "invalid opcode") {
 				symbol = "ERC20"

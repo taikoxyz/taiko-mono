@@ -48,7 +48,7 @@ func filterFuncPacaya(
 			return nil
 		})
 
-		// dont run in goroutines, as the batchProposed events need to be processed in order and
+		// don't run in goroutines, as the batchProposed events need to be processed in order and
 		// saved to the DB in order, as we need the previous one's "lastBlockId" to calculate
 		// the blockIds of the next batchProposed event, since they are no longer
 		// emitted in the event themself.
