@@ -1,0 +1,34 @@
+[package]
+name = "rpc"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+protocol = { path = "../protocol" }
+alloy-consensus = { workspace = true, default-features = false }
+alloy-network = { workspace = true, default-features = false }
+alloy-primitives = { workspace = true, default-features = false }
+alloy-provider = { workspace = true, features = [
+  "ipc",
+  "reqwest",
+  "reqwest-rustls-tls",
+  "engine-api",
+] }
+alloy-rpc-types = { workspace = true, default-features = false }
+alloy-rpc-types-eth = { workspace = true, default-features = false }
+alloy-rpc-types-engine = { workspace = true, features = ["jwt", "serde"] }
+alloy-rpc-client = { workspace = true, default-features = false }
+alloy-transport-http = { workspace = true, features = [
+  "reqwest",
+  "hyper",
+  "jwt-auth",
+] }
+taiko-reth = { workspace = true }
+url = { workspace = true }
+tower = { workspace = true }
+http-body-util = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
