@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  REGISTRY_IMAGE: us-docker.pkg.dev/evmchain/images/indexer
+  REGISTRY_IMAGE: us-docker.pkg.dev/evmchain/images/protocol-indexer
 
 jobs:
   build:
