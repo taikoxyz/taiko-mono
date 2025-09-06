@@ -12,7 +12,6 @@ mod rindexer_lib;
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = env::args().collect();
-
     let mut enable_graphql = false;
     let mut enable_indexer = false;
 
