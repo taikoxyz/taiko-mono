@@ -131,7 +131,7 @@ contract InboxInit is InboxTest {
 
     /// @notice Test that nextProposalId starts at 1
     /// @dev Validates proper ID initialization
-    function test_init_next_proposal_id_starts_at_one() public {
+    function test_init_next_proposal_id_starts_at_one() public pure {
         // Configuration is now immutable - ring buffer size is set in constructor
         // testInbox already has the standard ring buffer size from constructor
 
