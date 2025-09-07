@@ -40,7 +40,20 @@ contract InboxOptimized2 is InboxOptimized1 {
         uint64 _forcedInclusionDelay,
         uint64 _forcedInclusionFeeInGwei
     )
-        InboxOptimized1(_bondToken, _checkpointManager, _proofVerifier, _proposerChecker, _provingWindow, _extendedProvingWindow, _maxFinalizationCount, _ringBufferSize, _basefeeSharingPctg, _minForcedInclusionCount, _forcedInclusionDelay, _forcedInclusionFeeInGwei)
+        InboxOptimized1(
+            _bondToken,
+            _checkpointManager,
+            _proofVerifier,
+            _proposerChecker,
+            _provingWindow,
+            _extendedProvingWindow,
+            _maxFinalizationCount,
+            _ringBufferSize,
+            _basefeeSharingPctg,
+            _minForcedInclusionCount,
+            _forcedInclusionDelay,
+            _forcedInclusionFeeInGwei
+        )
     { }
 
     // ---------------------------------------------------------------

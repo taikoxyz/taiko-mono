@@ -9,7 +9,6 @@ import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.so
 /// @notice Interface for the Shasta inbox contracts
 /// @custom:security-contact security@taiko.xyz
 interface IInbox {
-
     /// @notice Contains derivation data for a proposal that is not needed during proving.
     /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
     struct Derivation {
@@ -181,8 +180,4 @@ interface IInbox {
         external
         view
         returns (bytes32 transitionRecordHash_);
-
-    /// @notice Gets the capacity for unfinalized proposals.
-    /// @return The maximum number of unfinalized proposals that can exist.
-    function getCapacity() external view returns (uint256);
 }

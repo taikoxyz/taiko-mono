@@ -10,20 +10,22 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
     mapping(uint256 => bytes32) private mockBlobHashes;
     bool private useMockBlobHashes;
 
-    constructor() InboxOptimized2(
-        address(0), // bondToken
-        address(0), // checkpointManager
-        address(0), // proofVerifier
-        address(0), // proposerChecker
-        1 hours, // provingWindow
-        2 hours, // extendedProvingWindow
-        10, // maxFinalizationCount
-        100, // ringBufferSize
-        10, // basefeeSharingPctg
-        1, // minForcedInclusionCount
-        100, // forcedInclusionDelay
-        10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
-    ) { }
+    constructor()
+        InboxOptimized2(
+            address(0), // bondToken
+            address(0), // checkpointManager
+            address(0), // proofVerifier
+            address(0), // proposerChecker
+            1 hours, // provingWindow
+            2 hours, // extendedProvingWindow
+            10, // maxFinalizationCount
+            100, // ringBufferSize
+            10, // basefeeSharingPctg
+            1, // minForcedInclusionCount
+            100, // forcedInclusionDelay
+            10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
+        )
+    { }
 
     // Removed coreStateHash related functions as it no longer exists
 

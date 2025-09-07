@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "../iface/IInbox.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";

@@ -444,7 +444,8 @@ abstract contract InboxTest is CommonTest {
         transitions = new IInbox.Transition[](_config.proposalCount);
         transitionRecords = new IInbox.TransitionRecord[](_config.proposalCount);
 
-        // Ring buffer size is now immutable - tests requiring different sizes should use different contract variants
+        // Ring buffer size is now immutable - tests requiring different sizes should use different
+        // contract variants
         if (_config.ringBuffer.size > 0) {
             // Note: Ring buffer size cannot be changed at runtime (immutable in constructor)
         }
@@ -771,7 +772,8 @@ abstract contract InboxTest is CommonTest {
 
     /// @dev Sets up mocks for capacity exceeded scenario
     function setupCapacityExceededScenario(uint256 _ringBufferSize) internal {
-        // Ring buffer size is now immutable - capacity tests must use appropriate test contract variant
+        // Ring buffer size is now immutable - capacity tests must use appropriate test contract
+        // variant
         // This function is kept for compatibility but does nothing
     }
 
@@ -780,7 +782,7 @@ abstract contract InboxTest is CommonTest {
         return Inbox(address(inbox)).ringBufferSize();
     }
 
-    /// @dev Gets the proving window from the inbox (now immutable)  
+    /// @dev Gets the proving window from the inbox (now immutable)
     function getProvingWindow() internal view returns (uint48) {
         return Inbox(address(inbox)).provingWindow();
     }
@@ -806,7 +808,7 @@ abstract contract InboxTest is CommonTest {
     }
 
     function setupTinyRingBuffer() internal {
-        // Ring buffer size is now immutable (set in constructor) 
+        // Ring buffer size is now immutable (set in constructor)
     }
 
     function setupLargeRingBuffer() internal {
@@ -1695,7 +1697,7 @@ abstract contract InboxTest is CommonTest {
 
     /// @dev Asserts inbox capacity matches expected value
     function assertCapacityEquals(uint256 _expected, string memory _context) internal view {
-        uint256 actualCapacity = inbox.getCapacity();
+        uint256 actualCapacity = Inbox(address(inbox)).ringBufferSize() - 1;
         assertEq(
             actualCapacity, _expected, string(abi.encodePacked("Capacity mismatch in ", _context))
         );

@@ -58,7 +58,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The percentage of basefee paid to coinbase.
     uint8 public immutable basefeeSharingPctg;
 
-    /// @notice The minimum number of forced inclusions that the proposer is forced to process if they are due.
+    /// @notice The minimum number of forced inclusions that the proposer is forced to process if
+    /// they are due.
     uint256 public immutable minForcedInclusionCount;
 
     /// @notice The delay for forced inclusions measured in seconds.
@@ -133,7 +134,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _maxFinalizationCount The maximum number of finalized proposals in one block
     /// @param _ringBufferSize The ring buffer size for storing proposal hashes
     /// @param _basefeeSharingPctg The percentage of basefee paid to coinbase
-    /// @param _minForcedInclusionCount The minimum number of forced inclusions that the proposer is forced to process if they are due
+    /// @param _minForcedInclusionCount The minimum number of forced inclusions that the proposer is
+    /// forced to process if they are due
     /// @param _forcedInclusionDelay The delay for forced inclusions measured in seconds
     /// @param _forcedInclusionFeeInGwei The fee for forced inclusions in Gwei
     constructor(
@@ -240,7 +242,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // none remains in the queue that is due.
         require(
             input.numForcedInclusions >= minForcedInclusionCount
-                || !LibForcedInclusion.isOldestForcedInclusionDue(_forcedInclusionStorage, forcedInclusionDelay),
+                || !LibForcedInclusion.isOldestForcedInclusionDue(
+                    _forcedInclusionStorage, forcedInclusionDelay
+                ),
             UnprocessedForcedInclusionIsDue()
         );
 
@@ -292,7 +296,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @inheritdoc IForcedInclusionStore
     function isOldestForcedInclusionDue() external view returns (bool) {
-        return LibForcedInclusion.isOldestForcedInclusionDue(_forcedInclusionStorage, forcedInclusionDelay);
+        return LibForcedInclusion.isOldestForcedInclusionDue(
+            _forcedInclusionStorage, forcedInclusionDelay
+        );
     }
 
     /// @notice Retrieves the proposal hash for a given proposal ID
@@ -318,15 +324,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         return _getTransitionRecordHash(_proposalId, _parentTransitionHash);
     }
-
-    /// @notice Returns the maximum capacity for unfinalized proposals
-    /// @dev Capacity is ringBufferSize - 1 to prevent overwriting unfinalized proposals
-    /// @return _ The maximum number of unfinalized proposals allowed
-    function getCapacity() external view returns (uint256) {
-        return _getCapacity();
-    }
-
-
 
     /// @notice Decodes proposal input data
     /// @param _data The encoded data
@@ -437,12 +434,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Validates transitions, calculates bond instructions, and stores records
     /// @dev Virtual function that can be overridden for optimization (e.g., transition aggregation)
     /// @param _input The ProveInput containing arrays of proposals and corresponding transitions
-    function _buildAndSaveTransitionRecords(
-        ProveInput memory _input
-    )
-        internal
-        virtual
-    {
+    function _buildAndSaveTransitionRecords(ProveInput memory _input) internal virtual {
         // Declare struct instance outside the loop to avoid repeated memory allocations
         TransitionRecord memory transitionRecord;
         transitionRecord.span = 1;
@@ -538,12 +530,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Stores a proposal hash in the ring buffer
     /// @notice Overwrites any existing hash at the calculated buffer slot
-    function _setProposalHash(
-        uint48 _proposalId,
-        bytes32 _proposalHash
-    )
-        internal
-    {
+    function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
         _proposalHashes[_proposalId % ringBufferSize] = _proposalHash;
     }
 
@@ -580,17 +567,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         emit Proved(payload);
     }
 
-    /// @dev Calculates the maximum number of unfinalized proposals
-    /// @notice Returns ringBufferSize - 1 to ensure one slot always remains free
-    function _getCapacity() internal view returns (uint256) {
-        // The ring buffer can hold ringBufferSize proposals total, but we need to ensure
-        // unfinalized proposals are not overwritten. Therefore, the maximum number of
-        // unfinalized proposals is ringBufferSize - 1.
-        unchecked {
-            return ringBufferSize - 1;
-        }
-    }
-
     /// @dev Retrieves transition record hash from storage
     /// @notice Virtual to allow optimization strategies in derived contracts
     /// @param _proposalId The ID of the proposal
@@ -613,9 +589,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Reverts with ProposalHashMismatch if hashes don't match
     /// @param _proposal The proposal to validate
     /// @return proposalHash_ The computed hash of the proposal
-    function _checkProposalHash(
-        Proposal memory _proposal
-    )
+    function _checkProposalHash(Proposal memory _proposal)
         internal
         view
         returns (bytes32 proposalHash_)
@@ -662,17 +636,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Subtracts unfinalized proposals from total capacity
     /// @param _coreState Current state with proposal counters
     /// @return _ Number of additional proposals that can be submitted
-    function _getAvailableCapacity(
-        CoreState memory _coreState
-    )
-        private
-        view
-        returns (uint256)
-    {
+    function _getAvailableCapacity(CoreState memory _coreState) private view returns (uint256) {
         unchecked {
             uint256 numUnfinalizedProposals =
                 _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
-            return _getCapacity() - numUnfinalizedProposals;
+            return ringBufferSize - 1 - numUnfinalizedProposals;
         }
     }
 
@@ -708,9 +676,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             .consumeForcedInclusions(_forcedInclusionStorage, msg.sender, _numForcedInclusions);
 
         for (uint256 i; i < forcedInclusions.length; ++i) {
-            _coreState = _propose(
-                _coreState, forcedInclusions[i].blobSlice, true, _lookaheadSlotTimestamp
-            );
+            _coreState =
+                _propose(_coreState, forcedInclusions[i].blobSlice, true, _lookaheadSlotTimestamp);
         }
 
         return (_coreState, forcedInclusions.length);
@@ -719,12 +686,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Verifies that parentProposals[0] is the current chain head
     /// @notice Requires 1 element if next slot empty, 2 if occupied with older proposal
     /// @param _parentProposals Array of 1-2 proposals to verify chain head
-    function _verifyChainHead(
-        Proposal[] memory _parentProposals
-    )
-        private
-        view
-    {
+    function _verifyChainHead(Proposal[] memory _parentProposals) private view {
         // First verify parentProposals[0] matches what's stored on-chain
         _checkProposalHash(_parentProposals[0]);
 
@@ -804,12 +766,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Stops at first missing transition record or span boundary
     /// @param _input Input containing transition records and end block header
     /// @return _ Core state with updated finalization counters
-    function _finalize(
-        ProposeInput memory _input
-    )
-        private
-        returns (CoreState memory)
-    {
+    function _finalize(ProposeInput memory _input) private returns (CoreState memory) {
         CoreState memory coreState = _input.coreState;
         TransitionRecord memory lastFinalizedRecord;
         uint48 proposalId = coreState.lastFinalizedProposalId + 1;

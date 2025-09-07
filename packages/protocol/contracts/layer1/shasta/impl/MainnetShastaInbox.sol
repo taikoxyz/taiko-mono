@@ -38,13 +38,13 @@ contract MainnetShastaInbox is InboxOptimized3 {
             _checkpointManager,
             _proofVerifier,
             _proposerChecker,
-            2 hours,  // provingWindow
-            4 hours,  // extendedProvingWindow
-            16,       // maxFinalizationCount
+            2 hours, // provingWindow
+            4 hours, // extendedProvingWindow
+            16, // maxFinalizationCount
             _RING_BUFFER_SIZE, // ringBufferSize
-            0,        // basefeeSharingPctg
-            1,        // minForcedInclusionCount
-            100,      // forcedInclusionDelay
+            0, // basefeeSharingPctg
+            1, // minForcedInclusionCount
+            100, // forcedInclusionDelay
             10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
         )
     { }
@@ -61,7 +61,6 @@ contract MainnetShastaInbox is InboxOptimized3 {
     //     coreStateHash = keccak256(abi.encode(_coreState));
     //     emit CoreStateSet(_coreState);
     // }
-
 
     // ---------------------------------------------------------------
     // Internal Functions

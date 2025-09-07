@@ -335,7 +335,8 @@ contract InboxChainAdvancement is InboxTest {
     function disabled_test_max_finalization_count_limit() public {
         setupBlobHashes();
         // Max finalization count is now immutable - using constructor value
-        // (This test may need to use a different test contract variant for different maxFinalizationCount)
+        // (This test may need to use a different test contract variant for different
+        // maxFinalizationCount)
 
         IInbox.Transition memory genesisTransition;
         genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;

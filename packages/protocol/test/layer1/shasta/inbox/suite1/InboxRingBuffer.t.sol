@@ -80,10 +80,12 @@ contract InboxRingBuffer is InboxTest {
             assertEq(inbox.getProposalHash(i), firstRoundHashes[i], "First round should be stored");
         }
 
-        // Start second round (wraparound) - use proposal IDs that wrap around in ring buffer size 100
+        // Start second round (wraparound) - use proposal IDs that wrap around in ring buffer size
+        // 100
         bytes32[] memory secondRoundHashes = new bytes32[](bufferSize);
         for (uint48 i = 0; i < bufferSize; i++) {
-            uint48 proposalId = i + 100; // These will map to same slots as first round in ring buffer size 100
+            uint48 proposalId = i + 100; // These will map to same slots as first round in ring
+                // buffer size 100
             secondRoundHashes[i] = keccak256(abi.encode("second", i));
             inbox.exposed_setProposalHash(proposalId, secondRoundHashes[i]);
         }
@@ -106,16 +108,12 @@ contract InboxRingBuffer is InboxTest {
     /// @dev Validates capacity calculation formula (bufferSize - 1)
     function test_ring_buffer_capacity_calculation() public {
         // Ring buffer size is now immutable (100) - test only validates the current capacity
-        
-        uint256 capacity = inbox.getCapacity();
+
+        uint256 capacity = Inbox(address(inbox)).ringBufferSize() - 1;
         uint256 expectedCapacity = getRingBufferSize() - 1;
 
-        assertEq(
-            capacity,
-            expectedCapacity,
-            "Capacity should be bufferSize-1"
-        );
-        
+        assertEq(capacity, expectedCapacity, "Capacity should be bufferSize-1");
+
         // Verify expected values
         assertEq(getRingBufferSize(), 100, "Ring buffer size should be 100");
         assertEq(capacity, 99, "Capacity should be 99");

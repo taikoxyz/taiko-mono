@@ -58,7 +58,20 @@ contract InboxOptimized1 is Inbox {
         uint64 _forcedInclusionDelay,
         uint64 _forcedInclusionFeeInGwei
     )
-        Inbox(_bondToken, _checkpointManager, _proofVerifier, _proposerChecker, _provingWindow, _extendedProvingWindow, _maxFinalizationCount, _ringBufferSize, _basefeeSharingPctg, _minForcedInclusionCount, _forcedInclusionDelay, _forcedInclusionFeeInGwei)
+        Inbox(
+            _bondToken,
+            _checkpointManager,
+            _proofVerifier,
+            _proposerChecker,
+            _provingWindow,
+            _extendedProvingWindow,
+            _maxFinalizationCount,
+            _ringBufferSize,
+            _basefeeSharingPctg,
+            _minForcedInclusionCount,
+            _forcedInclusionDelay,
+            _forcedInclusionFeeInGwei
+        )
     { }
 
     // ---------------------------------------------------------------
@@ -75,12 +88,7 @@ contract InboxOptimized1 is Inbox {
     /// @dev Memory optimizations:
     ///      - Inline bond instruction merging
     ///      - Reuses memory allocations across iterations
-    function _buildAndSaveTransitionRecords(
-        ProveInput memory _input
-    )
-        internal
-        override
-    {
+    function _buildAndSaveTransitionRecords(ProveInput memory _input) internal override {
         if (_input.proposals.length == 0) return;
 
         // Validate first proposal
@@ -90,9 +98,7 @@ contract InboxOptimized1 is Inbox {
         // Initialize current aggregation state
         TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
-            bondInstructions: _calculateBondInstructions(
-                _input.proposals[0], _input.transitions[0]
-            ),
+            bondInstructions: _calculateBondInstructions(_input.proposals[0], _input.transitions[0]),
             transitionHash: _hashTransition(_input.transitions[0]),
             checkpointHash: _hashCheckpoint(_input.transitions[0].checkpoint)
         });
