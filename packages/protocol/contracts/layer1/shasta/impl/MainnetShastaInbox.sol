@@ -33,7 +33,20 @@ contract MainnetShastaInbox is InboxOptimized3 {
         address _proofVerifier,
         address _proposerChecker
     )
-        InboxOptimized3(_bondToken, _checkpointManager, _proofVerifier, _proposerChecker)
+        InboxOptimized3(
+            _bondToken,
+            _checkpointManager,
+            _proofVerifier,
+            _proposerChecker,
+            2 hours, // provingWindow
+            4 hours, // extendedProvingWindow
+            16, // maxFinalizationCount
+            _RING_BUFFER_SIZE, // ringBufferSize
+            0, // basefeeSharingPctg
+            1, // minForcedInclusionCount
+            100, // forcedInclusionDelay
+            10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
+        )
     { }
 
     // ---------------------------------------------------------------
@@ -48,21 +61,6 @@ contract MainnetShastaInbox is InboxOptimized3 {
     //     coreStateHash = keccak256(abi.encode(_coreState));
     //     emit CoreStateSet(_coreState);
     // }
-
-    /// @notice Gets the configuration for this Inbox contract
-    /// @return _ The configuration struct with shasta-specific settings
-    function getConfig() public pure override returns (Config memory) {
-        return Config({
-            provingWindow: 2 hours,
-            extendedProvingWindow: 4 hours,
-            maxFinalizationCount: 16,
-            ringBufferSize: _RING_BUFFER_SIZE,
-            basefeeSharingPctg: 0,
-            minForcedInclusionCount: 1,
-            forcedInclusionDelay: 100,
-            forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
-         });
-    }
 
     // ---------------------------------------------------------------
     // Internal Functions
