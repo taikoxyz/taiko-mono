@@ -295,6 +295,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             impl: address(new PreconfWhitelist(address(0))),
             data: abi.encodeCall(PreconfWhitelist.init, (owner, 2, 2))
         });
+        address proposer = vm.envAddress("PROPOSER_ADDRESS");
+        PreconfWhitelist(whitelist).addOperator(proposer, proposer);
 
         address bondToken =
             IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false);
@@ -316,7 +318,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         }
         taikoInboxAddr = deployProxy({
             name: "taiko",
-            impl: address(new ShastaForkRouter(oldFork, oldFork)),
+            impl: oldFork,
             data: ""
         });
 
