@@ -17,7 +17,7 @@ const docTemplate = `{
         },
         "license": {
             "name": "MIT",
-            "url": "https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md"
+            "url": "https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE"
         },
         "version": "{{.Version}}"
     },
