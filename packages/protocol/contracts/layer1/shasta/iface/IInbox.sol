@@ -83,7 +83,7 @@ interface IInbox {
         /// @dev The delay is necessary to prevent a race condition where the proposer builds the
         /// `ProposeInput` with X number of transitions to finalize, but then there's a `prove`
         /// transaction before him that forces him to finalize more proposals
-        uint48 effectiveAt;
+        uint48 finalizationEnforcedAt;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
         /// @notice The hash of the last transition in the span.
@@ -92,14 +92,13 @@ interface IInbox {
         bytes32 checkpointHash;
     }
 
-
-      /// @notice Struct for storing transition effective timestamp and hash.
+    /// @notice Struct for storing transition effective timestamp and hash.
     /// @dev Stores the first transition record for each proposal to reduce gas costs
     struct TransitionRecordExcerpt {
-        uint48 effectiveAt;
+        uint48 finalizationEnforcedAt;
         bytes26 recordHash;
     }
-    
+
     /// @notice Represents the core state of the inbox.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.

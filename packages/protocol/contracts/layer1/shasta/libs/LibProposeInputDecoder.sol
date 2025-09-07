@@ -171,8 +171,8 @@ library LibProposeInputDecoder {
         // Encode span
         newPtr_ = P.packUint8(_ptr, _transitionRecord.span);
 
-        // Encode effectiveAt
-        newPtr_ = P.packUint48(newPtr_, _transitionRecord.effectiveAt);
+        // Encode finalizationEnforcedAt
+        newPtr_ = P.packUint48(newPtr_, _transitionRecord.finalizationEnforcedAt);
 
         // Encode BondInstructions array
         P.checkArrayLength(_transitionRecord.bondInstructions.length);
@@ -197,8 +197,8 @@ library LibProposeInputDecoder {
         // Decode span
         (transitionRecord_.span, newPtr_) = P.unpackUint8(_ptr);
 
-        // Decode effectiveAt
-        (transitionRecord_.effectiveAt, newPtr_) = P.unpackUint48(newPtr_);
+        // Decode finalizationEnforcedAt
+        (transitionRecord_.finalizationEnforcedAt, newPtr_) = P.unpackUint48(newPtr_);
 
         // Decode BondInstructions array
         uint24 bondInstructionsLength;
@@ -282,7 +282,7 @@ library LibProposeInputDecoder {
             size_ += _proposals.length * 102;
 
             // TransitionRecords - each has fixed size + variable bond instructions
-            // Fixed: span(1) + effectiveAt(6) + array length(3) + transitionHash(32) +
+            // Fixed: span(1) + finalizationEnforcedAt(6) + array length(3) + transitionHash(32) +
             // checkpointHash(32) = 74
             for (uint256 i; i < _transitionRecords.length; ++i) {
                 size_ += 74 + (_transitionRecords[i].bondInstructions.length * 47);

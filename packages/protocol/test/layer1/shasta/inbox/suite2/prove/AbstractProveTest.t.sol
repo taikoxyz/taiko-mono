@@ -57,7 +57,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         vm.stopSnapshotGas();
 
         // Verify transition record is stored
-    IInbox.  TransitionRecordExcerpt memory excerpt =
+        IInbox.TransitionRecordExcerpt memory excerpt =
             inbox.getTransitionRecordExcerpt(proposal.id, _getGenesisTransitionHash());
         assertTrue(excerpt.recordHash != bytes32(0), "Transition record should be stored");
 
@@ -353,7 +353,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         inbox.prove(proveData, proof);
 
         // Verify transition record was stored
-    IInbox.TransitionRecordExcerpt memory excerpt =
+        IInbox.TransitionRecordExcerpt memory excerpt =
             inbox.getTransitionRecordExcerpt(proposal.id, _getGenesisTransitionHash());
         assertTrue(excerpt.recordHash != bytes32(0), "Transition record should be stored");
     }

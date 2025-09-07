@@ -165,9 +165,9 @@ contract InboxOutOfOrderProving is InboxTest {
             // Verify transition record was stored with correct parent
             bytes32 transitionParentHash =
                 index == 0 ? initialParentHash : transitionHashes[index - 1];
-            bytes32 storedTransitionHash =
+            IInbox.TransitionRecordExcerpt memory excerpt =
                 inbox.getTransitionRecordExcerpt(proposals[index].id, transitionParentHash);
-            assertTrue(storedTransitionHash != bytes32(0));
+            assertTrue(excerpt.recordHash != bytes26(0));
         }
 
         // Phase 3: Attempt finalization - should finalize all in correct order
@@ -177,7 +177,7 @@ contract InboxOutOfOrderProving is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
-                effectiveAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
+                finalizationEnforcedAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
@@ -402,7 +402,7 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
         transitionRecords[0] = IInbox.TransitionRecord({
             span: 1,
-            effectiveAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
+            finalizationEnforcedAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: InboxTestLib.hashTransition(transition1),
             checkpointHash: keccak256(abi.encode(transition1.checkpoint))

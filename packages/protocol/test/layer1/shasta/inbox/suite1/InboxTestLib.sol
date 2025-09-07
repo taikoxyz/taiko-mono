@@ -317,7 +317,7 @@ library InboxTestLib {
     {
         return IInbox.TransitionRecord({
             span: _span,
-            effectiveAt: uint48(block.timestamp + _cooldownWindow),
+            finalizationEnforcedAt: uint48(block.timestamp + _cooldownWindow),
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: hashTransition(_transition),
             checkpointHash: keccak256(abi.encode(_transition.checkpoint))
@@ -350,7 +350,7 @@ library InboxTestLib {
     {
         return IInbox.TransitionRecord({
             span: _span,
-            effectiveAt: uint48(block.timestamp + _cooldownWindow),
+            finalizationEnforcedAt: uint48(block.timestamp + _cooldownWindow),
             bondInstructions: _bondInstructions,
             transitionHash: hashTransition(_transition),
             checkpointHash: keccak256(abi.encode(_transition.checkpoint))

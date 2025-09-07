@@ -27,8 +27,6 @@ abstract contract InboxOptimized1 is Inbox {
         bytes26 partialParentTransitionHash;
     }
 
- 
-
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -76,10 +74,10 @@ abstract contract InboxOptimized1 is Inbox {
         _validateTransition(_config, _input.proposals[0], _input.transitions[0]);
 
         // Initialize current aggregation state
-        uint48 effectiveAt = uint48(block.timestamp + _config.cooldownWindow);
+        uint48 finalizationEnforcedAt = uint48(block.timestamp + _config.cooldownWindow);
         TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
-            effectiveAt: effectiveAt,
+            finalizationEnforcedAt: finalizationEnforcedAt,
             bondInstructions: _calculateBondInstructions(
                 _config, _input.proposals[0], _input.transitions[0]
             ),
@@ -128,7 +126,9 @@ abstract contract InboxOptimized1 is Inbox {
                 currentRecord.span++;
             } else {
                 // Save the current aggregated record before starting a new one
-                _setTransitionRecordExcerpt(currentGroupStartId, firstTransitionInGroup, currentRecord);
+                _setTransitionRecordExcerpt(
+                    currentGroupStartId, firstTransitionInGroup, currentRecord
+                );
 
                 // Start a new record for non-continuous proposal
                 currentGroupStartId = _input.proposals[i].id;
@@ -136,7 +136,7 @@ abstract contract InboxOptimized1 is Inbox {
 
                 currentRecord = TransitionRecord({
                     span: 1,
-                    effectiveAt: effectiveAt,
+                    finalizationEnforcedAt: finalizationEnforcedAt,
                     bondInstructions: _calculateBondInstructions(
                         _config, _input.proposals[i], _input.transitions[i]
                     ),
@@ -211,8 +211,8 @@ abstract contract InboxOptimized1 is Inbox {
         if (record.proposalId != _proposalId) {
             // Different proposal ID, so we can use the default slot
             record.excerpt = TransitionRecordExcerpt({
-                effectiveAt: _transitionRecord.effectiveAt,
-                recordHash:transitionRecordHash
+                finalizationEnforcedAt: _transitionRecord.finalizationEnforcedAt,
+                recordHash: transitionRecordHash
             });
             record.proposalId = _proposalId;
             record.partialParentTransitionHash = bytes26(_transition.parentTransitionHash);
@@ -221,20 +221,19 @@ abstract contract InboxOptimized1 is Inbox {
                 record.partialParentTransitionHash, _transition.parentTransitionHash
             )
         ) {
-             // Different proposal ID, so we can use the default slot
+            // Different proposal ID, so we can use the default slot
             record.excerpt = TransitionRecordExcerpt({
-                effectiveAt: _transitionRecord.effectiveAt,
-                recordHash:transitionRecordHash
+                finalizationEnforcedAt: _transitionRecord.finalizationEnforcedAt,
+                recordHash: transitionRecordHash
             });
         } else {
             // Same proposal ID but different parent transition hash, use direct mapping
             bytes32 compositeKey =
                 _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
             _transitionRecordExcepts[compositeKey] = TransitionRecordExcerpt({
-                effectiveAt: _transitionRecord.effectiveAt,
+                finalizationEnforcedAt: _transitionRecord.finalizationEnforcedAt,
                 recordHash: bytes26(transitionRecordHash)
             });
-            
         }
 
         bytes memory payload = encodeProvedEventData(

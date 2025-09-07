@@ -71,7 +71,8 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Stores transition records for proposals with different parent transitions
     /// - compositeKey: Keccak256 hash of (proposalId, parentTransitionHash)
     /// - transitionRecordHash: The hash of the TransitionRecord struct
-    mapping(bytes32 compositeKey => TransitionRecordExcerpt except) internal _transitionRecordExcepts;
+    mapping(bytes32 compositeKey => TransitionRecordExcerpt except) internal
+        _transitionRecordExcepts;
 
     /// @dev Storage for forced inclusion requests
     ///  Two slots used
@@ -387,11 +388,13 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Reuse the same memory location for the transitionRecord struct
             transitionRecord.bondInstructions =
                 _calculateBondInstructions(_config, _input.proposals[i], _input.transitions[i]);
-            transitionRecord.effectiveAt = uint48(block.timestamp + _config.cooldownWindow);
+            transitionRecord.finalizationEnforcedAt =
+                uint48(block.timestamp + _config.cooldownWindow);
             transitionRecord.transitionHash = _hashTransition(_input.transitions[i]);
             transitionRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
 
-            // Pass transition and transitionRecord to _setTransitionRecordExcerpt which will emit the
+            // Pass transition and transitionRecord to _setTransitionRecordExcerpt which will emit
+            // the
             // event
             _setTransitionRecordExcerpt(
                 _input.proposals[i].id, _input.transitions[i], transitionRecord
@@ -509,7 +512,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         require(excerpt.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
         _transitionRecordExcepts[compositeKey] = TransitionRecordExcerpt({
-            effectiveAt: _transitionRecord.effectiveAt,
+            finalizationEnforcedAt: _transitionRecord.finalizationEnforcedAt,
             recordHash: transitionRecordHash
         });
 
@@ -769,6 +772,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         CoreState memory coreState = _input.coreState;
         TransitionRecord memory lastFinalizedRecord;
+        TransitionRecord memory emptyRecord;
         uint48 proposalId = coreState.lastFinalizedProposalId + 1;
         uint256 finalizedCount;
 
@@ -777,15 +781,14 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             if (proposalId >= coreState.nextProposalId) break;
 
             // Try to finalize the current proposal
+            bool hasRecord = i < _input.transitionRecords.length;
+
+            TransitionRecord memory transitionrecord =
+                hasRecord ? _input.transitionRecords[i] : emptyRecord;
+
             bool finalized;
-            (finalized, proposalId) = _finalizeProposal(
-                coreState,
-                proposalId,
-                i < _input.transitionRecords.length
-                    ? _input.transitionRecords[i]
-                    : lastFinalizedRecord,
-                i < _input.transitionRecords.length
-            );
+            (finalized, proposalId) =
+                _finalizeProposal(coreState, proposalId, transitionrecord, hasRecord);
 
             if (!finalized) break;
 
@@ -831,7 +834,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // If not provided, and cooldown has passed, revert
         if (!_hasTransitionRecord) {
             // Check if cooldown period has passed for forcing
-            if (block.timestamp < _transitionRecord.effectiveAt) {
+            if (block.timestamp < excerpt.finalizationEnforcedAt) {
                 // Cooldown not passed, don't force finalization
                 return (false, _proposalId);
             }
@@ -841,7 +844,9 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Verify transition record hash matches
         bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
-        require(transitionRecordHash == excerpt.recordHash, TransitionRecordHashMismatchWithStorage());
+        require(
+            transitionRecordHash == excerpt.recordHash, TransitionRecordHashMismatchWithStorage()
+        );
 
         // Update core state
         _coreState.lastFinalizedProposalId = _proposalId;
