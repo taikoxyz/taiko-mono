@@ -38,8 +38,7 @@ services:
     restart: unless-stopped
     pull_policy: always
     depends_on:
-      postgresql:
-        condition: service_healthy
+      - postgresql
     volumes:
       - .:/host
     environment:

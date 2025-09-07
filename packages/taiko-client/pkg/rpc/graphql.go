@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
@@ -85,7 +86,7 @@ func (c *Client) GetShastaProposalInputs(
 		// we need: latestProposalID - ringBufferSize + 1 + nextSlot - nextSlot = latestProposalID - ringBufferSize + 1
 		// Actually, the proposal in the next slot is: nextSlot + floor(latestProposalID/ringBufferSize)*ringBufferSize
 		// But if nextSlot > (latestProposalID % ringBufferSize), it's from the previous cycle
-		overwrittenProposalID := nextSlot
+		var overwrittenProposalID uint64
 		if nextSlot > (latestProposal.ProposalID % ringBufferSize) {
 			// It's from the previous cycle
 			overwrittenProposalID = nextSlot + ((latestProposal.ProposalID/ringBufferSize - 1) * ringBufferSize)
