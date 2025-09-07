@@ -23,13 +23,6 @@ PRECONF_ROUTER=false \
 INCLUSION_WINDOW=24 \
 INCLUSION_FEE_IN_GWEI=100 \
 DUMMY_VERIFIERS=true \
-forge script ./script/layer1/based/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
-    --fork-url http://localhost:8545 \
-    --broadcast \
-    --ffi \
-    -vvvv \
-    --private-key $PRIVATE_KEY \
-    --block-gas-limit 200000000
 
 export PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 SECURITY_COUNCIL=0x60997970C51812dc3A010C7d01b50e0d17dc79C8 \

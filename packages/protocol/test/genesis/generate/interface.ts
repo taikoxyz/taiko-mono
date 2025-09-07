@@ -10,6 +10,12 @@ export interface Config {
     param1559: Object;
     pacayaForkHeight: number;
     shastaForkHeight: number;
+    livenessBondGwei: number;
+    provabilityBondGwei: number;
+    withdrawalDelay: number;
+    maxCheckpointStackSize: number;
+    minBond: number;
+    bondToken: string;
 }
 
 export interface Result {
