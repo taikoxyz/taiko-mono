@@ -316,7 +316,13 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             );
         }
-        taikoInboxAddr = deployProxy({ name: "taiko", impl: oldFork, data: "" });
+        address tempFork =
+            address(new DevnetShastaInbox(address(0), proofVerifier, whitelist, bondToken));
+        taikoInboxAddr = deployProxy({
+            name: "taiko",
+            impl: address(new ShastaForkRouter(oldFork, tempFork)),
+            data: abi.encodeCall(Inbox.initV3, (msg.sender, vm.envBytes32("L2_GENESIS_HASH")))
+        });
 
         address checkPointManager = deployProxy({
             name: "checkpoint_manager",
@@ -326,7 +332,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                     2400 // refer to DevnetShastaInbox._RING_BUFFER_SIZE
                 )
             ),
-            data: abi.encodeCall(ComposeVerifier.init, (address(0)))
+            data: abi.encodeCall(CheckpointManager.init, (address(0)))
         });
 
         address newFork =
@@ -338,9 +344,6 @@ contract DeployProtocolOnL1 is DeployCapability {
         UUPSUpgradeable(taikoInboxAddr).upgradeTo({
             newImplementation: address(new ShastaForkRouter(oldFork, newFork))
         });
-
-        Inbox taikoInbox = Inbox(payable(taikoInboxAddr));
-        taikoInbox.initV3(msg.sender, vm.envBytes32("L2_GENESIS_HASH"));
     }
 
     function deployVerifiers(
