@@ -28,6 +28,22 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using SafeERC20 for IERC20;
 
     // ---------------------------------------------------------------
+    // Immutable Variables
+    // ---------------------------------------------------------------
+
+    /// @notice The token used for bonds.
+    address public immutable bondToken;
+
+    /// @notice The checkpoint manager contract.
+    address public immutable checkpointManager;
+
+    /// @notice The proof verifier contract.
+    address public immutable proofVerifier;
+
+    /// @notice The proposer checker contract.
+    address public immutable proposerChecker;
+
+    // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
 
@@ -84,7 +100,23 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @notice Initializes the Inbox contract
-    constructor() EssentialContract() { }
+    /// @param _bondToken The token used for bonds
+    /// @param _checkpointManager The checkpoint manager contract
+    /// @param _proofVerifier The proof verifier contract
+    /// @param _proposerChecker The proposer checker contract
+    constructor(
+        address _bondToken,
+        address _checkpointManager,
+        address _proofVerifier,
+        address _proposerChecker
+    )
+        EssentialContract()
+    {
+        bondToken = _bondToken;
+        checkpointManager = _checkpointManager;
+        proofVerifier = _proofVerifier;
+        proposerChecker = _proposerChecker;
+    }
 
     /// @notice Initializes the Inbox contract with genesis block
     /// @dev This contract uses a reinitializer so that it works both on fresh deployments as well
@@ -130,7 +162,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Validate proposer
         uint48 lookaheadSlotTimestamp =
-            IProposerChecker(config.proposerChecker).checkProposer(msg.sender);
+            IProposerChecker(proposerChecker).checkProposer(msg.sender);
 
         // Decode and validate input data
         ProposeInput memory input = decodeProposeInput(_data);
@@ -191,7 +223,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _buildAndSaveTransitionRecords(config, input);
 
         // Verify the proof
-        IProofVerifier(config.proofVerifier).verifyProof(
+        IProofVerifier(proofVerifier).verifyProof(
             _hashTransitionsArray(input.transitions), _proof
         );
     }
@@ -206,7 +238,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Clear balance before transfer (checks-effects-interactions)
         bondBalance[_address] = 0;
         // Transfer the bond
-        IERC20(getConfig().bondToken).safeTransfer(_address, amount);
+        IERC20(bondToken).safeTransfer(_address, amount);
         emit BondWithdrawn(_address, amount);
     }
 
@@ -792,7 +824,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (finalizedCount > 0) {
             bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
             require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
-            ICheckpointManager(_config.checkpointManager).saveCheckpoint(_input.checkpoint);
+            ICheckpointManager(checkpointManager).saveCheckpoint(_input.checkpoint);
         }
 
         return coreState;
