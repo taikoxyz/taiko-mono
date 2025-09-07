@@ -65,7 +65,7 @@ func (f *ShastaManifestFetcher) menifestFromBlobBytes(
 	var (
 		offset          = int(meta.GetDerivation().BlobSlice.Offset.Uint64())
 		defaultManifest = &manifest.ProposalManifest{Default: true}
-		proposal        = new(manifest.ProposalManifest)
+		protocolProposal = new(manifest.ProtocolProposalManifest)
 		size            uint64
 		err             error
 	)
@@ -82,9 +82,20 @@ func (f *ShastaManifestFetcher) menifestFromBlobBytes(
 	}
 
 	// Try to RLP decode the manifest bytes.
-	if err = rlp.DecodeBytes(encoded, proposal); err != nil {
+	if err = rlp.DecodeBytes(encoded, protocolProposal); err != nil {
 		log.Warn("Failed to decode manifest bytes, use default manifest instead", "error", err)
 		return defaultManifest, err
+	}
+
+	// Convert ProtocolProposalManifest to ProposalManifest
+	proposal := &manifest.ProposalManifest{
+		ProverAuthBytes: protocolProposal.ProverAuthBytes,
+		Blocks:          make([]*manifest.BlockManifest, len(protocolProposal.Blocks)),
+	}
+	for i, block := range protocolProposal.Blocks {
+		proposal.Blocks[i] = &manifest.BlockManifest{
+			ProtocolBlockManifest: *block,
+		}
 	}
 
 	if len(proposal.Blocks) > manifest.ProposalMaxBlocks {

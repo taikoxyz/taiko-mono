@@ -3,16 +3,20 @@ package builder
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -150,6 +154,98 @@ func (b *BlobTransactionBuilder) BuildPacaya(
 		if data, err = encoding.TaikoWrapperABI.Pack("proposeBatch", encodedParams, []byte{}); err != nil {
 			return nil, err
 		}
+	}
+
+	return &txmgr.TxCandidate{
+		TxData:   data,
+		Blobs:    blobs,
+		To:       to,
+		GasLimit: b.gasLimit,
+	}, nil
+}
+
+// BuildShasta implements the ProposeBatchTransactionBuilder interface.
+func (b *BlobTransactionBuilder) BuildShasta(
+	ctx context.Context,
+	txBatch []types.Transactions,
+	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
+	minTxsPerForcedInclusion *big.Int,
+	preconfRouterAddress common.Address,
+) (*txmgr.TxCandidate, error) {
+	var (
+		to    = &b.taikoWrapperAddress
+		blobs []*eth.Blob
+	)
+	if preconfRouterAddress != rpc.ZeroAddress {
+		to = &preconfRouterAddress
+	}
+
+	inputs, err := b.rpc.GetShastaProposalInputs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get shasta proposal inputs: %w", err)
+	}
+
+	l1Head, err := b.rpc.L1.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get L1 head: %w", err)
+	}
+	if l1Head.Number.Uint64() < manifest.AnchorMinOffset {
+		return nil, fmt.Errorf(
+			"L1 head number %d is lower than required min offset %d",
+			l1Head.Number.Uint64(),
+			manifest.AnchorMinOffset,
+		)
+	}
+
+	var proposalManifest manifest.ProtocolProposalManifest
+	for i, txs := range txBatch {
+		anchorBlockNumber := uint64(0)
+		if i == 0 {
+			anchorBlockNumber = l1Head.Number.Uint64() - manifest.AnchorMinOffset
+		}
+
+		proposalManifest.Blocks = append(proposalManifest.Blocks, &manifest.ProtocolBlockManifest{
+			Timestamp:         0,
+			Coinbase:          b.l2SuggestedFeeRecipient,
+			AnchorBlockNumber: anchorBlockNumber,
+			GasLimit:          0,
+			Transactions:      txs,
+		})
+	}
+
+	proposalManifestBytes, err := utils.EncodeAndCompressShastaProposal(proposalManifest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode and compress shasta proposal: %w", err)
+	}
+
+	// Prepend the version and length bytes to the proposal manifest bytes, then split
+	// the resulting bytes into multiple blobs.
+	versionBytes := make([]byte, 32)
+	versionBytes[31] = byte(manifest.ShastaPayloadVersion)
+
+	lenBytes := make([]byte, 32)
+	lenBytes[31] = byte(len(proposalManifestBytes))
+
+	blobBytesPrefix := append(versionBytes, lenBytes...)
+
+	if blobs, err = b.splitToBlobs(append(blobBytesPrefix, proposalManifestBytes...)); err != nil {
+		return nil, err
+	}
+
+	data, err := b.rpc.ShastaClients.Inbox.EncodeProposeInput(&bind.CallOpts{Context: ctx}, shasta.IInboxProposeInput{
+		Deadline:          common.Big0,
+		CoreState:         inputs.CoreState,
+		ParentProposals:   inputs.ParentProposals,
+		TransitionRecords: inputs.TransitionRecords,
+		Checkpoint:        inputs.Checkpoint,
+		BlobReference: shasta.LibBlobsBlobReference{
+			BlobStartIndex: 0,
+			NumBlobs:       uint16(len(blobs)),
+			Offset:         common.Big0,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode shasta propose input: %w", err)
 	}
 
 	return &txmgr.TxCandidate{

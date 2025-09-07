@@ -7,10 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGetProposeInputProposals(t *testing.T) {
+func TestGetProposeInputs(t *testing.T) {
 	client := newTestClientWithTimeout(t)
 
-	_, err := client.GetProposeInputProposals(context.Background())
+	_, err := client.GetShastaProposalInputs(context.Background())
 
 	require.Nil(t, err)
 }

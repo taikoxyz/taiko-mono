@@ -3,12 +3,20 @@ package rpc
 import (
 	"context"
 
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
-// GetProposeInputProposals fetches recent proposals from the GraphQL indexer, will be used to
+// ShastaProposalInputs represents the inputs needed to propose a Shasta proposal.
+type ShastaProposalInputs struct {
+	ParentProposals   []shastaBindings.IInboxProposal
+	CoreState         shastaBindings.IInboxCoreState
+	TransitionRecords []shastaBindings.IInboxTransitionRecord
+	Checkpoint        shastaBindings.ICheckpointManagerCheckpoint
+}
+
+// GetShastaProposalInputs fetches recent proposals from the GraphQL indexer, will be used to
 // propose a Shasta proposal.
-func (c *Client) GetProposeInputProposals(ctx context.Context) ([]*shasta.IInboxProposal, error) {
+func (c *Client) GetShastaProposalInputs(ctx context.Context) (*ShastaProposalInputs, error) {
 	if c.ShastaClients.Indexer == nil {
 		return nil, errNoGraphQLClient
 	}
@@ -16,13 +24,13 @@ func (c *Client) GetProposeInputProposals(ctx context.Context) ([]*shasta.IInbox
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
-	var q struct {
-		ProposedEvents []*shasta.IInboxProposal `graphql:"proposed_events(order_by: {block_number: desc}, limit: $limit)"`
+	var query struct {
+		Inputs *ShastaProposalInputs `graphql:"proposed_events(order_by: {block_number: desc}, limit: $limit)"`
 	}
 
-	if err := c.ShastaClients.Indexer.Query(ctxWithTimeout, &q, map[string]interface{}{"limit": 1}); err != nil {
+	if err := c.ShastaClients.Indexer.Query(ctxWithTimeout, &query, map[string]interface{}{"limit": 1}); err != nil {
 		return nil, err
 	}
 
-	return q.ProposedEvents, nil
+	return query.Inputs, nil
 }

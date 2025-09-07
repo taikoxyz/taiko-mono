@@ -286,10 +286,12 @@ func (s *Syncer) processShastaProposal(
 	if proposalManifest.Default {
 		proposalManifest.Blocks = []*manifest.BlockManifest{
 			{
-				Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
-				Coinbase:          meta.GetProposal().Proposer,
-				AnchorBlockNumber: 0,
-				GasLimit:          proposalManifest.ParentBlock.GasLimit(), // Inherit parentBlock's value
+				ProtocolBlockManifest: manifest.ProtocolBlockManifest{
+					Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
+					Coinbase:          meta.GetProposal().Proposer,
+					AnchorBlockNumber: 0,
+					GasLimit:          proposalManifest.ParentBlock.GasLimit(), // Inherit parentBlock's value
+				},
 			},
 		}
 	}

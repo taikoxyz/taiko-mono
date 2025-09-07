@@ -35,7 +35,7 @@ const (
 
 // BlockManifest represents a block manifest
 // Should be same with LibManifest.BlockManifest
-type BlockManifest struct {
+type ProtocolBlockManifest struct {
 	// The timestamp of the block
 	Timestamp uint64 `json:"timestamp"`
 	// The coinbase of the block
@@ -47,13 +47,24 @@ type BlockManifest struct {
 	GasLimit uint64 `json:"gasLimit"`
 	// The transactions for this block
 	Transactions types.Transactions `json:"transactions"`
+}
+
+// BlockManifest represents a block manifest with extra information.
+type BlockManifest struct {
+	ProtocolBlockManifest
 	// Extra information
 	BondInstructionsHash common.Hash                              `json:"bondInstructionsHash"`
 	BondInstructions     []shastaBindings.LibBondsBondInstruction `json:"bondInstructions"`
 }
 
-// ProposalManifest represents a proposal manifest
+// ProtocolProposalManifest represents a proposal manifest
 // Should be same with LibManifest.ProposalManifest
+type ProtocolProposalManifest struct {
+	ProverAuthBytes []byte                   `json:"proverAuthBytes"`
+	Blocks          []*ProtocolBlockManifest `json:"blocks"`
+}
+
+// ProposalManifest represents a proposal manifest with extra information.
 type ProposalManifest struct {
 	ProverAuthBytes []byte           `json:"proverAuthBytes"`
 	Blocks          []*BlockManifest `json:"blocks"`

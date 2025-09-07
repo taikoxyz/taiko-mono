@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/joho/godotenv"
 	"github.com/modern-go/reflect2"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"golang.org/x/exp/constraints"
 )
 
@@ -82,6 +83,22 @@ func EncodeAndCompressTxList(txs types.Transactions) ([]byte, error) {
 	compressed, err := Compress(b)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compress RLP encoded transactions: %w", err)
+	}
+
+	return compressed, nil
+}
+
+// EncodeAndCompressTxList encodes and compresses the given transactions list using RLP encoding
+// followed by zlib compression.
+func EncodeAndCompressShastaProposal(proposal manifest.ProtocolProposalManifest) ([]byte, error) {
+	b, err := rlp.EncodeToBytes(proposal)
+	if err != nil {
+		return nil, fmt.Errorf("failed to RLP encode Shasta proposal: %w", err)
+	}
+
+	compressed, err := Compress(b)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compress RLP encoded Shasta proposal: %w", err)
 	}
 
 	return compressed, nil
