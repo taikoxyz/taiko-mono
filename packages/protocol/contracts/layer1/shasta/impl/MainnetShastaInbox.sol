@@ -49,7 +49,7 @@ contract MainnetShastaInbox is InboxOptimized3 {
             bondToken: address(0),
             provingWindow: 2 hours,
             extendedProvingWindow: 4 hours,
-            cooldownWindow: 384 seconds, // 2 epochs
+            finalizationGracePeriod: 384 seconds, // 2 epochs
             maxFinalizationCount: 16,
             ringBufferSize: _RING_BUFFER_SIZE,
             basefeeSharingPctg: 0,

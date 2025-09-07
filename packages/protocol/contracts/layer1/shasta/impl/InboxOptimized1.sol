@@ -207,7 +207,7 @@ abstract contract InboxOptimized1 is Inbox {
         bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
-        uint48 finalizationDeadline = uint48(block.timestamp + _config.cooldownWindow);
+        uint48 finalizationDeadline = uint48(block.timestamp + _config.finalizationGracePeriod);
 
         // Check if we can use the default slot
         if (record.proposalId != _proposalId) {

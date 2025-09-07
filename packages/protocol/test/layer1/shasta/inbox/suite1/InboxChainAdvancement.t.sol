@@ -302,8 +302,8 @@ contract InboxChainAdvancement is InboxTest {
         });
         // Core state will be validated by the contract during propose()
 
-        // Advance time to pass the cooldown period (5 minutes)
-        vm.warp(block.timestamp + defaultConfig.cooldownWindow + 1);
+        // Advance time to pass the finalization grace period (5 minutes)
+        vm.warp(block.timestamp + defaultConfig.finalizationGracePeriod + 1);
 
         // Expect only proposal 2's block to be saved (last finalized)
         expectCheckpointSaved(transitions[1].checkpoint);
@@ -1023,8 +1023,8 @@ contract InboxChainAdvancement is InboxTest {
         });
         // Core state will be validated by the contract during propose()
 
-        // Advance time to pass the cooldown period (5 minutes)
-        vm.warp(block.timestamp + defaultConfig.cooldownWindow + 1);
+        // Advance time to pass the finalization grace period (5 minutes)
+        vm.warp(block.timestamp + defaultConfig.finalizationGracePeriod + 1);
 
         // Expect checkpoint save for the last finalized proposal
         ICheckpointManager.Checkpoint memory checkpoint = transitions[numProposals - 1].checkpoint;

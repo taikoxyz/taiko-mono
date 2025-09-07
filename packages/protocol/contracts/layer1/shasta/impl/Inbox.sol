@@ -500,7 +500,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Stores transition record hash and emits Proved event
     /// @notice Virtual function to allow optimization in derived contracts
     /// @dev Uses composite key for unique transition identification
-    /// @param _config Configuration containing cooldown window
+    /// @param _config Configuration containing finalization grace period
     /// @param _proposalId The ID of the proposal being proven
     /// @param _transition The transition data to include in the event
     /// @param _transitionRecord The transition record to hash and store
@@ -521,7 +521,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         require(excerpt.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
         _transitionRecordExcepts[compositeKey] = TransitionRecordExcerpt({
-            finalizationDeadline: uint48(block.timestamp + _config.cooldownWindow),
+            finalizationDeadline: uint48(block.timestamp + _config.finalizationGracePeriod),
             recordHash: transitionRecordHash
         });
 
@@ -766,7 +766,8 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Finalizes proven proposals and updates checkpoint
     /// @dev Performs up to `maxFinalizationCount` finalization iterations.
-    /// The caller is forced to finalize transition records that have passed their cooldown period,
+    /// The caller is forced to finalize transition records that have passed their finalization
+    /// grace period,
     /// but can
     /// decide to finalize ones that haven't.
     /// @param _config Configuration with finalization parameters
@@ -839,10 +840,11 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         if (excerpt.recordHash == 0) return (false, _proposalId);
 
-        // If transition record is provided, allow finalization regardless of cooldown
-        // If not provided, and cooldown has passed, revert
+        // If transition record is provided, allow finalization regardless of finalization grace
+        // period
+        // If not provided, and finalization grace period has passed, revert
         if (!_hasTransitionRecord) {
-            // Check if cooldown period has passed for forcing
+            // Check if finalization grace period has passed for forcing
             if (block.timestamp < excerpt.finalizationDeadline) {
                 // Cooldown not passed, don't force finalization
                 return (false, _proposalId);

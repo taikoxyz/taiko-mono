@@ -27,7 +27,7 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
                 bondToken: address(0),
                 provingWindow: 1 hours,
                 extendedProvingWindow: 2 hours,
-                cooldownWindow: 48 hours,
+                finalizationGracePeriod: 48 hours,
                 maxFinalizationCount: 10,
                 ringBufferSize: 100,
                 basefeeSharingPctg: 10,

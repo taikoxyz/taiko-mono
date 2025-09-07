@@ -14,7 +14,7 @@ interface IInbox {
         address bondToken;
         uint48 provingWindow;
         uint48 extendedProvingWindow;
-        uint48 cooldownWindow;
+        uint48 finalizationGracePeriod;
         uint256 maxFinalizationCount;
         uint256 ringBufferSize;
         uint8 basefeeSharingPctg;

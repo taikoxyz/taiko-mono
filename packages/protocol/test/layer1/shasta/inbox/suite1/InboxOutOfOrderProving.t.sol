@@ -195,8 +195,8 @@ contract InboxOutOfOrderProving is InboxTest {
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
 
-        // Advance time to pass the cooldown period (5 minutes)
-        vm.warp(block.timestamp + defaultConfig.cooldownWindow + 1);
+        // Advance time to pass the finalization grace period (5 minutes)
+        vm.warp(block.timestamp + defaultConfig.finalizationGracePeriod + 1);
 
         // Expect final block update
         IInbox.Transition memory lastTransition = transitions[numProposals - 1];
@@ -409,8 +409,8 @@ contract InboxOutOfOrderProving is InboxTest {
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
 
-        // Advance time to pass the cooldown period (5 minutes)
-        vm.warp(block.timestamp + defaultConfig.cooldownWindow + 1);
+        // Advance time to pass the finalization grace period (5 minutes)
+        vm.warp(block.timestamp + defaultConfig.finalizationGracePeriod + 1);
 
         // Expect only proposal 1 to be finalized
         expectCheckpointSaved(transition1.checkpoint);
