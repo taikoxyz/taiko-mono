@@ -19,7 +19,7 @@ import "src/layer1/mainnet/MainnetInbox.sol";
 import "src/layer1/based/TaikoInbox.sol";
 import "src/layer1/fork-router/ShastaForkRouter.sol";
 import "src/layer1/forced-inclusion/TaikoWrapper.sol";
-import "src/layer1/forced-inclusion/ForcedInclusionStore.sol";
+import { ForcedInclusionStore } from "contracts/layer1/forced-inclusion/ForcedInclusionStore.sol";
 import "src/layer1/mainnet/multirollup/MainnetBridge.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC1155Vault.sol";
 import "src/layer1/mainnet/multirollup/MainnetERC20Vault.sol";
@@ -34,8 +34,8 @@ import "src/layer1/verifiers/TaikoSP1Verifier.sol";
 import "src/layer1/verifiers/TaikoSgxVerifier.sol";
 import "src/layer1/verifiers/compose/ComposeVerifier.sol";
 import "src/layer1/devnet/verifiers/DevnetVerifier.sol";
-import "src/layer1/shasta/impl/Inbox.sol";
-import "src/layer1/shasta/impl/MainnetShastaInbox.sol";
+import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
+import { MainnetShastaInbox } from "contracts/layer1/shasta/impl/MainnetShastaInbox.sol";
 import "test/shared/helpers/FreeMintERC20Token.sol";
 import "test/shared/helpers/FreeMintERC20Token_With50PctgMintAndTransferFailure.sol";
 import "test/shared/DeployCapability.sol";
@@ -74,11 +74,11 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         // ---------------------------------------------------------------
         // Deploy shared contracts
-        (address taikoInboxAddr, address sharedResolver) = deploySharedContracts(contractOwner);
+        address sharedResolver = deploySharedContracts(contractOwner);
         console2.log("sharedResolver: ", sharedResolver);
         // ---------------------------------------------------------------
         // Deploy rollup contracts
-        address proofVerifier =
+        (address taikoInboxAddr, address proofVerifier) =
                         deployRollupContracts(sharedResolver, contractOwner);
 
         // Deploy verifiers
@@ -378,7 +378,7 @@ contract DeployProtocolOnL1 is DeployCapability {
 
         verifiers.sgxRethVerifier = deployProxy({
             name: "sgx_reth_verifier",
-            impl: address(new TaikoSgxVerifier(l2ChainId, taikoInboxAddr, proofVerifier, automataProxy)),
+            impl: address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, automataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner)
         });
 
@@ -399,7 +399,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         verifiers.sgxGethVerifier = deployProxy({
             name: "sgx_geth_verifier",
             impl: address(
-                new TaikoSgxVerifier(l2ChainId, taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)
+                new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)
             ),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner)
         });
@@ -454,7 +454,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     {
         whitelist = deployProxy({
             name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist()),
+            impl: address(new PreconfWhitelist(address(0))),
             data: abi.encodeCall(PreconfWhitelist.init, (owner, 2, 2))
         });
 
