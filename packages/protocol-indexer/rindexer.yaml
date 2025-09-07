@@ -8,12 +8,6 @@ networks:
   - name: local
     chain_id: 31337
     rpc: ${LOCAL_RPC}
-  - name: holesky
-    chain_id: 17000
-    rpc: ${HOLESKY_RPC}
-  - name: ethereum
-    chain_id: 1
-    rpc: ${ETHEREUM_RPC}
 storage:
   postgres:
     enabled: true
@@ -30,12 +24,6 @@ contracts:
   - name: ShastaInbox
     details:
       - network: local
-        address: "0x0000000000000000000000000000000000000000"
-        start_block: "0"
-      - network: holesky
-        address: "0x0000000000000000000000000000000000000000"
-        start_block: "0"
-      - network: ethereum
         address: "0x0000000000000000000000000000000000000000"
         start_block: "0"
     abi: ./abis/ShastaInbox.json
