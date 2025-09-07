@@ -3,20 +3,36 @@ pragma solidity ^0.8.24;
 
 import "contracts/layer1/shasta/impl/InboxOptimized1.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
+import "contracts/layer1/shasta/iface/IProposerChecker.sol";
+import "contracts/shared/based/iface/ICheckpointManager.sol";
 import "./ITestInbox.sol";
 
 /// @title TestInboxOptimized1
 /// @notice Concrete implementation of InboxOptimized1 for testing
 /// @custom:security-contact security@taiko.xyz
-contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
+contract TestInboxOptimized1 is InboxOptimized1, ITestInbox, IProposerChecker {
     IInbox.Config private testConfig;
     bool private configSet;
     // Storage to track checkpoint for test purposes
     mapping(uint48 => ICheckpointManager.Checkpoint) public testcheckpoints;
 
-    constructor()
-        InboxOptimized1(address(0), address(0), address(0), address(0))
+    constructor(
+        address _bondToken,
+        address _checkpointManager,
+        address _proofVerifier
+    )
+        InboxOptimized1(
+            _bondToken,
+            _checkpointManager,
+            _proofVerifier,
+            address(this) // proposerChecker - use this contract as stub
+        )
     { }
+
+    // Implement IProposerChecker for test purposes
+    function checkProposer(address) external pure returns (uint48) {
+        return 0; // Return 0 lookahead slot timestamp for tests
+    }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;

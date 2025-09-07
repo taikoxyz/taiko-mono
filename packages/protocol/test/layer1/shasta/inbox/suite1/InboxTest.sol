@@ -152,8 +152,16 @@ abstract contract InboxTest is CommonTest {
             string(abi.encodePacked("Testing with: ", InboxTestAdapter.getInboxTypeName(inboxType)))
         );
 
-        // Deploy the selected inbox implementation
-        address inboxAddress = factory.deployInbox(inboxType, address(this), GENESIS_BLOCK_HASH);
+        // Deploy the selected inbox implementation with the mock addresses created in
+        // setupMockAddresses
+        address inboxAddress = factory.deployInboxWithMocks(
+            inboxType,
+            address(this),
+            GENESIS_BLOCK_HASH,
+            bondToken,
+            checkpointManager,
+            proofVerifier
+        );
         inbox = ITestInbox(inboxAddress);
     }
 
