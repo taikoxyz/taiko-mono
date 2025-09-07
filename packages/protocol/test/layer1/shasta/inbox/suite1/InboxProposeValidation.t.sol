@@ -228,10 +228,6 @@ contract InboxProposeValidation is InboxTest {
         submitProposal(1, Alice);
         submitProposal(2, Alice);
 
-        // Store current proposal hashes
-        bytes32 prop1Hash = inbox.getProposalHash(1);
-        bytes32 prop2Hash = inbox.getProposalHash(2);
-
         // Act: Try to submit proposal 3, but with wrong parent proposals count
         // Setup core state for proposal 3
         IInbox.CoreState memory coreState3 = _getGenesisCoreState();
