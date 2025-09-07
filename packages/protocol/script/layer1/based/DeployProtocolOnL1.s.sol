@@ -331,9 +331,8 @@ contract DeployProtocolOnL1 is DeployCapability {
             data: abi.encodeCall(ComposeVerifier.init, (address(0)))
         });
 
-        address newFork = address(
-            new DevnetShastaInbox(checkPointManager, proofVerifier, whitelist, bondToken)
-        );
+        address newFork =
+            address(new DevnetShastaInbox(checkPointManager, proofVerifier, whitelist, bondToken));
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);
