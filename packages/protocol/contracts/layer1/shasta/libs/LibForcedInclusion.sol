@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { IInbox } from "../iface/IInbox.sol";
 import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { LibAddress } from "src/shared/libs/LibAddress.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
@@ -45,17 +44,18 @@ library LibForcedInclusion {
     /// @dev See `IInbox.storeForcedInclusion`
     function storeForcedInclusion(
         Storage storage $,
-        IInbox.Config memory _config,
+        uint64, /* _forcedInclusionDelay */
+        uint64 _forcedInclusionFeeInGwei,
         LibBlobs.BlobReference memory _blobReference
     )
         public
     {
         LibBlobs.BlobSlice memory blobSlice = LibBlobs.validateBlobReference(_blobReference);
 
-        require(msg.value == _config.forcedInclusionFeeInGwei * 1 gwei, IncorrectFee());
+        require(msg.value == _forcedInclusionFeeInGwei * 1 gwei, IncorrectFee());
 
         IForcedInclusionStore.ForcedInclusion memory inclusion = IForcedInclusionStore
-            .ForcedInclusion({ feeInGwei: _config.forcedInclusionFeeInGwei, blobSlice: blobSlice });
+            .ForcedInclusion({ feeInGwei: _forcedInclusionFeeInGwei, blobSlice: blobSlice });
 
         $.queue[$.tail++] = inclusion;
 
@@ -115,7 +115,7 @@ library LibForcedInclusion {
     /// @dev See `IInbox.isOldestForcedInclusionDue`
     function isOldestForcedInclusionDue(
         Storage storage $,
-        IInbox.Config memory _config
+        uint64 _forcedInclusionDelay
     )
         public
         view
@@ -133,7 +133,7 @@ library LibForcedInclusion {
 
         // Only calculate deadline if we have a valid inclusion
         unchecked {
-            uint256 deadline = timestamp.max(lastProcessedAt) + _config.forcedInclusionDelay;
+            uint256 deadline = timestamp.max(lastProcessedAt) + _forcedInclusionDelay;
             return block.timestamp >= deadline;
         }
     }
