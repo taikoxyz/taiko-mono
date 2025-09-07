@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { InboxOptimized3 } from "./InboxOptimized3.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
+import { LibL1Addrs } from "../../mainnet/libs/LibL1Addrs.sol";
 
 /// @title MainnetShastaInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
@@ -28,13 +29,12 @@ contract MainnetShastaInbox is InboxOptimized3 {
     // ---------------------------------------------------------------
 
     constructor(
-        address _bondToken,
         address _checkpointManager,
         address _proofVerifier,
         address _proposerChecker
     )
         InboxOptimized3(
-            _bondToken,
+            LibL1Addrs.TAIKO_TOKEN,
             _checkpointManager,
             _proofVerifier,
             _proposerChecker,
