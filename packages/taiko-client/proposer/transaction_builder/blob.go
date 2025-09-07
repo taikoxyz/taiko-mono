@@ -226,7 +226,9 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	lenBytes := make([]byte, 32)
 	lenBytes[31] = byte(len(proposalManifestBytes))
 
-	blobBytesPrefix := append(versionBytes, lenBytes...)
+	blobBytesPrefix := make([]byte, 0, 64)
+	blobBytesPrefix = append(blobBytesPrefix, versionBytes...)
+	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
 
 	if blobs, err = b.splitToBlobs(append(blobBytesPrefix, proposalManifestBytes...)); err != nil {
 		return nil, err

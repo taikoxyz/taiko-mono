@@ -19,8 +19,9 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/joho/godotenv"
 	"github.com/modern-go/reflect2"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"golang.org/x/exp/constraints"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 )
 
 // LoadEnv loads all the test environment variables.

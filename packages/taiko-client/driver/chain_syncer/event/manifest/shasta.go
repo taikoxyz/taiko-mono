@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
+
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -63,11 +64,11 @@ func (f *ShastaManifestFetcher) menifestFromBlobBytes(
 	meta metadata.TaikoProposalMetaDataShasta,
 ) (*manifest.ProposalManifest, error) {
 	var (
-		offset          = int(meta.GetDerivation().BlobSlice.Offset.Uint64())
-		defaultManifest = &manifest.ProposalManifest{Default: true}
+		offset           = int(meta.GetDerivation().BlobSlice.Offset.Uint64())
+		defaultManifest  = &manifest.ProposalManifest{Default: true}
 		protocolProposal = new(manifest.ProtocolProposalManifest)
-		size            uint64
-		err             error
+		size             uint64
+		err              error
 	)
 	if _, size, err = ExtractVersionAndSize(b, offset); err != nil {
 		log.Warn("Failed to extracts version or size in blob bytes, use default manifest instead", "err", err)
