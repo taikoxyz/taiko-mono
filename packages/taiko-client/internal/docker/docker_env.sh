@@ -23,6 +23,8 @@ export L2_WS=ws://localhost:$(docker port $L2_NODE | grep "0.0.0.0" | awk -F ':'
 export L2_AUTH=http://localhost:$(docker port $L2_NODE | grep "0.0.0.0" | awk -F ':' 'NR==3 {print $2}')
 export JWT_SECRET=$DIR/nodes/jwt.hex
 
+export INDEXER_ENDPOINT=http://localhost:3031/graphql
+
 echo -e "L1_NODE PORTS: \n\t$(docker port l1_node)"
 echo -e "L2_NODE PORTS: \n\t$(docker port $L2_NODE)"
 

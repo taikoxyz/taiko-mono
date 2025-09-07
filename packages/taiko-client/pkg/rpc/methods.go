@@ -31,6 +31,7 @@ import (
 var (
 	// errSyncing is returned when the L2 execution engine is syncing.
 	errSyncing         = errors.New("syncing")
+	errNoGraphQLClient = errors.New("graphql client is not initialized")
 	rpcPollingInterval = 3 * time.Second
 	defaultWaitTimeout = 3 * time.Minute
 )

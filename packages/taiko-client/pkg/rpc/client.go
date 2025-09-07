@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"os"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/hasura/go-graphql-client"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
@@ -39,6 +41,7 @@ type PacayaClients struct {
 type ShastaClients struct {
 	Inbox      *shastaBindings.ShastaInboxClient
 	Anchor     *shastaBindings.ShastaAnchor
+	Indexer    *graphql.Client
 	ForkHeight *big.Int
 }
 
@@ -73,6 +76,7 @@ type ClientConfig struct {
 	PreconfWhitelistAddress     common.Address
 	ProverSetAddress            common.Address
 	L2EngineEndpoint            string
+	IndexerEndpoint             string
 	JwtSecret                   string
 	Timeout                     time.Duration
 }
@@ -281,9 +285,17 @@ func (c *Client) initShastaClients(cfg *ClientConfig) error {
 		return fmt.Errorf("failed to get shasta fork height: %w", err)
 	}
 
+	var graphqlClient *graphql.Client
+	if cfg.IndexerEndpoint != "" {
+		graphqlClient = graphql.NewClient(cfg.IndexerEndpoint, &http.Client{Timeout: cfg.Timeout})
+	} else {
+		log.Debug("No indexer endpoint provided, shasta indexer client won't be initialized")
+	}
+
 	c.ShastaClients = &ShastaClients{
 		Inbox:      shastaInbox,
 		Anchor:     shastaAnchor,
+		Indexer:    graphqlClient,
 		ForkHeight: new(big.Int).SetUint64(shastaForkHeight),
 	}
 

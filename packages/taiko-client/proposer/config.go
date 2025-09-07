@@ -77,6 +77,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 			ForcedInclusionStoreAddress: common.HexToAddress(c.String(flags.ForcedInclusionStoreAddress.Name)),
 			TaikoAnchorAddress:          common.HexToAddress(c.String(flags.TaikoAnchorAddress.Name)),
 			L2EngineEndpoint:            c.String(flags.L2AuthEndpoint.Name),
+			IndexerEndpoint:             c.String(flags.IndexerEndpoint.Name),
 			JwtSecret:                   string(jwtSecret),
 			TaikoTokenAddress:           common.HexToAddress(c.String(flags.TaikoTokenAddress.Name)),
 			Timeout:                     c.Duration(flags.RPCTimeout.Name),
