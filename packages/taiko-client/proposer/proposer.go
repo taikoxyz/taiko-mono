@@ -18,6 +18,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
@@ -325,7 +326,17 @@ func (p *Proposer) ProposeTxLists(
 	txLists []types.Transactions,
 	parentMetaHash common.Hash,
 ) error {
-	if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
+	l2Head, err := p.rpc.L2.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get L2 head: %w", err)
+	}
+	if l2Head.Number.Cmp(p.rpc.ShastaClients.ForkHeight) < 0 {
+		if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
+			return err
+		}
+		p.lastProposedAt = time.Now()
+	}
+	if err := p.ProposeTxListShasta(ctx, txLists); err != nil {
 		return err
 	}
 	p.lastProposedAt = time.Now()
@@ -416,6 +427,93 @@ func (p *Proposer) ProposeTxListPacaya(
 	}
 
 	log.Info("📝 Propose blocks batch succeeded", "blocksInBatch", len(txBatch), "txs", txs)
+
+	metrics.ProposerProposedTxListsCounter.Add(float64(len(txBatch)))
+	metrics.ProposerProposedTxsCounter.Add(float64(txs))
+
+	return nil
+}
+
+// ProposeTxListShasta proposes the given transactions lists to Shasta Inbox smart contract.
+func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Transactions) error {
+	var (
+		proposerAddress = p.proposerAddress
+		txs             uint64
+	)
+
+	// Make sure the tx list is not bigger than the proposalMaxBlocks.
+	if len(txBatch) > manifest.ProposalMaxBlocks {
+		return fmt.Errorf("tx batch size is larger than the proposalMaxBlocks")
+	}
+
+	for _, txList := range txBatch {
+		txs += uint64(len(txList))
+	}
+
+	// Check balance.
+	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
+		proposerAddress = p.Config.ClientConfig.ProverSetAddress
+	}
+
+	// TODO: check L2 balance
+	// ok, err := rpc.CheckProverBalance(
+	// 	ctx,
+	// 	p.rpc,
+	// 	proposerAddress,
+	// 	p.TaikoInboxAddress,
+	// 	new(big.Int).Add(
+	// 		p.protocolConfigs.LivenessBond(),
+	// 		new(big.Int).Mul(p.protocolConfigs.LivenessBondPerBlock(), new(big.Int).SetUint64(uint64(len(txBatch)))),
+	// 	),
+	// )
+
+	// if err != nil {
+	// 	log.Warn("Failed to check prover balance", "proposer", proposerAddress, "error", err)
+	// 	return err
+	// }
+
+	// if !ok {
+	// 	return fmt.Errorf("insufficient proposer (%s) balance", proposerAddress.Hex())
+	// }
+
+	// Check forced inclusion.
+	forcedInclusion, minTxsPerForcedInclusion, err := p.rpc.GetForcedInclusionPacaya(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch forced inclusion: %w", err)
+	}
+	if forcedInclusion == nil {
+		log.Info("No forced inclusion", "proposer", proposerAddress.Hex())
+	} else {
+		log.Info(
+			"Forced inclusion",
+			"proposer", proposerAddress.Hex(),
+			"blobHash", common.BytesToHash(forcedInclusion.BlobHash[:]),
+			"feeInGwei", forcedInclusion.FeeInGwei,
+			"createdAtBatchId", forcedInclusion.CreatedAtBatchId,
+			"blobByteOffset", forcedInclusion.BlobByteOffset,
+			"blobByteSize", forcedInclusion.BlobByteSize,
+			"minTxsPerForcedInclusion", minTxsPerForcedInclusion,
+		)
+	}
+
+	// Build the transaction to propose batch.
+	txCandidate, err := p.txBuilder.BuildShasta(
+		ctx,
+		txBatch,
+		forcedInclusion,
+		minTxsPerForcedInclusion,
+		p.preconfRouterAddress,
+	)
+	if err != nil {
+		log.Warn("Failed to build Shasta Inbox.propose transaction", "error", encoding.TryParsingCustomError(err))
+		return err
+	}
+
+	if err := p.SendTx(ctx, txCandidate); err != nil {
+		return err
+	}
+
+	log.Info("📝 Propose Shasta blocks batch succeeded", "blocksInBatch", len(txBatch), "txs", txs)
 
 	metrics.ProposerProposedTxListsCounter.Add(float64(len(txBatch)))
 	metrics.ProposerProposedTxsCounter.Add(float64(txs))

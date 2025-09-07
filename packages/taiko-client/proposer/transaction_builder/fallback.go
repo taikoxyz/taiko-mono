@@ -16,6 +16,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -181,6 +182,23 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 	log.Info("Building a type-3 transaction", "costCalldata", costCalldataFloat64, "costBlob", costBlobFloat64)
 	metrics.ProposerProposeByBlob.Inc()
 	return txWithBlob, nil
+}
+
+// BuildShasta implements the ProposeBatchTransactionBuilder interface.
+func (b *TxBuilderWithFallback) BuildShasta(
+	ctx context.Context,
+	txBatch []types.Transactions,
+	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
+	minTxsPerForcedInclusion *big.Int,
+	preconfRouterAddress common.Address,
+) (*txmgr.TxCandidate, error) {
+	return b.blobTransactionBuilder.BuildShasta(
+		ctx,
+		txBatch,
+		forcedInclusion,
+		minTxsPerForcedInclusion,
+		preconfRouterAddress,
+	)
 }
 
 // estimateCandidateCost estimates the realtime onchain cost of the given transaction.
