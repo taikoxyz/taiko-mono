@@ -77,7 +77,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// from it
     /// @dev Stores transition records for proposals with different parent transitions
     /// - compositeKey: Keccak256 hash of (proposalId, parentTransitionHash)
-    /// - transitionRecordHash: The hash of the TransitionRecord struct
+    /// - except: The struct contains the finalization deadline and the hash of the TransitionRecord
     mapping(bytes32 compositeKey => TransitionRecordExcerpt except) internal
         _transitionRecordExcepts;
 
