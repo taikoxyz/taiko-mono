@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { InboxOptimized3 } from "./InboxOptimized3.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
+import { LibL1Addrs } from "../../mainnet/libs/LibL1Addrs.sol";
 
 /// @title MainnetShastaInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
@@ -27,7 +28,26 @@ contract MainnetShastaInbox is InboxOptimized3 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized3() { }
+    constructor(
+        address _checkpointManager,
+        address _proofVerifier,
+        address _proposerChecker
+    )
+        InboxOptimized3(
+            LibL1Addrs.TAIKO_TOKEN,
+            _checkpointManager,
+            _proofVerifier,
+            _proposerChecker,
+            2 hours, // provingWindow
+            4 hours, // extendedProvingWindow
+            16, // maxFinalizationCount
+            _RING_BUFFER_SIZE, // ringBufferSize
+            0, // basefeeSharingPctg
+            1, // minForcedInclusionCount
+            100, // forcedInclusionDelay
+            10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
+        )
+    { }
 
     // ---------------------------------------------------------------
     // External/Public Functions
@@ -41,25 +61,6 @@ contract MainnetShastaInbox is InboxOptimized3 {
     //     coreStateHash = keccak256(abi.encode(_coreState));
     //     emit CoreStateSet(_coreState);
     // }
-
-    /// @notice Gets the configuration for this Inbox contract
-    /// @return _ The configuration struct with shasta-specific settings
-    function getConfig() public pure override returns (Config memory) {
-        return Config({
-            bondToken: address(0),
-            provingWindow: 2 hours,
-            extendedProvingWindow: 4 hours,
-            maxFinalizationCount: 16,
-            ringBufferSize: _RING_BUFFER_SIZE,
-            basefeeSharingPctg: 0,
-            checkpointManager: address(0),
-            proofVerifier: address(0),
-            proposerChecker: address(0),
-            minForcedInclusionCount: 1,
-            forcedInclusionDelay: 100,
-            forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
-         });
-    }
 
     // ---------------------------------------------------------------
     // Internal Functions
