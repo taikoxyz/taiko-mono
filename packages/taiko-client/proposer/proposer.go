@@ -330,7 +330,7 @@ func (p *Proposer) ProposeTxLists(
 	if err != nil {
 		return fmt.Errorf("failed to get L2 head: %w", err)
 	}
-	if l2Head.Number.Cmp(p.rpc.ShastaClients.ForkHeight) < 0 {
+	if new(big.Int).Add(l2Head.Number, common.Big1).Cmp(p.rpc.ShastaClients.ForkHeight) < 0 {
 		if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
 			return err
 		}

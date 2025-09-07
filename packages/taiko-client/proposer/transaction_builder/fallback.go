@@ -15,7 +15,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
@@ -83,7 +82,7 @@ func NewBuilderWithFallback(
 func (b *TxBuilderWithFallback) BuildPacaya(
 	ctx context.Context,
 	txBatch []types.Transactions,
-	forcedInclusion *pacaya.IForcedInclusionStoreForcedInclusion,
+	forcedInclusion *pacayaBindings.IForcedInclusionStoreForcedInclusion,
 	minTxsPerForcedInclusion *big.Int,
 	parentMetahash common.Hash,
 	preconfRouterAddress common.Address,
@@ -185,6 +184,7 @@ func (b *TxBuilderWithFallback) BuildPacaya(
 }
 
 // BuildShasta implements the ProposeBatchTransactionBuilder interface.
+// Since Shasta fork doesn't support calldata to send txList bytes anymore, we just return the blob transaction here.
 func (b *TxBuilderWithFallback) BuildShasta(
 	ctx context.Context,
 	txBatch []types.Transactions,

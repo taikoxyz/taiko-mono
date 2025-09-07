@@ -153,6 +153,7 @@ func (b *CalldataTransactionBuilder) BuildPacaya(
 }
 
 // BuildShasta implements the ProposeBatchTransactionBuilder interface.
+// Since Shasta fork doesn't support calldata to send txList bytes anymore, we just return an error here.
 func (b *CalldataTransactionBuilder) BuildShasta(
 	ctx context.Context,
 	txBatch []types.Transactions,
