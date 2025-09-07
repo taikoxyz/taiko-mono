@@ -60,7 +60,7 @@ type preconfBlockChainSyncer interface {
 // @contact.email info@taiko.xyz
 
 // @license.name MIT
-// @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
+// @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE
 // PreconfBlockAPIServer represents a preconfirmation block server instance.
 type PreconfBlockAPIServer struct {
 	echo                          *echo.Echo
