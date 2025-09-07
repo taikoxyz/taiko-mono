@@ -79,13 +79,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         // ---------------------------------------------------------------
         // Deploy rollup contracts
         (address taikoInboxAddr, address proofVerifier) =
-                        deployRollupContracts(sharedResolver, contractOwner);
+            deployRollupContracts(sharedResolver, contractOwner);
 
         // Deploy verifiers
         OpVerifier opImpl = new OpVerifier(taikoInboxAddr, proofVerifier);
-        VerifierAddresses memory verifiers = deployVerifiers(
-            contractOwner, proofVerifier, taikoInboxAddr, address(opImpl)
-        );
+        VerifierAddresses memory verifiers =
+            deployVerifiers(contractOwner, proofVerifier, taikoInboxAddr, address(opImpl));
         if (vm.envBool("DUMMY_VERIFIERS")) {
             UUPSUpgradeable(proofVerifier).upgradeTo({
                 newImplementation: address(
@@ -146,7 +145,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             console2.log("- taikoInboxAddr   : ", taikoInboxAddr);
             console2.log("- chainId       : ", block.chainid);
         }
-
 
         // ---------------------------------------------------------------
         // Deploy other contracts
@@ -275,8 +273,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         address _sharedResolver,
         address owner
     )
-    internal
-    returns (address taikoInboxAddr, address proofVerifier)
+        internal
+        returns (address taikoInboxAddr, address proofVerifier)
     {
         addressNotNull(_sharedResolver, "sharedResolver");
         addressNotNull(owner, "owner");
@@ -292,7 +290,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0)))
         });
-
 
         address oldFork = vm.envAddress("OLD_FORK_TAIKO_INBOX");
         if (oldFork == address(0)) {
@@ -346,8 +343,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         address taikoInboxAddr,
         address opImplAddr
     )
-    private
-    returns (VerifierAddresses memory)
+        private
+        returns (VerifierAddresses memory)
     {
         VerifierAddresses memory verifiers;
         // OP verifier
@@ -383,7 +380,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         (verifiers.risc0RethVerifier, verifiers.sp1RethVerifier) =
-        deployZKVerifiers(owner, l2ChainId);
+            deployZKVerifiers(owner, l2ChainId);
         verifiers.opGethVerifier = deployProxy({
             name: "op_geth_verifier",
             impl: opImplAddr,
@@ -398,9 +395,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
         verifiers.sgxGethVerifier = deployProxy({
             name: "sgx_geth_verifier",
-            impl: address(
-                new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)
-            ),
+            impl: address(new TaikoSgxVerifier(taikoInboxAddr, proofVerifier, sgxGethAutomataProxy)),
             data: abi.encodeCall(TaikoSgxVerifier.init, owner)
         });
         return verifiers;
@@ -410,12 +405,12 @@ contract DeployProtocolOnL1 is DeployCapability {
         address owner,
         uint64 l2ChainId
     )
-    private
-    returns (address taikoRisc0Verifier, address taikoSP1Verifier)
+        private
+        returns (address taikoRisc0Verifier, address taikoSP1Verifier)
     {
         // Deploy r0 groth16 verifier
         RiscZeroGroth16Verifier verifier =
-                    new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
+            new RiscZeroGroth16Verifier(ControlID.CONTROL_ROOT, ControlID.BN254_CONTROL_ID);
 
         taikoRisc0Verifier = deployProxy({
             name: "risc0_reth_verifier",
@@ -438,7 +433,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         console2.log("HorseToken", horseToken);
 
         address bullToken =
-                        address(new FreeMintERC20Token_With50PctgMintAndTransferFailure("Bull Token", "BULL"));
+            address(new FreeMintERC20Token_With50PctgMintAndTransferFailure("Bull Token", "BULL"));
         console2.log("BullToken", bullToken);
     }
 
@@ -449,8 +444,8 @@ contract DeployProtocolOnL1 is DeployCapability {
         address taikoInbox,
         address verifier
     )
-    private
-    returns (address whitelist, address router, address store, address taikoWrapper)
+        private
+        returns (address whitelist, address router, address store, address taikoWrapper)
     {
         whitelist = deployProxy({
             name: "preconf_whitelist",
