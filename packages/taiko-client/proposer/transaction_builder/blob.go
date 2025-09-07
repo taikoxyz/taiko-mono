@@ -180,7 +180,16 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		to = &preconfRouterAddress
 	}
 
-	inputs, err := b.rpc.GetShastaProposalInputs(ctx)
+	config, err := b.rpc.ShastaClients.Inbox.GetConfig(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get shasta inbox config: %w", err)
+	}
+
+	inputs, err := b.rpc.GetShastaProposalInputs(
+		ctx,
+		config.RingBufferSize.Uint64(),
+		config.MaxFinalizationCount.Uint64(),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get shasta proposal inputs: %w", err)
 	}
