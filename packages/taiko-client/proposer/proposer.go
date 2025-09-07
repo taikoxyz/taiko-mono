@@ -446,35 +446,17 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 		return fmt.Errorf("tx batch size is larger than the proposalMaxBlocks")
 	}
 
+	// Count the total number of transactions.
 	for _, txList := range txBatch {
+		if len(txList) > manifest.BlockMaxRawTransactions {
+			return fmt.Errorf("tx list size is larger than the blockMaxRawTransactions")
+		}
 		txs += uint64(len(txList))
 	}
 
-	// Check balance.
 	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
 		proposerAddress = p.Config.ClientConfig.ProverSetAddress
 	}
-
-	// TODO: check L2 balance
-	// ok, err := rpc.CheckProverBalance(
-	// 	ctx,
-	// 	p.rpc,
-	// 	proposerAddress,
-	// 	p.TaikoInboxAddress,
-	// 	new(big.Int).Add(
-	// 		p.protocolConfigs.LivenessBond(),
-	// 		new(big.Int).Mul(p.protocolConfigs.LivenessBondPerBlock(), new(big.Int).SetUint64(uint64(len(txBatch)))),
-	// 	),
-	// )
-
-	// if err != nil {
-	// 	log.Warn("Failed to check prover balance", "proposer", proposerAddress, "error", err)
-	// 	return err
-	// }
-
-	// if !ok {
-	// 	return fmt.Errorf("insufficient proposer (%s) balance", proposerAddress.Hex())
-	// }
 
 	// Check forced inclusion.
 	forcedInclusion, minTxsPerForcedInclusion, err := p.rpc.GetForcedInclusionPacaya(ctx)
