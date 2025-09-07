@@ -42,7 +42,7 @@ contract DevnetShastaInbox is InboxOptimized3 {
             4 hours, // extendedProvingWindow
             16, // maxFinalizationCount
             _RING_BUFFER_SIZE, // ringBufferSize
-            0, // basefeeSharingPctg
+            75, // basefeeSharingPctg
             1, // minForcedInclusionCount
             100, // forcedInclusionDelay
             10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
