@@ -875,7 +875,7 @@ func (s *PreconfBlockAPIServer) ValidateExecutionPayload(payload *eth.ExecutionP
 // ImportPendingBlocksFromCache tries to insert pending blocks from the cache,
 // if there is no payload in the cache, it will skip the operation.
 func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context) error {
-	latestPayload := s.envelopesCache.getLatestPayload()
+	latestPayload := s.envelopesCache.getLatestEnvelope()
 	if latestPayload == nil {
 		log.Info("No envelopes in cache, skip importing from cache")
 		return nil
