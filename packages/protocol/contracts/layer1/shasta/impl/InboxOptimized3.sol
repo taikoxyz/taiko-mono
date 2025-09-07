@@ -28,7 +28,14 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized2() { }
+    constructor(
+        address _bondToken,
+        address _checkpointManager,
+        address _proofVerifier,
+        address _proposerChecker
+    )
+        InboxOptimized2(_bondToken, _checkpointManager, _proofVerifier, _proposerChecker)
+    { }
 
     // ---------------------------------------------------------------
     // External Functions

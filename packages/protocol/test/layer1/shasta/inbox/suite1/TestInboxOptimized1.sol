@@ -14,7 +14,9 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
     // Storage to track checkpoint for test purposes
     mapping(uint48 => ICheckpointManager.Checkpoint) public testcheckpoints;
 
-    constructor() InboxOptimized1() { }
+    constructor()
+        InboxOptimized1(address(0), address(0), address(0), address(0))
+    { }
 
     function setTestConfig(IInbox.Config memory _config) external {
         testConfig = _config;
@@ -24,15 +26,11 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox {
     function getConfig() public view override returns (IInbox.Config memory) {
         if (!configSet) {
             return IInbox.Config({
-                bondToken: address(0),
                 provingWindow: 1 hours,
                 extendedProvingWindow: 2 hours,
                 maxFinalizationCount: 10,
                 ringBufferSize: 100,
                 basefeeSharingPctg: 10,
-                checkpointManager: address(0),
-                proofVerifier: address(0),
-                proposerChecker: address(0),
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
                 forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH

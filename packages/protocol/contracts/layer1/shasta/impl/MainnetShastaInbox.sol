@@ -27,7 +27,14 @@ contract MainnetShastaInbox is InboxOptimized3 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized3() { }
+    constructor(
+        address _bondToken,
+        address _checkpointManager,
+        address _proofVerifier,
+        address _proposerChecker
+    )
+        InboxOptimized3(_bondToken, _checkpointManager, _proofVerifier, _proposerChecker)
+    { }
 
     // ---------------------------------------------------------------
     // External/Public Functions
@@ -46,15 +53,11 @@ contract MainnetShastaInbox is InboxOptimized3 {
     /// @return _ The configuration struct with shasta-specific settings
     function getConfig() public pure override returns (Config memory) {
         return Config({
-            bondToken: address(0),
             provingWindow: 2 hours,
             extendedProvingWindow: 4 hours,
             maxFinalizationCount: 16,
             ringBufferSize: _RING_BUFFER_SIZE,
             basefeeSharingPctg: 0,
-            checkpointManager: address(0),
-            proofVerifier: address(0),
-            proposerChecker: address(0),
             minForcedInclusionCount: 1,
             forcedInclusionDelay: 100,
             forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH

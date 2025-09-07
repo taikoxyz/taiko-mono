@@ -44,7 +44,14 @@ abstract contract InboxOptimized1 is Inbox {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() Inbox() { }
+    constructor(
+        address _bondToken,
+        address _checkpointManager,
+        address _proofVerifier,
+        address _proposerChecker
+    )
+        Inbox(_bondToken, _checkpointManager, _proofVerifier, _proposerChecker)
+    { }
 
     // ---------------------------------------------------------------
     // Internal Functions - Overrides

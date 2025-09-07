@@ -180,15 +180,11 @@ abstract contract InboxTest is CommonTest {
 
     function setupDefaultConfig() internal virtual {
         defaultConfig = IInbox.Config({
-            bondToken: bondToken,
             provingWindow: DEFAULT_PROVING_WINDOW,
             extendedProvingWindow: DEFAULT_EXTENDED_PROVING_WINDOW,
             maxFinalizationCount: DEFAULT_MAX_FINALIZATION_COUNT,
             ringBufferSize: DEFAULT_RING_BUFFER_SIZE,
             basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
-            checkpointManager: checkpointManager,
-            proofVerifier: proofVerifier,
-            proposerChecker: proposerChecker,
             minForcedInclusionCount: 1,
             forcedInclusionDelay: 100,
             forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
