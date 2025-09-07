@@ -316,11 +316,7 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             );
         }
-        taikoInboxAddr = deployProxy({
-            name: "taiko",
-            impl: oldFork,
-            data: ""
-        });
+        taikoInboxAddr = deployProxy({ name: "taiko", impl: oldFork, data: "" });
 
         address checkPointManager = deployProxy({
             name: "checkpoint_manager",
