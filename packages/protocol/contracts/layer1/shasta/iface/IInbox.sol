@@ -92,6 +92,14 @@ interface IInbox {
         bytes32 checkpointHash;
     }
 
+
+      /// @notice Struct for storing transition effective timestamp and hash.
+    /// @dev Stores the first transition record for each proposal to reduce gas costs
+    struct TransitionRecordExcerpt {
+        uint48 effectiveAt;
+        bytes26 recordHash;
+    }
+    
     /// @notice Represents the core state of the inbox.
     struct CoreState {
         /// @notice The next proposal ID to be assigned.
@@ -196,14 +204,14 @@ interface IInbox {
     /// hash.
     /// @param _proposalId The proposal ID.
     /// @param _parentTransitionHash The parent transition hash.
-    /// @return transitionRecordHash_ The hash of the transition record.
-    function getTransitionRecordHash(
+    /// @return _ The except of the transaition record.
+    function getTransitionRecordExcerpt(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
         external
         view
-        returns (bytes32 transitionRecordHash_);
+        returns (TransitionRecordExcerpt memory);
 
     /// @notice Gets the capacity for unfinalized proposals.
     /// @return The maximum number of unfinalized proposals that can exist.

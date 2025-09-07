@@ -166,7 +166,7 @@ contract InboxOutOfOrderProving is InboxTest {
             bytes32 transitionParentHash =
                 index == 0 ? initialParentHash : transitionHashes[index - 1];
             bytes32 storedTransitionHash =
-                inbox.getTransitionRecordHash(proposals[index].id, transitionParentHash);
+                inbox.getTransitionRecordExcerpt(proposals[index].id, transitionParentHash);
             assertTrue(storedTransitionHash != bytes32(0));
         }
 

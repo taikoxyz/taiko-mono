@@ -77,7 +77,7 @@ contract InboxFinalization is InboxTest {
         // Create a parent transition with the parentTransitionHash for the function call
         IInbox.Transition memory parentTransition;
         parentTransition.parentTransitionHash = _parentTransitionHash;
-        inbox.exposed_setTransitionRecordHash(_proposalId, parentTransition, transitionRecord);
+        inbox.exposed_setTransitionRecordExcerpt(_proposalId, parentTransition, transitionRecord);
     }
 
     /// @dev Helper to submit a finalization proposal
@@ -236,7 +236,7 @@ contract InboxFinalization is InboxTest {
         // Create a parent transition struct for the function call
         IInbox.Transition memory parentTransition;
         parentTransition.parentTransitionHash = parentTransitionHash;
-        inbox.exposed_setTransitionRecordHash(1, parentTransition, transitionRecord1);
+        inbox.exposed_setTransitionRecordExcerpt(1, parentTransition, transitionRecord1);
 
         // Store proposal 2 WITHOUT transition (gap in chain)
         IInbox.CoreState memory coreState2 = _getGenesisCoreState();

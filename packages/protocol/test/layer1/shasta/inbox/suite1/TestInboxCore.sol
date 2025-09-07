@@ -47,14 +47,14 @@ contract TestInboxCore is Inbox, ITestInbox {
         _setProposalHash(testConfig, _proposalId, _hash);
     }
 
-    function exposed_setTransitionRecordHash(
+    function exposed_setTransitionRecordExcerpt(
         uint48 _proposalId,
         IInbox.Transition memory _transition,
         IInbox.TransitionRecord memory _transitionRecord
     )
         external
     {
-        _setTransitionRecordHash(_proposalId, _transition, _transitionRecord);
+        _setTransitionRecordExcerpt(_proposalId, _transition, _transitionRecord);
     }
 
     // Function to store checkpoint for test purposes

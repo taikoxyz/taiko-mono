@@ -71,7 +71,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Stores transition records for proposals with different parent transitions
     /// - compositeKey: Keccak256 hash of (proposalId, parentTransitionHash)
     /// - transitionRecordHash: The hash of the TransitionRecord struct
-    mapping(bytes32 compositeKey => bytes32 transitionRecordHash) internal _transitionRecordHashes;
+    mapping(bytes32 compositeKey => TransitionRecordExcerpt except) internal _transitionRecordExcepts;
 
     /// @dev Storage for forced inclusion requests
     ///  Two slots used
@@ -236,15 +236,15 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _parentTransitionHash The hash of the parent transition in the proof chain
     /// @return transitionRecordHash_ The keccak256 hash of the TransitionRecord, or bytes32(0) if
     /// not found
-    function getTransitionRecordHash(
+    function getTransitionRecordExcerpt(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
         external
         view
-        returns (bytes32 transitionRecordHash_)
+        returns (TransitionRecordExcerpt memory transitionRecordHash_)
     {
-        return _getTransitionRecordHash(_proposalId, _parentTransitionHash);
+        return _getTransitionRecordExcerpt(_proposalId, _parentTransitionHash);
     }
 
     /// @notice Returns the maximum capacity for unfinalized proposals
@@ -391,9 +391,9 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             transitionRecord.transitionHash = _hashTransition(_input.transitions[i]);
             transitionRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
 
-            // Pass transition and transitionRecord to _setTransitionRecordHash which will emit the
+            // Pass transition and transitionRecord to _setTransitionRecordExcerpt which will emit the
             // event
-            _setTransitionRecordHash(
+            _setTransitionRecordExcerpt(
                 _input.proposals[i].id, _input.transitions[i], transitionRecord
             );
         }
@@ -493,7 +493,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The ID of the proposal being proven
     /// @param _transition The transition data to include in the event
     /// @param _transitionRecord The transition record to hash and store
-    function _setTransitionRecordHash(
+    function _setTransitionRecordExcerpt(
         uint48 _proposalId,
         Transition memory _transition,
         TransitionRecord memory _transitionRecord
@@ -502,13 +502,16 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
-        bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+        bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
 
-        bytes32 storedTransitionRecordHash = _transitionRecordHashes[compositeKey];
-        if (storedTransitionRecordHash == transitionRecordHash) return;
+        TransitionRecordExcerpt memory excerpt = _transitionRecordExcepts[compositeKey];
+        if (excerpt.recordHash == transitionRecordHash) return;
 
-        require(storedTransitionRecordHash == 0, TransitionWithSameParentHashAlreadyProved());
-        _transitionRecordHashes[compositeKey] = transitionRecordHash;
+        require(excerpt.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
+        _transitionRecordExcepts[compositeKey] = TransitionRecordExcerpt({
+            effectiveAt: _transitionRecord.effectiveAt,
+            recordHash: transitionRecordHash
+        });
 
         bytes memory payload = encodeProvedEventData(
             ProvedEventPayload({
@@ -536,17 +539,17 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The ID of the proposal
     /// @param _parentTransitionHash The hash of the parent transition
     /// @return transitionRecordHash_ The stored transition record hash
-    function _getTransitionRecordHash(
+    function _getTransitionRecordExcerpt(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
         internal
         view
         virtual
-        returns (bytes32 transitionRecordHash_)
+        returns (TransitionRecordExcerpt memory)
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        transitionRecordHash_ = _transitionRecordHashes[compositeKey];
+        return _transitionRecordExcepts[compositeKey];
     }
 
     /// @dev Validates proposal hash against stored value
@@ -580,9 +583,9 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _hashTransitionRecord(TransitionRecord memory _transitionRecord)
         internal
         pure
-        returns (bytes32)
+        returns (bytes26)
     {
-        return keccak256(abi.encode(_transitionRecord));
+        return bytes26(keccak256(abi.encode(_transitionRecord)));
     }
 
     /// @dev Hashes a Checkpoint struct.
@@ -819,10 +822,10 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (bool finalized_, uint48 nextProposalId_)
     {
         // Check if transition record exists in storage
-        bytes32 storedHash =
-            _getTransitionRecordHash(_proposalId, _coreState.lastFinalizedTransitionHash);
+        TransitionRecordExcerpt memory excerpt =
+            _getTransitionRecordExcerpt(_proposalId, _coreState.lastFinalizedTransitionHash);
 
-        if (storedHash == 0) return (false, _proposalId);
+        if (excerpt.recordHash == 0) return (false, _proposalId);
 
         // If transition record is provided, allow finalization regardless of cooldown
         // If not provided, and cooldown has passed, revert
@@ -838,7 +841,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Verify transition record hash matches
         bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
-        require(transitionRecordHash == storedHash, TransitionRecordHashMismatchWithStorage());
+        require(transitionRecordHash == excerpt.recordHash, TransitionRecordHashMismatchWithStorage());
 
         // Update core state
         _coreState.lastFinalizedProposalId = _proposalId;
