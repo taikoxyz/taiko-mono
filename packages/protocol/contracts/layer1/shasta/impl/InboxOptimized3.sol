@@ -17,7 +17,7 @@ import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 ///      - Maintains all optimizations from InboxOptimized1 and InboxOptimized2
 /// @dev Gas savings: ~40% reduction in calldata costs for propose/prove operations
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxOptimized3 is InboxOptimized2 {
+contract InboxOptimized3 is InboxOptimized2 {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -32,9 +32,17 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
         address _bondToken,
         address _checkpointManager,
         address _proofVerifier,
-        address _proposerChecker
+        address _proposerChecker,
+        uint48 _provingWindow,
+        uint48 _extendedProvingWindow,
+        uint256 _maxFinalizationCount,
+        uint256 _ringBufferSize,
+        uint8 _basefeeSharingPctg,
+        uint256 _minForcedInclusionCount,
+        uint64 _forcedInclusionDelay,
+        uint64 _forcedInclusionFeeInGwei
     )
-        InboxOptimized2(_bondToken, _checkpointManager, _proofVerifier, _proposerChecker)
+        InboxOptimized2(_bondToken, _checkpointManager, _proofVerifier, _proposerChecker, _provingWindow, _extendedProvingWindow, _maxFinalizationCount, _ringBufferSize, _basefeeSharingPctg, _minForcedInclusionCount, _forcedInclusionDelay, _forcedInclusionFeeInGwei)
     { }
 
     // ---------------------------------------------------------------
