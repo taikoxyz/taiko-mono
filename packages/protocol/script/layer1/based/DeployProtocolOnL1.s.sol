@@ -204,7 +204,7 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         address quotaManager = address(0);
-        address brdige = deployProxy({
+        address bridge = deployProxy({
             name: "bridge",
             impl: address(new MainnetBridge(address(sharedResolver), signalService)),
             data: abi.encodeCall(Bridge.init, (address(0))),
@@ -212,10 +212,10 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
 
         if (vm.envBool("PAUSE_BRIDGE")) {
-            Bridge(payable(brdige)).pause();
+            Bridge(payable(bridge)).pause();
         }
 
-        Bridge(payable(brdige)).transferOwnership(owner);
+        Bridge(payable(bridge)).transferOwnership(owner);
 
         console2.log("------------------------------------------");
         console2.log(
