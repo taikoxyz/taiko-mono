@@ -1608,10 +1608,9 @@ abstract contract InboxTest is CommonTest {
         internal
         view
     {
-        IInbox.TransitionRecordExcerpt memory excerpt =
-            inbox.getTransitionRecordExcerpt(_proposalId, _parentTransitionHash);
+        (, bytes26 recordHash) = inbox.getTransitionRecordHash(_proposalId, _parentTransitionHash);
         assertTrue(
-            excerpt.recordHash != bytes26(0),
+            recordHash != bytes26(0),
             string(
                 abi.encodePacked(
                     "Transition record for proposal ", vm.toString(_proposalId), " not stored"
@@ -1627,10 +1626,9 @@ abstract contract InboxTest is CommonTest {
         internal
         view
     {
-        IInbox.TransitionRecordExcerpt memory excerpt =
-            inbox.getTransitionRecordExcerpt(_proposalId, _parentTransitionHash);
+        (, bytes26 recordHash) = inbox.getTransitionRecordHash(_proposalId, _parentTransitionHash);
         assertTrue(
-            excerpt.recordHash == bytes26(0),
+            recordHash == bytes26(0),
             string(
                 abi.encodePacked(
                     "Transition record for proposal ",

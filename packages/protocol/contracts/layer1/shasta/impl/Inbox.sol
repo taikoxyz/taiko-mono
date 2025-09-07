@@ -27,6 +27,13 @@ import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.so
 abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using SafeERC20 for IERC20;
 
+    /// @notice Struct for storing transition effective timestamp and hash.
+    /// @dev Stores the first transition record for each proposal to reduce gas costs
+    struct TransitionRecordExcerpt {
+        uint48 finalizationEnforcedAt;
+        bytes26 recordHash;
+    }
+
     // ---------------------------------------------------------------
     // Events
     // ---------------------------------------------------------------
@@ -235,17 +242,19 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Retrieves the transition record hash for a specific proposal and parent transition
     /// @param _proposalId The ID of the proposal containing the transition
     /// @param _parentTransitionHash The hash of the parent transition in the proof chain
-    /// @return transitionRecordHash_ The keccak256 hash of the TransitionRecord, or bytes32(0) if
-    /// not found
-    function getTransitionRecordExcerpt(
+    /// @return finalizationEnforcedAt_ The timestamp when finalization is enforced
+    /// @return recordHash_ The hash of the transition record
+    function getTransitionRecordHash(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
         external
         view
-        returns (TransitionRecordExcerpt memory transitionRecordHash_)
+        returns (uint48 finalizationEnforcedAt_, bytes26 recordHash_)
     {
-        return _getTransitionRecordExcerpt(_proposalId, _parentTransitionHash);
+        TransitionRecordExcerpt memory excerpt =
+            _getTransitionRecordExcerpt(_proposalId, _parentTransitionHash);
+        return (excerpt.finalizationEnforcedAt, excerpt.recordHash);
     }
 
     /// @notice Returns the maximum capacity for unfinalized proposals

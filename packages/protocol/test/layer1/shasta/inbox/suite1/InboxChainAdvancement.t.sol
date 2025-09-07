@@ -715,17 +715,14 @@ contract InboxChainAdvancement is InboxTest {
 
         // Step 3: Verify the aggregated transition record is stored correctly
         // For proposal 1, the parent should be the genesis transition hash
-        IInbox.TransitionRecordExcerpt memory excerpt1 =
-            inbox.getTransitionRecordExcerpt(1, parentHash);
-        assertTrue(
-            excerpt1.recordHash != bytes26(0), "Transition record for proposal 1 should exist"
-        );
+        (, bytes26 recordHash1) = inbox.getTransitionRecordHash(1, parentHash);
+        assertTrue(recordHash1 != bytes26(0), "Transition record for proposal 1 should exist");
 
         // Verify the stored transition record hash matches what we expect
         bytes26 expectedTransitionRecordHash =
             bytes26(keccak256(abi.encode(expectedAggregatedRecord)));
         assertEq(
-            excerpt1.recordHash,
+            recordHash1,
             expectedTransitionRecordHash,
             "Stored transition record should match expected aggregated record"
         );
@@ -892,9 +889,8 @@ contract InboxChainAdvancement is InboxTest {
         // Each proposal gets its own transition record with span=1
         bytes32 expectedParent = parentHash;
         for (uint48 i = 0; i < numProposals; i++) {
-            IInbox.TransitionRecordExcerpt memory excerpt =
-                inbox.getTransitionRecordExcerpt(i + 1, expectedParent);
-            assertTrue(excerpt.recordHash != bytes26(0), "Transition record should exist");
+            (, bytes26 recordHash) = inbox.getTransitionRecordHash(i + 1, expectedParent);
+            assertTrue(recordHash != bytes26(0), "Transition record should exist");
 
             // Verify it's a non-aggregated record (span=1)
             IInbox.TransitionRecord memory expectedRecord = IInbox.TransitionRecord({
@@ -914,11 +910,7 @@ contract InboxChainAdvancement is InboxTest {
             });
 
             bytes26 expectedHash = bytes26(keccak256(abi.encode(expectedRecord)));
-            assertEq(
-                excerpt.recordHash,
-                expectedHash,
-                "Core should store non-aggregated transition record"
-            );
+            assertEq(recordHash, expectedHash, "Core should store non-aggregated transition record");
 
             expectedParent = keccak256(abi.encode(transitions[i]));
         }
@@ -1013,9 +1005,8 @@ contract InboxChainAdvancement is InboxTest {
         // Verify all transition records are stored
         bytes32 expectedParent = parentHash;
         for (uint48 i = 0; i < numProposals; i++) {
-            IInbox.TransitionRecordExcerpt memory excerpt =
-                inbox.getTransitionRecordExcerpt(i + 1, expectedParent);
-            assertTrue(excerpt.recordHash != bytes26(0), "Transition record should exist");
+            (, bytes26 recordHash) = inbox.getTransitionRecordHash(i + 1, expectedParent);
+            assertTrue(recordHash != bytes26(0), "Transition record should exist");
             expectedParent = keccak256(abi.encode(transitions[i]));
         }
 

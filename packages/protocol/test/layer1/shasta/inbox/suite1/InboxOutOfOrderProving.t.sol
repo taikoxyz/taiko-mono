@@ -165,9 +165,9 @@ contract InboxOutOfOrderProving is InboxTest {
             // Verify transition record was stored with correct parent
             bytes32 transitionParentHash =
                 index == 0 ? initialParentHash : transitionHashes[index - 1];
-            IInbox.TransitionRecordExcerpt memory excerpt =
-                inbox.getTransitionRecordExcerpt(proposals[index].id, transitionParentHash);
-            assertTrue(excerpt.recordHash != bytes26(0));
+            (, bytes26 recordHash) =
+                inbox.getTransitionRecordHash(proposals[index].id, transitionParentHash);
+            assertTrue(recordHash != bytes26(0));
         }
 
         // Phase 3: Attempt finalization - should finalize all in correct order
