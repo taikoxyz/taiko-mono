@@ -24,7 +24,7 @@ contracts:
   - name: ShastaInbox
     details:
       - network: local
-        address: "0x0000000000000000000000000000000000000000"
+        address: "0x998abeb3E57409262aE5b751f60747921B33613E"
         start_block: "0"
     abi: ./abis/ShastaInbox.json
     include_events:
