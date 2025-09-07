@@ -11,15 +11,11 @@ import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.so
 interface IInbox {
     /// @notice Configuration parameters for the Inbox contract
     struct Config {
-        address bondToken;
         uint48 provingWindow;
         uint48 extendedProvingWindow;
         uint256 maxFinalizationCount;
         uint256 ringBufferSize;
         uint8 basefeeSharingPctg;
-        address checkpointManager;
-        address proofVerifier;
-        address proposerChecker;
         /// @notice The minimum number of forced inclusions that the proposer is forced to process
         /// if they are due.
         uint256 minForcedInclusionCount;
