@@ -30,7 +30,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Struct for storing transition effective timestamp and hash.
     /// @dev Stores the first transition record for each proposal to reduce gas costs
     struct TransitionRecordExcerpt {
-        uint48 finalizationEnforcedAt;
+        uint48 finalizationDeadline;
         bytes26 recordHash;
     }
 
@@ -242,7 +242,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Retrieves the transition record hash for a specific proposal and parent transition
     /// @param _proposalId The ID of the proposal containing the transition
     /// @param _parentTransitionHash The hash of the parent transition in the proof chain
-    /// @return finalizationEnforcedAt_ The timestamp when finalization is enforced
+    /// @return finalizationDeadline_ The timestamp when finalization is enforced
     /// @return recordHash_ The hash of the transition record
     function getTransitionRecordHash(
         uint48 _proposalId,
@@ -250,11 +250,11 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     )
         external
         view
-        returns (uint48 finalizationEnforcedAt_, bytes26 recordHash_)
+        returns (uint48 finalizationDeadline_, bytes26 recordHash_)
     {
         TransitionRecordExcerpt memory excerpt =
             _getTransitionRecordExcerpt(_proposalId, _parentTransitionHash);
-        return (excerpt.finalizationEnforcedAt, excerpt.recordHash);
+        return (excerpt.finalizationDeadline, excerpt.recordHash);
     }
 
     /// @notice Returns the maximum capacity for unfinalized proposals
@@ -397,8 +397,6 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Reuse the same memory location for the transitionRecord struct
             transitionRecord.bondInstructions =
                 _calculateBondInstructions(_config, _input.proposals[i], _input.transitions[i]);
-            transitionRecord.finalizationEnforcedAt =
-                uint48(block.timestamp + _config.cooldownWindow);
             transitionRecord.transitionHash = _hashTransition(_input.transitions[i]);
             transitionRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
 
@@ -406,7 +404,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // the
             // event
             _setTransitionRecordExcerpt(
-                _input.proposals[i].id, _input.transitions[i], transitionRecord
+                _config, _input.proposals[i].id, _input.transitions[i], transitionRecord
             );
         }
     }
@@ -502,10 +500,12 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Stores transition record hash and emits Proved event
     /// @notice Virtual function to allow optimization in derived contracts
     /// @dev Uses composite key for unique transition identification
+    /// @param _config Configuration containing cooldown window
     /// @param _proposalId The ID of the proposal being proven
     /// @param _transition The transition data to include in the event
     /// @param _transitionRecord The transition record to hash and store
     function _setTransitionRecordExcerpt(
+        Config memory _config,
         uint48 _proposalId,
         Transition memory _transition,
         TransitionRecord memory _transitionRecord
@@ -521,7 +521,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         require(excerpt.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
         _transitionRecordExcepts[compositeKey] = TransitionRecordExcerpt({
-            finalizationEnforcedAt: _transitionRecord.finalizationEnforcedAt,
+            finalizationDeadline: uint48(block.timestamp + _config.cooldownWindow),
             recordHash: transitionRecordHash
         });
 
@@ -843,7 +843,7 @@ abstract contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // If not provided, and cooldown has passed, revert
         if (!_hasTransitionRecord) {
             // Check if cooldown period has passed for forcing
-            if (block.timestamp < excerpt.finalizationEnforcedAt) {
+            if (block.timestamp < excerpt.finalizationDeadline) {
                 // Cooldown not passed, don't force finalization
                 return (false, _proposalId);
             }

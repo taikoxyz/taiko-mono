@@ -74,10 +74,8 @@ abstract contract InboxOptimized1 is Inbox {
         _validateTransition(_config, _input.proposals[0], _input.transitions[0]);
 
         // Initialize current aggregation state
-        uint48 finalizationEnforcedAt = uint48(block.timestamp + _config.cooldownWindow);
         TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
-            finalizationEnforcedAt: finalizationEnforcedAt,
             bondInstructions: _calculateBondInstructions(
                 _config, _input.proposals[0], _input.transitions[0]
             ),
@@ -127,7 +125,7 @@ abstract contract InboxOptimized1 is Inbox {
             } else {
                 // Save the current aggregated record before starting a new one
                 _setTransitionRecordExcerpt(
-                    currentGroupStartId, firstTransitionInGroup, currentRecord
+                    _config, currentGroupStartId, firstTransitionInGroup, currentRecord
                 );
 
                 // Start a new record for non-continuous proposal
@@ -136,7 +134,6 @@ abstract contract InboxOptimized1 is Inbox {
 
                 currentRecord = TransitionRecord({
                     span: 1,
-                    finalizationEnforcedAt: finalizationEnforcedAt,
                     bondInstructions: _calculateBondInstructions(
                         _config, _input.proposals[i], _input.transitions[i]
                     ),
@@ -147,7 +144,9 @@ abstract contract InboxOptimized1 is Inbox {
         }
 
         // Save the final aggregated record
-        _setTransitionRecordExcerpt(currentGroupStartId, firstTransitionInGroup, currentRecord);
+        _setTransitionRecordExcerpt(
+            _config, currentGroupStartId, firstTransitionInGroup, currentRecord
+        );
     }
 
     /// @inheritdoc Inbox
@@ -195,6 +194,7 @@ abstract contract InboxOptimized1 is Inbox {
     ///         3. Same ID, different parent: Uses composite key mapping
     /// @dev Saves ~20,000 gas for common case by avoiding mapping writes
     function _setTransitionRecordExcerpt(
+        Config memory _config,
         uint48 _proposalId,
         Transition memory _transition,
         TransitionRecord memory _transitionRecord
@@ -207,11 +207,13 @@ abstract contract InboxOptimized1 is Inbox {
         bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
+        uint48 finalizationDeadline = uint48(block.timestamp + _config.cooldownWindow);
+
         // Check if we can use the default slot
         if (record.proposalId != _proposalId) {
             // Different proposal ID, so we can use the default slot
             record.excerpt = TransitionRecordExcerpt({
-                finalizationEnforcedAt: _transitionRecord.finalizationEnforcedAt,
+                finalizationDeadline: finalizationDeadline,
                 recordHash: transitionRecordHash
             });
             record.proposalId = _proposalId;
@@ -223,7 +225,7 @@ abstract contract InboxOptimized1 is Inbox {
         ) {
             // Different proposal ID, so we can use the default slot
             record.excerpt = TransitionRecordExcerpt({
-                finalizationEnforcedAt: _transitionRecord.finalizationEnforcedAt,
+                finalizationDeadline: finalizationDeadline,
                 recordHash: transitionRecordHash
             });
         } else {
@@ -231,7 +233,7 @@ abstract contract InboxOptimized1 is Inbox {
             bytes32 compositeKey =
                 _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
             _transitionRecordExcepts[compositeKey] = TransitionRecordExcerpt({
-                finalizationEnforcedAt: _transitionRecord.finalizationEnforcedAt,
+                finalizationDeadline: finalizationDeadline,
                 recordHash: bytes26(transitionRecordHash)
             });
         }

@@ -79,11 +79,6 @@ interface IInbox {
     struct TransitionRecord {
         /// @notice The span indicating how many proposals this transition record covers.
         uint8 span;
-        /// @notice The timestamp when this transition becomes effective for finalization.
-        /// @dev The delay is necessary to prevent a race condition where the proposer builds the
-        /// `ProposeInput` with X number of transitions to finalize, but then there's a `prove`
-        /// transaction before him that forces him to finalize more proposals
-        uint48 finalizationEnforcedAt;
         /// @notice The bond instructions.
         LibBonds.BondInstruction[] bondInstructions;
         /// @notice The hash of the last transition in the span.
@@ -196,7 +191,7 @@ interface IInbox {
     /// hash.
     /// @param _proposalId The proposal ID.
     /// @param _parentTransitionHash The parent transition hash.
-    /// @return finalizationEnforcedAt_ The timestamp when finalization is enforced.
+    /// @return finalizationDeadline_ The timestamp when finalization is enforced.
     /// @return recordHash_ The hash of the transition record.
     function getTransitionRecordHash(
         uint48 _proposalId,
@@ -204,7 +199,7 @@ interface IInbox {
     )
         external
         view
-        returns (uint48 finalizationEnforcedAt_, bytes26 recordHash_);
+        returns (uint48 finalizationDeadline_, bytes26 recordHash_);
 
     /// @notice Gets the capacity for unfinalized proposals.
     /// @return The maximum number of unfinalized proposals that can exist.

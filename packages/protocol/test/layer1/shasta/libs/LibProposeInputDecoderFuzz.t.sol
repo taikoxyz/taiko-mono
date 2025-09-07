@@ -130,7 +130,6 @@ contract LibProposeInputDecoderFuzz is Test {
         IInbox.TransitionRecord[] memory transitions = new IInbox.TransitionRecord[](1);
         transitions[0] = IInbox.TransitionRecord({
             span: span,
-            finalizationEnforcedAt: 0,
             bondInstructions: bonds,
             transitionHash: transitionHash,
             checkpointHash: checkpointHash
@@ -220,7 +219,6 @@ contract LibProposeInputDecoderFuzz is Test {
 
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: uint8(1 + (i % 3)),
-                finalizationEnforcedAt: 0,
                 bondInstructions: bondInstructions,
                 transitionHash: keccak256(abi.encodePacked("transition", i)),
                 checkpointHash: keccak256(abi.encodePacked("endBlock", i))
@@ -397,7 +395,6 @@ contract LibProposeInputDecoderFuzz is Test {
 
             input.transitionRecords[i] = IInbox.TransitionRecord({
                 span: uint8(1 + (i % 3)),
-                finalizationEnforcedAt: 0,
                 bondInstructions: bondInstructions,
                 transitionHash: keccak256(abi.encodePacked("transition", i)),
                 checkpointHash: keccak256(abi.encodePacked("endBlock", i))

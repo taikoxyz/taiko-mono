@@ -45,7 +45,6 @@ contract LibProposeInputDecoderTest is Test {
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
         transitionRecords[0] = IInbox.TransitionRecord({
             span: 1,
-            finalizationEnforcedAt: 0,
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: bytes32(0),
             checkpointHash: bytes32(0)
@@ -193,7 +192,6 @@ contract LibProposeInputDecoderTest is Test {
 
         transitionRecords[0] = IInbox.TransitionRecord({
             span: 1,
-            finalizationEnforcedAt: 0,
             bondInstructions: bondInstructions1,
             transitionHash: keccak256("transition_96"),
             checkpointHash: keccak256("end_block_96")
@@ -209,7 +207,6 @@ contract LibProposeInputDecoderTest is Test {
 
         transitionRecords[1] = IInbox.TransitionRecord({
             span: 2,
-            finalizationEnforcedAt: 0,
             bondInstructions: bondInstructions2,
             transitionHash: keccak256("transition_97"),
             checkpointHash: keccak256("end_block_97")

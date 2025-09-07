@@ -177,7 +177,6 @@ contract InboxOutOfOrderProving is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             transitionRecords[i] = IInbox.TransitionRecord({
                 span: 1,
-                finalizationEnforcedAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
                 bondInstructions: new LibBonds.BondInstruction[](0),
                 transitionHash: InboxTestLib.hashTransition(transitions[i]),
                 checkpointHash: keccak256(abi.encode(transitions[i].checkpoint))
@@ -402,7 +401,6 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
         transitionRecords[0] = IInbox.TransitionRecord({
             span: 1,
-            finalizationEnforcedAt: uint48(block.timestamp + defaultConfig.cooldownWindow),
             bondInstructions: new LibBonds.BondInstruction[](0),
             transitionHash: InboxTestLib.hashTransition(transition1),
             checkpointHash: keccak256(abi.encode(transition1.checkpoint))
