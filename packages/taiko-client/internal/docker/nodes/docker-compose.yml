@@ -35,7 +35,7 @@ services:
 
   protocol_indexer:
     container_name: protocol_indexer
-    image: us-docker.pkg.dev/evmchain/images/protocol-indexer:sha-413d295
+    image: us-docker.pkg.dev/evmchain/images/protocol-indexer:sha-30d750a
     restart: unless-stopped
     pull_policy: always
     depends_on:
@@ -49,7 +49,7 @@ services:
       - LOCAL_RPC=http://l1_node:8545
       - USE_DOCKER=false
     ports:
-      - "3001"
+      - 3001:3001
 
   l2_geth:
     container_name: l2_geth

@@ -31,7 +31,7 @@ compose_down() {
   local services=("$@")
   echo
   echo "stopping services..."
-  $COMPOSE down "${services[@]}" #--remove-orphans
+  $COMPOSE down -v "${services[@]}" #--remove-orphans
   echo "done"
 }
 

@@ -73,6 +73,7 @@ func (s *ProposerTestSuite) SetupTest() {
 			L1Endpoint:                  os.Getenv("L1_WS"),
 			L2Endpoint:                  os.Getenv("L2_WS"),
 			L2EngineEndpoint:            os.Getenv("L2_AUTH"),
+			IndexerEndpoint:             os.Getenv("INDEXER_ENDPOINT"),
 			JwtSecret:                   string(jwtSecret),
 			TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 			ProverSetAddress:            common.HexToAddress(os.Getenv("PROVER_SET")),
