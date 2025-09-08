@@ -72,8 +72,8 @@ contract InboxOptimized1 is Inbox {
         TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
             bondInstructions: _calculateBondInstructions(_input.proposals[0], _input.transitions[0]),
-            transitionHash: _hashTransition(_input.transitions[0]),
-            checkpointHash: _hashCheckpoint(_input.transitions[0].checkpoint)
+            transitionHash: hashTransition(_input.transitions[0]),
+            checkpointHash: hashCheckpoint(_input.transitions[0].checkpoint)
         });
 
         uint48 currentGroupStartId = _input.proposals[0].id;
@@ -101,8 +101,8 @@ contract InboxOptimized1 is Inbox {
 
                 // Update the transition hash and checkpoint hash for the aggregated
                 // record
-                currentRecord.transitionHash = _hashTransition(_input.transitions[i]);
-                currentRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
+                currentRecord.transitionHash = hashTransition(_input.transitions[i]);
+                currentRecord.checkpointHash = hashCheckpoint(_input.transitions[i].checkpoint);
 
                 // Increment span to include this aggregated proposal
                 currentRecord.span++;
@@ -121,8 +121,8 @@ contract InboxOptimized1 is Inbox {
                     bondInstructions: _calculateBondInstructions(
                         _input.proposals[i], _input.transitions[i]
                     ),
-                    transitionHash: _hashTransition(_input.transitions[i]),
-                    checkpointHash: _hashCheckpoint(_input.transitions[i].checkpoint)
+                    transitionHash: hashTransition(_input.transitions[i]),
+                    checkpointHash: hashCheckpoint(_input.transitions[i].checkpoint)
                 });
             }
         }

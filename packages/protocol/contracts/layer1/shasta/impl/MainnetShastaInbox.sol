@@ -8,7 +8,7 @@ import { LibL1Addrs } from "../../mainnet/libs/LibL1Addrs.sol";
 
 /// @title MainnetShastaInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
-/// with optimized reentrancy lock implementation.
+/// with optimized reentrancy lock implementation and efficient hashing.
 /// @custom:security-contact security@taiko.xyz
 contract MainnetShastaInbox is InboxOptimized3 {
     // ---------------------------------------------------------------
