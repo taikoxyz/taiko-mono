@@ -17,7 +17,6 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 ///      - Minimizes memory allocations and ABI encoding overhead
 /// @custom:security-contact security@taiko.xyz
 library LibHashing {
-    using EfficientHashLib for *;
 
     // ---------------------------------------------------------------
     // Constants
