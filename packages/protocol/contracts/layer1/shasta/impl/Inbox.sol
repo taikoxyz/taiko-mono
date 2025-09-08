@@ -275,7 +275,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc IForcedInclusionStore
     function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
         LibForcedInclusion.storeForcedInclusion(
-            _forcedInclusionStorage, _forcedInclusionDelay, _forcedInclusionFeeInGwei, _blobReference
+            _forcedInclusionStorage,
+            _forcedInclusionDelay,
+            _forcedInclusionFeeInGwei,
+            _blobReference
         );
     }
 
