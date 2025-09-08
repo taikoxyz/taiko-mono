@@ -1,0 +1,334 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import { Test } from "forge-std/Test.sol";
+import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
+import { InboxOptimized4 } from "contracts/layer1/shasta/impl/InboxOptimized4.sol";
+import { TestInbox } from "../implementations/TestInbox.sol";
+import { TestInboxOptimized4 } from "../implementations/TestInboxOptimized4.sol";
+import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
+import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+
+/// @title InboxHashFunctionGasComparison
+/// @notice Comprehensive gas comparison tests for hash functions between Inbox and InboxOptimized4
+contract InboxHashFunctionGasComparison is Test {
+    TestInbox public originalInbox;
+    TestInboxOptimized4 public optimizedInbox;
+
+    // Test data structures
+    IInbox.Transition public sampleTransition;
+    IInbox.Proposal public sampleProposal;
+    IInbox.Derivation public sampleDerivation;
+    IInbox.CoreState public sampleCoreState;
+    ICheckpointManager.Checkpoint public sampleCheckpoint;
+    IInbox.TransitionRecord public sampleTransitionRecord;
+
+    function setUp() public {
+        // Create sample configuration
+        IInbox.Config memory config = IInbox.Config({
+            bondToken: address(0x123),
+            checkpointManager: address(0x456),
+            proofVerifier: address(0x789),
+            proposerChecker: address(0xabc),
+            provingWindow: 3600,
+            extendedProvingWindow: 7200,
+            maxFinalizationCount: 10,
+            finalizationGracePeriod: 1800,
+            ringBufferSize: 1024,
+            basefeeSharingPctg: 50,
+            minForcedInclusionCount: 1,
+            forcedInclusionDelay: 300,
+            forcedInclusionFeeInGwei: 10
+        });
+
+        // Deploy test implementations
+        originalInbox = new TestInbox(config);
+        optimizedInbox = new TestInboxOptimized4(config);
+
+        // Setup sample data
+        _setupSampleData();
+    }
+
+    function _setupSampleData() internal {
+        // Sample Transition
+        sampleTransition = IInbox.Transition({
+            proposalHash: keccak256("proposal1"),
+            parentTransitionHash: keccak256("parent1"),
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: 12345,
+                blockHash: keccak256("block1"),
+                stateRoot: keccak256("state1")
+            }),
+            designatedProver: address(0x111),
+            actualProver: address(0x222)
+        });
+
+        // Sample Checkpoint
+        sampleCheckpoint = ICheckpointManager.Checkpoint({
+            blockNumber: 12345,
+            blockHash: keccak256("block1"),
+            stateRoot: keccak256("state1")
+        });
+
+        // Sample CoreState
+        sampleCoreState = IInbox.CoreState({
+            nextProposalId: 100,
+            lastFinalizedProposalId: 99,
+            lastFinalizedTransitionHash: keccak256("lastTx"),
+            bondInstructionsHash: keccak256("bonds")
+        });
+
+        // Sample Proposal
+        sampleProposal = IInbox.Proposal({
+            id: 42,
+            timestamp: 1700000000,
+            lookaheadSlotTimestamp: 1700000012,
+            proposer: address(0x333),
+            coreStateHash: keccak256("coreState"),
+            derivationHash: keccak256("derivation")
+        });
+
+        // Sample Derivation
+        sampleDerivation = IInbox.Derivation({
+            originBlockNumber: 12340,
+            originBlockHash: keccak256("origin"),
+            isForcedInclusion: false,
+            basefeeSharingPctg: 50,
+            blobSlice: LibBlobs.BlobSlice({
+                blobId: 1,
+                offset: 0,
+                length: 1000
+            })
+        });
+
+        // Sample TransitionRecord
+        LibBonds.BondInstruction[] memory instructions = new LibBonds.BondInstruction[](1);
+        instructions[0] = LibBonds.BondInstruction({
+            proposalId: 42,
+            bondType: LibBonds.BondType.LIVENESS,
+            payer: address(0x444),
+            receiver: address(0x555)
+        });
+
+        sampleTransitionRecord = IInbox.TransitionRecord({
+            span: 1,
+            bondInstructions: instructions,
+            transitionHash: keccak256("transition"),
+            checkpointHash: keccak256("checkpoint")
+        });
+    }
+
+    /// @notice Test gas costs for hashTransition function
+    function test_hashTransition_GasComparison() public view {
+        uint256 gasOriginal = _measureGas(() -> bytes32 {
+            return originalInbox.hashTransition(sampleTransition);
+        });
+
+        uint256 gasOptimized = _measureGas(() -> bytes32 {
+            return optimizedInbox.hashTransition(sampleTransition);
+        });
+
+        uint256 gasSaved = gasOriginal - gasOptimized;
+        uint256 percentSaved = (gasSaved * 100) / gasOriginal;
+
+        console.log("=== hashTransition Gas Comparison ===");
+        console.log("Original gas used:", gasOriginal);
+        console.log("Optimized gas used:", gasOptimized);
+        console.log("Gas saved:", gasSaved);
+        console.log("Percentage saved: %d%%", percentSaved);
+        console.log("");
+
+        // Verify optimization achieved at least 10% savings
+        assertGe(percentSaved, 10, "hashTransition should save at least 10% gas");
+    }
+
+    /// @notice Test gas costs for hashCheckpoint function
+    function test_hashCheckpoint_GasComparison() public view {
+        uint256 gasOriginal = _measureGas(() -> bytes32 {
+            return originalInbox.hashCheckpoint(sampleCheckpoint);
+        });
+
+        uint256 gasOptimized = _measureGas(() -> bytes32 {
+            return optimizedInbox.hashCheckpoint(sampleCheckpoint);
+        });
+
+        uint256 gasSaved = gasOriginal - gasOptimized;
+        uint256 percentSaved = (gasSaved * 100) / gasOriginal;
+
+        console.log("=== hashCheckpoint Gas Comparison ===");
+        console.log("Original gas used:", gasOriginal);
+        console.log("Optimized gas used:", gasOptimized);
+        console.log("Gas saved:", gasSaved);
+        console.log("Percentage saved: %d%%", percentSaved);
+        console.log("");
+
+        assertGe(percentSaved, 10, "hashCheckpoint should save at least 10% gas");
+    }
+
+    /// @notice Test gas costs for hashCoreState function
+    function test_hashCoreState_GasComparison() public view {
+        uint256 gasOriginal = _measureGas(() -> bytes32 {
+            return originalInbox.hashCoreState(sampleCoreState);
+        });
+
+        uint256 gasOptimized = _measureGas(() -> bytes32 {
+            return optimizedInbox.hashCoreState(sampleCoreState);
+        });
+
+        uint256 gasSaved = gasOriginal - gasOptimized;
+        uint256 percentSaved = (gasSaved * 100) / gasOriginal;
+
+        console.log("=== hashCoreState Gas Comparison ===");
+        console.log("Original gas used:", gasOriginal);
+        console.log("Optimized gas used:", gasOptimized);
+        console.log("Gas saved:", gasSaved);
+        console.log("Percentage saved: %d%%", percentSaved);
+        console.log("");
+
+        assertGe(percentSaved, 10, "hashCoreState should save at least 10% gas");
+    }
+
+    /// @notice Test gas costs for hashProposal function
+    function test_hashProposal_GasComparison() public view {
+        uint256 gasOriginal = _measureGas(() -> bytes32 {
+            return originalInbox.hashProposal(sampleProposal);
+        });
+
+        uint256 gasOptimized = _measureGas(() -> bytes32 {
+            return optimizedInbox.hashProposal(sampleProposal);
+        });
+
+        uint256 gasSaved = gasOriginal - gasOptimized;
+        uint256 percentSaved = (gasSaved * 100) / gasOriginal;
+
+        console.log("=== hashProposal Gas Comparison ===");
+        console.log("Original gas used:", gasOriginal);
+        console.log("Optimized gas used:", gasOptimized);
+        console.log("Gas saved:", gasSaved);
+        console.log("Percentage saved: %d%%", percentSaved);
+        console.log("");
+
+        assertGe(percentSaved, 5, "hashProposal should save at least 5% gas");
+    }
+
+    /// @notice Test gas costs for hashDerivation function
+    function test_hashDerivation_GasComparison() public view {
+        uint256 gasOriginal = _measureGas(() -> bytes32 {
+            return originalInbox.hashDerivation(sampleDerivation);
+        });
+
+        uint256 gasOptimized = _measureGas(() -> bytes32 {
+            return optimizedInbox.hashDerivation(sampleDerivation);
+        });
+
+        uint256 gasSaved = gasOriginal - gasOptimized;
+        uint256 percentSaved = (gasSaved * 100) / gasOriginal;
+
+        console.log("=== hashDerivation Gas Comparison ===");
+        console.log("Original gas used:", gasOriginal);
+        console.log("Optimized gas used:", gasOptimized);
+        console.log("Gas saved:", gasSaved);
+        console.log("Percentage saved: %d%%", percentSaved);
+        console.log("");
+
+        assertGe(percentSaved, 5, "hashDerivation should save at least 5% gas");
+    }
+
+    /// @notice Test gas costs for hashTransitionsArray function
+    function test_hashTransitionsArray_GasComparison() public view {
+        // Test with array of multiple transitions
+        IInbox.Transition[] memory transitions = new IInbox.Transition[](3);
+        transitions[0] = sampleTransition;
+        transitions[1] = sampleTransition;
+        transitions[2] = sampleTransition;
+
+        uint256 gasOriginal = _measureGas(() -> bytes32 {
+            return originalInbox.hashTransitionsArray(transitions);
+        });
+
+        uint256 gasOptimized = _measureGas(() -> bytes32 {
+            return optimizedInbox.hashTransitionsArray(transitions);
+        });
+
+        uint256 gasSaved = gasOriginal - gasOptimized;
+        uint256 percentSaved = (gasSaved * 100) / gasOriginal;
+
+        console.log("=== hashTransitionsArray Gas Comparison ===");
+        console.log("Original gas used:", gasOriginal);
+        console.log("Optimized gas used:", gasOptimized);
+        console.log("Gas saved:", gasSaved);
+        console.log("Percentage saved: %d%%", percentSaved);
+        console.log("");
+
+        assertGe(percentSaved, 5, "hashTransitionsArray should save at least 5% gas");
+    }
+
+    /// @notice Test overall gas improvements in a combined hash operation scenario
+    function test_combinedHashOperations_GasComparison() public view {
+        uint256 gasOriginal = _measureGas(() -> bytes32 {
+            bytes32 h1 = originalInbox.hashTransition(sampleTransition);
+            bytes32 h2 = originalInbox.hashCheckpoint(sampleCheckpoint);
+            bytes32 h3 = originalInbox.hashCoreState(sampleCoreState);
+            bytes32 h4 = originalInbox.hashProposal(sampleProposal);
+            return keccak256(abi.encode(h1, h2, h3, h4));
+        });
+
+        uint256 gasOptimized = _measureGas(() -> bytes32 {
+            bytes32 h1 = optimizedInbox.hashTransition(sampleTransition);
+            bytes32 h2 = optimizedInbox.hashCheckpoint(sampleCheckpoint);
+            bytes32 h3 = optimizedInbox.hashCoreState(sampleCoreState);
+            bytes32 h4 = optimizedInbox.hashProposal(sampleProposal);
+            return keccak256(abi.encode(h1, h2, h3, h4));
+        });
+
+        uint256 gasSaved = gasOriginal - gasOptimized;
+        uint256 percentSaved = (gasSaved * 100) / gasOriginal;
+
+        console.log("=== Combined Hash Operations Gas Comparison ===");
+        console.log("Original gas used:", gasOriginal);
+        console.log("Optimized gas used:", gasOptimized);
+        console.log("Gas saved:", gasSaved);
+        console.log("Percentage saved: %d%%", percentSaved);
+        console.log("");
+
+        assertGe(percentSaved, 8, "Combined operations should save at least 8% gas");
+    }
+
+    /// @notice Test correctness: ensure all hash functions produce identical results
+    function test_hashFunctionCorrectness() public view {
+        // Test hashTransition
+        bytes32 originalResult = originalInbox.hashTransition(sampleTransition);
+        bytes32 optimizedResult = optimizedInbox.hashTransition(sampleTransition);
+        assertEq(originalResult, optimizedResult, "hashTransition results must match");
+
+        // Test hashCheckpoint
+        originalResult = originalInbox.hashCheckpoint(sampleCheckpoint);
+        optimizedResult = optimizedInbox.hashCheckpoint(sampleCheckpoint);
+        assertEq(originalResult, optimizedResult, "hashCheckpoint results must match");
+
+        // Test hashCoreState
+        originalResult = originalInbox.hashCoreState(sampleCoreState);
+        optimizedResult = optimizedInbox.hashCoreState(sampleCoreState);
+        assertEq(originalResult, optimizedResult, "hashCoreState results must match");
+
+        // Test hashProposal
+        originalResult = originalInbox.hashProposal(sampleProposal);
+        optimizedResult = optimizedInbox.hashProposal(sampleProposal);
+        assertEq(originalResult, optimizedResult, "hashProposal results must match");
+
+        // Test hashDerivation
+        originalResult = originalInbox.hashDerivation(sampleDerivation);
+        optimizedResult = optimizedInbox.hashDerivation(sampleDerivation);
+        assertEq(originalResult, optimizedResult, "hashDerivation results must match");
+    }
+
+    /// @notice Utility function to measure gas consumption of a function call
+    function _measureGas(function() view returns (bytes32) func) internal view returns (uint256) {
+        uint256 gasBefore = gasleft();
+        func();
+        uint256 gasAfter = gasleft();
+        return gasBefore - gasAfter;
+    }
+}

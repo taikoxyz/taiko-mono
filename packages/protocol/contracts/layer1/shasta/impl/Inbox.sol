@@ -671,6 +671,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _hashTransitionRecord(TransitionRecord memory _transitionRecord)
         internal
         pure
+        virtual
         returns (bytes26)
     {
         return bytes26(keccak256(abi.encode(_transitionRecord)));
@@ -682,6 +683,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _hashTransitionsArray(Transition[] memory _transitions)
         internal
         pure
+        virtual
         returns (bytes32)
     {
         return keccak256(abi.encode(_transitions));
