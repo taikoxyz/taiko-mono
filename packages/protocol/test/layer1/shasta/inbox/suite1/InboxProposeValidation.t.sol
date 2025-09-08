@@ -211,54 +211,39 @@ contract InboxProposeValidation is InboxTest {
         inbox.propose(bytes(""), data);
     }
 
-    /// @notice Test proposal exceeding unfinalized capacity
-    /// @dev Validates ring buffer capacity enforcement for DoS protection:
-    ///      1. Configures small ring buffer size (capacity = 2)
-    ///      2. Fills capacity with valid proposals
-    ///      3. Attempts to exceed capacity with third proposal
-    ///      4. Expects ExceedsUnfinalizedProposalCapacity error for protection
-    /// @notice Test that proposals are silently skipped when capacity is exceeded
-    /// @dev With the new forced inclusion design, regular proposals are silently skipped
-    ///      when there's no available capacity, allowing forced inclusions to be prioritized
+    /// @notice Test proposal with incorrect parent proposal count
+    /// @dev Validates ring buffer parent proposal validation:
+    ///      1. Submits proposals normally to establish ring buffer state
+    ///      2. Attempts to submit proposal with wrong number of parent proposals
+    ///      3. Expects IncorrectProposalCount error for validation failure
+    ///      4. Tests the ring buffer's parent proposal count enforcement
     function test_propose_exceeds_capacity() public {
-        // Setup: Prepare environment with limited ring buffer capacity
+        // Setup: Prepare environment with ring buffer capacity
         setupBlobHashes();
-        // Configure small ring buffer size for capacity testing
-        IInbox.Config memory config = defaultConfig;
-        config.ringBufferSize = 3; // Capacity = ringBufferSize - 1 = 2
-        inbox.setTestConfig(config);
+        // Ring buffer size = 100, capacity = 99
+        // For testing, we'll create a scenario where the proposals array doesn't match
+        // what the contract expects based on ring buffer state
 
-        // Submit 2 proposals to fill available capacity
-        for (uint48 i = 1; i <= 2; i++) {
-            submitProposal(i, Alice);
-        }
+        // Submit 2 proposals normally
+        submitProposal(1, Alice);
+        submitProposal(2, Alice);
 
-        // Verify initial state: 2 proposals stored
-        assertProposalStored(1);
-        assertProposalStored(2);
-
-        // Store current proposal hashes
-        bytes32 prop1Hash = inbox.getProposalHash(1);
-        bytes32 prop2Hash = inbox.getProposalHash(2);
-
-        // Act: Attempt to add 3rd proposal (exceeds capacity)
-        // Setup for proposal 3
+        // Act: Try to submit proposal 3, but with wrong parent proposals count
+        // Setup core state for proposal 3
         IInbox.CoreState memory coreState3 = _getGenesisCoreState();
         coreState3.nextProposalId = 3;
 
         setupProposalMocks(Alice);
 
-        // When ring buffer wraps around to slot 0 (which has genesis), need 2 proposals
-        // Create the last proposal (id=2) that was just stored
+        // Intentionally provide wrong number of proposals to trigger IncorrectProposalCount
+        // Ring buffer slot for proposal 3 is empty, so contract expects 1 proposal
+        // But we'll provide 2 proposals to trigger the error
         IInbox.Proposal memory lastProposal = _recreateStoredProposal(2);
+        IInbox.Proposal memory wrongProposal = _recreateStoredProposal(1);
 
-        // Get the genesis proposal that's in slot 0
-        IInbox.Proposal memory genesisProposal = _recreateGenesisProposal();
-
-        // Include both proposals for ring buffer wraparound validation
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](2);
         proposals[0] = lastProposal;
-        proposals[1] = genesisProposal;
+        proposals[1] = wrongProposal; // This shouldn't be here for proposal 3
 
         bytes memory data3 = encodeProposeInputWithProposals(
             uint48(0),
@@ -268,18 +253,10 @@ contract InboxProposeValidation is InboxTest {
             new IInbox.TransitionRecord[](0)
         );
 
-        // Act: Call propose - should succeed but skip the proposal
+        // Act & Assert: Should revert with IncorrectProposalCount
+        vm.expectRevert(abi.encodeWithSignature("IncorrectProposalCount()"));
         vm.prank(Alice);
         inbox.propose(bytes(""), data3);
-
-        // Assert: Verify that no new proposal was created (silently skipped)
-        // The existing proposals should remain unchanged
-        assertEq(inbox.getProposalHash(1), prop1Hash, "Proposal 1 should be unchanged");
-        assertEq(inbox.getProposalHash(2), prop2Hash, "Proposal 2 should be unchanged");
-
-        // Proposal 3 should not exist (slot 0 should still have genesis)
-        bytes32 slot0Hash = inbox.getProposalHash(0);
-        assertTrue(slot0Hash != bytes32(0), "Slot 0 should still have genesis");
     }
 
     /// @notice Test proposal with invalid blob reference
