@@ -153,6 +153,24 @@ pub fn decode_proposed_data_shasta(data: &[u8]) -> Result<ProposedEventPayload, 
         unpack_bytes32(data, &mut ptr, "coreState.lastFinalizedTransitionHash")?;
     let bond_instructions_hash = unpack_bytes32(data, &mut ptr, "coreState.bondInstructionsHash")?;
 
+    // Build the Derivation first to calculate its hash
+    let derivation = Derivation {
+        originBlockNumber: Uint::<48, 1>::from(origin_block_number),
+        originBlockHash: B256::ZERO, // Not included in the compact encoding
+        isForcedInclusion: is_forced_inclusion,
+        basefeeSharingPctg: basefee_sharing_pctg,
+        blobSlice: BlobSlice {
+            blobHashes: blob_hashes,
+            offset: Uint::<24, 1>::from(blob_offset),
+            timestamp: Uint::<48, 1>::from(blob_timestamp),
+        },
+    };
+
+    // Calculate derivationHash by encoding and hashing the Derivation struct
+    // This matches the Solidity implementation: keccak256(abi.encode(_derivation))
+    use alloy::sol_types::SolValue;
+    let derivation_hash = alloy::primitives::keccak256(derivation.abi_encode());
+
     // Build the ProposedEventPayload
     // Note: Uint<48, 1> is used for 48-bit values, Uint<24, 1> for 24-bit values
     Ok(ProposedEventPayload {
@@ -162,19 +180,9 @@ pub fn decode_proposed_data_shasta(data: &[u8]) -> Result<ProposedEventPayload, 
             // lookaheadSlotTimestamp is not in the current ABI, will be added when ABI is updated
             proposer,
             coreStateHash: core_state_hash,
-            derivationHash: B256::ZERO, // Not included in the compact encoding, set to zero
+            derivationHash: derivation_hash.into(), // Calculated from the Derivation struct
         },
-        derivation: Derivation {
-            originBlockNumber: Uint::<48, 1>::from(origin_block_number),
-            originBlockHash: B256::ZERO, // Not included in the compact encoding
-            isForcedInclusion: is_forced_inclusion,
-            basefeeSharingPctg: basefee_sharing_pctg,
-            blobSlice: BlobSlice {
-                blobHashes: blob_hashes,
-                offset: Uint::<24, 1>::from(blob_offset),
-                timestamp: Uint::<48, 1>::from(blob_timestamp),
-            },
-        },
+        derivation,
         coreState: CoreState {
             nextProposalId: Uint::<48, 1>::from(next_proposal_id),
             lastFinalizedProposalId: Uint::<48, 1>::from(last_finalized_proposal_id),
