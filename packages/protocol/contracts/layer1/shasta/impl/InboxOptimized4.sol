@@ -18,6 +18,15 @@ import { EfficientHashLib } from "@solady/utils/EfficientHashLib.sol";
 /// @custom:security-contact security@taiko.xyz
 contract InboxOptimized4 is InboxOptimized3 {
     // ---------------------------------------------------------------
+    // Custom Errors
+    // ---------------------------------------------------------------
+
+    /// @notice Thrown when array length would cause overflow in memory operations
+    error ArrayTooLarge();
+
+    /// @notice Thrown when bond instructions array length would cause overflow
+    error BondInstructionsArrayTooLarge();
+    // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
 
@@ -101,7 +110,7 @@ contract InboxOptimized4 is InboxOptimized3 {
         // Overflow protection: Ensure length * 32 doesn't overflow
         // Max safe length: (2^256 - 1) / 32 = ~3.6e75, but gas limits make this impossible
         // Adding explicit check for robustness
-        require(length <= type(uint256).max / 32, "Array too large");
+        if (length > type(uint256).max / 32) revert ArrayTooLarge();
         
         // For multiple transitions, extract hashes and use efficient array hashing
         bytes32[] memory transitionHashes = new bytes32[](length);
@@ -165,7 +174,7 @@ contract InboxOptimized4 is InboxOptimized3 {
         } else {
             uint256 instructionLength = _transitionRecord.bondInstructions.length;
             // Overflow protection for bond instructions array
-            require(instructionLength <= type(uint256).max / 32, "Bond instructions array too large");
+            if (instructionLength > type(uint256).max / 32) revert BondInstructionsArrayTooLarge();
             
             // Hash each bond instruction individually then combine
             bytes32[] memory instructionHashes = new bytes32[](instructionLength);
