@@ -2,6 +2,9 @@ package metrics
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"syscall"
 
 	p2pNodeMetrics "github.com/ethereum-optimism/optimism/op-node/metrics"
 	opMetrics "github.com/ethereum-optimism/optimism/op-service/metrics"
@@ -9,9 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli/v2"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/cmd/flags"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
 // An extended set of histogram buckers to have more granularity in the [0.5,
@@ -189,25 +189,40 @@ var (
 	// TxManager
 	TxMgrMetrics   = txmgrMetrics.MakeTxMetrics("client", factory)
 	P2PNodeMetrics = p2pNodeMetrics.NewMetrics("client")
+
+	// RPC Metrics
+	RPCCallsCounter = factory.NewCounterVec(prometheus.CounterOpts{
+		Name: "rpc_calls_total",
+		Help: "Total number of RPC calls made",
+	}, []string{"method", "endpoint", "status"})
+	RPCCallDurationHistogram = factory.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "rpc_call_duration_seconds",
+		Help:    "Duration of RPC calls in seconds",
+		Buckets: HistogramBuckets,
+	}, []string{"method", "endpoint"})
+	RPCCallErrorsCounter = factory.NewCounterVec(prometheus.CounterOpts{
+		Name: "rpc_call_errors_total",
+		Help: "Total number of RPC call errors",
+	}, []string{"method", "endpoint", "error"})
 )
 
 // Serve starts the metrics server on the given address, will be closed when the given
 // context is cancelled.
 func Serve(ctx context.Context, c *cli.Context) error {
-	if !c.Bool(flags.MetricsEnabled.Name) {
+	if !c.Bool("metrics") {
 		return nil
 	}
 
 	log.Info(
 		"Starting metrics server",
-		"host", c.String(flags.MetricsAddr.Name),
-		"port", c.Int(flags.MetricsPort.Name),
+		"host", c.String("metrics.addr"),
+		"port", c.Int("metrics.port"),
 	)
 
 	server, err := opMetrics.StartServer(
 		registry,
-		c.String(flags.MetricsAddr.Name),
-		c.Int(flags.MetricsPort.Name),
+		c.String("metrics.addr"),
+		c.Int("metrics.port"),
 	)
 	if err != nil {
 		return err
@@ -219,7 +234,14 @@ func Serve(ctx context.Context, c *cli.Context) error {
 		}
 	}()
 
-	rpc.BlockOnInterruptsContext(ctx)
+	// Block until context is cancelled or interrupt signal is received
+	interruptChannel := make(chan os.Signal, 1)
+	signal.Notify(interruptChannel, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+	select {
+	case <-interruptChannel:
+	case <-ctx.Done():
+		signal.Stop(interruptChannel)
+	}
 
 	return nil
 }

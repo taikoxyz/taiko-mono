@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -14,6 +15,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 	"github.com/ethereum/go-ethereum/rpc"
+
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
 var (
@@ -39,6 +42,7 @@ type EthClient struct {
 	*ethClient
 
 	timeout time.Duration
+	rpcURL  string
 }
 
 // NewEthClient creates a new EthClient instance.
@@ -66,6 +70,7 @@ func NewEthClient(ctx context.Context, url string, timeout time.Duration) (*EthC
 		gethClient: &gethClient{gethclient.New(client)},
 		ethClient:  ethClient,
 		timeout:    timeoutVal,
+		rpcURL:     url,
 	}, nil
 }
 
@@ -73,15 +78,96 @@ func (c *EthClient) EthClient() *ethclient.Client {
 	return c.ethClient.Client
 }
 
+// CallContext wraps the underlying RPC client's CallContext with metrics tracking.
+func (c *EthClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+	start := time.Now()
+	
+	err := c.Client.CallContext(ctx, result, method, args...)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		// Extract error type for more detailed metrics
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues(method, c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues(method, c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues(method, c.rpcURL).Observe(duration)
+	
+	return err
+}
+
+// BatchCallContext wraps the underlying RPC client's BatchCallContext with metrics tracking.
+func (c *EthClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	start := time.Now()
+	
+	err := c.Client.BatchCallContext(ctx, b)
+	
+	// Record metrics for batch calls
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("batch_call", c.rpcURL, errorType).Inc()
+	}
+	
+	// Count individual batch elements
+	for _, elem := range b {
+		elemStatus := "success"
+		if elem.Error != nil {
+			elemStatus = "error"
+			errorType := "unknown"
+			if elem.Error.Error() != "" {
+				errorType = strings.Split(elem.Error.Error(), ":")[0]
+			}
+			metrics.RPCCallErrorsCounter.WithLabelValues(elem.Method, c.rpcURL, errorType).Inc()
+		}
+		metrics.RPCCallsCounter.WithLabelValues(elem.Method, c.rpcURL, elemStatus).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("batch_call", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("batch_call", c.rpcURL).Observe(duration)
+	
+	return err
+}
+
 // BlockByHash returns the given full block.
 //
 // Note that loading full blocks requires two requests. Use HeaderByHash
 // if you don't need all transactions or uncle headers.
 func (c *EthClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.BlockByHash(ctxWithTimeout, hash)
+	result, err := c.ethClient.BlockByHash(ctxWithTimeout, hash)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBlockByHash", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getBlockByHash", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBlockByHash", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // BatchBlocksByHashes requests multiple blocks by their hashes in a batch.
@@ -119,43 +205,133 @@ func (c *EthClient) BatchBlocksByHashes(ctx context.Context, hashes []common.Has
 // Note that loading full blocks requires two requests. Use HeaderByNumber
 // if you don't need all transactions or uncle headers.
 func (c *EthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.BlockByNumber(ctxWithTimeout, number)
+	result, err := c.ethClient.BlockByNumber(ctxWithTimeout, number)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBlockByNumber", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getBlockByNumber", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBlockByNumber", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // BlockNumber returns the most recent block number
 func (c *EthClient) BlockNumber(ctx context.Context) (uint64, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.BlockNumber(ctxWithTimeout)
+	result, err := c.ethClient.BlockNumber(ctxWithTimeout)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_blockNumber", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_blockNumber", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_blockNumber", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // PeerCount returns the number of p2p peers as reported by the net_peerCount method.
 func (c *EthClient) PeerCount(ctx context.Context) (uint64, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PeerCount(ctxWithTimeout)
+	result, err := c.ethClient.PeerCount(ctxWithTimeout)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("net_peerCount", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("net_peerCount", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("net_peerCount", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // HeaderByHash returns the block header with the given hash.
 func (c *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.HeaderByHash(ctxWithTimeout, hash)
+	result, err := c.ethClient.HeaderByHash(ctxWithTimeout, hash)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBlockByHash", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getBlockByHash", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBlockByHash", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // HeaderByNumber returns a block header from the current canonical chain. If number is
 // nil, the latest known header is returned.
 func (c *EthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.HeaderByNumber(ctxWithTimeout, number)
+	result, err := c.ethClient.HeaderByNumber(ctxWithTimeout, number)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBlockByNumber", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getBlockByNumber", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBlockByNumber", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 func (c *EthClient) BatchHeadersByNumbers(ctx context.Context, numbers []*big.Int) ([]*types.Header, error) {
@@ -206,10 +382,28 @@ func (c *EthClient) TransactionByHash(
 	ctx context.Context,
 	hash common.Hash,
 ) (tx *types.Transaction, isPending bool, err error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.TransactionByHash(ctxWithTimeout, hash)
+	tx, isPending, err = c.ethClient.TransactionByHash(ctxWithTimeout, hash)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getTransactionByHash", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getTransactionByHash", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getTransactionByHash", c.rpcURL).Observe(duration)
+	
+	return tx, isPending, err
 }
 
 // TransactionSender returns the sender address of the given transaction. The transaction
@@ -224,18 +418,54 @@ func (c *EthClient) TransactionSender(
 	block common.Hash,
 	index uint,
 ) (common.Address, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.TransactionSender(ctxWithTimeout, tx, block, index)
+	result, err := c.ethClient.TransactionSender(ctxWithTimeout, tx, block, index)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_accounts", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_accounts", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_accounts", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // TransactionCount returns the total number of transactions in the given block.
 func (c *EthClient) TransactionCount(ctx context.Context, blockHash common.Hash) (uint, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.TransactionCount(ctxWithTimeout, blockHash)
+	result, err := c.ethClient.TransactionCount(ctxWithTimeout, blockHash)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBlockTransactionCountByHash", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getBlockTransactionCountByHash", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBlockTransactionCountByHash", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // TransactionInBlock returns a single transaction at index in the given block.
@@ -244,27 +474,81 @@ func (c *EthClient) TransactionInBlock(
 	blockHash common.Hash,
 	index uint,
 ) (*types.Transaction, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.TransactionInBlock(ctxWithTimeout, blockHash, index)
+	result, err := c.ethClient.TransactionInBlock(ctxWithTimeout, blockHash, index)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getTransactionByBlockHashAndIndex", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getTransactionByBlockHashAndIndex", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getTransactionByBlockHashAndIndex", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // SyncProgress retrieves the current progress of the sync algorithm. If there's
 // no sync currently running, it returns nil.
 func (c *EthClient) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.SyncProgress(ctxWithTimeout)
+	result, err := c.ethClient.SyncProgress(ctxWithTimeout)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_syncing", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_syncing", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_syncing", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // NetworkID returns the network ID for this client.
 func (c *EthClient) NetworkID(ctx context.Context) (*big.Int, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.NetworkID(ctxWithTimeout)
+	result, err := c.ethClient.NetworkID(ctxWithTimeout)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("net_version", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("net_version", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("net_version", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // BalanceAt returns the wei balance of the given account.
@@ -274,10 +558,28 @@ func (c *EthClient) BalanceAt(
 	account common.Address,
 	blockNumber *big.Int,
 ) (*big.Int, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.BalanceAt(ctxWithTimeout, account, blockNumber)
+	result, err := c.ethClient.BalanceAt(ctxWithTimeout, account, blockNumber)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBalance", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getBalance", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBalance", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // StorageAt returns the value of key in the contract storage of the given account.
@@ -288,10 +590,28 @@ func (c *EthClient) StorageAt(
 	key common.Hash,
 	blockNumber *big.Int,
 ) ([]byte, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.StorageAt(ctxWithTimeout, account, key, blockNumber)
+	result, err := c.ethClient.StorageAt(ctxWithTimeout, account, key, blockNumber)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getStorageAt", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getStorageAt", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getStorageAt", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // CodeAt returns the contract code of the given account.
@@ -301,10 +621,28 @@ func (c *EthClient) CodeAt(
 	account common.Address,
 	blockNumber *big.Int,
 ) ([]byte, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.CodeAt(ctxWithTimeout, account, blockNumber)
+	result, err := c.ethClient.CodeAt(ctxWithTimeout, account, blockNumber)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getCode", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getCode", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getCode", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // NonceAt returns the account nonce of the given account.
@@ -314,18 +652,54 @@ func (c *EthClient) NonceAt(
 	account common.Address,
 	blockNumber *big.Int,
 ) (uint64, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.NonceAt(ctxWithTimeout, account, blockNumber)
+	result, err := c.ethClient.NonceAt(ctxWithTimeout, account, blockNumber)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getTransactionCount", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getTransactionCount", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getTransactionCount", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // PendingBalanceAt returns the wei balance of the given account in the pending state.
 func (c *EthClient) PendingBalanceAt(ctx context.Context, account common.Address) (*big.Int, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PendingBalanceAt(ctxWithTimeout, account)
+	result, err := c.ethClient.PendingBalanceAt(ctxWithTimeout, account)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBalance", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getBalance", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBalance", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // PendingStorageAt returns the value of key in the contract storage of the given account in the pending state.
@@ -334,35 +708,107 @@ func (c *EthClient) PendingStorageAt(
 	account common.Address,
 	key common.Hash,
 ) ([]byte, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PendingStorageAt(ctxWithTimeout, account, key)
+	result, err := c.ethClient.PendingStorageAt(ctxWithTimeout, account, key)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getStorageAt", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getStorageAt", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getStorageAt", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // PendingCodeAt returns the contract code of the given account in the pending state.
 func (c *EthClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PendingCodeAt(ctxWithTimeout, account)
+	result, err := c.ethClient.PendingCodeAt(ctxWithTimeout, account)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getCode", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getCode", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getCode", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // PendingNonceAt returns the account nonce of the given account in the pending state.
 // This is the nonce that should be used for the next transaction.
 func (c *EthClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PendingNonceAt(ctxWithTimeout, account)
+	result, err := c.ethClient.PendingNonceAt(ctxWithTimeout, account)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getTransactionCount", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getTransactionCount", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getTransactionCount", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // PendingTransactionCount returns the total number of transactions in the pending state.
 func (c *EthClient) PendingTransactionCount(ctx context.Context) (uint, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PendingTransactionCount(ctxWithTimeout)
+	result, err := c.ethClient.PendingTransactionCount(ctxWithTimeout)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBlockTransactionCountByNumber", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_getBlockTransactionCountByNumber", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBlockTransactionCountByNumber", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // CallContract executes a message call transaction, which is directly executed in the VM
@@ -376,10 +822,28 @@ func (c *EthClient) CallContract(
 	msg ethereum.CallMsg,
 	blockNumber *big.Int,
 ) ([]byte, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.CallContract(ctxWithTimeout, msg, blockNumber)
+	result, err := c.ethClient.CallContract(ctxWithTimeout, msg, blockNumber)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_call", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_call", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_call", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // CallContractAtHash is almost the same as CallContract except that it selects
@@ -389,37 +853,109 @@ func (c *EthClient) CallContractAtHash(
 	msg ethereum.CallMsg,
 	blockHash common.Hash,
 ) ([]byte, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.CallContractAtHash(ctxWithTimeout, msg, blockHash)
+	result, err := c.ethClient.CallContractAtHash(ctxWithTimeout, msg, blockHash)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_call", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_call", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_call", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // PendingCallContract executes a message call transaction using the EVM.
 // The state seen by the contract call is the pending state.
 func (c *EthClient) PendingCallContract(ctx context.Context, msg ethereum.CallMsg) ([]byte, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.PendingCallContract(ctxWithTimeout, msg)
+	result, err := c.ethClient.PendingCallContract(ctxWithTimeout, msg)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_call", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_call", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_call", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // SuggestGasPrice retrieves the currently suggested gas price to allow a timely
 // execution of a transaction.
 func (c *EthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.SuggestGasPrice(ctxWithTimeout)
+	result, err := c.ethClient.SuggestGasPrice(ctxWithTimeout)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_gasPrice", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_gasPrice", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_gasPrice", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // SuggestGasTipCap retrieves the currently suggested gas tip cap after 1559 to
 // allow a timely execution of a transaction.
 func (c *EthClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.SuggestGasTipCap(ctxWithTimeout)
+	result, err := c.ethClient.SuggestGasTipCap(ctxWithTimeout)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_maxPriorityFeePerGas", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_maxPriorityFeePerGas", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_maxPriorityFeePerGas", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // FeeHistory retrieves the fee market history.
@@ -429,10 +965,28 @@ func (c *EthClient) FeeHistory(
 	lastBlock *big.Int,
 	rewardPercentiles []float64,
 ) (*ethereum.FeeHistory, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.FeeHistory(ctxWithTimeout, blockCount, lastBlock, rewardPercentiles)
+	result, err := c.ethClient.FeeHistory(ctxWithTimeout, blockCount, lastBlock, rewardPercentiles)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_feeHistory", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_feeHistory", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_feeHistory", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // EstimateGas tries to estimate the gas needed to execute a specific transaction based on
@@ -440,10 +994,28 @@ func (c *EthClient) FeeHistory(
 // the true gas limit requirement as other transactions may be added or removed by miners,
 // but it should provide a basis for setting a reasonable default.
 func (c *EthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.EstimateGas(ctxWithTimeout, msg)
+	result, err := c.ethClient.EstimateGas(ctxWithTimeout, msg)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_estimateGas", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_estimateGas", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_estimateGas", c.rpcURL).Observe(duration)
+	
+	return result, err
 }
 
 // SendTransaction injects a signed transaction into the pending pool for execution.
@@ -451,10 +1023,28 @@ func (c *EthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint
 // If the transaction was a contract creation use the TransactionReceipt method to get the
 // contract address after the transaction has been mined.
 func (c *EthClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	start := time.Now()
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, c.timeout)
 	defer cancel()
 
-	return c.ethClient.SendTransaction(ctxWithTimeout, tx)
+	err := c.ethClient.SendTransaction(ctxWithTimeout, tx)
+	
+	// Record metrics
+	duration := time.Since(start).Seconds()
+	status := "success"
+	if err != nil {
+		status = "error"
+		errorType := "unknown"
+		if err.Error() != "" {
+			errorType = strings.Split(err.Error(), ":")[0]
+		}
+		metrics.RPCCallErrorsCounter.WithLabelValues("eth_sendRawTransaction", c.rpcURL, errorType).Inc()
+	}
+	
+	metrics.RPCCallsCounter.WithLabelValues("eth_sendRawTransaction", c.rpcURL, status).Inc()
+	metrics.RPCCallDurationHistogram.WithLabelValues("eth_sendRawTransaction", c.rpcURL).Observe(duration)
+	
+	return err
 }
 
 // TransactionArgs represents the arguments to construct a new transaction
