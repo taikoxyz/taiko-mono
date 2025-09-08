@@ -51,7 +51,6 @@ contract InboxOptimized4 is InboxOptimized3 {
             _transition.proposalHash,
             _transition.parentTransitionHash,
             checkpointHash,
-            // Safe address -> bytes32 conversion: address(20 bytes) -> uint160 -> uint256 -> bytes32
             bytes32(uint256(uint160(_transition.designatedProver))),
             bytes32(uint256(uint160(_transition.actualProver)))
         );
