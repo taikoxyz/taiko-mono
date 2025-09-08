@@ -255,7 +255,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _buildAndSaveTransitionRecords(input);
 
         // Verify the proof
-        _proofVerifier.verifyProof(_hashTransitionsArray(input.transitions), _proof);
+        _proofVerifier.verifyProof(hashTransitionsArray(input.transitions), _proof);
     }
 
     /// @notice Withdraws bond balance to specified address
@@ -458,6 +458,18 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return keccak256(abi.encode(_derivation));
     }
 
+    /// @notice Hashes a TransitionRecord struct.
+    /// @param _transitionRecord The transition record to hash.
+    /// @return _ The hash of the transition record.
+    function hashTransitionRecord(TransitionRecord memory _transitionRecord)
+        public
+        pure
+        virtual
+        returns (bytes26)
+    {
+        return bytes26(keccak256(abi.encode(_transitionRecord)));
+    }
+
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
@@ -612,7 +624,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
     {
         bytes32 compositeKey = _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
-        bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+        bytes26 transitionRecordHash = hashTransitionRecord(_transitionRecord);
 
         TransitionRecordExcerpt memory excerpt = _transitionRecordExcepts[compositeKey];
         if (excerpt.recordHash == transitionRecordHash) return;
@@ -665,29 +677,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
 
-    /// @dev Hashes a TransitionRecord struct.
-    /// @param _transitionRecord The transition record to hash.
-    /// @return _ The hash of the transition record.
-    function _hashTransitionRecord(TransitionRecord memory _transitionRecord)
-        internal
-        pure
-        virtual
-        returns (bytes26)
-    {
-        return bytes26(keccak256(abi.encode(_transitionRecord)));
-    }
 
-    /// @dev Hashes an array of Transitions.
-    /// @param _transitions The transitions array to hash.
-    /// @return _ The hash of the transitions array.
-    function _hashTransitionsArray(Transition[] memory _transitions)
-        internal
-        pure
-        virtual
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_transitions));
-    }
 
     /// @dev Computes composite key for transition record storage
     /// @notice Creates unique identifier for proposal-parent transition pairs
@@ -922,7 +912,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Verify transition record hash matches
         require(
-            _hashTransitionRecord(_transitionRecord) == excerpt.recordHash,
+            hashTransitionRecord(_transitionRecord) == excerpt.recordHash,
             TransitionRecordHashMismatchWithStorage()
         );
 

@@ -178,7 +178,7 @@ contract InboxOptimized1 is Inbox {
         internal
         override
     {
-        bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+        bytes26 transitionRecordHash = hashTransitionRecord(_transitionRecord);
         ReusableTransitionRecord storage record =
             _reusableTransitionRecords[_proposalId % _ringBufferSize];
 

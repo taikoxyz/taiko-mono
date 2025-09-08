@@ -150,28 +150,10 @@ contract InboxOptimized4 is InboxOptimized3 {
     }
 
     /// @inheritdoc Inbox
-    /// @dev Optimized implementation using EfficientHashLib
-    /// @notice Saves gas by using efficient hashing
-    function _composeTransitionKey(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
-        internal
-        pure
-        override
-        returns (bytes32)
-    {
-        // Safe type conversions on EVM (big-endian):
-        // uint48 -> uint256: Zero-extends, preserving value
-        // bytes32 -> uint256: Reinterprets same bits, no endianness issues on EVM
-        return EfficientHashLib.hash(uint256(_proposalId), uint256(_parentTransitionHash));
-    }
-
-    /// @inheritdoc Inbox
-    /// @dev Optimized transition record hashing using EfficientHashLib
-    /// @notice Efficiently hashes TransitionRecord struct
-    function _hashTransitionRecord(TransitionRecord memory _transitionRecord)
-        internal
+    /// @notice Optimized transition record hashing using EfficientHashLib
+    /// @dev Efficiently hashes TransitionRecord struct
+    function hashTransitionRecord(TransitionRecord memory _transitionRecord)
+        public
         pure
         override
         returns (bytes26)
@@ -210,15 +192,26 @@ contract InboxOptimized4 is InboxOptimized3 {
         return bytes26(recordHash);
     }
 
+    // ---------------------------------------------------------------
+    // Internal Functions - Overrides
+    // ---------------------------------------------------------------
+
     /// @inheritdoc Inbox
-    /// @dev Optimized transitions array hashing for internal use
-    /// @notice Uses EfficientHashLib for better performance
-    function _hashTransitionsArray(Transition[] memory _transitions)
+    /// @dev Optimized implementation using EfficientHashLib
+    /// @notice Saves gas by using efficient hashing
+    function _composeTransitionKey(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
         internal
         pure
         override
         returns (bytes32)
     {
-        return hashTransitionsArray(_transitions);
+        // Safe type conversions on EVM (big-endian):
+        // uint48 -> uint256: Zero-extends, preserving value
+        // bytes32 -> uint256: Reinterprets same bits, no endianness issues on EVM
+        return EfficientHashLib.hash(uint256(_proposalId), uint256(_parentTransitionHash));
     }
+
 }
