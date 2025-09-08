@@ -313,15 +313,16 @@ contract LibHashingGasTest is Test {
     }
 
     /// @notice Test hash behavior comparison between standard and optimized implementations
-    /// @dev This verifies that optimizations maintain hash integrity while potentially differing from standard
+    /// @dev This verifies that optimizations maintain hash integrity while potentially differing
+    /// from standard
     function test_optimizedVsStandardHashBehavior() external view {
         // Compare standard vs optimized implementations
         bytes32 standardTransitionHash = keccak256(abi.encode(testTransition));
         bytes32 optimizedTransitionHash = LibHashing.hashTransition(testTransition);
-        
+
         bytes32 standardCheckpointHash = keccak256(abi.encode(testCheckpoint));
         bytes32 optimizedCheckpointHash = LibHashing.hashCheckpoint(testCheckpoint);
-        
+
         bytes32 standardCoreStateHash = keccak256(abi.encode(testCoreState));
         bytes32 optimizedCoreStateHash = LibHashing.hashCoreState(testCoreState);
 
@@ -329,35 +330,40 @@ contract LibHashingGasTest is Test {
         bytes32 optimizedProposalHash = LibHashing.hashProposal(testProposal);
 
         console2.log("=== Hash Behavior Verification ===");
-        
+
         // For some simple structures, optimized hashes might match standard ones
         if (standardCheckpointHash == optimizedCheckpointHash) {
-            console2.log("Checkpoint: Optimized hash matches standard (efficient packing equivalent)");
+            console2.log(
+                "Checkpoint: Optimized hash matches standard (efficient packing equivalent)"
+            );
         } else {
             console2.log("Checkpoint: Optimized hash differs from standard (optimization applied)");
         }
-        
+
         // Complex structures should typically differ due to packing optimizations
         if (standardTransitionHash != optimizedTransitionHash) {
             console2.log("Transition: Optimized hash differs from standard (optimization applied)");
         }
-        
+
         if (standardCoreStateHash != optimizedCoreStateHash) {
             console2.log("CoreState: Optimized hash differs from standard (optimization applied)");
         }
-        
+
         if (standardProposalHash != optimizedProposalHash) {
             console2.log("Proposal: Optimized hash differs from standard (optimization applied)");
         }
-        
+
         console2.log("All optimized hashes are deterministic and collision-resistant");
         console2.log("");
-        
+
         // Verify at least one complex structure shows optimization difference
-        bool hasOptimizationDifference = (standardTransitionHash != optimizedTransitionHash) ||
-                                        (standardCoreStateHash != optimizedCoreStateHash) ||
-                                        (standardProposalHash != optimizedProposalHash);
-        assertTrue(hasOptimizationDifference, "At least one complex structure should show hash optimization");
+        bool hasOptimizationDifference = (standardTransitionHash != optimizedTransitionHash)
+            || (standardCoreStateHash != optimizedCoreStateHash)
+            || (standardProposalHash != optimizedProposalHash);
+        assertTrue(
+            hasOptimizationDifference,
+            "At least one complex structure should show hash optimization"
+        );
     }
 
     /// @notice Test hash uniqueness for different input values
@@ -366,7 +372,7 @@ contract LibHashingGasTest is Test {
         // Create modified test data
         ICheckpointManager.Checkpoint memory modifiedCheckpoint = testCheckpoint;
         modifiedCheckpoint.blockNumber = testCheckpoint.blockNumber + 1;
-        
+
         IInbox.CoreState memory modifiedCoreState = testCoreState;
         modifiedCoreState.nextProposalId = testCoreState.nextProposalId + 1;
 
@@ -376,18 +382,24 @@ contract LibHashingGasTest is Test {
         // Verify different inputs produce different hashes
         bytes32 originalCheckpointHash = LibHashing.hashCheckpoint(testCheckpoint);
         bytes32 modifiedCheckpointHash = LibHashing.hashCheckpoint(modifiedCheckpoint);
-        assertTrue(originalCheckpointHash != modifiedCheckpointHash, 
-            "Different checkpoints should produce different hashes");
+        assertTrue(
+            originalCheckpointHash != modifiedCheckpointHash,
+            "Different checkpoints should produce different hashes"
+        );
 
         bytes32 originalCoreStateHash = LibHashing.hashCoreState(testCoreState);
         bytes32 modifiedCoreStateHash = LibHashing.hashCoreState(modifiedCoreState);
-        assertTrue(originalCoreStateHash != modifiedCoreStateHash, 
-            "Different core states should produce different hashes");
+        assertTrue(
+            originalCoreStateHash != modifiedCoreStateHash,
+            "Different core states should produce different hashes"
+        );
 
         bytes32 originalProposalHash = LibHashing.hashProposal(testProposal);
         bytes32 modifiedProposalHash = LibHashing.hashProposal(modifiedProposal);
-        assertTrue(originalProposalHash != modifiedProposalHash, 
-            "Different proposals should produce different hashes");
+        assertTrue(
+            originalProposalHash != modifiedProposalHash,
+            "Different proposals should produce different hashes"
+        );
     }
 
     /// @notice Initialize test data structures with realistic values
