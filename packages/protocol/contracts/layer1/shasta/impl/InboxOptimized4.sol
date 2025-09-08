@@ -35,9 +35,18 @@ contract InboxOptimized4 is InboxOptimized3 {
 
     /// @inheritdoc Inbox
     /// @notice Optimized transition hashing using EfficientHashLib
-    /// @dev Hashes a single Transition struct (2 bytes32 fields)
+    /// @dev Hashes all fields of Transition struct to prevent hash collisions
     function hashTransition(Transition memory _transition) public pure override returns (bytes32) {
-        return EfficientHashLib.hash(_transition.proposalHash, _transition.parentTransitionHash);
+        // Hash all 5 fields: proposalHash, parentTransitionHash, checkpoint, designatedProver, actualProver
+        bytes32 checkpointHash = hashCheckpoint(_transition.checkpoint);
+        return EfficientHashLib.hash(
+            _transition.proposalHash,
+            _transition.parentTransitionHash,
+            checkpointHash,
+            // Safe address -> bytes32 conversion: address(20 bytes) -> uint160 -> uint256 -> bytes32
+            bytes32(uint256(uint160(_transition.designatedProver))),
+            bytes32(uint256(uint160(_transition.actualProver)))
+        );
     }
 
     /// @inheritdoc Inbox
@@ -75,7 +84,7 @@ contract InboxOptimized4 is InboxOptimized3 {
 
     /// @inheritdoc Inbox
     /// @notice Optimized transitions array hashing using EfficientHashLib
-    /// @dev Efficiently hashes array of Transition structs
+    /// @dev Efficiently hashes array of Transition structs with overflow protection
     function hashTransitionsArray(Transition[] memory _transitions)
         public
         pure
@@ -88,6 +97,11 @@ contract InboxOptimized4 is InboxOptimized3 {
         if (length == 1) {
             return hashTransition(_transitions[0]);
         }
+        
+        // Overflow protection: Ensure length * 32 doesn't overflow
+        // Max safe length: (2^256 - 1) / 32 = ~3.6e75, but gas limits make this impossible
+        // Adding explicit check for robustness
+        require(length <= type(uint256).max / 32, "Array too large");
         
         // For multiple transitions, extract hashes and use efficient array hashing
         bytes32[] memory transitionHashes = new bytes32[](length);
@@ -116,8 +130,14 @@ contract InboxOptimized4 is InboxOptimized3 {
     /// @notice Optimized derivation hashing using EfficientHashLib
     /// @dev Efficiently hashes Derivation struct
     function hashDerivation(Derivation memory _derivation) public pure override returns (bytes32) {
-        // BlobSlice has: blobHashes, offset, timestamp - hash the struct normally for now
-        bytes32 blobSliceHash = keccak256(abi.encode(_derivation.blobSlice));
+        // BlobSlice has: blobHashes (bytes32[]), offset (uint24), timestamp (uint48)
+        // Optimize BlobSlice hashing by using EfficientHashLib for the array and fields
+        bytes32 blobHashesHash = EfficientHashLib.hash(_derivation.blobSlice.blobHashes);
+        bytes32 blobSliceHash = EfficientHashLib.hash(
+            blobHashesHash,
+            bytes32(uint256(_derivation.blobSlice.offset)),
+            bytes32(uint256(_derivation.blobSlice.timestamp))
+        );
         
         // Derivation: originBlockNumber, originBlockHash, isForcedInclusion, basefeeSharingPctg, blobSlice
         return EfficientHashLib.hash(
@@ -141,6 +161,9 @@ contract InboxOptimized4 is InboxOptimized3 {
         override
         returns (bytes32)
     {
+        // Safe type conversions on EVM (big-endian):
+        // uint48 -> uint256: Zero-extends, preserving value
+        // bytes32 -> uint256: Reinterprets same bits, no endianness issues on EVM
         return EfficientHashLib.hash(uint256(_proposalId), uint256(_parentTransitionHash));
     }
 
@@ -153,13 +176,27 @@ contract InboxOptimized4 is InboxOptimized3 {
         override
         returns (bytes26)
     {
-        // For bond instructions, we need to hash the array efficiently
+        // Optimize bond instructions hashing
         bytes32 bondInstructionsHash;
         if (_transitionRecord.bondInstructions.length == 0) {
             bondInstructionsHash = keccak256("");
         } else {
-            // Hash bond instructions array - each instruction has: proposalId, bondType, payer, receiver
-            bondInstructionsHash = keccak256(abi.encode(_transitionRecord.bondInstructions));
+            uint256 instructionLength = _transitionRecord.bondInstructions.length;
+            // Overflow protection for bond instructions array
+            require(instructionLength <= type(uint256).max / 32, "Bond instructions array too large");
+            
+            // Hash each bond instruction individually then combine
+            bytes32[] memory instructionHashes = new bytes32[](instructionLength);
+            for (uint256 i = 0; i < instructionLength; ++i) {
+                LibBonds.BondInstruction memory instruction = _transitionRecord.bondInstructions[i];
+                instructionHashes[i] = EfficientHashLib.hash(
+                    bytes32(uint256(instruction.proposalId)),
+                    bytes32(uint256(uint8(instruction.bondType))),
+                    bytes32(uint256(uint160(instruction.payer))),
+                    bytes32(uint256(uint160(instruction.receiver)))
+                );
+            }
+            bondInstructionsHash = EfficientHashLib.hash(instructionHashes);
         }
         
         // TransitionRecord: span, bondInstructions, transitionHash, checkpointHash
