@@ -30,9 +30,10 @@ RUN touch src/main.rs && cargo build --release
 # Runtime stage
 FROM ubuntu:22.04
 
-# Install runtime dependencies
+# Install runtime dependencies including PostgreSQL client
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
