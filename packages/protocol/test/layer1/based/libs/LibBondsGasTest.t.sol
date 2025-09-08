@@ -145,7 +145,7 @@ contract LibBondsGasTest is Test {
     }
 
     /// @notice Benchmark specific scenarios
-    function test_gasComparison_scenarios() public {
+    function test_gasComparison_scenarios() public view {
         TestCase[] memory cases = new TestCase[](6);
         cases[0] = TestCase(1, 1, "Small arrays (2 total)");
         cases[1] = TestCase(2, 2, "Small arrays (4 total)");
@@ -187,7 +187,7 @@ contract LibBondsGasTest is Test {
     }
 
     /// @notice Test correctness of merged arrays
-    function test_mergeCorrectness() public {
+    function test_mergeCorrectness() public pure {
         LibBonds.BondInstruction[] memory existing = _createBondInstructionsArray(5);
         LibBonds.BondInstruction[] memory newInstructions = _createBondInstructionsArray(3);
 
@@ -216,7 +216,7 @@ contract LibBondsGasTest is Test {
     }
 
     /// @notice Test edge cases
-    function test_edgeCases() public {
+    function test_edgeCases() public pure {
         // Empty new array
         LibBonds.BondInstruction[] memory existing = _createBondInstructionsArray(5);
         LibBonds.BondInstruction[] memory empty = new LibBonds.BondInstruction[](0);

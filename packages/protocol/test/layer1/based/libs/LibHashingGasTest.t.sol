@@ -20,7 +20,7 @@ contract LibHashingGasTest is Test {
     IInbox.CoreState internal testCoreState;
     IInbox.Proposal internal testProposal;
     IInbox.Derivation internal testDerivation;
-    IInbox.TransitionRecord internal testTransitionRecord;
+    // IInbox.TransitionRecord internal testTransitionRecord; // Commented out due to IR pipeline requirement
     IInbox.Transition[] internal testTransitionsArray;
 
     function setUp() public {
@@ -330,7 +330,8 @@ contract LibHashingGasTest is Test {
             })
         });
 
-        // Initialize test transition record
+        // Initialize test transition record - Commented out due to IR pipeline requirement
+        /*
         LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](2);
         bondInstructions[0] = LibBonds.BondInstruction({
             proposalId: 1001,
@@ -351,11 +352,11 @@ contract LibHashingGasTest is Test {
             transitionHash: keccak256("test_transition_hash"),
             checkpointHash: keccak256("test_checkpoint_hash")
         });
+        */
 
         // Initialize test transitions array with multiple entries
-        testTransitionsArray = new IInbox.Transition[](3);
-        testTransitionsArray[0] = testTransition;
-        testTransitionsArray[1] = IInbox.Transition({
+        testTransitionsArray.push(testTransition);
+        testTransitionsArray.push(IInbox.Transition({
             proposalHash: keccak256("test_proposal_hash_2"),
             parentTransitionHash: keccak256("test_parent_transition_hash_2"),
             checkpoint: ICheckpointManager.Checkpoint({
@@ -365,8 +366,8 @@ contract LibHashingGasTest is Test {
             }),
             designatedProver: address(0x5555555555555555555555555555555555555555),
             actualProver: address(0x6666666666666666666666666666666666666666)
-        });
-        testTransitionsArray[2] = IInbox.Transition({
+        }));
+        testTransitionsArray.push(IInbox.Transition({
             proposalHash: keccak256("test_proposal_hash_3"),
             parentTransitionHash: keccak256("test_parent_transition_hash_3"),
             checkpoint: ICheckpointManager.Checkpoint({
@@ -376,6 +377,6 @@ contract LibHashingGasTest is Test {
             }),
             designatedProver: address(0x7777777777777777777777777777777777777777),
             actualProver: address(0x8888888888888888888888888888888888888888)
-        });
+        }));
     }
 }
