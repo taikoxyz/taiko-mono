@@ -6,12 +6,12 @@ config: {}
 timestamps: null
 networks:
   - name: local
-    chain_id: 31337
+    chain_id: 32301
     rpc: ${LOCAL_RPC}
 storage:
   postgres:
     enabled: true
-    drop_each_run: true
+    drop_each_run: false
     disable_create_tables: true
     indexes:
       global_injected_parameters:

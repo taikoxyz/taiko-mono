@@ -48,7 +48,7 @@ CREATE TABLE proposed (
     block_hash CHAR(66) NOT NULL,
     network VARCHAR(50) NOT NULL,
     tx_index BIGINT NOT NULL,
-    log_index NUMERIC NOT NULL,
+    log_index VARCHAR(50) NOT NULL,
 
     -- Processing metadata
     processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -102,7 +102,7 @@ CREATE TABLE proved (
     block_hash CHAR(66) NOT NULL,
     network VARCHAR(50) NOT NULL,
     tx_index BIGINT NOT NULL,
-    log_index NUMERIC NOT NULL,
+    log_index VARCHAR(50) NOT NULL,
 
     -- Processing metadata
     processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -166,7 +166,7 @@ CREATE TABLE bond_instructed (
     block_hash CHAR(66) NOT NULL,
     network VARCHAR(50) NOT NULL,
     tx_index BIGINT NOT NULL,
-    log_index NUMERIC NOT NULL,
+    log_index VARCHAR(50) NOT NULL,
 
     -- Processing metadata
     processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
