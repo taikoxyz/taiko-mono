@@ -3,6 +3,7 @@ package txlistfetcher
 import (
 	"context"
 	"crypto/sha256"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -42,7 +43,7 @@ func (d *BlobFetcher) FetchOntake(
 		[]common.Hash{meta.GetBlobHash()},
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch sidecars: %w", err)
 	}
 
 	log.Info(
@@ -65,7 +66,7 @@ func (d *BlobFetcher) FetchOntake(
 			blob := eth.Blob(common.FromHex(sidecar.Blob))
 			bytes, err := blob.ToData()
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to convert blob to data: %w", err)
 			}
 
 			if meta.GetBlobTxListLength() == 0 {
@@ -103,7 +104,7 @@ func (d *BlobFetcher) FetchPacaya(
 	// Fetch the L1 block header with the given blob.
 	l1Header, err := d.cli.L1.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch L1 header for block %d: %w", blockNum, err)
 	}
 
 	var b []byte
@@ -114,7 +115,7 @@ func (d *BlobFetcher) FetchPacaya(
 		meta.GetBlobHashes(),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch blobs for block %d: %w", blockNum, err)
 	}
 
 	log.Info(
@@ -138,7 +139,7 @@ func (d *BlobFetcher) FetchPacaya(
 				blob := eth.Blob(common.FromHex(sidecar.Blob))
 				bytes, err := blob.ToData()
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("failed to convert blob to data: %w", err)
 				}
 
 				b = append(b, bytes...)

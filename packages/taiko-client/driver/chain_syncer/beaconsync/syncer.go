@@ -38,7 +38,7 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 	// If we don't need to trigger another beacon sync, just return.
 	needResync, err := s.progressTracker.NeedReSync(new(big.Int).SetUint64(blockID))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check if resync is needed: %w", err)
 	}
 	if !needResync {
 		return nil
@@ -54,12 +54,12 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 
 	headPayload, err := s.getBlockPayload(s.ctx, blockID)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get block payload: %w", err)
 	}
 
 	status, err := s.rpc.L2Engine.NewPayload(s.ctx, headPayload)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to call NewPayload: %w", err)
 	}
 
 	if status.Status != engine.SYNCING && status.Status != engine.VALID {
@@ -70,7 +70,7 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 		HeadBlockHash: headPayload.BlockHash,
 	}, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to call ForkchoiceUpdate: %w", err)
 	}
 	if fcRes.PayloadStatus.Status != engine.SYNCING {
 		return fmt.Errorf("unexpected ForkchoiceUpdate response status: %s", fcRes.PayloadStatus.Status)
@@ -93,7 +93,7 @@ func (s *Syncer) TriggerBeaconSync(blockID uint64) error {
 func (s *Syncer) getBlockPayload(ctx context.Context, blockID uint64) (*engine.ExecutableData, error) {
 	header, err := s.rpc.L2CheckPoint.HeaderByNumber(s.ctx, new(big.Int).SetUint64(blockID))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get header for block %d: %w", blockID, err)
 	}
 
 	log.Info("Block header to sync retrieved", "hash", header.Hash())

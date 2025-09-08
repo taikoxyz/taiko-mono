@@ -38,7 +38,7 @@ func (d *CalldataFetcher) FetchOntake(
 		[]*big.Int{meta.GetBlockID()},
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create calldata filter: %w", err)
 	}
 	for iter.Next() {
 		return iter.Event.TxList, nil
@@ -68,7 +68,7 @@ func (d *CalldataFetcher) FetchPacaya(
 		&bind.FilterOpts{Context: ctx, Start: meta.GetRawBlockHeight().Uint64(), End: &end},
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create batch proposed filter: %w", err)
 	}
 	for iter.Next() {
 		if iter.Event.Meta.BatchId != meta.GetBatchID().Uint64() {

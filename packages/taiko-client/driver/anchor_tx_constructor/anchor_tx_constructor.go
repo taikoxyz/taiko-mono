@@ -50,12 +50,12 @@ func (c *AnchorTxConstructor) AssembleAnchorTx(
 ) (*types.Transaction, error) {
 	opts, err := c.transactOpts(ctx, l2Height, baseFee)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create transaction options: %w", err)
 	}
 
 	l1Header, err := c.rpc.L1.HeaderByHash(ctx, l1Hash)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get L1 header by hash: %w", err)
 	}
 
 	log.Info(
@@ -85,7 +85,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV2Tx(
 ) (*types.Transaction, error) {
 	opts, err := c.transactOpts(ctx, l2Height, baseFee)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create transaction options: %w", err)
 	}
 
 	log.Info(
@@ -123,7 +123,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 ) (*types.Transaction, error) {
 	opts, err := c.transactOpts(ctx, l2Height, baseFee)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create transaction options: %w", err)
 	}
 
 	log.Info(
@@ -163,7 +163,7 @@ func (c *AnchorTxConstructor) transactOpts(
 	// Get the nonce of golden touch account at the specified parentHeight.
 	nonce, err := c.rpc.L2AccountNonce(ctx, consensus.GoldenTouchAccount, parentHeight)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get account nonce: %w", err)
 	}
 
 	log.Info(

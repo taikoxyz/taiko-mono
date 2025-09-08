@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -43,7 +44,7 @@ func New(ctx context.Context, rpc *rpc.Client) (*State, error) {
 	s := &State{rpc: rpc}
 
 	if err := s.init(ctx); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize driver state: %w", err)
 	}
 
 	go s.eventLoop(ctx)
@@ -59,7 +60,7 @@ func (s *State) Close() {
 // init fetches the latest status and initializes the state instance.
 func (s *State) init(ctx context.Context) error {
 	if err := s.initGenesisHeight(ctx); err != nil {
-		return err
+		return fmt.Errorf("failed to initialize genesis height: %w", err)
 	}
 	s.OnTakeForkHeight = new(big.Int).SetUint64(s.rpc.OntakeClients.ForkHeight)
 	s.PacayaForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeight)
@@ -71,21 +72,21 @@ func (s *State) init(ctx context.Context) error {
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
 	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get latest L2 known L1 header: %w", err)
 	}
 	s.l1Current.Store(latestL2KnownL1Header)
 
 	// L1 head
 	l1Head, err := s.rpc.L1.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L1 head: %w", err)
 	}
 	s.setL1Head(l1Head)
 
 	// L2 head
 	l2Head, err := s.rpc.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L2 head: %w", err)
 	}
 
 	log.Info("L2 execution engine head", "blockID", l2Head.Number, "hash", l2Head.Hash())
@@ -232,7 +233,7 @@ func (s *State) initGenesisHeight(ctx context.Context) error {
 	if err != nil {
 		slotA, _, err := s.rpc.GetProtocolStateVariablesOntake(&bind.CallOpts{Context: ctx})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get protocol state variables for Ontake: %w", err)
 		}
 		s.GenesisL1Height = new(big.Int).SetUint64(slotA.GenesisHeight)
 		return nil

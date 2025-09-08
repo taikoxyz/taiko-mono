@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -59,7 +60,7 @@ type Driver struct {
 func (d *Driver) InitFromCli(ctx context.Context, c *cli.Context) error {
 	cfg, err := NewConfigFromCliContext(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create config from CLI context: %w", err)
 	}
 
 	return d.InitFromConfig(ctx, cfg)
@@ -72,16 +73,16 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	d.Config = cfg
 
 	if d.rpc, err = rpc.NewClient(d.ctx, cfg.ClientConfig); err != nil {
-		return err
+		return fmt.Errorf("failed to create RPC client: %w", err)
 	}
 
 	if d.state, err = state.New(d.ctx, d.rpc); err != nil {
-		return err
+		return fmt.Errorf("failed to create driver state: %w", err)
 	}
 
 	peers, err := d.rpc.L2.PeerCount(d.ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get L2 peer count: %w", err)
 	}
 
 	if cfg.P2PSync && peers == 0 {
@@ -96,7 +97,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		cfg.P2PSyncTimeout,
 		cfg.BlobServerEndpoint,
 	); err != nil {
-		return err
+		return fmt.Errorf("failed to create L2 chain syncer: %w", err)
 	}
 
 	d.l1HeadSub = d.state.SubL1HeadsFeed(d.l1HeadCh)
@@ -107,7 +108,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	)
 
 	if d.protocolConfig, err = d.rpc.GetProtocolConfigs(&bind.CallOpts{Context: d.ctx}); err != nil {
-		return err
+		return fmt.Errorf("failed to get protocol configs: %w", err)
 	}
 
 	config.ReportProtocolConfigs(d.protocolConfig)
@@ -122,7 +123,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
 			d.rpc,
 		); err != nil {
-			return err
+			return fmt.Errorf("failed to create preconf block server: %w", err)
 		}
 
 		// Enable P2P network for preconf block propagation.
@@ -141,14 +142,14 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 				metrics.P2PNodeMetrics,
 				false,
 			); err != nil {
-				return err
+				return fmt.Errorf("failed to create P2P node: %w", err)
 			}
 
 			log.Info("P2PNode", "Addrs", d.p2pNode.Host().Addrs(), "PeerID", d.p2pNode.Host().ID())
 
 			if !reflect2.IsNil(d.Config.P2PSignerConfigs) {
 				if d.p2pSigner, err = d.P2PSignerConfigs.SetupSigner(d.ctx); err != nil {
-					return err
+					return fmt.Errorf("failed to setup P2P signer: %w", err)
 				}
 			}
 
@@ -257,7 +258,7 @@ func (d *Driver) doSync() error {
 
 	if err := d.l2ChainSyncer.Sync(); err != nil {
 		log.Error("Process new L1 blocks error", "error", err)
-		return err
+		return fmt.Errorf("failed to sync L2 chain: %w", err)
 	}
 
 	return nil

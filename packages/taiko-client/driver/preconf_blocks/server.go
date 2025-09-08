@@ -76,7 +76,7 @@ func New(
 ) (*PreconfBlockAPIServer, error) {
 	anchorValidator, err := validator.New(taikoAnchorAddress, cli.L2.ChainID, cli)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize anchor validator: %w", err)
 	}
 
 	server := &PreconfBlockAPIServer{
