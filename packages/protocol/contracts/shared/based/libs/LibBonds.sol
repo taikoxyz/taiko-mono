@@ -156,18 +156,15 @@ library LibBonds {
         pure
         returns (BondInstruction[] memory merged_)
     {
-        uint256 existingLen = _existing.length;
-        uint256 newLen = _new.length;
-
-        uint256 totalLen;
         unchecked {
-            totalLen = existingLen + newLen;
-        }
+            uint256 existingLen = _existing.length;
+            uint256 newLen = _new.length;
 
-        merged_ = new BondInstruction[](totalLen);
+            uint256 totalLen = existingLen + newLen;
 
-        // Copy existing instructions - safe to use unchecked since arrays are pre-allocated
-        unchecked {
+            merged_ = new BondInstruction[](totalLen);
+
+            // Copy existing instructions - safe to use unchecked since arrays are pre-allocated
             for (uint256 i; i < existingLen; ++i) {
                 merged_[i] = _existing[i];
             }
