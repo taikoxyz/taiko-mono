@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -14,22 +13,16 @@ import (
 // AssignmentExpiredEventHandler is responsible for handling the expiration of proof assignments.
 type AssignmentExpiredEventHandler struct {
 	rpc               *rpc.Client
-	proverAddress     common.Address
-	proverSetAddress  common.Address
 	proofSubmissionCh chan<- *proofProducer.ProofRequestBody
 }
 
 // NewAssignmentExpiredEventHandler creates a new AssignmentExpiredEventHandler instance.
 func NewAssignmentExpiredEventHandler(
 	rpc *rpc.Client,
-	proverAddress common.Address,
-	proverSetAddress common.Address,
 	proofSubmissionCh chan *proofProducer.ProofRequestBody,
 ) *AssignmentExpiredEventHandler {
 	return &AssignmentExpiredEventHandler{
 		rpc,
-		proverAddress,
-		proverSetAddress,
 		proofSubmissionCh,
 	}
 }
