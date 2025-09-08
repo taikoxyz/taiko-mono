@@ -33,6 +33,7 @@ import (
 // eventHandlers contains all event handlers which will be used by the prover.
 type eventHandlers struct {
 	batchProposedHandler     handler.BatchProposedHandler
+	batchesRollbackedHandler handler.BatchesRollbackedHandler
 	batchesVerifiedHandler   handler.BatchesVerifiedHandler
 	batchesProvedHandler     handler.BatchesProvedHandler
 	assignmentExpiredHandler handler.AssignmentExpiredHandler
@@ -274,8 +275,15 @@ func (p *Prover) Close(_ context.Context) {
 	p.wg.Wait()
 }
 
-// proveOp iterates through BatchProposed events.
+// proveOp iterates through BatchProposed and BatchesRollbacked events.
 func (p *Prover) proveOp() error {
+	// Fetch all the rollbacked batches before processing the new batches.
+	err := p.fetchRollbackedBatches()
+	if err != nil {
+		return err
+	}
+
+	// Fetch all the proposed batches.
 	iter, err := eventIterator.NewBatchProposedIterator(p.ctx, &eventIterator.BatchProposedIteratorConfig{
 		Client:               p.rpc.L1,
 		TaikoInbox:           p.rpc.PacayaClients.TaikoInbox,
@@ -289,6 +297,29 @@ func (p *Prover) proveOp() error {
 	}
 
 	return iter.Iter()
+}
+
+// fetchRollbackedBatches fetches all the rollbacked batches and stores
+// them in the shared state.
+func (p *Prover) fetchRollbackedBatches() error {
+	l1head, err := p.rpc.L1.HeaderByNumber(p.ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	rollbackedIterator, err := eventIterator.NewBatchesRollbackedIterator(
+		p.ctx, &eventIterator.BatchesRollbackedIteratorConfig{
+			Client:                   p.rpc.L1,
+			TaikoInbox:               p.rpc.PacayaClients.TaikoInbox,
+			StartHeight:              p.sharedState.GetL1Current().Number,
+			EndHeight:                l1head.Number,
+			OnBatchesRollbackedEvent: p.eventHandlers.batchesRollbackedHandler.Handle,
+		})
+	if err != nil {
+		return err
+	}
+
+	return rollbackedIterator.Iter()
 }
 
 // aggregateOpPacaya aggregates all proofs in buffer for Pacaya.

@@ -17,6 +17,15 @@ type BatchProposedHandler interface {
 	) error
 }
 
+// BatchesRollbackedHandler is the interface for handling `TaikoInbox.BatchesRollbacked` events.
+type BatchesRollbackedHandler interface {
+	Handle(
+		ctx context.Context,
+		e *pacayaBindings.TaikoInboxClientBatchesRollbacked,
+		end eventIterator.EndBatchesRollbackedEventIterFunc,
+	) error
+}
+
 // BatchesProvedHandler is the interface for handling `TaikoInbox.BatchesProved` events.
 type BatchesProvedHandler interface {
 	HandlePacaya(ctx context.Context, e *pacayaBindings.TaikoInboxClientBatchesProved) error
