@@ -43,17 +43,9 @@ func recordRPCMetrics(method, endpoint string, start time.Time, err error) {
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues(method, endpoint, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues(method, endpoint, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues(method, endpoint).Observe(duration)
-}
-
-// callWithMetrics wraps an RPC call with metrics tracking
-func (c *EthClient) callWithMetrics(method string, call func() error) error {
-	start := time.Now()
-	err := call()
-	recordRPCMetrics(method, c.rpcURL, start, err)
-	return err
 }
 
 // gethClient is a wrapper for go-ethereum geth client.
@@ -123,10 +115,10 @@ func (c *EthClient) CallContext(ctx context.Context, result interface{}, method 
 func (c *EthClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	start := time.Now()
 	err := c.Client.BatchCallContext(ctx, b)
-	
+
 	// Record metrics for batch call overall
 	recordRPCMetrics("batch_call", c.rpcURL, start, err)
-	
+
 	// Count individual batch elements
 	for _, elem := range b {
 		elemStatus := statusSuccess
