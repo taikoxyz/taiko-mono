@@ -379,7 +379,7 @@ setupURCAndPrepareInputsFuzz(_lookaheadPostingOperator, _lookaheadOperators, _lo
         ) = _setupURCAndPrepareInputs(2);
 
         // Set the first slot timestamp to be in the current epoch
-        _lookaheadSlots[0].slotTimestamp = EPOCH_START;
+        _lookaheadSlots[0].timestamp = EPOCH_START;
 
         // Build a signed commitment on the lookahead slots for next epoch
         ISlasher.SignedCommitment memory signedCommitment =
@@ -398,8 +398,8 @@ setupURCAndPrepareInputsFuzz(_lookaheadPostingOperator, _lookaheadOperators, _lo
         ) = _setupURCAndPrepareInputs(2);
 
         // Set the second slot timestamp to be equal to the first slot timestamp
-        _lookaheadSlots[1].slotTimestamp =
-            _lookaheadSlots[0].slotTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+        _lookaheadSlots[1].timestamp =
+            _lookaheadSlots[0].timestamp - LibPreconfConstants.SECONDS_IN_SLOT;
 
         // Build a signed commitment on the lookahead slots for next epoch
         ISlasher.SignedCommitment memory signedCommitment =
@@ -419,7 +419,7 @@ setupURCAndPrepareInputsFuzz(_lookaheadPostingOperator, _lookaheadOperators, _lo
 
         // Set the second slot timestamp to be some invalid value (not a multiple of the slot
         // duration)s
-        _lookaheadSlots[1].slotTimestamp += 1;
+        _lookaheadSlots[1].timestamp += 1;
 
         // Build a signed commitment on the lookahead slots for next epoch
         ISlasher.SignedCommitment memory signedCommitment =
@@ -457,7 +457,7 @@ setupURCAndPrepareInputsFuzz(_lookaheadPostingOperator, _lookaheadOperators, _lo
         ) = _setupURCAndPrepareInputs(2);
 
         // Set the second slot timestamp to overshoot the next epoch
-        _lookaheadSlots[1].slotTimestamp = EPOCH_START + 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
+        _lookaheadSlots[1].timestamp = EPOCH_START + 2 * LibPreconfConstants.SECONDS_IN_EPOCH;
 
         // Build a signed commitment on the lookahead slots for next epoch
         ISlasher.SignedCommitment memory signedCommitment =

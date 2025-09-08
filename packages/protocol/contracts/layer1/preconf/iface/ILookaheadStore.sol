@@ -13,7 +13,7 @@ interface ILookaheadStore {
         // The preconfer operator's committer address that is fetched from the slashing commitment.
         address committer;
         // Timestamp of the slot.
-        uint256 slotTimestamp;
+        uint256 timestamp;
         // URC registration root of the operator
         bytes32 registrationRoot;
         // Index of the Operator's registration merkle tree leaf that contains the validator for the

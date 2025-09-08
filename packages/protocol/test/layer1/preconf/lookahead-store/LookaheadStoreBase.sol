@@ -237,7 +237,7 @@ contract LookaheadStoreBase is CommonTest {
  *             ILookaheadStore.LookaheadSlot memory lookaheadSlot = _lookaheadSlots[i];
  *             SetupOperator memory operator = _operators[i];
  *
- *             lookaheadSlot.slotTimestamp = nextEpochStart + i *
+ *             lookaheadSlot.timestamp = nextEpochStart + i *
  * LibPreconfConstants.SECONDS_IN_SLOT;
  *             lookaheadSlot.committer = operator.committer;
  *             lookaheadSlot.registrationRoot = operator.registrationRoot;

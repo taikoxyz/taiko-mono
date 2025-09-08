@@ -1,35 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import "src/layer1/preconf/iface/IBlacklist.sol";
+
 /// @title Blacklist
 /// @notice A database of operators that have been blacklisted for subjective faults.
 /// For instance, non-adherence to fair exchange.
 /// @dev Blacklisted operators are not inserted in the lookahead. This is done to
 /// prevent the lookahead from being polluted by invalid operators.
 /// @custom:security-contact security@taiko.xyz
-contract Blacklist {
-    struct BlacklistTimestamps {
-        uint48 blacklistedAt;
-        uint48 unBlacklistedAt;
-    }
-
-    /// @dev These delays prevent the lookahead from being messed up mid-epoch
-    struct BlacklistConfig {
-        // Delay after which a formerly unblacklisted operator can be blacklisted again
-        uint256 blacklistDelay;
-        // Delay after which a formerly blacklisted operator can be unblacklisted again
-        uint256 unblacklistDelay;
-    }
-
-    event Blacklisted(bytes32 indexed operatorRegistrationRoot, uint48 timestamp);
-    event Unblacklisted(bytes32 indexed operatorRegistrationRoot, uint48 timestamp);
-
-    error BlacklistDelayNotMet();
-    error NotOverseer();
-    error OperatorAlreadyBlacklisted();
-    error OperatorNotBlacklisted();
-    error UnblacklistDelayNotMet();
-
+abstract contract Blacklist is IBlacklist {
     /// @dev The entity authorised to blacklist operators
     mapping(address overseer => bool isOverseer) public overseers;
 
@@ -98,6 +78,12 @@ contract Blacklist {
 
         emit Unblacklisted(_operatorRegistrationRoot, uint48(block.timestamp));
     }
+
+    /// @inheritdoc IBlacklist
+    function addOverseers(address[] calldata _overseers) external virtual;
+
+    /// @inheritdoc IBlacklist
+    function removeOverseers(address[] calldata _overseers) external virtual;
 
     // Views
     // -----------------------------------------------------------------------------------

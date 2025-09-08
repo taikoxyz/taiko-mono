@@ -51,6 +51,11 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         __Essential_init(_owner);
     }
 
+    modifier onlyOwnerOrOverseer() {
+        require(msg.sender == owner() || overseers[msg.sender], NotOwnerOrOverseer());
+        _;
+    }
+
     /// @inheritdoc ILookaheadStore
     function checkProposer(
         address _proposer,
@@ -115,7 +120,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         }
 
         LookaheadSlot memory _lookaheadSlot;
-        uint256 submissionSlotTimestamp; // Upper boundary of preconfing period
+        uint256 endOfSubmissionWindowTimestamp; // Upper boundary of preconfing period
 
         if (data.currLookahead.length == 0) {
             // The current lookahead is empty, so we use a whitelisted preconfer
@@ -123,9 +128,9 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
 
             // The last slot of the current epoch is the submission timestamp
             // of the whitelisted preconfer
-            submissionSlotTimestamp = nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+            endOfSubmissionWindowTimestamp = nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
         } else {
-            uint256 prevSubmissionSlotTimestamp; // Lower boundary of preconfing period
+            uint256 prevEndOfSubmissionWindowTimestamp; // Lower boundary of preconfing period
 
             if (data.slotIndex == type(uint256).max) {
                 if (validateNextLookahead) {
@@ -142,7 +147,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
                     // The upper boundary of the preconfing period is the last slot of the
                     // current epoch.
                     //
-                    submissionSlotTimestamp =
+                    endOfSubmissionWindowTimestamp =
                         nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
                     validateWhitelistPreconfer = true;
                 } else {
@@ -155,12 +160,12 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
                     // - x, y, z and v represent empty slots with no opted in preconfer.
                     // - Pb intends to propose at any slot y
                     //
-                    submissionSlotTimestamp = data.nextLookahead[0].slotTimestamp;
+                    endOfSubmissionWindowTimestamp = data.nextLookahead[0].timestamp;
                     _lookaheadSlot = data.nextLookahead[0];
                 }
 
-                prevSubmissionSlotTimestamp =
-                    data.currLookahead[data.currLookahead.length - 1].slotTimestamp;
+                prevEndOfSubmissionWindowTimestamp =
+                    data.currLookahead[data.currLookahead.length - 1].timestamp;
             } else {
                 // This is the case when the preconfer is proposing in the same epoch in which
                 // it has its lookahead slot.
@@ -179,17 +184,17 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
                 // - x, y and z represent empty slots with no opted in preconfer.
                 // - Pb intends to propose at any slot y
                 //
-                submissionSlotTimestamp = data.currLookahead[data.slotIndex].slotTimestamp;
-                prevSubmissionSlotTimestamp = data.slotIndex == 0
+                endOfSubmissionWindowTimestamp = data.currLookahead[data.slotIndex].timestamp;
+                prevEndOfSubmissionWindowTimestamp = data.slotIndex == 0
                     ? epochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT
-                    : data.currLookahead[data.slotIndex - 1].slotTimestamp;
+                    : data.currLookahead[data.slotIndex - 1].timestamp;
                 _lookaheadSlot = data.currLookahead[data.slotIndex];
             }
 
             // Validate the preconfing period
             require(
-                block.timestamp > prevSubmissionSlotTimestamp
-                    && block.timestamp <= submissionSlotTimestamp,
+                block.timestamp > prevEndOfSubmissionWindowTimestamp
+                    && block.timestamp <= endOfSubmissionWindowTimestamp,
                 InvalidLookaheadTimestamp()
             );
         }
@@ -200,7 +205,30 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
             _validateOptedInPreconfer(_proposer, _lookaheadSlot);
         }
 
-        return uint64(submissionSlotTimestamp);
+        return uint64(endOfSubmissionWindowTimestamp);
+    }
+
+    // Blacklist functions
+    // --------------------------------------------------------------------------
+
+    /// @inheritdoc IBlacklist
+    function addOverseers(address[] calldata _overseers) external override onlyOwnerOrOverseer {
+        for (uint256 i = 0; i < _overseers.length; ++i) {
+            address overseer = _overseers[i];
+            require(!overseers[overseer], OverseerAlreadyExists());
+            overseers[overseer] = true;
+        }
+        emit OverseersAdded(_overseers);
+    }
+
+    /// @inheritdoc IBlacklist
+    function removeOverseers(address[] calldata _overseers) external override onlyOwnerOrOverseer {
+        for (uint256 i = 0; i < _overseers.length; ++i) {
+            address overseer = _overseers[i];
+            require(overseers[overseer], OverseerDoesNotExist());
+            overseers[overseer] = false;
+        }
+        emit OverseersRemoved(_overseers);
     }
 
     // View and Pure functions
@@ -270,16 +298,16 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
                 LookaheadSlot memory lookaheadSlot = _lookaheadSlots[i];
 
                 require(
-                    lookaheadSlot.slotTimestamp > prevSlotTimestamp,
+                    lookaheadSlot.timestamp > prevSlotTimestamp,
                     SlotTimestampIsNotIncrementing()
                 );
                 require(
-                    (lookaheadSlot.slotTimestamp - _nextEpochTimestamp)
+                    (lookaheadSlot.timestamp - _nextEpochTimestamp)
                         % LibPreconfConstants.SECONDS_IN_SLOT == 0,
                     InvalidSlotTimestamp()
                 );
 
-                prevSlotTimestamp = lookaheadSlot.slotTimestamp;
+                prevSlotTimestamp = lookaheadSlot.timestamp;
 
                 // Validate the operator in the lookahead payload with the current epoch as
                 // reference

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "src/layer1/preconf/iface/ILookaheadSlasher.sol";
-import "src/layer1/preconf/impl/Blacklist.sol";
+import "src/layer1/preconf/iface/IBlacklist.sol";
 import "src/layer1/preconf/libs/LibEIP4788.sol";
 import "src/layer1/preconf/libs/LibPreconfUtils.sol";
 import "src/layer1/preconf/libs/LibPreconfConstants.sol";
@@ -71,7 +71,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
         BLS.G1Point calldata beaconLookaheadValPubKey =
             _validateBeaconValidatorEvidence(previousEpochTimestamp, slotTimestamp, evidenceY);
 
-        if (lookaheadSlots.length != 0 && lookaheadSlot.slotTimestamp == slotTimestamp) {
+        if (lookaheadSlots.length != 0 && lookaheadSlot.timestamp == slotTimestamp) {
             // This condition is executed when the problematic slot is a dedicated slot of an
             // operator, but is assigned to the wrong operator i.e the beacon validator is
             // not registered to the operator in the URC.
@@ -128,7 +128,7 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
 
             // Verify that `slotTimestamp_` is within the range of the timestamp contained in the
             // provided lookahead slot entry.
-            if (slotTimestamp_ > lookaheadSlot_.slotTimestamp || slotTimestamp_ < epochTimestamp) {
+            if (slotTimestamp_ > lookaheadSlot_.timestamp || slotTimestamp_ < epochTimestamp) {
                 revert InvalidLookaheadSlotsIndex();
             }
         }
@@ -281,8 +281,8 @@ contract LookaheadSlasher is ILookaheadSlasher, EssentialContract {
             OperatorHasInsufficientCollateral()
         );
 
-        Blacklist.BlacklistTimestamps memory blacklistTimestamps =
-            Blacklist(lookaheadStore).getBlacklist(registrationProof.registrationRoot);
+        IBlacklist.BlacklistTimestamps memory blacklistTimestamps =
+            IBlacklist(lookaheadStore).getBlacklist(registrationProof.registrationRoot);
 
         // Verify that the operator was not blacklisted at the reference timestamp
         bool notBlacklisted = blacklistTimestamps.blacklistedAt == 0
