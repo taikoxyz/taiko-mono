@@ -27,6 +27,12 @@ library LibBonds {
     }
 
     // ---------------------------------------------------------------
+    // Constants
+    // ---------------------------------------------------------------
+
+    uint256 private constant _ASSEMBLY_THRESHOLD = 8;
+
+    // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
 
@@ -107,7 +113,8 @@ library LibBonds {
             let newPtr := add(_new, 0x20)
 
             // Each BondInstruction is 128 bytes (4 * 32 bytes)
-            // proposalId (48 bits -> 32 bytes), bondType (enum -> 32 bytes),
+            // In memory arrays, each field occupies a full 32-byte slot:
+            // proposalId (uint48 -> 32 bytes), bondType (enum -> 32 bytes),
             // payer (address -> 32 bytes), receiver (address -> 32 bytes)
             let instructionSize := 0x80
 
