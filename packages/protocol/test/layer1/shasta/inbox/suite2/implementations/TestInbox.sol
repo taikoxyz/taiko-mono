@@ -9,40 +9,25 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 /// @title TestInbox
 /// @notice Test wrapper for Inbox contract with configurable behavior
 contract TestInbox is Inbox {
-    address private immutable _bondToken;
-    address private immutable _checkpointManager;
-    address private immutable _proofVerifier;
-    address private immutable _proposerChecker;
-
     constructor(
         address bondToken,
         address checkpointManager,
         address proofVerifier,
         address proposerChecker
     )
-        Inbox()
-    {
-        _bondToken = bondToken;
-        _checkpointManager = checkpointManager;
-        _proofVerifier = proofVerifier;
-        _proposerChecker = proposerChecker;
-    }
-
-    function getConfig() public view override returns (IInbox.Config memory) {
-        return IInbox.Config({
-            bondToken: _bondToken,
-            provingWindow: 2 hours,
-            extendedProvingWindow: 4 hours,
-            cooldownWindow: 48 hours,
-            maxFinalizationCount: 16,
-            ringBufferSize: 100,
-            basefeeSharingPctg: 0,
-            checkpointManager: _checkpointManager,
-            proofVerifier: _proofVerifier,
-            proposerChecker: _proposerChecker,
-            minForcedInclusionCount: 1,
-            forcedInclusionDelay: 100,
-            forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
-         });
-    }
+        Inbox(
+            bondToken,
+            checkpointManager,
+            proofVerifier,
+            proposerChecker,
+            2 hours, // provingWindow
+            4 hours, // extendedProvingWindow
+            16, // maxFinalizationCount
+            100, // ringBufferSize
+            0, // basefeeSharingPctg
+            1, // minForcedInclusionCount
+            100, // forcedInclusionDelay
+            10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
+        )
+    { }
 }
