@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "./Inbox.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { InboxOptimized3 } from "./InboxOptimized3.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
@@ -26,7 +27,7 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized3() { }
+   constructor(IInbox.Config memory _config) InboxOptimized3(_config) { }
 
     // ---------------------------------------------------------------
     // Public Functions
