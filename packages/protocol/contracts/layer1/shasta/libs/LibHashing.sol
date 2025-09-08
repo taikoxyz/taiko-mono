@@ -11,10 +11,6 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 /// @dev This library provides gas-optimized implementations of all hashing functions
 ///      used in the Inbox contract, replacing standard keccak256(abi.encode(...)) calls
 ///      with more efficient alternatives from Solady's EfficientHashLib.
-/// @dev Key optimizations:
-///      - Uses EfficientHashLib for multi-argument hashing with reduced gas costs
-///      - Optimizes struct field ordering for better packing
-///      - Minimizes memory allocations and ABI encoding overhead
 /// @custom:security-contact security@taiko.xyz
 library LibHashing {
 
@@ -77,15 +73,19 @@ library LibHashing {
     /// @param _proposal The proposal to hash
     /// @return The hash of the proposal
     function hashProposal(IInbox.Proposal memory _proposal) internal pure returns (bytes32) {
-        // Pack the timestamp fields and proposer address efficiently
-        bytes32 packedFields1 = bytes32(
-            (uint256(_proposal.id) << 208) | (uint256(_proposal.timestamp) << 160)
-                | (uint256(_proposal.lookaheadSlotTimestamp) << 112)
-                | uint256(uint160(_proposal.proposer))
+        // Use separate field packing to avoid address truncation
+        // Pack numeric fields together
+        bytes32 packedFields = bytes32(
+            (uint256(_proposal.id) << 208) | 
+            (uint256(_proposal.timestamp) << 160) |
+            (uint256(_proposal.lookaheadSlotTimestamp) << 112)
         );
 
         return EfficientHashLib.hash(
-            packedFields1, _proposal.coreStateHash, _proposal.derivationHash
+            packedFields,
+            bytes32(uint256(uint160(_proposal.proposer))), // Full 160-bit address 
+            _proposal.coreStateHash,
+            _proposal.derivationHash
         );
     }
 
@@ -103,12 +103,19 @@ library LibHashing {
 
         // Hash blob slice fields - BlobSlice has blobHashes array, offset, and timestamp
         // Explicitly include blobHashes array length to prevent collisions
-        bytes32 blobHashesHash = keccak256(
-            abi.encodePacked(
-                bytes32(uint256(_derivation.blobSlice.blobHashes.length)),
-                abi.encodePacked(_derivation.blobSlice.blobHashes)
-            )
-        );
+        bytes32 blobHashesHash;
+        if (_derivation.blobSlice.blobHashes.length == 0) {
+            blobHashesHash = EMPTY_BYTES_HASH;
+        } else {
+            // Simplified approach: encode length and array data together
+            bytes memory blobData = abi.encodePacked(
+                bytes32(uint256(_derivation.blobSlice.blobHashes.length))
+            );
+            for (uint256 i; i < _derivation.blobSlice.blobHashes.length; ++i) {
+                blobData = abi.encodePacked(blobData, _derivation.blobSlice.blobHashes[i]);
+            }
+            blobHashesHash = keccak256(blobData);
+        }
         
         bytes32 blobSliceHash = EfficientHashLib.hash(
             blobHashesHash,

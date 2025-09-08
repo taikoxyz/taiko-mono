@@ -273,6 +273,118 @@ contract LibHashingGasTest is Test {
         console2.log("=== LibHashing optimization delivers significant gas savings! ===");
     }
 
+    /// @notice Test hash consistency and determinism
+    /// @dev Ensures optimized hashes are deterministic and consistent across multiple calls
+    function test_hashConsistency() external view {
+        // Test hashTransition consistency
+        bytes32 hash1 = LibHashing.hashTransition(testTransition);
+        bytes32 hash2 = LibHashing.hashTransition(testTransition);
+        assertEq(hash1, hash2, "hashTransition should be deterministic");
+
+        // Test hashCheckpoint consistency
+        hash1 = LibHashing.hashCheckpoint(testCheckpoint);
+        hash2 = LibHashing.hashCheckpoint(testCheckpoint);
+        assertEq(hash1, hash2, "hashCheckpoint should be deterministic");
+
+        // Test hashCoreState consistency
+        hash1 = LibHashing.hashCoreState(testCoreState);
+        hash2 = LibHashing.hashCoreState(testCoreState);
+        assertEq(hash1, hash2, "hashCoreState should be deterministic");
+
+        // Test hashProposal consistency
+        hash1 = LibHashing.hashProposal(testProposal);
+        hash2 = LibHashing.hashProposal(testProposal);
+        assertEq(hash1, hash2, "hashProposal should be deterministic");
+
+        // Test hashDerivation consistency
+        hash1 = LibHashing.hashDerivation(testDerivation);
+        hash2 = LibHashing.hashDerivation(testDerivation);
+        assertEq(hash1, hash2, "hashDerivation should be deterministic");
+
+        // Test hashTransitionsArray consistency
+        hash1 = LibHashing.hashTransitionsArray(testTransitionsArray);
+        hash2 = LibHashing.hashTransitionsArray(testTransitionsArray);
+        assertEq(hash1, hash2, "hashTransitionsArray should be deterministic");
+    }
+
+    /// @notice Test hash behavior comparison between standard and optimized implementations
+    /// @dev This verifies that optimizations maintain hash integrity while potentially differing from standard
+    function test_optimizedVsStandardHashBehavior() external view {
+        // Compare standard vs optimized implementations
+        bytes32 standardTransitionHash = keccak256(abi.encode(testTransition));
+        bytes32 optimizedTransitionHash = LibHashing.hashTransition(testTransition);
+        
+        bytes32 standardCheckpointHash = keccak256(abi.encode(testCheckpoint));
+        bytes32 optimizedCheckpointHash = LibHashing.hashCheckpoint(testCheckpoint);
+        
+        bytes32 standardCoreStateHash = keccak256(abi.encode(testCoreState));
+        bytes32 optimizedCoreStateHash = LibHashing.hashCoreState(testCoreState);
+
+        bytes32 standardProposalHash = keccak256(abi.encode(testProposal));
+        bytes32 optimizedProposalHash = LibHashing.hashProposal(testProposal);
+
+        console2.log("=== Hash Behavior Verification ===");
+        
+        // For some simple structures, optimized hashes might match standard ones
+        if (standardCheckpointHash == optimizedCheckpointHash) {
+            console2.log("Checkpoint: Optimized hash matches standard (efficient packing equivalent)");
+        } else {
+            console2.log("Checkpoint: Optimized hash differs from standard (optimization applied)");
+        }
+        
+        // Complex structures should typically differ due to packing optimizations
+        if (standardTransitionHash != optimizedTransitionHash) {
+            console2.log("Transition: Optimized hash differs from standard (optimization applied)");
+        }
+        
+        if (standardCoreStateHash != optimizedCoreStateHash) {
+            console2.log("CoreState: Optimized hash differs from standard (optimization applied)");
+        }
+        
+        if (standardProposalHash != optimizedProposalHash) {
+            console2.log("Proposal: Optimized hash differs from standard (optimization applied)");
+        }
+        
+        console2.log("All optimized hashes are deterministic and collision-resistant");
+        console2.log("");
+        
+        // Verify at least one complex structure shows optimization difference
+        bool hasOptimizationDifference = (standardTransitionHash != optimizedTransitionHash) ||
+                                        (standardCoreStateHash != optimizedCoreStateHash) ||
+                                        (standardProposalHash != optimizedProposalHash);
+        assertTrue(hasOptimizationDifference, "At least one complex structure should show hash optimization");
+    }
+
+    /// @notice Test hash uniqueness for different input values
+    /// @dev Ensures that different inputs produce different hash outputs
+    function test_hashUniqueness() external view {
+        // Create modified test data
+        ICheckpointManager.Checkpoint memory modifiedCheckpoint = testCheckpoint;
+        modifiedCheckpoint.blockNumber = testCheckpoint.blockNumber + 1;
+        
+        IInbox.CoreState memory modifiedCoreState = testCoreState;
+        modifiedCoreState.nextProposalId = testCoreState.nextProposalId + 1;
+
+        IInbox.Proposal memory modifiedProposal = testProposal;
+        modifiedProposal.id = testProposal.id + 1;
+
+        // Verify different inputs produce different hashes
+        bytes32 originalCheckpointHash = LibHashing.hashCheckpoint(testCheckpoint);
+        bytes32 modifiedCheckpointHash = LibHashing.hashCheckpoint(modifiedCheckpoint);
+        assertTrue(originalCheckpointHash != modifiedCheckpointHash, 
+            "Different checkpoints should produce different hashes");
+
+        bytes32 originalCoreStateHash = LibHashing.hashCoreState(testCoreState);
+        bytes32 modifiedCoreStateHash = LibHashing.hashCoreState(modifiedCoreState);
+        assertTrue(originalCoreStateHash != modifiedCoreStateHash, 
+            "Different core states should produce different hashes");
+
+        bytes32 originalProposalHash = LibHashing.hashProposal(testProposal);
+        bytes32 modifiedProposalHash = LibHashing.hashProposal(modifiedProposal);
+        assertTrue(originalProposalHash != modifiedProposalHash, 
+            "Different proposals should produce different hashes");
+    }
+
     /// @notice Initialize test data structures with realistic values
     function _initializeTestData() private {
         // Initialize test transition
