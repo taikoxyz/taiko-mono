@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -13,8 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
-
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
 // EngineClient represents a RPC client connecting to an Ethereum Engine API
@@ -28,25 +25,8 @@ type EngineClient struct {
 // CallContext wraps the underlying RPC client's CallContext with metrics tracking.
 func (c *EngineClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	start := time.Now()
-
 	err := c.Client.CallContext(ctx, result, method, args...)
-
-	// Record metrics
-	duration := time.Since(start).Seconds()
-	status := statusSuccess
-	if err != nil {
-		status = statusError
-		// Extract error type for more detailed metrics
-		errorType := errorTypeUnknown
-		if err.Error() != "" {
-			errorType = strings.Split(err.Error(), ":")[0]
-		}
-		metrics.RPCCallErrorsCounter.WithLabelValues(method, c.rpcURL, errorType).Inc()
-	}
-
-	metrics.RPCCallsCounter.WithLabelValues(method, c.rpcURL, status).Inc()
-	metrics.RPCCallDurationHistogram.WithLabelValues(method, c.rpcURL).Observe(duration)
-
+	recordRPCMetrics(method, c.rpcURL, start, err)
 	return err
 }
 
