@@ -28,7 +28,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint48 anchorBlockNumber; // Latest L1 block number anchored to L2
         address designatedProver; // The prover designated for the current batch
         bool isLowBondProposal; // Indicates if the proposal has insufficient bonds
-        uint48 endOfSubmissionWindowTimeStamp; // The timestamp of the last slot where the current
+        uint48 endOfSubmissionWindowTimestamp; // The timestamp of the last slot where the current
             // preconfer can submit preconf-ed blocks to the L2 network.
     }
 
@@ -68,7 +68,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @dev 3 slots used to store the state:
     State private _state;
 
-    mapping(uint256 blockId => uint256 endOfSubmissionWindowTimeStamp) public
+    mapping(uint256 blockId => uint256 endOfSubmissionWindowTimestamp) public
         blockIdToEndOfSubmissionWindowTimeStamp;
 
     /// @notice Storage gap for upgrade safety.
@@ -136,7 +136,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _anchorBlockNumber L1 block number to anchor (0 to skip anchoring).
     /// @param _anchorBlockHash L1 block hash at _anchorBlockNumber.
     /// @param _anchorStateRoot L1 state root at _anchorBlockNumber.
-    /// @param _endOfSubmissionWindowTimeStamp The timestamp of the last slot where the current
+    /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
     /// preconfer
     /// can propose.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
@@ -153,7 +153,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
         bytes32 _anchorStateRoot,
-        uint48 _endOfSubmissionWindowTimeStamp
+        uint48 _endOfSubmissionWindowTimestamp
     )
         external
         onlyGoldenTouch
@@ -197,8 +197,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
             _state.anchorBlockNumber = _anchorBlockNumber;
         }
 
-        _state.endOfSubmissionWindowTimeStamp = _endOfSubmissionWindowTimeStamp;
-        blockIdToEndOfSubmissionWindowTimeStamp[block.number] = _endOfSubmissionWindowTimeStamp;
+        _state.endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
+        blockIdToEndOfSubmissionWindowTimeStamp[block.number] = _endOfSubmissionWindowTimestamp;
     }
 
     /// @notice Returns the current state of the anchor.

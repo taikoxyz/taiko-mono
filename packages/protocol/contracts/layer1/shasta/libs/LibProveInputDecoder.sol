@@ -76,7 +76,7 @@ library LibProveInputDecoder {
         newPtr_ = P.packUint48(_ptr, _proposal.id);
         newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
         newPtr_ = P.packUint48(newPtr_, _proposal.timestamp);
-        newPtr_ = P.packUint48(newPtr_, _proposal.endOfSubmissionWindowTimeStamp);
+        newPtr_ = P.packUint48(newPtr_, _proposal.endOfSubmissionWindowTimestamp);
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
     }
@@ -90,7 +90,7 @@ library LibProveInputDecoder {
         (proposal_.id, newPtr_) = P.unpackUint48(_ptr);
         (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
         (proposal_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
-        (proposal_.endOfSubmissionWindowTimeStamp, newPtr_) = P.unpackUint48(newPtr_);
+        (proposal_.endOfSubmissionWindowTimestamp, newPtr_) = P.unpackUint48(newPtr_);
         (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
@@ -147,7 +147,7 @@ library LibProveInputDecoder {
 
             // Proposals - each has fixed size
             // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) +
-            // endOfSubmissionWindowTimeStamp(6) + coreStateHash(32) +
+            // endOfSubmissionWindowTimestamp(6) + coreStateHash(32) +
             // derivationHash(32) = 102
             //
             // Transitions - each has fixed size: proposalHash(32) + parentTransitionHash(32) +

@@ -158,7 +158,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
     function checkProposer(address _proposer)
         external
         view
-        returns (uint48 endOfSubmissionWindowTimeStamp_)
+        returns (uint48 endOfSubmissionWindowTimestamp_)
     {
         address operator = getOperatorForCurrentEpoch();
         if (operator == address(0)) {
@@ -166,7 +166,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         }
         require(operator == _proposer, InvalidProposer());
         // Slashing is not enabled for whitelisted preconfers, so we return 0
-        endOfSubmissionWindowTimeStamp_ = 0;
+        endOfSubmissionWindowTimestamp_ = 0;
     }
 
     /// @inheritdoc IPreconfWhitelist

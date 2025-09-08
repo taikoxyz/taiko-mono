@@ -67,7 +67,7 @@ contract InboxInit is InboxTest {
             id: 0,
             proposer: address(0),
             timestamp: 0,
-            endOfSubmissionWindowTimeStamp: 0,
+            endOfSubmissionWindowTimestamp: 0,
             coreStateHash: keccak256(abi.encode(_coreState)),
             derivationHash: bytes32(0)
         });
