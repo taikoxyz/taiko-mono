@@ -44,7 +44,6 @@ contract InboxOptimized4 is InboxOptimized3 {
 
     /// @inheritdoc Inbox
     /// @notice Optimized transition hashing using EfficientHashLib
-    /// @dev Hashes all fields of Transition struct to prevent hash collisions
     function hashTransition(Transition memory _transition) public pure override returns (bytes32) {
         // Hash all 5 fields: proposalHash, parentTransitionHash, checkpoint, designatedProver, actualProver
         bytes32 checkpointHash = hashCheckpoint(_transition.checkpoint);
