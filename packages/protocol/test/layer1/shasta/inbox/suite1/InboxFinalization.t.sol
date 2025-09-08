@@ -76,7 +76,7 @@ contract InboxFinalization is InboxTest {
         // Create a parent transition with the parentTransitionHash for the function call
         IInbox.Transition memory parentTransition;
         parentTransition.parentTransitionHash = _parentTransitionHash;
-        inbox.exposed_setTransitionRecordHash(_proposalId, parentTransition, transitionRecord);
+        inbox.exposed_setTransitionRecordExcerpt(_proposalId, parentTransition, transitionRecord);
     }
 
     /// @dev Helper to submit a finalization proposal
@@ -88,6 +88,9 @@ contract InboxFinalization is InboxTest {
         private
     {
         setupProposalMocks(Alice);
+
+        // Advance time to pass the finalization grace period (5 minutes)
+        vm.warp(block.timestamp + 5 minutes + 1);
 
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
         transitionRecords[0] = _transitionRecord;
@@ -145,6 +148,9 @@ contract InboxFinalization is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             transitionRecords[i] = InboxTestLib.createTransitionRecord(transitions[i], 1);
         }
+
+        // Advance time to pass the finalization grace period
+        vm.warp(block.timestamp + 5 minutes + 1);
 
         // Setup expectations for finalization
         expectCheckpointSaved(transitions[numProposals - 1].checkpoint);
@@ -227,7 +233,7 @@ contract InboxFinalization is InboxTest {
         // Create a parent transition struct for the function call
         IInbox.Transition memory parentTransition;
         parentTransition.parentTransitionHash = parentTransitionHash;
-        inbox.exposed_setTransitionRecordHash(1, parentTransition, transitionRecord1);
+        inbox.exposed_setTransitionRecordExcerpt(1, parentTransition, transitionRecord1);
 
         // Store proposal 2 WITHOUT transition (gap in chain)
         IInbox.CoreState memory coreState2 = _getGenesisCoreState();
@@ -245,6 +251,9 @@ contract InboxFinalization is InboxTest {
         // Setup mocks
         mockProposerAllowed(Alice);
         mockForcedInclusionDue(false);
+
+        // Advance time to pass the finalization grace period (5 minutes)
+        vm.warp(block.timestamp + 5 minutes + 1);
 
         // Only expect first proposal to be finalized
         expectCheckpointSaved(transition1.checkpoint);

@@ -165,9 +165,9 @@ contract InboxOutOfOrderProving is InboxTest {
             // Verify transition record was stored with correct parent
             bytes32 transitionParentHash =
                 index == 0 ? initialParentHash : transitionHashes[index - 1];
-            bytes32 storedTransitionHash =
+            (, bytes26 recordHash) =
                 inbox.getTransitionRecordHash(proposals[index].id, transitionParentHash);
-            assertTrue(storedTransitionHash != bytes32(0));
+            assertTrue(recordHash != bytes26(0));
         }
 
         // Phase 3: Attempt finalization - should finalize all in correct order
@@ -194,6 +194,9 @@ contract InboxOutOfOrderProving is InboxTest {
 
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
+
+        // Advance time to pass the finalization grace period (5 minutes)
+        vm.warp(block.timestamp + 5 minutes + 1);
 
         // Expect final block update
         IInbox.Transition memory lastTransition = transitions[numProposals - 1];
@@ -236,6 +239,9 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.Transition memory genesisTransition;
         genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         bytes32 initialParentHash = keccak256(abi.encode(genesisTransition));
+
+        // Store proposals for later use
+        IInbox.Proposal[] memory storedProposals = new IInbox.Proposal[](3);
 
         // Create 3 proposals
         for (uint48 i = 1; i <= 3; i++) {
@@ -283,11 +289,29 @@ contract InboxOutOfOrderProving is InboxTest {
                     proposalBlobRef,
                     emptyTransitionRecords
                 );
+
+                // Store the previous proposal for later use
+                storedProposals[i - 2] = prevProposal;
             }
 
             vm.prank(Alice);
             inbox.propose(bytes(""), proposalData);
         }
+
+        // Store the last proposal
+        (IInbox.Proposal memory lastProp,) =
+            InboxTestLib.createProposal(3, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
+        lastProp.coreStateHash = keccak256(
+            abi.encode(
+                IInbox.CoreState({
+                    nextProposalId: 4,
+                    lastFinalizedProposalId: 0,
+                    lastFinalizedTransitionHash: initialParentHash,
+                    bondInstructionsHash: bytes32(0)
+                })
+            )
+        );
+        storedProposals[2] = lastProp;
 
         // Prove only proposals 1 and 3 (skip 2)
         for (uint48 i = 1; i <= 3; i += 2) {
@@ -385,24 +409,16 @@ contract InboxOutOfOrderProving is InboxTest {
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
 
+        // Advance time to pass the finalization grace period (5 minutes)
+        vm.warp(block.timestamp + 5 minutes + 1);
+
         // Expect only proposal 1 to be finalized
         expectCheckpointSaved(transition1.checkpoint);
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(4);
 
-        // Create the last proposal for validation
-        (IInbox.Proposal memory lastProposal,) =
-            InboxTestLib.createProposal(3, Alice, DEFAULT_BASEFEE_SHARING_PCTG);
-        lastProposal.coreStateHash = keccak256(
-            abi.encode(
-                IInbox.CoreState({
-                    nextProposalId: 4,
-                    lastFinalizedProposalId: 0,
-                    lastFinalizedTransitionHash: initialParentHash,
-                    bondInstructionsHash: bytes32(0)
-                })
-            )
-        );
+        // Use the stored proposal that was actually submitted
+        IInbox.Proposal memory lastProposal = storedProposals[2];
 
         // When finalizing, we need to provide the checkpoint
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);

@@ -16,18 +16,21 @@ contract TestInboxOptimized3 is InboxOptimized3 {
         address proposerChecker
     )
         InboxOptimized3(
-            bondToken,
-            checkpointManager,
-            proofVerifier,
-            proposerChecker,
-            2 hours, // provingWindow
-            4 hours, // extendedProvingWindow
-            16, // maxFinalizationCount
-            100, // ringBufferSize
-            0, // basefeeSharingPctg
-            1, // minForcedInclusionCount
-            100, // forcedInclusionDelay
-            10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
+            IInbox.Config({
+                bondToken: bondToken,
+                checkpointManager: checkpointManager,
+                proofVerifier: proofVerifier,
+                proposerChecker: proposerChecker,
+                provingWindow: 2 hours,
+                extendedProvingWindow: 4 hours,
+                maxFinalizationCount: 16,
+                finalizationGracePeriod: 5 minutes,
+                ringBufferSize: 100,
+                basefeeSharingPctg: 0,
+                minForcedInclusionCount: 1,
+                forcedInclusionDelay: 100,
+                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+             })
         )
     { }
 }

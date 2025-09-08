@@ -57,9 +57,9 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         vm.stopSnapshotGas();
 
         // Verify transition record is stored
-        bytes32 transitionRecordHash =
+        (, bytes26 recordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-        assertTrue(transitionRecordHash != bytes32(0), "Transition record should be stored");
+        assertTrue(recordHash != bytes32(0), "Transition record should be stored");
 
         // Verify exactly one Proved event was emitted
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -353,9 +353,9 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         inbox.prove(proveData, proof);
 
         // Verify transition record was stored
-        bytes32 transitionRecordHash =
+        (, bytes26 recordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-        assertTrue(transitionRecordHash != bytes32(0), "Transition record should be stored");
+        assertTrue(recordHash != bytes32(0), "Transition record should be stored");
     }
 
     // ---------------------------------------------------------------

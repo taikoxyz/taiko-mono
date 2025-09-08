@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxOptimized4 } from "./InboxOptimized4.sol";
+import { InboxOptimized3 } from "./InboxOptimized3.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
 import { LibL1Addrs } from "../../mainnet/libs/LibL1Addrs.sol";
 
@@ -9,7 +10,7 @@ import { LibL1Addrs } from "../../mainnet/libs/LibL1Addrs.sol";
 /// @dev This contract extends the base Inbox contract for mainnet deployment
 /// with optimized reentrancy lock implementation and efficient hashing.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetShastaInbox is InboxOptimized4 {
+contract MainnetShastaInbox is InboxOptimized3 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -35,33 +36,23 @@ contract MainnetShastaInbox is InboxOptimized4 {
         address _proposerChecker
     )
         InboxOptimized3(
-            LibL1Addrs.TAIKO_TOKEN,
-            _checkpointManager,
-            _proofVerifier,
-            _proposerChecker,
-            2 hours, // provingWindow
-            4 hours, // extendedProvingWindow
-            16, // maxFinalizationCount
-            _RING_BUFFER_SIZE, // ringBufferSize
-            0, // basefeeSharingPctg
-            1, // minForcedInclusionCount
-            100, // forcedInclusionDelay
-            10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
+            IInbox.Config({
+                bondToken: LibL1Addrs.TAIKO_TOKEN,
+                checkpointManager: _checkpointManager,
+                proofVerifier: _proofVerifier,
+                proposerChecker: _proposerChecker,
+                provingWindow: 2 hours,
+                extendedProvingWindow: 4 hours,
+                maxFinalizationCount: 16,
+                finalizationGracePeriod: 768 seconds,
+                ringBufferSize: _RING_BUFFER_SIZE,
+                basefeeSharingPctg: 0,
+                minForcedInclusionCount: 1,
+                forcedInclusionDelay: 100,
+                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+             })
         )
     { }
-
-    // ---------------------------------------------------------------
-    // External/Public Functions
-    // ---------------------------------------------------------------
-
-    // /// @notice Initializes the core state.
-    // /// @param _coreState The core state.
-    // function initCoreState(CoreState memory _coreState) external onlyOwner reinitializer(2) {
-    //     require(_coreState.nextProposalId != 0, InvalidCoreState());
-
-    //     coreStateHash = keccak256(abi.encode(_coreState));
-    //     emit CoreStateSet(_coreState);
-    // }
 
     // ---------------------------------------------------------------
     // Internal Functions

@@ -12,18 +12,21 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
 
     constructor()
         InboxOptimized2(
-            address(0), // bondToken
-            address(0), // checkpointManager
-            address(0), // proofVerifier
-            address(0), // proposerChecker
-            1 hours, // provingWindow
-            2 hours, // extendedProvingWindow
-            10, // maxFinalizationCount
-            100, // ringBufferSize
-            10, // basefeeSharingPctg
-            1, // minForcedInclusionCount
-            100, // forcedInclusionDelay
-            10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
+            IInbox.Config({
+                bondToken: address(0),
+                checkpointManager: address(0),
+                proofVerifier: address(0),
+                proposerChecker: address(0),
+                provingWindow: 1 hours,
+                extendedProvingWindow: 2 hours,
+                maxFinalizationCount: 10,
+                finalizationGracePeriod: 48 hours,
+                ringBufferSize: 100,
+                basefeeSharingPctg: 10,
+                minForcedInclusionCount: 1,
+                forcedInclusionDelay: 100,
+                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+             })
         )
     { }
 
@@ -33,13 +36,13 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
         _setProposalHash(_proposalId, _hash);
     }
 
-    function exposed_setTransitionRecordHash(
+    function exposed_setTransitionRecordExcerpt(
         uint48 _proposalId,
         IInbox.Transition memory _transition,
         IInbox.TransitionRecord memory _transitionRecord
     )
         external
     {
-        _setTransitionRecordHash(_proposalId, _transition, _transitionRecord);
+        _setTransitionRecordExcerpt(_proposalId, _transition, _transitionRecord);
     }
 }
