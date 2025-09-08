@@ -75,7 +75,7 @@ library LibBonds {
             // Below this threshold, the overhead of assembly operations outweighs the benefits
             // The constant 8 was determined through gas testing: assembly operations have fixed
             // overhead that only becomes profitable when copying larger amounts of data
-            return totalLen > 8
+            return totalLen > _ASSEMBLY_THRESHOLD
                 ? _bulkCopyBondInstructions(_existingInstructions, _newInstructions)
                 : _loopCopyBondInstructions(_existingInstructions, _newInstructions);
         }
