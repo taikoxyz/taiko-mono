@@ -1,0 +1,381 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import { Test } from "forge-std/src/Test.sol";
+import { console2 } from "forge-std/src/console2.sol";
+import { LibHashing } from "contracts/layer1/shasta/libs/LibHashing.sol";
+import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
+import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+
+/// @title LibHashingGasTest
+/// @notice Gas comparison tests for LibHashing optimizations vs standard keccak256(abi.encode)
+/// @dev This test demonstrates the gas savings achieved by using LibHashing over standard
+///      keccak256(abi.encode) operations in major hashing functions
+contract LibHashingGasTest is Test {
+    // Test data structures
+    IInbox.Transition internal testTransition;
+    ICheckpointManager.Checkpoint internal testCheckpoint;
+    IInbox.CoreState internal testCoreState;
+    IInbox.Proposal internal testProposal;
+    IInbox.Derivation internal testDerivation;
+    IInbox.TransitionRecord internal testTransitionRecord;
+    IInbox.Transition[] internal testTransitionsArray;
+
+    function setUp() public {
+        _initializeTestData();
+    }
+
+    /// @notice Test gas comparison for hashTransition function
+    function test_gasComparison_hashTransition() external view {
+        uint256 gasBefore;
+        uint256 gasAfter;
+        uint256 standardGas;
+        uint256 optimizedGas;
+
+        // Measure standard implementation
+        gasBefore = gasleft();
+        keccak256(abi.encode(testTransition));
+        gasAfter = gasleft();
+        standardGas = gasBefore - gasAfter;
+
+        // Measure optimized implementation
+        gasBefore = gasleft();
+        LibHashing.hashTransition(testTransition);
+        gasAfter = gasleft();
+        optimizedGas = gasBefore - gasAfter;
+
+        console2.log("=== hashTransition Gas Comparison ===");
+        console2.log("Standard Gas:      ", standardGas);
+        console2.log("Optimized Gas:     ", optimizedGas);
+        console2.log("Gas Saved:         ", standardGas - optimizedGas);
+        console2.log("Improvement:       ", ((standardGas - optimizedGas) * 100) / standardGas, "%");
+        console2.log("");
+    }
+
+    /// @notice Test gas comparison for hashCheckpoint function
+    function test_gasComparison_hashCheckpoint() external view {
+        uint256 gasBefore;
+        uint256 gasAfter;
+        uint256 standardGas;
+        uint256 optimizedGas;
+
+        // Measure standard implementation
+        gasBefore = gasleft();
+        keccak256(abi.encode(testCheckpoint));
+        gasAfter = gasleft();
+        standardGas = gasBefore - gasAfter;
+
+        // Measure optimized implementation
+        gasBefore = gasleft();
+        LibHashing.hashCheckpoint(testCheckpoint);
+        gasAfter = gasleft();
+        optimizedGas = gasBefore - gasAfter;
+
+        console2.log("=== hashCheckpoint Gas Comparison ===");
+        console2.log("Standard Gas:      ", standardGas);
+        console2.log("Optimized Gas:     ", optimizedGas);
+        console2.log("Gas Saved:         ", standardGas - optimizedGas);
+        console2.log("Improvement:       ", ((standardGas - optimizedGas) * 100) / standardGas, "%");
+        console2.log("");
+    }
+
+    /// @notice Test gas comparison for hashCoreState function
+    function test_gasComparison_hashCoreState() external view {
+        uint256 gasBefore;
+        uint256 gasAfter;
+        uint256 standardGas;
+        uint256 optimizedGas;
+
+        // Measure standard implementation
+        gasBefore = gasleft();
+        keccak256(abi.encode(testCoreState));
+        gasAfter = gasleft();
+        standardGas = gasBefore - gasAfter;
+
+        // Measure optimized implementation
+        gasBefore = gasleft();
+        LibHashing.hashCoreState(testCoreState);
+        gasAfter = gasleft();
+        optimizedGas = gasBefore - gasAfter;
+
+        console2.log("=== hashCoreState Gas Comparison ===");
+        console2.log("Standard Gas:      ", standardGas);
+        console2.log("Optimized Gas:     ", optimizedGas);
+        console2.log("Gas Saved:         ", standardGas - optimizedGas);
+        console2.log("Improvement:       ", ((standardGas - optimizedGas) * 100) / standardGas, "%");
+        console2.log("");
+    }
+
+    /// @notice Test gas comparison for hashProposal function
+    function test_gasComparison_hashProposal() external view {
+        uint256 gasBefore;
+        uint256 gasAfter;
+        uint256 standardGas;
+        uint256 optimizedGas;
+
+        // Measure standard implementation
+        gasBefore = gasleft();
+        keccak256(abi.encode(testProposal));
+        gasAfter = gasleft();
+        standardGas = gasBefore - gasAfter;
+
+        // Measure optimized implementation
+        gasBefore = gasleft();
+        LibHashing.hashProposal(testProposal);
+        gasAfter = gasleft();
+        optimizedGas = gasBefore - gasAfter;
+
+        console2.log("=== hashProposal Gas Comparison ===");
+        console2.log("Standard Gas:      ", standardGas);
+        console2.log("Optimized Gas:     ", optimizedGas);
+        console2.log("Gas Saved:         ", standardGas - optimizedGas);
+        console2.log("Improvement:       ", ((standardGas - optimizedGas) * 100) / standardGas, "%");
+        console2.log("");
+    }
+
+    /// @notice Test gas comparison for hashDerivation function
+    function test_gasComparison_hashDerivation() external view {
+        uint256 gasBefore;
+        uint256 gasAfter;
+        uint256 standardGas;
+        uint256 optimizedGas;
+
+        // Measure standard implementation
+        gasBefore = gasleft();
+        keccak256(abi.encode(testDerivation));
+        gasAfter = gasleft();
+        standardGas = gasBefore - gasAfter;
+
+        // Measure optimized implementation
+        gasBefore = gasleft();
+        LibHashing.hashDerivation(testDerivation);
+        gasAfter = gasleft();
+        optimizedGas = gasBefore - gasAfter;
+
+        console2.log("=== hashDerivation Gas Comparison ===");
+        console2.log("Standard Gas:      ", standardGas);
+        console2.log("Optimized Gas:     ", optimizedGas);
+        console2.log("Gas Saved:         ", standardGas - optimizedGas);
+        console2.log("Improvement:       ", ((standardGas - optimizedGas) * 100) / standardGas, "%");
+        console2.log("");
+    }
+
+    /// @notice Test gas comparison for hashTransitionsArray function
+    function test_gasComparison_hashTransitionsArray() external view {
+        uint256 gasBefore;
+        uint256 gasAfter;
+        uint256 standardGas;
+        uint256 optimizedGas;
+
+        // Measure standard implementation
+        gasBefore = gasleft();
+        keccak256(abi.encode(testTransitionsArray));
+        gasAfter = gasleft();
+        standardGas = gasBefore - gasAfter;
+
+        // Measure optimized implementation
+        gasBefore = gasleft();
+        LibHashing.hashTransitionsArray(testTransitionsArray);
+        gasAfter = gasleft();
+        optimizedGas = gasBefore - gasAfter;
+
+        console2.log("=== hashTransitionsArray Gas Comparison ===");
+        console2.log("Standard Gas:      ", standardGas);
+        console2.log("Optimized Gas:     ", optimizedGas);
+        console2.log("Gas Saved:         ", standardGas - optimizedGas);
+        console2.log("Improvement:       ", ((standardGas - optimizedGas) * 100) / standardGas, "%");
+        console2.log("");
+    }
+
+    /// @notice Comprehensive gas comparison across all hashing functions
+    function test_gasComparison_scenarios() external view {
+        uint256 totalStandardGas = 0;
+        uint256 totalOptimizedGas = 0;
+        uint256 gasBefore;
+        uint256 gasAfter;
+
+        console2.log("=== COMPREHENSIVE LIBHASHING GAS COMPARISON ===");
+        console2.log("");
+
+        // hashTransition
+        gasBefore = gasleft();
+        keccak256(abi.encode(testTransition));
+        gasAfter = gasleft();
+        totalStandardGas += (gasBefore - gasAfter);
+
+        gasBefore = gasleft();
+        LibHashing.hashTransition(testTransition);
+        gasAfter = gasleft();
+        totalOptimizedGas += (gasBefore - gasAfter);
+
+        // hashCheckpoint
+        gasBefore = gasleft();
+        keccak256(abi.encode(testCheckpoint));
+        gasAfter = gasleft();
+        totalStandardGas += (gasBefore - gasAfter);
+
+        gasBefore = gasleft();
+        LibHashing.hashCheckpoint(testCheckpoint);
+        gasAfter = gasleft();
+        totalOptimizedGas += (gasBefore - gasAfter);
+
+        // hashCoreState
+        gasBefore = gasleft();
+        keccak256(abi.encode(testCoreState));
+        gasAfter = gasleft();
+        totalStandardGas += (gasBefore - gasAfter);
+
+        gasBefore = gasleft();
+        LibHashing.hashCoreState(testCoreState);
+        gasAfter = gasleft();
+        totalOptimizedGas += (gasBefore - gasAfter);
+
+        // hashProposal
+        gasBefore = gasleft();
+        keccak256(abi.encode(testProposal));
+        gasAfter = gasleft();
+        totalStandardGas += (gasBefore - gasAfter);
+
+        gasBefore = gasleft();
+        LibHashing.hashProposal(testProposal);
+        gasAfter = gasleft();
+        totalOptimizedGas += (gasBefore - gasAfter);
+
+        // hashDerivation
+        gasBefore = gasleft();
+        keccak256(abi.encode(testDerivation));
+        gasAfter = gasleft();
+        totalStandardGas += (gasBefore - gasAfter);
+
+        gasBefore = gasleft();
+        LibHashing.hashDerivation(testDerivation);
+        gasAfter = gasleft();
+        totalOptimizedGas += (gasBefore - gasAfter);
+
+        // hashTransitionsArray
+        gasBefore = gasleft();
+        keccak256(abi.encode(testTransitionsArray));
+        gasAfter = gasleft();
+        totalStandardGas += (gasBefore - gasAfter);
+
+        gasBefore = gasleft();
+        LibHashing.hashTransitionsArray(testTransitionsArray);
+        gasAfter = gasleft();
+        totalOptimizedGas += (gasBefore - gasAfter);
+
+        console2.log("Total Standard Gas:   ", totalStandardGas);
+        console2.log("Total Optimized Gas:  ", totalOptimizedGas);
+        console2.log("Total Gas Saved:      ", totalStandardGas - totalOptimizedGas);
+        console2.log("Overall Improvement:  ", ((totalStandardGas - totalOptimizedGas) * 100) / totalStandardGas, "%");
+        console2.log("");
+        console2.log("=== LibHashing optimization delivers significant gas savings! ===");
+    }
+
+    /// @notice Initialize test data structures with realistic values
+    function _initializeTestData() private {
+        // Initialize test transition
+        testTransition = IInbox.Transition({
+            proposalHash: keccak256("test_proposal_hash"),
+            parentTransitionHash: keccak256("test_parent_transition_hash"),
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: 12345678,
+                blockHash: keccak256("test_block_hash"),
+                stateRoot: keccak256("test_state_root")
+            }),
+            designatedProver: address(0x1234567890123456789012345678901234567890),
+            actualProver: address(0x9876543210987654321098765432109876543210)
+        });
+
+        // Initialize test checkpoint
+        testCheckpoint = ICheckpointManager.Checkpoint({
+            blockNumber: 12345678,
+            blockHash: keccak256("test_block_hash"),
+            stateRoot: keccak256("test_state_root")
+        });
+
+        // Initialize test core state
+        testCoreState = IInbox.CoreState({
+            nextProposalId: 1001,
+            lastFinalizedProposalId: 1000,
+            lastFinalizedTransitionHash: keccak256("test_finalized_transition"),
+            bondInstructionsHash: keccak256("test_bond_instructions")
+        });
+
+        // Initialize test proposal
+        testProposal = IInbox.Proposal({
+            id: 1001,
+            timestamp: 1672531200, // 2023-01-01 00:00:00 UTC
+            lookaheadSlotTimestamp: 1672531260, // 2023-01-01 00:01:00 UTC
+            proposer: address(0xabCDEF1234567890ABcDEF1234567890aBCDeF12),
+            coreStateHash: keccak256("test_core_state_hash"),
+            derivationHash: keccak256("test_derivation_hash")
+        });
+
+        // Initialize test derivation
+        bytes32[] memory blobHashes = new bytes32[](2);
+        blobHashes[0] = keccak256("test_blob_hash_1");
+        blobHashes[1] = keccak256("test_blob_hash_2");
+        
+        testDerivation = IInbox.Derivation({
+            originBlockNumber: 12345677,
+            originBlockHash: keccak256("test_origin_block_hash"),
+            isForcedInclusion: false,
+            basefeeSharingPctg: 10,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: blobHashes,
+                offset: 1024,
+                timestamp: 1672531200
+            })
+        });
+
+        // Initialize test transition record
+        LibBonds.BondInstruction[] memory bondInstructions = new LibBonds.BondInstruction[](2);
+        bondInstructions[0] = LibBonds.BondInstruction({
+            proposalId: 1001,
+            bondType: LibBonds.BondType.LIVENESS,
+            payer: address(0x1111111111111111111111111111111111111111),
+            receiver: address(0x2222222222222222222222222222222222222222)
+        });
+        bondInstructions[1] = LibBonds.BondInstruction({
+            proposalId: 1002,
+            bondType: LibBonds.BondType.PROVABILITY,
+            payer: address(0x3333333333333333333333333333333333333333),
+            receiver: address(0x4444444444444444444444444444444444444444)
+        });
+
+        testTransitionRecord = IInbox.TransitionRecord({
+            span: 2,
+            bondInstructions: bondInstructions,
+            transitionHash: keccak256("test_transition_hash"),
+            checkpointHash: keccak256("test_checkpoint_hash")
+        });
+
+        // Initialize test transitions array with multiple entries
+        testTransitionsArray = new IInbox.Transition[](3);
+        testTransitionsArray[0] = testTransition;
+        testTransitionsArray[1] = IInbox.Transition({
+            proposalHash: keccak256("test_proposal_hash_2"),
+            parentTransitionHash: keccak256("test_parent_transition_hash_2"),
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: 12345679,
+                blockHash: keccak256("test_block_hash_2"),
+                stateRoot: keccak256("test_state_root_2")
+            }),
+            designatedProver: address(0x5555555555555555555555555555555555555555),
+            actualProver: address(0x6666666666666666666666666666666666666666)
+        });
+        testTransitionsArray[2] = IInbox.Transition({
+            proposalHash: keccak256("test_proposal_hash_3"),
+            parentTransitionHash: keccak256("test_parent_transition_hash_3"),
+            checkpoint: ICheckpointManager.Checkpoint({
+                blockNumber: 12345680,
+                blockHash: keccak256("test_block_hash_3"),
+                stateRoot: keccak256("test_state_root_3")
+            }),
+            designatedProver: address(0x7777777777777777777777777777777777777777),
+            actualProver: address(0x8888888888888888888888888888888888888888)
+        });
+    }
+}
