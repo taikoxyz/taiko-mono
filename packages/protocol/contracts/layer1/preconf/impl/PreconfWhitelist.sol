@@ -43,6 +43,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     uint256[45] private __gap;
 
+    uint256 public genesisTimestamp;
+
     modifier onlyOwnerOrEjecter() {
         require(msg.sender == owner() || ejecters[msg.sender], NotOwnerOrEjecter());
         _;
@@ -53,7 +55,8 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
     function init(
         address _owner,
         uint8 _operatorChangeDelay,
-        uint8 _randomnessDelay
+        uint8 _randomnessDelay,
+        uint256 _genesisTimestamp
     )
         external
         initializer
@@ -62,6 +65,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
         operatorChangeDelay = _operatorChangeDelay;
         randomnessDelay = _randomnessDelay;
         havingPerfectOperators = true;
+        genesisTimestamp = _genesisTimestamp;
     }
 
     function setOperatorChangeDelay(uint8 _operatorChangeDelay) external onlyOwner {
@@ -195,7 +199,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist {
 
     function epochStartTimestamp(uint256 _offset) public view returns (uint32) {
         return uint32(
-            LibPreconfUtils.getEpochTimestamp() + _offset * LibPreconfConstants.SECONDS_IN_EPOCH
+            LibPreconfUtils.getEpochTimestamp(genesisTimestamp) + _offset * LibPreconfConstants.SECONDS_IN_EPOCH
         );
     }
 

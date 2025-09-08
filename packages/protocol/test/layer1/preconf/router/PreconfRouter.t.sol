@@ -100,7 +100,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         operators[2] = David;
         addOperators(operators);
 
-        vm.chainId(1);
+        // vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 currentEpoch = epochOneStart
             + LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS * LibPreconfConstants.SECONDS_IN_EPOCH;
@@ -150,7 +150,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         operators[2] = David;
         addOperators(operators);
 
-        vm.chainId(1);
+        // vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 currentEpoch = epochOneStart
             + LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS * LibPreconfConstants.SECONDS_IN_EPOCH;
@@ -171,7 +171,7 @@ contract PreconfRouterTest is PreconfRouterTestBase {
         operators[2] = David;
         addOperators(operators);
 
-        vm.chainId(1);
+        // vm.chainId(1);
         uint256 epochOneStart = LibPreconfConstants.getGenesisTimestamp(block.chainid);
         uint256 currentEpoch = epochOneStart
             + LibPreconfConstants.RANDOMNESS_DELAY_EPOCHS * LibPreconfConstants.SECONDS_IN_EPOCH;
