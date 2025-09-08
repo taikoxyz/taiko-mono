@@ -313,7 +313,7 @@ func (c *EthClient) TransactionSender(
 	defer cancel()
 
 	result, err := c.ethClient.TransactionSender(ctxWithTimeout, tx, block, index)
-	recordRPCMetrics("eth_accounts", c.rpcURL, start, err)
+	recordRPCMetrics("tx_sender", c.rpcURL, start, err)
 	return result, err
 }
 
