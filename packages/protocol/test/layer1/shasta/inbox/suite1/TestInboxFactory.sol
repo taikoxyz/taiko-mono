@@ -5,6 +5,7 @@ import "./TestInboxCore.sol";
 import "./TestInboxOptimized1.sol";
 import "./TestInboxOptimized2.sol";
 import "./TestInboxOptimized3.sol";
+import "./InboxMockContracts.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -33,16 +34,45 @@ contract TestInboxFactory {
         external
         returns (address inbox)
     {
+        // Create mock dependencies
+        address bondToken = address(new MockERC20());
+        address checkpointManager = address(new StubCheckpointManager());
+        address proofVerifier = address(new StubProofVerifier());
+
+        return deployInboxWithMocks(
+            _type, _owner, _genesisBlockHash, bondToken, checkpointManager, proofVerifier
+        );
+    }
+
+    /// @notice Deploy a specific Inbox implementation with custom mock addresses
+    /// @param _type The type of Inbox to deploy
+    /// @param _owner The owner of the deployed contract
+    /// @param _genesisBlockHash The genesis block hash for initialization
+    /// @param _bondToken The bond token mock address
+    /// @param _checkpointManager The checkpoint manager mock address
+    /// @param _proofVerifier The proof verifier mock address
+    /// @return inbox The deployed Inbox proxy address
+    function deployInboxWithMocks(
+        InboxType _type,
+        address _owner,
+        bytes32 _genesisBlockHash,
+        address _bondToken,
+        address _checkpointManager,
+        address _proofVerifier
+    )
+        public
+        returns (address inbox)
+    {
         address impl;
 
         if (_type == InboxType.Base) {
-            impl = address(new TestInboxCore());
+            impl = address(new TestInboxCore(_bondToken, _checkpointManager, _proofVerifier));
         } else if (_type == InboxType.Optimized1) {
-            impl = address(new TestInboxOptimized1());
+            impl = address(new TestInboxOptimized1(_bondToken, _checkpointManager, _proofVerifier));
         } else if (_type == InboxType.Optimized2) {
-            impl = address(new TestInboxOptimized2());
+            impl = address(new TestInboxOptimized2(_bondToken, _checkpointManager, _proofVerifier));
         } else if (_type == InboxType.Optimized3) {
-            impl = address(new TestInboxOptimized3());
+            impl = address(new TestInboxOptimized3(_bondToken, _checkpointManager, _proofVerifier));
         } else {
             revert("Invalid inbox type");
         }
