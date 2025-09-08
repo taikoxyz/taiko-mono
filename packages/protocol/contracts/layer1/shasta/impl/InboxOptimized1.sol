@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "./Inbox.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title InboxOptimized1
@@ -44,37 +45,7 @@ contract InboxOptimized1 is Inbox {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor(
-        address _bondToken,
-        address _checkpointManager,
-        address _proofVerifier,
-        address _proposerChecker,
-        uint48 _provingWindow,
-        uint48 _extendedProvingWindow,
-        uint256 _maxFinalizationCount,
-        uint48 _finalizationGracePeriod,
-        uint256 _ringBufferSize,
-        uint8 _basefeeSharingPctg,
-        uint256 _minForcedInclusionCount,
-        uint64 _forcedInclusionDelay,
-        uint64 _forcedInclusionFeeInGwei
-    )
-        Inbox(
-            _bondToken,
-            _checkpointManager,
-            _proofVerifier,
-            _proposerChecker,
-            _provingWindow,
-            _extendedProvingWindow,
-            _maxFinalizationCount,
-            _finalizationGracePeriod,
-            _ringBufferSize,
-            _basefeeSharingPctg,
-            _minForcedInclusionCount,
-            _forcedInclusionDelay,
-            _forcedInclusionFeeInGwei
-        )
-    { }
+    constructor(IInbox.Config memory _config) Inbox(_config) { }
 
     // ---------------------------------------------------------------
     // Internal Functions - Overrides
@@ -147,7 +118,7 @@ contract InboxOptimized1 is Inbox {
             } else {
                 // Save the current aggregated record before starting a new one
                 _setTransitionRecordExcerpt(
-                     currentGroupStartId, firstTransitionInGroup, currentRecord
+                    currentGroupStartId, firstTransitionInGroup, currentRecord
                 );
 
                 // Start a new record for non-continuous proposal
@@ -166,9 +137,7 @@ contract InboxOptimized1 is Inbox {
         }
 
         // Save the final aggregated record
-        _setTransitionRecordExcerpt(
-             currentGroupStartId, firstTransitionInGroup, currentRecord
-        );
+        _setTransitionRecordExcerpt(currentGroupStartId, firstTransitionInGroup, currentRecord);
     }
 
     /// @inheritdoc Inbox

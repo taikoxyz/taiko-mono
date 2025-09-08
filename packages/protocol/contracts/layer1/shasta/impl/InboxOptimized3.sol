@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "./Inbox.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { InboxOptimized2 } from "./InboxOptimized2.sol";
 import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
 import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
@@ -28,37 +29,7 @@ contract InboxOptimized3 is InboxOptimized2 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor(
-        address _bondToken,
-        address _checkpointManager,
-        address _proofVerifier,
-        address _proposerChecker,
-        uint48 _provingWindow,
-        uint48 _extendedProvingWindow,
-        uint256 _maxFinalizationCount,
-        uint48 _finalizationGracePeriod,
-        uint256 _ringBufferSize,
-        uint8 _basefeeSharingPctg,
-        uint256 _minForcedInclusionCount,
-        uint64 _forcedInclusionDelay,
-        uint64 _forcedInclusionFeeInGwei
-    )
-        InboxOptimized2(
-            _bondToken,
-            _checkpointManager,
-            _proofVerifier,
-            _proposerChecker,
-            _provingWindow,
-            _extendedProvingWindow,
-            _maxFinalizationCount,
-            _finalizationGracePeriod,
-            _ringBufferSize,
-            _basefeeSharingPctg,
-            _minForcedInclusionCount,
-            _forcedInclusionDelay,
-            _forcedInclusionFeeInGwei
-        )
-    { }
+    constructor(IInbox.Config memory _config) InboxOptimized2(_config) { }
 
     // ---------------------------------------------------------------
     // External Functions

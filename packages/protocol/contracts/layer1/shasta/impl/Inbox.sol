@@ -39,44 +39,44 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @notice The token used for bonds.
-    IERC20 public immutable bondToken;
+    IERC20 internal immutable bondToken;
 
     /// @notice The checkpoint manager contract.
-    ICheckpointManager public immutable checkpointManager;
+    ICheckpointManager internal immutable checkpointManager;
 
     /// @notice The proof verifier contract.
-    IProofVerifier public immutable proofVerifier;
+    IProofVerifier internal immutable proofVerifier;
 
     /// @notice The proposer checker contract.
-    IProposerChecker public immutable proposerChecker;
+    IProposerChecker internal immutable proposerChecker;
 
     /// @notice The proving window in seconds.
-    uint48 public immutable provingWindow;
+    uint48 internal immutable provingWindow;
 
     /// @notice The extended proving window in seconds.
-    uint48 public immutable extendedProvingWindow;
+    uint48 internal immutable extendedProvingWindow;
 
     /// @notice The maximum number of finalized proposals in one block.
-    uint256 public immutable maxFinalizationCount;
+    uint256 internal immutable maxFinalizationCount;
 
     /// @notice The finalization grace period in seconds.
-    uint48 public immutable finalizationGracePeriod;
+    uint48 internal immutable finalizationGracePeriod;
 
     /// @notice The ring buffer size for storing proposal hashes.
-    uint256 public immutable ringBufferSize;
+    uint256 internal immutable ringBufferSize;
 
     /// @notice The percentage of basefee paid to coinbase.
-    uint8 public immutable basefeeSharingPctg;
+    uint8 internal immutable basefeeSharingPctg;
 
     /// @notice The minimum number of forced inclusions that the proposer is forced to process if
     /// they are due.
-    uint256 public immutable minForcedInclusionCount;
+    uint256 internal immutable minForcedInclusionCount;
 
     /// @notice The delay for forced inclusions measured in seconds.
-    uint64 public immutable forcedInclusionDelay;
+    uint64 internal immutable forcedInclusionDelay;
 
     /// @notice The fee for forced inclusions in Gwei.
-    uint64 public immutable forcedInclusionFeeInGwei;
+    uint64 internal immutable forcedInclusionFeeInGwei;
 
     // ---------------------------------------------------------------
     // Events
@@ -136,50 +136,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @notice Initializes the Inbox contract
-    /// @param _bondToken The token used for bonds
-    /// @param _checkpointManager The checkpoint manager contract
-    /// @param _proofVerifier The proof verifier contract
-    /// @param _proposerChecker The proposer checker contract
-    /// @param _provingWindow The proving window in seconds
-    /// @param _extendedProvingWindow The extended proving window in seconds
-    /// @param _maxFinalizationCount The maximum number of finalized proposals in one block
-    /// @param _finalizationGracePeriod The finalization grace period in seconds
-    /// @param _ringBufferSize The ring buffer size for storing proposal hashes
-    /// @param _basefeeSharingPctg The percentage of basefee paid to coinbase
-    /// @param _minForcedInclusionCount The minimum number of forced inclusions that the proposer is
-    /// forced to process if they are due
-    /// @param _forcedInclusionDelay The delay for forced inclusions measured in seconds
-    /// @param _forcedInclusionFeeInGwei The fee for forced inclusions in Gwei
-    constructor(
-        address _bondToken,
-        address _checkpointManager,
-        address _proofVerifier,
-        address _proposerChecker,
-        uint48 _provingWindow,
-        uint48 _extendedProvingWindow,
-        uint256 _maxFinalizationCount,
-        uint48 _finalizationGracePeriod,
-        uint256 _ringBufferSize,
-        uint8 _basefeeSharingPctg,
-        uint256 _minForcedInclusionCount,
-        uint64 _forcedInclusionDelay,
-        uint64 _forcedInclusionFeeInGwei
-    )
-        EssentialContract()
-    {
-        bondToken = IERC20(_bondToken);
-        checkpointManager = ICheckpointManager(_checkpointManager);
-        proofVerifier = IProofVerifier(_proofVerifier);
-        proposerChecker = IProposerChecker(_proposerChecker);
-        provingWindow = _provingWindow;
-        extendedProvingWindow = _extendedProvingWindow;
-        maxFinalizationCount = _maxFinalizationCount;
-        finalizationGracePeriod = _finalizationGracePeriod;
-        ringBufferSize = _ringBufferSize;
-        basefeeSharingPctg = _basefeeSharingPctg;
-        minForcedInclusionCount = _minForcedInclusionCount;
-        forcedInclusionDelay = _forcedInclusionDelay;
-        forcedInclusionFeeInGwei = _forcedInclusionFeeInGwei;
+    /// @param _config Configuration struct containing all constructor parameters
+    constructor(IInbox.Config memory _config) EssentialContract() {
+        bondToken = IERC20(_config.bondToken);
+        checkpointManager = ICheckpointManager(_config.checkpointManager);
+        proofVerifier = IProofVerifier(_config.proofVerifier);
+        proposerChecker = IProposerChecker(_config.proposerChecker);
+        provingWindow = _config.provingWindow;
+        extendedProvingWindow = _config.extendedProvingWindow;
+        maxFinalizationCount = _config.maxFinalizationCount;
+        finalizationGracePeriod = _config.finalizationGracePeriod;
+        ringBufferSize = _config.ringBufferSize;
+        basefeeSharingPctg = _config.basefeeSharingPctg;
+        minForcedInclusionCount = _config.minForcedInclusionCount;
+        forcedInclusionDelay = _config.forcedInclusionDelay;
+        forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
     }
 
     /// @notice Initializes the Inbox contract with genesis block
@@ -341,6 +312,25 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         return (excerpt.finalizationDeadline, excerpt.recordHash);
     }
 
+    /// @inheritdoc IInbox
+    function getConfig() external view returns (IInbox.Config memory config_) {
+        config_ = IInbox.Config({
+            bondToken: address(bondToken),
+            checkpointManager: address(checkpointManager),
+            proofVerifier: address(proofVerifier),
+            proposerChecker: address(proposerChecker),
+            provingWindow: provingWindow,
+            extendedProvingWindow: extendedProvingWindow,
+            maxFinalizationCount: maxFinalizationCount,
+            finalizationGracePeriod: finalizationGracePeriod,
+            ringBufferSize: ringBufferSize,
+            basefeeSharingPctg: basefeeSharingPctg,
+            minForcedInclusionCount: minForcedInclusionCount,
+            forcedInclusionDelay: forcedInclusionDelay,
+            forcedInclusionFeeInGwei: forcedInclusionFeeInGwei
+        });
+    }
+
     /// @notice Decodes proposal input data
     /// @param _data The encoded data
     /// @return input_ The decoded ProposeInput struct containing all proposal data
@@ -468,7 +458,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // the
             // event
             _setTransitionRecordExcerpt(
-                 _input.proposals[i].id, _input.transitions[i], transitionRecord
+                _input.proposals[i].id, _input.transitions[i], transitionRecord
             );
         }
     }

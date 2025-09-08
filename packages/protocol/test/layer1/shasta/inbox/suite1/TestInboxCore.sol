@@ -20,19 +20,21 @@ contract TestInboxCore is Inbox, ITestInbox, IProposerChecker {
         address _proofVerifier
     )
         Inbox(
-            _bondToken,
-            _checkpointManager,
-            _proofVerifier,
-            address(this), // proposerChecker - use this contract as stub
-            1 hours, // provingWindow
-            2 hours, // extendedProvingWindow
-            10, // maxFinalizationCount
-            5 minutes, // finalizationGracePeriod
-            100, // ringBufferSize
-            10, // basefeeSharingPctg
-            1, // minForcedInclusionCount
-            100, // forcedInclusionDelay
-            10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
+            IInbox.Config({
+                bondToken: _bondToken,
+                checkpointManager: _checkpointManager,
+                proofVerifier: _proofVerifier,
+                proposerChecker: address(this), // proposerChecker - use this contract as stub
+                provingWindow: 1 hours,
+                extendedProvingWindow: 2 hours,
+                maxFinalizationCount: 10,
+                finalizationGracePeriod: 5 minutes,
+                ringBufferSize: 100,
+                basefeeSharingPctg: 10,
+                minForcedInclusionCount: 1,
+                forcedInclusionDelay: 100,
+                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+             })
         )
     { }
 

@@ -16,19 +16,21 @@ contract TestInbox is Inbox {
         address proposerChecker
     )
         Inbox(
-            bondToken,
-            checkpointManager,
-            proofVerifier,
-            proposerChecker,
-            2 hours, // provingWindow
-            4 hours, // extendedProvingWindow
-            48 hours, // finalizationGracePeriod
-            16, // maxFinalizationCount
-            100, // ringBufferSize
-            0, // basefeeSharingPctg
-            1, // minForcedInclusionCount
-            100, // forcedInclusionDelay
-            10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
+            IInbox.Config({
+                bondToken: bondToken,
+                checkpointManager: checkpointManager,
+                proofVerifier: proofVerifier,
+                proposerChecker: proposerChecker,
+                provingWindow: 2 hours,
+                extendedProvingWindow: 4 hours,
+                maxFinalizationCount: 16,
+                finalizationGracePeriod: 48 hours,
+                ringBufferSize: 100,
+                basefeeSharingPctg: 0,
+                minForcedInclusionCount: 1,
+                forcedInclusionDelay: 100,
+                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+             })
         )
     { }
 }

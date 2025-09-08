@@ -109,7 +109,7 @@ contract InboxRingBuffer is InboxTest {
     function test_ring_buffer_capacity_calculation() public view {
         // Ring buffer size is now immutable (100) - test only validates the current capacity
 
-        uint256 capacity = Inbox(address(inbox)).ringBufferSize() - 1;
+        uint256 capacity = inbox.getConfig().ringBufferSize - 1;
         uint256 expectedCapacity = getRingBufferSize() - 1;
 
         assertEq(capacity, expectedCapacity, "Capacity should be bufferSize-1");
