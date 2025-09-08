@@ -39,44 +39,44 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
 
     /// @notice The token used for bonds.
-    IERC20 internal immutable bondToken;
+    IERC20 internal immutable _bondToken;
 
     /// @notice The checkpoint manager contract.
-    ICheckpointManager internal immutable checkpointManager;
+    ICheckpointManager internal immutable _checkpointManager;
 
     /// @notice The proof verifier contract.
-    IProofVerifier internal immutable proofVerifier;
+    IProofVerifier internal immutable _proofVerifier;
 
     /// @notice The proposer checker contract.
-    IProposerChecker internal immutable proposerChecker;
+    IProposerChecker internal immutable _proposerChecker;
 
     /// @notice The proving window in seconds.
-    uint48 internal immutable provingWindow;
+    uint48 internal immutable _provingWindow;
 
     /// @notice The extended proving window in seconds.
-    uint48 internal immutable extendedProvingWindow;
+    uint48 internal immutable _extendedProvingWindow;
 
     /// @notice The maximum number of finalized proposals in one block.
-    uint256 internal immutable maxFinalizationCount;
+    uint256 internal immutable _maxFinalizationCount;
 
     /// @notice The finalization grace period in seconds.
-    uint48 internal immutable finalizationGracePeriod;
+    uint48 internal immutable _finalizationGracePeriod;
 
     /// @notice The ring buffer size for storing proposal hashes.
-    uint256 internal immutable ringBufferSize;
+    uint256 internal immutable _ringBufferSize;
 
     /// @notice The percentage of basefee paid to coinbase.
-    uint8 internal immutable basefeeSharingPctg;
+    uint8 internal immutable _basefeeSharingPctg;
 
     /// @notice The minimum number of forced inclusions that the proposer is forced to process if
     /// they are due.
-    uint256 internal immutable minForcedInclusionCount;
+    uint256 internal immutable _minForcedInclusionCount;
 
     /// @notice The delay for forced inclusions measured in seconds.
-    uint64 internal immutable forcedInclusionDelay;
+    uint64 internal immutable _forcedInclusionDelay;
 
     /// @notice The fee for forced inclusions in Gwei.
-    uint64 internal immutable forcedInclusionFeeInGwei;
+    uint64 internal immutable _forcedInclusionFeeInGwei;
 
     // ---------------------------------------------------------------
     // Events
@@ -138,19 +138,19 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
     constructor(IInbox.Config memory _config) EssentialContract() {
-        bondToken = IERC20(_config.bondToken);
-        checkpointManager = ICheckpointManager(_config.checkpointManager);
-        proofVerifier = IProofVerifier(_config.proofVerifier);
-        proposerChecker = IProposerChecker(_config.proposerChecker);
-        provingWindow = _config.provingWindow;
-        extendedProvingWindow = _config.extendedProvingWindow;
-        maxFinalizationCount = _config.maxFinalizationCount;
-        finalizationGracePeriod = _config.finalizationGracePeriod;
-        ringBufferSize = _config.ringBufferSize;
-        basefeeSharingPctg = _config.basefeeSharingPctg;
-        minForcedInclusionCount = _config.minForcedInclusionCount;
-        forcedInclusionDelay = _config.forcedInclusionDelay;
-        forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
+        _bondToken = IERC20(_config.bondToken);
+        _checkpointManager = ICheckpointManager(_config.checkpointManager);
+        _proofVerifier = IProofVerifier(_config.proofVerifier);
+        _proposerChecker = IProposerChecker(_config.proposerChecker);
+        _provingWindow = _config.provingWindow;
+        _extendedProvingWindow = _config.extendedProvingWindow;
+        _maxFinalizationCount = _config.maxFinalizationCount;
+        _finalizationGracePeriod = _config.finalizationGracePeriod;
+        _ringBufferSize = _config.ringBufferSize;
+        _basefeeSharingPctg = _config.basefeeSharingPctg;
+        _minForcedInclusionCount = _config.minForcedInclusionCount;
+        _forcedInclusionDelay = _config.forcedInclusionDelay;
+        _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
     }
 
     /// @notice Initializes the Inbox contract with genesis block
@@ -194,7 +194,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         nonReentrant
     {
         // Validate proposer
-        uint48 lookaheadSlotTimestamp = proposerChecker.checkProposer(msg.sender);
+        uint48 lookaheadSlotTimestamp = _proposerChecker.checkProposer(msg.sender);
 
         // Decode and validate input data
         ProposeInput memory input = decodeProposeInput(_data);
@@ -226,9 +226,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Verify that at least `minForcedInclusionCount` forced inclusions were processed or
         // none remains in the queue that is due.
         require(
-            input.numForcedInclusions >= minForcedInclusionCount
+            input.numForcedInclusions >= _minForcedInclusionCount
                 || !LibForcedInclusion.isOldestForcedInclusionDue(
-                    _forcedInclusionStorage, forcedInclusionDelay
+                    _forcedInclusionStorage, _forcedInclusionDelay
                 ),
             UnprocessedForcedInclusionIsDue()
         );
@@ -255,7 +255,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _buildAndSaveTransitionRecords(input);
 
         // Verify the proof
-        proofVerifier.verifyProof(_hashTransitionsArray(input.transitions), _proof);
+        _proofVerifier.verifyProof(_hashTransitionsArray(input.transitions), _proof);
     }
 
     /// @notice Withdraws bond balance to specified address
@@ -268,21 +268,21 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Clear balance before transfer (checks-effects-interactions)
         bondBalance[_address] = 0;
         // Transfer the bond
-        bondToken.safeTransfer(_address, amount);
+        _bondToken.safeTransfer(_address, amount);
         emit BondWithdrawn(_address, amount);
     }
 
     /// @inheritdoc IForcedInclusionStore
     function storeForcedInclusion(LibBlobs.BlobReference memory _blobReference) external payable {
         LibForcedInclusion.storeForcedInclusion(
-            _forcedInclusionStorage, forcedInclusionDelay, forcedInclusionFeeInGwei, _blobReference
+            _forcedInclusionStorage, _forcedInclusionDelay, _forcedInclusionFeeInGwei, _blobReference
         );
     }
 
     /// @inheritdoc IForcedInclusionStore
     function isOldestForcedInclusionDue() external view returns (bool) {
         return LibForcedInclusion.isOldestForcedInclusionDue(
-            _forcedInclusionStorage, forcedInclusionDelay
+            _forcedInclusionStorage, _forcedInclusionDelay
         );
     }
 
@@ -290,7 +290,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposalId The ID of the proposal to query
     /// @return proposalHash_ The keccak256 hash of the Proposal struct at the ring buffer slot
     function getProposalHash(uint48 _proposalId) external view returns (bytes32 proposalHash_) {
-        uint256 bufferSlot = _proposalId % ringBufferSize;
+        uint256 bufferSlot = _proposalId % _ringBufferSize;
         proposalHash_ = _proposalHashes[bufferSlot];
     }
 
@@ -315,19 +315,19 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @inheritdoc IInbox
     function getConfig() external view returns (IInbox.Config memory config_) {
         config_ = IInbox.Config({
-            bondToken: address(bondToken),
-            checkpointManager: address(checkpointManager),
-            proofVerifier: address(proofVerifier),
-            proposerChecker: address(proposerChecker),
-            provingWindow: provingWindow,
-            extendedProvingWindow: extendedProvingWindow,
-            maxFinalizationCount: maxFinalizationCount,
-            finalizationGracePeriod: finalizationGracePeriod,
-            ringBufferSize: ringBufferSize,
-            basefeeSharingPctg: basefeeSharingPctg,
-            minForcedInclusionCount: minForcedInclusionCount,
-            forcedInclusionDelay: forcedInclusionDelay,
-            forcedInclusionFeeInGwei: forcedInclusionFeeInGwei
+            bondToken: address(_bondToken),
+            checkpointManager: address(_checkpointManager),
+            proofVerifier: address(_proofVerifier),
+            proposerChecker: address(_proposerChecker),
+            provingWindow: _provingWindow,
+            extendedProvingWindow: _extendedProvingWindow,
+            maxFinalizationCount: _maxFinalizationCount,
+            finalizationGracePeriod: _finalizationGracePeriod,
+            ringBufferSize: _ringBufferSize,
+            basefeeSharingPctg: _basefeeSharingPctg,
+            minForcedInclusionCount: _minForcedInclusionCount,
+            forcedInclusionDelay: _forcedInclusionDelay,
+            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei
         });
     }
 
@@ -502,7 +502,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         unchecked {
             uint256 proofTimestamp = block.timestamp;
-            uint256 windowEnd = _proposal.timestamp + provingWindow;
+            uint256 windowEnd = _proposal.timestamp + _provingWindow;
 
             // On-time proof - no bond instructions needed
             if (proofTimestamp <= windowEnd) {
@@ -510,7 +510,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             }
 
             // Late or very late proof - determine bond type and parties
-            uint256 extendedWindowEnd = _proposal.timestamp + extendedProvingWindow;
+            uint256 extendedWindowEnd = _proposal.timestamp + _extendedProvingWindow;
             bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
 
             // Check if bond instruction is needed
@@ -538,7 +538,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Stores a proposal hash in the ring buffer
     /// @notice Overwrites any existing hash at the calculated buffer slot
     function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
-        _proposalHashes[_proposalId % ringBufferSize] = _proposalHash;
+        _proposalHashes[_proposalId % _ringBufferSize] = _proposalHash;
     }
 
     /// @dev Stores transition record hash and emits Proved event
@@ -563,7 +563,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         require(excerpt.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
         _transitionRecordExcepts[compositeKey] = TransitionRecordExcerpt({
-            finalizationDeadline: uint48(block.timestamp + finalizationGracePeriod),
+            finalizationDeadline: uint48(block.timestamp + _finalizationGracePeriod),
             recordHash: transitionRecordHash
         });
 
@@ -605,7 +605,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (bytes32 proposalHash_)
     {
         proposalHash_ = _hashProposal(_proposal);
-        bytes32 storedProposalHash = _proposalHashes[_proposal.id % ringBufferSize];
+        bytes32 storedProposalHash = _proposalHashes[_proposal.id % _ringBufferSize];
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
 
@@ -650,7 +650,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         unchecked {
             uint256 numUnfinalizedProposals =
                 _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
-            return ringBufferSize - 1 - numUnfinalizedProposals;
+            return _ringBufferSize - 1 - numUnfinalizedProposals;
         }
     }
 
@@ -701,7 +701,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _checkProposalHash(_parentProposals[0]);
 
         // Then verify it's actually the chain head
-        uint256 nextBufferSlot = (_parentProposals[0].id + 1) % ringBufferSize;
+        uint256 nextBufferSlot = (_parentProposals[0].id + 1) % _ringBufferSize;
         bytes32 storedNextProposalHash = _proposalHashes[nextBufferSlot];
 
         if (storedNextProposalHash == bytes32(0)) {
@@ -744,7 +744,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
                 originBlockNumber: uint48(parentBlockNumber),
                 originBlockHash: blockhash(parentBlockNumber),
                 isForcedInclusion: _isForcedInclusion,
-                basefeeSharingPctg: basefeeSharingPctg,
+                basefeeSharingPctg: _basefeeSharingPctg,
                 blobSlice: _blobSlice
             });
 
@@ -784,7 +784,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         uint48 proposalId = coreState.lastFinalizedProposalId + 1;
         uint256 finalizedCount;
 
-        for (uint256 i; i < maxFinalizationCount; ++i) {
+        for (uint256 i; i < _maxFinalizationCount; ++i) {
             // Check if there are more proposals to finalize
             if (proposalId >= coreState.nextProposalId) break;
 
@@ -809,7 +809,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (finalizedCount > 0) {
             bytes32 checkpointHash = _hashCheckpoint(_input.checkpoint);
             require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
-            checkpointManager.saveCheckpoint(_input.checkpoint);
+            _checkpointManager.saveCheckpoint(_input.checkpoint);
         }
 
         return coreState;

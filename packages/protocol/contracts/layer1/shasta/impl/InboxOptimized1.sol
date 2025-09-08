@@ -146,7 +146,7 @@ contract InboxOptimized1 is Inbox {
         override
         returns (TransitionRecordExcerpt memory)
     {
-        uint256 bufferSlot = _proposalId % ringBufferSize;
+        uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
         // Check if this is the default record for this proposal and if parent transition hash
@@ -179,9 +179,9 @@ contract InboxOptimized1 is Inbox {
     {
         bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
         ReusableTransitionRecord storage record =
-            _reusableTransitionRecords[_proposalId % ringBufferSize];
+            _reusableTransitionRecords[_proposalId % _ringBufferSize];
 
-        uint48 finalizationDeadline = uint48(block.timestamp + finalizationGracePeriod);
+        uint48 finalizationDeadline = uint48(block.timestamp + _finalizationGracePeriod);
 
         // Check if we can use the default slot
         if (record.proposalId != _proposalId) {
