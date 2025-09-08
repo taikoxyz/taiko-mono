@@ -5,7 +5,7 @@ import { Inbox } from "./Inbox.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { InboxOptimized3 } from "./InboxOptimized3.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
-import { EfficientHashLib } from "../libs/EfficientHashLib.sol";
+import { EfficientHashLib } from "@solady/utils/EfficientHashLib.sol";
 
 /// @title InboxOptimized4
 /// @notice Fourth optimization layer focusing on efficient hashing operations
@@ -94,7 +94,7 @@ contract InboxOptimized4 is InboxOptimized3 {
         for (uint256 i = 0; i < length; ++i) {
             transitionHashes[i] = hashTransition(_transitions[i]);
         }
-        return EfficientHashLib.hashArray(transitionHashes);
+        return EfficientHashLib.hash(transitionHashes);
     }
 
     /// @inheritdoc Inbox
