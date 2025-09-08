@@ -52,6 +52,7 @@ contract InboxOptimized1 is Inbox {
         uint48 _provingWindow,
         uint48 _extendedProvingWindow,
         uint256 _maxFinalizationCount,
+        uint48 _finalizationGracePeriod,
         uint256 _ringBufferSize,
         uint8 _basefeeSharingPctg,
         uint256 _minForcedInclusionCount,
@@ -66,6 +67,7 @@ contract InboxOptimized1 is Inbox {
             _provingWindow,
             _extendedProvingWindow,
             _maxFinalizationCount,
+            _finalizationGracePeriod,
             _ringBufferSize,
             _basefeeSharingPctg,
             _minForcedInclusionCount,
@@ -145,7 +147,7 @@ contract InboxOptimized1 is Inbox {
             } else {
                 // Save the current aggregated record before starting a new one
                 _setTransitionRecordExcerpt(
-                    _config, currentGroupStartId, firstTransitionInGroup, currentRecord
+                     currentGroupStartId, firstTransitionInGroup, currentRecord
                 );
 
                 // Start a new record for non-continuous proposal
@@ -165,7 +167,7 @@ contract InboxOptimized1 is Inbox {
 
         // Save the final aggregated record
         _setTransitionRecordExcerpt(
-            _config, currentGroupStartId, firstTransitionInGroup, currentRecord
+             currentGroupStartId, firstTransitionInGroup, currentRecord
         );
     }
 
@@ -213,7 +215,6 @@ contract InboxOptimized1 is Inbox {
     ///         3. Same ID, different parent: Uses composite key mapping
     /// @dev Saves ~20,000 gas for common case by avoiding mapping writes
     function _setTransitionRecordExcerpt(
-        Config memory _config,
         uint48 _proposalId,
         Transition memory _transition,
         TransitionRecord memory _transitionRecord
@@ -222,10 +223,10 @@ contract InboxOptimized1 is Inbox {
         override
     {
         uint256 bufferSlot = _proposalId % ringBufferSize;
-        bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
+        bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
-        uint48 finalizationDeadline = uint48(block.timestamp + _config.finalizationGracePeriod);
+        uint48 finalizationDeadline = uint48(block.timestamp + finalizationGracePeriod);
 
         // Check if we can use the default slot
         if (record.proposalId != _proposalId) {

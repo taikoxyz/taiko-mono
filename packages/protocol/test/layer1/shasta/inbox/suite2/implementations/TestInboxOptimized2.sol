@@ -22,8 +22,8 @@ contract TestInboxOptimized2 is InboxOptimized2 {
             proposerChecker,
             2 hours, // provingWindow
             4 hours, // extendedProvingWindow
-            48 hours, // finalizationGracePeriod
             16, // maxFinalizationCount
+            5 minutes, // finalizationGracePeriod
             100, // ringBufferSize
             0, // basefeeSharingPctg
             1, // minForcedInclusionCount

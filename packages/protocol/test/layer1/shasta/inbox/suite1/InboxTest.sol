@@ -116,7 +116,6 @@ abstract contract InboxTest is CommonTest {
 
         setupMockAddresses();
         deployInbox();
-        setupDefaultConfig();
         fundTestAccounts();
     }
 

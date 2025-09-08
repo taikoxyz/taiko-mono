@@ -41,6 +41,7 @@ contract MainnetShastaInbox is InboxOptimized3 {
             2 hours, // provingWindow
             4 hours, // extendedProvingWindow
             16, // maxFinalizationCount
+            768 seconds, // finalizationGracePeriod
             _RING_BUFFER_SIZE, // ringBufferSize
             0, // basefeeSharingPctg
             1, // minForcedInclusionCount

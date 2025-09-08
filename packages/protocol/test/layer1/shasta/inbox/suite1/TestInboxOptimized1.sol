@@ -27,6 +27,7 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox, IProposerChecker {
             1 hours, // provingWindow
             2 hours, // extendedProvingWindow
             10, // maxFinalizationCount
+            5 minutes, // finalizationGracePeriod
             100, // ringBufferSize
             10, // basefeeSharingPctg
             1, // minForcedInclusionCount
@@ -52,7 +53,7 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox, IProposerChecker {
     )
         external
     {
-        _setTransitionRecordExcerpt(testConfig, _proposalId, _transition, _transitionRecord);
+        _setTransitionRecordExcerpt( _proposalId, _transition, _transitionRecord);
     }
 
     // Function to store checkpoint for test purposes

@@ -59,6 +59,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The maximum number of finalized proposals in one block.
     uint256 public immutable maxFinalizationCount;
 
+    /// @notice The finalization grace period in seconds.
+    uint48 public immutable finalizationGracePeriod;
+
     /// @notice The ring buffer size for storing proposal hashes.
     uint256 public immutable ringBufferSize;
 
@@ -140,6 +143,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _provingWindow The proving window in seconds
     /// @param _extendedProvingWindow The extended proving window in seconds
     /// @param _maxFinalizationCount The maximum number of finalized proposals in one block
+    /// @param _finalizationGracePeriod The finalization grace period in seconds
     /// @param _ringBufferSize The ring buffer size for storing proposal hashes
     /// @param _basefeeSharingPctg The percentage of basefee paid to coinbase
     /// @param _minForcedInclusionCount The minimum number of forced inclusions that the proposer is
@@ -154,6 +158,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         uint48 _provingWindow,
         uint48 _extendedProvingWindow,
         uint256 _maxFinalizationCount,
+        uint48 _finalizationGracePeriod,
         uint256 _ringBufferSize,
         uint8 _basefeeSharingPctg,
         uint256 _minForcedInclusionCount,
@@ -169,6 +174,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         provingWindow = _provingWindow;
         extendedProvingWindow = _extendedProvingWindow;
         maxFinalizationCount = _maxFinalizationCount;
+        finalizationGracePeriod = _finalizationGracePeriod;
         ringBufferSize = _ringBufferSize;
         basefeeSharingPctg = _basefeeSharingPctg;
         minForcedInclusionCount = _minForcedInclusionCount;
@@ -462,7 +468,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // the
             // event
             _setTransitionRecordExcerpt(
-                _config, _input.proposals[i].id, _input.transitions[i], transitionRecord
+                 _input.proposals[i].id, _input.transitions[i], transitionRecord
             );
         }
     }
@@ -548,12 +554,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Stores transition record hash and emits Proved event
     /// @notice Virtual function to allow optimization in derived contracts
     /// @dev Uses composite key for unique transition identification
-    /// @param _config Configuration containing finalization grace period
     /// @param _proposalId The ID of the proposal being proven
     /// @param _transition The transition data to include in the event
     /// @param _transitionRecord The transition record to hash and store
     function _setTransitionRecordExcerpt(
-        Config memory _config,
         uint48 _proposalId,
         Transition memory _transition,
         TransitionRecord memory _transitionRecord
@@ -569,7 +573,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         require(excerpt.recordHash == 0, TransitionWithSameParentHashAlreadyProved());
         _transitionRecordExcepts[compositeKey] = TransitionRecordExcerpt({
-            finalizationDeadline: uint48(block.timestamp + _config.finalizationGracePeriod),
+            finalizationDeadline: uint48(block.timestamp + finalizationGracePeriod),
             recordHash: transitionRecordHash
         });
 
@@ -781,7 +785,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Performs up to `maxFinalizationCount` finalization iterations.
     /// The caller is forced to finalize transition records that have passed their finalization
     /// grace period, but can decide to finalize ones that haven't.
-    /// @param _config Configuration with finalization parameters
     /// @param _input Input containing transition records and end block header
     /// @return _ Core state with updated finalization counters
     function _finalize(ProposeInput memory _input) private returns (CoreState memory) {

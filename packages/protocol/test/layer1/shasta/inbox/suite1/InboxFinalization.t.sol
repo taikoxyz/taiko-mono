@@ -90,7 +90,7 @@ contract InboxFinalization is InboxTest {
         setupProposalMocks(Alice);
 
         // Advance time to pass the finalization grace period (5 minutes)
-        vm.warp(block.timestamp + defaultConfig.finalizationGracePeriod + 1);
+        vm.warp(block.timestamp + 5 minutes + 1);
 
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
         transitionRecords[0] = _transitionRecord;
@@ -150,7 +150,7 @@ contract InboxFinalization is InboxTest {
         }
 
         // Advance time to pass the finalization grace period
-        vm.warp(block.timestamp + defaultConfig.finalizationGracePeriod + 1);
+        vm.warp(block.timestamp + 5 minutes + 1);
 
         // Setup expectations for finalization
         expectCheckpointSaved(transitions[numProposals - 1].checkpoint);
@@ -253,7 +253,7 @@ contract InboxFinalization is InboxTest {
         mockForcedInclusionDue(false);
 
         // Advance time to pass the finalization grace period (5 minutes)
-        vm.warp(block.timestamp + defaultConfig.finalizationGracePeriod + 1);
+        vm.warp(block.timestamp + 5 minutes + 1);
 
         // Only expect first proposal to be finalized
         expectCheckpointSaved(transition1.checkpoint);
