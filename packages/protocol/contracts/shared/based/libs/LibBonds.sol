@@ -69,6 +69,10 @@ library LibBonds {
                 return _existingInstructions;
             }
 
+            if (_existingInstructions.length == 0) {
+                return _newInstructions;
+            }
+
             uint256 totalLen = _existingInstructions.length + _newInstructions.length;
 
             // Break-even point: use assembly bulk-copy for arrays with more than 8 elements total
