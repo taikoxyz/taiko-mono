@@ -3,48 +3,46 @@ pragma solidity ^0.8.24;
 
 import "contracts/layer1/shasta/impl/InboxOptimized2.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
+import "contracts/layer1/shasta/iface/IProposerChecker.sol";
+import "contracts/shared/based/iface/ICheckpointManager.sol";
 import "./ITestInbox.sol";
 
 /// @title TestInboxOptimized2
 /// @notice Concrete implementation of InboxOptimized2 for testing
 /// @custom:security-contact security@taiko.xyz
-contract TestInboxOptimized2 is InboxOptimized2, ITestInbox {
-    IInbox.Config private testConfig;
-    bool private configSet;
+contract TestInboxOptimized2 is InboxOptimized2, ITestInbox, IProposerChecker {
     // Storage to track checkpoint for test purposes
     mapping(uint48 => ICheckpointManager.Checkpoint) public testcheckpoints;
 
-    constructor() InboxOptimized2() { }
+    constructor(
+        address _bondToken,
+        address _checkpointManager,
+        address _proofVerifier
+    )
+        InboxOptimized2(
+            _bondToken,
+            _checkpointManager,
+            _proofVerifier,
+            address(this), // proposerChecker - use this contract as stub
+            1 hours, // provingWindow
+            2 hours, // extendedProvingWindow
+            10, // maxFinalizationCount
+            100, // ringBufferSize
+            10, // basefeeSharingPctg
+            1, // minForcedInclusionCount
+            100, // forcedInclusionDelay
+            10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
+        )
+    { }
 
-    function setTestConfig(IInbox.Config memory _config) external {
-        testConfig = _config;
-        configSet = true;
-    }
-
-    function getConfig() public view override returns (IInbox.Config memory) {
-        if (!configSet) {
-            return IInbox.Config({
-                bondToken: address(0),
-                provingWindow: 1 hours,
-                extendedProvingWindow: 2 hours,
-                finalizationGracePeriod: 48 hours,
-                maxFinalizationCount: 10,
-                ringBufferSize: 100,
-                basefeeSharingPctg: 10,
-                checkpointManager: address(0),
-                proofVerifier: address(0),
-                proposerChecker: address(0),
-                minForcedInclusionCount: 1,
-                forcedInclusionDelay: 100,
-                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
-             });
-        }
-        return testConfig;
+    // Implement IProposerChecker for test purposes
+    function checkProposer(address) external pure returns (uint48) {
+        return 0; // Return 0 lookahead slot timestamp for tests
     }
 
     // Expose internal functions for testing
     function exposed_setProposalHash(uint48 _proposalId, bytes32 _hash) external {
-        _setProposalHash(testConfig, _proposalId, _hash);
+        _setProposalHash(_proposalId, _hash);
     }
 
     function exposed_setTransitionRecordExcerpt(
