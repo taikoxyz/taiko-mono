@@ -71,12 +71,9 @@ contract InboxOptimized1 is Inbox {
         // Initialize current aggregation state
         TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
-            bondInstructions: _calculateBondInstructions(
-                 _input.proposals[0], _input.transitions[0]
-            ),
+            bondInstructions: _calculateBondInstructions(_input.proposals[0], _input.transitions[0]),
             transitionHash: hashTransition(_input.transitions[0]),
             checkpointHash: hashCheckpoint(_input.transitions[0].checkpoint)
-
         });
 
         uint48 currentGroupStartId = _input.proposals[0].id;

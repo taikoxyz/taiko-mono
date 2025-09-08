@@ -29,7 +29,6 @@ contract MainnetShastaInbox is InboxOptimized3 {
     // Constructor
     // ---------------------------------------------------------------
 
-
     constructor(
         address _checkpointManager,
         address _proofVerifier,

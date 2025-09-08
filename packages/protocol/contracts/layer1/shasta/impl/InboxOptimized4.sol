@@ -27,7 +27,7 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     // Constructor
     // ---------------------------------------------------------------
 
-   constructor(IInbox.Config memory _config) InboxOptimized3(_config) { }
+    constructor(IInbox.Config memory _config) InboxOptimized3(_config) { }
 
     // ---------------------------------------------------------------
     // Public Functions
