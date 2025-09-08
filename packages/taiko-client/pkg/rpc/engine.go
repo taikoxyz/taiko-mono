@@ -28,25 +28,25 @@ type EngineClient struct {
 // CallContext wraps the underlying RPC client's CallContext with metrics tracking.
 func (c *EngineClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	start := time.Now()
-	
+
 	err := c.Client.CallContext(ctx, result, method, args...)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
+		status = statusError
 		// Extract error type for more detailed metrics
-		errorType := "unknown"
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues(method, c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues(method, c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues(method, c.rpcURL).Observe(duration)
-	
+
 	return err
 }
 

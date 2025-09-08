@@ -19,6 +19,13 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 )
 
+const (
+	// Metric status values
+	statusSuccess    = "success"
+	statusError      = "error"
+	errorTypeUnknown = "unknown"
+)
+
 var (
 	ErrInvalidLenOfParams = errors.New("invalid length of parameters")
 )
@@ -81,52 +88,52 @@ func (c *EthClient) EthClient() *ethclient.Client {
 // CallContext wraps the underlying RPC client's CallContext with metrics tracking.
 func (c *EthClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	start := time.Now()
-	
+
 	err := c.Client.CallContext(ctx, result, method, args...)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
+		status = statusError
 		// Extract error type for more detailed metrics
-		errorType := "unknown"
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues(method, c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues(method, c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues(method, c.rpcURL).Observe(duration)
-	
+
 	return err
 }
 
 // BatchCallContext wraps the underlying RPC client's BatchCallContext with metrics tracking.
 func (c *EthClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	start := time.Now()
-	
+
 	err := c.Client.BatchCallContext(ctx, b)
-	
+
 	// Record metrics for batch calls
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("batch_call", c.rpcURL, errorType).Inc()
 	}
-	
+
 	// Count individual batch elements
 	for _, elem := range b {
-		elemStatus := "success"
+		elemStatus := statusSuccess
 		if elem.Error != nil {
-			elemStatus = "error"
-			errorType := "unknown"
+			elemStatus = statusError
+			errorType := errorTypeUnknown
 			if elem.Error.Error() != "" {
 				errorType = strings.Split(elem.Error.Error(), ":")[0]
 			}
@@ -134,10 +141,10 @@ func (c *EthClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) err
 		}
 		metrics.RPCCallsCounter.WithLabelValues(elem.Method, c.rpcURL, elemStatus).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("batch_call", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("batch_call", c.rpcURL).Observe(duration)
-	
+
 	return err
 }
 
@@ -151,22 +158,22 @@ func (c *EthClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.B
 	defer cancel()
 
 	result, err := c.ethClient.BlockByHash(ctxWithTimeout, hash)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBlockByHash", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getBlockByHash", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBlockByHash", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -210,22 +217,22 @@ func (c *EthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.
 	defer cancel()
 
 	result, err := c.ethClient.BlockByNumber(ctxWithTimeout, number)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBlockByNumber", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getBlockByNumber", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBlockByNumber", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -236,22 +243,22 @@ func (c *EthClient) BlockNumber(ctx context.Context) (uint64, error) {
 	defer cancel()
 
 	result, err := c.ethClient.BlockNumber(ctxWithTimeout)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_blockNumber", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_blockNumber", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_blockNumber", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -262,22 +269,22 @@ func (c *EthClient) PeerCount(ctx context.Context) (uint64, error) {
 	defer cancel()
 
 	result, err := c.ethClient.PeerCount(ctxWithTimeout)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("net_peerCount", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("net_peerCount", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("net_peerCount", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -288,22 +295,22 @@ func (c *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.
 	defer cancel()
 
 	result, err := c.ethClient.HeaderByHash(ctxWithTimeout, hash)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBlockByHash", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getBlockByHash", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBlockByHash", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -315,22 +322,22 @@ func (c *EthClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types
 	defer cancel()
 
 	result, err := c.ethClient.HeaderByNumber(ctxWithTimeout, number)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBlockByNumber", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getBlockByNumber", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBlockByNumber", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -387,22 +394,22 @@ func (c *EthClient) TransactionByHash(
 	defer cancel()
 
 	tx, isPending, err = c.ethClient.TransactionByHash(ctxWithTimeout, hash)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getTransactionByHash", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getTransactionByHash", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getTransactionByHash", c.rpcURL).Observe(duration)
-	
+
 	return tx, isPending, err
 }
 
@@ -423,22 +430,22 @@ func (c *EthClient) TransactionSender(
 	defer cancel()
 
 	result, err := c.ethClient.TransactionSender(ctxWithTimeout, tx, block, index)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_accounts", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_accounts", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_accounts", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -449,22 +456,22 @@ func (c *EthClient) TransactionCount(ctx context.Context, blockHash common.Hash)
 	defer cancel()
 
 	result, err := c.ethClient.TransactionCount(ctxWithTimeout, blockHash)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBlockTransactionCountByHash", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getBlockTransactionCountByHash", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBlockTransactionCountByHash", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -479,22 +486,22 @@ func (c *EthClient) TransactionInBlock(
 	defer cancel()
 
 	result, err := c.ethClient.TransactionInBlock(ctxWithTimeout, blockHash, index)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getTransactionByBlockHashAndIndex", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getTransactionByBlockHashAndIndex", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getTransactionByBlockHashAndIndex", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -506,22 +513,22 @@ func (c *EthClient) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, e
 	defer cancel()
 
 	result, err := c.ethClient.SyncProgress(ctxWithTimeout)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_syncing", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_syncing", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_syncing", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -532,22 +539,22 @@ func (c *EthClient) NetworkID(ctx context.Context) (*big.Int, error) {
 	defer cancel()
 
 	result, err := c.ethClient.NetworkID(ctxWithTimeout)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("net_version", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("net_version", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("net_version", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -563,22 +570,22 @@ func (c *EthClient) BalanceAt(
 	defer cancel()
 
 	result, err := c.ethClient.BalanceAt(ctxWithTimeout, account, blockNumber)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBalance", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getBalance", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBalance", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -595,22 +602,22 @@ func (c *EthClient) StorageAt(
 	defer cancel()
 
 	result, err := c.ethClient.StorageAt(ctxWithTimeout, account, key, blockNumber)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getStorageAt", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getStorageAt", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getStorageAt", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -626,22 +633,22 @@ func (c *EthClient) CodeAt(
 	defer cancel()
 
 	result, err := c.ethClient.CodeAt(ctxWithTimeout, account, blockNumber)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getCode", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getCode", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getCode", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -657,22 +664,22 @@ func (c *EthClient) NonceAt(
 	defer cancel()
 
 	result, err := c.ethClient.NonceAt(ctxWithTimeout, account, blockNumber)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getTransactionCount", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getTransactionCount", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getTransactionCount", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -683,22 +690,22 @@ func (c *EthClient) PendingBalanceAt(ctx context.Context, account common.Address
 	defer cancel()
 
 	result, err := c.ethClient.PendingBalanceAt(ctxWithTimeout, account)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBalance", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getBalance", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBalance", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -713,22 +720,22 @@ func (c *EthClient) PendingStorageAt(
 	defer cancel()
 
 	result, err := c.ethClient.PendingStorageAt(ctxWithTimeout, account, key)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getStorageAt", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getStorageAt", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getStorageAt", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -739,22 +746,22 @@ func (c *EthClient) PendingCodeAt(ctx context.Context, account common.Address) (
 	defer cancel()
 
 	result, err := c.ethClient.PendingCodeAt(ctxWithTimeout, account)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getCode", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getCode", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getCode", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -766,22 +773,22 @@ func (c *EthClient) PendingNonceAt(ctx context.Context, account common.Address) 
 	defer cancel()
 
 	result, err := c.ethClient.PendingNonceAt(ctxWithTimeout, account)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getTransactionCount", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getTransactionCount", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getTransactionCount", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -792,22 +799,22 @@ func (c *EthClient) PendingTransactionCount(ctx context.Context) (uint, error) {
 	defer cancel()
 
 	result, err := c.ethClient.PendingTransactionCount(ctxWithTimeout)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_getBlockTransactionCountByNumber", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_getBlockTransactionCountByNumber", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_getBlockTransactionCountByNumber", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -827,22 +834,22 @@ func (c *EthClient) CallContract(
 	defer cancel()
 
 	result, err := c.ethClient.CallContract(ctxWithTimeout, msg, blockNumber)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_call", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_call", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_call", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -858,22 +865,22 @@ func (c *EthClient) CallContractAtHash(
 	defer cancel()
 
 	result, err := c.ethClient.CallContractAtHash(ctxWithTimeout, msg, blockHash)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_call", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_call", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_call", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -885,22 +892,22 @@ func (c *EthClient) PendingCallContract(ctx context.Context, msg ethereum.CallMs
 	defer cancel()
 
 	result, err := c.ethClient.PendingCallContract(ctxWithTimeout, msg)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_call", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_call", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_call", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -912,22 +919,22 @@ func (c *EthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	defer cancel()
 
 	result, err := c.ethClient.SuggestGasPrice(ctxWithTimeout)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_gasPrice", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_gasPrice", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_gasPrice", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -939,22 +946,22 @@ func (c *EthClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	defer cancel()
 
 	result, err := c.ethClient.SuggestGasTipCap(ctxWithTimeout)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_maxPriorityFeePerGas", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_maxPriorityFeePerGas", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_maxPriorityFeePerGas", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -970,22 +977,22 @@ func (c *EthClient) FeeHistory(
 	defer cancel()
 
 	result, err := c.ethClient.FeeHistory(ctxWithTimeout, blockCount, lastBlock, rewardPercentiles)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_feeHistory", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_feeHistory", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_feeHistory", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -999,22 +1006,22 @@ func (c *EthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint
 	defer cancel()
 
 	result, err := c.ethClient.EstimateGas(ctxWithTimeout, msg)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_estimateGas", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_estimateGas", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_estimateGas", c.rpcURL).Observe(duration)
-	
+
 	return result, err
 }
 
@@ -1028,22 +1035,22 @@ func (c *EthClient) SendTransaction(ctx context.Context, tx *types.Transaction) 
 	defer cancel()
 
 	err := c.ethClient.SendTransaction(ctxWithTimeout, tx)
-	
+
 	// Record metrics
 	duration := time.Since(start).Seconds()
-	status := "success"
+	status := statusSuccess
 	if err != nil {
-		status = "error"
-		errorType := "unknown"
+		status = statusError
+		errorType := errorTypeUnknown
 		if err.Error() != "" {
 			errorType = strings.Split(err.Error(), ":")[0]
 		}
 		metrics.RPCCallErrorsCounter.WithLabelValues("eth_sendRawTransaction", c.rpcURL, errorType).Inc()
 	}
-	
+
 	metrics.RPCCallsCounter.WithLabelValues("eth_sendRawTransaction", c.rpcURL, status).Inc()
 	metrics.RPCCallDurationHistogram.WithLabelValues("eth_sendRawTransaction", c.rpcURL).Observe(duration)
-	
+
 	return err
 }
 

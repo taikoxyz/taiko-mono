@@ -11,7 +11,6 @@ import (
 	txmgrMetrics "github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/urfave/cli/v2"
 )
 
 // An extended set of histogram buckers to have more granularity in the [0.5,
@@ -208,21 +207,21 @@ var (
 
 // Serve starts the metrics server on the given address, will be closed when the given
 // context is cancelled.
-func Serve(ctx context.Context, c *cli.Context) error {
-	if !c.Bool("metrics") {
+func Serve(ctx context.Context, enabled bool, addr string, port int) error {
+	if !enabled {
 		return nil
 	}
 
 	log.Info(
 		"Starting metrics server",
-		"host", c.String("metrics.addr"),
-		"port", c.Int("metrics.port"),
+		"host", addr,
+		"port", port,
 	)
 
 	server, err := opMetrics.StartServer(
 		registry,
-		c.String("metrics.addr"),
-		c.Int("metrics.port"),
+		addr,
+		port,
 	)
 	if err != nil {
 		return err
