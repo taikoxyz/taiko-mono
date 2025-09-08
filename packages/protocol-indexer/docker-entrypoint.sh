@@ -26,15 +26,36 @@ echo ""
 # Run migrations if enabled
 if [ "$RUN_MIGRATION" = "true" ]; then
     echo "Running database migrations..."
-    
+
     # Set migration environment variables
     export USE_DOCKER=false
-    export DB_HOST=$(echo $DATABASE_URL | sed -n 's/.*@\([^:\/]*\).*/\1/p')
-    export DB_PORT=$(echo $DATABASE_URL | sed -n 's/.*:\([0-9]*\)\/.*/\1/p')
-    export DB_NAME=$(echo $DATABASE_URL | sed -n 's/.*\/\([^?]*\).*/\1/p')
-    export DB_USER=$(echo $DATABASE_URL | sed -n 's/.*:\/\/\([^:]*\).*/\1/p')
-    export DB_PASSWORD=$(echo $DATABASE_URL | sed -n 's/.*:\/\/[^:]*:\([^@]*\).*/\1/p')
-    
+
+    # Parse DATABASE_URL: postgresql://user:password@host:port/database?params
+    # Remove the protocol prefix
+    DB_URL_NO_PROTO=${DATABASE_URL#postgresql://}
+
+    # Extract user:password@host:port/database
+    DB_USER=$(echo $DB_URL_NO_PROTO | cut -d: -f1)
+    DB_PASSWORD=$(echo $DB_URL_NO_PROTO | cut -d: -f2 | cut -d@ -f1)
+    DB_HOST=$(echo $DB_URL_NO_PROTO | cut -d@ -f2 | cut -d: -f1)
+    DB_PORT=$(echo $DB_URL_NO_PROTO | cut -d@ -f2 | cut -d: -f2 | cut -d/ -f1)
+    DB_NAME=$(echo $DB_URL_NO_PROTO | cut -d/ -f2 | cut -d? -f1)
+
+    export DB_HOST
+    export DB_PORT
+    export DB_NAME
+    export DB_USER
+    export DB_PASSWORD
+
+    # Debug output
+    echo "Parsed database connection parameters:"
+    echo "  DB_HOST=$DB_HOST"
+    echo "  DB_PORT=$DB_PORT"
+    echo "  DB_NAME=$DB_NAME"
+    echo "  DB_USER=$DB_USER"
+    echo "  USE_DOCKER=$USE_DOCKER"
+    echo ""
+
     # Run the migration script
     if [ -f /app/migrations/init.sh ]; then
         /app/migrations/init.sh
@@ -42,7 +63,7 @@ if [ "$RUN_MIGRATION" = "true" ]; then
         echo "Migration script not found at /app/migrations/init.sh"
         exit 1
     fi
-    
+
     if [ $? -ne 0 ]; then
         echo "Migration failed!"
         exit 1
