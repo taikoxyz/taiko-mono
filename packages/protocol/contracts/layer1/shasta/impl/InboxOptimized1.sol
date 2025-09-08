@@ -93,22 +93,9 @@ contract InboxOptimized1 is Inbox {
                 // gas efficiency only when  newInstructions is larger than 8.
 
                 if (newInstructions.length > 0) {
-                    // Inline merge to avoid separate function call and reduce stack depth
-                    uint256 oldLen = currentRecord.bondInstructions.length;
-                    uint256 newLen = newInstructions.length;
-                    LibBonds.BondInstruction[] memory merged =
-                        new LibBonds.BondInstruction[](oldLen + newLen);
-
-                    // Copy existing instructions
-                    for (uint256 j; j < oldLen; ++j) {
-                        merged[j] = currentRecord.bondInstructions[j];
-                    }
-
-                    // Copy new instructions
-                    for (uint256 j; j < newLen; ++j) {
-                        merged[oldLen + j] = newInstructions[j];
-                    }
-                    currentRecord.bondInstructions = merged;
+                    // Use LibBonds merge function for cleaner code organization
+                    currentRecord.bondInstructions =
+                        LibBonds.mergeBondInstructions(currentRecord.bondInstructions, newInstructions);
                 }
 
                 // Update the transition hash and checkpoint hash for the aggregated
