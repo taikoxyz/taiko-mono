@@ -89,6 +89,9 @@ contract InboxOptimized1 is Inbox {
                 LibBonds.BondInstruction[] memory newInstructions =
                     _calculateBondInstructions(_input.proposals[i], _input.transitions[i]);
 
+                // Note that using assembly-optimized, bulck copying-based memory merging is more
+                // gas efficiency only when  newInstructions is larger than 8.
+
                 if (newInstructions.length > 0) {
                     // Inline merge to avoid separate function call and reduce stack depth
                     uint256 oldLen = currentRecord.bondInstructions.length;
@@ -159,21 +162,17 @@ contract InboxOptimized1 is Inbox {
         uint256 bufferSlot = _proposalId % ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
-        // Check if this is the default record for this proposal
-        if (record.proposalId == _proposalId) {
-            // Check if parent transition hash matches (partial match)
-            if (
-                _isPartialParentTransitionHashMatch(
-                    record.partialParentTransitionHash, _parentTransitionHash
-                )
-            ) {
-                return record.excerpt;
-            }
+        // Check if this is the default record for this proposal and if parent transition hash
+        // matches (partial match)
+        if (
+            record.proposalId == _proposalId
+                && record.partialParentTransitionHash == bytes26(_parentTransitionHash)
+        ) {
+            return record.excerpt;
         }
 
         // Otherwise check the direct mapping
-        bytes32 compositeKey = _composeTransitionKey(_proposalId, _parentTransitionHash);
-        return _transitionRecordExcepts[compositeKey];
+        return _transitionRecordExcepts[_composeTransitionKey(_proposalId, _parentTransitionHash)];
     }
 
     /// @inheritdoc Inbox
@@ -191,9 +190,9 @@ contract InboxOptimized1 is Inbox {
         internal
         override
     {
-        uint256 bufferSlot = _proposalId % ringBufferSize;
         bytes26 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
-        ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
+        ReusableTransitionRecord storage record =
+            _reusableTransitionRecords[_proposalId % ringBufferSize];
 
         uint48 finalizationDeadline = uint48(block.timestamp + finalizationGracePeriod);
 
@@ -206,11 +205,8 @@ contract InboxOptimized1 is Inbox {
             });
             record.proposalId = _proposalId;
             record.partialParentTransitionHash = bytes26(_transition.parentTransitionHash);
-        } else if (
-            _isPartialParentTransitionHashMatch(
-                record.partialParentTransitionHash, _transition.parentTransitionHash
-            )
-        ) {
+        } else if (record.partialParentTransitionHash == bytes26(_transition.parentTransitionHash))
+        {
             // Different proposal ID, so we can use the default slot
             record.excerpt = TransitionRecordExcerpt({
                 finalizationDeadline: finalizationDeadline,
@@ -222,7 +218,7 @@ contract InboxOptimized1 is Inbox {
                 _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
             _transitionRecordExcepts[compositeKey] = TransitionRecordExcerpt({
                 finalizationDeadline: finalizationDeadline,
-                recordHash: bytes26(transitionRecordHash)
+                recordHash: transitionRecordHash
             });
         }
 
@@ -239,18 +235,4 @@ contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
-
-    /// @dev Compares partial (26 bytes) with full (32 bytes) parent transition hash
-    /// @notice Used for storage optimization - stores only 26 bytes in reusable slot
-    /// @dev Collision probability negligible for practical use (2^-208)
-    function _isPartialParentTransitionHashMatch(
-        bytes26 _partialParentTransitionHash,
-        bytes32 _parentTransitionHash
-    )
-        private
-        pure
-        returns (bool)
-    {
-        return _partialParentTransitionHash == bytes26(_parentTransitionHash);
-    }
 }
