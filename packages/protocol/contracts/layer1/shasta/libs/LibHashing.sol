@@ -17,7 +17,6 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 ///      - Minimizes memory allocations and ABI encoding overhead
 /// @custom:security-contact security@taiko.xyz
 library LibHashing {
-
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -30,7 +29,8 @@ library LibHashing {
     // ---------------------------------------------------------------
 
     /// @notice Optimized hashing for Transition structs
-    /// @dev Uses EfficientHashLib to hash all transition fields including checkpoint and prover addresses
+    /// @dev Uses EfficientHashLib to hash all transition fields including checkpoint and prover
+    /// addresses
     /// @param _transition The transition to hash
     /// @return The hash of the transition
     function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
@@ -53,9 +53,7 @@ library LibHashing {
         returns (bytes32)
     {
         return EfficientHashLib.hash(
-            bytes32(uint256(_checkpoint.blockNumber)),
-            _checkpoint.blockHash,
-            _checkpoint.stateRoot
+            bytes32(uint256(_checkpoint.blockNumber)), _checkpoint.blockHash, _checkpoint.stateRoot
         );
     }
 
@@ -84,9 +82,8 @@ library LibHashing {
                 | uint256(uint160(_proposal.proposer))
         );
 
-        return EfficientHashLib.hash(
-            packedFields1, _proposal.coreStateHash, _proposal.derivationHash
-        );
+        return
+            EfficientHashLib.hash(packedFields1, _proposal.coreStateHash, _proposal.derivationHash);
     }
 
     /// @notice Optimized hashing for Derivation structs
@@ -109,16 +106,14 @@ library LibHashing {
                 abi.encodePacked(_derivation.blobSlice.blobHashes)
             )
         );
-        
+
         bytes32 blobSliceHash = EfficientHashLib.hash(
             blobHashesHash,
             bytes32(uint256(_derivation.blobSlice.offset)),
             bytes32(uint256(_derivation.blobSlice.timestamp))
         );
 
-        return EfficientHashLib.hash(
-            packedFields, _derivation.originBlockHash, blobSliceHash
-        );
+        return EfficientHashLib.hash(packedFields, _derivation.originBlockHash, blobSliceHash);
     }
 
     // ---------------------------------------------------------------
@@ -142,8 +137,7 @@ library LibHashing {
         // For small arrays (most common case), use direct hashing with length
         if (_transitions.length == 1) {
             return EfficientHashLib.hash(
-                bytes32(uint256(_transitions.length)),
-                hashTransition(_transitions[0])
+                bytes32(uint256(_transitions.length)), hashTransition(_transitions[0])
             );
         }
 
@@ -183,7 +177,8 @@ library LibHashing {
             );
         } else {
             // For multiple instructions, explicitly include length to prevent collisions
-            bytes memory encoded = abi.encodePacked(bytes32(uint256(_transitionRecord.bondInstructions.length)));
+            bytes memory encoded =
+                abi.encodePacked(bytes32(uint256(_transitionRecord.bondInstructions.length)));
             for (uint256 i; i < _transitionRecord.bondInstructions.length; ++i) {
                 encoded = abi.encodePacked(
                     encoded, _hashSingleBondInstruction(_transitionRecord.bondInstructions[i])
@@ -211,7 +206,10 @@ library LibHashing {
     /// @param _proposalId The ID of the proposal
     /// @param _parentTransitionHash Hash of the parent transition
     /// @return The composite key for storage mapping
-    function composeTransitionKey(uint48 _proposalId, bytes32 _parentTransitionHash)
+    function composeTransitionKey(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
         internal
         pure
         returns (bytes32)

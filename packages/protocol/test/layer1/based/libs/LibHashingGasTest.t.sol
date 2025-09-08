@@ -20,7 +20,8 @@ contract LibHashingGasTest is Test {
     IInbox.CoreState internal testCoreState;
     IInbox.Proposal internal testProposal;
     IInbox.Derivation internal testDerivation;
-    // IInbox.TransitionRecord internal testTransitionRecord; // Commented out due to IR pipeline requirement
+    // IInbox.TransitionRecord internal testTransitionRecord; // Commented out due to IR pipeline
+    // requirement
     IInbox.Transition[] internal testTransitionsArray;
 
     function setUp() public {
@@ -268,7 +269,11 @@ contract LibHashingGasTest is Test {
         console2.log("Total Standard Gas:   ", totalStandardGas);
         console2.log("Total Optimized Gas:  ", totalOptimizedGas);
         console2.log("Total Gas Saved:      ", totalStandardGas - totalOptimizedGas);
-        console2.log("Overall Improvement:  ", ((totalStandardGas - totalOptimizedGas) * 100) / totalStandardGas, "%");
+        console2.log(
+            "Overall Improvement:  ",
+            ((totalStandardGas - totalOptimizedGas) * 100) / totalStandardGas,
+            "%"
+        );
         console2.log("");
         console2.log("=== LibHashing optimization delivers significant gas savings! ===");
     }
@@ -280,7 +285,7 @@ contract LibHashingGasTest is Test {
             proposalHash: keccak256("test_proposal_hash"),
             parentTransitionHash: keccak256("test_parent_transition_hash"),
             checkpoint: ICheckpointManager.Checkpoint({
-                blockNumber: 12345678,
+                blockNumber: 12_345_678,
                 blockHash: keccak256("test_block_hash"),
                 stateRoot: keccak256("test_state_root")
             }),
@@ -290,7 +295,7 @@ contract LibHashingGasTest is Test {
 
         // Initialize test checkpoint
         testCheckpoint = ICheckpointManager.Checkpoint({
-            blockNumber: 12345678,
+            blockNumber: 12_345_678,
             blockHash: keccak256("test_block_hash"),
             stateRoot: keccak256("test_state_root")
         });
@@ -306,8 +311,8 @@ contract LibHashingGasTest is Test {
         // Initialize test proposal
         testProposal = IInbox.Proposal({
             id: 1001,
-            timestamp: 1672531200, // 2023-01-01 00:00:00 UTC
-            lookaheadSlotTimestamp: 1672531260, // 2023-01-01 00:01:00 UTC
+            timestamp: 1_672_531_200, // 2023-01-01 00:00:00 UTC
+            lookaheadSlotTimestamp: 1_672_531_260, // 2023-01-01 00:01:00 UTC
             proposer: address(0xabCDEF1234567890ABcDEF1234567890aBCDeF12),
             coreStateHash: keccak256("test_core_state_hash"),
             derivationHash: keccak256("test_derivation_hash")
@@ -317,16 +322,16 @@ contract LibHashingGasTest is Test {
         bytes32[] memory blobHashes = new bytes32[](2);
         blobHashes[0] = keccak256("test_blob_hash_1");
         blobHashes[1] = keccak256("test_blob_hash_2");
-        
+
         testDerivation = IInbox.Derivation({
-            originBlockNumber: 12345677,
+            originBlockNumber: 12_345_677,
             originBlockHash: keccak256("test_origin_block_hash"),
             isForcedInclusion: false,
             basefeeSharingPctg: 10,
             blobSlice: LibBlobs.BlobSlice({
                 blobHashes: blobHashes,
                 offset: 1024,
-                timestamp: 1672531200
+                timestamp: 1_672_531_200
             })
         });
 
@@ -356,27 +361,31 @@ contract LibHashingGasTest is Test {
 
         // Initialize test transitions array with multiple entries
         testTransitionsArray.push(testTransition);
-        testTransitionsArray.push(IInbox.Transition({
-            proposalHash: keccak256("test_proposal_hash_2"),
-            parentTransitionHash: keccak256("test_parent_transition_hash_2"),
-            checkpoint: ICheckpointManager.Checkpoint({
-                blockNumber: 12345679,
-                blockHash: keccak256("test_block_hash_2"),
-                stateRoot: keccak256("test_state_root_2")
-            }),
-            designatedProver: address(0x5555555555555555555555555555555555555555),
-            actualProver: address(0x6666666666666666666666666666666666666666)
-        }));
-        testTransitionsArray.push(IInbox.Transition({
-            proposalHash: keccak256("test_proposal_hash_3"),
-            parentTransitionHash: keccak256("test_parent_transition_hash_3"),
-            checkpoint: ICheckpointManager.Checkpoint({
-                blockNumber: 12345680,
-                blockHash: keccak256("test_block_hash_3"),
-                stateRoot: keccak256("test_state_root_3")
-            }),
-            designatedProver: address(0x7777777777777777777777777777777777777777),
-            actualProver: address(0x8888888888888888888888888888888888888888)
-        }));
+        testTransitionsArray.push(
+            IInbox.Transition({
+                proposalHash: keccak256("test_proposal_hash_2"),
+                parentTransitionHash: keccak256("test_parent_transition_hash_2"),
+                checkpoint: ICheckpointManager.Checkpoint({
+                    blockNumber: 12_345_679,
+                    blockHash: keccak256("test_block_hash_2"),
+                    stateRoot: keccak256("test_state_root_2")
+                }),
+                designatedProver: address(0x5555555555555555555555555555555555555555),
+                actualProver: address(0x6666666666666666666666666666666666666666)
+            })
+        );
+        testTransitionsArray.push(
+            IInbox.Transition({
+                proposalHash: keccak256("test_proposal_hash_3"),
+                parentTransitionHash: keccak256("test_parent_transition_hash_3"),
+                checkpoint: ICheckpointManager.Checkpoint({
+                    blockNumber: 12_345_680,
+                    blockHash: keccak256("test_block_hash_3"),
+                    stateRoot: keccak256("test_state_root_3")
+                }),
+                designatedProver: address(0x7777777777777777777777777777777777777777),
+                actualProver: address(0x8888888888888888888888888888888888888888)
+            })
+        );
     }
 }
