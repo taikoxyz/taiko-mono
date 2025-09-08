@@ -31,11 +31,17 @@ library LibHashing {
     // ---------------------------------------------------------------
 
     /// @notice Optimized hashing for Transition structs
-    /// @dev Uses EfficientHashLib for efficient 2-field hashing
+    /// @dev Uses EfficientHashLib to hash all transition fields including checkpoint and prover addresses
     /// @param _transition The transition to hash
     /// @return The hash of the transition
     function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
-        return EfficientHashLib.hash(_transition.proposalHash, _transition.parentTransitionHash);
+        return EfficientHashLib.hash(
+            _transition.proposalHash,
+            _transition.parentTransitionHash,
+            hashCheckpoint(_transition.checkpoint),
+            bytes32(uint256(uint160(_transition.designatedProver))),
+            bytes32(uint256(uint160(_transition.actualProver)))
+        );
     }
 
     /// @notice Optimized hashing for Checkpoint structs
@@ -97,8 +103,16 @@ library LibHashing {
         );
 
         // Hash blob slice fields - BlobSlice has blobHashes array, offset, and timestamp
+        // Explicitly include blobHashes array length to prevent collisions
+        bytes32 blobHashesHash = keccak256(
+            abi.encodePacked(
+                bytes32(uint256(_derivation.blobSlice.blobHashes.length)),
+                abi.encodePacked(_derivation.blobSlice.blobHashes)
+            )
+        );
+        
         bytes32 blobSliceHash = EfficientHashLib.hash(
-            keccak256(abi.encodePacked(_derivation.blobSlice.blobHashes)),
+            blobHashesHash,
             bytes32(uint256(_derivation.blobSlice.offset)),
             bytes32(uint256(_derivation.blobSlice.timestamp))
         );
@@ -114,6 +128,7 @@ library LibHashing {
 
     /// @notice Optimized hashing for arrays of Transitions
     /// @dev Uses more efficient approach than standard abi.encode for arrays
+    /// @dev Explicitly includes array length to prevent hash collisions
     /// @param _transitions The transitions array to hash
     /// @return The hash of the transitions array
     function hashTransitionsArray(IInbox.Transition[] memory _transitions)
@@ -125,19 +140,24 @@ library LibHashing {
             return EMPTY_BYTES_HASH;
         }
 
-        // For small arrays (most common case), use direct hashing
+        // For small arrays (most common case), use direct hashing with length
         if (_transitions.length == 1) {
-            return hashTransition(_transitions[0]);
+            return EfficientHashLib.hash(
+                bytes32(uint256(_transitions.length)),
+                hashTransition(_transitions[0])
+            );
         }
 
         if (_transitions.length == 2) {
             return EfficientHashLib.hash(
-                hashTransition(_transitions[0]), hashTransition(_transitions[1])
+                bytes32(uint256(_transitions.length)),
+                hashTransition(_transitions[0]),
+                hashTransition(_transitions[1])
             );
         }
 
-        // For larger arrays, fall back to optimized encoding
-        bytes memory encoded;
+        // For larger arrays, explicitly include length to prevent collisions
+        bytes memory encoded = abi.encodePacked(bytes32(uint256(_transitions.length)));
         for (uint256 i; i < _transitions.length; ++i) {
             encoded = abi.encodePacked(encoded, hashTransition(_transitions[i]));
         }
@@ -153,15 +173,18 @@ library LibHashing {
         pure
         returns (bytes26)
     {
-        // Hash bond instructions efficiently
+        // Hash bond instructions efficiently with explicit length inclusion
         bytes32 bondInstructionsHash;
         if (_transitionRecord.bondInstructions.length == 0) {
             bondInstructionsHash = EMPTY_BYTES_HASH;
         } else if (_transitionRecord.bondInstructions.length == 1) {
-            bondInstructionsHash = _hashSingleBondInstruction(_transitionRecord.bondInstructions[0]);
+            bondInstructionsHash = EfficientHashLib.hash(
+                bytes32(uint256(_transitionRecord.bondInstructions.length)),
+                _hashSingleBondInstruction(_transitionRecord.bondInstructions[0])
+            );
         } else {
-            // For multiple instructions, use packed encoding
-            bytes memory encoded;
+            // For multiple instructions, explicitly include length to prevent collisions
+            bytes memory encoded = abi.encodePacked(bytes32(uint256(_transitionRecord.bondInstructions.length)));
             for (uint256 i; i < _transitionRecord.bondInstructions.length; ++i) {
                 encoded = abi.encodePacked(
                     encoded, _hashSingleBondInstruction(_transitionRecord.bondInstructions[i])
