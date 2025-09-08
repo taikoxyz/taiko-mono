@@ -210,7 +210,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         // Validate proposer
         uint48 endOfSubmissionWindowTimestamp =
-            IProposerChecker(config.proposerChecker).checkProposer(msg.sender);
+            IProposerChecker(proposerChecker).checkProposer(msg.sender);
 
         // Decode and validate input data
         ProposeInput memory input = decodeProposeInput(_data);
