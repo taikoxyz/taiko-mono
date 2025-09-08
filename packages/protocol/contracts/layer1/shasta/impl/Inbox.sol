@@ -852,9 +852,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         }
 
         // Verify transition record hash matches
-        bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
         require(
-            transitionRecordHash == excerpt.recordHash, TransitionRecordHashMismatchWithStorage()
+            _hashTransitionRecord(_transitionRecord) == excerpt.recordHash,
+            TransitionRecordHashMismatchWithStorage()
         );
 
         // Update core state
