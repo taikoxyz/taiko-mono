@@ -114,7 +114,7 @@ contract InboxOptimized4 is InboxOptimized3 {
         
         // For multiple transitions, extract hashes and use efficient array hashing
         bytes32[] memory transitionHashes = new bytes32[](length);
-        for (uint256 i = 0; i < length; ++i) {
+        for (uint256 i; i < length; ++i) {
             transitionHashes[i] = hashTransition(_transitions[i]);
         }
         return EfficientHashLib.hash(transitionHashes);
@@ -178,7 +178,7 @@ contract InboxOptimized4 is InboxOptimized3 {
             
             // Hash each bond instruction individually then combine
             bytes32[] memory instructionHashes = new bytes32[](instructionLength);
-            for (uint256 i = 0; i < instructionLength; ++i) {
+            for (uint256 i; i < instructionLength; ++i) {
                 LibBonds.BondInstruction memory instruction = _transitionRecord.bondInstructions[i];
                 instructionHashes[i] = EfficientHashLib.hash(
                     bytes32(uint256(instruction.proposalId)),
