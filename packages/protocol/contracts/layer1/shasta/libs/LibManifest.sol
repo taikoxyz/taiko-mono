@@ -25,6 +25,9 @@ library LibManifest {
     /// @notice The maximum anchor block number offset from the proposal origin block number.
     uint256 internal constant ANCHOR_MAX_OFFSET = 128;
 
+    /// @notice The minimum anchor block number offset from the proposal origin block number.
+    uint256 internal constant ANCHOR_MIN_OFFSET = 2;
+
     /// @notice The maximum number timestamp offset from the proposal origin timestamp.
     uint256 internal constant TIMESTAMP_MAX_OFFSET = 12 * 32;
 

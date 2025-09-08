@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
-	"github.com/ethereum-optimism/optimism/op-node/p2p/gating"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -27,7 +26,6 @@ import (
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -62,7 +60,7 @@ type preconfBlockChainSyncer interface {
 // @contact.email info@taiko.xyz
 
 // @license.name MIT
-// @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE.md
+// @license.url https://github.com/taikoxyz/taiko-mono/blob/main/LICENSE
 // PreconfBlockAPIServer represents a preconfirmation block server instance.
 type PreconfBlockAPIServer struct {
 	echo                          *echo.Echo
@@ -440,7 +438,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Request(
 	// Fetch the block from L2 EE and gossip it out.
 	block, err := s.rpc.L2.BlockByHash(ctx, hash)
 	if err != nil {
-		log.Warn(
+		log.Debug(
 			"Failed to fetch preconfirmation request block by hash",
 			"peer", from,
 			"hash", hash.Hex(),
@@ -901,11 +899,11 @@ func (s *PreconfBlockAPIServer) ImportPendingBlocksFromCache(ctx context.Context
 func (s *PreconfBlockAPIServer) P2PSequencerAddress() common.Address {
 	operatorAddress, err := s.rpc.GetPreconfWhiteListOperator(nil)
 	if err != nil || operatorAddress == (common.Address{}) {
-		log.Warn("Failed to get current preconfirmation whitelist operator address", "error", err)
+		log.Debug("Failed to get current preconfirmation whitelist operator address", "error", err)
 		return common.Address{}
 	}
 
-	log.Info("Current operator address for epoch as P2P sequencer", "address", operatorAddress.Hex())
+	log.Debug("Current operator address for epoch as P2P sequencer", "address", operatorAddress.Hex())
 
 	return operatorAddress
 }
@@ -925,30 +923,6 @@ func (s *PreconfBlockAPIServer) P2PSequencerAddresses() []common.Address {
 		s.lookahead.CurrOperator,
 		s.lookahead.NextOperator,
 	}
-}
-
-// AllP2PSequencerAddresses implements the p2p.PreconfGossipRuntimeConfig interface.
-func (s *PreconfBlockAPIServer) AllP2PSequencerAddresses() []common.Address {
-	s.lookaheadMutex.Lock()
-	defer s.lookaheadMutex.Unlock()
-
-	operators, err := s.rpc.GetAllPreconfOperators(nil)
-	if err != nil {
-		log.Warn("Failed to get all preconfirmation operators", "error", err)
-		return []common.Address{}
-	}
-
-	return operators
-}
-
-// P2pHost returns the host of the connected p2pNode for the p2p.PreconfGossipRuntimeConfig interface
-func (s *PreconfBlockAPIServer) P2PHost() host.Host {
-	return s.p2pNode.Host()
-}
-
-// ConnGater returns the connection gater of the connected p2pNode for the p2p.PreconfGossipRuntimeConfig interface
-func (s *PreconfBlockAPIServer) ConnGater() gating.BlockingConnectionGater {
-	return s.p2pNode.ConnectionGater()
 }
 
 // UpdateLookahead updates the lookahead information.
