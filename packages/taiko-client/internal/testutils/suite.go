@@ -322,6 +322,9 @@ func (s *ClientTestSuite) SetL1Snapshot() string {
 }
 
 func (s *ClientTestSuite) RevertL1Snapshot(snapshotID string) {
+	if snapshotID == "" {
+		return
+	}
 	var revertRes bool
 	s.Nil(s.RPCClient.L1.CallContext(context.Background(), &revertRes, "evm_revert", snapshotID))
 	s.True(revertRes)

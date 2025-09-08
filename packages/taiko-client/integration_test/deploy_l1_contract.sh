@@ -6,10 +6,11 @@ source scripts/common.sh
 source integration_test/l1_env.sh
 
 cd ../protocol &&
-  PRIVATE_KEY=$PRIVATE_KEY forge script script/layer1/based/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
+  FOUNDRY_AUTO_CONFIRM=1 PRIVATE_KEY=$PRIVATE_KEY forge script script/layer1/based/DeployProtocolOnL1.s.sol:DeployProtocolOnL1 \
     --fork-url "$L1_HTTP" \
     --broadcast \
     --ffi \
+    --disable-code-size-limit \
     -vvvvv \
     --evm-version cancun \
     --private-key "$PRIVATE_KEY" \
