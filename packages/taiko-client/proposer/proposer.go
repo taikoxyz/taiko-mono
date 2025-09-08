@@ -298,13 +298,6 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		"lastProposedAt", p.lastProposedAt,
 	)
 
-	// Fetch the latest parent meta hash, which will be used
-	// by revert protection.
-	parentMetaHash, err := p.GetParentMetaHash(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get parent meta hash: %w", err)
-	}
-
 	// Fetch pending L2 transactions from mempool.
 	txLists, err := p.fetchPoolContent(allowEmptyPoolContent)
 	if err != nil {
@@ -317,20 +310,26 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	}
 
 	// Propose the transactions lists.
-	return p.ProposeTxLists(ctx, txLists, parentMetaHash)
+	return p.ProposeTxLists(ctx, txLists)
 }
 
 // ProposeTxLists proposes the given transactions lists to TaikoInbox smart contract.
 func (p *Proposer) ProposeTxLists(
 	ctx context.Context,
 	txLists []types.Transactions,
-	parentMetaHash common.Hash,
 ) error {
 	l2Head, err := p.rpc.L2.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get L2 head: %w", err)
 	}
 	if new(big.Int).Add(l2Head.Number, common.Big1).Cmp(p.rpc.ShastaClients.ForkHeight) < 0 {
+		// Fetch the latest parent meta hash, which will be used
+		// by revert protection.
+		parentMetaHash, err := p.GetParentMetaHash(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get parent meta hash: %w", err)
+		}
+
 		if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
 			return err
 		}

@@ -97,7 +97,11 @@ func (s *ClientTestSuite) SetupTest() {
 	// At the beginning of each test, we ensure the L2 chain has been reset to the base block (height: 1).
 	s.once.Do(func() {
 		s.testnetL1SnapshotID = s.SetL1Snapshot()
-		s.resetToBaseBlock(l1ProposerPrivKey)
+		if os.Getenv("L2_NODE") == "l2_geth" {
+			s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big1))
+		} else {
+			s.resetToBaseBlock(l1ProposerPrivKey)
+		}
 	})
 
 	s.BlobServer = NewMemoryBlobServer()
@@ -222,7 +226,11 @@ func (s *ClientTestSuite) KeyFromEnv(envName string) *ecdsa.PrivateKey {
 func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
 	s.testnetL1SnapshotID = s.SetL1Snapshot()
-	s.resetToBaseBlock(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY"))
+	if os.Getenv("L2_NODE") == "l2_geth" {
+		s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big1))
+	} else {
+		s.resetToBaseBlock(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY"))
+	}
 	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big1)
 	s.Nil(err)
 	s.BlobServer.Close()
@@ -322,9 +330,6 @@ func (s *ClientTestSuite) SetL1Snapshot() string {
 }
 
 func (s *ClientTestSuite) RevertL1Snapshot(snapshotID string) {
-	if snapshotID == "" {
-		return
-	}
 	var revertRes bool
 	s.Nil(s.RPCClient.L1.CallContext(context.Background(), &revertRes, "evm_revert", snapshotID))
 	s.True(revertRes)

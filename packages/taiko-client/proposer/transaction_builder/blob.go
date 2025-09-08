@@ -180,18 +180,22 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		to = &preconfRouterAddress
 	}
 
-	config, err := b.rpc.ShastaClients.Inbox.GetConfig(&bind.CallOpts{Context: ctx})
+	ringBufferSize, err := b.rpc.ShastaClients.Inbox.RingBufferSize(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get shasta inbox config: %w", err)
+		return nil, fmt.Errorf("failed to get shasta inbox ringBufferSize: %w", encoding.TryParsingCustomError(err))
+	}
+	maxFinalizationCount, err := b.rpc.ShastaClients.Inbox.MaxFinalizationCount(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get shasta inbox maxFinalizationCount: %w", encoding.TryParsingCustomError(err))
 	}
 
 	inputs, err := b.rpc.GetShastaProposalInputs(
 		ctx,
-		config.RingBufferSize.Uint64(),
-		config.MaxFinalizationCount.Uint64(),
+		ringBufferSize.Uint64(),
+		maxFinalizationCount.Uint64(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get shasta proposal inputs: %w", err)
+		return nil, fmt.Errorf("failed to get shasta proposal inputs: %w", encoding.TryParsingCustomError(err))
 	}
 
 	l1Head, err := b.rpc.L1.HeaderByNumber(ctx, nil)

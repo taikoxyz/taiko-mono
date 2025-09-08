@@ -35,7 +35,7 @@ services:
 
   protocol_indexer:
     container_name: protocol_indexer
-    image: us-docker.pkg.dev/evmchain/images/protocol-indexer:shasta-indexer
+    image: us-docker.pkg.dev/evmchain/images/protocol-indexer:sha-413d295
     restart: unless-stopped
     pull_policy: always
     depends_on:
@@ -47,6 +47,7 @@ services:
       - RUN_MIGRATION=true
       - DATABASE_URL=postgresql://postgres:rindexer@postgresql:5432/protocol_indexer?sslmode=disable
       - LOCAL_RPC=http://l1_node:8545
+      - USE_DOCKER=false
     ports:
       - "3001"
 

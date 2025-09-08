@@ -312,12 +312,14 @@ func (c *Client) initForkHeightConfigs(ctx context.Context) error {
 	c.PacayaClients.ForkHeights = &pacayaBindings.ITaikoInboxForkHeights{
 		Ontake: protocolConfigs.ForkHeights.Ontake,
 		Pacaya: protocolConfigs.ForkHeights.Pacaya,
+		Shasta: protocolConfigs.ForkHeights.Shasta,
 	}
 
 	log.Info(
 		"Fork height configs",
 		"ontakeForkHeight", c.PacayaClients.ForkHeights.Ontake,
 		"pacayaForkHeight", c.PacayaClients.ForkHeights.Pacaya,
+		"shastaForkHeight", c.PacayaClients.ForkHeights.Shasta,
 	)
 
 	return nil

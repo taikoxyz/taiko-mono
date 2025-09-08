@@ -212,7 +212,7 @@ func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
 			defer cancel()
 			progress, err := c.L2ExecutionEngineSyncProgress(newCtx)
 			if err != nil {
-				log.Error("Fetch L2 execution engine sync progress error", "error", err)
+				log.Error("Fetch L2 execution engine sync progress error", "error", encoding.TryParsingCustomError(err))
 				return err
 			}
 
@@ -511,7 +511,10 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 
 		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
 		if err != nil {
-			return err
+			// TODO: fix this later
+			log.Warn("Failed to get latest batch", "error", err)
+			progress.HighestOriginBlockID = common.Big0
+			return nil
 		}
 
 		progress.HighestOriginBlockID = new(big.Int).SetUint64(batch.LastBlockId)

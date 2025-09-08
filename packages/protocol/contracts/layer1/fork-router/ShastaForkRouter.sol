@@ -16,6 +16,8 @@ interface IPacayaFork {
     function withdrawBond(uint256) external;
     function bondBalanceOf(address) external;
     function bondToken() external;
+    function inboxWrapper() external;
+    function verifier() external;
     function getStats1() external;
     function getStats2() external;
     function getBatch(uint64) external;
@@ -44,6 +46,8 @@ contract ShastaForkRouter is ForkRouter {
                 || _selector == IPacayaFork.withdrawBond.selector
                 || _selector == IPacayaFork.bondBalanceOf.selector
                 || _selector == IPacayaFork.bondToken.selector
+                || _selector == IPacayaFork.inboxWrapper.selector
+                || _selector == IPacayaFork.verifier.selector
                 || _selector == IPacayaFork.getStats1.selector
                 || _selector == IPacayaFork.getStats2.selector
                 || _selector == IPacayaFork.getBatch.selector
