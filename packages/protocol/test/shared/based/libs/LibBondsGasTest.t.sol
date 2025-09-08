@@ -66,7 +66,7 @@ contract LibBondsGasTest is Test {
             proposalId: proposalId,
             bondType: LibBonds.BondType.PROVABILITY,
             payer: address(0x1234567890123456789012345678901234567890),
-            receiver: address(0xabcdefabcdefabcdefabcdefabcdefabcdefabcd)
+            receiver: address(0xABcdEFABcdEFabcdEfAbCdefabcdeFABcDEFabCD)
         });
     }
 
@@ -75,8 +75,7 @@ contract LibBondsGasTest is Test {
         pure
         returns (LibBonds.BondInstruction[] memory)
     {
-        LibBonds.BondInstruction[] memory instructions =
-            new LibBonds.BondInstruction[](length);
+        LibBonds.BondInstruction[] memory instructions = new LibBonds.BondInstruction[](length);
         for (uint256 i; i < length; ++i) {
             instructions[i] = _createBondInstruction(uint48(i + 1));
         }
@@ -126,8 +125,7 @@ contract LibBondsGasTest is Test {
     /// @notice Focused test on break-even point (around 8 elements)
     function test_gasComparison_breakEvenPoint() public view {
         for (uint256 totalSize = 6; totalSize <= 12; totalSize++) {
-            LibBonds.BondInstruction[] memory existing =
-                _createBondInstructionsArray(totalSize / 2);
+            LibBonds.BondInstruction[] memory existing = _createBondInstructionsArray(totalSize / 2);
             LibBonds.BondInstruction[] memory newInstructions =
                 _createBondInstructionsArray(totalSize - totalSize / 2);
 

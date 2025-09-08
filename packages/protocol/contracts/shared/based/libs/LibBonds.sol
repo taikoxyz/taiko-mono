@@ -45,7 +45,8 @@ library LibBonds {
 
     /// @notice Merges two bond instruction arrays into a single array
     /// @dev Optimized for memory allocation and copying to reduce gas costs
-    /// Uses assembly bulk-copy for larger arrays, falls back to loop-based copying for smaller arrays
+    /// Uses assembly bulk-copy for larger arrays, falls back to loop-based copying for smaller
+    /// arrays
     /// @param _existingInstructions The existing bond instructions array
     /// @param _newInstructions The new bond instructions array to merge
     /// @return merged_ The merged bond instructions array
@@ -64,7 +65,7 @@ library LibBonds {
         uint256 existingLen = _existingInstructions.length;
         uint256 newLen = _newInstructions.length;
         uint256 totalLen = existingLen + newLen;
-        
+
         merged_ = new BondInstruction[](totalLen);
 
         // Break-even point: use assembly bulk-copy for arrays with more than 8 elements total
@@ -95,34 +96,34 @@ library LibBonds {
     {
         uint256 existingLen = _existing.length;
         uint256 newLen = _new.length;
-        
+
         assembly {
             let mergedPtr := add(_merged, 0x20)
             let existingPtr := add(_existing, 0x20)
             let newPtr := add(_new, 0x20)
-            
+
             // Each BondInstruction is 128 bytes (4 * 32 bytes)
-            // proposalId (48 bits -> 32 bytes), bondType (enum -> 32 bytes), 
+            // proposalId (48 bits -> 32 bytes), bondType (enum -> 32 bytes),
             // payer (address -> 32 bytes), receiver (address -> 32 bytes)
             let instructionSize := 0x80
-            
+
             // Copy existing instructions using bulk memory copy
             if gt(existingLen, 0) {
                 let existingBytes := mul(existingLen, instructionSize)
-                
+
                 // Use efficient word-based copying
                 let words := div(add(existingBytes, 0x1f), 0x20)
                 for { let i := 0 } lt(i, words) { i := add(i, 1) } {
                     mstore(add(mergedPtr, mul(i, 0x20)), mload(add(existingPtr, mul(i, 0x20))))
                 }
             }
-            
+
             // Copy new instructions starting after existing ones
             if gt(newLen, 0) {
                 let newBytes := mul(newLen, instructionSize)
                 let destOffset := mul(existingLen, instructionSize)
                 let destPtr := add(mergedPtr, destOffset)
-                
+
                 // Use efficient word-based copying
                 let words := div(add(newBytes, 0x1f), 0x20)
                 for { let i := 0 } lt(i, words) { i := add(i, 1) } {
