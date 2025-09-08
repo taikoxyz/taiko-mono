@@ -58,23 +58,20 @@ library LibBonds {
         pure
         returns (BondInstruction[] memory merged_)
     {
-        if (_newInstructions.length == 0) {
-            return _existingInstructions;
-        }
+        unchecked {
+            if (_newInstructions.length == 0) {
+                return _existingInstructions;
+            }
 
-        uint256 existingLen = _existingInstructions.length;
-        uint256 newLen = _newInstructions.length;
-        uint256 totalLen = existingLen + newLen;
+            uint256 totalLen = _existingInstructions.length + _newInstructions.length;
 
-        merged_ = new BondInstruction[](totalLen);
-
-        // Break-even point: use assembly bulk-copy for arrays with more than 8 elements total
-        // Below this threshold, the overhead of assembly operations outweighs the benefits
-        if (totalLen > 8) {
-            _bulkCopyBondInstructions(merged_, _existingInstructions, _newInstructions);
-        } else {
-            // Use simple loops for small arrays
-            _loopCopyBondInstructions(merged_, _existingInstructions, _newInstructions);
+            // Break-even point: use assembly bulk-copy for arrays with more than 8 elements total
+            // Below this threshold, the overhead of assembly operations outweighs the benefits
+            // The constant 8 was determined through gas testing: assembly operations have fixed
+            // overhead that only becomes profitable when copying larger amounts of data
+            return totalLen > 8
+                ? _bulkCopyBondInstructions(_existingInstructions, _newInstructions)
+                : _loopCopyBondInstructions(_existingInstructions, _newInstructions);
         }
     }
 
@@ -83,22 +80,29 @@ library LibBonds {
     // ---------------------------------------------------------------
 
     /// @dev Assembly-optimized bulk copy for larger arrays
-    /// @param _merged The destination array
     /// @param _existing The existing instructions to copy first
     /// @param _new The new instructions to append
+    /// @return merged_ The merged bond instructions array
     function _bulkCopyBondInstructions(
-        BondInstruction[] memory _merged,
         BondInstruction[] memory _existing,
         BondInstruction[] memory _new
     )
         private
         pure
+        returns (BondInstruction[] memory merged_)
     {
         uint256 existingLen = _existing.length;
         uint256 newLen = _new.length;
 
+        uint256 totalLen;
+        unchecked {
+            totalLen = existingLen + newLen;
+        }
+
+        merged_ = new BondInstruction[](totalLen);
+
         assembly {
-            let mergedPtr := add(_merged, 0x20)
+            let mergedPtr := add(merged_, 0x20)
             let existingPtr := add(_existing, 0x20)
             let newPtr := add(_new, 0x20)
 
@@ -134,29 +138,36 @@ library LibBonds {
     }
 
     /// @dev Loop-based copy for smaller arrays to avoid assembly overhead
-    /// @param _merged The destination array
     /// @param _existing The existing instructions to copy first
     /// @param _new The new instructions to append
+    /// @return merged_ The merged bond instructions array
     function _loopCopyBondInstructions(
-        BondInstruction[] memory _merged,
         BondInstruction[] memory _existing,
         BondInstruction[] memory _new
     )
         private
         pure
+        returns (BondInstruction[] memory merged_)
     {
         uint256 existingLen = _existing.length;
         uint256 newLen = _new.length;
 
+        uint256 totalLen;
+        unchecked {
+            totalLen = existingLen + newLen;
+        }
+
+        merged_ = new BondInstruction[](totalLen);
+
         // Copy existing instructions - safe to use unchecked since arrays are pre-allocated
         unchecked {
             for (uint256 i; i < existingLen; ++i) {
-                _merged[i] = _existing[i];
+                merged_[i] = _existing[i];
             }
 
             // Copy new instructions
             for (uint256 i; i < newLen; ++i) {
-                _merged[existingLen + i] = _new[i];
+                merged_[existingLen + i] = _new[i];
             }
         }
     }
