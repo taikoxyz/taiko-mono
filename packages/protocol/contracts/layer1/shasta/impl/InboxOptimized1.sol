@@ -14,7 +14,7 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 ///      - Partial parent transition hash matching (26 bytes) for storage optimization
 ///      - Inline bond instruction merging to reduce function calls
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxOptimized1 is Inbox {
+contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
     // Structs
     // ---------------------------------------------------------------
@@ -44,7 +44,35 @@ abstract contract InboxOptimized1 is Inbox {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() Inbox() { }
+    constructor(
+        address _bondToken,
+        address _checkpointManager,
+        address _proofVerifier,
+        address _proposerChecker,
+        uint48 _provingWindow,
+        uint48 _extendedProvingWindow,
+        uint256 _maxFinalizationCount,
+        uint256 _ringBufferSize,
+        uint8 _basefeeSharingPctg,
+        uint256 _minForcedInclusionCount,
+        uint64 _forcedInclusionDelay,
+        uint64 _forcedInclusionFeeInGwei
+    )
+        Inbox(
+            _bondToken,
+            _checkpointManager,
+            _proofVerifier,
+            _proposerChecker,
+            _provingWindow,
+            _extendedProvingWindow,
+            _maxFinalizationCount,
+            _ringBufferSize,
+            _basefeeSharingPctg,
+            _minForcedInclusionCount,
+            _forcedInclusionDelay,
+            _forcedInclusionFeeInGwei
+        )
+    { }
 
     // ---------------------------------------------------------------
     // Internal Functions - Overrides
@@ -60,27 +88,22 @@ abstract contract InboxOptimized1 is Inbox {
     /// @dev Memory optimizations:
     ///      - Inline bond instruction merging
     ///      - Reuses memory allocations across iterations
-    function _buildAndSaveTransitionRecords(
-        Config memory _config,
-        ProveInput memory _input
-    )
-        internal
-        override
-    {
+    function _buildAndSaveTransitionRecords(ProveInput memory _input) internal override {
         if (_input.proposals.length == 0) return;
 
         // Validate first proposal
 
-        _validateTransition(_config, _input.proposals[0], _input.transitions[0]);
+        _validateTransition(_input.proposals[0], _input.transitions[0]);
 
         // Initialize current aggregation state
         TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
             bondInstructions: _calculateBondInstructions(
-                _config, _input.proposals[0], _input.transitions[0]
+                 _input.proposals[0], _input.transitions[0]
             ),
             transitionHash: hashTransition(_input.transitions[0]),
             checkpointHash: hashCheckpoint(_input.transitions[0].checkpoint)
+
         });
 
         uint48 currentGroupStartId = _input.proposals[0].id;
@@ -88,13 +111,13 @@ abstract contract InboxOptimized1 is Inbox {
 
         // Process remaining proposals
         for (uint256 i = 1; i < _input.proposals.length; ++i) {
-            _validateTransition(_config, _input.proposals[i], _input.transitions[i]);
+            _validateTransition(_input.proposals[i], _input.transitions[i]);
 
             // Check if current proposal can be aggregated with the previous group
             if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
                 // Aggregate with current record
                 LibBonds.BondInstruction[] memory newInstructions =
-                    _calculateBondInstructions(_config, _input.proposals[i], _input.transitions[i]);
+                    _calculateBondInstructions(_input.proposals[i], _input.transitions[i]);
 
                 if (newInstructions.length > 0) {
                     // Inline merge to avoid separate function call and reduce stack depth
@@ -133,7 +156,7 @@ abstract contract InboxOptimized1 is Inbox {
                 currentRecord = TransitionRecord({
                     span: 1,
                     bondInstructions: _calculateBondInstructions(
-                        _config, _input.proposals[i], _input.transitions[i]
+                        _input.proposals[i], _input.transitions[i]
                     ),
                     transitionHash: hashTransition(_input.transitions[i]),
                     checkpointHash: hashCheckpoint(_input.transitions[i].checkpoint)
@@ -161,8 +184,7 @@ abstract contract InboxOptimized1 is Inbox {
         override
         returns (bytes32 transitionRecordHash_)
     {
-        Config memory config = getConfig();
-        uint256 bufferSlot = _proposalId % config.ringBufferSize;
+        uint256 bufferSlot = _proposalId % ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
         // Check if this is the default record for this proposal
@@ -197,8 +219,7 @@ abstract contract InboxOptimized1 is Inbox {
         internal
         override
     {
-        Config memory config = getConfig();
-        uint256 bufferSlot = _proposalId % config.ringBufferSize;
+        uint256 bufferSlot = _proposalId % ringBufferSize;
         bytes32 transitionRecordHash = _hashTransitionRecord(_transitionRecord);
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
 
