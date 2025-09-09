@@ -331,7 +331,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
             id: 99, // This proposal doesn't exist
             proposer: Alice,
             timestamp: uint48(block.timestamp),
-            lookaheadSlotTimestamp: uint48(block.timestamp + 12),
+            endOfSubmissionWindowTimestamp: uint48(block.timestamp + 12),
             coreStateHash: keccak256("fake"),
             derivationHash: keccak256("fake")
         });
