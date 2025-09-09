@@ -26,7 +26,8 @@ library LibMerkleUtils {
         bytes32 h = chunk;
         uint256 j = 0;
         while (true) {
-            if ((index >> j) & 1 == 0) {
+            /// forge-lint: disable-next-line(incorrect-shift)
+            if (index & 1 << j == 0) {
                 break;
             } else {
                 h = hash(tmp[j], h);
