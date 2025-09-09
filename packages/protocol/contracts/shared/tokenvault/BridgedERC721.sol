@@ -101,13 +101,13 @@ contract BridgedERC721 is
         address _from,
         address _to,
         uint256 _firstTokenId,
-        uint256 _batchSize
+        uint256 _numBlocks
     )
         internal
         override
         whenNotPaused
     {
         LibBridgedToken.checkToAddress(_to);
-        super._beforeTokenTransfer(_from, _to, _firstTokenId, _batchSize);
+        super._beforeTokenTransfer(_from, _to, _firstTokenId, _numBlocks);
     }
 }

@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import { Inbox } from "./Inbox.sol";
+import { InboxOptimized1 } from "./InboxOptimized1.sol";
+import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
+import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
+
+/// @title InboxOptimized2
+/// @notice Second optimization layer focusing on event emission gas reduction
+/// @dev Key optimizations:
+///      - Custom event encoding using LibProposedEventEncoder and LibProvedEventEncoder
+///      - Compact binary representation for event data
+///      - Reduced calldata size for events
+///      - Maintains all optimizations from InboxOptimized1
+/// @dev Gas savings: ~30% reduction in event emission costs compared to standard ABI encoding
+/// @custom:security-contact security@taiko.xyz
+contract InboxOptimized2 is InboxOptimized1 {
+    // ---------------------------------------------------------------
+    // State Variables
+    // ---------------------------------------------------------------
+
+    uint256[50] private __gap;
+
+    // ---------------------------------------------------------------
+    // Constructor
+    // ---------------------------------------------------------------
+
+    constructor(
+        address _bondToken,
+        address _checkpointManager,
+        address _proofVerifier,
+        address _proposerChecker,
+        uint48 _provingWindow,
+        uint48 _extendedProvingWindow,
+        uint256 _maxFinalizationCount,
+        uint256 _ringBufferSize,
+        uint8 _basefeeSharingPctg,
+        uint256 _minForcedInclusionCount,
+        uint64 _forcedInclusionDelay,
+        uint64 _forcedInclusionFeeInGwei
+    )
+        InboxOptimized1(
+            _bondToken,
+            _checkpointManager,
+            _proofVerifier,
+            _proposerChecker,
+            _provingWindow,
+            _extendedProvingWindow,
+            _maxFinalizationCount,
+            _ringBufferSize,
+            _basefeeSharingPctg,
+            _minForcedInclusionCount,
+            _forcedInclusionDelay,
+            _forcedInclusionFeeInGwei
+        )
+    { }
+
+    // ---------------------------------------------------------------
+    // External Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Decodes custom-encoded proposed event data
+    /// @dev Uses LibProposedEventEncoder for efficient decoding
+    /// @param _data The custom-encoded event data
+    /// @return _ The decoded ProposedEventPayload struct
+    function decodeProposedEventData(bytes memory _data)
+        external
+        pure
+        returns (ProposedEventPayload memory)
+    {
+        return LibProposedEventEncoder.decode(_data);
+    }
+
+    /// @notice Decodes custom-encoded proved event data
+    /// @dev Uses LibProvedEventEncoder for efficient decoding
+    /// @param _data The custom-encoded event data
+    /// @return _ The decoded ProvedEventPayload struct
+    function decodeProvedEventData(bytes memory _data)
+        external
+        pure
+        returns (ProvedEventPayload memory)
+    {
+        return LibProvedEventEncoder.decode(_data);
+    }
+
+    // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
+
+    /// @inheritdoc Inbox
+    /// @notice Encodes proposed event data using optimized format
+    /// @dev Overrides base implementation to use custom encoding
+    /// @param _payload The ProposedEventPayload to encode
+    /// @return Custom-encoded bytes with reduced size
+    function encodeProposedEventData(ProposedEventPayload memory _payload)
+        public
+        pure
+        virtual
+        override
+        returns (bytes memory)
+    {
+        return LibProposedEventEncoder.encode(_payload);
+    }
+
+    /// @inheritdoc Inbox
+    /// @notice Encodes proved event data using optimized format
+    /// @dev Overrides base implementation to use custom encoding
+    /// @param _payload The ProvedEventPayload to encode
+    /// @return Custom-encoded bytes with reduced size
+    function encodeProvedEventData(ProvedEventPayload memory _payload)
+        public
+        pure
+        virtual
+        override
+        returns (bytes memory)
+    {
+        return LibProvedEventEncoder.encode(_payload);
+    }
+}
