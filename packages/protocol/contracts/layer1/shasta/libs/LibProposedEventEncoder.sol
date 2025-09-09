@@ -116,18 +116,19 @@ library LibProposedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 166 bytes
-            // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) +
-            // originBlockNumber(6) +
-            //           isForcedInclusion(1) + basefeeSharingPctg(1) = 46
+            // Fixed size: 230 bytes
+            // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) =
+            // 38
+            // Derivation: originBlockNumber(6) + originBlockHash(32) + isForcedInclusion(1) +
+            // basefeeSharingPctg(1) = 40
             // BlobSlice: arrayLength(3) + offset(3) + timestamp(6) = 12
-            // coreStateHash: 32
+            // Proposal hashes: coreStateHash(32) + derivationHash(32) = 64
             // CoreState: nextProposalId(6) + lastFinalizedProposalId(6) +
             //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 76
-            // Total fixed: 46 + 12 + 32 + 76 = 166
+            // Total fixed: 38 + 40 + 12 + 64 + 76 = 230
 
             // Variable size: each blob hash is 32 bytes
-            size_ = 166 + (_blobHashesCount * 32);
+            size_ = 230 + (_blobHashesCount * 32);
         }
     }
 }
