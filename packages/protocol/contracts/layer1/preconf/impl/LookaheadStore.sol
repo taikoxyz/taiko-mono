@@ -314,7 +314,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
                 (
                     IRegistry.OperatorData memory operatorData,
                     IRegistry.SlasherCommitment memory slasherCommitment
-                ) = _validateOperator(
+                ) = _validateLookaheadOperator(
                     lookaheadSlot.registrationRoot,
                     currentEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT,
                     minCollateralForPreconfing,
@@ -346,6 +346,41 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         LookaheadHash storage lookaheadHash = _getLookaheadHash(_epochTimestamp);
         lookaheadHash.epochTimestamp = uint48(_epochTimestamp);
         lookaheadHash.lookaheadHash = _hash;
+    }
+
+    function _validateLookaheadOperator(
+        bytes32 _registrationRoot,
+        uint256 _timestamp,
+        uint256 _minCollateral,
+        address _slasher
+    )
+        internal
+        view
+        returns (
+            IRegistry.OperatorData memory operatorData_,
+            IRegistry.SlasherCommitment memory slasherCommitment_
+        )
+    {
+        // Use the general operator validation first
+        (operatorData_, slasherCommitment_) = _validateOperator(
+            _registrationRoot,
+            _timestamp,
+            _minCollateral,
+            _slasher
+        );
+
+        // Apply lookahead-specific blacklist validation
+        BlacklistTimestamps memory blacklistTimestamps = blacklist[_registrationRoot];
+
+        // The operators within lookahead must not be blacklisted, or may have been blacklisted in the
+        // current epoch.
+        bool notBlacklisted =
+            blacklistTimestamps.blacklistedAt == 0 || blacklistTimestamps.blacklistedAt > _timestamp;
+        // If unblacklisted, the operators within lookahead must have been unblacklisted at least
+        // two slots in advance from the current epoch.
+        bool unblacklisted = blacklistTimestamps.unBlacklistedAt != 0
+            && blacklistTimestamps.unBlacklistedAt < _timestamp;
+        require(notBlacklisted || unblacklisted, OperatorHasBeenBlacklisted());
     }
 
     function _validateLookaheadPoster(
@@ -413,19 +448,6 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
             ? operatorData_.collateralWei
             : urc.getHistoricalCollateral(_registrationRoot, _timestamp);
         require(collateralWei >= _minCollateral, OperatorHasInsufficientCollateral());
-
-        BlacklistTimestamps memory blacklistTimestamps = blacklist[_registrationRoot];
-
-        // Todo: extract this to a lookahead specific operators function
-        // The operators within lookahead must not be blacklisted, or may have been blacklist in the
-        // current epoch.
-        bool notBlacklisted =
-            blacklistTimestamps.blacklistedAt == 0 || blacklistTimestamps.blacklistedAt > _timestamp;
-        // If unblacklisted, the operators within lookahead must have been unblacklisted at least
-        // two slots in advanced from the current epoch.
-        bool unblacklisted = blacklistTimestamps.unBlacklistedAt != 0
-            && blacklistTimestamps.unBlacklistedAt < _timestamp;
-        require(notBlacklisted || unblacklisted, OperatorHasBeenBlacklisted());
 
         slasherCommitment_ = urc.getSlasherCommitment(_registrationRoot, _slasher);
 
