@@ -209,7 +209,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         nonReentrant
     {
         // Validate proposer
-        uint48 lookaheadSlotTimestamp = proposerChecker.checkProposer(msg.sender);
+        uint48 endOfSubmissionWindowTimestamp =
+            IProposerChecker(proposerChecker).checkProposer(msg.sender);
 
         // Decode and validate input data
         ProposeInput memory input = decodeProposeInput(_data);
@@ -232,7 +233,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Process forced inclusion if required
             uint256 numForcedInclusionsProcessed;
             (coreState, numForcedInclusionsProcessed) = _processForcedInclusions(
-                coreState, input.numForcedInclusions, lookaheadSlotTimestamp
+                coreState, input.numForcedInclusions, endOfSubmissionWindowTimestamp
             );
 
             availableCapacity -= numForcedInclusionsProcessed;
@@ -253,7 +254,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (availableCapacity > 0) {
             LibBlobs.BlobSlice memory blobSlice =
                 LibBlobs.validateBlobReference(input.blobReference);
-            _propose(coreState, blobSlice, false, lookaheadSlotTimestamp);
+            _propose(coreState, blobSlice, false, endOfSubmissionWindowTimestamp);
         }
     }
 
@@ -660,14 +661,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Consumes up to _numForcedInclusions from the queue and proposes them sequentially
     /// @param _coreState Current core state to update with each inclusion processed
     /// @param _numForcedInclusions Maximum number of forced inclusions to process
-    /// @param _lookaheadSlotTimestamp The timestamp of the last slot where the current preconfer
+    /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
+    /// preconfer
     /// can propose.
     /// @return _ Updated core state after processing all consumed forced inclusions
     /// @return _ Number of forced inclusions processed
     function _processForcedInclusions(
         CoreState memory _coreState,
         uint8 _numForcedInclusions,
-        uint48 _lookaheadSlotTimestamp
+        uint48 _endOfSubmissionWindowTimestamp
     )
         private
         returns (CoreState memory, uint256)
@@ -676,8 +678,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             .consumeForcedInclusions(_forcedInclusionStorage, msg.sender, _numForcedInclusions);
 
         for (uint256 i; i < forcedInclusions.length; ++i) {
-            _coreState =
-                _propose(_coreState, forcedInclusions[i].blobSlice, true, _lookaheadSlotTimestamp);
+            _coreState = _propose(
+                _coreState, forcedInclusions[i].blobSlice, true, _endOfSubmissionWindowTimestamp
+            );
         }
 
         return (_coreState, forcedInclusions.length);
@@ -714,14 +717,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _coreState Current state whose hash is stored in the proposal
     /// @param _blobSlice Blob data slice containing L2 transactions
     /// @param _isForcedInclusion True if this is a forced inclusion proposal
-    /// @param _lookaheadSlotTimestamp The timestamp of the last slot where the current preconfer
+    /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
+    /// preconfer
     /// can propose.
     /// @return Updated core state with incremented nextProposalId
     function _propose(
         CoreState memory _coreState,
         LibBlobs.BlobSlice memory _blobSlice,
         bool _isForcedInclusion,
-        uint48 _lookaheadSlotTimestamp
+        uint48 _endOfSubmissionWindowTimestamp
     )
         private
         returns (CoreState memory)
@@ -741,7 +745,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             Proposal memory proposal = Proposal({
                 id: _coreState.nextProposalId++,
                 timestamp: uint48(block.timestamp),
-                lookaheadSlotTimestamp: _lookaheadSlotTimestamp,
+                endOfSubmissionWindowTimestamp: _endOfSubmissionWindowTimestamp,
                 proposer: msg.sender,
                 coreStateHash: _hashCoreState(_coreState),
                 derivationHash: _hashDerivation(derivation)
