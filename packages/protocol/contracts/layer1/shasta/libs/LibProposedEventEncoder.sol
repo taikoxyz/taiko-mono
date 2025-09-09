@@ -31,6 +31,7 @@ library LibProposedEventEncoder {
         ptr = P.packUint48(ptr, _payload.proposal.timestamp);
         ptr = P.packUint48(ptr, _payload.proposal.lookaheadSlotTimestamp);
         ptr = P.packUint48(ptr, _payload.derivation.originBlockNumber);
+        ptr = P.packBytes32(ptr, _payload.derivation.originBlockHash);
         ptr = P.packUint8(ptr, _payload.derivation.isForcedInclusion ? 1 : 0);
         ptr = P.packUint8(ptr, _payload.derivation.basefeeSharingPctg);
 
@@ -49,6 +50,7 @@ library LibProposedEventEncoder {
         ptr = P.packUint48(ptr, _payload.derivation.blobSlice.timestamp);
 
         ptr = P.packBytes32(ptr, _payload.proposal.coreStateHash);
+        ptr = P.packBytes32(ptr, _payload.proposal.derivationHash);
 
         // Encode CoreState
         ptr = P.packUint48(ptr, _payload.coreState.nextProposalId);
@@ -76,6 +78,7 @@ library LibProposedEventEncoder {
 
         // Decode Derivation fields
         (payload_.derivation.originBlockNumber, ptr) = P.unpackUint48(ptr);
+        (payload_.derivation.originBlockHash, ptr) = P.unpackBytes32(ptr);
 
         uint8 isForcedInclusion;
         (isForcedInclusion, ptr) = P.unpackUint8(ptr);
@@ -96,6 +99,7 @@ library LibProposedEventEncoder {
         (payload_.derivation.blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
 
         (payload_.proposal.coreStateHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.proposal.derivationHash, ptr) = P.unpackBytes32(ptr);
 
         // Decode CoreState
         (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
@@ -113,18 +117,18 @@ library LibProposedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 166 bytes
+            // Fixed size: 230 bytes
             // Proposal: id(6) + proposer(20) + timestamp(6) + lookaheadSlotTimestamp(6) +
-            // originBlockNumber(6) +
-            //           isForcedInclusion(1) + basefeeSharingPctg(1) = 46
+            // originBlockNumber(6) + originBlockHash(32) +
+            //           isForcedInclusion(1) + basefeeSharingPctg(1) = 78
             // BlobSlice: arrayLength(3) + offset(3) + timestamp(6) = 12
-            // coreStateHash: 32
+            // coreStateHash(32) + derivationHash(32) = 64
             // CoreState: nextProposalId(6) + lastFinalizedProposalId(6) +
             //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 76
-            // Total fixed: 46 + 12 + 32 + 76 = 166
+            // Total fixed: 78 + 12 + 64 + 76 = 230
 
             // Variable size: each blob hash is 32 bytes
-            size_ = 166 + (_blobHashesCount * 32);
+            size_ = 230 + (_blobHashesCount * 32);
         }
     }
 }
