@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./ProverSetBase.sol";
 import "../based/IProposeBatch.sol";
+import "../based/ITaikoInbox.sol";
 
 contract ProverSet is ProverSetBase, IProposeBatch {
     using Address for address;
@@ -34,6 +35,14 @@ contract ProverSet is ProverSetBase, IProposeBatch {
         onlyProver
         returns (ITaikoInbox.BatchInfo memory, ITaikoInbox.BatchMetadata memory)
     {
+        // Validate parameters to prevent forced inclusion attacks
+        ITaikoInbox.BatchParams memory params = abi.decode(_params, (ITaikoInbox.BatchParams));
+        
+        // ProverSet should not allow forced inclusion parameters for security reasons
+        require(params.isForcedInclusion == false, ForcedInclusionParamsNotAllowed());
+        require(params.blobParams.blobHashes.length == 0, ITaikoInbox.InvalidBlobParams());
+        require(params.blobParams.createdIn == 0, ITaikoInbox.InvalidBlobCreatedIn());
+        
         return iProposeBatch.v4ProposeBatch(_params, _txList, _additionalData);
     }
 
