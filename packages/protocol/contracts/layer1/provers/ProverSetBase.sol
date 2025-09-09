@@ -77,7 +77,7 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
 
     /// @notice Withdraws Taiko tokens back to the admin address.
     function withdrawToAdmin(uint256 _amount) external onlyAuthorized {
-        IERC20(bondToken).transfer(admin, _amount);
+        require(IERC20(bondToken).transfer(admin, _amount), TransferFailed());
     }
 
     /// @notice Withdraws ETH back to the owner address.
@@ -115,4 +115,10 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
             magicValue_ = _EIP1271_MAGICVALUE;
         }
     }
+
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error TransferFailed();
 }
