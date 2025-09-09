@@ -52,7 +52,7 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
         _;
     }
 
-    constructor(address _fallbackPreconfer) EssentialContract() {
+    constructor(address _fallbackPreconfer) {
         fallbackPreconfer = _fallbackPreconfer;
     }
 

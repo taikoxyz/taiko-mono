@@ -7,6 +7,10 @@ import "./BaseVault.sol";
 /// @notice Abstract contract for bridging NFTs across different chains.
 /// @custom:security-contact security@taiko.xyz
 abstract contract BaseNFTVault is BaseVault {
+    // ---------------------------------------------------------------
+    // Structs
+    // ---------------------------------------------------------------
+
     // Struct representing the canonical NFT on another chain.
     struct CanonicalNFT {
         // Chain ID of the NFT.
@@ -40,13 +44,9 @@ abstract contract BaseNFTVault is BaseVault {
         uint256[] amounts;
     }
 
-    /// @notice Mapping to store bridged NFTs and their canonical counterparts.
-    mapping(address btoken => CanonicalNFT canonical) public bridgedToCanonical;
-
-    /// @notice Mapping to store canonical NFTs and their bridged counterparts.
-    mapping(uint256 chainId => mapping(address ctoken => address btoken)) public canonicalToBridged;
-
-    uint256[48] private __gap;
+    // ---------------------------------------------------------------
+    // Events
+    // ---------------------------------------------------------------
 
     /// @notice Emitted when a new bridged token is deployed.
     /// @param chainId The chain ID of the bridged token.
@@ -118,19 +118,51 @@ abstract contract BaseNFTVault is BaseVault {
         uint256[] amounts
     );
 
-    error VAULT_INVALID_TOKEN();
-    error VAULT_INVALID_AMOUNT();
-    error VAULT_INTERFACE_NOT_SUPPORTED();
-    error VAULT_TOKEN_ARRAY_MISMATCH();
+    // ---------------------------------------------------------------
+    // State Variables
+    // ---------------------------------------------------------------
+
+    /// @notice Mapping to store bridged NFTs and their canonical counterparts.
+    mapping(address btoken => CanonicalNFT canonical) public bridgedToCanonical;
+
+    /// @notice Mapping to store canonical NFTs and their bridged counterparts.
+    mapping(uint256 chainId => mapping(address ctoken => address btoken)) public canonicalToBridged;
+
+    uint256[48] private __gap;
+
+    // ---------------------------------------------------------------
+    // Modifiers
+    // ---------------------------------------------------------------
 
     modifier withValidOperation(BridgeTransferOp memory _op) {
+        _checkValidOperation(_op);
+        _;
+    }
+
+    // ---------------------------------------------------------------
+    // Constructor
+    // ---------------------------------------------------------------
+
+    constructor(address _resolver) BaseVault(_resolver) { }
+
+    // ---------------------------------------------------------------
+    // Private Functions
+    // ---------------------------------------------------------------
+
+    function _checkValidOperation(BridgeTransferOp memory _op) private pure {
         if (_op.tokenIds.length != _op.amounts.length) {
             revert VAULT_TOKEN_ARRAY_MISMATCH();
         }
 
         if (_op.token == address(0)) revert VAULT_INVALID_TOKEN();
-        _;
     }
 
-    constructor(address _resolver) BaseVault(_resolver) { }
+    // ---------------------------------------------------------------
+    // Errors
+    // ---------------------------------------------------------------
+
+    error VAULT_INVALID_TOKEN();
+    error VAULT_INVALID_AMOUNT();
+    error VAULT_INTERFACE_NOT_SUPPORTED();
+    error VAULT_TOKEN_ARRAY_MISMATCH();
 }

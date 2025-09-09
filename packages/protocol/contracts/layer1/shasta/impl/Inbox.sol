@@ -137,7 +137,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice Initializes the Inbox contract
     /// @param _config Configuration struct containing all constructor parameters
-    constructor(IInbox.Config memory _config) EssentialContract() {
+    constructor(IInbox.Config memory _config) {
         _bondToken = IERC20(_config.bondToken);
         _checkpointManager = ICheckpointManager(_config.checkpointManager);
         _proofVerifier = IProofVerifier(_config.proofVerifier);
@@ -410,6 +410,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _transition The transition to hash.
     /// @return _ The hash of the transition.
     function hashTransition(Transition memory _transition) public pure virtual returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_transition));
     }
 
@@ -422,6 +423,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
         returns (bytes32)
     {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_checkpoint));
     }
 
@@ -429,6 +431,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _coreState The core state to hash.
     /// @return _ The hash of the core state.
     function hashCoreState(CoreState memory _coreState) public pure virtual returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_coreState));
     }
 
@@ -441,6 +444,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
         returns (bytes32)
     {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_transitions));
     }
 
@@ -448,6 +452,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _proposal The proposal to hash.
     /// @return _ The hash of the proposal.
     function hashProposal(Proposal memory _proposal) public pure virtual returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_proposal));
     }
 
@@ -455,6 +460,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _derivation The derivation to hash.
     /// @return _ The hash of the derivation.
     function hashDerivation(Derivation memory _derivation) public pure virtual returns (bytes32) {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_derivation));
     }
 
@@ -673,6 +679,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         pure
         returns (bytes26)
     {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return bytes26(keccak256(abi.encode(_transitionRecord)));
     }
 
@@ -684,6 +691,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         pure
         returns (bytes32)
     {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_transitions));
     }
 
@@ -701,6 +709,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         virtual
         returns (bytes32)
     {
+        /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_proposalId, _parentTransitionHash));
     }
 

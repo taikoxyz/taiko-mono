@@ -12,7 +12,7 @@ import "src/shared/governance/Controller.sol";
 contract TaikoDAOController is Controller {
     bytes32[50] private __gap;
 
-    constructor() Controller() { }
+    constructor() { }
 
     function init(address _taikoDAO) external initializer {
         __Essential_init(_taikoDAO);

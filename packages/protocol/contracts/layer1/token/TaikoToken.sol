@@ -21,7 +21,7 @@ contract TaikoToken is TaikoTokenBase {
     error TT_INVALID_PARAM();
     error TT_NON_VOTING_ACCOUNT();
 
-    constructor() TaikoTokenBase() { }
+    constructor() { }
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.

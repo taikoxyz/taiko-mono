@@ -33,7 +33,7 @@ abstract contract OntakeAnchor is EssentialContract, IBlockHashProvider {
     // Constructor
     // -------------------------------------------------------------------
 
-    constructor() EssentialContract() { }
+    constructor() { }
 
     // -------------------------------------------------------------------
     // Modifiers
