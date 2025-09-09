@@ -587,7 +587,7 @@
 |
 | _proposalHashes             | mapping(uint256 => bytes32)                                         | 258  | 0      | 32    |
 |
-| _transitionRecordExcepts    | mapping(bytes32 => struct Inbox.TransitionRecordExcerpt)            | 259  | 0      | 32    |
+| _transitionRecordHashTime    | mapping(bytes32 => struct Inbox.TransitionRecordHashTime)            | 259  | 0      | 32    |
 |
 | _forcedInclusionStorage     | struct LibForcedInclusion.Storage                                   | 260  | 0      | 64    |
 |

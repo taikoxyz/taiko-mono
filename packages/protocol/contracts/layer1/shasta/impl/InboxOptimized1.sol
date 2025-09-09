@@ -23,7 +23,7 @@ contract InboxOptimized1 is Inbox {
     /// @notice Optimized storage for frequently accessed transition records
     /// @dev Stores the first transition record for each proposal to reduce gas costs
     struct ReusableTransitionRecord {
-        TransitionRecordExcerpt excerpt;
+        TransitionRecordHashAndDeadline hashAndDeadline;
         uint48 proposalId;
         bytes26 partialParentTransitionHash;
     }
@@ -108,7 +108,7 @@ contract InboxOptimized1 is Inbox {
                 currentRecord.span++;
             } else {
                 // Save the current aggregated record before starting a new one
-                _setTransitionRecordExcerpt(
+                _setTransitionRecordHashAndDeadline(
                     currentGroupStartId, firstTransitionInGroup, currentRecord
                 );
 
@@ -128,7 +128,9 @@ contract InboxOptimized1 is Inbox {
         }
 
         // Save the final aggregated record
-        _setTransitionRecordExcerpt(currentGroupStartId, firstTransitionInGroup, currentRecord);
+        _setTransitionRecordHashAndDeadline(
+            currentGroupStartId, firstTransitionInGroup, currentRecord
+        );
     }
 
     /// @inheritdoc Inbox
@@ -138,14 +140,14 @@ contract InboxOptimized1 is Inbox {
     ///         2. Performs partial parent transition hash comparison (26 bytes)
     ///         3. Falls back to composite key mapping if no match
     /// @dev Reduces storage reads by ~50% for common case (single transition per proposal)
-    function _getTransitionRecordExcerpt(
+    function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
         internal
         view
         override
-        returns (TransitionRecordExcerpt memory)
+        returns (TransitionRecordHashAndDeadline memory)
     {
         uint256 bufferSlot = _proposalId % _ringBufferSize;
         ReusableTransitionRecord storage record = _reusableTransitionRecords[bufferSlot];
@@ -156,11 +158,13 @@ contract InboxOptimized1 is Inbox {
             record.proposalId == _proposalId
                 && record.partialParentTransitionHash == bytes26(_parentTransitionHash)
         ) {
-            return record.excerpt;
+            return record.hashAndDeadline;
         }
 
         // Otherwise check the direct mapping
-        return _transitionRecordExcepts[_composeTransitionKey(_proposalId, _parentTransitionHash)];
+        return _transitionRecordHashAndDeadline[_composeTransitionKey(
+            _proposalId, _parentTransitionHash
+        )];
     }
 
     /// @inheritdoc Inbox
@@ -170,7 +174,7 @@ contract InboxOptimized1 is Inbox {
     ///         2. Same ID, same parent: Updates reusable slot
     ///         3. Same ID, different parent: Uses composite key mapping
     /// @dev Saves ~20,000 gas for common case by avoiding mapping writes
-    function _setTransitionRecordExcerpt(
+    function _setTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         Transition memory _transition,
         TransitionRecord memory _transitionRecord
@@ -187,7 +191,7 @@ contract InboxOptimized1 is Inbox {
         // Check if we can use the default slot
         if (record.proposalId != _proposalId) {
             // Different proposal ID, so we can use the default slot
-            record.excerpt = TransitionRecordExcerpt({
+            record.hashAndDeadline = TransitionRecordHashAndDeadline({
                 finalizationDeadline: finalizationDeadline,
                 recordHash: transitionRecordHash
             });
@@ -196,7 +200,7 @@ contract InboxOptimized1 is Inbox {
         } else if (record.partialParentTransitionHash == bytes26(_transition.parentTransitionHash))
         {
             // Different proposal ID, so we can use the default slot
-            record.excerpt = TransitionRecordExcerpt({
+            record.hashAndDeadline = TransitionRecordHashAndDeadline({
                 finalizationDeadline: finalizationDeadline,
                 recordHash: transitionRecordHash
             });
@@ -204,7 +208,7 @@ contract InboxOptimized1 is Inbox {
             // Same proposal ID but different parent transition hash, use direct mapping
             bytes32 compositeKey =
                 _composeTransitionKey(_proposalId, _transition.parentTransitionHash);
-            _transitionRecordExcepts[compositeKey] = TransitionRecordExcerpt({
+            _transitionRecordHashAndDeadline[compositeKey] = TransitionRecordHashAndDeadline({
                 finalizationDeadline: finalizationDeadline,
                 recordHash: transitionRecordHash
             });

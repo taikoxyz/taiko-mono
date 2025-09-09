@@ -48,14 +48,14 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox, IProposerChecker {
         _setProposalHash(_proposalId, _hash);
     }
 
-    function exposed_setTransitionRecordExcerpt(
+    function exposed_setTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         IInbox.Transition memory _transition,
         IInbox.TransitionRecord memory _transitionRecord
     )
         external
     {
-        _setTransitionRecordExcerpt(_proposalId, _transition, _transitionRecord);
+        _setTransitionRecordHashAndDeadline(_proposalId, _transition, _transitionRecord);
     }
 
     // Function to store checkpoint for test purposes
