@@ -104,13 +104,30 @@ library LibHashing {
         if (_derivation.blobSlice.blobHashes.length == 0) {
             blobHashesHash = EMPTY_BYTES_HASH;
         } else {
-            // Simplified approach: encode length and array data together
-            bytes memory blobData =
-                abi.encodePacked(bytes32(uint256(_derivation.blobSlice.blobHashes.length)));
-            for (uint256 i; i < _derivation.blobSlice.blobHashes.length; ++i) {
-                blobData = abi.encodePacked(blobData, _derivation.blobSlice.blobHashes[i]);
+            // Memory-optimized approach: pre-allocate buffer for length + hashes
+            uint256 arrayLength = _derivation.blobSlice.blobHashes.length;
+            uint256 bufferSize = 32 + (arrayLength * 32);
+            bytes memory buffer = new bytes(bufferSize);
+
+            assembly {
+                // Write array length at start of buffer
+                mstore(add(buffer, 0x20), arrayLength)
             }
-            blobHashesHash = keccak256(blobData);
+
+            // Write each blob hash directly to buffer
+            for (uint256 i; i < arrayLength; ++i) {
+                bytes32 blobHash = _derivation.blobSlice.blobHashes[i];
+                assembly {
+                    let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array
+                        // length + i*32
+                    mstore(add(buffer, offset), blobHash)
+                }
+            }
+
+            // Use assembly keccak256
+            assembly {
+                blobHashesHash := keccak256(add(buffer, 0x20), mload(buffer))
+            }
         }
 
         bytes32 blobSliceHash = EfficientHashLib.hash(
@@ -126,8 +143,8 @@ library LibHashing {
     // Array and Complex Structure Hashing Functions
     // ---------------------------------------------------------------
 
-    /// @notice Optimized hashing for arrays of Transitions
-    /// @dev Uses more efficient approach than standard abi.encode for arrays
+    /// @notice Memory-optimized hashing for arrays of Transitions
+    /// @dev Pre-allocates buffer to avoid reallocations and uses assembly for efficiency
     /// @dev Explicitly includes array length to prevent hash collisions
     /// @param _transitions The transitions array to hash
     /// @return The hash of the transitions array
@@ -155,12 +172,33 @@ library LibHashing {
             );
         }
 
-        // For larger arrays, explicitly include length to prevent collisions
-        bytes memory encoded = abi.encodePacked(bytes32(uint256(_transitions.length)));
-        for (uint256 i; i < _transitions.length; ++i) {
-            encoded = abi.encodePacked(encoded, hashTransition(_transitions[i]));
+        // For larger arrays, use memory-optimized approach
+        // Pre-allocate exact buffer size: 32 bytes for length + 32 bytes per hash
+        uint256 arrayLength = _transitions.length;
+        uint256 bufferSize = 32 + (arrayLength * 32);
+        bytes memory buffer = new bytes(bufferSize);
+
+        assembly {
+            // Write array length at start of buffer
+            mstore(add(buffer, 0x20), arrayLength)
         }
-        return keccak256(encoded);
+
+        // Write each transition hash directly to buffer
+        for (uint256 i; i < arrayLength; ++i) {
+            bytes32 transitionHash = hashTransition(_transitions[i]);
+            assembly {
+                let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array
+                    // length + i*32
+                mstore(add(buffer, offset), transitionHash)
+            }
+        }
+
+        // Use assembly keccak256 for final optimization
+        bytes32 result;
+        assembly {
+            result := keccak256(add(buffer, 0x20), mload(buffer))
+        }
+        return result;
     }
 
     /// @notice Optimized hashing for TransitionRecord structs
@@ -182,15 +220,32 @@ library LibHashing {
                 _hashSingleBondInstruction(_transitionRecord.bondInstructions[0])
             );
         } else {
-            // For multiple instructions, explicitly include length to prevent collisions
-            bytes memory encoded =
-                abi.encodePacked(bytes32(uint256(_transitionRecord.bondInstructions.length)));
-            for (uint256 i; i < _transitionRecord.bondInstructions.length; ++i) {
-                encoded = abi.encodePacked(
-                    encoded, _hashSingleBondInstruction(_transitionRecord.bondInstructions[i])
-                );
+            // Memory-optimized approach for multiple instructions
+            // Pre-allocate buffer: 32 bytes for length + 32 bytes per instruction hash
+            uint256 arrayLength = _transitionRecord.bondInstructions.length;
+            uint256 bufferSize = 32 + (arrayLength * 32);
+            bytes memory buffer = new bytes(bufferSize);
+
+            assembly {
+                // Write array length at start of buffer
+                mstore(add(buffer, 0x20), arrayLength)
             }
-            bondInstructionsHash = keccak256(encoded);
+
+            // Write each bond instruction hash directly to buffer
+            for (uint256 i; i < arrayLength; ++i) {
+                bytes32 instructionHash =
+                    _hashSingleBondInstruction(_transitionRecord.bondInstructions[i]);
+                assembly {
+                    let offset := add(0x40, mul(i, 0x20)) // 0x20 for bytes length + 0x20 for array
+                        // length + i*32
+                    mstore(add(buffer, offset), instructionHash)
+                }
+            }
+
+            // Use assembly keccak256
+            assembly {
+                bondInstructionsHash := keccak256(add(buffer, 0x20), mload(buffer))
+            }
         }
 
         bytes32 fullHash = EfficientHashLib.hash(
