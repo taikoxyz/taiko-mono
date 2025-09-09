@@ -48,11 +48,11 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.proposal.proposer, original.proposal.proposer);
         assertEq(decoded.proposal.timestamp, original.proposal.timestamp);
         assertEq(decoded.proposal.coreStateHash, original.proposal.coreStateHash);
-        // Note: derivationHash is not preserved by the encoder
+        assertEq(decoded.proposal.derivationHash, original.proposal.derivationHash);
 
         // Verify derivation fields
         assertEq(decoded.derivation.originBlockNumber, original.derivation.originBlockNumber);
-        // originBlockHash is not preserved by encoder
+        assertEq(decoded.derivation.originBlockHash, original.derivation.originBlockHash);
         assertEq(decoded.derivation.isForcedInclusion, original.derivation.isForcedInclusion);
         assertEq(decoded.derivation.basefeeSharingPctg, original.derivation.basefeeSharingPctg);
         assertEq(decoded.derivation.blobSlice.blobHashes.length, 0);
@@ -114,11 +114,11 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.proposal.proposer, original.proposal.proposer);
         assertEq(decoded.proposal.timestamp, original.proposal.timestamp);
         assertEq(decoded.proposal.coreStateHash, original.proposal.coreStateHash);
-        // Note: derivationHash is not preserved by the encoder
+        assertEq(decoded.proposal.derivationHash, original.proposal.derivationHash);
 
         // Verify derivation fields
         assertEq(decoded.derivation.originBlockNumber, original.derivation.originBlockNumber);
-        // originBlockHash is not preserved by encoder
+        assertEq(decoded.derivation.originBlockHash, original.derivation.originBlockHash);
         assertEq(decoded.derivation.isForcedInclusion, original.derivation.isForcedInclusion);
         assertEq(decoded.derivation.basefeeSharingPctg, original.derivation.basefeeSharingPctg);
         assertEq(decoded.derivation.blobSlice.blobHashes.length, 3);

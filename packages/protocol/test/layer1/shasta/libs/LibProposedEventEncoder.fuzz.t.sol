@@ -51,11 +51,11 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(decoded.proposal.proposer, payload.proposal.proposer);
         assertEq(decoded.proposal.timestamp, payload.proposal.timestamp);
         assertEq(decoded.proposal.coreStateHash, payload.proposal.coreStateHash);
-        // derivationHash is not preserved by encoder
+        assertEq(decoded.proposal.derivationHash, payload.proposal.derivationHash);
 
         // Verify Derivation fields
         assertEq(decoded.derivation.originBlockNumber, payload.derivation.originBlockNumber);
-        // originBlockHash is not preserved by encoder
+        assertEq(decoded.derivation.originBlockHash, payload.derivation.originBlockHash);
         assertEq(decoded.derivation.isForcedInclusion, payload.derivation.isForcedInclusion);
         assertEq(decoded.derivation.basefeeSharingPctg, payload.derivation.basefeeSharingPctg);
     }
