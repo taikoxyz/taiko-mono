@@ -3,8 +3,6 @@ pragma solidity ^0.8.24;
 
 import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
-import { EssentialContract } from "src/shared/common/EssentialContract.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title TestInbox
 /// @notice Test wrapper for Inbox contract with configurable behavior

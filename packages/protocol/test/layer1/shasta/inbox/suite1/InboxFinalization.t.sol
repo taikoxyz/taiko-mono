@@ -2,9 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./InboxTest.sol";
-import {
-    Inbox, TransitionRecordHashMismatchWithStorage
-} from "contracts/layer1/shasta/impl/Inbox.sol";
+import { TransitionRecordHashMismatchWithStorage } from "contracts/layer1/shasta/impl/Inbox.sol";
 import "./InboxMockContracts.sol";
 
 /// @title InboxFinalization

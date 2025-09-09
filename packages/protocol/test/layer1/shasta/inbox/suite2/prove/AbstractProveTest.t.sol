@@ -4,10 +4,8 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
-import { LibBonds } from "contracts/shared/based/libs/LibBonds.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
 import { BlobTestUtils } from "../common/BlobTestUtils.sol";
-import { console2 } from "forge-std/src/console2.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 
 // Import errors from Inbox implementation

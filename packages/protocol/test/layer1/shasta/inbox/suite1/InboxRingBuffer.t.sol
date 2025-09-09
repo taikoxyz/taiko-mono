@@ -2,7 +2,6 @@
 pragma solidity ^0.8.24;
 
 import "./InboxTest.sol";
-import { ExceedsUnfinalizedProposalCapacity } from "contracts/layer1/shasta/impl/Inbox.sol";
 
 /// @title InboxRingBuffer
 /// @notice Tests for ring buffer mechanics and capacity management

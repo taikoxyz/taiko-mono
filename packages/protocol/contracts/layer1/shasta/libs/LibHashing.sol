@@ -75,7 +75,7 @@ library LibHashing {
         // Pack numeric fields together
         bytes32 packedFields = bytes32(
             (uint256(_proposal.id) << 208) | (uint256(_proposal.timestamp) << 160)
-                | (uint256(_proposal.lookaheadSlotTimestamp) << 112)
+                | (uint256(_proposal.endOfSubmissionWindowTimestamp) << 112)
         );
 
         return EfficientHashLib.hash(

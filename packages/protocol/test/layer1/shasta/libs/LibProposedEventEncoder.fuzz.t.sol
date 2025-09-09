@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { LibProposedEventEncoder } from "src/layer1/shasta/libs/LibProposedEventEncoder.sol";
-import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 
 /// @title LibProposedEventEncoderFuzzTest

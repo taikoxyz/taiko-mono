@@ -7,7 +7,6 @@ import { LibHashing } from "contracts/layer1/shasta/libs/LibHashing.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title LibHashingGasTest
 /// @notice Gas comparison tests for LibHashing optimizations vs standard keccak256(abi.encode)
@@ -436,7 +435,7 @@ contract LibHashingGasTest is Test {
         testProposal = IInbox.Proposal({
             id: 1001,
             timestamp: 1_672_531_200, // 2023-01-01 00:00:00 UTC
-            lookaheadSlotTimestamp: 1_672_531_260, // 2023-01-01 00:01:00 UTC
+            endOfSubmissionWindowTimestamp: 1_672_531_260, // 2023-01-01 00:01:00 UTC
             proposer: address(0xabCDEF1234567890ABcDEF1234567890aBCDeF12),
             coreStateHash: keccak256("test_core_state_hash"),
             derivationHash: keccak256("test_derivation_hash")
