@@ -34,7 +34,7 @@ abstract contract Controller is EssentialContract {
 
     event ActionExecuted(address indexed target, uint256 value, bytes data);
 
-    constructor() EssentialContract() { }
+    constructor() { }
 
     receive() external payable { }
 

@@ -48,14 +48,7 @@ abstract contract ProverSetBase is EssentialContract, IERC1271 {
         _;
     }
 
-    constructor(
-        address _inbox,
-        address _bondToken
-    )
-        nonZeroAddr(_inbox)
-        nonZeroAddr(_bondToken)
-        EssentialContract()
-    {
+    constructor(address _inbox, address _bondToken) nonZeroAddr(_inbox) nonZeroAddr(_bondToken) {
         inbox = _inbox;
         bondToken = _bondToken;
     }

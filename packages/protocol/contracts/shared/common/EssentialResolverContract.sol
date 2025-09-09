@@ -7,7 +7,7 @@ import "./EssentialContract.sol";
 abstract contract EssentialResolverContract is EssentialContract {
     error RESOLVER_NOT_FOUND();
 
-    constructor(address _resolver) EssentialContract() {
+    constructor(address _resolver) {
         __resolver = _resolver;
     }
 
