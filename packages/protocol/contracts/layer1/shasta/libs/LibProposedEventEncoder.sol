@@ -29,7 +29,7 @@ library LibProposedEventEncoder {
         ptr = P.packUint48(ptr, _payload.proposal.id);
         ptr = P.packAddress(ptr, _payload.proposal.proposer);
         ptr = P.packUint48(ptr, _payload.proposal.timestamp);
-        ptr = P.packUint48(ptr, _payload.proposal.lookaheadSlotTimestamp);
+        ptr = P.packUint48(ptr, _payload.proposal.endOfSubmissionWindowTimestamp);
         ptr = P.packUint48(ptr, _payload.derivation.originBlockNumber);
         ptr = P.packUint8(ptr, _payload.derivation.isForcedInclusion ? 1 : 0);
         ptr = P.packUint8(ptr, _payload.derivation.basefeeSharingPctg);
@@ -72,7 +72,7 @@ library LibProposedEventEncoder {
         (payload_.proposal.id, ptr) = P.unpackUint48(ptr);
         (payload_.proposal.proposer, ptr) = P.unpackAddress(ptr);
         (payload_.proposal.timestamp, ptr) = P.unpackUint48(ptr);
-        (payload_.proposal.lookaheadSlotTimestamp, ptr) = P.unpackUint48(ptr);
+        (payload_.proposal.endOfSubmissionWindowTimestamp, ptr) = P.unpackUint48(ptr);
 
         // Decode Derivation fields
         (payload_.derivation.originBlockNumber, ptr) = P.unpackUint48(ptr);
@@ -114,7 +114,7 @@ library LibProposedEventEncoder {
     {
         unchecked {
             // Fixed size: 166 bytes
-            // Proposal: id(6) + proposer(20) + timestamp(6) + lookaheadSlotTimestamp(6) +
+            // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) +
             // originBlockNumber(6) +
             //           isForcedInclusion(1) + basefeeSharingPctg(1) = 46
             // BlobSlice: arrayLength(3) + offset(3) + timestamp(6) = 12
