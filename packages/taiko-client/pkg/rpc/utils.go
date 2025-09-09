@@ -258,3 +258,27 @@ func DecodeShastaProposalData(
 
 	return &proposedEventPayload, nil
 }
+
+// DecodeShastaProvedData decodes the proved data from the corresponding Inbox event.
+func DecodeShastaProvedData(
+	opts *bind.CallOpts,
+	inbox *shastaBindings.ShastaInboxClient,
+	data []byte,
+) (
+	*shastaBindings.IInboxProvedEventPayload,
+	error,
+) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	provedEventPayload, err := inbox.DecodeProvedEventData(opts, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode proved event data: %w", err)
+	}
+
+	return &provedEventPayload, nil
+}

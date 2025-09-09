@@ -35,7 +35,7 @@ services:
 
   protocol_indexer:
     container_name: protocol_indexer
-    image: us-docker.pkg.dev/evmchain/images/protocol-indexer:sha-30d750a
+    image: us-docker.pkg.dev/evmchain/images/protocol-indexer:sha-abe5d0a
     restart: unless-stopped
     pull_policy: always
     depends_on:

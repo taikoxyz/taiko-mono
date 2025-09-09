@@ -526,7 +526,7 @@ func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
 		log.Warn(
-			"Failed to send TaikoInbox.proposeBatch transaction by tx manager",
+			"Failed to send proposing batch transaction by tx manager",
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomError(err),
 		)

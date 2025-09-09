@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
@@ -173,8 +174,9 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	preconfRouterAddress common.Address,
 ) (*txmgr.TxCandidate, error) {
 	var (
-		to    = &b.taikoWrapperAddress
+		to    = &b.taikoInboxAddress
 		blobs []*eth.Blob
+		data  []byte
 	)
 	if preconfRouterAddress != rpc.ZeroAddress {
 		to = &preconfRouterAddress
@@ -197,6 +199,8 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get shasta proposal inputs: %w", encoding.TryParsingCustomError(err))
 	}
+
+	log.Info("Shasta proposal inputs", "inputs", inputs, "to", to)
 
 	l1Head, err := b.rpc.L1.HeaderByNumber(ctx, nil)
 	if err != nil {
@@ -247,20 +251,27 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		return nil, err
 	}
 
-	data, err := b.rpc.ShastaClients.Inbox.EncodeProposeInput(&bind.CallOpts{Context: ctx}, shasta.IInboxProposeInput{
-		Deadline:          common.Big0,
-		CoreState:         inputs.CoreState,
-		ParentProposals:   inputs.ParentProposals,
-		TransitionRecords: inputs.TransitionRecords,
-		Checkpoint:        inputs.Checkpoint,
-		BlobReference: shasta.LibBlobsBlobReference{
-			BlobStartIndex: 0,
-			NumBlobs:       uint16(len(blobs)),
-			Offset:         common.Big0,
+	inputData, err := b.rpc.ShastaClients.Inbox.EncodeProposeInput(
+		&bind.CallOpts{Context: ctx},
+		shasta.IInboxProposeInput{
+			Deadline:          common.Big0,
+			CoreState:         inputs.CoreState,
+			ParentProposals:   inputs.ParentProposals,
+			TransitionRecords: inputs.TransitionRecords,
+			Checkpoint:        inputs.Checkpoint,
+			BlobReference: shasta.LibBlobsBlobReference{
+				BlobStartIndex: 0,
+				NumBlobs:       uint16(len(blobs)),
+				Offset:         common.Big0,
+			},
 		},
-	})
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode shasta propose input: %w", err)
+	}
+
+	if data, err = encoding.ShastaInboxABI.Pack("propose", []byte{}, inputData); err != nil {
+		return nil, err
 	}
 
 	return &txmgr.TxCandidate{
