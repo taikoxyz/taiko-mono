@@ -5,7 +5,6 @@ import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
 import { BlobTestUtils } from "../common/BlobTestUtils.sol";
-import { console2 } from "forge-std/src/console2.sol";
 
 // Import errors from Inbox implementation
 import "contracts/layer1/shasta/impl/Inbox.sol";

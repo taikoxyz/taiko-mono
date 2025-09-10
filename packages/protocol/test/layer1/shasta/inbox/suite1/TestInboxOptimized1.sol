@@ -20,18 +20,21 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox, IProposerChecker {
         address _proofVerifier
     )
         InboxOptimized1(
-            _bondToken,
-            _checkpointManager,
-            _proofVerifier,
-            address(this), // proposerChecker - use this contract as stub
-            1 hours, // provingWindow
-            2 hours, // extendedProvingWindow
-            10, // maxFinalizationCount
-            100, // ringBufferSize
-            10, // basefeeSharingPctg
-            1, // minForcedInclusionCount
-            100, // forcedInclusionDelay
-            10_000_000 // forcedInclusionFeeInGwei (0.01 ETH)
+            IInbox.Config({
+                bondToken: _bondToken,
+                checkpointManager: _checkpointManager,
+                proofVerifier: _proofVerifier,
+                proposerChecker: address(this), // proposerChecker - use this contract as stub
+                provingWindow: 1 hours,
+                extendedProvingWindow: 2 hours,
+                maxFinalizationCount: 10,
+                finalizationGracePeriod: 5 minutes,
+                ringBufferSize: 100,
+                basefeeSharingPctg: 10,
+                minForcedInclusionCount: 1,
+                forcedInclusionDelay: 100,
+                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+             })
         )
     { }
 
@@ -45,14 +48,14 @@ contract TestInboxOptimized1 is InboxOptimized1, ITestInbox, IProposerChecker {
         _setProposalHash(_proposalId, _hash);
     }
 
-    function exposed_setTransitionRecordHash(
+    function exposed_setTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         IInbox.Transition memory _transition,
         IInbox.TransitionRecord memory _transitionRecord
     )
         external
     {
-        _setTransitionRecordHash(_proposalId, _transition, _transitionRecord);
+        _setTransitionRecordHashAndDeadline(_proposalId, _transition, _transitionRecord);
     }
 
     // Function to store checkpoint for test purposes
