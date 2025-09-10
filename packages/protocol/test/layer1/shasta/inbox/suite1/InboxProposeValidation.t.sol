@@ -3,12 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./InboxTest.sol";
 import "./InboxMockContracts.sol";
-import {
-    Inbox,
-    InvalidState,
-    DeadlineExceeded,
-    ExceedsUnfinalizedProposalCapacity
-} from "contracts/layer1/shasta/impl/Inbox.sol";
+import { InvalidState, DeadlineExceeded } from "contracts/layer1/shasta/impl/Inbox.sol";
 
 /// @title InboxProposeValidation
 /// @notice Tests for proposal validation logic including deadlines, state checks, and constraints

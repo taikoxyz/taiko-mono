@@ -5,7 +5,6 @@ import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibProveInputDecoder } from "contracts/layer1/shasta/libs/LibProveInputDecoder.sol";
-import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title LibProveInputDecoderGas

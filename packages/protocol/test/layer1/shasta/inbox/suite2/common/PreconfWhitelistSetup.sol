@@ -85,6 +85,7 @@ contract PreconfWhitelistSetup is CommonTest {
         // Simple approach: just return current timestamp aligned to epoch boundary
         // This avoids issues with genesis timestamp calculations in test environments
         uint256 epochSeconds = LibPreconfConstants.SECONDS_IN_EPOCH;
+        /// forge-lint: disable-next-line(divide-before-multiply)
         return (block.timestamp / epochSeconds) * epochSeconds;
     }
 
