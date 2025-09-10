@@ -62,7 +62,7 @@ func DialEngineClientWithBackoff(
 				return err
 			}
 
-			engineClient = &EngineClient{client}
+			engineClient = &EngineClient{Client: client, rpcURL: url}
 			return nil
 		},
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(retryInterval), maxRetry),

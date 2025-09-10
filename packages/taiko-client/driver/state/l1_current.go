@@ -43,7 +43,7 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 		log.Info("Reset L1 current cursor to genesis L1 height", "blockID", blockID)
 		l1Current, err := s.rpc.L1.HeaderByNumber(ctx, s.GenesisL1Height)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get L1 header at genesis height: %w", err)
 		}
 		s.SetL1Current(l1Current)
 		return nil
@@ -71,7 +71,7 @@ func (s *State) ResetL1Current(ctx context.Context, blockID *big.Int) error {
 func (s *State) FindBatchForBlockID(ctx context.Context, blockID uint64) (*pacayaBindings.ITaikoInboxBatch, error) {
 	stateVars, err := s.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get protocol state variables: %w", err)
 	}
 
 	var (
@@ -80,14 +80,14 @@ func (s *State) FindBatchForBlockID(ctx context.Context, blockID uint64) (*pacay
 	)
 	batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastBatchID))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get batch by ID %d: %w", lastBatchID, err)
 	}
 	lastBatch = batch
 
 	for {
 		batch, err := s.rpc.GetBatchByID(ctx, new(big.Int).SetUint64(lastBatchID-1))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get batch by ID %d: %w", lastBatchID-1, err)
 		}
 
 		if batch.LastBlockId < blockID {
