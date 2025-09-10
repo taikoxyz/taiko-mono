@@ -31,6 +31,7 @@ type State struct {
 	GenesisL1Height  *big.Int
 	OnTakeForkHeight *big.Int
 	PacayaForkHeight *big.Int
+	ShastaForkHeight *big.Int
 
 	// RPC clients
 	rpc *rpc.Client
@@ -63,10 +64,12 @@ func (s *State) init(ctx context.Context) error {
 	}
 	s.OnTakeForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Ontake)
 	s.PacayaForkHeight = new(big.Int).SetUint64(s.rpc.PacayaClients.ForkHeights.Pacaya)
+	s.ShastaForkHeight = new(big.Int).SetUint64(s.rpc.ShastaClients.ForkHeight.Uint64())
 
 	log.Info("Genesis L1 height", "height", s.GenesisL1Height)
 	log.Info("OnTake fork height", "blockID", s.OnTakeForkHeight)
 	log.Info("Pacaya fork height", "blockID", s.PacayaForkHeight)
+	log.Info("Shasta fork height", "blockID", s.ShastaForkHeight)
 
 	// Set the L2 head's latest known L1 origin as current L1 sync cursor.
 	latestL2KnownL1Header, err := s.rpc.LatestL2KnownL1Header(ctx)

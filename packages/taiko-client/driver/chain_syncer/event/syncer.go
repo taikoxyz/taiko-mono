@@ -282,7 +282,7 @@ func (s *Syncer) processShastaProposal(
 			proposalManifest,
 			meta.GetDerivation().IsForcedInclusion,
 			meta.GetProposal(),
-			proposalManifest.ParentBlock.NumberU64()+1,
+			meta.GetRawBlockHeight().Uint64(),
 			latestState,
 		); err != nil {
 			return err

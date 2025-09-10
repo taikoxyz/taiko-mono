@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
@@ -222,7 +221,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		)
 	}
 
-	var proposalManifest manifest.ProtocolProposalManifest
+	proposalManifest := &manifest.ProtocolProposalManifest{}
 	for i, txs := range txBatch {
 		anchorBlockNumber := uint64(0)
 		if i == 0 {
@@ -238,39 +237,15 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		})
 	}
 
-	proposalManifestBytes, err := utils.EncodeAndCompressShastaProposal(proposalManifest)
+	proposalManifestBytes, err := EncodeProposalManifestShasta(proposalManifest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode and compress shasta proposal: %w", err)
+		return nil, fmt.Errorf("failed to encode proposal manifest: %w", err)
 	}
 
-	// Prepend the version and length bytes to the proposal manifest bytes, then split
-	// the resulting bytes into multiple blobs.
-	versionBytes := make([]byte, 32)
-	versionBytes[31] = byte(manifest.ShastaPayloadVersion)
-
-	lenBytes := make([]byte, 32)
-	lenBytes[31] = byte(len(proposalManifestBytes))
-
-	blobBytesPrefix := make([]byte, 0, 64)
-	blobBytesPrefix = append(blobBytesPrefix, versionBytes...)
-	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
-
-	if blobs, err = b.splitToBlobs(append(blobBytesPrefix, proposalManifestBytes...)); err != nil {
+	if blobs, err = b.splitToBlobs(proposalManifestBytes); err != nil {
 		return nil, err
 	}
 
-	log.Info("info", "1", shastaBindings.IInboxProposeInput{
-		Deadline:          common.Big0,
-		CoreState:         *proposals[0].CoreState,
-		ParentProposals:   parentProposals,
-		TransitionRecords: transitionRecords,
-		Checkpoint:        checkpoint,
-		BlobReference: shastaBindings.LibBlobsBlobReference{
-			BlobStartIndex: 0,
-			NumBlobs:       uint16(len(blobs)),
-			Offset:         common.Big0,
-		},
-	})
 	inputData, err := b.rpc.ShastaClients.Inbox.EncodeProposeInput(
 		&bind.CallOpts{Context: ctx},
 		shastaBindings.IInboxProposeInput{
@@ -317,4 +292,28 @@ func (b *BlobTransactionBuilder) splitToBlobs(txListBytes []byte) ([]*eth.Blob, 
 	}
 
 	return blobs, nil
+}
+
+// EncodeProposalManifestShasta encodes the given proposal manifest to a byte slice
+// that can be used as input to the Shasta Inbox.propose function.
+func EncodeProposalManifestShasta(proposalManifest *manifest.ProtocolProposalManifest) ([]byte, error) {
+	proposalManifestBytes, err := utils.EncodeAndCompressShastaProposal(*proposalManifest)
+	if err != nil {
+		return nil, err
+	}
+
+	// Prepend the version and length bytes to the proposal manifest bytes, then split
+	// the resulting bytes into multiple blobs.
+	versionBytes := make([]byte, 32)
+	versionBytes[31] = byte(manifest.ShastaPayloadVersion)
+
+	lenBytes := make([]byte, 32)
+	lenBig := new(big.Int).SetUint64(uint64(len(proposalManifestBytes)))
+	lenBig.FillBytes(lenBytes)
+
+	blobBytesPrefix := make([]byte, 0, 64)
+	blobBytesPrefix = append(blobBytesPrefix, versionBytes...)
+	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
+
+	return append(blobBytesPrefix, proposalManifestBytes...), nil
 }

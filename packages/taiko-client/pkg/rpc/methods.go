@@ -13,10 +13,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus/misc"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	"golang.org/x/sync/errgroup"
 
@@ -394,6 +397,23 @@ func (c *Client) CalculateBaseFee(
 		err     error
 	)
 
+	if new(big.Int).Add(l2Head.Number, common.Big1).Cmp(c.ShastaClients.ForkHeight) >= 0 {
+		baseFee := new(big.Int).SetUint64(params.ShastaInitialBaseFee)
+		if l2Head.Number.Cmp(new(big.Int).Add(c.ShastaClients.ForkHeight, common.Big2)) > 0 {
+			grandParentBlock, err := c.L2.HeaderByHash(ctx, l2Head.ParentHash)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
+			}
+			baseFee = misc.CalcEIP4396BaseFee(
+				core.TaikoGenesisBlock(c.L2.ChainID.Uint64()).Config,
+				l2Head,
+				l2Head.Time-grandParentBlock.Time,
+			)
+		}
+		log.Info("Base fee information", "fee", utils.WeiToGWei(baseFee), "l2Head", l2Head.Number)
+
+		return baseFee, nil
+	}
 	if baseFee, err = c.calculateBaseFeePacaya(ctx, l2Head, currentTimestamp, baseFeeConfig); err != nil {
 		return nil, err
 	}
@@ -877,13 +897,14 @@ func (c *Client) getSyncedL1SnippetFromAnchor(tx *types.Transaction) (
 			return common.Hash{}, 0, 0, err
 		}
 
-		l1Height, ok = args["_anchorBlockNumber"].(uint64)
+		l1HeightBigInt, ok := args["_anchorBlockNumber"].(*big.Int)
 		if !ok {
 			return common.Hash{},
 				0,
 				0,
 				errors.New("failed to parse anchorBlockNumber from updateState transaction calldata")
 		}
+		l1Height = l1HeightBigInt.Uint64()
 		l1StateRoot, ok = args["_anchorStateRoot"].([32]byte)
 		if !ok {
 			return common.Hash{},

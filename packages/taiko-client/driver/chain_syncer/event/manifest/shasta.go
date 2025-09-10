@@ -55,30 +55,36 @@ func (f *ShastaManifestFetcher) Fetch(
 		return nil, fmt.Errorf("failed to fetch blobs: %w", err)
 	}
 
-	return f.menifestFromBlobBytes(blobBytes, meta)
+	return f.manifestFromBlobBytes(blobBytes, int(meta.GetDerivation().BlobSlice.Offset.Uint64()))
 }
 
-// menifestFromBlobBytes constructs the manifest from the given blob bytes.
-func (f *ShastaManifestFetcher) menifestFromBlobBytes(
+// manifestFromBlobBytes constructs the manifest from the given blob bytes.
+func (f *ShastaManifestFetcher) manifestFromBlobBytes(
 	b []byte,
-	meta metadata.TaikoProposalMetaDataShasta,
+	offset int,
 ) (*manifest.ProposalManifest, error) {
 	var (
-		offset           = int(meta.GetDerivation().BlobSlice.Offset.Uint64())
 		defaultManifest  = &manifest.ProposalManifest{Default: true}
 		protocolProposal = new(manifest.ProtocolProposalManifest)
-		size             uint64
-		err              error
 	)
-	if _, size, err = ExtractVersionAndSize(b, offset); err != nil {
+	version, size, err := ExtractVersionAndSize(b, offset)
+	if err != nil {
 		log.Warn("Failed to extracts version or size in blob bytes, use default manifest instead", "err", err)
 		return defaultManifest, nil
 	}
 
+	log.Info("Extracted manifest version and size from Shasta blobs", "version", version, "size", size)
+
 	encoded, err := utils.Decompress(b[offset+64 : offset+64+int(size)])
 	// Decompress the manifest bytes.
 	if err != nil {
-		log.Warn("Failed to decompress manifest bytes, use default manifest instead", "error", err)
+		log.Warn(
+			"Failed to decompress manifest bytes, use default manifest instead",
+			"version", version,
+			"offset", offset,
+			"size", size,
+			"error", err,
+		)
 		return defaultManifest, nil
 	}
 
@@ -278,8 +284,9 @@ func ValidateMetadata(
 
 		// Check non-monotonic progression
 		if proposalManifest.Blocks[i].AnchorBlockNumber < parentAnchorBlockNumber {
-			log.Debug(
+			log.Info(
 				"Invalid anchor: non-monotonic progression",
+				"proposal", proposal.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", proposalManifest.Blocks[i].AnchorBlockNumber,
 				"parentAnchorBlockNumber", parentAnchorBlockNumber,
@@ -289,8 +296,9 @@ func ValidateMetadata(
 
 		// Check future reference
 		if proposalManifest.Blocks[i].AnchorBlockNumber >= originBlockNumber-manifest.AnchorMinOffset {
-			log.Debug(
+			log.Info(
 				"Invalid anchor: future reference",
+				"proposal", proposal.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", proposalManifest.Blocks[i].AnchorBlockNumber,
 				"originBlockNumber", originBlockNumber,
@@ -301,8 +309,9 @@ func ValidateMetadata(
 		// Check excessive lag
 		if originBlockNumber > manifest.AnchorMaxOffset &&
 			proposalManifest.Blocks[i].AnchorBlockNumber < originBlockNumber-manifest.AnchorMaxOffset {
-			log.Debug(
+			log.Info(
 				"Invalid anchor: excessive lag",
+				"proposal", proposal.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", proposalManifest.Blocks[i].AnchorBlockNumber,
 				"minRequired", originBlockNumber-manifest.AnchorMaxOffset,
@@ -313,6 +322,7 @@ func ValidateMetadata(
 		if isInvalidAnchor {
 			log.Info(
 				"Setting anchor block number to parent's anchor",
+				"proposal", proposal.Id,
 				"blockIndex", i,
 				"originalAnchor", proposalManifest.Blocks[i].AnchorBlockNumber,
 				"newAnchor", parentAnchorBlockNumber,
@@ -344,16 +354,18 @@ func ValidateMetadata(
 			// Inherit parent value
 			proposalManifest.Blocks[i].GasLimit = parentGasLimit
 		} else if proposalManifest.Blocks[i].GasLimit < lowerGasBound {
-			log.Debug(
+			log.Info(
 				"Clamping gas limit to lower bound",
+				"proposal", proposal.Id,
 				"blockIndex", i,
 				"originalGasLimit", proposalManifest.Blocks[i].GasLimit,
 				"newGasLimit", lowerGasBound,
 			)
 			proposalManifest.Blocks[i].GasLimit = lowerGasBound
 		} else if proposalManifest.Blocks[i].GasLimit > upperGasBound {
-			log.Debug(
+			log.Info(
 				"Clamping gas limit to upper bound",
+				"proposal", proposal.Id,
 				"blockIndex", i,
 				"originalGasLimit", proposalManifest.Blocks[i].GasLimit,
 				"newGasLimit", upperGasBound,
