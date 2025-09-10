@@ -297,7 +297,6 @@ contract DeployProtocolOnL1 is DeployCapability {
             impl: address(new PreconfWhitelist(proposer)),
             data: abi.encodeCall(PreconfWhitelist.init, (owner, 2, 2))
         });
-        address proposer = vm.envAddress("PROPOSER_ADDRESS");
         PreconfWhitelist(whitelist).addOperator(proposer, proposer);
 
         address bondToken =
