@@ -559,7 +559,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 		anchorBlockID,
 		anchorBlockHeader.Hash(),
 		anchorBlockHeader.Root,
-		meta.GetProposal().LookaheadSlotTimestamp,
+		meta.GetProposal().EndOfSubmissionWindowTimestamp,
 		blockID,
 		baseFee,
 	)

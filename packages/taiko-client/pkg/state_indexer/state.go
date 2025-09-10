@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -32,21 +33,23 @@ type ProposalPayload struct {
 
 // TransitionPayload represents the payload in a Shasta Proved event.
 type TransitionPayload struct {
-	ProposalId       *big.Int
-	Transition       *shastaBindings.IInboxTransition
-	TransitionRecord *shastaBindings.IInboxTransitionRecord
-	RawBlockHash     common.Hash
-	RawBlockHeight   *big.Int
+	ProposalId        *big.Int
+	Transition        *shastaBindings.IInboxTransition
+	TransitionRecord  *shastaBindings.IInboxTransitionRecord
+	RawBlockHash      common.Hash
+	RawBlockHeight    *big.Int
+	RawBlockTimeStamp uint64
 }
 
 // Indexer saves the state of the Shasta protocol.
 type Indexer struct {
-	ctx               context.Context
-	rpc               *rpc.Client
-	proposals         cmap.ConcurrentMap[uint64, *ProposalPayload]
-	transitionRecords cmap.ConcurrentMap[uint64, *TransitionPayload]
-	shastaForkHeight  *big.Int
-	bufferSize        uint64
+	ctx                     context.Context
+	rpc                     *rpc.Client
+	proposals               cmap.ConcurrentMap[uint64, *ProposalPayload]
+	transitionRecords       cmap.ConcurrentMap[uint64, *TransitionPayload]
+	shastaForkHeight        *big.Int
+	bufferSize              uint64
+	finalizationGracePeriod uint64
 
 	mutex                    sync.RWMutex
 	lastIndexedBlock         *types.Header
@@ -59,17 +62,18 @@ func NewShastaState(
 	rpc *rpc.Client,
 	shastaForkHeight *big.Int,
 ) (*Indexer, error) {
-	bufferSize, err := rpc.ShastaClients.Inbox.RingBufferSize(&bind.CallOpts{Context: ctx})
+	config, err := rpc.ShastaClients.Inbox.GetConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get Shasta ring buffer size: %w", err)
+		return nil, fmt.Errorf("failed to get Shasta inbox config: %w", err)
 	}
 	return &Indexer{
-		ctx:               ctx,
-		rpc:               rpc,
-		bufferSize:        bufferSize.Uint64(),
-		shastaForkHeight:  shastaForkHeight,
-		proposals:         cmap.NewWithCustomShardingFunction[uint64, *ProposalPayload](func(key uint64) uint32 { return uint32(key) }),
-		transitionRecords: cmap.NewWithCustomShardingFunction[uint64, *TransitionPayload](func(key uint64) uint32 { return uint32(key) }),
+		ctx:                     ctx,
+		rpc:                     rpc,
+		bufferSize:              config.RingBufferSize.Uint64(),
+		finalizationGracePeriod: config.FinalizationGracePeriod.Uint64(),
+		shastaForkHeight:        shastaForkHeight,
+		proposals:               cmap.NewWithCustomShardingFunction[uint64, *ProposalPayload](func(key uint64) uint32 { return uint32(key) }),
+		transitionRecords:       cmap.NewWithCustomShardingFunction[uint64, *TransitionPayload](func(key uint64) uint32 { return uint32(key) }),
 	}, nil
 }
 
@@ -245,12 +249,18 @@ func (s *Indexer) onProvedEvent(
 		transition = meta.Transition
 		record     = meta.TransitionRecord
 	)
+	header, err := s.rpc.L1.HeaderByHash(ctx, eventLog.BlockHash)
+	if err != nil {
+		return fmt.Errorf("failed to get block header by hash %s: %w", eventLog.BlockHash.String(), err)
+	}
+
 	s.transitionRecords.Set(meta.ProposalId.Uint64(), &TransitionPayload{
-		ProposalId:       meta.ProposalId,
-		Transition:       &transition,
-		TransitionRecord: &record,
-		RawBlockHash:     eventLog.BlockHash,
-		RawBlockHeight:   new(big.Int).SetUint64(eventLog.BlockNumber),
+		ProposalId:        meta.ProposalId,
+		Transition:        &transition,
+		TransitionRecord:  &record,
+		RawBlockHash:      eventLog.BlockHash,
+		RawBlockHeight:    new(big.Int).SetUint64(eventLog.BlockNumber),
+		RawBlockTimeStamp: header.Time,
 	})
 	return nil
 }
@@ -525,7 +535,9 @@ func (s *Indexer) getTransitionsForFinalization(
 	var transitions []*TransitionPayload
 	for i := uint64(1); i <= maxFinalizationCount; i++ {
 		transition, ok := s.transitionRecords.Get(lastFinalizedProposalId + i)
-		if !ok || transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash {
+		if !ok ||
+			transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash ||
+			transition.RawBlockTimeStamp+s.finalizationGracePeriod < uint64(time.Now().Unix()) {
 			break
 		}
 		transitions = append(transitions, transition)

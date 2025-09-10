@@ -92,7 +92,7 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 	anchorBlockNumber *big.Int,
 	anchorBlockHash common.Hash,
 	anchorStateRoot common.Hash,
-	LookaheadSlotTimestamp *big.Int,
+	endOfSubmissionWindowTimestamp *big.Int,
 	// Height of the L2 block which including the ShastaAnchor.updateState transaction.
 	l2Height *big.Int,
 	baseFee *big.Int,
@@ -111,6 +111,9 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 		"parentHash", parent.Hash(),
 		"proposalId", proposalId,
 		"proposer", proposer,
+		"endOfSubmissionWindowTimestamp", endOfSubmissionWindowTimestamp,
+		"bondInstructionsHash", bondInstructionsHash,
+		"bondInstructions", len(bondInstructions),
 		"blockIndex", blockIndex,
 	)
 
@@ -125,7 +128,7 @@ func (c *AnchorTxConstructor) AssembleUpdateStateTx(
 		anchorBlockNumber,
 		anchorBlockHash,
 		anchorStateRoot,
-		LookaheadSlotTimestamp,
+		endOfSubmissionWindowTimestamp,
 	)
 }
 

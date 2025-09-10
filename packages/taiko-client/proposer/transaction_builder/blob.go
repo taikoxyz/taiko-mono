@@ -186,12 +186,12 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		to = &preconfRouterAddress
 	}
 
-	maxFinalizationCount, err := b.rpc.ShastaClients.Inbox.MaxFinalizationCount(&bind.CallOpts{Context: ctx})
+	config, err := b.rpc.ShastaClients.Inbox.GetConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get shasta inbox maxFinalizationCount: %w", encoding.TryParsingCustomError(err))
+		return nil, fmt.Errorf("failed to get shasta inbox config: %w", encoding.TryParsingCustomError(err))
 	}
 
-	proposals, transitions, err := b.shastaStateIndexer.GetProposalsInput(maxFinalizationCount.Uint64())
+	proposals, transitions, err := b.shastaStateIndexer.GetProposalsInput(config.MaxFinalizationCount.Uint64())
 	var (
 		parentProposals   []shastaBindings.IInboxProposal
 		transitionRecords []shastaBindings.IInboxTransitionRecord
