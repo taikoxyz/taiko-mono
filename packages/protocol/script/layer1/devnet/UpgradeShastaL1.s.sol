@@ -56,17 +56,15 @@ contract UpgradeShastaL1 is DeployCapability {
         address tempFork =
             address(new DevnetShastaInbox(address(0), proofVerifier, whitelist, bondToken));
 
-        address shastaForkRouterAddr = deployProxy({
-            name: "taiko",
-            impl: address(new ShastaForkRouter(oldFork, tempFork)),
-            data: abi.encodeCall(Inbox.initV3, (msg.sender, vm.envBytes32("L2_GENESIS_HASH")))
+        UUPSUpgradeable(inbox).upgradeTo({
+            newImplementation: address(new ShastaForkRouter(oldFork, tempFork))
         });
 
         address checkPointManager = deployProxy({
             name: "checkpoint_manager",
             impl: address(
                 new CheckpointManager(
-                    shastaForkRouterAddr,
+                    inbox,
                     2400 // refer to DevnetShastaInbox._RING_BUFFER_SIZE
                 )
             ),
@@ -79,7 +77,7 @@ contract UpgradeShastaL1 is DeployCapability {
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);
 
-        UUPSUpgradeable(shastaForkRouterAddr).upgradeTo({
+        UUPSUpgradeable(inbox).upgradeTo({
             newImplementation: address(new ShastaForkRouter(oldFork, newFork))
         });
     }

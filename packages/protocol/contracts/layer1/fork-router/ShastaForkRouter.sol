@@ -29,6 +29,9 @@ interface IPacayaFork {
     function pacayaConfig() external;
     function isOnL1() external;
     function v4GetConfig() external;
+    function pause() external;
+    function unpause() external;
+    function paused() external;
 }
 
 /// @title ShastaForkRouter
@@ -59,6 +62,8 @@ contract ShastaForkRouter is ForkRouter {
                 || _selector == IPacayaFork.pacayaConfig.selector
                 || _selector == IPacayaFork.isOnL1.selector
                 || _selector == IPacayaFork.v4GetConfig.selector
+                || _selector == IPacayaFork.pause.selector || _selector == IPacayaFork.unpause.selector
+                || _selector == IPacayaFork.paused.selector
         ) return true;
 
         return false;
