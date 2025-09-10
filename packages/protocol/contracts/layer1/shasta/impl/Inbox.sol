@@ -10,6 +10,7 @@ import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
@@ -512,7 +513,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Reuse the same memory location for the transitionRecord struct
             transitionRecord.bondInstructions =
-                _calculateBondInstructions(_input.proposals[i], _input.transitions[i]);
+                LibBondsL1.calculateBondInstructions(_getConfig(), _input.proposals[i], _input.transitions[i]);
             transitionRecord.transitionHash = hashTransition(_input.transitions[i]);
             transitionRecord.checkpointHash = hashCheckpoint(_input.transitions[i].checkpoint);
 
@@ -542,62 +543,26 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
     }
 
-    /// @dev Calculates bond instructions based on proof timing and prover identity
-    /// @notice Bond instruction rules:
-    ///         - On-time (within provingWindow): No bond changes
-    ///         - Late (within extendedProvingWindow): Liveness bond transfer if prover differs from
-    /// designated
-    ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
-    /// differs from proposer
-    /// @dev Bond instructions affect transition aggregation eligibility - transitions with
-    /// instructions
-    /// cannot be aggregated
-    /// @param _proposal Proposal with timestamp and proposer address
-    /// @param _transition Transition with designated and actual prover addresses
-    /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
-    /// prover)
-    function _calculateBondInstructions(
-        Proposal memory _proposal,
-        Transition memory _transition
-    )
-        internal
-        view
-        returns (LibBonds.BondInstruction[] memory bondInstructions_)
-    {
-        unchecked {
-            uint256 proofTimestamp = block.timestamp;
-            uint256 windowEnd = _proposal.timestamp + _provingWindow;
-
-            // On-time proof - no bond instructions needed
-            if (proofTimestamp <= windowEnd) {
-                return new LibBonds.BondInstruction[](0);
-            }
-
-            // Late or very late proof - determine bond type and parties
-            uint256 extendedWindowEnd = _proposal.timestamp + _extendedProvingWindow;
-            bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
-
-            // Check if bond instruction is needed
-            bool needsBondInstruction = isWithinExtendedWindow
-                ? (_transition.designatedProver != _transition.actualProver)
-                : (_proposal.proposer != _transition.actualProver);
-
-            if (!needsBondInstruction) {
-                return new LibBonds.BondInstruction[](0);
-            }
-
-            // Create single bond instruction
-            bondInstructions_ = new LibBonds.BondInstruction[](1);
-            bondInstructions_[0] = LibBonds.BondInstruction({
-                proposalId: _proposal.id,
-                bondType: isWithinExtendedWindow
-                    ? LibBonds.BondType.LIVENESS
-                    : LibBonds.BondType.PROVABILITY,
-                payer: isWithinExtendedWindow ? _transition.designatedProver : _proposal.proposer,
-                receiver: _transition.actualProver
-            });
-        }
+    /// @dev Creates a Config struct from immutable contract variables
+    /// @return config_ The configuration struct needed for LibBondsL1
+    function _getConfig() internal view returns (Config memory config_) {
+        config_ = Config({
+            bondToken: address(_bondToken),
+            checkpointManager: address(_checkpointManager),
+            proofVerifier: address(_proofVerifier),
+            proposerChecker: address(_proposerChecker),
+            provingWindow: _provingWindow,
+            extendedProvingWindow: _extendedProvingWindow,
+            maxFinalizationCount: _maxFinalizationCount,
+            finalizationGracePeriod: _finalizationGracePeriod,
+            ringBufferSize: _ringBufferSize,
+            basefeeSharingPctg: _basefeeSharingPctg,
+            minForcedInclusionCount: _minForcedInclusionCount,
+            forcedInclusionDelay: _forcedInclusionDelay,
+            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei
+        });
     }
+
 
     /// @dev Stores a proposal hash in the ring buffer
     /// @notice Overwrites any existing hash at the calculated buffer slot
