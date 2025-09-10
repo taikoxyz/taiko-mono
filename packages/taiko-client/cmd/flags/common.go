@@ -61,12 +61,6 @@ var (
 		Category: commonCategory,
 		EnvVars:  []string{"L2_AUTH"},
 	}
-	IndexerEndpoint = &cli.StringFlag{
-		Name:     "indexer.endpoint",
-		Usage:    "Protocol event indexer GraphQL endpoint",
-		Category: commonCategory,
-		EnvVars:  []string{"INDEXER_ENDPOINT"},
-	}
 	JWTSecret = &cli.StringFlag{
 		Name:     "jwtSecret",
 		Usage:    "Path to a JWT secret to use for authenticated RPC endpoints",

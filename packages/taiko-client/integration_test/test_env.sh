@@ -6,7 +6,7 @@ source scripts/common.sh
 # get deployed contract address.
 PACAYA_DEPLOYMENT_JSON=$(cat ${PACAYA_FORK_TAIKO_MONO}/packages/protocol/deployments/deploy_l1.json)
 DEPLOYMENT_JSON=$(cat ../protocol/deployments/deploy_l1.json)
-export TAIKO_INBOX=$(echo "$DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
+export TAIKO_INBOX=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.taiko' | sed 's/\"//g')
 export TAIKO_ANCHOR=0x1670010000000000000000000000000000010001
 export TAIKO_TOKEN=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.taiko_token' | sed 's/\"//g')
 export PROVER_SET=$(echo "$PACAYA_DEPLOYMENT_JSON" | jq '.prover_set' | sed 's/\"//g')
@@ -29,7 +29,6 @@ L2_SUGGESTED_FEE_RECIPIENT=$L2_SUGGESTED_FEE_RECIPIENT
 L2_HTTP=$L2_HTTP
 L2_WS=$L2_WS
 L2_AUTH=$L2_AUTH
-INDEXER_ENDPOINT=$INDEXER_ENDPOINT
 TAIKO_INBOX=$TAIKO_INBOX
 TAIKO_WRAPPER=$TAIKO_WRAPPER
 FORCED_INCLUSION_STORE=$FORCED_INCLUSION_STORE

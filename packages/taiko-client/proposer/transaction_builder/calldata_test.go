@@ -45,6 +45,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 	)
 	s.blobTxBuilder = NewBlobTransactionBuilder(
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		l1ProposerPrivKey,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),

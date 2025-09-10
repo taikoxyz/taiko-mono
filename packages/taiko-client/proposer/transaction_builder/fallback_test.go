@@ -159,6 +159,7 @@ func (s *TransactionBuilderTestSuite) newTestBuilderWithFallback(
 
 	return NewBuilderWithFallback(
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		l1ProposerPrivKey,
 		common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),

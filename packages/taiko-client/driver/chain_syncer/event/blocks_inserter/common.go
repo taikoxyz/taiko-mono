@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/consensus/misc"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -45,7 +45,7 @@ func createPayloadAndSetHead(
 		"parentHash", meta.Parent.Hash(),
 		"l1Origin", meta.L1Origin,
 	)
-	// Insert a TaikoAnchor.anchorV3 transaction at transactions list head,
+	// Insert a TaikoAnchor.anchorV3 / ShastaAnchor.updateState transaction at transactions list head,
 	// then encode the transactions list.
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
 	if err != nil {
@@ -529,7 +529,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 	}
 
 	// Calculate base fee
-	if parent.Number.Cmp(common.Big0) > 0 {
+	if parent.Number.Cmp(new(big.Int).Add(rpc.ShastaClients.ForkHeight, common.Big2)) > 0 {
 		grandParentBlock, err := rpc.L2.HeaderByHash(ctx, parent.ParentHash)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
@@ -540,6 +540,8 @@ func assembleCreateExecutionPayloadMetaShasta(
 			parent.Time-grandParentBlock.Time,
 		)
 	}
+
+	log.Info("L2 baseFee", "blockID", blockID, "basefee", utils.WeiToGWei(baseFee))
 
 	anchorBlockHeader, err := rpc.L1.HeaderByNumber(ctx, anchorBlockID)
 	if err != nil {
@@ -662,6 +664,7 @@ func updateL1OriginForBatch(
 	return g.Wait()
 }
 
+// encodeExtraData encodes the basefeeSharingPctg and isLowBondProposal into extraData field.
 func encodeExtraData(
 	basefeeSharingPctg uint8,
 	isLowBondProposal bool,

@@ -48,7 +48,7 @@ func (m *TaikoProposalMetadataShasta) Shasta() TaikoProposalMetaDataShasta {
 
 // IsShasta implements TaikoProposalMetaData interface.
 func (m *TaikoProposalMetadataShasta) IsShasta() bool {
-	return false
+	return true
 }
 
 // GetRawBlockHeight returns the raw L1 block height.

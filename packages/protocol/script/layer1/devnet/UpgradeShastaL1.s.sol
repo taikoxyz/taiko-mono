@@ -39,12 +39,13 @@ contract UpgradeShastaL1 is DeployCapability {
             ),
             data: abi.encodeCall(ComposeVerifier.init, (address(0)))
         });
+        address proposer = vm.envAddress("PROPOSER_ADDRESS");
+
         address whitelist = deployProxy({
             name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist(address(0))),
+            impl: address(new PreconfWhitelist(proposer)),
             data: abi.encodeCall(PreconfWhitelist.init, (address(0), 2, 2))
         });
-        address proposer = vm.envAddress("PROPOSER_ADDRESS");
         PreconfWhitelist(whitelist).addOperator(proposer, proposer);
 
         address bondToken = IResolver(vm.envAddress("SHARED_RESOLVER")).resolve(

@@ -2,7 +2,6 @@ package event
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -11,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
@@ -189,6 +189,12 @@ func (s *Syncer) processShastaProposal(
 		meta      = metadata.Shasta()
 		coreState = meta.GetCoreState()
 	)
+
+	// We simply ignore the genesis block's `Proposed` event.
+	if meta.GetProposal().Id.Cmp(common.Big0) == 0 {
+		return nil
+	}
+
 	// If we are not inserting a block whose parent block is the latest verified block in protocol,
 	// and the node hasn't just finished the P2P sync, we check if the L1 chain has been reorged.
 	if !s.progressTracker.Triggered() {
@@ -291,6 +297,7 @@ func (s *Syncer) processShastaProposal(
 					Coinbase:          meta.GetProposal().Proposer,
 					AnchorBlockNumber: 0,
 					GasLimit:          proposalManifest.ParentBlock.GasLimit(), // Inherit parentBlock's value
+					Transactions:      types.Transactions{},
 				},
 			},
 		}
@@ -490,7 +497,7 @@ func (s *Syncer) checkLastVerifiedBlockMismatchShasta(
 	)
 
 	lastBlockInBatch, err := s.rpc.L2.LastL1OriginByBatchID(ctx, lastVerifiedBatchID)
-	if err != nil && !errors.Is(err, ethereum.NotFound) {
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
 		return nil, fmt.Errorf("failed to fetch last block in batch: %w", err)
 	}
 

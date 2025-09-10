@@ -31,7 +31,6 @@ import (
 var (
 	// errSyncing is returned when the L2 execution engine is syncing.
 	errSyncing         = errors.New("syncing")
-	errNoGraphQLClient = errors.New("graphql client is not initialized")
 	rpcPollingInterval = 3 * time.Second
 	defaultWaitTimeout = 3 * time.Minute
 )
@@ -627,7 +626,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 	defer cancel()
 
 	// batchID is zero already, no need to check reorg.
-	if batchID.Cmp(common.Big0) == 0 {
+	if batchID.Cmp(common.Big0) <= 0 {
 		return result, nil
 	}
 
@@ -784,7 +783,7 @@ func (c *Client) LastL1OriginInBatch(ctx context.Context, batchID *big.Int) (*ra
 		// NOTE: here we assume that if we pass a Shasta batch ID to fork router and call Pacaya TaikoInbox
 		// contract to try to get a Pacaya batch, it will return an error.
 		l1Origin, err := c.L2.LastL1OriginByBatchID(ctxWithTimeout, batchID)
-		if err != nil && errors.Is(err, ethereum.NotFound) {
+		if err != nil {
 			return nil, fmt.Errorf("L1Origin not found for batch ID %d: %w", batchID, err)
 		}
 

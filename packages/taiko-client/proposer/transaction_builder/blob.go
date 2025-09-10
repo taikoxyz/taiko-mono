@@ -17,9 +17,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
-	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -27,6 +28,7 @@ import (
 // bytes saved in blob.
 type BlobTransactionBuilder struct {
 	rpc                     *rpc.Client
+	shastaStateIndexer      *shastaIndexer.Indexer
 	proposerPrivateKey      *ecdsa.PrivateKey
 	taikoInboxAddress       common.Address
 	taikoWrapperAddress     common.Address
@@ -40,6 +42,7 @@ type BlobTransactionBuilder struct {
 // NewBlobTransactionBuilder creates a new BlobTransactionBuilder instance based on giving configurations.
 func NewBlobTransactionBuilder(
 	rpc *rpc.Client,
+	shastaStateIndexer *shastaIndexer.Indexer,
 	proposerPrivateKey *ecdsa.PrivateKey,
 	taikoInboxAddress common.Address,
 	taikoWrapperAddress common.Address,
@@ -51,6 +54,7 @@ func NewBlobTransactionBuilder(
 ) *BlobTransactionBuilder {
 	return &BlobTransactionBuilder{
 		rpc,
+		shastaStateIndexer,
 		proposerPrivateKey,
 		taikoInboxAddress,
 		taikoWrapperAddress,
@@ -182,25 +186,29 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		to = &preconfRouterAddress
 	}
 
-	ringBufferSize, err := b.rpc.ShastaClients.Inbox.RingBufferSize(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get shasta inbox ringBufferSize: %w", encoding.TryParsingCustomError(err))
-	}
 	maxFinalizationCount, err := b.rpc.ShastaClients.Inbox.MaxFinalizationCount(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get shasta inbox maxFinalizationCount: %w", encoding.TryParsingCustomError(err))
 	}
 
-	inputs, err := b.rpc.GetShastaProposalInputs(
-		ctx,
-		ringBufferSize.Uint64(),
-		maxFinalizationCount.Uint64(),
+	proposals, transitions, err := b.shastaStateIndexer.GetProposalsInput(maxFinalizationCount.Uint64())
+	var (
+		parentProposals   []shastaBindings.IInboxProposal
+		transitionRecords []shastaBindings.IInboxTransitionRecord
+		checkpoint        = shastaBindings.ICheckpointManagerCheckpoint{BlockNumber: common.Big0}
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get shasta proposal inputs: %w", encoding.TryParsingCustomError(err))
+		return nil, fmt.Errorf("failed to get proposals input from shasta state indexer: %w", err)
 	}
-
-	log.Info("Shasta proposal inputs", "inputs", inputs, "to", to)
+	for _, p := range proposals {
+		parentProposals = append(parentProposals, *p.Proposal)
+	}
+	for i, t := range transitions {
+		if i == len(transitions)-1 {
+			checkpoint = t.Transition.Checkpoint
+		}
+		transitionRecords = append(transitionRecords, *t.TransitionRecord)
+	}
 
 	l1Head, err := b.rpc.L1.HeaderByNumber(ctx, nil)
 	if err != nil {
@@ -251,15 +259,27 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		return nil, err
 	}
 
+	log.Info("info", "1", shastaBindings.IInboxProposeInput{
+		Deadline:          common.Big0,
+		CoreState:         *proposals[0].CoreState,
+		ParentProposals:   parentProposals,
+		TransitionRecords: transitionRecords,
+		Checkpoint:        checkpoint,
+		BlobReference: shastaBindings.LibBlobsBlobReference{
+			BlobStartIndex: 0,
+			NumBlobs:       uint16(len(blobs)),
+			Offset:         common.Big0,
+		},
+	})
 	inputData, err := b.rpc.ShastaClients.Inbox.EncodeProposeInput(
 		&bind.CallOpts{Context: ctx},
-		shasta.IInboxProposeInput{
+		shastaBindings.IInboxProposeInput{
 			Deadline:          common.Big0,
-			CoreState:         inputs.CoreState,
-			ParentProposals:   inputs.ParentProposals,
-			TransitionRecords: inputs.TransitionRecords,
-			Checkpoint:        inputs.Checkpoint,
-			BlobReference: shasta.LibBlobsBlobReference{
+			CoreState:         *proposals[0].CoreState,
+			ParentProposals:   parentProposals,
+			TransitionRecords: transitionRecords,
+			Checkpoint:        checkpoint,
+			BlobReference: shastaBindings.LibBlobsBlobReference{
 				BlobStartIndex: 0,
 				NumBlobs:       uint16(len(blobs)),
 				Offset:         common.Big0,

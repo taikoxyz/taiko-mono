@@ -24,6 +24,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -35,6 +36,7 @@ type ClientTestSuite struct {
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
 	BlobServer          *MemoryBlobServer
+	ShastaStateIndexer  *shastaIndexer.Indexer
 }
 
 func (s *ClientTestSuite) SetupTest() {
@@ -63,7 +65,6 @@ func (s *ClientTestSuite) SetupTest() {
 	rpcCli, err := rpc.NewClient(context.Background(), &rpc.ClientConfig{
 		L1Endpoint:                  os.Getenv("L1_WS"),
 		L2Endpoint:                  os.Getenv("L2_WS"),
-		IndexerEndpoint:             os.Getenv("INDEXER_ENDPOINT"),
 		TaikoInboxAddress:           common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		TaikoAnchorAddress:          common.HexToAddress(os.Getenv("TAIKO_ANCHOR")),
 		TaikoTokenAddress:           common.HexToAddress(os.Getenv("TAIKO_TOKEN")),
@@ -77,6 +78,14 @@ func (s *ClientTestSuite) SetupTest() {
 	s.RPCClient = rpcCli
 
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
+
+	s.ShastaStateIndexer, err = shastaIndexer.NewShastaState(
+		context.Background(),
+		rpcCli,
+		rpcCli.ShastaClients.ForkHeight,
+	)
+	s.Nil(err)
+	s.ShastaStateIndexer.Start()
 
 	for _, key := range []*ecdsa.PrivateKey{l1ProposerPrivKey, l1ProverPrivKey} {
 		s.enableProver(ownerPrivKey, crypto.PubkeyToAddress(key.PublicKey))
@@ -98,11 +107,7 @@ func (s *ClientTestSuite) SetupTest() {
 	// At the beginning of each test, we ensure the L2 chain has been reset to the base block (height: 1).
 	s.once.Do(func() {
 		s.testnetL1SnapshotID = s.SetL1Snapshot()
-		if os.Getenv("L2_NODE") == "l2_geth" {
-			s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big1))
-		} else {
-			s.resetToBaseBlock(l1ProposerPrivKey)
-		}
+		s.resetToBaseBlock(l1ProposerPrivKey)
 	})
 
 	s.BlobServer = NewMemoryBlobServer()
@@ -227,11 +232,7 @@ func (s *ClientTestSuite) KeyFromEnv(envName string) *ecdsa.PrivateKey {
 func (s *ClientTestSuite) TearDownTest() {
 	s.RevertL1Snapshot(s.testnetL1SnapshotID)
 	s.testnetL1SnapshotID = s.SetL1Snapshot()
-	if os.Getenv("L2_NODE") == "l2_geth" {
-		s.Nil(rpc.SetHead(context.Background(), s.RPCClient.L2, common.Big1))
-	} else {
-		s.resetToBaseBlock(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY"))
-	}
+	s.resetToBaseBlock(s.KeyFromEnv("L1_PROPOSER_PRIVATE_KEY"))
 	_, err := s.RPCClient.L2Engine.SetHeadL1Origin(context.Background(), common.Big1)
 	s.Nil(err)
 	s.BlobServer.Close()

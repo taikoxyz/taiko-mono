@@ -24,6 +24,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
@@ -62,7 +63,8 @@ type Proposer struct {
 	// Fallback proposer related
 	l2HeadUpdate l2HeadUpdateInfo
 
-	txmgrSelector *utils.TxMgrSelector
+	txmgrSelector      *utils.TxMgrSelector
+	shastaStateIndexer *shastaIndexer.Indexer
 
 	ctx context.Context
 	wg  sync.WaitGroup
@@ -124,6 +126,9 @@ func (p *Proposer) InitFromConfig(
 			return err
 		}
 	}
+	if p.shastaStateIndexer, err = shastaIndexer.NewShastaState(ctx, p.rpc, p.rpc.ShastaClients.ForkHeight); err != nil {
+		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
+	}
 
 	p.txmgrSelector = utils.NewTxMgrSelector(txMgr, privateTxMgr, nil)
 	p.chainConfig = config.NewChainConfig(
@@ -134,6 +139,7 @@ func (p *Proposer) InitFromConfig(
 	)
 	p.txBuilder = builder.NewBuilderWithFallback(
 		p.rpc,
+		p.shastaStateIndexer,
 		p.L1ProposerPrivKey,
 		cfg.L2SuggestedFeeRecipient,
 		cfg.TaikoInboxAddress,
@@ -162,6 +168,10 @@ func (p *Proposer) Start() error {
 	p.l2HeadUpdate = l2HeadUpdateInfo{
 		blockID:   head.Number.Uint64(),
 		updatedAt: time.Now().UTC(),
+	}
+
+	if err := p.shastaStateIndexer.Start(); err != nil {
+		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
 	}
 
 	p.wg.Add(1)
@@ -334,6 +344,7 @@ func (p *Proposer) ProposeTxLists(
 			return err
 		}
 		p.lastProposedAt = time.Now()
+		return nil
 	}
 	if err := p.ProposeTxListShasta(ctx, txLists); err != nil {
 		return err

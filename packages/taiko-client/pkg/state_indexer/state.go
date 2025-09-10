@@ -1,4 +1,4 @@
-package state_indexer
+package shasta_indexer
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -38,8 +39,8 @@ type TransitionPayload struct {
 	RawBlockHeight   *big.Int
 }
 
-// ShastaStateIndexer saves the state of the Shasta protocol.
-type ShastaStateIndexer struct {
+// Indexer saves the state of the Shasta protocol.
+type Indexer struct {
 	ctx               context.Context
 	rpc               *rpc.Client
 	proposals         cmap.ConcurrentMap[uint64, *ProposalPayload]
@@ -56,41 +57,57 @@ type ShastaStateIndexer struct {
 func NewShastaState(
 	ctx context.Context,
 	rpc *rpc.Client,
-	bufferSize uint64,
 	shastaForkHeight *big.Int,
-) *ShastaStateIndexer {
-	return &ShastaStateIndexer{
-		ctx:              ctx,
-		rpc:              rpc,
-		bufferSize:       bufferSize,
-		shastaForkHeight: shastaForkHeight,
+) (*Indexer, error) {
+	bufferSize, err := rpc.ShastaClients.Inbox.RingBufferSize(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Shasta ring buffer size: %w", err)
 	}
+	return &Indexer{
+		ctx:               ctx,
+		rpc:               rpc,
+		bufferSize:        bufferSize.Uint64(),
+		shastaForkHeight:  shastaForkHeight,
+		proposals:         cmap.NewWithCustomShardingFunction[uint64, *ProposalPayload](func(key uint64) uint32 { return uint32(key) }),
+		transitionRecords: cmap.NewWithCustomShardingFunction[uint64, *TransitionPayload](func(key uint64) uint32 { return uint32(key) }),
+	}, nil
 }
 
 // Start starts the Shasta state indexing.
-func (s *ShastaStateIndexer) Start() error {
+func (s *Indexer) Start() error {
 	head, err := s.rpc.L1.HeaderByNumber(s.ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get the latest L1 block header: %w", err)
 	}
+
+	log.Info("Starting Shasta state indexing", "head", head.Number, "hash", head.Hash())
 
 	// Fetch historical proposals.
 	if err := s.fetchHistoricalProposals(head, s.bufferSize); err != nil {
 		return fmt.Errorf("failed to fetch historical Shasta proposals: %w", err)
 	}
 
+	log.Info("Finished fetching historical Shasta proposals", "cached", s.proposals.Count(), "last", s.getLastProposal())
 	// Fetch historical transition records from the last finalized proposal.
-	lastFinializedProposal, ok := s.proposals.Get(s.GetLastProposal().CoreState.LastFinalizedProposalId.Uint64())
-	if !ok {
-		return fmt.Errorf("last finalized proposal not found: %d", s.GetLastProposal().CoreState.LastFinalizedProposalId)
-	}
+	if s.proposals.Count() != 0 {
+		lastFinializedProposal, ok := s.proposals.Get(s.getLastProposal().CoreState.LastFinalizedProposalId.Uint64())
+		if !ok {
+			return fmt.Errorf("last finalized proposal not found: %d", s.getLastProposal().CoreState.LastFinalizedProposalId)
+		}
 
-	from, err := s.rpc.L1.HeaderByNumber(s.ctx, lastFinializedProposal.RawBlockHeight)
-	if err != nil {
-		return fmt.Errorf("failed to get header at height %d: %w", lastFinializedProposal.RawBlockHeight, err)
-	}
-	if err := s.fetchHistoricalTransitionRecords(from, head); err != nil {
-		return fmt.Errorf("failed to fetch historical Shasta transition records: %w", err)
+		log.Info(
+			"Last finalized Shasta proposal",
+			"proposalId", lastFinializedProposal.Proposal.Id,
+			"proposedAt", lastFinializedProposal.RawBlockHeight,
+		)
+
+		from, err := s.rpc.L1.HeaderByNumber(s.ctx, lastFinializedProposal.RawBlockHeight)
+		if err != nil {
+			return fmt.Errorf("failed to get header at height %d: %w", lastFinializedProposal.RawBlockHeight, err)
+		}
+		if err := s.fetchHistoricalTransitionRecords(from, head); err != nil {
+			return fmt.Errorf("failed to fetch historical Shasta transition records: %w", err)
+		}
 	}
 
 	go func() {
@@ -103,7 +120,7 @@ func (s *ShastaStateIndexer) Start() error {
 }
 
 // fetchHistoricalProposals fetches historical proposals from the Shasta contract.
-func (s *ShastaStateIndexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uint64) error {
+func (s *Indexer) fetchHistoricalProposals(toBlock *types.Header, bufferSize uint64) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -111,7 +128,7 @@ func (s *ShastaStateIndexer) fetchHistoricalProposals(toBlock *types.Header, buf
 	s.proposals.Clear()
 	currentHeader := toBlock
 	for currentHeader.Number.Cmp(common.Big0) > 0 {
-		if s.ctx.Done() != nil {
+		if s.ctx.Err() != nil {
 			return s.ctx.Err()
 		}
 		var startHeight *big.Int
@@ -121,7 +138,7 @@ func (s *ShastaStateIndexer) fetchHistoricalProposals(toBlock *types.Header, buf
 			startHeight = new(big.Int).Sub(currentHeader.Number, new(big.Int).SetUint64(maxBlocksPerFilter))
 		}
 
-		log.Debug("Fetching Shasta Proposed events", "from", startHeight, "to", currentHeader.Number)
+		log.Info("Fetching Shasta Proposed events", "from", startHeight, "to", currentHeader.Number)
 
 		iter, err := eventiterator.NewBatchProposedIterator(s.ctx, &eventiterator.BatchProposedIteratorConfig{
 			Client:                s.rpc.L1,
@@ -143,8 +160,7 @@ func (s *ShastaStateIndexer) fetchHistoricalProposals(toBlock *types.Header, buf
 			break
 		}
 
-		// We stop fetching historical proposals if we have cached enough proposals or
-		// we have reached the first Shasta block.
+		// We stop fetching historical proposals if we have cached enough proposals
 		if uint64(s.proposals.Count()) >= bufferSize {
 			break
 		}
@@ -165,9 +181,11 @@ func (s *ShastaStateIndexer) fetchHistoricalProposals(toBlock *types.Header, buf
 }
 
 // fetchHistoricalTransitionRecords fetches historical transition records from the Shasta contract.
-func (s *ShastaStateIndexer) fetchHistoricalTransitionRecords(fromBlock, toBlock *types.Header) error {
+func (s *Indexer) fetchHistoricalTransitionRecords(fromBlock, toBlock *types.Header) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
+
+	log.Info("Fetching historical Shasta transition records", "from", fromBlock.Number, "to", toBlock.Number)
 
 	// Reset transition records map before fetching historical transition records.
 	s.transitionRecords.Clear()
@@ -217,7 +235,7 @@ func (s *ShastaStateIndexer) fetchHistoricalTransitionRecords(fromBlock, toBlock
 
 // onProvedEvent handles the Proved event.
 // Please ensure that when this function is called, the mutex has already been locked.
-func (s *ShastaStateIndexer) onProvedEvent(
+func (s *Indexer) onProvedEvent(
 	ctx context.Context,
 	meta *shastaBindings.IInboxProvedEventPayload,
 	eventLog *types.Log,
@@ -238,7 +256,7 @@ func (s *ShastaStateIndexer) onProvedEvent(
 }
 
 // liveIndexing starts live indexing proposals and transitions from the Shasta contract.
-func (s *ShastaStateIndexer) liveIndexing() error {
+func (s *Indexer) liveIndexing() error {
 	var (
 		indexNotify = make(chan struct{}, 1)
 		l1HeadCh    = make(chan *types.Header, 1)
@@ -287,14 +305,12 @@ func (s *ShastaStateIndexer) liveIndexing() error {
 
 // onProposedEvent handles the Proposed event.
 // Please ensure that when this function is called, the mutex has already been locked.
-func (s *ShastaStateIndexer) onProposedEvent(
+func (s *Indexer) onProposedEvent(
 	ctx context.Context,
 	meta metadata.TaikoProposalMetaData,
 	endFunc eventiterator.EndBatchProposedEventIterFunc,
 ) error {
 	if !meta.IsShasta() {
-		log.Info("Finished caching all Shasta proposals")
-		endFunc()
 		return nil
 	}
 	var (
@@ -331,12 +347,54 @@ func (s *ShastaStateIndexer) onProposedEvent(
 }
 
 // liveIndex live indexes proposals from the last indexed block to the new head.
-func (s *ShastaStateIndexer) liveIndex(newHead *types.Header) error {
+func (s *Indexer) liveIndex(newHead *types.Header) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	log.Debug("Live indexing Shasta proposals", "from", s.lastIndexedBlock.Number, "to", newHead.Number)
+	// Check for reorg by comparing block hash at the same height
+	// Get the block at the same height as lastIndexedBlock from the chain
+	currentBlockAtHeight, err := s.rpc.L1.HeaderByNumber(s.ctx, s.lastIndexedBlock.Number)
+	if err != nil {
+		return fmt.Errorf("failed to get block at height %d: %w", s.lastIndexedBlock.Number, err)
+	}
 
+	// If hashes don't match, a reorg occurred
+	if currentBlockAtHeight.Hash() != s.lastIndexedBlock.Hash() {
+		log.Debug(
+			"Chain reorganization detected",
+			"height", s.lastIndexedBlock.Number,
+			"oldHash", s.lastIndexedBlock.Hash(),
+			"newHash", currentBlockAtHeight.Hash(),
+		)
+
+		// When a reorg is detected, we go back a safe number of blocks
+		const reorgSafetyDepth = 10
+
+		safeHeight := new(big.Int).Sub(s.lastIndexedBlock.Number, big.NewInt(reorgSafetyDepth))
+		if safeHeight.Cmp(common.Big0) < 0 {
+			safeHeight = common.Big0
+		}
+
+		// Get the block at the safe height from the current chain
+		commonAncestor, err := s.rpc.L1.HeaderByNumber(s.ctx, safeHeight)
+		if err != nil {
+			return fmt.Errorf("failed to get block at safe height %d: %w", safeHeight, err)
+		}
+
+		log.Debug(
+			"Reverting to safe height after reorg",
+			"safeHeight", commonAncestor.Number,
+			"hash", commonAncestor.Hash(),
+			"reorgDepth", new(big.Int).Sub(s.lastIndexedBlock.Number, safeHeight),
+		)
+
+		// Update lastIndexedBlock to common ancestor
+		s.lastIndexedBlock = commonAncestor
+	}
+
+	log.Debug("Live indexing Shasta events", "from", s.lastIndexedBlock.Number, "to", newHead.Number)
+
+	// Index proposed events
 	iter, err := eventiterator.NewBatchProposedIterator(s.ctx, &eventiterator.BatchProposedIteratorConfig{
 		Client:                s.rpc.L1,
 		PacayaTaikoInbox:      s.rpc.PacayaClients.TaikoInbox,
@@ -352,6 +410,8 @@ func (s *ShastaStateIndexer) liveIndex(newHead *types.Header) error {
 	if err := iter.Iter(); err != nil {
 		return fmt.Errorf("failed to iterate Shasta Proposed events: %w", err)
 	}
+
+	// Index proved events
 	iterProved, err := eventiterator.NewShastaProvedIterator(s.ctx, &eventiterator.ShastaProvedIteratorConfig{
 		Client:                s.rpc.L1,
 		ShastaTaikoInbox:      s.rpc.ShastaClients.Inbox,
@@ -371,14 +431,14 @@ func (s *ShastaStateIndexer) liveIndex(newHead *types.Header) error {
 }
 
 // Proposals returns the cached proposals.
-func (s *ShastaStateIndexer) Proposals() cmap.ConcurrentMap[uint64, *ProposalPayload] {
+func (s *Indexer) Proposals() cmap.ConcurrentMap[uint64, *ProposalPayload] {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.proposals
 }
 
 // TransitionRecords returns the cached transition records.
-func (s *ShastaStateIndexer) TransitionRecords() cmap.ConcurrentMap[uint64, *TransitionPayload] {
+func (s *Indexer) TransitionRecords() cmap.ConcurrentMap[uint64, *TransitionPayload] {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.transitionRecords
@@ -386,7 +446,7 @@ func (s *ShastaStateIndexer) TransitionRecords() cmap.ConcurrentMap[uint64, *Tra
 
 // cleanupFinazliedTransitionRecords cleans up transition records that are older than the last finalized proposal ID
 // minus the buffer size.
-func (s *ShastaStateIndexer) cleanupFinazliedTransitionRecords(lastFinalizedProposalId uint64) {
+func (s *Indexer) cleanupFinazliedTransitionRecords(lastFinalizedProposalId uint64) {
 	// We keep two times the buffer size of transition records to avoid future reorg handling.
 	for _, key := range s.transitionRecords.Keys() {
 		if key+s.bufferSize < lastFinalizedProposalId {
@@ -396,29 +456,24 @@ func (s *ShastaStateIndexer) cleanupFinazliedTransitionRecords(lastFinalizedProp
 }
 
 // BufferSize returns the buffer size.
-func (s *ShastaStateIndexer) BufferSize() uint64 {
+func (s *Indexer) BufferSize() uint64 {
 	return s.bufferSize
 }
 
 // GetLastIndexedBlock returns the last indexed block header in a thread-safe manner.
-func (s *ShastaStateIndexer) GetLastIndexedBlock() *types.Header {
+func (s *Indexer) GetLastIndexedBlock() *types.Header {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.lastIndexedBlock
 }
 
 // SetLastIndexedBlock updates the last indexed block header in a thread-safe manner.
-func (s *ShastaStateIndexer) SetLastIndexedBlock(header *types.Header) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func (s *Indexer) SetLastIndexedBlock(header *types.Header) {
 	s.lastIndexedBlock = header
 }
 
-// GetLastProposal returns the latest proposal based on the highest proposal ID.
-func (s *ShastaStateIndexer) GetLastProposal() *ProposalPayload {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
+// getLastProposal returns the latest proposal based on the highest proposal ID.
+func (s *Indexer) getLastProposal() *ProposalPayload {
 	keys := s.proposals.Keys()
 	var maxKey uint64
 	for _, key := range keys {
@@ -427,12 +482,61 @@ func (s *ShastaStateIndexer) GetLastProposal() *ProposalPayload {
 		}
 	}
 
+	log.Info("Last cached Shasta proposal ID", "proposalId", maxKey)
+
 	proposal, _ := s.proposals.Get(maxKey)
+
 	return proposal
 }
 
+// GetProposalsInput returns the last proposal and the transitions needed for finalization.
+func (s *Indexer) GetProposalsInput(
+	maxFinalizationCount uint64,
+) ([]*ProposalPayload, []*TransitionPayload, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	lastProposals := []*ProposalPayload{s.getLastProposal()}
+	if lastProposals[0].Proposal.Id.Uint64() > s.bufferSize {
+		nextSlotProposal, ok := s.proposals.Get(lastProposals[0].Proposal.Id.Uint64() - s.bufferSize + 1)
+		if !ok {
+			return nil, nil, fmt.Errorf(
+				" missing cached proposal, ID: %d", lastProposals[0].Proposal.Id.Uint64()-s.bufferSize+1,
+			)
+		}
+		lastProposals = append(lastProposals, nextSlotProposal)
+	}
+
+	return lastProposals,
+		s.getTransitionsForFinalization(
+			lastProposals[0].CoreState.LastFinalizedProposalId.Uint64(),
+			lastProposals[0].CoreState.LastFinalizedTransitionHash,
+			maxFinalizationCount,
+		),
+		nil
+}
+
+// getTransitionsForFinalization retrieves the transitions needed for finalization.
+func (s *Indexer) getTransitionsForFinalization(
+	lastFinalizedProposalId uint64,
+	lastFinalizedTransitionHash common.Hash,
+	maxFinalizationCount uint64,
+) []*TransitionPayload {
+	var transitions []*TransitionPayload
+	for i := uint64(1); i <= maxFinalizationCount; i++ {
+		transition, ok := s.transitionRecords.Get(lastFinalizedProposalId + i)
+		if !ok || transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash {
+			break
+		}
+		transitions = append(transitions, transition)
+		lastFinalizedTransitionHash = transition.TransitionRecord.TransitionHash
+	}
+
+	return transitions
+}
+
 // IsHistoricalFetchCompleted returns whether the historical data has been fetched.
-func (s *ShastaStateIndexer) IsHistoricalFetchCompleted() bool {
+func (s *Indexer) IsHistoricalFetchCompleted() bool {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.historicalFetchCompleted

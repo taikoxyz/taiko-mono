@@ -94,9 +94,7 @@ func (f *ShastaManifestFetcher) menifestFromBlobBytes(
 		Blocks:          make([]*manifest.BlockManifest, len(protocolProposal.Blocks)),
 	}
 	for i, block := range protocolProposal.Blocks {
-		proposal.Blocks[i] = &manifest.BlockManifest{
-			ProtocolBlockManifest: *block,
-		}
+		proposal.Blocks[i] = &manifest.BlockManifest{ProtocolBlockManifest: *block}
 	}
 
 	if len(proposal.Blocks) > manifest.ProposalMaxBlocks {
