@@ -84,8 +84,9 @@ library LibTransitionAggregation {
 
                 // Merge bond instructions if any exist
                 if (newInstructions.length > 0) {
-                    currentRecord.bondInstructions =
-                        LibBonds.mergeBondInstructions(currentRecord.bondInstructions, newInstructions);
+                    currentRecord.bondInstructions = LibBonds.mergeBondInstructions(
+                        currentRecord.bondInstructions, newInstructions
+                    );
                 }
 
                 // Update record with latest transition data
@@ -151,5 +152,4 @@ library LibTransitionAggregation {
     {
         canAggregate_ = _nextProposalId == _currentGroupStartId + _currentSpan;
     }
-
 }
