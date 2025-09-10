@@ -66,7 +66,9 @@ contract InboxOptimized1 is Inbox {
 
         // Aggregate transitions using library
         LibTransitionAggregation.AggregatedRecord[] memory aggregatedRecords =
-            LibTransitionAggregation.aggregateTransitions(_input.proposals, _input.transitions, _provingWindow, _extendedProvingWindow);
+        LibTransitionAggregation.aggregateTransitions(
+            _input.proposals, _input.transitions, _provingWindow, _extendedProvingWindow
+        );
 
         // Save all aggregated records to storage
         for (uint256 i = 0; i < aggregatedRecords.length; ++i) {

@@ -512,8 +512,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _validateTransition(_input.proposals[i], _input.transitions[i]);
 
             // Reuse the same memory location for the transitionRecord struct
-            transitionRecord.bondInstructions =
-                LibBondsL1.calculateBondInstructions(_provingWindow, _extendedProvingWindow, _input.proposals[i], _input.transitions[i]);
+            transitionRecord.bondInstructions = LibBondsL1.calculateBondInstructions(
+                _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.transitions[i]
+            );
             transitionRecord.transitionHash = hashTransition(_input.transitions[i]);
             transitionRecord.checkpointHash = hashCheckpoint(_input.transitions[i].checkpoint);
 
@@ -542,8 +543,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         bytes32 proposalHash = _checkProposalHash(_proposal);
         require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
     }
-
-
 
     /// @dev Stores a proposal hash in the ring buffer
     /// @notice Overwrites any existing hash at the calculated buffer slot
