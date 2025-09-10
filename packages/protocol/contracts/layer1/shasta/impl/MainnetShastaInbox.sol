@@ -34,7 +34,7 @@ contract MainnetShastaInbox is InboxOptimized3 {
         address _proofVerifier,
         address _proposerChecker
     )
-        InboxOptimized3(
+        InboxOptimized4(
             IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
                 checkpointManager: _checkpointManager,
