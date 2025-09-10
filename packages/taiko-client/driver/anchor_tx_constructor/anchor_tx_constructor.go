@@ -52,7 +52,7 @@ func (c *AnchorTxConstructor) AssembleAnchorV3Tx(
 ) (*types.Transaction, error) {
 	opts, err := c.transactOpts(ctx, l2Height, baseFee, parent.Hash())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create transaction options: %w", err)
 	}
 
 	log.Info(
@@ -144,7 +144,7 @@ func (c *AnchorTxConstructor) transactOpts(
 	// Get the nonce of golden touch account at the specified parentHeight.
 	nonce, err := c.rpc.L2AccountNonce(ctx, consensus.GoldenTouchAccount, parentHash)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get account nonce: %w", err)
 	}
 
 	log.Info(
@@ -169,7 +169,7 @@ func (c *AnchorTxConstructor) transactOpts(
 			}
 			signature, err := c.signTxPayload(signer.Hash(tx).Bytes())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to sign transaction payload: %w", err)
 			}
 			return tx.WithSignature(signer, signature)
 		},

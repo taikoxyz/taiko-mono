@@ -5,7 +5,6 @@ import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
 import { BlobTestUtils } from "../common/BlobTestUtils.sol";
-import { console2 } from "forge-std/src/console2.sol";
 
 // Import errors from Inbox implementation
 import "contracts/layer1/shasta/impl/Inbox.sol";
@@ -331,7 +330,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
             id: 99, // This proposal doesn't exist
             proposer: Alice,
             timestamp: uint48(block.timestamp),
-            lookaheadSlotTimestamp: uint48(block.timestamp + 12),
+            endOfSubmissionWindowTimestamp: uint48(block.timestamp + 12),
             coreStateHash: keccak256("fake"),
             derivationHash: keccak256("fake")
         });

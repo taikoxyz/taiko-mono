@@ -63,7 +63,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		if blobServerEndpoint, err = url.Parse(
 			c.String(flags.BlobServerEndpoint.Name),
 		); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to create blob data source: %w", err)
 		}
 	}
 
@@ -102,7 +102,7 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 	// Create a new RPC client to get the chain IDs.
 	rpc, err := rpc.NewClient(context.Background(), clientConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create RPC client: %w", err)
 	}
 	// Create a new P2P config.
 	if p2pConfigs, err = p2pCli.NewConfig(c, &rollup.Config{
@@ -110,19 +110,19 @@ func NewConfigFromCliContext(c *cli.Context) (*Config, error) {
 		L2ChainID: rpc.L2.ChainID,
 		Taiko:     true,
 	}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create P2P config: %w", err)
 	}
 
 	// Create a new P2P signer setup.
 	if signerConfigs, err = p2pCli.LoadSignerSetup(c, log.Root()); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load P2P signer setup: %w", err)
 	}
 
 	var preconfOperatorAddress common.Address
 	if c.IsSet(p2pFlags.SequencerP2PKeyName) {
 		sequencerP2PKey, err := crypto.ToECDSA(common.FromHex(c.String(p2pFlags.SequencerP2PKeyName)))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to parse sequencer P2P key: %w", err)
 		}
 
 		preconfOperatorAddress = crypto.PubkeyToAddress(sequencerP2PKey.PublicKey)

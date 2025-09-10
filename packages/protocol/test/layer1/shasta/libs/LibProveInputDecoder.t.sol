@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibProveInputDecoder } from "src/layer1/shasta/libs/LibProveInputDecoder.sol";
-import { LibPackUnpack as P } from "src/layer1/shasta/libs/LibPackUnpack.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title LibProveInputDecoderTest
@@ -25,7 +24,7 @@ contract LibProveInputDecoderTest is Test {
             id: 10,
             proposer: address(0x1),
             timestamp: 1000,
-            lookaheadSlotTimestamp: 1_700_000_012,
+            endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: keccak256("coreState"),
             derivationHash: keccak256("derivation")
         });
@@ -86,7 +85,7 @@ contract LibProveInputDecoderTest is Test {
             id: 123,
             proposer: address(0xabcd),
             timestamp: 999_999,
-            lookaheadSlotTimestamp: 1_700_000_012,
+            endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: keccak256("core_state_hash"),
             derivationHash: keccak256("derivation_hash")
         });
@@ -140,7 +139,7 @@ contract LibProveInputDecoderTest is Test {
                 id: uint48(i + 100),
                 proposer: address(uint160(0x1000 + i)),
                 timestamp: uint48(2000 + i * 100),
-                lookaheadSlotTimestamp: uint48(2000 + i * 100 + 12),
+                endOfSubmissionWindowTimestamp: uint48(2000 + i * 100 + 12),
                 coreStateHash: keccak256(abi.encodePacked("core", i)),
                 derivationHash: keccak256(abi.encodePacked("deriv", i))
             });
@@ -221,7 +220,7 @@ contract LibProveInputDecoderTest is Test {
             id: type(uint48).max,
             proposer: address(type(uint160).max),
             timestamp: type(uint48).max,
-            lookaheadSlotTimestamp: 1_700_000_012,
+            endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: bytes32(type(uint256).max),
             derivationHash: bytes32(type(uint256).max)
         });

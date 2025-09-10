@@ -24,7 +24,7 @@ contract DelegateController is Controller, IMessageInvocable {
 
     uint256[50] private __gap;
 
-    constructor(uint64 _l1ChainId, address _l2Bridge, address _daoController) Controller() {
+    constructor(uint64 _l1ChainId, address _l2Bridge, address _daoController) {
         l1ChainId = _l1ChainId;
         l2Bridge = _l2Bridge;
         daoController = _daoController;
