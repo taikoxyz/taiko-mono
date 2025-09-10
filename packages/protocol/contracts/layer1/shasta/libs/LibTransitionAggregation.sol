@@ -85,7 +85,7 @@ library LibTransitionAggregation {
                 // Merge bond instructions if any exist
                 if (newInstructions.length > 0) {
                     currentRecord.bondInstructions =
-                        mergeInstructions(currentRecord.bondInstructions, newInstructions);
+                        LibBonds.mergeBondInstructions(currentRecord.bondInstructions, newInstructions);
                 }
 
                 // Update record with latest transition data
@@ -152,32 +152,4 @@ library LibTransitionAggregation {
         canAggregate_ = _nextProposalId == _currentGroupStartId + _currentSpan;
     }
 
-    /// @dev Merges two arrays of bond instructions
-    /// @dev Creates a new array containing all instructions from both inputs
-    /// @param _existing Array of existing bond instructions
-    /// @param _newInstructions Array of new bond instructions to merge
-    /// @return merged_ New array containing all instructions
-    function mergeInstructions(
-        LibBonds.BondInstruction[] memory _existing,
-        LibBonds.BondInstruction[] memory _newInstructions
-    )
-        private
-        pure
-        returns (LibBonds.BondInstruction[] memory merged_)
-    {
-        uint256 existingLen = _existing.length;
-        uint256 newLen = _newInstructions.length;
-
-        merged_ = new LibBonds.BondInstruction[](existingLen + newLen);
-
-        // Copy existing instructions
-        for (uint256 i = 0; i < existingLen; ++i) {
-            merged_[i] = _existing[i];
-        }
-
-        // Copy new instructions
-        for (uint256 i = 0; i < newLen; ++i) {
-            merged_[existingLen + i] = _newInstructions[i];
-        }
-    }
 }
