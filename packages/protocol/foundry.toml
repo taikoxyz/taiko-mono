@@ -54,6 +54,11 @@ multiline_func_header = "all"
 number_underscore = "thousands"
 wrap_comments = true
 
+
+[lint]
+# ... rest of lint config ...
+exclude_lints = ["asm-keccak256","unaliased-plain-import","mixed-case-function","mixed-case-variable","screaming-snake-case-const","screaming-snake-case-immutable","pascal-case-struct"]
+
 [profile.layer1]
 src = "contracts/layer1"
 test = "test/layer1"
