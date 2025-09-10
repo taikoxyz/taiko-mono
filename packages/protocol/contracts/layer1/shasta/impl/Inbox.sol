@@ -513,7 +513,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             // Reuse the same memory location for the transitionRecord struct
             transitionRecord.bondInstructions =
-                LibBondsL1.calculateBondInstructions(_getConfig(), _input.proposals[i], _input.transitions[i]);
+                LibBondsL1.calculateBondInstructions(_provingWindow, _extendedProvingWindow, _input.proposals[i], _input.transitions[i]);
             transitionRecord.transitionHash = hashTransition(_input.transitions[i]);
             transitionRecord.checkpointHash = hashCheckpoint(_input.transitions[i].checkpoint);
 
@@ -543,25 +543,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
     }
 
-    /// @dev Creates a Config struct from immutable contract variables
-    /// @return config_ The configuration struct needed for LibBondsL1
-    function _getConfig() internal view returns (Config memory config_) {
-        config_ = Config({
-            bondToken: address(_bondToken),
-            checkpointManager: address(_checkpointManager),
-            proofVerifier: address(_proofVerifier),
-            proposerChecker: address(_proposerChecker),
-            provingWindow: _provingWindow,
-            extendedProvingWindow: _extendedProvingWindow,
-            maxFinalizationCount: _maxFinalizationCount,
-            finalizationGracePeriod: _finalizationGracePeriod,
-            ringBufferSize: _ringBufferSize,
-            basefeeSharingPctg: _basefeeSharingPctg,
-            minForcedInclusionCount: _minForcedInclusionCount,
-            forcedInclusionDelay: _forcedInclusionDelay,
-            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei
-        });
-    }
 
 
     /// @dev Stores a proposal hash in the ring buffer

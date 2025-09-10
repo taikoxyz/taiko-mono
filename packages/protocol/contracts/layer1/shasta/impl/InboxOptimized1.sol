@@ -64,26 +64,9 @@ contract InboxOptimized1 is Inbox {
             _validateTransition(_input.proposals[i], _input.transitions[i]);
         }
 
-        // Get configuration for aggregation
-        Config memory config = Config({
-            bondToken: address(_bondToken),
-            checkpointManager: address(_checkpointManager),
-            proofVerifier: address(_proofVerifier),
-            proposerChecker: address(_proposerChecker),
-            provingWindow: _provingWindow,
-            extendedProvingWindow: _extendedProvingWindow,
-            maxFinalizationCount: _maxFinalizationCount,
-            finalizationGracePeriod: _finalizationGracePeriod,
-            ringBufferSize: _ringBufferSize,
-            basefeeSharingPctg: _basefeeSharingPctg,
-            minForcedInclusionCount: _minForcedInclusionCount,
-            forcedInclusionDelay: _forcedInclusionDelay,
-            forcedInclusionFeeInGwei: _forcedInclusionFeeInGwei
-        });
-
         // Aggregate transitions using library
         LibTransitionAggregation.AggregatedRecord[] memory aggregatedRecords =
-            LibTransitionAggregation.aggregateTransitions(_input.proposals, _input.transitions, config);
+            LibTransitionAggregation.aggregateTransitions(_input.proposals, _input.transitions, _provingWindow, _extendedProvingWindow);
 
         // Save all aggregated records to storage
         for (uint256 i = 0; i < aggregatedRecords.length; ++i) {

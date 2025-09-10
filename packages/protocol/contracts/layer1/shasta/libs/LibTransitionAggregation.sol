@@ -36,12 +36,14 @@ library LibTransitionAggregation {
     /// of transitions, it's a small difference and the readability is much better.
     /// @param _proposals Array of proposals to aggregate
     /// @param _transitions Array of transitions corresponding to proposals
-    /// @param _config Configuration parameters for bond calculations
+    /// @param _provingWindow The proving window in seconds for bond calculations
+    /// @param _extendedProvingWindow The extended proving window in seconds for bond calculations
     /// @return records_ Array of aggregated records ready for storage
     function aggregateTransitions(
         IInbox.Proposal[] memory _proposals,
         IInbox.Transition[] memory _transitions,
-        IInbox.Config memory _config
+        uint48 _provingWindow,
+        uint48 _extendedProvingWindow
     )
         internal
         view
@@ -59,7 +61,7 @@ library LibTransitionAggregation {
         IInbox.TransitionRecord memory currentRecord = IInbox.TransitionRecord({
             span: 1,
             bondInstructions: LibBondsL1.calculateBondInstructions(
-                _config, _proposals[0], _transitions[0]
+                _provingWindow, _extendedProvingWindow, _proposals[0], _transitions[0]
             ),
             transitionHash: keccak256(abi.encode(_transitions[0])),
             checkpointHash: keccak256(abi.encode(_transitions[0].checkpoint))
@@ -74,7 +76,7 @@ library LibTransitionAggregation {
             if (canAggregate(currentGroupStartId, currentRecord.span, _proposals[i].id)) {
                 // Aggregate with current record
                 LibBonds.BondInstruction[] memory newInstructions =
-                    LibBondsL1.calculateBondInstructions(_config, _proposals[i], _transitions[i]);
+                    LibBondsL1.calculateBondInstructions(_provingWindow, _extendedProvingWindow, _proposals[i], _transitions[i]);
 
                 // Merge bond instructions if any exist
                 if (newInstructions.length > 0) {
@@ -102,7 +104,7 @@ library LibTransitionAggregation {
                 currentRecord = IInbox.TransitionRecord({
                     span: 1,
                     bondInstructions: LibBondsL1.calculateBondInstructions(
-                        _config, _proposals[i], _transitions[i]
+                        _provingWindow, _extendedProvingWindow, _proposals[i], _transitions[i]
                     ),
                     transitionHash: keccak256(abi.encode(_transitions[i])),
                     checkpointHash: keccak256(abi.encode(_transitions[i].checkpoint))

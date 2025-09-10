@@ -16,13 +16,15 @@ library LibBondsL1 {
     ///           designated
     ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
     ///           differs from proposer
-    /// @param _config Configuration containing timing windows
+    /// @param _provingWindow The proving window in seconds
+    /// @param _extendedProvingWindow The extended proving window in seconds
     /// @param _proposal Proposal with timestamp and proposer address
     /// @param _transition Transition with designated and actual prover addresses
     /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
     /// prover)
     function calculateBondInstructions(
-        IInbox.Config memory _config,
+        uint48 _provingWindow,
+        uint48 _extendedProvingWindow,
         IInbox.Proposal memory _proposal,
         IInbox.Transition memory _transition
     )
@@ -32,7 +34,7 @@ library LibBondsL1 {
     {
         unchecked {
             uint256 proofTimestamp = block.timestamp;
-            uint256 windowEnd = _proposal.timestamp + _config.provingWindow;
+            uint256 windowEnd = _proposal.timestamp + _provingWindow;
 
             // On-time proof - no bond instructions needed
             if (proofTimestamp <= windowEnd) {
@@ -40,7 +42,7 @@ library LibBondsL1 {
             }
 
             // Late or very late proof - determine bond type and parties
-            uint256 extendedWindowEnd = _proposal.timestamp + _config.extendedProvingWindow;
+            uint256 extendedWindowEnd = _proposal.timestamp + _extendedProvingWindow;
             bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
 
             // Check if bond instruction is needed
