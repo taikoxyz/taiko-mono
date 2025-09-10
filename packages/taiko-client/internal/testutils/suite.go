@@ -85,7 +85,7 @@ func (s *ClientTestSuite) SetupTest() {
 		rpcCli.ShastaClients.ForkHeight,
 	)
 	s.Nil(err)
-	s.ShastaStateIndexer.Start()
+	s.Nil(s.ShastaStateIndexer.Start())
 
 	for _, key := range []*ecdsa.PrivateKey{l1ProposerPrivKey, l1ProverPrivKey} {
 		s.enableProver(ownerPrivKey, crypto.PubkeyToAddress(key.PublicKey))

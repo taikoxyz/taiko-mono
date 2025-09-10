@@ -72,8 +72,12 @@ func NewShastaState(
 		bufferSize:              config.RingBufferSize.Uint64(),
 		finalizationGracePeriod: config.FinalizationGracePeriod.Uint64(),
 		shastaForkHeight:        shastaForkHeight,
-		proposals:               cmap.NewWithCustomShardingFunction[uint64, *ProposalPayload](func(key uint64) uint32 { return uint32(key) }),
-		transitionRecords:       cmap.NewWithCustomShardingFunction[uint64, *TransitionPayload](func(key uint64) uint32 { return uint32(key) }),
+		proposals: cmap.NewWithCustomShardingFunction[
+			uint64, *ProposalPayload,
+		](func(key uint64) uint32 { return uint32(key) }),
+		transitionRecords: cmap.NewWithCustomShardingFunction[
+			uint64, *TransitionPayload,
+		](func(key uint64) uint32 { return uint32(key) }),
 	}, nil
 }
 
