@@ -26,9 +26,7 @@ contract PreconfSlasher is IPreconfSlasher, EssentialContract {
         address _fallbackPreconfer,
         address _taikoInbox,
         address _taikoAnchor
-    )
-        EssentialContract()
-    {
+    ) {
         urc = _urc;
         fallbackPreconfer = _fallbackPreconfer;
         taikoInbox = ITaikoInbox(_taikoInbox);

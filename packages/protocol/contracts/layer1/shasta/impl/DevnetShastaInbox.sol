@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxOptimized4 } from "./InboxOptimized4.sol";
+import { InboxOptimized3 } from "./InboxOptimized3.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
-import { LibL1Addrs } from "../../mainnet/libs/LibL1Addrs.sol";
 
 /// @title MainnetShastaInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
-/// with optimized reentrancy lock implementation and efficient hashing.
+/// with optimized reentrancy lock implementation.
 /// @custom:security-contact security@taiko.xyz
-contract MainnetShastaInbox is InboxOptimized4 {
+contract DevnetShastaInbox is InboxOptimized3 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -32,11 +31,12 @@ contract MainnetShastaInbox is InboxOptimized4 {
     constructor(
         address _checkpointManager,
         address _proofVerifier,
-        address _proposerChecker
+        address _proposerChecker,
+        address _taikoToken
     )
-        InboxOptimized4(
+        InboxOptimized3(
             IInbox.Config({
-                bondToken: LibL1Addrs.TAIKO_TOKEN,
+                bondToken: _taikoToken,
                 checkpointManager: _checkpointManager,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
@@ -45,7 +45,7 @@ contract MainnetShastaInbox is InboxOptimized4 {
                 maxFinalizationCount: 16,
                 finalizationGracePeriod: 768 seconds,
                 ringBufferSize: _RING_BUFFER_SIZE,
-                basefeeSharingPctg: 0,
+                basefeeSharingPctg: 75,
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
                 forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH

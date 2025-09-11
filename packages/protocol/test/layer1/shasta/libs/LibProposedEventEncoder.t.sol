@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { LibProposedEventEncoder } from "src/layer1/shasta/libs/LibProposedEventEncoder.sol";
-import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 
 /// @title LibProposedEventEncoderTest
@@ -17,6 +16,7 @@ contract LibProposedEventEncoderTest is Test {
         original.proposal.id = 1;
         original.proposal.proposer = address(0x1234567890123456789012345678901234567890);
         original.proposal.timestamp = 1000;
+        original.proposal.endOfSubmissionWindowTimestamp = 1500;
         original.proposal.coreStateHash = keccak256("coreState");
         original.proposal.derivationHash = keccak256("derivation");
 
@@ -47,12 +47,16 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.proposal.id, original.proposal.id);
         assertEq(decoded.proposal.proposer, original.proposal.proposer);
         assertEq(decoded.proposal.timestamp, original.proposal.timestamp);
+        assertEq(
+            decoded.proposal.endOfSubmissionWindowTimestamp,
+            original.proposal.endOfSubmissionWindowTimestamp
+        );
         assertEq(decoded.proposal.coreStateHash, original.proposal.coreStateHash);
-        // Note: derivationHash is not preserved by the encoder
+        assertEq(decoded.proposal.derivationHash, original.proposal.derivationHash);
 
         // Verify derivation fields
         assertEq(decoded.derivation.originBlockNumber, original.derivation.originBlockNumber);
-        // originBlockHash is not preserved by encoder
+        assertEq(decoded.derivation.originBlockHash, original.derivation.originBlockHash);
         assertEq(decoded.derivation.isForcedInclusion, original.derivation.isForcedInclusion);
         assertEq(decoded.derivation.basefeeSharingPctg, original.derivation.basefeeSharingPctg);
         assertEq(decoded.derivation.blobSlice.blobHashes.length, 0);
@@ -78,6 +82,7 @@ contract LibProposedEventEncoderTest is Test {
         original.proposal.id = 12_345;
         original.proposal.proposer = address(0xabCDEF1234567890ABcDEF1234567890aBCDeF12);
         original.proposal.timestamp = 999_999;
+        original.proposal.endOfSubmissionWindowTimestamp = 1_100_000;
         original.proposal.coreStateHash = keccak256("coreStateHash");
         original.proposal.derivationHash = keccak256("derivationHash");
 
@@ -113,12 +118,16 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.proposal.id, original.proposal.id);
         assertEq(decoded.proposal.proposer, original.proposal.proposer);
         assertEq(decoded.proposal.timestamp, original.proposal.timestamp);
+        assertEq(
+            decoded.proposal.endOfSubmissionWindowTimestamp,
+            original.proposal.endOfSubmissionWindowTimestamp
+        );
         assertEq(decoded.proposal.coreStateHash, original.proposal.coreStateHash);
-        // Note: derivationHash is not preserved by the encoder
+        assertEq(decoded.proposal.derivationHash, original.proposal.derivationHash);
 
         // Verify derivation fields
         assertEq(decoded.derivation.originBlockNumber, original.derivation.originBlockNumber);
-        // originBlockHash is not preserved by encoder
+        assertEq(decoded.derivation.originBlockHash, original.derivation.originBlockHash);
         assertEq(decoded.derivation.isForcedInclusion, original.derivation.isForcedInclusion);
         assertEq(decoded.derivation.basefeeSharingPctg, original.derivation.basefeeSharingPctg);
         assertEq(decoded.derivation.blobSlice.blobHashes.length, 3);
@@ -153,6 +162,7 @@ contract LibProposedEventEncoderTest is Test {
         original.proposal.id = type(uint48).max;
         original.proposal.proposer = address(type(uint160).max);
         original.proposal.timestamp = type(uint48).max;
+        original.proposal.endOfSubmissionWindowTimestamp = type(uint48).max;
         original.proposal.coreStateHash = bytes32(type(uint256).max);
         original.proposal.derivationHash = bytes32(type(uint256).max);
 
@@ -180,6 +190,7 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.proposal.id, type(uint48).max);
         assertEq(decoded.proposal.proposer, address(type(uint160).max));
         assertEq(decoded.proposal.timestamp, type(uint48).max);
+        assertEq(decoded.proposal.endOfSubmissionWindowTimestamp, type(uint48).max);
         assertEq(decoded.proposal.coreStateHash, bytes32(type(uint256).max));
         assertEq(decoded.derivation.originBlockNumber, type(uint48).max);
         assertEq(decoded.derivation.isForcedInclusion, true);
@@ -200,6 +211,7 @@ contract LibProposedEventEncoderTest is Test {
         original.proposal.id = 0;
         original.proposal.proposer = address(0);
         original.proposal.timestamp = 0;
+        original.proposal.endOfSubmissionWindowTimestamp = 0;
         original.proposal.coreStateHash = bytes32(0);
         original.proposal.derivationHash = bytes32(0);
 
@@ -224,6 +236,7 @@ contract LibProposedEventEncoderTest is Test {
         assertEq(decoded.proposal.id, 0);
         assertEq(decoded.proposal.proposer, address(0));
         assertEq(decoded.proposal.timestamp, 0);
+        assertEq(decoded.proposal.endOfSubmissionWindowTimestamp, 0);
         assertEq(decoded.proposal.coreStateHash, bytes32(0));
         assertEq(decoded.derivation.originBlockNumber, 0);
         assertEq(decoded.derivation.isForcedInclusion, false);
@@ -244,6 +257,7 @@ contract LibProposedEventEncoderTest is Test {
         payload.proposal.id = 123;
         payload.proposal.proposer = address(0x1234);
         payload.proposal.timestamp = 1_000_000;
+        payload.proposal.endOfSubmissionWindowTimestamp = 1_100_000;
         payload.proposal.coreStateHash = keccak256("core");
         payload.proposal.derivationHash = keccak256("deriv");
 

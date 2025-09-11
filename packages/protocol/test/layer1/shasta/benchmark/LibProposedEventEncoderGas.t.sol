@@ -178,7 +178,7 @@ contract LibProposedEventEncoderGas is Test {
             id: 12_345,
             proposer: address(0x1234567890123456789012345678901234567890),
             timestamp: 1_700_000_000,
-            lookaheadSlotTimestamp: 1_700_000_012,
+            endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: keccak256("coreState"),
             derivationHash: keccak256("derivation")
         });

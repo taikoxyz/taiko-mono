@@ -9,26 +9,39 @@ import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.so
 /// @notice Interface for the Shasta inbox contracts
 /// @custom:security-contact security@taiko.xyz
 interface IInbox {
-    /// @notice Configuration parameters for the Inbox contract
+    /// @notice Configuration struct for Inbox constructor parameters
     struct Config {
+        /// @notice The token used for bonds
         address bondToken;
-        uint48 provingWindow;
-        uint48 extendedProvingWindow;
-        uint256 maxFinalizationCount;
-        uint256 ringBufferSize;
-        uint8 basefeeSharingPctg;
+        /// @notice The checkpoint manager contract
         address checkpointManager;
+        /// @notice The proof verifier contract
         address proofVerifier;
+        /// @notice The proposer checker contract
         address proposerChecker;
+        /// @notice The proving window in seconds
+        uint48 provingWindow;
+        /// @notice The extended proving window in seconds
+        uint48 extendedProvingWindow;
+        /// @notice The maximum number of finalized proposals in one block
+        uint256 maxFinalizationCount;
+        /// @notice The finalization grace period in seconds
+        uint48 finalizationGracePeriod;
+        /// @notice The ring buffer size for storing proposal hashes
+        uint256 ringBufferSize;
+        /// @notice The percentage of basefee paid to coinbase
+        uint8 basefeeSharingPctg;
         /// @notice The minimum number of forced inclusions that the proposer is forced to process
-        /// if they are due.
+        /// if they are due
         uint256 minForcedInclusionCount;
-        uint64 forcedInclusionDelay; // measured in seconds
+        /// @notice The delay for forced inclusions measured in seconds
+        uint64 forcedInclusionDelay;
+        /// @notice The fee for forced inclusions in Gwei
         uint64 forcedInclusionFeeInGwei;
     }
-
     /// @notice Contains derivation data for a proposal that is not needed during proving.
     /// @dev This data is hashed and stored in the Proposal struct to reduce calldata size.
+
     struct Derivation {
         /// @notice The L1 block number when the proposal was accepted.
         uint48 originBlockNumber;
@@ -49,7 +62,7 @@ interface IInbox {
         /// @notice The L1 block timestamp when the proposal was accepted.
         uint48 timestamp;
         /// @notice The timestamp of the last slot where the current preconfer can propose.
-        uint48 lookaheadSlotTimestamp;
+        uint48 endOfSubmissionWindowTimestamp;
         /// @notice Address of the proposer.
         address proposer;
         /// @notice The current hash of coreState
@@ -190,16 +203,17 @@ interface IInbox {
     /// hash.
     /// @param _proposalId The proposal ID.
     /// @param _parentTransitionHash The parent transition hash.
-    /// @return transitionRecordHash_ The hash of the transition record.
+    /// @return finalizationDeadline_ The timestamp when finalization is enforced.
+    /// @return recordHash_ The hash of the transition record.
     function getTransitionRecordHash(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
         external
         view
-        returns (bytes32 transitionRecordHash_);
+        returns (uint48 finalizationDeadline_, bytes26 recordHash_);
 
-    /// @notice Gets the capacity for unfinalized proposals.
-    /// @return The maximum number of unfinalized proposals that can exist.
-    function getCapacity() external view returns (uint256);
+    /// @notice Returns the configuration parameters of the Inbox contract
+    /// @return config_ The configuration struct containing all immutable parameters
+    function getConfig() external view returns (Config memory config_);
 }
