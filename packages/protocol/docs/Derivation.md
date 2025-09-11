@@ -179,7 +179,7 @@ The default manifest is one initialized as:
 
 ```solidity
 ProposalManifest memory default;
-default.blocks = new BlockManifest ;
+default.blocks = new BlockManifest[](1) ;
 ```
 
 A default manifest contains a single empty block, effectively serving as a fallback mechanism for invalid proposals.
