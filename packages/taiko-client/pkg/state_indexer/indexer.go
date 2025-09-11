@@ -348,7 +348,6 @@ func (s *Indexer) onProposedEvent(
 		"timeStamp", proposal.Timestamp,
 		"proposer", proposal.Proposer,
 	)
-
 	s.cleanupFinazliedTransitionRecords(coreState.LastFinalizedProposalId.Uint64())
 
 	// Stop fetching historical proposals if we have cached enough proposals.
