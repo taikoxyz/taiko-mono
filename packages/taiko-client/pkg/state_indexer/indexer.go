@@ -20,6 +20,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
+// maxBlocksPerFilter defines the maximum number of blocks to filter in a single RPC query.
 var maxBlocksPerFilter uint64 = 1000
 
 // ProposalPayload represents the payload in a Shasta Proposed event.
