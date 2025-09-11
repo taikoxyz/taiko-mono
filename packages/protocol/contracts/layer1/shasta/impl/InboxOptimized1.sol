@@ -72,8 +72,7 @@ contract InboxOptimized1 is Inbox {
         TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
             bondInstructions: LibBondsL1.calculateBondInstructions(
-                _provingWindow, _extendedProvingWindow,
-                _input.proposals[0], _input.transitions[0]
+                _provingWindow, _extendedProvingWindow, _input.proposals[0], _input.transitions[0]
             ),
             transitionHash: hashTransition(_input.transitions[0]),
             checkpointHash: hashCheckpoint(_input.transitions[0].checkpoint)
@@ -89,11 +88,13 @@ contract InboxOptimized1 is Inbox {
             // Check if current proposal can be aggregated with the previous group
             if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
                 // Aggregate with current record
-                LibBonds.BondInstruction[] memory newInstructions =
-                    LibBondsL1.calculateBondInstructions(
-                        _provingWindow, _extendedProvingWindow,
-                        _input.proposals[i], _input.transitions[i]
-                    );
+                LibBonds.BondInstruction[] memory newInstructions = LibBondsL1
+                    .calculateBondInstructions(
+                    _provingWindow,
+                    _extendedProvingWindow,
+                    _input.proposals[i],
+                    _input.transitions[i]
+                );
 
                 // Note that using assembly-optimized, bulk copying-based memory merging is more
                 // gas efficient only when newInstructions is larger than 8.
@@ -125,8 +126,10 @@ contract InboxOptimized1 is Inbox {
                 currentRecord = TransitionRecord({
                     span: 1,
                     bondInstructions: LibBondsL1.calculateBondInstructions(
-                        _provingWindow, _extendedProvingWindow,
-                        _input.proposals[i], _input.transitions[i]
+                        _provingWindow,
+                        _extendedProvingWindow,
+                        _input.proposals[i],
+                        _input.transitions[i]
                     ),
                     transitionHash: hashTransition(_input.transitions[i]),
                     checkpointHash: hashCheckpoint(_input.transitions[i].checkpoint)
