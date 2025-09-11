@@ -156,7 +156,7 @@ contract InboxChainAdvancement is InboxTest {
 
             // Store proposal for proving later - use helper to create proper proposal
             (proposals[i - 1],) =
-                InboxTestLib.createProposal(i, Alice, defaultConfig.basefeeSharingPctg);
+                InboxTestLib.createProposal(i, Alice, getBasefeeSharingPctg());
             proposals[i - 1].coreStateHash = keccak256(
                 abi.encode(
                     IInbox.CoreState({
@@ -219,7 +219,7 @@ contract InboxChainAdvancement is InboxTest {
 
         // Expect: Final block update for batch completion
     ICheckpointManager.Checkpoint memory lastHeader = transitions[numProposals - 1].checkpoint;
-        expectCheckpointSaved(
+        expectCheckpointSaved(lastHeader);
             lastHeader.number,
             lastHeader.hash,
             lastHeader.stateRoot
@@ -302,6 +302,9 @@ contract InboxChainAdvancement is InboxTest {
         });
         // Core state will be validated by the contract during propose()
 
+        // Advance time to pass the finalization grace period (5 minutes)
+        vm.warp(block.timestamp + 5 minutes + 1);
+
         // Expect only proposal 2's block to be saved (last finalized)
         expectCheckpointSaved(transitions[1].checkpoint);
 
@@ -334,10 +337,9 @@ contract InboxChainAdvancement is InboxTest {
     /// properly
     function disabled_test_max_finalization_count_limit() public {
         setupBlobHashes();
-        // Set max finalization count to 3
-        IInbox.Config memory config = defaultConfig;
-        config.maxFinalizationCount = 3;
-        inbox.setTestConfig(config);
+        // Max finalization count is now immutable - using constructor value
+        // (This test may need to use a different test contract variant for different
+        // maxFinalizationCount)
 
         IInbox.Transition memory genesisTransition;
         genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
@@ -375,7 +377,7 @@ contract InboxChainAdvancement is InboxTest {
             bytes32 storedProposalHash = inbox.getProposalHash(i);
 
             (IInbox.Proposal memory proposal,) =
-                InboxTestLib.createProposal(i, Alice, config.basefeeSharingPctg);
+                InboxTestLib.createProposal(i, Alice, getBasefeeSharingPctg());
             proposal.coreStateHash = bytes32(0);
 
             bytes32 currentParent = i == 1 ? parentHash : keccak256(abi.encode(transitions[i - 2]));
@@ -513,7 +515,7 @@ contract InboxChainAdvancement is InboxTest {
         // Since only maxFinalizationCount proposals will be finalized, we use that transition's
         // header
         ICheckpointManager.Checkpoint memory lastEndHeader =
-            transitions[defaultConfig.maxFinalizationCount - 1].checkpoint;
+            transitions[getMaxFinalizationCount() - 1].checkpoint;
 
         // When finalizing, we need to provide the checkpoint
         IInbox.Proposal[] memory validationProposals = new IInbox.Proposal[](1);
@@ -538,9 +540,9 @@ contract InboxChainAdvancement is InboxTest {
         // Assert: Verify that only maxFinalizationCount proposals were finalized
         IInbox.CoreState({
             nextProposalId: numProposals + 2,
-            lastFinalizedProposalId: uint48(defaultConfig.maxFinalizationCount),
+            lastFinalizedProposalId: uint48(getMaxFinalizationCount()),
             lastFinalizedTransitionHash: keccak256(
-                abi.encode(transitions[defaultConfig.maxFinalizationCount - 1])
+                abi.encode(transitions[getMaxFinalizationCount() - 1])
             ),
             bondInstructionsHash: bytes32(0)
         });
@@ -639,7 +641,7 @@ contract InboxChainAdvancement is InboxTest {
 
         // Step 2: Advance time to make proofs late (triggers liveness bond instructions)
         // This ensures each transition will have bond instructions that should be aggregated
-        vm.warp(block.timestamp + defaultConfig.provingWindow + 1);
+        vm.warp(block.timestamp + getProvingWindow() + 1);
 
         // Prove all 3 proposals together in one transaction
         // Each will have different designated provers to create different bond instructions
@@ -706,15 +708,14 @@ contract InboxChainAdvancement is InboxTest {
 
         // Step 3: Verify the aggregated transition record is stored correctly
         // For proposal 1, the parent should be the genesis transition hash
-        bytes32 transitionRecordHash1 = inbox.getTransitionRecordHash(1, parentHash);
-        assertTrue(
-            transitionRecordHash1 != bytes32(0), "Transition record for proposal 1 should exist"
-        );
+        (, bytes26 recordHash1) = inbox.getTransitionRecordHash(1, parentHash);
+        assertTrue(recordHash1 != bytes26(0), "Transition record for proposal 1 should exist");
 
         // Verify the stored transition record hash matches what we expect
-        bytes32 expectedTransitionRecordHash = keccak256(abi.encode(expectedAggregatedRecord));
+        bytes26 expectedTransitionRecordHash =
+            bytes26(keccak256(abi.encode(expectedAggregatedRecord)));
         assertEq(
-            transitionRecordHash1,
+            recordHash1,
             expectedTransitionRecordHash,
             "Stored transition record should match expected aggregated record"
         );
@@ -846,7 +847,7 @@ contract InboxChainAdvancement is InboxTest {
         }
 
         // Step 2: Advance time to trigger liveness bonds
-        vm.warp(block.timestamp + defaultConfig.provingWindow + 1);
+        vm.warp(block.timestamp + getProvingWindow() + 1);
 
         // Step 3: Prove all 3 proposals together (Core will store them separately)
         IInbox.Transition[] memory transitions = new IInbox.Transition[](numProposals);
@@ -881,8 +882,8 @@ contract InboxChainAdvancement is InboxTest {
         // Each proposal gets its own transition record with span=1
         bytes32 expectedParent = parentHash;
         for (uint48 i = 0; i < numProposals; i++) {
-            bytes32 transitionRecordHash = inbox.getTransitionRecordHash(i + 1, expectedParent);
-            assertTrue(transitionRecordHash != bytes32(0), "Transition record should exist");
+            (, bytes26 recordHash) = inbox.getTransitionRecordHash(i + 1, expectedParent);
+            assertTrue(recordHash != bytes26(0), "Transition record should exist");
 
             // Verify it's a non-aggregated record (span=1)
             IInbox.TransitionRecord memory expectedRecord = IInbox.TransitionRecord({
@@ -900,12 +901,8 @@ contract InboxChainAdvancement is InboxTest {
                 receiver: David
             });
 
-            bytes32 expectedHash = keccak256(abi.encode(expectedRecord));
-            assertEq(
-                transitionRecordHash,
-                expectedHash,
-                "Core should store non-aggregated transition record"
-            );
+            bytes26 expectedHash = bytes26(keccak256(abi.encode(expectedRecord)));
+            assertEq(recordHash, expectedHash, "Core should store non-aggregated transition record");
 
             expectedParent = keccak256(abi.encode(transitions[i]));
         }
@@ -999,8 +996,8 @@ contract InboxChainAdvancement is InboxTest {
         // Verify all transition records are stored
         bytes32 expectedParent = parentHash;
         for (uint48 i = 0; i < numProposals; i++) {
-            bytes32 transitionRecordHash = inbox.getTransitionRecordHash(i + 1, expectedParent);
-            assertTrue(transitionRecordHash != bytes32(0), "Transition record should exist");
+            (, bytes26 recordHash) = inbox.getTransitionRecordHash(i + 1, expectedParent);
+            assertTrue(recordHash != bytes26(0), "Transition record should exist");
             expectedParent = keccak256(abi.encode(transitions[i]));
         }
 
@@ -1024,6 +1021,9 @@ contract InboxChainAdvancement is InboxTest {
             bondInstructionsHash: bytes32(0)
         });
         // Core state will be validated by the contract during propose()
+
+        // Advance time to pass the finalization grace period (5 minutes)
+        vm.warp(block.timestamp + 5 minutes + 1);
 
         // Expect checkpoint save for the last finalized proposal
         ICheckpointManager.Checkpoint memory checkpoint = transitions[numProposals - 1].checkpoint;

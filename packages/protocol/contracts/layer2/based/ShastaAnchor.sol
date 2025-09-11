@@ -28,8 +28,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint48 anchorBlockNumber; // Latest L1 block number anchored to L2
         address designatedProver; // The prover designated for the current batch
         bool isLowBondProposal; // Indicates if the proposal has insufficient bonds
-        uint48 lookaheadSlotTimestamp; // The timestamp of the last slot where the current preconfer
-            // can propose.
+        uint48 endOfSubmissionWindowTimestamp; // The timestamp of the last slot where the current
+            // preconfer can submit preconf-ed blocks to the L2 network.
     }
 
     /// @notice Authentication data for prover designation.
@@ -65,11 +65,14 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // ---------------------------------------------------------------
 
     /// @notice Current state of the anchor proposal being processed.
-    /// @dev Two slots used to store the state:
+    /// @dev 3 slots used to store the state:
     State private _state;
 
+    mapping(uint256 blockId => uint256 endOfSubmissionWindowTimestamp) public
+        blockIdToEndOfSubmissionWindowTimeStamp;
+
     /// @notice Storage gap for upgrade safety.
-    uint256[48] private __gap;
+    uint256[46] private __gap;
 
     // ---------------------------------------------------------------
     // Events
@@ -133,7 +136,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _anchorBlockNumber L1 block number to anchor (0 to skip anchoring).
     /// @param _anchorBlockHash L1 block hash at _anchorBlockNumber.
     /// @param _anchorStateRoot L1 state root at _anchorBlockNumber.
-    /// @param _lookaheadSlotTimestamp The timestamp of the last slot where the current preconfer
+    /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
+    /// preconfer
     /// can propose.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ Address of the designated prover.
@@ -149,7 +153,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
         bytes32 _anchorStateRoot,
-        uint48 _lookaheadSlotTimestamp
+        uint48 _endOfSubmissionWindowTimestamp
     )
         external
         onlyGoldenTouch
@@ -169,7 +173,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
             _state.designatedProver = designatedProver_;
             _state.isLowBondProposal = isLowBondProposal_;
-            _state.lookaheadSlotTimestamp = _lookaheadSlotTimestamp;
 
             emit ProverDesignated(designatedProver_, isLowBondProposal_);
         }
@@ -193,6 +196,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
             _state.bondInstructionsHash = newBondInstructionsHash;
             _state.anchorBlockNumber = _anchorBlockNumber;
         }
+
+        _state.endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
+        blockIdToEndOfSubmissionWindowTimeStamp[block.number] = _endOfSubmissionWindowTimestamp;
     }
 
     /// @notice Returns the current state of the anchor.

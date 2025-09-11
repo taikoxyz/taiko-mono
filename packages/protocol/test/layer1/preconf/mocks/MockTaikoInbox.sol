@@ -10,7 +10,7 @@ contract MockTaikoInbox is EssentialContract {
     mapping(uint64 => ITaikoInbox.TransitionState) private _transitions;
     ITaikoInbox.Config private _config;
 
-    constructor(uint64 _chainId) EssentialContract() {
+    constructor(uint64 _chainId) {
         _config = ITaikoInbox.Config({
             chainId: _chainId,
             maxUnverifiedBatches: 10,

@@ -36,9 +36,7 @@ contract PreconfRouter2 is EssentialContract, IProposeBatch {
         address _urc,
         address _fallbackPreconfer,
         address _protector
-    )
-        EssentialContract()
-    {
+    ) {
         lookaheadStore = ILookaheadStore(_lookaheadStore);
         preconfWhitelist = IPreconfWhitelist(_preconfWhitelist);
         iProposeBatch = IProposeBatch(_iProposeBatch);
