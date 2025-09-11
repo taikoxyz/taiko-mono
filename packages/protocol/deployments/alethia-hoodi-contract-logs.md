@@ -112,6 +112,8 @@
 - impl : `0xA4280f8cda7B14c4B3d356Db91b9ad5C8f89F216`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - ejectors:
+- operators:
+  - nethermind proposer `0x75141CD01F50A17a915d59D245aE6B2c947D37d9`(sequencer `0x75141CD01F50A17a915d59D245aE6B2c947D37d9`)
 - logs:
   - deployed on Sep 10, 2025 at commit `1852eb5`
 
