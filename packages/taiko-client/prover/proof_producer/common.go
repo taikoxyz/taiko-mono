@@ -120,6 +120,11 @@ func requestHTTPProofResponse[T any](
 	}
 
 	if res.StatusCode != http.StatusOK {
+		// Check for rate limiting (429 Too Many Requests)
+		if res.StatusCode == http.StatusTooManyRequests {
+			log.Error("Rate limit on L2 RPC has been reached. Using your own Taiko L2 node as RPC for Raiko is recommended")
+		}
+
 		return nil, fmt.Errorf(
 			"failed to request proof, url: %s, statusCode: %d",
 			url,
@@ -129,6 +134,8 @@ func requestHTTPProofResponse[T any](
 
 	return res, nil
 }
+
+
 
 // updateProvingMetrics updates the metrics for the given proof type, including
 // the generation time and the number of proofs generated.
