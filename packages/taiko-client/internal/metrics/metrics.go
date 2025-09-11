@@ -203,6 +203,41 @@ var (
 		Name: "rpc_call_errors_total",
 		Help: "Total number of RPC call errors",
 	}, []string{"method", "endpoint", "error"})
+
+	// Taiko-specific Business Metrics
+	TaikoBatchOperationsCounter = factory.NewCounterVec(prometheus.CounterOpts{
+		Name: "taiko_batch_operations_total",
+		Help: "Total number of Taiko batch operations",
+	}, []string{"operation", "status"})
+	TaikoBatchProcessingDuration = factory.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "taiko_batch_processing_duration_seconds",
+		Help:    "Duration of Taiko batch processing operations",
+		Buckets: HistogramBuckets,
+	}, []string{"operation"})
+	TaikoL1ReorgDetectionCounter = factory.NewCounter(prometheus.CounterOpts{
+		Name: "taiko_l1_reorg_detections_total",
+		Help: "Total number of L1 reorg detections",
+	})
+	TaikoSyncProgressGauge = factory.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "taiko_sync_progress_percentage",
+		Help: "L2 execution engine sync progress percentage",
+	}, []string{"type"})
+	TaikoProtocolConfigFetchCounter = factory.NewCounterVec(prometheus.CounterOpts{
+		Name: "taiko_protocol_config_fetches_total",
+		Help: "Total number of protocol config fetches",
+	}, []string{"status"})
+	TaikoVerifierCallsCounter = factory.NewCounterVec(prometheus.CounterOpts{
+		Name: "taiko_verifier_calls_total",
+		Help: "Total number of calls to verifier contracts",
+	}, []string{"verifier_type", "status"})
+	TaikoPreconfOperationsCounter = factory.NewCounterVec(prometheus.CounterOpts{
+		Name: "taiko_preconf_operations_total",
+		Help: "Total number of preconfirmation operations",
+	}, []string{"operation", "status"})
+	TaikoL2HeadLagGauge = factory.NewGauge(prometheus.GaugeOpts{
+		Name: "taiko_l2_head_lag_blocks",
+		Help: "Number of blocks L2 head is behind L1",
+	})
 )
 
 // Serve starts the metrics server on the given address, will be closed when the given

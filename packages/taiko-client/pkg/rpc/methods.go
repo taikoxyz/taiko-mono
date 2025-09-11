@@ -23,6 +23,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/hekla"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -45,9 +46,11 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 
 	configs, err := c.PacayaClients.TaikoInbox.PacayaConfig(opts)
 	if err != nil {
+		metrics.TaikoProtocolConfigFetchCounter.WithLabelValues("error").Inc()
 		return nil, err
 	}
 
+	metrics.TaikoProtocolConfigFetchCounter.WithLabelValues("success").Inc()
 	return config.NewPacayaProtocolConfigs(&configs), nil
 }
 
@@ -284,14 +287,21 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 
 // GetBatchByID fetches the batch by ID from the Pacaya protocol.
 func (c *Client) GetBatchByID(ctx context.Context, batchID *big.Int) (*pacayaBindings.ITaikoInboxBatch, error) {
+	start := time.Now()
+	defer func() {
+		metrics.TaikoBatchProcessingDuration.WithLabelValues("get_batch_by_id").Observe(time.Since(start).Seconds())
+	}()
+
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
 	batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, batchID.Uint64())
 	if err != nil {
+		metrics.TaikoBatchOperationsCounter.WithLabelValues("get_batch_by_id", "error").Inc()
 		return nil, fmt.Errorf("failed to fetch batch by ID: %w", err)
 	}
 
+	metrics.TaikoBatchOperationsCounter.WithLabelValues("get_batch_by_id", "success").Inc()
 	return &batch, nil
 }
 
@@ -537,6 +547,23 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 		return nil, err
 	}
 
+	// Update sync progress metrics
+	if progress.CurrentBlockID != nil && progress.HighestOriginBlockID != nil {
+		if progress.HighestOriginBlockID.Cmp(common.Big0) > 0 {
+			// Calculate sync progress percentage
+			syncPercentage := float64(progress.CurrentBlockID.Uint64()) / float64(progress.HighestOriginBlockID.Uint64()) * 100
+			metrics.TaikoSyncProgressGauge.WithLabelValues("l2_execution_engine").Set(syncPercentage)
+			
+			// Calculate lag in blocks
+			lag := new(big.Int).Sub(progress.HighestOriginBlockID, progress.CurrentBlockID)
+			if lag.Sign() > 0 {
+				metrics.TaikoL2HeadLagGauge.Set(float64(lag.Uint64()))
+			} else {
+				metrics.TaikoL2HeadLagGauge.Set(0)
+			}
+		}
+	}
+
 	return progress, nil
 }
 
@@ -680,6 +707,7 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 				"l1HashOld", l1Origin.L1BlockHash,
 				"l1HashNew", l1Header.Hash(),
 			)
+			metrics.TaikoL1ReorgDetectionCounter.Inc()
 			batchID = new(big.Int).Sub(batchID, common.Big1)
 			result.IsReorged = true
 			continue
@@ -1053,10 +1081,18 @@ func (c *Client) GetOPVerifierPacaya(opts *bind.CallOpts) (common.Address, error
 // GetSGXVerifierPacaya resolves the Pacaya sgx verifier address.
 func (c *Client) GetSGXVerifierPacaya(opts *bind.CallOpts) (common.Address, error) {
 	if c.PacayaClients.ComposeVerifier == nil {
+		metrics.TaikoVerifierCallsCounter.WithLabelValues("sgx", "error").Inc()
 		return common.Address{}, errors.New("composeVerifier contract is not set")
 	}
 
-	return getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxRethVerifier)
+	addr, err := getImmutableAddressPacaya(c, opts, c.PacayaClients.ComposeVerifier.SgxRethVerifier)
+	if err != nil {
+		metrics.TaikoVerifierCallsCounter.WithLabelValues("sgx", "error").Inc()
+		return common.Address{}, err
+	}
+	
+	metrics.TaikoVerifierCallsCounter.WithLabelValues("sgx", "success").Inc()
+	return addr, nil
 }
 
 // GetRISC0VerifierPacaya resolves the Pacaya risc0 verifier address.
@@ -1118,8 +1154,10 @@ func (c *Client) GetPreconfRouterConfig(opts *bind.CallOpts) (*pacayaBindings.IP
 
 	routerConfig, err := c.PacayaClients.PreconfRouter.GetConfig(opts)
 	if err != nil {
+		metrics.TaikoPreconfOperationsCounter.WithLabelValues("get_router_config", "error").Inc()
 		return nil, fmt.Errorf("failed to get the PreconfRouter config: %w", err)
 	}
+	metrics.TaikoPreconfOperationsCounter.WithLabelValues("get_router_config", "success").Inc()
 	return &routerConfig, nil
 }
 
