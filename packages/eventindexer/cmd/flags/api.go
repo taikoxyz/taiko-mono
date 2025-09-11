@@ -25,7 +25,7 @@ var (
 	}
 	CORSOrigins = &cli.StringFlag{
 		Name:     "http.corsOrigins",
-		Usage:    "Comma-delimited list of cors origins",
+		Usage:    "Comma-delinated list of cors origins",
 		Required: false,
 		Value:    "*",
 		Category: indexerCategory,
