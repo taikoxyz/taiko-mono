@@ -8,7 +8,6 @@ import { IProofVerifier } from "contracts/layer1/shasta/iface/IProofVerifier.sol
 import { IProposerChecker } from "contracts/layer1/shasta/iface/IProposerChecker.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
-import { UUPSUpgradeable } from "@openzeppelin-upgrades/contracts/proxy/utils/UUPSUpgradeable.sol";
 import { MockERC20, MockCheckpointManager, MockProofVerifier } from "../mocks/MockContracts.sol";
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 

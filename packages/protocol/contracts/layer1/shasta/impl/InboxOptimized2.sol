@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "./Inbox.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { InboxOptimized1 } from "./InboxOptimized1.sol";
 import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
@@ -15,7 +16,7 @@ import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 ///      - Maintains all optimizations from InboxOptimized1
 /// @dev Gas savings: ~30% reduction in event emission costs compared to standard ABI encoding
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxOptimized2 is InboxOptimized1 {
+contract InboxOptimized2 is InboxOptimized1 {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -26,7 +27,7 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized1() { }
+    constructor(IInbox.Config memory _config) InboxOptimized1(_config) { }
 
     // ---------------------------------------------------------------
     // External Functions

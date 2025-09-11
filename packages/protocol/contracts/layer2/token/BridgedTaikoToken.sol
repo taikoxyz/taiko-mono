@@ -11,7 +11,7 @@ import "src/shared/token/TaikoTokenBase.sol";
 contract BridgedTaikoToken is TaikoTokenBase, IBridgedERC20 {
     address public immutable erc20Vault;
 
-    constructor(address _erc20Vault) TaikoTokenBase() {
+    constructor(address _erc20Vault) {
         erc20Vault = _erc20Vault;
     }
 

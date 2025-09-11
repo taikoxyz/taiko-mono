@@ -48,7 +48,7 @@ contract DelegateOwner is EssentialContract, IMessageInvocable {
     error DO_INVALID_TX_ID();
     error DO_PERMISSION_DENIED();
 
-    constructor(uint64 _l1ChainId, address _l2Bridge, address _daoController) EssentialContract() {
+    constructor(uint64 _l1ChainId, address _l2Bridge, address _daoController) {
         l1ChainId = _l1ChainId;
         l2Bridge = _l2Bridge;
         daoController = _daoController;

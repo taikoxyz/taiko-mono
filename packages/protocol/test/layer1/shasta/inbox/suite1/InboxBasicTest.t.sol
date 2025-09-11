@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 import "./InboxTest.sol";
-import { Inbox, InvalidState, DeadlineExceeded } from "contracts/layer1/shasta/impl/Inbox.sol";
+import { InvalidState, DeadlineExceeded } from "contracts/layer1/shasta/impl/Inbox.sol";
 
 /// @title InboxBasicTest
 /// @notice Basic tests for the Inbox contract fundamental operations

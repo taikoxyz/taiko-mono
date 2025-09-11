@@ -26,6 +26,7 @@ interface IPacayaFork {
     function getBatchVerifyingTransition(uint64) external;
     function pacayaConfig() external;
     function isOnL1() external;
+    function v4GetConfig() external;
 }
 
 /// @title ShastaForkRouter
@@ -53,6 +54,7 @@ contract ShastaForkRouter is ForkRouter {
                 || _selector == IPacayaFork.getBatchVerifyingTransition.selector
                 || _selector == IPacayaFork.pacayaConfig.selector
                 || _selector == IPacayaFork.isOnL1.selector
+                || _selector == IPacayaFork.v4GetConfig.selector
         ) return true;
 
         return false;
