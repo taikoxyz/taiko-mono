@@ -410,7 +410,7 @@ func (c *Client) CalculateBaseFee(
 				l2Head.Time-grandParentBlock.Time,
 			)
 		}
-		log.Info("Base fee information", "fee", utils.WeiToGWei(baseFee), "l2Head", l2Head.Number)
+		log.Info("Shasta base fee information", "fee", utils.WeiToGWei(baseFee), "l2Head", l2Head.Number)
 
 		return baseFee, nil
 	}
@@ -418,7 +418,7 @@ func (c *Client) CalculateBaseFee(
 		return nil, err
 	}
 
-	log.Info("Base fee information", "fee", utils.WeiToGWei(baseFee), "l2Head", l2Head.Number)
+	log.Info("Pacaya base fee information", "fee", utils.WeiToGWei(baseFee), "l2Head", l2Head.Number)
 
 	return baseFee, nil
 }

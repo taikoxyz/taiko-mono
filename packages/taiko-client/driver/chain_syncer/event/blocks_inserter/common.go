@@ -6,14 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/params"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/consensus/misc"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -521,24 +518,15 @@ func assembleCreateExecutionPayloadMetaShasta(
 		blockID       = new(big.Int).Add(parent.Number, common.Big1)
 		blockInfo     = proposalManifest.Blocks[blockIndex]
 		anchorBlockID = new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
-		baseFee       = new(big.Int).SetUint64(params.ShastaInitialBaseFee)
 	)
 	difficulty, err := encoding.CalculateShastaDifficulty(parent.Difficulty, blockID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
 	}
 
-	// Calculate base fee
-	if parent.Number.Cmp(new(big.Int).Add(rpc.ShastaClients.ForkHeight, common.Big2)) > 0 {
-		grandParentBlock, err := rpc.L2.HeaderByHash(ctx, parent.ParentHash)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch grand parent block: %w", err)
-		}
-		baseFee = misc.CalcEIP4396BaseFee(
-			core.TaikoGenesisBlock(rpc.L2.ChainID.Uint64()).Config,
-			parent,
-			parent.Time-grandParentBlock.Time,
-		)
+	baseFee, err := rpc.CalculateBaseFee(ctx, parent, nil, uint64(time.Now().Unix()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
 	}
 
 	log.Info("L2 baseFee", "blockID", blockID, "basefee", utils.WeiToGWei(baseFee))
