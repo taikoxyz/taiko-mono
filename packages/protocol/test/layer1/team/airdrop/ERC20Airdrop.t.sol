@@ -56,7 +56,10 @@ contract SimpleERC20Vault is OwnableUpgradeable {
     }
 
     function withdrawFunds(address token, address to) public onlyOwner {
-        BridgedERC20(token).transfer(to, BridgedERC20(token).balanceOf(address(this)));
+        require(
+            BridgedERC20(token).transfer(to, BridgedERC20(token).balanceOf(address(this))),
+            "Transfer failed"
+        );
     }
 }
 
