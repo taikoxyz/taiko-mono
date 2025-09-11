@@ -67,7 +67,7 @@ contract TestTokenUnlock is Layer1Test {
 
         vm.startPrank(Alice);
         target.vest(100 ether);
-        taikoToken.transfer(address(target), 0.5 ether);
+        require(taikoToken.transfer(address(target), 0.5 ether), "Transfer failed");
         vm.stopPrank();
 
         assertEq(taikoToken.balanceOf(address(target)), 100.5 ether);
@@ -99,7 +99,7 @@ contract TestTokenUnlock is Layer1Test {
         assertEq(target.amountWithdrawable(), 100.5 ether);
 
         vm.prank(Alice);
-        taikoToken.transfer(address(target), 0.5 ether);
+        require(taikoToken.transfer(address(target), 0.5 ether), "Transfer failed");
         assertEq(target.amountVested(), 100 ether);
         assertEq(target.amountWithdrawable(), 101 ether);
     }
@@ -125,7 +125,7 @@ contract TestTokenUnlock is Layer1Test {
         assertEq(target.amountWithdrawable(), 150 ether);
 
         vm.prank(Alice);
-        taikoToken.transfer(address(target), 1000 ether);
+        require(taikoToken.transfer(address(target), 1000 ether), "Transfer failed");
 
         vm.warp(TGE + target.ONE_YEAR() * 2);
         assertEq(target.amountVested(), 600 ether);
@@ -182,7 +182,7 @@ contract TestTokenUnlock is Layer1Test {
         assertEq(taikoToken.balanceOf(address(target)), 525 ether);
 
         vm.prank(Alice);
-        taikoToken.transfer(address(target), 1000 ether);
+        require(taikoToken.transfer(address(target), 1000 ether), "Transfer failed");
 
         vm.warp(TGE + target.ONE_YEAR() * 2);
         assertEq(target.amountVested(), 600 ether);
@@ -217,7 +217,7 @@ contract TestTokenUnlock is Layer1Test {
         target.withdraw(address(0), 1 ether);
 
         vm.prank(Alice);
-        taikoToken.transfer(address(target), 300 ether);
+        require(taikoToken.transfer(address(target), 300 ether), "Transfer failed");
 
         vm.warp(TGE + target.ONE_YEAR() * 5);
 
@@ -227,7 +227,7 @@ contract TestTokenUnlock is Layer1Test {
         assertEq(taikoToken.balanceOf(address(target)), 0 ether);
 
         vm.prank(Alice);
-        taikoToken.transfer(address(target), 1000 ether);
+        require(taikoToken.transfer(address(target), 1000 ether), "Transfer failed");
         assertEq(target.amountWithdrawable(), 1000 ether);
 
         vm.prank(Bob);

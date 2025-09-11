@@ -6,9 +6,9 @@ import { LibBlobs } from "./LibBlobs.sol";
 /// @title LibManifest
 /// @custom:security-contact security@taiko.xyz
 library LibManifest {
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Constants
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     /// @notice The maximum number of blobs allowed in a proposal.
     uint256 internal constant PROPOSAL_MAX_BLOBS = 4;
     /// @notice The maximum number of bytes allowed in a proposal.
@@ -39,9 +39,9 @@ library LibManifest {
     /// @dev This ensures block gas limit never drops below a critical threshold.
     uint256 internal constant MIN_BLOCK_GAS_LIMIT = 15_000_000;
 
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Structs
-    // -------------------------------------------------------------------
+    // ---------------------------------------------------------------
 
     /// @notice Represents a signed Ethereum transaction
     /// @dev Follows EIP-2718 typed transaction format with EIP-1559 support

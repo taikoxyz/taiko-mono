@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "./Inbox.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { InboxOptimized2 } from "./InboxOptimized2.sol";
 import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
 import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
@@ -17,7 +18,7 @@ import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 ///      - Maintains all optimizations from InboxOptimized1 and InboxOptimized2
 /// @dev Gas savings: ~40% reduction in calldata costs for propose/prove operations
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxOptimized3 is InboxOptimized2 {
+contract InboxOptimized3 is InboxOptimized2 {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -28,7 +29,7 @@ abstract contract InboxOptimized3 is InboxOptimized2 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized2() { }
+    constructor(IInbox.Config memory _config) InboxOptimized2(_config) { }
 
     // ---------------------------------------------------------------
     // External Functions

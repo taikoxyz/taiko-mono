@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { LibProposedEventEncoder } from "src/layer1/shasta/libs/LibProposedEventEncoder.sol";
-import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 
 /// @title LibProposedEventEncoderFuzzTest
@@ -34,6 +33,8 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.proposal.id = _id;
         payload.proposal.proposer = _proposer;
         payload.proposal.timestamp = _timestamp;
+        payload.proposal.endOfSubmissionWindowTimestamp =
+            _timestamp < type(uint48).max - 1000 ? _timestamp + 1000 : _timestamp;
         payload.proposal.coreStateHash = _coreStateHash;
         payload.proposal.derivationHash = _derivationHash;
 
@@ -50,12 +51,16 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(decoded.proposal.id, payload.proposal.id);
         assertEq(decoded.proposal.proposer, payload.proposal.proposer);
         assertEq(decoded.proposal.timestamp, payload.proposal.timestamp);
+        assertEq(
+            decoded.proposal.endOfSubmissionWindowTimestamp,
+            payload.proposal.endOfSubmissionWindowTimestamp
+        );
         assertEq(decoded.proposal.coreStateHash, payload.proposal.coreStateHash);
-        // derivationHash is not preserved by encoder
+        assertEq(decoded.proposal.derivationHash, payload.proposal.derivationHash);
 
         // Verify Derivation fields
         assertEq(decoded.derivation.originBlockNumber, payload.derivation.originBlockNumber);
-        // originBlockHash is not preserved by encoder
+        assertEq(decoded.derivation.originBlockHash, payload.derivation.originBlockHash);
         assertEq(decoded.derivation.isForcedInclusion, payload.derivation.isForcedInclusion);
         assertEq(decoded.derivation.basefeeSharingPctg, payload.derivation.basefeeSharingPctg);
     }
@@ -146,6 +151,8 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.proposal.id = _id;
         payload.proposal.proposer = _proposer;
         payload.proposal.timestamp = _timestamp;
+        payload.proposal.endOfSubmissionWindowTimestamp =
+            _timestamp < type(uint48).max - 1000 ? _timestamp + 1000 : _timestamp;
         payload.proposal.coreStateHash = keccak256(abi.encode("core", _id));
         payload.proposal.derivationHash = keccak256(abi.encode("deriv", _id));
 
@@ -183,6 +190,10 @@ contract LibProposedEventEncoderFuzzTest is Test {
         assertEq(decoded.proposal.id, payload.proposal.id);
         assertEq(decoded.proposal.proposer, payload.proposal.proposer);
         assertEq(decoded.proposal.timestamp, payload.proposal.timestamp);
+        assertEq(
+            decoded.proposal.endOfSubmissionWindowTimestamp,
+            payload.proposal.endOfSubmissionWindowTimestamp
+        );
         assertEq(decoded.proposal.coreStateHash, payload.proposal.coreStateHash);
         assertEq(decoded.derivation.originBlockNumber, payload.derivation.originBlockNumber);
         assertEq(decoded.derivation.isForcedInclusion, payload.derivation.isForcedInclusion);
@@ -240,6 +251,8 @@ contract LibProposedEventEncoderFuzzTest is Test {
         original.proposal.id = _id;
         original.proposal.proposer = _proposer;
         original.proposal.timestamp = _timestamp;
+        original.proposal.endOfSubmissionWindowTimestamp =
+            _timestamp < type(uint48).max - 1000 ? _timestamp + 1000 : _timestamp;
         original.proposal.coreStateHash = keccak256(abi.encode("core", _id));
         original.proposal.derivationHash = keccak256(abi.encode("deriv", _id));
 
@@ -272,6 +285,11 @@ contract LibProposedEventEncoderFuzzTest is Test {
         // Verify data is preserved through multiple round trips
         assertEq(decoded1.proposal.id, decoded2.proposal.id);
         assertEq(decoded1.proposal.proposer, decoded2.proposal.proposer);
+        assertEq(decoded1.proposal.timestamp, decoded2.proposal.timestamp);
+        assertEq(
+            decoded1.proposal.endOfSubmissionWindowTimestamp,
+            decoded2.proposal.endOfSubmissionWindowTimestamp
+        );
         assertEq(decoded1.coreState.nextProposalId, decoded2.coreState.nextProposalId);
         assertEq(
             decoded1.coreState.lastFinalizedProposalId, decoded2.coreState.lastFinalizedProposalId
@@ -287,6 +305,7 @@ contract LibProposedEventEncoderFuzzTest is Test {
         payload.proposal.id = 123;
         payload.proposal.proposer = address(0x1234);
         payload.proposal.timestamp = 1_000_000;
+        payload.proposal.endOfSubmissionWindowTimestamp = 1_100_000;
         payload.proposal.coreStateHash = keccak256("core");
         payload.proposal.derivationHash = keccak256("deriv");
 

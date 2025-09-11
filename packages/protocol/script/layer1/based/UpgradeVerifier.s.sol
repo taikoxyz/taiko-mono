@@ -3,7 +3,6 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
-import { SP1Verifier as SuccinctVerifier } from "@sp1-contracts/src/v5.0.0/SP1VerifierPlonk.sol";
 import "src/layer1/verifiers/TaikoSP1Verifier.sol";
 import "test/shared/DeployCapability.sol";
 import "@risc0/contracts/groth16/RiscZeroGroth16Verifier.sol";
