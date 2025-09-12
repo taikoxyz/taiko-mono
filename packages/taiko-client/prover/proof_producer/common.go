@@ -135,8 +135,6 @@ func requestHTTPProofResponse[T any](
 	return res, nil
 }
 
-
-
 // updateProvingMetrics updates the metrics for the given proof type, including
 // the generation time and the number of proofs generated.
 func updateProvingMetrics(proofType ProofType, requestAt time.Time, isAggregation bool) {
