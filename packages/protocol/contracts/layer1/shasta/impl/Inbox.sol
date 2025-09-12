@@ -23,7 +23,7 @@ import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.so
 ///      - Ring buffer storage for efficient state management
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals
-/// @dev DEPLOYMENT: For mainnet deployment, use FOUNDRY_PROFILE=layer1o to enable via_ir 
+/// @dev DEPLOYMENT: For mainnet deployment, use FOUNDRY_PROFILE=layer1o to enable via_ir
 ///      and yul optimizations. Regular compilation may exceed 24KB contract size limit.
 ///      Example: FOUNDRY_PROFILE=layer1o forge build contracts/layer1/shasta/impl/Inbox.sol
 /// @custom:security-contact security@taiko.xyz

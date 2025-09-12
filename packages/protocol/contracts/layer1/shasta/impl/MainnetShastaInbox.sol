@@ -11,7 +11,8 @@ import { LibL1Addrs } from "../../mainnet/libs/LibL1Addrs.sol";
 /// with optimized reentrancy lock implementation and efficient hashing.
 /// @dev DEPLOYMENT: CRITICAL - Must use FOUNDRY_PROFILE=layer1o for mainnet deployment.
 ///      Contract size (26,455 bytes) exceeds 24KB limit without optimization.
-///      Example: FOUNDRY_PROFILE=layer1o forge build contracts/layer1/shasta/impl/MainnetShastaInbox.sol
+///      Example: FOUNDRY_PROFILE=layer1o forge build
+/// contracts/layer1/shasta/impl/MainnetShastaInbox.sol
 /// @custom:security-contact security@taiko.xyz
 contract MainnetShastaInbox is InboxOptimized4 {
     // ---------------------------------------------------------------
