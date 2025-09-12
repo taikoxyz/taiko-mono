@@ -4,8 +4,8 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/src/Test.sol";
 import { console } from "forge-std/src/console.sol";
-import { LibBonds } from "contracts/shared/based/libs/LibBonds.sol";
-import { LibBondsL1 } from "contracts/layer1/shasta/libs/LibBondsL1.sol";
+import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBondsL1 } from "src/layer1/shasta/libs/LibBondsL1.sol";
 
 /// @title LibBondsGasTest
 /// @notice Gas benchmark tests for LibBonds merge optimization
@@ -85,75 +85,79 @@ contract LibBondsGasTest is Test {
 
     /// @notice Test gas costs at various array sizes to find break-even point
     function test_gasComparison_variousSizes() public {
-        // Test sizes from 1 to 20 elements total
-        for (uint256 totalSize = 1; totalSize <= 20; totalSize++) {
-            // Test different splits between existing and new arrays
-            for (uint256 existingSize = 0; existingSize <= totalSize; existingSize++) {
-                uint256 newSize = totalSize - existingSize;
+        // Test sizes from 1 to 12 elements total (reduced to stay under gas limits)
+        for (uint256 totalSize = 1; totalSize <= 12; totalSize++) {
+            // Test only a few splits to reduce gas usage
+            uint256 existingSize = totalSize / 2;
+            uint256 newSize = totalSize - existingSize;
 
-                LibBonds.BondInstruction[] memory existing =
-                    _createBondInstructionsArray(existingSize);
-                LibBonds.BondInstruction[] memory newInstructions =
-                    _createBondInstructionsArray(newSize);
+            LibBonds.BondInstruction[] memory existing =
+                _createBondInstructionsArray(existingSize);
+            LibBonds.BondInstruction[] memory newInstructions =
+                _createBondInstructionsArray(newSize);
 
-                // Measure optimized version
-                uint256 gasBefore = gasleft();
-                mergeBondInstructionsPublic(existing, newInstructions);
-                uint256 optimizedGas = gasBefore - gasleft();
+            // Measure optimized version
+            uint256 gasBefore = gasleft();
+            mergeBondInstructionsPublic(existing, newInstructions);
+            uint256 optimizedGas = gasBefore - gasleft();
 
-                // Measure legacy version
-                gasBefore = gasleft();
-                mergeBondInstructionsLegacy(existing, newInstructions);
-                uint256 legacyGas = gasBefore - gasleft();
+            // Measure legacy version
+            gasBefore = gasleft();
+            mergeBondInstructionsLegacy(existing, newInstructions);
+            uint256 legacyGas = gasBefore - gasleft();
 
-                // Log results for analysis
-                emit log_named_uint("TotalSize", totalSize);
-                emit log_named_uint("ExistingSize", existingSize);
-                emit log_named_uint("NewSize", newSize);
-                emit log_named_uint("OptimizedGas", optimizedGas);
-                emit log_named_uint("LegacyGas", legacyGas);
+            // Log results for analysis
+            emit log_named_uint("TotalSize", totalSize);
+            emit log_named_uint("ExistingSize", existingSize);
+            emit log_named_uint("NewSize", newSize);
+            emit log_named_uint("OptimizedGas", optimizedGas);
+            emit log_named_uint("LegacyGas", legacyGas);
 
-                if (optimizedGas < legacyGas) {
-                    emit log_named_int("GasSaved", int256(legacyGas) - int256(optimizedGas));
-                } else {
-                    emit log_named_int("GasOverhead", int256(optimizedGas) - int256(legacyGas));
-                }
-                emit log("---");
+            if (optimizedGas < legacyGas) {
+                emit log_named_int("GasSaved", int256(legacyGas) - int256(optimizedGas));
+            } else {
+                emit log_named_int("GasOverhead", int256(optimizedGas) - int256(legacyGas));
             }
+            emit log("---");
         }
     }
 
     /// @notice Focused test on break-even point (around 8 elements)
     function test_gasComparison_breakEvenPoint() public view {
-        for (uint256 totalSize = 6; totalSize <= 12; totalSize++) {
-            LibBonds.BondInstruction[] memory existing = _createBondInstructionsArray(totalSize / 2);
-            LibBonds.BondInstruction[] memory newInstructions =
-                _createBondInstructionsArray(totalSize - totalSize / 2);
+        // Test a few specific sizes instead of a loop to avoid gas issues
+        _testSingleSize(6);
+        _testSingleSize(7);
+        _testSingleSize(8);
+        _testSingleSize(9);
+        _testSingleSize(10);
+    }
 
-            uint256 gasBefore = gasleft();
-            mergeBondInstructionsPublic(existing, newInstructions);
-            uint256 optimizedGas = gasBefore - gasleft();
+    function _testSingleSize(uint256 totalSize) internal view {
+        LibBonds.BondInstruction[] memory existing = _createBondInstructionsArray(totalSize / 2);
+        LibBonds.BondInstruction[] memory newInstructions =
+            _createBondInstructionsArray(totalSize - totalSize / 2);
 
-            gasBefore = gasleft();
-            mergeBondInstructionsLegacy(existing, newInstructions);
-            uint256 legacyGas = gasBefore - gasleft();
+        uint256 gasBefore = gasleft();
+        mergeBondInstructionsPublic(existing, newInstructions);
+        uint256 optimizedGas = gasBefore - gasleft();
 
-            console.log("Size:", totalSize);
-            console.log("  Optimized gas:", optimizedGas);
-            console.log("  Legacy gas:", legacyGas);
-            console.log("  Difference:", int256(optimizedGas) - int256(legacyGas));
-        }
+        gasBefore = gasleft();
+        mergeBondInstructionsLegacy(existing, newInstructions);
+        uint256 legacyGas = gasBefore - gasleft();
+
+        console.log("Size:", totalSize);
+        console.log("  Optimized gas:", optimizedGas);
+        console.log("  Legacy gas:", legacyGas);
+        console.log("  Difference:", int256(optimizedGas) - int256(legacyGas));
     }
 
     /// @notice Benchmark specific scenarios
     function test_gasComparison_scenarios() public view {
-        TestCase[] memory cases = new TestCase[](6);
+        TestCase[] memory cases = new TestCase[](4);
         cases[0] = TestCase(1, 1, "Small arrays (2 total)");
         cases[1] = TestCase(2, 2, "Small arrays (4 total)");
         cases[2] = TestCase(4, 4, "Break-even test (8 total)");
         cases[3] = TestCase(5, 5, "Just above break-even (10 total)");
-        cases[4] = TestCase(10, 10, "Medium arrays (20 total)");
-        cases[5] = TestCase(25, 25, "Large arrays (50 total)");
 
         for (uint256 i; i < cases.length; ++i) {
             TestCase memory testCase = cases[i];
