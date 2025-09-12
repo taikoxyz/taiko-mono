@@ -34,7 +34,8 @@ contract InboxOptimized1 is Inbox {
 
     /// @dev Storage for default transition records to optimize gas usage
     /// @notice Stores the most common transition record for each buffer slot
-    /// @dev Ring buffer implementation with collision handling that falls back to composite key mapping
+    /// @dev Ring buffer implementation with collision handling that falls back to composite key
+    /// mapping
     mapping(uint256 bufferSlot => ReusableTransitionRecord reusableTransitionRecord) internal
         _reusableTransitionRecords;
 
