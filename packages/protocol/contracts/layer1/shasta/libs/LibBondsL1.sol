@@ -12,8 +12,48 @@ library LibBondsL1 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
-
+    
     uint256 private constant _ASSEMBLY_THRESHOLD = 8;
+
+    // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Merges two bond instruction arrays into a single array
+    /// @dev Optimized for memory allocation and copying to reduce gas costs
+    /// Uses assembly bulk-copy for larger arrays, falls back to loop-based copying for smaller
+    /// arrays
+    /// @param _existingInstructions The existing bond instructions array
+    /// @param _newInstructions The new bond instructions array to merge
+    /// @return merged_ The merged bond instructions array
+    function mergeBondInstructions(
+        LibBonds.BondInstruction[] memory _existingInstructions,
+        LibBonds.BondInstruction[] memory _newInstructions
+    )
+        public
+        pure
+        returns (LibBonds.BondInstruction[] memory merged_)
+    {
+        unchecked {
+            if (_newInstructions.length == 0) {
+                return _existingInstructions;
+            }
+
+            if (_existingInstructions.length == 0) {
+                return _newInstructions;
+            }
+
+            uint256 totalLen = _existingInstructions.length + _newInstructions.length;
+
+            // Break-even point: use assembly bulk-copy for arrays with more than 8 elements total
+            // Below this threshold, the overhead of assembly operations outweighs the benefits
+            // The constant 8 was determined through gas testing: assembly operations have fixed
+            // overhead that only becomes profitable when copying larger amounts of data
+            return totalLen > _ASSEMBLY_THRESHOLD
+                ? _bulkCopyBondInstructions(_existingInstructions, _newInstructions)
+                : _loopCopyBondInstructions(_existingInstructions, _newInstructions);
+        }
+    }
 
     // ---------------------------------------------------------------
     // Internal Functions
@@ -74,42 +114,6 @@ library LibBondsL1 {
                 payer: isWithinExtendedWindow ? _transition.designatedProver : _proposal.proposer,
                 receiver: _transition.actualProver
             });
-        }
-    }
-
-    /// @notice Merges two bond instruction arrays into a single array
-    /// @dev Optimized for memory allocation and copying to reduce gas costs
-    /// Uses assembly bulk-copy for larger arrays, falls back to loop-based copying for smaller
-    /// arrays
-    /// @param _existingInstructions The existing bond instructions array
-    /// @param _newInstructions The new bond instructions array to merge
-    /// @return merged_ The merged bond instructions array
-    function mergeBondInstructions(
-        LibBonds.BondInstruction[] memory _existingInstructions,
-        LibBonds.BondInstruction[] memory _newInstructions
-    )
-        internal
-        pure
-        returns (LibBonds.BondInstruction[] memory merged_)
-    {
-        unchecked {
-            if (_newInstructions.length == 0) {
-                return _existingInstructions;
-            }
-
-            if (_existingInstructions.length == 0) {
-                return _newInstructions;
-            }
-
-            uint256 totalLen = _existingInstructions.length + _newInstructions.length;
-
-            // Break-even point: use assembly bulk-copy for arrays with more than 8 elements total
-            // Below this threshold, the overhead of assembly operations outweighs the benefits
-            // The constant 8 was determined through gas testing: assembly operations have fixed
-            // overhead that only becomes profitable when copying larger amounts of data
-            return totalLen > _ASSEMBLY_THRESHOLD
-                ? _bulkCopyBondInstructions(_existingInstructions, _newInstructions)
-                : _loopCopyBondInstructions(_existingInstructions, _newInstructions);
         }
     }
 
