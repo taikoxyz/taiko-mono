@@ -5,6 +5,7 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { console } from "forge-std/src/console.sol";
 import { LibBonds } from "contracts/shared/based/libs/LibBonds.sol";
+import { LibBondsL1 } from "contracts/layer1/shasta/libs/LibBondsL1.sol";
 
 /// @title LibBondsGasTest
 /// @notice Gas benchmark tests for LibBonds merge optimization
@@ -26,7 +27,7 @@ contract LibBondsGasTest is Test {
         pure
         returns (LibBonds.BondInstruction[] memory)
     {
-        return LibBonds.mergeBondInstructions(existing, new_);
+        return LibBondsL1.mergeBondInstructions(existing, new_);
     }
 
     // Legacy implementation for comparison

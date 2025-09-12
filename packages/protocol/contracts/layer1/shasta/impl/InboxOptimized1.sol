@@ -96,12 +96,9 @@ contract InboxOptimized1 is Inbox {
                     _input.transitions[i]
                 );
 
-                // Note that using assembly-optimized, bulk copying-based memory merging is more
-                // gas efficient only when newInstructions is larger than 8.
-
                 if (newInstructions.length > 0) {
                     // Use LibBonds merge function for cleaner code organization
-                    currentRecord.bondInstructions = LibBonds.mergeBondInstructions(
+                    currentRecord.bondInstructions = LibBondsL1.mergeBondInstructions(
                         currentRecord.bondInstructions, newInstructions
                     );
                 }
