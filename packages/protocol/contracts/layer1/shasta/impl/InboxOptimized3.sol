@@ -16,7 +16,6 @@ import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 ///      - Compact binary representation using LibProposeInputDecoder and LibProveInputDecoder
 ///      - Reduced transaction costs through efficient data packing
 ///      - Maintains all optimizations from InboxOptimized1 and InboxOptimized2
-/// @dev Gas savings: ~40% reduction in calldata costs for propose/prove operations
 /// @custom:security-contact security@taiko.xyz
 contract InboxOptimized3 is InboxOptimized2 {
     // ---------------------------------------------------------------
@@ -36,8 +35,9 @@ contract InboxOptimized3 is InboxOptimized2 {
     // ---------------------------------------------------------------
 
     /// @notice Encodes ProposeInput using optimized binary format
-    /// @dev Reduces calldata size by ~35% compared to standard ABI encoding
+    /// @dev Reduces calldata size compared to standard ABI encoding
     /// @param _input The ProposeInput struct to encode
+    /// @return Compact binary representation
     function encodeProposeInput(ProposeInput memory _input)
         external
         pure
@@ -48,8 +48,9 @@ contract InboxOptimized3 is InboxOptimized2 {
     }
 
     /// @notice Encodes ProveInput using optimized binary format
-    /// @dev Reduces calldata size by ~40% compared to standard ABI encoding
+    /// @dev Reduces calldata size compared to standard ABI encoding
     /// @param _input The ProveInput struct to encode
+    /// @return Compact binary representation
     function encodeProveInput(ProveInput memory _input)
         external
         pure
@@ -89,7 +90,7 @@ contract InboxOptimized3 is InboxOptimized2 {
     /// @notice Decodes custom-encoded proposal input data
     /// @dev Overrides base implementation to use LibProposeInputDecoder
     /// @param _data The custom-encoded propose input data
-    /// @return _ The decoded ProposeInput struct with all proposal parameters
+    /// @return _ The decoded ProposeInput struct
     function decodeProposeInput(bytes calldata _data)
         public
         pure
@@ -103,7 +104,7 @@ contract InboxOptimized3 is InboxOptimized2 {
     /// @notice Decodes custom-encoded prove input data
     /// @dev Overrides base implementation to use LibProveInputDecoder
     /// @param _data The custom-encoded prove input data
-    /// @return The decoded ProveInput struct with proposals and transitions arrays
+    /// @return The decoded ProveInput struct
     function decodeProveInput(bytes calldata _data)
         public
         pure
