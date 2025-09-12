@@ -87,7 +87,10 @@ script = "script/layer2"
 out = "out/genesis"
 evm_version = "shanghai"
 
-[profile.inbox_optimized]
+# Layer1 Optimized profile: Enables via_ir and yul optimizations for maximum contract size reduction
+# Used for contracts that can handle aggressive IR compilation (e.g., Inbox implementations)  
+# Usage: FOUNDRY_PROFILE=layer1o forge build <contracts> --sizes
+[profile.layer1o]
 src = "contracts/layer1"
 test = "test/layer1"
 script = "script/layer1"
