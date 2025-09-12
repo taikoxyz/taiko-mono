@@ -21,7 +21,7 @@ library LibBondsL1 {
 
     /// @notice Calculates bond instructions based on proof timing and prover identity
     /// @dev Bond instruction rules:
-    ///         - On-time (withi2n provingWindow): No bond changes
+    ///         - On-time (within provingWindow): No bond changes
     ///         - Late (within extendedProvingWindow): Liveness bond transfer if prover differs from
     ///           designated
     ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
