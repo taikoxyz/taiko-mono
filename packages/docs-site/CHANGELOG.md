@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.31.1](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.31.0...docs-site-v1.31.1) (2025-09-13)
+
+
+### Documentation
+
+* **docs-site:** fix ERC-4337 doc link ([#20111](https://github.com/taikoxyz/taiko-mono/issues/20111)) ([f13659c](https://github.com/taikoxyz/taiko-mono/commit/f13659c4464a2b4aa748756eda8439a53f41247e))
+* **docs-site:** typo fix ([#20077](https://github.com/taikoxyz/taiko-mono/issues/20077)) ([9232838](https://github.com/taikoxyz/taiko-mono/commit/9232838a0f580567112bad253f997bec7c4a4eab))
+
 ## [1.31.0](https://github.com/taikoxyz/taiko-mono/compare/docs-site-v1.30.0...docs-site-v1.31.0) (2025-09-03)
 
 
