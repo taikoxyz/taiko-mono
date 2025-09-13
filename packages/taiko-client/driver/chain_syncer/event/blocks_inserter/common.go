@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
@@ -531,10 +532,26 @@ func assembleCreateExecutionPayloadMetaShasta(
 
 	log.Info("L2 baseFee", "blockID", blockID, "basefee", utils.WeiToGWei(baseFee))
 
+	latestState, err := rpc.ShastaClients.Anchor.GetState(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch latest anchor state: %w", err)
+	}
+
 	anchorBlockHeader, err := rpc.L1.HeaderByNumber(ctx, anchorBlockID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch anchor block: %w", err)
 	}
+	var (
+		anchorBlockHeaderHash = anchorBlockHeader.Hash()
+		anchorBlockHeaderRoot = anchorBlockHeader.Root
+	)
+
+	// If anchorBlockNumber == parent.metadata.anchorBlockNumber: Both anchorBlockHash and anchorStateRoot must be zero
+	if anchorBlockID.Cmp(latestState.AnchorBlockNumber) <= 0 {
+		anchorBlockHeaderHash = common.Hash{}
+		anchorBlockHeaderRoot = common.Hash{}
+	}
+
 	anchorTx, err := anchorConstructor.AssembleUpdateStateTx(
 		ctx,
 		parent,
@@ -545,8 +562,8 @@ func assembleCreateExecutionPayloadMetaShasta(
 		blockInfo.BondInstructions,
 		uint16(blockIndex),
 		anchorBlockID,
-		anchorBlockHeader.Hash(),
-		anchorBlockHeader.Root,
+		anchorBlockHeaderHash,
+		anchorBlockHeaderRoot,
 		meta.GetProposal().EndOfSubmissionWindowTimestamp,
 		blockID,
 		baseFee,

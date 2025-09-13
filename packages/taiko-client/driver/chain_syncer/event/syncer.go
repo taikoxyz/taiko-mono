@@ -269,6 +269,13 @@ func (s *Syncer) processShastaProposal(
 		}
 	}
 
+	latestState, err := s.rpc.ShastaClients.Anchor.GetState(
+		&bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx},
+	)
+	if err != nil {
+		return err
+	}
+
 	if !proposalManifest.Default {
 		// Proposer and `isLowBondProposal` Validation
 		designatedProverInfo, err := s.rpc.ShastaClients.Anchor.GetDesignatedProver(
@@ -283,13 +290,6 @@ func (s *Syncer) processShastaProposal(
 
 		if designatedProverInfo.IsLowBondProposal {
 			proposalManifest = &manifest.ProposalManifest{Default: true, IsLowBondProposal: true}
-		}
-
-		latestState, err := s.rpc.ShastaClients.Anchor.GetState(
-			&bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx},
-		)
-		if err != nil {
-			return err
 		}
 
 		// Check block-level metadata and reset some incorrect value
@@ -312,7 +312,7 @@ func (s *Syncer) processShastaProposal(
 				ProtocolBlockManifest: manifest.ProtocolBlockManifest{
 					Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
 					Coinbase:          meta.GetProposal().Proposer,
-					AnchorBlockNumber: 0,
+					AnchorBlockNumber: latestState.AnchorBlockNumber.Uint64(),
 					GasLimit:          proposalManifest.ParentBlock.GasLimit(), // Inherit parentBlock's value
 					Transactions:      types.Transactions{},
 				},

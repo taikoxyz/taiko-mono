@@ -266,7 +266,6 @@ func ValidateMetadata(
 	validateMetadataTimestamp(proposalManifest, proposal)
 
 	// 2. Validate and adjust each block's anchor block number.
-	// TODO: anchor hash validation
 	if !validateAnchorBlockNumber(
 		proposalManifest,
 		originBlockNumber,
