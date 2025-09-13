@@ -5,8 +5,8 @@ export async function getFirstAvailableBlockInfo(srcChainId: number): Promise<Re
   const relayerTxPromises = relayerApiServices.map((relayerApiService) => relayerApiService.getBlockInfo());
 
   try {
-    const firstResolvedBlockInfoRecord: Record<number, RelayerBlockInfo> = await Promise.race(relayerTxPromises);
-    return firstResolvedBlockInfoRecord[srcChainId];
+    const firstResolvedBlockInfo: RelayerBlockInfo = await Promise.race(relayerTxPromises);
+    return firstResolvedBlockInfo;
   } catch (error) {
     console.error(error);
     throw new Error('Failed to fetch block info from any relayer', { cause: error });
