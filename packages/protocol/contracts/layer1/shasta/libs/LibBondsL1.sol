@@ -35,14 +35,6 @@ library LibBondsL1 {
         returns (LibBonds.BondInstruction[] memory merged_)
     {
         unchecked {
-            if (_newInstructions.length == 0) {
-                return _existingInstructions;
-            }
-
-            if (_existingInstructions.length == 0) {
-                return _newInstructions;
-            }
-
             uint256 totalLen = _existingInstructions.length + _newInstructions.length;
 
             // Break-even point: use assembly bulk-copy for arrays with more than 8 elements total
@@ -114,6 +106,102 @@ library LibBondsL1 {
                 payer: isWithinExtendedWindow ? _transition.designatedProver : _proposal.proposer,
                 receiver: _transition.actualProver
             });
+        }
+    }
+
+
+    // ---------------------------------------------------------------
+    // Private Functions
+    // ---------------------------------------------------------------
+
+    /// @dev Assembly-optimized bulk copy for larger arrays
+    /// @param _existing The existing instructions to copy first
+    /// @param _new The new instructions to append
+    /// @return merged_ The merged bond instructions array
+    function _bulkCopyBondInstructions(
+        LibBonds.BondInstruction[] memory _existing,
+        LibBonds.BondInstruction[] memory _new
+    )
+        private
+        pure
+        returns (LibBonds.BondInstruction[] memory merged_)
+    {
+        uint256 existingLen = _existing.length;
+        uint256 newLen = _new.length;
+
+        uint256 totalLen;
+        unchecked {
+            totalLen = existingLen + newLen;
+        }
+
+        merged_ = new LibBonds.BondInstruction[](totalLen);
+
+        assembly {
+            let mergedPtr := add(merged_, 0x20)
+            let existingPtr := add(_existing, 0x20)
+            let newPtr := add(_new, 0x20)
+
+            // Each BondInstruction is 128 bytes (4 * 32 bytes)
+            // In memory arrays, each field occupies a full 32-byte slot:
+            // proposalId (uint48 -> 32 bytes), bondType (enum -> 32 bytes),
+            // payer (address -> 32 bytes), receiver (address -> 32 bytes)
+            let instructionSize := 0x80
+
+            // Copy existing instructions using bulk memory copy
+            if gt(existingLen, 0) {
+                let existingBytes := mul(existingLen, instructionSize)
+
+                // Use efficient word-based copying
+                let words := div(add(existingBytes, 0x1f), 0x20)
+                for { let i := 0 } lt(i, words) { i := add(i, 1) } {
+                    mstore(add(mergedPtr, mul(i, 0x20)), mload(add(existingPtr, mul(i, 0x20))))
+                }
+            }
+
+            // Copy new instructions starting after existing ones
+            if gt(newLen, 0) {
+                let newBytes := mul(newLen, instructionSize)
+                let destOffset := mul(existingLen, instructionSize)
+                let destPtr := add(mergedPtr, destOffset)
+
+                // Use efficient word-based copying
+                let words := div(add(newBytes, 0x1f), 0x20)
+                for { let i := 0 } lt(i, words) { i := add(i, 1) } {
+                    mstore(add(destPtr, mul(i, 0x20)), mload(add(newPtr, mul(i, 0x20))))
+                }
+            }
+        }
+    }
+
+    /// @dev Loop-based copy for smaller arrays to avoid assembly overhead
+    /// @param _existing The existing instructions to copy first
+    /// @param _new The new instructions to append
+    /// @return merged_ The merged bond instructions array
+    function _loopCopyBondInstructions(
+        LibBonds.BondInstruction[] memory _existing,
+        LibBonds.BondInstruction[] memory _new
+    )
+        private
+        pure
+        returns (LibBonds.BondInstruction[] memory merged_)
+    {
+        unchecked {
+            uint256 existingLen = _existing.length;
+            uint256 newLen = _new.length;
+
+            uint256 totalLen = existingLen + newLen;
+
+            merged_ = new LibBonds.BondInstruction[](totalLen);
+
+            // Copy existing instructions - safe to use unchecked since arrays are pre-allocated
+            for (uint256 i; i < existingLen; ++i) {
+                merged_[i] = _existing[i];
+            }
+
+            // Copy new instructions
+            for (uint256 i; i < newLen; ++i) {
+                merged_[existingLen + i] = _new[i];
+            }
         }
     }
 }
