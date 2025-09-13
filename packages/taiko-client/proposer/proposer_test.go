@@ -123,12 +123,14 @@ func (s *ProposerTestSuite) SetupTest() {
 
 	s.p = p
 	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
+	s.Nil(s.p.shastaStateIndexer.Start())
 	s.cancel = cancel
 }
 
 func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 	s.p.txBuilder = builder.NewBuilderWithFallback(
 		s.p.rpc,
+		s.ShastaStateIndexer,
 		s.p.L1ProposerPrivKey,
 		s.TestAddr,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
@@ -150,10 +152,7 @@ func (s *ProposerTestSuite) TestProposeWithRevertProtection() {
 
 	s.SetIntervalMining(1)
 
-	metaHash, err := s.p.GetParentMetaHash(context.Background())
-	s.Nil(err)
-
-	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}, metaHash))
+	s.Nil(s.p.ProposeTxLists(context.Background(), []types.Transactions{{}}))
 	s.Nil(s.s.ProcessL1Blocks(context.Background()))
 
 	head2, err := s.p.rpc.L2.HeaderByNumber(context.Background(), nil)

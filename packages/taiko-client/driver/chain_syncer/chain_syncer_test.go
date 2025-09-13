@@ -112,10 +112,10 @@ func (s *ChainSyncerTestSuite) TestSync() {
 	s.Nil(s.s.Sync())
 }
 
-func TestChainSyncerTestSuite(t *testing.T) {
-	suite.Run(t, new(ChainSyncerTestSuite))
-}
-
 func (s *ChainSyncerTestSuite) TestAheadOfProtocolVerifiedHead() {
 	s.True(s.s.AheadOfHeadToSync(0))
+}
+
+func TestChainSyncerTestSuite(t *testing.T) {
+	suite.Run(t, new(ChainSyncerTestSuite))
 }

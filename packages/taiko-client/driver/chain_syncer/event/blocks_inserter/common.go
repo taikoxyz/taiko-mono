@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	consensus "github.com/ethereum/go-ethereum/consensus/taiko"
@@ -20,6 +22,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	anchorTxConstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
@@ -40,7 +43,7 @@ func createPayloadAndSetHead(
 		"parentHash", meta.Parent.Hash(),
 		"l1Origin", meta.L1Origin,
 	)
-	// Insert a TaikoAnchor.anchorV3 transaction at transactions list head,
+	// Insert a TaikoAnchor.anchorV3 / ShastaAnchor.updateState transaction at transactions list head,
 	// then encode the transactions list.
 	txListBytes, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, meta.Txs...))
 	if err != nil {
@@ -130,6 +133,7 @@ func createExecutionPayloads(
 			Timestamp:   meta.Timestamp,
 			TxList:      txListBytes,
 			MixHash:     meta.Difficulty,
+			BatchID:     meta.BatchID,
 			ExtraData:   meta.ExtraData,
 		},
 		BaseFeePerGas: meta.BaseFee,
@@ -207,7 +211,6 @@ func isKnownCanonicalBatch(
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
 	metadata metadata.TaikoProposalMetaData,
 	allTxs []*types.Transaction,
-	txListBytes []byte,
 	parent *types.Header,
 ) (*types.Header, error) {
 	var (
@@ -246,9 +249,6 @@ func isKnownCanonicalBatch(
 				rpc,
 				&createPayloadAndSetHeadMetaData{
 					createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
-					AnchorBlockID:                   new(big.Int).SetUint64(metadata.Pacaya().GetAnchorBlockID()),
-					AnchorBlockHash:                 metadata.Pacaya().GetAnchorBlockHash(),
-					BaseFeeConfig:                   metadata.Pacaya().GetBaseFeeConfig(),
 					Parent:                          parentHeader,
 				},
 				b,
@@ -476,6 +476,7 @@ func assembleCreateExecutionPayloadMetaPacaya(
 
 	return &createExecutionPayloadsMetaData{
 		BlockID:               blockID,
+		BatchID:               meta.GetBatchID(),
 		ExtraData:             meta.GetExtraData(),
 		SuggestedFeeRecipient: meta.GetCoinbase(),
 		GasLimit:              uint64(meta.GetGasLimit()),
@@ -489,6 +490,116 @@ func assembleCreateExecutionPayloadMetaPacaya(
 			L1BlockHash:   meta.GetRawBlockHash(),
 		},
 		Txs:         txs,
+		Withdrawals: make([]*types.Withdrawal, 0),
+		BaseFee:     baseFee,
+	}, anchorTx, nil
+}
+
+// assembleCreateExecutionPayloadMetaShasta assembles the metadata for creating an execution payload,
+// and the `ShastaAnchor.updateState` transaction for the given Shasta block.
+func assembleCreateExecutionPayloadMetaShasta(
+	ctx context.Context,
+	rpc *rpc.Client,
+	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
+	metadata metadata.TaikoProposalMetaData,
+	proposalManifest *manifest.ProposalManifest,
+	parent *types.Header,
+	blockIndex int,
+	isLowBondProposal bool,
+) (*createExecutionPayloadsMetaData, *types.Transaction, error) {
+	if !metadata.IsShasta() {
+		return nil, nil, fmt.Errorf("metadata is not for Shasta fork")
+	}
+	if blockIndex >= len(proposalManifest.Blocks) {
+		return nil, nil, fmt.Errorf("block index %d out of bounds", blockIndex)
+	}
+
+	var (
+		meta          = metadata.Shasta()
+		blockID       = new(big.Int).Add(parent.Number, common.Big1)
+		blockInfo     = proposalManifest.Blocks[blockIndex]
+		anchorBlockID = new(big.Int).SetUint64(blockInfo.AnchorBlockNumber)
+	)
+	difficulty, err := encoding.CalculateShastaDifficulty(parent.Difficulty, blockID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to calculate difficulty: %w", err)
+	}
+
+	baseFee, err := rpc.CalculateBaseFee(ctx, parent, nil, uint64(time.Now().Unix()))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to calculate base fee: %w", err)
+	}
+
+	log.Info("L2 baseFee", "blockID", blockID, "basefee", utils.WeiToGWei(baseFee))
+
+	latestState, err := rpc.ShastaClients.Anchor.GetState(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch latest anchor state: %w", err)
+	}
+
+	anchorBlockHeader, err := rpc.L1.HeaderByNumber(ctx, anchorBlockID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch anchor block: %w", err)
+	}
+	var (
+		anchorBlockHeaderHash = anchorBlockHeader.Hash()
+		anchorBlockHeaderRoot = anchorBlockHeader.Root
+	)
+
+	// If anchorBlockNumber == parent.metadata.anchorBlockNumber: Both anchorBlockHash and anchorStateRoot must be zero
+	if anchorBlockID.Cmp(latestState.AnchorBlockNumber) <= 0 {
+		anchorBlockHeaderHash = common.Hash{}
+		anchorBlockHeaderRoot = common.Hash{}
+	}
+
+	anchorTx, err := anchorConstructor.AssembleUpdateStateTx(
+		ctx,
+		parent,
+		meta.GetProposal().Id,
+		meta.GetProposal().Proposer,
+		proposalManifest.ProverAuthBytes,
+		blockInfo.BondInstructionsHash,
+		blockInfo.BondInstructions,
+		uint16(blockIndex),
+		anchorBlockID,
+		anchorBlockHeaderHash,
+		anchorBlockHeaderRoot,
+		meta.GetProposal().EndOfSubmissionWindowTimestamp,
+		blockID,
+		baseFee,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create ShastaAnchor.updateState transaction: %w", err)
+	}
+
+	// Encode extraData with basefeeSharingPctg and isLowBondProposal
+	extraData, err := encodeExtraData(meta.GetDerivation().BasefeeSharingPctg, isLowBondProposal)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
+	}
+
+	// Set batchID only for the last block in the proposal
+	var batchID *big.Int
+	if len(proposalManifest.Blocks)-1 == blockIndex {
+		batchID = meta.GetProposal().Id
+	}
+
+	return &createExecutionPayloadsMetaData{
+		BlockID:               blockID,
+		BatchID:               batchID,
+		ExtraData:             extraData,
+		SuggestedFeeRecipient: blockInfo.Coinbase,
+		GasLimit:              blockInfo.GasLimit,
+		Difficulty:            common.BytesToHash(difficulty),
+		Timestamp:             blockInfo.Timestamp,
+		ParentHash:            parent.Hash(),
+		L1Origin: &rawdb.L1Origin{
+			BlockID:       blockID,
+			L2BlockHash:   common.Hash{}, // Will be set by taiko-geth.
+			L1BlockHeight: meta.GetRawBlockHeight(),
+			L1BlockHash:   meta.GetRawBlockHash(),
+		},
+		Txs:         blockInfo.Transactions,
 		Withdrawals: make([]*types.Withdrawal, 0),
 		BaseFee:     baseFee,
 	}, anchorTx, nil
@@ -547,10 +658,34 @@ func updateL1OriginForBatch(
 				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}
+				if _, err := rpc.L2Engine.SetBatchToLastBlock(ctx, meta.GetBatchID(), blockID); err != nil {
+					return fmt.Errorf("failed to write batch to block mapping: %w", err)
+				}
 			}
 
 			return nil
 		})
 	}
 	return g.Wait()
+}
+
+// encodeExtraData encodes the basefeeSharingPctg and isLowBondProposal into extraData field.
+func encodeExtraData(
+	basefeeSharingPctg uint8,
+	isLowBondProposal bool,
+) ([]byte, error) {
+	// Create a 2-byte array for extraData
+	extraData := make([]byte, 2)
+
+	// First byte: basefeeSharingPctg
+	extraData[0] = basefeeSharingPctg
+
+	// Second byte: isLowBondProposal in the lowest bit
+	if isLowBondProposal {
+		extraData[1] = 0x01
+	} else {
+		extraData[1] = 0x00
+	}
+
+	return extraData, nil
 }

@@ -18,11 +18,13 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
+	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
@@ -61,7 +63,8 @@ type Proposer struct {
 	// Fallback proposer related
 	l2HeadUpdate l2HeadUpdateInfo
 
-	txmgrSelector *utils.TxMgrSelector
+	txmgrSelector      *utils.TxMgrSelector
+	shastaStateIndexer *shastaIndexer.Indexer
 
 	ctx context.Context
 	wg  sync.WaitGroup
@@ -123,15 +126,20 @@ func (p *Proposer) InitFromConfig(
 			return err
 		}
 	}
+	if p.shastaStateIndexer, err = shastaIndexer.NewShastaState(ctx, p.rpc, p.rpc.ShastaClients.ForkHeight); err != nil {
+		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
+	}
 
 	p.txmgrSelector = utils.NewTxMgrSelector(txMgr, privateTxMgr, nil)
 	p.chainConfig = config.NewChainConfig(
 		p.rpc.L2.ChainID,
 		p.rpc.PacayaClients.ForkHeights.Ontake,
 		p.rpc.PacayaClients.ForkHeights.Pacaya,
+		p.rpc.PacayaClients.ForkHeights.Shasta,
 	)
 	p.txBuilder = builder.NewBuilderWithFallback(
 		p.rpc,
+		p.shastaStateIndexer,
 		p.L1ProposerPrivKey,
 		cfg.L2SuggestedFeeRecipient,
 		cfg.TaikoInboxAddress,
@@ -160,6 +168,10 @@ func (p *Proposer) Start() error {
 	p.l2HeadUpdate = l2HeadUpdateInfo{
 		blockID:   head.Number.Uint64(),
 		updatedAt: time.Now().UTC(),
+	}
+
+	if err := p.shastaStateIndexer.Start(); err != nil {
+		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
 	}
 
 	p.wg.Add(1)
@@ -296,13 +308,6 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 		"lastProposedAt", p.lastProposedAt,
 	)
 
-	// Fetch the latest parent meta hash, which will be used
-	// by revert protection.
-	parentMetaHash, err := p.GetParentMetaHash(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get parent meta hash: %w", err)
-	}
-
 	// Fetch pending L2 transactions from mempool.
 	txLists, err := p.fetchPoolContent(allowEmptyPoolContent)
 	if err != nil {
@@ -315,16 +320,33 @@ func (p *Proposer) ProposeOp(ctx context.Context) error {
 	}
 
 	// Propose the transactions lists.
-	return p.ProposeTxLists(ctx, txLists, parentMetaHash)
+	return p.ProposeTxLists(ctx, txLists)
 }
 
 // ProposeTxLists proposes the given transactions lists to TaikoInbox smart contract.
 func (p *Proposer) ProposeTxLists(
 	ctx context.Context,
 	txLists []types.Transactions,
-	parentMetaHash common.Hash,
 ) error {
-	if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
+	l2Head, err := p.rpc.L2.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to get L2 head: %w", err)
+	}
+	if new(big.Int).Add(l2Head.Number, common.Big1).Cmp(p.rpc.ShastaClients.ForkHeight) < 0 {
+		// Fetch the latest parent meta hash, which will be used
+		// by revert protection.
+		parentMetaHash, err := p.GetParentMetaHash(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get parent meta hash: %w", err)
+		}
+
+		if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
+			return err
+		}
+		p.lastProposedAt = time.Now()
+		return nil
+	}
+	if err := p.ProposeTxListShasta(ctx, txLists); err != nil {
 		return err
 	}
 	p.lastProposedAt = time.Now()
@@ -422,6 +444,75 @@ func (p *Proposer) ProposeTxListPacaya(
 	return nil
 }
 
+// ProposeTxListShasta proposes the given transactions lists to Shasta Inbox smart contract.
+func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Transactions) error {
+	var (
+		proposerAddress = p.proposerAddress
+		txs             uint64
+	)
+
+	// Make sure the tx list is not bigger than the proposalMaxBlocks.
+	if len(txBatch) > manifest.ProposalMaxBlocks {
+		return fmt.Errorf("tx batch size is larger than the proposalMaxBlocks")
+	}
+
+	// Count the total number of transactions.
+	for _, txList := range txBatch {
+		if len(txList) > manifest.BlockMaxRawTransactions {
+			return fmt.Errorf("tx list size is larger than the blockMaxRawTransactions")
+		}
+		txs += uint64(len(txList))
+	}
+
+	if p.Config.ClientConfig.ProverSetAddress != rpc.ZeroAddress {
+		proposerAddress = p.Config.ClientConfig.ProverSetAddress
+	}
+
+	// Check forced inclusion.
+	forcedInclusion, minTxsPerForcedInclusion, err := p.rpc.GetForcedInclusionPacaya(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch forced inclusion: %w", err)
+	}
+	if forcedInclusion == nil {
+		log.Info("No forced inclusion", "proposer", proposerAddress.Hex())
+	} else {
+		log.Info(
+			"Forced inclusion",
+			"proposer", proposerAddress.Hex(),
+			"blobHash", common.BytesToHash(forcedInclusion.BlobHash[:]),
+			"feeInGwei", forcedInclusion.FeeInGwei,
+			"createdAtBatchId", forcedInclusion.CreatedAtBatchId,
+			"blobByteOffset", forcedInclusion.BlobByteOffset,
+			"blobByteSize", forcedInclusion.BlobByteSize,
+			"minTxsPerForcedInclusion", minTxsPerForcedInclusion,
+		)
+	}
+
+	// Build the transaction to propose batch.
+	txCandidate, err := p.txBuilder.BuildShasta(
+		ctx,
+		txBatch,
+		forcedInclusion,
+		minTxsPerForcedInclusion,
+		p.preconfRouterAddress,
+	)
+	if err != nil {
+		log.Warn("Failed to build Shasta Inbox.propose transaction", "error", encoding.TryParsingCustomError(err))
+		return err
+	}
+
+	if err := p.SendTx(ctx, txCandidate); err != nil {
+		return err
+	}
+
+	log.Info("📝 Propose Shasta blocks batch succeeded", "blocksInBatch", len(txBatch), "txs", txs)
+
+	metrics.ProposerProposedTxListsCounter.Add(float64(len(txBatch)))
+	metrics.ProposerProposedTxsCounter.Add(float64(txs))
+
+	return nil
+}
+
 // updateProposingTicker updates the internal proposing timer.
 func (p *Proposer) updateProposingTicker() {
 	if p.proposingTimer != nil {
@@ -446,7 +537,7 @@ func (p *Proposer) SendTx(ctx context.Context, txCandidate *txmgr.TxCandidate) e
 	receipt, err := txMgr.Send(ctx, *txCandidate)
 	if err != nil {
 		log.Warn(
-			"Failed to send TaikoInbox.proposeBatch transaction by tx manager",
+			"Failed to send proposing batch transaction by tx manager",
 			"isPrivateMempool", isPrivate,
 			"error", encoding.TryParsingCustomError(err),
 		)

@@ -24,6 +24,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
 
@@ -35,6 +36,7 @@ type ClientTestSuite struct {
 	TestAddrPrivKey     *ecdsa.PrivateKey
 	TestAddr            common.Address
 	BlobServer          *MemoryBlobServer
+	ShastaStateIndexer  *shastaIndexer.Indexer
 }
 
 func (s *ClientTestSuite) SetupTest() {
@@ -76,6 +78,14 @@ func (s *ClientTestSuite) SetupTest() {
 	s.RPCClient = rpcCli
 
 	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
+
+	s.ShastaStateIndexer, err = shastaIndexer.NewShastaState(
+		context.Background(),
+		rpcCli,
+		rpcCli.ShastaClients.ForkHeight,
+	)
+	s.Nil(err)
+	s.Nil(s.ShastaStateIndexer.Start())
 
 	for _, key := range []*ecdsa.PrivateKey{l1ProposerPrivKey, l1ProverPrivKey} {
 		s.enableProver(ownerPrivKey, crypto.PubkeyToAddress(key.PublicKey))

@@ -707,7 +707,8 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 				tip := progress.HighestOriginBlockID.Uint64()
 
 				if tip >= requestSyncMargin && parentNum <= tip-requestSyncMargin {
-					log.Debug("Skipping request for very old block",
+					log.Debug(
+						"Skipping request for very old block",
 						"tip", tip,
 						"margin", requestSyncMargin,
 					)

@@ -28,6 +28,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 			s.RPCClient.L2.ChainID,
 			s.RPCClient.PacayaClients.ForkHeights.Ontake,
 			s.RPCClient.PacayaClients.ForkHeights.Pacaya,
+			s.RPCClient.PacayaClients.ForkHeights.Shasta,
 		)
 	)
 
@@ -44,6 +45,7 @@ func (s *TransactionBuilderTestSuite) SetupTest() {
 	)
 	s.blobTxBuilder = NewBlobTransactionBuilder(
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		l1ProposerPrivKey,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		common.HexToAddress(os.Getenv("TAIKO_WRAPPER")),

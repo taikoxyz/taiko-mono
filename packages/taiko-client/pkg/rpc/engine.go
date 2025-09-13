@@ -180,3 +180,14 @@ func (c *EngineClient) SetHeadL1Origin(ctx context.Context, blockID *big.Int) (*
 
 	return res, nil
 }
+
+// SetBatchToLastBlock sets the batch to block mapping in the execution engine.
+func (c *EngineClient) SetBatchToLastBlock(ctx context.Context, batchID *big.Int, blockID *big.Int) (*big.Int, error) {
+	var res *big.Int
+
+	if err := c.CallContext(ctx, &res, "taikoAuth_setBatchToLastBlock", batchID, blockID); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
