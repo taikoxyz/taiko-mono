@@ -12,7 +12,6 @@ import { LibHashing } from "../libs/LibHashing.sol";
 /// @dev Key optimizations:
 ///      - Uses LibHashing library for optimized struct hashing operations
 ///      - Maintains all optimizations from InboxOptimized1, InboxOptimized2, and InboxOptimized3
-/// @dev Gas savings: ~15% reduction in hashing operation costs
 /// @custom:security-contact security@taiko.xyz
 abstract contract InboxOptimized4 is InboxOptimized3 {
     // ---------------------------------------------------------------
@@ -34,6 +33,8 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     /// @inheritdoc Inbox
     /// @notice Optimized transition hashing using LibHashing
     /// @dev Uses LibHashing for efficient transition hashing
+    /// @param _transition The transition data to hash
+    /// @return bytes32 The keccak256 hash of the transition struct
     function hashTransition(Transition memory _transition) public pure override returns (bytes32) {
         return LibHashing.hashTransition(_transition);
     }
@@ -41,6 +42,8 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     /// @inheritdoc Inbox
     /// @notice Optimized checkpoint hashing using LibHashing
     /// @dev Uses LibHashing for efficient checkpoint hashing
+    /// @param _checkpoint The checkpoint data to hash
+    /// @return bytes32 The keccak256 hash of the checkpoint struct
     function hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
         public
         pure
@@ -53,6 +56,8 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     /// @inheritdoc Inbox
     /// @notice Optimized core state hashing using LibHashing
     /// @dev Uses LibHashing for efficient core state hashing
+    /// @param _coreState The core state data to hash
+    /// @return bytes32 The keccak256 hash of the core state struct
     function hashCoreState(CoreState memory _coreState) public pure override returns (bytes32) {
         return LibHashing.hashCoreState(_coreState);
     }
@@ -63,7 +68,10 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
 
     /// @inheritdoc Inbox
     /// @dev Optimized implementation using LibHashing
-    /// @notice Saves gas by using efficient hashing
+    /// @notice Uses efficient hashing for composite key generation
+    /// @param _proposalId The proposal ID
+    /// @param _parentTransitionHash The parent transition hash
+    /// @return bytes32 The composite key for storage mapping
     function _composeTransitionKey(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
