@@ -98,11 +98,11 @@ contract InboxOptimized1 is Inbox {
 
                 if (newInstructions.length > 0) {
                     // Use LibBonds merge function for cleaner code organization
-                    currentRecord.bondInstructions = LibBondsL1.mergeBondInstructions(
-                        currentRecord.bondInstructions, newInstructions
-                    );
-                } else if (currentRecord.bondInstructions.length == 0) {
-                    currentRecord.bondInstructions = newInstructions;
+                    currentRecord.bondInstructions = currentRecord.bondInstructions.length == 0
+                        ? newInstructions
+                        : LibBondsL1.mergeBondInstructions(
+                            currentRecord.bondInstructions, newInstructions
+                        );
                 }
 
                 // Update the transition hash and checkpoint hash for the aggregated
