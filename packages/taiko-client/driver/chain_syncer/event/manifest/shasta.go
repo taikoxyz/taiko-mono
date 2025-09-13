@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -21,6 +22,10 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
+)
+
+const (
+	defaultTimeout = 1 * time.Minute
 )
 
 // ShastaManifestFetcher is responsible for fetching the txList blob from the L1 block sidecar.
@@ -257,20 +262,49 @@ func ValidateMetadata(
 		return nil
 	}
 
-	// Track if any block has a valid anchor number for forced inclusion protection
-	var (
-		hasValidAnchor             = false
-		parentTimestamp            = proposalManifest.ParentBlock.Time()
-		parentGasLimit             = proposalManifest.ParentBlock.GasLimit()
-		parentAnchorBlockNumber    = l2State.AnchorBlockNumber.Uint64()
-		parentBondInstructionsHash = l2State.BondInstructionsHash
-	)
+	// 1. Validate and adjust each block's timestamp.
+	validateMetadataTimestamp(proposalManifest, proposal)
 
+	// 2. Validate and adjust each block's anchor block number.
+	// TODO: anchor hash validation
+	if !validateAnchorBlockNumber(
+		proposalManifest,
+		originBlockNumber,
+		l2State.AnchorBlockNumber.Uint64(),
+		proposal,
+		isForcedInclusion,
+	) {
+		proposalManifest.Default = true
+		return nil
+	}
+
+	// 3. Ensure each block's coinbase is correctly assigned.
+	validateCoinbase(proposalManifest, proposal, isForcedInclusion)
+
+	// 4. Ensure each block's gas limit is within valid bounds.
+	validateGasLimit(proposalManifest, proposalManifest.ParentBlock.GasLimit())
+
+	// 5. Ensure each block's bond instructions and bond instructions hash are valid.
+	if err := validateBondInstructions(
+		ctx,
+		proposalManifest,
+		l2State.BondInstructionsHash,
+		l2State.AnchorBlockNumber.Uint64(),
+		rpc,
+	); err != nil {
+		return fmt.Errorf("failed to validate bond instructions: %w", err)
+	}
+
+	return nil
+}
+
+// validateMetadataTimestamp ensures each block's timestamp is within valid bounds.
+func validateMetadataTimestamp(proposalManifest *manifest.ProposalManifest, proposal shastaBindings.IInboxProposal) {
+	var parentTimestamp = proposalManifest.ParentBlock.Time()
 	for i := range proposalManifest.Blocks {
-		// Validate and adjust each block's timestamp.
 		if proposalManifest.Blocks[i].Timestamp > proposal.Timestamp.Uint64() {
-			log.Debug(
-				"Adjusting block timestamp to proposal timestamp",
+			log.Info(
+				"Adjusting block timestamp to upper bound",
 				"blockIndex", i,
 				"originalTimestamp", proposalManifest.Blocks[i].Timestamp,
 				"newTimestamp", proposal.Timestamp,
@@ -281,7 +315,7 @@ func ValidateMetadata(
 		// Calculate lower bound for timestamp.
 		lowerBound := max(parentTimestamp+1, proposal.Timestamp.Uint64()-manifest.TimestampMaxOffset)
 		if proposalManifest.Blocks[i].Timestamp < lowerBound {
-			log.Debug(
+			log.Info(
 				"Adjusting block timestamp to lower bound",
 				"blockIndex", i,
 				"originalTimestamp", proposalManifest.Blocks[i].Timestamp,
@@ -289,94 +323,125 @@ func ValidateMetadata(
 			)
 			proposalManifest.Blocks[i].Timestamp = lowerBound
 		}
+		parentTimestamp = proposalManifest.Blocks[i].Timestamp
+	}
+}
 
-		// Anchor Block Number Validation
-		isInvalidAnchor := false
-
-		// Check non-monotonic progression
+// validateAnchorBlockNumber checks if each block's anchor block number is valid.
+func validateAnchorBlockNumber(
+	proposalManifest *manifest.ProposalManifest,
+	originBlockNumber uint64,
+	parentAnchorBlockNumber uint64,
+	proposal shastaBindings.IInboxProposal,
+	isForcedInclusion bool,
+) bool {
+	var (
+		highestAnchorNumber = parentAnchorBlockNumber
+	)
+	for i := range proposalManifest.Blocks {
+		// 1. Non-monotonic progression: manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber
 		if proposalManifest.Blocks[i].AnchorBlockNumber < parentAnchorBlockNumber {
 			log.Info(
-				"Invalid anchor: non-monotonic progression",
+				"Invalid anchor block number: non-monotonic progression",
 				"proposal", proposal.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", proposalManifest.Blocks[i].AnchorBlockNumber,
 				"parentAnchorBlockNumber", parentAnchorBlockNumber,
 			)
-			isInvalidAnchor = true
+			proposalManifest.Blocks[i].AnchorBlockNumber = parentAnchorBlockNumber
+			continue
 		}
 
-		// Check future reference
+		// 2. Future reference: manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - ANCHOR_MIN_OFFSET
 		if proposalManifest.Blocks[i].AnchorBlockNumber >= originBlockNumber-manifest.AnchorMinOffset {
 			log.Info(
-				"Invalid anchor: future reference",
+				"Invalid anchor block number: future reference",
 				"proposal", proposal.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", proposalManifest.Blocks[i].AnchorBlockNumber,
 				"originBlockNumber", originBlockNumber,
 			)
-			isInvalidAnchor = true
+			proposalManifest.Blocks[i].AnchorBlockNumber = parentAnchorBlockNumber
+			continue
 		}
 
-		// Check excessive lag
+		// 3. Excessive lag: manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET
 		if originBlockNumber > manifest.AnchorMaxOffset &&
 			proposalManifest.Blocks[i].AnchorBlockNumber < originBlockNumber-manifest.AnchorMaxOffset {
 			log.Info(
-				"Invalid anchor: excessive lag",
+				"Invalid anchor block number: excessive lag",
 				"proposal", proposal.Id,
 				"blockIndex", i,
 				"anchorBlockNumber", proposalManifest.Blocks[i].AnchorBlockNumber,
 				"minRequired", originBlockNumber-manifest.AnchorMaxOffset,
 			)
-			isInvalidAnchor = true
-		}
-
-		if isInvalidAnchor {
-			log.Info(
-				"Setting anchor block number to parent's anchor",
-				"proposal", proposal.Id,
-				"blockIndex", i,
-				"originalAnchor", proposalManifest.Blocks[i].AnchorBlockNumber,
-				"newAnchor", parentAnchorBlockNumber,
-			)
 			proposalManifest.Blocks[i].AnchorBlockNumber = parentAnchorBlockNumber
-		} else if proposalManifest.Blocks[i].AnchorBlockNumber > parentAnchorBlockNumber {
-			hasValidAnchor = true
+			continue
 		}
 
-		// Coinbase Assignment
+		if proposalManifest.Blocks[i].AnchorBlockNumber > parentAnchorBlockNumber {
+			parentAnchorBlockNumber = proposalManifest.Blocks[i].AnchorBlockNumber
+		}
+	}
+
+	// Forced inclusion protection: For non-forced proposals, if no blocks have valid anchor numbers greater than its
+	// parent's, the entire manifest is replaced with the default manifest, penalizing proposals that fail to provide
+	// proper L1 anchoring.
+	if !isForcedInclusion && highestAnchorNumber <= parentAnchorBlockNumber {
+		return false
+	}
+
+	return true
+}
+
+// validateCoinbase ensures each block's coinbase is correctly assigned.
+func validateCoinbase(
+	proposalManifest *manifest.ProposalManifest,
+	proposal shastaBindings.IInboxProposal,
+	isForcedInclusion bool,
+) {
+	for i := range proposalManifest.Blocks {
 		if isForcedInclusion {
 			// Forced inclusions always use proposal.proposer
 			proposalManifest.Blocks[i].Coinbase = proposal.Proposer
-		} else if (proposalManifest.Blocks[i].Coinbase == common.Address{}) {
+		}
+
+		if (proposalManifest.Blocks[i].Coinbase == common.Address{}) {
 			// Use proposal.proposer as fallback if manifest coinbase is zero
 			proposalManifest.Blocks[i].Coinbase = proposal.Proposer
 		}
+	}
+}
 
-		// Gas Limit Validation
-		// Calculate bounds
-		lowerGasBound := parentGasLimit * (10000 - manifest.MaxBlockGasLimitChangePermyriad) / 10000
-		if lowerGasBound < manifest.MinBlockGasLimit {
-			lowerGasBound = manifest.MinBlockGasLimit
-		}
+// validateGasLimit ensures each block's gas limit is within valid bounds.
+func validateGasLimit(
+	proposalManifest *manifest.ProposalManifest,
+	parentGasLimit uint64,
+) {
+	for i := range proposalManifest.Blocks {
+		lowerGasBound := max(
+			parentGasLimit*(10000-manifest.MaxBlockGasLimitChangePermyriad)/10000,
+			manifest.MinBlockGasLimit,
+		)
 		upperGasBound := parentGasLimit * (10000 + manifest.MaxBlockGasLimitChangePermyriad) / 10000
 
-		// Apply constraints
 		if proposalManifest.Blocks[i].GasLimit == 0 {
 			// Inherit parent value
 			proposalManifest.Blocks[i].GasLimit = parentGasLimit
-		} else if proposalManifest.Blocks[i].GasLimit < lowerGasBound {
+		}
+
+		if proposalManifest.Blocks[i].GasLimit < lowerGasBound {
 			log.Info(
 				"Clamping gas limit to lower bound",
-				"proposal", proposal.Id,
 				"blockIndex", i,
 				"originalGasLimit", proposalManifest.Blocks[i].GasLimit,
 				"newGasLimit", lowerGasBound,
 			)
 			proposalManifest.Blocks[i].GasLimit = lowerGasBound
-		} else if proposalManifest.Blocks[i].GasLimit > upperGasBound {
+		}
+		if proposalManifest.Blocks[i].GasLimit > upperGasBound {
 			log.Info(
 				"Clamping gas limit to upper bound",
-				"proposal", proposal.Id,
 				"blockIndex", i,
 				"originalGasLimit", proposalManifest.Blocks[i].GasLimit,
 				"newGasLimit", upperGasBound,
@@ -384,48 +449,54 @@ func ValidateMetadata(
 			proposalManifest.Blocks[i].GasLimit = upperGasBound
 		}
 
-		// Update parent values for next iteration
-		if i < len(proposalManifest.Blocks) {
-			// Update parent timestamp for next block
-			parentTimestamp = proposalManifest.Blocks[i].Timestamp
-			// Update parent gas limit for next block
-			parentGasLimit = proposalManifest.Blocks[i].GasLimit
-			// Update parent anchor and fetch bond if it changed
-			if proposalManifest.Blocks[i].AnchorBlockNumber > parentAnchorBlockNumber {
-				bondInstructedIter, err := rpc.ShastaClients.Inbox.FilterBondInstructed(
-					&bind.FilterOpts{
-						Start:   parentAnchorBlockNumber + 1,
-						End:     &proposalManifest.Blocks[i].AnchorBlockNumber,
-						Context: ctx,
-					},
-				)
-				if err != nil {
-					return err
-				}
-				for bondInstructedIter.Next() {
-					proposalManifest.Blocks[i].BondInstructions =
-						append(proposalManifest.Blocks[i].BondInstructions, bondInstructedIter.Event.Instructions...)
-				}
-				aggregatedHash := parentBondInstructionsHash
-				for _, bond := range proposalManifest.Blocks[i].BondInstructions {
-					if aggregatedHash, err = encoding.CalculateBondInstructionHash(aggregatedHash, bond); err != nil {
-						return err
-					}
-				}
-				proposalManifest.Blocks[i].BondInstructionsHash = aggregatedHash
-				parentBondInstructionsHash = aggregatedHash
-				parentAnchorBlockNumber = proposalManifest.Blocks[i].AnchorBlockNumber
+		parentGasLimit = proposalManifest.Blocks[i].GasLimit
+	}
+}
+
+// validateBondInstructions ensures bond instructions are correctly fetched and their hashes computed.
+func validateBondInstructions(
+	ctx context.Context,
+	proposalManifest *manifest.ProposalManifest,
+	parentBondInstructionsHash common.Hash,
+	parentAnchorBlockNumber uint64,
+	rpc *rpc.Client,
+) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	defer cancel()
+
+	// For an L2 block with a higher anchor block number than its parent, bond instructions must be processed within its anchor transaction.
+	for i := range proposalManifest.Blocks {
+		if proposalManifest.Blocks[i].AnchorBlockNumber <= parentAnchorBlockNumber {
+			continue
+		}
+		// If metadata.anchorBlockNumber exceeds parent.metadata.anchorBlockNumber, collect all BondInstructions emitted
+		// from the Taiko inbox via BondInstructed events, occurring between blocks numbered parent.metadata.
+		// anchorBlockNumber + 1 and metadata.anchorBlockNumber. Assign this collection to metadata.bondInstructions, which
+		// may be empty.
+		bondInstructedIter, err := rpc.ShastaClients.Inbox.FilterBondInstructed(
+			&bind.FilterOpts{
+				Start:   parentAnchorBlockNumber + 1,
+				End:     &proposalManifest.Blocks[i].AnchorBlockNumber,
+				Context: timeoutCtx,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("failed to fetch bond instructions: %w", err)
+		}
+		// Aggregate bond instructions from the fetched events.
+		for bondInstructedIter.Next() {
+			proposalManifest.Blocks[i].BondInstructions =
+				append(proposalManifest.Blocks[i].BondInstructions, bondInstructedIter.Event.Instructions...)
+		}
+		aggregatedHash := parentBondInstructionsHash
+		for _, bond := range proposalManifest.Blocks[i].BondInstructions {
+			if aggregatedHash, err = encoding.CalculateBondInstructionHash(aggregatedHash, bond); err != nil {
+				return fmt.Errorf("failed to calculate bond instruction hash: %w", err)
 			}
 		}
-	}
-
-	// Forced inclusion protection
-	if !isForcedInclusion && !hasValidAnchor {
-		log.Warn("Non-forced proposal has no valid anchor blocks, replacing with default manifest")
-		// Replace the entire manifest with the default manifest
-		// This penalizes proposals that fail to provide proper L1 anchoring
-		proposalManifest.Default = true
-		return nil
+		proposalManifest.Blocks[i].BondInstructionsHash = aggregatedHash
+		parentBondInstructionsHash = aggregatedHash
+		parentAnchorBlockNumber = proposalManifest.Blocks[i].AnchorBlockNumber
 	}
 
 	return nil

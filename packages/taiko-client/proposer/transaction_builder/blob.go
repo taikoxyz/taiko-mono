@@ -213,7 +213,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L1 head: %w", err)
 	}
-	if l1Head.Number.Uint64() < manifest.AnchorMinOffset {
+	if l1Head.Number.Uint64() <= manifest.AnchorMinOffset {
 		return nil, fmt.Errorf(
 			"L1 head number %d is lower than required min offset %d",
 			l1Head.Number.Uint64(),
@@ -225,7 +225,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	for i, txs := range txBatch {
 		anchorBlockNumber := uint64(0)
 		if i == 0 {
-			anchorBlockNumber = l1Head.Number.Uint64() - manifest.AnchorMinOffset
+			anchorBlockNumber = l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1)
 		}
 
 		proposalManifest.Blocks = append(proposalManifest.Blocks, &manifest.ProtocolBlockManifest{
