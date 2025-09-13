@@ -79,26 +79,29 @@ func rootWebSocketHandler(w http.ResponseWriter, r *http.Request) {
 
 // CORS middleware to enable CORS headers
 func enableCORS(next http.Handler) http.Handler {
-	log.Printf("enableCORS")
+	// CORS must not force response status; let downstream handler decide.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("CORS middleware invoked for %s %s", r.Method, r.URL.Path)
-
-		// Get the Origin header from the request
 		origin := r.Header.Get("Origin")
-
-		// Set Access-Control-Allow-Origin only if the request has an Origin header
 		if origin != "" {
-			log.Printf("CORS middleware invoked for origin %s", origin)
-			w.Header().Del("Access-Control-Allow-Origin") // Clear any existing header
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Vary", "Origin") // Ensure caching based on origin
+			w.Header().Set("Vary", "Origin") // ensure caches vary by origin
 		}
 
-		w.Header().Set("Access-Control-Allow-Methods", r.Method)
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		// Allow common methods including preflight.
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 
-		w.WriteHeader(http.StatusOK)
+		// Mirror requested headers if provided; otherwise allow common ones.
+		reqHeaders := r.Header.Get("Access-Control-Request-Headers")
+		if reqHeaders == "" {
+			reqHeaders = "Content-Type, Authorization"
+		}
+		w.Header().Set("Access-Control-Allow-Headers", reqHeaders)
 
+		// For preflight requests, return immediately without invoking next.
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }
