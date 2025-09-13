@@ -1,0 +1,25 @@
+[package]
+name = "protocol"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+alloy = { workspace = true }
+alloy-contract = { workspace = true }
+alloy-primitives = { workspace = true, default-features = false }
+alloy-provider = { workspace = true }
+alloy-rpc-types = { workspace = true }
+alloy-sol-macro = { workspace = true, features = ["json"] }
+alloy-sol-types = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+alloy-transport = { workspace = true }
+alloy-transport-http = { workspace = true }
+alloy-signer-local = { workspace = true }
+alloy-network = { workspace = true }
+hex = "0.4"
