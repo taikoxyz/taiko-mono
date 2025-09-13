@@ -73,6 +73,19 @@ func (f *ShastaManifestFetcher) manifestFromBlobBytes(
 		return defaultManifest, nil
 	}
 
+	if version != manifest.ShastaPayloadVersion {
+		log.Warn("Unsupported manifest version, use default manifest instead", "version", version)
+		return defaultManifest, nil
+	}
+	if size > manifest.ProposalMaxBytes {
+		log.Warn(
+			"Manifest size exceeds PROPOSAL_MAX_BYTES, use default manifest instead",
+			"size", size,
+			"max", manifest.ProposalMaxBytes,
+		)
+		return defaultManifest, nil
+	}
+
 	log.Info("Extracted manifest version and size from Shasta blobs", "version", version, "size", size)
 
 	encoded, err := utils.Decompress(b[offset+64 : offset+64+int(size)])
@@ -94,25 +107,22 @@ func (f *ShastaManifestFetcher) manifestFromBlobBytes(
 		return defaultManifest, err
 	}
 
+	// If there are too many blocks in the manifest, return the default manifest.
+	if len(protocolProposal.Blocks) > manifest.ProposalMaxBlocks {
+		log.Warn(
+			"Too many blocks in the manifest, use default manifest instead",
+			"blocks", len(protocolProposal.Blocks),
+			"max", manifest.ProposalMaxBlocks,
+		)
+		return defaultManifest, nil
+	}
+
 	// Convert ProtocolProposalManifest to ProposalManifest
 	proposal := &manifest.ProposalManifest{
 		ProverAuthBytes: protocolProposal.ProverAuthBytes,
 		Blocks:          make([]*manifest.BlockManifest, len(protocolProposal.Blocks)),
 	}
 	for i, block := range protocolProposal.Blocks {
-		proposal.Blocks[i] = &manifest.BlockManifest{ProtocolBlockManifest: *block}
-	}
-
-	if len(proposal.Blocks) > manifest.ProposalMaxBlocks {
-		log.Warn(
-			"Too many blocks in the manifest, use default manifest instead",
-			"blocks", len(proposal.Blocks),
-			"max", manifest.ProposalMaxBlocks,
-		)
-		return defaultManifest, nil
-	}
-
-	for _, block := range proposal.Blocks {
 		if len(block.Transactions) > manifest.BlockMaxRawTransactions {
 			log.Warn(
 				"Too many transactions, use default manifest instead",
@@ -121,6 +131,7 @@ func (f *ShastaManifestFetcher) manifestFromBlobBytes(
 			)
 			return defaultManifest, nil
 		}
+		proposal.Blocks[i] = &manifest.BlockManifest{ProtocolBlockManifest: *block}
 	}
 
 	return proposal, nil
