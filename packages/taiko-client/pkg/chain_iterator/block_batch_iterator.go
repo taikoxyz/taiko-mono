@@ -258,11 +258,7 @@ func (i *BlockBatchIterator) iter() (err error) {
 		if err != nil {
 			return err
 		}
-		if destHeight > blockConfirmations {
-			destHeight -= blockConfirmations
-		} else {
-			destHeight = 0
-		}
+		destHeight = max(0, destHeight-blockConfirmations)
 	}
 
 	if i.current.Number.Uint64() >= destHeight {
@@ -348,9 +344,7 @@ func (i *BlockBatchIterator) rewindOnReorgDetected() error {
 		return err
 	}
 
-	if newCurrentHeight > head {
-		newCurrentHeight = head
-	}
+	newCurrentHeight = min(newCurrentHeight, head)
 
 	current, err := i.client.HeaderByNumber(i.ctx, new(big.Int).SetUint64(newCurrentHeight))
 	if err != nil {
