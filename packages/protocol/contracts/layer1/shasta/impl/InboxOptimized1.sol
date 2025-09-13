@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import { Inbox } from "./Inbox.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 
 /// @title InboxOptimized1
 /// @notice First optimization layer for the Inbox contract focusing on storage efficiency and
@@ -63,13 +64,14 @@ contract InboxOptimized1 is Inbox {
         if (_input.proposals.length == 0) return;
 
         // Validate first proposal
-
         _validateTransition(_input.proposals[0], _input.transitions[0]);
 
         // Initialize current aggregation state
         TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
-            bondInstructions: _calculateBondInstructions(_input.proposals[0], _input.transitions[0]),
+            bondInstructions: LibBondsL1.calculateBondInstructions(
+                _provingWindow, _extendedProvingWindow, _input.proposals[0], _input.transitions[0]
+            ),
             transitionHash: hashTransition(_input.transitions[0]),
             checkpointHash: hashCheckpoint(_input.transitions[0].checkpoint)
         });
@@ -84,10 +86,13 @@ contract InboxOptimized1 is Inbox {
             // Check if current proposal can be aggregated with the previous group
             if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
                 // Aggregate with current record
-                LibBonds.BondInstruction[] memory newInstructions =
-                    _calculateBondInstructions(_input.proposals[i], _input.transitions[i]);
-
-                // Note that bulk copying-based memory merging is more efficient for larger arrays.
+                LibBonds.BondInstruction[] memory newInstructions = LibBondsL1
+                    .calculateBondInstructions(
+                    _provingWindow,
+                    _extendedProvingWindow,
+                    _input.proposals[i],
+                    _input.transitions[i]
+                );
 
                 if (newInstructions.length > 0) {
                     // Use LibBonds merge function for cleaner code organization
@@ -115,8 +120,11 @@ contract InboxOptimized1 is Inbox {
 
                 currentRecord = TransitionRecord({
                     span: 1,
-                    bondInstructions: _calculateBondInstructions(
-                        _input.proposals[i], _input.transitions[i]
+                    bondInstructions: LibBondsL1.calculateBondInstructions(
+                        _provingWindow,
+                        _extendedProvingWindow,
+                        _input.proposals[i],
+                        _input.transitions[i]
                     ),
                     transitionHash: hashTransition(_input.transitions[i]),
                     checkpointHash: hashCheckpoint(_input.transitions[i].checkpoint)
