@@ -335,7 +335,8 @@ func validateAnchorBlockNumber(
 	isForcedInclusion bool,
 ) bool {
 	var (
-		highestAnchorNumber = parentAnchorBlockNumber
+		originalParentAnchorNumber = parentAnchorBlockNumber
+		highestAnchorNumber        = parentAnchorBlockNumber
 	)
 	for i := range proposalManifest.Blocks {
 		// 1. Non-monotonic progression: manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber
@@ -378,15 +379,17 @@ func validateAnchorBlockNumber(
 			continue
 		}
 
-		if proposalManifest.Blocks[i].AnchorBlockNumber > parentAnchorBlockNumber {
-			parentAnchorBlockNumber = proposalManifest.Blocks[i].AnchorBlockNumber
+		if proposalManifest.Blocks[i].AnchorBlockNumber > highestAnchorNumber {
+			highestAnchorNumber = proposalManifest.Blocks[i].AnchorBlockNumber
 		}
+
+		parentAnchorBlockNumber = proposalManifest.Blocks[i].AnchorBlockNumber
 	}
 
 	// Forced inclusion protection: For non-forced proposals, if no blocks have valid anchor numbers greater than its
 	// parent's, the entire manifest is replaced with the default manifest, penalizing proposals that fail to provide
 	// proper L1 anchoring.
-	if !isForcedInclusion && highestAnchorNumber <= parentAnchorBlockNumber {
+	if !isForcedInclusion && highestAnchorNumber <= originalParentAnchorNumber {
 		return false
 	}
 
