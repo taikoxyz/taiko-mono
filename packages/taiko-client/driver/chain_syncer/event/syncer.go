@@ -248,6 +248,23 @@ func (s *Syncer) processShastaProposal(
 	if err != nil {
 		return err
 	}
+	l1Origin, err := s.rpc.L2.LastL1OriginByBatchID(ctx, new(big.Int).Sub(meta.GetProposal().Id, common.Big1))
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
+		return fmt.Errorf("failed to fetch last L1 origin by batch ID: %w", err)
+	}
+	if l1Origin != nil {
+		if proposalManifest.ParentBlock, err = s.rpc.L2.BlockByNumber(ctx, l1Origin.BlockID); err != nil {
+			return err
+		}
+	} else {
+		log.Info(
+			"No L1 origin found for the previous proposal, using the latest block as parent",
+			"proposalID", meta.GetProposal().Id,
+		)
+		if proposalManifest.ParentBlock, err = s.rpc.L2.BlockByNumber(ctx, nil); err != nil {
+			return err
+		}
+	}
 	if proposalManifest.ParentBlock, err = s.rpc.L2.BlockByNumber(ctx, nil); err != nil {
 		return err
 	}

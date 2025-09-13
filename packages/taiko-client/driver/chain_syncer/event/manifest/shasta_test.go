@@ -1,18 +1,29 @@
 package manifest
 
 import (
+	"context"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	builder "github.com/taikoxyz/taiko-mono/packages/taiko-client/proposer/transaction_builder"
 )
 
-func TestManifestEncodeDecode(t *testing.T) {
+type ShastaManifestFetcherTestSuite struct {
+	testutils.ClientTestSuite
+}
+
+func (s *ShastaManifestFetcherTestSuite) SetupTest() {
+	s.ClientTestSuite.SetupTest()
+}
+
+func (s *ShastaManifestFetcherTestSuite) TestManifestEncodeDecode() {
 	m := &manifest.ProtocolProposalManifest{
 		ProverAuthBytes: testutils.RandomBytes(32),
 		Blocks: []*manifest.ProtocolBlockManifest{{
@@ -24,16 +35,55 @@ func TestManifestEncodeDecode(t *testing.T) {
 		}},
 	}
 	b, err := builder.EncodeProposalManifestShasta(m)
-	require.Nil(t, err)
-	require.NotEmpty(t, b)
+	s.Nil(err)
+	s.NotEmpty(b)
 
 	decoded, err := new(ShastaManifestFetcher).manifestFromBlobBytes(b, 0)
-	require.Nil(t, err)
-	require.Equal(t, m.ProverAuthBytes, decoded.ProverAuthBytes)
-	require.Equal(t, len(m.Blocks), len(decoded.Blocks))
-	require.Equal(t, m.Blocks[0].Timestamp, decoded.Blocks[0].Timestamp)
-	require.Equal(t, m.Blocks[0].Coinbase, decoded.Blocks[0].Coinbase)
-	require.Equal(t, m.Blocks[0].AnchorBlockNumber, decoded.Blocks[0].AnchorBlockNumber)
-	require.Equal(t, m.Blocks[0].GasLimit, decoded.Blocks[0].GasLimit)
-	require.Equal(t, len(m.Blocks[0].Transactions), len(decoded.Blocks[0].Transactions))
+	s.Nil(err)
+	s.Equal(m.ProverAuthBytes, decoded.ProverAuthBytes)
+	s.Equal(len(m.Blocks), len(decoded.Blocks))
+	s.Equal(m.Blocks[0].Timestamp, decoded.Blocks[0].Timestamp)
+	s.Equal(m.Blocks[0].Coinbase, decoded.Blocks[0].Coinbase)
+	s.Equal(m.Blocks[0].AnchorBlockNumber, decoded.Blocks[0].AnchorBlockNumber)
+	s.Equal(m.Blocks[0].GasLimit, decoded.Blocks[0].GasLimit)
+	s.Equal(len(m.Blocks[0].Transactions), len(decoded.Blocks[0].Transactions))
+}
+
+func (s *ShastaManifestFetcherTestSuite) TestExtractVersionAndSize() {
+	version := uint32(1)
+	size := manifest.ProposalMaxBytes
+	proposalManifestBytes := testutils.RandomBytes(int(size))
+
+	versionBytes := make([]byte, 32)
+	versionBytes[31] = byte(version)
+
+	lenBytes := make([]byte, 32)
+	lenBig := new(big.Int).SetUint64(uint64(len(proposalManifestBytes)))
+	lenBig.FillBytes(lenBytes)
+
+	blobBytesPrefix := make([]byte, 0, 64)
+	blobBytesPrefix = append(blobBytesPrefix, versionBytes...)
+	blobBytesPrefix = append(blobBytesPrefix, lenBytes...)
+
+	decodedVersion, decodedSize, err := ExtractVersionAndSize(blobBytesPrefix, 0)
+	s.Nil(err)
+	s.Equal(version, decodedVersion)
+	s.Equal(uint64(len(proposalManifestBytes)), decodedSize)
+}
+
+func TestShastaManifestFetcherTestSuite(t *testing.T) {
+	suite.Run(t, new(ShastaManifestFetcherTestSuite))
+}
+
+func (s *ShastaManifestFetcherTestSuite) TearValidateMetadata() {
+	// Empty manifest
+	s.NotNil(ValidateMetadata(
+		context.Background(),
+		s.RPCClient,
+		nil,
+		false,
+		shastaBindings.IInboxProposal{},
+		0,
+		shastaBindings.ShastaAnchorState{}),
+	)
 }
