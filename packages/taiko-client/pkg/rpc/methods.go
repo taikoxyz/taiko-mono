@@ -27,6 +27,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/hekla"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -205,14 +206,17 @@ func (c *Client) filterGenesisBlockVerified(
 }
 
 // WaitTillL2ExecutionEngineSynced keeps waiting until the L2 execution engine is fully synced.
-func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
+func (c *Client) WaitTillL2ExecutionEngineSynced(
+	ctx context.Context,
+	lastShastaCoreState *shastaBindings.IInboxCoreState,
+) error {
 	start := time.Now()
 
 	return backoff.Retry(
 		func() error {
 			newCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 			defer cancel()
-			progress, err := c.L2ExecutionEngineSyncProgress(newCtx)
+			progress, err := c.L2ExecutionEngineSyncProgress(newCtx, lastShastaCoreState)
 			if err != nil {
 				log.Error("Fetch L2 execution engine sync progress error", "error", encoding.TryParsingCustomError(err))
 				return err
@@ -507,7 +511,10 @@ func (p *L2SyncProgress) IsSyncing() bool {
 }
 
 // L2ExecutionEngineSyncProgress fetches the sync progress of the given L2 execution engine.
-func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProgress, error) {
+func (c *Client) L2ExecutionEngineSyncProgress(
+	ctx context.Context,
+	lastShastaCoreState *shastaBindings.IInboxCoreState,
+) (*L2SyncProgress, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
@@ -522,6 +529,28 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 		return err
 	})
 	g.Go(func() error {
+		if lastShastaCoreState != nil {
+			// If the next proposal ID is 1, it means there is no proposal has been made on L2 yet.
+			if lastShastaCoreState.NextProposalId.Cmp(common.Big1) <= 0 {
+				progress.HighestOriginBlockID = common.Big0
+				return nil
+			}
+			l1Origin, err := c.L2.LastL1OriginByBatchID(
+				ctx,
+				new(big.Int).Sub(lastShastaCoreState.NextProposalId, common.Big1),
+			)
+			if err != nil && err.Error() != ethereum.NotFound.Error() {
+				return err
+			}
+			// If the L1Origin is not found, it means the L2 execution engine has not synced yet,
+			// we set the highest origin block ID to max uint64.
+			if l1Origin == nil {
+				progress.HighestOriginBlockID = new(big.Int).SetUint64(^uint64(0)) // Max uint64
+				return nil
+			}
+			progress.HighestOriginBlockID = l1Origin.BlockID
+			return nil
+		}
 		// Try get the highest block ID from the Pacaya protocol state variables.
 		stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 		if err != nil {
@@ -530,10 +559,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 
 		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
 		if err != nil {
-			// TODO: fix this later
-			log.Warn("Failed to get latest batch", "error", err)
-			progress.HighestOriginBlockID = common.Big0
-			return nil
+			return err
 		}
 
 		progress.HighestOriginBlockID = new(big.Int).SetUint64(batch.LastBlockId)

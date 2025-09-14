@@ -79,6 +79,7 @@ func (s *DriverTestSuite) SetupTest() {
 	}))
 	s.d = d
 	s.cancel = cancel
+	s.Nil(s.d.shastaIndexer.Start())
 
 	go func() {
 		if err := s.d.preconfBlockServer.Start(preconfServerPort); err != nil {

@@ -34,6 +34,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/preconf"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	validator "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/anchor_tx_validator"
 )
@@ -66,6 +67,7 @@ type PreconfBlockAPIServer struct {
 	echo                          *echo.Echo
 	rpc                           *rpc.Client
 	chainSyncer                   preconfBlockChainSyncer
+	shastaIndexer                 *shastaIndexer.Indexer
 	anchorValidator               *validator.AnchorTxValidator
 	highestUnsafeL2PayloadBlockID uint64
 	// P2P network for preconfirmation block propagation
@@ -99,6 +101,7 @@ func New(
 	taikoAnchorAddress common.Address,
 	chainSyncer preconfBlockChainSyncer,
 	cli *rpc.Client,
+	shastaIndexer *shastaIndexer.Indexer,
 	latestSeenProposalCh chan *encoding.LastSeenProposal,
 ) (*PreconfBlockAPIServer, error) {
 	anchorValidator, err := validator.New(taikoAnchorAddress, cli.L2.ChainID, cli)
@@ -131,6 +134,7 @@ func New(
 		chainSyncer:                   chainSyncer,
 		ws:                            &webSocketSever{rpc: cli, clients: make(map[*websocket.Conn]struct{})},
 		rpc:                           cli,
+		shastaIndexer:                 shastaIndexer,
 		envelopesCache:                newEnvelopeQueue(),
 		preconfOperatorAddress:        preconfOperatorAddress,
 		lookahead:                     &Lookahead{},
@@ -275,7 +279,7 @@ func (s *PreconfBlockAPIServer) OnUnsafeL2Payload(
 	}
 
 	// Check if the L2 execution engine is syncing from L1.
-	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
+	progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx, s.shastaIndexer.GetLastCoreState())
 	if err != nil {
 		return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
 	}
@@ -675,7 +679,7 @@ func (s *PreconfBlockAPIServer) ImportMissingAncientsFromCache(
 			// If the parent payload is not found in the cache and chain is not syncing,
 			// we publish a request to the P2P network.
 			if !s.blockRequestsCache.Contains(currentPayload.Payload.ParentHash) {
-				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx)
+				progress, err := s.rpc.L2ExecutionEngineSyncProgress(ctx, s.shastaIndexer.GetLastCoreState())
 				if err != nil {
 					return fmt.Errorf("failed to get L2 execution engine sync progress: %w", err)
 				}

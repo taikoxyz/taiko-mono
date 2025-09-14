@@ -284,7 +284,7 @@ func (p *Proposer) fetchPoolContent(allowEmptyPoolContent bool) ([]types.Transac
 // and then proposing them to TaikoInbox contract.
 func (p *Proposer) ProposeOp(ctx context.Context) error {
 	// Wait until L2 execution engine is synced at first.
-	if err := p.rpc.WaitTillL2ExecutionEngineSynced(ctx); err != nil {
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(ctx, p.shastaStateIndexer.GetLastCoreState()); err != nil {
 		return fmt.Errorf("failed to wait until L2 execution engine synced: %w", err)
 	}
 
@@ -646,4 +646,10 @@ func (p *Proposer) shouldPropose(ctx context.Context) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// ShastaIndexer returns the proposer's Shasta state indexer, this method
+// should only be used for testing.
+func (p *Proposer) ShastaIndexer() *shastaIndexer.Indexer {
+	return p.shastaStateIndexer
 }

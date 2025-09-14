@@ -71,6 +71,7 @@ func (s *ProverTestSuite) SetupTest() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s.initProver(ctx, l1ProverPrivKey)
+	s.Nil(s.p.shastaIndexer.Start())
 	s.cancel = cancel
 
 	// Init driver
@@ -91,6 +92,7 @@ func (s *ProverTestSuite) SetupTest() {
 		BlobServerEndpoint: s.BlobServer.URL(),
 	}))
 	s.d = d
+	s.Nil(s.d.ShastaIndexer().Start())
 
 	// Init proposer
 	var (
@@ -119,6 +121,7 @@ func (s *ProverTestSuite) SetupTest() {
 
 	s.proposer = prop
 	s.proposer.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
+	s.Nil(s.proposer.ShastaIndexer().Start())
 }
 
 func (s *ProverTestSuite) TestName() {

@@ -245,7 +245,7 @@ func (p *Prover) initBaseLevelProofProducerPacaya(sgxGethProducer *producer.SgxG
 
 // initL1Current initializes prover's L1Current cursor.
 func (p *Prover) initL1Current(startingBatchID *big.Int) error {
-	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx); err != nil {
+	if err := p.rpc.WaitTillL2ExecutionEngineSynced(p.ctx, p.shastaIndexer.GetLastCoreState()); err != nil {
 		return err
 	}
 

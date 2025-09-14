@@ -76,9 +76,6 @@ func (s *ClientTestSuite) SetupTest() {
 	})
 	s.Nil(err)
 	s.RPCClient = rpcCli
-
-	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background()))
-
 	s.ShastaStateIndexer, err = shastaIndexer.NewShastaState(
 		context.Background(),
 		rpcCli,
@@ -86,6 +83,8 @@ func (s *ClientTestSuite) SetupTest() {
 	)
 	s.Nil(err)
 	s.Nil(s.ShastaStateIndexer.Start())
+
+	s.Nil(s.RPCClient.WaitTillL2ExecutionEngineSynced(context.Background(), s.ShastaStateIndexer.GetLastCoreState()))
 
 	for _, key := range []*ecdsa.PrivateKey{l1ProposerPrivKey, l1ProverPrivKey} {
 		s.enableProver(ownerPrivKey, crypto.PubkeyToAddress(key.PublicKey))

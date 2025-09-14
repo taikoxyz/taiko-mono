@@ -26,6 +26,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 )
 
 const (
@@ -41,6 +42,7 @@ type Driver struct {
 	*Config
 	rpc                *rpc.Client
 	l2ChainSyncer      *chainSyncer.L2ChainSyncer
+	shastaIndexer      *shastaIndexer.Indexer
 	preconfBlockServer *preconfBlocks.PreconfBlockAPIServer
 	state              *state.State
 	chainConfig        *config.ChainConfig
@@ -127,6 +129,14 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 
 	config.ReportProtocolConfigs(d.protocolConfig)
 
+	if d.shastaIndexer, err = shastaIndexer.NewShastaState(
+		d.ctx,
+		d.rpc,
+		d.rpc.ShastaClients.ForkHeight,
+	); err != nil {
+		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
+	}
+
 	if d.PreconfBlockServerPort > 0 {
 		// Initialize the preconfirmation block server.
 		if d.preconfBlockServer, err = preconfBlocks.New(
@@ -136,6 +146,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 			d.TaikoAnchorAddress,
 			d.l2ChainSyncer.EventSyncer().BlocksInserterPacaya(),
 			d.rpc,
+			d.shastaIndexer,
 			latestSeenProposalCh,
 		); err != nil {
 			return fmt.Errorf("failed to create preconf block server: %w", err)
@@ -185,6 +196,10 @@ func (d *Driver) Start() error {
 	go d.eventLoop()
 	go d.reportProtocolStatus()
 	go d.exchangeTransitionConfigLoop()
+
+	if err := d.shastaIndexer.Start(); err != nil {
+		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
+	}
 
 	// Start the preconfirmation block server if it is enabled.
 	if d.preconfBlockServer != nil {
@@ -637,6 +652,7 @@ func (d *Driver) cacheLookaheadLoop() {
 	}
 }
 
+// peerLoop runs a loop to log out peers information intervally.
 func (d *Driver) peerLoop(ctx context.Context) {
 	d.wg.Add(1)
 	defer d.wg.Done()
@@ -653,6 +669,7 @@ func (d *Driver) peerLoop(ctx context.Context) {
 	}
 }
 
+// peerTick logs out peers information.
 func (d *Driver) peerTick() {
 	if d.p2pNode == nil ||
 		d.p2pNode.Dv5Local() == nil ||
@@ -675,7 +692,8 @@ func (d *Driver) peerTick() {
 		}
 	}
 
-	log.Info("Peer tick",
+	log.Info(
+		"Peer tick",
 		"peersLen", len(peers),
 		"peers", peers,
 		"addrInfo", addrInfo,
@@ -684,6 +702,12 @@ func (d *Driver) peerTick() {
 		"advertisedTCP", advertisedTCP,
 		"advertisedIP", advertisedIP,
 	)
+}
+
+// ShastaIndexer returns the driver's Shasta state indexer, this method
+// should only be used for testing.
+func (d *Driver) ShastaIndexer() *shastaIndexer.Indexer {
+	return d.shastaIndexer
 }
 
 // Name returns the application name.
