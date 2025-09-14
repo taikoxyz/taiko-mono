@@ -47,7 +47,7 @@ jobs:
           submodules: recursive
           fetch-depth: 0
           ref: ${{ github.head_ref }}
-          token: ${{ secrets.TAIKO_KITTY_TOKEN }}
+          token: ${{ github.event.pull_request.head.repo.fork == false && secrets.TAIKO_KITTY_TOKEN || github.token }}
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1.4.0
