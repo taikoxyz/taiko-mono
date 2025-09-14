@@ -12,8 +12,6 @@ services:
       - "32301"
       - --host
       - "0.0.0.0"
-      - --hardfork
-      - cancun
       - --disable-code-size-limit
 
   l2_geth:
