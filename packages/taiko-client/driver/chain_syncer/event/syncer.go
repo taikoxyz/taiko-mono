@@ -249,7 +249,7 @@ func (s *Syncer) processShastaProposal(
 		return err
 	}
 	// Fetch the parent block, here we try to find the L1 origin of the previous proposal at first,
-	// if not found, which means either the previous proposal is genesis or the L2 EE just finishs the
+	// if not found, which means either the previous proposal is genesis or the L2 EE just finishes the
 	// P2P sync, then we just use the latest block as parent block in this case.
 	l1Origin, err := s.rpc.L2.LastL1OriginByBatchID(ctx, new(big.Int).Sub(meta.GetProposal().Id, common.Big1))
 	if err != nil && err.Error() != ethereum.NotFound.Error() {

@@ -797,6 +797,7 @@ func (c *Client) LastL1OriginInBatch(ctx context.Context, batchID *big.Int) (*ra
 	defer cancel()
 
 	// If we can't find the L1Origin from the L2 execution engine, we will fetch it from the Pacaya protocol.
+	// NOTE: here we assume that when Shasta fork is activated, all Pacaya protocol calls will revert.
 	batch, err := c.GetBatchByID(ctxWithTimeout, batchID)
 	if err != nil {
 		// Try to fetch the L1Origin (for Shasta blocks) from the L2 execution engine.

@@ -52,7 +52,7 @@ func (s *ShastaManifestFetcherTestSuite) TestManifestEncodeDecode() {
 func (s *ShastaManifestFetcherTestSuite) TestExtractVersionAndSize() {
 	version := uint32(1)
 	size := manifest.ProposalMaxBytes
-	proposalManifestBytes := testutils.RandomBytes(int(size))
+	proposalManifestBytes := testutils.RandomBytes(size)
 
 	versionBytes := make([]byte, 32)
 	versionBytes[31] = byte(version)
@@ -136,7 +136,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 	originBlockNumber := uint64(1000)
 	parentAnchorBlockNumber := uint64(900)
 	proposalID := testutils.RandomHash().Big()
-	
+
 	// Test 1: Non-monotonic progression - should be adjusted and return false (no progression)
 	proposalManifest := &manifest.ProposalManifest{
 		Blocks: []*manifest.BlockManifest{
@@ -145,12 +145,12 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 			}},
 		},
 	}
-	
+
 	proposal := shastaBindings.IInboxProposal{Id: proposalID}
 	result := validateAnchorBlockNumber(proposalManifest, originBlockNumber, parentAnchorBlockNumber, proposal, false)
 	s.False(result) // Should return false since no progression beyond parent
 	s.Equal(parentAnchorBlockNumber, proposalManifest.Blocks[0].AnchorBlockNumber)
-	
+
 	// Test 2: Future reference - should be adjusted and return false (no progression)
 	futureAnchor := originBlockNumber - manifest.AnchorMinOffset + 1 // 999, violates future reference
 	proposalManifest = &manifest.ProposalManifest{
@@ -160,12 +160,12 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 			}},
 		},
 	}
-	
+
 	result = validateAnchorBlockNumber(proposalManifest, originBlockNumber, parentAnchorBlockNumber, proposal, false)
 	s.False(result) // Should return false since no progression beyond parent
 	s.Equal(parentAnchorBlockNumber, proposalManifest.Blocks[0].AnchorBlockNumber)
-	
-	// Test 3: Excessive lag - should be adjusted and return false (no progression) 
+
+	// Test 3: Excessive lag - should be adjusted and return false (no progression)
 	lagAnchor := originBlockNumber - manifest.AnchorMaxOffset - 1 // 871, excessive lag
 	proposalManifest = &manifest.ProposalManifest{
 		Blocks: []*manifest.BlockManifest{
@@ -174,11 +174,11 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 			}},
 		},
 	}
-	
+
 	result = validateAnchorBlockNumber(proposalManifest, originBlockNumber, parentAnchorBlockNumber, proposal, false)
 	s.False(result) // Should return false since no progression beyond parent
 	s.Equal(parentAnchorBlockNumber, proposalManifest.Blocks[0].AnchorBlockNumber)
-	
+
 	// Test 4: Valid anchor block number - should remain unchanged
 	validAnchor := uint64(950) // Between parent (900) and max allowed (998)
 	proposalManifest = &manifest.ProposalManifest{
@@ -188,11 +188,11 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 			}},
 		},
 	}
-	
+
 	result = validateAnchorBlockNumber(proposalManifest, originBlockNumber, parentAnchorBlockNumber, proposal, false)
 	s.True(result)
 	s.Equal(validAnchor, proposalManifest.Blocks[0].AnchorBlockNumber)
-	
+
 	// Test 5: Forced inclusion protection - non-forced proposal with no progression should return false
 	proposalManifest = &manifest.ProposalManifest{
 		Blocks: []*manifest.BlockManifest{
@@ -201,10 +201,10 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 			}},
 		},
 	}
-	
+
 	result = validateAnchorBlockNumber(proposalManifest, originBlockNumber, parentAnchorBlockNumber, proposal, false)
 	s.False(result) // Should return false for non-forced inclusion without progression
-	
+
 	// Test 6: Forced inclusion should always return true
 	result = validateAnchorBlockNumber(proposalManifest, originBlockNumber, parentAnchorBlockNumber, proposal, true)
 	s.True(result) // Should return true for forced inclusion even without progression
@@ -213,7 +213,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateAnchorBlockNumber() {
 func (s *ShastaManifestFetcherTestSuite) TestValidateCoinbase() {
 	proposer := common.BytesToAddress(testutils.RandomBytes(20))
 	customCoinbase := common.BytesToAddress(testutils.RandomBytes(20))
-	
+
 	// Test 1: Forced inclusion - always use proposal.proposer
 	proposalManifest := &manifest.ProposalManifest{
 		Blocks: []*manifest.BlockManifest{
@@ -222,11 +222,11 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateCoinbase() {
 			}},
 		},
 	}
-	
+
 	proposal := shastaBindings.IInboxProposal{Proposer: proposer}
 	validateCoinbase(proposalManifest, proposal, true)
 	s.Equal(proposer, proposalManifest.Blocks[0].Coinbase) // Should use proposer
-	
+
 	// Test 2: Regular proposal with non-zero coinbase - should remain unchanged
 	// NOTE: This tests the current buggy behavior where the second if condition still executes
 	proposalManifest = &manifest.ProposalManifest{
@@ -236,12 +236,12 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateCoinbase() {
 			}},
 		},
 	}
-	
+
 	validateCoinbase(proposalManifest, proposal, false)
 	// Due to the bug, both conditions are checked independently
 	// Since customCoinbase is not zero, it should remain unchanged
 	s.Equal(customCoinbase, proposalManifest.Blocks[0].Coinbase)
-	
+
 	// Test 3: Regular proposal with zero coinbase - should use fallback
 	proposalManifest = &manifest.ProposalManifest{
 		Blocks: []*manifest.BlockManifest{
@@ -250,35 +250,35 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateCoinbase() {
 			}},
 		},
 	}
-	
+
 	validateCoinbase(proposalManifest, proposal, false)
 	s.Equal(proposer, proposalManifest.Blocks[0].Coinbase) // Should use proposer as fallback
-	
+
 	// Test 4: Demonstrate the bug - forced inclusion still checks zero condition
 	// This shows that even for forced inclusion, if coinbase happens to be zero after
 	// being set to proposer, it would be set again (though to the same value)
 	proposalManifest = &manifest.ProposalManifest{
 		Blocks: []*manifest.BlockManifest{
 			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
-				Coinbase: common.Address{}, // Zero address initially  
+				Coinbase: common.Address{}, // Zero address initially
 			}},
 		},
 	}
-	
+
 	validateCoinbase(proposalManifest, proposal, true)
 	s.Equal(proposer, proposalManifest.Blocks[0].Coinbase)
 }
 
 func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 	parentGasLimit := uint64(30_000_000)
-	
+
 	// Calculate expected bounds (0.1% change = 10 permyriad)
 	expectedLowerBound := max(
 		parentGasLimit*(10000-manifest.MaxBlockGasLimitChangePermyriad)/10000,
 		manifest.MinBlockGasLimit,
 	)
 	expectedUpperBound := parentGasLimit * (10000 + manifest.MaxBlockGasLimitChangePermyriad) / 10000
-	
+
 	// Test 1: Zero gas limit - should inherit parent
 	proposalManifest := &manifest.ProposalManifest{
 		Blocks: []*manifest.BlockManifest{
@@ -287,10 +287,10 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 			}},
 		},
 	}
-	
+
 	validateGasLimit(proposalManifest, parentGasLimit)
 	s.Equal(parentGasLimit, proposalManifest.Blocks[0].GasLimit)
-	
+
 	// Test 2: Gas limit below lower bound - should be clamped
 	lowGasLimit := expectedLowerBound - 1000
 	proposalManifest = &manifest.ProposalManifest{
@@ -300,10 +300,10 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 			}},
 		},
 	}
-	
+
 	validateGasLimit(proposalManifest, parentGasLimit)
 	s.Equal(expectedLowerBound, proposalManifest.Blocks[0].GasLimit)
-	
+
 	// Test 3: Gas limit above upper bound - should be clamped
 	highGasLimit := expectedUpperBound + 1000
 	proposalManifest = &manifest.ProposalManifest{
@@ -313,10 +313,10 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 			}},
 		},
 	}
-	
+
 	validateGasLimit(proposalManifest, parentGasLimit)
 	s.Equal(expectedUpperBound, proposalManifest.Blocks[0].GasLimit)
-	
+
 	// Test 4: Valid gas limit within bounds - should remain unchanged
 	validGasLimit := parentGasLimit + 15000 // Within ±0.1%
 	proposalManifest = &manifest.ProposalManifest{
@@ -326,14 +326,14 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 			}},
 		},
 	}
-	
+
 	validateGasLimit(proposalManifest, parentGasLimit)
 	s.Equal(validGasLimit, proposalManifest.Blocks[0].GasLimit)
-	
+
 	// Test 5: Sequential blocks - parent gas limit should update
 	firstBlockGasLimit := parentGasLimit + 20000 // Within bounds
-	secondBlockGasLimit := uint64(0) // Should inherit from first block
-	
+	secondBlockGasLimit := uint64(0)             // Should inherit from first block
+
 	proposalManifest = &manifest.ProposalManifest{
 		Blocks: []*manifest.BlockManifest{
 			{ProtocolBlockManifest: manifest.ProtocolBlockManifest{
@@ -344,11 +344,11 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 			}},
 		},
 	}
-	
+
 	validateGasLimit(proposalManifest, parentGasLimit)
 	s.Equal(firstBlockGasLimit, proposalManifest.Blocks[0].GasLimit)
 	s.Equal(firstBlockGasLimit, proposalManifest.Blocks[1].GasLimit) // Should inherit from first block
-	
+
 	// Test 6: Minimum gas limit enforcement
 	if manifest.MinBlockGasLimit > expectedLowerBound {
 		veryLowParentGasLimit := uint64(10_000_000) // Low parent gas limit
@@ -359,7 +359,7 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateGasLimit() {
 				}},
 			},
 		}
-		
+
 		validateGasLimit(proposalManifest, veryLowParentGasLimit)
 		s.Equal(manifest.MinBlockGasLimit, proposalManifest.Blocks[0].GasLimit)
 	}

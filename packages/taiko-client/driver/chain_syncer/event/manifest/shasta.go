@@ -466,7 +466,8 @@ func validateBondInstructions(
 	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 	defer cancel()
 
-	// For an L2 block with a higher anchor block number than its parent, bond instructions must be processed within its anchor transaction.
+	// For an L2 block with a higher anchor block number than its parent, bond instructions must be processed within
+	// its anchor transaction.
 	for i := range proposalManifest.Blocks {
 		if proposalManifest.Blocks[i].AnchorBlockNumber <= parentAnchorBlockNumber {
 			continue
