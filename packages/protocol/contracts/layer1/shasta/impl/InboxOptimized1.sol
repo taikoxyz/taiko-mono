@@ -8,12 +8,11 @@ import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 
 /// @title InboxOptimized1
 /// @notice First optimization layer for the Inbox contract focusing on storage efficiency and
-/// transition
-/// aggregation
+/// transition aggregation
 /// @dev Key optimizations:
 ///      - Reusable transition record slots to reduce storage operations
 ///      - Transition aggregation for consecutive proposals to minimize gas costs
-///      - Partial parent transition hash matching (26 bytes) for storage optimization
+///      - Partial parent transition hash matching for storage optimization
 ///      - Inline bond instruction merging to reduce function calls
 /// @custom:security-contact security@taiko.xyz
 contract InboxOptimized1 is Inbox {
@@ -22,7 +21,8 @@ contract InboxOptimized1 is Inbox {
     // ---------------------------------------------------------------
 
     /// @notice Optimized storage for frequently accessed transition records
-    /// @dev Stores the first transition record for each proposal to reduce gas costs
+    /// @dev Stores the first transition record for each proposal to reduce gas costs.
+    ///      Uses a ring buffer pattern with proposal ID modulo ring buffer size.
     struct ReusableTransitionRecord {
         TransitionRecordHashAndDeadline hashAndDeadline;
         uint48 proposalId;
@@ -35,8 +35,8 @@ contract InboxOptimized1 is Inbox {
 
     /// @dev Storage for default transition records to optimize gas usage
     /// @notice Stores the most common transition record for each buffer slot
-    /// - bufferSlot: The ring buffer slot calculated as proposalId % ringBufferSize
-    /// - reusableTransitionRecord: The default transition record for quick access
+    /// @dev Ring buffer implementation with collision handling that falls back to composite key
+    /// mapping
     mapping(uint256 bufferSlot => ReusableTransitionRecord reusableTransitionRecord) internal
         _reusableTransitionRecords;
 
@@ -59,9 +59,7 @@ contract InboxOptimized1 is Inbox {
     ///      - Merges bond instructions for aggregated transitions
     ///      - Updates end block header for each aggregation
     ///      - Saves aggregated records with increased span value
-    /// @dev Memory optimizations:
-    ///      - Inline bond instruction merging
-    ///      - Reuses memory allocations across iterations
+    /// @param _input ProveInput containing arrays of proposals and transitions to process
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal override {
         if (_input.proposals.length == 0) return;
 
@@ -144,11 +142,13 @@ contract InboxOptimized1 is Inbox {
 
     /// @inheritdoc Inbox
     /// @dev Retrieves transition record hash with storage optimization
-    /// @notice Gas optimization strategy:
+    /// @notice Optimization strategy:
     ///         1. First checks reusable slot for matching proposal ID
-    ///         2. Performs partial parent transition hash comparison (26 bytes)
+    ///         2. Performs partial parent transition hash comparison
     ///         3. Falls back to composite key mapping if no match
-    /// @dev Reduces storage reads by ~50% for common case (single transition per proposal)
+    /// @param _proposalId The proposal ID to look up
+    /// @param _parentTransitionHash Parent transition hash for verification
+    /// @return TransitionRecordHashAndDeadline containing the record hash and finalization deadline
     function _getTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
@@ -182,7 +182,9 @@ contract InboxOptimized1 is Inbox {
     ///         1. New proposal ID: Overwrites reusable slot
     ///         2. Same ID, same parent: Updates reusable slot
     ///         3. Same ID, different parent: Uses composite key mapping
-    /// @dev Saves ~20,000 gas for common case by avoiding mapping writes
+    /// @param _proposalId The proposal ID for this transition record
+    /// @param _transition The transition data containing parent transition hash
+    /// @param _transitionRecord The complete transition record to store
     function _setTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         Transition memory _transition,
