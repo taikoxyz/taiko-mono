@@ -52,7 +52,6 @@ jobs:
           repository: ${{ steps.comment-branch.outputs.head_owner }}/${{ steps.comment-branch.outputs.head_repo }}
           # Fetch more history for better git operations
           fetch-depth: 0
-          persist-credentials: false
           token: ${{ github.event.pull_request.head.repo.fork == false && secrets.TAIKO_KITTY_TOKEN || github.token }}
 
       - name: Install Foundry
@@ -96,7 +95,6 @@ jobs:
           commit_message: "forge fmt & update contract layout tables"
           branch: ${{ github.head_ref }}
           push_options: "--force-with-lease"
-          token: ${{ github.event.pull_request.head.repo.fork == false && secrets.TAIKO_KITTY_TOKEN || github.token }}
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol
