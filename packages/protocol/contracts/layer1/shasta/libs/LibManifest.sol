@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-
 /// @title LibManifest
 /// @custom:security-contact security@taiko.xyz
 library LibManifest {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
-
 
     /// @notice The maximum anchor block number offset from the proposal origin block number.
     uint256 internal constant ANCHOR_MAX_OFFSET = 128;
