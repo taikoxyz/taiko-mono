@@ -141,6 +141,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// can propose.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ Address of the designated prover.
+    /// @return previousState_ The previous state of the anchor.
     function updateState(
         // Proposal level fields - define the overall batch
         uint48 _proposalId,
@@ -158,14 +159,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
         external
         onlyGoldenTouch
         nonReentrant
-        returns (
-            bool isLowBondProposal_,
-            address designatedProver_,
-            uint256 previousAnchorBlockNumber
-        )
+        returns (bool isLowBondProposal_, address designatedProver_, State memory previousState_)
     {
         // Fork validation
         require(block.number >= shastaForkHeight, L2_FORK_ERROR());
+
+        previousState_ = _state;
 
         // Prevent duplicate calls within same block
         _trackParentBlockHash(block.number - 1);
@@ -181,10 +180,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
             emit ProverDesignated(designatedProver_, isLowBondProposal_);
         }
 
-        previousAnchorBlockNumber = _state.anchorBlockNumber;
-
         // Process new L1 anchor data
-        if (_anchorBlockNumber > _state.anchorBlockNumber) {
+        if (_anchorBlockNumber > previousState_.anchorBlockNumber) {
             // Save L1 block data
             checkpointManager.saveCheckpoint(
                 ICheckpointManager.Checkpoint({
