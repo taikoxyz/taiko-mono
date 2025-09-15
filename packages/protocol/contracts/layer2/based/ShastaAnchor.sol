@@ -236,7 +236,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint256 provingFee;
         (designatedProver_, provingFee) = _validateProverAuth(_proposalId, _proposer, _proverAuth);
 
-        // Convert proving fee from Wwei to Wei
+        // Convert proving fee from Gwei to Wei
         provingFee *= 1e9;
 
         // Check bond sufficiency (convert provingFeeGwei to Wei)
