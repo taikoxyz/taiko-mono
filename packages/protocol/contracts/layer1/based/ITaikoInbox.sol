@@ -302,7 +302,7 @@ interface ITaikoInbox is IBondManager, IProveBatches {
 
     /// @notice Verify batches by providing the length of the batches to verify.
     /// @dev This function is necessary to upgrade from this fork to the next one.
-    /// @param _count Specifis how many batches to verify. The max number of batches to verify is
+    /// @param _count Specifies how many batches to verify. The max number of batches to verify is
     /// `v4GetConfig().maxBatchesToVerify * _count`.
     function v4VerifyBatches(uint8 _count) external;
 
