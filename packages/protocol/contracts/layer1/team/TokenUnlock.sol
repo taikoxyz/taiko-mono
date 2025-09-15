@@ -80,7 +80,7 @@ contract TokenUnlock is EssentialContract {
         _;
     }
 
-    constructor(address _taikoToken, address _proverSetImpl) EssentialContract() {
+    constructor(address _taikoToken, address _proverSetImpl) {
         taikoToken = _taikoToken;
         proverSetImpl = _proverSetImpl;
     }

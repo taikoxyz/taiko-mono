@@ -42,7 +42,7 @@ contract LibProveInputDecoderFuzz is Test {
             id: proposalId,
             proposer: proposer,
             timestamp: timestamp,
-            lookaheadSlotTimestamp: 1_700_000_012,
+            endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: coreStateHash,
             derivationHash: derivationHash
         });
@@ -105,7 +105,7 @@ contract LibProveInputDecoderFuzz is Test {
                 id: uint48(i + 1),
                 proposer: address(uint160(0x1000 + i)),
                 timestamp: uint48(1_000_000 + i),
-                lookaheadSlotTimestamp: uint48(1_000_000 + i + 12),
+                endOfSubmissionWindowTimestamp: uint48(1_000_000 + i + 12),
                 coreStateHash: keccak256(abi.encodePacked("state", i)),
                 derivationHash: keccak256(abi.encodePacked("derivation", i))
             });
@@ -180,7 +180,7 @@ contract LibProveInputDecoderFuzz is Test {
             id: id1,
             proposer: proposer1,
             timestamp: timestamp1,
-            lookaheadSlotTimestamp: 1_700_000_012,
+            endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: keccak256(abi.encode("core1")),
             derivationHash: keccak256(abi.encode("deriv1"))
         });
@@ -188,7 +188,7 @@ contract LibProveInputDecoderFuzz is Test {
             id: id2,
             proposer: proposer2,
             timestamp: timestamp2,
-            lookaheadSlotTimestamp: 1_700_000_012,
+            endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: keccak256(abi.encode("core2")),
             derivationHash: keccak256(abi.encode("deriv2"))
         });
@@ -243,7 +243,7 @@ contract LibProveInputDecoderFuzz is Test {
             id: type(uint48).max,
             proposer: address(type(uint160).max),
             timestamp: type(uint48).max,
-            lookaheadSlotTimestamp: 1_700_000_012,
+            endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: bytes32(type(uint256).max),
             derivationHash: bytes32(type(uint256).max)
         });
@@ -286,7 +286,7 @@ contract LibProveInputDecoderFuzz is Test {
                 id: uint48(100 + i),
                 proposer: address(uint160(0x1000 + i)),
                 timestamp: uint48(1_000_000 + i * 100),
-                lookaheadSlotTimestamp: uint48(1_000_000 + i * 100 + 12),
+                endOfSubmissionWindowTimestamp: uint48(1_000_000 + i * 100 + 12),
                 coreStateHash: keccak256(abi.encodePacked("core", i)),
                 derivationHash: keccak256(abi.encodePacked("deriv", i))
             });

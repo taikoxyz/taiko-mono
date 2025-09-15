@@ -51,9 +51,7 @@ contract BondManager is EssentialContract, IBondManager {
         address _bondToken,
         uint256 _minBond,
         uint48 _withdrawalDelay
-    )
-        EssentialContract()
-    {
+    ) {
         authorized = _authorized;
         bondToken = IERC20(_bondToken);
         minBond = _minBond;

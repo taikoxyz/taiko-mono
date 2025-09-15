@@ -74,7 +74,7 @@ contract LibProposeInputDecoderFuzz is Test {
             id: proposalId,
             proposer: proposer,
             timestamp: timestamp,
-            lookaheadSlotTimestamp: 1_700_000_012,
+            endOfSubmissionWindowTimestamp: 1_700_000_012,
             coreStateHash: coreStateHash,
             derivationHash: derivationHash
         });
@@ -196,7 +196,7 @@ contract LibProposeInputDecoderFuzz is Test {
                 id: uint48(i + 1),
                 proposer: address(uint160(0x1000 + i)),
                 timestamp: uint48(1_000_000 + i),
-                lookaheadSlotTimestamp: uint48(1_000_000 + i + 12),
+                endOfSubmissionWindowTimestamp: uint48(1_000_000 + i + 12),
                 coreStateHash: keccak256(abi.encodePacked("state", i)),
                 derivationHash: keccak256(abi.encodePacked("derivation", i))
             });
@@ -359,7 +359,7 @@ contract LibProposeInputDecoderFuzz is Test {
                 id: uint48(96 + i),
                 proposer: address(uint160(0x1000 + i)),
                 timestamp: uint48(1_000_000 + i * 10),
-                lookaheadSlotTimestamp: uint48(1_000_000 + i * 10 + 12),
+                endOfSubmissionWindowTimestamp: uint48(1_000_000 + i * 10 + 12),
                 coreStateHash: keccak256(abi.encodePacked("core_state", i)),
                 derivationHash: keccak256(abi.encodePacked("derivation", i))
             });

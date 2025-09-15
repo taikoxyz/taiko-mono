@@ -2,20 +2,20 @@
 pragma solidity ^0.8.24;
 
 import { Inbox } from "./Inbox.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { InboxOptimized1 } from "./InboxOptimized1.sol";
 import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 
 /// @title InboxOptimized2
-/// @notice Second optimization layer focusing on event emission gas reduction
+/// @notice Second optimization layer focusing on event emission optimization
 /// @dev Key optimizations:
 ///      - Custom event encoding using LibProposedEventEncoder and LibProvedEventEncoder
 ///      - Compact binary representation for event data
 ///      - Reduced calldata size for events
 ///      - Maintains all optimizations from InboxOptimized1
-/// @dev Gas savings: ~30% reduction in event emission costs compared to standard ABI encoding
 /// @custom:security-contact security@taiko.xyz
-abstract contract InboxOptimized2 is InboxOptimized1 {
+contract InboxOptimized2 is InboxOptimized1 {
     // ---------------------------------------------------------------
     // State Variables
     // ---------------------------------------------------------------
@@ -26,7 +26,7 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized1() { }
+    constructor(IInbox.Config memory _config) InboxOptimized1(_config) { }
 
     // ---------------------------------------------------------------
     // External Functions
@@ -34,7 +34,7 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
 
     /// @notice Decodes custom-encoded proposed event data
     /// @dev Uses LibProposedEventEncoder for efficient decoding
-    /// @param _data The custom-encoded event data
+    /// @param _data The custom-encoded event data in compact binary format
     /// @return _ The decoded ProposedEventPayload struct
     function decodeProposedEventData(bytes memory _data)
         external
@@ -46,7 +46,7 @@ abstract contract InboxOptimized2 is InboxOptimized1 {
 
     /// @notice Decodes custom-encoded proved event data
     /// @dev Uses LibProvedEventEncoder for efficient decoding
-    /// @param _data The custom-encoded event data
+    /// @param _data The custom-encoded event data in compact binary format
     /// @return _ The decoded ProvedEventPayload struct
     function decodeProvedEventData(bytes memory _data)
         external
