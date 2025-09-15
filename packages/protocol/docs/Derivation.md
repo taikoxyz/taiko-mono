@@ -369,7 +369,7 @@ The following block header fields are also set before transaction execution but 
 | ------------ | ----------------------------------------------------------------------------------------------- |
 | `parentHash` | Hash of the previous L2 block                                                                   |
 | `mixHash`    | TODO: Determine if this should be 0 or set to `prevRandao` as per EIP-4399                      |
-| `baseFee`    | Calculated using EIP-4396 from parent and current block timestamps before transaction execution |
+| `baseFee`    | Calculated per Taiko L2 EIP-1559 using protocol config, parent gas used, and current block timestamp (see eip1559_on_l2.md) |
 
 Note: Fields like `stateRoot`, `transactionsRoot`, `receiptsRoot`, `logsBloom`, and `gasUsed` are populated after transaction execution.
 
@@ -425,4 +425,4 @@ The anchor transaction executes a carefully orchestrated sequence of operations:
 
 ## Base Fee Calculation
 
-The calculation of block base fee shall follow [EIP-4396](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4396.md#specification).
+The L2 base fee follows Taiko’s EIP-1559-based mechanism described in `eip1559_on_l2.md`. It is computed by the protocol (via `TaikoAnchor.getBasefeeV2`) using EIP-1559 parameters, parent gas usage, and the current block timestamp, and then injected into block metadata before transaction execution.
