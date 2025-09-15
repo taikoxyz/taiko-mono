@@ -846,7 +846,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		return false, err
 	}
 
-	if l1Header.Root != l1StateRoot {
+	if l1StateRoot != (common.Hash{}) && l1Header.Root != l1StateRoot {
 		log.Info(
 			"Reorg detected due to L1 state root mismatch",
 			"blockID", blockID,

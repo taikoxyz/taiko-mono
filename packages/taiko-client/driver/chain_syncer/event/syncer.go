@@ -232,6 +232,13 @@ func (s *Syncer) processShastaProposal(
 		return nil
 	}
 
+	log.Info(
+		"New Shasta Proposed event",
+		"l1Height", meta.GetRawBlockHeight(),
+		"l1Hash", meta.GetRawBlockHash(),
+		"proposalID", meta.GetProposal().Id,
+	)
+
 	// If the event's timestamp is in the future, we wait until the timestamp is reached, should
 	// only happen when testing.
 	if meta.GetProposal().Timestamp.Uint64() > uint64(time.Now().Unix()) {
@@ -288,6 +295,12 @@ func (s *Syncer) processShastaProposal(
 			return err
 		}
 
+		log.Info(
+			"Designated prover info",
+			"prover", designatedProverInfo.DesignatedProver,
+			"isLowBondProposal", designatedProverInfo.IsLowBondProposal,
+		)
+
 		if designatedProverInfo.IsLowBondProposal {
 			proposalManifest = &manifest.ProposalManifest{Default: true, IsLowBondProposal: true}
 		}
@@ -318,18 +331,10 @@ func (s *Syncer) processShastaProposal(
 				},
 			},
 		}
+		log.Info("Use default Shasta proposal manifest", "proposalID", meta.GetProposal().Id)
 	}
 
 	// Insert new blocks to L2 EE's chain.
-	log.Info(
-		"New Shasta Proposed event",
-		"l1Height", meta.GetRawBlockHeight(),
-		"l1Hash", meta.GetRawBlockHash(),
-		"proposalID", meta.GetProposal().Id,
-		"defaultManifest", proposalManifest.Default,
-		"blocks", len(proposalManifest.Blocks),
-	)
-
 	return s.blocksInserterShasta.InsertBlocksWithManifest(ctx, metadata, proposalManifest, endIter)
 }
 

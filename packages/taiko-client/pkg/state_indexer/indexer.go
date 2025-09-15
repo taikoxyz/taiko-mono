@@ -520,6 +520,9 @@ func (s *Indexer) GetProposalsInput(
 	defer s.mutex.RUnlock()
 
 	lastProposals := []*ProposalPayload{s.GetLastProposal()}
+	if lastProposals[0] == nil {
+		return nil, nil, fmt.Errorf("no on-chain Shasta proposal events cached")
+	}
 	if lastProposals[0].Proposal.Id.Uint64() > s.bufferSize {
 		nextSlotProposal, ok := s.proposals.Get(lastProposals[0].Proposal.Id.Uint64() - s.bufferSize + 1)
 		if !ok {
