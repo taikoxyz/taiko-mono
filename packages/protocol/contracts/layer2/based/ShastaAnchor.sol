@@ -207,23 +207,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
         return _state;
     }
 
-    /// @notice Returns the designated prover
-    /// @param _proposalId The proposal ID.
-    /// @param _proposer The proposer address.
-    /// @param _proverAuth Encoded prover authentication data.
-    /// @return isLowBondProposal_ True if proposer has insufficient bonds.
-    /// @return designatedProver_ The designated prover address.
-    function getDesignatedProver(
-        uint48 _proposalId,
-        address _proposer,
-        bytes calldata _proverAuth
-    )
-        external
-        returns (bool isLowBondProposal_, address designatedProver_)
-    {
-        return _getDesignatedProver(_proposalId, _proposer, _proverAuth);
-    }
-
     // ---------------------------------------------------------------
     // Private functions
     // ---------------------------------------------------------------
