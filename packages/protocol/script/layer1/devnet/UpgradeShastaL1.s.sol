@@ -56,8 +56,9 @@ contract UpgradeShastaL1 is DeployCapability {
         address tempFork =
             address(new DevnetShastaInbox(address(0), proofVerifier, whitelist, bondToken));
 
-        UUPSUpgradeable(inbox).upgradeTo({
-            newImplementation: address(new ShastaForkRouter(oldFork, tempFork))
+        UUPSUpgradeable(inbox).upgradeToAndCall({
+            newImplementation: address(new ShastaForkRouter(oldFork, tempFork)),
+            data: abi.encodeCall(Inbox.initV3, (address(0), vm.envBytes32("L2_GENESIS_HASH")))
         });
 
         address checkPointManager = deployProxy({
