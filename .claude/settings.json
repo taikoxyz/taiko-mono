@@ -17,6 +17,7 @@
       "Bash(mkdir:*)",
       "Bash(grep:*)",
       "Bash(pnpm compile:*)",
+      "Bash(pnpm install:*)",
       "Bash(pnpm test:*)",
       "Bash(pnpm snapshot:*)",
       "Bash(pnpm layout:*)",
