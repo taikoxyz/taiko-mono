@@ -31,6 +31,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
 	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
+	blocksInserter "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/chain_syncer/event/blocks_inserter"
 	preconfblocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/testutils"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/jwt"
@@ -810,8 +811,9 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	s.Nil(err)
 	s.Equal(l2Head1.Number.Uint64(), headL1Origin.BlockID.Uint64())
 
-	ok, err := s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+	ok, err := blocksInserter.IsBasedOnCanonicalChain(
 		context.Background(),
+		s.RPCClient,
 		&preconf.Envelope{
 			Payload: &eth.ExecutionPayload{
 				BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
@@ -824,8 +826,9 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	s.Nil(err)
 	s.True(ok)
 
-	ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+	ok, err = blocksInserter.IsBasedOnCanonicalChain(
 		context.Background(),
+		s.RPCClient,
 		&preconf.Envelope{
 			Payload: &eth.ExecutionPayload{
 				BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),
@@ -839,8 +842,9 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 	s.True(ok)
 
 	if isInForkA {
-		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+		ok, err = blocksInserter.IsBasedOnCanonicalChain(
 			context.Background(),
+			s.RPCClient,
 			&preconf.Envelope{
 				Payload: &eth.ExecutionPayload{
 					BlockNumber: eth.Uint64Quantity(forkB[len(forkB)-1].Number().Uint64()),
@@ -853,8 +857,9 @@ func (s *DriverTestSuite) TestGossipMessagesRandomReorgs() {
 		s.Nil(err)
 		s.False(ok)
 	} else {
-		ok, err = s.d.ChainSyncer().EventSyncer().BlocksInserterPacaya().IsBasedOnCanonicalChain(
+		ok, err = blocksInserter.IsBasedOnCanonicalChain(
 			context.Background(),
+			s.RPCClient,
 			&preconf.Envelope{
 				Payload: &eth.ExecutionPayload{
 					BlockNumber: eth.Uint64Quantity(forkA[len(forkA)-1].Number().Uint64()),

@@ -164,8 +164,39 @@ func (i *Shasta) InsertPreconfBlocksFromEnvelopes(
 	envelopes []*preconf.Envelope,
 	fromCache bool,
 ) ([]*types.Header, error) {
-	// TODO: To be implemented.
-	return nil, errors.New("not supported in Shasta block inserter")
+	i.mutex.Lock()
+	defer i.mutex.Unlock()
+
+	log.Debug(
+		"Insert preconfirmation blocks from envelopes",
+		"numBlocks", len(envelopes),
+		"fromCache", fromCache,
+	)
+
+	headers := make([]*types.Header, len(envelopes))
+	for j, envelope := range envelopes {
+		header, err := i.insertPreconfBlockFromEnvelope(ctx, envelope)
+		if err != nil {
+			return nil, fmt.Errorf("failed to insert preconfirmation block %d: %w", envelope.Payload.BlockNumber, err)
+		}
+		log.Info(
+			"⏰ New preconfirmation L2 block inserted",
+			"blockID", header.Number,
+			"hash", header.Hash(),
+			"fork", "Shasta",
+			"coinbase", header.Coinbase.Hex(),
+			"timestamp", header.Time,
+			"baseFee", utils.WeiToGWei(header.BaseFee),
+			"withdrawalsHash", header.WithdrawalsHash,
+			"gasLimit", header.GasLimit,
+			"gasUsed", header.GasUsed,
+			"parentHash", header.ParentHash,
+			"fromCache", fromCache,
+		)
+		headers[j] = header
+	}
+
+	return headers, nil
 }
 
 // sendLatestSeenProposal sends the latest seen proposal to the channel, if it is not nil.
@@ -179,4 +210,13 @@ func (i *Shasta) sendLatestSeenProposal(proposal *encoding.LastSeenProposal) {
 
 		i.latestSeenProposalCh <- proposal
 	}
+}
+
+// insertPreconfBlockFromEnvelope the inner method to insert a preconfirmation block from
+// the given envelope.
+func (i *Shasta) insertPreconfBlockFromEnvelope(
+	ctx context.Context,
+	envelope *preconf.Envelope,
+) (*types.Header, error) {
+	return InsertPreconfBlockFromEnvelope(ctx, i.rpc, envelope)
 }
