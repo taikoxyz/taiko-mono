@@ -43,12 +43,11 @@ interface ILookaheadStore {
         uint256 slotIndex;
         /// @notice URC registration root of the lookahead poster
         bytes32 registrationRoot;
-        /// @notice Current epoch lookahead slots
+        /// @notice Current epoch lookahead slots. It is only used for validation
         /// @dev Must be provided exactly as originally posted by the previous lookahead poster
         LookaheadSlot[] currLookahead;
-        /// @notice Next epoch lookahead slots
-        /// @dev IMPORTANT: Must take into account blacklist status as of one slot before the
-        /// current epoch start
+        /// @notice Next epoch lookahead slots. If there's no lookahead stored for next epoch, it will be updated with this value
+        /// @dev IMPORTANT: Must take into account blacklist status as of one slot before the current epoch start
         LookaheadSlot[] nextLookahead;
         /// @notice Commitment signature for the lookahead poster
         /// @dev Must be set to an empty bytes if the lookahead poster is a whitelisted preconfer
@@ -87,8 +86,8 @@ interface ILookaheadStore {
 
     /// @notice Checks if a proposer is eligible to propose for the current slot and conditionally
     ///         updates the lookahead for the next epoch.
-    /// @dev Only the next lookahead can be updated, not the current one. And it can be only updated
-    /// if none is set.
+    /// @dev IMPORTANT: The first preconfer of each epoch must submit the lookahead for the next epoch.
+    ///      The contract enforces this by trying to update the lookahead for next epoch if none is stored.
     /// @param _proposer The address of the proposer to check.
     /// @param _lookaheadData The lookahead data for current and next epoch.
     /// @return submissionSlotTimestamp_ The timestamp of the submission slot i.e also the upper
