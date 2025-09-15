@@ -158,7 +158,11 @@ abstract contract ShastaAnchor is PacayaAnchor {
         external
         onlyGoldenTouch
         nonReentrant
-        returns (bool isLowBondProposal_, address designatedProver_)
+        returns (
+            bool isLowBondProposal_,
+            address designatedProver_,
+            uint256 previousAnchorBlockNumber
+        )
     {
         // Fork validation
         require(block.number >= shastaForkHeight, L2_FORK_ERROR());
@@ -176,6 +180,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
             emit ProverDesignated(designatedProver_, isLowBondProposal_);
         }
+
+        previousAnchorBlockNumber = _state.anchorBlockNumber;
 
         // Process new L1 anchor data
         if (_anchorBlockNumber > _state.anchorBlockNumber) {
