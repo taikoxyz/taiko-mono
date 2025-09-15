@@ -168,7 +168,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
             if (proverFee > 0) {
                 bondManager.debitBond(_proposer, proverFee);
-                bondManager.creditBond(designatedProver_, proverFee);
+                bondManager.creditBond(newState_.designatedProver, proverFee);
             }
         }
 
