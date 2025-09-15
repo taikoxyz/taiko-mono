@@ -33,9 +33,9 @@ Based on the requested scope, use these commands from `packages/protocol/package
 
 ### Primary Commands
 
-- **L1 Tests**: `pnpm test:l1` (FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/\*_/_.t.sol')
-- **L2 Tests**: `pnpm test:l2` (FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/\*_/_.t.sol')
-- **Shared Tests**: `pnpm test:shared` (FOUNDRY_PROFILE=shared forge test --match-path 'test/shared/\*_/_.t.sol')
+- **L1 Tests**: `pnpm test:l1` (FOUNDRY_PROFILE=layer1 forge test --match-path 'test/layer1/\*.t.sol')
+- **L2 Tests**: `pnpm test:l2` (FOUNDRY_PROFILE=layer2 forge test --match-path 'test/layer2/\*.t.sol')
+- **Shared Tests**: `pnpm test:shared` (FOUNDRY_PROFILE=shared forge test --match-path 'test/shared/\*.t.sol')
 - **All Tests**: `pnpm test` (runs all three test suites sequentially)
 
 ### Alternative Direct Commands (if needed)
@@ -46,7 +46,7 @@ Based on the requested scope, use these commands from `packages/protocol/package
 
 ### Special Cases
 
-- For Shasta development (L1): `FOUNDRY_PROFILE=layer1 forge test --match-path "test/layer1/shasta/inbox/suite2/*"` (as per project guidelines)
+- For Shasta development (L1): `FOUNDRY_PROFILE=layer1 forge test --match-path "test/layer1/shasta/inbox/suite2/*"` and `FOUNDRY_PROFILE=layer1 forge test --match-path "test/layer1/shasta/inbox/suite1/*"` (as per project guidelines)
 - Use `--summary` flag to get concise gas usage and test results
 - Use `-v` for minimal verbosity or `-vvvv` for detailed debugging when investigating specific failures
 
