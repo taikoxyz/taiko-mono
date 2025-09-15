@@ -64,7 +64,7 @@ src = "contracts/layer1"
 test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
-evm_version = "cancun"
+evm_version = "prague"
 
 [profile.layer2]
 src = "contracts/layer2"
@@ -95,7 +95,7 @@ src = "contracts/layer1"
 test = "test/layer1"
 script = "script/layer1"
 out = "out/layer1"
-evm_version = "cancun"
+evm_version = "prague"
 via_ir = true
 yul = true
 optimizer_runs = 200
