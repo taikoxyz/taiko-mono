@@ -187,9 +187,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
         }
 
         newState_.endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
-        blockIdToEndOfSubmissionWindowTimeStamp[block.number] = _endOfSubmissionWindowTimestamp;
-
         _state = newState_;
+
+        blockIdToEndOfSubmissionWindowTimeStamp[block.number] = _endOfSubmissionWindowTimestamp;
     }
 
     /// @notice Returns the current state of the anchor.
