@@ -532,7 +532,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 
 	log.Info("L2 baseFee", "blockID", blockID, "basefee", utils.WeiToGWei(baseFee))
 
-	latestState, err := rpc.ShastaClients.Anchor.GetState(&bind.CallOpts{Context: ctx})
+	latestState, err := rpc.ShastaClients.Anchor.GetState(&bind.CallOpts{Context: ctx, BlockHash: parent.Hash()})
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch latest anchor state: %w", err)
 	}
@@ -551,6 +551,13 @@ func assembleCreateExecutionPayloadMetaShasta(
 		anchorBlockHeaderHash = common.Hash{}
 		anchorBlockHeaderRoot = common.Hash{}
 	}
+	log.Info(
+		"L2 anchor block",
+		"number", anchorBlockID,
+		"latestStateAnchorBlockNumber", latestState.AnchorBlockNumber,
+		"hash", anchorBlockHeaderHash,
+		"root", anchorBlockHeaderRoot,
+	)
 
 	anchorTx, err := anchorConstructor.AssembleUpdateStateTx(
 		ctx,
