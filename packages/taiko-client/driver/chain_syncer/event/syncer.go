@@ -232,6 +232,13 @@ func (s *Syncer) processShastaProposal(
 		return nil
 	}
 
+	log.Info(
+		"New Shasta Proposed event",
+		"l1Height", meta.GetRawBlockHeight(),
+		"l1Hash", meta.GetRawBlockHash(),
+		"proposalID", meta.GetProposal().Id,
+	)
+
 	// If the event's timestamp is in the future, we wait until the timestamp is reached, should
 	// only happen when testing.
 	if meta.GetProposal().Timestamp.Uint64() > uint64(time.Now().Unix()) {
@@ -248,7 +255,31 @@ func (s *Syncer) processShastaProposal(
 	if err != nil {
 		return err
 	}
-	if proposalManifest.ParentBlock, err = s.rpc.L2.BlockByNumber(ctx, nil); err != nil {
+	// Fetch the parent block, here we try to find the L1 origin of the previous proposal at first,
+	// if not found, which means either the previous proposal is genesis or the L2 EE just finishes the
+	// P2P sync, then we just use the latest block as parent block in this case.
+	l1Origin, err := s.rpc.L2.LastL1OriginByBatchID(ctx, new(big.Int).Sub(meta.GetProposal().Id, common.Big1))
+	if err != nil && err.Error() != ethereum.NotFound.Error() {
+		return fmt.Errorf("failed to fetch last L1 origin by batch ID: %w", err)
+	}
+	if l1Origin != nil {
+		if proposalManifest.ParentBlock, err = s.rpc.L2.BlockByNumber(ctx, l1Origin.BlockID); err != nil {
+			return err
+		}
+	} else {
+		log.Info(
+			"No L1 origin found for the previous proposal, using the latest block as parent",
+			"proposalID", meta.GetProposal().Id,
+		)
+		if proposalManifest.ParentBlock, err = s.rpc.L2.BlockByNumber(ctx, nil); err != nil {
+			return err
+		}
+	}
+
+	latestState, err := s.rpc.ShastaClients.Anchor.GetState(
+		&bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx},
+	)
+	if err != nil {
 		return err
 	}
 
@@ -264,15 +295,14 @@ func (s *Syncer) processShastaProposal(
 			return err
 		}
 
+		log.Info(
+			"Designated prover info",
+			"prover", designatedProverInfo.DesignatedProver,
+			"isLowBondProposal", designatedProverInfo.IsLowBondProposal,
+		)
+
 		if designatedProverInfo.IsLowBondProposal {
 			proposalManifest = &manifest.ProposalManifest{Default: true, IsLowBondProposal: true}
-		}
-
-		latestState, err := s.rpc.ShastaClients.Anchor.GetState(
-			&bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx},
-		)
-		if err != nil {
-			return err
 		}
 
 		// Check block-level metadata and reset some incorrect value
@@ -295,24 +325,16 @@ func (s *Syncer) processShastaProposal(
 				ProtocolBlockManifest: manifest.ProtocolBlockManifest{
 					Timestamp:         meta.GetProposal().Timestamp.Uint64(), // Use proposal's timestamp
 					Coinbase:          meta.GetProposal().Proposer,
-					AnchorBlockNumber: 0,
+					AnchorBlockNumber: latestState.AnchorBlockNumber.Uint64(),
 					GasLimit:          proposalManifest.ParentBlock.GasLimit(), // Inherit parentBlock's value
 					Transactions:      types.Transactions{},
 				},
 			},
 		}
+		log.Info("Use default Shasta proposal manifest", "proposalID", meta.GetProposal().Id)
 	}
 
 	// Insert new blocks to L2 EE's chain.
-	log.Info(
-		"New Shasta Proposed event",
-		"l1Height", meta.GetRawBlockHeight(),
-		"l1Hash", meta.GetRawBlockHash(),
-		"proposalID", meta.GetProposal().Id,
-		"defaultManifest", proposalManifest.Default,
-		"blocks", len(proposalManifest.Blocks),
-	)
-
 	return s.blocksInserterShasta.InsertBlocksWithManifest(ctx, metadata, proposalManifest, endIter)
 }
 
@@ -537,7 +559,7 @@ func (s *Syncer) checkReorgPacaya(ctx context.Context, batchID *big.Int) (*rpc.R
 
 	// 2. If the verified blocks check is passed, we check the unverified blocks.
 	if reorgCheckResult == nil || !reorgCheckResult.IsReorged {
-		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1)); err != nil {
+		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1), false); err != nil {
 			return nil, fmt.Errorf("failed to check whether L1 chain has been reorged: %w", err)
 		}
 	}
@@ -559,7 +581,7 @@ func (s *Syncer) checkReorgShasta(
 
 	// 2. If the verified blocks check is passed, we check the unverified blocks.
 	if reorgCheckResult == nil || !reorgCheckResult.IsReorged {
-		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1)); err != nil {
+		if reorgCheckResult, err = s.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1), true); err != nil {
 			return nil, fmt.Errorf("failed to check whether L1 chain has been reorged: %w", err)
 		}
 	}

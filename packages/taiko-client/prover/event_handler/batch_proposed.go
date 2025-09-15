@@ -283,7 +283,7 @@ func (h *BatchProposedEventHandler) checkL1Reorg(
 	}
 
 	// Check whether the L2 EE's anchored L1 info, to see if the L1 chain has been reorged.
-	reorgCheckResult, err := h.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1))
+	reorgCheckResult, err := h.rpc.CheckL1Reorg(ctx, new(big.Int).Sub(batchID, common.Big1), false)
 	if err != nil {
 		return fmt.Errorf("failed to check whether L1 chain was reorged from L2EE (batchID %d): %w", batchID, err)
 	}

@@ -22,6 +22,7 @@ import (
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -51,7 +52,8 @@ type Prover struct {
 	protocolConfigs config.ProtocolConfigs
 
 	// States
-	sharedState *state.SharedState
+	shastaIndexer *shastaIndexer.Indexer
+	sharedState   *state.SharedState
 
 	// Event handlers
 	eventHandlers *eventHandlers
@@ -115,6 +117,14 @@ func InitFromConfig(
 		Timeout:            cfg.RPCTimeout,
 	}); err != nil {
 		return err
+	}
+
+	if p.shastaIndexer, err = shastaIndexer.NewShastaState(
+		p.ctx,
+		p.rpc,
+		p.rpc.ShastaClients.ForkHeight,
+	); err != nil {
+		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
 	}
 
 	// Configs
@@ -189,6 +199,11 @@ func (p *Prover) Start() error {
 		if err := p.setApprovalAmount(p.ctx, contract); err != nil {
 			log.Crit("Failed to set approval amount", "contract", contract, "error", err)
 		}
+	}
+
+	// 2. Start the Shasta state indexer.
+	if err := p.shastaIndexer.Start(); err != nil {
+		return fmt.Errorf("failed to start Shasta state indexer: %w", err)
 	}
 
 	// 3. Start the main event loop of the prover.

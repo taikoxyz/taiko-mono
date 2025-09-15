@@ -96,12 +96,12 @@ func (s *Indexer) Start() error {
 		return fmt.Errorf("failed to fetch historical Shasta proposals: %w", err)
 	}
 
-	log.Info("Finished fetching historical Shasta proposals", "cached", s.proposals.Count(), "last", s.getLastProposal())
+	log.Info("Finished fetching historical Shasta proposals", "cached", s.proposals.Count(), "last", s.GetLastProposal())
 	// Fetch historical transition records from the last finalized proposal.
 	if s.proposals.Count() != 0 {
-		lastFinializedProposal, ok := s.proposals.Get(s.getLastProposal().CoreState.LastFinalizedProposalId.Uint64())
+		lastFinializedProposal, ok := s.proposals.Get(s.GetLastProposal().CoreState.LastFinalizedProposalId.Uint64())
 		if !ok {
-			return fmt.Errorf("last finalized proposal not found: %d", s.getLastProposal().CoreState.LastFinalizedProposalId)
+			return fmt.Errorf("last finalized proposal not found: %d", s.GetLastProposal().CoreState.LastFinalizedProposalId)
 		}
 
 		log.Info(
@@ -486,8 +486,8 @@ func (s *Indexer) SetLastIndexedBlock(header *types.Header) {
 	s.lastIndexedBlock = header
 }
 
-// getLastProposal returns the latest proposal based on the highest proposal ID.
-func (s *Indexer) getLastProposal() *ProposalPayload {
+// GetLastProposal returns the latest proposal based on the highest proposal ID.
+func (s *Indexer) GetLastProposal() *ProposalPayload {
 	keys := s.proposals.Keys()
 	var maxKey uint64
 	for _, key := range keys {
@@ -503,6 +503,15 @@ func (s *Indexer) getLastProposal() *ProposalPayload {
 	return proposal
 }
 
+// GetLastCoreState returns the core state of the latest proposal.
+func (s *Indexer) GetLastCoreState() *shastaBindings.IInboxCoreState {
+	lastProposal := s.GetLastProposal()
+	if lastProposal == nil {
+		return nil
+	}
+	return lastProposal.CoreState
+}
+
 // GetProposalsInput returns the last proposal and the transitions needed for finalization.
 func (s *Indexer) GetProposalsInput(
 	maxFinalizationCount uint64,
@@ -510,7 +519,10 @@ func (s *Indexer) GetProposalsInput(
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	lastProposals := []*ProposalPayload{s.getLastProposal()}
+	lastProposals := []*ProposalPayload{s.GetLastProposal()}
+	if lastProposals[0] == nil {
+		return nil, nil, fmt.Errorf("no on-chain Shasta proposal events cached")
+	}
 	if lastProposals[0].Proposal.Id.Uint64() > s.bufferSize {
 		nextSlotProposal, ok := s.proposals.Get(lastProposals[0].Proposal.Id.Uint64() - s.bufferSize + 1)
 		if !ok {

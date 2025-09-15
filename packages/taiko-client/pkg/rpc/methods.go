@@ -27,6 +27,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/hekla"
 	ontakeBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/ontake"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
 )
@@ -205,14 +206,17 @@ func (c *Client) filterGenesisBlockVerified(
 }
 
 // WaitTillL2ExecutionEngineSynced keeps waiting until the L2 execution engine is fully synced.
-func (c *Client) WaitTillL2ExecutionEngineSynced(ctx context.Context) error {
+func (c *Client) WaitTillL2ExecutionEngineSynced(
+	ctx context.Context,
+	lastShastaCoreState *shastaBindings.IInboxCoreState,
+) error {
 	start := time.Now()
 
 	return backoff.Retry(
 		func() error {
 			newCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
 			defer cancel()
-			progress, err := c.L2ExecutionEngineSyncProgress(newCtx)
+			progress, err := c.L2ExecutionEngineSyncProgress(newCtx, lastShastaCoreState)
 			if err != nil {
 				log.Error("Fetch L2 execution engine sync progress error", "error", encoding.TryParsingCustomError(err))
 				return err
@@ -507,7 +511,10 @@ func (p *L2SyncProgress) IsSyncing() bool {
 }
 
 // L2ExecutionEngineSyncProgress fetches the sync progress of the given L2 execution engine.
-func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProgress, error) {
+func (c *Client) L2ExecutionEngineSyncProgress(
+	ctx context.Context,
+	lastShastaCoreState *shastaBindings.IInboxCoreState,
+) (*L2SyncProgress, error) {
 	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
 	defer cancel()
 
@@ -522,6 +529,28 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 		return err
 	})
 	g.Go(func() error {
+		if lastShastaCoreState != nil {
+			// If the next proposal ID is 1, it means there is no proposal has been made on L2 yet.
+			if lastShastaCoreState.NextProposalId.Cmp(common.Big1) <= 0 {
+				progress.HighestOriginBlockID = common.Big0
+				return nil
+			}
+			l1Origin, err := c.L2.LastL1OriginByBatchID(
+				ctx,
+				new(big.Int).Sub(lastShastaCoreState.NextProposalId, common.Big1),
+			)
+			if err != nil && err.Error() != ethereum.NotFound.Error() {
+				return err
+			}
+			// If the L1Origin is not found, it means the L2 execution engine has not synced yet,
+			// we set the highest origin block ID to max uint64.
+			if l1Origin == nil {
+				progress.HighestOriginBlockID = new(big.Int).SetUint64(^uint64(0)) // Max uint64
+				return nil
+			}
+			progress.HighestOriginBlockID = l1Origin.BlockID
+			return nil
+		}
 		// Try get the highest block ID from the Pacaya protocol state variables.
 		stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctx})
 		if err != nil {
@@ -530,10 +559,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(ctx context.Context) (*L2SyncProg
 
 		batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctx}, stateVars.Stats2.NumBatches-1)
 		if err != nil {
-			// TODO: fix this later
-			log.Warn("Failed to get latest batch", "error", err)
-			progress.HighestOriginBlockID = common.Big0
-			return nil
+			return err
 		}
 
 		progress.HighestOriginBlockID = new(big.Int).SetUint64(batch.LastBlockId)
@@ -638,22 +664,47 @@ type ReorgCheckResult struct {
 // 2. If the L1 information which in the given L2 block's anchor transaction has been reorged
 //
 // And if a reorg is detected, we return a new L1 block cursor which need to reset to.
-func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgCheckResult, error) {
+func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBatch bool) (*ReorgCheckResult, error) {
 	var (
 		result                 = new(ReorgCheckResult)
 		ctxWithTimeout, cancel = CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+		err                    error
 	)
 	defer cancel()
 
-	// batchID is zero already, no need to check reorg.
-	if batchID.Cmp(common.Big0) <= 0 {
-		return result, nil
+	if batchID.Cmp(common.Big0) == 0 {
+		// batchID is zero already, and the given batch is a Pacaya batch,no need to check reorg.
+		if !isShastaBatch {
+			return result, nil
+		}
+		if batchID, err = c.GetLastPacayaBatchID(ctxWithTimeout); err != nil {
+			log.Debug("Failed to fetch last Pacaya batch ID", "error", err)
+			return result, nil
+		}
+		isShastaBatch = false
+		log.Info("Check L1 reorg from the last Pacaya batch", "batchID", batchID)
 	}
 
 	for {
 		// If we rollback to the genesis block, then there is no L1Origin information recorded in the L2 execution
 		// engine for that batch, so we will query the protocol to use `GenesisHeight` value to reset the L1 cursor.
 		if batchID.Cmp(common.Big0) == 0 {
+			if isShastaBatch {
+				log.Debug("Rollback to Shasta genesis batch, check L1 reorg from the last Pacaya batch")
+				if batchID, err = c.GetLastPacayaBatchID(ctxWithTimeout); err != nil {
+					// If we can't find any Pacaya batch, which means Shasta fork is from genesis, we will use
+					// the L1 genesis header to reset the L1 cursor.
+					result.IsReorged = true
+					if result.L1CurrentToReset, err = c.L1.HeaderByNumber(ctxWithTimeout, common.Big0); err != nil {
+						return nil, err
+					}
+
+					return result, nil
+				}
+
+				isShastaBatch = false
+				continue
+			}
 			genesisHeight, err := c.getGenesisHeight(ctxWithTimeout)
 			if err != nil {
 				return nil, err
@@ -668,16 +719,33 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int) (*ReorgChec
 		}
 
 		// 1. Check whether the last L2 block's corresponding L1 block which in L1Origin has been reorged.
-		l1Origin, err := c.LastL1OriginInBatch(ctxWithTimeout, batchID)
-		if err != nil {
-			// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
-			// its local database, we skip this check.
-			if err.Error() == ethereum.NotFound.Error() {
-				log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "batchID", batchID)
-				return result, nil
-			}
+		var l1Origin *rawdb.L1Origin
+		if isShastaBatch {
+			if l1Origin, err = c.L2.LastL1OriginByBatchID(ctxWithTimeout, batchID); err != nil {
+				// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
+				// its local database, we skip this check.
+				if err.Error() == ethereum.NotFound.Error() {
+					log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "batchID", batchID)
+					return result, nil
+				}
 
-			return nil, err
+				return nil, err
+			}
+		} else {
+			batch, err := c.GetBatchByID(ctxWithTimeout, batchID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch batch (%d) by ID: %w", batchID, err)
+			}
+			if l1Origin, err = c.L2.L1OriginByID(ctxWithTimeout, new(big.Int).SetUint64(batch.LastBlockId)); err != nil {
+				// If the L2 EE is just synced through P2P, so there is no L1Origin information recorded in
+				// its local database, we skip this check.
+				if err.Error() == ethereum.NotFound.Error() {
+					log.Info("L1Origin not found, the L2 execution engine has just synced from P2P network", "batchID", batchID)
+					return result, nil
+				}
+
+				return nil, err
+			}
 		}
 
 		// Compare the L1 header hash in the L1Origin with the current L1 header hash in the L1 chain.
@@ -778,7 +846,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 		return false, err
 	}
 
-	if l1Header.Root != l1StateRoot {
+	if l1StateRoot != (common.Hash{}) && l1Header.Root != l1StateRoot {
 		log.Info(
 			"Reorg detected due to L1 state root mismatch",
 			"blockID", blockID,
@@ -797,6 +865,7 @@ func (c *Client) LastL1OriginInBatch(ctx context.Context, batchID *big.Int) (*ra
 	defer cancel()
 
 	// If we can't find the L1Origin from the L2 execution engine, we will fetch it from the Pacaya protocol.
+	// NOTE: here we assume that when Shasta fork is activated, all Pacaya protocol calls will revert.
 	batch, err := c.GetBatchByID(ctxWithTimeout, batchID)
 	if err != nil {
 		// Try to fetch the L1Origin (for Shasta blocks) from the L2 execution engine.
@@ -1056,6 +1125,23 @@ func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, 
 	}
 
 	return operators, nil
+}
+
+// GetLastPacayaBatchID gets the last Pacaya batch ID from the protocol.
+func (c *Client) GetLastPacayaBatchID(ctx context.Context) (*big.Int, error) {
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	defer cancel()
+
+	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch protocol state variables from Pacaya TaikoInbox contract: %w", err)
+	}
+
+	if stateVars.Stats2.NumBatches <= 1 {
+		return nil, fmt.Errorf("only genesis Pacaya batch exists")
+	}
+
+	return new(big.Int).SetUint64(stateVars.Stats2.NumBatches - 1), nil
 }
 
 // GetForcedInclusionPacaya resolves the Pacaya forced inclusion contract address.

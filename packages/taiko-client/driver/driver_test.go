@@ -79,6 +79,7 @@ func (s *DriverTestSuite) SetupTest() {
 	}))
 	s.d = d
 	s.cancel = cancel
+	s.Nil(s.d.shastaIndexer.Start())
 
 	go func() {
 		if err := s.d.preconfBlockServer.Start(preconfServerPort); err != nil {
@@ -163,6 +164,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
 		l2Head2.Number,
+		false,
 	)
 	s.Nil(err)
 	s.False(res.IsReorged)
@@ -217,6 +219,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
 		l2Head2.Number,
+		false,
 	)
 	s.Nil(err)
 	s.False(res.IsReorged)
@@ -274,6 +277,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
 		l2Head2.Number,
+		false,
 	)
 	s.Nil(err)
 	s.False(res.IsReorged)

@@ -10,6 +10,7 @@ import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
@@ -23,6 +24,9 @@ import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.so
 ///      - Ring buffer storage for efficient state management
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals
+/// @dev DEPLOYMENT: For mainnet deployment, use FOUNDRY_PROFILE=layer1o to enable via_ir
+///      and yul optimizations. Regular compilation may exceed 24KB contract size limit.
+///      Example: FOUNDRY_PROFILE=layer1o forge build contracts/layer1/shasta/impl/Inbox.sol
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using SafeERC20 for IERC20;
@@ -511,8 +515,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _validateTransition(_input.proposals[i], _input.transitions[i]);
 
             // Reuse the same memory location for the transitionRecord struct
-            transitionRecord.bondInstructions =
-                _calculateBondInstructions(_input.proposals[i], _input.transitions[i]);
+            transitionRecord.bondInstructions = LibBondsL1.calculateBondInstructions(
+                _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.transitions[i]
+            );
             transitionRecord.transitionHash = hashTransition(_input.transitions[i]);
             transitionRecord.checkpointHash = hashCheckpoint(_input.transitions[i].checkpoint);
 
@@ -540,63 +545,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     {
         bytes32 proposalHash = _checkProposalHash(_proposal);
         require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
-    }
-
-    /// @dev Calculates bond instructions based on proof timing and prover identity
-    /// @notice Bond instruction rules:
-    ///         - On-time (within provingWindow): No bond changes
-    ///         - Late (within extendedProvingWindow): Liveness bond transfer if prover differs from
-    /// designated
-    ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
-    /// differs from proposer
-    /// @dev Bond instructions affect transition aggregation eligibility - transitions with
-    /// instructions
-    /// cannot be aggregated
-    /// @param _proposal Proposal with timestamp and proposer address
-    /// @param _transition Transition with designated and actual prover addresses
-    /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
-    /// prover)
-    function _calculateBondInstructions(
-        Proposal memory _proposal,
-        Transition memory _transition
-    )
-        internal
-        view
-        returns (LibBonds.BondInstruction[] memory bondInstructions_)
-    {
-        unchecked {
-            uint256 proofTimestamp = block.timestamp;
-            uint256 windowEnd = _proposal.timestamp + _provingWindow;
-
-            // On-time proof - no bond instructions needed
-            if (proofTimestamp <= windowEnd) {
-                return new LibBonds.BondInstruction[](0);
-            }
-
-            // Late or very late proof - determine bond type and parties
-            uint256 extendedWindowEnd = _proposal.timestamp + _extendedProvingWindow;
-            bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
-
-            // Check if bond instruction is needed
-            bool needsBondInstruction = isWithinExtendedWindow
-                ? (_transition.designatedProver != _transition.actualProver)
-                : (_proposal.proposer != _transition.actualProver);
-
-            if (!needsBondInstruction) {
-                return new LibBonds.BondInstruction[](0);
-            }
-
-            // Create single bond instruction
-            bondInstructions_ = new LibBonds.BondInstruction[](1);
-            bondInstructions_[0] = LibBonds.BondInstruction({
-                proposalId: _proposal.id,
-                bondType: isWithinExtendedWindow
-                    ? LibBonds.BondType.LIVENESS
-                    : LibBonds.BondType.PROVABILITY,
-                payer: isWithinExtendedWindow ? _transition.designatedProver : _proposal.proposer,
-                receiver: _transition.actualProver
-            });
-        }
     }
 
     /// @dev Stores a proposal hash in the ring buffer
