@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxOptimized3 } from "./InboxOptimized3.sol";
+import { InboxOptimized4 } from "./InboxOptimized4.sol";
 import { IInbox } from "../iface/IInbox.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
 
@@ -13,7 +13,7 @@ import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.so
 ///      Example: FOUNDRY_PROFILE=layer1o forge build
 /// contracts/layer1/shasta/impl/DevnetShastaInbox.sol
 /// @custom:security-contact security@taiko.xyz
-contract DevnetShastaInbox is InboxOptimized3 {
+contract DevnetShastaInbox is InboxOptimized4 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -26,7 +26,7 @@ contract DevnetShastaInbox is InboxOptimized3 {
     ///   _RING_BUFFER_SIZE = (86400 * D) / 12 / P
     ///                     = (86400 * 2) / 12 / 6
     ///                     = 2400
-    uint64 private constant _RING_BUFFER_SIZE = 2400;
+    uint64 private constant _RING_BUFFER_SIZE = 240_000;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -38,7 +38,7 @@ contract DevnetShastaInbox is InboxOptimized3 {
         address _proposerChecker,
         address _taikoToken
     )
-        InboxOptimized3(
+        InboxOptimized4(
             IInbox.Config({
                 bondToken: _taikoToken,
                 checkpointManager: _checkpointManager,
