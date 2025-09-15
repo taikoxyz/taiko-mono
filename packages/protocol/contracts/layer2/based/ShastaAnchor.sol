@@ -219,7 +219,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
         bytes calldata _proverAuth
     )
         external
-        view
         returns (bool isLowBondProposal_, address designatedProver_)
     {
         return _getDesignatedProver(_proposalId, _proposer, _proverAuth);
@@ -248,7 +247,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
         bytes calldata _proverAuth
     )
         private
-        view
         returns (bool isLowBondProposal_, address designatedProver_)
     {
         // Determine prover and fee
@@ -256,18 +254,25 @@ abstract contract ShastaAnchor is PacayaAnchor {
         (designatedProver_, provingFeeGwei) =
             _validateProverAuth(_proposalId, _proposer, _proverAuth);
 
-        // Check bond sufficiency
-        isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFeeGwei);
+        // Check bond sufficiency (convert provingFeeGwei to Wei)
+        isLowBondProposal_ =
+            !bondManager.hasSufficientBond(_proposer, uint256(provingFeeGwei) * 1e9);
 
         // Handle low bond proposals
         if (isLowBondProposal_) {
             // Use previous designated prover
             designatedProver_ = _state.designatedProver;
-        } else if (
-            designatedProver_ != _proposer && !bondManager.hasSufficientBond(designatedProver_, 0)
-        ) {
-            // Fallback to proposer if designated prover has insufficient bonds
-            designatedProver_ = _proposer;
+        } else if (designatedProver_ != _proposer) {
+            if (!bondManager.hasSufficientBond(designatedProver_, uint256(provingFeeGwei) * 1e9)) {
+                // Fallback to proposer if designated prover has insufficient bonds
+                designatedProver_ = _proposer;
+            } else if (provingFeeGwei > 0) {
+                // Transfer proving fee from proposer to designated prover
+                // Convert from Gwei to Wei (provingFeeGwei * 1e9)
+                uint256 provingFeeWei = uint256(provingFeeGwei) * 1e9;
+                uint256 amountDebited = bondManager.debitBond(_proposer, provingFeeWei);
+                bondManager.creditBond(designatedProver_, amountDebited);
+            }
         }
     }
 
