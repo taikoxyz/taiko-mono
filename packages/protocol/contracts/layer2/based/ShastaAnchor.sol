@@ -141,7 +141,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// can propose.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ Address of the designated prover.
-    /// @return previousState_ The previous state of the anchor.
+    /// @return previousState_ The previous state of the anchor. This value make proving easier.
     function updateState(
         // Proposal level fields - define the overall batch
         uint48 _proposalId,
