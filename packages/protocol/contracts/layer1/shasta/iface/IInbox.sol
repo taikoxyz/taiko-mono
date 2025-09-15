@@ -51,7 +51,7 @@ interface IInbox {
         bool isForcedInclusion;
         /// @notice The percentage of base fee paid to coinbase.
         uint8 basefeeSharingPctg;
-        /// @notice Blobs that contains the proposal's manifest data.
+        /// @notice Blobs that contain the proposal's manifest data.
         LibBlobs.BlobSlice blobSlice;
     }
 
