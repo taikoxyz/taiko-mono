@@ -168,7 +168,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
         // Handle prover designation on first block
         if (_blockIndex == 0) {
-            uint proverFee;
+            uint256 proverFee;
             (isLowBondProposal_, designatedProver_, proverFee) =
                 _getDesignatedProver(_proposalId, _proposer, _proverAuth);
 
@@ -213,6 +213,25 @@ abstract contract ShastaAnchor is PacayaAnchor {
         return _state;
     }
 
+    /// @notice Returns the designated prover
+    /// @param _proposalId The proposal ID.
+    /// @param _proposer The proposer address.
+    /// @param _proverAuth Encoded prover authentication data.
+    /// @return isLowBondProposal_ True if proposer has insufficient bonds.
+    /// @return designatedProver_ The designated prover address.
+    /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the
+    function getDesignatedProver(
+        uint48 _proposalId,
+        address _proposer,
+        bytes calldata _proverAuth
+    )
+        external
+        view
+        returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
+    {
+        return _getDesignatedProver(_proposalId, _proposer, _proverAuth);
+    }
+
     // ---------------------------------------------------------------
     // Private functions
     // ---------------------------------------------------------------
@@ -230,7 +249,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _proverAuth Encoded prover authentication data.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ The designated prover address.
-    /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the designated prover.
+    /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the
+    /// designated prover.
     function _getDesignatedProver(
         uint48 _proposalId,
         address _proposer,
@@ -258,7 +278,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
             if (!bondManager.hasSufficientBond(designatedProver_, 0)) {
                 // Fallback to proposer if designated prover has insufficient bonds
                 designatedProver_ = _proposer;
-            } else  {
+            } else {
                 provingFeeToTransfer_ = provingFee;
             }
         }
