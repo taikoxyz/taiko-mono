@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -229,7 +230,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		}
 
 		proposalManifest.Blocks = append(proposalManifest.Blocks, &manifest.ProtocolBlockManifest{
-			Timestamp:         0,
+			Timestamp:         uint64(time.Now().Unix()),
 			Coinbase:          b.l2SuggestedFeeRecipient,
 			AnchorBlockNumber: anchorBlockNumber,
 			GasLimit:          0,
