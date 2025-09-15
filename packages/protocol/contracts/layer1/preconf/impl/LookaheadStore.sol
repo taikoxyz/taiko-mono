@@ -14,6 +14,19 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 /// @title LookaheadStore
 /// @custom:security-contact security@taiko.xyz
 contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
+    struct NextEpochResult {
+        bytes26 lookaheadHash;
+        bool shouldValidateLookahead;
+        bool isWhitelistRequired;
+    }
+    
+    struct ProposerContext {
+        uint256 submissionWindowEnd;
+        uint256 submissionWindowStart;
+        LookaheadSlot lookaheadSlot;
+        bool useWhitelistPreconfer;
+    }
+    
     IRegistry public immutable urc;
     address public immutable lookaheadSlasher;
     address public immutable preconfSlasher;
@@ -65,147 +78,201 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         returns (uint64)
     {
         require(msg.sender == inbox, NotInbox());
-
+        
         LookaheadData memory data = abi.decode(_lookaheadData, (LookaheadData));
-
+        _validateSlotIndex(data);
+        
+        // Step 1: Validate current epoch lookahead
+        uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
+        _validateCurrentEpochLookahead(epochTimestamp, data.currLookahead);
+        
+        // Step 2: Handle next epoch lookahead
+        uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
+        NextEpochResult memory nextEpochResult = _handleNextEpochLookahead(
+            nextEpochTimestamp, 
+            data
+        );
+        
+        // Step 3: Determine proposer context
+        ProposerContext memory context = _determineProposerContext(
+            data,
+            epochTimestamp,
+            nextEpochTimestamp,
+            nextEpochResult
+        );
+        
+        // Step 4: Validate the actual proposer
+        _validateProposer(_proposer, context);
+        
+        return uint64(context.submissionWindowEnd);
+    }
+    
+    function _validateSlotIndex(LookaheadData memory _data) private pure {
         require(
-            data.slotIndex == type(uint256).max || data.slotIndex < data.currLookahead.length,
+            _data.slotIndex == type(uint256).max || 
+            _data.slotIndex < _data.currLookahead.length,
             InvalidSlotIndex()
         );
-
-        uint256 epochTimestamp = LibPreconfUtils.getEpochTimestamp();
-
-        // Validate `currLookahead`
-        {
-            bytes26 currLookaheadHash = getLookaheadHash(epochTimestamp);
-            if (currLookaheadHash != 0) {
-                _validateLookahead(epochTimestamp, data.currLookahead, currLookaheadHash);
-            } else {
-                require(data.currLookahead.length == 0, InvalidLookahead());
-            }
-        }
-
-        uint256 nextEpochTimestamp = epochTimestamp + LibPreconfConstants.SECONDS_IN_EPOCH;
-        bytes26 nextLookaheadHash = getLookaheadHash(nextEpochTimestamp);
-        bool validateNextLookahead;
-        bool validateWhitelistPreconfer;
-
-        // Update the next epoch's lookahead if needed
-        {
-            if (nextLookaheadHash == 0) {
-                if (data.commitmentSignature.length == 0) {
-                    // A whitelist preconfer is expected since a commitment signature is not
-                    // provided.
-
-                    validateWhitelistPreconfer = true;
-                    nextLookaheadHash =
-                        _updateLookahead(LibPreconfUtils.getEpochTimestamp(1), data.nextLookahead);
-                } else {
-                    // A URC registered operator who has opted into the lookahead slasher is
-                    // expected.
-
-                    // Validate the lookahead poster's operator status within the URC
-                    ISlasher.Commitment memory commitment =
-                        _buildLookaheadCommitment(data.nextLookahead);
-                    _validateLookaheadPoster(
-                        data.registrationRoot, commitment, data.commitmentSignature
-                    );
-
-                    nextLookaheadHash =
-                        _updateLookahead(LibPreconfUtils.getEpochTimestamp(1), data.nextLookahead);
-                }
-            } else {
-                validateNextLookahead = true;
-            }
-        }
-
-        LookaheadSlot memory _lookaheadSlot;
-        uint256 endOfSubmissionWindowTimestamp; // Upper boundary of preconfing period
-
-        if (data.currLookahead.length == 0) {
-            // The current lookahead is empty, so we use a whitelisted preconfer
-            validateWhitelistPreconfer = true;
-
-            // The last slot of the current epoch is the submission timestamp
-            // of the whitelisted preconfer
-            endOfSubmissionWindowTimestamp = nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+    }
+    
+    function _validateCurrentEpochLookahead(
+        uint256 _epochTimestamp,
+        LookaheadSlot[] memory _currLookahead
+    ) private view {
+        bytes26 currLookaheadHash = getLookaheadHash(_epochTimestamp);
+        
+        if (currLookaheadHash != 0) {
+            _validateLookahead(_epochTimestamp, _currLookahead, currLookaheadHash);
         } else {
-            uint256 prevEndOfSubmissionWindowTimestamp; // Lower boundary of preconfing period
-
-            if (data.slotIndex == type(uint256).max) {
-                if (validateNextLookahead) {
-                    _validateLookahead(nextEpochTimestamp, data.nextLookahead, nextLookaheadHash);
-                }
-
-                if (data.nextLookahead.length == 0) {
-                    // This is the case when the next lookahead is empty
-                    // Eg: [x x x Pa y y y] [     empty    ]
-                    //     [  curr epoch  ] [  next epoch  ]
-                    //
-                    // The empty slots y will be taken over by the whitelist preconfer
-                    // for the current epoch.
-                    // The upper boundary of the preconfing period is the last slot of the
-                    // current epoch.
-                    //
-                    endOfSubmissionWindowTimestamp =
-                        nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
-                    validateWhitelistPreconfer = true;
-                } else {
-                    // This is the case when the first preconfer from the next epoch is proposing in
-                    // advanced in the current epoch.
-                    //
-                    // Eg: [x x x Pa y y y] [z z z Pb v v v]
-                    //     [  curr epoch  ] [  next epoch  ]
-                    // - Pb is our preconfer.
-                    // - x, y, z and v represent empty slots with no opted in preconfer.
-                    // - Pb intends to propose at any slot y
-                    //
-                    endOfSubmissionWindowTimestamp = data.nextLookahead[0].timestamp;
-                    _lookaheadSlot = data.nextLookahead[0];
-                }
-
-                prevEndOfSubmissionWindowTimestamp =
-                    data.currLookahead[data.currLookahead.length - 1].timestamp;
-            } else {
-                // This is the case when the preconfer is proposing in the same epoch in which
-                // it has its lookahead slot.
-                //
-                // Eg: [x x x Pa y y y]
-                //     [  curr epoch  ]
-                // - Pa is our preconfer.
-                // - x and y represent empty slots with no opted in preconfer.
-                // - Pa intends to propose at any slot x
-                //
-                // OR
-                //
-                // Eg: [x x x Pa y y y Pb z z z]
-                //     [      curr epoch       ]
-                // - Pb is our preconfer.
-                // - x, y and z represent empty slots with no opted in preconfer.
-                // - Pb intends to propose at any slot y
-                //
-                endOfSubmissionWindowTimestamp = data.currLookahead[data.slotIndex].timestamp;
-                prevEndOfSubmissionWindowTimestamp = data.slotIndex == 0
-                    ? epochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT
-                    : data.currLookahead[data.slotIndex - 1].timestamp;
-                _lookaheadSlot = data.currLookahead[data.slotIndex];
-            }
-
-            // Validate the preconfing period
+            require(_currLookahead.length == 0, InvalidLookahead());
+        }
+    }
+    
+    function _handleNextEpochLookahead(
+        uint256 _nextEpochTimestamp,
+        LookaheadData memory _data
+    ) private returns (NextEpochResult memory result) {
+        result.lookaheadHash = getLookaheadHash(_nextEpochTimestamp);
+        
+        if (result.lookaheadHash == 0) {
+            result = _handleMissingNextLookahead(_nextEpochTimestamp, _data);
+        } else {
+            result.shouldValidateLookahead = true;
+        }
+        
+        return result;
+    }
+    
+    function _handleMissingNextLookahead(
+        uint256 _nextEpochTimestamp,
+        LookaheadData memory _data
+    ) private returns (NextEpochResult memory result) {
+        if (_data.commitmentSignature.length == 0) {
+            // Whitelist preconfer case
+            result.isWhitelistRequired = true;
+            result.lookaheadHash = _updateLookahead(
+                _nextEpochTimestamp,
+                _data.nextLookahead
+            );
+        } else {
+            // URC operator case
+            _validateURCOperator(_data);
+            result.lookaheadHash = _updateLookahead(
+                _nextEpochTimestamp,
+                _data.nextLookahead
+            );
+        }
+        return result;
+    }
+    
+    function _validateURCOperator(LookaheadData memory _data) private view {
+        ISlasher.Commitment memory commitment = _buildLookaheadCommitment(_data.nextLookahead);
+        _validateLookaheadPoster(
+            _data.registrationRoot,
+            commitment,
+            _data.commitmentSignature
+        );
+    }
+    
+    function _determineProposerContext(
+        LookaheadData memory _data,
+        uint256 _epochTimestamp,
+        uint256 _nextEpochTimestamp,
+        NextEpochResult memory _nextResult
+    ) private view returns (ProposerContext memory context) {
+        if (_data.currLookahead.length == 0) {
+            return _handleEmptyCurrentLookahead(_nextEpochTimestamp);
+        }
+        
+        if (_data.slotIndex == type(uint256).max) {
+            return _handleCrossEpochProposer(
+                _data,
+                _nextEpochTimestamp,
+                _nextResult
+            );
+        } else {
+            return _handleSameEpochProposer(
+                _data,
+                _epochTimestamp
+            );
+        }
+    }
+    
+    function _handleEmptyCurrentLookahead(
+        uint256 _nextEpochTimestamp
+    ) private pure returns (ProposerContext memory context) {
+        context.useWhitelistPreconfer = true;
+        context.submissionWindowEnd = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+        return context;
+    }
+    
+    function _handleCrossEpochProposer(
+        LookaheadData memory _data,
+        uint256 _nextEpochTimestamp,
+        NextEpochResult memory _nextResult
+    ) private pure returns (ProposerContext memory context) {
+        // Validate next lookahead if needed
+        if (_nextResult.shouldValidateLookahead) {
+            _validateLookahead(
+                _nextEpochTimestamp,
+                _data.nextLookahead,
+                _nextResult.lookaheadHash
+            );
+        }
+        
+        context.submissionWindowStart = _data.currLookahead[_data.currLookahead.length - 1].timestamp;
+        
+        if (_data.nextLookahead.length == 0) {
+            // Empty next epoch - whitelist takes over
+            context.submissionWindowEnd = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+            context.useWhitelistPreconfer = true;
+        } else {
+            // First preconfer from next epoch proposing early
+            context.submissionWindowEnd = _data.nextLookahead[0].timestamp;
+            context.lookaheadSlot = _data.nextLookahead[0];
+            context.useWhitelistPreconfer = false;
+        }
+        
+        return context;
+    }
+    
+    function _handleSameEpochProposer(
+        LookaheadData memory _data,
+        uint256 _epochTimestamp
+    ) private pure returns (ProposerContext memory context) {
+        context.lookaheadSlot = _data.currLookahead[_data.slotIndex];
+        context.submissionWindowEnd = context.lookaheadSlot.timestamp;
+        context.useWhitelistPreconfer = false;
+        
+        // Determine start of window
+        if (_data.slotIndex == 0) {
+            context.submissionWindowStart = _epochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
+        } else {
+            context.submissionWindowStart = _data.currLookahead[_data.slotIndex - 1].timestamp;
+        }
+        
+        return context;
+    }
+    
+    function _validateProposer(
+        address _proposer,
+        ProposerContext memory _context
+    ) private view {
+        // Validate timing window (only for non-empty current lookahead)
+        if (!_context.useWhitelistPreconfer || _context.submissionWindowStart > 0) {
             require(
-                block.timestamp > prevEndOfSubmissionWindowTimestamp
-                    && block.timestamp <= endOfSubmissionWindowTimestamp,
+                block.timestamp > _context.submissionWindowStart &&
+                block.timestamp <= _context.submissionWindowEnd,
                 InvalidLookaheadTimestamp()
             );
         }
-
-        if (validateWhitelistPreconfer) {
+        
+        // Validate proposer identity
+        if (_context.useWhitelistPreconfer) {
             _validateWhitelistPreconfer(_proposer);
         } else {
-            _validateOptedInPreconfer(_proposer, _lookaheadSlot);
+            _validateOptedInPreconfer(_proposer, _context.lookaheadSlot);
         }
-
-        return uint64(endOfSubmissionWindowTimestamp);
     }
 
     // Blacklist functions

@@ -81,7 +81,8 @@ interface ILookaheadStore {
     );
 
     /// @notice Checks if a proposer is eligible to propose for the current slot and conditionally
-    ///         updates the lookahead for the next epoch,.
+    ///         updates the lookahead for the next epoch.
+    /// @dev Only the next lookahead can be updated, not the current one. And it can be only updated if none is set.
     /// @param _proposer The address of the proposer to check.
     /// @param _lookaheadData The lookahead data for current and next epoch.
     /// @return submissionSlotTimestamp_ The timestamp of the submission slot i.e also the upper
