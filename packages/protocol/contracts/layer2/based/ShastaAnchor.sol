@@ -220,6 +220,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ The designated prover address.
     /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the
+    /// designated prover.
     function getDesignatedProver(
         uint48 _proposalId,
         address _proposer,
