@@ -233,12 +233,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
         returns (bool isLowBondProposal_, address designatedProver_)
     {
         // Determine prover and fee
-        uint48 provingFeeGwei;
-        (designatedProver_, provingFeeGwei) =
-            _validateProverAuth(_proposalId, _proposer, _proverAuth);
+        uint256 provingFee;
+        (designatedProver_, provingFee) = _validateProverAuth(_proposalId, _proposer, _proverAuth);
 
+        provingFee *= 1e9;
         // Check bond sufficiency (convert provingFeeGwei to Wei)
-        uint256 provingFee = uint256(provingFeeGwei) * 1e9;
+        // Convert proving fee from Wwei to Wei
         isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFee);
 
         // Handle low bond proposals
@@ -249,7 +249,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
             if (!bondManager.hasSufficientBond(designatedProver_, provingFee)) {
                 // Fallback to proposer if designated prover has insufficient bonds
                 designatedProver_ = _proposer;
-            } else if (provingFeeGwei > 0) {
+            } else if (provingFee > 0) {
                 uint256 amountDebited = bondManager.debitBond(_proposer, provingFee);
                 bondManager.creditBond(designatedProver_, amountDebited);
             }
