@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibBlobs } from "./LibBlobs.sol";
 
 /// @title LibManifest
 /// @custom:security-contact security@taiko.xyz
@@ -9,14 +8,6 @@ library LibManifest {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
-    /// @notice The maximum number of blobs allowed in a proposal.
-    uint256 internal constant PROPOSAL_MAX_BLOBS = 4;
-    /// @notice The maximum number of bytes allowed in a proposal.
-    uint256 internal constant PROPOSAL_MAX_BYTES = LibBlobs.BLOB_BYTES * PROPOSAL_MAX_BLOBS;
-
-    /// @notice The maximum number of blocks allowed in a proposal. If we assume block time is as
-    /// small as one second, 384 blocks will cover an Ethereum epoch.
-    uint256 internal constant PROPOSAL_MAX_BLOCKS = 384;
 
     /// @notice Maximum number of transactions allowed in proposal's manifest data. This cap ensures
     /// the cost of a worst-case prover attack is bounded.

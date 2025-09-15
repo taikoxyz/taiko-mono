@@ -166,13 +166,11 @@ The `BlobSlice` struct represents binary data distributed across multiple blobs.
 
 A default manifest is returned when any of the following validation criteria fail:
 
-- **Blob validation**: `blobHashes.length` is zero or exceeds `PROPOSAL_MAX_BLOBS`
+- **Blob validation**: `blobHashes.length` is zero
 - **Offset validation**: `offset > BLOB_BYTES * blobHashes.length - 64`
 - **Version validation**: Version number is not `0x1`
-- **Size validation**: `size` exceeds `PROPOSAL_MAX_BYTES`
 - **Decompression failure**: ZLIB decompression fails
 - **Decoding failure**: RLP decoding fails
-- **Block count validation**: `manifest.blocks.length` exceeds `PROPOSAL_MAX_BLOCKS`
 - **Transaction limit**: Any block contains more than `BLOCK_MAX_RAW_TRANSACTIONS` transactions
 
 The default manifest is one initialized as:
