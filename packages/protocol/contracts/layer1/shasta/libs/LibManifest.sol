@@ -9,9 +9,6 @@ library LibManifest {
     // Constants
     // ---------------------------------------------------------------
 
-    /// @notice Maximum number of transactions allowed in proposal's manifest data. This cap ensures
-    /// the cost of a worst-case prover attack is bounded.
-    uint256 internal constant BLOCK_MAX_RAW_TRANSACTIONS = 4096 * 2;
 
     /// @notice The maximum anchor block number offset from the proposal origin block number.
     uint256 internal constant ANCHOR_MAX_OFFSET = 128;
@@ -24,7 +21,7 @@ library LibManifest {
 
     /// @notice The maximum block gas limit change per block, in millionths (1/1,000,000).
     /// @dev For example, 10 = 10 / 1,000,000 = 0.001%.
-    uint256 internal constant MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD = 10;
+    uint256 internal constant BLOCK_GAS_LIMIT_MAX_CHANGE = 10;
 
     /// @notice The minimum block gas limit.
     /// @dev This ensures block gas limit never drops below a critical threshold.
