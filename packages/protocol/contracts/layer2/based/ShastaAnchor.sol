@@ -168,8 +168,14 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
         // Handle prover designation on first block
         if (_blockIndex == 0) {
-            (isLowBondProposal_, designatedProver_) =
-                _determineDesignatedProver(_proposalId, _proposer, _proverAuth);
+            uint proverFee;
+            (isLowBondProposal_, designatedProver_, proverFee) =
+                _getDesignatedProver(_proposalId, _proposer, _proverAuth);
+
+            if (proverFee > 0) {
+                bondManager.debitBond(_proposer, proverFee);
+                bondManager.creditBond(designatedProver_, proverFee);
+            }
 
             _state.designatedProver = designatedProver_;
             _state.isLowBondProposal = isLowBondProposal_;
@@ -224,13 +230,15 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _proverAuth Encoded prover authentication data.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ The designated prover address.
-    function _determineDesignatedProver(
+    /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the designated prover.
+    function _getDesignatedProver(
         uint48 _proposalId,
         address _proposer,
         bytes calldata _proverAuth
     )
         private
-        returns (bool isLowBondProposal_, address designatedProver_)
+        view
+        returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
     {
         // Determine prover and fee
         uint256 provingFee;
@@ -250,9 +258,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
             if (!bondManager.hasSufficientBond(designatedProver_, 0)) {
                 // Fallback to proposer if designated prover has insufficient bonds
                 designatedProver_ = _proposer;
-            } else if (provingFee > 0) {
-                uint256 amountDebited = bondManager.debitBond(_proposer, provingFee);
-                bondManager.creditBond(designatedProver_, amountDebited);
+            } else  {
+                provingFeeToTransfer_ = provingFee;
             }
         }
     }
