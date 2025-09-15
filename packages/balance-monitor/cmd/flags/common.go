@@ -13,7 +13,7 @@ var (
 var (
 	Addresses = &cli.StringSliceFlag{
 		Name:     "addresses",
-		Usage:    "Comma-delinated list of Ethereum addresses to monitor",
+		Usage:    "Comma-delimited list of Ethereum addresses to monitor",
 		Required: true,
 		Category: commonCategory,
 		EnvVars:  []string{"ADDRESSES"},
