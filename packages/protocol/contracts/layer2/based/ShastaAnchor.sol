@@ -247,7 +247,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
             // Use previous designated prover
             designatedProver_ = _state.designatedProver;
         } else if (designatedProver_ != _proposer) {
-            if (!bondManager.hasSufficientBond(designatedProver_, provingFee)) {
+            if (!bondManager.hasSufficientBond(designatedProver_, 0)) {
                 // Fallback to proposer if designated prover has insufficient bonds
                 designatedProver_ = _proposer;
             } else if (provingFee > 0) {
