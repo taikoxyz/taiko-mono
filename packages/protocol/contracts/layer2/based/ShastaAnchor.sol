@@ -75,15 +75,6 @@ abstract contract ShastaAnchor is PacayaAnchor {
     uint256[46] private __gap;
 
     // ---------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------
-
-    /// @notice Emitted when a prover is designated for a proposal.
-    /// @param prover The address of the designated prover.
-    /// @param isLowBondProposal Indicates if the proposal has insufficient bonds.
-    event ProverDesignated(address prover, bool isLowBondProposal);
-
-    // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
@@ -139,8 +130,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
     /// preconfer
     /// can propose.
-    /// @return isLowBondProposal_ True if proposer has insufficient bonds.
-    /// @return designatedProver_ Address of the designated prover.
+    /// @return previousState_ The previous state of the anchor. This value make proving easier.
+    /// @return newState_ The new state of the anchor.
     function updateState(
         // Proposal level fields - define the overall batch
         uint48 _proposalId,
@@ -158,10 +149,13 @@ abstract contract ShastaAnchor is PacayaAnchor {
         external
         onlyGoldenTouch
         nonReentrant
-        returns (bool isLowBondProposal_, address designatedProver_)
+        returns (State memory previousState_, State memory newState_)
     {
         // Fork validation
         require(block.number >= shastaForkHeight, L2_FORK_ERROR());
+
+        previousState_ = _state;
+        newState_ = previousState_;
 
         // Prevent duplicate calls within same block
         _trackParentBlockHash(block.number - 1);
@@ -169,22 +163,17 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Handle prover designation on first block
         if (_blockIndex == 0) {
             uint256 proverFee;
-            (isLowBondProposal_, designatedProver_, proverFee) =
+            (newState_.isLowBondProposal, newState_.designatedProver, proverFee) =
                 _getDesignatedProver(_proposalId, _proposer, _proverAuth);
 
             if (proverFee > 0) {
                 bondManager.debitBond(_proposer, proverFee);
                 bondManager.creditBond(designatedProver_, proverFee);
             }
-
-            _state.designatedProver = designatedProver_;
-            _state.isLowBondProposal = isLowBondProposal_;
-
-            emit ProverDesignated(designatedProver_, isLowBondProposal_);
         }
 
         // Process new L1 anchor data
-        if (_anchorBlockNumber > _state.anchorBlockNumber) {
+        if (_anchorBlockNumber > previousState_.anchorBlockNumber) {
             // Save L1 block data
             checkpointManager.saveCheckpoint(
                 ICheckpointManager.Checkpoint({
@@ -199,11 +188,13 @@ abstract contract ShastaAnchor is PacayaAnchor {
                 _processBondInstructions(_bondInstructions, _bondInstructionsHash);
 
             // Update state atomically
-            _state.bondInstructionsHash = newBondInstructionsHash;
-            _state.anchorBlockNumber = _anchorBlockNumber;
+            newState_.bondInstructionsHash = newBondInstructionsHash;
+            newState_.anchorBlockNumber = _anchorBlockNumber;
         }
 
-        _state.endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
+        newState_.endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
+        _state = newState_;
+
         blockIdToEndOfSubmissionWindowTimeStamp[block.number] = _endOfSubmissionWindowTimestamp;
     }
 
