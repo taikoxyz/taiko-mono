@@ -107,6 +107,9 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         return uint64(context.submissionWindowEnd);
     }
     
+    /// @dev Validates that the slot index is valid. 
+    /// If the proposer is from the current epoch, it must be less than the size of the lookahead(32). 
+    /// If it is from the next epoch, it must be set to type(uint256).max.
     function _validateSlotIndex(LookaheadData memory _data) private pure {
         require(
             _data.slotIndex == type(uint256).max || 
@@ -115,6 +118,8 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         );
     }
     
+    /// @dev Ensures the provided current epoch lookahead matches the stored hash.
+    /// Empty lookahead is valid only when no hash exists for the epoch.
     function _validateCurrentEpochLookahead(
         uint256 _epochTimestamp,
         LookaheadSlot[] memory _currLookahead
@@ -128,6 +133,8 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         }
     }
     
+    /// @dev Processes next epoch's lookahead: validates existing or stores new lookahead.
+    /// Returns whether validation is needed and if whitelist is required.
     function _handleNextEpochLookahead(
         uint256 _nextEpochTimestamp,
         LookaheadData memory _data
@@ -143,6 +150,8 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         return result;
     }
     
+    /// @dev Stores new lookahead when none exists for next epoch.
+    /// Whitelist preconfers provide no signature; URC operators must sign their commitment.
     function _handleMissingNextLookahead(
         uint256 _nextEpochTimestamp,
         LookaheadData memory _data
@@ -165,6 +174,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         return result;
     }
     
+    /// @dev Verifies the URC operator's signature on the lookahead commitment.
     function _validateURCOperator(LookaheadData memory _data) private view {
         ISlasher.Commitment memory commitment = _buildLookaheadCommitment(_data.nextLookahead);
         _validateLookaheadPoster(
@@ -174,6 +184,8 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         );
     }
     
+    /// @dev Determines the proposer's slot and submission window based on lookahead state.
+    /// Handles empty lookahead, cross-epoch, and same-epoch scenarios.
     function _determineProposerContext(
         LookaheadData memory _data,
         uint256 _epochTimestamp,
@@ -198,6 +210,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         }
     }
     
+    /// @dev Returns context for when current epoch has no lookahead (whitelist fallback).
     function _handleEmptyCurrentLookahead(
         uint256 _nextEpochTimestamp
     ) private pure returns (ProposerContext memory context) {
@@ -206,6 +219,8 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         return context;
     }
     
+    /// @dev Handles proposer from last slot of current epoch proposing early into next epoch.
+    /// Falls back to whitelist if next epoch is empty.
     function _handleCrossEpochProposer(
         LookaheadData memory _data,
         uint256 _nextEpochTimestamp,
@@ -236,6 +251,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         return context;
     }
     
+    /// @dev Handles regular proposer within current epoch at specified slot index.
     function _handleSameEpochProposer(
         LookaheadData memory _data,
         uint256 _epochTimestamp
@@ -254,6 +270,8 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         return context;
     }
     
+    /// @dev Validates proposer is within their time window and has proper authorization.
+    /// Checks whitelist for fallback scenarios or validates opted-in preconfer.
     function _validateProposer(
         address _proposer,
         ProposerContext memory _context

@@ -38,15 +38,17 @@ interface ILookaheadStore {
     }
 
     struct LookaheadData {
-        // Index of the slot in the current lookahead
+        /// @notice Index of the slot of the proposer in the current lookahead. 
+        /// @dev Must be set to type(uint256).max if the proposer is from the next epoch.
         uint256 slotIndex;
-        // URC registration root of the lookahead poster
+        /// @notice URC registration root of the lookahead poster
         bytes32 registrationRoot;
-        // Current epoch lookahead slots
+        /// @notice Current epoch lookahead slots
         LookaheadSlot[] currLookahead;
-        // Next epoch lookahead slots
+        /// @notice Next epoch lookahead slots
         LookaheadSlot[] nextLookahead;
-        // Commitment signature for the lookahead poster
+        /// @notice Commitment signature for the lookahead poster
+        /// @dev Must be set to an empty bytes if the lookahead poster is a whitelisted preconfer
         bytes commitmentSignature;
     }
 
