@@ -162,8 +162,14 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
         // Handle prover designation on first block
         if (_blockIndex == 0) {
-            (newState_.isLowBondProposal, newState_.designatedProver) =
+            uint256 proverFee;
+            (newState_.isLowBondProposal, newState_.designatedProver, proverFee) =
                 _getDesignatedProver(_proposalId, _proposer, _proverAuth);
+
+            if (proverFee > 0) {
+                bondManager.debitBond(_proposer, proverFee);
+                bondManager.creditBond(newState_.designatedProver, proverFee);
+            }
         }
 
         // Process new L1 anchor data
@@ -204,6 +210,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _proverAuth Encoded prover authentication data.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ The designated prover address.
+    /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the
+    /// designated prover.
     function getDesignatedProver(
         uint48 _proposalId,
         address _proposer,
@@ -211,7 +219,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     )
         external
         view
-        returns (bool isLowBondProposal_, address designatedProver_)
+        returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
     {
         return _getDesignatedProver(_proposalId, _proposer, _proverAuth);
     }
@@ -233,6 +241,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _proverAuth Encoded prover authentication data.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ The designated prover address.
+    /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the
+    /// designated prover.
     function _getDesignatedProver(
         uint48 _proposalId,
         address _proposer,
@@ -240,25 +250,29 @@ abstract contract ShastaAnchor is PacayaAnchor {
     )
         private
         view
-        returns (bool isLowBondProposal_, address designatedProver_)
+        returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
     {
         // Determine prover and fee
-        uint48 provingFeeGwei;
-        (designatedProver_, provingFeeGwei) =
-            _validateProverAuth(_proposalId, _proposer, _proverAuth);
+        uint256 provingFee;
+        (designatedProver_, provingFee) = _validateProverAuth(_proposalId, _proposer, _proverAuth);
 
-        // Check bond sufficiency
-        isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFeeGwei);
+        // Convert proving fee from Gwei to Wei
+        provingFee *= 1e9;
+
+        // Check bond sufficiency (convert provingFeeGwei to Wei)
+        isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFee);
 
         // Handle low bond proposals
         if (isLowBondProposal_) {
             // Use previous designated prover
             designatedProver_ = _state.designatedProver;
-        } else if (
-            designatedProver_ != _proposer && !bondManager.hasSufficientBond(designatedProver_, 0)
-        ) {
-            // Fallback to proposer if designated prover has insufficient bonds
-            designatedProver_ = _proposer;
+        } else if (designatedProver_ != _proposer) {
+            if (!bondManager.hasSufficientBond(designatedProver_, 0)) {
+                // Fallback to proposer if designated prover has insufficient bonds
+                designatedProver_ = _proposer;
+            } else {
+                provingFeeToTransfer_ = provingFee;
+            }
         }
     }
 
