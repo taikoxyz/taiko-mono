@@ -169,7 +169,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Handle prover designation on first block
         if (_blockIndex == 0) {
             (isLowBondProposal_, designatedProver_) =
-                _getDesignatedProver(_proposalId, _proposer, _proverAuth);
+                _determineDesignatedProver(_proposalId, _proposer, _proverAuth);
 
             _state.designatedProver = designatedProver_;
             _state.isLowBondProposal = isLowBondProposal_;
@@ -224,7 +224,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _proverAuth Encoded prover authentication data.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ The designated prover address.
-    function _getDesignatedProver(
+    function _determineDesignatedProver(
         uint48 _proposalId,
         address _proposer,
         bytes calldata _proverAuth
