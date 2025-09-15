@@ -16,7 +16,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     struct NextEpochResult {
         bytes26 lookaheadHash;
-        bool shouldValidateLookahead;
         bool isWhitelistRequired;
     }
     
@@ -134,7 +133,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     }
     
     /// @dev Processes next epoch's lookahead: validates existing or stores new lookahead.
-    /// Returns whether validation is needed and if whitelist is required.
+    /// Returns lookahead hash and if whitelist is required.
     function _handleNextEpochLookahead(
         uint256 _nextEpochTimestamp,
         LookaheadData memory _data
@@ -142,9 +141,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         result.lookaheadHash = getLookaheadHash(_nextEpochTimestamp);
         
         if (result.lookaheadHash == 0) {
-            result = _handleMissingNextLookahead(_nextEpochTimestamp, _data);
-        } else {
-            result.shouldValidateLookahead = true;
+            result = _updateLookaheadForNextEpoch(_nextEpochTimestamp, _data);
         }
         
         return result;
@@ -152,7 +149,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     
     /// @dev Stores new lookahead when none exists for next epoch.
     /// Whitelist preconfers provide no signature; URC operators must sign their commitment.
-    function _handleMissingNextLookahead(
+    function _updateLookaheadForNextEpoch(
         uint256 _nextEpochTimestamp,
         LookaheadData memory _data
     ) private returns (NextEpochResult memory result) {
@@ -191,7 +188,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         uint256 _epochTimestamp,
         uint256 _nextEpochTimestamp,
         NextEpochResult memory _nextResult
-    ) private view returns (ProposerContext memory context) {
+    ) private pure returns (ProposerContext memory context) {
         if (_data.currLookahead.length == 0) {
             return _handleEmptyCurrentLookahead(_nextEpochTimestamp);
         }
@@ -226,8 +223,9 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         uint256 _nextEpochTimestamp,
         NextEpochResult memory _nextResult
     ) private pure returns (ProposerContext memory context) {
-        // Validate next lookahead if needed
-        if (_nextResult.shouldValidateLookahead) {
+        // Validate next lookahead if hash exists
+        if (_nextResult.lookaheadHash != 0) {
+            require(_data.nextLookahead.length > 0, InvalidLookahead());
             _validateLookahead(
                 _nextEpochTimestamp,
                 _data.nextLookahead,
