@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
 import "../common/EssentialResolverContract.sol";
 import "../libs/LibNames.sol";
 import "../libs/LibAddress.sol";
@@ -23,9 +22,9 @@ contract Bridge is EssentialResolverContract, IBridge {
     using LibAddress for address payable;
 
     struct ProcessingStats {
-        uint32 gasUsedInFeeCalc;
+        uint32 gasUsedInFeeCalc; // Deprecated
         uint32 proofSize;
-        uint32 numCacheOps;
+        uint32 numCacheOps; // Deprecated
         bool processedByRelayer;
     }
 
@@ -43,9 +42,6 @@ contract Bridge is EssentialResolverContract, IBridge {
 
     ///@dev The max proof size for a message to be processable by a relayer.
     uint256 public constant RELAYER_MAX_PROOF_BYTES = 200_000;
-
-    /// @dev The amount of gas not to charge fee per cache operation.
-    uint256 private constant _GAS_REFUND_PER_CACHE_OPERATION = 20_000;
 
     /// @dev Gas limit for sending Ether.
     // - EOA gas used is < 21000
@@ -226,8 +222,6 @@ contract Bridge is EssentialResolverContract, IBridge {
         nonReentrant
         returns (Status status_, StatusReason reason_)
     {
-        uint256 gasStart = gasleft();
-
         // same as `sameChain(_message.destChainId)` but without stack-too-deep
         if (_message.destChainId != block.chainid) revert B_INVALID_CHAINID();
 
@@ -250,7 +244,6 @@ contract Bridge is EssentialResolverContract, IBridge {
         _checkStatus(msgHash, Status.NEW);
 
         stats.proofSize = uint32(_proof.length);
-        stats.numCacheOps = 0;
 
         _verifySignalReceived(signalService, msgHash, _message.srcChainId, _proof);
 
@@ -275,36 +268,6 @@ contract Bridge is EssentialResolverContract, IBridge {
 
         if (_message.fee != 0) {
             refundAmount += _message.fee;
-
-            if (stats.processedByRelayer && _message.gasLimit != 0) {
-                unchecked {
-                    // The relayer (=message processor) needs to get paid from the fee, and below it
-                    // the calculation mechanism of that.
-                    // The high level overview is: "gasCharged * block.basefee" with some caveat.
-                    // Sometimes over or under estimated and it has different reasons:
-                    // - a rational relayer shall simulate transactions off-chain so he/she would
-                    // exactly know if the txn is profitable or not.
-                    // - need to have a buffer/small revenue to the realyer since it consumes
-                    // maintenance and infra costs to operate
-                    // TODO(daniel): simplifiy this
-                    uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
-                    // Taking into account the encoded message calldata cost, and can count with 16
-                    // gas per bytes (vs. checking each and every byte if zero or non-zero)
-                    stats.gasUsedInFeeCalc = uint32(
-                        GAS_OVERHEAD + gasStart + _messageCalldataCost(_message.data.length)
-                            - gasleft()
-                    );
-
-                    uint256 gasCharged = refund.max(stats.gasUsedInFeeCalc) - refund;
-                    uint256 maxFee = gasCharged * _message.fee / _message.gasLimit;
-                    uint256 baseFee = gasCharged * block.basefee;
-                    uint256 fee =
-                        (baseFee >= maxFee ? maxFee : (maxFee + baseFee) >> 1).min(_message.fee);
-
-                    refundAmount -= fee;
-                    msg.sender.sendEtherAndVerify(fee, _SEND_ETHER_GAS_LIMIT);
-                }
-            }
         }
 
         _message.destOwner.sendEtherAndVerify(refundAmount, _SEND_ETHER_GAS_LIMIT);

@@ -159,41 +159,6 @@ contract TestBridge2_processMessage is TestBridge2Base {
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.NEW);
     }
 
-    function test_bridge2_processMessage__special_to_address__nonezero_fee__nonezero_gaslimit()
-        public
-        transactBy(Alice)
-        assertSameTotalBalance
-    {
-        IBridge.Message memory message;
-
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
-
-        message.gasLimit = 1;
-        message.fee = 5_000_000;
-        message.value = 2 ether;
-        message.destOwner = Bob;
-
-        uint256 bobBalance = Bob.balance;
-        uint256 aliceBalance = Alice.balance;
-
-        eBridge.processMessage(message, FAKE_PROOF);
-
-        assertEq(Bob.balance, bobBalance + 2 ether);
-        assertEq(Alice.balance, aliceBalance + 5_000_000);
-
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
-
-        message.gasLimit = 10_000_000;
-        bobBalance = Bob.balance;
-        aliceBalance = Alice.balance;
-
-        eBridge.processMessage(message, FAKE_PROOF);
-        assertTrue(Bob.balance > bobBalance + 2 ether);
-        assertTrue(Alice.balance < aliceBalance + 5_000_000);
-    }
-
     function test_bridge2_processMessage__special_to_address__nonezero_fee__0_gaslimit()
         public
         transactBy(Alice)
@@ -269,34 +234,6 @@ contract TestBridge2_processMessage is TestBridge2Base {
         assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
 
         assertEq(David.balance, davidBalance + 2 ether);
-    }
-
-    function test_bridge2_processMessage__eoa_to_address__nonezero_fee__nonezero_gaslimit()
-        public
-        transactBy(Carol)
-        assertSameTotalBalance
-    {
-        IBridge.Message memory message;
-
-        message.destChainId = ethereumChainId;
-        message.srcChainId = taikoChainId;
-
-        message.gasLimit = 1_000_000;
-        message.fee = 5_000_000;
-        message.value = 2 ether;
-        message.destOwner = Alice;
-        message.to = David;
-
-        uint256 aliceBalance = Alice.balance;
-        uint256 davidBalance = David.balance;
-
-        eBridge.processMessage(message, FAKE_PROOF);
-        bytes32 hash = eBridge.hashMessage(message);
-        assertTrue(eBridge.messageStatus(hash) == IBridge.Status.DONE);
-
-        assertEq(David.balance, davidBalance + 2 ether);
-        assertTrue(Alice.balance > aliceBalance);
-        assertTrue(Alice.balance < aliceBalance + 5_000_000);
     }
 
     function test_bridge2_processMessage__eoa_to_address__nonezero_fee__0_gaslimit()
