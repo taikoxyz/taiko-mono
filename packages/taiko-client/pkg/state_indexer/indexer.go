@@ -264,7 +264,7 @@ func (s *Indexer) onProvedEvent(
 	log.Info(
 		"New cached Shasta transition record",
 		"proposalId", meta.ProposalId,
-		"transitionHash", record.TransitionHash,
+		"transitionHash", common.BytesToHash(record.TransitionHash[:]),
 	)
 
 	s.transitionRecords.Set(meta.ProposalId.Uint64(), &TransitionPayload{
@@ -578,9 +578,14 @@ func (s *Indexer) getTransitionsForFinalization(
 	var transitions []*TransitionPayload
 	for i := uint64(1); i <= maxFinalizationCount; i++ {
 		transition, ok := s.transitionRecords.Get(lastFinalizedProposalId + i)
-		log.Info("Try to get record", "proposalId", lastFinalizedProposalId+i, "found", ok)
+		log.Info(
+			"Try to get record",
+			"proposalId", lastFinalizedProposalId+i,
+			"found", ok,
+			"last", transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash,
+			"time", transition.RawBlockTimeStamp+s.finalizationGracePeriod < uint64(time.Now().Unix()),
+		)
 		if !ok ||
-			transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash ||
 			transition.RawBlockTimeStamp+s.finalizationGracePeriod < uint64(time.Now().Unix()) {
 			break
 		}
