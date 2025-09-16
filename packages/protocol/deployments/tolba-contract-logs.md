@@ -1,8 +1,8 @@
-# Taiko Alethia-Hoodi network Contract Logs
+# Taiko Tolba network Contract Logs
 
 ## Notes
 
-1. Code used on Alethia-Hoodi must correspond to a commit on the main branch of the official repo: https://github.com/taikoxyz/taiko-mono.
+1. Code used on Tolba must correspond to a commit on the main branch of the official repo: https://github.com/taikoxyz/taiko-mono.
 
 ## L1 Contracts
 
