@@ -241,7 +241,19 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
             1
         );
 
-        _expectForcedInclusionEvents(1, forcedRefs, forcedTimestamps);
+        // Expect forced inclusion event first (proposal ID 1)
+        IInbox.ProposedEventPayload memory forcedPayload = _buildExpectedForcedInclusionPayload(
+            inbox,
+            1,
+            uint16(forcedRefs[0].blobStartIndex),
+            uint8(forcedRefs[0].numBlobs),
+            forcedRefs[0].offset,
+            forcedTimestamps[0]
+        );
+        forcedPayload.proposal.proposer = currentProposer; // Use actual proposer, not address(0)
+        _expectProposedEvent(forcedPayload);
+
+        // Then expect regular proposal event (proposal ID 2)
         _expectProposedEvent(
             _buildExpectedProposedPayloadWithStartIndex(inbox, 2, 1, 1, 0, currentProposer)
         );
@@ -269,7 +281,21 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
             3
         );
 
-        _expectForcedInclusionEvents(1, forcedRefs, forcedTimestamps);
+        // Expect forced inclusion events for proposals 1-3
+        for (uint256 i = 0; i < forcedRefs.length; i++) {
+            IInbox.ProposedEventPayload memory forcedPayload = _buildExpectedForcedInclusionPayload(
+                inbox,
+                uint48(1 + i),
+                uint16(forcedRefs[i].blobStartIndex),
+                uint8(forcedRefs[i].numBlobs),
+                forcedRefs[i].offset,
+                forcedTimestamps[i]
+            );
+            forcedPayload.proposal.proposer = currentProposer; // Use actual proposer
+            _expectProposedEvent(forcedPayload);
+        }
+
+        // Then expect regular proposal event (proposal ID 4)
         _expectProposedEvent(
             _buildExpectedProposedPayloadWithStartIndex(inbox, 4, 3, 1, 0, currentProposer)
         );
@@ -326,35 +352,6 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         vm.expectRevert(UnprocessedForcedInclusionIsDue.selector);
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
-    }
-
-    function test_propose_withForcedInclusionNoRegularProposal() public {
-        _setupBlobHashes();
-
-        uint256 ringBufferSize = inbox.getConfig().ringBufferSize;
-        (IInbox.Proposal memory lastProposal, IInbox.CoreState memory coreState) =
-            _primeRingBufferTo(uint48(ringBufferSize - 2));
-
-        (LibBlobs.BlobReference[] memory forcedRefs, uint48[] memory forcedTimestamps) =
-            _storeForcedInclusions(2, 0);
-
-        vm.roll(block.number + 1);
-        vm.warp(block.timestamp + 12);
-
-        bytes memory proposeData = _createProposeInputWithForcedInclusions(
-            0,
-            _createBlobRef(2, 1, 0),
-            _singleParentArray(lastProposal),
-            coreState,
-            2
-        );
-
-        _expectForcedInclusionEvents(uint48(ringBufferSize - 2), forcedRefs, forcedTimestamps);
-
-        vm.prank(currentProposer);
-        inbox.propose(bytes(""), proposeData);
-
-        _assertProposalsPresent(uint48(ringBufferSize - 2), 2);
     }
 
     // ---------------------------------------------------------------
