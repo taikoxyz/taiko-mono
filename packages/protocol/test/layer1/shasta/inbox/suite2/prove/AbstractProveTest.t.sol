@@ -56,7 +56,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
         // Verify transition record is stored
         (, bytes26 recordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(inbox));
         assertTrue(recordHash != bytes32(0), "Transition record should be stored");
 
         // Verify exactly one Proved event was emitted
@@ -352,7 +352,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
         // Verify transition record was stored
         (, bytes26 recordHash) =
-            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
+            inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash(inbox));
         assertTrue(recordHash != bytes32(0), "Transition record should be stored");
     }
 
@@ -407,7 +407,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         // Build transitions with proper parent hash chaining
         // For consecutive proposals, chain the transition hashes
         // For non-consecutive, each starts from genesis (or their actual parent in real scenarios)
-        bytes32 parentHash = _getGenesisTransitionHash();
+        bytes32 parentHash = _getGenesisTransitionHash(inbox);
 
         for (uint256 i = 0; i < proposals.length; i++) {
             transitions[i] = _createTransitionForProposal(proposals[i]);
@@ -415,11 +415,11 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
             if (consecutive) {
                 // Chain transitions for consecutive proposals
-                parentHash = keccak256(abi.encode(transitions[i]));
+                parentHash = inbox.hashTransition(transitions[i]);
             } else {
                 // For non-consecutive, each transition starts from genesis
                 // This is simplified - in reality each would have its proper parent
-                parentHash = _getGenesisTransitionHash();
+                parentHash = _getGenesisTransitionHash(inbox);
             }
         }
 
@@ -465,7 +465,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
         // Build and return the expected proposal
         IInbox.ProposedEventPayload memory expectedPayload =
-            _buildExpectedProposedPayload(1, 1, 0, currentProposer);
+            _buildExpectedProposedPayload(inbox, 1, 1, 0, currentProposer);
 
         return expectedPayload.proposal;
     }
@@ -478,7 +478,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: _parent.id + 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(inbox),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -497,7 +497,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
         // Build and return the expected proposal
         IInbox.ProposedEventPayload memory expectedPayload =
-            _buildExpectedProposedPayload(_parent.id + 1, 1, 0, currentProposer);
+            _buildExpectedProposedPayload(inbox, _parent.id + 1, 1, 0, currentProposer);
 
         return expectedPayload.proposal;
     }
@@ -519,14 +519,14 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](_proposals.length);
 
-        bytes32 parentTransitionHash = _getGenesisTransitionHash();
+        bytes32 parentTransitionHash = _getGenesisTransitionHash(inbox);
 
         for (uint256 i = 0; i < _proposals.length; i++) {
             transitions[i] = _createTransitionForProposal(_proposals[i]);
             transitions[i].parentTransitionHash = parentTransitionHash;
 
             // Update parent hash for next iteration
-            parentTransitionHash = keccak256(abi.encode(transitions[i]));
+            parentTransitionHash = inbox.hashTransition(transitions[i]);
         }
 
         IInbox.ProveInput memory input =
@@ -541,8 +541,8 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         returns (IInbox.Transition memory)
     {
         return IInbox.Transition({
-            proposalHash: keccak256(abi.encode(_proposal)),
-            parentTransitionHash: _getGenesisTransitionHash(),
+            proposalHash: inbox.hashProposal(_proposal),
+            parentTransitionHash: _getGenesisTransitionHash(inbox),
             checkpoint: ICheckpointManager.Checkpoint({
                 blockNumber: uint48(block.number),
                 blockHash: blockhash(block.number - 1),
@@ -587,9 +587,9 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     }
 
     function _createFirstProposeInput() internal view returns (bytes memory) {
-        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        IInbox.CoreState memory coreState = _getGenesisCoreState(inbox);
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
+        parentProposals[0] = _createGenesisProposal(inbox);
         LibBlobs.BlobReference memory blobRef = _createBlobRef(0, 1, 0);
 
         IInbox.ProposeInput memory input;

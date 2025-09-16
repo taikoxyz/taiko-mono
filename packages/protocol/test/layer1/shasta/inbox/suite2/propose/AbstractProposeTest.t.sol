@@ -45,7 +45,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         bytes memory proposeData = _createFirstProposeInput();
 
         // Build expected event data
-        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
+        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(inbox, 1);
 
         // Expect the Proposed event with the correct data
         vm.expectEmit();
@@ -77,7 +77,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
             _createProposeInputWithDeadline(uint48(block.timestamp + 1 hours));
 
         // Expect the correct event
-        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
+        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(inbox, 1);
         vm.expectEmit();
         emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
 
@@ -86,7 +86,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal was created with correct hash
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = inbox.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Proposal hash mismatch");
     }
 
@@ -97,7 +97,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         bytes memory proposeData = _createFirstProposeInput();
 
         // Expect the correct event
-        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
+        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(inbox, 1);
         vm.expectEmit();
         emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
 
@@ -106,7 +106,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal was created with correct hash
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = inbox.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Proposal hash mismatch");
     }
 
@@ -137,7 +137,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         bytes memory proposeData = _createFirstProposeInput();
 
         // Expect the correct event for single blob
-        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
+        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(inbox, 1);
         vm.expectEmit();
         emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
 
@@ -145,7 +145,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash and blob configuration
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = inbox.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Single blob proposal hash mismatch");
     }
 
@@ -157,7 +157,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
         // Expect the correct event for multiple blobs
         IInbox.ProposedEventPayload memory expectedPayload =
-            _buildExpectedProposedPayloadWithBlobs(1, 3, 0);
+            _buildExpectedProposedPayloadWithBlobs(inbox, 1, 3, 0);
         vm.expectEmit();
         emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
 
@@ -165,7 +165,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = inbox.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Multiple blob proposal hash mismatch");
     }
 
@@ -173,9 +173,9 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         _setupBlobHashes(); // Sets up 9 blob hashes
 
         // Create proposal with out-of-range blob index using custom params
-        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        IInbox.CoreState memory coreState = _getGenesisCoreState(inbox);
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
+        parentProposals[0] = _createGenesisProposal(inbox);
 
         LibBlobs.BlobReference memory blobRef = _createBlobRef(
             10, // Out of range (we only have 9 blobs)
@@ -204,7 +204,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
         // Expect the correct event with blob offset
         IInbox.ProposedEventPayload memory expectedPayload =
-            _buildExpectedProposedPayloadWithBlobs(1, 2, 100);
+            _buildExpectedProposedPayloadWithBlobs(inbox, 1, 2, 100);
         vm.expectEmit();
         emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
 
@@ -212,7 +212,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         inbox.propose(bytes(""), proposeData);
 
         // Verify proposal hash and check that offset was correctly included
-        bytes32 expectedHash = keccak256(abi.encode(expectedPayload.proposal));
+        bytes32 expectedHash = inbox.hashProposal(expectedPayload.proposal);
         assertEq(inbox.getProposalHash(1), expectedHash, "Blob with offset proposal hash mismatch");
     }
 
@@ -225,7 +225,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
         // First proposal (ID 1)
         bytes memory firstProposeData = _createFirstProposeInput();
-        IInbox.ProposedEventPayload memory firstExpectedPayload = _buildExpectedProposedPayload(1);
+        IInbox.ProposedEventPayload memory firstExpectedPayload = _buildExpectedProposedPayload(inbox, 1);
 
         vm.expectEmit();
         emit IInbox.Proposed(inbox.encodeProposedEventData(firstExpectedPayload));
@@ -237,7 +237,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         bytes32 firstProposalHash = inbox.getProposalHash(1);
         assertEq(
             firstProposalHash,
-            keccak256(abi.encode(firstExpectedPayload.proposal)),
+            inbox.hashProposal(firstExpectedPayload.proposal),
             "First proposal hash mismatch"
         );
 
@@ -249,7 +249,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         IInbox.CoreState memory secondCoreState = IInbox.CoreState({
             nextProposalId: 2,
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(inbox),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -264,7 +264,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         );
 
         // Build expected payload for second proposal
-        IInbox.ProposedEventPayload memory secondExpectedPayload = _buildExpectedProposedPayload(2);
+        IInbox.ProposedEventPayload memory secondExpectedPayload = _buildExpectedProposedPayload(inbox, 2);
 
         vm.expectEmit();
         emit IInbox.Proposed(inbox.encodeProposedEventData(secondExpectedPayload));
@@ -276,7 +276,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         bytes32 secondProposalHash = inbox.getProposalHash(2);
         assertEq(
             secondProposalHash,
-            keccak256(abi.encode(secondExpectedPayload.proposal)),
+            inbox.hashProposal(secondExpectedPayload.proposal),
             "Second proposal hash mismatch"
         );
 
@@ -304,7 +304,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         IInbox.CoreState memory wrongCoreState = IInbox.CoreState({
             nextProposalId: 2,
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(inbox),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -338,7 +338,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 100,
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(inbox),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -388,11 +388,11 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
     function _createFirstProposeInput() internal view returns (bytes memory) {
         // For the first proposal after genesis, we need specific state
-        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        IInbox.CoreState memory coreState = _getGenesisCoreState(inbox);
 
         // Parent proposal is genesis (id=0)
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
+        parentProposals[0] = _createGenesisProposal(inbox);
 
         // Create blob reference
         LibBlobs.BlobReference memory blobRef = _createBlobRef(0, 1, 0);
@@ -411,9 +411,9 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         view
         returns (bytes memory)
     {
-        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        IInbox.CoreState memory coreState = _getGenesisCoreState(inbox);
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
+        parentProposals[0] = _createGenesisProposal(inbox);
 
         return _createProposeInputWithCustomParams(
             _deadline, _createBlobRef(0, 1, 0), parentProposals, coreState
@@ -428,9 +428,9 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         view
         returns (bytes memory)
     {
-        IInbox.CoreState memory coreState = _getGenesisCoreState();
+        IInbox.CoreState memory coreState = _getGenesisCoreState(inbox);
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = _createGenesisProposal();
+        parentProposals[0] = _createGenesisProposal(inbox);
 
         LibBlobs.BlobReference memory blobRef = _createBlobRef(0, _numBlobs, _offset);
 
@@ -448,7 +448,16 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         view
         returns (IInbox.ProposedEventPayload memory)
     {
-        return _buildExpectedProposedPayload(_proposalId, 1, 0, currentProposer);
+        return _buildExpectedProposedPayload(inbox, _proposalId, 1, 0, currentProposer);
+    }
+
+    // Convenience overload with inbox parameter
+    function _buildExpectedProposedPayload(Inbox _inbox, uint48 _proposalId)
+        internal
+        view
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        return _buildExpectedProposedPayload(_inbox, _proposalId, 1, 0, currentProposer);
     }
 
     // Convenience function for buildExpectedProposedPayload with custom blob params
@@ -461,6 +470,20 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         view
         returns (IInbox.ProposedEventPayload memory)
     {
-        return _buildExpectedProposedPayload(_proposalId, _numBlobs, _offset, currentProposer);
+        return _buildExpectedProposedPayload(inbox, _proposalId, _numBlobs, _offset, currentProposer);
+    }
+
+    // Convenience function with inbox parameter
+    function _buildExpectedProposedPayloadWithBlobs(
+        Inbox _inbox,
+        uint48 _proposalId,
+        uint8 _numBlobs,
+        uint24 _offset
+    )
+        internal
+        view
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        return _buildExpectedProposedPayload(_inbox, _proposalId, _numBlobs, _offset, currentProposer);
     }
 }

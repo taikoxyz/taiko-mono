@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
+import { Inbox } from "src/layer1/shasta/impl/Inbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 
 /// @title InboxTestHelper
@@ -38,10 +39,25 @@ contract InboxTestHelper is CommonTest {
         });
     }
 
+    function _getGenesisCoreState(Inbox _inbox) internal view returns (IInbox.CoreState memory) {
+        return IInbox.CoreState({
+            nextProposalId: 1,
+            lastFinalizedProposalId: 0,
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(_inbox),
+            bondInstructionsHash: bytes32(0)
+        });
+    }
+
     function _getGenesisTransitionHash() internal pure returns (bytes32) {
         IInbox.Transition memory transition;
         transition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         return keccak256(abi.encode(transition));
+    }
+
+    function _getGenesisTransitionHash(Inbox _inbox) internal view returns (bytes32) {
+        IInbox.Transition memory transition;
+        transition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
+        return _inbox.hashTransition(transition);
     }
 
     function _createGenesisProposal() internal pure returns (IInbox.Proposal memory) {
@@ -61,6 +77,26 @@ contract InboxTestHelper is CommonTest {
             endOfSubmissionWindowTimestamp: 0,
             coreStateHash: keccak256(abi.encode(coreState)),
             derivationHash: keccak256(abi.encode(derivation))
+        });
+    }
+
+    function _createGenesisProposal(Inbox _inbox) internal view returns (IInbox.Proposal memory) {
+        IInbox.CoreState memory coreState = IInbox.CoreState({
+            nextProposalId: 1,
+            lastFinalizedProposalId: 0,
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(_inbox),
+            bondInstructionsHash: bytes32(0)
+        });
+
+        IInbox.Derivation memory derivation;
+
+        return IInbox.Proposal({
+            id: 0,
+            proposer: address(0),
+            timestamp: 0,
+            endOfSubmissionWindowTimestamp: 0,
+            coreStateHash: _inbox.hashCoreState(coreState),
+            derivationHash: _inbox.hashDerivation(derivation)
         });
     }
 
@@ -96,7 +132,9 @@ contract InboxTestHelper is CommonTest {
     // Expected Event Payload Builders
     // ---------------------------------------------------------------
 
+
     function _buildExpectedProposedPayload(
+        Inbox _inbox,
         uint48 _proposalId,
         uint8 _numBlobs,
         uint24 _offset,
@@ -110,7 +148,7 @@ contract InboxTestHelper is CommonTest {
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
             lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(_inbox),
             bondInstructionsHash: bytes32(0)
         });
 
@@ -134,8 +172,8 @@ contract InboxTestHelper is CommonTest {
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0, // PreconfWhitelist returns 0 for
                 // endOfSubmissionWindowTimestamp
-            coreStateHash: keccak256(abi.encode(expectedCoreState)),
-            derivationHash: keccak256(abi.encode(expectedDerivation))
+            coreStateHash: _inbox.hashCoreState(expectedCoreState),
+            derivationHash: _inbox.hashDerivation(expectedDerivation)
         });
 
         return IInbox.ProposedEventPayload({
