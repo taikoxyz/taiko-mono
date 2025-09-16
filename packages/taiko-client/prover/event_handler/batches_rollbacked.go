@@ -39,6 +39,7 @@ func (h *BatchesRollbackedEventHandler) Handle(
 		"startBatchID", e.StartId,
 		"endBatchID", e.EndId,
 		"l1BlockHeight", e.Raw.BlockNumber,
+		"l1LogIndex", e.Raw.Index,
 		"totalBatchesRollBacked", e.EndId-e.StartId+1,
 	)
 
@@ -47,6 +48,8 @@ func (h *BatchesRollbackedEventHandler) Handle(
 		types.BatchesRollbacked{
 			StartBatchID: e.StartId,
 			EndBatchID:   e.EndId,
+			L1Height:     e.Raw.BlockNumber,
+			L1LogIndex:   e.Raw.Index,
 		},
 	)
 

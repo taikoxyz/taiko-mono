@@ -162,12 +162,14 @@ func (s *Syncer) processL1Blocks(ctx context.Context) error {
 		return err
 	}
 
+	rollbacksDetected := len(s.batchesRollbackedRanges) > 0
 	iter, err := eventIterator.NewBatchProposedIterator(ctx, &eventIterator.BatchProposedIteratorConfig{
 		Client:               s.rpc.L1,
 		TaikoInbox:           s.rpc.PacayaClients.TaikoInbox,
 		StartHeight:          s.state.GetL1Current().Number,
 		EndHeight:            l1End.Number,
 		OnBatchProposedEvent: s.onBatchProposed,
+		RollbacksDetected:    rollbacksDetected,
 	})
 	if err != nil {
 		return err
@@ -197,11 +199,14 @@ func (s *Syncer) onBatchesRollbacked(
 		"startBatchID", event.StartId,
 		"endBatchID", event.EndId,
 		"l1BlockHeight", event.Raw.BlockNumber,
+		"l1LogIndex", event.Raw.Index,
 		"totalBatchesRollBacked", event.EndId-event.StartId+1)
 
 	s.batchesRollbackedRanges = append(s.batchesRollbackedRanges, types.BatchesRollbacked{
 		StartBatchID: event.StartId,
 		EndBatchID:   event.EndId,
+		L1Height:     event.Raw.BlockNumber,
+		L1LogIndex:   event.Raw.Index,
 	})
 	endIter()
 	return nil
@@ -220,6 +225,22 @@ func (s *Syncer) onBatchProposed(
 
 	// We simply ignore the genesis block's `BatchesProposed` event.
 	if meta.Pacaya().GetBatchID().Cmp(common.Big0) == 0 {
+		return nil
+	}
+
+	// If the batch ID is in the rollbacked ranges, we skip the batch insertion.
+	if s.batchesRollbackedRanges != nil && s.batchesRollbackedRanges.Contains(
+		meta.Pacaya().GetBatchID().Uint64(),
+		meta.GetRawBlockHeight().Uint64(),
+		meta.GetLogIndex(),
+	) {
+		log.Info(
+			"Skip batch since it is present in the rollbacked range (BatchesRollbacked)",
+			"batchID", meta.Pacaya().GetBatchID(),
+			"l1Height", meta.GetRawBlockHeight(),
+			"l1LogIndex", meta.GetLogIndex(),
+			"lastInsertedBatchID", s.lastInsertedBatchID,
+		)
 		return nil
 	}
 
@@ -269,16 +290,6 @@ func (s *Syncer) onBatchProposed(
 			"now", time.Now().Unix(),
 		)
 		time.Sleep(time.Until(time.Unix(int64(timestamp), 0)))
-	}
-
-	// If the batch ID is in the rollbacked ranges, we skip the batch insertion.
-	if s.batchesRollbackedRanges != nil && s.batchesRollbackedRanges.Contains(meta.Pacaya().GetBatchID().Uint64()) {
-		log.Info(
-			"Skip batch since it is present in the rollbacked range (BatchesRollbacked)",
-			"batchID", meta.Pacaya().GetBatchID(),
-			"lastInsertedBatchID", s.lastInsertedBatchID,
-		)
-		return nil
 	}
 
 	// Insert new blocks to L2 EE's chain.

@@ -16,6 +16,7 @@ type TaikoProposalMetaData interface {
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint
 	GetTxHash() common.Hash
+	GetLogIndex() uint
 	GetProposer() common.Address
 	GetCoinbase() common.Address
 	GetBlobCreatedIn() *big.Int
@@ -44,6 +45,7 @@ type TaikoBatchMetaDataPacaya interface {
 	GetRawBlockHash() common.Hash
 	GetTxIndex() uint
 	GetTxHash() common.Hash
+	GetLogIndex() uint
 	InnerMetadata() *pacayaBindings.ITaikoInboxBatchMetadata
 	GetBaseFee() *big.Int
 }

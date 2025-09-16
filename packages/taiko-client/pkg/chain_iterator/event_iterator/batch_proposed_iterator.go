@@ -45,6 +45,7 @@ type BatchProposedIteratorConfig struct {
 	EndHeight             *big.Int
 	OnBatchProposedEvent  OnBatchProposedEvent
 	BlockConfirmations    *uint64
+	RollbacksDetected     bool
 }
 
 // NewBatchProposedIterator creates a new instance of BatchProposed event iterator.
@@ -67,6 +68,7 @@ func NewBatchProposedIterator(ctx context.Context, cfg *BatchProposedIteratorCon
 			cfg.TaikoInbox,
 			cfg.OnBatchProposedEvent,
 			iterator,
+			cfg.RollbacksDetected,
 		),
 	})
 	if err != nil {
@@ -96,6 +98,7 @@ func assembleBatchProposedIteratorCallback(
 	taikoInbox *pacayaBindings.TaikoInboxClient,
 	callback OnBatchProposedEvent,
 	eventIter *BatchProposedIterator,
+	rollbacksDetected bool,
 ) chainIterator.OnBlocksFunc {
 	return func(
 		ctx context.Context,
@@ -122,17 +125,28 @@ func assembleBatchProposedIteratorCallback(
 			log.Debug("Processing BatchProposed event", "batch", event.Meta.BatchId, "l1BlockHeight", event.Raw.BlockNumber)
 
 			if lastBatchID != 0 && event.Meta.BatchId != lastBatchID+1 {
-				log.Warn(
-					"BatchProposed event is not continuous, rescan the L1 chain",
-					"fromL1Block", start.Number,
-					"toL1Block", endHeight,
-					"lastScannedBatchID", lastBatchID,
-					"currentScannedBatchID", event.Meta.BatchId,
-				)
-				return fmt.Errorf(
-					"BatchProposed event is not continuous, lastScannedBatchID: %d, currentScannedBatchID: %d",
-					lastBatchID, event.Meta.BatchId,
-				)
+				if !rollbacksDetected {
+					log.Warn(
+						"BatchProposed event is not continuous, rescan the L1 chain",
+						"fromL1Block", start.Number,
+						"toL1Block", endHeight,
+						"lastScannedBatchID", lastBatchID,
+						"currentScannedBatchID", event.Meta.BatchId,
+					)
+					return fmt.Errorf(
+						"BatchProposed event is not continuous, lastScannedBatchID: %d, currentScannedBatchID: %d",
+						lastBatchID, event.Meta.BatchId,
+					)
+				} else {
+					log.Info(
+						"BatchProposed event is not continuous due to rollback, continuing",
+						"fromL1Block", start.Number,
+						"toL1Block", endHeight,
+						"lastScannedBatchID", lastBatchID,
+						"currentScannedBatchID", event.Meta.BatchId,
+						"l1BlockHeight", event.Raw.BlockNumber,
+					)
+				}
 			}
 
 			if err := callback(ctx, metadata.NewTaikoDataBlockMetadataPacaya(event), eventIter.end); err != nil {

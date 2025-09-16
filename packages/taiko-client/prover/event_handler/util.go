@@ -73,6 +73,7 @@ func getMetadataFromBatchPacaya(
 		StartHeight:          new(big.Int).SetUint64(batch.AnchorBlockId),
 		EndHeight:            endHeight,
 		OnBatchProposedEvent: callback,
+		RollbacksDetected:    false,
 	})
 	if err != nil {
 		log.Error("Failed to start event iterator", "event", "BatchProposed", "error", err)

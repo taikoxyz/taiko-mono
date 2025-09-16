@@ -153,6 +153,11 @@ func (m *TaikoDataBlockMetadataPacaya) GetTxHash() common.Hash {
 	return m.Log.TxHash
 }
 
+// GetLogIndex returns the log index.
+func (m *TaikoDataBlockMetadataPacaya) GetLogIndex() uint {
+	return m.Log.Index
+}
+
 // IsOntakeBlock returns whether the block is an ontake block.
 func (m *TaikoDataBlockMetadataPacaya) IsOntakeBlock() bool {
 	return true

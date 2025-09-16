@@ -81,10 +81,16 @@ func (h *BatchProposedEventHandler) Handle(
 ) error {
 	// If the batch ID is in the rollbacked ranges, we skip the batch handling.
 	if h.sharedState.GetBatchesRollbackedRanges() != nil &&
-		h.sharedState.GetBatchesRollbackedRanges().Contains(meta.Pacaya().GetBatchID().Uint64()) {
+		h.sharedState.GetBatchesRollbackedRanges().Contains(
+			meta.Pacaya().GetBatchID().Uint64(),
+			meta.GetRawBlockHeight().Uint64(),
+			meta.GetLogIndex(),
+		) {
 		log.Info(
 			"Skip batch since it is present in the rollbacked range (BatchesRollbacked)",
 			"batchID", meta.Pacaya().GetBatchID(),
+			"l1Height", meta.GetRawBlockHeight(),
+			"l1LogIndex", meta.GetLogIndex(),
 			"lastHandledBatchID", h.sharedState.GetLastHandledBatchID(),
 		)
 		return nil
