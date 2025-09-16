@@ -77,6 +77,18 @@ contract InboxTestHelper is CommonTest {
         return hashes;
     }
 
+    function _getBlobHashesForTestStartingAt(uint256 _startIndex, uint256 _numBlobs)
+        internal
+        pure
+        returns (bytes32[] memory)
+    {
+        bytes32[] memory hashes = new bytes32[](_numBlobs);
+        for (uint256 i = 0; i < _numBlobs; i++) {
+            hashes[i] = keccak256(abi.encode("blob", _startIndex + i));
+        }
+        return hashes;
+    }
+
     function _createBlobRef(
         uint8 _blobStartIndex,
         uint8 _numBlobs,
@@ -109,6 +121,23 @@ contract InboxTestHelper is CommonTest {
         view
         returns (IInbox.ProposedEventPayload memory)
     {
+        return _buildExpectedProposedPayloadWithStartIndex(
+            _inbox, _proposalId, 0, _numBlobs, _offset, _currentProposer
+        );
+    }
+
+    function _buildExpectedProposedPayloadWithStartIndex(
+        Inbox _inbox,
+        uint48 _proposalId,
+        uint16 _blobStartIndex,
+        uint8 _numBlobs,
+        uint24 _offset,
+        address _currentProposer
+    )
+        internal
+        view
+        returns (IInbox.ProposedEventPayload memory)
+    {
         // Build the expected core state after proposal
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
@@ -124,7 +153,7 @@ contract InboxTestHelper is CommonTest {
             isForcedInclusion: false,
             basefeeSharingPctg: 0, // Using actual value from SimpleInbox config
             blobSlice: LibBlobs.BlobSlice({
-                blobHashes: _getBlobHashesForTest(_numBlobs),
+                blobHashes: _getBlobHashesForTestStartingAt(_blobStartIndex, _numBlobs),
                 offset: _offset,
                 timestamp: uint48(block.timestamp)
             })
@@ -137,6 +166,53 @@ contract InboxTestHelper is CommonTest {
             timestamp: uint48(block.timestamp),
             endOfSubmissionWindowTimestamp: 0, // PreconfWhitelist returns 0 for
                 // endOfSubmissionWindowTimestamp
+            coreStateHash: _inbox.hashCoreState(expectedCoreState),
+            derivationHash: _inbox.hashDerivation(expectedDerivation)
+        });
+
+        return IInbox.ProposedEventPayload({
+            proposal: expectedProposal,
+            derivation: expectedDerivation,
+            coreState: expectedCoreState
+        });
+    }
+
+    function _buildExpectedForcedInclusionPayload(
+        Inbox _inbox,
+        uint48 _proposalId,
+        uint16 _blobStartIndex,
+        uint8 _numBlobs,
+        uint24 _offset,
+        uint48 _timestamp
+    )
+        internal
+        view
+        returns (IInbox.ProposedEventPayload memory)
+    {
+        IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
+            nextProposalId: _proposalId + 1,
+            lastFinalizedProposalId: 0,
+            lastFinalizedTransitionHash: _getGenesisTransitionHash(_inbox),
+            bondInstructionsHash: bytes32(0)
+        });
+
+        IInbox.Derivation memory expectedDerivation = IInbox.Derivation({
+            originBlockNumber: uint48(block.number - 1),
+            originBlockHash: blockhash(block.number - 1),
+            isForcedInclusion: true,
+            basefeeSharingPctg: 0,
+            blobSlice: LibBlobs.BlobSlice({
+                blobHashes: _getBlobHashesForTestStartingAt(_blobStartIndex, _numBlobs),
+                offset: _offset,
+                timestamp: _timestamp
+            })
+        });
+
+        IInbox.Proposal memory expectedProposal = IInbox.Proposal({
+            id: _proposalId,
+            proposer: address(0), // will be checked in encoded event equality, proposer not used here
+            timestamp: _timestamp,
+            endOfSubmissionWindowTimestamp: 0,
             coreStateHash: _inbox.hashCoreState(expectedCoreState),
             derivationHash: _inbox.hashDerivation(expectedDerivation)
         });
