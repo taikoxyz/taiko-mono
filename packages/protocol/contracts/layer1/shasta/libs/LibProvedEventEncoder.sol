@@ -35,19 +35,11 @@ library LibProvedEventEncoder {
         ptr = P.packUint48(ptr, _payload.transition.checkpoint.blockNumber);
         ptr = P.packBytes32(ptr, _payload.transition.checkpoint.blockHash);
         ptr = P.packBytes32(ptr, _payload.transition.checkpoint.stateRoot);
-        
-        // Encode Metadata
-        ptr = P.packAddress(ptr, _payload.metadata.designatedProver);
-        ptr = P.packAddress(ptr, _payload.metadata.actualProver);
-        ptr = P.packUint48(ptr, _payload.metadata.proofTimestamp);
 
         // Encode TransitionRecord
         ptr = P.packUint8(ptr, _payload.transitionRecord.span);
         ptr = P.packBytes32(ptr, _payload.transitionRecord.transitionHash);
         ptr = P.packBytes32(ptr, _payload.transitionRecord.checkpointHash);
-        ptr = P.packAddress(ptr, _payload.transitionRecord.designatedProver);
-        ptr = P.packAddress(ptr, _payload.transitionRecord.actualProver);
-        ptr = P.packUint48(ptr, _payload.transitionRecord.proofTimestamp);
 
         // Encode bond instructions array length (uint16)
         require(
@@ -86,19 +78,11 @@ library LibProvedEventEncoder {
         (payload_.transition.checkpoint.blockNumber, ptr) = P.unpackUint48(ptr);
         (payload_.transition.checkpoint.blockHash, ptr) = P.unpackBytes32(ptr);
         (payload_.transition.checkpoint.stateRoot, ptr) = P.unpackBytes32(ptr);
-        
-        // Decode Metadata
-        (payload_.metadata.designatedProver, ptr) = P.unpackAddress(ptr);
-        (payload_.metadata.actualProver, ptr) = P.unpackAddress(ptr);
-        (payload_.metadata.proofTimestamp, ptr) = P.unpackUint48(ptr);
 
         // Decode TransitionRecord
         (payload_.transitionRecord.span, ptr) = P.unpackUint8(ptr);
         (payload_.transitionRecord.transitionHash, ptr) = P.unpackBytes32(ptr);
         (payload_.transitionRecord.checkpointHash, ptr) = P.unpackBytes32(ptr);
-        (payload_.transitionRecord.designatedProver, ptr) = P.unpackAddress(ptr);
-        (payload_.transitionRecord.actualProver, ptr) = P.unpackAddress(ptr);
-        (payload_.transitionRecord.proofTimestamp, ptr) = P.unpackUint48(ptr);
 
         // Decode bond instructions array length (uint16)
         uint16 arrayLength;
@@ -129,19 +113,17 @@ library LibProvedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 253 bytes
+            // Fixed size: 207 bytes
             // proposalId: 6
             // Transition: proposalHash(32) + parentTransitionHash(32) = 64
             //        Checkpoint: number(6) + hash(32) + stateRoot(32) = 70
-            // Metadata: designatedProver(20) + actualProver(20) + proofTimestamp(6) = 46
-            // TransitionRecord: span(1) + transitionHash(32) + checkpointHash(32) + 
-            //                   designatedProver(20) + actualProver(20) + proofTimestamp(6) = 111
+            // TransitionRecord: span(1) + transitionHash(32) + checkpointHash(32) = 65
             // bondInstructions array length: 2
-            // Total fixed: 6 + 64 + 70 + 46 + 111 + 2 = 299
+            // Total fixed: 6 + 64 + 70 + 65 + 2 = 207
 
             // Variable size: each bond instruction is 47 bytes
             // proposalId(6) + bondType(1) + payer(20) + receiver(20) = 47
-            size_ = 299 + (_bondInstructionsCount * 47);
+            size_ = 207 + (_bondInstructionsCount * 47);
         }
     }
 

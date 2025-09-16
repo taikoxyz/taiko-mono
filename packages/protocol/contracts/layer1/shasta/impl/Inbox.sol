@@ -514,9 +514,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         for (uint256 i; i < _input.proposals.length; ++i) {
             _validateTransition(_input.proposals[i], _input.transitions[i]);
-
-            // Store metadata with proof timestamp
-            _input.metadata[i].proofTimestamp = uint48(block.timestamp);
             
             // Reuse the same memory location for the transitionRecord struct
             transitionRecord.bondInstructions = LibBondsL1.calculateBondInstructions(
@@ -524,11 +521,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             );
             transitionRecord.transitionHash = hashTransition(_input.transitions[i]);
             transitionRecord.checkpointHash = hashCheckpoint(_input.transitions[i].checkpoint);
-            
-            // Store prover metadata in the transition record
-            transitionRecord.designatedProver = _input.metadata[i].designatedProver;
-            transitionRecord.actualProver = _input.metadata[i].actualProver;
-            transitionRecord.proofTimestamp = _input.metadata[i].proofTimestamp;
 
             // Pass transition and transitionRecord to _setTransitionRecordHashAndDeadline
             _setTransitionRecordHashAndDeadline(
@@ -589,12 +581,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             ProvedEventPayload({
                 proposalId: _proposalId,
                 transition: _transition,
-                transitionRecord: _transitionRecord,
-                metadata: TransitionMetadata({
-                    designatedProver: _transitionRecord.designatedProver,
-                    actualProver: _transitionRecord.actualProver,
-                    proofTimestamp: _transitionRecord.proofTimestamp
-                })
+                transitionRecord: _transitionRecord
             })
         );
         emit Proved(payload);

@@ -91,12 +91,10 @@ interface IInbox {
         address designatedProver;
         /// @notice The actual prover who submitted the proof.
         address actualProver;
-        /// @notice Timestamp when the proof was submitted.
-        uint48 proofTimestamp;
     }
 
     /// @notice Represents a record of a transition with additional metadata.
-    /// @dev Bond instructions are calculated from metadata during finalization
+    /// @dev Bond instructions contain all necessary prover information (payer/receiver)
     struct TransitionRecord {
         /// @notice The span indicating how many proposals this transition record covers.
         uint8 span;
@@ -106,12 +104,6 @@ interface IInbox {
         bytes32 transitionHash;
         /// @notice The hash of the last checkpoint in the span.
         bytes32 checkpointHash;
-        /// @notice The designated prover for this transition.
-        address designatedProver;
-        /// @notice The actual prover who submitted the proof.
-        address actualProver;
-        /// @notice Timestamp when the proof was submitted.
-        uint48 proofTimestamp;
     }
 
     /// @notice Represents the core state of the inbox.
@@ -175,8 +167,6 @@ interface IInbox {
         Transition transition;
         /// @notice The transition record containing additional metadata.
         TransitionRecord transitionRecord;
-        /// @notice The metadata about the proving.
-        TransitionMetadata metadata;
     }
 
     // ---------------------------------------------------------------

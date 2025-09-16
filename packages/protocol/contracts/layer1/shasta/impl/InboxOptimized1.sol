@@ -66,9 +66,6 @@ contract InboxOptimized1 is Inbox {
         // Validate first proposal
         _validateTransition(_input.proposals[0], _input.transitions[0]);
 
-        // Store metadata with proof timestamp
-        _input.metadata[0].proofTimestamp = uint48(block.timestamp);
-
         // Initialize current aggregation state
         TransitionRecord memory currentRecord = TransitionRecord({
             span: 1,
@@ -76,10 +73,7 @@ contract InboxOptimized1 is Inbox {
                 _provingWindow, _extendedProvingWindow, _input.proposals[0], _input.metadata[0]
             ),
             transitionHash: hashTransition(_input.transitions[0]),
-            checkpointHash: hashCheckpoint(_input.transitions[0].checkpoint),
-            designatedProver: _input.metadata[0].designatedProver,
-            actualProver: _input.metadata[0].actualProver,
-            proofTimestamp: _input.metadata[0].proofTimestamp
+            checkpointHash: hashCheckpoint(_input.transitions[0].checkpoint)
         });
 
         uint48 currentGroupStartId = _input.proposals[0].id;
@@ -91,9 +85,6 @@ contract InboxOptimized1 is Inbox {
 
             // Check if current proposal can be aggregated with the previous group
             if (_input.proposals[i].id == currentGroupStartId + currentRecord.span) {
-                // Store metadata with proof timestamp
-                _input.metadata[i].proofTimestamp = uint48(block.timestamp);
-                
                 // Aggregate with current record
                 LibBonds.BondInstruction[] memory newInstructions = LibBondsL1
                     .calculateBondInstructions(
@@ -129,9 +120,6 @@ contract InboxOptimized1 is Inbox {
                 currentGroupStartId = _input.proposals[i].id;
                 firstTransitionInGroup = _input.transitions[i];
 
-                // Store metadata with proof timestamp
-                _input.metadata[i].proofTimestamp = uint48(block.timestamp);
-                
                 currentRecord = TransitionRecord({
                     span: 1,
                     bondInstructions: LibBondsL1.calculateBondInstructions(
@@ -141,10 +129,7 @@ contract InboxOptimized1 is Inbox {
                         _input.metadata[i]
                     ),
                     transitionHash: hashTransition(_input.transitions[i]),
-                    checkpointHash: hashCheckpoint(_input.transitions[i].checkpoint),
-                    designatedProver: _input.metadata[i].designatedProver,
-                    actualProver: _input.metadata[i].actualProver,
-                    proofTimestamp: _input.metadata[i].proofTimestamp
+                    checkpointHash: hashCheckpoint(_input.transitions[i].checkpoint)
                 });
             }
         }
@@ -244,12 +229,7 @@ contract InboxOptimized1 is Inbox {
             ProvedEventPayload({
                 proposalId: _proposalId,
                 transition: _transition,
-                transitionRecord: _transitionRecord,
-                metadata: TransitionMetadata({
-                    designatedProver: _transitionRecord.designatedProver,
-                    actualProver: _transitionRecord.actualProver,
-                    proofTimestamp: _transitionRecord.proofTimestamp
-                })
+                transitionRecord: _transitionRecord
             })
         );
         emit Proved(payload);

@@ -153,7 +153,6 @@ library LibProveInputDecoder {
     {
         newPtr_ = P.packAddress(_ptr, _metadata.designatedProver);
         newPtr_ = P.packAddress(newPtr_, _metadata.actualProver);
-        newPtr_ = P.packUint48(newPtr_, _metadata.proofTimestamp);
     }
 
     /// @notice Decode a single TransitionMetadata
@@ -164,7 +163,6 @@ library LibProveInputDecoder {
     {
         (metadata_.designatedProver, newPtr_) = P.unpackAddress(_ptr);
         (metadata_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
-        (metadata_.proofTimestamp, newPtr_) = P.unpackUint48(newPtr_);
     }
 
     /// @notice Calculate the size needed for encoding
@@ -192,9 +190,9 @@ library LibProveInputDecoder {
             // Transitions - each has fixed size (no provers): proposalHash(32) + parentTransitionHash(32) +
             // Checkpoint(6 + 32 + 32) = 134
             //
-            // Metadata - each has fixed size: designatedProver(20) + actualProver(20) + proofTimestamp(6) = 46
+            // Metadata - each has fixed size: designatedProver(20) + actualProver(20) = 40
             //
-            size_ += _proposals.length * (102 + 134 + 46);
+            size_ += _proposals.length * (102 + 134 + 40);
         }
     }
 
