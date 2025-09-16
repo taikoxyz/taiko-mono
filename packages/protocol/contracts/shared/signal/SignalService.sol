@@ -72,23 +72,6 @@ contract SignalService is EssentialResolverContract, ISignalService {
 
     /// @inheritdoc ISignalService
     /// @dev This function may revert.
-    /// @dev This funciton is deprecated and will be removed in the future.
-    function proveSignalReceived(
-        uint64 _chainId,
-        address _app,
-        bytes32 _signal,
-        bytes calldata _proof
-    )
-        external
-        view
-        virtual
-        whenNotPaused
-    {
-        _verifySignalReceived(_chainId, _app, _signal, _proof);
-    }
-
-    /// @inheritdoc ISignalService
-    /// @dev This function may revert.
     function verifySignalReceived(
         uint64 _chainId,
         address _app,
@@ -97,6 +80,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
     )
         external
         view
+        virtual
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
     }

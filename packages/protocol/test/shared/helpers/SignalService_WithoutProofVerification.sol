@@ -6,7 +6,7 @@ import "src/shared/signal/SignalService.sol";
 contract SignalService_WithoutProofVerification is SignalService {
     constructor(address _resolver) SignalService(_resolver) { }
 
-    function proveSignalReceived(
+    function verifySignalReceived(
         uint64, /*srcChainId*/
         address, /*app*/
         bytes32, /*signal*/

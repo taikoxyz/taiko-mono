@@ -491,7 +491,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         private
         view
     {
-        try _signalService.proveSignalReceived(
+        try _signalService.verifySignalReceived(
             _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
         ) { } catch {
             revert B_SIGNAL_NOT_RECEIVED();
