@@ -579,14 +579,12 @@ func (s *Indexer) getTransitionsForFinalization(
 	for i := uint64(1); i <= maxFinalizationCount; i++ {
 		transition, ok := s.transitionRecords.Get(lastFinalizedProposalId + i)
 		log.Info(
-			"Try to get record",
+			"Transition record for finalization",
 			"proposalId", lastFinalizedProposalId+i,
 			"found", ok,
-			"last", transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash,
-			"time", transition.RawBlockTimeStamp+s.finalizationGracePeriod > uint64(time.Now().Unix()),
-			"rawBlockTimeStamp", transition.RawBlockTimeStamp,
-			"gracePeriod", s.finalizationGracePeriod,
-			"currentTime", uint64(time.Now().Unix()),
+			"parentTransitionHash", common.BytesToHash(transition.Transition.ParentTransitionHash[:]),
+			"lastFinalizedTransitionHash", lastFinalizedTransitionHash,
+			"readyForFinalization", transition.RawBlockTimeStamp+s.finalizationGracePeriod > uint64(time.Now().Unix()),
 		)
 		if !ok ||
 			transition.RawBlockTimeStamp+s.finalizationGracePeriod > uint64(time.Now().Unix()) {

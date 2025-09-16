@@ -206,7 +206,11 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		parentProposals = append(parentProposals, *p.Proposal)
 	}
 	for i, t := range transitions {
-		log.Info("Fetched transition from state indexer", "index", i, "proposalHash", t.Transition.ProposalHash)
+		log.Info(
+			"Fetched transition from state indexer",
+			"index", i,
+			"proposalHash", common.Bytes2Hex(t.Transition.ProposalHash[:]),
+		)
 		if i == len(transitions)-1 {
 			checkpoint = t.Transition.Checkpoint
 		}
