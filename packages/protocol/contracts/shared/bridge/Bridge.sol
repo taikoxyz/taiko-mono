@@ -187,7 +187,7 @@ contract Bridge is EssentialResolverContract, IBridge {
             revert B_MESSAGE_NOT_SENT();
         }
 
-        _proveSignalReceived(
+        _verifySignalReceived(
             signalService, signalForFailedMessage(msgHash), _message.destChainId, _proof
         );
 
@@ -252,7 +252,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         stats.proofSize = uint32(_proof.length);
         stats.numCacheOps = 0;
 
-        _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
+        _verifySignalReceived(signalService, msgHash, _message.srcChainId, _proof);
 
         uint256 refundAmount;
         if (_unableToInvokeMessageCall(_message, signalService)) {
@@ -286,6 +286,7 @@ contract Bridge is EssentialResolverContract, IBridge {
                     // exactly know if the txn is profitable or not.
                     // - need to have a buffer/small revenue to the realyer since it consumes
                     // maintenance and infra costs to operate
+                    // TODO(daniel): simplifiy this
                     uint256 refund = stats.numCacheOps * _GAS_REFUND_PER_CACHE_OPERATION;
                     // Taking into account the encoded message calldata cost, and can count with 16
                     // gas per bytes (vs. checking each and every byte if zero or non-zero)
@@ -518,7 +519,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
     /// @param _proof The merkle inclusion proof.
-    function _proveSignalReceived(
+    function _verifySignalReceived(
         ISignalService _signalService,
         bytes32 _signal,
         uint64 _chainId,
@@ -541,7 +542,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     }
 
     /// @notice Checks if the signal was received.
-    /// This is the 'readonly' version of _proveSignalReceived.
+    /// This is the 'readonly' version of _verifySignalReceived.
     /// @param _signalService The signal service address.
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
@@ -557,7 +558,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         view
         returns (bool)
     {
-        try _signalService.proveSignalReceived(
+        try _signalService.verifySignalReceived(
             _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
         ) {
             return true;
