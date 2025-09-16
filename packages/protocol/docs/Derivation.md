@@ -171,6 +171,7 @@ A default manifest is returned when any of the following validation criteria fai
 - **Version validation**: Version number is not `0x1`
 - **Decompression failure**: ZLIB decompression fails
 - **Decoding failure**: RLP decoding fails
+- **Block count validation**: `manifest.blocks.length` exceeds `PROPOSAL_MAX_BLOCKS`
 
 The default manifest is one initialized as:
 
