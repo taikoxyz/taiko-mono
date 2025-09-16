@@ -259,6 +259,12 @@ func (s *Indexer) onProvedEvent(
 		return fmt.Errorf("failed to get block header by hash %s: %w", eventLog.BlockHash.String(), err)
 	}
 
+	log.Info(
+		"New cached Shasta transition record",
+		"proposalId", meta.ProposalId,
+		"transitionHash", record.TransitionHash,
+	)
+
 	s.transitionRecords.Set(meta.ProposalId.Uint64(), &TransitionPayload{
 		ProposalId:        meta.ProposalId,
 		Transition:        &transition,
@@ -570,6 +576,7 @@ func (s *Indexer) getTransitionsForFinalization(
 	var transitions []*TransitionPayload
 	for i := uint64(1); i <= maxFinalizationCount; i++ {
 		transition, ok := s.transitionRecords.Get(lastFinalizedProposalId + i)
+		log.Info("Try to get record", "proposalId", lastFinalizedProposalId+i, "found", ok)
 		if !ok ||
 			transition.RawBlockTimeStamp+s.finalizationGracePeriod < uint64(time.Now().Unix()) {
 			break
