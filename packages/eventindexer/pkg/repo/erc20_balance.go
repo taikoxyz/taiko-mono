@@ -122,9 +122,12 @@ func (r *ERC20BalanceRepository) IncreaseAndDecreaseBalancesInTx(
 	retries := 10
 	for retries > 0 {
 		err = r.db.GormDB().Transaction(func(tx *gorm.DB) (err error) {
-			increasedBalance, err = r.increaseBalanceInDB(tx.WithContext(ctx), increaseOpts)
-			if err != nil {
-				return err
+			// Skip no-op or zero-address increases to avoid creating balances for 0x000... or zero amount
+			if increaseOpts.Amount != "0" && increaseOpts.Amount != "" && increaseOpts.Address != ZeroAddress.Hex() {
+				increasedBalance, err = r.increaseBalanceInDB(tx.WithContext(ctx), increaseOpts)
+				if err != nil {
+					return err
+				}
 			}
 
 			if decreaseOpts.Amount != "0" && decreaseOpts.Amount != "" {
