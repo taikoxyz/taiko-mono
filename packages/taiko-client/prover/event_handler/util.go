@@ -133,7 +133,7 @@ func IsProvingWindowExpiredShasta(
 
 	var (
 		now       = uint64(time.Now().Unix())
-		expiredAt = metadata.Shasta().GetProposal().Timestamp.Uint64() + uint64(configs.ProvingWindow.Uint64())
+		expiredAt = metadata.Shasta().GetProposal().Timestamp.Uint64() + configs.ProvingWindow.Uint64()
 	)
 	return now > expiredAt, time.Unix(int64(expiredAt), 0), time.Duration(expiredAt-now) * time.Second, nil
 }

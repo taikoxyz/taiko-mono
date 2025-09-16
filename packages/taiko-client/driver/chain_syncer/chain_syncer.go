@@ -45,6 +45,7 @@ type L2ChainSyncer struct {
 func New(
 	ctx context.Context,
 	rpc *rpc.Client,
+	indexer *shastaIndexer.Indexer,
 	state *state.State,
 	p2pSync bool,
 	p2pSyncTimeout time.Duration,
@@ -53,14 +54,6 @@ func New(
 ) (*L2ChainSyncer, error) {
 	tracker := beaconsync.NewSyncProgressTracker(rpc.L2, p2pSyncTimeout)
 	go tracker.Track(ctx)
-
-	indexer, err := shastaIndexer.NewShastaState(ctx, rpc, rpc.ShastaClients.ForkHeight)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create shasta state indexer: %w", err)
-	}
-	if err := indexer.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start shasta state indexer: %w", err)
-	}
 
 	beaconSyncer := beaconsync.NewSyncer(ctx, rpc, state, tracker)
 	eventSyncer, err := event.NewSyncer(ctx, rpc, indexer, state, tracker, blobServerEndpoint, latestSeenProposalCh)
@@ -71,6 +64,7 @@ func New(
 	return &L2ChainSyncer{
 		ctx:             ctx,
 		rpc:             rpc,
+		indexer:         indexer,
 		state:           state,
 		beaconSyncer:    beaconSyncer,
 		eventSyncer:     eventSyncer,

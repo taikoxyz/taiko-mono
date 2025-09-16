@@ -102,10 +102,19 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		log.Warn("P2P syncing enabled, but no connected peer found in L2 execution engine")
 	}
 
+	if d.shastaIndexer, err = shastaIndexer.NewShastaState(
+		d.ctx,
+		d.rpc,
+		d.rpc.ShastaClients.ForkHeight,
+	); err != nil {
+		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
+	}
+
 	latestSeenProposalCh := make(chan *encoding.LastSeenProposal, 1024)
 	if d.l2ChainSyncer, err = chainSyncer.New(
 		d.ctx,
 		d.rpc,
+		d.shastaIndexer,
 		d.state,
 		cfg.P2PSync,
 		cfg.P2PSyncTimeout,
@@ -128,14 +137,6 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 	}
 
 	config.ReportProtocolConfigs(d.protocolConfig)
-
-	if d.shastaIndexer, err = shastaIndexer.NewShastaState(
-		d.ctx,
-		d.rpc,
-		d.rpc.ShastaClients.ForkHeight,
-	); err != nil {
-		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
-	}
 
 	if d.PreconfBlockServerPort > 0 {
 		// Initialize the preconfirmation block server.
