@@ -7,6 +7,9 @@ library LibManifest {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
+    /// @notice The maximum number of blocks allowed in a proposal. If we assume block time is as
+    /// small as one second, 384 blocks will cover an Ethereum epoch.
+    uint256 internal constant PROPOSAL_MAX_BLOCKS = 384;
 
     /// @notice The maximum anchor block number offset from the proposal origin block number.
     uint256 internal constant ANCHOR_MAX_OFFSET = 128;
