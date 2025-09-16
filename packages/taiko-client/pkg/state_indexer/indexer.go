@@ -571,7 +571,6 @@ func (s *Indexer) getTransitionsForFinalization(
 	for i := uint64(1); i <= maxFinalizationCount; i++ {
 		transition, ok := s.transitionRecords.Get(lastFinalizedProposalId + i)
 		if !ok ||
-			transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash ||
 			transition.RawBlockTimeStamp+s.finalizationGracePeriod < uint64(time.Now().Unix()) {
 			break
 		}
