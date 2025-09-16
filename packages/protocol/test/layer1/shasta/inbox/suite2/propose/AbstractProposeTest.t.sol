@@ -310,9 +310,12 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         _setupBlobHashes();
 
         uint256 ringBufferSize = inbox.getConfig().ringBufferSize;
+        
+        // Fill the ring buffer to near capacity (leave only 1 slot)
         (IInbox.Proposal memory lastProposal, IInbox.CoreState memory coreState) =
-            _primeRingBufferTo(uint48(ringBufferSize - 1));
+            _fillRingBufferTo(uint48(ringBufferSize - 1));
 
+        // Try to store 2 forced inclusions when we only have 1 slot left
         _storeForcedInclusions(2, 0);
 
         bytes memory proposeData = _createProposeInputWithForcedInclusions(
@@ -320,9 +323,10 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
             _createBlobRef(2, 1, 0),
             _singleParentArray(lastProposal),
             coreState,
-            2
+            2 // Trying to include 2 forced inclusions
         );
 
+        // Should revert because we don't have enough capacity
         vm.expectRevert(ExceedsUnfinalizedProposalCapacity.selector);
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -423,58 +427,29 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     // Chain Head Verification Tests
     // ---------------------------------------------------------------
 
-    // This test demonstrates the chain head verification with an occupied next slot
-    // We'll simplify by just testing the logic without actually wrapping the ring buffer
+    // Test the scenario where the ring buffer has wrapped and the next slot is occupied
+    // This requires providing 2 parent proposals instead of 1
     function test_propose_withOccupiedNextSlot() public {
         _setupBlobHashes();
 
-        // For this test, we just verify that single parent proposal works correctly
-        // The actual occupied next slot scenario requires ring buffer wrap which is tested elsewhere
+        uint256 ringBufferSize = inbox.getConfig().ringBufferSize;
         
-        // Create proposal 1
-        bytes memory firstProposeData = _createFirstProposeInput();
-        vm.prank(currentProposer);
-        inbox.propose(bytes(""), firstProposeData);
+        // Fill the ring buffer completely to cause it to wrap
+        (IInbox.Proposal memory lastProposal, IInbox.CoreState memory coreState) = 
+            _fillRingBufferTo(uint48(ringBufferSize));
 
-        // Advance time and block
+        // Now the ring buffer has wrapped - slot 0 is occupied by proposal 100
+        // When we create proposal 101, we need to provide 2 parents:
+        // 1. The last proposal (id=100) 
+        // 2. The proposal in the next slot that will be overwritten (id=0, genesis)
+        
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 12);
 
-        // Build the actual proposal 1 that was created
-        IInbox.Proposal memory proposal1 = IInbox.Proposal({
-            id: 1,
-            proposer: currentProposer,
-            timestamp: uint48(INITIAL_BLOCK_TIMESTAMP),
-            endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: inbox.hashCoreState(IInbox.CoreState({
-                nextProposalId: 2,
-                lastFinalizedProposalId: 0,
-                lastFinalizedTransitionHash: _getGenesisTransitionHash(inbox),
-                bondInstructionsHash: bytes32(0)
-            })),
-            derivationHash: inbox.hashDerivation(IInbox.Derivation({
-                originBlockNumber: uint48(INITIAL_BLOCK_NUMBER - 1),
-                originBlockHash: blockhash(INITIAL_BLOCK_NUMBER - 1),
-                isForcedInclusion: false,
-                basefeeSharingPctg: 0,
-                blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: _getBlobHashesForTest(1),
-                    offset: 0,
-                    timestamp: uint48(INITIAL_BLOCK_TIMESTAMP)
-                })
-            }))
-        });
-        
-        // For proposal 2, slot 2 is empty, so we only need 1 parent proposal
-        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](1);
-        parentProposals[0] = proposal1;
-
-        IInbox.CoreState memory coreState = IInbox.CoreState({
-            nextProposalId: 2,
-            lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(inbox),
-            bondInstructionsHash: bytes32(0)
-        });
+        // For wrapped ring buffer, we need 2 parent proposals
+        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](2);
+        parentProposals[0] = lastProposal; // proposal 100
+        parentProposals[1] = _createGenesisProposal(inbox); // proposal 0 in slot 0
 
         bytes memory proposeData = _createProposeInputWithCustomParams(
             0,
@@ -483,81 +458,46 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
             coreState
         );
 
-        // Expect successful proposal
-        IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(inbox, 2);
-        vm.expectEmit();
-        emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
-
+        // Should succeed with 2 parent proposals
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
 
-        assertNotEq(inbox.getProposalHash(2), bytes32(0), "Proposal 2 should exist");
+        assertNotEq(
+            inbox.getProposalHash(uint48(ringBufferSize)), 
+            bytes32(0), 
+            "Proposal should exist after ring buffer wrap"
+        );
     }
 
-    // Note: Testing actual occupied next slot with ring buffer wrap would require
-    // creating 100+ proposals which is expensive. The core logic is tested above.
+    // Test that providing wrong number of parent proposals fails
 
     function test_propose_RevertWhen_InvalidSecondParentProposal() public {
         _setupBlobHashes();
 
-        // When next slot is empty, providing 2 parent proposals is incorrect
-        // This should revert with IncorrectProposalCount
+        // Create a simple scenario where slot is NOT occupied
+        // First create proposal 1
+        _createAndSubmitProposal(1);
         
-        // Create proposal 1
-        bytes memory firstProposeData = _createFirstProposeInput();
-        vm.prank(currentProposer);
-        inbox.propose(bytes(""), firstProposeData);
-
-        // Build the actual proposal 1 that was created
+        // Advance time
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 12);
         
-        IInbox.Proposal memory proposal1 = IInbox.Proposal({
-            id: 1,
-            proposer: currentProposer,
-            timestamp: uint48(INITIAL_BLOCK_TIMESTAMP),
-            endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: inbox.hashCoreState(IInbox.CoreState({
-                nextProposalId: 2,
-                lastFinalizedProposalId: 0,
-                lastFinalizedTransitionHash: _getGenesisTransitionHash(inbox),
-                bondInstructionsHash: bytes32(0)
-            })),
-            derivationHash: inbox.hashDerivation(IInbox.Derivation({
-                originBlockNumber: uint48(INITIAL_BLOCK_NUMBER - 1),
-                originBlockHash: blockhash(INITIAL_BLOCK_NUMBER - 1),
-                isForcedInclusion: false,
-                basefeeSharingPctg: 0,
-                blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: _getBlobHashesForTest(1),
-                    offset: 0,
-                    timestamp: uint48(INITIAL_BLOCK_TIMESTAMP)
-                })
-            }))
-        });
+        // Build proposal 1 reference
+        IInbox.Proposal memory proposal1 = _buildProposal(1, currentProposer, INITIAL_BLOCK_TIMESTAMP);
         
         // Try to provide 2 parent proposals when only 1 is needed (slot 2 is empty)
-        IInbox.Proposal memory unnecessarySecondParent = _createGenesisProposal(inbox);
-
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](2);
         parentProposals[0] = proposal1;
-        parentProposals[1] = unnecessarySecondParent;
-
-        IInbox.CoreState memory coreState = IInbox.CoreState({
-            nextProposalId: 2,
-            lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(inbox),
-            bondInstructionsHash: bytes32(0)
-        });
+        parentProposals[1] = _createGenesisProposal(inbox); // Wrong - slot 2 is empty!
 
         bytes memory proposeData = _createProposeInputWithCustomParams(
             0,
             _createBlobRef(0, 1, 0),
             parentProposals,
-            coreState
+            _buildCoreState(2, 0, _getGenesisTransitionHash(inbox))
         );
 
-        // When next slot is empty, providing 2 proposals causes IncorrectProposalCount
+        // Should revert because we provided 2 parents when slot is empty
         vm.expectRevert(IncorrectProposalCount.selector);
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -566,56 +506,24 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     function test_propose_RevertWhen_SecondParentHashMismatch() public {
         _setupBlobHashes();
 
-        // Similar to above - when slot is empty, providing 2 proposals is wrong
-        // But we'll name it differently to show the intent
+        uint256 ringBufferSize = inbox.getConfig().ringBufferSize;
         
-        // Create proposal 1
-        bytes memory firstProposeData = _createFirstProposeInput();
-        vm.prank(currentProposer);
-        inbox.propose(bytes(""), firstProposeData);
+        // Fill the ring buffer completely to cause wrapping
+        (IInbox.Proposal memory lastProposal, IInbox.CoreState memory coreState) = 
+            _fillRingBufferTo(uint48(ringBufferSize));
 
-        // Build the actual proposal 1 that was created
+        // Now slot 0 is occupied by proposal 100 (genesis)
         vm.roll(block.number + 1);
         vm.warp(block.timestamp + 12);
-        
-        IInbox.Proposal memory proposal1 = IInbox.Proposal({
-            id: 1,
-            proposer: currentProposer,
-            timestamp: uint48(INITIAL_BLOCK_TIMESTAMP),
-            endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: inbox.hashCoreState(IInbox.CoreState({
-                nextProposalId: 2,
-                lastFinalizedProposalId: 0,
-                lastFinalizedTransitionHash: _getGenesisTransitionHash(inbox),
-                bondInstructionsHash: bytes32(0)
-            })),
-            derivationHash: inbox.hashDerivation(IInbox.Derivation({
-                originBlockNumber: uint48(INITIAL_BLOCK_NUMBER - 1),
-                originBlockHash: blockhash(INITIAL_BLOCK_NUMBER - 1),
-                isForcedInclusion: false,
-                basefeeSharingPctg: 0,
-                blobSlice: LibBlobs.BlobSlice({
-                    blobHashes: _getBlobHashesForTest(1),
-                    offset: 0,
-                    timestamp: uint48(INITIAL_BLOCK_TIMESTAMP)
-                })
-            }))
-        });
-        
-        // Try to provide 2 parent proposals when slot 2 is empty
+
+        // Create an INVALID second parent (wrong hash for the occupied slot)
         IInbox.Proposal memory wrongSecondParent = _createGenesisProposal(inbox);
         wrongSecondParent.coreStateHash = keccak256("wrong_hash"); // Modify to make hash wrong
 
+        // Try with 2 parents where second parent has wrong hash
         IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](2);
-        parentProposals[0] = proposal1;
-        parentProposals[1] = wrongSecondParent;
-
-        IInbox.CoreState memory coreState = IInbox.CoreState({
-            nextProposalId: 2,
-            lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(inbox),
-            bondInstructionsHash: bytes32(0)
-        });
+        parentProposals[0] = lastProposal; // Correct first parent
+        parentProposals[1] = wrongSecondParent; // Wrong second parent hash
 
         bytes memory proposeData = _createProposeInputWithCustomParams(
             0,
@@ -624,8 +532,8 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
             coreState
         );
 
-        // Actually reverts with IncorrectProposalCount since slot is empty
-        vm.expectRevert(IncorrectProposalCount.selector);
+        // Should revert because second parent hash doesn't match what's in the slot
+        vm.expectRevert(NextProposalHashMismatch.selector);
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
     }
@@ -943,26 +851,6 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         }
     }
 
-    function _expectForcedInclusionEvents(
-        uint48 _startProposalId,
-        LibBlobs.BlobReference[] memory _refs,
-        uint48[] memory _timestamps
-    )
-        private
-    {
-        for (uint256 i = 0; i < _refs.length; i++) {
-            _expectProposedEvent(
-                _buildExpectedForcedInclusionPayload(
-                    inbox,
-                    _startProposalId + uint48(i),
-                    uint16(_refs[i].blobStartIndex),
-                    uint8(_refs[i].numBlobs),
-                    _refs[i].offset,
-                    _timestamps[i]
-                )
-            );
-        }
-    }
 
     function _assertProposalsPresent(uint48 _startProposalId, uint48 _count) private view {
         for (uint48 i = 0; i < _count; i++) {
@@ -975,71 +863,56 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         }
     }
 
-    function _primeRingBufferTo(uint48 _targetNextProposalId)
-        private
-        returns (IInbox.Proposal memory lastProposal_, IInbox.CoreState memory coreState_)
-    {
-        lastProposal_ = _createGenesisProposal(inbox);
-        coreState_ = _getGenesisCoreState(inbox);
+    // ---------------------------------------------------------------
+    // Simplified Helper Functions for Tests
+    // ---------------------------------------------------------------
 
-        if (_targetNextProposalId <= coreState_.nextProposalId) {
-            return (lastProposal_, coreState_);
-        }
-
-        for (uint48 proposalId = coreState_.nextProposalId; proposalId < _targetNextProposalId; proposalId++) {
-            vm.roll(block.number + 1);
-            vm.warp(block.timestamp + 12);
-
-            coreState_.nextProposalId = proposalId;
-
-            bytes memory proposeData = _createProposeInputWithCustomParams(
-                0,
-                _createBlobRef(0, 1, 0),
-                _singleParentArray(lastProposal_),
-                coreState_
-            );
-
-            vm.prank(currentProposer);
-            inbox.propose(bytes(""), proposeData);
-
-            lastProposal_ = _snapshotSequentialProposal(proposalId);
-            coreState_ = _buildSequentialCoreState(proposalId + 1);
-        }
-
-        return (lastProposal_, coreState_);
+    function _createAndSubmitProposal(uint48) private {
+        bytes memory proposeData = _createFirstProposeInput();
+        vm.prank(currentProposer);
+        inbox.propose(bytes(""), proposeData);
     }
 
-    function _snapshotSequentialProposal(uint48 _proposalId)
+    function _buildProposal(
+        uint48 _id,
+        address _proposer,
+        uint48 _timestamp
+    )
         private
         view
         returns (IInbox.Proposal memory)
     {
-        IInbox.CoreState memory coreState = _buildSequentialCoreState(_proposalId + 1);
-        IInbox.Derivation memory derivation = _buildSequentialDerivation(uint48(block.timestamp));
-
         return IInbox.Proposal({
-            id: _proposalId,
-            proposer: currentProposer,
-            timestamp: uint48(block.timestamp),
+            id: _id,
+            proposer: _proposer,
+            timestamp: _timestamp,
             endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: inbox.hashCoreState(coreState),
-            derivationHash: inbox.hashDerivation(derivation)
+            coreStateHash: inbox.hashCoreState(_buildCoreState(_id + 1, 0, _getGenesisTransitionHash(inbox))),
+            derivationHash: inbox.hashDerivation(_buildDerivation(_timestamp))
         });
     }
 
-    function _buildSequentialCoreState(uint48 _nextProposalId) private view returns (IInbox.CoreState memory) {
+    function _buildCoreState(
+        uint48 _nextProposalId,
+        uint48 _lastFinalizedProposalId,
+        bytes32 _lastFinalizedTransitionHash
+    )
+        private
+        pure
+        returns (IInbox.CoreState memory)
+    {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
-            lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(inbox),
+            lastFinalizedProposalId: _lastFinalizedProposalId,
+            lastFinalizedTransitionHash: _lastFinalizedTransitionHash,
             bondInstructionsHash: bytes32(0)
         });
     }
 
-    function _buildSequentialDerivation(uint48 _timestamp) private view returns (IInbox.Derivation memory) {
+    function _buildDerivation(uint48 _timestamp) private view returns (IInbox.Derivation memory) {
         return IInbox.Derivation({
-            originBlockNumber: uint48(block.number - 1),
-            originBlockHash: blockhash(block.number - 1),
+            originBlockNumber: uint48(INITIAL_BLOCK_NUMBER - 1),
+            originBlockHash: blockhash(INITIAL_BLOCK_NUMBER - 1),
             isForcedInclusion: false,
             basefeeSharingPctg: 0,
             blobSlice: LibBlobs.BlobSlice({
@@ -1048,5 +921,79 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
                 timestamp: _timestamp
             })
         });
+    }
+
+    // ---------------------------------------------------------------
+    // Ring Buffer Management Helpers
+    // ---------------------------------------------------------------
+
+    /// @notice Fills the ring buffer up to a target proposal ID
+    /// @dev This is useful for testing edge cases near ring buffer capacity
+    /// @param _targetNextProposalId The proposal ID to fill up to (exclusive)
+    /// @return lastProposal_ The last proposal created
+    /// @return coreState_ The core state after filling
+    function _fillRingBufferTo(uint48 _targetNextProposalId)
+        private
+        returns (IInbox.Proposal memory lastProposal_, IInbox.CoreState memory coreState_)
+    {
+        // Start from genesis
+        lastProposal_ = _createGenesisProposal(inbox);
+        coreState_ = _getGenesisCoreState(inbox);
+
+        // If target is already reached, return early
+        if (_targetNextProposalId <= coreState_.nextProposalId) {
+            return (lastProposal_, coreState_);
+        }
+
+        // Fill the ring buffer with proposals
+        for (uint48 proposalId = coreState_.nextProposalId; proposalId < _targetNextProposalId; proposalId++) {
+            // Advance time for each proposal to ensure unique timestamps
+            vm.roll(block.number + 1);
+            vm.warp(block.timestamp + 12);
+
+            // Update core state for this proposal
+            coreState_.nextProposalId = proposalId;
+
+            // Create proposal input
+            bytes memory proposeData = _createProposeInputWithCustomParams(
+                0, // no deadline
+                _createBlobRef(0, 1, 0), // single blob
+                _singleParentArray(lastProposal_),
+                coreState_
+            );
+
+            // Submit the proposal
+            vm.prank(currentProposer);
+            inbox.propose(bytes(""), proposeData);
+
+            // Build the actual proposal that was created
+            // The derivation hash needs to match what was actually submitted
+            IInbox.Derivation memory actualDerivation = IInbox.Derivation({
+                originBlockNumber: uint48(block.number - 1),
+                originBlockHash: blockhash(block.number - 1),
+                isForcedInclusion: false,
+                basefeeSharingPctg: 0,
+                blobSlice: LibBlobs.BlobSlice({
+                    blobHashes: _getBlobHashesForTest(1),
+                    offset: 0,
+                    timestamp: uint48(block.timestamp)
+                })
+            });
+            
+            // Update core state for next iteration
+            coreState_.nextProposalId = proposalId + 1;
+            
+            // Update last proposal reference for next iteration
+            lastProposal_ = IInbox.Proposal({
+                id: proposalId,
+                proposer: currentProposer,
+                timestamp: uint48(block.timestamp),
+                endOfSubmissionWindowTimestamp: 0,
+                coreStateHash: inbox.hashCoreState(coreState_),
+                derivationHash: inbox.hashDerivation(actualDerivation)
+            });
+        }
+
+        return (lastProposal_, coreState_);
     }
 }
