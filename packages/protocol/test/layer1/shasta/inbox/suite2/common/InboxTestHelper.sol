@@ -30,15 +30,6 @@ contract InboxTestHelper is CommonTest {
     // Genesis State Builders
     // ---------------------------------------------------------------
 
-    function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
-        return IInbox.CoreState({
-            nextProposalId: 1,
-            lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
-        });
-    }
-
     function _getGenesisCoreState(Inbox _inbox) internal view returns (IInbox.CoreState memory) {
         return IInbox.CoreState({
             nextProposalId: 1,
@@ -48,36 +39,10 @@ contract InboxTestHelper is CommonTest {
         });
     }
 
-    function _getGenesisTransitionHash() internal pure returns (bytes32) {
-        IInbox.Transition memory transition;
-        transition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
-        return keccak256(abi.encode(transition));
-    }
-
     function _getGenesisTransitionHash(Inbox _inbox) internal view returns (bytes32) {
         IInbox.Transition memory transition;
         transition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
         return _inbox.hashTransition(transition);
-    }
-
-    function _createGenesisProposal() internal pure returns (IInbox.Proposal memory) {
-        IInbox.CoreState memory coreState = IInbox.CoreState({
-            nextProposalId: 1,
-            lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
-        });
-
-        IInbox.Derivation memory derivation;
-
-        return IInbox.Proposal({
-            id: 0,
-            proposer: address(0),
-            timestamp: 0,
-            endOfSubmissionWindowTimestamp: 0,
-            coreStateHash: keccak256(abi.encode(coreState)),
-            derivationHash: keccak256(abi.encode(derivation))
-        });
     }
 
     function _createGenesisProposal(Inbox _inbox) internal view returns (IInbox.Proposal memory) {

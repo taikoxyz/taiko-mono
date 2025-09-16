@@ -310,7 +310,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
         // Using genesis as parent instead of the first proposal - this is wrong!
         IInbox.Proposal[] memory wrongParentProposals = new IInbox.Proposal[](1);
-        wrongParentProposals[0] = _createGenesisProposal();
+        wrongParentProposals[0] = _createGenesisProposal(inbox);
 
         bytes memory wrongProposeData = _createProposeInputWithCustomParams(
             0, _createBlobRef(0, 1, 0), wrongParentProposals, wrongCoreState
@@ -442,15 +442,6 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         );
     }
 
-    // Convenience overload with default blob parameters using currentProposer
-    function _buildExpectedProposedPayload(uint48 _proposalId)
-        internal
-        view
-        returns (IInbox.ProposedEventPayload memory)
-    {
-        return _buildExpectedProposedPayload(inbox, _proposalId, 1, 0, currentProposer);
-    }
-
     // Convenience overload with inbox parameter
     function _buildExpectedProposedPayload(Inbox _inbox, uint48 _proposalId)
         internal
@@ -458,19 +449,6 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         returns (IInbox.ProposedEventPayload memory)
     {
         return _buildExpectedProposedPayload(_inbox, _proposalId, 1, 0, currentProposer);
-    }
-
-    // Convenience function for buildExpectedProposedPayload with custom blob params
-    function _buildExpectedProposedPayloadWithBlobs(
-        uint48 _proposalId,
-        uint8 _numBlobs,
-        uint24 _offset
-    )
-        internal
-        view
-        returns (IInbox.ProposedEventPayload memory)
-    {
-        return _buildExpectedProposedPayload(inbox, _proposalId, _numBlobs, _offset, currentProposer);
     }
 
     // Convenience function with inbox parameter
