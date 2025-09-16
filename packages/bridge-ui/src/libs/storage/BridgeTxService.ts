@@ -134,8 +134,17 @@ export class BridgeTxService {
         blockNumber: Number(receipt.blockNumber),
       });
     } catch (error) {
-      //TODO: handle error
-      console.error('Error getting bridge message sent', error);
+      // Handle errors fetching MessageSent logs: treat as transient when due to filter/log issues
+      if (error instanceof FilterLogsError) {
+        log('FilterLogsError while getting MessageSent logs; will retry later', error);
+      } else {
+        console.error('Error getting bridge message sent', error);
+      }
+
+      // Ensure the transaction remains pending so it can be re-evaluated later
+      if (!bridgeTx.msgStatus) {
+        bridgeTx.msgStatus = MessageStatus.NEW;
+      }
 
       return bridgeTx;
     }
