@@ -18,6 +18,7 @@ import (
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	eventIterator "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/chain_iterator/event_iterator"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/config"
@@ -60,6 +61,7 @@ type Prover struct {
 
 	// Proof submitters
 	proofSubmitterPacaya proofSubmitter.Submitter
+	proofSubmitterShasta proofSubmitter.Submitter
 
 	assignmentExpiredCh      chan metadata.TaikoProposalMetaData
 	proveNotify              chan struct{}
@@ -147,6 +149,7 @@ func InitFromConfig(
 
 	txBuilder := transaction.NewProveBatchesTxBuilder(
 		p.rpc,
+		p.shastaIndexer,
 		p.cfg.TaikoInboxAddress,
 		p.cfg.ProverSetAddress,
 	)
@@ -181,6 +184,9 @@ func InitFromConfig(
 
 	// Proof submitters
 	if err := p.initPacayaProofSubmitter(txBuilder); err != nil {
+		return err
+	}
+	if err := p.initShastaProofSubmitter(txBuilder); err != nil {
 		return err
 	}
 
@@ -240,14 +246,18 @@ func (p *Prover) eventLoop() {
 	batchProposedCh := make(chan *pacayaBindings.TaikoInboxClientBatchProposed, chBufferSize)
 	batchesVerifiedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, chBufferSize)
 	batchesProvedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, chBufferSize)
+	shastaProposedCh := make(chan *shastaBindings.ShastaInboxClientProposed, chBufferSize)
+
 	// Subscriptions
 	batchProposedSub := rpc.SubscribeBatchProposedPacaya(p.rpc.PacayaClients.TaikoInbox, batchProposedCh)
 	batchesVerifiedSub := rpc.SubscribeBatchesVerifiedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesVerifiedCh)
 	batchesProvedSub := rpc.SubscribeBatchesProvedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesProvedCh)
+	shastaProposedSub := rpc.SubscribePorposedShasta(p.rpc.ShastaClients.Inbox, shastaProposedCh)
 	defer func() {
 		batchProposedSub.Unsubscribe()
 		batchesVerifiedSub.Unsubscribe()
 		batchesProvedSub.Unsubscribe()
+		shastaProposedSub.Unsubscribe()
 	}()
 
 	for {
@@ -273,6 +283,8 @@ func (p *Prover) eventLoop() {
 		case m := <-p.assignmentExpiredCh:
 			p.withRetry(func() error { return p.eventHandlers.assignmentExpiredHandler.Handle(p.ctx, m) })
 		case <-batchProposedCh:
+			reqProving()
+		case <-shastaProposedCh:
 			reqProving()
 		case <-forceProvingTicker.C:
 			reqProving()
@@ -314,6 +326,9 @@ func (p *Prover) aggregateOpPacaya(proofType proofProducer.ProofType) error {
 
 // requestProofOp requests a new proof generation operation.
 func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData) error {
+	if meta.IsShasta() {
+		return p.proofSubmitterShasta.RequestProof(p.ctx, meta)
+	}
 	if err := p.proofSubmitterPacaya.RequestProof(p.ctx, meta); err != nil {
 		log.Error("Request new batch proof error", "batchID", meta.Pacaya().GetBatchID(), "error", err)
 		return err
@@ -324,6 +339,13 @@ func (p *Prover) requestProofOp(meta metadata.TaikoProposalMetaData) error {
 
 // submitProofAggregationOp performs a batch proof submission operation.
 func (p *Prover) submitProofAggregationOp(batchProof *proofProducer.BatchProofs) error {
+	if batchProof == nil || len(batchProof.ProofResponses) == 0 {
+		return fmt.Errorf("empty batch proof")
+	}
+	if batchProof.ProofResponses[0].Meta.IsShasta() {
+		return p.proofSubmitterShasta.BatchSubmitProofs(p.ctx, batchProof)
+	}
+
 	submitter := p.proofSubmitterPacaya
 	if utils.IsNil(submitter) {
 		return fmt.Errorf("submitter not found: %s", batchProof.ProofType)

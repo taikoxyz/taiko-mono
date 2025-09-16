@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 )
 
 // SubscribeEvent creates a event subscription, will retry if the established subscription failed.
@@ -73,6 +74,42 @@ func SubscribeBatchesProvedPacaya(
 		sub, err := taikoInbox.WatchBatchesProved(nil, ch)
 		if err != nil {
 			log.Error("Create Pacaya TaikoInbox.BatchesProved subscription error", "error", err)
+			return nil, err
+		}
+
+		defer sub.Unsubscribe()
+
+		return waitSubErr(ctx, sub)
+	})
+}
+
+// SubscribePorposedShasta subscribes the Shasta protocol's Proposed events.
+func SubscribePorposedShasta(
+	taikoInbox *shastaBindings.ShastaInboxClient,
+	ch chan *shastaBindings.ShastaInboxClientProposed,
+) event.Subscription {
+	return SubscribeEvent("Proposed", func(ctx context.Context) (event.Subscription, error) {
+		sub, err := taikoInbox.WatchProposed(nil, ch)
+		if err != nil {
+			log.Error("Create Shasta Inbox.Proposed subscription error", "error", err)
+			return nil, err
+		}
+
+		defer sub.Unsubscribe()
+
+		return waitSubErr(ctx, sub)
+	})
+}
+
+// SubscribeProvedShasta subscribes the Shasta protocol's Proved events.
+func SubscribeProvedShasta(
+	taikoInbox *shastaBindings.ShastaInboxClient,
+	ch chan *shastaBindings.ShastaInboxClientProved,
+) event.Subscription {
+	return SubscribeEvent("Proved", func(ctx context.Context) (event.Subscription, error) {
+		sub, err := taikoInbox.WatchProved(nil, ch)
+		if err != nil {
+			log.Error("Create Shasta Inbox.Proved subscription error", "error", err)
 			return nil, err
 		}
 

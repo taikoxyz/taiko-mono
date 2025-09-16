@@ -56,6 +56,23 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 	return config.NewPacayaProtocolConfigs(&configs), nil
 }
 
+// GetProtocolConfigsShasta gets the protocol configs from Shasta Inbox contract.
+func (c *Client) GetProtocolConfigsShasta(opts *bind.CallOpts) (*shastaBindings.IInboxConfig, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	configs, err := c.ShastaClients.Inbox.GetConfig(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &configs, nil
+}
+
 // ensureGenesisMatched fetches the L2 genesis block from Pacaya TaikoInbox contract,
 // and checks whether the fetched genesis is same to the node local genesis.
 func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Address) error {
@@ -387,6 +404,48 @@ func (c *Client) WaitL2Header(ctx context.Context, blockID *big.Int) (*types.Hea
 	}
 
 	return nil, fmt.Errorf("failed to fetch block header from L2 execution engine, blockID: %d", blockID)
+}
+
+// WaitShastaHeader keeps waiting for the Shasta block header of the given batch ID from the L2 execution engine.
+func (c *Client) WaitShastaHeader(ctx context.Context, batchID *big.Int) (*types.Header, error) {
+	var (
+		ctxWithTimeout = ctx
+		cancel         context.CancelFunc
+	)
+
+	ticker := time.NewTicker(rpcPollingInterval)
+	defer ticker.Stop()
+
+	if _, ok := ctx.Deadline(); !ok {
+		ctxWithTimeout, cancel = context.WithTimeout(ctx, defaultWaitTimeout)
+		defer cancel()
+	}
+
+	log.Debug("Start fetching block header from L2 execution engine", "batchID", batchID)
+
+	for ; true; <-ticker.C {
+		if ctxWithTimeout.Err() != nil {
+			return nil, ctxWithTimeout.Err()
+		}
+
+		l1Origin, err := c.L2.LastL1OriginByBatchID(ctxWithTimeout, batchID)
+		if err != nil {
+			log.Debug(
+				"Fetch Shasta block header from L2 execution engine not found, keep retrying",
+				"batchID", batchID,
+				"error", err,
+			)
+			continue
+		}
+
+		if l1Origin == nil {
+			continue
+		}
+
+		return c.L2.HeaderByHash(ctxWithTimeout, l1Origin.L1BlockHash)
+	}
+
+	return nil, fmt.Errorf("failed to fetch Shasta block header from L2 execution engine, batchID: %d", batchID)
 }
 
 // CalculateBaseFee calculates the base fee from the L2 protocol.
@@ -1300,4 +1359,40 @@ func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, erro
 	defer cancel()
 
 	return resolveFunc(opts)
+}
+
+// GetShastaProposalHash gets the proposal hash from Shasta Inbox contract.
+func (c *Client) GetShastaProposalHash(opts *bind.CallOpts, proposalID *big.Int) (common.Hash, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	return c.ShastaClients.Inbox.GetProposalHash(opts, proposalID)
+}
+
+// GetShastaAnchorState gets the anchor state from Shasta Anchor contract.
+func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (shastaBindings.ShastaAnchorState, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	return c.ShastaClients.Anchor.GetState(opts)
+}
+
+// EncodeProveInputShasta encodes the prove input for Shasta Inbox contract.
+func (c *Client) EncodeProveInputShasta(opts *bind.CallOpts, input *shastaBindings.IInboxProveInput) ([]byte, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	return c.ShastaClients.Inbox.EncodeProveInput(opts, *input)
 }

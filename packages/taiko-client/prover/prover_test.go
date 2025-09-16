@@ -555,6 +555,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	)
 	builder := transaction.NewProveBatchesTxBuilder(
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		common.Address{},
 	)
@@ -585,7 +586,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 	s.False(paused)
 
 	s.p.sharedState.SetL1Current(l1Current)
-	s.p.sharedState.SetLastHandledBatchID(0)
+	s.p.sharedState.SetLastHandledPacayaBatchID(0)
 
 	s.Nil(s.p.proveOp())
 	for r := range s.p.proofSubmissionCh {
@@ -632,7 +633,7 @@ func (s *ProverTestSuite) TestInvalidPacayaProof() {
 
 	// Then submit a valid proof again
 	s.p.sharedState.SetL1Current(l1Current)
-	s.p.sharedState.SetLastHandledBatchID(0)
+	s.p.sharedState.SetLastHandledPacayaBatchID(0)
 
 	s.Nil(s.p.proveOp())
 	for r := range s.p.proofSubmissionCh {

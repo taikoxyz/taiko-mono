@@ -18,6 +18,7 @@ import (
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
+	submitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
@@ -76,6 +77,32 @@ func (p *Prover) setApprovalAmount(ctx context.Context, contract common.Address)
 	}
 
 	log.Info("New allowance for the contract", "allowance", utils.WeiToEther(allowance), "contract", contract)
+
+	return nil
+}
+
+// initShastaProofSubmitter initializes the proof submitter from the non-zero verifier addresses set in protocol.
+func (p *Prover) initShastaProofSubmitter(txBuilder *transaction.ProveBatchesTxBuilder) error {
+	var (
+		err error
+	)
+	if p.proofSubmitterShasta, err = submitter.NewProofSubmitterShasta(
+		&producer.DummyProofProducer{},
+		p.batchProofGenerationCh,
+		p.proofSubmissionCh,
+		p.shastaIndexer,
+		&proofSubmitter.SenderOptions{
+			RPCClient:        p.rpc,
+			Txmgr:            p.txmgr,
+			PrivateTxmgr:     p.privateTxmgr,
+			ProverSetAddress: p.cfg.ProverSetAddress,
+			GasLimit:         p.cfg.ProveBatchesGasLimit,
+		},
+		txBuilder,
+		p.cfg.ProofPollingInterval,
+	); err != nil {
+		return fmt.Errorf("failed to initialize Shasta proof submitter: %w", err)
+	}
 
 	return nil
 }

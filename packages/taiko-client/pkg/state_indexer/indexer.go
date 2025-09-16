@@ -512,6 +512,17 @@ func (s *Indexer) GetLastCoreState() *shastaBindings.IInboxCoreState {
 	return lastProposal.CoreState
 }
 
+func (s *Indexer) GetTransitionRecordByProposalID(proposalID uint64) *TransitionPayload {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	transition, ok := s.transitionRecords.Get(proposalID)
+	if !ok {
+		return nil
+	}
+	return transition
+}
+
 // GetProposalsInput returns the last proposal and the transitions needed for finalization.
 func (s *Indexer) GetProposalsInput(
 	maxFinalizationCount uint64,

@@ -35,6 +35,7 @@ func (s *TransactionTestSuite) SetupTest() {
 
 	s.builder = NewProveBatchesTxBuilder(
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		common.HexToAddress(os.Getenv("TAIKO_INBOX")),
 		rpc.ZeroAddress,
 	)

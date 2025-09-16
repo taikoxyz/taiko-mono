@@ -2,7 +2,11 @@ package transaction
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"fmt"
+	"math/big"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -12,11 +16,15 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 )
 
 var (
+	rpcPollingInterval       = 3 * time.Second
+	defaultWaitTimeout       = 1 * time.Minute
 	ErrUnretryableSubmission = errors.New("unretryable submission error")
 )
 
@@ -26,6 +34,7 @@ type TxBuilder func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error)
 // ProveBatchesTxBuilder is responsible for building ProveBatches transactions.
 type ProveBatchesTxBuilder struct {
 	rpc               *rpc.Client
+	indexer           *shastaIndexer.Indexer
 	taikoInboxAddress common.Address
 	proverSetAddress  common.Address
 }
@@ -33,10 +42,11 @@ type ProveBatchesTxBuilder struct {
 // NewProveBatchesTxBuilder creates a new ProveBatchesTxBuilder instance.
 func NewProveBatchesTxBuilder(
 	rpc *rpc.Client,
+	indexer *shastaIndexer.Indexer,
 	taikoInboxAddress common.Address,
 	proverSetAddress common.Address,
 ) *ProveBatchesTxBuilder {
-	return &ProveBatchesTxBuilder{rpc, taikoInboxAddress, proverSetAddress}
+	return &ProveBatchesTxBuilder{rpc, indexer, taikoInboxAddress, proverSetAddress}
 }
 
 // BuildProveBatchesPacaya creates a new TaikoInbox.ProveBatches transaction.
@@ -108,4 +118,119 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesPacaya(batchProof *proofProduce
 			Value:    txOpts.Value,
 		}, nil
 	}
+}
+
+// BuildProveBatchesShasta creates a new Shasta Inbox.prove transaction.
+func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProducer.BatchProofs) TxBuilder {
+	return func(txOpts *bind.TransactOpts) (*txmgr.TxCandidate, error) {
+		var (
+			proposals   = make([]shastaBindings.IInboxProposal, len(batchProof.ProofResponses))
+			transitions = make([]shastaBindings.IInboxTransition, len(batchProof.ProofResponses))
+		)
+
+		for i, proofResponse := range batchProof.ProofResponses {
+			proposals[i] = proofResponse.Meta.Shasta().GetProposal()
+			lastHeader := proofResponse.Opts.ShastaOptions().Headers[len(proofResponse.Opts.ShastaOptions().Headers)-1]
+
+			proposalHash, err := a.rpc.GetShastaProposalHash(nil, proposals[i].Id)
+			if err != nil {
+				return nil, encoding.TryParsingCustomError(err)
+			}
+			state, err := a.rpc.GetShastaAnchorState(&bind.CallOpts{Context: txOpts.Context, BlockHash: lastHeader.Hash()})
+			if err != nil {
+				return nil, encoding.TryParsingCustomError(err)
+			}
+
+			parentTransitionHash, err := a.WaitParnetShastaTransitionHash(txOpts.Context, proposals[i].Id)
+			if err != nil {
+				log.Error("Failed to get parent Shasta transition hash", "batchID", proposals[i].Id, "error", err)
+				return nil, err
+			}
+
+			transitions[i] = shastaBindings.IInboxTransition{
+				ProposalHash:         proposalHash,
+				ParentTransitionHash: parentTransitionHash,
+				Checkpoint: shastaBindings.ICheckpointManagerCheckpoint{
+					BlockNumber: lastHeader.Number,
+					BlockHash:   lastHeader.Hash(),
+					StateRoot:   lastHeader.Root,
+				},
+				DesignatedProver: state.DesignatedProver,
+				ActualProver:     txOpts.From,
+			}
+		}
+
+		data, err := a.rpc.EncodeProveInputShasta(nil, &shastaBindings.IInboxProveInput{
+			Proposals:   proposals,
+			Transitions: transitions,
+		})
+		if err != nil {
+			return nil, encoding.TryParsingCustomError(err)
+		}
+
+		return &txmgr.TxCandidate{
+			TxData:   data,
+			To:       &a.taikoInboxAddress,
+			Blobs:    nil,
+			GasLimit: txOpts.GasLimit,
+			Value:    txOpts.Value,
+		}, nil
+	}
+}
+
+// WaitParnetShastaTransition keeps waiting for the parent transition of the given batchID.
+func (a *ProveBatchesTxBuilder) WaitParnetShastaTransitionHash(
+	ctx context.Context,
+	batchID *big.Int,
+) (common.Hash, error) {
+	var (
+		ctxWithTimeout = ctx
+		cancel         context.CancelFunc
+	)
+
+	ticker := time.NewTicker(rpcPollingInterval)
+	defer ticker.Stop()
+
+	if _, ok := ctx.Deadline(); !ok {
+		ctxWithTimeout, cancel = context.WithTimeout(ctx, defaultWaitTimeout)
+		defer cancel()
+	}
+
+	if batchID.Cmp(common.Big1) == 0 {
+		header, err := a.rpc.L2.HeaderByNumber(ctx, common.Big0)
+		if err != nil {
+			return common.Hash{}, fmt.Errorf("failed to fetch genesis block header: %w", err)
+		}
+		return a.rpc.ShastaClients.Inbox.HashTransition(
+			&bind.CallOpts{Context: ctxWithTimeout}, shastaBindings.IInboxTransition{
+				Checkpoint: shastaBindings.ICheckpointManagerCheckpoint{BlockHash: header.Hash()},
+			},
+		)
+	}
+	log.Debug("Start fetching block header from L2 execution engine", "batchID", batchID)
+
+	for ; true; <-ticker.C {
+		if ctxWithTimeout.Err() != nil {
+			return common.Hash{}, ctxWithTimeout.Err()
+		}
+
+		transition := a.indexer.GetTransitionRecordByProposalID(batchID.Uint64() - 1)
+		if transition == nil {
+			log.Debug("Transition record not found, keep retrying", "batchID", batchID)
+			continue
+		}
+
+		hash, err := a.rpc.ShastaClients.Inbox.HashTransition(
+			&bind.CallOpts{Context: ctxWithTimeout},
+			*transition.Transition,
+		)
+		if err != nil {
+			log.Error("Failed to hash Shasta transition", "batchID", batchID, "error", err)
+			continue
+		}
+
+		return hash, nil
+	}
+
+	return common.Hash{}, fmt.Errorf("failed to fetch parent transition from Shasta protocol, batchID: %d", batchID)
 }

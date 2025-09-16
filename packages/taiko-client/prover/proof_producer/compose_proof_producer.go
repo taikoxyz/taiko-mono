@@ -72,7 +72,7 @@ func (s *ComposeProofProducer) RequestProof(
 	g.Go(func() error {
 		if s.Dummy {
 			proofType = s.ProofType
-			if resp, err := s.DummyProofProducer.RequestProof(opts, batchID, meta, requestAt); err != nil {
+			if resp, err := s.DummyProofProducer.RequestProof(ctx, opts, batchID, meta, requestAt); err != nil {
 				return err
 			} else {
 				proof = resp.Proof
