@@ -58,7 +58,7 @@ contract TestSignalService is CommonTest {
         vm.prank(deployer);
         signalService.syncChainData(32_382, LibSignals.STATE_ROOT, blockId, stateRoot);
 
-        signalService.proveSignalReceived(32_382, srcBridge, msgHash, proof);
+        signalService.verifySignalReceived(32_382, srcBridge, msgHash, proof);
     }
 
     function test_SignalService_sendSignal_revert() public {
@@ -84,12 +84,12 @@ contract TestSignalService is CommonTest {
         assertTrue(mockSignalService.isSignalSent(deployer, signal));
     }
 
-    function test_SignalService_proveSignalReceived_revert_invalid_chainid_or_signal() public {
+    function test_SignalService_verifySignalReceived_revert_invalid_chainid_or_signal() public {
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         // app being address(0) will revert
         vm.expectRevert(EssentialContract.ZERO_ADDRESS.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: 1,
             _app: address(0),
             _signal: randBytes32(),
@@ -98,7 +98,7 @@ contract TestSignalService is CommonTest {
 
         // signal being 0 will revert
         vm.expectRevert(EssentialContract.ZERO_VALUE.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: 0,
@@ -106,10 +106,10 @@ contract TestSignalService is CommonTest {
         });
     }
 
-    function test_SignalService_proveSignalReceived_revert_malformat_proof() public {
+    function test_SignalService_verifySignalReceived_revert_malformat_proof() public {
         // "undecodable proof" is not decodable into SignalService.HopProof[] memory
         vm.expectRevert();
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: 0,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -117,14 +117,14 @@ contract TestSignalService is CommonTest {
         });
     }
 
-    function test_SignalService_proveSignalReceived_revert_src_signal_service_not_registered()
+    function test_SignalService_verifySignalReceived_revert_src_signal_service_not_registered()
         public
     {
         uint64 someChainId = 12_345;
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](1);
 
         vm.expectRevert(IResolver.RESOLVED_TO_ZERO_ADDRESS.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: someChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -132,12 +132,12 @@ contract TestSignalService is CommonTest {
         });
     }
 
-    function test_SignalService_proveSignalReceived_revert_zero_size_proof() public {
+    function test_SignalService_verifySignalReceived_revert_zero_size_proof() public {
         vm.prank(deployer);
         resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_RECEIVED.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -148,7 +148,7 @@ contract TestSignalService is CommonTest {
         SignalService.HopProof[] memory proofs = new SignalService.HopProof[](0);
 
         vm.expectRevert(SignalService.SS_EMPTY_PROOF.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -156,7 +156,7 @@ contract TestSignalService is CommonTest {
         });
     }
 
-    function test_SignalService_proveSignalReceived_revert_last_hop_incorrect_chainid() public {
+    function test_SignalService_verifySignalReceived_revert_last_hop_incorrect_chainid() public {
         vm.prank(deployer);
         resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
@@ -167,7 +167,7 @@ contract TestSignalService is CommonTest {
         proofs[0].blockId = 1;
 
         vm.expectRevert(SignalService.SS_INVALID_LAST_HOP_CHAINID.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -175,7 +175,7 @@ contract TestSignalService is CommonTest {
         });
     }
 
-    function test_SignalService_proveSignalReceived_revert_mid_hop_incorrect_chainid() public {
+    function test_SignalService_verifySignalReceived_revert_mid_hop_incorrect_chainid() public {
         vm.prank(deployer);
         resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
@@ -186,7 +186,7 @@ contract TestSignalService is CommonTest {
         proofs[0].blockId = 1;
 
         vm.expectRevert(SignalService.SS_INVALID_MID_HOP_CHAINID.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -194,7 +194,7 @@ contract TestSignalService is CommonTest {
         });
     }
 
-    function test_SignalService_proveSignalReceived_revert_mid_hop_not_registered() public {
+    function test_SignalService_verifySignalReceived_revert_mid_hop_not_registered() public {
         vm.prank(deployer);
         resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
@@ -206,7 +206,7 @@ contract TestSignalService is CommonTest {
 
         vm.expectRevert(IResolver.RESOLVED_TO_ZERO_ADDRESS.selector);
 
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -214,7 +214,7 @@ contract TestSignalService is CommonTest {
         });
     }
 
-    function test_SignalService_proveSignalReceived_local_chaindata_not_found() public {
+    function test_SignalService_verifySignalReceived_local_chaindata_not_found() public {
         vm.prank(deployer);
         resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
@@ -228,7 +228,7 @@ contract TestSignalService is CommonTest {
         proofs[0].storageProof = new bytes[](10);
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -239,7 +239,7 @@ contract TestSignalService is CommonTest {
         proofs[0].accountProof = new bytes[](1);
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -247,7 +247,7 @@ contract TestSignalService is CommonTest {
         });
     }
 
-    function test_SignalService_proveSignalReceived_one_hop_cache_signal_root() public {
+    function test_SignalService_verifySignalReceived_one_hop_cache_signal_root() public {
         vm.prank(deployer);
         resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
@@ -262,7 +262,7 @@ contract TestSignalService is CommonTest {
         proofs[0].storageProof = new bytes[](10);
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -274,7 +274,7 @@ contract TestSignalService is CommonTest {
         mockSignalService.syncChainData(
             ethereumChainId, LibSignals.SIGNAL_ROOT, proofs[0].blockId, proofs[0].rootHash
         );
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -291,7 +291,7 @@ contract TestSignalService is CommonTest {
         );
     }
 
-    function test_SignalService_proveSignalReceived_one_hop_state_root() public {
+    function test_SignalService_verifySignalReceived_one_hop_state_root() public {
         vm.prank(deployer);
         resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
@@ -306,7 +306,7 @@ contract TestSignalService is CommonTest {
         proofs[0].storageProof = new bytes[](10);
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -320,7 +320,7 @@ contract TestSignalService is CommonTest {
         );
 
         // Should not revert
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -335,7 +335,7 @@ contract TestSignalService is CommonTest {
         );
     }
 
-    function test_SignalService_proveSignalReceived_multiple_hops_no_caching() public {
+    function test_SignalService_verifySignalReceived_multiple_hops_no_caching() public {
         vm.prank(deployer);
         resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
@@ -364,7 +364,7 @@ contract TestSignalService is CommonTest {
 
         // expect RESOLVED_TO_ZERO_ADDRESS
         vm.expectRevert(IResolver.RESOLVED_TO_ZERO_ADDRESS.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -378,7 +378,7 @@ contract TestSignalService is CommonTest {
         vm.stopPrank();
 
         vm.expectRevert(SignalService.SS_SIGNAL_NOT_FOUND.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -390,7 +390,7 @@ contract TestSignalService is CommonTest {
             proofs[1].chainId, LibSignals.STATE_ROOT, proofs[2].blockId, proofs[2].rootHash
         );
 
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
@@ -398,7 +398,7 @@ contract TestSignalService is CommonTest {
         });
     }
 
-    function test_SignalService_proveSignalReceived_revert_with_a_loop() public {
+    function test_SignalService_verifySignalReceived_revert_with_a_loop() public {
         vm.prank(deployer);
         resolver.registerAddress(ethereumChainId, "signal_service", randAddress());
 
@@ -437,7 +437,7 @@ contract TestSignalService is CommonTest {
         );
 
         vm.expectRevert(SignalService.SS_INVALID_HOPS_WITH_LOOP.selector);
-        mockSignalService.proveSignalReceived({
+        mockSignalService.verifySignalReceived({
             _chainId: ethereumChainId,
             _app: randAddress(),
             _signal: randBytes32(),
