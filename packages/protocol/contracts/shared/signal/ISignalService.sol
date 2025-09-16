@@ -111,7 +111,6 @@ interface ISignalService {
         view;
 
     /// @notice Verifies if a signal has been received on the target chain.
-    /// This is the "readonly" version of proveSignalReceived.
     /// @param _chainId The identifier for the source chain from which the
     /// signal originated.
     /// @param _app The address that initiated the signal.
