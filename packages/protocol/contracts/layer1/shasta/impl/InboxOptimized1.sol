@@ -78,6 +78,7 @@ contract InboxOptimized1 is Inbox {
 
         uint48 currentGroupStartId = _input.proposals[0].id;
         Transition memory firstTransitionInGroup = _input.transitions[0];
+        TransitionMetadata memory firstMetadataInGroup = _input.metadata[0];
 
         // Process remaining proposals
         for (uint256 i = 1; i < _input.proposals.length; ++i) {
@@ -112,13 +113,15 @@ contract InboxOptimized1 is Inbox {
                 currentRecord.span++;
             } else {
                 // Save the current aggregated record before starting a new one
+                // For aggregated records, use the metadata from the first transition in the group
                 _setTransitionRecordHashAndDeadline(
-                    currentGroupStartId, firstTransitionInGroup, currentRecord
+                    currentGroupStartId, firstTransitionInGroup, firstMetadataInGroup, currentRecord
                 );
 
                 // Start a new record for non-continuous proposal
                 currentGroupStartId = _input.proposals[i].id;
                 firstTransitionInGroup = _input.transitions[i];
+                firstMetadataInGroup = _input.metadata[i];
 
                 currentRecord = TransitionRecord({
                     span: 1,
@@ -135,8 +138,9 @@ contract InboxOptimized1 is Inbox {
         }
 
         // Save the final aggregated record
+        // For the final record, use metadata from the first transition in the last group
         _setTransitionRecordHashAndDeadline(
-            currentGroupStartId, firstTransitionInGroup, currentRecord
+            currentGroupStartId, firstTransitionInGroup, firstMetadataInGroup, currentRecord
         );
     }
 
@@ -184,10 +188,12 @@ contract InboxOptimized1 is Inbox {
     ///         3. Same ID, different parent: Uses composite key mapping
     /// @param _proposalId The proposal ID for this transition record
     /// @param _transition The transition data containing parent transition hash
+    /// @param _metadata The metadata containing prover information
     /// @param _transitionRecord The complete transition record to store
     function _setTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         Transition memory _transition,
+        TransitionMetadata memory _metadata,
         TransitionRecord memory _transitionRecord
     )
         internal
@@ -229,7 +235,8 @@ contract InboxOptimized1 is Inbox {
             ProvedEventPayload({
                 proposalId: _proposalId,
                 transition: _transition,
-                transitionRecord: _transitionRecord
+                transitionRecord: _transitionRecord,
+                metadata: _metadata
             })
         );
         emit Proved(payload);

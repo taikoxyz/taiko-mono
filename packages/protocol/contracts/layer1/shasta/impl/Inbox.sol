@@ -522,9 +522,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             transitionRecord.transitionHash = hashTransition(_input.transitions[i]);
             transitionRecord.checkpointHash = hashCheckpoint(_input.transitions[i].checkpoint);
 
-            // Pass transition and transitionRecord to _setTransitionRecordHashAndDeadline
             _setTransitionRecordHashAndDeadline(
-                _input.proposals[i].id, _input.transitions[i], transitionRecord
+                _input.proposals[i].id, _input.transitions[i], _input.metadata[i], transitionRecord
             );
         }
     }
@@ -555,10 +554,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Uses composite key for unique transition identification
     /// @param _proposalId The ID of the proposal being proven
     /// @param _transition The transition data to include in the event
-    /// @param _transitionRecord The transition record to hash and store (includes metadata)
+    /// @param _metadata The metadata containing prover information to include in the event
+    /// @param _transitionRecord The transition record to hash and store
     function _setTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         Transition memory _transition,
+        TransitionMetadata memory _metadata,
         TransitionRecord memory _transitionRecord
     )
         internal
@@ -581,7 +582,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             ProvedEventPayload({
                 proposalId: _proposalId,
                 transition: _transition,
-                transitionRecord: _transitionRecord
+                transitionRecord: _transitionRecord,
+                metadata: _metadata
             })
         );
         emit Proved(payload);

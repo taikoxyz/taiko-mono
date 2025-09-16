@@ -40,6 +40,10 @@ library LibProvedEventEncoder {
         ptr = P.packUint8(ptr, _payload.transitionRecord.span);
         ptr = P.packBytes32(ptr, _payload.transitionRecord.transitionHash);
         ptr = P.packBytes32(ptr, _payload.transitionRecord.checkpointHash);
+        
+        // Encode TransitionMetadata
+        ptr = P.packAddress(ptr, _payload.metadata.designatedProver);
+        ptr = P.packAddress(ptr, _payload.metadata.actualProver);
 
         // Encode bond instructions array length (uint16)
         require(
@@ -83,6 +87,10 @@ library LibProvedEventEncoder {
         (payload_.transitionRecord.span, ptr) = P.unpackUint8(ptr);
         (payload_.transitionRecord.transitionHash, ptr) = P.unpackBytes32(ptr);
         (payload_.transitionRecord.checkpointHash, ptr) = P.unpackBytes32(ptr);
+        
+        // Decode TransitionMetadata
+        (payload_.metadata.designatedProver, ptr) = P.unpackAddress(ptr);
+        (payload_.metadata.actualProver, ptr) = P.unpackAddress(ptr);
 
         // Decode bond instructions array length (uint16)
         uint16 arrayLength;
@@ -113,17 +121,18 @@ library LibProvedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 207 bytes
+            // Fixed size: 247 bytes
             // proposalId: 6
             // Transition: proposalHash(32) + parentTransitionHash(32) = 64
             //        Checkpoint: number(6) + hash(32) + stateRoot(32) = 70
             // TransitionRecord: span(1) + transitionHash(32) + checkpointHash(32) = 65
+            // TransitionMetadata: designatedProver(20) + actualProver(20) = 40
             // bondInstructions array length: 2
-            // Total fixed: 6 + 64 + 70 + 65 + 2 = 207
+            // Total fixed: 6 + 64 + 70 + 65 + 40 + 2 = 247
 
             // Variable size: each bond instruction is 47 bytes
             // proposalId(6) + bondType(1) + payer(20) + receiver(20) = 47
-            size_ = 207 + (_bondInstructionsCount * 47);
+            size_ = 247 + (_bondInstructionsCount * 47);
         }
     }
 

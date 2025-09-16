@@ -167,6 +167,8 @@ interface IInbox {
         Transition transition;
         /// @notice The transition record containing additional metadata.
         TransitionRecord transitionRecord;
+        /// @notice The metadata containing prover information.
+        TransitionMetadata metadata;
     }
 
     // ---------------------------------------------------------------
