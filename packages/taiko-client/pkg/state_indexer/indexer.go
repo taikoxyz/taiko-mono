@@ -202,7 +202,7 @@ func (s *Indexer) fetchHistoricalTransitionRecords(fromBlock, toBlock *types.Hea
 	s.transitionRecords.Clear()
 	currentHeader := fromBlock
 	for currentHeader.Number.Cmp(toBlock.Number) < 0 {
-		if s.ctx.Done() != nil {
+		if s.ctx.Err() != nil {
 			return s.ctx.Err()
 		}
 		var endHeight *big.Int
@@ -212,7 +212,7 @@ func (s *Indexer) fetchHistoricalTransitionRecords(fromBlock, toBlock *types.Hea
 			endHeight = new(big.Int).Add(currentHeader.Number, new(big.Int).SetUint64(maxBlocksPerFilter))
 		}
 
-		log.Info("Fetching Shasta Proved events", "from", currentHeader.Number, "to", endHeight)
+		log.Debug("Fetching Shasta Proved events", "from", currentHeader.Number, "to", endHeight)
 
 		iter, err := eventiterator.NewShastaProvedIterator(s.ctx, &eventiterator.ShastaProvedIteratorConfig{
 			Client:                s.rpc.L1,
@@ -580,6 +580,7 @@ func (s *Indexer) getTransitionsForFinalization(
 		transition, ok := s.transitionRecords.Get(lastFinalizedProposalId + i)
 		log.Info("Try to get record", "proposalId", lastFinalizedProposalId+i, "found", ok)
 		if !ok ||
+			transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash ||
 			transition.RawBlockTimeStamp+s.finalizationGracePeriod < uint64(time.Now().Unix()) {
 			break
 		}
