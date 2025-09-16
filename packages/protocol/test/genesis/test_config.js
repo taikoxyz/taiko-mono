@@ -2,9 +2,9 @@
 const ADDRESS_LENGTH = 40;
 
 module.exports = {
-  contractOwner: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-  l1ChainId: 1,
-  chainId: 167,
+  contractOwner: "0xAb707cb80e7de7C75d815B1A653433F3EEc44c74",
+  l1ChainId: 32382,
+  chainId: 167001,
   seedAccounts: [
     {
       "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266": 1024,
@@ -78,6 +78,54 @@ module.exports = {
     {
       "0x1003ff39d25F2Ab16dBCc18EcE05a9B6154f65F4": 1024,
     },
+    {
+      "0x4779d18931B35540F84b0cd0e9633855B84df7b8": 1024,
+    },
+    {
+      "0x1c87Bb9234aeC6aDc580EaE6C8B59558A4502220": 1024,
+    },
+    {
+      "0x0d803cdeEe5990f22C2a8DF10A695D2312dA26CC": 1024,
+    },
+    {
+      "0xAb707cb80e7de7C75d815B1A653433F3EEc44c74": 1024,
+    },
+    {
+      "0xe8B1ff302A740fD2C6e76B620d45508dAEc2DDFf": 1024,
+    },
+    {
+      "0xa0EC9eE47802CeB56eb58ce80F3E41630B771b04": 1024,
+    },
+    {
+      "0x042a63149117602129B6922ecFe3111168C2C323": 1024,
+    },
+    {
+      "0xA1196426b41627ae75Ea7f7409E074BE97367da2": 1024,
+    },
+    {
+      "0xE74cEf90b6CF1a77FEfAd731713e6f53e575C183": 1024,
+    },
+    {
+      "0x7Df8Efa6d6F1CB5C4f36315e0AcB82b02Ae8BA40": 1024,
+    },
+    {
+      "0x9E126C57330FA71556628e0aabd6B6B6783d99fA": 1024,
+    },
+    {
+      "0xcBDc0F9a4C38f1e010bD3B6e43598A55D1868c23": 1024,
+    },
+    {
+      "0xBc5BdceE96b1BC47822C74e6f64186fbA7d686be": 1024,
+    },
+    {
+      "0x0536896a5e38BbD59F3F369FF3682677965aBD19": 1024,
+    },
+    {
+      "0xFE0f143FcAD5B561b1eD2AC960278A2F23559Ef9": 1024,
+    },
+    {
+      "0x98D08079928FcCB30598c6C6382ABfd7dbFaA1cD": 1024
+    }
   ],
   get contractAddresses() {
     return {
@@ -117,8 +165,8 @@ module.exports = {
     gasExcess: 0,
   },
   predeployERC20: true,
-  pacayaForkHeight: 1024,
-  shastaForkHeight: 2048,
+  pacayaForkHeight: 0,
+  shastaForkHeight: 0,
   livenessBondGwei: 128_000_000_000,
   provabilityBondGwei: 128_000_000_000,
   withdrawalDelay: 3600,

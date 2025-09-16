@@ -66,7 +66,7 @@ contract UpgradeShastaL1 is DeployCapability {
             impl: address(
                 new CheckpointManager(
                     inbox,
-                    2400 // refer to DevnetShastaInbox._RING_BUFFER_SIZE
+                    100 // refer to DevnetShastaInbox._RING_BUFFER_SIZE
                 )
             ),
             data: abi.encodeCall(CheckpointManager.init, (address(0)))

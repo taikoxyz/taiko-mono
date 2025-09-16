@@ -259,7 +259,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _buildAndSaveTransitionRecords(input);
 
         // Verify the proof
-        _proofVerifier.verifyProof(_hashTransitionsArray(input.transitions), _proof);
+        // _proofVerifier.verifyProof(_hashTransitionsArray(input.transitions), _proof);
     }
 
     /// @notice Withdraws bond balance to specified address

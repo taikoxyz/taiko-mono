@@ -26,7 +26,7 @@ contract DevnetShastaInbox is InboxOptimized4 {
     ///   _RING_BUFFER_SIZE = (86400 * D) / 12 / P
     ///                     = (86400 * 2) / 12 / 6
     ///                     = 2400
-    uint64 private constant _RING_BUFFER_SIZE = 240_000;
+    uint64 private constant _RING_BUFFER_SIZE = 100;
 
     // ---------------------------------------------------------------
     // Constructor
