@@ -83,7 +83,6 @@ contract SignalService is EssentialResolverContract, ISignalService {
         view
         virtual
         whenNotPaused
-        returns (uint256)
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
     }

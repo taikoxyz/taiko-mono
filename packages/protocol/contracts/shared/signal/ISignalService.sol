@@ -101,7 +101,6 @@ interface ISignalService {
     /// @param _proof Merkle proof that the signal was persisted on the
     /// source chain. If this proof is empty, then we check if this signal has been marked as
     /// received by TaikoL2.
-    /// @return numCacheOps_ The number of newly cached items.
     function proveSignalReceived(
         uint64 _chainId,
         address _app,
@@ -109,8 +108,7 @@ interface ISignalService {
         bytes calldata _proof
     )
         external
-        view
-        returns (uint256 numCacheOps_);
+        view;
 
     /// @notice Verifies if a signal has been received on the target chain.
     /// This is the "readonly" version of proveSignalReceived.

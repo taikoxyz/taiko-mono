@@ -250,8 +250,9 @@ contract Bridge is EssentialResolverContract, IBridge {
         _checkStatus(msgHash, Status.NEW);
 
         stats.proofSize = uint32(_proof.length);
-        stats.numCacheOps =
-            _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
+        stats.numCacheOps = 0;
+
+        _proveSignalReceived(signalService, msgHash, _message.srcChainId, _proof);
 
         uint256 refundAmount;
         if (_unableToInvokeMessageCall(_message, signalService)) {
@@ -517,7 +518,6 @@ contract Bridge is EssentialResolverContract, IBridge {
     /// @param _signal The signal.
     /// @param _chainId The ID of the chain the signal is stored on.
     /// @param _proof The merkle inclusion proof.
-    /// @return numCacheOps_ Num of cached items
     function _proveSignalReceived(
         ISignalService _signalService,
         bytes32 _signal,
@@ -526,13 +526,10 @@ contract Bridge is EssentialResolverContract, IBridge {
     )
         private
         view
-        returns (uint32 numCacheOps_)
     {
         try _signalService.proveSignalReceived(
             _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
-        ) returns (uint256 numCacheOps) {
-            numCacheOps_ = uint32(numCacheOps);
-        } catch {
+        ) { } catch {
             revert B_SIGNAL_NOT_RECEIVED();
         }
     }
@@ -562,7 +559,7 @@ contract Bridge is EssentialResolverContract, IBridge {
     {
         try _signalService.proveSignalReceived(
             _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
-        ) returns (uint256) {
+        ) {
             return true;
         } catch {
             return false;

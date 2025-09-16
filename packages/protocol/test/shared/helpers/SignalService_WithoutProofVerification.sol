@@ -15,7 +15,6 @@ contract SignalService_WithoutProofVerification is SignalService {
         public
         pure
         override
-        returns (uint256)
     { }
 
     function _verifyHopProof(
