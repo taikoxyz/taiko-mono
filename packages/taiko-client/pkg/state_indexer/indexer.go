@@ -584,6 +584,9 @@ func (s *Indexer) getTransitionsForFinalization(
 			"found", ok,
 			"last", transition.Transition.ParentTransitionHash != lastFinalizedTransitionHash,
 			"time", transition.RawBlockTimeStamp+s.finalizationGracePeriod < uint64(time.Now().Unix()),
+			"rawBlockTimeStamp", transition.RawBlockTimeStamp,
+			"gracePeriod", s.finalizationGracePeriod,
+			"currentTime", uint64(time.Now().Unix()),
 		)
 		if !ok ||
 			transition.RawBlockTimeStamp+s.finalizationGracePeriod < uint64(time.Now().Unix()) {
