@@ -194,7 +194,7 @@ func (h *BatchProposedEventHandler) checkExpirationAndSubmitProofShasta(
 
 	log.Info(
 		"Proposed Shasta batch is provable",
-		"batchID", meta.Pacaya().GetBatchID(),
+		"batchID", meta.Shasta().GetProposal().Id,
 		"assignProver", meta.GetProposer(),
 		"localProposerAddresses", h.localProposerAddresses,
 	)

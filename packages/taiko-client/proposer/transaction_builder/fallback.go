@@ -50,7 +50,6 @@ func NewBuilderWithFallback(
 	fallback bool,
 ) *TxBuilderWithFallback {
 	builder := &TxBuilderWithFallback{rpc: rpc, fallback: fallback, txmgrSelector: txmgrSelector}
-
 	if blobAllowed {
 		builder.blobTransactionBuilder = NewBlobTransactionBuilder(
 			rpc,

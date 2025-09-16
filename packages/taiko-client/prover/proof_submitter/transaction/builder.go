@@ -146,7 +146,18 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 				log.Error("Failed to get parent Shasta transition hash", "batchID", proposals[i].Id, "error", err)
 				return nil, err
 			}
-
+			log.Info(
+				"Building Shasta batch proof submission transaction",
+				"batchID", proposals[i].Id,
+				"parentTransitionHash", common.Bytes2Hex(parentTransitionHash[:]),
+				"blockNumber", lastHeader.Number,
+				"blockHash", common.Bytes2Hex(lastHeader.Hash().Bytes()),
+				"stateRoot", common.Bytes2Hex(lastHeader.Root.Bytes()),
+				"designatedProver", state.DesignatedProver,
+				"actualProver", txOpts.From,
+				"gasLimit", txOpts.GasLimit,
+				"to", a.taikoInboxAddress,
+			)
 			transitions[i] = shastaBindings.IInboxTransition{
 				ProposalHash:         proposalHash,
 				ParentTransitionHash: parentTransitionHash,
@@ -160,12 +171,17 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 			}
 		}
 
-		data, err := a.rpc.EncodeProveInputShasta(nil, &shastaBindings.IInboxProveInput{
-			Proposals:   proposals,
-			Transitions: transitions,
-		})
+		inputData, err := a.rpc.EncodeProveInputShasta(
+			&bind.CallOpts{Context: txOpts.Context},
+			&shastaBindings.IInboxProveInput{Proposals: proposals, Transitions: transitions},
+		)
 		if err != nil {
 			return nil, encoding.TryParsingCustomError(err)
+		}
+
+		data, err := encoding.ShastaInboxABI.Pack("prove", inputData, batchProof.BatchProof)
+		if err != nil {
+			return nil, err
 		}
 
 		return &txmgr.TxCandidate{
@@ -173,7 +189,6 @@ func (a *ProveBatchesTxBuilder) BuildProveBatchesShasta(batchProof *proofProduce
 			To:       &a.taikoInboxAddress,
 			Blobs:    nil,
 			GasLimit: txOpts.GasLimit,
-			Value:    txOpts.Value,
 		}, nil
 	}
 }
@@ -203,7 +218,15 @@ func (a *ProveBatchesTxBuilder) WaitParnetShastaTransitionHash(
 		}
 		return a.rpc.ShastaClients.Inbox.HashTransition(
 			&bind.CallOpts{Context: ctxWithTimeout}, shastaBindings.IInboxTransition{
-				Checkpoint: shastaBindings.ICheckpointManagerCheckpoint{BlockHash: header.Hash()},
+				ProposalHash:         common.Hash{},
+				ParentTransitionHash: common.Hash{},
+				Checkpoint: shastaBindings.ICheckpointManagerCheckpoint{
+					BlockNumber: common.Big0,
+					BlockHash:   header.Hash(),
+					StateRoot:   common.Hash{},
+				},
+				DesignatedProver: rpc.ZeroAddress,
+				ActualProver:     rpc.ZeroAddress,
 			},
 		)
 	}

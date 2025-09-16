@@ -25,6 +25,7 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
 	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	anchortxconstructor "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/anchor_tx_constructor"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/utils"
@@ -112,10 +113,15 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	sink1 := make(chan *pacayaBindings.TaikoInboxClientBatchProposed)
 	sub1, err := s.RPCClient.PacayaClients.TaikoInbox.WatchBatchProposed(nil, sink1)
 	s.Nil(err)
+	sink2 := make(chan *shastaBindings.ShastaInboxClientProposed)
+	sub2, err := s.RPCClient.ShastaClients.Inbox.WatchProposed(nil, sink2)
+	s.Nil(err)
 
 	defer func() {
 		sub1.Unsubscribe()
 		close(sink1)
+		sub2.Unsubscribe()
+		close(sink2)
 	}()
 
 	nonce, err := s.RPCClient.L2.NonceAt(context.Background(), s.TestAddr, nil)
@@ -138,9 +144,20 @@ func (s *ClientTestSuite) ProposeAndInsertValidBlock(
 	}
 	s.Nil(proposer.ProposeOp(context.Background()))
 
-	event := <-sink1
-	meta := metadata.NewTaikoDataBlockMetadataPacaya(event)
-	txHash := event.Raw.TxHash
+	var (
+		meta   metadata.TaikoProposalMetaData
+		txHash common.Hash
+	)
+	select {
+	case event := <-sink1:
+		meta = metadata.NewTaikoDataBlockMetadataPacaya(event)
+		txHash = event.Raw.TxHash
+	case event := <-sink2:
+		decoded, err := s.RPCClient.ShastaClients.Inbox.DecodeProposedEventData(nil, event.Data)
+		s.Nil(err)
+		meta = metadata.NewTaikoProposalMetadataShasta(&decoded, event.Raw)
+		txHash = event.Raw.TxHash
+	}
 
 	_, isPending, err := s.RPCClient.L1.TransactionByHash(context.Background(), txHash)
 	s.Nil(err)

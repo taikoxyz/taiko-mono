@@ -18,7 +18,6 @@ import (
 	handler "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/event_handler"
 	producer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
 	proofSubmitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
-	submitter "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_submitter/transaction"
 )
 
@@ -86,7 +85,7 @@ func (p *Prover) initShastaProofSubmitter(txBuilder *transaction.ProveBatchesTxB
 	var (
 		err error
 	)
-	if p.proofSubmitterShasta, err = submitter.NewProofSubmitterShasta(
+	if p.proofSubmitterShasta, err = proofSubmitter.NewProofSubmitterShasta(
 		&producer.DummyProofProducer{},
 		p.batchProofGenerationCh,
 		p.proofSubmissionCh,
@@ -338,6 +337,7 @@ func (p *Prover) initEventHandlers() error {
 		ProverAddress:          p.ProverAddress(),
 		ProverSetAddress:       p.cfg.ProverSetAddress,
 		RPC:                    p.rpc,
+		Indexer:                p.shastaIndexer,
 		LocalProposerAddresses: p.cfg.LocalProposerAddresses,
 		AssignmentExpiredCh:    p.assignmentExpiredCh,
 		ProofSubmissionCh:      p.proofSubmissionCh,

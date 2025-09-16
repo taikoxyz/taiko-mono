@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/encoding"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/manifest"
@@ -186,7 +187,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		to = &preconfRouterAddress
 	}
 
-	config, err := b.rpc.ShastaClients.Inbox.GetConfig(&bind.CallOpts{Context: ctx})
+	config, err := b.rpc.GetShastaInboxConfigs(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get shasta inbox config: %w", encoding.TryParsingCustomError(err))
 	}
@@ -200,7 +201,8 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get proposals input from shasta state indexer: %w", err)
 	}
-	for _, p := range proposals {
+	for i, p := range proposals {
+		log.Info("Fetched proposal from state indexer", "index", i, "id", p.Proposal.Id)
 		parentProposals = append(parentProposals, *p.Proposal)
 	}
 	for i, t := range transitions {
@@ -247,9 +249,9 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		return nil, err
 	}
 
-	inputData, err := b.rpc.ShastaClients.Inbox.EncodeProposeInput(
+	inputData, err := b.rpc.EncodeProposeInputShasta(
 		&bind.CallOpts{Context: ctx},
-		shastaBindings.IInboxProposeInput{
+		&shastaBindings.IInboxProposeInput{
 			Deadline:          common.Big0,
 			CoreState:         *proposals[0].CoreState,
 			ParentProposals:   parentProposals,

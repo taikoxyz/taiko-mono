@@ -15,14 +15,16 @@ import (
 	preconfBlocks "github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/preconf_blocks"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/driver/state"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
+	shastaIndexer "github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/state_indexer"
 )
 
 // L2ChainSyncer is responsible for keeping the L2 execution engine's local chain in sync with the one
 // in TaikoInbox contract.
 type L2ChainSyncer struct {
-	ctx   context.Context
-	state *state.State // Driver's state
-	rpc   *rpc.Client  // L1/L2 RPC clients
+	ctx     context.Context
+	state   *state.State           // Driver's state
+	indexer *shastaIndexer.Indexer // Shasta state indexer
+	rpc     *rpc.Client            // L1/L2 RPC clients
 
 	// Syncers
 	beaconSyncer *beaconsync.Syncer
@@ -52,8 +54,16 @@ func New(
 	tracker := beaconsync.NewSyncProgressTracker(rpc.L2, p2pSyncTimeout)
 	go tracker.Track(ctx)
 
+	indexer, err := shastaIndexer.NewShastaState(ctx, rpc, rpc.ShastaClients.ForkHeight)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create shasta state indexer: %w", err)
+	}
+	if err := indexer.Start(); err != nil {
+		return nil, fmt.Errorf("failed to start shasta state indexer: %w", err)
+	}
+
 	beaconSyncer := beaconsync.NewSyncer(ctx, rpc, state, tracker)
-	eventSyncer, err := event.NewSyncer(ctx, rpc, state, tracker, blobServerEndpoint, latestSeenProposalCh)
+	eventSyncer, err := event.NewSyncer(ctx, rpc, indexer, state, tracker, blobServerEndpoint, latestSeenProposalCh)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create event syncer: %w", err)
 	}

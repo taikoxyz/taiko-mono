@@ -489,16 +489,24 @@ func (s *Indexer) SetLastIndexedBlock(header *types.Header) {
 // GetLastProposal returns the latest proposal based on the highest proposal ID.
 func (s *Indexer) GetLastProposal() *ProposalPayload {
 	keys := s.proposals.Keys()
-	var maxKey uint64
+	var (
+		maxID    uint64
+		maxIDKey uint64
+	)
 	for _, key := range keys {
-		if key > maxKey {
-			maxKey = key
+		p, ok := s.proposals.Get(key)
+		if !ok {
+			continue
+		}
+		if p.Proposal.Id.Uint64() > maxID {
+			maxID = p.Proposal.Id.Uint64()
+			maxIDKey = key
 		}
 	}
 
-	log.Info("Last cached Shasta proposal ID", "proposalId", maxKey)
+	log.Info("Last cached Shasta proposal ID", "proposalId", maxID, "key", maxIDKey)
 
-	proposal, _ := s.proposals.Get(maxKey)
+	proposal, _ := s.proposals.Get(maxIDKey)
 
 	return proposal
 }
@@ -534,11 +542,11 @@ func (s *Indexer) GetProposalsInput(
 	if lastProposals[0] == nil {
 		return nil, nil, fmt.Errorf("no on-chain Shasta proposal events cached")
 	}
-	if lastProposals[0].Proposal.Id.Uint64() > s.bufferSize {
-		nextSlotProposal, ok := s.proposals.Get(lastProposals[0].Proposal.Id.Uint64() - s.bufferSize + 1)
+	if lastProposals[0].Proposal.Id.Uint64()+1 >= s.bufferSize {
+		nextSlotProposal, ok := s.proposals.Get((lastProposals[0].Proposal.Id.Uint64() + 1) % s.bufferSize)
 		if !ok {
 			return nil, nil, fmt.Errorf(
-				" missing cached proposal, ID: %d", lastProposals[0].Proposal.Id.Uint64()-s.bufferSize+1,
+				"missing cached proposal, ID: %d", lastProposals[0].Proposal.Id.Uint64()+1,
 			)
 		}
 		lastProposals = append(lastProposals, nextSlotProposal)

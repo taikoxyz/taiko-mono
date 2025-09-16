@@ -62,6 +62,7 @@ func (s *EventHandlerTestSuite) SetupTest() {
 	s.eventSyncer, err = event.NewSyncer(
 		context.Background(),
 		s.RPCClient,
+		s.ShastaStateIndexer,
 		testState,
 		tracker,
 		nil,

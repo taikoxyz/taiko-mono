@@ -81,7 +81,7 @@ func (s *ProofSubmitterShasta) RequestProof(ctx context.Context, meta metadata.T
 
 	// Request proof.
 	var (
-		opts = &proofProducer.ProofRequestOptionsPacaya{
+		opts = &proofProducer.ProofRequestOptionsShasta{
 			BatchID:       meta.Shasta().GetProposal().Id,
 			ProverAddress: s.proverAddress,
 			EventL1Hash:   meta.GetRawBlockHash(),

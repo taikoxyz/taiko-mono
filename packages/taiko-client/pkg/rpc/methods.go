@@ -442,7 +442,7 @@ func (c *Client) WaitShastaHeader(ctx context.Context, batchID *big.Int) (*types
 			continue
 		}
 
-		return c.L2.HeaderByHash(ctxWithTimeout, l1Origin.L1BlockHash)
+		return c.L2.HeaderByHash(ctxWithTimeout, l1Origin.L2BlockHash)
 	}
 
 	return nil, fmt.Errorf("failed to fetch Shasta block header from L2 execution engine, batchID: %d", batchID)
@@ -1385,6 +1385,21 @@ func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (shastaBindings.Shast
 	return c.ShastaClients.Anchor.GetState(opts)
 }
 
+// EncodeProposeInputShasta encodes the propose input for Shasta Inbox contract.
+func (c *Client) EncodeProposeInputShasta(
+	opts *bind.CallOpts,
+	input *shastaBindings.IInboxProposeInput,
+) ([]byte, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	return c.ShastaClients.Inbox.EncodeProposeInput(opts, *input)
+}
+
 // EncodeProveInputShasta encodes the prove input for Shasta Inbox contract.
 func (c *Client) EncodeProveInputShasta(opts *bind.CallOpts, input *shastaBindings.IInboxProveInput) ([]byte, error) {
 	var cancel context.CancelFunc
@@ -1395,4 +1410,21 @@ func (c *Client) EncodeProveInputShasta(opts *bind.CallOpts, input *shastaBindin
 	defer cancel()
 
 	return c.ShastaClients.Inbox.EncodeProveInput(opts, *input)
+}
+
+// GetShastaInboxConfigs gets the Shasta Inbox contract configurations.
+func (c *Client) GetShastaInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IInboxConfig, error) {
+	var cancel context.CancelFunc
+	if opts == nil {
+		opts = &bind.CallOpts{Context: context.Background()}
+	}
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	defer cancel()
+
+	cfg, err := c.ShastaClients.Inbox.GetConfig(opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the Shasta Inbox config: %w", err)
+	}
+
+	return &cfg, nil
 }
