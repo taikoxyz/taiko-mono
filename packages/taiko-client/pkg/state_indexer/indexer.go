@@ -99,7 +99,9 @@ func (s *Indexer) Start() error {
 	log.Info("Finished fetching historical Shasta proposals", "cached", s.proposals.Count(), "last", s.GetLastProposal())
 	// Fetch historical transition records from the last finalized proposal.
 	if s.proposals.Count() != 0 {
-		lastFinializedProposal, ok := s.proposals.Get(s.GetLastProposal().CoreState.LastFinalizedProposalId.Uint64())
+		lastFinializedProposal, ok := s.proposals.Get(
+			s.GetLastProposal().CoreState.LastFinalizedProposalId.Uint64() % s.bufferSize,
+		)
 		if !ok {
 			return fmt.Errorf("last finalized proposal not found: %d", s.GetLastProposal().CoreState.LastFinalizedProposalId)
 		}
@@ -210,7 +212,7 @@ func (s *Indexer) fetchHistoricalTransitionRecords(fromBlock, toBlock *types.Hea
 			endHeight = new(big.Int).Add(currentHeader.Number, new(big.Int).SetUint64(maxBlocksPerFilter))
 		}
 
-		log.Debug("Fetching Shasta Proved events", "from", currentHeader.Number, "to", endHeight)
+		log.Info("Fetching Shasta Proved events", "from", currentHeader.Number, "to", endHeight)
 
 		iter, err := eventiterator.NewShastaProvedIterator(s.ctx, &eventiterator.ShastaProvedIteratorConfig{
 			Client:                s.rpc.L1,
