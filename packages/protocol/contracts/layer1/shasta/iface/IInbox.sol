@@ -94,7 +94,6 @@ interface IInbox {
     }
 
     /// @notice Represents a record of a transition with additional metadata.
-    /// @dev Bond instructions contain all necessary prover information (payer/receiver)
     struct TransitionRecord {
         /// @notice The span indicating how many proposals this transition record covers.
         uint8 span;

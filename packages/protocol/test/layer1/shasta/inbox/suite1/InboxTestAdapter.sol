@@ -106,15 +106,31 @@ library InboxTestAdapter {
     {
         if (_inboxType == TestInboxFactory.InboxType.Optimized3) {
             // InboxOptimized3 uses custom encoding
+            // Create metadata array matching transitions
+            IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](_transitions.length);
+            for (uint256 i = 0; i < _transitions.length; i++) {
+                metadata[i] = IInbox.TransitionMetadata({
+                    designatedProver: address(0),
+                    actualProver: address(0)
+                });
+            }
             // Create ProveInput struct
             IInbox.ProveInput memory input =
-                IInbox.ProveInput({ proposals: _proposals, transitions: _transitions });
+                IInbox.ProveInput({ proposals: _proposals, transitions: _transitions, metadata: metadata });
             return LibProveInputDecoder.encode(input);
         } else {
             // Base, Optimized1, and Optimized2 use standard abi.encode
+            // Create metadata array matching transitions
+            IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](_transitions.length);
+            for (uint256 i = 0; i < _transitions.length; i++) {
+                metadata[i] = IInbox.TransitionMetadata({
+                    designatedProver: address(0),
+                    actualProver: address(0)
+                });
+            }
             // Create ProveInput struct for proper encoding
             IInbox.ProveInput memory input =
-                IInbox.ProveInput({ proposals: _proposals, transitions: _transitions });
+                IInbox.ProveInput({ proposals: _proposals, transitions: _transitions, metadata: metadata });
             return abi.encode(input);
         }
     }

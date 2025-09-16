@@ -28,7 +28,7 @@ library LibProvedEventEncoder {
         // Encode proposalId (uint48)
         ptr = P.packUint48(ptr, _payload.proposalId);
 
-        // Encode Transition struct (no provers)
+        // Encode Transition struct
         ptr = P.packBytes32(ptr, _payload.transition.proposalHash);
         ptr = P.packBytes32(ptr, _payload.transition.parentTransitionHash);
         // Encode Checkpoint
@@ -75,7 +75,7 @@ library LibProvedEventEncoder {
         // Decode proposalId (uint48)
         (payload_.proposalId, ptr) = P.unpackUint48(ptr);
 
-        // Decode Transition struct (no provers)
+        // Decode Transition struct
         (payload_.transition.proposalHash, ptr) = P.unpackBytes32(ptr);
         (payload_.transition.parentTransitionHash, ptr) = P.unpackBytes32(ptr);
         // Decode Checkpoint

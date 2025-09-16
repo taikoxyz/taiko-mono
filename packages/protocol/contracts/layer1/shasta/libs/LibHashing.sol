@@ -26,7 +26,6 @@ library LibHashing {
 
     /// @notice Optimized hashing for Transition structs
     /// @dev Uses EfficientHashLib to hash transition fields
-    /// @dev No longer includes prover addresses for out-of-order proving support
     /// @param _transition The transition to hash
     /// @return The hash of the transition
     function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {

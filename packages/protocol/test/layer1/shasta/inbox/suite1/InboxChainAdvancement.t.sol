@@ -176,13 +176,12 @@ contract InboxChainAdvancement is InboxTest {
 
             transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
+                parentTransitionHash: bytes32(0), // Add missing field
                 checkpoint: ICheckpointManager.Checkpoint({
                     blockNumber: uint48(100 + (i + 1) * 10),
                     hash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
-                }),
-                designatedProver: Alice,
-                actualProver: Bob
+                })
             });
 
             // Prove each proposal individually
@@ -388,9 +387,7 @@ contract InboxChainAdvancement is InboxTest {
                     blockNumber: uint48(100 + i * 10),
                     blockHash: keccak256(abi.encode(i, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i, "stateRoot"))
-                }),
-                designatedProver: Alice,
-                actualProver: Bob
+                })
             });
 
             mockProofVerification(true);
@@ -659,9 +656,7 @@ contract InboxChainAdvancement is InboxTest {
                     blockNumber: uint48(100 + (i + 1) * 10),
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
-                }),
-                designatedProver: designatedProvers[i], // Different designated prover for each
-                actualProver: David // Same actual prover for all (late proof)
+                })
              });
 
             currentParent = keccak256(abi.encode(transitions[i]));
@@ -864,9 +859,7 @@ contract InboxChainAdvancement is InboxTest {
                     blockNumber: uint48(100 + (i + 1) * 10),
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
-                }),
-                designatedProver: designatedProvers[i],
-                actualProver: David // Same actual prover (late proof)
+                })
              });
 
             currentParent = keccak256(abi.encode(transitions[i]));
@@ -974,9 +967,7 @@ contract InboxChainAdvancement is InboxTest {
                     blockNumber: uint48(100 + (i + 1) * 10),
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
-                }),
-                designatedProver: Alice,
-                actualProver: Bob
+                })
             });
 
             // Prove each proposal individually
