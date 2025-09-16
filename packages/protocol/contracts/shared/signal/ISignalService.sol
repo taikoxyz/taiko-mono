@@ -10,6 +10,7 @@ pragma solidity ^0.8.24;
 /// a merkle proof.
 /// @custom:security-contact security@taiko.xyz
 interface ISignalService {
+    /// @dev Deprecated. All values will be ignored and this enum will be removed in the future.
     enum CacheOption {
         CACHE_NOTHING,
         CACHE_SIGNAL_ROOT,

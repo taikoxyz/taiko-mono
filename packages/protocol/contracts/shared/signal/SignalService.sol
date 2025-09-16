@@ -82,6 +82,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
 
     /// @inheritdoc ISignalService
     /// @dev This function may revert.
+    /// @dev This funciton is deprecated and will be removed in the future.
     function proveSignalReceived(
         uint64 _chainId,
         address _app,
@@ -94,12 +95,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
         nonReentrant
         returns (uint256 numCacheOps_)
     {
-        CacheAction[] memory actions = // actions for caching
-         _verifySignalReceived(_chainId, _app, _signal, _proof, true);
-
-        for (uint256 i; i < actions.length; ++i) {
-            numCacheOps_ += _cache(actions[i]);
-        }
+        _verifySignalReceived(_chainId, _app, _signal, _proof, true);
     }
 
     /// @inheritdoc ISignalService
