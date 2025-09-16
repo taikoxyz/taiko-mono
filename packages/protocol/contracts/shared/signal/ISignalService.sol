@@ -109,6 +109,7 @@ interface ISignalService {
         bytes calldata _proof
     )
         external
+        view
         returns (uint256 numCacheOps_);
 
     /// @notice Verifies if a signal has been received on the target chain.

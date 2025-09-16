@@ -525,6 +525,7 @@ contract Bridge is EssentialResolverContract, IBridge {
         bytes calldata _proof
     )
         private
+        view
         returns (uint32 numCacheOps_)
     {
         try _signalService.proveSignalReceived(
@@ -559,9 +560,9 @@ contract Bridge is EssentialResolverContract, IBridge {
         view
         returns (bool)
     {
-        try _signalService.verifySignalReceived(
+        try _signalService.proveSignalReceived(
             _chainId, resolve(_chainId, LibNames.B_BRIDGE, false), _signal, _proof
-        ) {
+        ) returns (uint256) {
             return true;
         } catch {
             return false;

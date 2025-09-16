@@ -80,10 +80,10 @@ contract SignalService is EssentialResolverContract, ISignalService {
         bytes calldata _proof
     )
         external
+        view
         virtual
         whenNotPaused
-        nonReentrant
-        returns (uint256 numCacheOps_)
+        returns (uint256)
     {
         _verifySignalReceived(_chainId, _app, _signal, _proof);
     }
