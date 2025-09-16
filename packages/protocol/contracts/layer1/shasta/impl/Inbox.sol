@@ -254,6 +254,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         ProveInput memory input = decodeProveInput(_data);
         require(input.proposals.length != 0, EmptyProposals());
         require(input.proposals.length == input.transitions.length, InconsistentParams());
+        require(input.transitions.length == input.metadata.length, InconsistentParams());
 
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
@@ -505,7 +506,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Builds and persists transition records for batch proof submissions
     /// @notice Validates transitions, calculates bond instructions, and stores records
     /// @dev Virtual function that can be overridden for optimization (e.g., transition aggregation)
-    /// @param _input The ProveInput containing arrays of proposals and corresponding transitions
+    /// @param _input The ProveInput containing arrays of proposals, transitions, and metadata
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal virtual {
         // Declare struct instance outside the loop to avoid repeated memory allocations
         TransitionRecord memory transitionRecord;
@@ -514,18 +515,22 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         for (uint256 i; i < _input.proposals.length; ++i) {
             _validateTransition(_input.proposals[i], _input.transitions[i]);
 
+            // Store metadata with proof timestamp
+            _input.metadata[i].proofTimestamp = uint48(block.timestamp);
+            
             // Reuse the same memory location for the transitionRecord struct
             transitionRecord.bondInstructions = LibBondsL1.calculateBondInstructions(
-                _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.transitions[i]
+                _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.metadata[i]
             );
             transitionRecord.transitionHash = hashTransition(_input.transitions[i]);
             transitionRecord.checkpointHash = hashCheckpoint(_input.transitions[i].checkpoint);
+            
+            // Store prover metadata in the transition record
+            transitionRecord.designatedProver = _input.metadata[i].designatedProver;
+            transitionRecord.actualProver = _input.metadata[i].actualProver;
+            transitionRecord.proofTimestamp = _input.metadata[i].proofTimestamp;
 
-            // Pass transition and transitionRecord to _setTransitionRecordHashAndDeadline which
-            // will
-            // emit
-            // the
-            // event
+            // Pass transition and transitionRecord to _setTransitionRecordHashAndDeadline
             _setTransitionRecordHashAndDeadline(
                 _input.proposals[i].id, _input.transitions[i], transitionRecord
             );
@@ -558,7 +563,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Uses composite key for unique transition identification
     /// @param _proposalId The ID of the proposal being proven
     /// @param _transition The transition data to include in the event
-    /// @param _transitionRecord The transition record to hash and store
+    /// @param _transitionRecord The transition record to hash and store (includes metadata)
     function _setTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         Transition memory _transition,
@@ -584,7 +589,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             ProvedEventPayload({
                 proposalId: _proposalId,
                 transition: _transition,
-                transitionRecord: _transitionRecord
+                transitionRecord: _transitionRecord,
+                metadata: TransitionMetadata({
+                    designatedProver: _transitionRecord.designatedProver,
+                    actualProver: _transitionRecord.actualProver,
+                    proofTimestamp: _transitionRecord.proofTimestamp
+                })
             })
         );
         emit Proved(payload);

@@ -25,17 +25,15 @@ library LibHashing {
     // ---------------------------------------------------------------
 
     /// @notice Optimized hashing for Transition structs
-    /// @dev Uses EfficientHashLib to hash all transition fields including checkpoint and prover
-    /// addresses
+    /// @dev Uses EfficientHashLib to hash transition fields
+    /// @dev No longer includes prover addresses for out-of-order proving support
     /// @param _transition The transition to hash
     /// @return The hash of the transition
     function hashTransition(IInbox.Transition memory _transition) internal pure returns (bytes32) {
         return EfficientHashLib.hash(
             _transition.proposalHash,
             _transition.parentTransitionHash,
-            hashCheckpoint(_transition.checkpoint),
-            bytes32(uint256(uint160(_transition.designatedProver))),
-            bytes32(uint256(uint160(_transition.actualProver)))
+            hashCheckpoint(_transition.checkpoint)
         );
     }
 
@@ -203,6 +201,7 @@ library LibHashing {
 
     /// @notice Optimized hashing for TransitionRecord structs
     /// @dev Efficiently hashes transition records with variable-length bond instructions
+    /// @dev Now includes prover metadata for bond calculation
     /// @param _transitionRecord The transition record to hash
     /// @return The hash truncated to bytes26 for storage optimization
     function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
@@ -248,11 +247,15 @@ library LibHashing {
             }
         }
 
+        // Include prover metadata in the hash
         bytes32 fullHash = EfficientHashLib.hash(
             bytes32(uint256(_transitionRecord.span)),
             bondInstructionsHash,
             _transitionRecord.transitionHash,
-            _transitionRecord.checkpointHash
+            _transitionRecord.checkpointHash,
+            bytes32(uint256(uint160(_transitionRecord.designatedProver))),
+            bytes32(uint256(uint160(_transitionRecord.actualProver))),
+            bytes32(uint256(_transitionRecord.proofTimestamp))
         );
 
         return bytes26(fullHash);
