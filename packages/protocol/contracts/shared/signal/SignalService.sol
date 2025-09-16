@@ -24,16 +24,6 @@ contract SignalService is EssentialResolverContract, ISignalService {
 
     uint256[47] private __gap;
 
-    struct CacheAction {
-        bytes32 rootHash;
-        bytes32 signalRoot;
-        uint64 chainId;
-        uint64 blockId;
-        bool isFullProof;
-        bool isLastHop;
-        CacheOption option;
-    }
-
     error SS_EMPTY_PROOF();
     error SS_INVALID_HOPS_WITH_LOOP();
     error SS_INVALID_LAST_HOP_CHAINID();
@@ -95,7 +85,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
         nonReentrant
         returns (uint256 numCacheOps_)
     {
-        _verifySignalReceived(_chainId, _app, _signal, _proof, true);
+        _verifySignalReceived(_chainId, _app, _signal, _proof);
     }
 
     /// @inheritdoc ISignalService
@@ -109,7 +99,7 @@ contract SignalService is EssentialResolverContract, ISignalService {
         external
         view
     {
-        _verifySignalReceived(_chainId, _app, _signal, _proof, false);
+        _verifySignalReceived(_chainId, _app, _signal, _proof);
     }
 
     /// @inheritdoc ISignalService
@@ -251,30 +241,6 @@ contract SignalService is EssentialResolverContract, ISignalService {
         emit SignalSent(_app, _signal, slot_, _value);
     }
 
-    function _cache(CacheAction memory _action) private returns (uint256 numCacheOps_) {
-        // cache state root
-        bool cacheStateRoot = _action.option == CacheOption.CACHE_BOTH
-            || _action.option == CacheOption.CACHE_STATE_ROOT;
-
-        if (cacheStateRoot && _action.isFullProof && !_action.isLastHop) {
-            numCacheOps_ = 1;
-            _syncChainData(
-                _action.chainId, LibSignals.STATE_ROOT, _action.blockId, _action.rootHash
-            );
-        }
-
-        // cache signal root
-        bool cacheSignalRoot = _action.option == CacheOption.CACHE_BOTH
-            || _action.option == CacheOption.CACHE_SIGNAL_ROOT;
-
-        if (cacheSignalRoot && (_action.isFullProof || !_action.isLastHop)) {
-            numCacheOps_ += 1;
-            _syncChainData(
-                _action.chainId, LibSignals.SIGNAL_ROOT, _action.blockId, _action.signalRoot
-            );
-        }
-    }
-
     function _loadSignalValue(
         address _app,
         bytes32 _signal
@@ -299,28 +265,24 @@ contract SignalService is EssentialResolverContract, ISignalService {
         uint64 _chainId,
         address _app,
         bytes32 _signal,
-        bytes calldata _proof,
-        bool _prepareCaching
+        bytes calldata _proof
     )
         private
         view
         nonZeroAddr(_app)
         nonZeroBytes32(_signal)
-        returns (CacheAction[] memory actions)
     {
         if (_proof.length == 0) {
             require(
                 _receivedSignals[getSignalSlot(_chainId, _app, _signal)], SS_SIGNAL_NOT_RECEIVED()
             );
-            return new CacheAction[](0);
+            return;
         }
 
         HopProof[] memory hopProofs = abi.decode(_proof, (HopProof[]));
         if (hopProofs.length == 0) revert SS_EMPTY_PROOF();
 
         uint64[] memory trace = new uint64[](hopProofs.length - 1);
-
-        actions = new CacheAction[](_prepareCaching ? hopProofs.length : 0);
 
         uint64 chainId = _chainId;
         address app = _app;
@@ -357,18 +319,6 @@ contract SignalService is EssentialResolverContract, ISignalService {
             }
 
             isFullProof = hop.accountProof.length != 0;
-
-            if (_prepareCaching) {
-                actions[i] = CacheAction(
-                    hop.rootHash,
-                    signalRoot,
-                    chainId,
-                    hop.blockId,
-                    isFullProof,
-                    isLastHop,
-                    hop.cacheOption
-                );
-            }
 
             signal = signalForChainData(
                 chainId, isFullProof ? LibSignals.STATE_ROOT : LibSignals.SIGNAL_ROOT, hop.blockId
