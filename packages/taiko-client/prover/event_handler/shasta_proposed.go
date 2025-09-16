@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/metadata"
@@ -24,6 +25,9 @@ func (h *BatchProposedEventHandler) HandleShasta(
 ) error {
 	if !meta.IsShasta() {
 		log.Debug("Skip non-Shasta Proposed event", "batchID", meta.Pacaya().GetBatchID())
+		return nil
+	}
+	if meta.Shasta().GetProposal().Id.Cmp(common.Big0) == 0 {
 		return nil
 	}
 
