@@ -38,9 +38,8 @@ library LibProveInputDecoder {
             ptr = _encodeTransition(ptr, _input.transitions[i]);
         }
 
-        // 3. Encode Metadata array
+        // 3. Encode Metadata array (no need to encode length, reuse transitions length)
         P.checkArrayLength(_input.metadata.length);
-        ptr = P.packUint24(ptr, uint24(_input.metadata.length));
         for (uint256 i; i < _input.metadata.length; ++i) {
             ptr = _encodeMetadata(ptr, _input.metadata[i]);
         }
@@ -70,12 +69,9 @@ library LibProveInputDecoder {
             (input_.transitions[i], ptr) = _decodeTransition(ptr);
         }
 
-        // 3. Decode Metadata array
-        uint24 metadataLength;
-        (metadataLength, ptr) = P.unpackUint24(ptr);
-        require(metadataLength == proposalsLength, MetadataLengthMismatch());
-        input_.metadata = new IInbox.TransitionMetadata[](metadataLength);
-        for (uint256 i; i < metadataLength; ++i) {
+        // 3. Decode Metadata array (reuse transitions length)
+        input_.metadata = new IInbox.TransitionMetadata[](transitionsLength);
+        for (uint256 i; i < transitionsLength; ++i) {
             (input_.metadata[i], ptr) = _decodeMetadata(ptr);
         }
     }
@@ -179,8 +175,8 @@ library LibProveInputDecoder {
         require(_metadata.length == _transitions.length, MetadataLengthMismatch());
 
         unchecked {
-            // Array lengths: 3 + 3 + 3 = 9 bytes (3 arrays now)
-            size_ = 9;
+            // Array lengths: 3 + 3 = 6 bytes (proposals and transitions lengths only)
+            size_ = 6;
 
             // Proposals - each has fixed size
             // Fixed proposal fields: id(6) + proposer(20) + timestamp(6) +
