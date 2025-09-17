@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
-import { LibCheckpoints } from "contracts/layer1/shasta/libs/LibCheckpoints.sol";
-import "contracts/shared/based/iface/ICheckpointProvider.sol";
+import { LibCheckpointStore } from "contracts/layer1/shasta/libs/LibCheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
 
 /// @title InboxMockContracts
 /// @notice Mock contracts for testing Inbox functionality
@@ -44,29 +44,31 @@ contract MockERC20 is IERC20 {
     }
 }
 
-contract StubCheckpointProvider is ICheckpointProvider {
-    using LibCheckpoints for LibCheckpoints.Storage;
-    
-    LibCheckpoints.Storage private _storage;
-    
-    constructor() {
-        _storage.init(10);
+contract StubCheckpointProvider is ICheckpointStore {
+    using LibCheckpointStore for LibCheckpointStore.Storage;
+
+    LibCheckpointStore.Storage private _storage;
+    uint16 constant MAX_HISTORY_SIZE = 10;
+
+    function saveCheckpoint(ICheckpointStore.Checkpoint calldata _checkpoint) external {
+        LibCheckpointStore.saveCheckpoint(_storage, _checkpoint, MAX_HISTORY_SIZE);
     }
-    
-    function saveCheckpoint(LibCheckpoints.Checkpoint calldata _checkpoint) external override {
-        _storage.saveCheckpoint(_checkpoint);
+
+    function getCheckpoint(uint48 _offset)
+        external
+        view
+        override
+        returns (ICheckpointStore.Checkpoint memory)
+    {
+        return LibCheckpointStore.getCheckpoint(_storage, _offset, MAX_HISTORY_SIZE);
     }
-    
-    function getCheckpoint(uint48 _offset) external view override returns (LibCheckpoints.Checkpoint memory) {
-        return _storage.getCheckpoint(_offset);
-    }
-    
+
     function getLatestCheckpointNumber() external view override returns (uint48) {
-        return _storage.getLatestCheckpointNumber();
+        return LibCheckpointStore.getLatestCheckpointNumber(_storage);
     }
-    
+
     function getNumberOfCheckpoints() external view override returns (uint48) {
-        return _storage.getNumberOfCheckpoints();
+        return LibCheckpointStore.getNumberOfCheckpoints(_storage);
     }
 }
 

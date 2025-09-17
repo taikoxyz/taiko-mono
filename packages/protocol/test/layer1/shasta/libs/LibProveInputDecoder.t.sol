@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibProveInputDecoder } from "src/layer1/shasta/libs/LibProveInputDecoder.sol";
-import { LibCheckpoints } from "src/layer1/shasta/libs/LibCheckpoints.sol";
+import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
 
 /// @title LibProveInputDecoderTest
 /// @notice Tests for LibProveInputDecoder
@@ -33,7 +33,7 @@ contract LibProveInputDecoderTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: keccak256("proposal_10"),
             parentTransitionHash: keccak256("parent_transition"),
-            checkpoint: LibCheckpoints.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 200,
                 blockHash: keccak256("end_block"),
                 stateRoot: keccak256("end_state")
@@ -94,7 +94,7 @@ contract LibProveInputDecoderTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: keccak256("proposal_hash"),
             parentTransitionHash: keccak256("parent_hash"),
-            checkpoint: LibCheckpoints.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 456_789,
                 blockHash: keccak256("end_block_hash"),
                 stateRoot: keccak256("end_state_root")
@@ -151,7 +151,7 @@ contract LibProveInputDecoderTest is Test {
             transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
                 parentTransitionHash: keccak256(abi.encodePacked("parent", i)),
-                checkpoint: LibCheckpoints.Checkpoint({
+                checkpoint: ICheckpointStore.Checkpoint({
                     blockNumber: uint48(3000 + i * 100),
                     blockHash: keccak256(abi.encodePacked("endBlock", i)),
                     stateRoot: keccak256(abi.encodePacked("endState", i))
@@ -229,7 +229,7 @@ contract LibProveInputDecoderTest is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: bytes32(type(uint256).max),
             parentTransitionHash: bytes32(type(uint256).max),
-            checkpoint: LibCheckpoints.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: type(uint48).max,
                 blockHash: bytes32(type(uint256).max),
                 stateRoot: bytes32(type(uint256).max)

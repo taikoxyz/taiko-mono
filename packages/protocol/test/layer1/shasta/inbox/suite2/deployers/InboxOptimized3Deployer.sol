@@ -17,7 +17,7 @@ contract InboxOptimized3Deployer is InboxTestHelper, IInboxDeployer {
     /// @inheritdoc IInboxDeployer
     function deployInbox(
         address bondToken,
-        uint48 maxCheckpointStackSize,
+        uint16 maxCheckpointHistory,
         address proofVerifier,
         address proposerChecker
     )
@@ -25,7 +25,7 @@ contract InboxOptimized3Deployer is InboxTestHelper, IInboxDeployer {
         returns (Inbox)
     {
         address impl = address(
-            new TestInboxOptimized3(bondToken, maxCheckpointStackSize, proofVerifier, proposerChecker)
+            new TestInboxOptimized3(bondToken, maxCheckpointHistory, proofVerifier, proposerChecker)
         );
 
         TestInboxOptimized3 inbox = TestInboxOptimized3(

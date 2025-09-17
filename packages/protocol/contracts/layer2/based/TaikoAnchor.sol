@@ -23,7 +23,7 @@ contract TaikoAnchor is ShastaAnchor {
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
-        uint48 _maxCheckpointStackSize,
+        uint16 _maxCheckpointHistory,
         address _bondManager
     )
         ShastaAnchor(
@@ -32,7 +32,7 @@ contract TaikoAnchor is ShastaAnchor {
             _signalService,
             _pacayaForkHeight,
             _shastaForkHeight,
-            _maxCheckpointStackSize,
+            _maxCheckpointHistory,
             IShastaBondManager(_bondManager)
         )
     { }

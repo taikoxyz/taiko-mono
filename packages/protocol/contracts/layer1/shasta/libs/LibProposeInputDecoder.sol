@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { IInbox } from "../iface/IInbox.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
-import { LibCheckpoints } from "src/layer1/shasta/libs/LibCheckpoints.sol";
+import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
 
 /// @title LibProposeInputDecoder
 /// @notice Library for encoding and decoding propose data with gas optimization using LibPackUnpack
@@ -244,7 +244,7 @@ library LibProposeInputDecoder {
     function _calculateProposeDataSize(
         IInbox.Proposal[] memory _proposals,
         IInbox.TransitionRecord[] memory _transitionRecords,
-        LibCheckpoints.Checkpoint memory _checkpoint
+        ICheckpointStore.Checkpoint memory _checkpoint
     )
         private
         pure

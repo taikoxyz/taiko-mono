@@ -7,7 +7,7 @@ import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
 import { IProofVerifier } from "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import { IProposerChecker } from "contracts/layer1/shasta/iface/IProposerChecker.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ICheckpointProvider } from "src/shared/based/iface/ICheckpointProvider.sol";
+import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
 import { MockERC20, MockCheckpointProvider, MockProofVerifier } from "../mocks/MockContracts.sol";
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 
@@ -23,7 +23,7 @@ abstract contract InboxTestSetup is InboxTestHelper {
 
     // Mock contracts
     IERC20 internal bondToken;
-    ICheckpointProvider internal checkpointManager;
+    ICheckpointStore internal checkpointManager;
     IProofVerifier internal proofVerifier;
     IProposerChecker internal proposerChecker;
 
@@ -58,7 +58,7 @@ abstract contract InboxTestSetup is InboxTestHelper {
         require(address(inboxDeployer) != address(0), "Deployer not set");
         inbox = inboxDeployer.deployInbox(
             address(bondToken),
-            100, // maxCheckpointStackSize
+            100, // maxCheckpointHistory
             address(proofVerifier),
             address(proposerChecker)
         );

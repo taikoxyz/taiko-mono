@@ -134,7 +134,7 @@ contract InboxOutOfOrderProving is InboxTest {
             transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
                 parentTransitionHash: parentHash,
-                checkpoint: LibCheckpoints.Checkpoint({
+                checkpoint: ICheckpointStore.Checkpoint({
                     blockNumber: uint48(100 + i * 10),
                     blockHash: keccak256(abi.encode(proposals[i].id, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(proposals[i].id, "stateRoot"))
@@ -356,7 +356,7 @@ contract InboxOutOfOrderProving is InboxTest {
             IInbox.Transition memory transition = IInbox.Transition({
                 proposalHash: storedProposalHash,
                 parentTransitionHash: parentHash,
-                checkpoint: LibCheckpoints.Checkpoint({
+                checkpoint: ICheckpointStore.Checkpoint({
                     blockNumber: uint48(100 + i * 10),
                     blockHash: keccak256(abi.encode(i, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i, "stateRoot"))
@@ -391,7 +391,7 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.Transition memory transition1 = IInbox.Transition({
             proposalHash: storedProposalHashForTransition,
             parentTransitionHash: initialParentHash,
-            checkpoint: LibCheckpoints.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 110,
                 blockHash: keccak256(abi.encode(1, "endBlockHash")),
                 stateRoot: keccak256(abi.encode(1, "stateRoot"))

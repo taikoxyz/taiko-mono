@@ -315,17 +315,14 @@ contract DeployProtocolOnL1 is DeployCapability {
                 )
             );
         }
-        address tempFork =
-            address(new DevnetShastaInbox(0, proofVerifier, whitelist, bondToken));
+        address tempFork = address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken));
         taikoInboxAddr = deployProxy({
             name: "taiko",
             impl: address(new ShastaForkRouter(oldFork, tempFork)),
             data: abi.encodeCall(Inbox.initV3, (msg.sender, vm.envBytes32("L2_GENESIS_HASH")))
         });
 
-
-        address newFork =
-            address(new DevnetShastaInbox(2400, proofVerifier, whitelist, bondToken));
+        address newFork = address(new DevnetShastaInbox(proofVerifier, whitelist, bondToken));
 
         console2.log("  oldFork       :", oldFork);
         console2.log("  newFork       :", newFork);

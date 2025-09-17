@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { LibCheckpoints } from "src/layer1/shasta/libs/LibCheckpoints.sol";
+import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title LibHashing
@@ -43,7 +43,7 @@ library LibHashing {
     /// @dev Efficiently hashes the 3 main fields of a checkpoint
     /// @param _checkpoint The checkpoint to hash
     /// @return The hash of the checkpoint
-    function hashCheckpoint(LibCheckpoints.Checkpoint memory _checkpoint)
+    function hashCheckpoint(ICheckpointStore.Checkpoint memory _checkpoint)
         internal
         pure
         returns (bytes32)

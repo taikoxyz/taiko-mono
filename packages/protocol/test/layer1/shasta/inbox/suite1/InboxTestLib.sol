@@ -236,7 +236,7 @@ library InboxTestLib {
         return IInbox.Transition({
             proposalHash: hashProposal(_proposal),
             parentTransitionHash: _parentTransitionHash,
-            checkpoint: LibCheckpoints.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: _proposal.id * 100,
                 blockHash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
                 stateRoot: keccak256(abi.encode(_proposal.id, "stateRoot"))
@@ -263,7 +263,7 @@ library InboxTestLib {
         return IInbox.Transition({
             proposalHash: _proposalHash,
             parentTransitionHash: _parentTransitionHash,
-            checkpoint: LibCheckpoints.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: _endBlockNumber,
                 blockHash: _endBlockHash,
                 stateRoot: _endStateRoot
@@ -704,7 +704,7 @@ library InboxTestLib {
         return IInbox.Transition({
             proposalHash: bytes32(0),
             parentTransitionHash: bytes32(0),
-            checkpoint: LibCheckpoints.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: 0,
                 blockHash: _genesisBlockHash,
                 stateRoot: bytes32(0)

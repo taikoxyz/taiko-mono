@@ -14,7 +14,7 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
         InboxOptimized2(
             IInbox.Config({
                 bondToken: address(0),
-                maxCheckpointStackSize: 0,
+                maxCheckpointHistory: 0,
                 proofVerifier: address(0),
                 proposerChecker: address(0),
                 provingWindow: 1 hours,

@@ -36,7 +36,7 @@ library InboxTestAdapter {
         returns (bytes memory)
     {
         // Default checkpoint - will be overridden by the other function if needed
-        LibCheckpoints.Checkpoint memory checkpoint = LibCheckpoints.Checkpoint({
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
             blockNumber: 0,
             blockHash: bytes32(0),
             stateRoot: bytes32(0)
@@ -55,7 +55,7 @@ library InboxTestAdapter {
         IInbox.Proposal[] memory _proposals,
         LibBlobs.BlobReference memory _blobRef,
         IInbox.TransitionRecord[] memory _transitionRecords,
-        LibCheckpoints.Checkpoint memory _checkpoint
+        ICheckpointStore.Checkpoint memory _checkpoint
     )
         internal
         pure

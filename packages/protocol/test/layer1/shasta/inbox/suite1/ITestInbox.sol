@@ -21,7 +21,7 @@ interface ITestInbox is IInbox {
     /// @notice Store checkpoint for test purposes
     function storeCheckpoint(
         uint48 _proposalId,
-        LibCheckpoints.Checkpoint memory _checkpoint
+        ICheckpointStore.Checkpoint memory _checkpoint
     )
         external;
 
@@ -29,5 +29,5 @@ interface ITestInbox is IInbox {
     function getStoredcheckpoint(uint48 _proposalId)
         external
         view
-        returns (LibCheckpoints.Checkpoint memory);
+        returns (ICheckpointStore.Checkpoint memory);
 }

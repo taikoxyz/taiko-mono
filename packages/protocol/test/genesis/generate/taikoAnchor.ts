@@ -5,10 +5,7 @@ const { ethers } = require("ethers");
 const linker = require("solc/linker");
 const { computeStorageSlots, getStorageLayout } = require("./utils");
 const ARTIFACTS_PATH = path.join(__dirname, "../../../out/layer2");
-const SHARED_ARTIFACTS_PATH = path.join(
-    __dirname,
-    "../../../out/shared",
-);
+const SHARED_ARTIFACTS_PATH = path.join(__dirname, "../../../out/shared");
 
 const IMPLEMENTATION_SLOT =
     "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
@@ -58,7 +55,7 @@ export async function deployTaikoAnchor(
         config.livenessBondGwei,
         config.provabilityBondGwei,
         config.withdrawalDelay,
-        config.maxCheckpointStackSize,
+        config.maxCheckpointHistory,
         config.minBond,
         config.bondToken,
     );
@@ -137,7 +134,7 @@ async function generateContractConfigs(
     livenessBondGwei: number,
     provabilityBondGwei: number,
     withdrawalDelay: number,
-    maxCheckpointStackSize: number,
+    maxCheckpointHistory: number,
     minBond: number,
     bondToken: string,
 ): Promise<any> {
@@ -250,14 +247,16 @@ async function generateContractConfigs(
         getImmutableReference("ShastaAnchor", ["bondManager"]),
         getImmutableReference("ShastaAnchor", ["checkpointManager"]),
     );
-    const bondManagerReferencesMap: any = getImmutableReference(
-        "BondManager",
-        ["authorized", "bondToken", "minBond", "withdrawalDelay"],
-    );
+    const bondManagerReferencesMap: any = getImmutableReference("BondManager", [
+        "authorized",
+        "bondToken",
+        "minBond",
+        "withdrawalDelay",
+    ]);
     const checkpointManagerReferencesMap: any = getImmutableReference(
         "CheckpointManager",
-        ["authorized", "maxStackSize"],
-        SHARED_ARTIFACTS_PATH
+        ["authorized", "maxCheckpointHistory"],
+        SHARED_ARTIFACTS_PATH,
     );
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
         "signalService",
@@ -684,10 +683,7 @@ async function generateContractConfigs(
                     },
                     {
                         id: bondManagerReferencesMap.bondToken.id,
-                        value: ethers.utils.hexZeroPad(
-                            bondToken,
-                            32,
-                        ),
+                        value: ethers.utils.hexZeroPad(bondToken, 32),
                     },
                     {
                         id: bondManagerReferencesMap.minBond.id,
@@ -730,36 +726,41 @@ async function generateContractConfigs(
         CheckpointManagerImpl: {
             address: addressMap.CheckpointManagerImpl,
             deployedBytecode: linkContractLibs(
-                replaceImmutableValues(contractArtifacts.CheckpointManagerImpl, [
-                    {
-                        id: sharedUUPSImmutableReferencesMap.__self.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.CheckpointManagerImpl,
-                            32,
-                        ),
-                    },
-                    {
-                        id: sharedEssentialContractReferencesMap.__resolver.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.SharedResolver,
-                            32,
-                        ),
-                    },
-                    {
-                        id: checkpointManagerReferencesMap.authorized.id,
-                        value: ethers.utils.hexZeroPad(
-                            addressMap.TaikoAnchor,
-                            32,
-                        ),
-                    },
-                    {
-                        id: checkpointManagerReferencesMap.maxStackSize.id,
-                        value: ethers.utils.hexZeroPad(
-                            ethers.utils.hexlify(maxCheckpointStackSize),
-                            32,
-                        ),
-                    },
-                ]),
+                replaceImmutableValues(
+                    contractArtifacts.CheckpointManagerImpl,
+                    [
+                        {
+                            id: sharedUUPSImmutableReferencesMap.__self.id,
+                            value: ethers.utils.hexZeroPad(
+                                addressMap.CheckpointManagerImpl,
+                                32,
+                            ),
+                        },
+                        {
+                            id: sharedEssentialContractReferencesMap.__resolver
+                                .id,
+                            value: ethers.utils.hexZeroPad(
+                                addressMap.SharedResolver,
+                                32,
+                            ),
+                        },
+                        {
+                            id: checkpointManagerReferencesMap.authorized.id,
+                            value: ethers.utils.hexZeroPad(
+                                addressMap.TaikoAnchor,
+                                32,
+                            ),
+                        },
+                        {
+                            id: checkpointManagerReferencesMap
+                                .maxCheckpointHistory.id,
+                            value: ethers.utils.hexZeroPad(
+                                ethers.utils.hexlify(maxCheckpointHistory),
+                                32,
+                            ),
+                        },
+                    ],
+                ),
                 addressMap,
             ),
             variables: {},

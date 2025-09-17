@@ -33,7 +33,7 @@ contract TestGenerateGenesis is Test {
     address private bondToken = configJSON.readAddress(".bondToken");
     uint256 private minBond = configJSON.readUint(".minBond");
     uint48 private withdrawalDelay = uint48(configJSON.readUint(".withdrawalDelay"));
-    uint48 private maxCheckpointStackSize = uint48(configJSON.readUint(".maxCheckpointStackSize"));
+    uint16 private maxCheckpointHistory = uint16(configJSON.readUint(".maxCheckpointHistory"));
 
     function testSharedContractsDeployment() public {
         assertEq(block.chainid, 167);
@@ -145,7 +145,6 @@ contract TestGenerateGenesis is Test {
         vm.stopPrank();
     }
 
-
     function testTaikoAnchor() public {
         TaikoAnchor taikoAnchorProxy = TaikoAnchor(getPredeployedContractAddress("TaikoAnchor"));
 
@@ -173,7 +172,7 @@ contract TestGenerateGenesis is Test {
                     getPredeployedContractAddress("SignalService"),
                     uint64(pacayaForkHeight),
                     uint64(shastaForkHeight),
-                    uint48(100), // maxCheckpointStackSize - default value
+                    uint16(100), // maxCheckpointHistory - default value
                     address(0) // bondManager - to be set later
                 )
             )

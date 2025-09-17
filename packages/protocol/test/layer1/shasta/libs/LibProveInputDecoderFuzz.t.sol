@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibProveInputDecoder } from "src/layer1/shasta/libs/LibProveInputDecoder.sol";
-import { LibCheckpoints } from "src/layer1/shasta/libs/LibCheckpoints.sol";
+import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
 
 /// @title LibProveInputDecoderFuzz
 /// @notice Fuzzy tests for LibProveInputDecoder to ensure encode/decode correctness
@@ -51,7 +51,7 @@ contract LibProveInputDecoderFuzz is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: proposalHash,
             parentTransitionHash: parentTransitionHash,
-            checkpoint: LibCheckpoints.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: endBlockNumber,
                 blockHash: endBlockHash,
                 stateRoot: endStateRoot
@@ -113,7 +113,7 @@ contract LibProveInputDecoderFuzz is Test {
             transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
                 parentTransitionHash: keccak256(abi.encodePacked("parent", i)),
-                checkpoint: LibCheckpoints.Checkpoint({
+                checkpoint: ICheckpointStore.Checkpoint({
                     blockNumber: uint48(2_000_000 + i),
                     blockHash: keccak256(abi.encodePacked("block", i)),
                     stateRoot: keccak256(abi.encodePacked("state", i))
@@ -197,7 +197,7 @@ contract LibProveInputDecoderFuzz is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: keccak256(abi.encode(id1)),
             parentTransitionHash: keccak256(abi.encode("parent1")),
-            checkpoint: LibCheckpoints.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: timestamp1,
                 blockHash: keccak256(abi.encode("block1")),
                 stateRoot: keccak256(abi.encode("state1"))
@@ -208,7 +208,7 @@ contract LibProveInputDecoderFuzz is Test {
         transitions[1] = IInbox.Transition({
             proposalHash: keccak256(abi.encode(id2)),
             parentTransitionHash: keccak256(abi.encode("parent2")),
-            checkpoint: LibCheckpoints.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: timestamp2,
                 blockHash: keccak256(abi.encode("block2")),
                 stateRoot: keccak256(abi.encode("state2"))
@@ -252,7 +252,7 @@ contract LibProveInputDecoderFuzz is Test {
         transitions[0] = IInbox.Transition({
             proposalHash: bytes32(type(uint256).max),
             parentTransitionHash: bytes32(type(uint256).max),
-            checkpoint: LibCheckpoints.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: type(uint48).max,
                 blockHash: bytes32(type(uint256).max),
                 stateRoot: bytes32(type(uint256).max)
@@ -297,7 +297,7 @@ contract LibProveInputDecoderFuzz is Test {
             proveInput.transitions[i] = IInbox.Transition({
                 proposalHash: keccak256(abi.encodePacked("proposal", i)),
                 parentTransitionHash: keccak256(abi.encodePacked("parent", i)),
-                checkpoint: LibCheckpoints.Checkpoint({
+                checkpoint: ICheckpointStore.Checkpoint({
                     blockNumber: uint48(2_000_000 + i * 100),
                     blockHash: keccak256(abi.encodePacked("block", i)),
                     stateRoot: keccak256(abi.encodePacked("state", i))

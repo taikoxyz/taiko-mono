@@ -29,19 +29,19 @@ contract MainnetShastaInbox is InboxOptimized4 {
     ///                     = 2400
     uint64 private constant _RING_BUFFER_SIZE = 2400;
 
+    uint16 private constant _MAX_CHECKPOINT_HISTORY = 256;
+
     // ---------------------------------------------------------------
     // Constructor
     // ---------------------------------------------------------------
 
     constructor(
-        uint48 _maxCheckpointStackSize,
         address _proofVerifier,
         address _proposerChecker
     )
         InboxOptimized4(
             IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
-                maxCheckpointStackSize: _maxCheckpointStackSize,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 provingWindow: 2 hours,
@@ -52,8 +52,9 @@ contract MainnetShastaInbox is InboxOptimized4 {
                 basefeeSharingPctg: 0,
                 minForcedInclusionCount: 1,
                 forcedInclusionDelay: 100,
-                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
-             })
+                forcedInclusionFeeInGwei: 10_000_000, // 0.01 ETH
+                maxCheckpointHistory: _MAX_CHECKPOINT_HISTORY
+            })
         )
     { }
 

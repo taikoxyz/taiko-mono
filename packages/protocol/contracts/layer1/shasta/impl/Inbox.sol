@@ -12,7 +12,8 @@ import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
-import { LibCheckpoints } from "../libs/LibCheckpoints.sol";
+import { LibCheckpointStore } from "../libs/LibCheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs,verification and forced inclusion in
@@ -28,7 +29,7 @@ import { LibCheckpoints } from "../libs/LibCheckpoints.sol";
 ///      and yul optimizations. Regular compilation may exceed 24KB contract size limit.
 ///      Example: FOUNDRY_PROFILE=layer1o forge build contracts/layer1/shasta/impl/Inbox.sol
 /// @custom:security-contact security@taiko.xyz
-contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
+contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialContract {
     using SafeERC20 for IERC20;
 
     /// @notice Struct for storing transition effective timestamp and hash.
@@ -44,9 +45,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice The token used for bonds.
     IERC20 internal immutable _bondToken;
-
-    /// @notice The maximum number of checkpoints to store in ring buffer.
-    uint48 internal immutable _maxCheckpointStackSize;
 
     /// @notice The proof verifier contract.
     IProofVerifier internal immutable _proofVerifier;
@@ -81,6 +79,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @notice The fee for forced inclusions in Gwei.
     uint64 internal immutable _forcedInclusionFeeInGwei;
+
+    /// @notice The maximum number of checkpoints to store in ring buffer.
+    uint16 internal immutable _maxCheckpointHistory;
 
     // ---------------------------------------------------------------
     // Events
@@ -135,7 +136,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
     /// @dev Storage for checkpoint management
     /// Uses multiple slots for ring buffer storage
-    LibCheckpoints.Storage internal _checkpointStorage;
+    LibCheckpointStore.Storage internal _checkpointStorage;
 
     uint256[37] private __gap;
 
@@ -147,7 +148,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _config Configuration struct containing all constructor parameters
     constructor(IInbox.Config memory _config) {
         _bondToken = IERC20(_config.bondToken);
-        _maxCheckpointStackSize = _config.maxCheckpointStackSize;
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _provingWindow = _config.provingWindow;
@@ -159,6 +159,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _minForcedInclusionCount = _config.minForcedInclusionCount;
         _forcedInclusionDelay = _config.forcedInclusionDelay;
         _forcedInclusionFeeInGwei = _config.forcedInclusionFeeInGwei;
+        _maxCheckpointHistory = _config.maxCheckpointHistory;
     }
 
     /// @notice Initializes the Inbox contract with genesis block
@@ -176,7 +177,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             __Essential_init(_owner);
         }
         _initializeInbox(_genesisBlockHash);
-        LibCheckpoints.init(_checkpointStorage, _maxCheckpointStackSize);
     }
 
     // ---------------------------------------------------------------
@@ -328,7 +328,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function getConfig() external view returns (IInbox.Config memory config_) {
         config_ = IInbox.Config({
             bondToken: address(_bondToken),
-            maxCheckpointStackSize: _maxCheckpointStackSize,
+            maxCheckpointHistory: _maxCheckpointHistory,
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             provingWindow: _provingWindow,
@@ -426,12 +426,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Hashes a Checkpoint struct.
     /// @param _checkpoint The checkpoint to hash.
     /// @return _ The hash of the checkpoint.
-    function hashCheckpoint(LibCheckpoints.Checkpoint memory _checkpoint)
-        public
-        pure
-        virtual
-        returns (bytes32)
-    {
+    function hashCheckpoint(Checkpoint memory _checkpoint) public pure virtual returns (bytes32) {
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_checkpoint));
     }
@@ -471,6 +466,25 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function hashDerivation(Derivation memory _derivation) public pure virtual returns (bytes32) {
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_derivation));
+    }
+
+    // ---------------------------------------------------------------
+    // ICheckpointStore Implementation
+    // ---------------------------------------------------------------
+
+    /// @inheritdoc ICheckpointStore
+    function getCheckpoint(uint48 _offset) external view returns (Checkpoint memory) {
+        return LibCheckpointStore.getCheckpoint(_checkpointStorage, _offset, _maxCheckpointHistory);
+    }
+
+    /// @inheritdoc ICheckpointStore
+    function getLatestCheckpointNumber() external view returns (uint48) {
+        return LibCheckpointStore.getLatestCheckpointNumber(_checkpointStorage);
+    }
+
+    /// @inheritdoc ICheckpointStore
+    function getNumberOfCheckpoints() external view returns (uint48) {
+        return LibCheckpointStore.getNumberOfCheckpoints(_checkpointStorage);
     }
 
     // ---------------------------------------------------------------
@@ -844,7 +858,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (finalizedCount > 0) {
             bytes32 checkpointHash = hashCheckpoint(_input.checkpoint);
             require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
-            LibCheckpoints.saveCheckpoint(_checkpointStorage, _input.checkpoint);
+            LibCheckpointStore.saveCheckpoint(
+                _checkpointStorage, _input.checkpoint, _maxCheckpointHistory
+            );
         }
 
         return coreState;

@@ -374,7 +374,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
             coreState: _coreState,
             parentProposals: _parentProposals,
             blobReference: _blobRef,
-            checkpoint: LibCheckpoints.Checkpoint({
+            checkpoint: ICheckpointStore.Checkpoint({
                 blockNumber: uint48(block.number),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))

@@ -83,7 +83,7 @@ contract InboxFinalization is InboxTest {
     function _submitFinalizationProposal(
         IInbox.Proposal memory _proposalToValidate,
         IInbox.TransitionRecord memory _transitionRecord,
-        LibCheckpoints.Checkpoint memory _checkpoint
+        ICheckpointStore.Checkpoint memory _checkpoint
     )
         private
     {
@@ -173,7 +173,7 @@ contract InboxFinalization is InboxTest {
         IInbox.Proposal memory _lastProposal,
         IInbox.TransitionRecord[] memory _transitionRecords,
         uint48 _nextProposalId,
-        LibCheckpoints.Checkpoint memory _checkpoint
+        ICheckpointStore.Checkpoint memory _checkpoint
     )
         private
     {
@@ -272,7 +272,7 @@ contract InboxFinalization is InboxTest {
         // Use the adapter with the checkpoint from transition1 since that's what we're
         // finalizing
         // Extract to local variable to avoid stack too deep
-        LibCheckpoints.Checkpoint memory endBlockHeader = transition1.checkpoint;
+        ICheckpointStore.Checkpoint memory endBlockHeader = transition1.checkpoint;
         bytes memory data = InboxTestAdapter.encodeProposeInputWithEndBlock(
             inboxType, uint48(0), coreState, proposals, blobRef, transitionRecords, endBlockHeader
         );

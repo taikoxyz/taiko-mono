@@ -13,7 +13,7 @@ export interface Config {
     livenessBondGwei: number;
     provabilityBondGwei: number;
     withdrawalDelay: number;
-    maxCheckpointStackSize: number;
+    maxCheckpointHistory: number;
     minBond: number;
     bondToken: string;
 }
