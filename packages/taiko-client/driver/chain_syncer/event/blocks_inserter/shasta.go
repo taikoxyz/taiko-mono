@@ -64,7 +64,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 	endIter eventIterator.EndBatchProposedEventIterFunc,
 ) (err error) {
 	if !metadata.IsShasta() {
-		return errors.New("metadata is not for Shasta fork")
+		return errors.New("metadata is not for Shasta fork blocks")
 	}
 
 	i.mutex.Lock()
@@ -80,6 +80,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 	log.Debug(
 		"Inserting Shasta blocks to L2 execution engine",
 		"proposalID", meta.GetProposal().Id,
+		"proposer", meta.GetProposal().Proposer,
 		"invalidManifest", proposalManifest.Default,
 	)
 
@@ -98,6 +99,8 @@ func (i *Shasta) InsertBlocksWithManifest(
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
 
+		// TODO(David): check if the batch is known in canonical chain, if so, we can skip
+		// inserting the blocks, and only update the L1 origin for each block in the batch.
 		createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaShasta(
 			ctx,
 			i.rpc,

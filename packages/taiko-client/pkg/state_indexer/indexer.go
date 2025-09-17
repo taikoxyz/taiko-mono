@@ -403,6 +403,10 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 			safeHeight        = new(big.Int).Sub(s.lastIndexedBlock.Number, reorgSafetyDepth)
 		)
 
+		if safeHeight.Cmp(common.Big0) < 0 {
+			safeHeight = common.Big0
+		}
+
 		if lastValidProposal != nil {
 			// Use the height of the last valid proposal as our reorg recovery point
 			safeHeight = lastValidProposal.RawBlockHeight
@@ -413,14 +417,10 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 				"proposalHash", lastValidProposal.RawBlockHash,
 			)
 		} else {
-			log.Warn(
+			log.Debug(
 				"No valid proposal found for reorg recovery, using default safety depth",
 				"safeHeight", safeHeight,
 			)
-		}
-
-		if safeHeight.Cmp(common.Big0) < 0 {
-			safeHeight = common.Big0
 		}
 
 		// Get the block at the safe height from the current chain

@@ -115,7 +115,7 @@ func (s *L2ChainSyncer) Sync() error {
 }
 
 // SetUpEventSync resets the L1Current cursor to the latest L2 execution engine's chain head,
-// and tries to import the pending preconfirmation blocks from the cache,  this method should only be
+// and tries to import the pending preconfirmation blocks from the cache, this method should only be
 // called after the L2 execution engine's chain has just finished a beacon sync.
 func (s *L2ChainSyncer) SetUpEventSync() error {
 	// Get the execution engine's chain head.

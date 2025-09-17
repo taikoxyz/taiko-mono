@@ -732,8 +732,8 @@ func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBat
 	defer cancel()
 
 	if batchID.Cmp(common.Big0) == 0 {
-		// batchID is zero already, and the given batch is a Pacaya batch,no need to check reorg.
-		if !isShastaBatch {
+		// batchID is zero already, and the given batch is a Pacaya batch, no need to check reorg.
+		if !isShastaBatch || c.ShastaClients.ForkHeight.Cmp(common.Big0) == 0 {
 			return result, nil
 		}
 		if batchID, err = c.GetLastPacayaBatchID(ctxWithTimeout); err != nil {

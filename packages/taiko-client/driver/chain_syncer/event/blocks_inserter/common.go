@@ -664,7 +664,13 @@ func updateL1OriginForBatch(
 
 			// If this is the most recent block, update the HeadL1Origin.
 			if i == len(meta.GetBlocks())-1 {
-				log.Info("Update head L1 origin", "blockID", blockID, "l1Origin", l1Origin)
+				log.Info(
+					"Update head L1 origin",
+					"blockID", blockID,
+					"L2BlockHash", l1Origin.L1BlockHash,
+					"L1BlockHeight", l1Origin.L1BlockHeight,
+					"L1BlockHash", l1Origin.L1BlockHash,
+				)
 				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}

@@ -194,8 +194,11 @@ func (s *Syncer) processShastaProposal(
 		coreState = meta.GetCoreState()
 	)
 
-	// We simply ignore the genesis block's `Proposed` event.
+	// We simply ignore the genesis Shasta block's `Proposed` event.
 	if meta.GetProposal().Id.Cmp(common.Big0) == 0 {
+		// Reset the lastInsertedBatchID when processing the genesis Shasta proposal.
+		s.lastInsertedBatchID = common.Big0
+		log.Debug("Ignore genesis Shasta proposal event", "proposalID", meta.GetProposal().Id)
 		return nil
 	}
 
@@ -241,6 +244,7 @@ func (s *Syncer) processShastaProposal(
 		"l1Height", meta.GetRawBlockHeight(),
 		"l1Hash", meta.GetRawBlockHash(),
 		"proposalID", meta.GetProposal().Id,
+		"proposer", meta.GetProposal().Proposer,
 	)
 
 	// If the event's timestamp is in the future, we wait until the timestamp is reached, should
@@ -260,8 +264,19 @@ func (s *Syncer) processShastaProposal(
 		return err
 	}
 	if meta.GetProposal().Id.Cmp(common.Big1) == 0 {
-		if proposalManifest.ParentBlock, err = s.rpc.L2.BlockByNumber(ctx, common.Big0); err != nil {
-			return fmt.Errorf("failed to fetch genesis block: %w", err)
+		// For the first Shasta proposal, its parent block is the last Pacaya block.
+		lastPacayaBlockID := common.Big0
+		if s.rpc.ShastaClients.ForkHeight.Cmp(common.Big0) > 0 {
+			lastPacayaBlockID = new(big.Int).Sub(s.rpc.ShastaClients.ForkHeight, common.Big1)
+		}
+		log.Info(
+			"First Shasta proposal, fetch last Pacaya block as parent",
+			"proposalID", meta.GetProposal().Id,
+			"proposer", meta.GetProposal().Proposer,
+			"lastPacayaBlockID", lastPacayaBlockID,
+		)
+		if proposalManifest.ParentBlock, err = s.rpc.L2.BlockByNumber(ctx, lastPacayaBlockID); err != nil {
+			return fmt.Errorf("failed to fetch the last Pacaya block: %w", err)
 		}
 	} else {
 		// Fetch the parent block, here we try to find the L1 origin of the previous proposal at first,
@@ -282,6 +297,7 @@ func (s *Syncer) processShastaProposal(
 			log.Info(
 				"No L1 origin found for the previous proposal, using the latest block as parent",
 				"proposalID", meta.GetProposal().Id,
+				"proposer", meta.GetProposal().Proposer,
 				"parentBlockID", proposalManifest.ParentBlock.Number(),
 			)
 		}
@@ -294,8 +310,9 @@ func (s *Syncer) processShastaProposal(
 		return err
 	}
 
+	// If the proposal is not a default one, we need to do some extra validations for
+	// the proposer and `isLowBondProposal` flag.
 	if !proposalManifest.Default {
-		// Proposer and `isLowBondProposal` Validation
 		designatedProverInfo, err := s.rpc.ShastaClients.Anchor.GetDesignatedProver(
 			&bind.CallOpts{BlockHash: proposalManifest.ParentBlock.Hash(), Context: ctx},
 			meta.GetProposal().Id,
@@ -308,15 +325,18 @@ func (s *Syncer) processShastaProposal(
 
 		log.Info(
 			"Designated prover info",
+			"proposalID", meta.GetProposal().Id,
+			"proposer", meta.GetProposal().Proposer,
 			"prover", designatedProverInfo.DesignatedProver,
 			"isLowBondProposal", designatedProverInfo.IsLowBondProposal,
+			"provingFeeToTransfer", designatedProverInfo.ProvingFeeToTransfer,
 		)
 
 		if designatedProverInfo.IsLowBondProposal {
 			proposalManifest = &manifest.ProposalManifest{Default: true, IsLowBondProposal: true}
 		}
 
-		// Check block-level metadata and reset some incorrect value
+		// Check block-level metadata and reset some incorrect value.
 		if err := shastaManifest.ValidateMetadata(
 			ctx,
 			s.rpc,
@@ -342,7 +362,11 @@ func (s *Syncer) processShastaProposal(
 				},
 			},
 		}
-		log.Info("Use default Shasta proposal manifest", "proposalID", meta.GetProposal().Id)
+		log.Info(
+			"Use default Shasta proposal manifest",
+			"proposalID", meta.GetProposal().Id,
+			"proposer", meta.GetProposal().Proposer,
+		)
 	}
 
 	// Insert new blocks to L2 EE's chain.
