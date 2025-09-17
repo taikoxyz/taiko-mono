@@ -136,7 +136,7 @@
 ### proof_verifier
 
 - proxy : `0xdF712d14E40b99448048Dbf9E7FC5488CCdde991`
-- impl : `0x65f9Ec06F67f4bF0094A73c836F43a6d6D989BE5`
+- impl : `0xBEDFe2f1E05dBE287F6fd251DeE7D6EC62860944`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Sep 10, 2025 at commit `1852eb5`
