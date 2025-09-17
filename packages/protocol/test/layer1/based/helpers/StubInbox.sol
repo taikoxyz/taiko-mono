@@ -16,6 +16,16 @@ contract StubInbox is ITaikoInbox {
 
     function proveBatches(bytes calldata _params, bytes calldata _proof) external { }
 
+    function proposeWithProof(
+        bytes calldata _proposeParams,
+        bytes calldata _txList,
+        bytes calldata _proveParams,
+        bytes calldata _proof
+    )
+        external
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_)
+    { }
+
     function verifyBatches(uint64 _length) external { }
 
     function depositBond(uint256 _amount) external payable virtual { }
@@ -77,4 +87,6 @@ contract StubInbox is ITaikoInbox {
     function getStats2() external view returns (Stats2 memory) { }
 
     function pacayaConfig() external pure virtual returns (ITaikoInbox.Config memory) { }
+
+    function setProposeWithProofMode(bool _enabled) external { }
 }

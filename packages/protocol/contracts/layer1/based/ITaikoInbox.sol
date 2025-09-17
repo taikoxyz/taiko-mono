@@ -104,6 +104,13 @@ interface ITaikoInbox {
         bytes32 stateRoot;
     }
 
+    /// @notice Struct containing parameters for proving batches.
+    struct ProveBatchesParams {
+        LibProofType.ProofType proofType;
+        BatchMetadata[] metas;
+        Transition[] trans;
+    }
+
     /// @notice Struct representing transition storage
     /// @dev Uses 5 slots when no conflicts are present, with 2 slots for every new conflict.
     struct TransitionState {
@@ -152,8 +159,8 @@ interface ITaikoInbox {
     struct Stats2 {
         uint64 numBatches;
         uint64 lastVerifiedBatchId;
-        // Surge: remove `paused`
-        uint8 _reserved1;
+        // Surge: change uint8 `paused` to bool `proposeWithProofMode`
+        bool proposeWithProofMode;
         uint56 lastProposedIn;
         // Surge: remove `lastPausedAt`
         uint64 _reserved2;
@@ -327,6 +334,9 @@ interface ITaikoInbox {
     error TooManySignals();
     error TransitionNotFound();
     error ZeroAnchorBlockHash();
+    // Surge: errors for propose-with-proof mode
+    error ProposeWithProofModeEnabled();
+    error ProposeWithProofModeDisabled();
 
     /// @notice Proposes a batch of blocks.
     /// @param _params ABI-encoded parameters.
@@ -343,10 +353,31 @@ interface ITaikoInbox {
 
     /// @notice Proves state transitions for multiple batches with a single aggregated proof.
     /// @param _params ABI-encoded parameter containing:
+    /// - proofType: Type of proof to be used.
     /// - metas: Array of metadata for each batch being proved.
     /// - transitions: Array of batch transitions to be proved.
     /// @param _proof The aggregated cryptographic proof proving the batches transitions.
     function proveBatches(bytes calldata _params, bytes calldata _proof) external;
+
+    // Surge: propose and prove the same batch atomically when propose-with-proof mode is enabled
+    /// @notice Proposes a batch and proves it in the same transaction.
+    /// @param _proposeParams ABI-encoded propose parameters.
+    /// @param _txList The transaction list in calldata.
+    /// @param _proveParams ABI-encoded prove parameters containing:
+    /// - proofType
+    /// - metas (ignored and overridden to enforce proving the just-proposed batch)
+    /// - transitions
+    /// @param _proof The cryptographic proof of transitions.
+    /// @return info_ The info of the proposed batch.
+    /// @return meta_ The metadata of the proposed batch.
+    function proposeWithProof(
+        bytes calldata _proposeParams,
+        bytes calldata _txList,
+        bytes calldata _proveParams,
+        bytes calldata _proof
+    )
+        external
+        returns (ITaikoInbox.BatchInfo memory info_, ITaikoInbox.BatchMetadata memory meta_);
 
     // Surge: added this function since it was missing in the interface
     /// @notice Verifies a specified number of batches.
@@ -449,4 +480,9 @@ interface ITaikoInbox {
     /// @notice Retrieves the current protocol configuration.
     /// @return The current configuration.
     function pacayaConfig() external view returns (Config memory);
+
+    // Surge: owner-only setter for propose-with-proof mode
+    /// @notice Enables or disables propose-with-proof mode.
+    /// @param _enabled The new mode value.
+    function setProposeWithProofMode(bool _enabled) external;
 }
