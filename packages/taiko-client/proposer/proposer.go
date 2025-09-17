@@ -461,9 +461,6 @@ func (p *Proposer) ProposeTxListShasta(ctx context.Context, txBatch []types.Tran
 
 	// Count the total number of transactions.
 	for _, txList := range txBatch {
-		if len(txList) > manifest.BlockMaxRawTransactions {
-			return fmt.Errorf("tx list size is larger than the blockMaxRawTransactions")
-		}
 		txs += uint64(len(txList))
 	}
 

@@ -51,8 +51,8 @@ func (s *ShastaManifestFetcherTestSuite) TestManifestEncodeDecode() {
 
 func (s *ShastaManifestFetcherTestSuite) TestExtractVersionAndSize() {
 	version := uint32(1)
-	size := manifest.ProposalMaxBytes
-	proposalManifestBytes := testutils.RandomBytes(size)
+	size := uint64(1024) // Use a reasonable test size since ProposalMaxBytes was removed
+	proposalManifestBytes := testutils.RandomBytes(int(size))
 
 	versionBytes := make([]byte, 32)
 	versionBytes[31] = byte(version)

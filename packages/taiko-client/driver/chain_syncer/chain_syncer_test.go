@@ -34,7 +34,7 @@ func (s *ChainSyncerTestSuite) SetupTest() {
 	syncer, err := New(
 		context.Background(),
 		s.RPCClient,
-		s.s.indexer,
+		s.ShastaStateIndexer,
 		state,
 		false,
 		1*time.Hour,

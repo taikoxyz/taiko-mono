@@ -9,18 +9,12 @@ import (
 )
 
 const (
-	// ProposalMaxBlobs The maximum number of blobs allowed in a proposal, refer to LibManifest.PROPOSAL_MAX_BLOBS.
-	ProposalMaxBlobs = 4
 	// Version number for Shasta payloads.
 	ShastaPayloadVersion = 0x1
 	// BlobBytes The maximum number of bytes in a blob.
 	BlobBytes = params.BlobTxBytesPerFieldElement * params.BlobTxFieldElementsPerBlob
-	// ProposalMaxBytes The maximum number of bytes allowed in a proposal.
-	ProposalMaxBytes = BlobBytes * ProposalMaxBlobs
 	// ProposalMaxBlocks The maximum number of blocks allowed in a proposal, refer to LibManifest.PROPOSAL_MAX_BLOCKS.
 	ProposalMaxBlocks = 384
-	// BlockMaxRawTransactions Maximum number of transactions allowed in proposal's manifest data, refer to LibManifest.BLOCK_MAX_RAW_TRANSACTIONS.
-	BlockMaxRawTransactions = 4096 * 2
 	// TimestampMaxOffset The maximum number timestamp offset from the proposal origin timestamp, refer to LibManifest.TIMESTAMP_MAX_OFFSET.
 	TimestampMaxOffset = 12 * 32
 	// AnchorMinOffset The minimum anchor block number offset from the proposal origin block number, refer to LibManifest.ANCHOR_MIN_OFFSET.

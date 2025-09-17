@@ -50,7 +50,6 @@ func (f *ShastaManifestFetcher) Fetch(
 	// If there is no blob hash, or its length exceeds PROPOSAL_MAX_BLOBS, or its offest is invalid,
 	// return the default manifest.
 	if len(meta.GetBlobHashes()) == 0 ||
-		len(meta.GetBlobHashes()) > manifest.ProposalMaxBlobs ||
 		meta.GetDerivation().BlobSlice.Offset.Uint64() > uint64(manifest.BlobBytes*len(meta.GetBlobHashes())-64) {
 		return &manifest.ProposalManifest{Default: true}, nil
 	}
@@ -80,14 +79,6 @@ func (f *ShastaManifestFetcher) manifestFromBlobBytes(
 
 	if version != manifest.ShastaPayloadVersion {
 		log.Warn("Unsupported manifest version, use default manifest instead", "version", version)
-		return defaultManifest, nil
-	}
-	if size > manifest.ProposalMaxBytes {
-		log.Warn(
-			"Manifest size exceeds PROPOSAL_MAX_BYTES, use default manifest instead",
-			"size", size,
-			"max", manifest.ProposalMaxBytes,
-		)
 		return defaultManifest, nil
 	}
 
@@ -128,14 +119,6 @@ func (f *ShastaManifestFetcher) manifestFromBlobBytes(
 		Blocks:          make([]*manifest.BlockManifest, len(protocolProposal.Blocks)),
 	}
 	for i, block := range protocolProposal.Blocks {
-		if len(block.Transactions) > manifest.BlockMaxRawTransactions {
-			log.Warn(
-				"Too many transactions, use default manifest instead",
-				"transactions", len(block.Transactions),
-				"max", manifest.BlockMaxRawTransactions,
-			)
-			return defaultManifest, nil
-		}
 		proposal.Blocks[i] = &manifest.BlockManifest{ProtocolBlockManifest: *block}
 	}
 
@@ -235,11 +218,6 @@ func ExtractSize(data []byte, offset int) (uint64, error) {
 
 	// Extract 32 bytes for size
 	size := new(big.Int).SetBytes(data[offset+32 : offset+64])
-
-	// Validate size
-	if size.Cmp(new(big.Int).SetUint64(manifest.ProposalMaxBytes)) > 0 {
-		return 0, fmt.Errorf("invalid size: size(%d) exceeds PROPOSAL_MAX_BYTES", size)
-	}
 
 	return size.Uint64(), nil
 }
