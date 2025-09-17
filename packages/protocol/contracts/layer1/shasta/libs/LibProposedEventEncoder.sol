@@ -9,6 +9,10 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 /// encoding
 /// @custom:security-contact security@taiko.xyz
 library LibProposedEventEncoder {
+    // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
+
     /// @notice Encodes a ProposedEventPayload into bytes using compact encoding
     /// @param _payload The payload to encode
     /// @return encoded_ The encoded bytes
@@ -106,6 +110,10 @@ library LibProposedEventEncoder {
         (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
         (payload_.coreState.bondInstructionsHash, ptr) = P.unpackBytes32(ptr);
     }
+
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
 
     /// @notice Calculate the exact byte size needed for encoding a ProposedEvent
     /// @param _blobHashesCount Number of blob hashes (max 16777215 due to uint24 encoding)

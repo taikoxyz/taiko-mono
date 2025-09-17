@@ -9,6 +9,10 @@ import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 /// @notice Library for encoding and decoding ProvedEventPayload structures using compact encoding
 /// @custom:security-contact security@taiko.xyz
 library LibProvedEventEncoder {
+    // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
+
     /// @notice Encodes a ProvedEventPayload into bytes using compact encoding
     /// @param _payload The ProvedEventPayload to encode
     /// @return encoded_ The encoded bytes
@@ -107,6 +111,10 @@ library LibProvedEventEncoder {
             (payload_.transitionRecord.bondInstructions[i].receiver, ptr) = P.unpackAddress(ptr);
         }
     }
+
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
 
     /// @notice Calculate the exact byte size needed for encoding a ProvedEventPayload
     /// @param _bondInstructionsCount Number of bond instructions (max 65535 due to uint16 encoding)

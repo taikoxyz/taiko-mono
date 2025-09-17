@@ -9,14 +9,14 @@ import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 /// LibPackUnpack
 /// @custom:security-contact security@taiko.xyz
 library LibProveInputDecoder {
+    // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
+
     /// @notice Encodes prove input data using compact encoding
     /// @param _input The ProveInput to encode
     /// @return encoded_ The encoded data
-    function encode(IInbox.ProveInput memory _input)
-        public
-        pure
-        returns (bytes memory encoded_)
-    {
+    function encode(IInbox.ProveInput memory _input) public pure returns (bytes memory encoded_) {
         // Calculate total size needed
         uint256 bufferSize = _calculateProveDataSize(_input.proposals, _input.transitions);
         encoded_ = new bytes(bufferSize);
@@ -64,6 +64,10 @@ library LibProveInputDecoder {
         }
     }
 
+    // ---------------------------------------------------------------
+    // Private Functions - Encoding
+    // ---------------------------------------------------------------
+
     /// @notice Encode a single Proposal
     function _encodeProposal(
         uint256 _ptr,
@@ -80,6 +84,10 @@ library LibProveInputDecoder {
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
     }
+
+    // ---------------------------------------------------------------
+    // Private Functions - Decoding
+    // ---------------------------------------------------------------
 
     /// @notice Decode a single Proposal
     function _decodeProposal(uint256 _ptr)
@@ -129,6 +137,10 @@ library LibProveInputDecoder {
         (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
         (transition_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
     }
+
+    // ---------------------------------------------------------------
+    // Private Functions - Utilities
+    // ---------------------------------------------------------------
 
     /// @notice Calculate the size needed for encoding
     function _calculateProveDataSize(

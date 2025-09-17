@@ -10,6 +10,10 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 /// @notice Library for encoding and decoding propose data with gas optimization using LibPackUnpack
 /// @custom:security-contact security@taiko.xyz
 library LibProposeInputDecoder {
+    // ---------------------------------------------------------------
+    // Public Functions
+    // ---------------------------------------------------------------
+
     /// @notice Encodes propose data using compact encoding
     /// @param _input The ProposeInput to encode
     /// @return encoded_ The encoded data
@@ -128,6 +132,10 @@ library LibProposeInputDecoder {
         (input_.numForcedInclusions, ptr) = P.unpackUint8(ptr);
     }
 
+    // ---------------------------------------------------------------
+    // Private Functions - Encoding
+    // ---------------------------------------------------------------
+
     /// @notice Encode a single Proposal
     function _encodeProposal(
         uint256 _ptr,
@@ -143,20 +151,6 @@ library LibProposeInputDecoder {
         newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
-    }
-
-    /// @notice Decode a single Proposal
-    function _decodeProposal(uint256 _ptr)
-        private
-        pure
-        returns (IInbox.Proposal memory proposal_, uint256 newPtr_)
-    {
-        (proposal_.id, newPtr_) = P.unpackUint48(_ptr);
-        (proposal_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
-        (proposal_.endOfSubmissionWindowTimestamp, newPtr_) = P.unpackUint48(newPtr_);
-        (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
-        (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
-        (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
     /// @notice Encode a single TransitionRecord
@@ -185,6 +179,39 @@ library LibProposeInputDecoder {
         newPtr_ = P.packBytes32(newPtr_, _transitionRecord.checkpointHash);
     }
 
+    /// @notice Encode a single BondInstruction
+    function _encodeBondInstruction(
+        uint256 _ptr,
+        LibBonds.BondInstruction memory _bondInstruction
+    )
+        private
+        pure
+        returns (uint256 newPtr_)
+    {
+        newPtr_ = P.packUint48(_ptr, _bondInstruction.proposalId);
+        newPtr_ = P.packUint8(newPtr_, uint8(_bondInstruction.bondType));
+        newPtr_ = P.packAddress(newPtr_, _bondInstruction.payer);
+        newPtr_ = P.packAddress(newPtr_, _bondInstruction.receiver);
+    }
+
+    // ---------------------------------------------------------------
+    // Private Functions - Decoding
+    // ---------------------------------------------------------------
+
+    /// @notice Decode a single Proposal
+    function _decodeProposal(uint256 _ptr)
+        private
+        pure
+        returns (IInbox.Proposal memory proposal_, uint256 newPtr_)
+    {
+        (proposal_.id, newPtr_) = P.unpackUint48(_ptr);
+        (proposal_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
+        (proposal_.endOfSubmissionWindowTimestamp, newPtr_) = P.unpackUint48(newPtr_);
+        (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
+        (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
+        (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
+    }
+
     /// @notice Decode a single TransitionRecord
     function _decodeTransitionRecord(uint256 _ptr)
         private
@@ -209,21 +236,6 @@ library LibProposeInputDecoder {
         (transitionRecord_.checkpointHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
-    /// @notice Encode a single BondInstruction
-    function _encodeBondInstruction(
-        uint256 _ptr,
-        LibBonds.BondInstruction memory _bondInstruction
-    )
-        private
-        pure
-        returns (uint256 newPtr_)
-    {
-        newPtr_ = P.packUint48(_ptr, _bondInstruction.proposalId);
-        newPtr_ = P.packUint8(newPtr_, uint8(_bondInstruction.bondType));
-        newPtr_ = P.packAddress(newPtr_, _bondInstruction.payer);
-        newPtr_ = P.packAddress(newPtr_, _bondInstruction.receiver);
-    }
-
     /// @notice Decode a single BondInstruction
     function _decodeBondInstruction(uint256 _ptr)
         private
@@ -239,6 +251,10 @@ library LibProposeInputDecoder {
         (bondInstruction_.payer, newPtr_) = P.unpackAddress(newPtr_);
         (bondInstruction_.receiver, newPtr_) = P.unpackAddress(newPtr_);
     }
+
+    // ---------------------------------------------------------------
+    // Private Functions - Utilities
+    // ---------------------------------------------------------------
 
     /// @notice Calculate the size needed for encoding
     function _calculateProposeDataSize(
