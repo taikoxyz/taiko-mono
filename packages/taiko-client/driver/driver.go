@@ -328,19 +328,20 @@ func (d *Driver) reportProtocolStatus() {
 		case <-d.ctx.Done():
 			return
 		case <-ticker.C:
-			d.reportProtocolStatusPacaya(maxNumProposals)
+			d.reportStatus(maxNumProposals)
 		}
 	}
 }
 
-// reportProtocolStatusPacaya reports some status for Pacaya protocol.
-func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
+// reportStatus reports some status for Pacaya or Shasta protocol.
+func (d *Driver) reportStatus(maxNumProposals uint64) {
 	proposal, err := d.rpc.GetShastaProposalHash(&bind.CallOpts{Context: d.ctx}, common.Big1)
 	if err != nil {
 		log.Debug("Failed to get Shasta proposal hash", "error", err)
 	}
-	// If we've forked into Shasta fork, stop reporting Pacaya status.
+	// If chain has forked into Shasta fork, report Shasta status instead.
 	if proposal != (common.Hash{}) {
+		d.reportProtocolStatusShasta()
 		return
 	}
 	vars, err := d.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: d.ctx})
@@ -354,6 +355,22 @@ func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
 		"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
 		"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
 		"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
+	)
+}
+
+// reportProtocolStatusShasta reports some status for Shasta protocol.
+func (d *Driver) reportProtocolStatusShasta() {
+	lastProposal := d.shastaIndexer.GetLastProposal()
+	if lastProposal == nil || lastProposal.CoreState == nil || lastProposal.Proposal == nil {
+		log.Debug("Last proposal not found, skip reporting Shasta protocol status")
+		return
+	}
+
+	log.Info(
+		"📖 Shasta protocol status",
+		"lastVerifiedProposalID", lastProposal.CoreState.LastFinalizedProposalId,
+		"nextProposalID", lastProposal.CoreState.NextProposalId,
+		"endOfSubmissionWindowTimestamp", lastProposal.Proposal.EndOfSubmissionWindowTimestamp,
 	)
 }
 
