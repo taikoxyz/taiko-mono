@@ -355,6 +355,9 @@ func (s *Indexer) onProposedEvent(
 		"proposalId", proposal.Id,
 		"timeStamp", proposal.Timestamp,
 		"proposer", proposal.Proposer,
+		"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
+		"lastFinalizedTransitionHash", coreState.LastFinalizedTransitionHash,
+		"proposedAt", meta.GetRawBlockHeight(),
 	)
 	s.cleanupFinazliedTransitionRecords(coreState.LastFinalizedProposalId.Uint64())
 
