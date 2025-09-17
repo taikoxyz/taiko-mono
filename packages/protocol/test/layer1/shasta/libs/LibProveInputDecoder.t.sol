@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibProveInputDecoder } from "src/layer1/shasta/libs/LibProveInputDecoder.sol";
-import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title LibProveInputDecoderTest
 /// @notice Tests for LibProveInputDecoder

@@ -5,8 +5,8 @@ import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibProvedEventEncoder } from "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
-import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title LibProvedEventEncoderGas
 /// @notice Gas comparison between optimized LibEncoder and abi.encode

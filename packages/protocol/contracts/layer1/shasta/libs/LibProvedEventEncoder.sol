@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
 /// @title LibProvedEventEncoder
 /// @notice Library for encoding and decoding ProvedEventPayload structures using compact encoding

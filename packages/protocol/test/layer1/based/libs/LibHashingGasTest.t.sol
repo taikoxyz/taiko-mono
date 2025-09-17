@@ -5,7 +5,7 @@ import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { LibHashing } from "contracts/layer1/shasta/libs/LibHashing.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
-import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 
 /// @title LibHashingGasTest

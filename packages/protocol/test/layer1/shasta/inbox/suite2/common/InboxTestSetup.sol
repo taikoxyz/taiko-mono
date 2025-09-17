@@ -7,7 +7,7 @@ import { Inbox } from "contracts/layer1/shasta/impl/Inbox.sol";
 import { IProofVerifier } from "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import { IProposerChecker } from "contracts/layer1/shasta/iface/IProposerChecker.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { MockERC20, MockCheckpointProvider, MockProofVerifier } from "../mocks/MockContracts.sol";
 import { IInboxDeployer } from "../deployers/IInboxDeployer.sol";
 

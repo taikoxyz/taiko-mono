@@ -11,12 +11,12 @@ import "contracts/layer1/shasta/iface/IInbox.sol";
 import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
 import "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import "contracts/layer1/shasta/iface/IProposerChecker.sol";
-import "src/layer1/shasta/libs/LibCheckpointStore.sol";
-import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
+import "src/shared/shasta/libs/LibCheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import "contracts/layer1/shasta/libs/LibBlobs.sol";
 import "contracts/layer1/shasta/impl/Inbox.sol";
 import "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
-import "src/shared/based/libs/LibBonds.sol";
+import "src/shared/shasta/libs/LibBonds.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /// @title InboxTest

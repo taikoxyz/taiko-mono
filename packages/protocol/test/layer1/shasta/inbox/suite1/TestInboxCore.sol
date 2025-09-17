@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "contracts/layer1/shasta/impl/Inbox.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
 import "contracts/layer1/shasta/iface/IProposerChecker.sol";
-import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import "./ITestInbox.sol";
 
 /// @title TestInboxCore

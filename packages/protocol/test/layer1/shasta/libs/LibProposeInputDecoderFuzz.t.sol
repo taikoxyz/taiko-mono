@@ -4,9 +4,9 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibProposeInputDecoder } from "src/layer1/shasta/libs/LibProposeInputDecoder.sol";
-import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title LibProposeInputDecoderFuzz
 /// @notice Fuzzy tests for LibProposeInputDecoder to ensure encode/decode correctness

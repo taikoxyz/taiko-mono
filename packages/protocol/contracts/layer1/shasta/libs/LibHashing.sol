@@ -3,8 +3,8 @@ pragma solidity ^0.8.24;
 
 import { EfficientHashLib } from "solady/src/utils/EfficientHashLib.sol";
 import { IInbox } from "../iface/IInbox.sol";
-import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
 /// @title LibHashing
 /// @notice Optimized hashing functions using Solady's EfficientHashLib

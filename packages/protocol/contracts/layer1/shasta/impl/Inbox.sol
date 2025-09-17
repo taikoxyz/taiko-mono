@@ -9,11 +9,11 @@ import { IForcedInclusionStore } from "../iface/IForcedInclusionStore.sol";
 import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
-import { LibCheckpointStore } from "../libs/LibCheckpointStore.sol";
-import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
+import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs,verification and forced inclusion in
@@ -130,15 +130,18 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     mapping(bytes32 compositeKey => TransitionRecordHashAndDeadline hashAndDeadline) internal
         _transitionRecordHashAndDeadline;
 
+    uint256[41] private __gap1;
+
     /// @dev Storage for forced inclusion requests
-    ///  Two slots used
+    /// @dev 50 slots used
     LibForcedInclusion.Storage internal _forcedInclusionStorage;
 
     /// @dev Storage for checkpoint management
     /// Uses multiple slots for ring buffer storage
+    /// @dev 50 slots used
     LibCheckpointStore.Storage internal _checkpointStorage;
 
-    uint256[37] private __gap;
+    uint256[50] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -180,7 +183,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     }
 
     // ---------------------------------------------------------------
-    // External & Public Functions
+    // External Functions (Non-View)
     // ---------------------------------------------------------------
 
     /// @inheritdoc IInbox
@@ -291,6 +294,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         );
     }
 
+    // ---------------------------------------------------------------
+    // External View Functions
+    // ---------------------------------------------------------------
+
     /// @inheritdoc IForcedInclusionStore
     function isOldestForcedInclusionDue() external view returns (bool) {
         return LibForcedInclusion.isOldestForcedInclusionDue(
@@ -343,6 +350,53 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         });
     }
 
+    /// @inheritdoc ICheckpointStore
+    function getCheckpoint(uint48 _offset) external view returns (Checkpoint memory) {
+        return LibCheckpointStore.getCheckpoint(_checkpointStorage, _offset, _maxCheckpointHistory);
+    }
+
+    /// @inheritdoc ICheckpointStore
+    function getLatestCheckpointNumber() external view returns (uint48) {
+        return LibCheckpointStore.getLatestCheckpointNumber(_checkpointStorage);
+    }
+
+    /// @inheritdoc ICheckpointStore
+    function getNumberOfCheckpoints() external view returns (uint48) {
+        return LibCheckpointStore.getNumberOfCheckpoints(_checkpointStorage);
+    }
+
+    // ---------------------------------------------------------------
+    // External Pure Functions (Encoding/Decoding)
+    // ---------------------------------------------------------------
+
+    /// @dev Encodes the propose input data
+    /// @param _input The ProposeInput struct
+    /// @return The encoded data
+    function encodeProposeInput(ProposeInput memory _input)
+        external
+        pure
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(_input);
+    }
+
+    /// @dev Encodes the prove input data
+    /// @param _input The ProveInput struct
+    /// @return The encoded data
+    function encodeProveInput(ProveInput memory _input)
+        external
+        pure
+        virtual
+        returns (bytes memory)
+    {
+        return abi.encode(_input);
+    }
+
+    // ---------------------------------------------------------------
+    // Public Pure Functions (Decoding)
+    // ---------------------------------------------------------------
+
     /// @notice Decodes proposal input data
     /// @param _data The encoded data
     /// @return input_ The decoded ProposeInput struct containing all proposal data
@@ -391,29 +445,9 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         return abi.encode(_payload);
     }
 
-    /// @dev Encodes the propose input data
-    /// @param _input The ProposeInput struct
-    /// @return The encoded data
-    function encodeProposeInput(ProposeInput memory _input)
-        external
-        pure
-        virtual
-        returns (bytes memory)
-    {
-        return abi.encode(_input);
-    }
-
-    /// @dev Encodes the prove input data
-    /// @param _input The ProveInput struct
-    /// @return The encoded data
-    function encodeProveInput(ProveInput memory _input)
-        external
-        pure
-        virtual
-        returns (bytes memory)
-    {
-        return abi.encode(_input);
-    }
+    // ---------------------------------------------------------------
+    // Public Pure Functions (Hashing)
+    // ---------------------------------------------------------------
 
     /// @notice Hashes a Transition struct.
     /// @param _transition The transition to hash.
@@ -466,25 +500,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     function hashDerivation(Derivation memory _derivation) public pure virtual returns (bytes32) {
         /// forge-lint: disable-next-line(asm-keccak256)
         return keccak256(abi.encode(_derivation));
-    }
-
-    // ---------------------------------------------------------------
-    // ICheckpointStore Implementation
-    // ---------------------------------------------------------------
-
-    /// @inheritdoc ICheckpointStore
-    function getCheckpoint(uint48 _offset) external view returns (Checkpoint memory) {
-        return LibCheckpointStore.getCheckpoint(_checkpointStorage, _offset, _maxCheckpointHistory);
-    }
-
-    /// @inheritdoc ICheckpointStore
-    function getLatestCheckpointNumber() external view returns (uint48) {
-        return LibCheckpointStore.getLatestCheckpointNumber(_checkpointStorage);
-    }
-
-    /// @inheritdoc ICheckpointStore
-    function getNumberOfCheckpoints() external view returns (uint48) {
-        return LibCheckpointStore.getNumberOfCheckpoints(_checkpointStorage);
     }
 
     // ---------------------------------------------------------------

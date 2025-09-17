@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { Test } from "forge-std/src/Test.sol";
 import { LibProvedEventEncoder } from "src/layer1/shasta/libs/LibProvedEventEncoder.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
 /// @title LibProvedEventEncoderFuzzTest
 /// @notice Comprehensive fuzz tests for LibProvedEventEncoder

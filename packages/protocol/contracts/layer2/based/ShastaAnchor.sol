@@ -3,10 +3,10 @@ pragma solidity ^0.8.24;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { PacayaAnchor } from "./PacayaAnchor.sol";
-import { LibCheckpointStore } from "src/layer1/shasta/libs/LibCheckpointStore.sol";
-import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
+import { LibCheckpointStore } from "src/shared/shasta/libs/LibCheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
 /// @title ShastaAnchor
 /// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management and
@@ -72,12 +72,15 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     mapping(uint256 blockId => uint256 endOfSubmissionWindowTimestamp) public
         blockIdToEndOfSubmissionWindowTimeStamp;
 
+    /// @notice Storage gap for upgrade safety.
+    uint256[43] private __gap1;
+
     /// @dev Storage for checkpoint management
-    /// Uses multiple slots for ring buffer storage
+    /// 50 slots used
     LibCheckpointStore.Storage internal _checkpointStorage;
 
     /// @notice Storage gap for upgrade safety.
-    uint256[43] private __gap;
+    uint256[50] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -113,7 +116,7 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     }
 
     // ---------------------------------------------------------------
-    // External functions
+    // External Functions (Non-View)
     // ---------------------------------------------------------------
 
     /// @notice Processes a block within a proposal, handling bond instructions and L1 data
@@ -205,6 +208,10 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
         blockIdToEndOfSubmissionWindowTimeStamp[block.number] = _endOfSubmissionWindowTimestamp;
     }
 
+    // ---------------------------------------------------------------
+    // External View Functions
+    // ---------------------------------------------------------------
+
     /// @notice Returns the current state of the anchor.
     /// @return The current state containing bond hash, anchor block, and designated prover.
     function getState() external view returns (State memory) {
@@ -230,10 +237,6 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     {
         return _getDesignatedProver(_proposalId, _proposer, _proverAuth);
     }
-
-    // ---------------------------------------------------------------
-    // ICheckpointStore Implementation
-    // ---------------------------------------------------------------
 
     /// @inheritdoc ICheckpointStore
     function getCheckpoint(uint48 _offset) external view returns (Checkpoint memory) {

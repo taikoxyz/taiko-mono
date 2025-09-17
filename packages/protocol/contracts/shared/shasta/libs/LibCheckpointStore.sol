@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "contracts/shared/based/iface/ICheckpointStore.sol";
+import { ICheckpointStore } from "../iface/ICheckpointStore.sol";
 
 /// @title LibCheckpointStore
 /// @notice Library for managing synced L2 checkpoints using a ring buffer

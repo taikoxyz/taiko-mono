@@ -5,7 +5,7 @@ import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibProveInputDecoder } from "contracts/layer1/shasta/libs/LibProveInputDecoder.sol";
-import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title LibProveInputDecoderGas
 /// @notice Gas comparison between optimized LibProveInputDecoder and abi.encode/decode

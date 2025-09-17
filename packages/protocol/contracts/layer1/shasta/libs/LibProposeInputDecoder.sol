@@ -2,9 +2,9 @@
 pragma solidity ^0.8.24;
 
 import { IInbox } from "../iface/IInbox.sol";
-import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 import { LibPackUnpack as P } from "./LibPackUnpack.sol";
-import { ICheckpointStore } from "src/shared/based/iface/ICheckpointStore.sol";
+import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 
 /// @title LibProposeInputDecoder
 /// @notice Library for encoding and decoding propose data with gas optimization using LibPackUnpack

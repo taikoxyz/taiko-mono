@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import "contracts/layer1/shasta/iface/IInbox.sol";
 import "contracts/layer1/shasta/libs/LibBlobs.sol";
-import "contracts/shared/based/libs/LibBonds.sol";
+import "contracts/shared/shasta/libs/LibBonds.sol";
 
 /// @title InboxTestLib
 /// @notice Consolidated test utility library for Inbox tests
