@@ -343,8 +343,11 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = proposal;
 
-        IInbox.ProveInput memory input =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions, metadata: metadata });
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         bytes memory proveData = inbox.encodeProveInput(input);
         bytes memory proof = _createValidProof();
@@ -406,7 +409,8 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         returns (bytes memory)
     {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](proposals.length);
-        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](proposals.length);
+        IInbox.TransitionMetadata[] memory metadata =
+            new IInbox.TransitionMetadata[](proposals.length);
 
         // Build transitions with proper parent hash chaining
         // For consecutive proposals, chain the transition hashes
@@ -416,7 +420,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         for (uint256 i = 0; i < proposals.length; i++) {
             transitions[i] = _createTransitionForProposal(proposals[i]);
             transitions[i].parentTransitionHash = parentHash;
-            
+
             // Create metadata for each transition
             metadata[i] = _createMetadataForTransition(Alice, Alice);
 
@@ -430,8 +434,11 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             }
         }
 
-        IInbox.ProveInput memory input =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions, metadata: metadata });
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         return inbox.encodeProveInput(input);
     }
@@ -525,7 +532,8 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         returns (bytes memory)
     {
         IInbox.Transition[] memory transitions = new IInbox.Transition[](_proposals.length);
-        IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](_proposals.length);
+        IInbox.TransitionMetadata[] memory metadata =
+            new IInbox.TransitionMetadata[](_proposals.length);
 
         bytes32 parentTransitionHash = _getGenesisTransitionHash();
 
@@ -538,8 +546,11 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             parentTransitionHash = keccak256(abi.encode(transitions[i]));
         }
 
-        IInbox.ProveInput memory input =
-            IInbox.ProveInput({ proposals: _proposals, transitions: transitions, metadata: metadata });
+        IInbox.ProveInput memory input = IInbox.ProveInput({
+            proposals: _proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         return inbox.encodeProveInput(input);
     }
@@ -560,7 +571,10 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         });
     }
 
-    function _createMetadataForTransition(address designatedProver, address actualProver)
+    function _createMetadataForTransition(
+        address designatedProver,
+        address actualProver
+    )
         internal
         pure
         returns (IInbox.TransitionMetadata memory)

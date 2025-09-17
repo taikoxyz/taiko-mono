@@ -72,7 +72,8 @@ interface IInbox {
     }
 
     /// @notice Represents a transition about the state transition of a proposal.
-    /// @dev Prover information has been moved to TransitionMetadata for out-of-order proving support
+    /// @dev Prover information has been moved to TransitionMetadata for out-of-order proving
+    /// support
     struct Transition {
         /// @notice The proposal's hash.
         bytes32 proposalHash;

@@ -40,7 +40,7 @@ library LibProvedEventEncoder {
         ptr = P.packUint8(ptr, _payload.transitionRecord.span);
         ptr = P.packBytes32(ptr, _payload.transitionRecord.transitionHash);
         ptr = P.packBytes32(ptr, _payload.transitionRecord.checkpointHash);
-        
+
         // Encode TransitionMetadata
         ptr = P.packAddress(ptr, _payload.metadata.designatedProver);
         ptr = P.packAddress(ptr, _payload.metadata.actualProver);
@@ -87,7 +87,7 @@ library LibProvedEventEncoder {
         (payload_.transitionRecord.span, ptr) = P.unpackUint8(ptr);
         (payload_.transitionRecord.transitionHash, ptr) = P.unpackBytes32(ptr);
         (payload_.transitionRecord.checkpointHash, ptr) = P.unpackBytes32(ptr);
-        
+
         // Decode TransitionMetadata
         (payload_.metadata.designatedProver, ptr) = P.unpackAddress(ptr);
         (payload_.metadata.actualProver, ptr) = P.unpackAddress(ptr);

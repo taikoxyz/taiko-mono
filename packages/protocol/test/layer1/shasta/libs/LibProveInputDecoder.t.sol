@@ -48,8 +48,11 @@ contract LibProveInputDecoderTest is Test {
         });
 
         // Create ProveInput struct
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions, metadata: metadata });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         // Test with standard ABI encoding for baseline
         bytes memory abiEncodedData = abi.encode(proveInput);
@@ -113,8 +116,11 @@ contract LibProveInputDecoderTest is Test {
             actualProver: address(0x5678)
         });
 
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions, metadata: metadata });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         // Encode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -180,8 +186,11 @@ contract LibProveInputDecoderTest is Test {
             });
         }
 
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions, metadata: metadata });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         // Encode and decode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -269,8 +278,11 @@ contract LibProveInputDecoderTest is Test {
             actualProver: address(type(uint160).max)
         });
 
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions, metadata: metadata });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
         IInbox.ProveInput memory decoded = LibProveInputDecoder.decode(encoded);

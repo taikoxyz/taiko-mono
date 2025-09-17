@@ -658,20 +658,20 @@ contract InboxChainAdvancement is InboxTest {
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
                 })
-             });
+            });
 
             currentParent = keccak256(abi.encode(transitions[i]));
         }
 
         // Prove all 3 proposals together - they will be aggregated
         mockProofVerification(true);
-        
+
         // Convert address[3] to dynamic array for the function call
         address[] memory designatedProversArray = new address[](3);
         designatedProversArray[0] = designatedProvers[0];
         designatedProversArray[1] = designatedProvers[1];
         designatedProversArray[2] = designatedProvers[2];
-        
+
         bytes memory proveData = InboxTestAdapter.encodeProveInputWithMultipleProvers(
             inboxType, proposals, transitions, designatedProversArray, David
         );
@@ -817,9 +817,9 @@ contract InboxChainAdvancement is InboxTest {
         // Create next proposal with finalization
         // Direct access to avoid stack too deep
         _finalizeWithTransitionRecords(
-            coreState, 
+            coreState,
             proposals[2], // proposals[numProposals - 1]
-            transitionRecords, 
+            transitionRecords,
             transitions[2].checkpoint,
             4 // nextProposalId = numProposals + 1 = 3 + 1
         );
@@ -871,20 +871,20 @@ contract InboxChainAdvancement is InboxTest {
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
                 })
-             });
+            });
 
             currentParent = keccak256(abi.encode(transitions[i]));
         }
 
         // Prove all 3 together - Core will NOT aggregate them
         mockProofVerification(true);
-        
+
         // Convert address[3] to dynamic array for the function call
         address[] memory designatedProversArray = new address[](3);
         designatedProversArray[0] = designatedProvers[0];
         designatedProversArray[1] = designatedProvers[1];
         designatedProversArray[2] = designatedProvers[2];
-        
+
         bytes memory proveData = InboxTestAdapter.encodeProveInputWithMultipleProvers(
             inboxType, proposals, transitions, designatedProversArray, David
         );

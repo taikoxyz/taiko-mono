@@ -56,10 +56,8 @@ contract TestInboxCore is Inbox, ITestInbox, IProposerChecker {
         external
     {
         // Create dummy metadata for test purposes
-        IInbox.TransitionMetadata memory metadata = IInbox.TransitionMetadata({
-            designatedProver: address(0),
-            actualProver: address(0)
-        });
+        IInbox.TransitionMetadata memory metadata =
+            IInbox.TransitionMetadata({ designatedProver: address(0), actualProver: address(0) });
         _setTransitionRecordHashAndDeadline(_proposalId, _transition, metadata, _transitionRecord);
     }
 

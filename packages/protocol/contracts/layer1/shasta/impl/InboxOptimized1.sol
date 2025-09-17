@@ -89,10 +89,7 @@ contract InboxOptimized1 is Inbox {
                 // Aggregate with current record
                 LibBonds.BondInstruction[] memory newInstructions = LibBondsL1
                     .calculateBondInstructions(
-                    _provingWindow,
-                    _extendedProvingWindow,
-                    _input.proposals[i],
-                    _input.metadata[i]
+                    _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.metadata[i]
                 );
 
                 if (newInstructions.length > 0) {
@@ -126,10 +123,7 @@ contract InboxOptimized1 is Inbox {
                 currentRecord = TransitionRecord({
                     span: 1,
                     bondInstructions: LibBondsL1.calculateBondInstructions(
-                        _provingWindow,
-                        _extendedProvingWindow,
-                        _input.proposals[i],
-                        _input.metadata[i]
+                        _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.metadata[i]
                     ),
                     transitionHash: hashTransition(_input.transitions[i]),
                     checkpointHash: hashCheckpoint(_input.transitions[i].checkpoint)

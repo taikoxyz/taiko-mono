@@ -18,7 +18,8 @@ library LibProveInputDecoder {
         returns (bytes memory encoded_)
     {
         // Calculate total size needed
-        uint256 bufferSize = _calculateProveDataSize(_input.proposals, _input.transitions, _input.metadata);
+        uint256 bufferSize =
+            _calculateProveDataSize(_input.proposals, _input.transitions, _input.metadata);
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
@@ -183,7 +184,8 @@ library LibProveInputDecoder {
             // endOfSubmissionWindowTimestamp(6) + coreStateHash(32) +
             // derivationHash(32) = 102
             //
-            // Transitions - each has fixed size (no provers): proposalHash(32) + parentTransitionHash(32) +
+            // Transitions - each has fixed size (no provers): proposalHash(32) +
+            // parentTransitionHash(32) +
             // Checkpoint(6 + 32 + 32) = 134
             //
             // Metadata - each has fixed size: designatedProver(20) + actualProver(20) = 40

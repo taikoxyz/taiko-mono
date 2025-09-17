@@ -65,8 +65,11 @@ contract LibProveInputDecoderFuzz is Test {
             actualProver: actualProver
         });
 
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions, metadata: metadata });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         // Encode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -93,7 +96,7 @@ contract LibProveInputDecoderFuzz is Test {
         );
         assertEq(decoded.transitions[0].checkpoint.blockHash, transitions[0].checkpoint.blockHash);
         assertEq(decoded.transitions[0].checkpoint.stateRoot, transitions[0].checkpoint.stateRoot);
-        
+
         // Verify metadata
         assertEq(decoded.metadata.length, 1);
         assertEq(decoded.metadata[0].designatedProver, metadata[0].designatedProver);
@@ -138,8 +141,11 @@ contract LibProveInputDecoderFuzz is Test {
             });
         }
 
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions, metadata: metadata });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         // Encode
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
@@ -230,17 +236,16 @@ contract LibProveInputDecoderFuzz is Test {
 
         // Create metadata array
         IInbox.TransitionMetadata[] memory metadata = new IInbox.TransitionMetadata[](2);
-        metadata[0] = IInbox.TransitionMetadata({
-            designatedProver: proposer1,
-            actualProver: proposer2
-        });
-        metadata[1] = IInbox.TransitionMetadata({
-            designatedProver: proposer2,
-            actualProver: proposer1
-        });
+        metadata[0] =
+            IInbox.TransitionMetadata({ designatedProver: proposer1, actualProver: proposer2 });
+        metadata[1] =
+            IInbox.TransitionMetadata({ designatedProver: proposer2, actualProver: proposer1 });
 
-        IInbox.ProveInput memory original =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions, metadata: metadata });
+        IInbox.ProveInput memory original = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         // First round trip
         bytes memory encoded1 = LibProveInputDecoder.encode(original);
@@ -288,8 +293,11 @@ contract LibProveInputDecoderFuzz is Test {
             actualProver: address(type(uint160).max)
         });
 
-        IInbox.ProveInput memory proveInput =
-            IInbox.ProveInput({ proposals: proposals, transitions: transitions, metadata: metadata });
+        IInbox.ProveInput memory proveInput = IInbox.ProveInput({
+            proposals: proposals,
+            transitions: transitions,
+            metadata: metadata
+        });
 
         bytes memory encoded = LibProveInputDecoder.encode(proveInput);
         IInbox.ProveInput memory decoded = LibProveInputDecoder.decode(encoded);

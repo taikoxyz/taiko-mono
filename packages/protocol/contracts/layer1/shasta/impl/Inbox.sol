@@ -514,7 +514,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         for (uint256 i; i < _input.proposals.length; ++i) {
             _validateTransition(_input.proposals[i], _input.transitions[i]);
-            
+
             // Reuse the same memory location for the transitionRecord struct
             transitionRecord.bondInstructions = LibBondsL1.calculateBondInstructions(
                 _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.metadata[i]
