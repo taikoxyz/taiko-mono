@@ -14,7 +14,7 @@ library LibProposeInputDecoder {
     /// @param _input The ProposeInput to encode
     /// @return encoded_ The encoded data
     function encode(IInbox.ProposeInput memory _input)
-        internal
+        public
         pure
         returns (bytes memory encoded_)
     {

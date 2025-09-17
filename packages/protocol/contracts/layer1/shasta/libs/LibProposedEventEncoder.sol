@@ -62,7 +62,7 @@ library LibProposedEventEncoder {
     /// @param _data The encoded data
     /// @return payload_ The decoded payload
     function decode(bytes memory _data)
-        internal
+        public
         pure
         returns (IInbox.ProposedEventPayload memory payload_)
     {

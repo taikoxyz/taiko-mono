@@ -13,7 +13,7 @@ library LibProveInputDecoder {
     /// @param _input The ProveInput to encode
     /// @return encoded_ The encoded data
     function encode(IInbox.ProveInput memory _input)
-        internal
+        public
         pure
         returns (bytes memory encoded_)
     {

@@ -63,7 +63,7 @@ library LibProvedEventEncoder {
     /// @param _data The bytes to decode
     /// @return payload_ The decoded ProvedEventPayload
     function decode(bytes memory _data)
-        internal
+        public
         pure
         returns (IInbox.ProvedEventPayload memory payload_)
     {
