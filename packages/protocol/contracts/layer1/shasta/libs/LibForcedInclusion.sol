@@ -75,7 +75,7 @@ library LibForcedInclusion {
         address _feeRecipient,
         uint256 _count
     )
-        internal
+        public
         returns (IForcedInclusionStore.ForcedInclusion[] memory inclusions_)
     {
         unchecked {
@@ -104,7 +104,6 @@ library LibForcedInclusion {
             }
 
             // Update head and lastProcessedAt after all processing
-
             ($.head, $.lastProcessedAt) = (head + uint48(toProcess), uint48(block.timestamp));
 
             // Send all fees in one transfer

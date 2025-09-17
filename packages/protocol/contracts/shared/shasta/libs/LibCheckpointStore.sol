@@ -47,22 +47,29 @@ library LibCheckpointStore {
         // Validate all fields
         require(_checkpoint.stateRoot != 0, InvalidCheckpoint());
         require(_checkpoint.blockHash != 0, InvalidCheckpoint());
-        require(_checkpoint.blockNumber > $.latestCheckpointNumber, InvalidCheckpoint());
+
+        (uint48 latestCheckpointNumber, uint48 stackTop, uint48 stackSize) =
+            ($.latestCheckpointNumber, $.stackTop, $.stackSize);
+
+        require(_checkpoint.blockNumber > latestCheckpointNumber, InvalidCheckpoint());
 
         unchecked {
             // Ring buffer implementation:
             // - stackTop starts at 0 and cycles through 0 to (maxHistorySize-1)
             // - When we reach maxHistorySize, it wraps back to 0
             // - This ensures we always overwrite the oldest entry when buffer is full
-            $.stackTop = ($.stackTop + 1) % _maxCheckpointHistory;
-            $.checkpoints[$.stackTop] = _checkpoint;
+            stackTop = (stackTop + 1) % _maxCheckpointHistory;
+
+            $.checkpoints[stackTop] = _checkpoint;
 
             // Update stack size (capped at maxHistorySize)
-            if ($.stackSize < _maxCheckpointHistory) {
-                ++$.stackSize;
+            if (stackSize < _maxCheckpointHistory) {
+                stackSize += 1;
             }
         }
-        $.latestCheckpointNumber = _checkpoint.blockNumber;
+
+        ($.latestCheckpointNumber, $.stackTop, $.stackSize) =
+            (_checkpoint.blockNumber, stackTop, stackSize);
 
         emit ICheckpointStore.CheckpointSaved(
             _checkpoint.blockNumber, _checkpoint.blockHash, _checkpoint.stateRoot
@@ -84,8 +91,11 @@ library LibCheckpointStore {
         view
         returns (ICheckpointStore.Checkpoint memory)
     {
-        require($.stackSize != 0, NoCheckpoints());
-        require(_offset < $.stackSize, IndexOutOfBounds());
+         (uint48 latestCheckpointNumber, uint48 stackTop, uint48 stackSize) =
+            ($.latestCheckpointNumber, $.stackTop, $.stackSize);
+
+        require(stackSize != 0, NoCheckpoints());
+        require(_offset < stackSize, IndexOutOfBounds());
 
         unchecked {
             // Calculate the slot position for the requested offset:
@@ -93,14 +103,14 @@ library LibCheckpointStore {
             // - offset 1 = second most recent block
             // - etc.
             uint48 slot;
-            if ($.stackTop >= _offset) {
+            if (stackTop >= _offset) {
                 // Simple case: we can subtract directly
-                slot = $.stackTop - _offset;
+                slot = stackTop - _offset;
             } else {
                 // Wrap-around case: when offset goes past index 0
                 // Example: if stackTop=1 and _offset=3, we need slot=(5+1-3)=3
                 // This correctly wraps to the end of the ring buffer
-                slot = _maxCheckpointHistory + $.stackTop - _offset;
+                slot = _maxCheckpointHistory + stackTop - _offset;
             }
 
             return $.checkpoints[slot];

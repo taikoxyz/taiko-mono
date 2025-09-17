@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "src/shared/shasta/LibSharedData.sol";
+import "src/shared/based/LibSharedData.sol";
 import "./IBondManager.sol";
 import "./IProveBatches.sol";
 
