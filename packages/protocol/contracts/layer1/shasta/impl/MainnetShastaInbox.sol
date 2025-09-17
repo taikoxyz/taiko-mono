@@ -34,14 +34,14 @@ contract MainnetShastaInbox is InboxOptimized4 {
     // ---------------------------------------------------------------
 
     constructor(
-        address _checkpointManager,
+        uint48 _maxCheckpointStackSize,
         address _proofVerifier,
         address _proposerChecker
     )
         InboxOptimized4(
             IInbox.Config({
                 bondToken: LibL1Addrs.TAIKO_TOKEN,
-                checkpointManager: _checkpointManager,
+                maxCheckpointStackSize: _maxCheckpointStackSize,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 provingWindow: 2 hours,

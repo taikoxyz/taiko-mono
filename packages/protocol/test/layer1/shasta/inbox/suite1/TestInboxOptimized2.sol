@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import "contracts/layer1/shasta/impl/InboxOptimized2.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
 import "contracts/layer1/shasta/iface/IProposerChecker.sol";
-import "contracts/shared/based/iface/ICheckpointManager.sol";
+import { LibCheckpoints } from "src/layer1/shasta/libs/LibCheckpoints.sol";
 import "./ITestInbox.sol";
 
 /// @title TestInboxOptimized2
@@ -12,17 +12,17 @@ import "./ITestInbox.sol";
 /// @custom:security-contact security@taiko.xyz
 contract TestInboxOptimized2 is InboxOptimized2, ITestInbox, IProposerChecker {
     // Storage to track checkpoint for test purposes
-    mapping(uint48 => ICheckpointManager.Checkpoint) public testcheckpoints;
+    mapping(uint48 => LibCheckpoints.Checkpoint) public testcheckpoints;
 
     constructor(
         address _bondToken,
-        address _checkpointManager,
+        uint48 _maxCheckpointStackSize,
         address _proofVerifier
     )
         InboxOptimized2(
             IInbox.Config({
                 bondToken: _bondToken,
-                checkpointManager: _checkpointManager,
+                maxCheckpointStackSize: _maxCheckpointStackSize,
                 proofVerifier: _proofVerifier,
                 proposerChecker: address(this), // proposerChecker - use this contract as stub
                 provingWindow: 1 hours,
@@ -61,7 +61,7 @@ contract TestInboxOptimized2 is InboxOptimized2, ITestInbox, IProposerChecker {
     // Function to store checkpoint for test purposes
     function storeCheckpoint(
         uint48 _proposalId,
-        ICheckpointManager.Checkpoint memory _checkpoint
+        LibCheckpoints.Checkpoint memory _checkpoint
     )
         external
     {
@@ -72,7 +72,7 @@ contract TestInboxOptimized2 is InboxOptimized2, ITestInbox, IProposerChecker {
     function getStoredcheckpoint(uint48 _proposalId)
         external
         view
-        returns (ICheckpointManager.Checkpoint memory)
+        returns (LibCheckpoints.Checkpoint memory)
     {
         return testcheckpoints[_proposalId];
     }

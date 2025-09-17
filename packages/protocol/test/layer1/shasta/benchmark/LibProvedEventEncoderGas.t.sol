@@ -6,7 +6,7 @@ import { console2 } from "forge-std/src/console2.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibProvedEventEncoder } from "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { LibCheckpoints } from "src/layer1/shasta/libs/LibCheckpoints.sol";
 
 /// @title LibProvedEventEncoderGas
 /// @notice Gas comparison between optimized LibEncoder and abi.encode
@@ -155,7 +155,7 @@ contract LibProvedEventEncoderGas is Test {
         payload_.proposalId = 12_345;
         payload_.transition.proposalHash = keccak256("proposal");
         payload_.transition.parentTransitionHash = keccak256("parent");
-        payload_.transition.checkpoint = ICheckpointManager.Checkpoint({
+        payload_.transition.checkpoint = LibCheckpoints.Checkpoint({
             blockNumber: 999_999,
             blockHash: keccak256("block"),
             stateRoot: keccak256("state")

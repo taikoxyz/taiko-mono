@@ -543,7 +543,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         return IInbox.Transition({
             proposalHash: keccak256(abi.encode(_proposal)),
             parentTransitionHash: _getGenesisTransitionHash(),
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: LibCheckpoints.Checkpoint({
                 blockNumber: uint48(block.number),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(200))
@@ -574,7 +574,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             coreState: _coreState,
             parentProposals: _parentProposals,
             blobReference: _blobRef,
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: LibCheckpoints.Checkpoint({
                 blockNumber: uint48(block.number),
                 blockHash: blockhash(block.number - 1),
                 stateRoot: bytes32(uint256(100))

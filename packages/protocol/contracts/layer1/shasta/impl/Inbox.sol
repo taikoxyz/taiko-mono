@@ -12,7 +12,7 @@ import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { LibCheckpoints } from "../libs/LibCheckpoints.sol";
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs,verification and forced inclusion in
@@ -45,8 +45,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice The token used for bonds.
     IERC20 internal immutable _bondToken;
 
-    /// @notice The checkpoint manager contract.
-    ICheckpointManager internal immutable _checkpointManager;
+    /// @notice The maximum number of checkpoints to store in ring buffer.
+    uint48 internal immutable _maxCheckpointStackSize;
 
     /// @notice The proof verifier contract.
     IProofVerifier internal immutable _proofVerifier;
@@ -133,7 +133,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     ///  Two slots used
     LibForcedInclusion.Storage internal _forcedInclusionStorage;
 
-    uint256[39] private __gap;
+    /// @dev Storage for checkpoint management
+    /// Uses multiple slots for ring buffer storage
+    LibCheckpoints.Storage internal _checkpointStorage;
+
+    uint256[37] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -143,7 +147,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @param _config Configuration struct containing all constructor parameters
     constructor(IInbox.Config memory _config) {
         _bondToken = IERC20(_config.bondToken);
-        _checkpointManager = ICheckpointManager(_config.checkpointManager);
+        _maxCheckpointStackSize = _config.maxCheckpointStackSize;
         _proofVerifier = IProofVerifier(_config.proofVerifier);
         _proposerChecker = IProposerChecker(_config.proposerChecker);
         _provingWindow = _config.provingWindow;
@@ -172,6 +176,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             __Essential_init(_owner);
         }
         _initializeInbox(_genesisBlockHash);
+        LibCheckpoints.init(_checkpointStorage, _maxCheckpointStackSize);
     }
 
     // ---------------------------------------------------------------
@@ -323,7 +328,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function getConfig() external view returns (IInbox.Config memory config_) {
         config_ = IInbox.Config({
             bondToken: address(_bondToken),
-            checkpointManager: address(_checkpointManager),
+            maxCheckpointStackSize: _maxCheckpointStackSize,
             proofVerifier: address(_proofVerifier),
             proposerChecker: address(_proposerChecker),
             provingWindow: _provingWindow,
@@ -421,7 +426,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @notice Hashes a Checkpoint struct.
     /// @param _checkpoint The checkpoint to hash.
     /// @return _ The hash of the checkpoint.
-    function hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
+    function hashCheckpoint(LibCheckpoints.Checkpoint memory _checkpoint)
         public
         pure
         virtual
@@ -839,7 +844,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         if (finalizedCount > 0) {
             bytes32 checkpointHash = hashCheckpoint(_input.checkpoint);
             require(checkpointHash == lastFinalizedRecord.checkpointHash, CheckpointMismatch());
-            _checkpointManager.saveCheckpoint(_input.checkpoint);
+            LibCheckpoints.saveCheckpoint(_checkpointStorage, _input.checkpoint);
         }
 
         return coreState;

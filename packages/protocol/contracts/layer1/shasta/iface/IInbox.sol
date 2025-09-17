@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { LibCheckpoints } from "../libs/LibCheckpoints.sol";
 
 /// @title IInbox
 /// @notice Interface for the Shasta inbox contracts
@@ -13,8 +13,8 @@ interface IInbox {
     struct Config {
         /// @notice The token used for bonds
         address bondToken;
-        /// @notice The checkpoint manager contract
-        address checkpointManager;
+        /// @notice The maximum number of checkpoints to store in ring buffer
+        uint48 maxCheckpointStackSize;
         /// @notice The proof verifier contract
         address proofVerifier;
         /// @notice The proposer checker contract
@@ -80,7 +80,7 @@ interface IInbox {
         /// finalize the corresponding proposal.
         bytes32 parentTransitionHash;
         /// @notice The end block header containing number, hash, and state root.
-        ICheckpointManager.Checkpoint checkpoint;
+        LibCheckpoints.Checkpoint checkpoint;
         /// @notice The designated prover.
         address designatedProver;
         /// @notice The actual prover.
@@ -124,7 +124,7 @@ interface IInbox {
         /// @notice Array of transition records for finalization.
         TransitionRecord[] transitionRecords;
         /// @notice The checkpoint for finalization.
-        ICheckpointManager.Checkpoint checkpoint;
+        LibCheckpoints.Checkpoint checkpoint;
         /// @notice The number of forced inclusions that the proposer wants to process.
         /// @dev This can be set to 0 if no forced inclusions are due, and there's none in the queue
         /// that he wants to include.

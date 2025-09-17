@@ -6,7 +6,7 @@ import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { LibProposeInputDecoder } from "src/layer1/shasta/libs/LibProposeInputDecoder.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { LibCheckpoints } from "src/layer1/shasta/libs/LibCheckpoints.sol";
 
 /// @title LibProposeInputDecoderFuzz
 /// @notice Fuzzy tests for LibProposeInputDecoder to ensure encode/decode correctness
@@ -41,7 +41,7 @@ contract LibProposeInputDecoderFuzz is Test {
                 offset: offset
             }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: LibCheckpoints.Checkpoint({
                 blockNumber: 0,
                 blockHash: bytes32(0),
                 stateRoot: bytes32(0)
@@ -90,7 +90,7 @@ contract LibProposeInputDecoderFuzz is Test {
             parentProposals: proposals,
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: new IInbox.TransitionRecord[](0),
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: LibCheckpoints.Checkpoint({
                 blockNumber: 0,
                 blockHash: bytes32(0),
                 stateRoot: bytes32(0)
@@ -146,7 +146,7 @@ contract LibProposeInputDecoderFuzz is Test {
             parentProposals: new IInbox.Proposal[](0),
             blobReference: LibBlobs.BlobReference({ blobStartIndex: 1, numBlobs: 2, offset: 512 }),
             transitionRecords: transitions,
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: LibCheckpoints.Checkpoint({
                 blockNumber: 100,
                 blockHash: keccak256("block"),
                 stateRoot: keccak256("state")
@@ -231,7 +231,7 @@ contract LibProposeInputDecoderFuzz is Test {
             parentProposals: proposals,
             blobReference: blobRef,
             transitionRecords: transitionRecords,
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: LibCheckpoints.Checkpoint({
                 blockNumber: 2_000_000,
                 blockHash: keccak256("endBlock"),
                 stateRoot: keccak256("endState")
@@ -401,7 +401,7 @@ contract LibProposeInputDecoderFuzz is Test {
             });
         }
 
-        input.checkpoint = ICheckpointManager.Checkpoint({
+        input.checkpoint = LibCheckpoints.Checkpoint({
             blockNumber: 2_000_000,
             blockHash: keccak256("final_end_block"),
             stateRoot: keccak256("final_end_state")

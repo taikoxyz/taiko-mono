@@ -11,7 +11,8 @@ import "contracts/layer1/shasta/iface/IInbox.sol";
 import "contracts/layer1/shasta/iface/IForcedInclusionStore.sol";
 import "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import "contracts/layer1/shasta/iface/IProposerChecker.sol";
-import "contracts/shared/based/iface/ICheckpointManager.sol";
+import "src/layer1/shasta/libs/LibCheckpoints.sol";
+import "contracts/shared/based/iface/ICheckpointProvider.sol";
 import "contracts/layer1/shasta/libs/LibBlobs.sol";
 import "contracts/layer1/shasta/impl/Inbox.sol";
 import "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
@@ -126,7 +127,7 @@ abstract contract InboxTest is CommonTest {
     function setupMockAddresses(bool useRealMocks) internal virtual {
         if (useRealMocks) {
             bondToken = address(new MockERC20());
-            checkpointManager = address(new StubCheckpointManager());
+            checkpointManager = address(new StubCheckpointProvider());
             proofVerifier = address(new StubProofVerifier());
             proposerChecker = address(new StubProposerChecker());
         } else {
@@ -157,7 +158,7 @@ abstract contract InboxTest is CommonTest {
             address(this),
             GENESIS_BLOCK_HASH,
             bondToken,
-            checkpointManager,
+            100, // maxCheckpointStackSize
             proofVerifier
         );
         inbox = ITestInbox(inboxAddress);
@@ -326,7 +327,7 @@ abstract contract InboxTest is CommonTest {
         return IInbox.Transition({
             proposalHash: _builder.proposalHash,
             parentTransitionHash: _builder.parentTransitionHash,
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: LibCheckpoints.Checkpoint({
                 blockNumber: _builder.endBlockNumber,
                 blockHash: _builder.endBlockHash,
                 stateRoot: _builder.endStateRoot
@@ -559,7 +560,7 @@ abstract contract InboxTest is CommonTest {
         return IInbox.Transition({
             proposalHash: _config.proposalHash,
             parentTransitionHash: _config.parentTransitionHash,
-            checkpoint: ICheckpointManager.Checkpoint({
+            checkpoint: LibCheckpoints.Checkpoint({
                 blockNumber: _config.endBlockNumber,
                 blockHash: _config.endBlockHash,
                 stateRoot: _config.endStateRoot
@@ -696,7 +697,7 @@ abstract contract InboxTest is CommonTest {
         // Get the checkpoint from the last proposal that was proven
         // This should match what was used when the transition was created
         uint48 lastProposalId = uint48(_transitionRecords.length);
-        ICheckpointManager.Checkpoint memory checkpoint = ICheckpointManager.Checkpoint({
+        LibCheckpoints.Checkpoint memory checkpoint = LibCheckpoints.Checkpoint({
             blockNumber: lastProposalId * 100,
             blockHash: keccak256(abi.encode(lastProposalId, "endBlockHash")),
             stateRoot: keccak256(abi.encode(lastProposalId, "stateRoot"))
@@ -1048,10 +1049,10 @@ abstract contract InboxTest is CommonTest {
         }
     }
 
-    function expectCheckpointSaved(ICheckpointManager.Checkpoint memory _checkpoint) internal {
+    function expectCheckpointSaved(LibCheckpoints.Checkpoint memory _checkpoint) internal {
         vm.expectCall(
             checkpointManager,
-            abi.encodeWithSelector(ICheckpointManager.saveCheckpoint.selector, _checkpoint)
+            abi.encodeWithSelector(ICheckpointProvider.saveCheckpoint.selector, _checkpoint)
         );
     }
 

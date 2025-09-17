@@ -176,7 +176,7 @@ contract InboxChainAdvancement is InboxTest {
 
             transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
-                checkpoint: ICheckpointManager.Checkpoint({
+                checkpoint: LibCheckpoints.Checkpoint({
                     blockNumber: uint48(100 + (i + 1) * 10),
                     hash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
@@ -218,7 +218,7 @@ contract InboxChainAdvancement is InboxTest {
         // Core state will be validated by the contract during propose()
 
         // Expect: Final block update for batch completion
-    ICheckpointManager.Checkpoint memory lastHeader = transitions[numProposals - 1].checkpoint;
+    LibCheckpoints.Checkpoint memory lastHeader = transitions[numProposals - 1].checkpoint;
         expectCheckpointSaved(lastHeader);
             lastHeader.number,
             lastHeader.hash,
@@ -384,7 +384,7 @@ contract InboxChainAdvancement is InboxTest {
             transitions[i - 1] = IInbox.Transition({
                 proposalHash: storedProposalHash,
                 parentTransitionHash: currentParent,
-                checkpoint: ICheckpointManager.Checkpoint({
+                checkpoint: LibCheckpoints.Checkpoint({
                     blockNumber: uint48(100 + i * 10),
                     blockHash: keccak256(abi.encode(i, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i, "stateRoot"))
@@ -514,7 +514,7 @@ contract InboxChainAdvancement is InboxTest {
         // (maxFinalizationCount - 1)
         // Since only maxFinalizationCount proposals will be finalized, we use that transition's
         // header
-        ICheckpointManager.Checkpoint memory lastEndHeader =
+        LibCheckpoints.Checkpoint memory lastEndHeader =
             transitions[getMaxFinalizationCount() - 1].checkpoint;
 
         // When finalizing, we need to provide the checkpoint
@@ -583,7 +583,7 @@ contract InboxChainAdvancement is InboxTest {
         IInbox.CoreState memory coreState,
         IInbox.Proposal memory lastProposal,
         IInbox.TransitionRecord[] memory transitionRecords,
-        ICheckpointManager.Checkpoint memory endHeader,
+        LibCheckpoints.Checkpoint memory endHeader,
         uint48 nextProposalId
     )
         internal
@@ -655,7 +655,7 @@ contract InboxChainAdvancement is InboxTest {
             transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
                 parentTransitionHash: currentParent,
-                checkpoint: ICheckpointManager.Checkpoint({
+                checkpoint: LibCheckpoints.Checkpoint({
                     blockNumber: uint48(100 + (i + 1) * 10),
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
@@ -811,7 +811,7 @@ contract InboxChainAdvancement is InboxTest {
 
         // Create next proposal with finalization
         // Extract header and proposal to avoid stack too deep
-        ICheckpointManager.Checkpoint memory lastEndHeader = transitions[2].checkpoint;
+        LibCheckpoints.Checkpoint memory lastEndHeader = transitions[2].checkpoint;
         IInbox.Proposal memory lastProp = proposals[numProposals - 1];
         uint48 nextProposalId = 4; // numProposals + 1 = 3 + 1
         _finalizeWithTransitionRecords(
@@ -860,7 +860,7 @@ contract InboxChainAdvancement is InboxTest {
             transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
                 parentTransitionHash: currentParent,
-                checkpoint: ICheckpointManager.Checkpoint({
+                checkpoint: LibCheckpoints.Checkpoint({
                     blockNumber: uint48(100 + (i + 1) * 10),
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
@@ -932,7 +932,7 @@ contract InboxChainAdvancement is InboxTest {
             bondInstructionsHash: bytes32(0)
         });
 
-        ICheckpointManager.Checkpoint memory lastEndHeader2 =
+        LibCheckpoints.Checkpoint memory lastEndHeader2 =
             transitions[numProposals - 1].checkpoint;
         uint48 nextId = 4; // numProposals + 1 = 3 + 1
         _finalizeWithTransitionRecords(
@@ -970,7 +970,7 @@ contract InboxChainAdvancement is InboxTest {
             transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
                 parentTransitionHash: currentParent,
-                checkpoint: ICheckpointManager.Checkpoint({
+                checkpoint: LibCheckpoints.Checkpoint({
                     blockNumber: uint48(100 + (i + 1) * 10),
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
@@ -1026,7 +1026,7 @@ contract InboxChainAdvancement is InboxTest {
         vm.warp(block.timestamp + 5 minutes + 1);
 
         // Expect checkpoint save for the last finalized proposal
-        ICheckpointManager.Checkpoint memory checkpoint = transitions[numProposals - 1].checkpoint;
+        LibCheckpoints.Checkpoint memory checkpoint = transitions[numProposals - 1].checkpoint;
         expectCheckpointSaved(checkpoint);
 
         // Create next proposal with finalization of all 3

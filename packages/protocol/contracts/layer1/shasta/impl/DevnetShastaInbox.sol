@@ -33,7 +33,7 @@ contract DevnetShastaInbox is InboxOptimized4 {
     // ---------------------------------------------------------------
 
     constructor(
-        address _checkpointManager,
+        uint48 _maxCheckpointStackSize,
         address _proofVerifier,
         address _proposerChecker,
         address _taikoToken
@@ -41,7 +41,7 @@ contract DevnetShastaInbox is InboxOptimized4 {
         InboxOptimized4(
             IInbox.Config({
                 bondToken: _taikoToken,
-                checkpointManager: _checkpointManager,
+                maxCheckpointStackSize: _maxCheckpointStackSize,
                 proofVerifier: _proofVerifier,
                 proposerChecker: _proposerChecker,
                 provingWindow: 2 hours,

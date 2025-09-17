@@ -3,7 +3,8 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "contracts/layer1/shasta/iface/IInbox.sol";
-import "contracts/shared/based/iface/ICheckpointManager.sol";
+import { LibCheckpoints } from "contracts/layer1/shasta/libs/LibCheckpoints.sol";
+import "contracts/shared/based/iface/ICheckpointProvider.sol";
 
 /// @title InboxMockContracts
 /// @notice Mock contracts for testing Inbox functionality
@@ -43,8 +44,30 @@ contract MockERC20 is IERC20 {
     }
 }
 
-contract StubCheckpointManager {
-    function saveCheckpoint(ICheckpointManager.Checkpoint memory) external { }
+contract StubCheckpointProvider is ICheckpointProvider {
+    using LibCheckpoints for LibCheckpoints.Storage;
+    
+    LibCheckpoints.Storage private _storage;
+    
+    constructor() {
+        _storage.init(10);
+    }
+    
+    function saveCheckpoint(LibCheckpoints.Checkpoint calldata _checkpoint) external override {
+        _storage.saveCheckpoint(_checkpoint);
+    }
+    
+    function getCheckpoint(uint48 _offset) external view override returns (LibCheckpoints.Checkpoint memory) {
+        return _storage.getCheckpoint(_offset);
+    }
+    
+    function getLatestCheckpointNumber() external view override returns (uint48) {
+        return _storage.getLatestCheckpointNumber();
+    }
+    
+    function getNumberOfCheckpoints() external view override returns (uint48) {
+        return _storage.getNumberOfCheckpoints();
+    }
 }
 
 contract StubProofVerifier {

@@ -3,7 +3,7 @@ pragma solidity ^0.8.24;
 
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { PacayaAnchor } from "./PacayaAnchor.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { LibCheckpoints } from "src/layer1/shasta/libs/LibCheckpoints.sol";
 import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
@@ -57,8 +57,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @notice Contract managing bond deposits, withdrawals, and transfers.
     IShastaBondManager public immutable bondManager;
 
-    /// @notice Contract managing synchronized L1 block data.
-    ICheckpointManager public immutable checkpointManager;
+    /// @notice Maximum number of checkpoints to store in ring buffer.
+    uint48 public immutable maxCheckpointStackSize;
 
     // ---------------------------------------------------------------
     // State variables
@@ -71,8 +71,12 @@ abstract contract ShastaAnchor is PacayaAnchor {
     mapping(uint256 blockId => uint256 endOfSubmissionWindowTimestamp) public
         blockIdToEndOfSubmissionWindowTimeStamp;
 
+    /// @dev Storage for checkpoint management
+    /// Uses multiple slots for ring buffer storage
+    LibCheckpoints.Storage internal _checkpointStorage;
+
     /// @notice Storage gap for upgrade safety.
-    uint256[46] private __gap;
+    uint256[43] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -84,7 +88,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _signalService The address of the signal service.
     /// @param _pacayaForkHeight The block height at which the Pacaya fork is activated.
     /// @param _shastaForkHeight The block height at which the Shasta fork is activated.
-    /// @param _checkpointManager The address of the checkpoint manager.
+    /// @param _maxCheckpointStackSize The maximum number of checkpoints to store.
     /// @param _bondManager The address of the bond manager.
     constructor(
         uint48 _livenessBondGwei,
@@ -92,7 +96,7 @@ abstract contract ShastaAnchor is PacayaAnchor {
         address _signalService,
         uint64 _pacayaForkHeight,
         uint64 _shastaForkHeight,
-        ICheckpointManager _checkpointManager,
+        uint48 _maxCheckpointStackSize,
         IShastaBondManager _bondManager
     )
         PacayaAnchor(_signalService, _pacayaForkHeight, _shastaForkHeight)
@@ -103,8 +107,11 @@ abstract contract ShastaAnchor is PacayaAnchor {
 
         livenessBondGwei = _livenessBondGwei;
         provabilityBondGwei = _provabilityBondGwei;
-        checkpointManager = _checkpointManager;
+        maxCheckpointStackSize = _maxCheckpointStackSize;
         bondManager = _bondManager;
+        
+        // Initialize checkpoint storage
+        LibCheckpoints.init(_checkpointStorage, _maxCheckpointStackSize);
     }
 
     // ---------------------------------------------------------------
@@ -175,8 +182,9 @@ abstract contract ShastaAnchor is PacayaAnchor {
         // Process new L1 anchor data
         if (_anchorBlockNumber > previousState_.anchorBlockNumber) {
             // Save L1 block data
-            checkpointManager.saveCheckpoint(
-                ICheckpointManager.Checkpoint({
+            LibCheckpoints.saveCheckpoint(
+                _checkpointStorage,
+                LibCheckpoints.Checkpoint({
                     blockNumber: _anchorBlockNumber,
                     blockHash: _anchorBlockHash,
                     stateRoot: _anchorStateRoot

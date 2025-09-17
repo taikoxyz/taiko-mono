@@ -15,7 +15,6 @@ import "src/shared/tokenvault/BridgedERC1155.sol";
 import "src/shared/signal/SignalService.sol";
 import "src/layer2/based/TaikoAnchor.sol";
 import "src/layer2/based/BondManager.sol";
-import "src/shared/based/impl/CheckpointManager.sol";
 import "../shared/helpers/RegularERC20.sol";
 
 contract TestGenerateGenesis is Test {
@@ -146,30 +145,6 @@ contract TestGenerateGenesis is Test {
         vm.stopPrank();
     }
 
-    function testCheckpointManager() public {
-        address checkpointManagerAddress = getPredeployedContractAddress("CheckpointManager");
-
-        EssentialContract checkpointManagerProxy = EssentialContract(checkpointManagerAddress);
-
-        assertEq(contractOwner, checkpointManagerProxy.owner());
-        assertEq(
-            getPredeployedContractAddress("TaikoAnchor"),
-            address(CheckpointManager(checkpointManagerAddress).authorized())
-        );
-        assertEq(maxCheckpointStackSize, CheckpointManager(checkpointManagerAddress).maxStackSize());
-
-        vm.startPrank(checkpointManagerProxy.owner());
-
-        checkpointManagerProxy.upgradeTo(
-            address(
-                new CheckpointManager(
-                    getPredeployedContractAddress("TaikoAnchor"), maxCheckpointStackSize
-                )
-            )
-        );
-
-        vm.stopPrank();
-    }
 
     function testTaikoAnchor() public {
         TaikoAnchor taikoAnchorProxy = TaikoAnchor(getPredeployedContractAddress("TaikoAnchor"));
@@ -181,10 +156,6 @@ contract TestGenerateGenesis is Test {
         assertEq(
             getPredeployedContractAddress("SignalService"),
             address(taikoAnchorProxy.signalService())
-        );
-        assertEq(
-            getPredeployedContractAddress("CheckpointManager"),
-            address(taikoAnchorProxy.checkpointManager())
         );
         assertEq(
             getPredeployedContractAddress("BondManager"), address(taikoAnchorProxy.bondManager())
@@ -202,7 +173,7 @@ contract TestGenerateGenesis is Test {
                     getPredeployedContractAddress("SignalService"),
                     uint64(pacayaForkHeight),
                     uint64(shastaForkHeight),
-                    address(0), // checkpointManager - to be set later
+                    uint48(100), // maxCheckpointStackSize - default value
                     address(0) // bondManager - to be set later
                 )
             )
