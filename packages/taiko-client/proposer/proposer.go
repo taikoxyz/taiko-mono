@@ -340,6 +340,15 @@ func (p *Proposer) ProposeTxLists(
 		if err != nil {
 			return fmt.Errorf("failed to get parent meta hash: %w", err)
 		}
+		// Ensure we are not proposing too many tx lists before Shasta fork.
+		if len(txLists) > int(p.rpc.ShastaClients.ForkHeight.Uint64()-l2Head.Number.Uint64()-1) {
+			log.Warn(
+				"Too many tx lists, trimming to fit before Shasta fork",
+				"txLists", len(txLists),
+				"max", p.rpc.ShastaClients.ForkHeight.Uint64()-l2Head.Number.Uint64()-1,
+			)
+			txLists = txLists[:p.rpc.ShastaClients.ForkHeight.Uint64()-l2Head.Number.Uint64()-1]
+		}
 
 		if err := p.ProposeTxListPacaya(ctx, txLists, parentMetaHash); err != nil {
 			return err
