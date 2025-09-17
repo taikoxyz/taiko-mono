@@ -212,7 +212,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         CoreState memory coreState = _finalize(input);
 
         // Verify capacity for new proposals
-        uint256 availableCapacity = _getAvailableCapacity(coreState);
+        uint256 availableCapacity;
+        unchecked {
+            uint256 numUnfinalizedProposals =
+                coreState.nextProposalId - coreState.lastFinalizedProposalId - 1;
+            availableCapacity = _ringBufferSize - 1 - numUnfinalizedProposals;
+        }
         require(
             availableCapacity >= input.numForcedInclusions, ExceedsUnfinalizedProposalCapacity()
         );
@@ -667,18 +672,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     // ---------------------------------------------------------------
     // Private Functions
     // ---------------------------------------------------------------
-
-    /// @dev Calculates remaining capacity for new proposals
-    /// @notice Subtracts unfinalized proposals from total capacity
-    /// @param _coreState Current state with proposal counters
-    /// @return _ Number of additional proposals that can be submitted
-    function _getAvailableCapacity(CoreState memory _coreState) private view returns (uint256) {
-        unchecked {
-            uint256 numUnfinalizedProposals =
-                _coreState.nextProposalId - _coreState.lastFinalizedProposalId - 1;
-            return _ringBufferSize - 1 - numUnfinalizedProposals;
-        }
-    }
 
     /// @dev Validates propose function inputs
     /// @notice Checks deadline, proposal array, and state consistency
