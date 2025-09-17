@@ -25,8 +25,6 @@ library LibCheckpointStore {
         uint48 stackTop;
         /// @notice The current number of items in the stack
         uint48 stackSize;
-        /// @notice reserved for future usage
-        uint256[48] __gap;
     }
 
     // ---------------------------------------------------------------

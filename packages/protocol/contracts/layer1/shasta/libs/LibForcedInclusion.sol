@@ -35,8 +35,6 @@ library LibForcedInclusion {
         uint48 tail;
         /// @notice The last time a forced inclusion was processed.
         uint48 lastProcessedAt;
-        /// @notice reserved for future usage
-        uint256[48] __gap;
     }
 
     // ---------------------------------------------------------------

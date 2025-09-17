@@ -130,18 +130,18 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     mapping(bytes32 compositeKey => TransitionRecordHashAndDeadline hashAndDeadline) internal
         _transitionRecordHashAndDeadline;
 
-    uint256[41] private __gap1;
+    uint256[21] private __gap1;
 
     /// @dev Storage for forced inclusion requests
     /// @dev 50 slots used
-    LibForcedInclusion.Storage internal _forcedInclusionStorage;
+    LibForcedInclusion.Storage private _forcedInclusionStorage;
+    uint256[8] private __gap2;
 
     /// @dev Storage for checkpoint management
     /// Uses multiple slots for ring buffer storage
     /// @dev 50 slots used
-    LibCheckpointStore.Storage internal _checkpointStorage;
-
-    uint256[50] private __gap;
+    LibCheckpointStore.Storage private _checkpointStorage;
+    uint256[48] private __gap3;
 
     // ---------------------------------------------------------------
     // Constructor
