@@ -95,7 +95,15 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 	s.Equal(proposalTimestamp.Uint64(), proposalManifest.Blocks[0].Timestamp)
 
 	// Test lower bound enforcement with TIMESTAMP_MAX_OFFSET
-	lowTimestamp := parentTime - testutils.RandomHash().Big().Uint64()%500 - 100
+	// Calculate what the expected lower bound will be
+	expectedLowerBound := max(parentTime+1, proposalTimestamp.Uint64()-manifest.TimestampMaxOffset)
+	// Set lowTimestamp to be safely below the lower bound but above 0
+	offsetFromLowerBound := testutils.RandomHash().Big().Uint64()%100 + 10
+	lowTimestamp := expectedLowerBound - offsetFromLowerBound
+	if lowTimestamp > expectedLowerBound || lowTimestamp == 0 {
+		// Fallback to a safe value if calculation went wrong
+		lowTimestamp = max(1, expectedLowerBound-50)
+	}
 	proposalManifest = &manifest.ProposalManifest{
 		ParentBlock: types.NewBlock(&types.Header{Time: parentTime}, &types.Body{}, nil, nil),
 		Blocks: []*manifest.BlockManifest{
@@ -106,7 +114,6 @@ func (s *ShastaManifestFetcherTestSuite) TestValidateMetadataTimestamp() {
 	}
 
 	validateMetadataTimestamp(proposalManifest, proposal)
-	expectedLowerBound := max(parentTime+1, proposalTimestamp.Uint64()-manifest.TimestampMaxOffset)
 	s.Equal(expectedLowerBound, proposalManifest.Blocks[0].Timestamp)
 
 	// Test sequential block validation (parent timestamp updates)
