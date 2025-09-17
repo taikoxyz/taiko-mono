@@ -29,13 +29,13 @@ library LibProposedEventEncoder {
         ptr = P.packUint48(ptr, _payload.proposal.id);
         ptr = P.packAddress(ptr, _payload.proposal.proposer);
         ptr = P.packUint48(ptr, _payload.proposal.timestamp);
-        ptr = P.packUint48(ptr, _payload.proposal.lookaheadSlotTimestamp);
+        ptr = P.packUint48(ptr, _payload.proposal.endOfSubmissionWindowTimestamp);
         ptr = P.packUint48(ptr, _payload.derivation.originBlockNumber);
+        ptr = P.packBytes32(ptr, _payload.derivation.originBlockHash);
         ptr = P.packUint8(ptr, _payload.derivation.isForcedInclusion ? 1 : 0);
         ptr = P.packUint8(ptr, _payload.derivation.basefeeSharingPctg);
 
-        // Encode BlobSlice
-        // First encode the length of blobHashes array as uint24
+        // Encode blob slice (length + hashes + offset + timestamp)
         uint256 blobHashesLength = _payload.derivation.blobSlice.blobHashes.length;
         P.checkArrayLength(blobHashesLength);
         ptr = P.packUint24(ptr, uint24(blobHashesLength));
@@ -49,8 +49,9 @@ library LibProposedEventEncoder {
         ptr = P.packUint48(ptr, _payload.derivation.blobSlice.timestamp);
 
         ptr = P.packBytes32(ptr, _payload.proposal.coreStateHash);
+        ptr = P.packBytes32(ptr, _payload.proposal.derivationHash);
 
-        // Encode CoreState
+        // Encode core state
         ptr = P.packUint48(ptr, _payload.coreState.nextProposalId);
         ptr = P.packUint48(ptr, _payload.coreState.lastFinalizedProposalId);
         ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
@@ -72,10 +73,11 @@ library LibProposedEventEncoder {
         (payload_.proposal.id, ptr) = P.unpackUint48(ptr);
         (payload_.proposal.proposer, ptr) = P.unpackAddress(ptr);
         (payload_.proposal.timestamp, ptr) = P.unpackUint48(ptr);
-        (payload_.proposal.lookaheadSlotTimestamp, ptr) = P.unpackUint48(ptr);
+        (payload_.proposal.endOfSubmissionWindowTimestamp, ptr) = P.unpackUint48(ptr);
 
-        // Decode Derivation fields
+        // Decode derivation fields
         (payload_.derivation.originBlockNumber, ptr) = P.unpackUint48(ptr);
+        (payload_.derivation.originBlockHash, ptr) = P.unpackBytes32(ptr);
 
         uint8 isForcedInclusion;
         (isForcedInclusion, ptr) = P.unpackUint8(ptr);
@@ -83,7 +85,7 @@ library LibProposedEventEncoder {
 
         (payload_.derivation.basefeeSharingPctg, ptr) = P.unpackUint8(ptr);
 
-        // Decode BlobSlice
+        // Decode blob slice
         uint24 blobHashesLength;
         (blobHashesLength, ptr) = P.unpackUint24(ptr);
 
@@ -96,8 +98,9 @@ library LibProposedEventEncoder {
         (payload_.derivation.blobSlice.timestamp, ptr) = P.unpackUint48(ptr);
 
         (payload_.proposal.coreStateHash, ptr) = P.unpackBytes32(ptr);
+        (payload_.proposal.derivationHash, ptr) = P.unpackBytes32(ptr);
 
-        // Decode CoreState
+        // Decode core state
         (payload_.coreState.nextProposalId, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.lastFinalizedProposalId, ptr) = P.unpackUint48(ptr);
         (payload_.coreState.lastFinalizedTransitionHash, ptr) = P.unpackBytes32(ptr);
@@ -113,18 +116,19 @@ library LibProposedEventEncoder {
         returns (uint256 size_)
     {
         unchecked {
-            // Fixed size: 166 bytes
-            // Proposal: id(6) + proposer(20) + timestamp(6) + lookaheadSlotTimestamp(6) +
-            // originBlockNumber(6) +
-            //           isForcedInclusion(1) + basefeeSharingPctg(1) = 46
+            // Fixed size: 230 bytes
+            // Proposal: id(6) + proposer(20) + timestamp(6) + endOfSubmissionWindowTimestamp(6) =
+            // 38
+            // Derivation: originBlockNumber(6) + originBlockHash(32) + isForcedInclusion(1) +
+            // basefeeSharingPctg(1) = 40
             // BlobSlice: arrayLength(3) + offset(3) + timestamp(6) = 12
-            // coreStateHash: 32
+            // Proposal hashes: coreStateHash(32) + derivationHash(32) = 64
             // CoreState: nextProposalId(6) + lastFinalizedProposalId(6) +
             //           lastFinalizedTransitionHash(32) + bondInstructionsHash(32) = 76
-            // Total fixed: 46 + 12 + 32 + 76 = 166
+            // Total fixed: 38 + 40 + 12 + 64 + 76 = 230
 
             // Variable size: each blob hash is 32 bytes
-            size_ = 166 + (_blobHashesCount * 32);
+            size_ = 230 + (_blobHashesCount * 32);
         }
     }
 }

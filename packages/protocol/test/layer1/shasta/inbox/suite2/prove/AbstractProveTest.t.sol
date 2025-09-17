@@ -4,10 +4,8 @@ pragma solidity ^0.8.24;
 
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
-import { LibBonds } from "contracts/shared/based/libs/LibBonds.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
 import { BlobTestUtils } from "../common/BlobTestUtils.sol";
-import { console2 } from "forge-std/src/console2.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 
 // Import errors from Inbox implementation
@@ -57,9 +55,9 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         vm.stopSnapshotGas();
 
         // Verify transition record is stored
-        bytes32 transitionRecordHash =
+        (, bytes26 recordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-        assertTrue(transitionRecordHash != bytes32(0), "Transition record should be stored");
+        assertTrue(recordHash != bytes32(0), "Transition record should be stored");
 
         // Verify exactly one Proved event was emitted
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -314,7 +312,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             id: 999,
             proposer: Alice,
             timestamp: uint48(block.timestamp),
-            lookaheadSlotTimestamp: uint48(block.timestamp + 12),
+            endOfSubmissionWindowTimestamp: uint48(block.timestamp + 12),
             coreStateHash: keccak256("fake"),
             derivationHash: keccak256("fake")
         });
@@ -353,9 +351,9 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         inbox.prove(proveData, proof);
 
         // Verify transition record was stored
-        bytes32 transitionRecordHash =
+        (, bytes26 recordHash) =
             inbox.getTransitionRecordHash(proposal.id, _getGenesisTransitionHash());
-        assertTrue(transitionRecordHash != bytes32(0), "Transition record should be stored");
+        assertTrue(recordHash != bytes32(0), "Transition record should be stored");
     }
 
     // ---------------------------------------------------------------
