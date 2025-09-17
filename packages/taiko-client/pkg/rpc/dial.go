@@ -21,7 +21,7 @@ func DialClientWithBackoff(
 	var client *ethclient.Client
 	if err := backoff.Retry(
 		func() (err error) {
-			ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+			ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 			defer cancel()
 
 			client, err = ethclient.DialContext(ctxWithTimeout, url)
@@ -52,7 +52,7 @@ func DialEngineClientWithBackoff(
 	var engineClient *EngineClient
 	if err := backoff.Retry(
 		func() (err error) {
-			ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+			ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 			defer cancel()
 
 			jwtAuth := node.NewJWTAuth(StringToBytes32(jwtSecret))

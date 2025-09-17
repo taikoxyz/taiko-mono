@@ -192,17 +192,26 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		return nil, fmt.Errorf("failed to get shasta inbox config: %w", encoding.TryParsingCustomError(err))
 	}
 
+	// Fetch proposals and transitions from the state indexer.
+	// We need to fetch up to 2 proposals and MaxFinalizationCount transition records.
 	proposals, transitions, err := b.shastaStateIndexer.GetProposalsInput(config.MaxFinalizationCount.Uint64())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get proposals input from shasta state indexer: %w", err)
+	}
+
 	var (
 		parentProposals   []shastaBindings.IInboxProposal
 		transitionRecords []shastaBindings.IInboxTransitionRecord
 		checkpoint        = shastaBindings.ICheckpointManagerCheckpoint{BlockNumber: common.Big0}
+		proposalManifest  = &manifest.ProtocolProposalManifest{}
 	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get proposals input from shasta state indexer: %w", err)
-	}
 	for i, p := range proposals {
-		log.Info("Fetched proposal from state indexer", "index", i, "id", p.Proposal.Id)
+		log.Info(
+			"Fetched proposal from state indexer",
+			"index", i,
+			"id", p.Proposal.Id,
+			"coreStateHash", common.Bytes2Hex(p.Proposal.CoreStateHash[:]),
+		)
 		parentProposals = append(parentProposals, *p.Proposal)
 	}
 	for i, t := range transitions {
@@ -210,6 +219,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 			"Fetched transition from state indexer",
 			"index", i,
 			"proposalHash", common.Bytes2Hex(t.Transition.ProposalHash[:]),
+			"checkpointBlockNumber", t.Transition.Checkpoint.BlockNumber.Uint64(),
 		)
 		if i == len(transitions)-1 {
 			checkpoint = t.Transition.Checkpoint
@@ -221,6 +231,7 @@ func (b *BlobTransactionBuilder) BuildShasta(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get L1 head: %w", err)
 	}
+	// The L1 head must be greater than AnchorMinOffset to propose a new proposal.
 	if l1Head.Number.Uint64() <= manifest.AnchorMinOffset {
 		return nil, fmt.Errorf(
 			"L1 head number %d is lower than required min offset %d",
@@ -229,9 +240,10 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		)
 	}
 
-	proposalManifest := &manifest.ProtocolProposalManifest{}
 	for i, txs := range txBatch {
-		anchorBlockNumber := uint64(0)
+		// For the first block, we set the anchor block number to
+		// (L1 head - AnchorMinOffset - 1).
+		var anchorBlockNumber = uint64(0)
 		if i == 0 {
 			anchorBlockNumber = l1Head.Number.Uint64() - (manifest.AnchorMinOffset + 1)
 		}
@@ -245,15 +257,18 @@ func (b *BlobTransactionBuilder) BuildShasta(
 		})
 	}
 
+	// Encode the proposal manifest.
 	proposalManifestBytes, err := EncodeProposalManifestShasta(proposalManifest)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode proposal manifest: %w", err)
 	}
 
+	// Split the proposal manifest bytes into multiple blobs.
 	if blobs, err = b.splitToBlobs(proposalManifestBytes); err != nil {
 		return nil, err
 	}
 
+	// ABI encode the ShastaInbox.propose parameters.
 	inputData, err := b.rpc.EncodeProposeInputShasta(
 		&bind.CallOpts{Context: ctx},
 		&shastaBindings.IInboxProposeInput{

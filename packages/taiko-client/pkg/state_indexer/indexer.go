@@ -623,6 +623,7 @@ func (s *Indexer) cleanupAfterReorg(safeHeight *big.Int) {
 	)
 }
 
+// GetTransitionRecordByProposalID retrieves a transition record by its proposal ID.
 func (s *Indexer) GetTransitionRecordByProposalID(proposalID uint64) *TransitionPayload {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()

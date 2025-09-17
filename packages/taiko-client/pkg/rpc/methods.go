@@ -45,7 +45,7 @@ func (c *Client) GetProtocolConfigs(opts *bind.CallOpts) (config.ProtocolConfigs
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	configs, err := c.PacayaClients.TaikoInbox.PacayaConfig(opts)
@@ -62,7 +62,7 @@ func (c *Client) GetProtocolConfigsShasta(opts *bind.CallOpts) (*shastaBindings.
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	configs, err := c.ShastaClients.Inbox.GetConfig(opts)
@@ -76,7 +76,7 @@ func (c *Client) GetProtocolConfigsShasta(opts *bind.CallOpts) (*shastaBindings.
 // ensureGenesisMatched fetches the L2 genesis block from Pacaya TaikoInbox contract,
 // and checks whether the fetched genesis is same to the node local genesis.
 func (c *Client) ensureGenesisMatched(ctx context.Context, taikoInbox common.Address) error {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
@@ -231,7 +231,7 @@ func (c *Client) WaitTillL2ExecutionEngineSynced(
 
 	return backoff.Retry(
 		func() error {
-			newCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+			newCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 			defer cancel()
 			progress, err := c.L2ExecutionEngineSyncProgress(newCtx, lastShastaCoreState)
 			if err != nil {
@@ -259,7 +259,7 @@ func (c *Client) WaitTillL2ExecutionEngineSynced(
 // LatestL2KnownL1Header fetches the L2 execution engine's latest known L1 header,
 // if we can't find the L1Origin data, we will use the L1 genesis header instead.
 func (c *Client) LatestL2KnownL1Header(ctx context.Context) (*types.Header, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	// Try to fetch the latest known L1 header from the L2 execution engine.
@@ -296,7 +296,7 @@ func (c *Client) LatestL2KnownL1Header(ctx context.Context) (*types.Header, erro
 
 // GetGenesisL1Header fetches the L1 header that including L2 genesis block.
 func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
@@ -309,7 +309,7 @@ func (c *Client) GetGenesisL1Header(ctx context.Context) (*types.Header, error) 
 
 // GetBatchByID fetches the batch by ID from the Pacaya protocol.
 func (c *Client) GetBatchByID(ctx context.Context, batchID *big.Int) (*pacayaBindings.ITaikoInboxBatch, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	batch, err := c.PacayaClients.TaikoInbox.GetBatch(&bind.CallOpts{Context: ctxWithTimeout}, batchID.Uint64())
@@ -323,7 +323,7 @@ func (c *Client) GetBatchByID(ctx context.Context, batchID *big.Int) (*pacayaBin
 // L2ParentByCurrentBlockID fetches the block header from L2 execution engine with the largest block id that
 // smaller than the given `blockId`.
 func (c *Client) L2ParentByCurrentBlockID(ctx context.Context, blockID *big.Int) (*types.Header, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var (
@@ -499,7 +499,7 @@ func (c *Client) GetPoolContent(
 	chainConfig *config.ChainConfig,
 	baseFeeConfig *pacayaBindings.LibSharedDataBaseFeeConfig,
 ) ([]*miner.PreBuiltTxList, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	l2Head, err := c.L2.HeaderByNumber(ctx, nil)
@@ -535,7 +535,7 @@ func (c *Client) L2AccountNonce(
 	account common.Address,
 	blockHash common.Hash,
 ) (uint64, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var result hexutil.Uint64
@@ -574,7 +574,7 @@ func (c *Client) L2ExecutionEngineSyncProgress(
 	ctx context.Context,
 	lastShastaCoreState *shastaBindings.IInboxCoreState,
 ) (*L2SyncProgress, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var (
@@ -662,7 +662,7 @@ func (c *Client) GetProtocolStateVariablesPacaya(opts *bind.CallOpts) (*struct {
 	if opts.Context != nil {
 		ctx = opts.Context
 	}
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 	opts.Context = ctxWithTimeout
 
@@ -693,7 +693,7 @@ func (c *Client) GetLastVerifiedTransitionPacaya(ctx context.Context) (*struct {
 	BlockId uint64
 	Ts      pacayaBindings.ITaikoInboxTransitionState
 }, error) {
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	t, err := c.PacayaClients.TaikoInbox.GetLastVerifiedTransition(&bind.CallOpts{Context: ctxWithTimeout})
@@ -726,7 +726,7 @@ type ReorgCheckResult struct {
 func (c *Client) CheckL1Reorg(ctx context.Context, batchID *big.Int, isShastaBatch bool) (*ReorgCheckResult, error) {
 	var (
 		result                 = new(ReorgCheckResult)
-		ctxWithTimeout, cancel = CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+		ctxWithTimeout, cancel = CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 		err                    error
 	)
 	defer cancel()
@@ -920,7 +920,7 @@ func (c *Client) checkSyncedL1SnippetFromAnchor(
 
 // LastL1OriginInBatch fetches the L1Origin of the last block in the given batch.
 func (c *Client) LastL1OriginInBatch(ctx context.Context, batchID *big.Int) (*rawdb.L1Origin, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	// If we can't find the L1Origin from the L2 execution engine, we will fetch it from the Pacaya protocol.
@@ -1097,7 +1097,7 @@ func (c *Client) GetProofVerifierPacaya(opts *bind.CallOpts) (common.Address, er
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	return c.PacayaClients.TaikoInbox.Verifier(opts)
@@ -1113,7 +1113,7 @@ func (c *Client) GetPreconfWhiteListOperator(opts *bind.CallOpts) (common.Addres
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	proposer, err := c.PacayaClients.PreconfWhitelist.GetOperatorForCurrentEpoch(opts)
@@ -1139,7 +1139,7 @@ func (c *Client) GetNextPreconfWhiteListOperator(opts *bind.CallOpts) (common.Ad
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	proposer, err := c.PacayaClients.PreconfWhitelist.GetOperatorForNextEpoch(opts)
@@ -1166,7 +1166,7 @@ func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, 
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	count, err := c.PacayaClients.PreconfWhitelist.OperatorCount(opts)
@@ -1188,7 +1188,7 @@ func (c *Client) GetAllPreconfOperators(opts *bind.CallOpts) ([]common.Address, 
 
 // GetLastPacayaBatchID gets the last Pacaya batch ID from the protocol.
 func (c *Client) GetLastPacayaBatchID(ctx context.Context) (*big.Int, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	stateVars, err := c.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: ctxWithTimeout})
@@ -1209,7 +1209,7 @@ func (c *Client) GetForcedInclusionPacaya(ctx context.Context) (
 	*big.Int,
 	error,
 ) {
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var (
@@ -1331,7 +1331,7 @@ func (c *Client) GetPreconfRouterConfig(opts *bind.CallOpts) (*pacayaBindings.IP
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	routerConfig, err := c.PacayaClients.PreconfRouter.GetConfig(opts)
@@ -1355,7 +1355,7 @@ func getImmutableAddressPacaya[T func(opts *bind.CallOpts) (common.Address, erro
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	return resolveFunc(opts)
@@ -1367,7 +1367,7 @@ func (c *Client) GetShastaProposalHash(opts *bind.CallOpts, proposalID *big.Int)
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	return c.ShastaClients.Inbox.GetProposalHash(opts, proposalID)
@@ -1379,7 +1379,7 @@ func (c *Client) GetShastaAnchorState(opts *bind.CallOpts) (shastaBindings.Shast
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	return c.ShastaClients.Anchor.GetState(opts)
@@ -1394,7 +1394,7 @@ func (c *Client) EncodeProposeInputShasta(
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	return c.ShastaClients.Inbox.EncodeProposeInput(opts, *input)
@@ -1406,7 +1406,7 @@ func (c *Client) EncodeProveInputShasta(opts *bind.CallOpts, input *shastaBindin
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	return c.ShastaClients.Inbox.EncodeProveInput(opts, *input)
@@ -1418,7 +1418,7 @@ func (c *Client) GetShastaInboxConfigs(opts *bind.CallOpts) (*shastaBindings.IIn
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	cfg, err := c.ShastaClients.Inbox.GetConfig(opts)

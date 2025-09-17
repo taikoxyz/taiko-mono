@@ -53,7 +53,7 @@ func (c *EngineClient) ForkchoiceUpdate(
 	fc *engine.ForkchoiceStateV1,
 	attributes *engine.PayloadAttributes,
 ) (*engine.ForkChoiceResponse, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var result *engine.ForkChoiceResponse
@@ -69,7 +69,7 @@ func (c *EngineClient) NewPayload(
 	ctx context.Context,
 	payload *engine.ExecutableData,
 ) (*engine.PayloadStatusV1, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var result *engine.PayloadStatusV1
@@ -85,7 +85,7 @@ func (c *EngineClient) GetPayload(
 	ctx context.Context,
 	payloadID *engine.PayloadID,
 ) (*engine.ExecutableData, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var result *engine.ExecutionPayloadEnvelope
@@ -101,7 +101,7 @@ func (c *EngineClient) ExchangeTransitionConfiguration(
 	ctx context.Context,
 	cfg *engine.TransitionConfigurationV1,
 ) (*engine.TransitionConfigurationV1, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var result *engine.TransitionConfigurationV1
@@ -123,7 +123,7 @@ func (c *EngineClient) TxPoolContentWithMinTip(
 	maxTransactionsLists uint64,
 	minTip uint64,
 ) ([]*miner.PreBuiltTxList, error) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, defaultTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, DefaultRpcTimeout)
 	defer cancel()
 	var result []*miner.PreBuiltTxList
 

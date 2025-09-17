@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	defaultTimeout = 1 * time.Minute
+	DefaultRpcTimeout = 1 * time.Minute
 )
 
 // PacayaClients contains all smart contract clients for Pacaya fork.
@@ -89,7 +89,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 
 	// Keep retrying to connect to the RPC endpoints until success or context is cancelled.
 	if err := backoff.Retry(func() error {
-		ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+		ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 		defer cancel()
 
 		if l1Client, err = NewEthClient(ctxWithTimeout, cfg.L1Endpoint, cfg.Timeout); err != nil {
@@ -104,7 +104,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 
 		// NOTE: when running tests, we do not have a L1 beacon endpoint.
 		if cfg.L1BeaconEndpoint != "" && os.Getenv("RUN_TESTS") == "" {
-			if l1BeaconClient, err = NewBeaconClient(cfg.L1BeaconEndpoint, defaultTimeout); err != nil {
+			if l1BeaconClient, err = NewBeaconClient(cfg.L1BeaconEndpoint, DefaultRpcTimeout); err != nil {
 				log.Error("Failed to connect to L1 beacon endpoint, retrying", "endpoint", cfg.L1BeaconEndpoint, "err", err)
 				return err
 			}
@@ -149,7 +149,7 @@ func NewClient(ctx context.Context, cfg *ClientConfig) (*Client, error) {
 		return nil, fmt.Errorf("failed to initialize Shasta clients: %w", err)
 	}
 
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 	// Initialize the fork height numbers.
 	if err := c.initForkHeightConfigs(ctxWithTimeout); err != nil {
@@ -201,7 +201,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 	}
 	var cancel context.CancelFunc
 	opts := &bind.CallOpts{Context: context.Background()}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 	composeVerifierAddress, err := taikoInbox.Verifier(opts)
 	if err != nil {
@@ -233,7 +233,7 @@ func (c *Client) initPacayaClients(cfg *ClientConfig) error {
 			return fmt.Errorf("failed to create new instance of PreconfWhitelist: %w", err)
 		}
 	}
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(context.Background(), defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(context.Background(), DefaultRpcTimeout)
 	defer cancel()
 	if taikoWrapper != nil {
 		preconfRouterAddress, err := taikoWrapper.PreconfRouter(&bind.CallOpts{Context: ctxWithTimeout})

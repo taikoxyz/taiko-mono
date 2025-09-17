@@ -46,7 +46,7 @@ func CheckProverBalance(
 	address common.Address,
 	bond *big.Int,
 ) (bool, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	// Check allowance on taiko token contract
@@ -122,7 +122,7 @@ func GetBatchProofStatus(
 	cli *Client,
 	batchID *big.Int,
 ) (*BatchProofStatus, error) {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	var (
@@ -191,7 +191,7 @@ func GetBatchProofStatus(
 // SetHead makes a `debug_setHead` RPC call to set the chain's head, should only be used
 // for testing purpose.
 func SetHead(ctx context.Context, client *EthClient, headNum *big.Int) error {
-	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, defaultTimeout)
+	ctxWithTimeout, cancel := CtxWithTimeoutOrDefault(ctx, DefaultRpcTimeout)
 	defer cancel()
 
 	return client.SetHead(ctxWithTimeout, headNum)
@@ -248,7 +248,7 @@ func DecodeShastaProposalData(
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	proposedEventPayload, err := inbox.DecodeProposedEventData(opts, data)
@@ -272,7 +272,7 @@ func DecodeShastaProvedData(
 	if opts == nil {
 		opts = &bind.CallOpts{Context: context.Background()}
 	}
-	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, defaultTimeout)
+	opts.Context, cancel = CtxWithTimeoutOrDefault(opts.Context, DefaultRpcTimeout)
 	defer cancel()
 
 	provedEventPayload, err := inbox.DecodeProvedEventData(opts, data)
