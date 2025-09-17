@@ -5,6 +5,7 @@ import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
 import { BlobTestUtils } from "../common/BlobTestUtils.sol";
+import { Vm } from "forge-std/src/Vm.sol";
 
 // Import errors from Inbox implementation
 import "contracts/layer1/shasta/impl/Inbox.sol";
@@ -356,6 +357,57 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         vm.expectRevert(UnprocessedForcedInclusionIsDue.selector);
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
+    }
+
+    function test_propose_ForcedInclusionPrioritizedWhenOneSpaceLeft() public {
+        _setupBlobHashes();
+
+        uint256 ringBufferSize = inbox.getConfig().ringBufferSize;
+        
+        // Fill the ring buffer to leave only 1 space
+        (IInbox.Proposal memory lastProposal, IInbox.CoreState memory coreState) = 
+            _fillRingBufferTo(uint48(ringBufferSize - 1));
+
+        // Store one forced inclusion
+        _storeForcedInclusions(1, 0);
+
+        // Try to propose with both a forced inclusion and a regular proposal
+        // When there's only 1 space left and 1 forced inclusion is processed,
+        // the regular proposal should NOT be included
+        bytes memory proposeData = _createProposeInputWithForcedInclusions(
+            0,
+            _createBlobRef(1, 1, 0),  // Regular proposal blob
+            _singleParentArray(lastProposal),
+            coreState,
+            1  // Process 1 forced inclusion
+        );
+
+        // We expect exactly one Proposed event to be emitted (for the forced inclusion only)
+        // The regular proposal should NOT be emitted since there's no capacity left
+        
+        vm.prank(currentProposer);
+        vm.recordLogs();
+        inbox.propose(bytes(""), proposeData);
+        
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        
+        // Should have exactly one Proposed event
+        uint256 proposedEventCount = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == IInbox.Proposed.selector) {
+                proposedEventCount++;
+            }
+        }
+        assertEq(proposedEventCount, 1, "Should emit exactly one Proposed event");
+
+        // Verify that the forced inclusion was stored at the expected slot
+        bytes32 forcedInclusionHash = inbox.getProposalHash(uint48(ringBufferSize - 1));
+        assertNotEq(forcedInclusionHash, bytes32(0), "Forced inclusion should be stored");
+
+        // Verify that no regular proposal was stored by checking slot 0 still contains genesis
+        bytes32 slot0Hash = inbox.getProposalHash(0);
+        bytes32 genesisHash = inbox.hashProposal(_createGenesisProposal(inbox));
+        assertEq(slot0Hash, genesisHash, "Slot 0 should still contain genesis proposal (no regular proposal stored)");
     }
 
     // ---------------------------------------------------------------
