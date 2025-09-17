@@ -321,7 +321,7 @@ Issue exactly `config.gasTargetPerL1Block` for each L1 block.
 >
 > At the block where the base fee is incorrect the chain is halted and funds are locked since the anchor now reverts in perpetuity.
 >
-> In practice Taiko can easily release all funds by upgrading the contracts but I believe such an intervention should not be considered when evaluating the severity of an issue. From [C4 Supreme Court session, Fall 2023](https://docs.code4rena.com/awarding/judging-criteria/supreme-court-decisions-fall-2023)
+> In practice, Taiko can easily release all funds by upgrading the contracts but I believe such an intervention should not be considered when evaluating the severity of an issue. From [C4 Supreme Court session, Fall 2023](https://docs.code4rena.com/awarding/judging-criteria/supreme-court-decisions-fall-2023)
 >
 > > Contract upgradability should never be used as a severity mitigation, i.e. we assume contracts are non-upgradable.
 >
@@ -341,7 +341,7 @@ Issue exactly `config.gasTargetPerL1Block` for each L1 block.
 
 ---
 
-## [[H-02] Validity and contests bond ca be incorrectly burned for the correct and ultimately verified transition](https://github.com/code-423n4/2024-03-taiko-findings/issues/266)
+## [[H-02] Validity and contests bond can be incorrectly burned for the correct and ultimately verified transition](https://github.com/code-423n4/2024-03-taiko-findings/issues/266)
 
 _Submitted by [monrel](https://github.com/code-423n4/2024-03-taiko-findings/issues/266), also found by [t0x1c](https://github.com/code-423n4/2024-03-taiko-findings/issues/227)_
 
@@ -361,7 +361,7 @@ Example 1: Validity bond is wrongfully burned:
 2.  Alice contests and proves T2 for parent P1 with higher tier proof.
 3.  Guardians steps in to correctly prove T1 for parent P2.
 
-At step 2 Bob loses his bond and is permanentley written out of the history of P1 <br><https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L387-L392>
+At step 2 Bob loses his bond and is permanently written out of the history of P1 <br><https://github.com/code-423n4/2024-03-taiko/blob/f58384f44dbf4c6535264a472322322705133b11/packages/protocol/contracts/L1/libs/LibProving.sol#L387-L392>
 
 ```solidity
     _ts.validityBond = _tier.validityBond;
@@ -470,7 +470,7 @@ POC for example 1. Paste the below code into the `TaikoL1LibProvingWithTiers.t` 
                 + 1
         );
 
-        // When the correct transition T1 is verified Bob does permantley loses his validitybond
+        // When the correct transition T1 is verified Bob does permanently loses his validitybond
         // even though it is the correct transition for the verified parent P1.
         verifyBlock(Carol, 1);
         parentHash = blockHash;
@@ -652,7 +652,7 @@ As part of the process of proposal, hooks can be called of type AssignmentHook. 
                     blk, meta_, params.hookCalls[i].data
                 );
 
-Notice how the meta data is passed to this function. Part of the function of the onBlockProposed is to pay the assigned prover their fee and the payee should be the current proposer of the block. this is done as follows:
+Notice how the meta data is passed to this function. Part of the function of the onBlockProposed is to pay the assigned prover their fee and the payee should be the current proposer of the block. This is done as follows:
 
             // The proposer irrevocably pays a fee to the assigned prover, either in
         // Ether or ERC20 tokens.
