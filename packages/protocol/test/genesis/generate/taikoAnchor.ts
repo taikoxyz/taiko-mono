@@ -192,6 +192,12 @@ async function generateContractConfigs(
         LibNetwork: require(
             path.join(ARTIFACTS_PATH, "./LibNetwork.sol/LibNetwork.json"),
         ),
+        LibCheckpointStore: require(
+            path.join(ARTIFACTS_PATH, "./LibCheckpointStore.sol/LibCheckpointStore.json"),
+        ),
+        LibBonds: require(
+            path.join(ARTIFACTS_PATH, "./LibBonds.sol/LibBonds.json"),
+        ),
     };
 
     const proxy = require(
@@ -869,6 +875,16 @@ async function generateContractConfigs(
             address: addressMap.LibNetwork,
             deployedBytecode:
                 contractArtifacts.LibNetwork.deployedBytecode.object,
+        },
+        LibCheckpointStore: {
+            address: addressMap.LibCheckpointStore,
+            deployedBytecode:
+                contractArtifacts.LibCheckpointStore.deployedBytecode.object,
+        },
+        LibBonds: {
+            address: addressMap.LibBonds,
+            deployedBytecode:
+                contractArtifacts.LibBonds.deployedBytecode.object,
         },
     };
 }
