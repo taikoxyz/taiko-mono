@@ -335,6 +335,14 @@ func (d *Driver) reportProtocolStatus() {
 
 // reportProtocolStatusPacaya reports some status for Pacaya protocol.
 func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
+	proposal, err := d.rpc.GetShastaProposalHash(&bind.CallOpts{Context: d.ctx}, common.Big1)
+	if err != nil {
+		log.Debug("Failed to get Shasta proposal hash", "error", err)
+	}
+	// If we've forked into Shasta fork, stop reporting Pacaya status.
+	if proposal != (common.Hash{}) {
+		return
+	}
 	vars, err := d.rpc.GetProtocolStateVariablesPacaya(&bind.CallOpts{Context: d.ctx})
 	if err != nil {
 		log.Error("Failed to get protocol state variables", "error", err)
@@ -342,7 +350,7 @@ func (d *Driver) reportProtocolStatusPacaya(maxNumProposals uint64) {
 	}
 
 	log.Info(
-		"📖 Protocol status",
+		"📖 Pacaya protocol status",
 		"lastVerifiedBacthID", vars.Stats2.LastVerifiedBatchId,
 		"pendingBatchs", vars.Stats2.NumBatches-vars.Stats2.LastVerifiedBatchId-1,
 		"availableSlots", vars.Stats2.LastVerifiedBatchId+maxNumProposals-vars.Stats2.NumBatches,
