@@ -159,7 +159,7 @@ func (s *ProofSubmitterShasta) BatchSubmitProofs(ctx context.Context, batchProof
 		"lastID", batchProof.BatchIDs[len(batchProof.BatchIDs)-1],
 		"proofType", batchProof.ProofType,
 	)
-	// Build the TaikoInbox.proveBatches transaction and send it to the L1 node.
+	// Build the Shata Inbox.prove transaction and send it to the L1 node.
 	if err := s.sender.SendBatchProof(
 		ctx,
 		s.txBuilder.BuildProveBatchesShasta(batchProof),
