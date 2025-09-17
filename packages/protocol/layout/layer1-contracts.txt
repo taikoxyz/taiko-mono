@@ -589,19 +589,25 @@
 |
 | _transitionRecordHashAndDeadline | mapping(bytes32 => struct Inbox.TransitionRecordHashAndDeadline)    | 259  | 0      | 32    |
 |
-| _forcedInclusionStorage          | struct LibForcedInclusion.Storage                                   | 260  | 0      | 64    |
+| __gap1                           | uint256[21]                                                         | 260  | 0      | 672   |
 |
-| __gap                            | uint256[39]                                                         | 262  | 0      | 1248  |
+| _forcedInclusionStorage          | struct LibForcedInclusion.Storage                                   | 281  | 0      | 64    |
 |
-| _reusableTransitionRecords       | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | 301  | 0      | 32    |
+| __gap2                           | uint256[8]                                                          | 283  | 0      | 256   |
 |
-| __gap                            | uint256[49]                                                         | 302  | 0      | 1568  |
+| _checkpointStorage               | struct LibCheckpointStore.Storage                                   | 291  | 0      | 64    |
 |
-| __gap                            | uint256[50]                                                         | 351  | 0      | 1600  |
+| __gap3                           | uint256[48]                                                         | 293  | 0      | 1536  |
 |
-| __gap                            | uint256[50]                                                         | 401  | 0      | 1600  |
+| _reusableTransitionRecords       | mapping(uint256 => struct InboxOptimized1.ReusableTransitionRecord) | 341  | 0      | 32    |
 |
-| __gap                            | uint256[50]                                                         | 451  | 0      | 1600  |
+| __gap                            | uint256[49]                                                         | 342  | 0      | 1568  |
+|
+| __gap                            | uint256[50]                                                         | 391  | 0      | 1600  |
+|
+| __gap                            | uint256[50]                                                         | 441  | 0      | 1600  |
+|
+| __gap                            | uint256[50]                                                         | 491  | 0      | 1600  |
 ╰----------------------------------+---------------------------------------------------------------------+------+--------+-------+------------------------------------------------------------------------╯
 
 
