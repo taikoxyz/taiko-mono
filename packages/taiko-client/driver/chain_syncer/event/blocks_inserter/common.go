@@ -650,7 +650,7 @@ func assembleCreateExecutionPayloadMetaShasta(
 	}
 
 	// Encode extraData with basefeeSharingPctg and isLowBondProposal
-	extraData, err := encodeExtraData(meta.GetDerivation().BasefeeSharingPctg, isLowBondProposal)
+	extraData, err := encodeShastaExtraData(meta.GetDerivation().BasefeeSharingPctg, isLowBondProposal)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to encode extraData: %w", err)
 	}
@@ -692,14 +692,35 @@ func updateL1OriginForBatchPacaya(
 		return fmt.Errorf("metadata is not for Pacaya fork")
 	}
 
-	var (
-		meta = metadata.Pacaya()
-		g    = new(errgroup.Group)
+	meta := metadata.Pacaya()
+	return updateL1OriginForBlocks(
+		ctx,
+		rpc,
+		len(meta.GetBlocks()),
+		func(i int) *big.Int {
+			return new(big.Int).SetUint64(meta.GetLastBlockID() - uint64(len(meta.GetBlocks())-1-i))
+		},
+		func() *big.Int { return meta.GetBatchID() },
+		meta.GetRawBlockHeight(),
+		meta.GetRawBlockHash(),
 	)
+}
 
-	for i := 0; i < len(meta.GetBlocks()); i++ {
+// updateL1OriginForBlocks updates L1 origin for a batch of blocks with given parameters.
+func updateL1OriginForBlocks(
+	ctx context.Context,
+	rpc *rpc.Client,
+	blockCount int,
+	getBlockID func(i int) *big.Int,
+	getBatchID func() *big.Int,
+	l1BlockHeight *big.Int,
+	l1BlockHash common.Hash,
+) error {
+	g := new(errgroup.Group)
+
+	for i := 0; i < blockCount; i++ {
 		g.Go(func() error {
-			blockID := new(big.Int).SetUint64(meta.GetLastBlockID() - uint64(len(meta.GetBlocks())-1-i))
+			blockID := getBlockID(i)
 
 			header, err := rpc.L2.HeaderByNumber(ctx, blockID)
 			if err != nil {
@@ -709,9 +730,10 @@ func updateL1OriginForBatchPacaya(
 			l1Origin := &rawdb.L1Origin{
 				BlockID:       blockID,
 				L2BlockHash:   header.Hash(),
-				L1BlockHeight: meta.GetRawBlockHeight(),
-				L1BlockHash:   meta.GetRawBlockHash(),
+				L1BlockHeight: l1BlockHeight,
+				L1BlockHash:   l1BlockHash,
 			}
+
 			// Fetch the original L1Origin to get the BuildPayloadArgsID.
 			originalL1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
 			if err != nil && !errors.Is(err, ethereum.NotFound) {
@@ -730,7 +752,7 @@ func updateL1OriginForBatchPacaya(
 			}
 
 			// If this is the most recent block, update the HeadL1Origin.
-			if i == len(meta.GetBlocks())-1 {
+			if i == blockCount-1 {
 				log.Info(
 					"Update head L1 origin",
 					"blockID", blockID,
@@ -741,7 +763,7 @@ func updateL1OriginForBatchPacaya(
 				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}
-				if _, err := rpc.L2Engine.SetBatchToLastBlock(ctx, meta.GetBatchID(), blockID); err != nil {
+				if _, err := rpc.L2Engine.SetBatchToLastBlock(ctx, getBatchID(), blockID); err != nil {
 					return fmt.Errorf("failed to write batch to block mapping: %w", err)
 				}
 			}
@@ -764,69 +786,24 @@ func updateL1OriginForBatchShasta(
 		return fmt.Errorf("metadata is not for Shasta fork blocks")
 	}
 
-	var (
-		meta        = metadata.Shasta()
-		lastBlockID = parentHeader.Number.Uint64() + uint64(len(proposalManifest.Blocks))
-		g           = new(errgroup.Group)
+	meta := metadata.Shasta()
+	lastBlockID := parentHeader.Number.Uint64() + uint64(len(proposalManifest.Blocks))
+
+	return updateL1OriginForBlocks(
+		ctx,
+		rpc,
+		len(proposalManifest.Blocks),
+		func(i int) *big.Int {
+			return new(big.Int).SetUint64(lastBlockID - uint64(len(proposalManifest.Blocks)-1-i))
+		},
+		func() *big.Int { return meta.GetProposal().Id },
+		meta.GetRawBlockHeight(),
+		meta.GetRawBlockHash(),
 	)
-
-	for i := 0; i < len(proposalManifest.Blocks); i++ {
-		g.Go(func() error {
-			blockID := new(big.Int).SetUint64(lastBlockID - uint64(len(proposalManifest.Blocks)-1-i))
-
-			header, err := rpc.L2.HeaderByNumber(ctx, blockID)
-			if err != nil {
-				return fmt.Errorf("failed to get block by number %d: %w", blockID, err)
-			}
-
-			l1Origin := &rawdb.L1Origin{
-				BlockID:       blockID,
-				L2BlockHash:   header.Hash(),
-				L1BlockHeight: meta.GetRawBlockHeight(),
-				L1BlockHash:   meta.GetRawBlockHash(),
-			}
-			// Fetch the original L1Origin to get the BuildPayloadArgsID.
-			originalL1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
-			if err != nil && !errors.Is(err, ethereum.NotFound) {
-				return fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
-			}
-			// If L1Origin is not found, it means this block is synced from beacon sync,
-			// and we also won't set the `BuildPayloadArgsID` value and related fields.
-			if originalL1Origin != nil {
-				l1Origin.BuildPayloadArgsID = originalL1Origin.BuildPayloadArgsID
-				l1Origin.Signature = originalL1Origin.Signature
-				l1Origin.IsForcedInclusion = originalL1Origin.IsForcedInclusion
-			}
-
-			if _, err := rpc.L2Engine.UpdateL1Origin(ctx, l1Origin); err != nil {
-				return fmt.Errorf("failed to update L1Origin: %w", err)
-			}
-
-			// If this is the most recent block, update the HeadL1Origin.
-			if i == len(proposalManifest.Blocks)-1 {
-				log.Info(
-					"Update head L1 origin",
-					"blockID", blockID,
-					"L2BlockHash", l1Origin.L1BlockHash,
-					"L1BlockHeight", l1Origin.L1BlockHeight,
-					"L1BlockHash", l1Origin.L1BlockHash,
-				)
-				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
-					return fmt.Errorf("failed to write head L1 origin: %w", err)
-				}
-				if _, err := rpc.L2Engine.SetBatchToLastBlock(ctx, meta.GetProposal().Id, blockID); err != nil {
-					return fmt.Errorf("failed to write batch to block mapping: %w", err)
-				}
-			}
-
-			return nil
-		})
-	}
-	return g.Wait()
 }
 
-// encodeExtraData encodes the basefeeSharingPctg and isLowBondProposal into extraData field.
-func encodeExtraData(
+// encodeShastaExtraData encodes the basefeeSharingPctg and isLowBondProposal into extraData field.
+func encodeShastaExtraData(
 	basefeeSharingPctg uint8,
 	isLowBondProposal bool,
 ) ([]byte, error) {

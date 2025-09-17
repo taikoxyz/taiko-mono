@@ -121,6 +121,7 @@ func InitFromConfig(
 		return err
 	}
 
+	// Shasta state indexer
 	if p.shastaIndexer, err = shastaIndexer.New(
 		p.ctx,
 		p.rpc,

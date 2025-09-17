@@ -164,7 +164,6 @@ func (i *Shasta) InsertBlocksWithManifest(
 		}
 
 		// Decompress the transactions list and try to insert a new head block to L2 EE.
-		// TODO: set gas limit correctly.
 		if lastPayloadData, err = createPayloadAndSetHead(
 			ctx,
 			i.rpc,
