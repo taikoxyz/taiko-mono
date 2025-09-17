@@ -206,9 +206,9 @@ func createExecutionPayloads(
 	return payload, nil
 }
 
-// isKnownCanonicalBatch checks if all blocks in the given batch are in the canonical chain already.,
+// isKnownCanonicalBatchPacaya checks if all blocks in the given Pacaya batch are in the canonical chain already,
 // and returns the header of the last block in the batch if it is.
-func isKnownCanonicalBatch(
+func isKnownCanonicalBatchPacaya(
 	ctx context.Context,
 	rpc *rpc.Client,
 	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
@@ -258,6 +258,73 @@ func isKnownCanonicalBatch(
 				anchorTx,
 			); err != nil {
 				return fmt.Errorf("block %d is an unknown block, reason: %w", createExecutionPayloadsMetaData.BlockID, err)
+			}
+
+			return nil
+		})
+	}
+
+	return headers[len(headers)-1], g.Wait()
+}
+
+// isKnownCanonicalBatchShasta checks if all blocks in the given Shasta batch are in the canonical chain already,
+// and returns the header of the last block in the batch if it is.
+func isKnownCanonicalBatchShasta(
+	ctx context.Context,
+	rpc *rpc.Client,
+	anchorConstructor *anchorTxConstructor.AnchorTxConstructor,
+	metadata metadata.TaikoProposalMetaData,
+	proposalManifest *manifest.ProposalManifest,
+	parent *types.Header,
+) (*types.Header, error) {
+	if !metadata.IsShasta() {
+		return nil, fmt.Errorf("metadata is not for Shasta fork blocks")
+	}
+	var (
+		headers = make([]*types.Header, len(proposalManifest.Blocks))
+		g       = new(errgroup.Group)
+	)
+
+	// Check each block in the batch, and if the all blocks are preconfirmed, return the header of the last block.
+	for i := 0; i < len(proposalManifest.Blocks); i++ {
+		g.Go(func() error {
+			parentHeader, err := rpc.L2.HeaderByNumber(ctx, new(big.Int).SetUint64(parent.Number.Uint64()+uint64(i)))
+			if err != nil {
+				return fmt.Errorf("failed to get parent block by number %d: %w", parent.Number.Uint64()+uint64(i), err)
+			}
+
+			createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaShasta(
+				ctx,
+				rpc,
+				anchorConstructor,
+				metadata,
+				proposalManifest,
+				parentHeader,
+				i,
+				proposalManifest.IsLowBondProposal,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to assemble Shasta execution payload creation metadata: %w", err)
+			}
+
+			b, err := rlp.EncodeToBytes(append([]*types.Transaction{anchorTx}, createExecutionPayloadsMetaData.Txs...))
+			if err != nil {
+				return fmt.Errorf("failed to RLP encode tx list: %w", err)
+			}
+
+			if headers[i], err = isKnownCanonicalBlock(
+				ctx,
+				rpc,
+				&createPayloadAndSetHeadMetaData{
+					createExecutionPayloadsMetaData: createExecutionPayloadsMetaData,
+					Parent:                          parentHeader,
+				},
+				b,
+				anchorTx,
+			); err != nil {
+				return fmt.Errorf(
+					"block %d is an unknown Shasta block, reason: %w", createExecutionPayloadsMetaData.BlockID, err,
+				)
 			}
 
 			return nil
@@ -615,8 +682,8 @@ func assembleCreateExecutionPayloadMetaShasta(
 	}, anchorTx, nil
 }
 
-// updateL1OriginForBatch updates the L1 origin for the given batch of blocks.
-func updateL1OriginForBatch(
+// updateL1OriginForBatchPacaya updates the L1 origin for the given batch of blocks.
+func updateL1OriginForBatchPacaya(
 	ctx context.Context,
 	rpc *rpc.Client,
 	metadata metadata.TaikoProposalMetaData,
@@ -675,6 +742,79 @@ func updateL1OriginForBatch(
 					return fmt.Errorf("failed to write head L1 origin: %w", err)
 				}
 				if _, err := rpc.L2Engine.SetBatchToLastBlock(ctx, meta.GetBatchID(), blockID); err != nil {
+					return fmt.Errorf("failed to write batch to block mapping: %w", err)
+				}
+			}
+
+			return nil
+		})
+	}
+	return g.Wait()
+}
+
+// updateL1OriginForBatchShasta updates the L1 origin for the given batch of blocks.
+func updateL1OriginForBatchShasta(
+	ctx context.Context,
+	rpc *rpc.Client,
+	parentHeader *types.Header,
+	metadata metadata.TaikoProposalMetaData,
+	proposalManifest *manifest.ProposalManifest,
+) error {
+	if !metadata.IsShasta() {
+		return fmt.Errorf("metadata is not for Shasta fork blocks")
+	}
+
+	var (
+		meta        = metadata.Shasta()
+		lastBlockID = parentHeader.Number.Uint64() + uint64(len(proposalManifest.Blocks))
+		g           = new(errgroup.Group)
+	)
+
+	for i := 0; i < len(proposalManifest.Blocks); i++ {
+		g.Go(func() error {
+			blockID := new(big.Int).SetUint64(lastBlockID - uint64(len(proposalManifest.Blocks)-1-i))
+
+			header, err := rpc.L2.HeaderByNumber(ctx, blockID)
+			if err != nil {
+				return fmt.Errorf("failed to get block by number %d: %w", blockID, err)
+			}
+
+			l1Origin := &rawdb.L1Origin{
+				BlockID:       blockID,
+				L2BlockHash:   header.Hash(),
+				L1BlockHeight: meta.GetRawBlockHeight(),
+				L1BlockHash:   meta.GetRawBlockHash(),
+			}
+			// Fetch the original L1Origin to get the BuildPayloadArgsID.
+			originalL1Origin, err := rpc.L2.L1OriginByID(ctx, blockID)
+			if err != nil && !errors.Is(err, ethereum.NotFound) {
+				return fmt.Errorf("failed to get L1Origin by ID %d: %w", blockID, err)
+			}
+			// If L1Origin is not found, it means this block is synced from beacon sync,
+			// and we also won't set the `BuildPayloadArgsID` value and related fields.
+			if originalL1Origin != nil {
+				l1Origin.BuildPayloadArgsID = originalL1Origin.BuildPayloadArgsID
+				l1Origin.Signature = originalL1Origin.Signature
+				l1Origin.IsForcedInclusion = originalL1Origin.IsForcedInclusion
+			}
+
+			if _, err := rpc.L2Engine.UpdateL1Origin(ctx, l1Origin); err != nil {
+				return fmt.Errorf("failed to update L1Origin: %w", err)
+			}
+
+			// If this is the most recent block, update the HeadL1Origin.
+			if i == len(proposalManifest.Blocks)-1 {
+				log.Info(
+					"Update head L1 origin",
+					"blockID", blockID,
+					"L2BlockHash", l1Origin.L1BlockHash,
+					"L1BlockHeight", l1Origin.L1BlockHeight,
+					"L1BlockHash", l1Origin.L1BlockHash,
+				)
+				if _, err := rpc.L2Engine.SetHeadL1Origin(ctx, l1Origin.BlockID); err != nil {
+					return fmt.Errorf("failed to write head L1 origin: %w", err)
+				}
+				if _, err := rpc.L2Engine.SetBatchToLastBlock(ctx, meta.GetProposal().Id, blockID); err != nil {
 					return fmt.Errorf("failed to write batch to block mapping: %w", err)
 				}
 			}

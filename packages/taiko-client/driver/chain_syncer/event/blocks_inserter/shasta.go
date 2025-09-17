@@ -99,7 +99,55 @@ func (i *Shasta) InsertBlocksWithManifest(
 			"beaconSyncTriggered", i.progressTracker.Triggered(),
 		)
 
-		// TODO(David): check if the batch is known in canonical chain, if so, we can skip
+		// If this is the first block in the batch, we check if the whole batch has been inserted by
+		// trying to fetch the last block header from L2 EE. If it is known in canonical,
+		// we can skip the rest of the blocks, and only update the L1Origin in L2 EE for each block.
+		if j == 0 {
+			log.Debug(
+				"Checking if batch is in canonical chain",
+				"batchID", meta.GetProposal().Id,
+				"assignedProver", meta.GetProposal().Proposer,
+				"timestamp", meta.GetProposal().Timestamp,
+				"numBlobs", len(meta.GetBlobHashes()),
+				"parentNumber", parent.Number,
+				"parentHash", parent.Hash(),
+			)
+
+			lastBlockHeader, err := isKnownCanonicalBatchShasta(
+				ctx,
+				i.rpc,
+				i.anchorConstructor,
+				metadata,
+				proposalManifest,
+				parent,
+			)
+			if err != nil {
+				log.Info(
+					"Unknown Shasta batch for the current canonical chain",
+					"batchID", meta.GetProposal().Id,
+					"proposer", meta.GetProposal().Proposer,
+					"reason", err,
+				)
+			} else if lastBlockHeader != nil {
+				log.Info(
+					"🧬 Known Shasta batch in canonical chain",
+					"batchID", meta.GetProposal().Id,
+					"assignedProver", meta.GetProposal().Proposer,
+					"timestamp", meta.GetProposal().Timestamp,
+					"numBlobs", len(meta.GetBlobHashes()),
+					"parentNumber", parent.Number,
+					"parentHash", parent.Hash(),
+				)
+
+				// Update the L1 origin for each block in the batch.
+				if err := updateL1OriginForBatchShasta(ctx, i.rpc, parent, metadata, proposalManifest); err != nil {
+					return fmt.Errorf("failed to update L1 origin for batch (%d): %w", meta.GetProposal().Id, err)
+				}
+
+				return nil
+			}
+		}
+
 		// inserting the blocks, and only update the L1 origin for each block in the batch.
 		createExecutionPayloadsMetaData, anchorTx, err := assembleCreateExecutionPayloadMetaShasta(
 			ctx,
@@ -116,6 +164,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 		}
 
 		// Decompress the transactions list and try to insert a new head block to L2 EE.
+		// TODO: set gas limit correctly.
 		if lastPayloadData, err = createPayloadAndSetHead(
 			ctx,
 			i.rpc,

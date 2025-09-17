@@ -168,7 +168,7 @@ func (i *Pacaya) InsertBlocks(
 				"parentHash", parent.Hash(),
 			)
 
-			lastBlockHeader, err := isKnownCanonicalBatch(
+			lastBlockHeader, err := isKnownCanonicalBatchPacaya(
 				ctx,
 				i.rpc,
 				i.anchorConstructor,
@@ -194,7 +194,7 @@ func (i *Pacaya) InsertBlocks(
 				)
 
 				// Update the L1 origin for each block in the batch.
-				if err := updateL1OriginForBatch(ctx, i.rpc, metadata); err != nil {
+				if err := updateL1OriginForBatchPacaya(ctx, i.rpc, metadata); err != nil {
 					return fmt.Errorf("failed to update L1 origin for batch (%d): %w", meta.GetBatchID().Uint64(), err)
 				}
 
