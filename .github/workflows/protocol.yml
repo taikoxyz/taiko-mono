@@ -100,7 +100,7 @@ jobs:
         working-directory: ./packages/protocol
         timeout-minutes: 2
         run: |
-          anvil --hardfork cancun &
+          anvil &
           until cast chain-id --rpc-url "http://localhost:8545" 2> /dev/null; do
             sleep 1
           done

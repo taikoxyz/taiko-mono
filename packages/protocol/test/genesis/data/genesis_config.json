@@ -2,8 +2,12 @@
   "contractOwner": "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
   "chainId": 167,
   "seedAccounts": [
-    { "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39": 1000 },
-    { "0x79fcdef22feed20eddacbb2587640e45491b757f": 1000 }
+    {
+      "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39": 1000
+    },
+    {
+      "0x79fcdef22feed20eddacbb2587640e45491b757f": 1000
+    }
   ],
   "l1ChainId": 31337,
   "ownerSecurityCouncil": "0xDf08F82De32B8d460adbE8D72043E3a7e25A3B39",
@@ -32,9 +36,10 @@
     "TaikoAnchor": "0x1670000000000000000000000000000000010001",
     "RollupResolver": "0x1670000000000000000000000000000000010002",
     "BondManager": "0x1670000000000000000000000000000000010003",
-    "CheckpointManager": "0x1670000000000000000000000000000000010004"
   },
-  "param1559": { "gasExcess": 1 },
+  "param1559": {
+    "gasExcess": 1
+  },
   "predeployERC20": true,
   "pacayaForkHeight": 1024,
   "shastaForkHeight": 2048,

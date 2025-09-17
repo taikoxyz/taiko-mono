@@ -161,6 +161,7 @@ contract TestGenerateGenesis is Test {
         );
         assertEq(livenessBondGwei, taikoAnchorProxy.livenessBondGwei());
         assertEq(provabilityBondGwei, taikoAnchorProxy.provabilityBondGwei());
+        assertEq(maxCheckpointHistory, taikoAnchorProxy.maxCheckpointHistory());
 
         vm.startPrank(taikoAnchorProxy.owner());
 
