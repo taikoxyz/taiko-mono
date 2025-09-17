@@ -91,8 +91,7 @@ library LibCheckpointStore {
         view
         returns (ICheckpointStore.Checkpoint memory)
     {
-         (uint48 latestCheckpointNumber, uint48 stackTop, uint48 stackSize) =
-            ($.latestCheckpointNumber, $.stackTop, $.stackSize);
+        (uint48 stackTop, uint48 stackSize) = ($.stackTop, $.stackSize);
 
         require(stackSize != 0, NoCheckpoints());
         require(_offset < stackSize, IndexOutOfBounds());
