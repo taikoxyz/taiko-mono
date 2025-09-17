@@ -76,7 +76,7 @@ func (s *ClientTestSuite) SetupTest() {
 	})
 	s.Nil(err)
 	s.RPCClient = rpcCli
-	s.ShastaStateIndexer, err = shastaIndexer.NewShastaState(
+	s.ShastaStateIndexer, err = shastaIndexer.New(
 		context.Background(),
 		rpcCli,
 		rpcCli.ShastaClients.ForkHeight,

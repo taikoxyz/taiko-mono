@@ -121,7 +121,7 @@ func InitFromConfig(
 		return err
 	}
 
-	if p.shastaIndexer, err = shastaIndexer.NewShastaState(
+	if p.shastaIndexer, err = shastaIndexer.New(
 		p.ctx,
 		p.rpc,
 		p.rpc.ShastaClients.ForkHeight,

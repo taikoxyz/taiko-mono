@@ -126,7 +126,7 @@ func (p *Proposer) InitFromConfig(
 			return err
 		}
 	}
-	if p.shastaStateIndexer, err = shastaIndexer.NewShastaState(ctx, p.rpc, p.rpc.ShastaClients.ForkHeight); err != nil {
+	if p.shastaStateIndexer, err = shastaIndexer.New(ctx, p.rpc, p.rpc.ShastaClients.ForkHeight); err != nil {
 		return fmt.Errorf("failed to create Shasta state indexer: %w", err)
 	}
 

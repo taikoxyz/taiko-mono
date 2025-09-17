@@ -102,7 +102,7 @@ func (d *Driver) InitFromConfig(ctx context.Context, cfg *Config) (err error) {
 		log.Warn("P2P syncing enabled, but no connected peer found in L2 execution engine")
 	}
 
-	if d.shastaIndexer, err = shastaIndexer.NewShastaState(
+	if d.shastaIndexer, err = shastaIndexer.New(
 		d.ctx,
 		d.rpc,
 		d.rpc.ShastaClients.ForkHeight,

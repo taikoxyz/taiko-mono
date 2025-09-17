@@ -20,8 +20,11 @@ import (
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 )
 
-// maxBlocksPerFilter defines the maximum number of blocks to filter in a single RPC query.
-var maxBlocksPerFilter uint64 = 1000
+var (
+	// maxBlocksPerFilter defines the maximum number of blocks to filter in a single RPC query.
+	maxBlocksPerFilter uint64 = 1000
+	reorgSafetyDepth          = new(big.Int).SetUint64(64)
+)
 
 // ProposalPayload represents the payload in a Shasta Proposed event.
 type ProposalPayload struct {
@@ -57,8 +60,8 @@ type Indexer struct {
 	historicalFetchCompleted bool
 }
 
-// NewShastaState creates a new ShastaState instance.
-func NewShastaState(
+// New creates a new Shasta state indexer instance.
+func New(
 	ctx context.Context,
 	rpc *rpc.Client,
 	shastaForkHeight *big.Int,
@@ -265,6 +268,8 @@ func (s *Indexer) onProvedEvent(
 		"New cached Shasta transition record",
 		"proposalId", meta.ProposalId,
 		"transitionHash", common.BytesToHash(record.TransitionHash[:]),
+		"parentTransitionHash", common.BytesToHash(transition.ParentTransitionHash[:]),
+		"timeStamp", header.Time,
 	)
 
 	s.transitionRecords.Set(meta.ProposalId.Uint64(), &TransitionPayload{
@@ -392,10 +397,28 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 			"newHash", currentBlockAtHeight.Hash(),
 		)
 
-		// When a reorg is detected, we go back a safe number of blocks
-		const reorgSafetyDepth = 10
+		// Find the most recent proposal that is still valid on the current L1 chain
+		var (
+			lastValidProposal = s.findLastValidProposal()
+			safeHeight        = new(big.Int).Sub(s.lastIndexedBlock.Number, reorgSafetyDepth)
+		)
 
-		safeHeight := new(big.Int).Sub(s.lastIndexedBlock.Number, big.NewInt(reorgSafetyDepth))
+		if lastValidProposal != nil {
+			// Use the height of the last valid proposal as our reorg recovery point
+			safeHeight = lastValidProposal.RawBlockHeight
+			log.Debug(
+				"Using last valid proposal for reorg recovery",
+				"proposalId", lastValidProposal.Proposal.Id,
+				"safeHeight", safeHeight,
+				"proposalHash", lastValidProposal.RawBlockHash,
+			)
+		} else {
+			log.Warn(
+				"No valid proposal found for reorg recovery, using default safety depth",
+				"safeHeight", safeHeight,
+			)
+		}
+
 		if safeHeight.Cmp(common.Big0) < 0 {
 			safeHeight = common.Big0
 		}
@@ -412,6 +435,9 @@ func (s *Indexer) liveIndex(newHead *types.Header) error {
 			"hash", commonAncestor.Hash(),
 			"reorgDepth", new(big.Int).Sub(s.lastIndexedBlock.Number, safeHeight),
 		)
+
+		// Clean up invalid data before updating lastIndexedBlock
+		s.cleanupAfterReorg(safeHeight)
 
 		// Update lastIndexedBlock to common ancestor
 		s.lastIndexedBlock = commonAncestor
@@ -475,6 +501,7 @@ func (s *Indexer) cleanupFinazliedTransitionRecords(lastFinalizedProposalId uint
 	// We keep two times the buffer size of transition records to avoid future reorg handling.
 	for _, key := range s.transitionRecords.Keys() {
 		if key+s.bufferSize < lastFinalizedProposalId {
+			log.Trace("Cleaning up finalized Shasta transition record", "proposalId", key)
 			s.transitionRecords.Remove(key)
 		}
 	}
@@ -529,6 +556,71 @@ func (s *Indexer) GetLastCoreState() *shastaBindings.IInboxCoreState {
 		return nil
 	}
 	return lastProposal.CoreState
+}
+
+// findLastValidProposal finds the most recent proposal still valid on current L1 chain.
+func (s *Indexer) findLastValidProposal() *ProposalPayload {
+	var proposals []*ProposalPayload
+
+	// Collect all proposals
+	s.proposals.IterCb(func(_ uint64, proposal *ProposalPayload) {
+		if proposal != nil {
+			proposals = append(proposals, proposal)
+		}
+	})
+
+	// Sort by ID descending (highest first)
+	for i := 0; i < len(proposals)-1; i++ {
+		for j := i + 1; j < len(proposals); j++ {
+			if proposals[i].Proposal.Id.Cmp(proposals[j].Proposal.Id) < 0 {
+				proposals[i], proposals[j] = proposals[j], proposals[i]
+			}
+		}
+	}
+
+	// Find first valid proposal (highest ID that's still on L1)
+	for _, proposal := range proposals {
+		header, err := s.rpc.L1.HeaderByNumber(s.ctx, proposal.RawBlockHeight)
+		if err == nil && header.Hash() == proposal.RawBlockHash {
+			log.Debug(
+				"Found valid proposal for reorg recovery",
+				"proposalId", proposal.Proposal.Id,
+				"height", proposal.RawBlockHeight,
+			)
+			return proposal
+		}
+	}
+
+	return nil
+}
+
+// cleanupAfterReorg removes invalid proposals and transition records after a reorg.
+// It removes all data based on L1 blocks higher than safeHeight.
+func (s *Indexer) cleanupAfterReorg(safeHeight *big.Int) {
+	var removedProposals, removedTransitions int
+
+	// Clean up invalid proposals
+	s.proposals.IterCb(func(key uint64, proposal *ProposalPayload) {
+		if proposal.RawBlockHeight.Cmp(safeHeight) > 0 {
+			s.proposals.Remove(key)
+			removedProposals++
+		}
+	})
+
+	// Clean up invalid transition records
+	s.transitionRecords.IterCb(func(key uint64, transition *TransitionPayload) {
+		if transition.RawBlockHeight.Cmp(safeHeight) > 0 {
+			s.transitionRecords.Remove(key)
+			removedTransitions++
+		}
+	})
+
+	log.Debug(
+		"Cleaned up invalid data after reorg",
+		"safeHeight", safeHeight,
+		"removedProposals", removedProposals,
+		"removedTransitions", removedTransitions,
+	)
 }
 
 func (s *Indexer) GetTransitionRecordByProposalID(proposalID uint64) *TransitionPayload {
