@@ -730,6 +730,47 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     }
 
     // ---------------------------------------------------------------
+    // Ring buffer tests
+    // ---------------------------------------------------------------
+
+
+    function test_propose_ringBufferFull() public {
+        _setupBlobHashes();
+
+        uint256 ringBufferSize = inbox.getConfig().ringBufferSize;
+
+        // Fill the ring buffer completely (creates proposals 1-99)
+        (IInbox.Proposal memory lastProposal, IInbox.CoreState memory coreState) =
+            _fillRingBufferTo(uint48(ringBufferSize));
+
+        // Now the ring buffer is full, next proposal will wrap to slot 0
+        vm.roll(block.number + 1);
+        vm.warp(block.timestamp + 12);
+
+        // For wrapped ring buffer, we need 2 parent proposals
+        IInbox.Proposal[] memory parentProposals = new IInbox.Proposal[](2);
+        parentProposals[0] = lastProposal; // proposal 99
+        parentProposals[1] = _createGenesisProposal(inbox); // proposal 0 in slot 0
+
+        bytes memory proposeData = _createProposeInputWithCustomParams(
+            0,
+            _createBlobRef(0, 1, 0),
+            parentProposals,
+            coreState
+        );
+
+        // Use Alice as the proposer (fallback after crossing epochs)
+        vm.startPrank(Alice);
+        vm.startSnapshotGas(
+            "shasta-propose",
+            string.concat("propose_single_empty_ring_buffer_", getTestContractName())
+        );
+        inbox.propose(bytes(""), proposeData);
+        vm.stopSnapshotGas();
+        vm.stopPrank();
+    }
+
+    // ---------------------------------------------------------------
     // Propose Input Builders
     // ---------------------------------------------------------------
 
@@ -980,6 +1021,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     // ---------------------------------------------------------------
 
     /// @notice Fills the ring buffer up to a target proposal ID
+    /// @dev It advances the timestamp by 12 seconds for each proposal
     /// @dev This is useful for testing edge cases near ring buffer capacity
     /// @param _targetNextProposalId The proposal ID to fill up to (exclusive)
     /// @return lastProposal_ The last proposal created
