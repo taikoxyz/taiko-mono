@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import { ICheckpointStore } from "../iface/ICheckpointStore.sol";
 
 /// @title LibCheckpointStore
-/// @notice Library for managing synced L2 checkpoints using a ring buffer
+/// @notice Library for managing synced L1 or L2 checkpoints using a ring buffer
 /// @dev This library implements a ring buffer to store the most recent checkpoints.
 /// When the buffer is full, new blocks overwrite the oldest entries. The library
 /// ensures blocks are saved in strictly increasing order by block number.
