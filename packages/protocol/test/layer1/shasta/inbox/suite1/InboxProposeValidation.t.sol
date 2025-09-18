@@ -135,6 +135,7 @@ contract InboxProposeValidation is InboxTest {
         // Arrange: Create the actual genesis proposal with correct coreStateHash
         IInbox.CoreState memory genesisCoreState = IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: genesisHash,
             bondInstructionsHash: bytes32(0)
@@ -181,6 +182,7 @@ contract InboxProposeValidation is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -227,6 +229,7 @@ contract InboxProposeValidation is InboxTest {
         // Setup core state for proposal 3
         IInbox.CoreState memory coreState3 = _getGenesisCoreState();
         coreState3.nextProposalId = 3;
+        coreState3.nextProposalBlockId = 3;
 
         setupProposalMocks(Alice);
 
@@ -270,6 +273,7 @@ contract InboxProposeValidation is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -314,6 +318,7 @@ contract InboxProposeValidation is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)

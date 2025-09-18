@@ -32,6 +32,7 @@ contract InboxTestHelper is CommonTest {
     function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
         return IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -47,6 +48,7 @@ contract InboxTestHelper is CommonTest {
     function _createGenesisProposal() internal pure returns (IInbox.Proposal memory) {
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 1,
+            nextProposalBlockId: 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -109,6 +111,7 @@ contract InboxTestHelper is CommonTest {
         // Build the expected core state after proposal
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
+            nextProposalBlockId: _proposalId + 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)

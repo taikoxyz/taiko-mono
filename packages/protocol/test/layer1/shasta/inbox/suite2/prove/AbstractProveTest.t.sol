@@ -491,6 +491,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         // Build state for consecutive proposal
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: _parent.id + 1,
+            nextProposalBlockId: _parent.id + 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)

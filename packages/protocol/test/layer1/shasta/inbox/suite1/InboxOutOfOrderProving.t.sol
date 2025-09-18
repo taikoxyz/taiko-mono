@@ -47,6 +47,7 @@ contract InboxOutOfOrderProving is InboxTest {
         for (uint48 i = 1; i <= numProposals; i++) {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
+                nextProposalBlockId: i * 100,
                 lastFinalizedProposalId: 0,
                 lastFinalizedTransitionHash: initialParentHash,
                 bondInstructionsHash: bytes32(0)
@@ -114,6 +115,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 abi.encode(
                     IInbox.CoreState({
                         nextProposalId: i + 1,
+                        nextProposalBlockId: i + 100,
                         lastFinalizedProposalId: 0,
                         lastFinalizedTransitionHash: initialParentHash,
                         bondInstructionsHash: bytes32(0)
@@ -185,6 +187,7 @@ contract InboxOutOfOrderProving is InboxTest {
         // Setup for finalization
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
+            nextProposalBlockId: numProposals + 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -246,6 +249,7 @@ contract InboxOutOfOrderProving is InboxTest {
         for (uint48 i = 1; i <= 3; i++) {
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
+                nextProposalBlockId: i * 100,
                 lastFinalizedProposalId: 0,
                 lastFinalizedTransitionHash: initialParentHash,
                 bondInstructionsHash: bytes32(0)
@@ -274,6 +278,7 @@ contract InboxOutOfOrderProving is InboxTest {
                     abi.encode(
                         IInbox.CoreState({
                             nextProposalId: i,
+                            nextProposalBlockId: i,
                             lastFinalizedProposalId: 0,
                             lastFinalizedTransitionHash: initialParentHash,
                             bondInstructionsHash: bytes32(0)
@@ -304,6 +309,7 @@ contract InboxOutOfOrderProving is InboxTest {
             abi.encode(
                 IInbox.CoreState({
                     nextProposalId: 4,
+                    nextProposalBlockId: 4,
                     lastFinalizedProposalId: 0,
                     lastFinalizedTransitionHash: initialParentHash,
                     bondInstructionsHash: bytes32(0)
@@ -322,6 +328,7 @@ contract InboxOutOfOrderProving is InboxTest {
             // Create proposal with correct coreStateHash that was stored during submission
             IInbox.CoreState memory updatedCoreState = IInbox.CoreState({
                 nextProposalId: i + 1,
+                nextProposalBlockId: i + 100,
                 lastFinalizedProposalId: 0,
                 lastFinalizedTransitionHash: initialParentHash,
                 bondInstructionsHash: bytes32(0)
@@ -376,6 +383,7 @@ contract InboxOutOfOrderProving is InboxTest {
         // Try to finalize - should only finalize proposal 1 because 2 is missing
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 4,
+            nextProposalBlockId: 4,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)

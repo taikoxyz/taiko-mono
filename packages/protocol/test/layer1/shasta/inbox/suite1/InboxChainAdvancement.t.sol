@@ -126,6 +126,7 @@ contract InboxChainAdvancement is InboxTest {
             // Create core state for this proposal
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
+                nextProposalBlockId: i,
                 lastFinalizedProposalId: 0,
                 lastFinalizedTransitionHash: genesisHash,
                 bondInstructionsHash: bytes32(0)
@@ -162,6 +163,7 @@ contract InboxChainAdvancement is InboxTest {
                 abi.encode(
                     IInbox.CoreState({
                         nextProposalId: i + 1,
+                        nextProposalBlockId: i + 100,
                         lastFinalizedProposalId: 0,
                         lastFinalizedTransitionHash: genesisHash,
                         bondInstructionsHash: bytes32(0)
@@ -296,6 +298,7 @@ contract InboxChainAdvancement is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 6,
+            nextProposalBlockId: 6,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)
@@ -353,6 +356,7 @@ contract InboxChainAdvancement is InboxTest {
             // Create proposal
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
+                nextProposalBlockId: i,
                 lastFinalizedProposalId: 0,
                 lastFinalizedTransitionHash: parentHash,
                 bondInstructionsHash: bytes32(0)
@@ -419,6 +423,7 @@ contract InboxChainAdvancement is InboxTest {
         // But we're starting from lastFinalizedProposalId: 0
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
+            nextProposalBlockId: numProposals + 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)
@@ -500,6 +505,7 @@ contract InboxChainAdvancement is InboxTest {
         // Act: Try to finalize all at once (should only finalize up to maxFinalizationCount)
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
+            nextProposalBlockId: numProposals + 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: genesisHash,
             bondInstructionsHash: bytes32(0)
@@ -538,6 +544,7 @@ contract InboxChainAdvancement is InboxTest {
         // Assert: Verify that only maxFinalizationCount proposals were finalized
         IInbox.CoreState({
             nextProposalId: numProposals + 2,
+            nextProposalBlockId: numProposals + 2,
             lastFinalizedProposalId: uint48(getMaxFinalizationCount()),
             lastFinalizedTransitionHash: keccak256(
                 abi.encode(transitions[getMaxFinalizationCount() - 1])
@@ -805,6 +812,7 @@ contract InboxChainAdvancement is InboxTest {
         // Setup core state for finalization
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
+            nextProposalBlockId: numProposals + 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)
@@ -940,6 +948,7 @@ contract InboxChainAdvancement is InboxTest {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
+            nextProposalBlockId: numProposals + 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)
@@ -1027,6 +1036,7 @@ contract InboxChainAdvancement is InboxTest {
         // Setup core state for finalization
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
+            nextProposalBlockId: numProposals + 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: parentHash,
             bondInstructionsHash: bytes32(0)

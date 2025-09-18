@@ -48,6 +48,7 @@ library InboxTestLib {
     {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
+            nextProposalBlockId: _nextProposalId * 100,
             lastFinalizedProposalId: _lastFinalizedProposalId,
             lastFinalizedTransitionHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
@@ -67,6 +68,7 @@ library InboxTestLib {
     {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
+            nextProposalBlockId: _nextProposalId * 100,
             lastFinalizedProposalId: _lastFinalizedProposalId,
             lastFinalizedTransitionHash: _lastFinalizedTransitionHash,
             bondInstructionsHash: _bondInstructionsHash

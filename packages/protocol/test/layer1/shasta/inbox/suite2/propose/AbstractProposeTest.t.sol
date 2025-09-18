@@ -248,6 +248,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         // Second proposal (ID 2) - using the first proposal as parent
         IInbox.CoreState memory secondCoreState = IInbox.CoreState({
             nextProposalId: 2,
+            nextProposalBlockId: 101,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -303,6 +304,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         // We'll use genesis as parent instead of the first proposal (wrong!)
         IInbox.CoreState memory wrongCoreState = IInbox.CoreState({
             nextProposalId: 2,
+            nextProposalBlockId: 2,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -337,6 +339,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 100,
+            nextProposalBlockId: 100,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)

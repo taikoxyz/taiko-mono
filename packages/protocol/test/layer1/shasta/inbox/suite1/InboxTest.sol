@@ -342,6 +342,7 @@ abstract contract InboxTest is CommonTest {
     {
         return IInbox.CoreState({
             nextProposalId: _config.nextProposalId,
+            nextProposalBlockId: _config.nextProposalId * 100,
             lastFinalizedProposalId: _config.lastFinalizedProposalId,
             lastFinalizedTransitionHash: _config.lastFinalizedTransitionHash,
             bondInstructionsHash: _config.bondInstructionsHash
@@ -1113,6 +1114,7 @@ abstract contract InboxTest is CommonTest {
         // This is the core state BEFORE processing the proposal
         // The contract will increment nextProposalId when processing
         coreState.nextProposalId = _proposalId;
+        coreState.nextProposalBlockId = _proposalId;
     }
 
     /// @dev Helper function to encode proposal data with correct validation proposals
@@ -1269,6 +1271,7 @@ abstract contract InboxTest is CommonTest {
     function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
         IInbox.CoreState memory genesisCoreState;
         genesisCoreState.nextProposalId = 1;
+        genesisCoreState.nextProposalBlockId = 100;
         genesisCoreState.lastFinalizedProposalId = 0;
 
         // Genesis transition hash from initialization
@@ -1302,6 +1305,7 @@ abstract contract InboxTest is CommonTest {
             // When proposal ID X was created, the incoming core state had nextProposalId = X
             // The proposal stores this state's hash, then increments nextProposalId
             coreState.nextProposalId = _proposalId;
+            coreState.nextProposalBlockId = _proposalId;
             coreState.lastFinalizedProposalId = 0; // Keep as 0 for test simplicity
         }
 
@@ -1366,10 +1370,11 @@ abstract contract InboxTest is CommonTest {
             // mockProposerAllowed
         proposal.derivationHash = keccak256(abi.encode(derivation));
 
-        // The contract increments nextProposalId during processing
+        // The contract increments both nextProposalId and nextProposalBlockId during processing
         // We need to simulate that here
         IInbox.CoreState memory updatedCoreState = _coreState;
         updatedCoreState.nextProposalId++;
+        updatedCoreState.nextProposalBlockId++;
         proposal.coreStateHash = keccak256(abi.encode(updatedCoreState));
 
         return proposal;

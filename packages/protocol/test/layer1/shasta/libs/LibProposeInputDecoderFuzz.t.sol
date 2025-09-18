@@ -30,6 +30,7 @@ contract LibProposeInputDecoderFuzz is Test {
             deadline: deadline,
             coreState: IInbox.CoreState({
                 nextProposalId: nextProposalId,
+                nextProposalBlockId: nextProposalId * 100,
                 lastFinalizedProposalId: lastFinalizedProposalId,
                 lastFinalizedTransitionHash: lastFinalizedTransitionHash,
                 bondInstructionsHash: bondInstructionsHash
@@ -83,6 +84,7 @@ contract LibProposeInputDecoderFuzz is Test {
             deadline: 1_000_000,
             coreState: IInbox.CoreState({
                 nextProposalId: 100,
+                nextProposalBlockId: 10_000,
                 lastFinalizedProposalId: 95,
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
@@ -139,6 +141,7 @@ contract LibProposeInputDecoderFuzz is Test {
             deadline: 1_000_000,
             coreState: IInbox.CoreState({
                 nextProposalId: 100,
+                nextProposalBlockId: 10_000,
                 lastFinalizedProposalId: 95,
                 lastFinalizedTransitionHash: keccak256("test"),
                 bondInstructionsHash: keccak256("bonds")
@@ -181,6 +184,7 @@ contract LibProposeInputDecoderFuzz is Test {
         // Create test data
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 100,
+            nextProposalBlockId: 100,
             lastFinalizedProposalId: 95,
             lastFinalizedTransitionHash: keccak256("test"),
             bondInstructionsHash: keccak256("bonds")
@@ -348,6 +352,7 @@ contract LibProposeInputDecoderFuzz is Test {
 
         input.coreState = IInbox.CoreState({
             nextProposalId: 100,
+            nextProposalBlockId: 100,
             lastFinalizedProposalId: 95,
             lastFinalizedTransitionHash: keccak256("last_finalized"),
             bondInstructionsHash: keccak256("bond_instructions")

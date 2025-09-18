@@ -140,6 +140,7 @@ contract InboxRingBuffer is InboxTest {
         // This should trigger IncorrectProposalCount error
         IInbox.CoreState memory coreState3 = _getGenesisCoreState();
         coreState3.nextProposalId = 3;
+        coreState3.nextProposalBlockId = 3;
 
         setupProposalMocks(Alice);
         setupBlobHashes();
