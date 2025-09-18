@@ -38,14 +38,14 @@ library LibCheckpointStore {
     /// @param _maxCheckpointHistory The maximum number of checkpoints to store
     function saveCheckpoint(
         Storage storage $,
-        ICheckpointStore.Checkpoint calldata _checkpoint,
+        ICheckpointStore.Checkpoint memory _checkpoint,
         uint48 _maxCheckpointHistory
     )
-        public
+        internal
     {
-        // Validate all fields
-        require(_checkpoint.stateRoot != 0, InvalidCheckpoint());
-        require(_checkpoint.blockHash != 0, InvalidCheckpoint());
+        require(_maxCheckpointHistory != 0, InvalidMaxCheckpointHistory());
+        require(_checkpoint.stateRoot != bytes32(0), InvalidCheckpoint());
+        require(_checkpoint.blockHash != bytes32(0), InvalidCheckpoint());
 
         (uint48 latestCheckpointNumber, uint48 stackTop, uint48 stackSize) =
             ($.latestCheckpointNumber, $.stackTop, $.stackSize);
@@ -136,4 +136,5 @@ library LibCheckpointStore {
     error IndexOutOfBounds();
     error InvalidCheckpoint();
     error NoCheckpoints();
+    error InvalidMaxCheckpointHistory();
 }

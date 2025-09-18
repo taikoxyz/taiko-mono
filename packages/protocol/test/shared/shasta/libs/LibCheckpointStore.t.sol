@@ -12,6 +12,22 @@ import { ICheckpointStore } from "src/shared/shasta/iface/ICheckpointStore.sol";
 ///      - Checkpoint storage and retrieval
 ///      - Edge cases and error conditions
 ///      - Stack management and wraparound scenarios
+/// @notice Wrapper contract to ensure proper call depth for reverts
+contract CheckpointStoreWrapper {
+    using LibCheckpointStore for LibCheckpointStore.Storage;
+
+    LibCheckpointStore.Storage internal storage_;
+
+    function saveCheckpoint(
+        ICheckpointStore.Checkpoint memory _checkpoint,
+        uint48 _maxCheckpointHistory
+    )
+        external
+    {
+        storage_.saveCheckpoint(_checkpoint, _maxCheckpointHistory);
+    }
+}
+
 contract LibCheckpointStoreTest is CommonTest {
     using LibCheckpointStore for LibCheckpointStore.Storage;
 
@@ -27,6 +43,7 @@ contract LibCheckpointStoreTest is CommonTest {
     // ---------------------------------------------------------------
 
     LibCheckpointStore.Storage internal storage_;
+    CheckpointStoreWrapper internal wrapper;
 
     // ---------------------------------------------------------------
     // Events
@@ -42,6 +59,7 @@ contract LibCheckpointStoreTest is CommonTest {
         super.setUp();
         // Initialize with a clean storage state
         delete storage_;
+        wrapper = new CheckpointStoreWrapper();
     }
 
     // ---------------------------------------------------------------
@@ -169,7 +187,7 @@ contract LibCheckpointStoreTest is CommonTest {
         });
 
         vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
-        storage_.saveCheckpoint(checkpoint, MAX_HISTORY);
+        wrapper.saveCheckpoint(checkpoint, MAX_HISTORY);
     }
 
     function test_revert_invalidCheckpoint_zeroBlockHash() public {
@@ -180,7 +198,7 @@ contract LibCheckpointStoreTest is CommonTest {
         });
 
         vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
-        storage_.saveCheckpoint(checkpoint, MAX_HISTORY);
+        wrapper.saveCheckpoint(checkpoint, MAX_HISTORY);
     }
 
     function test_revert_invalidCheckpoint_nonIncreasingBlockNumber() public {
@@ -190,7 +208,7 @@ contract LibCheckpointStoreTest is CommonTest {
             blockHash: bytes32(uint256(1)),
             stateRoot: bytes32(uint256(2))
         });
-        storage_.saveCheckpoint(checkpoint1, MAX_HISTORY);
+        wrapper.saveCheckpoint(checkpoint1, MAX_HISTORY);
 
         // Try to save checkpoint with same block number
         ICheckpointStore.Checkpoint memory checkpoint2 = ICheckpointStore.Checkpoint({
@@ -200,7 +218,7 @@ contract LibCheckpointStoreTest is CommonTest {
         });
 
         vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
-        storage_.saveCheckpoint(checkpoint2, MAX_HISTORY);
+        wrapper.saveCheckpoint(checkpoint2, MAX_HISTORY);
 
         // Try to save checkpoint with lower block number
         ICheckpointStore.Checkpoint memory checkpoint3 = ICheckpointStore.Checkpoint({
@@ -210,7 +228,18 @@ contract LibCheckpointStoreTest is CommonTest {
         });
 
         vm.expectRevert(LibCheckpointStore.InvalidCheckpoint.selector);
-        storage_.saveCheckpoint(checkpoint3, MAX_HISTORY);
+        wrapper.saveCheckpoint(checkpoint3, MAX_HISTORY);
+    }
+
+    function test_revert_invalidCheckpointHistory_zero() public {
+        ICheckpointStore.Checkpoint memory checkpoint = ICheckpointStore.Checkpoint({
+            blockNumber: 100,
+            blockHash: bytes32(uint256(1)),
+            stateRoot: bytes32(uint256(2))
+        });
+
+        vm.expectRevert(LibCheckpointStore.InvalidMaxCheckpointHistory.selector);
+        wrapper.saveCheckpoint(checkpoint, 0);
     }
 
     function test_revert_getCheckpoint_noCheckpoints() public {

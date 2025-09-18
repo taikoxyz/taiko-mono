@@ -108,6 +108,7 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
         require(
             _shastaForkHeight == 0 || _shastaForkHeight > _pacayaForkHeight, InvalidForkHeight()
         );
+        require(_maxCheckpointHistory != 0, LibCheckpointStore.InvalidMaxCheckpointHistory());
 
         livenessBondGwei = _livenessBondGwei;
         provabilityBondGwei = _provabilityBondGwei;
