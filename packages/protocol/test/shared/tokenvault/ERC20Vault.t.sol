@@ -497,10 +497,12 @@ contract TestERC20Vault is CommonTest {
     function test_20Vault_to_string() public {
         vm.startPrank(Alice);
 
-        (, bytes memory symbolData) =
+        (bool success1, bytes memory symbolData) =
             address(eERC20Token2).staticcall(abi.encodeCall(INameSymbol.symbol, ()));
-        (, bytes memory nameData) =
+        require(success1, "Symbol call failed");
+        (bool success2, bytes memory nameData) =
             address(eERC20Token2).staticcall(abi.encodeCall(INameSymbol.name, ()));
+        require(success2, "Name call failed");
 
         string memory decodedSymbol = LibBytes.toString(symbolData);
         string memory decodedName = LibBytes.toString(nameData);

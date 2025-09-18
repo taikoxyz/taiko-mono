@@ -116,7 +116,6 @@ abstract contract InboxTest is CommonTest {
 
         setupMockAddresses();
         deployInbox();
-        setupDefaultConfig();
         fundTestAccounts();
     }
 
@@ -183,11 +182,6 @@ abstract contract InboxTest is CommonTest {
             );
             return TestInboxFactory.InboxType.Base;
         }
-    }
-
-    function setupDefaultConfig() internal virtual {
-        // Configuration is now hardcoded in the test inbox constructors
-        // This method is kept for compatibility but does nothing
     }
 
     function fundTestAccounts() internal virtual {
@@ -316,7 +310,8 @@ abstract contract InboxTest is CommonTest {
             id: _builder.id,
             proposer: _builder.proposer,
             timestamp: uint48(block.timestamp),
-            lookaheadSlotTimestamp: uint48(block.timestamp + 12), // Default: current + 1 slot
+            endOfSubmissionWindowTimestamp: uint48(block.timestamp + 12), // Default: current + 1
+                // slot
             coreStateHash: _builder.coreStateHash,
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -335,9 +330,7 @@ abstract contract InboxTest is CommonTest {
                 blockNumber: _builder.endBlockNumber,
                 blockHash: _builder.endBlockHash,
                 stateRoot: _builder.endStateRoot
-            }),
-            designatedProver: _builder.designatedProver,
-            actualProver: _builder.actualProver
+            })
         });
     }
 
@@ -548,7 +541,8 @@ abstract contract InboxTest is CommonTest {
             id: _config.id,
             proposer: _config.proposer,
             timestamp: uint48(block.timestamp),
-            lookaheadSlotTimestamp: uint48(block.timestamp + 12), // Default: current + 1 slot
+            endOfSubmissionWindowTimestamp: uint48(block.timestamp + 12), // Default: current + 1
+                // slot
             coreStateHash: bytes32(0), // Will be set later
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -567,9 +561,7 @@ abstract contract InboxTest is CommonTest {
                 blockNumber: _config.endBlockNumber,
                 blockHash: _config.endBlockHash,
                 stateRoot: _config.endStateRoot
-            }),
-            designatedProver: _config.designatedProver,
-            actualProver: _config.actualProver
+            })
         });
     }
 
@@ -779,22 +771,22 @@ abstract contract InboxTest is CommonTest {
 
     /// @dev Gets the ring buffer size from the inbox (now immutable)
     function getRingBufferSize() internal view returns (uint256) {
-        return Inbox(address(inbox)).ringBufferSize();
+        return Inbox(address(inbox)).getConfig().ringBufferSize;
     }
 
     /// @dev Gets the proving window from the inbox (now immutable)
     function getProvingWindow() internal view returns (uint48) {
-        return Inbox(address(inbox)).provingWindow();
+        return Inbox(address(inbox)).getConfig().provingWindow;
     }
 
     /// @dev Gets the max finalization count from the inbox (now immutable)
     function getMaxFinalizationCount() internal view returns (uint256) {
-        return Inbox(address(inbox)).maxFinalizationCount();
+        return Inbox(address(inbox)).getConfig().maxFinalizationCount;
     }
 
     /// @dev Gets the basefee sharing percentage from the inbox (now immutable)
     function getBasefeeSharingPctg() internal view returns (uint8) {
-        return Inbox(address(inbox)).basefeeSharingPctg();
+        return Inbox(address(inbox)).getConfig().basefeeSharingPctg;
     }
 
     /// @dev Configuration is now immutable - these setup functions are no-ops for compatibility
@@ -1370,7 +1362,8 @@ abstract contract InboxTest is CommonTest {
         proposal.id = _proposalId;
         proposal.proposer = _proposer;
         proposal.timestamp = uint48(_timestamp);
-        proposal.lookaheadSlotTimestamp = uint48(0); // Set to 0 as returned by mockProposerAllowed
+        proposal.endOfSubmissionWindowTimestamp = uint48(0); // Set to 0 as returned by
+            // mockProposerAllowed
         proposal.derivationHash = keccak256(abi.encode(derivation));
 
         // The contract increments nextProposalId during processing
@@ -1586,9 +1579,9 @@ abstract contract InboxTest is CommonTest {
         internal
         view
     {
-        bytes32 storedHash = inbox.getTransitionRecordHash(_proposalId, _parentTransitionHash);
+        (, bytes26 recordHash) = inbox.getTransitionRecordHash(_proposalId, _parentTransitionHash);
         assertTrue(
-            storedHash != bytes32(0),
+            recordHash != bytes26(0),
             string(
                 abi.encodePacked(
                     "Transition record for proposal ", vm.toString(_proposalId), " not stored"
@@ -1604,9 +1597,9 @@ abstract contract InboxTest is CommonTest {
         internal
         view
     {
-        bytes32 storedHash = inbox.getTransitionRecordHash(_proposalId, _parentTransitionHash);
+        (, bytes26 recordHash) = inbox.getTransitionRecordHash(_proposalId, _parentTransitionHash);
         assertTrue(
-            storedHash == bytes32(0),
+            recordHash == bytes26(0),
             string(
                 abi.encodePacked(
                     "Transition record for proposal ",
@@ -1697,7 +1690,7 @@ abstract contract InboxTest is CommonTest {
 
     /// @dev Asserts inbox capacity matches expected value
     function assertCapacityEquals(uint256 _expected, string memory _context) internal view {
-        uint256 actualCapacity = Inbox(address(inbox)).ringBufferSize() - 1;
+        uint256 actualCapacity = Inbox(address(inbox)).getConfig().ringBufferSize - 1;
         assertEq(
             actualCapacity, _expected, string(abi.encodePacked("Capacity mismatch in ", _context))
         );

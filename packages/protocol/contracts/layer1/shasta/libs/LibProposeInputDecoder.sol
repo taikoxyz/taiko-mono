@@ -139,7 +139,7 @@ library LibProposeInputDecoder {
     {
         newPtr_ = P.packUint48(_ptr, _proposal.id);
         newPtr_ = P.packUint48(newPtr_, _proposal.timestamp);
-        newPtr_ = P.packUint48(newPtr_, _proposal.lookaheadSlotTimestamp);
+        newPtr_ = P.packUint48(newPtr_, _proposal.endOfSubmissionWindowTimestamp);
         newPtr_ = P.packAddress(newPtr_, _proposal.proposer);
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
@@ -153,7 +153,7 @@ library LibProposeInputDecoder {
     {
         (proposal_.id, newPtr_) = P.unpackUint48(_ptr);
         (proposal_.timestamp, newPtr_) = P.unpackUint48(newPtr_);
-        (proposal_.lookaheadSlotTimestamp, newPtr_) = P.unpackUint48(newPtr_);
+        (proposal_.endOfSubmissionWindowTimestamp, newPtr_) = P.unpackUint48(newPtr_);
         (proposal_.proposer, newPtr_) = P.unpackAddress(newPtr_);
         (proposal_.coreStateHash, newPtr_) = P.unpackBytes32(newPtr_);
         (proposal_.derivationHash, newPtr_) = P.unpackBytes32(newPtr_);
@@ -171,18 +171,18 @@ library LibProposeInputDecoder {
         // Encode span
         newPtr_ = P.packUint8(_ptr, _transitionRecord.span);
 
-        // Encode transitionHash
-        newPtr_ = P.packBytes32(newPtr_, _transitionRecord.transitionHash);
-
-        // Encode checkpointHash
-        newPtr_ = P.packBytes32(newPtr_, _transitionRecord.checkpointHash);
-
         // Encode BondInstructions array
         P.checkArrayLength(_transitionRecord.bondInstructions.length);
         newPtr_ = P.packUint24(newPtr_, uint24(_transitionRecord.bondInstructions.length));
         for (uint256 i; i < _transitionRecord.bondInstructions.length; ++i) {
             newPtr_ = _encodeBondInstruction(newPtr_, _transitionRecord.bondInstructions[i]);
         }
+
+        // Encode transitionHash
+        newPtr_ = P.packBytes32(newPtr_, _transitionRecord.transitionHash);
+
+        // Encode checkpointHash
+        newPtr_ = P.packBytes32(newPtr_, _transitionRecord.checkpointHash);
     }
 
     /// @notice Decode a single TransitionRecord
@@ -194,12 +194,6 @@ library LibProposeInputDecoder {
         // Decode span
         (transitionRecord_.span, newPtr_) = P.unpackUint8(_ptr);
 
-        // Decode transitionHash
-        (transitionRecord_.transitionHash, newPtr_) = P.unpackBytes32(newPtr_);
-
-        // Decode checkpointHash
-        (transitionRecord_.checkpointHash, newPtr_) = P.unpackBytes32(newPtr_);
-
         // Decode BondInstructions array
         uint24 bondInstructionsLength;
         (bondInstructionsLength, newPtr_) = P.unpackUint24(newPtr_);
@@ -207,6 +201,12 @@ library LibProposeInputDecoder {
         for (uint256 i; i < bondInstructionsLength; ++i) {
             (transitionRecord_.bondInstructions[i], newPtr_) = _decodeBondInstruction(newPtr_);
         }
+
+        // Decode transitionHash
+        (transitionRecord_.transitionHash, newPtr_) = P.unpackBytes32(newPtr_);
+
+        // Decode checkpointHash
+        (transitionRecord_.checkpointHash, newPtr_) = P.unpackBytes32(newPtr_);
     }
 
     /// @notice Encode a single BondInstruction
@@ -271,13 +271,13 @@ library LibProposeInputDecoder {
 
             // Proposals - each has fixed size
             // Fixed proposal fields: id(6) + timestamp(6) +
-            // lookaheadSlotTimestamp(6) + proposer(20) + coreStateHash(32) +
+            // endOfSubmissionWindowTimestamp(6) + proposer(20) + coreStateHash(32) +
             // derivationHash(32) = 102
             size_ += _proposals.length * 102;
 
             // TransitionRecords - each has fixed size + variable bond instructions
-            // Fixed: span(1) + transitionHash(32) + checkpointHash(32) + array length(3) =
-            // 68
+            // Fixed: span(1) + array length(3) + transitionHash(32) +
+            // checkpointHash(32) = 68
             for (uint256 i; i < _transitionRecords.length; ++i) {
                 size_ += 68 + (_transitionRecords[i].bondInstructions.length * 47);
             }

@@ -92,19 +92,27 @@ contract Bridge is EssentialResolverContract, IBridge {
     error B_RETRY_FAILED();
     error B_SIGNAL_NOT_RECEIVED();
 
+    // ---------------------------------------------------------------
+    // Modifiers
+    // ---------------------------------------------------------------
+
     modifier sameChain(uint64 _chainId) {
-        if (_chainId != block.chainid) revert B_INVALID_CHAINID();
+        _checkSameChain(_chainId);
         _;
     }
 
     modifier diffChain(uint64 _chainId) {
-        if (_chainId == 0 || _chainId == block.chainid) revert B_INVALID_CHAINID();
+        _checkDiffChain(_chainId);
         _;
     }
 
     constructor(address _resolver, address _signalService) EssentialResolverContract(_resolver) {
         signalService = ISignalService(_signalService);
     }
+
+    // ---------------------------------------------------------------
+    // External & Public Functions
+    // ---------------------------------------------------------------
 
     /// @notice Initializes the contract.
     /// @param _owner The owner of this contract. msg.sender will be used if this value is zero.
@@ -600,6 +608,10 @@ contract Bridge is EssentialResolverContract, IBridge {
         }
     }
 
+    // ---------------------------------------------------------------
+    // Private Functions
+    // ---------------------------------------------------------------
+
     /// @dev Suggested by OpenZeppelin and copied from
     /// https://github.com/OpenZeppelin/openzeppelin-contracts/
     /// blob/83c7e45092dac350b070c421cd2bf7105616cf1a/contracts/
@@ -655,5 +667,13 @@ contract Bridge is EssentialResolverContract, IBridge {
                 invalid()
             }
         }
+    }
+
+    function _checkSameChain(uint64 _chainId) internal view {
+        if (_chainId != block.chainid) revert B_INVALID_CHAINID();
+    }
+
+    function _checkDiffChain(uint64 _chainId) internal view {
+        if (_chainId == 0 || _chainId == block.chainid) revert B_INVALID_CHAINID();
     }
 }
