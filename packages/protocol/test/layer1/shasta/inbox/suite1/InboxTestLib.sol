@@ -226,13 +226,13 @@ library InboxTestLib {
     /// @dev Creates a standard transition
     function createTransition(
         IInbox.Proposal memory _proposal,
-        bytes32 _parentTransitionHash,
-        address _actualProver
+        bytes32 _parentTransitionHash
     )
         internal
         pure
         returns (IInbox.Transition memory)
     {
+        // actualProver parameter is no longer used in Transition struct
         return IInbox.Transition({
             proposalHash: hashProposal(_proposal),
             parentTransitionHash: _parentTransitionHash,
@@ -240,9 +240,7 @@ library InboxTestLib {
                 blockNumber: _proposal.id * 100,
                 blockHash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
                 stateRoot: keccak256(abi.encode(_proposal.id, "stateRoot"))
-            }),
-            designatedProver: _proposal.proposer,
-            actualProver: _actualProver
+            })
         });
     }
 
@@ -252,14 +250,13 @@ library InboxTestLib {
         bytes32 _parentTransitionHash,
         uint48 _endBlockNumber,
         bytes32 _endBlockHash,
-        bytes32 _endStateRoot,
-        address _designatedProver,
-        address _actualProver
+        bytes32 _endStateRoot
     )
         internal
         pure
         returns (IInbox.Transition memory)
     {
+        // designatedProver and actualProver parameters are no longer used in Transition struct
         return IInbox.Transition({
             proposalHash: _proposalHash,
             parentTransitionHash: _parentTransitionHash,
@@ -267,17 +264,14 @@ library InboxTestLib {
                 blockNumber: _endBlockNumber,
                 blockHash: _endBlockHash,
                 stateRoot: _endStateRoot
-            }),
-            designatedProver: _designatedProver,
-            actualProver: _actualProver
+            })
         });
     }
 
     /// @dev Creates a chain of transitions with proper parent hashing
     function createTransitionChain(
         IInbox.Proposal[] memory _proposals,
-        bytes32 _initialParentHash,
-        address _prover
+        bytes32 _initialParentHash
     )
         internal
         pure
@@ -287,7 +281,7 @@ library InboxTestLib {
         bytes32 parentHash = _initialParentHash;
 
         for (uint256 i = 0; i < _proposals.length; i++) {
-            transitions[i] = createTransition(_proposals[i], parentHash, _prover);
+            transitions[i] = createTransition(_proposals[i], parentHash);
             parentHash = hashTransition(transitions[i]);
         }
     }
@@ -676,7 +670,6 @@ library InboxTestLib {
         uint48 _startId,
         uint48 _count,
         address _proposer,
-        address _prover,
         bytes32 _initialParentHash,
         uint8 _basefeeSharingPctg
     )
@@ -685,7 +678,7 @@ library InboxTestLib {
         returns (ProposalChain memory chain)
     {
         chain.proposals = createProposalBatch(_startId, _count, _proposer, _basefeeSharingPctg);
-        chain.transitions = createTransitionChain(chain.proposals, _initialParentHash, _prover);
+        chain.transitions = createTransitionChain(chain.proposals, _initialParentHash);
         chain.initialParentHash = _initialParentHash;
 
         if (_count > 0) {
@@ -708,9 +701,7 @@ library InboxTestLib {
                 blockNumber: 0,
                 blockHash: _genesisBlockHash,
                 stateRoot: bytes32(0)
-            }),
-            designatedProver: address(0),
-            actualProver: address(0)
+            })
         });
     }
 

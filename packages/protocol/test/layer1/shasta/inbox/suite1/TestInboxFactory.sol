@@ -36,7 +36,6 @@ contract TestInboxFactory {
     {
         // Create mock dependencies
         address bondToken = address(new MockERC20());
-        address checkpointManager = address(new StubCheckpointProvider());
         address proofVerifier = address(new StubProofVerifier());
 
         return deployInboxWithMocks(

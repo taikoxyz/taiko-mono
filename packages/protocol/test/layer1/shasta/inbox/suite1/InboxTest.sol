@@ -331,9 +331,7 @@ abstract contract InboxTest is CommonTest {
                 blockNumber: _builder.endBlockNumber,
                 blockHash: _builder.endBlockHash,
                 stateRoot: _builder.endStateRoot
-            }),
-            designatedProver: _builder.designatedProver,
-            actualProver: _builder.actualProver
+            })
         });
     }
 
@@ -467,8 +465,7 @@ abstract contract InboxTest is CommonTest {
 
             // Create all transitions first
             for (uint48 i = 0; i < _config.proposalCount; i++) {
-                transitions[i] =
-                    InboxTestLib.createTransition(proposals[i], currentParent, _config.prover);
+                transitions[i] = InboxTestLib.createTransition(proposals[i], currentParent);
                 currentParent = InboxTestLib.hashTransition(transitions[i]);
             }
 
@@ -564,9 +561,7 @@ abstract contract InboxTest is CommonTest {
                 blockNumber: _config.endBlockNumber,
                 blockHash: _config.endBlockHash,
                 stateRoot: _config.endStateRoot
-            }),
-            designatedProver: _config.designatedProver,
-            actualProver: _config.actualProver
+            })
         });
     }
 
@@ -1049,12 +1044,6 @@ abstract contract InboxTest is CommonTest {
         }
     }
 
-    function expectCheckpointSaved(ICheckpointStore.Checkpoint memory _checkpoint) internal {
-        // Note: saveCheckpoint is no longer part of the interface - it's handled internally
-        // This function is kept for backwards compatibility but does nothing
-        _checkpoint; // Suppress unused parameter warning
-    }
-
     // ---------------------------------------------------------------
     // Common Test Scenarios
     // ---------------------------------------------------------------
@@ -1388,7 +1377,7 @@ abstract contract InboxTest is CommonTest {
         internal
         returns (IInbox.Transition memory transition)
     {
-        transition = InboxTestLib.createTransition(_proposal, _parentTransitionHash, _prover);
+        transition = InboxTestLib.createTransition(_proposal, _parentTransitionHash);
         _submitProof(_proposal, transition, _prover);
         // Store the checkpoint for test purposes
         inbox.storeCheckpoint(_proposal.id, transition.checkpoint);
@@ -1478,7 +1467,7 @@ abstract contract InboxTest is CommonTest {
         )
     {
         InboxTestLib.ProposalChain memory chain = InboxTestLib.createProposalChain(
-            _startId, _count, _proposer, _prover, _initialParentHash, DEFAULT_BASEFEE_SHARING_PCTG
+            _startId, _count, _proposer, _initialParentHash, DEFAULT_BASEFEE_SHARING_PCTG
         );
 
         proposals = chain.proposals;
@@ -1833,7 +1822,7 @@ abstract contract InboxTest is CommonTest {
         returns (IInbox.Transition memory)
     {
         IInbox.Proposal memory proposal = createValidProposal(_proposalId);
-        return InboxTestLib.createTransition(proposal, _parentTransitionHash, Bob);
+        return InboxTestLib.createTransition(proposal, _parentTransitionHash);
     }
 
     /// @dev Advances time beyond proving window for testing late proofs

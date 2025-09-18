@@ -135,7 +135,7 @@ contract InboxBasicTest is InboxTest {
             proveProposal(proposals[i], Bob, currentParent);
             // Update parent for next iteration
             IInbox.Transition memory transition =
-                InboxTestLib.createTransition(proposals[i], currentParent, Bob);
+                InboxTestLib.createTransition(proposals[i], currentParent);
             currentParent = InboxTestLib.hashTransition(transition);
         }
 
@@ -144,7 +144,7 @@ contract InboxBasicTest is InboxTest {
         for (uint48 i = 0; i < numProposals; i++) {
             assertTransitionRecordStored(i + 1, currentParent);
             IInbox.Transition memory transition =
-                InboxTestLib.createTransition(proposals[i], currentParent, Bob);
+                InboxTestLib.createTransition(proposals[i], currentParent);
             currentParent = InboxTestLib.hashTransition(transition);
         }
     }

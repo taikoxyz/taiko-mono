@@ -138,9 +138,7 @@ contract InboxOutOfOrderProving is InboxTest {
                     blockNumber: uint48(100 + i * 10),
                     blockHash: keccak256(abi.encode(proposals[i].id, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(proposals[i].id, "stateRoot"))
-                }),
-                designatedProver: Alice,
-                actualProver: Alice
+                })
             });
             transitionHashes[i] = keccak256(abi.encode(transitions[i]));
             parentHash = transitionHashes[i];
@@ -201,7 +199,6 @@ contract InboxOutOfOrderProving is InboxTest {
 
         // Expect final block update
         IInbox.Transition memory lastTransition = transitions[numProposals - 1];
-        expectCheckpointSaved(lastTransition.checkpoint);
 
         // Submit new proposal that triggers finalization
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
@@ -360,9 +357,7 @@ contract InboxOutOfOrderProving is InboxTest {
                     blockNumber: uint48(100 + i * 10),
                     blockHash: keccak256(abi.encode(i, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i, "stateRoot"))
-                }),
-                designatedProver: Alice,
-                actualProver: Alice
+                })
             });
 
             mockProofVerification(true);
@@ -395,9 +390,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 blockNumber: 110,
                 blockHash: keccak256(abi.encode(1, "endBlockHash")),
                 stateRoot: keccak256(abi.encode(1, "stateRoot"))
-            }),
-            designatedProver: Alice,
-            actualProver: Alice
+            })
         });
 
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
@@ -413,9 +406,6 @@ contract InboxOutOfOrderProving is InboxTest {
 
         // Advance time to pass the finalization grace period (5 minutes)
         vm.warp(block.timestamp + 5 minutes + 1);
-
-        // Expect only proposal 1 to be finalized
-        expectCheckpointSaved(transition1.checkpoint);
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(4);
 

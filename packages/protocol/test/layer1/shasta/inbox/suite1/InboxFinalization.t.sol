@@ -33,13 +33,10 @@ contract InboxFinalization is InboxTest {
 
         IInbox.Proposal memory proposal = _createStoredProposal(proposalId, coreState);
         IInbox.Transition memory transition =
-            InboxTestLib.createTransition(proposal, coreState.lastFinalizedTransitionHash, Alice);
+            InboxTestLib.createTransition(proposal, coreState.lastFinalizedTransitionHash);
         IInbox.TransitionRecord memory transitionRecord = _createStoredTransitionRecord(
             proposalId, transition, coreState.lastFinalizedTransitionHash
         );
-
-        // Setup expectations
-        expectCheckpointSaved(transition.checkpoint);
 
         // Act: Submit proposal that triggers finalization with the transition's checkpoint
         _submitFinalizationProposal(proposal, transitionRecord, transition.checkpoint);
@@ -137,7 +134,7 @@ contract InboxFinalization is InboxTest {
         bytes32 currentParentHash = genesisHash;
 
         for (uint48 i = 0; i < numProposals; i++) {
-            transitions[i] = InboxTestLib.createTransition(proposals[i], currentParentHash, Bob);
+            transitions[i] = InboxTestLib.createTransition(proposals[i], currentParentHash);
             proveProposal(proposals[i], Bob, currentParentHash);
             currentParentHash = InboxTestLib.hashTransition(transitions[i]);
         }
@@ -151,9 +148,6 @@ contract InboxFinalization is InboxTest {
 
         // Advance time to pass the finalization grace period
         vm.warp(block.timestamp + 5 minutes + 1);
-
-        // Setup expectations for finalization
-        expectCheckpointSaved(transitions[numProposals - 1].checkpoint);
 
         // Act: Submit finalization proposal with the last transition's checkpoint
         _submitBatchFinalizationProposal(
@@ -223,7 +217,7 @@ contract InboxFinalization is InboxTest {
         inbox.exposed_setProposalHash(1, keccak256(abi.encode(proposal1)));
 
         IInbox.Transition memory transition1 =
-            InboxTestLib.createTransition(proposal1, parentTransitionHash, Bob);
+            InboxTestLib.createTransition(proposal1, parentTransitionHash);
         IInbox.TransitionRecord memory transitionRecord1 = IInbox.TransitionRecord({
             span: 1,
             bondInstructions: new LibBonds.BondInstruction[](0),
@@ -254,9 +248,6 @@ contract InboxFinalization is InboxTest {
 
         // Advance time to pass the finalization grace period (5 minutes)
         vm.warp(block.timestamp + 5 minutes + 1);
-
-        // Only expect first proposal to be finalized
-        expectCheckpointSaved(transition1.checkpoint);
 
         // Create proposal data with only transitionRecord1
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);
@@ -298,7 +289,7 @@ contract InboxFinalization is InboxTest {
         IInbox.Proposal memory proposal1 = submitProposal(1, Alice);
         bytes32 parentTransitionHash = getGenesisTransitionHash();
         IInbox.Transition memory transition1 =
-            InboxTestLib.createTransition(proposal1, parentTransitionHash, Bob);
+            InboxTestLib.createTransition(proposal1, parentTransitionHash);
         proveProposal(proposal1, Bob, parentTransitionHash);
 
         // Now try to finalize with a WRONG transition record

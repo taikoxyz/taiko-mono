@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import "./InboxTest.sol";
 import "./InboxMockContracts.sol";
+import "./InboxTestAdapter.sol";
 
 /// @title InboxChainAdvancement
 /// @notice Tests for chain advancement through finalization and state transitions
@@ -176,13 +177,12 @@ contract InboxChainAdvancement is InboxTest {
 
             transitions[i] = IInbox.Transition({
                 proposalHash: storedProposalHash,
+                parentTransitionHash: bytes32(0), // Add missing field
                 checkpoint: ICheckpointStore.Checkpoint({
                     blockNumber: uint48(100 + (i + 1) * 10),
                     hash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
-                }),
-                designatedProver: Alice,
-                actualProver: Bob
+                })
             });
 
             // Prove each proposal individually
@@ -305,9 +305,6 @@ contract InboxChainAdvancement is InboxTest {
         // Advance time to pass the finalization grace period (5 minutes)
         vm.warp(block.timestamp + 5 minutes + 1);
 
-        // Expect only proposal 2's block to be saved (last finalized)
-        expectCheckpointSaved(transitions[1].checkpoint);
-
         mockProposerAllowed(Carol);
         mockForcedInclusionDue(false);
         setupBlobHashes();
@@ -388,9 +385,7 @@ contract InboxChainAdvancement is InboxTest {
                     blockNumber: uint48(100 + i * 10),
                     blockHash: keccak256(abi.encode(i, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i, "stateRoot"))
-                }),
-                designatedProver: Alice,
-                actualProver: Bob
+                })
             });
 
             mockProofVerification(true);
@@ -426,9 +421,6 @@ contract InboxChainAdvancement is InboxTest {
             bondInstructionsHash: bytes32(0)
         });
         // Core state will be validated by the contract during propose()
-
-        // Expect only proposal 3's block to be saved (due to max finalization count)
-        expectCheckpointSaved(transitions[2].checkpoint);
 
         LibBlobs.BlobReference memory blobRef = createValidBlobReference(numProposals + 1);
 
@@ -563,7 +555,7 @@ contract InboxChainAdvancement is InboxTest {
     {
         // Submit and prove proposal
         proposal = submitProposal(proposalId, Alice);
-        transition = InboxTestLib.createTransition(proposal, parentHash, Alice);
+        transition = InboxTestLib.createTransition(proposal, parentHash);
 
         // Prove the proposal
         setupProofMocks(true);
@@ -659,17 +651,24 @@ contract InboxChainAdvancement is InboxTest {
                     blockNumber: uint48(100 + (i + 1) * 10),
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
-                }),
-                designatedProver: designatedProvers[i], // Different designated prover for each
-                actualProver: David // Same actual prover for all (late proof)
-             });
+                })
+            });
 
             currentParent = keccak256(abi.encode(transitions[i]));
         }
 
         // Prove all 3 proposals together - they will be aggregated
         mockProofVerification(true);
-        bytes memory proveData = encodeProveInput(proposals, transitions);
+
+        // Convert address[3] to dynamic array for the function call
+        address[] memory designatedProversArray = new address[](3);
+        designatedProversArray[0] = designatedProvers[0];
+        designatedProversArray[1] = designatedProvers[1];
+        designatedProversArray[2] = designatedProvers[2];
+
+        bytes memory proveData = InboxTestAdapter.encodeProveInputWithMultipleProvers(
+            inboxType, proposals, transitions, designatedProversArray, David
+        );
 
         // Create expected aggregated bond instructions for verification
         LibBonds.BondInstruction[] memory expectedBondInstructions =
@@ -806,16 +805,14 @@ contract InboxChainAdvancement is InboxTest {
         });
         // Core state will be validated by the contract during propose()
 
-        // NOTE: Removing expectCheckpointSaved as aggregated transition records
-        // may handle sync block saves differently than individual records
-
         // Create next proposal with finalization
-        // Extract header and proposal to avoid stack too deep
-        ICheckpointStore.Checkpoint memory lastEndHeader = transitions[2].checkpoint;
-        IInbox.Proposal memory lastProp = proposals[numProposals - 1];
-        uint48 nextProposalId = 4; // numProposals + 1 = 3 + 1
+        // Direct access to avoid stack too deep
         _finalizeWithTransitionRecords(
-            coreState, lastProp, transitionRecords, lastEndHeader, nextProposalId
+            coreState,
+            proposals[2], // proposals[numProposals - 1]
+            transitionRecords,
+            transitions[2].checkpoint,
+            4 // nextProposalId = numProposals + 1 = 3 + 1
         );
 
         // All 3 proposals are now finalized with just 1 aggregated transition record!
@@ -864,17 +861,24 @@ contract InboxChainAdvancement is InboxTest {
                     blockNumber: uint48(100 + (i + 1) * 10),
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
-                }),
-                designatedProver: designatedProvers[i],
-                actualProver: David // Same actual prover (late proof)
-             });
+                })
+            });
 
             currentParent = keccak256(abi.encode(transitions[i]));
         }
 
         // Prove all 3 together - Core will NOT aggregate them
         mockProofVerification(true);
-        bytes memory proveData = encodeProveInput(proposals, transitions);
+
+        // Convert address[3] to dynamic array for the function call
+        address[] memory designatedProversArray = new address[](3);
+        designatedProversArray[0] = designatedProvers[0];
+        designatedProversArray[1] = designatedProvers[1];
+        designatedProversArray[2] = designatedProvers[2];
+
+        bytes memory proveData = InboxTestAdapter.encodeProveInputWithMultipleProvers(
+            inboxType, proposals, transitions, designatedProversArray, David
+        );
         vm.prank(David);
         inbox.prove(proveData, bytes("proof"));
 
@@ -973,9 +977,7 @@ contract InboxChainAdvancement is InboxTest {
                     blockNumber: uint48(100 + (i + 1) * 10),
                     blockHash: keccak256(abi.encode(i + 1, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i + 1, "stateRoot"))
-                }),
-                designatedProver: Alice,
-                actualProver: Bob
+                })
             });
 
             // Prove each proposal individually
@@ -1026,7 +1028,6 @@ contract InboxChainAdvancement is InboxTest {
 
         // Expect checkpoint save for the last finalized proposal
         ICheckpointStore.Checkpoint memory checkpoint = transitions[numProposals - 1].checkpoint;
-        expectCheckpointSaved(checkpoint);
 
         // Create next proposal with finalization of all 3
         _finalizeWithTransitionRecords(

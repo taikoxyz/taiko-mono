@@ -97,7 +97,6 @@ module.exports = {
       TaikoAnchorImpl: getConstantAddress(`0${this.chainId}`, 10001),
       RollupResolverImpl: getConstantAddress(`0${this.chainId}`, 10002),
       BondManagerImpl: getConstantAddress(`0${this.chainId}`, 10003),
-      CheckpointManagerImpl: getConstantAddress(`0${this.chainId}`, 10004),
       // ============ Proxies ============
       // Shared Contracts
       Bridge: getConstantAddress(this.chainId, 1),
@@ -110,7 +109,6 @@ module.exports = {
       TaikoAnchor: getConstantAddress(this.chainId, 10001),
       RollupResolver: getConstantAddress(this.chainId, 10002),
       BondManager: getConstantAddress(this.chainId, 10003),
-      CheckpointManager: getConstantAddress(this.chainId, 10004),
     };
   },
   param1559: {
