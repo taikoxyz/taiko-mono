@@ -225,7 +225,7 @@ contract InboxOptimized1 is Inbox {
             });
         }
 
-        bytes memory payload = encodeProvedEventData(
+        bytes memory payload = _encodeProvedEventData(
             ProvedEventPayload({
                 proposalId: _proposalId,
                 transition: _transition,

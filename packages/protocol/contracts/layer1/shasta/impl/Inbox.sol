@@ -201,7 +201,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         uint48 endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
 
         // Decode and validate input data
-        ProposeInput memory input = decodeProposeInput(_data);
+        ProposeInput memory input = _decodeProposeInput(_data);
 
         _validateProposeInput(input);
 
@@ -251,7 +251,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Validates transitions, calculates bond instructions, and verifies proofs
     function prove(bytes calldata _data, bytes calldata _proof) external nonReentrant {
         // Decode and validate input
-        ProveInput memory input = decodeProveInput(_data);
+        ProveInput memory input = _decodeProveInput(_data);
         require(input.proposals.length != 0, EmptyProposals());
         require(input.proposals.length == input.transitions.length, InconsistentParams());
         require(input.transitions.length == input.metadata.length, InconsistentParams());
@@ -363,7 +363,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         _setProposalHash(0, _hashProposal(proposal));
 
         emit Proposed(
-            encodeProposedEventData(
+            _encodeProposedEventData(
                 ProposedEventPayload({
                     proposal: proposal,
                     derivation: derivation,
@@ -448,7 +448,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             recordHash: transitionRecordHash
         });
 
-        bytes memory payload = encodeProvedEventData(
+        bytes memory payload = _encodeProvedEventData(
             ProvedEventPayload({
                 proposalId: _proposalId,
                 transition: _transition,
@@ -750,7 +750,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
             _setProposalHash(proposal.id, _hashProposal(proposal));
 
-            bytes memory payload = encodeProposedEventData(
+            bytes memory payload = _encodeProposedEventData(
                 ProposedEventPayload({
                     proposal: proposal,
                     derivation: derivation,
