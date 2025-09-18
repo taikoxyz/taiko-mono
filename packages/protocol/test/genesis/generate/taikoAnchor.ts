@@ -188,15 +188,15 @@ async function generateContractConfigs(
         BondManagerImpl: require(
             path.join(ARTIFACTS_PATH, "./BondManager.sol/BondManager.json"),
         ),
-        CheckpointManagerImpl: require(
-            path.join(
-                SHARED_ARTIFACTS_PATH,
-                "./CheckpointManager.sol/CheckpointManager.json",
-            ),
-        ),
         // Libraries
         LibNetwork: require(
             path.join(ARTIFACTS_PATH, "./LibNetwork.sol/LibNetwork.json"),
+        ),
+        LibCheckpointStore: require(
+            path.join(ARTIFACTS_PATH, "./LibCheckpointStore.sol/LibCheckpointStore.json"),
+        ),
+        LibBonds: require(
+            path.join(ARTIFACTS_PATH, "./LibBonds.sol/LibBonds.json"),
         ),
     };
 
@@ -215,7 +215,6 @@ async function generateContractConfigs(
     contractArtifacts.TaikoAnchor = proxy;
     contractArtifacts.RollupResolver = proxy;
     contractArtifacts.BondManager = proxy;
-    contractArtifacts.CheckpointManager = proxy;
 
     const addressMap: any = {};
 
@@ -245,7 +244,7 @@ async function generateContractConfigs(
         getImmutableReference("ShastaAnchor", ["livenessBondGwei"]),
         getImmutableReference("ShastaAnchor", ["provabilityBondGwei"]),
         getImmutableReference("ShastaAnchor", ["bondManager"]),
-        getImmutableReference("ShastaAnchor", ["checkpointManager"]),
+        getImmutableReference("ShastaAnchor", ["maxCheckpointHistory"]),
     );
     const bondManagerReferencesMap: any = getImmutableReference("BondManager", [
         "authorized",
@@ -253,11 +252,6 @@ async function generateContractConfigs(
         "minBond",
         "withdrawalDelay",
     ]);
-    const checkpointManagerReferencesMap: any = getImmutableReference(
-        "CheckpointManager",
-        ["authorized", "maxCheckpointHistory"],
-        SHARED_ARTIFACTS_PATH,
-    );
     const bridgeReferencesMap: any = getImmutableReference("Bridge", [
         "signalService",
     ]);
@@ -723,67 +717,6 @@ async function generateContractConfigs(
             },
             isProxy: true,
         },
-        CheckpointManagerImpl: {
-            address: addressMap.CheckpointManagerImpl,
-            deployedBytecode: linkContractLibs(
-                replaceImmutableValues(
-                    contractArtifacts.CheckpointManagerImpl,
-                    [
-                        {
-                            id: sharedUUPSImmutableReferencesMap.__self.id,
-                            value: ethers.utils.hexZeroPad(
-                                addressMap.CheckpointManagerImpl,
-                                32,
-                            ),
-                        },
-                        {
-                            id: sharedEssentialContractReferencesMap.__resolver
-                                .id,
-                            value: ethers.utils.hexZeroPad(
-                                addressMap.SharedResolver,
-                                32,
-                            ),
-                        },
-                        {
-                            id: checkpointManagerReferencesMap.authorized.id,
-                            value: ethers.utils.hexZeroPad(
-                                addressMap.TaikoAnchor,
-                                32,
-                            ),
-                        },
-                        {
-                            id: checkpointManagerReferencesMap
-                                .maxCheckpointHistory.id,
-                            value: ethers.utils.hexZeroPad(
-                                ethers.utils.hexlify(maxCheckpointHistory),
-                                32,
-                            ),
-                        },
-                    ],
-                ),
-                addressMap,
-            ),
-            variables: {},
-        },
-        CheckpointManager: {
-            address: addressMap.CheckpointManager,
-            deployedBytecode:
-                contractArtifacts.CheckpointManager.deployedBytecode.object,
-            variables: {
-                // EssentialContract
-                __reentry: 1, // _FALSE
-                __paused: 1, // _FALSE
-                // EssentialContract => UUPSUpgradeable => Initializable
-                _initialized: 1,
-                _initializing: false,
-                // EssentialContract => Ownable2StepUpgradeable
-                _owner: contractOwner,
-            },
-            slots: {
-                [IMPLEMENTATION_SLOT]: addressMap.CheckpointManagerImpl,
-            },
-            isProxy: true,
-        },
         TaikoAnchorImpl: {
             address: addressMap.TaikoAnchorImpl,
             deployedBytecode: linkContractLibs(
@@ -845,9 +778,9 @@ async function generateContractConfigs(
                         ),
                     },
                     {
-                        id: taikoAnchorReferencesMap.checkpointManager.id,
+                        id: taikoAnchorReferencesMap.maxCheckpointHistory.id,
                         value: ethers.utils.hexZeroPad(
-                            addressMap.CheckpointManager,
+                            ethers.utils.hexlify(maxCheckpointHistory),
                             32,
                         ),
                     },
@@ -942,6 +875,16 @@ async function generateContractConfigs(
             address: addressMap.LibNetwork,
             deployedBytecode:
                 contractArtifacts.LibNetwork.deployedBytecode.object,
+        },
+        LibCheckpointStore: {
+            address: addressMap.LibCheckpointStore,
+            deployedBytecode:
+                contractArtifacts.LibCheckpointStore.deployedBytecode.object,
+        },
+        LibBonds: {
+            address: addressMap.LibBonds,
+            deployedBytecode:
+                contractArtifacts.LibBonds.deployedBytecode.object,
         },
     };
 }

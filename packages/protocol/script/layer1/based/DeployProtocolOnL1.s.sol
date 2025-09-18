@@ -277,6 +277,7 @@ contract DeployProtocolOnL1 is DeployCapability {
     {
         addressNotNull(_sharedResolver, "sharedResolver");
         addressNotNull(owner, "owner");
+        address proposer = vm.envAddress("PROPOSER_ADDRESS");
 
         // Initializable the proxy for proofVerifier to get the contract address at first.
         // Proof verifier
@@ -291,11 +292,9 @@ contract DeployProtocolOnL1 is DeployCapability {
         });
         whitelist = deployProxy({
             name: "preconf_whitelist",
-            impl: address(new PreconfWhitelist(address(0))),
+            impl: address(new PreconfWhitelist(proposer)),
             data: abi.encodeCall(PreconfWhitelist.init, (owner, 2, 2))
         });
-        address proposer = vm.envAddress("PROPOSER_ADDRESS");
-        PreconfWhitelist(whitelist).addOperator(proposer, proposer);
 
         address bondToken =
             IResolver(_sharedResolver).resolve(uint64(block.chainid), "bond_token", false);
