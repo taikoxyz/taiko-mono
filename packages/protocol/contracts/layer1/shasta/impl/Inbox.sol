@@ -135,7 +135,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     LibForcedInclusion.Storage private _forcedInclusionStorage;
 
     /// @dev Storage for checkpoint management
-    /// Uses multiple slots for ring buffer storage
     /// @dev 2 slots used
     LibCheckpointStore.Storage private _checkpointStorage;
 

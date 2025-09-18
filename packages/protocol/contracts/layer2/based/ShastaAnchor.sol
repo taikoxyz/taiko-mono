@@ -9,13 +9,14 @@ import { IBondManager as IShastaBondManager } from "./IBondManager.sol";
 import { LibBonds } from "src/shared/shasta/libs/LibBonds.sol";
 
 /// @title ShastaAnchor
-/// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management and
-/// prover designation.
+/// @notice Implements the Shasta fork's anchoring mechanism with advanced bond management,
+/// prover designation and checkpoint management.
 /// @dev This contract extends PacayaAnchor to add:
 ///      - Bond-based economic security for proposals and proofs
 ///      - Prover designation with signature authentication
 ///      - Cumulative bond instruction processing with integrity verification
 ///      - State tracking for multi-block proposals
+///      - Checkpoint storage for L1 block data
 /// @custom:security-contact security@taiko.xyz
 abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     // ---------------------------------------------------------------
@@ -76,7 +77,7 @@ abstract contract ShastaAnchor is PacayaAnchor, ICheckpointStore {
     uint256[43] private __gap1;
 
     /// @dev Storage for checkpoint management
-    /// 50 slots used
+    /// @dev 2 slots used
     LibCheckpointStore.Storage internal _checkpointStorage;
 
     /// @notice Storage gap for upgrade safety.
