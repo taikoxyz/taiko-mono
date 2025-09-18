@@ -10,24 +10,20 @@ import type { NFTApiData } from '$nftAPI/infrastructure/types/moralis';
 
 import type { FetchNftArgs } from '../types/common';
 
+export async function initMoralis() {
+  if (!Moralis.Core.isStarted) {
+    await Moralis.start({ apiKey: MORALIS_API_KEY });
+  }
+}
+
 class MoralisNFTRepository implements INFTRepository {
   private static instance: MoralisNFTRepository;
-  private static isInitialized = false;
-
   private cursor: string;
   private lastFetchedAddress: Address;
   private hasFetchedAll: boolean;
   private nfts: NFT[] = [];
 
   private constructor() {
-    if (!MoralisNFTRepository.isInitialized) {
-      Moralis.start({ apiKey: MORALIS_API_KEY })
-        .then(() => {
-          MoralisNFTRepository.isInitialized = true;
-        })
-        .catch(console.error);
-    }
-
     this.cursor = '';
     this.lastFetchedAddress = zeroAddress;
     this.hasFetchedAll = false;
@@ -52,14 +48,14 @@ class MoralisNFTRepository implements INFTRepository {
     try {
       const response = await Moralis.EvmApi.nft.getWalletNFTs({
         cursor: this.getCursor(address, refresh),
-        chain: chainId,
+        chain: `0x${chainId.toString(16)}`,
         excludeSpam: moralisApiConfig.excludeSpam,
         mediaItems: moralisApiConfig.mediaItems,
         address: address,
         limit: moralisApiConfig.limit,
       });
 
-      this.cursor = response.pagination.cursor || '';
+      this.cursor = response?.pagination?.cursor ?? '';
       this.hasFetchedAll = !this.cursor; // If there is no cursor, we have fetched all NFTs
 
       const mappedData = response.result.map((nft) => mapToNFTFromMoralis(nft as unknown as NFTApiData, chainId));
