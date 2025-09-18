@@ -45,7 +45,7 @@ Because we squash all of the changes into a single commit, please try to keep th
 
 For example, `feat(scope): description of feature` should only impact the `scope` package. If your change is a global one, you can use `feat: description of feature`, for example.
 
-**Note:**
+**Note:
 The taiko team will evaluate all PRs and may close any pull requests that do not follow the standards outlined in this document.
 Please note, small pull requests will not be considered for future airdrops. We encourage contributions that make significant enhancements to the project.\*\*
 
