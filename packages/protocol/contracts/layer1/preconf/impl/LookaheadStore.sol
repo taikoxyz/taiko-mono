@@ -16,6 +16,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     struct NextEpochResult {
         bytes26 lookaheadHash;
+        bool isLookaheadValidationRequired;
         bool isWhitelistRequired;
     }
 
@@ -141,6 +142,10 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
 
         if (result.lookaheadHash == 0) {
             result = _updateLookaheadForNextEpoch(_nextEpochTimestamp, _data);
+        } else {
+            // Since the lookahead was not updated in the same transaction, we need to validate
+            // the slot supplied as evidence
+            result.isLookaheadValidationRequired = true;
         }
 
         return result;
@@ -160,17 +165,12 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
             result.isWhitelistRequired = true;
             result.lookaheadHash = _updateLookahead(_nextEpochTimestamp, _data.nextLookahead);
         } else {
-            // URC operator case
-            _validateURCOperator(_data);
+            // URC Operator case
+            ISlasher.Commitment memory commitment = _buildLookaheadCommitment(_data.nextLookahead);
+            _validateLookaheadPoster(_data.registrationRoot, commitment, _data.commitmentSignature);
             result.lookaheadHash = _updateLookahead(_nextEpochTimestamp, _data.nextLookahead);
         }
         return result;
-    }
-
-    /// @dev Verifies the URC operator's signature on the lookahead commitment.
-    function _validateURCOperator(LookaheadData memory _data) private view {
-        ISlasher.Commitment memory commitment = _buildLookaheadCommitment(_data.nextLookahead);
-        _validateLookaheadPoster(_data.registrationRoot, commitment, _data.commitmentSignature);
     }
 
     /// @dev Determines the proposer's slot and submission window based on lookahead state.
@@ -187,9 +187,7 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
     {
         if (_data.currLookahead.length == 0) {
             return _handleEmptyCurrentLookahead(_nextEpochTimestamp);
-        }
-
-        if (_data.slotIndex == type(uint256).max) {
+        } else if (_data.slotIndex == type(uint256).max) {
             return _handleCrossEpochProposer(_data, _nextEpochTimestamp, _nextResult);
         } else {
             return _handleSameEpochProposer(_data, _epochTimestamp);
@@ -218,9 +216,8 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         pure
         returns (ProposerContext memory context)
     {
-        // Validate next lookahead if hash exists
-        if (_nextResult.lookaheadHash != 0) {
-            require(_data.nextLookahead.length > 0, InvalidLookahead());
+        // Validate next lookahead if required
+        if (_nextResult.isLookaheadValidationRequired) {
             _validateLookahead(_nextEpochTimestamp, _data.nextLookahead, _nextResult.lookaheadHash);
         }
 
@@ -228,11 +225,27 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
             _data.currLookahead[_data.currLookahead.length - 1].timestamp;
 
         if (_data.nextLookahead.length == 0) {
-            // Empty next epoch - whitelist takes over
+            // This is the case when the next lookahead is empty
+            // Eg: [x x x Pa y y y] [     empty    ]
+            //     [  curr epoch  ] [  next epoch  ]
+            //
+            // The empty slots y will be taken over by the whitelist preconfer
+            // for the current epoch.
+            // The upper boundary of the preconfing period is the last slot of the
+            // current epoch.
+            //
             context.submissionWindowEnd = _nextEpochTimestamp - LibPreconfConstants.SECONDS_IN_SLOT;
             context.useWhitelistPreconfer = true;
         } else {
-            // First preconfer from next epoch proposing early
+            // This is the case when the first preconfer from the next epoch is proposing in
+            // advanced in the current epoch.
+            //
+            // Eg: [x x x Pa y y y] [z z z Pb v v v]
+            //     [  curr epoch  ] [  next epoch  ]
+            // - Pb is our preconfer.
+            // - x, y, z and v represent empty slots with no opted in preconfer.
+            // - Pb intends to propose at any slot y
+            //
             context.submissionWindowEnd = _data.nextLookahead[0].timestamp;
             context.lookaheadSlot = _data.nextLookahead[0];
             context.useWhitelistPreconfer = false;
@@ -241,7 +254,22 @@ contract LookaheadStore is ILookaheadStore, Blacklist, EssentialContract {
         return context;
     }
 
-    /// @dev Handles regular proposer within current epoch at specified slot index.
+    /// @dev This handles the case when the preconfer is proposing in the same epoch in which
+    /// it has its lookahead slot.
+    ///
+    /// Eg: [x x x Pa y y y]
+    ///     [  curr epoch  ]
+    /// - Pa is our preconfer.
+    /// - x and y represent empty slots with no opted in preconfer.
+    /// - Pa intends to propose at any slot x
+    ///
+    /// OR
+    ///
+    /// Eg: [x x x Pa y y y Pb z z z]
+    ///     [      curr epoch       ]
+    /// - Pb is our preconfer.
+    /// - x, y and z represent empty slots with no opted in preconfer.
+    /// - Pb intends to propose at any slot y
     function _handleSameEpochProposer(
         LookaheadData memory _data,
         uint256 _epochTimestamp
