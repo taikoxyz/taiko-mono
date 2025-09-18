@@ -340,58 +340,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     }
 
     // ---------------------------------------------------------------
-    // Public Functions - Delegates to Internal
-    // ---------------------------------------------------------------
-
-    /// @notice Encodes proposed event data (public interface)
-    /// @param _payload The ProposedEventPayload to encode
-    /// @return The encoded data
-    function encodeProposedEventData(ProposedEventPayload memory _payload)
-        public
-        pure
-        virtual
-        returns (bytes memory)
-    {
-        return _encodeProposedEventData(_payload);
-    }
-
-    /// @notice Encodes proved event data (public interface)  
-    /// @param _payload The ProvedEventPayload to encode
-    /// @return The encoded data
-    function encodeProvedEventData(ProvedEventPayload memory _payload)
-        public
-        pure
-        virtual
-        returns (bytes memory)
-    {
-        return _encodeProvedEventData(_payload);
-    }
-
-    /// @notice Decodes proposal input data (public interface)
-    /// @param _data The encoded data
-    /// @return The decoded ProposeInput
-    function decodeProposeInput(bytes calldata _data)
-        public
-        pure
-        virtual
-        returns (ProposeInput memory)
-    {
-        return _decodeProposeInput(_data);
-    }
-
-    /// @notice Decodes prove input data (public interface)
-    /// @param _data The encoded data  
-    /// @return The decoded ProveInput
-    function decodeProveInput(bytes calldata _data)
-        public
-        pure
-        virtual
-        returns (ProveInput memory)
-    {
-        return _decodeProveInput(_data);
-    }
-
-    // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
 
