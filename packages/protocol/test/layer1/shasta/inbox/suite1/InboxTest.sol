@@ -13,6 +13,7 @@ import "contracts/layer1/shasta/iface/IProofVerifier.sol";
 import "contracts/layer1/shasta/iface/IProposerChecker.sol";
 import "contracts/shared/based/iface/ICheckpointManager.sol";
 import "contracts/layer1/shasta/libs/LibBlobs.sol";
+import "contracts/layer1/shasta/impl/Inbox.sol";
 import "contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
 import "src/shared/based/libs/LibBonds.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -49,10 +50,8 @@ abstract contract InboxTest is CommonTest {
     address internal proposerChecker;
 
     // ---------------------------------------------------------------
-    // Configuration
+    // Configuration Constants (now hardcoded in constructors)
     // ---------------------------------------------------------------
-
-    IInbox.Config internal defaultConfig;
 
     uint256 internal constant DEFAULT_RING_BUFFER_SIZE = 100;
     uint256 internal constant DEFAULT_MAX_FINALIZATION_COUNT = 10;
@@ -117,7 +116,6 @@ abstract contract InboxTest is CommonTest {
 
         setupMockAddresses();
         deployInbox();
-        setupDefaultConfig();
         fundTestAccounts();
     }
 
@@ -152,8 +150,16 @@ abstract contract InboxTest is CommonTest {
             string(abi.encodePacked("Testing with: ", InboxTestAdapter.getInboxTypeName(inboxType)))
         );
 
-        // Deploy the selected inbox implementation
-        address inboxAddress = factory.deployInbox(inboxType, address(this), GENESIS_BLOCK_HASH);
+        // Deploy the selected inbox implementation with the mock addresses created in
+        // setupMockAddresses
+        address inboxAddress = factory.deployInboxWithMocks(
+            inboxType,
+            address(this),
+            GENESIS_BLOCK_HASH,
+            bondToken,
+            checkpointManager,
+            proofVerifier
+        );
         inbox = ITestInbox(inboxAddress);
     }
 
@@ -176,25 +182,6 @@ abstract contract InboxTest is CommonTest {
             );
             return TestInboxFactory.InboxType.Base;
         }
-    }
-
-    function setupDefaultConfig() internal virtual {
-        defaultConfig = IInbox.Config({
-            bondToken: bondToken,
-            provingWindow: DEFAULT_PROVING_WINDOW,
-            extendedProvingWindow: DEFAULT_EXTENDED_PROVING_WINDOW,
-            maxFinalizationCount: DEFAULT_MAX_FINALIZATION_COUNT,
-            ringBufferSize: DEFAULT_RING_BUFFER_SIZE,
-            basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
-            checkpointManager: checkpointManager,
-            proofVerifier: proofVerifier,
-            proposerChecker: proposerChecker,
-            minForcedInclusionCount: 1,
-            forcedInclusionDelay: 100,
-            forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
-         });
-
-        inbox.setTestConfig(defaultConfig);
     }
 
     function fundTestAccounts() internal virtual {
@@ -323,7 +310,8 @@ abstract contract InboxTest is CommonTest {
             id: _builder.id,
             proposer: _builder.proposer,
             timestamp: uint48(block.timestamp),
-            lookaheadSlotTimestamp: uint48(block.timestamp + 12), // Default: current + 1 slot
+            endOfSubmissionWindowTimestamp: uint48(block.timestamp + 12), // Default: current + 1
+                // slot
             coreStateHash: _builder.coreStateHash,
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -342,9 +330,7 @@ abstract contract InboxTest is CommonTest {
                 blockNumber: _builder.endBlockNumber,
                 blockHash: _builder.endBlockHash,
                 stateRoot: _builder.endStateRoot
-            }),
-            designatedProver: _builder.designatedProver,
-            actualProver: _builder.actualProver
+            })
         });
     }
 
@@ -451,9 +437,10 @@ abstract contract InboxTest is CommonTest {
         transitions = new IInbox.Transition[](_config.proposalCount);
         transitionRecords = new IInbox.TransitionRecord[](_config.proposalCount);
 
-        // Configure ring buffer if specified
+        // Ring buffer size is now immutable - tests requiring different sizes should use different
+        // contract variants
         if (_config.ringBuffer.size > 0) {
-            inbox.setTestConfig(createTestConfigWithRingBufferSize(_config.ringBuffer.size));
+            // Note: Ring buffer size cannot be changed at runtime (immutable in constructor)
         }
 
         // Submit proposals with gas tracking
@@ -554,7 +541,8 @@ abstract contract InboxTest is CommonTest {
             id: _config.id,
             proposer: _config.proposer,
             timestamp: uint48(block.timestamp),
-            lookaheadSlotTimestamp: uint48(block.timestamp + 12), // Default: current + 1 slot
+            endOfSubmissionWindowTimestamp: uint48(block.timestamp + 12), // Default: current + 1
+                // slot
             coreStateHash: bytes32(0), // Will be set later
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -573,9 +561,7 @@ abstract contract InboxTest is CommonTest {
                 blockNumber: _config.endBlockNumber,
                 blockHash: _config.endBlockHash,
                 stateRoot: _config.endStateRoot
-            }),
-            designatedProver: _config.designatedProver,
-            actualProver: _config.actualProver
+            })
         });
     }
 
@@ -778,59 +764,47 @@ abstract contract InboxTest is CommonTest {
 
     /// @dev Sets up mocks for capacity exceeded scenario
     function setupCapacityExceededScenario(uint256 _ringBufferSize) internal {
-        IInbox.Config memory config = defaultConfig;
-        config.ringBufferSize = _ringBufferSize;
-        inbox.setTestConfig(config);
+        // Ring buffer size is now immutable - capacity tests must use appropriate test contract
+        // variant
+        // This function is kept for compatibility but does nothing
     }
 
-    /// @dev Creates a standard test configuration with custom ring buffer size
-    function createTestConfigWithRingBufferSize(uint256 _size)
-        internal
-        view
-        returns (IInbox.Config memory)
-    {
-        IInbox.Config memory config = defaultConfig;
-        config.ringBufferSize = _size;
-        return config;
+    /// @dev Gets the ring buffer size from the inbox (now immutable)
+    function getRingBufferSize() internal view returns (uint256) {
+        return Inbox(address(inbox)).getConfig().ringBufferSize;
     }
 
-    /// @dev Sets up inbox with small ring buffer for capacity testing
+    /// @dev Gets the proving window from the inbox (now immutable)
+    function getProvingWindow() internal view returns (uint48) {
+        return Inbox(address(inbox)).getConfig().provingWindow;
+    }
+
+    /// @dev Gets the max finalization count from the inbox (now immutable)
+    function getMaxFinalizationCount() internal view returns (uint256) {
+        return Inbox(address(inbox)).getConfig().maxFinalizationCount;
+    }
+
+    /// @dev Gets the basefee sharing percentage from the inbox (now immutable)
+    function getBasefeeSharingPctg() internal view returns (uint8) {
+        return Inbox(address(inbox)).getConfig().basefeeSharingPctg;
+    }
+
+    /// @dev Configuration is now immutable - these setup functions are no-ops for compatibility
     function setupSmallRingBuffer() internal {
-        inbox.setTestConfig(createTestConfigWithRingBufferSize(SMALL_RING_BUFFER_SIZE));
+        // Ring buffer size is now immutable (set in constructor)
+        // Tests requiring different sizes should use different test contract variants
     }
 
-    /// @dev Sets up inbox with medium ring buffer for moderate testing
     function setupMediumRingBuffer() internal {
-        inbox.setTestConfig(createTestConfigWithRingBufferSize(MEDIUM_RING_BUFFER_SIZE));
+        // Ring buffer size is now immutable (set in constructor)
     }
 
-    /// @dev Sets up inbox with tiny ring buffer for edge case testing
     function setupTinyRingBuffer() internal {
-        inbox.setTestConfig(createTestConfigWithRingBufferSize(TINY_RING_BUFFER_SIZE));
+        // Ring buffer size is now immutable (set in constructor)
     }
 
-    /// @dev Sets up inbox with large ring buffer for stress testing
     function setupLargeRingBuffer() internal {
-        inbox.setTestConfig(createTestConfigWithRingBufferSize(LARGE_RING_BUFFER_SIZE));
-    }
-
-    /// @dev Creates test configuration with custom parameters
-    function createAdvancedTestConfig(
-        uint256 _ringBufferSize,
-        uint256 _provingWindow,
-        uint256 _extendedWindow,
-        uint256 _maxFinalization
-    )
-        internal
-        view
-        returns (IInbox.Config memory)
-    {
-        IInbox.Config memory config = defaultConfig;
-        config.ringBufferSize = _ringBufferSize;
-        config.provingWindow = uint48(_provingWindow);
-        config.extendedProvingWindow = uint48(_extendedWindow);
-        config.maxFinalizationCount = _maxFinalization;
-        return config;
+        // Ring buffer size is now immutable (set in constructor)
     }
 
     // ---------------------------------------------------------------
@@ -859,9 +833,7 @@ abstract contract InboxTest is CommonTest {
 
     /// @dev Resets inbox to clean state for test isolation
     function resetInboxState() internal {
-        // Reset configuration to defaults
-        inbox.setTestConfig(defaultConfig);
-        // Reset mock states
+        // Configuration is now immutable - only reset mock states
         _resetAllMocks();
         // Setup fresh blob hashes
         setupBlobHashes();
@@ -878,9 +850,8 @@ abstract contract InboxTest is CommonTest {
         fundTestAccounts();
     }
 
-    /// @dev Sets up test environment with custom configuration
-    function setupTestEnvironment(IInbox.Config memory _config) internal {
-        inbox.setTestConfig(_config);
+    /// @dev Sets up test environment (configuration is now immutable)
+    function setupTestEnvironment() internal {
         setupBlobHashes();
         fundTestAccounts();
     }
@@ -1391,7 +1362,8 @@ abstract contract InboxTest is CommonTest {
         proposal.id = _proposalId;
         proposal.proposer = _proposer;
         proposal.timestamp = uint48(_timestamp);
-        proposal.lookaheadSlotTimestamp = uint48(0); // Set to 0 as returned by mockProposerAllowed
+        proposal.endOfSubmissionWindowTimestamp = uint48(0); // Set to 0 as returned by
+            // mockProposerAllowed
         proposal.derivationHash = keccak256(abi.encode(derivation));
 
         // The contract increments nextProposalId during processing
@@ -1607,9 +1579,9 @@ abstract contract InboxTest is CommonTest {
         internal
         view
     {
-        bytes32 storedHash = inbox.getTransitionRecordHash(_proposalId, _parentTransitionHash);
+        (, bytes26 recordHash) = inbox.getTransitionRecordHash(_proposalId, _parentTransitionHash);
         assertTrue(
-            storedHash != bytes32(0),
+            recordHash != bytes26(0),
             string(
                 abi.encodePacked(
                     "Transition record for proposal ", vm.toString(_proposalId), " not stored"
@@ -1625,9 +1597,9 @@ abstract contract InboxTest is CommonTest {
         internal
         view
     {
-        bytes32 storedHash = inbox.getTransitionRecordHash(_proposalId, _parentTransitionHash);
+        (, bytes26 recordHash) = inbox.getTransitionRecordHash(_proposalId, _parentTransitionHash);
         assertTrue(
-            storedHash == bytes32(0),
+            recordHash == bytes26(0),
             string(
                 abi.encodePacked(
                     "Transition record for proposal ",
@@ -1718,7 +1690,7 @@ abstract contract InboxTest is CommonTest {
 
     /// @dev Asserts inbox capacity matches expected value
     function assertCapacityEquals(uint256 _expected, string memory _context) internal view {
-        uint256 actualCapacity = inbox.getCapacity();
+        uint256 actualCapacity = Inbox(address(inbox)).getConfig().ringBufferSize - 1;
         assertEq(
             actualCapacity, _expected, string(abi.encodePacked("Capacity mismatch in ", _context))
         );

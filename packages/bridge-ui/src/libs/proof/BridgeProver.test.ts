@@ -337,7 +337,7 @@ describe('BridgeProver', () => {
       ).rejects.toBeInstanceOf(ProofGenerationError);
     });
 
-    it('should fail when client cant be found', async () => {
+    it('should fail when client cannot be found', async () => {
       // Given
       const bridgeProver = new BridgeProver();
 

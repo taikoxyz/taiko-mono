@@ -7,14 +7,11 @@ import "contracts/layer1/shasta/iface/IInbox.sol";
 /// @notice Common interface for all test Inbox implementations
 /// @custom:security-contact security@taiko.xyz
 interface ITestInbox is IInbox {
-    /// @notice Set test configuration
-    function setTestConfig(IInbox.Config memory _config) external;
-
     /// @notice Expose internal function for testing - set proposal hash
     function exposed_setProposalHash(uint48 _proposalId, bytes32 _hash) external;
 
     /// @notice Expose internal function for testing - set transition record hash
-    function exposed_setTransitionRecordHash(
+    function exposed_setTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         IInbox.Transition memory _transition,
         IInbox.TransitionRecord memory _transitionRecord

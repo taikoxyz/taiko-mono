@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { InboxOptimized3 } from "./InboxOptimized3.sol";
+import { InboxOptimized4 } from "./InboxOptimized4.sol";
+import { IInbox } from "../iface/IInbox.sol";
 import { LibFasterReentryLock } from "../../mainnet/libs/LibFasterReentryLock.sol";
+import { LibL1Addrs } from "../../mainnet/libs/LibL1Addrs.sol";
 
 /// @title MainnetShastaInbox
 /// @dev This contract extends the base Inbox contract for mainnet deployment
-/// with optimized reentrancy lock implementation.
+/// with optimized reentrancy lock implementation and efficient hashing.
+/// @dev DEPLOYMENT: CRITICAL - Must use FOUNDRY_PROFILE=layer1o for mainnet deployment.
+///      Contract size (26,455 bytes) exceeds 24KB limit without optimization.
+///      Example: FOUNDRY_PROFILE=layer1o forge build
+/// contracts/layer1/shasta/impl/MainnetShastaInbox.sol
 /// @custom:security-contact security@taiko.xyz
-contract MainnetShastaInbox is InboxOptimized3 {
+contract MainnetShastaInbox is InboxOptimized4 {
     // ---------------------------------------------------------------
     // Constants
     // ---------------------------------------------------------------
@@ -27,40 +33,29 @@ contract MainnetShastaInbox is InboxOptimized3 {
     // Constructor
     // ---------------------------------------------------------------
 
-    constructor() InboxOptimized3() { }
-
-    // ---------------------------------------------------------------
-    // External/Public Functions
-    // ---------------------------------------------------------------
-
-    // /// @notice Initializes the core state.
-    // /// @param _coreState The core state.
-    // function initCoreState(CoreState memory _coreState) external onlyOwner reinitializer(2) {
-    //     require(_coreState.nextProposalId != 0, InvalidCoreState());
-
-    //     coreStateHash = keccak256(abi.encode(_coreState));
-    //     emit CoreStateSet(_coreState);
-    // }
-
-    /// @notice Gets the configuration for this Inbox contract
-    /// @return _ The configuration struct with shasta-specific settings
-    // TODO: figure out these values
-    function getConfig() public pure override returns (Config memory) {
-        return Config({
-            bondToken: address(0),
-            provingWindow: 2 hours,
-            extendedProvingWindow: 4 hours,
-            maxFinalizationCount: 16,
-            ringBufferSize: _RING_BUFFER_SIZE,
-            basefeeSharingPctg: 0,
-            checkpointManager: address(0),
-            proofVerifier: address(0),
-            proposerChecker: address(0),
-            minForcedInclusionCount: 1,
-            forcedInclusionDelay: 100,
-            forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
-         });
-    }
+    constructor(
+        address _checkpointManager,
+        address _proofVerifier,
+        address _proposerChecker
+    )
+        InboxOptimized4(
+            IInbox.Config({
+                bondToken: LibL1Addrs.TAIKO_TOKEN,
+                checkpointManager: _checkpointManager,
+                proofVerifier: _proofVerifier,
+                proposerChecker: _proposerChecker,
+                provingWindow: 2 hours,
+                extendedProvingWindow: 4 hours,
+                maxFinalizationCount: 16,
+                finalizationGracePeriod: 768 seconds,
+                ringBufferSize: _RING_BUFFER_SIZE,
+                basefeeSharingPctg: 0,
+                minForcedInclusionCount: 1,
+                forcedInclusionDelay: 100,
+                forcedInclusionFeeInGwei: 10_000_000 // 0.01 ETH
+             })
+        )
+    { }
 
     // ---------------------------------------------------------------
     // Internal Functions

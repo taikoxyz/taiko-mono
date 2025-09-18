@@ -166,20 +166,18 @@ The `BlobSlice` struct represents binary data distributed across multiple blobs.
 
 A default manifest is returned when any of the following validation criteria fail:
 
-- **Blob validation**: `blobHashes.length` is zero or exceeds `PROPOSAL_MAX_BLOBS`
+- **Blob validation**: `blobHashes.length` is zero
 - **Offset validation**: `offset > BLOB_BYTES * blobHashes.length - 64`
 - **Version validation**: Version number is not `0x1`
-- **Size validation**: `size` exceeds `PROPOSAL_MAX_BYTES`
 - **Decompression failure**: ZLIB decompression fails
 - **Decoding failure**: RLP decoding fails
 - **Block count validation**: `manifest.blocks.length` exceeds `PROPOSAL_MAX_BLOCKS`
-- **Transaction limit**: Any block contains more than `BLOCK_MAX_RAW_TRANSACTIONS` transactions
 
 The default manifest is one initialized as:
 
 ```solidity
 ProposalManifest memory default;
-default.blocks = new Block[](1);
+default.blocks = new BlockManifest[](1) ;
 ```
 
 A default manifest contains a single empty block, effectively serving as a fallback mechanism for invalid proposals.
@@ -203,7 +201,7 @@ Anchor block validation ensures proper L1 state synchronization and may trigger 
 **Invalidation conditions** (sets `anchorBlockNumber` to `parent.metadata.anchorBlockNumber`):
 
 - **Non-monotonic progression**: `manifest.blocks[i].anchorBlockNumber < parent.metadata.anchorBlockNumber`
-- **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber`
+- **Future reference**: `manifest.blocks[i].anchorBlockNumber >= proposal.originBlockNumber - ANCHOR_MIN_OFFSET`
 - **Excessive lag**: `manifest.blocks[i].anchorBlockNumber < proposal.originBlockNumber - ANCHOR_MAX_OFFSET`
 
 **Forced inclusion protection**: For non-forced proposals (`proposal.isForcedInclusion == false`), if no blocks have valid anchor numbers greater than its parent's, the entire manifest is replaced with the default manifest, penalizing proposals that fail to provide proper L1 anchoring.
@@ -225,14 +223,14 @@ The L2 coinbase address determination follows a hierarchical priority system:
 
 #### `gasLimit` Validation
 
-Gas limit adjustments are constrained by `MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±10 basis points (±0.1%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
+Gas limit adjustments are constrained by `BLOCK_GAS_LIMIT_MAX_CHANGE` permyriad (units of 1/10,000) per block to ensure economic stability. With the default value of 10 permyriad, this allows ±10 basis points (±0.1%) change per block. Additionally, block gas limit must never fall below `MIN_BLOCK_GAS_LIMIT`:
 
 **Calculation process**:
 
 1. **Define bounds**:
 
-   - `lowerBound = max(parent.metadata.gasLimit * (10000 - MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 10000, MIN_BLOCK_GAS_LIMIT)`
-   - `upperBound = parent.metadata.gasLimit * (10000 + MAX_BLOCK_GAS_LIMIT_CHANGE_PERMYRIAD) / 10000`
+   - `lowerBound = max(parent.metadata.gasLimit * (10000 - BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000, MIN_BLOCK_GAS_LIMIT)`
+   - `upperBound = parent.metadata.gasLimit * (10000 + BLOCK_GAS_LIMIT_MAX_CHANGE) / 10000`
 
 2. **Apply constraints**:
    - If `manifest.blocks[i].gasLimit == 0`: Inherit parent value

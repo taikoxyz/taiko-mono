@@ -28,8 +28,8 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint48 anchorBlockNumber; // Latest L1 block number anchored to L2
         address designatedProver; // The prover designated for the current batch
         bool isLowBondProposal; // Indicates if the proposal has insufficient bonds
-        uint48 lookaheadSlotTimestamp; // The timestamp of the last slot where the current preconfer
-            // can propose.
+        uint48 endOfSubmissionWindowTimestamp; // The timestamp of the last slot where the current
+            // preconfer can submit preconf-ed blocks to the L2 network.
     }
 
     /// @notice Authentication data for prover designation.
@@ -65,20 +65,14 @@ abstract contract ShastaAnchor is PacayaAnchor {
     // ---------------------------------------------------------------
 
     /// @notice Current state of the anchor proposal being processed.
-    /// @dev Two slots used to store the state:
+    /// @dev 3 slots used to store the state:
     State private _state;
 
+    mapping(uint256 blockId => uint256 endOfSubmissionWindowTimestamp) public
+        blockIdToEndOfSubmissionWindowTimeStamp;
+
     /// @notice Storage gap for upgrade safety.
-    uint256[48] private __gap;
-
-    // ---------------------------------------------------------------
-    // Events
-    // ---------------------------------------------------------------
-
-    /// @notice Emitted when a prover is designated for a proposal.
-    /// @param prover The address of the designated prover.
-    /// @param isLowBondProposal Indicates if the proposal has insufficient bonds.
-    event ProverDesignated(address prover, bool isLowBondProposal);
+    uint256[46] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -133,10 +127,11 @@ abstract contract ShastaAnchor is PacayaAnchor {
     /// @param _anchorBlockNumber L1 block number to anchor (0 to skip anchoring).
     /// @param _anchorBlockHash L1 block hash at _anchorBlockNumber.
     /// @param _anchorStateRoot L1 state root at _anchorBlockNumber.
-    /// @param _lookaheadSlotTimestamp The timestamp of the last slot where the current preconfer
+    /// @param _endOfSubmissionWindowTimestamp The timestamp of the last slot where the current
+    /// preconfer
     /// can propose.
-    /// @return isLowBondProposal_ True if proposer has insufficient bonds.
-    /// @return designatedProver_ Address of the designated prover.
+    /// @return previousState_ The previous state of the anchor. This value make proving easier.
+    /// @return newState_ The new state of the anchor.
     function updateState(
         // Proposal level fields - define the overall batch
         uint48 _proposalId,
@@ -149,33 +144,36 @@ abstract contract ShastaAnchor is PacayaAnchor {
         uint48 _anchorBlockNumber,
         bytes32 _anchorBlockHash,
         bytes32 _anchorStateRoot,
-        uint48 _lookaheadSlotTimestamp
+        uint48 _endOfSubmissionWindowTimestamp
     )
         external
         onlyGoldenTouch
         nonReentrant
-        returns (bool isLowBondProposal_, address designatedProver_)
+        returns (State memory previousState_, State memory newState_)
     {
         // Fork validation
         require(block.number >= shastaForkHeight, L2_FORK_ERROR());
+
+        previousState_ = _state;
+        newState_ = previousState_;
 
         // Prevent duplicate calls within same block
         _trackParentBlockHash(block.number - 1);
 
         // Handle prover designation on first block
         if (_blockIndex == 0) {
-            (isLowBondProposal_, designatedProver_) =
-                _designateProver(_proposalId, _proposer, _proverAuth);
+            uint256 proverFee;
+            (newState_.isLowBondProposal, newState_.designatedProver, proverFee) =
+                _getDesignatedProver(_proposalId, _proposer, _proverAuth);
 
-            _state.designatedProver = designatedProver_;
-            _state.isLowBondProposal = isLowBondProposal_;
-            _state.lookaheadSlotTimestamp = _lookaheadSlotTimestamp;
-
-            emit ProverDesignated(designatedProver_, isLowBondProposal_);
+            if (proverFee > 0) {
+                bondManager.debitBond(_proposer, proverFee);
+                bondManager.creditBond(newState_.designatedProver, proverFee);
+            }
         }
 
         // Process new L1 anchor data
-        if (_anchorBlockNumber > _state.anchorBlockNumber) {
+        if (_anchorBlockNumber > previousState_.anchorBlockNumber) {
             // Save L1 block data
             checkpointManager.saveCheckpoint(
                 ICheckpointManager.Checkpoint({
@@ -190,15 +188,40 @@ abstract contract ShastaAnchor is PacayaAnchor {
                 _processBondInstructions(_bondInstructions, _bondInstructionsHash);
 
             // Update state atomically
-            _state.bondInstructionsHash = newBondInstructionsHash;
-            _state.anchorBlockNumber = _anchorBlockNumber;
+            newState_.bondInstructionsHash = newBondInstructionsHash;
+            newState_.anchorBlockNumber = _anchorBlockNumber;
         }
+
+        newState_.endOfSubmissionWindowTimestamp = _endOfSubmissionWindowTimestamp;
+        _state = newState_;
+
+        blockIdToEndOfSubmissionWindowTimeStamp[block.number] = _endOfSubmissionWindowTimestamp;
     }
 
     /// @notice Returns the current state of the anchor.
     /// @return The current state containing bond hash, anchor block, and designated prover.
     function getState() external view returns (State memory) {
         return _state;
+    }
+
+    /// @notice Returns the designated prover
+    /// @param _proposalId The proposal ID.
+    /// @param _proposer The proposer address.
+    /// @param _proverAuth Encoded prover authentication data.
+    /// @return isLowBondProposal_ True if proposer has insufficient bonds.
+    /// @return designatedProver_ The designated prover address.
+    /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the
+    /// designated prover.
+    function getDesignatedProver(
+        uint48 _proposalId,
+        address _proposer,
+        bytes calldata _proverAuth
+    )
+        external
+        view
+        returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
+    {
+        return _getDesignatedProver(_proposalId, _proposer, _proverAuth);
     }
 
     // ---------------------------------------------------------------
@@ -212,38 +235,44 @@ abstract contract ShastaAnchor is PacayaAnchor {
         _blockhashes[_parentId] = blockhash(_parentId);
     }
 
-    /// @dev Designates a prover and checks bond sufficiency.
+    /// @dev Returns the designated prover
     /// @param _proposalId The proposal ID.
     /// @param _proposer The proposer address.
     /// @param _proverAuth Encoded prover authentication data.
     /// @return isLowBondProposal_ True if proposer has insufficient bonds.
     /// @return designatedProver_ The designated prover address.
-    function _designateProver(
+    /// @return provingFeeToTransfer_ The proving fee to transfer from the proposer to the
+    /// designated prover.
+    function _getDesignatedProver(
         uint48 _proposalId,
         address _proposer,
         bytes calldata _proverAuth
     )
         private
         view
-        returns (bool isLowBondProposal_, address designatedProver_)
+        returns (bool isLowBondProposal_, address designatedProver_, uint256 provingFeeToTransfer_)
     {
         // Determine prover and fee
-        uint48 provingFeeGwei;
-        (designatedProver_, provingFeeGwei) =
-            _validateProverAuth(_proposalId, _proposer, _proverAuth);
+        uint256 provingFee;
+        (designatedProver_, provingFee) = _validateProverAuth(_proposalId, _proposer, _proverAuth);
 
-        // Check bond sufficiency
-        isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFeeGwei);
+        // Convert proving fee from Gwei to Wei
+        provingFee *= 1e9;
+
+        // Check bond sufficiency (convert provingFeeGwei to Wei)
+        isLowBondProposal_ = !bondManager.hasSufficientBond(_proposer, provingFee);
 
         // Handle low bond proposals
         if (isLowBondProposal_) {
             // Use previous designated prover
             designatedProver_ = _state.designatedProver;
-        } else if (
-            designatedProver_ != _proposer && !bondManager.hasSufficientBond(designatedProver_, 0)
-        ) {
-            // Fallback to proposer if designated prover has insufficient bonds
-            designatedProver_ = _proposer;
+        } else if (designatedProver_ != _proposer) {
+            if (!bondManager.hasSufficientBond(designatedProver_, 0)) {
+                // Fallback to proposer if designated prover has insufficient bonds
+                designatedProver_ = _proposer;
+            } else {
+                provingFeeToTransfer_ = provingFee;
+            }
         }
     }
 

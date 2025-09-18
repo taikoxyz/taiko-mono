@@ -157,7 +157,8 @@ library InboxTestLib {
             id: _id,
             proposer: _proposer,
             timestamp: uint48(block.timestamp),
-            lookaheadSlotTimestamp: uint48(0), // Set to 0 to match mockProposerAllowed return value
+            endOfSubmissionWindowTimestamp: uint48(0), // Set to 0 to match mockProposerAllowed
+                // return value
             coreStateHash: bytes32(0),
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -192,7 +193,8 @@ library InboxTestLib {
             id: _id,
             proposer: _proposer,
             timestamp: uint48(block.timestamp),
-            lookaheadSlotTimestamp: uint48(0), // Set to 0 to match mockProposerAllowed return value
+            endOfSubmissionWindowTimestamp: uint48(0), // Set to 0 to match mockProposerAllowed
+                // return value
             coreStateHash: bytes32(0),
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -231,6 +233,7 @@ library InboxTestLib {
         pure
         returns (IInbox.Transition memory)
     {
+        // actualProver parameter is no longer used in Transition struct
         return IInbox.Transition({
             proposalHash: hashProposal(_proposal),
             parentTransitionHash: _parentTransitionHash,
@@ -238,9 +241,7 @@ library InboxTestLib {
                 blockNumber: _proposal.id * 100,
                 blockHash: keccak256(abi.encode(_proposal.id, "endBlockHash")),
                 stateRoot: keccak256(abi.encode(_proposal.id, "stateRoot"))
-            }),
-            designatedProver: _proposal.proposer,
-            actualProver: _actualProver
+            })
         });
     }
 
@@ -258,6 +259,7 @@ library InboxTestLib {
         pure
         returns (IInbox.Transition memory)
     {
+        // designatedProver and actualProver parameters are no longer used in Transition struct
         return IInbox.Transition({
             proposalHash: _proposalHash,
             parentTransitionHash: _parentTransitionHash,
@@ -265,9 +267,7 @@ library InboxTestLib {
                 blockNumber: _endBlockNumber,
                 blockHash: _endBlockHash,
                 stateRoot: _endStateRoot
-            }),
-            designatedProver: _designatedProver,
-            actualProver: _actualProver
+            })
         });
     }
 
@@ -579,7 +579,7 @@ library InboxTestLib {
         proposal.id = 0;
         proposal.proposer = address(0);
         proposal.timestamp = 0;
-        proposal.lookaheadSlotTimestamp = 0;
+        proposal.endOfSubmissionWindowTimestamp = 0;
 
         // Use the passed core state to calculate the coreStateHash
         proposal.coreStateHash = keccak256(abi.encode(_coreState));
@@ -706,9 +706,7 @@ library InboxTestLib {
                 blockNumber: 0,
                 blockHash: _genesisBlockHash,
                 stateRoot: bytes32(0)
-            }),
-            designatedProver: address(0),
-            actualProver: address(0)
+            })
         });
     }
 

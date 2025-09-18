@@ -4,10 +4,6 @@ pragma solidity ^0.8.24;
 import { CommonTest } from "test/shared/CommonTest.sol";
 import { IInbox } from "src/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "src/layer1/shasta/libs/LibBlobs.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
-import { IProofVerifier } from "src/layer1/shasta/iface/IProofVerifier.sol";
-import { IProposerChecker } from "src/layer1/shasta/iface/IProposerChecker.sol";
 
 /// @title InboxTestHelper
 /// @notice Pure utility functions for Inbox tests
@@ -62,7 +58,7 @@ contract InboxTestHelper is CommonTest {
             id: 0,
             proposer: address(0),
             timestamp: 0,
-            lookaheadSlotTimestamp: 0,
+            endOfSubmissionWindowTimestamp: 0,
             coreStateHash: keccak256(abi.encode(coreState)),
             derivationHash: keccak256(abi.encode(derivation))
         });
@@ -136,7 +132,8 @@ contract InboxTestHelper is CommonTest {
             id: _proposalId,
             proposer: _currentProposer,
             timestamp: uint48(block.timestamp),
-            lookaheadSlotTimestamp: 0, // PreconfWhitelist returns 0 for lookaheadSlotTimestamp
+            endOfSubmissionWindowTimestamp: 0, // PreconfWhitelist returns 0 for
+                // endOfSubmissionWindowTimestamp
             coreStateHash: keccak256(abi.encode(expectedCoreState)),
             derivationHash: keccak256(abi.encode(expectedDerivation))
         });

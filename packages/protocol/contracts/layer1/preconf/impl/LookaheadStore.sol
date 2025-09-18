@@ -22,14 +22,7 @@ contract LookaheadStore is ILookaheadStore, EssentialContract {
 
     uint256[49] private __gap;
 
-    constructor(
-        address _urc,
-        address _protector,
-        address _preconfSlasher,
-        address _preconfRouter
-    )
-        EssentialContract()
-    {
+    constructor(address _urc, address _protector, address _preconfSlasher, address _preconfRouter) {
         urc = IRegistry(_urc);
         protector = _protector;
         preconfSlasher = _preconfSlasher;

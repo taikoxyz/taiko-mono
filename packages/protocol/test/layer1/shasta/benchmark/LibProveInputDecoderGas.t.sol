@@ -5,7 +5,6 @@ import { Test } from "forge-std/src/Test.sol";
 import { console2 } from "forge-std/src/console2.sol";
 import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibProveInputDecoder } from "contracts/layer1/shasta/libs/LibProveInputDecoder.sol";
-import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title LibProveInputDecoderGas
@@ -180,7 +179,7 @@ contract LibProveInputDecoderGas is Test {
                 id: uint48(96 + i),
                 proposer: address(uint160(0x1000 + i)),
                 timestamp: uint48(1_000_000 + i * 10),
-                lookaheadSlotTimestamp: uint48(1_000_000 + i * 10 + 12),
+                endOfSubmissionWindowTimestamp: uint48(1_000_000 + i * 10 + 12),
                 coreStateHash: keccak256(abi.encodePacked("core_state", i)),
                 derivationHash: keccak256(abi.encodePacked("derivation", i))
             });
@@ -195,7 +194,13 @@ contract LibProveInputDecoderGas is Test {
                     blockNumber: uint48(2_000_000 + i * 10),
                     blockHash: keccak256(abi.encodePacked("end_block", i)),
                     stateRoot: keccak256(abi.encodePacked("end_state", i))
-                }),
+                })
+            });
+        }
+
+        input.metadata = new IInbox.TransitionMetadata[](_proposalCount);
+        for (uint256 i = 0; i < _proposalCount; i++) {
+            input.metadata[i] = IInbox.TransitionMetadata({
                 designatedProver: address(uint160(0x2000 + i)),
                 actualProver: address(uint160(0x3000 + i))
             });

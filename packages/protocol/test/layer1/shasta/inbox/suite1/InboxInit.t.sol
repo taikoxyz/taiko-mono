@@ -67,7 +67,7 @@ contract InboxInit is InboxTest {
             id: 0,
             proposer: address(0),
             timestamp: 0,
-            lookaheadSlotTimestamp: 0,
+            endOfSubmissionWindowTimestamp: 0,
             coreStateHash: keccak256(abi.encode(_coreState)),
             derivationHash: bytes32(0)
         });
@@ -84,7 +84,7 @@ contract InboxInit is InboxTest {
             "Double initialization should be prevented"
         );
         // Cast to Inbox to access init function
-        Inbox(address(testInbox)).initV2(Bob, bytes32(uint256(2)));
+        Inbox(address(testInbox)).initV3(Bob, bytes32(uint256(2)));
     }
 
     /// @notice Test initialization with zero address owner
@@ -131,12 +131,9 @@ contract InboxInit is InboxTest {
 
     /// @notice Test that nextProposalId starts at 1
     /// @dev Validates proper ID initialization
-    function test_init_next_proposal_id_starts_at_one() public {
-        ITestInbox testInbox = _deployFreshInbox(Alice, GENESIS_BLOCK_HASH);
-
-        // Set up test configuration
-        IInbox.Config memory config = createTestConfigWithRingBufferSize(STANDARD_RING_BUFFER_SIZE);
-        testInbox.setTestConfig(config);
+    function test_init_next_proposal_id_starts_at_one() public pure {
+        // Configuration is now immutable - ring buffer size is set in constructor
+        // testInbox already has the standard ring buffer size from constructor
 
         // Verify expected genesis core state (nextProposalId should be 1)
         IInbox.CoreState memory expectedCoreState = _createExpectedGenesisCoreState();

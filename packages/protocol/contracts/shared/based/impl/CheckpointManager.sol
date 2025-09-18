@@ -44,7 +44,7 @@ contract CheckpointManager is EssentialContract, ICheckpointManager {
     /// @param _authorized The address of the authorized contract. On L1, this shall be the inbox,
     /// on L2, this shall be the anchor transactor.
     /// @param _maxStackSize The size of the ring buffer
-    constructor(address _authorized, uint48 _maxStackSize) EssentialContract() {
+    constructor(address _authorized, uint48 _maxStackSize) {
         require(_authorized != address(0), InvalidAddress());
         require(_maxStackSize != 0, InvalidMaxStackSize());
 
