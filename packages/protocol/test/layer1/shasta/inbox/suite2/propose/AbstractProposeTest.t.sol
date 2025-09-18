@@ -19,7 +19,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
     address internal currentProposer = Bob;
     address internal nextProposer = Carol;
-    InboxHelper internal codec;
+    InboxHelper internal helper;
     
     // Cache contract name to avoid repeated calls and potential recursion
     string private contractName;
@@ -33,8 +33,8 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     function setUp() public virtual override {
         super.setUp();
         
-        // Initialize the codec for encoding/decoding operations
-        codec = new InboxHelper();
+        // Initialize the helper for encoding/decoding operations
+        helper = new InboxHelper();
 
         // Cache contract name and determine encoding types
         contractName = getTestContractName();
@@ -378,18 +378,18 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     /// @notice Encodes ProposeInput using appropriate method based on inbox type
     function _encodeProposeInput(IInbox.ProposeInput memory _input) internal view returns (bytes memory) {
         if (useOptimizedInputEncoding) {
-            return codec.encodeProposeInputOptimized(_input);
+            return helper.encodeProposeInputOptimized(_input);
         } else {
-            return codec.encodeProposeInput(_input);
+            return helper.encodeProposeInput(_input);
         }
     }
 
     /// @notice Encodes ProposedEventPayload using appropriate method based on inbox type
     function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload) internal view returns (bytes memory) {
         if (useOptimizedEventEncoding) {
-            return codec.encodeProposedEventOptimized(_payload);
+            return helper.encodeProposedEventOptimized(_payload);
         } else {
-            return codec.encodeProposedEvent(_payload);
+            return helper.encodeProposedEvent(_payload);
         }
     }
 

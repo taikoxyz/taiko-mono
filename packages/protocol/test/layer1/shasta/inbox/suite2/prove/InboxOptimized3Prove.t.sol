@@ -27,7 +27,7 @@ contract InboxOptimized3Prove is AbstractProveTest {
         // InboxOptimized3 uses LibProveInputDecoder which throws ProposalTransitionLengthMismatch()
         // during encoding itself, not during prove()
         vm.expectRevert(LibProveInputDecoder.ProposalTransitionLengthMismatch.selector);
-        codec.encodeProveInputOptimized(input);
+        helper.encodeProveInputOptimized(input);
     }
 
     function _getExpectedAggregationBehavior(

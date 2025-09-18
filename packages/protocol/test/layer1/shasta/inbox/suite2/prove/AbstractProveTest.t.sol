@@ -21,7 +21,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
     address internal currentProposer = Bob;
     address internal currentProver = Carol;
-    InboxHelper internal codec;
+    InboxHelper internal helper;
     
     // Cache contract name to avoid repeated calls and potential recursion
     string private contractName;
@@ -34,8 +34,8 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     function setUp() public virtual override {
         super.setUp();
         
-        // Initialize the codec for encoding/decoding operations
-        codec = new InboxHelper();
+        // Initialize the helper for encoding/decoding operations
+        helper = new InboxHelper();
 
         // Cache contract name and determine encoding types
         contractName = getTestContractName();
@@ -382,9 +382,9 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     /// @notice Encodes ProveInput using appropriate method based on inbox type
     function _encodeProveInput(IInbox.ProveInput memory _input) internal view returns (bytes memory) {
         if (useOptimizedInputEncoding) {
-            return codec.encodeProveInputOptimized(_input);
+            return helper.encodeProveInputOptimized(_input);
         } else {
-            return codec.encodeProveInput(_input);
+            return helper.encodeProveInput(_input);
         }
     }
 
@@ -638,9 +638,9 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         });
 
         if (useOptimizedInputEncoding) {
-            return codec.encodeProposeInputOptimized(input);
+            return helper.encodeProposeInputOptimized(input);
         } else {
-            return codec.encodeProposeInput(input);
+            return helper.encodeProposeInput(input);
         }
     }
 
@@ -656,9 +656,9 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         input.blobReference = blobRef;
 
         if (useOptimizedInputEncoding) {
-            return codec.encodeProposeInputOptimized(input);
+            return helper.encodeProposeInputOptimized(input);
         } else {
-            return codec.encodeProposeInput(input);
+            return helper.encodeProposeInput(input);
         }
     }
 }
