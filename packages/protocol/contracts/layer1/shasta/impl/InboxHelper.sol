@@ -5,13 +5,16 @@ import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
 import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
 import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
 import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
+import { LibHashing } from "../libs/LibHashing.sol";
 import { IInbox } from "../iface/IInbox.sol";
+import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
-/// @title InboxCodex
-/// @notice Unified codec contract for all Inbox encoder/decoder library functions
-/// @dev Provides a single interface to access all LibXXXEncoder and LibXXXDecoder functionality
+/// @title InboxHelper
+/// @notice Unified helper contract for all Inbox encoder/decoder and hashing library functions
+/// @dev Provides a single interface to access all LibXXXEncoder, LibXXXDecoder, and LibHashing functionality
 /// @custom:security-contact security@taiko.xyz
-contract InboxCodex {
+contract InboxHelper {
     // ---------------------------------------------------------------
     // ProposedEventEncoder Functions
     // ---------------------------------------------------------------
@@ -202,5 +205,85 @@ contract InboxCodex {
         returns (IInbox.ProveInput memory input_)
     {
         return LibProveInputDecoder.decode(_data);
+    }
+
+    // ---------------------------------------------------------------
+    // LibHashing Functions
+    // ---------------------------------------------------------------
+
+    /// @notice Optimized hashing for Transition structs
+    /// @param _transition The transition to hash
+    /// @return The hash of the transition
+    function hashTransition(IInbox.Transition memory _transition) external pure returns (bytes32) {
+        return LibHashing.hashTransition(_transition);
+    }
+
+    /// @notice Optimized hashing for Checkpoint structs
+    /// @param _checkpoint The checkpoint to hash
+    /// @return The hash of the checkpoint
+    function hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
+        external
+        pure
+        returns (bytes32)
+    {
+        return LibHashing.hashCheckpoint(_checkpoint);
+    }
+
+    /// @notice Optimized hashing for CoreState structs
+    /// @param _coreState The core state to hash
+    /// @return The hash of the core state
+    function hashCoreState(IInbox.CoreState memory _coreState) external pure returns (bytes32) {
+        return LibHashing.hashCoreState(_coreState);
+    }
+
+    /// @notice Optimized hashing for Proposal structs
+    /// @param _proposal The proposal to hash
+    /// @return The hash of the proposal
+    function hashProposal(IInbox.Proposal memory _proposal) external pure returns (bytes32) {
+        return LibHashing.hashProposal(_proposal);
+    }
+
+    /// @notice Optimized hashing for Derivation structs
+    /// @param _derivation The derivation to hash
+    /// @return The hash of the derivation
+    function hashDerivation(IInbox.Derivation memory _derivation) external pure returns (bytes32) {
+        return LibHashing.hashDerivation(_derivation);
+    }
+
+    /// @notice Optimized hashing for arrays of Transitions
+    /// @param _transitions The transitions array to hash
+    /// @return The hash of the transitions array
+    function hashTransitionsArray(IInbox.Transition[] memory _transitions)
+        external
+        pure
+        returns (bytes32)
+    {
+        return LibHashing.hashTransitionsArray(_transitions);
+    }
+
+    /// @notice Optimized hashing for TransitionRecord structs
+    /// @param _transitionRecord The transition record to hash
+    /// @return The hash truncated to bytes26 for storage optimization
+    function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
+        external
+        pure
+        returns (bytes26)
+    {
+        return LibHashing.hashTransitionRecord(_transitionRecord);
+    }
+
+    /// @notice Computes optimized composite key for transition record storage
+    /// @param _proposalId The ID of the proposal
+    /// @param _parentTransitionHash Hash of the parent transition
+    /// @return The composite key for storage mapping
+    function composeTransitionKey(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
+        external
+        pure
+        returns (bytes32)
+    {
+        return LibHashing.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
 }

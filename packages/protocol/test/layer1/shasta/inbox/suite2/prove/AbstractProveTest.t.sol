@@ -6,7 +6,7 @@ import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
 import { BlobTestUtils } from "../common/BlobTestUtils.sol";
-import { InboxCodex } from "contracts/layer1/shasta/impl/InboxCodex.sol";
+import { InboxHelper } from "contracts/layer1/shasta/impl/InboxHelper.sol";
 import { Vm } from "forge-std/src/Vm.sol";
 
 // Import errors from Inbox implementation
@@ -21,7 +21,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
     address internal currentProposer = Bob;
     address internal currentProver = Carol;
-    InboxCodex internal codec;
+    InboxHelper internal codec;
     
     // Cache contract name to avoid repeated calls and potential recursion
     string private contractName;
@@ -35,7 +35,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         super.setUp();
         
         // Initialize the codec for encoding/decoding operations
-        codec = new InboxCodex();
+        codec = new InboxHelper();
 
         // Cache contract name and determine encoding types
         contractName = getTestContractName();
