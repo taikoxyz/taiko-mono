@@ -211,6 +211,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
         CoreState memory coreState = _finalize(input);
 
+        unchecked {
+            coreState.nextProposalBlockId = uint48(block.number + 1);
+        }
+
         // Verify capacity for new proposals
         uint256 availableCapacity = _getAvailableCapacity(coreState);
         require(
@@ -686,6 +690,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     function _validateProposeInput(ProposeInput memory _input) private view {
         require(_input.deadline == 0 || block.timestamp <= _input.deadline, DeadlineExceeded());
         require(_input.parentProposals.length > 0, EmptyProposals());
+        require(block.number >= _input.coreState.nextProposalBlockId, CannotProposeInCurrentBlock());
         require(
             hashCoreState(_input.coreState) == _input.parentProposals[0].coreStateHash,
             InvalidState()
@@ -936,11 +941,10 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 // Errors
 // ---------------------------------------------------------------
 
-error TransitionRecordHashMismatchWithStorage();
-error TransitionRecordNotProvided();
+error CannotProposeInCurrentBlock();
+error CheckpointMismatch();
 error DeadlineExceeded();
 error EmptyProposals();
-error CheckpointMismatch();
 error ExceedsUnfinalizedProposalCapacity();
 error ForkNotActive();
 error InconsistentParams();
@@ -954,12 +958,14 @@ error LastProposalProofNotEmpty();
 error NextProposalHashMismatch();
 error NoBondToWithdraw();
 error ProposalHashMismatch();
-error ProposalHashMismatchWithTransition();
 error ProposalHashMismatchWithStorage();
+error ProposalHashMismatchWithTransition();
 error ProposalIdMismatch();
 error ProposerBondInsufficient();
 error RingBufferSizeZero();
 error SpanOutOfBounds();
+error TransitionRecordHashMismatchWithStorage();
+error TransitionRecordNotProvided();
 error TransitionWithSameParentHashAlreadyProved();
 error Unauthorized();
 error UnprocessedForcedInclusionIsDue();
