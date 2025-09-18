@@ -138,9 +138,7 @@ contract InboxOutOfOrderProving is InboxTest {
                     blockNumber: uint48(100 + i * 10),
                     blockHash: keccak256(abi.encode(proposals[i].id, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(proposals[i].id, "stateRoot"))
-                }),
-                designatedProver: Alice,
-                actualProver: Alice
+                })
             });
             transitionHashes[i] = keccak256(abi.encode(transitions[i]));
             parentHash = transitionHashes[i];
@@ -360,9 +358,7 @@ contract InboxOutOfOrderProving is InboxTest {
                     blockNumber: uint48(100 + i * 10),
                     blockHash: keccak256(abi.encode(i, "endBlockHash")),
                     stateRoot: keccak256(abi.encode(i, "stateRoot"))
-                }),
-                designatedProver: Alice,
-                actualProver: Alice
+                })
             });
 
             mockProofVerification(true);
@@ -395,9 +391,7 @@ contract InboxOutOfOrderProving is InboxTest {
                 blockNumber: 110,
                 blockHash: keccak256(abi.encode(1, "endBlockHash")),
                 stateRoot: keccak256(abi.encode(1, "stateRoot"))
-            }),
-            designatedProver: Alice,
-            actualProver: Alice
+            })
         });
 
         IInbox.TransitionRecord[] memory transitionRecords = new IInbox.TransitionRecord[](1);

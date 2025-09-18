@@ -59,8 +59,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         original.transition.checkpoint.blockNumber = _endBlockNumber;
         original.transition.checkpoint.blockHash = _endBlockHash;
         original.transition.checkpoint.stateRoot = _endStateRoot;
-        original.transition.designatedProver = _designatedProver;
-        original.transition.actualProver = _actualProver;
+        original.metadata.designatedProver = _designatedProver;
+        original.metadata.actualProver = _actualProver;
         original.transitionRecord.bondInstructions = new LibBonds.BondInstruction[](0);
 
         bytes memory encoded = LibProvedEventEncoder.encode(original);
@@ -73,8 +73,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         );
         assertEq(decoded.transition.checkpoint.blockHash, original.transition.checkpoint.blockHash);
         assertEq(decoded.transition.checkpoint.stateRoot, original.transition.checkpoint.stateRoot);
-        assertEq(decoded.transition.designatedProver, original.transition.designatedProver);
-        assertEq(decoded.transition.actualProver, original.transition.actualProver);
+        assertEq(decoded.metadata.designatedProver, original.metadata.designatedProver);
+        assertEq(decoded.metadata.actualProver, original.metadata.actualProver);
     }
 
     function testFuzz_encodeBondInstructions(uint8 _instructionCount) public pure {
@@ -139,8 +139,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
             uint48(uint256(keccak256(abi.encode(_proposalId))) % MAX_UINT48);
         original.transition.checkpoint.blockHash = keccak256(abi.encode("endBlock", _proposalId));
         original.transition.checkpoint.stateRoot = keccak256(abi.encode("endState", _proposalId));
-        original.transition.designatedProver = _designatedProver;
-        original.transition.actualProver = address(uint160(_designatedProver) + 1);
+        original.metadata.designatedProver = _designatedProver;
+        original.metadata.actualProver = address(uint160(_designatedProver) + 1);
 
         // Create TransitionRecord with derived values
         original.transitionRecord.span = uint8(uint256(keccak256(abi.encode(_proposalId))) % 10 + 1);
@@ -174,8 +174,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         );
         assertEq(decoded.transition.checkpoint.blockHash, original.transition.checkpoint.blockHash);
         assertEq(decoded.transition.checkpoint.stateRoot, original.transition.checkpoint.stateRoot);
-        assertEq(decoded.transition.designatedProver, original.transition.designatedProver);
-        assertEq(decoded.transition.actualProver, original.transition.actualProver);
+        assertEq(decoded.metadata.designatedProver, original.metadata.designatedProver);
+        assertEq(decoded.metadata.actualProver, original.metadata.actualProver);
         assertEq(decoded.transitionRecord.span, original.transitionRecord.span);
         assertEq(decoded.transitionRecord.transitionHash, original.transitionRecord.transitionHash);
         assertEq(decoded.transitionRecord.checkpointHash, original.transitionRecord.checkpointHash);
@@ -232,8 +232,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         original.transition.checkpoint.blockNumber = type(uint48).max;
         original.transition.checkpoint.blockHash = bytes32(type(uint256).max);
         original.transition.checkpoint.stateRoot = bytes32(type(uint256).max);
-        original.transition.designatedProver = address(type(uint160).max);
-        original.transition.actualProver = address(type(uint160).max);
+        original.metadata.designatedProver = address(type(uint160).max);
+        original.metadata.actualProver = address(type(uint160).max);
         original.transitionRecord.span = type(uint8).max;
         original.transitionRecord.transitionHash = bytes32(type(uint256).max);
         original.transitionRecord.checkpointHash = bytes32(type(uint256).max);
@@ -264,8 +264,8 @@ contract LibProvedEventEncoderFuzzTest is Test {
         payload.transition.checkpoint.blockNumber = 1_000_000;
         payload.transition.checkpoint.blockHash = keccak256("endBlock");
         payload.transition.checkpoint.stateRoot = keccak256("endState");
-        payload.transition.designatedProver = address(0x1234);
-        payload.transition.actualProver = address(0x5678);
+        payload.metadata.designatedProver = address(0x1234);
+        payload.metadata.actualProver = address(0x5678);
         payload.transitionRecord.span = 3;
         payload.transitionRecord.transitionHash = keccak256("transitionHash");
         payload.transitionRecord.checkpointHash = keccak256("checkpointHash");
