@@ -92,7 +92,6 @@ library LibCheckpointStore {
     {
         (uint48 stackTop, uint48 stackSize) = ($.stackTop, $.stackSize);
 
-        require(stackSize != 0, NoCheckpoints());
         require(_offset < stackSize, IndexOutOfBounds());
 
         unchecked {
@@ -135,6 +134,5 @@ library LibCheckpointStore {
 
     error IndexOutOfBounds();
     error InvalidCheckpoint();
-    error NoCheckpoints();
     error InvalidMaxCheckpointHistory();
 }
