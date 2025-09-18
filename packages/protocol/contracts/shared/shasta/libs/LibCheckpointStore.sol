@@ -21,7 +21,7 @@ library LibCheckpointStore {
         /// @dev Maps slot indices (0 to maxHistorySize-1) to checkpoint data
         mapping(uint48 slot => ICheckpointStore.Checkpoint checkpoint) checkpoints;
         /// @notice The latest checkpoint number
-        uint48 latestCheckpointNumber;
+        uint48 latestCheckpointBlockNumber;
         /// @notice The current top of the stack (ring buffer index)
         uint48 stackTop;
         /// @notice The current number of items in the stack
@@ -47,10 +47,10 @@ library LibCheckpointStore {
         require(_checkpoint.stateRoot != bytes32(0), InvalidCheckpoint());
         require(_checkpoint.blockHash != bytes32(0), InvalidCheckpoint());
 
-        (uint48 latestCheckpointNumber, uint48 stackTop, uint48 stackSize) =
-            ($.latestCheckpointNumber, $.stackTop, $.stackSize);
+        (uint48 latestCheckpointBlockNumber, uint48 stackTop, uint48 stackSize) =
+            ($.latestCheckpointBlockNumber, $.stackTop, $.stackSize);
 
-        require(_checkpoint.blockNumber > latestCheckpointNumber, InvalidCheckpoint());
+        require(_checkpoint.blockNumber > latestCheckpointBlockNumber, InvalidCheckpoint());
 
         unchecked {
             // Ring buffer implementation:
@@ -67,7 +67,7 @@ library LibCheckpointStore {
             }
         }
 
-        ($.latestCheckpointNumber, $.stackTop, $.stackSize) =
+        ($.latestCheckpointBlockNumber, $.stackTop, $.stackSize) =
             (_checkpoint.blockNumber, stackTop, stackSize);
 
         emit ICheckpointStore.CheckpointSaved(
@@ -118,8 +118,8 @@ library LibCheckpointStore {
     /// @notice Gets the latest checkpoint number
     /// @param $ The storage struct
     /// @return _ The latest checkpoint number
-    function getLatestCheckpointNumber(Storage storage $) public view returns (uint48) {
-        return $.latestCheckpointNumber;
+    function getLatestCheckpointBlockNumber(Storage storage $) public view returns (uint48) {
+        return $.latestCheckpointBlockNumber;
     }
 
     /// @notice Gets the number of checkpoints

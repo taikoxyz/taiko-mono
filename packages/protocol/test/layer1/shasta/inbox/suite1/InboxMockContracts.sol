@@ -63,8 +63,8 @@ contract StubCheckpointProvider is ICheckpointStore {
         return LibCheckpointStore.getCheckpoint(_storage, _offset, MAX_HISTORY_SIZE);
     }
 
-    function getLatestCheckpointNumber() external view override returns (uint48) {
-        return LibCheckpointStore.getLatestCheckpointNumber(_storage);
+    function getLatestCheckpointBlockNumber() external view override returns (uint48) {
+        return LibCheckpointStore.getLatestCheckpointBlockNumber(_storage);
     }
 
     function getNumberOfCheckpoints() external view override returns (uint48) {

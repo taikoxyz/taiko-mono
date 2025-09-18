@@ -40,7 +40,7 @@ interface ICheckpointStore {
 
     /// @notice Gets the latest checkpoint number
     /// @return _ The latest checkpoint number
-    function getLatestCheckpointNumber() external view returns (uint48);
+    function getLatestCheckpointBlockNumber() external view returns (uint48);
 
     /// @notice Gets the number of checkpoints
     /// @return _ The number of checkpoints

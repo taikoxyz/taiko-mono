@@ -349,8 +349,8 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     }
 
     /// @inheritdoc ICheckpointStore
-    function getLatestCheckpointNumber() external view returns (uint48) {
-        return LibCheckpointStore.getLatestCheckpointNumber(_checkpointStorage);
+    function getLatestCheckpointBlockNumber() external view returns (uint48) {
+        return LibCheckpointStore.getLatestCheckpointBlockNumber(_checkpointStorage);
     }
 
     /// @inheritdoc ICheckpointStore

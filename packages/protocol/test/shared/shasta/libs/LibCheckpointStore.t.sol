@@ -77,7 +77,7 @@ contract LibCheckpointStoreTest is CommonTest {
         storage_.saveCheckpoint(checkpoint, MAX_HISTORY);
 
         // Verify storage state
-        assertEq(storage_.getLatestCheckpointNumber(), 100);
+        assertEq(storage_.getLatestCheckpointBlockNumber(), 100);
         assertEq(storage_.getNumberOfCheckpoints(), 1);
 
         // Retrieve and verify checkpoint
@@ -100,7 +100,7 @@ contract LibCheckpointStoreTest is CommonTest {
             storage_.saveCheckpoint(checkpoint, MAX_HISTORY);
         }
 
-        assertEq(storage_.getLatestCheckpointNumber(), 300);
+        assertEq(storage_.getLatestCheckpointBlockNumber(), 300);
         assertEq(storage_.getNumberOfCheckpoints(), 3);
 
         // Verify retrieval in reverse order (most recent first)
@@ -133,7 +133,7 @@ contract LibCheckpointStoreTest is CommonTest {
 
         // Stack size should be capped at MAX_HISTORY
         assertEq(storage_.getNumberOfCheckpoints(), MAX_HISTORY);
-        assertEq(storage_.getLatestCheckpointNumber(), 800);
+        assertEq(storage_.getLatestCheckpointBlockNumber(), 800);
 
         // Verify only the most recent MAX_HISTORY checkpoints are stored
         // Should have checkpoints 4-8 (400-800)
@@ -281,7 +281,7 @@ contract LibCheckpointStoreTest is CommonTest {
 
         // Should only have the last checkpoint
         assertEq(storage_.getNumberOfCheckpoints(), 1);
-        assertEq(storage_.getLatestCheckpointNumber(), 300);
+        assertEq(storage_.getLatestCheckpointBlockNumber(), 300);
 
         ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(0, historySize);
         assertEq(retrieved.blockNumber, 300);
@@ -300,7 +300,7 @@ contract LibCheckpointStoreTest is CommonTest {
         }
 
         assertEq(storage_.getNumberOfCheckpoints(), 50);
-        assertEq(storage_.getLatestCheckpointNumber(), 50);
+        assertEq(storage_.getLatestCheckpointBlockNumber(), 50);
 
         // Verify all 50 checkpoints are accessible
         for (uint48 i = 0; i < 50; i++) {
@@ -336,7 +336,7 @@ contract LibCheckpointStoreTest is CommonTest {
 
         storage_.saveCheckpoint(checkpoint, maxHistory);
 
-        assertEq(storage_.getLatestCheckpointNumber(), blockNumber);
+        assertEq(storage_.getLatestCheckpointBlockNumber(), blockNumber);
         assertEq(storage_.getNumberOfCheckpoints(), 1);
 
         ICheckpointStore.Checkpoint memory retrieved = storage_.getCheckpoint(0, maxHistory);
@@ -363,7 +363,7 @@ contract LibCheckpointStoreTest is CommonTest {
         // Verify stack size is correctly capped
         uint48 expectedSize = numCheckpoints < maxHistory ? numCheckpoints : maxHistory;
         assertEq(storage_.getNumberOfCheckpoints(), expectedSize);
-        assertEq(storage_.getLatestCheckpointNumber(), numCheckpoints);
+        assertEq(storage_.getLatestCheckpointBlockNumber(), numCheckpoints);
 
         // Verify most recent checkpoint is accessible
         if (numCheckpoints > 0) {
