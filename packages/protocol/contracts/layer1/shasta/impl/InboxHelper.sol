@@ -29,17 +29,6 @@ contract InboxHelper {
         return abi.encode(_payload);
     }
 
-    /// @notice Decodes bytes into a ProposedEventPayload using standard ABI decoding
-    /// @param _data The encoded data
-    /// @return payload_ The decoded payload
-    function decodeProposedEvent(bytes memory _data)
-        external
-        pure
-        returns (IInbox.ProposedEventPayload memory payload_)
-    {
-        return abi.decode(_data, (IInbox.ProposedEventPayload));
-    }
-
     /// @notice Encodes a ProposedEventPayload into bytes using optimized encoding
     /// @param _payload The payload to encode
     /// @return encoded_ The encoded bytes
@@ -49,6 +38,17 @@ contract InboxHelper {
         returns (bytes memory encoded_)
     {
         return LibProposedEventEncoder.encode(_payload);
+    }
+
+    /// @notice Decodes bytes into a ProposedEventPayload using standard ABI decoding
+    /// @param _data The encoded data
+    /// @return payload_ The decoded payload
+    function decodeProposedEvent(bytes memory _data)
+        external
+        pure
+        returns (IInbox.ProposedEventPayload memory payload_)
+    {
+        return abi.decode(_data, (IInbox.ProposedEventPayload));
     }
 
     /// @notice Decodes bytes into a ProposedEventPayload using optimized encoding
@@ -77,17 +77,6 @@ contract InboxHelper {
         return abi.encode(_payload);
     }
 
-    /// @notice Decodes bytes into a ProvedEventPayload using standard ABI decoding
-    /// @param _data The bytes to decode
-    /// @return payload_ The decoded ProvedEventPayload
-    function decodeProvedEvent(bytes memory _data)
-        external
-        pure
-        returns (IInbox.ProvedEventPayload memory payload_)
-    {
-        return abi.decode(_data, (IInbox.ProvedEventPayload));
-    }
-
     /// @notice Encodes a ProvedEventPayload into bytes using optimized encoding
     /// @param _payload The ProvedEventPayload to encode
     /// @return encoded_ The encoded bytes
@@ -97,6 +86,17 @@ contract InboxHelper {
         returns (bytes memory encoded_)
     {
         return LibProvedEventEncoder.encode(_payload);
+    }
+
+    /// @notice Decodes bytes into a ProvedEventPayload using standard ABI decoding
+    /// @param _data The bytes to decode
+    /// @return payload_ The decoded ProvedEventPayload
+    function decodeProvedEvent(bytes memory _data)
+        external
+        pure
+        returns (IInbox.ProvedEventPayload memory payload_)
+    {
+        return abi.decode(_data, (IInbox.ProvedEventPayload));
     }
 
     /// @notice Decodes bytes into a ProvedEventPayload using optimized encoding
@@ -125,17 +125,6 @@ contract InboxHelper {
         return abi.encode(_input);
     }
 
-    /// @notice Decodes propose data using standard ABI decoding
-    /// @param _data The encoded data
-    /// @return input_ The decoded ProposeInput
-    function decodeProposeInput(bytes memory _data)
-        external
-        pure
-        returns (IInbox.ProposeInput memory input_)
-    {
-        return abi.decode(_data, (IInbox.ProposeInput));
-    }
-
     /// @notice Encodes propose input data using optimized encoding (for InboxOptimized3+)
     /// @param _input The ProposeInput to encode
     /// @return encoded_ The encoded data
@@ -145,6 +134,17 @@ contract InboxHelper {
         returns (bytes memory encoded_)
     {
         return LibProposeInputDecoder.encode(_input);
+    }
+
+    /// @notice Decodes propose data using standard ABI decoding
+    /// @param _data The encoded data
+    /// @return input_ The decoded ProposeInput
+    function decodeProposeInput(bytes memory _data)
+        external
+        pure
+        returns (IInbox.ProposeInput memory input_)
+    {
+        return abi.decode(_data, (IInbox.ProposeInput));
     }
 
     /// @notice Decodes propose data using optimized operations
@@ -173,17 +173,6 @@ contract InboxHelper {
         return abi.encode(_input);
     }
 
-    /// @notice Decodes prove input data using standard ABI decoding
-    /// @param _data The encoded data
-    /// @return input_ The decoded ProveInput
-    function decodeProveInput(bytes memory _data)
-        external
-        pure
-        returns (IInbox.ProveInput memory input_)
-    {
-        return abi.decode(_data, (IInbox.ProveInput));
-    }
-
     /// @notice Encodes prove input data using optimized encoding (for InboxOptimized3+)
     /// @param _input The ProveInput to encode
     /// @return encoded_ The encoded data
@@ -193,6 +182,17 @@ contract InboxHelper {
         returns (bytes memory encoded_)
     {
         return LibProveInputDecoder.encode(_input);
+    }
+
+    /// @notice Decodes prove input data using standard ABI decoding
+    /// @param _data The encoded data
+    /// @return input_ The decoded ProveInput
+    function decodeProveInput(bytes memory _data)
+        external
+        pure
+        returns (IInbox.ProveInput memory input_)
+    {
+        return abi.decode(_data, (IInbox.ProveInput));
     }
 
     /// @notice Decodes prove input data using optimized operations
@@ -330,35 +330,5 @@ contract InboxHelper {
         returns (bytes26)
     {
         return LibHashing.hashTransitionRecord(_transitionRecord);
-    }
-
-    /// @notice Computes standard composite key for transition record storage using keccak256(abi.encode())
-    /// @param _proposalId The ID of the proposal
-    /// @param _parentTransitionHash Hash of the parent transition
-    /// @return The composite key for storage mapping
-    function composeTransitionKey(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
-        external
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(_proposalId, _parentTransitionHash));
-    }
-
-    /// @notice Computes optimized composite key for transition record storage
-    /// @param _proposalId The ID of the proposal
-    /// @param _parentTransitionHash Hash of the parent transition
-    /// @return The composite key for storage mapping
-    function composeTransitionKeyOptimized(
-        uint48 _proposalId,
-        bytes32 _parentTransitionHash
-    )
-        external
-        pure
-        returns (bytes32)
-    {
-        return LibHashing.composeTransitionKey(_proposalId, _parentTransitionHash);
     }
 }
