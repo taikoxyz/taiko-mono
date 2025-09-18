@@ -210,14 +210,21 @@ contract InboxHelper {
     // LibHashing Functions
     // ---------------------------------------------------------------
 
-    /// @notice Optimized hashing for Transition structs
+    /// @notice Standard hashing for Transition structs using keccak256(abi.encode())
     /// @param _transition The transition to hash
     /// @return The hash of the transition
     function hashTransition(IInbox.Transition memory _transition) external pure returns (bytes32) {
+        return keccak256(abi.encode(_transition));
+    }
+
+    /// @notice Optimized hashing for Transition structs
+    /// @param _transition The transition to hash
+    /// @return The hash of the transition
+    function hashTransitionOptimized(IInbox.Transition memory _transition) external pure returns (bytes32) {
         return LibHashing.hashTransition(_transition);
     }
 
-    /// @notice Optimized hashing for Checkpoint structs
+    /// @notice Standard hashing for Checkpoint structs using keccak256(abi.encode())
     /// @param _checkpoint The checkpoint to hash
     /// @return The hash of the checkpoint
     function hashCheckpoint(ICheckpointManager.Checkpoint memory _checkpoint)
@@ -225,31 +232,63 @@ contract InboxHelper {
         pure
         returns (bytes32)
     {
+        return keccak256(abi.encode(_checkpoint));
+    }
+
+    /// @notice Optimized hashing for Checkpoint structs
+    /// @param _checkpoint The checkpoint to hash
+    /// @return The hash of the checkpoint
+    function hashCheckpointOptimized(ICheckpointManager.Checkpoint memory _checkpoint)
+        external
+        pure
+        returns (bytes32)
+    {
         return LibHashing.hashCheckpoint(_checkpoint);
+    }
+
+    /// @notice Standard hashing for CoreState structs using keccak256(abi.encode())
+    /// @param _coreState The core state to hash
+    /// @return The hash of the core state
+    function hashCoreState(IInbox.CoreState memory _coreState) external pure returns (bytes32) {
+        return keccak256(abi.encode(_coreState));
     }
 
     /// @notice Optimized hashing for CoreState structs
     /// @param _coreState The core state to hash
     /// @return The hash of the core state
-    function hashCoreState(IInbox.CoreState memory _coreState) external pure returns (bytes32) {
+    function hashCoreStateOptimized(IInbox.CoreState memory _coreState) external pure returns (bytes32) {
         return LibHashing.hashCoreState(_coreState);
+    }
+
+    /// @notice Standard hashing for Proposal structs using keccak256(abi.encode())
+    /// @param _proposal The proposal to hash
+    /// @return The hash of the proposal
+    function hashProposal(IInbox.Proposal memory _proposal) external pure returns (bytes32) {
+        return keccak256(abi.encode(_proposal));
     }
 
     /// @notice Optimized hashing for Proposal structs
     /// @param _proposal The proposal to hash
     /// @return The hash of the proposal
-    function hashProposal(IInbox.Proposal memory _proposal) external pure returns (bytes32) {
+    function hashProposalOptimized(IInbox.Proposal memory _proposal) external pure returns (bytes32) {
         return LibHashing.hashProposal(_proposal);
+    }
+
+    /// @notice Standard hashing for Derivation structs using keccak256(abi.encode())
+    /// @param _derivation The derivation to hash
+    /// @return The hash of the derivation
+    function hashDerivation(IInbox.Derivation memory _derivation) external pure returns (bytes32) {
+        return keccak256(abi.encode(_derivation));
     }
 
     /// @notice Optimized hashing for Derivation structs
     /// @param _derivation The derivation to hash
     /// @return The hash of the derivation
-    function hashDerivation(IInbox.Derivation memory _derivation) external pure returns (bytes32) {
+    function hashDerivationOptimized(IInbox.Derivation memory _derivation) external pure returns (bytes32) {
         return LibHashing.hashDerivation(_derivation);
     }
 
-    /// @notice Optimized hashing for arrays of Transitions
+    /// @notice Standard hashing for arrays of Transitions using keccak256(abi.encode())
     /// @param _transitions The transitions array to hash
     /// @return The hash of the transitions array
     function hashTransitionsArray(IInbox.Transition[] memory _transitions)
@@ -257,10 +296,21 @@ contract InboxHelper {
         pure
         returns (bytes32)
     {
+        return keccak256(abi.encode(_transitions));
+    }
+
+    /// @notice Optimized hashing for arrays of Transitions
+    /// @param _transitions The transitions array to hash
+    /// @return The hash of the transitions array
+    function hashTransitionsArrayOptimized(IInbox.Transition[] memory _transitions)
+        external
+        pure
+        returns (bytes32)
+    {
         return LibHashing.hashTransitionsArray(_transitions);
     }
 
-    /// @notice Optimized hashing for TransitionRecord structs
+    /// @notice Standard hashing for TransitionRecord structs using keccak256(abi.encode())
     /// @param _transitionRecord The transition record to hash
     /// @return The hash truncated to bytes26 for storage optimization
     function hashTransitionRecord(IInbox.TransitionRecord memory _transitionRecord)
@@ -268,14 +318,40 @@ contract InboxHelper {
         pure
         returns (bytes26)
     {
+        return bytes26(keccak256(abi.encode(_transitionRecord)));
+    }
+
+    /// @notice Optimized hashing for TransitionRecord structs
+    /// @param _transitionRecord The transition record to hash
+    /// @return The hash truncated to bytes26 for storage optimization
+    function hashTransitionRecordOptimized(IInbox.TransitionRecord memory _transitionRecord)
+        external
+        pure
+        returns (bytes26)
+    {
         return LibHashing.hashTransitionRecord(_transitionRecord);
+    }
+
+    /// @notice Computes standard composite key for transition record storage using keccak256(abi.encode())
+    /// @param _proposalId The ID of the proposal
+    /// @param _parentTransitionHash Hash of the parent transition
+    /// @return The composite key for storage mapping
+    function composeTransitionKey(
+        uint48 _proposalId,
+        bytes32 _parentTransitionHash
+    )
+        external
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(_proposalId, _parentTransitionHash));
     }
 
     /// @notice Computes optimized composite key for transition record storage
     /// @param _proposalId The ID of the proposal
     /// @param _parentTransitionHash Hash of the parent transition
     /// @return The composite key for storage mapping
-    function composeTransitionKey(
+    function composeTransitionKeyOptimized(
         uint48 _proposalId,
         bytes32 _parentTransitionHash
     )
