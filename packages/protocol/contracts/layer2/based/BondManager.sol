@@ -216,6 +216,5 @@ contract BondManager is EssentialContract, IBondManager {
     error MustMaintainMinBond();
     error NoBondToWithdraw();
     error NoWithdrawalRequested();
-    error Unauthorized();
     error WithdrawalAlreadyRequested();
 }
