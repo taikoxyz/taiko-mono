@@ -330,9 +330,7 @@ abstract contract InboxTest is CommonTest {
                 blockNumber: _builder.endBlockNumber,
                 blockHash: _builder.endBlockHash,
                 stateRoot: _builder.endStateRoot
-            }),
-            designatedProver: _builder.designatedProver,
-            actualProver: _builder.actualProver
+            })
         });
     }
 
@@ -563,9 +561,7 @@ abstract contract InboxTest is CommonTest {
                 blockNumber: _config.endBlockNumber,
                 blockHash: _config.endBlockHash,
                 stateRoot: _config.endStateRoot
-            }),
-            designatedProver: _config.designatedProver,
-            actualProver: _config.actualProver
+            })
         });
     }
 

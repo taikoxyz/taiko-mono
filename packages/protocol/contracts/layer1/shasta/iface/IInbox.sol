@@ -72,6 +72,8 @@ interface IInbox {
     }
 
     /// @notice Represents a transition about the state transition of a proposal.
+    /// @dev Prover information has been moved to TransitionMetadata for out-of-order proving
+    /// support
     struct Transition {
         /// @notice The proposal's hash.
         bytes32 proposalHash;
@@ -81,9 +83,14 @@ interface IInbox {
         bytes32 parentTransitionHash;
         /// @notice The end block header containing number, hash, and state root.
         ICheckpointManager.Checkpoint checkpoint;
-        /// @notice The designated prover.
+    }
+
+    /// @notice Metadata about the proving of a transition
+    /// @dev Separated from Transition to enable out-of-order proving
+    struct TransitionMetadata {
+        /// @notice The designated prover for this transition.
         address designatedProver;
-        /// @notice The actual prover.
+        /// @notice The actual prover who submitted the proof.
         address actualProver;
     }
 
@@ -137,6 +144,9 @@ interface IInbox {
         Proposal[] proposals;
         /// @notice Array of transitions containing proof details.
         Transition[] transitions;
+        /// @notice Array of metadata for prover information.
+        /// @dev Must have same length as transitions array.
+        TransitionMetadata[] metadata;
     }
 
     /// @notice Payload data emitted in the Proposed event
@@ -157,6 +167,8 @@ interface IInbox {
         Transition transition;
         /// @notice The transition record containing additional metadata.
         TransitionRecord transitionRecord;
+        /// @notice The metadata containing prover information.
+        TransitionMetadata metadata;
     }
 
     // ---------------------------------------------------------------
