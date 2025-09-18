@@ -8,14 +8,14 @@ import (
 var (
 	HTTPPort = &cli.Uint64Flag{
 		Name:     "http.port",
-		Usage:    "Port to run http server on",
+		Usage:    "Port to run HTTP server on",
 		Category: indexerCategory,
 		Value:    4102,
 		EnvVars:  []string{"HTTP_PORT"},
 	}
 	CORSOrigins = &cli.StringFlag{
 		Name:     "http.corsOrigins",
-		Usage:    "Comma-delinated list of cors origins",
+		Usage:    "Comma-delimited list of CORS origins",
 		Category: indexerCategory,
 		Value:    "*",
 		EnvVars:  []string{"HTTP_CORS_ORIGINS"},
