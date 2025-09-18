@@ -10,6 +10,7 @@ import { DevnetShastaInbox } from "contracts/layer1/shasta/impl/DevnetShastaInbo
 import "src/shared/based/impl/CheckpointManager.sol";
 import "test/shared/DeployCapability.sol";
 import "src/layer1/fork-router/PacayaForkRouter.sol";
+import "test/layer1/shasta/inbox/suite2/mocks/MockContracts.sol";
 
 contract UpgradeShastaL1 is DeployCapability {
     uint256 public privateKey = vm.envUint("PRIVATE_KEY");
@@ -30,15 +31,7 @@ contract UpgradeShastaL1 is DeployCapability {
     function run() external broadcast {
         // Initializable the proxy for proofVerifier to get the contract address at first.
         // Proof verifier
-        address proofVerifier = deployProxy({
-            name: "proof_verifier",
-            impl: address(
-                new DevnetVerifier(
-                    address(0), address(0), address(0), address(0), address(0), address(0)
-                )
-            ),
-            data: abi.encodeCall(ComposeVerifier.init, (address(0)))
-        });
+        address proofVerifier = address(new MockProofVerifier());
         address proposer = vm.envAddress("PROPOSER_ADDRESS");
 
         address whitelist = deployProxy({

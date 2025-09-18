@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"math/big"
 
-	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
-
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/log"
 
+	pacayaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/pacaya"
+	shastaBindings "github.com/taikoxyz/taiko-mono/packages/taiko-client/bindings/shasta"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/internal/metrics"
 	"github.com/taikoxyz/taiko-mono/packages/taiko-client/pkg/rpc"
 	proofProducer "github.com/taikoxyz/taiko-mono/packages/taiko-client/prover/proof_producer"
@@ -66,5 +67,30 @@ func (h *BatchesProvedEventHandler) HandlePacaya(
 		h.proofSubmissionCh <- &proofProducer.ProofRequestBody{Meta: meta}
 	}
 
+	return nil
+}
+
+// HandleShasta implements the BatchesProvedHandler interface.
+func (h *BatchesProvedEventHandler) HandleShasta(
+	ctx context.Context,
+	e *shastaBindings.ShastaInboxClientProved,
+) error {
+	payload, err := h.rpc.DecodeProvedPayloadShasta(&bind.CallOpts{Context: ctx}, e.Data)
+	if err != nil {
+		return fmt.Errorf("failed to decode proved payload: %w", err)
+	}
+
+	header, err := h.rpc.L2.HeaderByNumber(ctx, payload.Transition.Checkpoint.BlockNumber)
+	if err != nil {
+		return fmt.Errorf("failed to get header by number: %w", err)
+	}
+
+	if header.Hash() == payload.Transition.Checkpoint.BlockHash {
+		log.Info("New valid proven Shasta batch received", "batchID", payload.ProposalId, "lastBatchID", header.Number)
+		return nil
+	}
+
+	// Otherwise, the proof onchain is invalid, we need to submit a new proof.
+	// TODO: fetch metadata for Shasta
 	return nil
 }

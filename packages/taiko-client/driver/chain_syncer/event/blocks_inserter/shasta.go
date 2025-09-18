@@ -179,7 +179,7 @@ func (i *Shasta) InsertBlocksWithManifest(
 		log.Debug("Payload data", "hash", lastPayloadData.BlockHash, "txs", len(lastPayloadData.Transactions))
 
 		// Wait till the corresponding L2 header to be existed in the L2 EE.
-		if _, err := i.rpc.WaitL2Header(ctx, new(big.Int).SetUint64(lastPayloadData.Number)); err != nil {
+		if parent, err = i.rpc.WaitL2Header(ctx, new(big.Int).SetUint64(lastPayloadData.Number)); err != nil {
 			return fmt.Errorf("failed to wait for L2 header (%d): %w", lastPayloadData.Number, err)
 		}
 

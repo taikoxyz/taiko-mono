@@ -234,6 +234,62 @@ func (s *ClientTestSuite) ProposeValidBlock(proposer Proposer) {
 	s.Greater(newL1Head.Number.Uint64(), l1Head.Number.Uint64())
 }
 
+func (s *ClientTestSuite) ForkIntoShasta(proposer Proposer, chainSyncer ChainSyncer) {
+	var (
+		txMgr = s.TxMgr("enableProver", s.KeyFromEnv("L1_CONTRACT_OWNER_PRIVATE_KEY"))
+		inbox = common.HexToAddress(os.Getenv("TAIKO_INBOX"))
+	)
+
+	head, err := s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	if head.Number.Uint64() >= s.RPCClient.ShastaClients.ForkHeight.Uint64() {
+		proposalHash, err := s.RPCClient.ShastaClients.Inbox.GetProposalHash(nil, common.Big0)
+		s.Nil(err)
+		if proposalHash != (common.Hash{}) {
+			return
+		}
+		head, err = s.RPCClient.L2.HeaderByNumber(
+			context.Background(),
+			new(big.Int).Sub(s.RPCClient.ShastaClients.ForkHeight, common.Big1),
+		)
+		s.Nil(err)
+
+		data, err := encoding.ShastaInboxABI.Pack("initV3", common.Address{}, head.Hash())
+		s.Nil(err)
+		_, err = txMgr.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &inbox})
+		s.Nil(err)
+		return
+	}
+
+	txList := make([]types.Transactions, 0)
+	for i := 0; i < int(s.RPCClient.ShastaClients.ForkHeight.Uint64()-head.Number.Uint64()); i++ {
+		txList = append(txList, types.Transactions{})
+	}
+
+	log.Info("Forking into Shasta", "numBlocks", len(txList))
+
+	s.Nil(proposer.ProposeTxLists(context.Background(), txList))
+	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
+
+	head, err = s.RPCClient.L2.HeaderByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(new(big.Int).Sub(s.RPCClient.ShastaClients.ForkHeight, common.Big1), head.Number)
+
+	data, err := encoding.ShastaInboxABI.Pack("initV3", common.Address{}, head.Hash())
+	s.Nil(err)
+
+	_, err = txMgr.Send(context.Background(), txmgr.TxCandidate{TxData: data, To: &inbox})
+	s.Nil(err)
+
+	s.Nil(proposer.ProposeTxLists(context.Background(), []types.Transactions{}))
+	s.Nil(chainSyncer.ProcessL1Blocks(context.Background()))
+
+	headBlock, err := s.RPCClient.L2.BlockByNumber(context.Background(), nil)
+	s.Nil(err)
+	s.Equal(s.RPCClient.ShastaClients.ForkHeight, headBlock.Number())
+	s.GreaterOrEqual(1, len(headBlock.Transactions()))
+}
+
 // RandomHash generates a random blob of data and returns it as a hash.
 func RandomHash() common.Hash {
 	var hash common.Hash

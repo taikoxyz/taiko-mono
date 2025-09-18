@@ -34,7 +34,7 @@ cd ../protocol &&
     --broadcast \
     --ffi \
     -vvvvv \
-    --evm-version cancun \
+    --disable-code-size-limit \
     --private-key "$PRIVATE_KEY" \
     --block-gas-limit 200000000 \
     --legacy

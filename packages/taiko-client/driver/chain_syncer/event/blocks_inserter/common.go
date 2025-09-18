@@ -756,6 +756,7 @@ func updateL1OriginForBlocks(
 				log.Info(
 					"Update head L1 origin",
 					"blockID", blockID,
+					"batchID", getBatchID(),
 					"L2BlockHash", l1Origin.L1BlockHash,
 					"L1BlockHeight", l1Origin.L1BlockHeight,
 					"L1BlockHash", l1Origin.L1BlockHash,

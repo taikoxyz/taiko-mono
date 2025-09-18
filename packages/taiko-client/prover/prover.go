@@ -248,17 +248,20 @@ func (p *Prover) eventLoop() {
 	batchesVerifiedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesVerified, chBufferSize)
 	batchesProvedCh := make(chan *pacayaBindings.TaikoInboxClientBatchesProved, chBufferSize)
 	shastaProposedCh := make(chan *shastaBindings.ShastaInboxClientProposed, chBufferSize)
+	shastaProvedCh := make(chan *shastaBindings.ShastaInboxClientProved, chBufferSize)
 
 	// Subscriptions
 	batchProposedSub := rpc.SubscribeBatchProposedPacaya(p.rpc.PacayaClients.TaikoInbox, batchProposedCh)
 	batchesVerifiedSub := rpc.SubscribeBatchesVerifiedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesVerifiedCh)
 	batchesProvedSub := rpc.SubscribeBatchesProvedPacaya(p.rpc.PacayaClients.TaikoInbox, batchesProvedCh)
 	shastaProposedSub := rpc.SubscribePorposedShasta(p.rpc.ShastaClients.Inbox, shastaProposedCh)
+	shastaProvedSub := rpc.SubscribeProvedShasta(p.rpc.ShastaClients.Inbox, shastaProvedCh)
 	defer func() {
 		batchProposedSub.Unsubscribe()
 		batchesVerifiedSub.Unsubscribe()
 		batchesProvedSub.Unsubscribe()
 		shastaProposedSub.Unsubscribe()
+		shastaProvedSub.Unsubscribe()
 	}()
 
 	for {

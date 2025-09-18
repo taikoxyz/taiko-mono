@@ -106,8 +106,9 @@ func assembleBatchProposedIteratorCallback(
 		endFunc chainIterator.EndIterFunc,
 	) error {
 		var (
-			endHeight   = end.Number.Uint64()
-			lastBatchID uint64
+			endHeight         = end.Number.Uint64()
+			lastPacayaBatchID uint64
+			lastShastaBatchID uint64
 		)
 
 		// Iterate the BatchProposed events.
@@ -131,17 +132,17 @@ func assembleBatchProposedIteratorCallback(
 			event := iterPacaya.Event
 			log.Debug("Processing BatchProposed event", "batch", event.Meta.BatchId, "l1BlockHeight", event.Raw.BlockNumber)
 
-			if lastBatchID != 0 && event.Meta.BatchId != lastBatchID+1 {
+			if lastPacayaBatchID != 0 && event.Meta.BatchId != lastPacayaBatchID+1 {
 				log.Warn(
 					"BatchProposed event is not continuous, rescan the L1 chain",
 					"fromL1Block", start.Number,
 					"toL1Block", endHeight,
-					"lastScannedBatchID", lastBatchID,
+					"lastScannedBatchID", lastPacayaBatchID,
 					"currentScannedBatchID", event.Meta.BatchId,
 				)
 				return fmt.Errorf(
 					"BatchProposed event is not continuous, lastScannedBatchID: %d, currentScannedBatchID: %d",
-					lastBatchID, event.Meta.BatchId,
+					lastPacayaBatchID, event.Meta.BatchId,
 				)
 			}
 
@@ -163,7 +164,7 @@ func assembleBatchProposedIteratorCallback(
 
 			log.Debug("Updating current block cursor for processing BatchProposed events", "block", current.Number)
 
-			lastBatchID = event.Meta.BatchId
+			lastPacayaBatchID = event.Meta.BatchId
 
 			updateCurrentFunc(current)
 		}
@@ -188,17 +189,17 @@ func assembleBatchProposedIteratorCallback(
 			proposalID := proposedEventPayload.Proposal.Id.Uint64()
 			log.Debug("Processing Proposed event", "proposalID", proposalID, "l1BlockHeight", event.Raw.BlockNumber)
 
-			if lastBatchID != 0 && proposalID != lastBatchID+1 {
+			if lastShastaBatchID != 0 && proposalID != lastShastaBatchID+1 {
 				log.Warn(
 					"Proposed event is not continuous, rescan the L1 chain",
 					"fromL1Block", start.Number,
 					"toL1Block", endHeight,
-					"lastScannedProposalID", lastBatchID,
+					"lastScannedProposalID", lastShastaBatchID,
 					"currentScannedProposalID", proposalID,
 				)
 				return fmt.Errorf(
 					"proposed event is not continuous, lastScannedBatchID: %d, currentScannedBatchID: %d",
-					lastBatchID, proposalID,
+					lastShastaBatchID, proposalID,
 				)
 			}
 
@@ -224,7 +225,7 @@ func assembleBatchProposedIteratorCallback(
 
 			log.Debug("Updating current block cursor for processing Proposed events", "block", current.Number)
 
-			lastBatchID = proposalID
+			lastShastaBatchID = proposalID
 
 			updateCurrentFunc(current)
 		}

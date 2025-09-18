@@ -361,7 +361,7 @@ func (s *Indexer) onProposedEvent(
 		"timeStamp", proposal.Timestamp,
 		"proposer", proposal.Proposer,
 		"lastFinalizedProposalId", coreState.LastFinalizedProposalId,
-		"lastFinalizedTransitionHash", coreState.LastFinalizedTransitionHash,
+		"lastFinalizedTransitionHash", common.Bytes2Hex(coreState.LastFinalizedTransitionHash[:]),
 		"proposedAt", meta.GetRawBlockHeight(),
 	)
 	s.cleanupFinazliedTransitionRecords(coreState.LastFinalizedProposalId.Uint64())
@@ -635,6 +635,21 @@ func (s *Indexer) GetTransitionRecordByProposalID(proposalID uint64) *Transition
 	return transition
 }
 
+// GetProposalByID retrieves a proposal by its ID.
+func (s *Indexer) GetProposalByID(proposalID uint64) (*ProposalPayload, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	propsoal, ok := s.proposals.Get(proposalID % s.bufferSize)
+	if !ok {
+		return nil, fmt.Errorf("proposal ID %d not found in cache", proposalID)
+	}
+	if proposalID != propsoal.Proposal.Id.Uint64() {
+		return nil, fmt.Errorf("proposal ID %d not found in cache", proposalID)
+	}
+	return propsoal, nil
+}
+
 // GetProposalsInput returns the last proposal and the transitions needed for finalization.
 func (s *Indexer) GetProposalsInput(
 	maxFinalizationCount uint64,
@@ -674,14 +689,8 @@ func (s *Indexer) getTransitionsForFinalization(
 	var transitions []*TransitionPayload
 	for i := uint64(1); i <= maxFinalizationCount; i++ {
 		transition, ok := s.transitionRecords.Get(lastFinalizedProposalId + i)
-		log.Info(
-			"Transition record for finalization",
-			"proposalId", lastFinalizedProposalId+i,
-			"found", ok,
-			"parentTransitionHash", common.BytesToHash(transition.Transition.ParentTransitionHash[:]),
-			"lastFinalizedTransitionHash", lastFinalizedTransitionHash,
-			"readyForFinalization", transition.RawBlockTimeStamp+s.finalizationGracePeriod > uint64(time.Now().Unix()),
-		)
+		// TODO: fix last finalized transition hash check
+
 		if !ok ||
 			transition.RawBlockTimeStamp+s.finalizationGracePeriod > uint64(time.Now().Unix()) {
 			break
