@@ -67,6 +67,8 @@ type ProofDataV2 struct {
 	Quote    string `json:"quote"`
 }
 
+const maxResponseBytes = 8 << 20 // 8 MiB hard limit for HTTP response body
+
 // requestHTTPProof sends a POST request to the given URL with the given ApiKey and request body,
 // to get a proof of the given type.
 func requestHTTPProof[T, U any](ctx context.Context, url string, apiKey string, reqBody T) (*U, error) {
@@ -76,12 +78,23 @@ func requestHTTPProof[T, U any](ctx context.Context, url string, apiKey string, 
 	}
 	defer res.Body.Close()
 
-	resBytes, err := io.ReadAll(res.Body)
+	// Limit the amount of data read to prevent OOM on huge responses.
+	// If the server sends more than maxResponseBytes, we fail early.
+	limited := io.LimitReader(res.Body, maxResponseBytes+1)
+	resBytes, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, err
 	}
-
-	log.Debug("Proof generation output", "url", url, "output", string(resBytes))
+	if len(resBytes) > maxResponseBytes {
+		return nil, fmt.Errorf("response too large")
+	}
+	
+	// Avoid logging entire response which may be large or sensitive.
+	preview := resBytes
+	if len(preview) > 1024 {
+		preview = preview[:1024]
+	}
+	log.Debug("Proof generation output", "url", url, "bytes", len(resBytes), "preview", string(preview))
 	var output U
 	if err := json.Unmarshal(resBytes, &output); err != nil {
 		return nil, err
@@ -98,7 +111,15 @@ func requestHTTPProofResponse[T any](
 	apiKey string,
 	reqBody T,
 ) (*http.Response, error) {
-	client := &http.Client{}
+	// Use an HTTP client with timeouts to avoid hanging connections.
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+		Transport: &http.Transport{
+			ResponseHeaderTimeout: 15 * time.Second,
+			IdleConnTimeout:       60 * time.Second,
+			ExpectContinueTimeout: 2 * time.Second,
+		},
+	}
 
 	jsonValue, err := json.Marshal(reqBody)
 	if err != nil {
@@ -120,6 +141,11 @@ func requestHTTPProofResponse[T any](
 	}
 
 	if res.StatusCode != http.StatusOK {
+		// Ensure the body is closed on non-OK responses to avoid leaks.
+		// We intentionally read and discard up to a small limit to allow connection reuse.
+		// Note: We do not propagate the body content to logs to avoid leaking sensitive data.
+		io.CopyN(io.Discard, res.Body, 1024)
+		res.Body.Close()
 		// Check for rate limiting (429 Too Many Requests)
 		if res.StatusCode == http.StatusTooManyRequests {
 			log.Error("Rate limit on L2 RPC has been reached. Using your own Taiko L2 node as RPC for Raiko is recommended")
