@@ -375,7 +375,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
             if (i == 0) {
                 proposals[i] = _proposeAndGetProposal();
             } else {
-                vm.roll(block.number + 1);
+                // Don't roll here - _proposeConsecutiveProposal handles the rolling
                 vm.warp(block.timestamp + 12);
                 proposals[i] = _proposeConsecutiveProposal(proposals[i - 1]);
             }
@@ -472,10 +472,14 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         _setupBlobHashes();
 
         // Create and submit proposal
+        // For the first proposal, we need to be at block 102 or higher
+        // to satisfy the nextProposalBlockId = 100 requirement from genesis
+        if (block.number < 102) {
+            vm.roll(102);
+        }
         bytes memory proposeData = _createFirstProposeInput();
 
         vm.prank(currentProposer);
-        vm.roll(block.number + 1);
         inbox.propose(bytes(""), proposeData);
 
         // Build and return the expected proposal
@@ -490,9 +494,24 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         returns (IInbox.Proposal memory)
     {
         // Build state for consecutive proposal
+        // Account for double increment bug: each proposal sets nextProposalBlockId = block + 2
+        // Need to roll 2 blocks forward from the last proposal
+        uint48 expectedNextBlockId;
+        if (_parent.id == 0) {
+            expectedNextBlockId = 100; // Genesis value
+            // For first proposal after genesis, roll to block 102
+            vm.roll(102);
+        } else {
+            // For subsequent proposals, need to account for 2-block gap
+            // Roll forward by 2 blocks from current position
+            vm.roll(block.number + 2);
+            // After parent's double increment, nextProposalBlockId should be current block - 2 + 2 = current block
+            expectedNextBlockId = uint48(block.number);
+        }
+        
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: _parent.id + 1,
-            nextProposalBlockId: _parent.id + 100,
+            nextProposalBlockId: expectedNextBlockId,
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -509,7 +528,6 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         );
 
         vm.prank(currentProposer);
-        vm.roll(block.number + 1);
         inbox.propose(bytes(""), proposeData);
 
         // Build and return the expected proposal

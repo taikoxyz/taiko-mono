@@ -110,9 +110,9 @@ abstract contract InboxTest is CommonTest {
     function setUp() public virtual override {
         super.setUp();
 
-        // Advance block by 1 to ensure block.number > 0 for all inbox tests
-        // This avoids issues with blockhash(block.number - 1) returning 0
-        vm.roll(block.number + 1);
+        // Advance to block 101 to work with genesis nextProposalBlockId = 100
+        // This ensures proposals can be made after genesis initialization
+        vm.roll(101);
 
         setupMockAddresses();
         deployInbox();
@@ -337,12 +337,12 @@ abstract contract InboxTest is CommonTest {
     /// @dev Creates core state from config struct
     function createCoreStateFromConfig(CoreStateConfig memory _config)
         internal
-        pure
+        view
         returns (IInbox.CoreState memory)
     {
         return IInbox.CoreState({
             nextProposalId: _config.nextProposalId,
-            nextProposalBlockId: _config.nextProposalId + 99,
+            nextProposalBlockId: uint48(block.number), // Current block (proposal submitted in this block)
             lastFinalizedProposalId: _config.lastFinalizedProposalId,
             lastFinalizedTransitionHash: _config.lastFinalizedTransitionHash,
             bondInstructionsHash: _config.bondInstructionsHash
@@ -352,7 +352,7 @@ abstract contract InboxTest is CommonTest {
     /// @dev Creates standard core state for most test scenarios
     function createStandardCoreState(uint48 _nextProposalId)
         internal
-        pure
+        view
         returns (IInbox.CoreState memory)
     {
         return createCoreStateFromConfig(
@@ -372,7 +372,7 @@ abstract contract InboxTest is CommonTest {
         bytes32 _finalTransitionHash
     )
         internal
-        pure
+        view
         returns (IInbox.CoreState memory)
     {
         return createCoreStateFromConfig(
@@ -1083,9 +1083,14 @@ abstract contract InboxTest is CommonTest {
         setupProposalMocks(_proposer);
         setupBlobHashes();
 
-        // Do the block roll first, then create proposal data - matching Suite2 approach
+        // Calculate the correct block for this proposal (accounting for 2-block gaps)
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(_proposalId, 102); // Base block 102
+        
+        // Roll to the target block
         vm.prank(_proposer);
-        vm.roll(block.number + 1);
+        if (block.number < targetBlock) {
+            vm.roll(targetBlock);
+        }
 
         // Now create the proposal data using the rolled block context
         IInbox.CoreState memory coreState = _buildCoreStateForProposal(_proposalId);
@@ -1111,10 +1116,19 @@ abstract contract InboxTest is CommonTest {
         returns (IInbox.CoreState memory coreState)
     {
         coreState = _getGenesisCoreState();
-        // This is the core state BEFORE processing the proposal
-        // The contract will increment nextProposalId when processing
         coreState.nextProposalId = _proposalId;
-        coreState.nextProposalBlockId = _proposalId + 99;
+        
+        // Calculate the correct nextProposalBlockId based on proposal ID
+        if (_proposalId == 1) {
+            // First proposal uses genesis value
+            coreState.nextProposalBlockId = 100;
+        } else {
+            // For subsequent proposals, calculate based on when the previous proposal was made
+            // Previous proposal was at block 102 + (proposalId - 2) * 2
+            // It set nextProposalBlockId to that block + 2
+            uint256 prevProposalBlock = 102 + (_proposalId - 2) * 2;
+            coreState.nextProposalBlockId = uint48(prevProposalBlock + 2);
+        }
     }
 
     /// @dev Helper function to encode proposal data with correct validation proposals
@@ -1271,7 +1285,7 @@ abstract contract InboxTest is CommonTest {
     function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
         IInbox.CoreState memory genesisCoreState;
         genesisCoreState.nextProposalId = 1;
-        genesisCoreState.nextProposalBlockId = 100;
+        genesisCoreState.nextProposalBlockId = 100; // Match contract's genesis initialization
         genesisCoreState.lastFinalizedProposalId = 0;
 
         // Genesis transition hash from initialization
@@ -1284,7 +1298,7 @@ abstract contract InboxTest is CommonTest {
     }
 
     /// @dev Recreates the genesis proposal that was stored during contract initialization
-    function _recreateGenesisProposal() internal pure returns (IInbox.Proposal memory) {
+    function _recreateGenesisProposal() internal view returns (IInbox.Proposal memory) {
         // Use the library function that correctly recreates the genesis proposal
         IInbox.CoreState memory genesisCoreState = _getGenesisCoreState();
         return InboxTestLib.createGenesisProposal(genesisCoreState);
@@ -1300,20 +1314,28 @@ abstract contract InboxTest is CommonTest {
         IInbox.CoreState memory coreState = _getGenesisCoreState();
 
         // For the genesis proposal (ID 0), keep the genesis core state (nextProposalId = 1)
-        // For other proposals, the core state shows what was present WHEN that proposal was created
-        if (_proposalId > 0) {
-            // When proposal ID X was created, the incoming core state had nextProposalId = X
-            // The proposal stores this state's hash, then increments nextProposalId
-            coreState.nextProposalId = _proposalId;
-            coreState.nextProposalBlockId = _proposalId + 99;
-            coreState.lastFinalizedProposalId = 0; // Keep as 0 for test simplicity
+        if (_proposalId == 0) {
+            return InboxTestLib.createGenesisProposal(coreState);
         }
+        
+        // For other proposals, the core state shows what was present WHEN that proposal was created
+        coreState.nextProposalId = _proposalId;
+        
+        // Calculate nextProposalBlockId based on what the previous proposal would have set
+        if (_proposalId == 1) {
+            // Proposal 1 uses genesis state with nextProposalBlockId = 100
+            coreState.nextProposalBlockId = 100;
+        } else {
+            // Previous proposal set nextProposalBlockId = its block + 2
+            uint256 prevBlock = InboxTestLib.calculateProposalBlock(_proposalId - 1, 102);
+            coreState.nextProposalBlockId = uint48(prevBlock + 2);
+        }
+        
+        coreState.lastFinalizedProposalId = 0; // Keep as 0 for test simplicity
 
-        // Calculate the correct block context for when this proposal was originally created
-        // Each proposal increments block.number by 1, starting from block 3 (after setUp rolls to
-        // 2, then +1 for first proposal)
-        uint256 proposalBlockNumber = 2 + _proposalId; // block 3 for proposal 1, block 4 for
-            // proposal 2, etc.
+        // Calculate the block number when this proposal was created
+        uint256 proposalBlockNumber = InboxTestLib.calculateProposalBlock(_proposalId, 102);
+        
         return _reconstructStoredProposalAt(
             _proposalId, Alice, coreState, proposalBlockNumber, block.timestamp
         );
@@ -1374,11 +1396,12 @@ abstract contract InboxTest is CommonTest {
             // mockProposerAllowed
         proposal.derivationHash = keccak256(abi.encode(derivation));
 
-        // The contract increments both nextProposalId and nextProposalBlockId during processing
-        // We need to simulate that here
+        // The contract increments nextProposalId and nextProposalBlockId BEFORE computing the hash
+        // In propose(), it sets nextProposalBlockId = block.number + 1 (line 215)
+        // Then in _propose(), it increments it again (line 787), making it block.number + 2
         IInbox.CoreState memory updatedCoreState = _coreState;
         updatedCoreState.nextProposalId++;
-        updatedCoreState.nextProposalBlockId = updatedCoreState.nextProposalId + 99;
+        updatedCoreState.nextProposalBlockId = uint48(_blockNumber + 2); // block.number + 1, then ++ 
         proposal.coreStateHash = keccak256(abi.encode(updatedCoreState));
 
         return proposal;
@@ -1646,7 +1669,7 @@ abstract contract InboxTest is CommonTest {
         uint48 _expectedLastFinalizedId
     )
         internal
-        pure
+        view
     {
         // NOTE: Core state is no longer stored globally in the contract
         // This assertion validates behavior through successful operations

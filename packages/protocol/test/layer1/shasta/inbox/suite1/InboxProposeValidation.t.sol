@@ -232,9 +232,11 @@ contract InboxProposeValidation is InboxTest {
 
         // Act: Try to submit proposal 3, but with wrong parent proposals count
         // Setup core state for proposal 3
+        // Calculate the correct nextProposalBlockId based on proposal 2's block
+        uint256 prevProposalBlock = InboxTestLib.calculateProposalBlock(2, 102);
         IInbox.CoreState memory coreState3 = _getGenesisCoreState();
         coreState3.nextProposalId = 3;
-        coreState3.nextProposalBlockId = 3 + 99; // Follow the +99 offset pattern
+        coreState3.nextProposalBlockId = uint48(prevProposalBlock + 2); // Previous proposal's block + 2
 
         setupProposalMocks(Alice);
 
@@ -257,9 +259,12 @@ contract InboxProposeValidation is InboxTest {
         );
 
         // Act & Assert: Should revert with IncorrectProposalCount
+        // Roll to the correct block for proposal 3
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(3, 102);
+        vm.roll(targetBlock);
+        
         vm.expectRevert(abi.encodeWithSignature("IncorrectProposalCount()"));
         vm.prank(Alice);
-        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data3);
     }
 

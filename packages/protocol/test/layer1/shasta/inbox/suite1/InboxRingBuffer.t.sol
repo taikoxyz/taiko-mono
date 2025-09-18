@@ -138,9 +138,11 @@ contract InboxRingBuffer is InboxTest {
 
         // Now try to submit proposal 3, with incorrect parent proposal count
         // This should trigger IncorrectProposalCount error
+        // Calculate the correct nextProposalBlockId based on proposal 2's block
+        uint256 prevProposalBlock = InboxTestLib.calculateProposalBlock(2, 102);
         IInbox.CoreState memory coreState3 = _getGenesisCoreState();
         coreState3.nextProposalId = 3;
-        coreState3.nextProposalBlockId = 3 + 99;
+        coreState3.nextProposalBlockId = uint48(prevProposalBlock + 2); // Previous proposal's block + 2
 
         setupProposalMocks(Alice);
         setupBlobHashes();
@@ -162,10 +164,13 @@ contract InboxRingBuffer is InboxTest {
             new IInbox.TransitionRecord[](0)
         );
 
+        // Roll to the correct block for proposal 3
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(3, 102);
+        vm.roll(targetBlock);
+        
         // Should fail with IncorrectProposalCount
         vm.expectRevert(abi.encodeWithSignature("IncorrectProposalCount()"));
         vm.prank(Alice);
-        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data3);
 
         // Verify that existing proposals remain unchanged after failed attempt

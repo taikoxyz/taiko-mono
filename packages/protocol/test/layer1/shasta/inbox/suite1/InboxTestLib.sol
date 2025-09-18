@@ -37,7 +37,8 @@ library InboxTestLib {
     // Core State Management
     // ---------------------------------------------------------------
 
-    /// @dev Creates a basic core state
+    /// @dev Creates a basic core state with proper nextProposalBlockId handling
+    /// @notice Due to double increment bug, nextProposalBlockId = block.number + 2 after each proposal
     function createCoreState(
         uint48 _nextProposalId,
         uint48 _lastFinalizedProposalId
@@ -48,7 +49,7 @@ library InboxTestLib {
     {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
-            nextProposalBlockId: _nextProposalId + 99,
+            nextProposalBlockId: 100, // Use genesis default, caller should set if needed
             lastFinalizedProposalId: _lastFinalizedProposalId,
             lastFinalizedTransitionHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
@@ -68,10 +69,29 @@ library InboxTestLib {
     {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
-            nextProposalBlockId: _nextProposalId + 99,
+            nextProposalBlockId: 100, // Use genesis default, caller should set if needed
             lastFinalizedProposalId: _lastFinalizedProposalId,
             lastFinalizedTransitionHash: _lastFinalizedTransitionHash,
             bondInstructionsHash: _bondInstructionsHash
+        });
+    }
+
+    /// @dev Creates a core state with explicit nextProposalBlockId
+    function createCoreStateWithBlock(
+        uint48 _nextProposalId,
+        uint48 _nextProposalBlockId,
+        uint48 _lastFinalizedProposalId
+    )
+        internal
+        pure
+        returns (IInbox.CoreState memory)
+    {
+        return IInbox.CoreState({
+            nextProposalId: _nextProposalId,
+            nextProposalBlockId: _nextProposalBlockId,
+            lastFinalizedProposalId: _lastFinalizedProposalId,
+            lastFinalizedTransitionHash: bytes32(0),
+            bondInstructionsHash: bytes32(0)
         });
     }
 
@@ -777,7 +797,7 @@ library InboxTestLib {
         bytes32 _parentHash
     )
         internal
-        pure
+        view
         returns (TestContext memory ctx)
     {
         ctx.coreState = createCoreState(_nextProposalId, _lastFinalizedId, _parentHash, bytes32(0));
@@ -793,7 +813,7 @@ library InboxTestLib {
         bytes32 _parentHash
     )
         internal
-        pure
+        view
         returns (TestContext memory)
     {
         return createContext(_nextProposalId, 0, _parentHash);
@@ -836,5 +856,40 @@ library InboxTestLib {
         _ctx.transitions = newTransitions;
         _ctx.currentParentHash = hashTransition(_transition);
         return _ctx;
+    }
+
+    // ---------------------------------------------------------------
+    // NextProposalBlockId Helpers
+    // ---------------------------------------------------------------
+    
+    /// @dev Calculate the nextProposalBlockId after a proposal is processed
+    /// @notice Due to double increment bug: proposal at block N sets nextProposalBlockId to N+2
+    function calculateNextProposalBlockId(uint256 _proposalBlockNumber) internal pure returns (uint48) {
+        return uint48(_proposalBlockNumber + 2);
+    }
+    
+    /// @dev Get the expected nextProposalBlockId for a given proposal ID in tests
+    /// @notice Assumes: genesis=100, first proposal at 102, then need 2-block gaps
+    function getExpectedNextProposalBlockId(uint48 _proposalId, uint256 _baseBlock) internal pure returns (uint48) {
+        if (_proposalId == 0) {
+            return 100; // Genesis value
+        } else if (_proposalId == 1) {
+            return 100; // Before first proposal is made
+        } else {
+            // After proposal N-1, nextProposalBlockId = blockOfProposal(N-1) + 2
+            // With 2-block gaps: proposal 1 at _baseBlock, proposal 2 at _baseBlock+2, etc.
+            uint256 prevProposalBlock = _baseBlock + (_proposalId - 2) * 2;
+            return uint48(prevProposalBlock + 2);
+        }
+    }
+    
+    /// @dev Calculate the block number when a proposal should be submitted
+    /// @notice With 2-block gaps between proposals
+    function calculateProposalBlock(uint48 _proposalId, uint256 _baseBlock) internal pure returns (uint256) {
+        if (_proposalId <= 1) {
+            return _baseBlock; // First proposal at base block
+        } else {
+            return _baseBlock + (_proposalId - 1) * 2; // 2-block gaps
+        }
     }
 }

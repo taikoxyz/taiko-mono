@@ -29,10 +29,10 @@ contract InboxTestHelper is CommonTest {
     // Genesis State Builders
     // ---------------------------------------------------------------
 
-    function _getGenesisCoreState() internal pure returns (IInbox.CoreState memory) {
+    function _getGenesisCoreState() internal view returns (IInbox.CoreState memory) {
         return IInbox.CoreState({
             nextProposalId: 1,
-            nextProposalBlockId: 100,
+            nextProposalBlockId: 100, // Hardcoded value from contract initialization
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -45,14 +45,8 @@ contract InboxTestHelper is CommonTest {
         return keccak256(abi.encode(transition));
     }
 
-    function _createGenesisProposal() internal pure returns (IInbox.Proposal memory) {
-        IInbox.CoreState memory coreState = IInbox.CoreState({
-            nextProposalId: 1,
-            nextProposalBlockId: 100,
-            lastFinalizedProposalId: 0,
-            lastFinalizedTransitionHash: _getGenesisTransitionHash(),
-            bondInstructionsHash: bytes32(0)
-        });
+    function _createGenesisProposal() internal view returns (IInbox.Proposal memory) {
+        IInbox.CoreState memory coreState = _getGenesisCoreState();
 
         IInbox.Derivation memory derivation;
 
@@ -109,9 +103,10 @@ contract InboxTestHelper is CommonTest {
         returns (IInbox.ProposedEventPayload memory)
     {
         // Build the expected core state after proposal
+        // Due to double increment bug: line 215 sets to block.number+1, line 787 increments again
         IInbox.CoreState memory expectedCoreState = IInbox.CoreState({
             nextProposalId: _proposalId + 1,
-            nextProposalBlockId: _proposalId + 100,
+            nextProposalBlockId: uint48(block.number + 2), // Double increment: block.number + 1, then ++
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)

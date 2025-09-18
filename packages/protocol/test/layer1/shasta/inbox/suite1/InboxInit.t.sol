@@ -43,7 +43,7 @@ contract InboxInit is InboxTest {
     }
 
     /// @dev Creates expected genesis core state
-    function _createExpectedGenesisCoreState() private pure returns (IInbox.CoreState memory) {
+    function _createExpectedGenesisCoreState() private view returns (IInbox.CoreState memory) {
         IInbox.Transition memory genesisTransition;
         genesisTransition.checkpoint.blockHash = GENESIS_BLOCK_HASH;
 
@@ -178,7 +178,7 @@ contract InboxInit is InboxTest {
 
     /// @notice Test that nextProposalId starts at 1
     /// @dev Validates proper ID initialization
-    function test_init_next_proposal_id_starts_at_one() public pure {
+    function test_init_next_proposal_id_starts_at_one() public view {
         // Configuration is now immutable - ring buffer size is set in constructor
         // testInbox already has the standard ring buffer size from constructor
 

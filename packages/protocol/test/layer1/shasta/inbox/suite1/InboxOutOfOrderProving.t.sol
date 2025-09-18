@@ -45,9 +45,23 @@ contract InboxOutOfOrderProving is InboxTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](numProposals);
 
         for (uint48 i = 1; i <= numProposals; i++) {
+            // Calculate correct block for this proposal
+            uint256 targetBlock = InboxTestLib.calculateProposalBlock(i, 102); // Base block 102
+            vm.roll(targetBlock);
+            
+            // Calculate the correct nextProposalBlockId based on the current proposal
+            uint48 nextBlockId;
+            if (i == 1) {
+                nextBlockId = 100; // Genesis value for first proposal
+            } else {
+                // For subsequent proposals, it's previous proposal's block + 2
+                uint256 prevProposalBlock = InboxTestLib.calculateProposalBlock(i - 1, 102);
+                nextBlockId = uint48(prevProposalBlock + 2);
+            }
+            
             IInbox.CoreState memory proposalCoreState = IInbox.CoreState({
                 nextProposalId: i,
-                nextProposalBlockId: i + 99,
+                nextProposalBlockId: nextBlockId,
                 lastFinalizedProposalId: 0,
                 lastFinalizedTransitionHash: initialParentHash,
                 bondInstructionsHash: bytes32(0)
@@ -81,7 +95,6 @@ contract InboxOutOfOrderProving is InboxTest {
                 emptyTransitionRecords
             );
 
-            vm.roll(block.number + 1);
             vm.prank(Alice);
             inbox.propose(bytes(""), proposalData);
 
@@ -112,11 +125,12 @@ contract InboxOutOfOrderProving is InboxTest {
             });
 
             // Store proposal for use in next iteration's validation
+            // The contract increments nextProposalId and sets nextProposalBlockId to block.number + 2
             proposals[i - 1].coreStateHash = keccak256(
                 abi.encode(
                     IInbox.CoreState({
                         nextProposalId: i + 1,
-                        nextProposalBlockId: (i + 1) + 99,
+                        nextProposalBlockId: uint48(block.number + 2), // Double increment from contract
                         lastFinalizedProposalId: 0,
                         lastFinalizedTransitionHash: initialParentHash,
                         bondInstructionsHash: bytes32(0)
@@ -185,10 +199,11 @@ contract InboxOutOfOrderProving is InboxTest {
             });
         }
 
-        // Setup for finalization
+        // Setup for finalization - calculate correct nextProposalBlockId
+        uint256 lastProposalBlock = InboxTestLib.calculateProposalBlock(numProposals, 102);
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: numProposals + 1,
-            nextProposalBlockId: (numProposals + 1) + 99,
+            nextProposalBlockId: uint48(lastProposalBlock + 2), // Previous proposal's block + 2
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -223,7 +238,9 @@ contract InboxOutOfOrderProving is InboxTest {
             lastTransition.checkpoint
         );
 
-        vm.roll(block.number + 1);
+        // Roll to the next valid proposal block
+        uint256 nextProposalBlock = InboxTestLib.calculateProposalBlock(numProposals + 1, 102);
+        vm.roll(nextProposalBlock);
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
 
@@ -285,9 +302,11 @@ contract InboxOutOfOrderProving is InboxTest {
         }
 
         // Try to finalize - should only finalize proposal 1 because 2 is missing
+        // Calculate correct nextProposalBlockId based on the last proposal
+        uint256 lastProposalBlock = InboxTestLib.calculateProposalBlock(3, 102);
         IInbox.CoreState memory coreState = IInbox.CoreState({
             nextProposalId: 4,
-            nextProposalBlockId: 4 + 99,
+            nextProposalBlockId: uint48(lastProposalBlock + 2), // Previous proposal's block + 2
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: initialParentHash,
             bondInstructionsHash: bytes32(0)
@@ -342,7 +361,9 @@ contract InboxOutOfOrderProving is InboxTest {
             transition1.checkpoint // Use the header from the transition being finalized
         );
 
-        vm.roll(block.number + 1);
+        // Roll to the next valid proposal block
+        uint256 nextProposalBlock = InboxTestLib.calculateProposalBlock(4, 102);
+        vm.roll(nextProposalBlock);
         vm.prank(Carol);
         inbox.propose(bytes(""), proposeData);
 

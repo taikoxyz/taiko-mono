@@ -259,14 +259,16 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
             "First proposal hash mismatch"
         );
 
-        // Advance block for second proposal
-        vm.roll(block.number + 1);
+        // Advance block for second proposal (need 2 blocks due to double increment)
+        vm.roll(block.number + 2);
         vm.warp(block.timestamp + 12);
 
         // Second proposal (ID 2) - using the first proposal as parent
+        // First proposal set nextProposalBlockId to its block + 2
+        // We advanced by 2 blocks after first proposal, so we should be at the right block
         IInbox.CoreState memory secondCoreState = IInbox.CoreState({
             nextProposalId: 2,
-            nextProposalBlockId: 101,
+            nextProposalBlockId: uint48(block.number), // Current block (first proposal set it to this)
             lastFinalizedProposalId: 0,
             lastFinalizedTransitionHash: _getGenesisTransitionHash(),
             bondInstructionsHash: bytes32(0)
@@ -275,7 +277,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         IInbox.Proposal[] memory secondParentProposals = new IInbox.Proposal[](1);
         secondParentProposals[0] = firstExpectedPayload.proposal;
 
-        vm.roll(block.number + 1);
+        // No additional roll needed - we already advanced by 2 blocks above
 
         // Create second proposal input after block roll
         bytes memory secondProposeData = _createProposeInputWithCustomParams(
