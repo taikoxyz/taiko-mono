@@ -47,7 +47,7 @@ For example, `feat(scope): description of feature` should only impact the `scope
 
 **Note:
 The taiko team will evaluate all PRs and may close any pull requests that do not follow the standards outlined in this document.
-Please note, small pull requests will not be considered for future airdrops. We encourage contributions that make significant enhancements to the project.\*\*
+Please note, small pull requests will not be considered for future airdrops. We encourage contributions that make significant enhancements to the project.**
 
 ### Source code comments
 
