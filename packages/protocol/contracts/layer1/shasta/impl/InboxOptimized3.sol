@@ -35,7 +35,6 @@ contract InboxOptimized3 is InboxOptimized2 {
 
     constructor(IInbox.Config memory _config) InboxOptimized2(_config) { }
 
-
     // ---------------------------------------------------------------
     // Internal Functions - Overrides
     // ---------------------------------------------------------------
