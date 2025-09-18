@@ -5,6 +5,7 @@ import { IInbox } from "contracts/layer1/shasta/iface/IInbox.sol";
 import { LibBlobs } from "contracts/layer1/shasta/libs/LibBlobs.sol";
 import { InboxTestSetup } from "../common/InboxTestSetup.sol";
 import { BlobTestUtils } from "../common/BlobTestUtils.sol";
+import { InboxCodex } from "contracts/layer1/shasta/impl/InboxCodex.sol";
 
 // Import errors from Inbox implementation
 import "contracts/layer1/shasta/impl/Inbox.sol";
@@ -18,6 +19,12 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
     address internal currentProposer = Bob;
     address internal nextProposer = Carol;
+    InboxCodex internal codec;
+    
+    // Cache contract name to avoid repeated calls and potential recursion
+    string private contractName;
+    bool private useOptimizedInputEncoding;
+    bool private useOptimizedEventEncoding;
 
     // ---------------------------------------------------------------
     // Setup Functions
@@ -25,6 +32,15 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
     function setUp() public virtual override {
         super.setUp();
+        
+        // Initialize the codec for encoding/decoding operations
+        codec = new InboxCodex();
+
+        // Cache contract name and determine encoding types
+        contractName = getTestContractName();
+        useOptimizedInputEncoding = keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
+        useOptimizedEventEncoding = keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized2")) ||
+                                  keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
 
         // Select a proposer for testing
         currentProposer = _selectProposer(Bob);
@@ -49,7 +65,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
         // Expect the Proposed event with the correct data
         vm.expectEmit();
-        emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
+        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
 
         vm.startPrank(currentProposer);
         // Act: Submit the proposal
@@ -79,7 +95,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         // Expect the correct event
         IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
-        emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
+        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
 
         // Should succeed with valid future deadline
         vm.prank(currentProposer);
@@ -99,7 +115,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         // Expect the correct event
         IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
-        emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
+        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
 
         // Should succeed with zero deadline
         vm.prank(currentProposer);
@@ -139,7 +155,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         // Expect the correct event for single blob
         IInbox.ProposedEventPayload memory expectedPayload = _buildExpectedProposedPayload(1);
         vm.expectEmit();
-        emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
+        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -159,7 +175,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         IInbox.ProposedEventPayload memory expectedPayload =
             _buildExpectedProposedPayloadWithBlobs(1, 3, 0);
         vm.expectEmit();
-        emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
+        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -206,7 +222,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         IInbox.ProposedEventPayload memory expectedPayload =
             _buildExpectedProposedPayloadWithBlobs(1, 2, 100);
         vm.expectEmit();
-        emit IInbox.Proposed(inbox.encodeProposedEventData(expectedPayload));
+        emit IInbox.Proposed(_encodeProposedEvent(expectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), proposeData);
@@ -228,7 +244,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         IInbox.ProposedEventPayload memory firstExpectedPayload = _buildExpectedProposedPayload(1);
 
         vm.expectEmit();
-        emit IInbox.Proposed(inbox.encodeProposedEventData(firstExpectedPayload));
+        emit IInbox.Proposed(_encodeProposedEvent(firstExpectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), firstProposeData);
@@ -267,7 +283,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         IInbox.ProposedEventPayload memory secondExpectedPayload = _buildExpectedProposedPayload(2);
 
         vm.expectEmit();
-        emit IInbox.Proposed(inbox.encodeProposedEventData(secondExpectedPayload));
+        emit IInbox.Proposed(_encodeProposedEvent(secondExpectedPayload));
 
         vm.prank(currentProposer);
         inbox.propose(bytes(""), secondProposeData);
@@ -359,6 +375,24 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     // Propose Input Builders
     // ---------------------------------------------------------------
 
+    /// @notice Encodes ProposeInput using appropriate method based on inbox type
+    function _encodeProposeInput(IInbox.ProposeInput memory _input) internal view returns (bytes memory) {
+        if (useOptimizedInputEncoding) {
+            return codec.encodeProposeInputOptimized(_input);
+        } else {
+            return codec.encodeProposeInput(_input);
+        }
+    }
+
+    /// @notice Encodes ProposedEventPayload using appropriate method based on inbox type
+    function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload) internal view returns (bytes memory) {
+        if (useOptimizedEventEncoding) {
+            return codec.encodeProposedEvent(_payload);
+        } else {
+            return abi.encode(_payload);
+        }
+    }
+
     function _createProposeInputWithCustomParams(
         uint48 _deadline,
         LibBlobs.BlobReference memory _blobRef,
@@ -383,7 +417,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
             numForcedInclusions: 0
         });
 
-        return inbox.encodeProposeInput(input);
+        return _encodeProposeInput(input);
     }
 
     function _createFirstProposeInput() internal view returns (bytes memory) {
@@ -403,7 +437,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
         input.parentProposals = parentProposals;
         input.blobReference = blobRef;
 
-        return inbox.encodeProposeInput(input);
+        return _encodeProposeInput(input);
     }
 
     function _createProposeInputWithDeadline(uint48 _deadline)

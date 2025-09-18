@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import { LibProposedEventEncoder } from "../packages/protocol/contracts/layer1/shasta/libs/LibProposedEventEncoder.sol";
-import { LibProposeInputDecoder } from "../packages/protocol/contracts/layer1/shasta/libs/LibProposeInputDecoder.sol";
-import { LibProvedEventEncoder } from "../packages/protocol/contracts/layer1/shasta/libs/LibProvedEventEncoder.sol";
-import { LibProveInputDecoder } from "../packages/protocol/contracts/layer1/shasta/libs/LibProveInputDecoder.sol";
-import { IInbox } from "../packages/protocol/contracts/layer1/shasta/iface/IInbox.sol";
+import { LibProposedEventEncoder } from "../libs/LibProposedEventEncoder.sol";
+import { LibProposeInputDecoder } from "../libs/LibProposeInputDecoder.sol";
+import { LibProvedEventEncoder } from "../libs/LibProvedEventEncoder.sol";
+import { LibProveInputDecoder } from "../libs/LibProveInputDecoder.sol";
+import { IInbox } from "../iface/IInbox.sol";
 
 /// @title InboxCodex
 /// @notice Unified codec contract for all Inbox encoder/decoder library functions
@@ -68,7 +68,7 @@ contract InboxCodex {
     // ProposeInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes propose input data using compact encoding
+    /// @notice Encodes propose input data using standard ABI encoding (compatible with all Inbox implementations)
     /// @param _input The ProposeInput to encode
     /// @return encoded_ The encoded data
     function encodeProposeInput(IInbox.ProposeInput memory _input)
@@ -76,13 +76,35 @@ contract InboxCodex {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProposeInputDecoder.encode(_input);
+        return abi.encode(_input);
     }
 
-    /// @notice Decodes propose data using optimized operations with LibPackUnpack
+    /// @notice Decodes propose data using standard ABI decoding
     /// @param _data The encoded data
     /// @return input_ The decoded ProposeInput
     function decodeProposeInput(bytes memory _data)
+        external
+        pure
+        returns (IInbox.ProposeInput memory input_)
+    {
+        return abi.decode(_data, (IInbox.ProposeInput));
+    }
+
+    /// @notice Encodes propose input data using optimized encoding (for InboxOptimized3+)
+    /// @param _input The ProposeInput to encode
+    /// @return encoded_ The encoded data
+    function encodeProposeInputOptimized(IInbox.ProposeInput memory _input)
+        external
+        pure
+        returns (bytes memory encoded_)
+    {
+        return LibProposeInputDecoder.encode(_input);
+    }
+
+    /// @notice Decodes propose data using optimized operations
+    /// @param _data The encoded data
+    /// @return input_ The decoded ProposeInput
+    function decodeProposeInputOptimized(bytes memory _data)
         external
         pure
         returns (IInbox.ProposeInput memory input_)
@@ -94,7 +116,7 @@ contract InboxCodex {
     // ProveInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes prove input data using compact encoding
+    /// @notice Encodes prove input data using standard ABI encoding (compatible with all Inbox implementations)
     /// @param _input The ProveInput to encode
     /// @return encoded_ The encoded data
     function encodeProveInput(IInbox.ProveInput memory _input)
@@ -102,13 +124,35 @@ contract InboxCodex {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProveInputDecoder.encode(_input);
+        return abi.encode(_input);
     }
 
-    /// @notice Decodes prove input data using optimized operations with LibPackUnpack
+    /// @notice Decodes prove input data using standard ABI decoding
     /// @param _data The encoded data
     /// @return input_ The decoded ProveInput
     function decodeProveInput(bytes memory _data)
+        external
+        pure
+        returns (IInbox.ProveInput memory input_)
+    {
+        return abi.decode(_data, (IInbox.ProveInput));
+    }
+
+    /// @notice Encodes prove input data using optimized encoding (for InboxOptimized3+)
+    /// @param _input The ProveInput to encode
+    /// @return encoded_ The encoded data
+    function encodeProveInputOptimized(IInbox.ProveInput memory _input)
+        external
+        pure
+        returns (bytes memory encoded_)
+    {
+        return LibProveInputDecoder.encode(_input);
+    }
+
+    /// @notice Decodes prove input data using optimized operations
+    /// @param _data The encoded data
+    /// @return input_ The decoded ProveInput
+    function decodeProveInputOptimized(bytes memory _data)
         external
         pure
         returns (IInbox.ProveInput memory input_)

@@ -57,7 +57,7 @@ contract InboxOptimized2 is InboxOptimized1 {
     }
 
     // ---------------------------------------------------------------
-    // Public Functions
+    // Public Functions - Overrides
     // ---------------------------------------------------------------
 
     /// @inheritdoc Inbox
