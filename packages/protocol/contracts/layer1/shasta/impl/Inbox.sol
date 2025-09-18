@@ -956,5 +956,4 @@ error ProposerBondInsufficient();
 error RingBufferSizeZero();
 error SpanOutOfBounds();
 error TransitionWithSameParentHashAlreadyProved();
-error Unauthorized();
 error UnprocessedForcedInclusionIsDue();
