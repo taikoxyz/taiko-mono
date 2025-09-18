@@ -114,6 +114,7 @@
 - ejectors:
 - operators:
   - nethermind proposer `0x75141CD01F50A17a915d59D245aE6B2c947D37d9`(sequencer `0x75141CD01F50A17a915d59D245aE6B2c947D37d9`)
+  - chainbound proposer `0x205a600D515091b473b6c1A8477D967533D10749`(sequencer `0x205a600D515091b473b6c1A8477D967533D10749`)
 - logs:
   - deployed on Sep 10, 2025 at commit `1852eb5`
 
