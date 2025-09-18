@@ -26,11 +26,19 @@ contract LibProposeInputDecoderFuzz is Test {
         public
         pure
     {
+        // Bound nextProposalId to avoid overflow when calculating nextProposalBlockId
+        nextProposalId = uint48(bound(nextProposalId, 1, 2_800_000)); // 2800000 * 100 = 280M <
+            // 2^48-1
+        lastFinalizedProposalId = uint48(bound(lastFinalizedProposalId, 0, nextProposalId));
+
+        // Use differentiated IDs like the main tests
+        uint48 nextProposalBlockId = nextProposalId == 1 ? uint48(100) : nextProposalId;
+
         IInbox.ProposeInput memory input = IInbox.ProposeInput({
             deadline: deadline,
             coreState: IInbox.CoreState({
                 nextProposalId: nextProposalId,
-                nextProposalBlockId: nextProposalId * 100,
+                nextProposalBlockId: nextProposalBlockId,
                 lastFinalizedProposalId: lastFinalizedProposalId,
                 lastFinalizedTransitionHash: lastFinalizedTransitionHash,
                 bondInstructionsHash: bondInstructionsHash
@@ -56,6 +64,7 @@ contract LibProposeInputDecoderFuzz is Test {
         // Verify
         assertEq(decoded.deadline, deadline);
         assertEq(decoded.coreState.nextProposalId, nextProposalId);
+        assertEq(decoded.coreState.nextProposalBlockId, nextProposalBlockId);
         assertEq(decoded.blobReference.blobStartIndex, blobStartIndex);
     }
 

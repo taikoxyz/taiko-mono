@@ -475,6 +475,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         bytes memory proposeData = _createFirstProposeInput();
 
         vm.prank(currentProposer);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), proposeData);
 
         // Build and return the expected proposal
@@ -508,6 +509,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
         );
 
         vm.prank(currentProposer);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), proposeData);
 
         // Build and return the expected proposal

@@ -342,7 +342,7 @@ abstract contract InboxTest is CommonTest {
     {
         return IInbox.CoreState({
             nextProposalId: _config.nextProposalId,
-            nextProposalBlockId: _config.nextProposalId * 100,
+            nextProposalBlockId: _config.nextProposalId + 99,
             lastFinalizedProposalId: _config.lastFinalizedProposalId,
             lastFinalizedTransitionHash: _config.lastFinalizedTransitionHash,
             bondInstructionsHash: _config.bondInstructionsHash
@@ -666,6 +666,7 @@ abstract contract InboxTest is CommonTest {
         );
 
         vm.prank(_proposer);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
 
         return _reconstructStoredProposal(_proposalId, _proposer, coreState);
@@ -710,6 +711,7 @@ abstract contract InboxTest is CommonTest {
         );
 
         vm.prank(_finalizer != address(0) ? _finalizer : Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 
@@ -1078,10 +1080,15 @@ abstract contract InboxTest is CommonTest {
         internal
         returns (IInbox.Proposal memory proposal)
     {
-        IInbox.CoreState memory coreState = _buildCoreStateForProposal(_proposalId);
-
         setupProposalMocks(_proposer);
+        setupBlobHashes();
 
+        // Do the block roll first, then create proposal data - matching Suite2 approach
+        vm.prank(_proposer);
+        vm.roll(block.number + 1);
+
+        // Now create the proposal data using the rolled block context
+        IInbox.CoreState memory coreState = _buildCoreStateForProposal(_proposalId);
         bytes memory data = _encodeProposeInputWithValidation(
             _proposalId,
             coreState,
@@ -1089,18 +1096,11 @@ abstract contract InboxTest is CommonTest {
             _transitionRecords
         );
 
-        setupBlobHashes();
-
-        // Store current block context to reconstruct proposal correctly
-        uint256 currentBlock = block.number;
-        uint256 currentTimestamp = block.timestamp;
-
-        vm.prank(_proposer);
         inbox.propose(bytes(""), data);
 
-        // Reconstruct proposal using the actual block context from when it was created
+        // Reconstruct proposal using the actual block context when it was created (after roll)
         proposal = _reconstructStoredProposalAt(
-            _proposalId, _proposer, coreState, currentBlock, currentTimestamp
+            _proposalId, _proposer, coreState, block.number, block.timestamp
         );
     }
 
@@ -1114,7 +1114,7 @@ abstract contract InboxTest is CommonTest {
         // This is the core state BEFORE processing the proposal
         // The contract will increment nextProposalId when processing
         coreState.nextProposalId = _proposalId;
-        coreState.nextProposalBlockId = _proposalId;
+        coreState.nextProposalBlockId = _proposalId + 99;
     }
 
     /// @dev Helper function to encode proposal data with correct validation proposals
@@ -1305,14 +1305,17 @@ abstract contract InboxTest is CommonTest {
             // When proposal ID X was created, the incoming core state had nextProposalId = X
             // The proposal stores this state's hash, then increments nextProposalId
             coreState.nextProposalId = _proposalId;
-            coreState.nextProposalBlockId = _proposalId;
+            coreState.nextProposalBlockId = _proposalId + 99;
             coreState.lastFinalizedProposalId = 0; // Keep as 0 for test simplicity
         }
 
-        // Use the same fixed block context as submitProposal
-        // Note: block.number is 2 in tests after setUp rolls to block 2
+        // Calculate the correct block context for when this proposal was originally created
+        // Each proposal increments block.number by 1, starting from block 3 (after setUp rolls to
+        // 2, then +1 for first proposal)
+        uint256 proposalBlockNumber = 2 + _proposalId; // block 3 for proposal 1, block 4 for
+            // proposal 2, etc.
         return _reconstructStoredProposalAt(
-            _proposalId, Alice, coreState, block.number, block.timestamp
+            _proposalId, Alice, coreState, proposalBlockNumber, block.timestamp
         );
     }
 
@@ -1350,10 +1353,11 @@ abstract contract InboxTest is CommonTest {
         blobHashes[0] = keccak256(abi.encode("blob", uint256(_proposalId % 256)));
 
         // Create derivation for hash calculation with specific block context
-        // The contract uses blockhash(block.number - 1) for originBlockHash
+        // InboxTestLib.createProposal uses block.number - 1 for originBlockNumber
+        // The data is created before vm.roll(), so _blockNumber is before the increment
         IInbox.Derivation memory derivation = IInbox.Derivation({
             originBlockNumber: uint48(_blockNumber - 1),
-            originBlockHash: blockhash(_blockNumber - 1), // Use actual blockhash
+            originBlockHash: blockhash(_blockNumber - 1),
             isForcedInclusion: false,
             basefeeSharingPctg: DEFAULT_BASEFEE_SHARING_PCTG,
             blobSlice: LibBlobs.BlobSlice({
@@ -1374,7 +1378,7 @@ abstract contract InboxTest is CommonTest {
         // We need to simulate that here
         IInbox.CoreState memory updatedCoreState = _coreState;
         updatedCoreState.nextProposalId++;
-        updatedCoreState.nextProposalBlockId++;
+        updatedCoreState.nextProposalBlockId = updatedCoreState.nextProposalId + 99;
         proposal.coreStateHash = keccak256(abi.encode(updatedCoreState));
 
         return proposal;

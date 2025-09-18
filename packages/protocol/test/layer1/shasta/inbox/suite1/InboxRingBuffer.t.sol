@@ -140,7 +140,7 @@ contract InboxRingBuffer is InboxTest {
         // This should trigger IncorrectProposalCount error
         IInbox.CoreState memory coreState3 = _getGenesisCoreState();
         coreState3.nextProposalId = 3;
-        coreState3.nextProposalBlockId = 3;
+        coreState3.nextProposalBlockId = 3 + 99;
 
         setupProposalMocks(Alice);
         setupBlobHashes();
@@ -165,6 +165,7 @@ contract InboxRingBuffer is InboxTest {
         // Should fail with IncorrectProposalCount
         vm.expectRevert(abi.encodeWithSignature("IncorrectProposalCount()"));
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data3);
 
         // Verify that existing proposals remain unchanged after failed attempt

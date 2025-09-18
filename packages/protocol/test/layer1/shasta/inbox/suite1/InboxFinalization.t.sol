@@ -55,7 +55,7 @@ contract InboxFinalization is InboxTest {
     {
         IInbox.CoreState memory updatedCoreState = _coreState;
         updatedCoreState.nextProposalId = _proposalId + 1;
-        updatedCoreState.nextProposalBlockId = _proposalId + 1;
+        updatedCoreState.nextProposalBlockId = (_proposalId + 1) + 99;
 
         proposal = createValidProposal(_proposalId);
         proposal.coreStateHash = keccak256(abi.encode(updatedCoreState));
@@ -101,7 +101,7 @@ contract InboxFinalization is InboxTest {
 
         IInbox.CoreState memory newCoreState = _getGenesisCoreState();
         newCoreState.nextProposalId = 2;
-        newCoreState.nextProposalBlockId = 2;
+        newCoreState.nextProposalBlockId = 2 + 99;
 
         // Use the adapter with explicit checkpoint
         bytes memory data = InboxTestAdapter.encodeProposeInputWithEndBlock(
@@ -116,6 +116,7 @@ contract InboxFinalization is InboxTest {
 
         setupBlobHashes();
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 
@@ -189,6 +190,7 @@ contract InboxFinalization is InboxTest {
         proposals[0] = _lastProposal;
 
         vm.prank(Carol);
+        vm.roll(block.number + 1);
         inbox.propose(
             bytes(""),
             InboxTestAdapter.encodeProposeInputWithEndBlock(
@@ -219,7 +221,7 @@ contract InboxFinalization is InboxTest {
         // Store proposal 1 with transition
         IInbox.CoreState memory coreState1 = _getGenesisCoreState();
         coreState1.nextProposalId = 2; // After proposal 1
-        coreState1.nextProposalBlockId = 2;
+        coreState1.nextProposalBlockId = 2 + 99; // Maintain the +99 offset
 
         IInbox.Proposal memory proposal1 = createValidProposal(1);
         proposal1.coreStateHash = keccak256(abi.encode(coreState1));
@@ -241,7 +243,7 @@ contract InboxFinalization is InboxTest {
         // Store proposal 2 WITHOUT transition (gap in chain)
         IInbox.CoreState memory coreState2 = _getGenesisCoreState();
         coreState2.nextProposalId = 3; // After proposal 2
-        coreState2.nextProposalBlockId = 3;
+        coreState2.nextProposalBlockId = 3 + 99; // Maintain the +99 offset
 
         IInbox.Proposal memory proposal2 = createValidProposal(2);
         proposal2.coreStateHash = keccak256(abi.encode(coreState2));
@@ -283,6 +285,7 @@ contract InboxFinalization is InboxTest {
 
         // Submit proposal
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
 
         // Verify only proposal 1 was finalized
@@ -330,6 +333,7 @@ contract InboxFinalization is InboxTest {
         // Expect revert due to mismatched transition record hash
         vm.expectRevert(TransitionRecordHashMismatchWithStorage.selector);
         vm.prank(Carol);
+        vm.roll(block.number + 1);
         inbox.propose(
             bytes(""),
             InboxTestAdapter.encodeProposeInputWithEndBlock(

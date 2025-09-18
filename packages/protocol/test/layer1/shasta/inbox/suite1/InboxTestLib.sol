@@ -48,7 +48,7 @@ library InboxTestLib {
     {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
-            nextProposalBlockId: _nextProposalId * 100,
+            nextProposalBlockId: _nextProposalId + 99,
             lastFinalizedProposalId: _lastFinalizedProposalId,
             lastFinalizedTransitionHash: bytes32(0),
             bondInstructionsHash: bytes32(0)
@@ -68,7 +68,7 @@ library InboxTestLib {
     {
         return IInbox.CoreState({
             nextProposalId: _nextProposalId,
-            nextProposalBlockId: _nextProposalId * 100,
+            nextProposalBlockId: _nextProposalId + 99,
             lastFinalizedProposalId: _lastFinalizedProposalId,
             lastFinalizedTransitionHash: _lastFinalizedTransitionHash,
             bondInstructionsHash: _bondInstructionsHash
@@ -229,7 +229,7 @@ library InboxTestLib {
     function createTransition(
         IInbox.Proposal memory _proposal,
         bytes32 _parentTransitionHash,
-        address _actualProver
+        address /* _actualProver */
     )
         internal
         pure
@@ -254,8 +254,8 @@ library InboxTestLib {
         uint48 _endBlockNumber,
         bytes32 _endBlockHash,
         bytes32 _endStateRoot,
-        address _designatedProver,
-        address _actualProver
+        address, /* _designatedProver */
+        address /* _actualProver */
     )
         internal
         pure
@@ -277,7 +277,7 @@ library InboxTestLib {
     function createTransitionChain(
         IInbox.Proposal[] memory _proposals,
         bytes32 _initialParentHash,
-        address _prover
+        address /* _prover */
     )
         internal
         pure
@@ -287,7 +287,7 @@ library InboxTestLib {
         bytes32 parentHash = _initialParentHash;
 
         for (uint256 i = 0; i < _proposals.length; i++) {
-            transitions[i] = createTransition(_proposals[i], parentHash, _prover);
+            transitions[i] = createTransition(_proposals[i], parentHash, address(0));
             parentHash = hashTransition(transitions[i]);
         }
     }

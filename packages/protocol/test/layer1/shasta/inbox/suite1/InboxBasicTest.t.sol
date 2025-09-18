@@ -75,6 +75,7 @@ contract InboxBasicTest is InboxTest {
         expectRevertWithReason(InvalidState.selector, "Wrong core state should be rejected");
 
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 
@@ -101,6 +102,7 @@ contract InboxBasicTest is InboxTest {
         expectRevertWithReason(DeadlineExceeded.selector, "Expired deadline should be rejected");
 
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 

@@ -53,6 +53,7 @@ contract InboxProposeValidation is InboxTest {
 
         // Act: Submit proposal with valid deadline
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
 
         // Assert: Verify proposal was accepted and stored successfully
@@ -87,6 +88,7 @@ contract InboxProposeValidation is InboxTest {
         // Act & Assert: Submission should fail with DeadlineExceeded error
         vm.expectRevert(DeadlineExceeded.selector);
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 
@@ -115,6 +117,7 @@ contract InboxProposeValidation is InboxTest {
 
         // Act: Submit proposal without deadline constraint
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
 
         // Assert: Should succeed with no deadline validation
@@ -165,6 +168,7 @@ contract InboxProposeValidation is InboxTest {
         // Act & Assert: Invalid state should be rejected with InvalidState error
         vm.expectRevert(InvalidState.selector);
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 
@@ -205,6 +209,7 @@ contract InboxProposeValidation is InboxTest {
         // Act & Assert: Unauthorized proposer should be rejected
         vm.expectRevert();
         vm.prank(Bob);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 
@@ -229,7 +234,7 @@ contract InboxProposeValidation is InboxTest {
         // Setup core state for proposal 3
         IInbox.CoreState memory coreState3 = _getGenesisCoreState();
         coreState3.nextProposalId = 3;
-        coreState3.nextProposalBlockId = 3;
+        coreState3.nextProposalBlockId = 3 + 99; // Follow the +99 offset pattern
 
         setupProposalMocks(Alice);
 
@@ -254,6 +259,7 @@ contract InboxProposeValidation is InboxTest {
         // Act & Assert: Should revert with IncorrectProposalCount
         vm.expectRevert(abi.encodeWithSignature("IncorrectProposalCount()"));
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data3);
     }
 
@@ -299,6 +305,7 @@ contract InboxProposeValidation is InboxTest {
         // Act & Assert: Invalid blob reference should be rejected
         vm.expectRevert(LibBlobs.NoBlobs.selector);
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 
@@ -344,6 +351,7 @@ contract InboxProposeValidation is InboxTest {
         // Act & Assert: Missing blob should be rejected for data availability
         vm.expectRevert(LibBlobs.BlobNotFound.selector);
         vm.prank(Alice);
+        vm.roll(block.number + 1);
         inbox.propose(bytes(""), data);
     }
 
