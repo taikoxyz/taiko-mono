@@ -43,6 +43,9 @@ contract TestInboxWithMockBlobs is InboxOptimized2 {
     )
         external
     {
-        _setTransitionRecordHashAndDeadline(_proposalId, _transition, _transitionRecord);
+        // Create dummy metadata for test purposes
+        IInbox.TransitionMetadata memory metadata =
+            IInbox.TransitionMetadata({ designatedProver: address(0), actualProver: address(0) });
+        _setTransitionRecordHashAndDeadline(_proposalId, _transition, metadata, _transitionRecord);
     }
 }
