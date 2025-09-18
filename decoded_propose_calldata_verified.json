@@ -1,0 +1,61 @@
+{
+  "function": "propose",
+  "decoded_data": {
+    "deadline": 0,
+    "coreState": {
+      "nextProposalId": 3144,
+      "lastFinalizedProposalId": 3119,
+      "lastFinalizedTransitionHash": "0x2e54b352dd58fd085d95fe528c9eabe395f1bec2380b5d6aed0214091d505ab8",
+      "bondInstructionsHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "parentProposals": [
+      {
+        "id": 3143,
+        "timestamp": 1758142880,
+        "endOfSubmissionWindowTimestamp": 0,
+        "proposer": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+        "coreStateHash": "0xf8183d4ce6d4f75ba5c8bf8202d14db9e94f851cf8bd954c9c8897bd479861a3",
+        "derivationHash": "0x95acd9d8dea32f20bf518910420ef90ed39d49355af4f7ee6a4af47b387f61ae"
+      },
+      {
+        "id": 3044,
+        "timestamp": 1758139316,
+        "endOfSubmissionWindowTimestamp": 0,
+        "proposer": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+        "coreStateHash": "0x8dc8ee580f0f803a412a571557f14f70427bd1fc1965bbcf57eeaace9dbd764e",
+        "derivationHash": "0x3ac937c6a6897d2b9d63f7b3c7f612c22aa29370c7f9d7018f50fceb93e8b84b"
+      }
+    ],
+    "blobReference": {
+      "blobStartIndex": 0,
+      "numBlobs": 1,
+      "offset": 0
+    },
+    "transitionRecords": [
+      {
+        "span": 1,
+        "bondInstructions": [],
+        "transitionHash": "0x3e536f75ef315e9a041548ab194c2c22a83d6e43d8e2e4ae16235b2db639f73c",
+        "checkpointHash": "0x78ad54ff96468f7498a57c43cf32fa9a8b3917f6c28cc0c57ff640097d406f34"
+      }
+    ],
+    "checkpoint": {
+      "blockNumber": 3120,
+      "blockHash": "0xeef654ac7163d83552992c5a1931b17e749ca65b2578934c1af2d18b32c5d35f",
+      "stateRoot": "0x9455424c5168f475dd97d54ed793a1eb5c67d5c250d50d211b270c09650be45b"
+    },
+    "numForcedInclusions": 0
+  },
+  "notes": {
+    "decoded_by": "DevnetShastaInbox contract",
+    "verification": "This decoding was verified using the actual contract's decode functions",
+    "key_findings": {
+      "current_state": "Chain is at proposal ID 3144 with last finalized at 3119",
+      "parent_proposals": "Two parent proposals (IDs 3143 and 3044) for chain head verification",
+      "blob_reference": "Single blob at index 0 with no offset",
+      "transition_record": "One transition record with span 1, no bond instructions",
+      "checkpoint": "References block 3120 with specific state root",
+      "forced_inclusions": "None included in this proposal"
+    }
+  }
+}

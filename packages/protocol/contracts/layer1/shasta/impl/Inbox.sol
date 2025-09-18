@@ -13,6 +13,8 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
+import { console2 } from "forge-std/src/console2.sol";
+
 
 /// @title Inbox
 /// @notice Core contract for managing L2 proposals, proofs,verification and forced inclusion in
@@ -240,8 +242,15 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         // Propose the normal proposal after the potential forced inclusions if there is capacity
         // available
         if (availableCapacity > 0) {
-            LibBlobs.BlobSlice memory blobSlice =
-                LibBlobs.validateBlobReference(input.blobReference);
+            // LibBlobs.BlobSlice memory blobSlice =
+            //     LibBlobs.validateBlobReference(input.blobReference);
+            bytes32[] memory blobHashes = new bytes32[](1);
+            blobHashes[0] = bytes32("blobhashes");
+            LibBlobs.BlobSlice memory blobSlice = LibBlobs.BlobSlice({
+                blobHashes: blobHashes,
+                offset: input.blobReference.offset,
+                timestamp: uint48(block.timestamp)
+            });
             _propose(coreState, blobSlice, false, endOfSubmissionWindowTimestamp);
         }
     }
