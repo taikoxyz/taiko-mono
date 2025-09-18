@@ -12,57 +12,6 @@ library LibProvedEventEncoder {
     // ---------------------------------------------------------------
     // Public Functions
     // ---------------------------------------------------------------
-
-    /// @notice Encodes a ProvedEventPayload into bytes using compact encoding
-    /// @param _payload The ProvedEventPayload to encode
-    /// @return encoded_ The encoded bytes
-    function encode(IInbox.ProvedEventPayload memory _payload)
-        internal
-        pure
-        returns (bytes memory encoded_)
-    {
-        // Calculate total size needed
-        uint256 bufferSize =
-            calculateProvedEventSize(_payload.transitionRecord.bondInstructions.length);
-        encoded_ = new bytes(bufferSize);
-
-        // Get pointer to data section (skip length prefix)
-        uint256 ptr = P.dataPtr(encoded_);
-
-        // Encode proposalId (uint48)
-        ptr = P.packUint48(ptr, _payload.proposalId);
-
-        // Encode Transition struct
-        ptr = P.packBytes32(ptr, _payload.transition.proposalHash);
-        ptr = P.packBytes32(ptr, _payload.transition.parentTransitionHash);
-        // Encode Checkpoint
-        ptr = P.packUint48(ptr, _payload.transition.checkpoint.blockNumber);
-        ptr = P.packBytes32(ptr, _payload.transition.checkpoint.blockHash);
-        ptr = P.packBytes32(ptr, _payload.transition.checkpoint.stateRoot);
-        ptr = P.packAddress(ptr, _payload.transition.designatedProver);
-        ptr = P.packAddress(ptr, _payload.transition.actualProver);
-
-        // Encode TransitionRecord
-        ptr = P.packUint8(ptr, _payload.transitionRecord.span);
-        ptr = P.packBytes32(ptr, _payload.transitionRecord.transitionHash);
-        ptr = P.packBytes32(ptr, _payload.transitionRecord.checkpointHash);
-
-        // Encode bond instructions array length (uint16)
-        require(
-            _payload.transitionRecord.bondInstructions.length <= type(uint16).max,
-            BondInstructionsLengthExceeded()
-        );
-        ptr = P.packUint16(ptr, uint16(_payload.transitionRecord.bondInstructions.length));
-
-        // Encode each bond instruction
-        for (uint256 i; i < _payload.transitionRecord.bondInstructions.length; ++i) {
-            ptr = P.packUint48(ptr, _payload.transitionRecord.bondInstructions[i].proposalId);
-            ptr = P.packUint8(ptr, uint8(_payload.transitionRecord.bondInstructions[i].bondType));
-            ptr = P.packAddress(ptr, _payload.transitionRecord.bondInstructions[i].payer);
-            ptr = P.packAddress(ptr, _payload.transitionRecord.bondInstructions[i].receiver);
-        }
-    }
-
     /// @notice Decodes bytes into a ProvedEventPayload using compact encoding
     /// @param _data The bytes to decode
     /// @return payload_ The decoded ProvedEventPayload
@@ -115,6 +64,56 @@ library LibProvedEventEncoder {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @notice Encodes a ProvedEventPayload into bytes using compact encoding
+    /// @param _payload The ProvedEventPayload to encode
+    /// @return encoded_ The encoded bytes
+    function encode(IInbox.ProvedEventPayload memory _payload)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
+        // Calculate total size needed
+        uint256 bufferSize =
+            calculateProvedEventSize(_payload.transitionRecord.bondInstructions.length);
+        encoded_ = new bytes(bufferSize);
+
+        // Get pointer to data section (skip length prefix)
+        uint256 ptr = P.dataPtr(encoded_);
+
+        // Encode proposalId (uint48)
+        ptr = P.packUint48(ptr, _payload.proposalId);
+
+        // Encode Transition struct
+        ptr = P.packBytes32(ptr, _payload.transition.proposalHash);
+        ptr = P.packBytes32(ptr, _payload.transition.parentTransitionHash);
+        // Encode Checkpoint
+        ptr = P.packUint48(ptr, _payload.transition.checkpoint.blockNumber);
+        ptr = P.packBytes32(ptr, _payload.transition.checkpoint.blockHash);
+        ptr = P.packBytes32(ptr, _payload.transition.checkpoint.stateRoot);
+        ptr = P.packAddress(ptr, _payload.transition.designatedProver);
+        ptr = P.packAddress(ptr, _payload.transition.actualProver);
+
+        // Encode TransitionRecord
+        ptr = P.packUint8(ptr, _payload.transitionRecord.span);
+        ptr = P.packBytes32(ptr, _payload.transitionRecord.transitionHash);
+        ptr = P.packBytes32(ptr, _payload.transitionRecord.checkpointHash);
+
+        // Encode bond instructions array length (uint16)
+        require(
+            _payload.transitionRecord.bondInstructions.length <= type(uint16).max,
+            BondInstructionsLengthExceeded()
+        );
+        ptr = P.packUint16(ptr, uint16(_payload.transitionRecord.bondInstructions.length));
+
+        // Encode each bond instruction
+        for (uint256 i; i < _payload.transitionRecord.bondInstructions.length; ++i) {
+            ptr = P.packUint48(ptr, _payload.transitionRecord.bondInstructions[i].proposalId);
+            ptr = P.packUint8(ptr, uint8(_payload.transitionRecord.bondInstructions[i].bondType));
+            ptr = P.packAddress(ptr, _payload.transitionRecord.bondInstructions[i].payer);
+            ptr = P.packAddress(ptr, _payload.transitionRecord.bondInstructions[i].receiver);
+        }
+    }
 
     /// @notice Calculate the exact byte size needed for encoding a ProvedEventPayload
     /// @param _bondInstructionsCount Number of bond instructions (max 65535 due to uint16 encoding)

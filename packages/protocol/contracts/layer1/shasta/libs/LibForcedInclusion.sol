@@ -25,6 +25,7 @@ library LibForcedInclusion {
     // ---------------------------------------------------------------
 
     /// @dev Storage for the forced inclusion queue. This struct uses 2 slots.
+    /// @dev 2 slots used
     struct Storage {
         mapping(uint256 id => IForcedInclusionStore.ForcedInclusion inclusion) queue;
         /// @notice The index of the oldest forced inclusion in the queue. This is where items will

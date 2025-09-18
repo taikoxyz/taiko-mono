@@ -130,18 +130,16 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     mapping(bytes32 compositeKey => TransitionRecordHashAndDeadline hashAndDeadline) internal
         _transitionRecordHashAndDeadline;
 
-    uint256[21] private __gap1;
-
     /// @dev Storage for forced inclusion requests
-    /// @dev 50 slots used
+    /// @dev 2 slots used
     LibForcedInclusion.Storage private _forcedInclusionStorage;
-    uint256[8] private __gap2;
 
     /// @dev Storage for checkpoint management
     /// Uses multiple slots for ring buffer storage
-    /// @dev 50 slots used
+    /// @dev 2 slots used
     LibCheckpointStore.Storage private _checkpointStorage;
-    uint256[48] private __gap3;
+
+    uint256[37] private __gap;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -165,6 +163,10 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _maxCheckpointHistory = _config.maxCheckpointHistory;
     }
 
+    // ---------------------------------------------------------------
+    // External Functions
+    // ---------------------------------------------------------------
+
     /// @notice Initializes the Inbox contract with genesis block
     /// @dev This contract uses a reinitializer so that it works both on fresh deployments as well
     /// as existing inbox proxies(i.e. mainnet)
@@ -182,10 +184,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
         _initializeInbox(_genesisBlockHash);
     }
 
-    // ---------------------------------------------------------------
-    // External Functions (Non-View)
-    // ---------------------------------------------------------------
-
     /// @inheritdoc IInbox
     /// @notice Proposes new L2 blocks and forced inclusions to the rollup using blobs for DA.
     /// @dev Key behaviors:
@@ -197,14 +195,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     ///      4. Updates core state and emits `Proposed` event
     /// @dev IMPORTANT: The regular proposal might not be included if there is not enough capacity
     ///      available(i.e forced inclusions are prioritized).
-    function propose(
-        bytes calldata,
-        /*_lookahead*/
-        bytes calldata _data
-    )
-        external
-        nonReentrant
-    {
+    function propose(bytes calldata, /*_lookahead*/ bytes calldata _data) external nonReentrant {
         // Validate proposer
         uint48 endOfSubmissionWindowTimestamp = _proposerChecker.checkProposer(msg.sender);
 
@@ -366,7 +357,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     }
 
     // ---------------------------------------------------------------
-    // External Pure Functions (Encoding/Decoding)
+    // External Pure Functions
     // ---------------------------------------------------------------
 
     /// @dev Encodes the propose input data
@@ -394,7 +385,7 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     }
 
     // ---------------------------------------------------------------
-    // Public Pure Functions (Decoding)
+    // Public Pure Functions
     // ---------------------------------------------------------------
 
     /// @notice Decodes proposal input data
@@ -444,10 +435,6 @@ contract Inbox is IInbox, IForcedInclusionStore, ICheckpointStore, EssentialCont
     {
         return abi.encode(_payload);
     }
-
-    // ---------------------------------------------------------------
-    // Public Pure Functions (Hashing)
-    // ---------------------------------------------------------------
 
     /// @notice Hashes a Transition struct.
     /// @param _transition The transition to hash.

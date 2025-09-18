@@ -15,6 +15,7 @@ library LibCheckpointStore {
     // ---------------------------------------------------------------
 
     /// @notice Storage for the checkpoint ring buffer
+    /// @dev 2 slots used
     struct Storage {
         /// @notice Ring buffer as a stack for storing checkpoints
         /// @dev Maps slot indices (0 to maxHistorySize-1) to checkpoint data

@@ -13,55 +13,6 @@ library LibProposedEventEncoder {
     // Public Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes a ProposedEventPayload into bytes using compact encoding
-    /// @param _payload The payload to encode
-    /// @return encoded_ The encoded bytes
-    function encode(IInbox.ProposedEventPayload memory _payload)
-        internal
-        pure
-        returns (bytes memory encoded_)
-    {
-        // Calculate total size needed
-        uint256 bufferSize =
-            calculateProposedEventSize(_payload.derivation.blobSlice.blobHashes.length);
-        encoded_ = new bytes(bufferSize);
-
-        // Get pointer to data section (skip length prefix)
-        uint256 ptr = P.dataPtr(encoded_);
-
-        // Encode Proposal
-        ptr = P.packUint48(ptr, _payload.proposal.id);
-        ptr = P.packAddress(ptr, _payload.proposal.proposer);
-        ptr = P.packUint48(ptr, _payload.proposal.timestamp);
-        ptr = P.packUint48(ptr, _payload.proposal.endOfSubmissionWindowTimestamp);
-        ptr = P.packUint48(ptr, _payload.derivation.originBlockNumber);
-        ptr = P.packBytes32(ptr, _payload.derivation.originBlockHash);
-        ptr = P.packUint8(ptr, _payload.derivation.isForcedInclusion ? 1 : 0);
-        ptr = P.packUint8(ptr, _payload.derivation.basefeeSharingPctg);
-
-        // Encode blob slice (length + hashes + offset + timestamp)
-        uint256 blobHashesLength = _payload.derivation.blobSlice.blobHashes.length;
-        P.checkArrayLength(blobHashesLength);
-        ptr = P.packUint24(ptr, uint24(blobHashesLength));
-
-        // Encode each blob hash
-        for (uint256 i; i < blobHashesLength; ++i) {
-            ptr = P.packBytes32(ptr, _payload.derivation.blobSlice.blobHashes[i]);
-        }
-
-        ptr = P.packUint24(ptr, _payload.derivation.blobSlice.offset);
-        ptr = P.packUint48(ptr, _payload.derivation.blobSlice.timestamp);
-
-        ptr = P.packBytes32(ptr, _payload.proposal.coreStateHash);
-        ptr = P.packBytes32(ptr, _payload.proposal.derivationHash);
-
-        // Encode core state
-        ptr = P.packUint48(ptr, _payload.coreState.nextProposalId);
-        ptr = P.packUint48(ptr, _payload.coreState.lastFinalizedProposalId);
-        ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
-        ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
-    }
-
     /// @notice Decodes bytes into a ProposedEventPayload using compact encoding
     /// @param _data The encoded data
     /// @return payload_ The decoded payload
@@ -114,6 +65,55 @@ library LibProposedEventEncoder {
     // ---------------------------------------------------------------
     // Internal Functions
     // ---------------------------------------------------------------
+
+    /// @notice Encodes a ProposedEventPayload into bytes using compact encoding
+    /// @param _payload The payload to encode
+    /// @return encoded_ The encoded bytes
+    function encode(IInbox.ProposedEventPayload memory _payload)
+        internal
+        pure
+        returns (bytes memory encoded_)
+    {
+        // Calculate total size needed
+        uint256 bufferSize =
+            calculateProposedEventSize(_payload.derivation.blobSlice.blobHashes.length);
+        encoded_ = new bytes(bufferSize);
+
+        // Get pointer to data section (skip length prefix)
+        uint256 ptr = P.dataPtr(encoded_);
+
+        // Encode Proposal
+        ptr = P.packUint48(ptr, _payload.proposal.id);
+        ptr = P.packAddress(ptr, _payload.proposal.proposer);
+        ptr = P.packUint48(ptr, _payload.proposal.timestamp);
+        ptr = P.packUint48(ptr, _payload.proposal.endOfSubmissionWindowTimestamp);
+        ptr = P.packUint48(ptr, _payload.derivation.originBlockNumber);
+        ptr = P.packBytes32(ptr, _payload.derivation.originBlockHash);
+        ptr = P.packUint8(ptr, _payload.derivation.isForcedInclusion ? 1 : 0);
+        ptr = P.packUint8(ptr, _payload.derivation.basefeeSharingPctg);
+
+        // Encode blob slice (length + hashes + offset + timestamp)
+        uint256 blobHashesLength = _payload.derivation.blobSlice.blobHashes.length;
+        P.checkArrayLength(blobHashesLength);
+        ptr = P.packUint24(ptr, uint24(blobHashesLength));
+
+        // Encode each blob hash
+        for (uint256 i; i < blobHashesLength; ++i) {
+            ptr = P.packBytes32(ptr, _payload.derivation.blobSlice.blobHashes[i]);
+        }
+
+        ptr = P.packUint24(ptr, _payload.derivation.blobSlice.offset);
+        ptr = P.packUint48(ptr, _payload.derivation.blobSlice.timestamp);
+
+        ptr = P.packBytes32(ptr, _payload.proposal.coreStateHash);
+        ptr = P.packBytes32(ptr, _payload.proposal.derivationHash);
+
+        // Encode core state
+        ptr = P.packUint48(ptr, _payload.coreState.nextProposalId);
+        ptr = P.packUint48(ptr, _payload.coreState.lastFinalizedProposalId);
+        ptr = P.packBytes32(ptr, _payload.coreState.lastFinalizedTransitionHash);
+        ptr = P.packBytes32(ptr, _payload.coreState.bondInstructionsHash);
+    }
 
     /// @notice Calculate the exact byte size needed for encoding a ProposedEvent
     /// @param _blobHashesCount Number of blob hashes (max 16777215 due to uint24 encoding)

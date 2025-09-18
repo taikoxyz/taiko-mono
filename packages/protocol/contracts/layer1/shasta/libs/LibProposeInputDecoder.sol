@@ -78,6 +78,10 @@ library LibProposeInputDecoder {
         ptr = P.packUint8(ptr, _input.numForcedInclusions);
     }
 
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
     /// @notice Decodes propose data using optimized operations with LibPackUnpack
     /// @param _data The encoded data
     /// @return input_ The decoded ProposeInput
@@ -133,7 +137,7 @@ library LibProposeInputDecoder {
     }
 
     // ---------------------------------------------------------------
-    // Private Functions - Encoding
+    // Private Functions
     // ---------------------------------------------------------------
 
     /// @notice Encode a single Proposal
@@ -194,10 +198,6 @@ library LibProposeInputDecoder {
         newPtr_ = P.packAddress(newPtr_, _bondInstruction.receiver);
     }
 
-    // ---------------------------------------------------------------
-    // Private Functions - Decoding
-    // ---------------------------------------------------------------
-
     /// @notice Decode a single Proposal
     function _decodeProposal(uint256 _ptr)
         private
@@ -251,10 +251,6 @@ library LibProposeInputDecoder {
         (bondInstruction_.payer, newPtr_) = P.unpackAddress(newPtr_);
         (bondInstruction_.receiver, newPtr_) = P.unpackAddress(newPtr_);
     }
-
-    // ---------------------------------------------------------------
-    // Private Functions - Utilities
-    // ---------------------------------------------------------------
 
     /// @notice Calculate the size needed for encoding
     function _calculateProposeDataSize(

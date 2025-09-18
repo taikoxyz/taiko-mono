@@ -39,6 +39,10 @@ library LibProveInputDecoder {
         }
     }
 
+    // ---------------------------------------------------------------
+    // Internal Functions
+    // ---------------------------------------------------------------
+
     /// @notice Decodes prove input data using optimized operations with LibPackUnpack
     /// @param _data The encoded data
     /// @return input_ The decoded ProveInput
@@ -65,7 +69,7 @@ library LibProveInputDecoder {
     }
 
     // ---------------------------------------------------------------
-    // Private Functions - Encoding
+    // Private Functions
     // ---------------------------------------------------------------
 
     /// @notice Encode a single Proposal
@@ -84,10 +88,6 @@ library LibProveInputDecoder {
         newPtr_ = P.packBytes32(newPtr_, _proposal.coreStateHash);
         newPtr_ = P.packBytes32(newPtr_, _proposal.derivationHash);
     }
-
-    // ---------------------------------------------------------------
-    // Private Functions - Decoding
-    // ---------------------------------------------------------------
 
     /// @notice Decode a single Proposal
     function _decodeProposal(uint256 _ptr)
@@ -137,10 +137,6 @@ library LibProveInputDecoder {
         (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
         (transition_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
     }
-
-    // ---------------------------------------------------------------
-    // Private Functions - Utilities
-    // ---------------------------------------------------------------
 
     /// @notice Calculate the size needed for encoding
     function _calculateProveDataSize(
