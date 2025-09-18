@@ -243,7 +243,7 @@ contract LibCheckpointStoreTest is CommonTest {
     }
 
     function test_revert_getCheckpoint_noCheckpoints() public {
-        vm.expectRevert(LibCheckpointStore.NoCheckpoints.selector);
+        vm.expectRevert(LibCheckpointStore.IndexOutOfBounds.selector);
         storage_.getCheckpoint(0, MAX_HISTORY);
     }
 
