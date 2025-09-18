@@ -56,7 +56,7 @@
 
         <div class="flex justify-between">
           <div class="text-secondary-content">{$t('common.recipient')}</div>
-          <div class="">
+          <div>
             <ExplorerLink category="address" chainId={Number(tx.destChainId)} urlParam={tx.message.to}
               >{shortenAddress(tx.message?.to, 5, 5)}</ExplorerLink>
           </div>
