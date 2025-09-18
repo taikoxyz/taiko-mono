@@ -114,7 +114,8 @@ contract InboxHelper {
     // ProposeInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes propose input data using standard ABI encoding (compatible with all Inbox implementations)
+    /// @notice Encodes propose input data using standard ABI encoding (compatible with all Inbox
+    /// implementations)
     /// @param _input The ProposeInput to encode
     /// @return encoded_ The encoded data
     function encodeProposeInput(IInbox.ProposeInput memory _input)
@@ -162,7 +163,8 @@ contract InboxHelper {
     // ProveInputDecoder Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes prove input data using standard ABI encoding (compatible with all Inbox implementations)
+    /// @notice Encodes prove input data using standard ABI encoding (compatible with all Inbox
+    /// implementations)
     /// @param _input The ProveInput to encode
     /// @return encoded_ The encoded data
     function encodeProveInput(IInbox.ProveInput memory _input)
@@ -220,7 +222,11 @@ contract InboxHelper {
     /// @notice Optimized hashing for Transition structs
     /// @param _transition The transition to hash
     /// @return The hash of the transition
-    function hashTransitionOptimized(IInbox.Transition memory _transition) external pure returns (bytes32) {
+    function hashTransitionOptimized(IInbox.Transition memory _transition)
+        external
+        pure
+        returns (bytes32)
+    {
         return LibHashing.hashTransition(_transition);
     }
 
@@ -256,7 +262,11 @@ contract InboxHelper {
     /// @notice Optimized hashing for CoreState structs
     /// @param _coreState The core state to hash
     /// @return The hash of the core state
-    function hashCoreStateOptimized(IInbox.CoreState memory _coreState) external pure returns (bytes32) {
+    function hashCoreStateOptimized(IInbox.CoreState memory _coreState)
+        external
+        pure
+        returns (bytes32)
+    {
         return LibHashing.hashCoreState(_coreState);
     }
 
@@ -270,7 +280,11 @@ contract InboxHelper {
     /// @notice Optimized hashing for Proposal structs
     /// @param _proposal The proposal to hash
     /// @return The hash of the proposal
-    function hashProposalOptimized(IInbox.Proposal memory _proposal) external pure returns (bytes32) {
+    function hashProposalOptimized(IInbox.Proposal memory _proposal)
+        external
+        pure
+        returns (bytes32)
+    {
         return LibHashing.hashProposal(_proposal);
     }
 
@@ -284,7 +298,11 @@ contract InboxHelper {
     /// @notice Optimized hashing for Derivation structs
     /// @param _derivation The derivation to hash
     /// @return The hash of the derivation
-    function hashDerivationOptimized(IInbox.Derivation memory _derivation) external pure returns (bytes32) {
+    function hashDerivationOptimized(IInbox.Derivation memory _derivation)
+        external
+        pure
+        returns (bytes32)
+    {
         return LibHashing.hashDerivation(_derivation);
     }
 

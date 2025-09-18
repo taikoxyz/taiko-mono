@@ -20,7 +20,7 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     address internal currentProposer = Bob;
     address internal nextProposer = Carol;
     InboxHelper internal helper;
-    
+
     // Cache contract name to avoid repeated calls and potential recursion
     string private contractName;
     bool private useOptimizedInputEncoding;
@@ -32,15 +32,17 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
 
     function setUp() public virtual override {
         super.setUp();
-        
+
         // Initialize the helper for encoding/decoding operations
         helper = new InboxHelper();
 
         // Cache contract name and determine encoding types
         contractName = getTestContractName();
-        useOptimizedInputEncoding = keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
-        useOptimizedEventEncoding = keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized2")) ||
-                                  keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
+        useOptimizedInputEncoding =
+            keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
+        useOptimizedEventEncoding = keccak256(bytes(contractName))
+            == keccak256(bytes("InboxOptimized2"))
+            || keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
 
         // Select a proposer for testing
         currentProposer = _selectProposer(Bob);
@@ -376,7 +378,11 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     // ---------------------------------------------------------------
 
     /// @notice Encodes ProposeInput using appropriate method based on inbox type
-    function _encodeProposeInput(IInbox.ProposeInput memory _input) internal view returns (bytes memory) {
+    function _encodeProposeInput(IInbox.ProposeInput memory _input)
+        internal
+        view
+        returns (bytes memory)
+    {
         if (useOptimizedInputEncoding) {
             return helper.encodeProposeInputOptimized(_input);
         } else {
@@ -385,7 +391,11 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     }
 
     /// @notice Encodes ProposedEventPayload using appropriate method based on inbox type
-    function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload) internal view returns (bytes memory) {
+    function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
+        internal
+        view
+        returns (bytes memory)
+    {
         if (useOptimizedEventEncoding) {
             return helper.encodeProposedEventOptimized(_payload);
         } else {

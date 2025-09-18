@@ -22,7 +22,7 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     address internal currentProposer = Bob;
     address internal currentProver = Carol;
     InboxHelper internal helper;
-    
+
     // Cache contract name to avoid repeated calls and potential recursion
     string private contractName;
     bool private useOptimizedInputEncoding;
@@ -33,13 +33,14 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
 
     function setUp() public virtual override {
         super.setUp();
-        
+
         // Initialize the helper for encoding/decoding operations
         helper = new InboxHelper();
 
         // Cache contract name and determine encoding types
         contractName = getTestContractName();
-        useOptimizedInputEncoding = keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
+        useOptimizedInputEncoding =
+            keccak256(bytes(contractName)) == keccak256(bytes("InboxOptimized3"));
 
         // Select a proposer for creating proposals to prove
         currentProposer = _selectProposer(Bob);
@@ -380,7 +381,11 @@ abstract contract AbstractProveTest is InboxTestSetup, BlobTestUtils {
     // ---------------------------------------------------------------
 
     /// @notice Encodes ProveInput using appropriate method based on inbox type
-    function _encodeProveInput(IInbox.ProveInput memory _input) internal view returns (bytes memory) {
+    function _encodeProveInput(IInbox.ProveInput memory _input)
+        internal
+        view
+        returns (bytes memory)
+    {
         if (useOptimizedInputEncoding) {
             return helper.encodeProveInputOptimized(_input);
         } else {

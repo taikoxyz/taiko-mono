@@ -39,7 +39,12 @@ abstract contract InboxOptimized4 is InboxOptimized3 {
     /// @dev Uses LibHashing for efficient transition hashing
     /// @param _transition The transition data to hash
     /// @return bytes32 The keccak256 hash of the transition struct
-    function _hashTransition(Transition memory _transition) internal pure override returns (bytes32) {
+    function _hashTransition(Transition memory _transition)
+        internal
+        pure
+        override
+        returns (bytes32)
+    {
         return LibHashing.hashTransition(_transition);
     }
 
