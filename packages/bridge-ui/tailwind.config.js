@@ -316,7 +316,7 @@ export default {
           '--secondary-content': '#444A55', // grey-600
           '--secondary-icon': '#2B303B', // grey-700
           '--secondary-interactive-accent': '#E3E3E3', // grey-50
-          '--secondary-interactive-hover': '##F3F3F3', // grey-10
+          '--secondary-interactive-hover': '#F3F3F3', // grey-10
 
           '--tertiary-content': '#91969F', // grey-300
 
