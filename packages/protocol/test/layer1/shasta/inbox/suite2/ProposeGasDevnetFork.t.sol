@@ -63,7 +63,6 @@ contract ProposeGasDevnetFork is Test {
 
         console.log("Transaction: 0xfddbfe564da882e69d2165be2d41f20087bdf65de7221628f6ef27867e9dbbc4");
         console.log("Calldata length:", actualCalldata.length);
-        // (bytes memory lookahead, bytes memory data) = abi.decode(actualCalldata, (bytes, bytes));
 
         // Ensure proposer has balance
         vm.deal(PROPOSER, 10000 ether);

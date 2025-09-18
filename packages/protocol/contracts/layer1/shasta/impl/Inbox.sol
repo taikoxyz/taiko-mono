@@ -209,7 +209,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
 
         // Verify parentProposals[0] is actually the last proposal stored on-chain.
         // NOTE: Comparing the proposal hash is failing, so we comment this for now
-        // _verifyChainHead(input.parentProposals);
+        _verifyChainHead(input.parentProposals);
 
         // IMPORTANT: Finalize first to free ring buffer space and prevent deadlock
         CoreState memory coreState = _finalize(input);
@@ -628,7 +628,11 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         returns (bytes32 proposalHash_)
     {
         proposalHash_ = hashProposal(_proposal);
+        console2.log("proposal.id", _proposal.id);
+        console2.log("ringBufferSize", _ringBufferSize);
         bytes32 storedProposalHash = _proposalHashes[_proposal.id % _ringBufferSize];
+        console2.logBytes32(proposalHash_);
+        console2.logBytes32(storedProposalHash);
         require(proposalHash_ == storedProposalHash, ProposalHashMismatch());
     }
 
@@ -746,6 +750,9 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Next slot in the ring buffer is empty, only one proposal expected
             require(_parentProposals.length == 1, IncorrectProposalCount());
         } else {
+            console2.log("next proposal id", _parentProposals[1].id);
+            console2.logBytes32(hashProposal(_parentProposals[1]));
+            console2.logBytes32(storedNextProposalHash);
             // Next slot in the ring buffer is occupied, need to prove it contains a
             // proposal with a smaller id
             require(_parentProposals.length == 2, IncorrectProposalCount());
