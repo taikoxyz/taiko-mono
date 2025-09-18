@@ -16,7 +16,7 @@ contract InboxCodex {
     // ProposedEventEncoder Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes a ProposedEventPayload into bytes using compact encoding
+    /// @notice Encodes a ProposedEventPayload into bytes using standard ABI encoding
     /// @param _payload The payload to encode
     /// @return encoded_ The encoded bytes
     function encodeProposedEvent(IInbox.ProposedEventPayload memory _payload)
@@ -24,13 +24,35 @@ contract InboxCodex {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProposedEventEncoder.encode(_payload);
+        return abi.encode(_payload);
     }
 
-    /// @notice Decodes bytes into a ProposedEventPayload using compact encoding
+    /// @notice Decodes bytes into a ProposedEventPayload using standard ABI decoding
     /// @param _data The encoded data
     /// @return payload_ The decoded payload
     function decodeProposedEvent(bytes memory _data)
+        external
+        pure
+        returns (IInbox.ProposedEventPayload memory payload_)
+    {
+        return abi.decode(_data, (IInbox.ProposedEventPayload));
+    }
+
+    /// @notice Encodes a ProposedEventPayload into bytes using optimized encoding
+    /// @param _payload The payload to encode
+    /// @return encoded_ The encoded bytes
+    function encodeProposedEventOptimized(IInbox.ProposedEventPayload memory _payload)
+        external
+        pure
+        returns (bytes memory encoded_)
+    {
+        return LibProposedEventEncoder.encode(_payload);
+    }
+
+    /// @notice Decodes bytes into a ProposedEventPayload using optimized encoding
+    /// @param _data The encoded data
+    /// @return payload_ The decoded payload
+    function decodeProposedEventOptimized(bytes memory _data)
         external
         pure
         returns (IInbox.ProposedEventPayload memory payload_)
@@ -42,7 +64,7 @@ contract InboxCodex {
     // ProvedEventEncoder Functions
     // ---------------------------------------------------------------
 
-    /// @notice Encodes a ProvedEventPayload into bytes using compact encoding
+    /// @notice Encodes a ProvedEventPayload into bytes using standard ABI encoding
     /// @param _payload The ProvedEventPayload to encode
     /// @return encoded_ The encoded bytes
     function encodeProvedEvent(IInbox.ProvedEventPayload memory _payload)
@@ -50,13 +72,35 @@ contract InboxCodex {
         pure
         returns (bytes memory encoded_)
     {
-        return LibProvedEventEncoder.encode(_payload);
+        return abi.encode(_payload);
     }
 
-    /// @notice Decodes bytes into a ProvedEventPayload using compact encoding
+    /// @notice Decodes bytes into a ProvedEventPayload using standard ABI decoding
     /// @param _data The bytes to decode
     /// @return payload_ The decoded ProvedEventPayload
     function decodeProvedEvent(bytes memory _data)
+        external
+        pure
+        returns (IInbox.ProvedEventPayload memory payload_)
+    {
+        return abi.decode(_data, (IInbox.ProvedEventPayload));
+    }
+
+    /// @notice Encodes a ProvedEventPayload into bytes using optimized encoding
+    /// @param _payload The ProvedEventPayload to encode
+    /// @return encoded_ The encoded bytes
+    function encodeProvedEventOptimized(IInbox.ProvedEventPayload memory _payload)
+        external
+        pure
+        returns (bytes memory encoded_)
+    {
+        return LibProvedEventEncoder.encode(_payload);
+    }
+
+    /// @notice Decodes bytes into a ProvedEventPayload using optimized encoding
+    /// @param _data The bytes to decode
+    /// @return payload_ The decoded ProvedEventPayload
+    function decodeProvedEventOptimized(bytes memory _data)
         external
         pure
         returns (IInbox.ProvedEventPayload memory payload_)

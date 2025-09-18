@@ -387,9 +387,9 @@ abstract contract AbstractProposeTest is InboxTestSetup, BlobTestUtils {
     /// @notice Encodes ProposedEventPayload using appropriate method based on inbox type
     function _encodeProposedEvent(IInbox.ProposedEventPayload memory _payload) internal view returns (bytes memory) {
         if (useOptimizedEventEncoding) {
-            return codec.encodeProposedEvent(_payload);
+            return codec.encodeProposedEventOptimized(_payload);
         } else {
-            return abi.encode(_payload);
+            return codec.encodeProposedEvent(_payload);
         }
     }
 
