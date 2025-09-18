@@ -36,33 +36,6 @@ contract InboxOptimized3 is InboxOptimized2 {
     constructor(IInbox.Config memory _config) InboxOptimized2(_config) { }
 
     // ---------------------------------------------------------------
-    // External Functions
-    // ---------------------------------------------------------------
-
-
-    /// @notice Encodes ProposedEventPayload for efficient event emission
-    /// @dev Uses LibProposedEventEncoder for compact representation
-    /// @param _payload The ProposedEventPayload to encode
-    function encodeProposedEventPayload(ProposedEventPayload memory _payload)
-        external
-        pure
-        returns (bytes memory)
-    {
-        return LibProposedEventEncoder.encode(_payload);
-    }
-
-    /// @notice Encodes ProvedEventPayload for efficient event emission
-    /// @dev Uses LibProvedEventEncoder for compact representation
-    /// @param _payload The ProvedEventPayload to encode
-    function encodeProvedEventPayload(ProvedEventPayload memory _payload)
-        external
-        pure
-        returns (bytes memory)
-    {
-        return LibProvedEventEncoder.encode(_payload);
-    }
-
-    // ---------------------------------------------------------------
     // Public Functions - Overrides
     // ---------------------------------------------------------------
 
