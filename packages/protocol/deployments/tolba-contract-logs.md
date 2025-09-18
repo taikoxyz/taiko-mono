@@ -137,10 +137,11 @@
 ### proof_verifier
 
 - proxy : `0xdF712d14E40b99448048Dbf9E7FC5488CCdde991`
-- impl : `0xBEDFe2f1E05dBE287F6fd251DeE7D6EC62860944`
+- impl : `0x5E652dC4033C6860b27d6860164369D15b421A42`
 - owner : `0x1D2D1bb9D180541E88a6a682aCf3f61c1605B190`
 - logs:
   - deployed on Sep 10, 2025 at commit `1852eb5`
+  - updated on Sep 18, 2025 at commit `1852eb5`
 
 ### sgx_reth_verifier
 
