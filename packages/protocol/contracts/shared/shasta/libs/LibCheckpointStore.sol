@@ -41,7 +41,7 @@ library LibCheckpointStore {
         ICheckpointStore.Checkpoint memory _checkpoint,
         uint48 _maxCheckpointHistory
     )
-        internal
+        public
     {
         require(_maxCheckpointHistory != 0, InvalidMaxCheckpointHistory());
         require(_checkpoint.stateRoot != bytes32(0), InvalidCheckpoint());
