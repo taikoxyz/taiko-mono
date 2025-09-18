@@ -690,6 +690,7 @@ func (s *Indexer) getTransitionsForFinalization(
 	for i := uint64(1); i <= maxFinalizationCount; i++ {
 		transition, ok := s.transitionRecords.Get(lastFinalizedProposalId + i)
 		// TODO: fix last finalized transition hash check
+		_ = lastFinalizedTransitionHash
 
 		if !ok ||
 			transition.RawBlockTimeStamp+s.finalizationGracePeriod > uint64(time.Now().Unix()) {
