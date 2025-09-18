@@ -12,7 +12,6 @@ import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
 
 /// @title InboxHelper
 /// @notice Unified helper contract for all Inbox encoder/decoder and hashing library functions
-/// @dev Provides a single interface to access all LibXXXEncoder, LibXXXDecoder, and LibHashing functionality
 /// @custom:security-contact security@taiko.xyz
 contract InboxHelper {
     // ---------------------------------------------------------------
