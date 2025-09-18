@@ -18,7 +18,8 @@ library LibProveInputDecoder {
         returns (bytes memory encoded_)
     {
         // Calculate total size needed
-        uint256 bufferSize = _calculateProveDataSize(_input.proposals, _input.transitions);
+        uint256 bufferSize =
+            _calculateProveDataSize(_input.proposals, _input.transitions, _input.metadata);
         encoded_ = new bytes(bufferSize);
 
         // Get pointer to data section (skip length prefix)
@@ -36,6 +37,12 @@ library LibProveInputDecoder {
         ptr = P.packUint24(ptr, uint24(_input.transitions.length));
         for (uint256 i; i < _input.transitions.length; ++i) {
             ptr = _encodeTransition(ptr, _input.transitions[i]);
+        }
+
+        // 3. Encode Metadata array (no need to encode length, reuse transitions length)
+        P.checkArrayLength(_input.metadata.length);
+        for (uint256 i; i < _input.metadata.length; ++i) {
+            ptr = _encodeMetadata(ptr, _input.metadata[i]);
         }
     }
 
@@ -61,6 +68,12 @@ library LibProveInputDecoder {
         input_.transitions = new IInbox.Transition[](transitionsLength);
         for (uint256 i; i < transitionsLength; ++i) {
             (input_.transitions[i], ptr) = _decodeTransition(ptr);
+        }
+
+        // 3. Decode Metadata array (reuse transitions length)
+        input_.metadata = new IInbox.TransitionMetadata[](transitionsLength);
+        for (uint256 i; i < transitionsLength; ++i) {
+            (input_.metadata[i], ptr) = _decodeMetadata(ptr);
         }
     }
 
@@ -110,8 +123,6 @@ library LibProveInputDecoder {
         newPtr_ = P.packUint48(newPtr_, _transition.checkpoint.blockNumber);
         newPtr_ = P.packBytes32(newPtr_, _transition.checkpoint.blockHash);
         newPtr_ = P.packBytes32(newPtr_, _transition.checkpoint.stateRoot);
-        newPtr_ = P.packAddress(newPtr_, _transition.designatedProver);
-        newPtr_ = P.packAddress(newPtr_, _transition.actualProver);
     }
 
     /// @notice Decode a single Transition
@@ -126,23 +137,46 @@ library LibProveInputDecoder {
         (transition_.checkpoint.blockNumber, newPtr_) = P.unpackUint48(newPtr_);
         (transition_.checkpoint.blockHash, newPtr_) = P.unpackBytes32(newPtr_);
         (transition_.checkpoint.stateRoot, newPtr_) = P.unpackBytes32(newPtr_);
-        (transition_.designatedProver, newPtr_) = P.unpackAddress(newPtr_);
-        (transition_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
+    }
+
+    /// @notice Encode a single TransitionMetadata
+    function _encodeMetadata(
+        uint256 _ptr,
+        IInbox.TransitionMetadata memory _metadata
+    )
+        private
+        pure
+        returns (uint256 newPtr_)
+    {
+        newPtr_ = P.packAddress(_ptr, _metadata.designatedProver);
+        newPtr_ = P.packAddress(newPtr_, _metadata.actualProver);
+    }
+
+    /// @notice Decode a single TransitionMetadata
+    function _decodeMetadata(uint256 _ptr)
+        private
+        pure
+        returns (IInbox.TransitionMetadata memory metadata_, uint256 newPtr_)
+    {
+        (metadata_.designatedProver, newPtr_) = P.unpackAddress(_ptr);
+        (metadata_.actualProver, newPtr_) = P.unpackAddress(newPtr_);
     }
 
     /// @notice Calculate the size needed for encoding
     function _calculateProveDataSize(
         IInbox.Proposal[] memory _proposals,
-        IInbox.Transition[] memory _transitions
+        IInbox.Transition[] memory _transitions,
+        IInbox.TransitionMetadata[] memory _metadata
     )
         private
         pure
         returns (uint256 size_)
     {
         require(_proposals.length == _transitions.length, ProposalTransitionLengthMismatch());
+        require(_metadata.length == _transitions.length, MetadataLengthMismatch());
 
         unchecked {
-            // Array lengths: 3 + 3 = 6 bytes
+            // Array lengths: 3 + 3 = 6 bytes (proposals and transitions lengths only)
             size_ = 6;
 
             // Proposals - each has fixed size
@@ -150,10 +184,13 @@ library LibProveInputDecoder {
             // endOfSubmissionWindowTimestamp(6) + coreStateHash(32) +
             // derivationHash(32) = 102
             //
-            // Transitions - each has fixed size: proposalHash(32) + parentTransitionHash(32) +
-            // Checkpoint(6 + 32 + 32) + designatedProver(20) + actualProver(20) = 174
+            // Transitions - each has fixed size (no provers): proposalHash(32) +
+            // parentTransitionHash(32) +
+            // Checkpoint(6 + 32 + 32) = 134
             //
-            size_ += _proposals.length * 276;
+            // Metadata - each has fixed size: designatedProver(20) + actualProver(20) = 40
+            //
+            size_ += _proposals.length * (102 + 134 + 40);
         }
     }
 
@@ -162,4 +199,5 @@ library LibProveInputDecoder {
     // ---------------------------------------------------------------
 
     error ProposalTransitionLengthMismatch();
+    error MetadataLengthMismatch();
 }

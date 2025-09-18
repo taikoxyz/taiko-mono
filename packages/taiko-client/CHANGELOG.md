@@ -337,7 +337,7 @@
 * **taiko-client:** make p2p-sync required ([#18571](https://github.com/taikoxyz/taiko-mono/issues/18571)) ([de92b28](https://github.com/taikoxyz/taiko-mono/commit/de92b28c03b747845a8a1aa26991307d1ed47fd0))
 * **taiko-client:** move `numTransactions` and `timestamp` to blobs ([#19003](https://github.com/taikoxyz/taiko-mono/issues/19003)) ([e5c0bfb](https://github.com/taikoxyz/taiko-mono/commit/e5c0bfb33464a7539ed31c1be419eb16833e45c9))
 * **taiko-client:** only check and trigger P2P sync progress right after starting ([#18745](https://github.com/taikoxyz/taiko-mono/issues/18745)) ([a05e4c9](https://github.com/taikoxyz/taiko-mono/commit/a05e4c99bbcfd5f6f6e37b4222616e40b31cfbaf))
-* **taiko-client:** optimize aggregation loggingain ([#18643](https://github.com/taikoxyz/taiko-mono/issues/18643)) ([688a426](https://github.com/taikoxyz/taiko-mono/commit/688a42646d185694c7cfd2bc091084dd782782f5))
+* **taiko-client:** optimize aggregation logging again ([#18643](https://github.com/taikoxyz/taiko-mono/issues/18643)) ([688a426](https://github.com/taikoxyz/taiko-mono/commit/688a42646d185694c7cfd2bc091084dd782782f5))
 * **taiko-client:** remove an unused flag for proposer ([#18709](https://github.com/taikoxyz/taiko-mono/issues/18709)) ([6fb1fd2](https://github.com/taikoxyz/taiko-mono/commit/6fb1fd25696a5251d864e8869c4a360e9915d787))
 * **taiko-client:** remove an unused package ([#18668](https://github.com/taikoxyz/taiko-mono/issues/18668)) ([e1af55a](https://github.com/taikoxyz/taiko-mono/commit/e1af55abcf99ba4a1de6cc22072a457f45ad55be))
 * **taiko-client:** remove signature verification in `PreconfBlockAPIServer.BuildPreconfBlock` ([#19042](https://github.com/taikoxyz/taiko-mono/issues/19042)) ([867f6c1](https://github.com/taikoxyz/taiko-mono/commit/867f6c1d724a909700cdf81155808e8551c82b71))
@@ -612,8 +612,8 @@
 * **taiko-client:** introduce `TxMgrSelector` for proposer / prover ([#17986](https://github.com/taikoxyz/taiko-mono/issues/17986)) ([6eb298f](https://github.com/taikoxyz/taiko-mono/commit/6eb298f31723e838ac4261fbecbfcfce371d8606))
 * **taiko-client:** introduce sp1 zk proof ([#18003](https://github.com/taikoxyz/taiko-mono/issues/18003)) ([492c208](https://github.com/taikoxyz/taiko-mono/commit/492c208b97e8fa08eb3e11b0a8712a5542eba660))
 * **taiko-client:** make p2p-sync required ([#18571](https://github.com/taikoxyz/taiko-mono/issues/18571)) ([de92b28](https://github.com/taikoxyz/taiko-mono/commit/de92b28c03b747845a8a1aa26991307d1ed47fd0))
-* **taiko-client:** optimising statistics on proof request times ([#17976](https://github.com/taikoxyz/taiko-mono/issues/17976)) ([791f44f](https://github.com/taikoxyz/taiko-mono/commit/791f44f381fa362f24c4beff5b5b25c47929bbc4))
-* **taiko-client:** optimize aggregation loggingain ([#18643](https://github.com/taikoxyz/taiko-mono/issues/18643)) ([688a426](https://github.com/taikoxyz/taiko-mono/commit/688a42646d185694c7cfd2bc091084dd782782f5))
+* **taiko-client:** optimizing statistics on proof request times ([#17976](https://github.com/taikoxyz/taiko-mono/issues/17976)) ([791f44f](https://github.com/taikoxyz/taiko-mono/commit/791f44f381fa362f24c4beff5b5b25c47929bbc4))
+* **taiko-client:** optimize aggregation logging again ([#18643](https://github.com/taikoxyz/taiko-mono/issues/18643)) ([688a426](https://github.com/taikoxyz/taiko-mono/commit/688a42646d185694c7cfd2bc091084dd782782f5))
 * **taiko-client:** remove `basefeeSharingPctg` from metadata ([#17890](https://github.com/taikoxyz/taiko-mono/issues/17890)) ([57c8f6f](https://github.com/taikoxyz/taiko-mono/commit/57c8f6f3a8f920bab8fecd75bfa36a6b71ef808d))
 * **taiko-client:** remove an unused field in prover ([#18024](https://github.com/taikoxyz/taiko-mono/issues/18024)) ([5d416d2](https://github.com/taikoxyz/taiko-mono/commit/5d416d2366e485b242818fb1a15eb0281cb7cedf))
 * **taiko-client:** remove an unused filed in proposer ([#18021](https://github.com/taikoxyz/taiko-mono/issues/18021)) ([64fdf5c](https://github.com/taikoxyz/taiko-mono/commit/64fdf5c80708b14d2cefadfbd78ee59810df3f65))
@@ -971,7 +971,7 @@
 ### Features
 
 * **taiko-client:** add optional `l1.private` ([#17962](https://github.com/taikoxyz/taiko-mono/issues/17962)) ([9274f2d](https://github.com/taikoxyz/taiko-mono/commit/9274f2dc90f18c58cc208146f584c9f9715d3d60))
-* **taiko-client:** optimising statistics on proof request times ([#17976](https://github.com/taikoxyz/taiko-mono/issues/17976)) ([791f44f](https://github.com/taikoxyz/taiko-mono/commit/791f44f381fa362f24c4beff5b5b25c47929bbc4))
+* **taiko-client:** optimizing statistics on proof request times ([#17976](https://github.com/taikoxyz/taiko-mono/issues/17976)) ([791f44f](https://github.com/taikoxyz/taiko-mono/commit/791f44f381fa362f24c4beff5b5b25c47929bbc4))
 
 
 ### Bug Fixes
