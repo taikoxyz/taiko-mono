@@ -152,7 +152,7 @@ func (r *EventRepository) DeleteAllAfterBlockID(ctx context.Context, blockID uin
 	return nil
 }
 
-// FindLatestBlockID get latest block id
+// FindLatestBlockID gets the latest block id
 func (r *EventRepository) FindLatestBlockID(
 	ctx context.Context,
 	srcChainID uint64,
