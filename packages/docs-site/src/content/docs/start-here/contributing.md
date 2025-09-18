@@ -37,7 +37,7 @@ This section describes our coding standards at Taiko.
 Before we can consider your contributions, please have a look at the following requirements:
 
 - Any contribution must follow the standards documented in this file.
-- The scope must be larger than a simple rename, or typo fix. We kindly request that small, incremental updates be combined into more substantial pull requests. This approach will streamline our development and ensure focus on core improvements.
+- The scope must be larger than a simple rename or typo fix. We kindly request that small, incremental updates be combined into more substantial pull requests. This approach will streamline our development and ensure focus on core improvements.
 
 Specify the scope of your change with a [conventional commit](https://www.conventionalcommits.org/en/v1.0.0/) in the PR title (for example, `feat(scope): description of feature`). This will be squashed and merged into the `main` branch. You can find the full list of allowed scopes [here](https://github.com/taikoxyz/taiko-mono/blob/main/.github/workflows/repo--validate-pr-title.yml#L23).
 
@@ -45,9 +45,9 @@ Because we squash all of the changes into a single commit, please try to keep th
 
 For example, `feat(scope): description of feature` should only impact the `scope` package. If your change is a global one, you can use `feat: description of feature`, for example.
 
-**Note:
+**Note:**
 The taiko team will evaluate all PRs and may close any pull requests that do not follow the standards outlined in this document.
-Please note, small pull requests will not be considered for future airdrops. We encourage contributions that make significant enhancements to the project.**
+Please note, small pull requests will not be considered for future airdrops. We encourage contributions that make significant enhancements to the project.\*\*
 
 ### Source code comments
 
