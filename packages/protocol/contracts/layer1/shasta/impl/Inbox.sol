@@ -10,11 +10,12 @@ import { IProofVerifier } from "../iface/IProofVerifier.sol";
 import { IProposerChecker } from "../iface/IProposerChecker.sol";
 import { LibBlobs } from "../libs/LibBlobs.sol";
 import { LibBonds } from "src/shared/based/libs/LibBonds.sol";
+import { LibBondsL1 } from "../libs/LibBondsL1.sol";
 import { LibForcedInclusion } from "../libs/LibForcedInclusion.sol";
 import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.sol";
 
 /// @title Inbox
-/// @notice Core contract for managing L2 proposals, proofs,verification and forced inclusion in
+/// @notice Core contract for managing L2 proposals, proofs, verification and forced inclusion in
 /// Taiko's based
 /// rollup architecture.
 /// @dev This abstract contract implements the fundamental inbox logic including:
@@ -23,6 +24,9 @@ import { ICheckpointManager } from "src/shared/based/iface/ICheckpointManager.so
 ///      - Ring buffer storage for efficient state management
 ///      - Bond instruction processing for economic security
 ///      - Finalization of proven proposals
+/// @dev DEPLOYMENT: For mainnet deployment, use FOUNDRY_PROFILE=layer1o to enable via_ir
+///      and yul optimizations. Regular compilation may exceed 24KB contract size limit.
+///      Example: FOUNDRY_PROFILE=layer1o forge build contracts/layer1/shasta/impl/Inbox.sol
 /// @custom:security-contact security@taiko.xyz
 contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     using SafeERC20 for IERC20;
@@ -250,6 +254,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         ProveInput memory input = decodeProveInput(_data);
         require(input.proposals.length != 0, EmptyProposals());
         require(input.proposals.length == input.transitions.length, InconsistentParams());
+        require(input.transitions.length == input.metadata.length, InconsistentParams());
 
         // Build transition records with validation and bond calculations
         _buildAndSaveTransitionRecords(input);
@@ -501,7 +506,7 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Builds and persists transition records for batch proof submissions
     /// @notice Validates transitions, calculates bond instructions, and stores records
     /// @dev Virtual function that can be overridden for optimization (e.g., transition aggregation)
-    /// @param _input The ProveInput containing arrays of proposals and corresponding transitions
+    /// @param _input The ProveInput containing arrays of proposals, transitions, and metadata
     function _buildAndSaveTransitionRecords(ProveInput memory _input) internal virtual {
         // Declare struct instance outside the loop to avoid repeated memory allocations
         TransitionRecord memory transitionRecord;
@@ -511,18 +516,14 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             _validateTransition(_input.proposals[i], _input.transitions[i]);
 
             // Reuse the same memory location for the transitionRecord struct
-            transitionRecord.bondInstructions =
-                _calculateBondInstructions(_input.proposals[i], _input.transitions[i]);
+            transitionRecord.bondInstructions = LibBondsL1.calculateBondInstructions(
+                _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.metadata[i]
+            );
             transitionRecord.transitionHash = hashTransition(_input.transitions[i]);
             transitionRecord.checkpointHash = hashCheckpoint(_input.transitions[i].checkpoint);
 
-            // Pass transition and transitionRecord to _setTransitionRecordHashAndDeadline which
-            // will
-            // emit
-            // the
-            // event
             _setTransitionRecordHashAndDeadline(
-                _input.proposals[i].id, _input.transitions[i], transitionRecord
+                _input.proposals[i].id, _input.transitions[i], _input.metadata[i], transitionRecord
             );
         }
     }
@@ -542,63 +543,6 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
         require(proposalHash == _transition.proposalHash, ProposalHashMismatchWithTransition());
     }
 
-    /// @dev Calculates bond instructions based on proof timing and prover identity
-    /// @notice Bond instruction rules:
-    ///         - On-time (within provingWindow): No bond changes
-    ///         - Late (within extendedProvingWindow): Liveness bond transfer if prover differs from
-    /// designated
-    ///         - Very late (after extendedProvingWindow): Provability bond transfer if prover
-    /// differs from proposer
-    /// @dev Bond instructions affect transition aggregation eligibility - transitions with
-    /// instructions
-    /// cannot be aggregated
-    /// @param _proposal Proposal with timestamp and proposer address
-    /// @param _transition Transition with designated and actual prover addresses
-    /// @return bondInstructions_ Array of bond transfer instructions (empty if on-time or same
-    /// prover)
-    function _calculateBondInstructions(
-        Proposal memory _proposal,
-        Transition memory _transition
-    )
-        internal
-        view
-        returns (LibBonds.BondInstruction[] memory bondInstructions_)
-    {
-        unchecked {
-            uint256 proofTimestamp = block.timestamp;
-            uint256 windowEnd = _proposal.timestamp + _provingWindow;
-
-            // On-time proof - no bond instructions needed
-            if (proofTimestamp <= windowEnd) {
-                return new LibBonds.BondInstruction[](0);
-            }
-
-            // Late or very late proof - determine bond type and parties
-            uint256 extendedWindowEnd = _proposal.timestamp + _extendedProvingWindow;
-            bool isWithinExtendedWindow = proofTimestamp <= extendedWindowEnd;
-
-            // Check if bond instruction is needed
-            bool needsBondInstruction = isWithinExtendedWindow
-                ? (_transition.designatedProver != _transition.actualProver)
-                : (_proposal.proposer != _transition.actualProver);
-
-            if (!needsBondInstruction) {
-                return new LibBonds.BondInstruction[](0);
-            }
-
-            // Create single bond instruction
-            bondInstructions_ = new LibBonds.BondInstruction[](1);
-            bondInstructions_[0] = LibBonds.BondInstruction({
-                proposalId: _proposal.id,
-                bondType: isWithinExtendedWindow
-                    ? LibBonds.BondType.LIVENESS
-                    : LibBonds.BondType.PROVABILITY,
-                payer: isWithinExtendedWindow ? _transition.designatedProver : _proposal.proposer,
-                receiver: _transition.actualProver
-            });
-        }
-    }
-
     /// @dev Stores a proposal hash in the ring buffer
     /// @notice Overwrites any existing hash at the calculated buffer slot
     function _setProposalHash(uint48 _proposalId, bytes32 _proposalHash) internal {
@@ -610,10 +554,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
     /// @dev Uses composite key for unique transition identification
     /// @param _proposalId The ID of the proposal being proven
     /// @param _transition The transition data to include in the event
+    /// @param _metadata The metadata containing prover information to include in the event
     /// @param _transitionRecord The transition record to hash and store
     function _setTransitionRecordHashAndDeadline(
         uint48 _proposalId,
         Transition memory _transition,
+        TransitionMetadata memory _metadata,
         TransitionRecord memory _transitionRecord
     )
         internal
@@ -636,7 +582,8 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             ProvedEventPayload({
                 proposalId: _proposalId,
                 transition: _transition,
-                transitionRecord: _transitionRecord
+                transitionRecord: _transitionRecord,
+                metadata: _metadata
             })
         );
         emit Proved(payload);
@@ -873,12 +820,12 @@ contract Inbox is IInbox, IForcedInclusionStore, EssentialContract {
             // Try to finalize the current proposal
             bool hasRecord = i < _input.transitionRecords.length;
 
-            TransitionRecord memory transitionrecord =
+            TransitionRecord memory transitionRecord =
                 hasRecord ? _input.transitionRecords[i] : emptyRecord;
 
             bool finalized;
             (finalized, proposalId) =
-                _finalizeProposal(coreState, proposalId, transitionrecord, hasRecord);
+                _finalizeProposal(coreState, proposalId, transitionRecord, hasRecord);
 
             if (!finalized) break;
 
