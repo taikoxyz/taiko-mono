@@ -241,10 +241,10 @@ func (s *Syncer) processShastaProposal(
 
 	log.Info(
 		"New Shasta Proposed event",
-		"l1Height", meta.GetRawBlockHeight(),
-		"l1Hash", meta.GetRawBlockHash(),
 		"proposalID", meta.GetProposal().Id,
 		"proposer", meta.GetProposal().Proposer,
+		"l1Height", meta.GetRawBlockHeight(),
+		"l1Hash", meta.GetRawBlockHash(),
 	)
 
 	// If the event's timestamp is in the future, we wait until the timestamp is reached, should

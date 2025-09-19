@@ -264,7 +264,7 @@ func (s *Indexer) onProvedEvent(
 		return fmt.Errorf("failed to get block header by hash %s: %w", eventLog.BlockHash.String(), err)
 	}
 
-	log.Info(
+	log.Debug(
 		"New cached Shasta transition record",
 		"proposalId", meta.ProposalId,
 		"transitionHash", common.BytesToHash(record.TransitionHash[:]),
@@ -355,7 +355,7 @@ func (s *Indexer) onProposedEvent(
 		RawBlockHeight: meta.GetRawBlockHeight(),
 	})
 
-	log.Info(
+	log.Debug(
 		"New cached Shasta proposal",
 		"proposalId", proposal.Id,
 		"timeStamp", proposal.Timestamp,
@@ -599,23 +599,33 @@ func (s *Indexer) findLastValidProposal() *ProposalPayload {
 func (s *Indexer) cleanupAfterReorg(safeHeight *big.Int) {
 	var removedProposals, removedTransitions int
 
-	// Clean up invalid proposals
+	// Clean up invalid proposals - collect keys first to avoid deadlock
+	var proposalKeysToRemove []uint64
 	s.proposals.IterCb(func(key uint64, proposal *ProposalPayload) {
 		if proposal.RawBlockHeight.Cmp(safeHeight) > 0 {
-			s.proposals.Remove(key)
-			removedProposals++
+			proposalKeysToRemove = append(proposalKeysToRemove, key)
 		}
 	})
+	// Remove collected keys
+	for _, key := range proposalKeysToRemove {
+		s.proposals.Remove(key)
+		removedProposals++
+	}
 
-	// Clean up invalid transition records
+	// Clean up invalid transition records - collect keys first to avoid deadlock
+	var transitionKeysToRemove []uint64
 	s.transitionRecords.IterCb(func(key uint64, transition *TransitionPayload) {
 		if transition.RawBlockHeight.Cmp(safeHeight) > 0 {
-			s.transitionRecords.Remove(key)
-			removedTransitions++
+			transitionKeysToRemove = append(transitionKeysToRemove, key)
 		}
 	})
+	// Remove collected keys
+	for _, key := range transitionKeysToRemove {
+		s.transitionRecords.Remove(key)
+		removedTransitions++
+	}
 
-	log.Debug(
+	log.Info(
 		"Cleaned up invalid data after reorg",
 		"safeHeight", safeHeight,
 		"removedProposals", removedProposals,

@@ -142,8 +142,7 @@ func (s *DriverTestSuite) TestProcessL1Blocks() {
 }
 
 func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
-	// TODO: fix this test.
-	s.T().Skip()
+	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
 	)
@@ -155,7 +154,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	// Propose two L2 blocks
 	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
+	m := s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -164,10 +163,14 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
+	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
+	s.Nil(err)
+	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
+
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
-		l2Head2.Number,
-		false,
+		m.Shasta().GetProposal().Id,
+		true,
 	)
 	s.Nil(err)
 	s.False(res.IsReorged)
@@ -199,8 +202,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToHigherFork() {
 }
 
 func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
-	// TODO: fix this test.
-	s.T().Skip()
+	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
 	)
@@ -212,7 +214,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	// Propose two L2 blocks
 	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 	time.Sleep(3 * time.Second)
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
+	m := s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -221,10 +223,14 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
+	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
+	s.Nil(err)
+	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
+
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
-		l2Head2.Number,
-		false,
+		m.Shasta().GetProposal().Id,
+		true,
 	)
 	s.Nil(err)
 	s.False(res.IsReorged)
@@ -258,7 +264,8 @@ func (s *DriverTestSuite) TestCheckL1ReorgToLowerFork() {
 }
 
 func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
-	s.T().Skip("Skip this test case because of the anvil timestamp issue after rollback.")
+	s.ForkIntoShasta(s.p, s.d.ChainSyncer().EventSyncer())
+
 	var (
 		testnetL1SnapshotID = s.SetL1Snapshot()
 	)
@@ -270,7 +277,7 @@ func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
 	// Propose two L2 blocks
 	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 	time.Sleep(3 * time.Second)
-	s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
+	m := s.ProposeAndInsertValidBlock(s.p, s.d.ChainSyncer().EventSyncer())
 
 	l1Head2, err := s.d.rpc.L1.HeaderByNumber(context.Background(), nil)
 	s.Nil(err)
@@ -279,10 +286,14 @@ func (s *DriverTestSuite) TestCheckL1ReorgToSameHeightFork() {
 	s.Greater(l2Head2.Number.Uint64(), l2Head1.Number.Uint64())
 	s.Greater(l1Head2.Number.Uint64(), l1Head1.Number.Uint64())
 
+	headL1Origin, err := s.RPCClient.L2.LastL1OriginByBatchID(context.Background(), m.Shasta().GetProposal().Id)
+	s.Nil(err)
+	s.Equal(l2Head2.Hash(), headL1Origin.L2BlockHash)
+
 	res, err := s.RPCClient.CheckL1Reorg(
 		context.Background(),
-		l2Head2.Number,
-		false,
+		m.Shasta().GetProposal().Id,
+		true,
 	)
 	s.Nil(err)
 	s.False(res.IsReorged)
@@ -1277,6 +1288,7 @@ func (s *DriverTestSuite) InitProposer() {
 	}, nil, nil))
 	s.p = p
 	s.p.RegisterTxMgrSelectorToBlobServer(s.BlobServer)
+	s.Nil(s.p.ShastaIndexer().Start())
 }
 
 func TestDriverTestSuite(t *testing.T) {
