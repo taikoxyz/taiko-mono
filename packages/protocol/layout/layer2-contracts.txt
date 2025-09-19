@@ -190,11 +190,9 @@
 |
 | blockIdToEndOfSubmissionWindowTimeStamp | mapping(uint256 => uint256)       | 304  | 0      | 32    |
 |
-| __gap1                                  | uint256[43]                       | 305  | 0      | 1376  |
+| _checkpointStorage                      | struct LibCheckpointStore.Storage | 305  | 0      | 64    |
 |
-| _checkpointStorage                      | struct LibCheckpointStore.Storage | 348  | 0      | 64    |
-|
-| __gap                                   | uint256[50]                       | 350  | 0      | 1600  |
+| __gap                                   | uint256[44]                       | 307  | 0      | 1408  |
 ╰-----------------------------------------+-----------------------------------+------+--------+-------+----------------------------------------------------╯
 
 
