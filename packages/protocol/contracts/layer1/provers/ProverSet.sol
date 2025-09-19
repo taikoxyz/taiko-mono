@@ -9,7 +9,6 @@ contract ProverSet is ProverSetBase, IProposeBatch {
 
     IProposeBatch public immutable iProposeBatch;
 
-
     constructor(
         address _inbox,
         address _bondToken,
