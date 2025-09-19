@@ -55,6 +55,8 @@ contract InboxFinalization is InboxTest {
     {
         IInbox.CoreState memory updatedCoreState = _coreState;
         updatedCoreState.nextProposalId = _proposalId + 1;
+        updatedCoreState.nextProposalBlockId =
+            uint48(InboxTestLib.calculateProposalBlock(_proposalId + 1, 2));
 
         proposal = createValidProposal(_proposalId);
         proposal.coreStateHash = keccak256(abi.encode(updatedCoreState));
@@ -100,6 +102,7 @@ contract InboxFinalization is InboxTest {
 
         IInbox.CoreState memory newCoreState = _getGenesisCoreState();
         newCoreState.nextProposalId = 2;
+        newCoreState.nextProposalBlockId = uint48(InboxTestLib.calculateProposalBlock(2, 2));
 
         // Use the adapter with explicit checkpoint
         bytes memory data = InboxTestAdapter.encodeProposeInputWithEndBlock(
@@ -113,6 +116,8 @@ contract InboxFinalization is InboxTest {
         );
 
         setupBlobHashes();
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(2, 2);
+        vm.roll(targetBlock);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
     }
@@ -179,6 +184,8 @@ contract InboxFinalization is InboxTest {
     {
         IInbox.CoreState memory coreState =
             InboxTestLib.createCoreState(_nextProposalId, 0, getGenesisTransitionHash(), bytes32(0));
+        coreState.nextProposalBlockId =
+            uint48(InboxTestLib.calculateProposalBlock(_nextProposalId, 2));
 
         setupProposalMocks(Carol);
         setupBlobHashes();
@@ -186,6 +193,8 @@ contract InboxFinalization is InboxTest {
         IInbox.Proposal[] memory proposals = new IInbox.Proposal[](1);
         proposals[0] = _lastProposal;
 
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(_nextProposalId, 2);
+        vm.roll(targetBlock);
         vm.prank(Carol);
         inbox.propose(
             bytes(""),
@@ -217,6 +226,7 @@ contract InboxFinalization is InboxTest {
         // Store proposal 1 with transition
         IInbox.CoreState memory coreState1 = _getGenesisCoreState();
         coreState1.nextProposalId = 2; // After proposal 1
+        coreState1.nextProposalBlockId = uint48(InboxTestLib.calculateProposalBlock(2, 2));
 
         IInbox.Proposal memory proposal1 = createValidProposal(1);
         proposal1.coreStateHash = keccak256(abi.encode(coreState1));
@@ -238,6 +248,7 @@ contract InboxFinalization is InboxTest {
         // Store proposal 2 WITHOUT transition (gap in chain)
         IInbox.CoreState memory coreState2 = _getGenesisCoreState();
         coreState2.nextProposalId = 3; // After proposal 2
+        coreState2.nextProposalBlockId = uint48(InboxTestLib.calculateProposalBlock(3, 2));
 
         IInbox.Proposal memory proposal2 = createValidProposal(2);
         proposal2.coreStateHash = keccak256(abi.encode(coreState2));
@@ -246,6 +257,7 @@ contract InboxFinalization is InboxTest {
 
         // Setup core state for new proposal
         IInbox.CoreState memory coreState = InboxTestLib.createCoreState(3, 0);
+        coreState.nextProposalBlockId = uint48(InboxTestLib.calculateProposalBlock(3, 2));
         coreState.lastFinalizedTransitionHash = parentTransitionHash;
 
         // Setup mocks
@@ -278,6 +290,8 @@ contract InboxFinalization is InboxTest {
         );
 
         // Submit proposal
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(3, 2);
+        vm.roll(targetBlock);
         vm.prank(Alice);
         inbox.propose(bytes(""), data);
 
@@ -315,6 +329,7 @@ contract InboxFinalization is InboxTest {
         // Create core state for next proposal
         IInbox.CoreState memory coreState =
             InboxTestLib.createCoreState(2, 0, parentTransitionHash, bytes32(0));
+        coreState.nextProposalBlockId = uint48(InboxTestLib.calculateProposalBlock(2, 2));
 
         // Setup mocks for new proposal
         setupProposalMocks(Carol);
@@ -325,6 +340,8 @@ contract InboxFinalization is InboxTest {
 
         // Expect revert due to mismatched transition record hash
         vm.expectRevert(TransitionRecordHashMismatchWithStorage.selector);
+        uint256 targetBlock = InboxTestLib.calculateProposalBlock(2, 2);
+        vm.roll(targetBlock);
         vm.prank(Carol);
         inbox.propose(
             bytes(""),

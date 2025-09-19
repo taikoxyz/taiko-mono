@@ -238,7 +238,7 @@ func (b *TxBuilderWithFallback) estimateCandidateCost(
 
 	feeWithoutBlob := new(big.Int).Mul(gasFeeCap, new(big.Int).SetUint64(gasUsed))
 
-	// If its a type-2 transaction, we won't calculate blob fee.
+	// If it's a type-2 transaction, we won't calculate blob fee.
 	if len(candidate.Blobs) == 0 {
 		return feeWithoutBlob, nil
 	}

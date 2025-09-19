@@ -252,8 +252,8 @@ func (d *Driver) eventLoop() {
 	defer d.wg.Done()
 
 	syncNotify := make(chan struct{}, 1)
-	// reqSync requests performing a synchronising operation, won't block
-	// if we are already synchronising.
+	// reqSync requests performing a synchronizing operation, won't block
+	// if we are already synchronizing.
 	reqSync := func() {
 		select {
 		case syncNotify <- struct{}{}:
@@ -261,7 +261,7 @@ func (d *Driver) eventLoop() {
 		}
 	}
 
-	// doSyncWithBackoff performs a synchronising operation with a backoff strategy.
+	// doSyncWithBackoff performs a synchronizing operation with a backoff strategy.
 	doSyncWithBackoff := func() {
 		if err := backoff.Retry(
 			d.doSync,

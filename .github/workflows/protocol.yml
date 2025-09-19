@@ -63,6 +63,7 @@ jobs:
         uses: ./.github/actions/install-pnpm-dependencies
 
       - name: Clean up and fmt
+        if: github.event.pull_request.head.repo.fork == false
         working-directory: ./packages/protocol
         run: pnpm clean && forge fmt
 
@@ -89,7 +90,7 @@ jobs:
           fi
 
       - name: Commit contract layout table
-        if: env.changes == 'true'
+        if: env.changes == 'true' && github.event.pull_request.head.repo.fork == false
         uses: stefanzweifel/git-auto-commit-action@v6
         with:
           commit_message: "forge fmt & update contract layout tables"

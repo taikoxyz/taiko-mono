@@ -72,8 +72,8 @@ contract InboxOptimized1 is Inbox {
             bondInstructions: LibBondsL1.calculateBondInstructions(
                 _provingWindow, _extendedProvingWindow, _input.proposals[0], _input.metadata[0]
             ),
-            transitionHash: hashTransition(_input.transitions[0]),
-            checkpointHash: hashCheckpoint(_input.transitions[0].checkpoint)
+            transitionHash: _hashTransition(_input.transitions[0]),
+            checkpointHash: _hashCheckpoint(_input.transitions[0].checkpoint)
         });
 
         uint48 currentGroupStartId = _input.proposals[0].id;
@@ -103,8 +103,8 @@ contract InboxOptimized1 is Inbox {
 
                 // Update the transition hash and checkpoint hash for the aggregated
                 // record
-                currentRecord.transitionHash = hashTransition(_input.transitions[i]);
-                currentRecord.checkpointHash = hashCheckpoint(_input.transitions[i].checkpoint);
+                currentRecord.transitionHash = _hashTransition(_input.transitions[i]);
+                currentRecord.checkpointHash = _hashCheckpoint(_input.transitions[i].checkpoint);
 
                 // Increment span to include this aggregated proposal
                 currentRecord.span++;
@@ -125,8 +125,8 @@ contract InboxOptimized1 is Inbox {
                     bondInstructions: LibBondsL1.calculateBondInstructions(
                         _provingWindow, _extendedProvingWindow, _input.proposals[i], _input.metadata[i]
                     ),
-                    transitionHash: hashTransition(_input.transitions[i]),
-                    checkpointHash: hashCheckpoint(_input.transitions[i].checkpoint)
+                    transitionHash: _hashTransition(_input.transitions[i]),
+                    checkpointHash: _hashCheckpoint(_input.transitions[i].checkpoint)
                 });
             }
         }
@@ -225,7 +225,7 @@ contract InboxOptimized1 is Inbox {
             });
         }
 
-        bytes memory payload = encodeProvedEventData(
+        bytes memory payload = _encodeProvedEventData(
             ProvedEventPayload({
                 proposalId: _proposalId,
                 transition: _transition,
