@@ -71,10 +71,11 @@ func (c *EthClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.
 	}
 
 	hdr := Header
+	hdr := *Header
 	hdr.Number = number
 	hdr.BaseFee = big.NewInt(1)
 
-	blk := types.NewBlockWithHeader(hdr)
+	blk := types.NewBlockWithHeader(&hdr)
 
 	return blk, nil
 }
@@ -110,7 +111,8 @@ func (c *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.
 		return nil, errors.New("can't find block")
 	}
 
-	return Header, nil
+    hdr := *Header
+    return &hdr, nil
 }
 
 func (c *EthClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
