@@ -99,7 +99,7 @@ jobs:
 
       - name: L1-Deploy contracts
         working-directory: ./packages/protocol
-        timeout-minutes: 2
+        timeout-minutes: 5
         run: |
           anvil &
           until cast chain-id --rpc-url "http://localhost:8545" 2> /dev/null; do
