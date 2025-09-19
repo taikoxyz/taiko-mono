@@ -288,6 +288,9 @@ contract PreconfWhitelist is EssentialContract, IPreconfWhitelist, IProposerChec
 
         uint256 _operatorCount = operatorCount;
 
+        // If no operators, return address(0)
+        if (_operatorCount == 0) return address(0);
+
         if (havingPerfectOperators) {
             return operatorMapping[rand % _operatorCount];
         } else {
